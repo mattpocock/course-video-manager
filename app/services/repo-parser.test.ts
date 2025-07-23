@@ -20,6 +20,15 @@ describe("getSectionAndLessonNumberFromPath", () => {
       },
     ],
     [
+      "001-foo/003-example/api/foo.ts",
+      {
+        sectionNumber: 1,
+        lessonNumber: 3,
+        lessonPathWithNumber: "003-example",
+        sectionPathWithNumber: "001-foo",
+      },
+    ],
+    [
       "001-wonderful-awesome-thing/003.5-example-of-a-wonderful-awesome-thing",
       {
         sectionNumber: 1,

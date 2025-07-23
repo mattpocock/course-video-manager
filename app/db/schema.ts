@@ -37,7 +37,9 @@ export const sections = createTable("section", {
     .notNull()
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  repoId: varchar("repo_id", { length: 255 }).references(() => repos.id),
+  repoId: varchar("repo_id", { length: 255 })
+    .references(() => repos.id)
+    .notNull(),
   path: text("path").notNull(),
   createdAt: timestamp("created_at", {
     mode: "date",
@@ -53,9 +55,9 @@ export const lessons = createTable("lesson", {
     .notNull()
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  sectionId: varchar("section_id", { length: 255 }).references(
-    () => sections.id
-  ),
+  sectionId: varchar("section_id", { length: 255 })
+    .references(() => sections.id)
+    .notNull(),
   path: text("path").notNull(),
   createdAt: timestamp("created_at", {
     mode: "date",
@@ -71,7 +73,9 @@ export const videos = createTable("video", {
     .notNull()
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  lessonId: varchar("lesson_id", { length: 255 }).references(() => lessons.id),
+  lessonId: varchar("lesson_id", { length: 255 })
+    .references(() => lessons.id)
+    .notNull(),
   path: text("path").notNull(),
   createdAt: timestamp("created_at", {
     mode: "date",

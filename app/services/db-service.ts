@@ -21,16 +21,35 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 
 export class DBService extends Effect.Service<DBService>()("DBService", {
   effect: Effect.gen(function* () {
-    const getRepo = Effect.fn("getRepo")(function* (filePath: string) {
+    const getRepoById = Effect.fn("getRepoById")(function* (id: string) {
       const repo = yield* makeDbCall(() =>
         db.query.repos.findFirst({
-          where: ilike(repos.filePath, `%${filePath}%`),
+          where: eq(repos.id, id),
         })
       );
 
       if (!repo) {
         return yield* new NotFoundError({
           type: "getRepo",
+          params: { id },
+        });
+      }
+
+      return repo;
+    });
+
+    const getRepoByFilePath = Effect.fn("getRepoByFilePath")(function* (
+      filePath: string
+    ) {
+      const repo = yield* makeDbCall(() =>
+        db.query.repos.findFirst({
+          where: eq(repos.filePath, filePath),
+        })
+      );
+
+      if (!repo) {
+        return yield* new NotFoundError({
+          type: "getRepoByFilePath",
           params: { filePath },
         });
       }
@@ -38,11 +57,8 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
       return repo;
     });
 
-    return {
-      getRepo,
-      getRepoWithSections: Effect.fn("getRepoWithSections")(function* (
-        id: string
-      ) {
+    const getRepoWithSectionsById = Effect.fn("getRepoWithSectionsById")(
+      function* (id: string) {
         const repo = yield* makeDbCall(() =>
           db.query.repos.findFirst({
             where: eq(repos.id, id),
@@ -64,8 +80,28 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
           })
         );
 
+        if (!repo) {
+          return yield* new NotFoundError({
+            type: "getRepoWithSections",
+            params: { id },
+          });
+        }
+
         return repo;
-      }),
+      }
+    );
+
+    return {
+      getRepoById,
+      getRepoByFilePath,
+      getRepoWithSectionsById,
+      getRepoWithSectionsByFilePath: Effect.fn("getRepoWithSectionsByFilePath")(
+        function* (filePath: string) {
+          const repo = yield* getRepoByFilePath(filePath);
+
+          return yield* getRepoWithSectionsById(repo.id);
+        }
+      ),
       getRepos: Effect.fn("getRepos")(function* () {
         const repos = yield* makeDbCall(() => db.query.repos.findMany());
         return repos;
@@ -129,6 +165,34 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
         );
 
         return lessonResult;
+      }),
+      updateLesson: Effect.fn("updateLesson")(function* (
+        lessonId: string,
+        lesson: {
+          path: string;
+          sectionId: string;
+          lessonNumber: number;
+        }
+      ) {
+        const lessonResult = yield* makeDbCall(() =>
+          db.update(lessons).set(lesson).where(eq(lessons.id, lessonId))
+        );
+
+        return lessonResult;
+      }),
+      deleteLesson: Effect.fn("deleteLesson")(function* (lessonId: string) {
+        const lessonResult = yield* makeDbCall(() =>
+          db.delete(lessons).where(eq(lessons.id, lessonId))
+        );
+
+        return lessonResult;
+      }),
+      deleteSection: Effect.fn("deleteSection")(function* (sectionId: string) {
+        const sectionResult = yield* makeDbCall(() =>
+          db.delete(sections).where(eq(sections.id, sectionId))
+        );
+
+        return sectionResult;
       }),
     };
   }),

@@ -46,7 +46,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         ),
         !selectedRepoId
           ? Effect.succeed(undefined)
-          : db.getRepoWithSections(selectedRepoId).pipe(
+          : db.getRepoWithSectionsById(selectedRepoId).pipe(
               Effect.map((repo) => {
                 if (!repo) {
                   return undefined;
