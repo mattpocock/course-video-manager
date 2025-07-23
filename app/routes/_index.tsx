@@ -1,5 +1,7 @@
-import type { Route } from "./+types/home";
+import { Form } from "react-router";
 import { Welcome } from "../welcome/welcome";
+import type { Route } from "./+types/_index";
+import { route } from "@react-router/dev/routes";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -9,5 +11,5 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  return <Welcome />;
+  return <Form action={"/api/repos/add"} />;
 }
