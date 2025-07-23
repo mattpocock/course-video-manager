@@ -1,6 +1,6 @@
 import { db } from "@/db/db";
 import { lessons, repos, sections, videos } from "@/db/schema";
-import { asc, eq, ilike } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Data, Effect } from "effect";
 
 class NotFoundError extends Data.TaggedError("NotFoundError")<{
@@ -57,6 +57,28 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
       return repo;
     });
 
+    const getLessonById = Effect.fn("getLessonById")(function* (id: string) {
+      const lesson = yield* makeDbCall(() =>
+        db.query.lessons.findFirst({
+          where: eq(lessons.id, id),
+          with: {
+            videos: {
+              orderBy: asc(videos.path),
+            },
+          },
+        })
+      );
+
+      if (!lesson) {
+        return yield* new NotFoundError({
+          type: "getLessonById",
+          params: { id },
+        });
+      }
+
+      return lesson;
+    });
+
     const getRepoWithSectionsById = Effect.fn("getRepoWithSectionsById")(
       function* (id: string) {
         const repo = yield* makeDbCall(() =>
@@ -92,6 +114,30 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
     );
 
     return {
+      getLessonById,
+      createVideo: Effect.fn("createVideo")(function* (
+        lessonId: string,
+        video: {
+          path: string;
+        }
+      ) {
+        const videoResults = yield* makeDbCall(() =>
+          db
+            .insert(videos)
+            .values({ ...video, lessonId })
+            .returning()
+        );
+
+        const videoResult = videoResults[0];
+
+        if (!videoResult) {
+          return yield* new UnknownDBServiceError({
+            cause: "No video was returned from the database",
+          });
+        }
+
+        return videoResult;
+      }),
       getRepoById,
       getRepoByFilePath,
       getRepoWithSectionsById,

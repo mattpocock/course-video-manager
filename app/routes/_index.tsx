@@ -1,11 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Plus, Play, Trash2, VideoIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,13 +11,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Effect } from "effect";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { DBService } from "@/services/db-service";
-import type { Route } from "./+types/_index";
 import { layerLive } from "@/services/layer";
-import path from "node:path";
+import { Effect } from "effect";
+import { Play, Plus, Trash2, VideoIcon } from "lucide-react";
 import { homedir } from "node:os";
-import { useSearchParams } from "react-router";
+import path from "node:path";
+import { useState } from "react";
+import { useFetcher, useSearchParams } from "react-router";
+import type { Route } from "./+types/_index";
 
 export const loader = async (args: Route.LoaderArgs) => {
   const url = new URL(args.request.url);
@@ -76,6 +76,8 @@ export default function Component(props: Route.ComponentProps) {
   const [isAddRepoModalOpen, setIsAddRepoModalOpen] = useState(false);
   const [newRepoPath, setNewRepoPath] = useState("");
 
+  const latestObsVideoFetcher = useFetcher();
+
   const repos = props.loaderData.repos;
 
   const handleAddRepo = () => {
@@ -88,6 +90,19 @@ export default function Component(props: Route.ComponentProps) {
   };
 
   const currentRepo = props.loaderData.selectedRepo;
+
+  // Function to determine the path based on video count
+  const getVideoPath = (lesson: { videos: unknown[] }) => {
+    const videoCount = lesson.videos.length;
+
+    if (videoCount === 0) {
+      return "problem";
+    } else if (videoCount === 1) {
+      return "solution";
+    } else {
+      return `solution ${videoCount}`;
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -180,10 +195,26 @@ export default function Component(props: Route.ComponentProps) {
                     <div key={lesson.id} className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="font-medium">{lesson.path}</h3>
-                        <Button variant="outline" size="sm">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add from OBS
-                        </Button>
+                        <latestObsVideoFetcher.Form
+                          method="post"
+                          action="/api/videos/edit-latest-obs-video"
+                          className="inline"
+                        >
+                          <input
+                            type="hidden"
+                            name="lessonId"
+                            value={lesson.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="path"
+                            value={getVideoPath(lesson)}
+                          />
+                          <Button type="submit" variant="outline" size="sm">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add from OBS
+                          </Button>
+                        </latestObsVideoFetcher.Form>
                       </div>
 
                       <div className="space-y-2 ml-4">
