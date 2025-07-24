@@ -37,7 +37,7 @@ export const sections = createTable("section", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   repoId: varchar("repo_id", { length: 255 })
-    .references(() => repos.id)
+    .references(() => repos.id, { onDelete: "cascade" })
     .notNull(),
   path: text("path").notNull(),
   createdAt: timestamp("created_at", {
@@ -55,7 +55,7 @@ export const lessons = createTable("lesson", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   sectionId: varchar("section_id", { length: 255 })
-    .references(() => sections.id)
+    .references(() => sections.id, { onDelete: "cascade" })
     .notNull(),
   path: text("path").notNull(),
   createdAt: timestamp("created_at", {
@@ -73,7 +73,7 @@ export const videos = createTable("video", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   lessonId: varchar("lesson_id", { length: 255 })
-    .references(() => lessons.id)
+    .references(() => lessons.id, { onDelete: "cascade" })
     .notNull(),
   path: text("path").notNull(),
   originalFootagePath: text("original_footage_path").notNull(),
