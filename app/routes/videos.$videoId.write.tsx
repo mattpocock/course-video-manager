@@ -20,6 +20,9 @@ import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import { Effect } from "effect";
 import { useState, type FormEvent } from "react";
 import type { Route } from "./+types/videos.$videoId.write";
+import { ChevronLeftIcon } from "lucide-react";
+import { Link } from "react-router";
+import { Button } from "@/components/ui/button";
 
 const partsToText = (parts: UIMessage["parts"]) => {
   return parts
@@ -42,13 +45,16 @@ export const loader = async (args: Route.LoaderArgs) => {
       videoPath: video.path,
       lessonPath: video.lesson.path,
       sectionPath: video.lesson.section.path,
+      repoId: video.lesson.section.repoId,
+      lessonId: video.lesson.id,
     };
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
 export default function Component(props: Route.ComponentProps) {
   const { videoId } = props.params;
-  const { videoPath, lessonPath, sectionPath } = props.loaderData;
+  const { videoPath, lessonPath, sectionPath, repoId, lessonId } =
+    props.loaderData;
   const [text, setText] = useState<string>("Go.");
 
   const { messages, sendMessage, status } = useChat({
@@ -67,13 +73,20 @@ export default function Component(props: Route.ComponentProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-lg mb-4">
-        {sectionPath}/{lessonPath}/{videoPath}
-      </h1>
-      <video src={`/videos/${videoId}`} className="w-full" controls />
-      <AIConversation className="">
+    <div className="max-w-4xl mx-auto p-6 h-screen flex flex-col">
+      <div className="flex items-center gap-2 mb-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link to={`/?repoId=${repoId}#${lessonId}`}>
+            <ChevronLeftIcon className="size-6" />
+          </Link>
+        </Button>
+        <h1 className="text-lg">
+          {sectionPath}/{lessonPath}/{videoPath}
+        </h1>
+      </div>
+      <AIConversation className="flex-1 overflow-y-auto">
         <AIConversationContent>
+          <video src={`/videos/${videoId}`} className="w-full" controls />
           {messages.map((message) => {
             if (message.role === "system") {
               return null;
@@ -97,16 +110,16 @@ export default function Component(props: Route.ComponentProps) {
           })}
         </AIConversationContent>
         <AIConversationScrollButton />
-        <AIInput onSubmit={handleSubmit}>
-          <AIInputTextarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <AIInputToolbar>
-            <AIInputSubmit status={status} />
-          </AIInputToolbar>
-        </AIInput>
       </AIConversation>
+      <AIInput onSubmit={handleSubmit}>
+        <AIInputTextarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <AIInputToolbar>
+          <AIInputSubmit status={status} />
+        </AIInputToolbar>
+      </AIInput>
     </div>
   );
 }

@@ -257,6 +257,7 @@ export default function Component(props: Route.ComponentProps) {
                 </h2>
                 {section.lessons.map((lesson, index, arr) => (
                   <React.Fragment key={lesson.id}>
+                    <a id={lesson.id} />
                     <div
                       key={lesson.id}
                       className={cn(
