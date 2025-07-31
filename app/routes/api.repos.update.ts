@@ -122,10 +122,7 @@ export const action = async (args: Route.ActionArgs) => {
     for (const lessonPath of deletedLessons) {
       const lessonId = lessonPathToLessonId.get(lessonPath);
       if (!lessonId) {
-        return yield* new LessonNotFoundError({
-          lessonPath,
-          message: `Lesson in deletedLessons not found in the repo`,
-        });
+        continue;
       }
 
       const lesson = yield* db.getLessonById(lessonId);
