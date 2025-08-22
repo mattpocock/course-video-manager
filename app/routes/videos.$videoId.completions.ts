@@ -30,6 +30,7 @@ const ALLOWED_FILE_EXTENSIONS = [
   "md",
   "mdx",
   "txt",
+  "csv",
 ];
 
 const DISALLOWED_FILE_DIRECTORIES = [
@@ -91,18 +92,6 @@ export const action = async (args: Route.ActionArgs) => {
       });
     }).pipe(Effect.map((res) => res.filter((r) => r !== NOT_A_FILE)));
 
-    const codeFormatted = files
-      .map((file) => {
-        const language = path.extname(file.filePath).slice(1);
-        return [
-          "```" + language,
-          `// ${path.relative(lessonPath, file.filePath)}`,
-          file.fileContent,
-          "```",
-        ].join("\n");
-      })
-      .join("\n\n");
-
     const transcript = yield* fs
       .readFileString(getVideoTranscriptPath(video.originalFootagePath))
       .pipe(
@@ -118,7 +107,10 @@ export const action = async (args: Route.ActionArgs) => {
       model: anthropic("claude-3-7-sonnet-20250219"),
       messages: convertToModelMessages(messages),
       system: generateArticlePrompt({
-        code: codeFormatted,
+        code: files.map((file) => ({
+          path: file.filePath,
+          content: file.fileContent,
+        })),
         transcript,
       }),
     });

@@ -52,34 +52,47 @@ export const loader = async (args: Route.LoaderArgs) => {
       sectionPath: video.lesson.section.path,
       repoId: video.lesson.section.repoId,
       lessonId: video.lesson.id,
+      lessonNumber: video.lesson.path.split("-")[0]!,
     };
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
-const PROBLEM_PROMPT = `
+const PROBLEM_PROMPT = (lessonNumber: string) =>
+  `
 Go.
+
+## Problem Code
+
+Show COPIOUS examples of the problem code. Show the TODO's in the code so the user can navigate to the correct location.
+
+## Solution Code
+
+Do NOT refer to the solution code in the steps. Do not reveal the exact solution - just describe the problem they need to solve. Do not attempt to solve the problem for the user.
+
+The purpose of this material is to help the user solve the problem.
 
 ## Steps To Complete Instructions
 
 At the end of the output, add a list of steps to complete to solve the problem.
 
-Use an unordered list to list the steps.
+Include steps to test whether the problem has been solved, such as logging in the terminal (running the exercise via \`pnpm run exercise ${lessonNumber}\`), observing the local dev server at localhost:3000, or checking the browser console.
 
-Do NOT refer to the solution code in the steps. Do not show the user code samples they can copy. Do not reveal the exact solution - just describe the problem they need to solve.
+This should be in the format of checkboxes. Only the top level steps should be checkboxes. You can can use nested lists, but they should not be checkboxes.
 
-Include steps to test whether the problem has been solved, such as logging in the terminal (running the local dev server), observing the local dev server at localhost:3000, or checking the browser console.
-
-This should be in the format of:
+Each top-level step should be separated by two newlines.
 
 <example>
 
 ## Steps To Complete
 
-- <A description of the step to take>
+- [ ] <A description of the step to take>
+  - <some substep>
 
-<there can be code samples in here if you like!>
+- [ ] <A description of the step to take>
 
-- <A description of the step to take>
+- [ ] <A description of the step to take>
+  - <some substep>
+  - <some substep>
 
 </example>
 `.trim();
@@ -92,7 +105,7 @@ const LazyVideo = React.lazy(() => Promise.resolve({ default: Video }));
 
 export default function Component(props: Route.ComponentProps) {
   const { videoId } = props.params;
-  const { videoPath, lessonPath, sectionPath, repoId, lessonId } =
+  const { videoPath, lessonPath, sectionPath, repoId, lessonId, lessonNumber } =
     props.loaderData;
   const [text, setText] = useState<string>("");
 
@@ -156,7 +169,7 @@ export default function Component(props: Route.ComponentProps) {
             suggestion="Problem Description"
             onClick={() => {
               sendMessage({
-                text: PROBLEM_PROMPT,
+                text: PROBLEM_PROMPT(lessonNumber),
               });
             }}
           ></AISuggestion>
