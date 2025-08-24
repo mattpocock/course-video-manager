@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@ai-sdk/anthropic':
         specifier: 2.0.0-beta.9
-        version: 2.0.0-beta.9(zod@3.25.76)
+        version: 2.0.0-beta.9(zod@4.1.1)
       '@ai-sdk/react':
         specifier: 2.0.0-beta.28
-        version: 2.0.0-beta.28(react@19.1.0)(zod@3.25.76)
+        version: 2.0.0-beta.28(react@19.1.0)(zod@4.1.1)
       '@effect/platform':
         specifier: ^0.90.0
         version: 0.90.0(effect@3.17.1)
@@ -64,13 +64,16 @@ importers:
         version: 3.8.1
       ai:
         specifier: 5.0.0-beta.28
-        version: 5.0.0-beta.28(zod@3.25.76)
+        version: 5.0.0-beta.28(zod@4.1.1)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dedent:
+        specifier: ^1.6.0
+        version: 1.6.0
       drizzle-orm:
         specifier: ^0.44.3
         version: 0.44.3(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.16.3)(postgres@3.4.7)
@@ -88,7 +91,7 @@ importers:
         version: 0.525.0(react@19.1.0)
       openai:
         specifier: ^5.10.2
-        version: 5.10.2(ws@8.18.3)(zod@3.25.76)
+        version: 5.10.2(ws@8.18.3)(zod@4.1.1)
       postgres:
         specifier: ^3.4.7
         version: 3.4.7
@@ -125,6 +128,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.9)(jiti@2.4.2)(lightningcss@1.30.1)
+      zod:
+        specifier: ^4.1.1
+        version: 4.1.1
     devDependencies:
       '@react-router/dev':
         specifier: ^7.7.0
@@ -3343,47 +3349,47 @@ packages:
     peerDependencies:
       zod: ^3.24.1
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.1.1:
+    resolution: {integrity: sha512-SgMZK/h8Tigt9nnKkfJMvB/mKjiJXaX26xegP4sa+0wHIFVFWVlsQGdhklDmuargBD3Hsi3rsQRIzwJIhTPJHA==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
 
-  '@ai-sdk/anthropic@2.0.0-beta.9(zod@3.25.76)':
+  '@ai-sdk/anthropic@2.0.0-beta.9(zod@4.1.1)':
     dependencies:
       '@ai-sdk/provider': 2.0.0-beta.1
-      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@4.1.1)
+      zod: 4.1.1
 
-  '@ai-sdk/gateway@1.0.0-beta.14(zod@3.25.76)':
+  '@ai-sdk/gateway@1.0.0-beta.14(zod@4.1.1)':
     dependencies:
       '@ai-sdk/provider': 2.0.0-beta.1
-      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@4.1.1)
+      zod: 4.1.1
 
-  '@ai-sdk/provider-utils@3.0.0-beta.6(zod@3.25.76)':
+  '@ai-sdk/provider-utils@3.0.0-beta.6(zod@4.1.1)':
     dependencies:
       '@ai-sdk/provider': 2.0.0-beta.1
       '@standard-schema/spec': 1.0.0
       eventsource-parser: 3.0.3
-      zod: 3.25.76
-      zod-to-json-schema: 3.24.6(zod@3.25.76)
+      zod: 4.1.1
+      zod-to-json-schema: 3.24.6(zod@4.1.1)
 
   '@ai-sdk/provider@2.0.0-beta.1':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/react@2.0.0-beta.28(react@19.1.0)(zod@3.25.76)':
+  '@ai-sdk/react@2.0.0-beta.28(react@19.1.0)(zod@4.1.1)':
     dependencies:
-      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@3.25.76)
-      ai: 5.0.0-beta.28(zod@3.25.76)
+      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@4.1.1)
+      ai: 5.0.0-beta.28(zod@4.1.1)
       react: 19.1.0
       swr: 2.3.4(react@19.1.0)
       throttleit: 2.1.0
     optionalDependencies:
-      zod: 3.25.76
+      zod: 4.1.1
 
   '@ampproject/remapping@2.3.0':
     dependencies:
@@ -4644,13 +4650,13 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  ai@5.0.0-beta.28(zod@3.25.76):
+  ai@5.0.0-beta.28(zod@4.1.1):
     dependencies:
-      '@ai-sdk/gateway': 1.0.0-beta.14(zod@3.25.76)
+      '@ai-sdk/gateway': 1.0.0-beta.14(zod@4.1.1)
       '@ai-sdk/provider': 2.0.0-beta.1
-      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@3.25.76)
+      '@ai-sdk/provider-utils': 3.0.0-beta.6(zod@4.1.1)
       '@opentelemetry/api': 1.9.0
-      zod: 3.25.76
+      zod: 4.1.1
 
   ansi-regex@5.0.1: {}
 
@@ -5860,10 +5866,10 @@ snapshots:
       regex: 6.0.1
       regex-recursion: 6.0.2
 
-  openai@5.10.2(ws@8.18.3)(zod@3.25.76):
+  openai@5.10.2(ws@8.18.3)(zod@4.1.1):
     optionalDependencies:
       ws: 8.18.3
-      zod: 3.25.76
+      zod: 4.1.1
 
   package-json-from-dist@1.0.1: {}
 
@@ -6618,10 +6624,10 @@ snapshots:
 
   yallist@5.0.0: {}
 
-  zod-to-json-schema@3.24.6(zod@3.25.76):
+  zod-to-json-schema@3.24.6(zod@4.1.1):
     dependencies:
-      zod: 3.25.76
+      zod: 4.1.1
 
-  zod@3.25.76: {}
+  zod@4.1.1: {}
 
   zwitch@2.0.4: {}

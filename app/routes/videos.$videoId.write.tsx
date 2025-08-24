@@ -97,6 +97,29 @@ Each top-level step should be separated by two newlines.
 </example>
 `.trim();
 
+const TIP_PROMPT = () =>
+  `
+  Go.
+
+  <rules>
+
+  The purpose of the material is to show a user a cool tip that will help them in the future. They are not solving a problem in an active exercise, they are passively learning a tip.
+
+  Stick closely to the transcript. Use copious code examples.
+
+  The code samples shown should mirror the order in the transcript.
+
+  Each sample of existing code should use an XML format. Instead of writing out the code manually, use a XML tag to reference the code:
+
+  <code-snippet path="explainer/path-to-code/file.ts" startText="const example = " endText=";"></code-snippet>
+
+  The start and end text should be the start and end of the code you want to include.
+
+  If you want to invent your own code snippets, use traditional markdown code blocks. Do this when you want to display a code snippet that is not in the provided code samples.
+
+  </rules>
+`.trim();
+
 const Video = (props: { src: string }) => {
   return <video src={props.src} className="w-full" controls />;
 };
@@ -170,6 +193,14 @@ export default function Component(props: Route.ComponentProps) {
             onClick={() => {
               sendMessage({
                 text: PROBLEM_PROMPT(lessonNumber),
+              });
+            }}
+          ></AISuggestion>
+          <AISuggestion
+            suggestion="Tip"
+            onClick={() => {
+              sendMessage({
+                text: TIP_PROMPT(),
               });
             }}
           ></AISuggestion>

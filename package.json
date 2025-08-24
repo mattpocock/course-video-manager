@@ -33,6 +33,7 @@
     "ai": "5.0.0-beta.28",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dedent": "^1.6.0",
     "drizzle-orm": "^0.44.3",
     "effect": "^3.17.1",
     "isbot": "^5.1.27",
@@ -50,7 +51,8 @@
     "shiki": "^3.8.1",
     "tailwind-merge": "^3.3.1",
     "use-stick-to-bottom": "^1.1.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "zod": "^4.1.1"
   },
   "devDependencies": {
     "@react-router/dev": "^7.7.0",

@@ -51,7 +51,6 @@ export const generateArticlePrompt = (opts: {
     content: string;
   }[];
   transcript: string;
-  conversationHistory: string;
 }) => `
 You are a helpful assistant being asked to format a transcript of a video to accompany it for easier reading. The video is a screencast from a coding lesson, where the viewer can see the code.
 
@@ -74,14 +73,6 @@ ${opts.code
 ## Task Instructions
 
 ${taskInstructions}
-
-## Conversation History
-
-Here is the conversation history between the user and the assistant.
-
-<conversation>
-${opts.conversationHistory}
-</conversation>
 
 ## IMPORTANT INSTRUCTIONS
 
