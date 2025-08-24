@@ -24,7 +24,17 @@ There are many tools such as [Tool 1](https://www.example.com), [Tool 2](https:/
 </example>
 </markdown-examples>
 
+### Code Samples
+
 Use code samples to describe what the text is saying. Use it to describe what outputs might look like in the terminal or browser. Use it to illustrate the code that's being discussed.
+
+Each sample of existing code should use an XML format. Instead of writing out the code manually, use a XML tag to reference the code:
+
+<code-snippet path="explainer/path-to-code/file.ts" startText="const example = " endText=";"></code-snippet>
+
+The start and end text should be the start and end of the code you want to include.
+
+If you want to invent your own code snippets, use traditional markdown code blocks. Do this when you want to display a code snippet that is not in the provided code samples.
 
 The teacher might refer to code by saying 'here', or 'in this bit'. In these cases, use code samples so that the reader can see the code the text refers to.
 

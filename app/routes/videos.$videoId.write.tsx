@@ -109,14 +109,6 @@ const TIP_PROMPT = () =>
 
   The code samples shown should mirror the order in the transcript.
 
-  Each sample of existing code should use an XML format. Instead of writing out the code manually, use a XML tag to reference the code:
-
-  <code-snippet path="explainer/path-to-code/file.ts" startText="const example = " endText=";"></code-snippet>
-
-  The start and end text should be the start and end of the code you want to include.
-
-  If you want to invent your own code snippets, use traditional markdown code blocks. Do this when you want to display a code snippet that is not in the provided code samples.
-
   </rules>
 `.trim();
 

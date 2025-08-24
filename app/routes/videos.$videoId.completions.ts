@@ -1,23 +1,20 @@
+import { getVideoTranscriptPath } from "@/lib/get-video";
+import { generateArticlePrompt } from "@/prompts/generate-article";
+import { DBService } from "@/services/db-service";
+import { layerLive } from "@/services/layer";
 import { anthropic } from "@ai-sdk/anthropic";
+import { FileSystem } from "@effect/platform";
 import {
   convertToModelMessages,
   streamText,
-  type StreamTextTransform,
   type TextStreamPart,
   type ToolSet,
   type UIMessage,
 } from "ai";
 import { Data, Effect, Schema } from "effect";
-import type { Route } from "./+types/videos.$videoId.completions";
-import { DBService } from "@/services/db-service";
-import { FileSystem } from "@effect/platform";
-import path from "node:path";
-import { layerLive } from "@/services/layer";
-import { generateArticlePrompt } from "@/prompts/generate-article";
-import { getVideoTranscriptPath } from "@/lib/get-video";
 import { readFile } from "node:fs/promises";
-import dedent from "dedent";
-import { ZodType } from "zod";
+import path from "node:path";
+import type { Route } from "./+types/videos.$videoId.completions";
 
 const chatSchema = Schema.Struct({
   messages: Schema.Any,
@@ -123,158 +120,187 @@ export const action = async (args: Route.ActionArgs) => {
         })),
         transcript,
       }),
-      experimental_transform: () => {
-        let state: CodeSnippetTransformState = {
-          type: "not-capturing-code-snippet",
-        } as CodeSnippetTransformState;
-
-        return new TransformStream<
-          TextStreamPart<ToolSet>,
-          TextStreamPart<ToolSet>
-        >({
-          async transform(chunk, controller) {
-            if (chunk.type !== "text-delta") {
-              controller.enqueue(chunk);
-              return;
-            }
-
-            console.log(chunk.text);
-
-            if (state.type === "not-capturing-code-snippet") {
-              if (chunk.text.includes("<")) {
-                // Enqueue everything up to the code snippet
-                const codeSnippetIndex = chunk.text.indexOf("<");
-                const textToEnqueue = chunk.text.slice(0, codeSnippetIndex);
-
-                controller.enqueue({
-                  ...chunk,
-                  text: textToEnqueue,
-                });
-
-                // Change the state to capturing code snippet
-                state = {
-                  type: "maybe-code-snippet",
-                  candidate: chunk.text.slice(codeSnippetIndex),
-                };
-
-                return;
-              } else {
-                controller.enqueue(chunk);
-                return;
-              }
-            }
-
-            if (state.type === "maybe-code-snippet") {
-              state.candidate += chunk.text;
-
-              if (state.candidate.includes("<code-snippet")) {
-                state = {
-                  type: "capturing-code-snippet",
-                  codeSnippet: state.candidate,
-                };
-
-                return;
-              } else if (state.candidate.length > "<code-snippet".length) {
-                controller.enqueue({
-                  ...chunk,
-                  text: state.candidate,
-                });
-
-                state = {
-                  type: "not-capturing-code-snippet",
-                };
-
-                return;
-              }
-
-              return;
-            }
-            if (state.type === "capturing-code-snippet") {
-              const END_OF_CODE_SNIPPET = "</code-snippet>";
-              if (chunk.text.includes(END_OF_CODE_SNIPPET)) {
-                // Put everything up to the end of the code snippet
-                // into the state
-                const codeSnippetEndIndex =
-                  chunk.text.indexOf(END_OF_CODE_SNIPPET);
-
-                state.codeSnippet += chunk.text.slice(
-                  0,
-                  codeSnippetEndIndex + END_OF_CODE_SNIPPET.length
-                );
-
-                const code = await parseCodeSnippet(state.codeSnippet);
-
-                // Enqueue everything not in the code snippet
-                const textToEnqueue = chunk.text.slice(
-                  codeSnippetEndIndex + END_OF_CODE_SNIPPET.length
-                );
-
-                controller.enqueue({
-                  ...chunk,
-                  text: code + textToEnqueue,
-                });
-
-                state = {
-                  type: "not-capturing-code-snippet",
-                };
-
-                return;
-              } else {
-                state.codeSnippet += chunk.text;
-                return;
-              }
-            }
-
-            state satisfies never;
-          },
-        });
-      },
+      experimental_transform: xmlTagTransform({
+        name: "code-snippet",
+        attributes: ["path", "startText", "endText"],
+        transform: ({ attributes }) =>
+          parseCodeSnippet({
+            path: attributes.path,
+            startText: attributes.startText,
+            endText: attributes.endText,
+          }),
+      }),
     });
 
     return result.toUIMessageStreamResponse();
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
-type CodeSnippetTransformState =
+const xmlTagTransform =
+  <const TAttribute extends string>(opts: {
+    name: string;
+    attributes: TAttribute[];
+    transform: (opts: {
+      attributes: Record<TAttribute, string>;
+    }) => Promise<string> | string;
+  }) =>
+  () => {
+    const startTag = `<${opts.name}`;
+    const endTag = `</${opts.name}>`;
+    let state: XMLTagTransformState = {
+      type: "not-capturing-xml-tag",
+    } as XMLTagTransformState;
+
+    return new TransformStream<
+      TextStreamPart<ToolSet>,
+      TextStreamPart<ToolSet>
+    >({
+      async transform(chunk, controller) {
+        if (chunk.type !== "text-delta") {
+          controller.enqueue(chunk);
+          return;
+        }
+
+        console.log(state.type, chunk);
+
+        if (state.type === "not-capturing-xml-tag") {
+          if (chunk.text.includes(`<`)) {
+            // Enqueue everything up to the code snippet
+            const xmlTagIndex = chunk.text.indexOf(`<`);
+            const textToEnqueue = chunk.text.slice(0, xmlTagIndex);
+
+            controller.enqueue({
+              ...chunk,
+              text: textToEnqueue,
+            });
+
+            // Change the state to capturing code snippet
+            state = {
+              type: "maybe-xml-tag",
+              candidate: chunk.text.slice(xmlTagIndex),
+            };
+
+            return;
+          } else {
+            controller.enqueue(chunk);
+            return;
+          }
+        }
+
+        if (state.type === "maybe-xml-tag") {
+          state.candidate += chunk.text;
+
+          if (state.candidate.includes(startTag)) {
+            state = {
+              type: "capturing-xml-tag",
+              xmlTag: state.candidate,
+            };
+
+            return;
+          } else if (state.candidate.length > startTag.length) {
+            controller.enqueue({
+              ...chunk,
+              text: state.candidate,
+            });
+
+            state = {
+              type: "not-capturing-xml-tag",
+            };
+
+            return;
+          }
+
+          return;
+        }
+        if (state.type === "capturing-xml-tag") {
+          if (chunk.text.includes(endTag)) {
+            // Put everything up to the end of the code snippet
+            // into the state
+            const xmlTagEndIndex = chunk.text.indexOf(endTag);
+
+            state.xmlTag += chunk.text.slice(0, xmlTagEndIndex + endTag.length);
+
+            const xmlTag = state.xmlTag;
+
+            const attributesObject = opts.attributes.reduce(
+              (acc, attribute) => {
+                const value = xmlTag.match(
+                  new RegExp(`${attribute}="([^"]+)"`)
+                )?.[1];
+                if (value) {
+                  acc[attribute] = value;
+                }
+                return acc;
+              },
+              {} as Record<TAttribute, string>
+            );
+
+            for (const attribute of opts.attributes) {
+              if (!attributesObject[attribute]) {
+                // TODO - throw a custom error
+                throw new Error(`Missing attribute: ${attribute} in ${xmlTag}`);
+              }
+            }
+
+            const code = await opts.transform({
+              attributes: attributesObject,
+            });
+
+            // Enqueue everything not in the code snippet
+            const textToEnqueue = chunk.text.slice(
+              xmlTagEndIndex + endTag.length
+            );
+
+            controller.enqueue({
+              ...chunk,
+              text: code + textToEnqueue,
+            });
+
+            state = {
+              type: "not-capturing-xml-tag",
+            };
+
+            return;
+          } else {
+            state.xmlTag += chunk.text;
+            return;
+          }
+        }
+
+        state satisfies never;
+      },
+    });
+  };
+
+type XMLTagTransformState =
   | {
-      type: "capturing-code-snippet";
-      codeSnippet: string;
+      type: "capturing-xml-tag";
+      xmlTag: string;
     }
   | {
-      type: "maybe-code-snippet";
+      type: "maybe-xml-tag";
       candidate: string;
     }
   | {
-      type: "not-capturing-code-snippet";
+      type: "not-capturing-xml-tag";
     };
 
-const parseCodeSnippet = async (codeSnippet: string): Promise<string> => {
-  const filePath = codeSnippet.match(/path="([^"]+)"/)?.[1];
-  const startText = codeSnippet.match(/startText="([^"]+)"/)?.[1];
-  const endText = codeSnippet.match(/endText="([^"]+)"/)?.[1];
+const parseCodeSnippet = async (opts: {
+  path: string;
+  startText: string;
+  endText: string;
+}): Promise<string> => {
+  const result = await readFile(opts.path, "utf-8");
 
-  if (
-    typeof filePath !== "string" ||
-    typeof startText !== "string" ||
-    typeof endText !== "string"
-  ) {
-    return [
-      "\n",
-      "```txt",
-      "Code snippet could not be generated",
-      "```",
-      "\n",
-    ].join("\n");
-  }
+  const markdownFileType = path.extname(opts.path).slice(1);
 
-  const result = await readFile(filePath, "utf-8");
+  const startIndex = result.indexOf(opts.startText);
+  const endIndex = result.indexOf(
+    opts.endText,
+    startIndex + opts.startText.length
+  );
 
-  const markdownFileType = path.extname(filePath).slice(1);
-
-  const startIndex = result.indexOf(startText);
-  const endIndex = result.indexOf(endText, startIndex + startText.length);
-
-  const code = result.slice(startIndex, endIndex + endText.length).trim();
+  const code = result.slice(startIndex, endIndex + opts.endText.length).trim();
 
   return ["\n", `\`\`\`${markdownFileType}`, code, `\`\`\`\n`].join("\n");
 };
