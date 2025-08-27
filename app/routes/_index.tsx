@@ -101,6 +101,9 @@ export default function Component(props: Route.ComponentProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedRepoId = searchParams.get("repoId");
   const [isAddRepoModalOpen, setIsAddRepoModalOpen] = useState(false);
+  const [addVideoToLessonId, setAddVideoToLessonId] = useState<string | null>(
+    null
+  );
   const [videoPlayerState, setVideoPlayerState] = useState<{
     isOpen: boolean;
     videoId: string;
@@ -158,6 +161,7 @@ export default function Component(props: Route.ComponentProps) {
   }, [selectedRepoId]);
 
   const latestObsVideoFetcher = useFetcher();
+
   const deleteVideoFetcher = useFetcher();
   const deleteLessonFetcher = useFetcher();
 
@@ -172,11 +176,11 @@ export default function Component(props: Route.ComponentProps) {
     const videoCount = lesson.videos.length;
 
     if (videoCount === 0) {
-      return "problem";
+      return "Problem";
     } else if (videoCount === 1) {
-      return "solution";
+      return "Solution";
     } else {
-      return `solution ${videoCount}`;
+      return `Solution ${videoCount}`;
     }
   };
 
@@ -304,30 +308,72 @@ export default function Component(props: Route.ComponentProps) {
                       <div className="flex items-center justify-between px-3 py-2">
                         <h3 className="text-sm tracking-wide">{lesson.path}</h3>
                         <div className="flex items-center space-x-2">
-                          <latestObsVideoFetcher.Form
-                            method="post"
-                            action="/api/videos/edit-latest-obs-video"
-                            className="block"
+                          <Dialog
+                            open={addVideoToLessonId === lesson.id}
+                            onOpenChange={(open) => {
+                              setAddVideoToLessonId(open ? lesson.id : null);
+                            }}
                           >
-                            <input
-                              type="hidden"
-                              name="lessonId"
-                              value={lesson.id}
-                            />
-                            <input
-                              type="hidden"
-                              name="path"
-                              value={getVideoPath(lesson)}
-                            />
-                            <Button
-                              type="submit"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-xs"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </Button>
-                          </latestObsVideoFetcher.Form>
+                            <DialogTrigger asChild>
+                              <Button
+                                type="submit"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-xs"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Add New Video</DialogTitle>
+                              </DialogHeader>
+                              <latestObsVideoFetcher.Form
+                                method="post"
+                                action="/api/videos/edit-latest-obs-video"
+                                className="space-y-4 py-4"
+                                onSubmit={async (e) => {
+                                  e.preventDefault();
+                                  await latestObsVideoFetcher.submit(
+                                    e.currentTarget
+                                  );
+                                  setAddVideoToLessonId(null);
+                                }}
+                              >
+                                <input
+                                  type="hidden"
+                                  name="lessonId"
+                                  value={lesson.id}
+                                />
+                                <div className="space-y-2">
+                                  <Label htmlFor="video-path">Video Name</Label>
+                                  <Input
+                                    id="video-path"
+                                    placeholder="Problem, Solution, Explainer..."
+                                    defaultValue={getVideoPath(lesson)}
+                                    name="path"
+                                  />
+                                </div>
+                                <div className="flex justify-end space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => setAddVideoToLessonId(null)}
+                                    type="button"
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button type="submit">
+                                    {latestObsVideoFetcher.state ===
+                                    "submitting" ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      "Add Video"
+                                    )}
+                                  </Button>
+                                </div>
+                              </latestObsVideoFetcher.Form>
+                            </DialogContent>
+                          </Dialog>
                           <deleteLessonFetcher.Form
                             method="post"
                             action="/api/lessons/delete"
