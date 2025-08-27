@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { BookIcon, ChevronDownIcon } from 'lucide-react';
-import type { ComponentProps } from 'react';
+import { BookIcon, ChevronDownIcon } from "lucide-react";
+import type { ComponentProps } from "react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
-export type AISourcesProps = ComponentProps<'div'>;
+export type AISourcesProps = ComponentProps<"div">;
 
 export const AISources = ({ className, ...props }: AISourcesProps) => (
   <Collapsible
-    className={cn('not-prose mb-4 text-primary text-xs', className)}
+    className={cn("not-prose mb-4 text-primary text-xs", className)}
     {...props}
   />
 );
@@ -47,12 +47,12 @@ export const AISourcesContent = ({
   ...props
 }: AISourcesContentProps) => (
   <CollapsibleContent
-    className={cn('mt-3 flex flex-col gap-2', className)}
+    className={cn("mt-3 flex flex-col gap-2", className)}
     {...props}
   />
 );
 
-export type AISourceProps = ComponentProps<'a'>;
+export type AISourceProps = ComponentProps<"a">;
 
 export const AISource = ({
   href,
