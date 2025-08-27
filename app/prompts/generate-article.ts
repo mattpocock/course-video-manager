@@ -1,7 +1,7 @@
 const taskInstructions = `
 ### Formatting
 
-Do not use any section headings, titles or subheadings in the output UNLESS asked to by the user.
+Place section headings into the transcript.
 
 Use backticks to format code elements mentioned in the transcript. When referring to ids, prefer \`chatId\` over chat ID. \`messageId\` over message ID. \`userId\` over user ID.
 

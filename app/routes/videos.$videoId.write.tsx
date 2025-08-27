@@ -16,18 +16,18 @@ import {
   AIInputToolbar,
 } from "components/ui/kibo-ui/ai/input";
 
+import { Button } from "@/components/ui/button";
 import { AIMessage, AIMessageContent } from "components/ui/kibo-ui/ai/message";
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
-import { Effect } from "effect";
-import React, { useState, type FormEvent } from "react";
-import type { Route } from "./+types/videos.$videoId.write";
-import { ChevronLeftIcon } from "lucide-react";
-import { Link } from "react-router";
-import { Button } from "@/components/ui/button";
 import {
   AISuggestion,
   AISuggestions,
 } from "components/ui/kibo-ui/ai/suggestion";
+import { Effect } from "effect";
+import { ChevronLeftIcon } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Link } from "react-router";
+import type { Route } from "./+types/videos.$videoId.write";
 
 const partsToText = (parts: UIMessage["parts"]) => {
   return parts
@@ -52,12 +52,11 @@ export const loader = async (args: Route.LoaderArgs) => {
       sectionPath: video.lesson.section.path,
       repoId: video.lesson.section.repoId,
       lessonId: video.lesson.id,
-      lessonNumber: video.lesson.path.split("-")[0]!,
     };
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
-const PROBLEM_PROMPT = (lessonNumber: string) =>
+const PROBLEM_PROMPT = () =>
   `
 Go.
 
@@ -75,7 +74,7 @@ The purpose of this material is to help the user solve the problem.
 
 At the end of the output, add a list of steps to complete to solve the problem.
 
-Include steps to test whether the problem has been solved, such as logging in the terminal (running the exercise via \`pnpm run exercise ${lessonNumber}\`), observing the local dev server at localhost:3000, or checking the browser console.
+Include steps to test whether the problem has been solved, such as logging in the terminal (running the exercise via \`pnpm run dev\`), observing the local dev server at localhost:3000, or checking the browser console.
 
 This should be in the format of checkboxes. Only the top level steps should be checkboxes. You can can use nested lists, but they should not be checkboxes.
 
@@ -116,11 +115,9 @@ const Video = (props: { src: string }) => {
   return <video src={props.src} className="w-full" controls />;
 };
 
-const LazyVideo = React.lazy(() => Promise.resolve({ default: Video }));
-
 export default function Component(props: Route.ComponentProps) {
   const { videoId } = props.params;
-  const { videoPath, lessonPath, sectionPath, repoId, lessonId, lessonNumber } =
+  const { videoPath, lessonPath, sectionPath, repoId, lessonId } =
     props.loaderData;
   const [text, setText] = useState<string>("");
 
@@ -153,7 +150,7 @@ export default function Component(props: Route.ComponentProps) {
       </div>
       <AIConversation className="flex-1 overflow-y-auto">
         <AIConversationContent>
-          <LazyVideo src={`/videos/${videoId}`} />
+          <Video src={`/videos/${videoId}`} />
           {messages.map((message) => {
             if (message.role === "system") {
               return null;
@@ -184,7 +181,7 @@ export default function Component(props: Route.ComponentProps) {
             suggestion="Problem Description"
             onClick={() => {
               sendMessage({
-                text: PROBLEM_PROMPT(lessonNumber),
+                text: PROBLEM_PROMPT(),
               });
             }}
           ></AISuggestion>
