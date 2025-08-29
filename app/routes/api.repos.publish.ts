@@ -12,10 +12,10 @@ import {
 } from "effect";
 import { layerLive } from "@/services/layer";
 import { DBService } from "@/services/db-service";
-import { FileSystem } from "@effect/platform";
+import { Command, FileSystem } from "@effect/platform";
 import path from "node:path";
 import { makeSemaphore } from "effect/Effect";
-import { withDatabaseDump } from "@/services/dump-service";
+import { NodeRuntime } from "@effect/platform-node";
 
 const publishRepoSchema = Schema.Struct({
   repoId: Schema.String,
@@ -25,6 +25,12 @@ class DoesNotExistOnDbError extends Data.TaggedError("DoesNotExistOnDbError")<{
   type: "section" | "lesson";
   path: string;
   message: string;
+}> {}
+
+class FailedToDeleteEmptyDirectoriesError extends Data.TaggedError(
+  "FailedToDeleteEmptyDirectoriesError"
+)<{
+  exitCode: number;
 }> {}
 
 type Section = {
@@ -280,7 +286,24 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
     yield* Effect.forEach(filesToDelete, (file) => fs.remove(file));
 
-    yield* Console.log("Complete!");
+    const exitCode = yield* Command.make(
+      `find`,
+      dropboxRepoDirectory,
+      "-type",
+      "d",
+      "-empty",
+      "-delete"
+    ).pipe(
+      Command.stdout("inherit"),
+      Command.stderr("inherit"),
+      Command.exitCode
+    );
+
+    if (exitCode !== 0) {
+      return yield* new FailedToDeleteEmptyDirectoriesError({
+        exitCode,
+      });
+    }
 
     return {};
   }).pipe(
@@ -317,6 +340,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
       );
     }),
     Effect.provide(layerLive),
-    Effect.runPromise
+    NodeRuntime.runMain
   );
 };
