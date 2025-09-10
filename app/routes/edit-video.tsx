@@ -1,12 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { startTransition, useEffect, useRef, useState } from "react";
-import type { Route } from "./+types/edit-video";
 import {
   extractAudioFromVideoURL,
-  generateWaveformData,
   getWaveformForTimeRange,
 } from "@/services/video-editing";
+import { useEffect, useReducer, useRef, useState } from "react";
+import type { Route } from "./+types/edit-video";
 
 // Core data model - flat array of clips
 interface Clip {
@@ -168,9 +167,8 @@ const Clip = (props: {
 const TimelineView = (props: {
   clips: Clip[];
   state: ClipState;
-  onFinish: () => void;
   currentClipId: string;
-  setCurrentClipId: (clipId: string) => void;
+  onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
 }) => {
   const prioritizedClips = getPrioritizedListOfClips({
@@ -182,7 +180,6 @@ const TimelineView = (props: {
     <div className="flex flex-col gap-4">
       {prioritizedClips.map((clip) => {
         const isCurrentlyPlaying = clip.id === props.currentClipId;
-        const nextClip = props.clips[clip.index + 1];
 
         const onFinish = () => {
           if (!isCurrentlyPlaying) {
@@ -191,14 +188,7 @@ const TimelineView = (props: {
 
           console.log("onFinish", clip);
 
-          if (nextClip === undefined) {
-            props.onFinish();
-          } else {
-            startTransition(() => {
-              props.setCurrentClipId(nextClip.id);
-              props.onUpdateCurrentTime(0);
-            });
-          }
+          props.onClipFinished();
         };
 
         return (
@@ -246,27 +236,280 @@ export const clientLoader = async () => {
   return { clipsWithWaveformData };
 };
 
-export default function Component(props: Route.ComponentProps) {
-  const [state, setState] = useState<ClipState>("paused");
-  const [clips, setClips] = useState(props.loaderData.clipsWithWaveformData);
-  const [currentClipId, setCurrentClipId] = useState<string>(
-    initialClips[0]!.id
-  );
-  const [currentTimeInClip, setCurrentTimeInClip] = useState(0);
+interface ClipWithWaveformData extends Clip {
+  waveformDataForTimeRange: number[];
+}
 
-  console.log("currentTimeInClip", currentTimeInClip);
+type State = {
+  runningState: ClipState;
+  clips: ClipWithWaveformData[];
+  currentClipId: string;
+  currentTimeInClip: number;
+  selectedClipsSet: Set<string>;
+};
+
+type Action =
+  | {
+      type: "press-pause";
+    }
+  | {
+      type: "press-play";
+    }
+  | {
+      type: "click-clip";
+      clipId: string;
+      ctrlKey: boolean;
+      shiftKey: boolean;
+    }
+  | {
+      type: "update-clip-current-time";
+      time: number;
+    }
+  | {
+      type: "clip-finished";
+    }
+  | {
+      type: "press-delete";
+    }
+  | {
+      type: "press-space-bar";
+    }
+  | {
+      type: "press-return";
+    }
+  | {
+      type: "press-arrow-left";
+    }
+  | {
+      type: "press-arrow-right";
+    };
+
+const reducer = (state: State, action: Action): State => {
+  switch (action.type) {
+    case "press-space-bar":
+      return {
+        ...state,
+        runningState: state.runningState === "playing" ? "paused" : "playing",
+      };
+    case "press-pause":
+      return { ...state, runningState: "paused" };
+    case "press-play":
+      return { ...state, runningState: "playing" };
+    case "press-return":
+      if (state.selectedClipsSet.size === 0) {
+        return state;
+      }
+      const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
+
+      return {
+        ...state,
+        currentClipId: mostRecentClipId,
+        runningState: "playing",
+        currentTimeInClip: 0,
+        selectedClipsSet: new Set([mostRecentClipId]),
+      };
+    case "click-clip":
+      if (action.ctrlKey) {
+        const newSelectedClipsSet = new Set(state.selectedClipsSet);
+        if (newSelectedClipsSet.has(action.clipId)) {
+          newSelectedClipsSet.delete(action.clipId);
+        } else {
+          newSelectedClipsSet.add(action.clipId);
+        }
+        return {
+          ...state,
+          selectedClipsSet: newSelectedClipsSet,
+        };
+      } else if (action.shiftKey) {
+        const mostRecentClipId = Array.from(state.selectedClipsSet).pop();
+
+        if (!mostRecentClipId) {
+          return {
+            ...state,
+            selectedClipsSet: new Set([action.clipId]),
+          };
+        }
+
+        const mostRecentClipIndex = state.clips.findIndex(
+          (clip) => clip.id === mostRecentClipId
+        );
+
+        if (mostRecentClipIndex === -1) {
+          return state;
+        }
+
+        const newClipIndex = state.clips.findIndex(
+          (clip) => clip.id === action.clipId
+        );
+
+        if (newClipIndex === -1) {
+          return state;
+        }
+        const firstIndex = Math.min(mostRecentClipIndex, newClipIndex);
+        const lastIndex = Math.max(mostRecentClipIndex, newClipIndex);
+
+        const clipsBetweenMostRecentClipIndexAndNewClipIndex =
+          state.clips.slice(firstIndex, lastIndex + 1);
+
+        return {
+          ...state,
+          selectedClipsSet: new Set(
+            clipsBetweenMostRecentClipIndexAndNewClipIndex.map(
+              (clip) => clip.id
+            )
+          ),
+        };
+      } else {
+        if (state.selectedClipsSet.size > 1) {
+          return {
+            ...state,
+            selectedClipsSet: new Set([action.clipId]),
+          };
+        }
+
+        if (state.selectedClipsSet.has(action.clipId)) {
+          return {
+            ...state,
+            selectedClipsSet: new Set(),
+          };
+        }
+        return {
+          ...state,
+          selectedClipsSet: new Set([action.clipId]),
+        };
+      }
+    case "press-delete":
+      const lastClipBeingDeletedIndex = state.clips.findLastIndex((clip) => {
+        return state.selectedClipsSet.has(clip.id);
+      });
+
+      if (lastClipBeingDeletedIndex === -1) {
+        return state;
+      }
+
+      const clipToMoveSelectionTo = state.clips[lastClipBeingDeletedIndex + 1];
+      const backupClipToMoveSelectionTo =
+        state.clips[lastClipBeingDeletedIndex - 1];
+      const finalBackupClipToMoveSelectionTo = state.clips[0];
+
+      const newSelectedClipId =
+        clipToMoveSelectionTo?.id ??
+        backupClipToMoveSelectionTo?.id ??
+        finalBackupClipToMoveSelectionTo?.id;
+
+      const newClips = state.clips.filter(
+        (clip) => !state.selectedClipsSet.has(clip.id)
+      );
+
+      const isCurrentClipDeleted = state.selectedClipsSet.has(
+        state.currentClipId
+      );
+
+      return {
+        ...state,
+        clips: newClips,
+        selectedClipsSet: new Set(
+          [newSelectedClipId].filter((id) => id !== undefined)
+        ),
+        runningState: isCurrentClipDeleted ? "paused" : state.runningState,
+        currentClipId: isCurrentClipDeleted
+          ? newSelectedClipId!
+          : state.currentClipId,
+      };
+    case "update-clip-current-time":
+      return { ...state, currentTimeInClip: action.time };
+    case "clip-finished": {
+      const currentClipIndex = state.clips.findIndex(
+        (clip) => clip.id === state.currentClipId
+      );
+      const nextClip = state.clips[currentClipIndex + 1];
+      if (nextClip) {
+        return { ...state, currentClipId: nextClip.id };
+      } else {
+        return { ...state, runningState: "paused" };
+      }
+    }
+    case "press-arrow-left": {
+      if (state.selectedClipsSet.size === 0) {
+        return { ...state, selectedClipsSet: new Set([state.currentClipId]) };
+      }
+
+      const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
+
+      const currentClipIndex = state.clips.findIndex(
+        (clip) => clip.id === mostRecentClipId
+      );
+      const previousClip = state.clips[currentClipIndex - 1];
+      if (previousClip) {
+        return { ...state, selectedClipsSet: new Set([previousClip.id]) };
+      } else {
+        return state;
+      }
+    }
+    case "press-arrow-right": {
+      if (state.selectedClipsSet.size === 0) {
+        return { ...state, selectedClipsSet: new Set([state.currentClipId]) };
+      }
+
+      const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
+
+      const currentClipIndex = state.clips.findIndex(
+        (clip) => clip.id === mostRecentClipId
+      );
+      const nextClip = state.clips[currentClipIndex + 1];
+      if (nextClip) {
+        return { ...state, selectedClipsSet: new Set([nextClip.id]) };
+      } else {
+        return state;
+      }
+    }
+  }
+  action satisfies never;
+};
+
+export default function Component(props: Route.ComponentProps) {
+  const [state, dispatch] = useReducer(reducer, {
+    runningState: "paused",
+    clips: props.loaderData.clipsWithWaveformData,
+    currentClipId: initialClips[0]!.id,
+    currentTimeInClip: 0,
+    selectedClipsSet: new Set<string>(),
+  });
+
+  const currentClipId = state.currentClipId;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === " ") {
+        if (e.repeat) return;
+        dispatch({ type: "press-space-bar" });
+      } else if (e.key === "Delete") {
+        dispatch({ type: "press-delete" });
+      } else if (e.key === "Enter") {
+        dispatch({ type: "press-return" });
+      } else if (e.key === "ArrowLeft") {
+        dispatch({ type: "press-arrow-left" });
+      } else if (e.key === "ArrowRight") {
+        dispatch({ type: "press-arrow-right" });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
     <div className="flex gap-6">
       <div className="flex-1 p-6 flex-wrap flex gap-2 h-full">
-        {clips.map((clip, index, array) => {
-          const nextClip = array[index + 1];
-          const previousClip = array[index - 1];
+        {state.clips.map((clip) => {
           const duration = clip.sourceEndTime - clip.sourceStartTime;
 
           const waveformData = clip.waveformDataForTimeRange;
 
-          const percentComplete = currentTimeInClip / duration;
+          const percentComplete = state.currentTimeInClip / duration;
 
           return (
             <button
@@ -274,12 +517,16 @@ export default function Component(props: Route.ComponentProps) {
               style={{ width: `${duration * 50}px` }}
               className={cn(
                 "bg-gray-800 p-2 rounded-md text-left block relative overflow-hidden h-12",
+                state.selectedClipsSet.has(clip.id) &&
+                  "outline-2 outline-blue-200 bg-gray-600",
                 clip.id === currentClipId && "bg-blue-500"
               )}
-              onClick={() => {
-                startTransition(() => {
-                  setCurrentClipId(clip.id);
-                  setCurrentTimeInClip(0);
+              onClick={(e) => {
+                dispatch({
+                  type: "click-clip",
+                  clipId: clip.id,
+                  ctrlKey: e.ctrlKey,
+                  shiftKey: e.shiftKey,
                 });
               }}
             >
@@ -335,20 +582,20 @@ export default function Component(props: Route.ComponentProps) {
       <div className="flex-1 relative p-6">
         <div className="sticky top-0">
           <TimelineView
-            clips={clips}
-            state={state}
-            onFinish={() => {
-              console.log("onFinish");
-              setState("paused");
-            }}
+            clips={state.clips}
+            state={state.runningState}
             currentClipId={currentClipId}
-            setCurrentClipId={setCurrentClipId}
+            onClipFinished={() => {
+              dispatch({ type: "clip-finished" });
+            }}
             onUpdateCurrentTime={(time) => {
-              setCurrentTimeInClip(time);
+              dispatch({ type: "update-clip-current-time", time });
             }}
           />
-          <Button onClick={() => setState("playing")}>Play</Button>
-          <Button onClick={() => setState("paused")}>Pause</Button>
+          <Button onClick={() => dispatch({ type: "press-play" })}>Play</Button>
+          <Button onClick={() => dispatch({ type: "press-pause" })}>
+            Pause
+          </Button>
         </div>
       </div>
     </div>
