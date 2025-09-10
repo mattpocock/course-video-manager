@@ -11,17 +11,22 @@ interface Clip {
   sourceEndTime: number; // End time in source video (seconds)
 }
 
+interface ClipWithIndex extends Clip {
+  index: number;
+}
+
 const getPrioritizedListOfClips = (opts: {
   clips: Clip[];
   currentClipId: string;
-}) => {
+}): ClipWithIndex[] => {
   const { clips, currentClipId } = opts;
 
-  const sortedClips = clips.sort(
-    (a, b) => a.sourceStartTime - b.sourceStartTime
-  );
+  const clipsWithIndex = clips.map((clip, index) => ({
+    ...clip,
+    index,
+  }));
 
-  const currentClipIndex = sortedClips.findIndex(
+  const currentClipIndex = clipsWithIndex.findIndex(
     (clip) => clip.id === currentClipId
   );
 
@@ -29,12 +34,12 @@ const getPrioritizedListOfClips = (opts: {
     throw new Error("Current clip not found");
   }
 
-  const currentClip = sortedClips[currentClipIndex]!;
-  const nextClip = sortedClips[currentClipIndex + 1];
-  const nextNextClip = sortedClips[currentClipIndex + 2];
-  const previousClip = sortedClips[currentClipIndex - 1];
-  const clipsBeforePreviousClip = sortedClips.slice(0, currentClipIndex - 2);
-  const clipsAfterNextClip = sortedClips.slice(currentClipIndex + 3);
+  const currentClip = clipsWithIndex[currentClipIndex]!;
+  const nextClip = clipsWithIndex[currentClipIndex + 1];
+  const nextNextClip = clipsWithIndex[currentClipIndex + 2];
+  const previousClip = clipsWithIndex[currentClipIndex - 1];
+  const clipsBeforePreviousClip = clipsWithIndex.slice(0, currentClipIndex - 2);
+  const clipsAfterNextClip = clipsWithIndex.slice(currentClipIndex + 3);
 
   return [
     currentClip,
@@ -48,6 +53,8 @@ const getPrioritizedListOfClips = (opts: {
 
 type ClipState = "playing" | "paused";
 
+const PRELOAD_PLAY_AMOUNT = 0.1;
+
 const Clip = (props: {
   clip: Clip;
   onFinish: () => void;
@@ -55,7 +62,14 @@ const Clip = (props: {
   hidden: boolean;
   state: ClipState;
 }) => {
+  const [preloadState, setPreloadState] = useState<"preloading" | "finished">(
+    "preloading"
+  );
   const ref = useRef<HTMLVideoElement>(null);
+
+  const preloadFrom = props.clip.sourceStartTime - PRELOAD_PLAY_AMOUNT;
+  const preloadTo = props.clip.sourceStartTime;
+  const modifiedEndTime = props.clip.sourceEndTime - 0.06;
 
   const isPlaying = !props.hidden && props.state === "playing";
 
@@ -64,8 +78,15 @@ const Clip = (props: {
       return;
     }
 
+    if (preloadState === "preloading") {
+      ref.current.muted = true;
+      ref.current.play();
+      return;
+    }
+
     if (props.hidden) {
       ref.current.pause();
+      ref.current.currentTime = props.clip.sourceStartTime;
       return;
     }
 
@@ -76,24 +97,34 @@ const Clip = (props: {
     } else {
       ref.current.pause();
     }
-  }, [props.hidden, ref.current, props.state]);
-
-  const modifiedEndTime = props.clip.sourceEndTime;
+  }, [props.hidden, ref.current, props.state, preloadState]);
 
   useEffect(() => {
     if (!ref.current) {
       return;
     }
 
-    if (!isPlaying) {
+    if (!isPlaying && preloadState === "finished") {
       return;
     }
     let animationId: number | null = null;
 
     const checkCurrentTime = () => {
-      if (ref.current!.currentTime >= modifiedEndTime) {
+      const currentTime = ref.current!.currentTime;
+
+      if (preloadState === "preloading") {
+        if (currentTime >= preloadTo) {
+          setPreloadState("finished");
+          ref.current?.pause();
+          ref.current!.muted = false;
+          ref.current!.currentTime = preloadTo;
+          props.onPreloadComplete();
+        }
+      } else if (currentTime >= modifiedEndTime) {
         props.onFinish();
+        ref.current!.currentTime = props.clip.sourceStartTime;
       }
+
       animationId = requestAnimationFrame(checkCurrentTime);
     };
 
@@ -104,15 +135,19 @@ const Clip = (props: {
         cancelAnimationFrame(animationId);
       }
     };
-  }, [ref.current, isPlaying]);
+  }, [
+    ref.current,
+    isPlaying,
+    preloadState,
+    modifiedEndTime,
+    props.clip.sourceStartTime,
+    preloadTo,
+  ]);
 
   return (
     <video
       key={props.clip.id}
-      src={`/view-video?videoPath=${props.clip.inputVideo}#t=${props.clip.sourceStartTime},${modifiedEndTime}`}
-      onCanPlayThrough={() => {
-        props.onPreloadComplete();
-      }}
+      src={`/view-video?videoPath=${props.clip.inputVideo}#t=${preloadFrom},${modifiedEndTime}`}
       className={cn(props.hidden && "hidden")}
       ref={ref}
       preload="auto"
@@ -120,65 +155,109 @@ const Clip = (props: {
   );
 };
 
-const TimelineView = (props: { clips: Clip[]; state: ClipState }) => {
-  const firstClip = props.clips[0];
-
-  if (!firstClip) {
-    throw new Error("No clips");
-  }
-
-  const [currentClipId, setCurrentClipId] = useState<string>(firstClip.id);
-
+const TimelineView = (props: {
+  clips: Clip[];
+  state: ClipState;
+  onFinish: () => void;
+  currentClipId: string;
+  setCurrentClipId: (clipId: string) => void;
+}) => {
   const prioritizedClips = getPrioritizedListOfClips({
     clips: props.clips,
-    currentClipId,
-  }).slice(0, 6);
+    currentClipId: props.currentClipId,
+  }).slice(0, 4);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4">
-        {prioritizedClips.map((clip, index, array) => {
-          const nextClip = array[index + 1];
-          const isCurrentlyPlaying = clip.id === currentClipId;
+      {prioritizedClips.map((clip) => {
+        const isCurrentlyPlaying = clip.id === props.currentClipId;
+        const nextClip = props.clips[clip.index + 1];
 
-          const onFinish = () => {
-            if (!isCurrentlyPlaying) {
-              return;
-            }
+        const onFinish = () => {
+          if (!isCurrentlyPlaying) {
+            return;
+          }
 
-            console.log("onFinish", nextClip);
-            if (nextClip) {
-              setCurrentClipId(nextClip.id);
-            }
-          };
+          console.log("onFinish", clip);
 
-          return (
-            <div key={clip.id}>
-              <Clip
-                clip={clip}
-                key={clip.id}
-                onFinish={onFinish}
-                hidden={!isCurrentlyPlaying}
-                state={props.state}
-                onPreloadComplete={() => {
-                  console.log("onPreloadComplete", clip.id);
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
+          if (nextClip === undefined) {
+            props.onFinish();
+          } else {
+            props.setCurrentClipId(nextClip.id);
+          }
+        };
+
+        return (
+          <div key={clip.id}>
+            <Clip
+              clip={clip}
+              key={clip.id}
+              onFinish={onFinish}
+              hidden={!isCurrentlyPlaying}
+              state={props.state}
+              onPreloadComplete={() => {
+                console.log("onPreloadComplete", clip.id);
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 };
 
 export default function Component(props: Route.ComponentProps) {
   const [state, setState] = useState<ClipState>("paused");
+  const [clips, setClips] = useState<Clip[]>(initialClips);
+  const [currentClipId, setCurrentClipId] = useState<string>(
+    initialClips[0]!.id
+  );
   return (
-    <div className="p-6 space-y-6">
-      <TimelineView clips={initialClips} state={state} />
-      <Button onClick={() => setState("playing")}>Play</Button>
-      <Button onClick={() => setState("paused")}>Pause</Button>
+    <div className="flex gap-6">
+      <div className="flex-1 p-6">
+        {clips.map((clip, index, array) => {
+          const nextClip = array[index + 1];
+          const previousClip = array[index - 1];
+          return (
+            <div key={clip.id}>
+              <div className={cn(clip.id === currentClipId && "text-red-500")}>
+                {(clip.sourceEndTime - clip.sourceStartTime).toFixed(2)}
+              </div>
+              <Button onClick={() => setCurrentClipId(clip.id)}>
+                Set as current
+              </Button>
+              <Button
+                onClick={() => {
+                  setClips(clips.filter((c) => c.id !== clip.id));
+                  if (nextClip) {
+                    setCurrentClipId(nextClip.id);
+                  } else if (previousClip) {
+                    setCurrentClipId(previousClip.id);
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex-1 relative p-6">
+        <div className="sticky top-0">
+          <TimelineView
+            clips={clips}
+            state={state}
+            onFinish={() => {
+              console.log("onFinish");
+              setState("paused");
+            }}
+            currentClipId={currentClipId}
+            setCurrentClipId={setCurrentClipId}
+          />
+          <Button onClick={() => setState("playing")}>Play</Button>
+          <Button onClick={() => setState("paused")}>Pause</Button>
+        </div>
+      </div>
     </div>
   );
 }
