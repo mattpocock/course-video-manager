@@ -7,19 +7,20 @@ export interface Clip {
 
 export type ClipState = "playing" | "paused";
 
-export interface ClipWithWaveformData extends Clip {
-  waveformData: number[] | undefined;
-}
-
 export interface State {
   clipIdsPreloaded: Set<string>;
   runningState: ClipState;
-  clips: ClipWithWaveformData[];
+  clips: Clip[];
   currentClipId: string;
   currentTimeInClip: number;
   selectedClipsSet: Set<string>;
   playbackRate: number;
 }
+
+export type Effect = {
+  type: "archive-clips";
+  clipIds: string[];
+};
 
 export type Action =
   | {
@@ -105,254 +106,263 @@ const preloadSelectedClips = (state: State) => {
   };
 };
 
-export const videoEditorReducer = (state: State, action: Action): State => {
-  switch (action.type) {
-    case "press-space-bar":
-      return {
-        ...state,
-        runningState: state.runningState === "playing" ? "paused" : "playing",
-      };
-    case "press-home":
-      const firstClip = state.clips[0];
-      if (!firstClip) {
-        return state;
-      }
-      return { ...state, selectedClipsSet: new Set([firstClip.id]) };
-    case "press-end":
-      const lastClip = state.clips[state.clips.length - 1];
-      if (!lastClip) {
-        return state;
-      }
-      return {
-        ...state,
-        selectedClipsSet: new Set([lastClip.id]),
-      };
-    case "press-l":
-      if (state.playbackRate === 2) {
+export const makeVideoEditorReducer =
+  (reportEffect: (effect: Effect) => void) =>
+  (state: State, action: Action): State => {
+    switch (action.type) {
+      case "press-space-bar":
         return {
           ...state,
-          playbackRate: 2,
           runningState: state.runningState === "playing" ? "paused" : "playing",
         };
-      }
-      return { ...state, playbackRate: 2, runningState: "playing" };
-    case "press-k":
-      if (state.playbackRate === 1) {
-        return {
-          ...state,
-          playbackRate: 1,
-          runningState: state.runningState === "playing" ? "paused" : "playing",
-        };
-      }
-      return { ...state, playbackRate: 1, runningState: "playing" };
-    case "press-pause":
-      return { ...state, runningState: "paused" };
-    case "press-play":
-      return { ...state, runningState: "playing" };
-    case "press-return":
-      if (state.selectedClipsSet.size === 0) {
-        return state;
-      }
-      const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
-
-      return preloadSelectedClips({
-        ...state,
-        currentClipId: mostRecentClipId,
-        runningState: "playing",
-        currentTimeInClip: 0,
-        selectedClipsSet: new Set([mostRecentClipId]),
-      });
-    case "click-clip":
-      if (action.ctrlKey) {
-        const newSelectedClipsSet = new Set(state.selectedClipsSet);
-        if (newSelectedClipsSet.has(action.clipId)) {
-          newSelectedClipsSet.delete(action.clipId);
-        } else {
-          newSelectedClipsSet.add(action.clipId);
+      case "press-home":
+        const firstClip = state.clips[0];
+        if (!firstClip) {
+          return state;
         }
+        return { ...state, selectedClipsSet: new Set([firstClip.id]) };
+      case "press-end":
+        const lastClip = state.clips[state.clips.length - 1];
+        if (!lastClip) {
+          return state;
+        }
+        return {
+          ...state,
+          selectedClipsSet: new Set([lastClip.id]),
+        };
+      case "press-l":
+        if (state.playbackRate === 2) {
+          return {
+            ...state,
+            playbackRate: 2,
+            runningState:
+              state.runningState === "playing" ? "paused" : "playing",
+          };
+        }
+        return { ...state, playbackRate: 2, runningState: "playing" };
+      case "press-k":
+        if (state.playbackRate === 1) {
+          return {
+            ...state,
+            playbackRate: 1,
+            runningState:
+              state.runningState === "playing" ? "paused" : "playing",
+          };
+        }
+        return { ...state, playbackRate: 1, runningState: "playing" };
+      case "press-pause":
+        return { ...state, runningState: "paused" };
+      case "press-play":
+        return { ...state, runningState: "playing" };
+      case "press-return":
+        if (state.selectedClipsSet.size === 0) {
+          return state;
+        }
+        const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
+
         return preloadSelectedClips({
           ...state,
-          selectedClipsSet: newSelectedClipsSet,
+          currentClipId: mostRecentClipId,
+          runningState: "playing",
+          currentTimeInClip: 0,
+          selectedClipsSet: new Set([mostRecentClipId]),
         });
-      } else if (action.shiftKey) {
-        const mostRecentClipId = Array.from(state.selectedClipsSet).pop();
+      case "click-clip":
+        if (action.ctrlKey) {
+          const newSelectedClipsSet = new Set(state.selectedClipsSet);
+          if (newSelectedClipsSet.has(action.clipId)) {
+            newSelectedClipsSet.delete(action.clipId);
+          } else {
+            newSelectedClipsSet.add(action.clipId);
+          }
+          return preloadSelectedClips({
+            ...state,
+            selectedClipsSet: newSelectedClipsSet,
+          });
+        } else if (action.shiftKey) {
+          const mostRecentClipId = Array.from(state.selectedClipsSet).pop();
 
-        if (!mostRecentClipId) {
+          if (!mostRecentClipId) {
+            return preloadSelectedClips({
+              ...state,
+              selectedClipsSet: new Set([action.clipId]),
+            });
+          }
+
+          const mostRecentClipIndex = state.clips.findIndex(
+            (clip) => clip.id === mostRecentClipId
+          );
+
+          if (mostRecentClipIndex === -1) {
+            return state;
+          }
+
+          const newClipIndex = state.clips.findIndex(
+            (clip) => clip.id === action.clipId
+          );
+
+          if (newClipIndex === -1) {
+            return state;
+          }
+          const firstIndex = Math.min(mostRecentClipIndex, newClipIndex);
+          const lastIndex = Math.max(mostRecentClipIndex, newClipIndex);
+
+          const clipsBetweenMostRecentClipIndexAndNewClipIndex =
+            state.clips.slice(firstIndex, lastIndex + 1);
+
+          return preloadSelectedClips({
+            ...state,
+            selectedClipsSet: new Set(
+              clipsBetweenMostRecentClipIndexAndNewClipIndex.map(
+                (clip) => clip.id
+              )
+            ),
+          });
+        } else {
+          if (state.selectedClipsSet.size > 1) {
+            return preloadSelectedClips({
+              ...state,
+              selectedClipsSet: new Set([action.clipId]),
+            });
+          }
+
+          if (state.selectedClipsSet.has(action.clipId)) {
+            return preloadSelectedClips({
+              ...state,
+              currentClipId: action.clipId,
+              runningState: "playing",
+              currentTimeInClip: 0,
+            });
+          }
           return preloadSelectedClips({
             ...state,
             selectedClipsSet: new Set([action.clipId]),
           });
         }
+      case "press-delete":
+        const lastClipBeingDeletedIndex = state.clips.findLastIndex((clip) => {
+          return state.selectedClipsSet.has(clip.id);
+        });
 
-        const mostRecentClipIndex = state.clips.findIndex(
+        if (lastClipBeingDeletedIndex === -1) {
+          return state;
+        }
+
+        const clipToMoveSelectionTo =
+          state.clips[lastClipBeingDeletedIndex + 1];
+        const backupClipToMoveSelectionTo =
+          state.clips[lastClipBeingDeletedIndex - 1];
+        const finalBackupClipToMoveSelectionTo = state.clips[0];
+
+        const newSelectedClipId =
+          clipToMoveSelectionTo?.id ??
+          backupClipToMoveSelectionTo?.id ??
+          finalBackupClipToMoveSelectionTo?.id;
+
+        const newClips = state.clips.filter(
+          (clip) => !state.selectedClipsSet.has(clip.id)
+        );
+
+        const isCurrentClipDeleted = state.selectedClipsSet.has(
+          state.currentClipId
+        );
+
+        reportEffect({
+          type: "archive-clips",
+          clipIds: Array.from(state.selectedClipsSet),
+        });
+
+        return preloadSelectedClips({
+          ...state,
+          clips: newClips,
+          selectedClipsSet: new Set(
+            [newSelectedClipId].filter((id) => id !== undefined)
+          ),
+          runningState: isCurrentClipDeleted ? "paused" : state.runningState,
+          currentClipId: isCurrentClipDeleted
+            ? newSelectedClipId!
+            : state.currentClipId,
+        });
+      case "update-clip-current-time":
+        return { ...state, currentTimeInClip: action.time };
+      case "clip-finished": {
+        const currentClipIndex = state.clips.findIndex(
+          (clip) => clip.id === state.currentClipId
+        );
+
+        if (currentClipIndex === -1) {
+          return state;
+        }
+
+        const nextClip = state.clips[currentClipIndex + 1];
+        const nextNextClip = state.clips[currentClipIndex + 2];
+
+        const newClipIdsPreloaded = state.clipIdsPreloaded;
+
+        if (nextClip) {
+          newClipIdsPreloaded.add(nextClip.id);
+        }
+
+        if (nextNextClip) {
+          newClipIdsPreloaded.add(nextNextClip.id);
+        }
+
+        if (nextClip) {
+          return {
+            ...state,
+            currentClipId: nextClip.id,
+            clipIdsPreloaded: newClipIdsPreloaded,
+          };
+        } else {
+          return { ...state, runningState: "paused" };
+        }
+      }
+      case "press-arrow-left": {
+        if (state.selectedClipsSet.size === 0) {
+          return preloadSelectedClips({
+            ...state,
+            selectedClipsSet: new Set([state.currentClipId]),
+          });
+        }
+
+        const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
+
+        const currentClipIndex = state.clips.findIndex(
           (clip) => clip.id === mostRecentClipId
         );
-
-        if (mostRecentClipIndex === -1) {
+        const previousClip = state.clips[currentClipIndex - 1];
+        if (previousClip) {
+          return preloadSelectedClips({
+            ...state,
+            selectedClipsSet: new Set([previousClip.id]),
+          });
+        } else {
           return state;
         }
+      }
+      case "press-arrow-right": {
+        if (state.selectedClipsSet.size === 0) {
+          return preloadSelectedClips({
+            ...state,
+            selectedClipsSet: new Set([state.currentClipId]),
+          });
+        }
 
-        const newClipIndex = state.clips.findIndex(
-          (clip) => clip.id === action.clipId
+        const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
+
+        const currentClipIndex = state.clips.findIndex(
+          (clip) => clip.id === mostRecentClipId
         );
-
-        if (newClipIndex === -1) {
+        const nextClip = state.clips[currentClipIndex + 1];
+        if (nextClip) {
+          return preloadSelectedClips({
+            ...state,
+            selectedClipsSet: new Set([nextClip.id]),
+          });
+        } else {
           return state;
         }
-        const firstIndex = Math.min(mostRecentClipIndex, newClipIndex);
-        const lastIndex = Math.max(mostRecentClipIndex, newClipIndex);
-
-        const clipsBetweenMostRecentClipIndexAndNewClipIndex =
-          state.clips.slice(firstIndex, lastIndex + 1);
-
-        return preloadSelectedClips({
-          ...state,
-          selectedClipsSet: new Set(
-            clipsBetweenMostRecentClipIndexAndNewClipIndex.map(
-              (clip) => clip.id
-            )
-          ),
-        });
-      } else {
-        if (state.selectedClipsSet.size > 1) {
-          return preloadSelectedClips({
-            ...state,
-            selectedClipsSet: new Set([action.clipId]),
-          });
-        }
-
-        if (state.selectedClipsSet.has(action.clipId)) {
-          return preloadSelectedClips({
-            ...state,
-            currentClipId: action.clipId,
-            runningState: "playing",
-            currentTimeInClip: 0,
-          });
-        }
-        return preloadSelectedClips({
-          ...state,
-          selectedClipsSet: new Set([action.clipId]),
-        });
-      }
-    case "press-delete":
-      const lastClipBeingDeletedIndex = state.clips.findLastIndex((clip) => {
-        return state.selectedClipsSet.has(clip.id);
-      });
-
-      if (lastClipBeingDeletedIndex === -1) {
-        return state;
-      }
-
-      const clipToMoveSelectionTo = state.clips[lastClipBeingDeletedIndex + 1];
-      const backupClipToMoveSelectionTo =
-        state.clips[lastClipBeingDeletedIndex - 1];
-      const finalBackupClipToMoveSelectionTo = state.clips[0];
-
-      const newSelectedClipId =
-        clipToMoveSelectionTo?.id ??
-        backupClipToMoveSelectionTo?.id ??
-        finalBackupClipToMoveSelectionTo?.id;
-
-      const newClips = state.clips.filter(
-        (clip) => !state.selectedClipsSet.has(clip.id)
-      );
-
-      const isCurrentClipDeleted = state.selectedClipsSet.has(
-        state.currentClipId
-      );
-
-      return preloadSelectedClips({
-        ...state,
-        clips: newClips,
-        selectedClipsSet: new Set(
-          [newSelectedClipId].filter((id) => id !== undefined)
-        ),
-        runningState: isCurrentClipDeleted ? "paused" : state.runningState,
-        currentClipId: isCurrentClipDeleted
-          ? newSelectedClipId!
-          : state.currentClipId,
-      });
-    case "update-clip-current-time":
-      return { ...state, currentTimeInClip: action.time };
-    case "clip-finished": {
-      const currentClipIndex = state.clips.findIndex(
-        (clip) => clip.id === state.currentClipId
-      );
-
-      if (currentClipIndex === -1) {
-        return state;
-      }
-
-      const nextClip = state.clips[currentClipIndex + 1];
-      const nextNextClip = state.clips[currentClipIndex + 2];
-      console.log("Clip Finished", nextClip, nextNextClip);
-
-      const newClipIdsPreloaded = state.clipIdsPreloaded;
-
-      if (nextClip) {
-        newClipIdsPreloaded.add(nextClip.id);
-      }
-
-      if (nextNextClip) {
-        newClipIdsPreloaded.add(nextNextClip.id);
-      }
-
-      if (nextClip) {
-        return {
-          ...state,
-          currentClipId: nextClip.id,
-          clipIdsPreloaded: newClipIdsPreloaded,
-        };
-      } else {
-        return { ...state, runningState: "paused" };
       }
     }
-    case "press-arrow-left": {
-      if (state.selectedClipsSet.size === 0) {
-        return preloadSelectedClips({
-          ...state,
-          selectedClipsSet: new Set([state.currentClipId]),
-        });
-      }
-
-      const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
-
-      const currentClipIndex = state.clips.findIndex(
-        (clip) => clip.id === mostRecentClipId
-      );
-      const previousClip = state.clips[currentClipIndex - 1];
-      if (previousClip) {
-        return preloadSelectedClips({
-          ...state,
-          selectedClipsSet: new Set([previousClip.id]),
-        });
-      } else {
-        return state;
-      }
-    }
-    case "press-arrow-right": {
-      if (state.selectedClipsSet.size === 0) {
-        return preloadSelectedClips({
-          ...state,
-          selectedClipsSet: new Set([state.currentClipId]),
-        });
-      }
-
-      const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
-
-      const currentClipIndex = state.clips.findIndex(
-        (clip) => clip.id === mostRecentClipId
-      );
-      const nextClip = state.clips[currentClipIndex + 1];
-      if (nextClip) {
-        return preloadSelectedClips({
-          ...state,
-          selectedClipsSet: new Set([nextClip.id]),
-        });
-      } else {
-        return state;
-      }
-    }
-  }
-  action satisfies never;
-};
+    action satisfies never;
+  };

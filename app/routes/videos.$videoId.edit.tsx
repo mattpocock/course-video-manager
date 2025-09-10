@@ -9,11 +9,7 @@ import type { Route } from "./+types/videos.$videoId.edit";
 import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import { Effect } from "effect";
-import type {
-  Clip,
-  ClipState,
-  ClipWithWaveformData,
-} from "@/features/video-editor/reducer";
+import type { Clip, ClipState } from "@/features/video-editor/reducer";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { Link, useFetcher } from "react-router";
 import { ChevronLeftIcon, Loader2, PlusIcon } from "lucide-react";
@@ -26,10 +22,8 @@ export const loader = async (args: Route.LoaderArgs) => {
   return Effect.gen(function* () {
     const db = yield* DBService;
     const video = yield* db.getVideoWithClipsById(videoId);
-    const clips: ClipWithWaveformData[] = video.clips.map((clip) => {
-      return { ...clip, waveformData: undefined };
-    });
-    return { video, clips };
+
+    return { video, clips: video.clips, waveformData: undefined };
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
@@ -44,20 +38,17 @@ export const clientLoader = async (args: Route.ClientLoaderArgs) => {
     `/view-video?videoPath=${video.clips[0]!.videoFilename}`
   );
 
-  const clips: ClipWithWaveformData[] = video.clips.map((clip) => {
-    const waveformData = getWaveformForTimeRange(
+  const waveformData = video.clips.reduce((acc, clip) => {
+    acc[clip.id] = getWaveformForTimeRange(
       audioBuffer,
       clip.sourceStartTime,
       clip.sourceEndTime,
       200
     );
-    return {
-      ...clip,
-      waveformData,
-    };
-  });
+    return acc;
+  }, {} as Record<string, number[]>);
 
-  return { clips, video };
+  return { clips: video.clips, waveformData, video };
 };
 
 export default function Component(props: Route.ComponentProps) {
@@ -102,6 +93,7 @@ export default function Component(props: Route.ComponentProps) {
   return (
     <VideoEditor
       initialClips={props.loaderData.clips}
+      waveformDataForClip={props.loaderData.waveformData ?? {}}
       repoId={props.loaderData.video.lesson.section.repo.id}
       lessonId={props.loaderData.video.lesson.id}
       videoPath={props.loaderData.video.path}

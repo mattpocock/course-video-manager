@@ -4,11 +4,12 @@ import { ChevronLeftIcon, Loader2, PlusIcon } from "lucide-react";
 import { useEffect, useReducer } from "react";
 import { Link, useFetcher } from "react-router";
 import { PreloadableClipManager } from "./preloadable-clip";
-import { videoEditorReducer, type ClipWithWaveformData } from "./reducer";
+import { makeVideoEditorReducer, type Clip } from "./reducer";
 import { TitleSection } from "./title-section";
 
 export const VideoEditor = (props: {
-  initialClips: ClipWithWaveformData[];
+  initialClips: Clip[];
+  waveformDataForClip: Record<string, number[]>;
   videoPath: string;
   lessonPath: string;
   repoName: string;
@@ -16,19 +17,34 @@ export const VideoEditor = (props: {
   lessonId: string;
   videoId: string;
 }) => {
-  const [state, dispatch] = useReducer(videoEditorReducer, {
-    runningState: "paused",
-    clips: props.initialClips,
-    currentClipId: props.initialClips[0]?.id ?? "",
-    currentTimeInClip: 0,
-    selectedClipsSet: new Set<string>(),
-    clipIdsPreloaded: new Set<string>(
-      [props.initialClips[0]?.id, props.initialClips[1]?.id].filter(
-        (id) => id !== undefined
-      )
-    ),
-    playbackRate: 1,
-  });
+  const archiveClipFetcher = useFetcher();
+
+  const [state, dispatch] = useReducer(
+    makeVideoEditorReducer((effect) => {
+      if (effect.type === "archive-clips") {
+        archiveClipFetcher.submit(
+          { clipIds: effect.clipIds },
+          {
+            method: "POST",
+            action: "/clips/archive",
+          }
+        );
+      }
+    }),
+    {
+      runningState: "paused",
+      clips: props.initialClips,
+      currentClipId: props.initialClips[0]?.id ?? "",
+      currentTimeInClip: 0,
+      selectedClipsSet: new Set<string>(),
+      clipIdsPreloaded: new Set<string>(
+        [props.initialClips[0]?.id, props.initialClips[1]?.id].filter(
+          (id) => id !== undefined
+        )
+      ),
+      playbackRate: 1,
+    }
+  );
 
   const currentClipIndex = state.clips.findIndex(
     (clip) => clip.id === state.currentClipId
@@ -116,7 +132,7 @@ export const VideoEditor = (props: {
           {state.clips.map((clip) => {
             const duration = clip.sourceEndTime - clip.sourceStartTime;
 
-            const waveformData = clip.waveformDataForTimeRange;
+            const waveformData = props.waveformDataForClip[clip.id];
 
             const percentComplete = state.currentTimeInClip / duration;
 

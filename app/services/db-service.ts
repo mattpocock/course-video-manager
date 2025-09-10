@@ -147,6 +147,7 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
             },
             clips: {
               orderBy: asc(clips.order),
+              where: eq(clips.archived, false),
             },
           },
         })
