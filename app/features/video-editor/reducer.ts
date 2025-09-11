@@ -59,6 +59,12 @@ export type Action =
       type: "press-arrow-right";
     }
   | {
+      type: "press-arrow-up";
+    }
+  | {
+      type: "press-arrow-down";
+    }
+  | {
       type: "press-l";
     }
   | {
@@ -175,6 +181,7 @@ export const makeVideoEditorReducer =
           currentClipId: mostRecentClipId,
           runningState: "playing",
           currentTimeInClip: 0,
+          playbackRate: 1,
           selectedClipsSet: new Set([mostRecentClipId]),
         });
       case "click-clip":
@@ -327,6 +334,7 @@ export const makeVideoEditorReducer =
           return { ...state, runningState: "paused" };
         }
       }
+      case "press-arrow-up":
       case "press-arrow-left": {
         if (state.selectedClipsSet.size === 0) {
           return preloadSelectedClips({
@@ -350,6 +358,7 @@ export const makeVideoEditorReducer =
           return state;
         }
       }
+      case "press-arrow-down":
       case "press-arrow-right": {
         if (state.selectedClipsSet.size === 0) {
           return preloadSelectedClips({

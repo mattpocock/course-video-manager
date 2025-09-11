@@ -104,6 +104,12 @@ export const VideoEditor = (props: {
         dispatch({ type: "press-arrow-left" });
       } else if (e.key === "ArrowRight") {
         dispatch({ type: "press-arrow-right" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        dispatch({ type: "press-arrow-up" });
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        dispatch({ type: "press-arrow-down" });
       } else if (e.key === "l") {
         dispatch({ type: "press-l" });
       } else if (e.key === "k") {
@@ -222,7 +228,7 @@ export const VideoEditor = (props: {
                     })}
                   </div>
                 )} */}
-                <span className="z-10 relative text-white text-sm mr-4">
+                <span className="z-10 block relative text-white text-sm mr-6 leading-6">
                   {clip.text}
                 </span>
                 {/* <Button
