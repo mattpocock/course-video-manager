@@ -47,6 +47,29 @@ const DISALLOWED_FILE_DIRECTORIES = [
   "solution",
 ];
 
+const transcriptSchema = Schema.Struct({
+  clips: Schema.Array(
+    Schema.Struct({
+      start: Schema.Number,
+      end: Schema.Number,
+      segments: Schema.Array(
+        Schema.Struct({
+          start: Schema.Number,
+          end: Schema.Number,
+          text: Schema.String,
+        })
+      ),
+      words: Schema.Array(
+        Schema.Struct({
+          start: Schema.Number,
+          end: Schema.Number,
+          text: Schema.String,
+        })
+      ),
+    })
+  ),
+});
+
 export const action = async (args: Route.ActionArgs) => {
   const body = await args.request.json();
   const videoId = args.params.videoId;
@@ -59,7 +82,7 @@ export const action = async (args: Route.ActionArgs) => {
       chatSchema
     )(body);
 
-    const video = yield* db.getVideoById(videoId);
+    const video = yield* db.getVideoWithClipsById(videoId);
 
     const repo = video.lesson.section.repo;
     const section = video.lesson.section;
@@ -99,16 +122,28 @@ export const action = async (args: Route.ActionArgs) => {
       });
     }).pipe(Effect.map((res) => res.filter((r) => r !== NOT_A_FILE)));
 
-    const transcript = yield* fs
-      .readFileString(getVideoTranscriptPath(video.originalFootagePath))
-      .pipe(
-        Effect.mapError(
-          (e) =>
-            new CouldNotFindTranscript({
-              originalFootagePath: video.originalFootagePath,
-            })
-        )
+    let transcript = video.clips
+      .map((clip) => clip.text)
+      .join(" ")
+      .trim();
+
+    if (transcript.length === 0) {
+      const transcriptFile = yield* fs.readFileString(
+        getVideoTranscriptPath(video.originalFootagePath)
       );
+      const transcriptFileData = yield* Schema.decodeUnknown(transcriptSchema)(
+        transcriptFile
+      );
+      transcript = transcriptFileData.clips
+        .map((clip) => clip.segments.map((segment) => segment.text).join(" "))
+        .join(" ");
+    }
+
+    if (transcript.length === 0) {
+      throw new CouldNotFindTranscript({
+        originalFootagePath: video.originalFootagePath,
+      });
+    }
 
     const result = streamText({
       model: anthropic("claude-3-7-sonnet-20250219"),

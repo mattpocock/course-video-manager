@@ -9,5 +9,10 @@ const ROOT_TRANSCRIPT_DIR = `/mnt/d/transcripts`;
 
 export const getVideoTranscriptPath = (originalVideoPath: string) => {
   const basename = path.parse(originalVideoPath).name;
-  return path.join(ROOT_TRANSCRIPT_DIR, basename + ".txt");
+  const transcriptPath = path.join(
+    ROOT_TRANSCRIPT_DIR,
+    basename + ".transcript.json"
+  );
+  console.log(transcriptPath);
+  return transcriptPath;
 };

@@ -117,12 +117,21 @@ export const useOBSConnector = (props: {
     }
   }, [state]);
 
-  return { state };
+  return {
+    state,
+    manuallyAppendFromOBS: () => {
+      setState({ type: "importing-video" });
+      onRecordingComplete();
+    },
+  };
 };
 
-export const OBSConnectionButton = (props: { state: OBSConnectionState }) => {
+export const OBSConnectionButton = (props: {
+  state: OBSConnectionState;
+  manuallyAppendFromOBS: () => void;
+}) => {
   return (
-    <Button variant="ghost">
+    <Button variant="ghost" onClick={props.manuallyAppendFromOBS}>
       {(props.state.type === "checking-obs-connection-status" ||
         props.state.type === "obs-not-running") && (
         <>

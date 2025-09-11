@@ -80,7 +80,10 @@ export default function Component(props: Route.ComponentProps) {
               Go Back
             </Link>
           </Button>
-          <OBSConnectionButton state={obsConnector.state} />
+          <OBSConnectionButton
+            state={obsConnector.state}
+            manuallyAppendFromOBS={obsConnector.manuallyAppendFromOBS}
+          />
         </div>
       </div>
     );
@@ -97,6 +100,7 @@ export default function Component(props: Route.ComponentProps) {
       lessonPath={props.loaderData.video.lesson.path}
       repoName={props.loaderData.video.lesson.section.repo.name}
       videoId={props.loaderData.video.id}
+      manuallyAppendFromOBS={obsConnector.manuallyAppendFromOBS}
     />
   );
 }
