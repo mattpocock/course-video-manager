@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ChevronLeftIcon, DownloadIcon, Loader2, PlusIcon } from "lucide-react";
+import { ChevronLeftIcon, DownloadIcon, Loader2 } from "lucide-react";
 import { useEffect, useReducer, useState } from "react";
 import { Link, useFetcher } from "react-router";
+import { OBSConnectionButton, useOBSConnector } from "./obs-connector";
 import { PreloadableClipManager } from "./preloadable-clip";
 import { makeVideoEditorReducer, type Clip } from "./reducer";
 import { TitleSection } from "./title-section";
@@ -90,7 +91,6 @@ export const VideoEditor = (props: {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      console.log("handleKeyDown", e.key);
       if (e.key === " ") {
         e.preventDefault();
         if (e.repeat) return;
@@ -127,7 +127,8 @@ export const VideoEditor = (props: {
     };
   }, []);
 
-  const appendFromOBSFetcher = useFetcher();
+  const obsConnector = useOBSConnector(props.videoId);
+
   const exportVideoClipsFetcher = useFetcher();
 
   return (
@@ -146,19 +147,7 @@ export const VideoEditor = (props: {
                 Go Back
               </Link>
             </Button>
-            <appendFromOBSFetcher.Form
-              method="post"
-              action={`/videos/${props.videoId}/append-from-obs`}
-            >
-              <Button variant="default">
-                {appendFromOBSFetcher.state === "submitting" ? (
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                ) : (
-                  <PlusIcon className="w-4 h-4 mr-1" />
-                )}
-                Append From OBS
-              </Button>
-            </appendFromOBSFetcher.Form>
+
             <exportVideoClipsFetcher.Form
               method="post"
               action={`/api/videos/${props.videoId}/export`}
@@ -172,6 +161,7 @@ export const VideoEditor = (props: {
                 Export
               </Button>
             </exportVideoClipsFetcher.Form>
+            <OBSConnectionButton state={obsConnector.state} />
           </div>
         </div>
         <div className="flex gap-3 h-full flex-col">

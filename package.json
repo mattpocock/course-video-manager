@@ -40,6 +40,7 @@
     "isbot": "^5.1.27",
     "katex": "^0.16.22",
     "lucide-react": "^0.525.0",
+    "obs-websocket-js": "^5.0.6",
     "openai": "^5.10.2",
     "postgres": "^3.4.7",
     "react": "^19.1.0",
