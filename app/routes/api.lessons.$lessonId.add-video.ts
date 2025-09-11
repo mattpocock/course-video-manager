@@ -3,6 +3,7 @@ import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import type { Route } from "./+types/api.lessons.$lessonId.add-video";
 import { redirect } from "react-router";
+import { withDatabaseDump } from "@/services/dump-service";
 
 const addVideoSchema = Schema.Struct({
   path: Schema.String,
@@ -25,5 +26,5 @@ export const action = async (args: Route.ActionArgs) => {
     });
 
     return redirect(`/videos/${video.id}/edit`);
-  }).pipe(Effect.provide(layerLive), Effect.runPromise);
+  }).pipe(withDatabaseDump, Effect.provide(layerLive), Effect.runPromise);
 };
