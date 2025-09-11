@@ -16,7 +16,7 @@ export const action = async (args: Route.ActionArgs) => {
 
     const latestOBSVideoClips = yield* ttCliService.getLatestOBSVideoClips();
 
-    const clips = yield* db.appendClips(videoId, latestOBSVideoClips);
+    const clips = yield* db.appendClips(videoId, latestOBSVideoClips.clips);
 
     return clips;
   }).pipe(Effect.provide(layerLive), Effect.runPromise);

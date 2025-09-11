@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ChevronLeftIcon, Loader2, PlusIcon } from "lucide-react";
+import { ChevronLeftIcon, DownloadIcon, Loader2, PlusIcon } from "lucide-react";
 import { useEffect, useReducer, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { PreloadableClipManager } from "./preloadable-clip";
@@ -123,6 +123,7 @@ export const VideoEditor = (props: {
   }, []);
 
   const appendFromOBSFetcher = useFetcher();
+  const exportVideoClipsFetcher = useFetcher();
 
   return (
     <div className="flex gap-6">
@@ -153,9 +154,22 @@ export const VideoEditor = (props: {
                 Append From OBS
               </Button>
             </appendFromOBSFetcher.Form>
+            <exportVideoClipsFetcher.Form
+              method="post"
+              action={`/api/videos/${props.videoId}/export`}
+            >
+              <Button variant="default">
+                {exportVideoClipsFetcher.state === "submitting" ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <DownloadIcon className="w-4 h-4 mr-1" />
+                )}
+                Export
+              </Button>
+            </exportVideoClipsFetcher.Form>
           </div>
         </div>
-        <div className="flex-wrap flex gap-2 h-full">
+        <div className="flex gap-3 h-full flex-col">
           {state.clips.map((clip) => {
             const duration = clip.sourceEndTime - clip.sourceStartTime;
 
@@ -166,12 +180,11 @@ export const VideoEditor = (props: {
             return (
               <button
                 key={clip.id}
-                style={{ width: `${duration * 50}px` }}
                 className={cn(
-                  "bg-gray-800 p-2 rounded-md text-left block relative overflow-hidden h-12",
+                  "bg-gray-800 px-4 py-2 rounded-md text-left block relative overflow-hidden",
                   state.selectedClipsSet.has(clip.id) &&
                     "outline-2 outline-blue-200 bg-gray-600",
-                  clip.id === currentClipId && "bg-blue-500"
+                  clip.id === currentClipId && "bg-blue-900"
                 )}
                 onClick={(e) => {
                   dispatch({
@@ -185,26 +198,33 @@ export const VideoEditor = (props: {
                 {/* Moving bar indicator */}
                 {clip.id === currentClipId && (
                   <div
-                    className="absolute top-0 left-0 w-full h-full bg-blue-400 z-0"
+                    className="absolute top-0 left-0 w-full h-full bg-blue-700 z-0"
                     style={{
                       width: `${percentComplete * 100}%`,
                       height: "100%",
                     }}
                   />
                 )}
-                {waveformData && (
+                {/* {waveformData && (
                   <div className="absolute bottom-0 left-0 w-full h-full flex items-end z-0">
                     {waveformData.map((data, index) => {
                       return (
                         <div
                           key={index}
                           style={{ height: `${data * 120}px`, width: "0.5%" }}
-                          className="bg-blue-300 z-0"
+                          className={cn(
+                            "z-0",
+                            "bg-gray-700",
+                            clip.id === currentClipId && "bg-blue-800"
+                          )}
                         />
                       );
                     })}
                   </div>
-                )}
+                )} */}
+                <span className="z-10 relative text-white text-sm mr-4">
+                  {clip.text}
+                </span>
                 {/* <Button
                 className="z-10 relative"
                 onClick={() => {

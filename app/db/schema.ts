@@ -102,6 +102,7 @@ export const clips = createTable("clip", {
   }),
   order: varchar("order", { length: 255 }).notNull(),
   archived: boolean("archived").notNull().default(false),
+  text: text("text").notNull(),
 });
 
 export const clipsRelations = relations(clips, ({ one }) => ({

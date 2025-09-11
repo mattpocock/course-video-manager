@@ -12,7 +12,7 @@ import { Effect } from "effect";
 import type { Clip, ClipState } from "@/features/video-editor/reducer";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { Link, useFetcher } from "react-router";
-import { ChevronLeftIcon, Loader2, PlusIcon } from "lucide-react";
+import { ChevronLeftIcon, DownloadIcon, Loader2, PlusIcon } from "lucide-react";
 import { TitleSection } from "@/features/video-editor/title-section";
 
 // Core data model - flat array of clips

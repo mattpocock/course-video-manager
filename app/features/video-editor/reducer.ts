@@ -3,6 +3,7 @@ export interface Clip {
   videoFilename: string;
   sourceStartTime: number; // Start time in source video (seconds)
   sourceEndTime: number; // End time in source video (seconds)
+  text: string;
 }
 
 export type ClipState = "playing" | "paused";

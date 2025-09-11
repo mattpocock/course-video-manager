@@ -205,6 +205,16 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
           inputVideo: string;
           startTime: number;
           endTime: number;
+          segments: readonly {
+            start: number;
+            end: number;
+            text: string;
+          }[];
+          words: readonly {
+            start: number;
+            end: number;
+            text: string;
+          }[];
         }[]
       ) {
         const lastClip = yield* makeDbCall(() =>
@@ -233,6 +243,7 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
                 sourceEndTime: clip.endTime,
                 order: order[index]!,
                 archived: false,
+                text: clip.segments.map((segment) => segment.text).join(" "),
               }))
             )
             .returning()

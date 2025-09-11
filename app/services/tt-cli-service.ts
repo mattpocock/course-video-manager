@@ -6,13 +6,29 @@ import {
   NodeRuntime,
 } from "@effect/platform-node";
 
-const getLatestOBSVideoClipsSchema = Schema.Array(
-  Schema.Struct({
-    inputVideo: Schema.String,
-    startTime: Schema.Number,
-    endTime: Schema.Number,
-  })
-);
+const getLatestOBSVideoClipsSchema = Schema.Struct({
+  clips: Schema.Array(
+    Schema.Struct({
+      inputVideo: Schema.String,
+      startTime: Schema.Number,
+      endTime: Schema.Number,
+      words: Schema.Array(
+        Schema.Struct({
+          start: Schema.Number,
+          end: Schema.Number,
+          text: Schema.String,
+        })
+      ),
+      segments: Schema.Array(
+        Schema.Struct({
+          start: Schema.Number,
+          end: Schema.Number,
+          text: Schema.String,
+        })
+      ),
+    })
+  ),
+});
 
 class CouldNotParseJsonError extends Data.TaggedError(
   "CouldNotParseJsonError"
@@ -46,8 +62,27 @@ export class TotalTypeScriptCLIService extends Effect.Service<TotalTypeScriptCLI
         }
       );
 
+      const exportVideoClips = Effect.fn("exportVideoClips")(function* (
+        videoId: string,
+        clips: {
+          inputVideo: string;
+          startTime: number;
+          duration: number;
+        }[]
+      ) {
+        const command = Command.make(
+          "tt",
+          "create-video-from-clips",
+          JSON.stringify(clips),
+          videoId
+        );
+        const result = yield* Command.string(command);
+        return result;
+      });
+
       return {
         getLatestOBSVideoClips,
+        exportVideoClips,
       };
     }),
     dependencies: [NodeContext.layer],
