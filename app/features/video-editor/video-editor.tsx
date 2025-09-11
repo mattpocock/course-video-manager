@@ -131,8 +131,66 @@ export const VideoEditor = (props: {
   const exportVideoClipsFetcher = useFetcher();
 
   return (
-    <div className="flex gap-6">
-      <div className="flex-1 p-6 flex-wrap flex gap-2 h-full">
+    <div className="flex flex-col lg:flex-row p-6 gap-6 gap-y-10">
+      {/* Video Player Section - Shows first on mobile, second on desktop */}
+      <div className="lg:flex-1 relative order-1 lg:order-2">
+        <div className="sticky top-6">
+          <div className="">
+            <div className="mb-4">
+              <TitleSection
+                videoPath={props.videoPath}
+                lessonPath={props.lessonPath}
+                repoName={props.repoName}
+              />
+            </div>
+
+            <PreloadableClipManager
+              clipsToAggressivelyPreload={clipsToAggressivelyPreload}
+              clips={state.clips.filter((clip) =>
+                state.clipIdsPreloaded.has(clip.id)
+              )}
+              finalClipId={
+                props.initialClips[props.initialClips.length - 1]?.id
+              }
+              state={state.runningState}
+              currentClipId={currentClipId}
+              onClipFinished={() => {
+                dispatch({ type: "clip-finished" });
+              }}
+              onUpdateCurrentTime={(time) => {
+                dispatch({ type: "update-clip-current-time", time });
+              }}
+              playbackRate={state.playbackRate}
+            />
+            <div className="flex gap-2 mt-4">
+              <Button asChild variant="secondary">
+                <Link to={`/?repoId=${props.repoId}#${props.lessonId}`}>
+                  <ChevronLeftIcon className="w-4 h-4 mr-1" />
+                  Go Back
+                </Link>
+              </Button>
+
+              <exportVideoClipsFetcher.Form
+                method="post"
+                action={`/api/videos/${props.videoId}/export`}
+              >
+                <Button variant="default">
+                  {exportVideoClipsFetcher.state === "submitting" ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <DownloadIcon className="w-4 h-4 mr-1" />
+                  )}
+                  Export
+                </Button>
+              </exportVideoClipsFetcher.Form>
+              <OBSConnectionButton state={props.obsConnectorState} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Clips Section - Shows second on mobile, first on desktop */}
+      <div className="lg:flex-1 flex-wrap flex gap-2 h-full order-2 lg:order-1">
         <div className="flex gap-3 h-full flex-col">
           {state.clips.map((clip) => {
             const duration = clip.sourceEndTime - clip.sourceStartTime;
@@ -218,61 +276,6 @@ export const VideoEditor = (props: {
               </button>
             );
           })}
-        </div>
-      </div>
-      <div className="flex-1 relative">
-        <div className="sticky top-0 p-6">
-          <div className="">
-            <div className="mb-4">
-              <TitleSection
-                videoPath={props.videoPath}
-                lessonPath={props.lessonPath}
-                repoName={props.repoName}
-              />
-            </div>
-
-            <PreloadableClipManager
-              clipsToAggressivelyPreload={clipsToAggressivelyPreload}
-              clips={state.clips.filter((clip) =>
-                state.clipIdsPreloaded.has(clip.id)
-              )}
-              finalClipId={
-                props.initialClips[props.initialClips.length - 1]?.id
-              }
-              state={state.runningState}
-              currentClipId={currentClipId}
-              onClipFinished={() => {
-                dispatch({ type: "clip-finished" });
-              }}
-              onUpdateCurrentTime={(time) => {
-                dispatch({ type: "update-clip-current-time", time });
-              }}
-              playbackRate={state.playbackRate}
-            />
-            <div className="flex gap-2 mt-4">
-              <Button asChild variant="secondary">
-                <Link to={`/?repoId=${props.repoId}#${props.lessonId}`}>
-                  <ChevronLeftIcon className="w-4 h-4 mr-1" />
-                  Go Back
-                </Link>
-              </Button>
-
-              <exportVideoClipsFetcher.Form
-                method="post"
-                action={`/api/videos/${props.videoId}/export`}
-              >
-                <Button variant="default">
-                  {exportVideoClipsFetcher.state === "submitting" ? (
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  ) : (
-                    <DownloadIcon className="w-4 h-4 mr-1" />
-                  )}
-                  Export
-                </Button>
-              </exportVideoClipsFetcher.Form>
-              <OBSConnectionButton state={props.obsConnectorState} />
-            </div>
-          </div>
         </div>
       </div>
     </div>
