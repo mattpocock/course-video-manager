@@ -16,6 +16,7 @@ export interface State {
   currentTimeInClip: number;
   selectedClipsSet: Set<string>;
   playbackRate: number;
+  forceViewTimeline: boolean;
 }
 
 export type Effect = {
@@ -66,6 +67,12 @@ export type Action =
     }
   | {
       type: "press-l";
+    }
+  | {
+      type: "keydown-v";
+    }
+  | {
+      type: "keyup-v";
     }
   | {
       type: "press-home";
@@ -121,6 +128,10 @@ export const makeVideoEditorReducer =
   (reportEffect: (effect: Effect) => void) =>
   (state: State, action: Action): State => {
     switch (action.type) {
+      case "keydown-v":
+        return { ...state, forceViewTimeline: true };
+      case "keyup-v":
+        return { ...state, forceViewTimeline: false };
       case "clips-updated-from-props":
         return {
           ...state,

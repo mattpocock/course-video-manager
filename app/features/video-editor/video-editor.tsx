@@ -67,6 +67,7 @@ export const VideoEditor = (props: {
       }
     }),
     {
+      forceViewTimeline: false,
       runningState: "paused",
       clips: props.initialClips,
       currentClipId: props.initialClips[0]?.id ?? "",
@@ -129,10 +130,19 @@ export const VideoEditor = (props: {
         dispatch({ type: "press-home" });
       } else if (e.key === "End") {
         dispatch({ type: "press-end" });
+      } else if (e.key === "v") {
+        dispatch({ type: "keydown-v" });
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "v") {
+        dispatch({ type: "keyup-v" });
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
@@ -144,6 +154,11 @@ export const VideoEditor = (props: {
   const totalDuration = state.clips.reduce((acc, clip) => {
     return acc + (clip.sourceEndTime - clip.sourceStartTime);
   }, 0);
+
+  const shouldShowVideoPlayer =
+    !props.liveMediaStream ||
+    state.runningState === "playing" ||
+    state.forceViewTimeline;
 
   return (
     <div className="flex flex-col lg:flex-row p-6 gap-6 gap-y-10">
@@ -168,7 +183,7 @@ export const VideoEditor = (props: {
               <div
                 className={cn(
                   "w-full h-full relative",
-                  state.runningState === "playing" && "hidden"
+                  shouldShowVideoPlayer && "hidden"
                 )}
               >
                 {props.obsConnectorState.type === "obs-recording" && (
@@ -181,13 +196,7 @@ export const VideoEditor = (props: {
                 />
               </div>
             )}
-            <div
-              className={cn(
-                props.liveMediaStream &&
-                  state.runningState === "paused" &&
-                  "hidden"
-              )}
-            >
+            <div className={cn(!shouldShowVideoPlayer && "hidden")}>
               <PreloadableClipManager
                 clipsToAggressivelyPreload={clipsToAggressivelyPreload}
                 clips={state.clips.filter((clip) =>
