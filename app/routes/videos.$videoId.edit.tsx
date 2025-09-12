@@ -4,10 +4,10 @@ import {
   useOBSConnector,
 } from "@/features/video-editor/obs-connector";
 import { TitleSection } from "@/features/video-editor/title-section";
+import { useSpeechDetector } from "@/features/video-editor/use-speech-detector";
 import {
   LiveMediaStream,
   RecordingSignalIndicator,
-  useSpeechDetector,
   VideoEditor,
 } from "@/features/video-editor/video-editor";
 import { DBService } from "@/services/db-service";
