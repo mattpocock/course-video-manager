@@ -4,6 +4,7 @@ import { Effect, Schema } from "effect";
 import type { Route } from "./+types/api.videos.edit-latest-obs-video";
 import { execSync } from "child_process";
 import { withDatabaseDump } from "@/services/dump-service";
+import { Command } from "@effect/platform";
 
 const editLatestObsVideoSchema = Schema.Struct({
   lessonId: Schema.String,
@@ -27,14 +28,16 @@ export const action = async (args: Route.ActionArgs) => {
       originalFootagePath: "",
     });
 
-    const originalFootagePath = execSync(
-      "tt queue-auto-edited-video-for-course " + video.id
-    )
-      .toString()
-      .trim();
+    const cmd = Command.make(
+      "tt",
+      "queue-auto-edited-video-for-course",
+      video.id
+    );
+
+    const originalFootagePath = yield* Command.string(cmd);
 
     yield* db.updateVideo(video.id, {
-      originalFootagePath: originalFootagePath,
+      originalFootagePath: originalFootagePath.trim(),
     });
 
     return video;
