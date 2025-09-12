@@ -4,7 +4,10 @@ import {
   useOBSConnector,
 } from "@/features/video-editor/obs-connector";
 import { TitleSection } from "@/features/video-editor/title-section";
-import { VideoEditor } from "@/features/video-editor/video-editor";
+import {
+  LiveMediaStream,
+  VideoEditor,
+} from "@/features/video-editor/video-editor";
 import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import { Effect } from "effect";
@@ -85,6 +88,11 @@ export default function Component(props: Route.ComponentProps) {
             manuallyAppendFromOBS={obsConnector.manuallyAppendFromOBS}
           />
         </div>
+        {obsConnector.mediaStream && (
+          <div className="w-full h-full">
+            <LiveMediaStream mediaStream={obsConnector.mediaStream} />
+          </div>
+        )}
       </div>
     );
   }
@@ -101,6 +109,7 @@ export default function Component(props: Route.ComponentProps) {
       repoName={props.loaderData.video.lesson.section.repo.name}
       videoId={props.loaderData.video.id}
       manuallyAppendFromOBS={obsConnector.manuallyAppendFromOBS}
+      liveMediaStream={obsConnector.mediaStream}
     />
   );
 }

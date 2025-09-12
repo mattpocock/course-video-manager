@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeftIcon, DownloadIcon, Loader2 } from "lucide-react";
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { OBSConnectionButton, type OBSConnectionState } from "./obs-connector";
 import { PreloadableClipManager } from "./preloadable-clip";
@@ -48,6 +48,7 @@ export const VideoEditor = (props: {
   lessonId: string;
   videoId: string;
   manuallyAppendFromOBS: () => void;
+  liveMediaStream: MediaStream | null;
 }) => {
   const { setClipsToArchive } = useDebounceArchiveClips();
 
@@ -154,6 +155,12 @@ export const VideoEditor = (props: {
                 repoName={props.repoName}
               />
             </div>
+
+            {props.liveMediaStream && (
+              <div className="w-full h-full">
+                <LiveMediaStream mediaStream={props.liveMediaStream} />
+              </div>
+            )}
 
             <PreloadableClipManager
               clipsToAggressivelyPreload={clipsToAggressivelyPreload}
@@ -304,4 +311,19 @@ export const VideoEditor = (props: {
 
 const formatSecondsToTime = (seconds: number) => {
   return seconds.toFixed(1) + "s";
+};
+
+export const LiveMediaStream = (props: { mediaStream: MediaStream }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  console.log(videoRef.current, props.mediaStream);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = props.mediaStream;
+      videoRef.current.play();
+    }
+  }, [props.mediaStream, videoRef.current]);
+
+  return <video className="w-full h-full" ref={videoRef} />;
 };
