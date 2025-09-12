@@ -176,6 +176,15 @@ export const makeVideoEditorReducer =
         }
         const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
 
+        if (state.currentClipId === mostRecentClipId) {
+          return {
+            ...state,
+            selectedClipsSet: new Set([state.currentClipId]),
+            runningState:
+              state.runningState === "playing" ? "paused" : "playing",
+          };
+        }
+
         return preloadSelectedClips({
           ...state,
           currentClipId: mostRecentClipId,
