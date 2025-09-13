@@ -3,6 +3,10 @@ import { OBSWebSocket } from "obs-websocket-js";
 import { useFetcher } from "react-router";
 import { Button } from "@/components/ui/button";
 import { CheckIcon, Loader2, Mic, MicIcon } from "lucide-react";
+import {
+  useSpeechDetector,
+  useWatchForSpeechDetected,
+} from "./use-speech-detector";
 
 export type OBSConnectionState =
   | {
@@ -14,10 +18,12 @@ export type OBSConnectionState =
   | {
       type: "obs-connected";
       profile: string;
+      latestOutputPath: string | null;
     }
   | {
       type: "obs-recording";
       profile: string;
+      latestOutputPath: string;
     };
 
 const createNotRunningListener = (
@@ -158,6 +164,8 @@ export const useOBSImportQueue = (props: {
   };
 };
 
+const TIME_AFTER_CLIP_DELAY = 1800;
+
 export const useOBSConnector = (props: {
   videoId: string;
   onImportComplete: () => void;
@@ -182,6 +190,7 @@ export const useOBSConnector = (props: {
           setState({
             type: "obs-connected",
             profile: profile.currentProfileName,
+            latestOutputPath: null,
           });
         })
         .catch((e) => {
@@ -215,9 +224,17 @@ export const useOBSConnector = (props: {
         outputPath: string;
       }) => {
         if (e.outputState === "OBS_WEBSOCKET_OUTPUT_STARTED") {
-          setState({ type: "obs-recording", profile: state.profile });
+          setState({
+            type: "obs-recording",
+            profile: state.profile,
+            latestOutputPath: e.outputPath,
+          });
         } else if (e.outputState === "OBS_WEBSOCKET_OUTPUT_STOPPED") {
-          setState({ type: "obs-connected", profile: state.profile });
+          setState({
+            type: "obs-connected",
+            profile: state.profile,
+            latestOutputPath: e.outputPath,
+          });
           addToImportQueue(e.outputPath);
         }
       };
@@ -225,8 +242,11 @@ export const useOBSConnector = (props: {
       websocket.on("RecordStateChanged", recordingListener);
 
       const currentProfileChangedListener = (e: { profileName: string }) => {
-        console.log("currentProfileChangedListener", e.profileName);
-        setState({ type: state.type, profile: e.profileName });
+        setState({
+          type: state.type,
+          profile: e.profileName,
+          latestOutputPath: state.latestOutputPath!,
+        });
       };
 
       websocket.on("CurrentProfileChanged", currentProfileChangedListener);
@@ -246,10 +266,24 @@ export const useOBSConnector = (props: {
     websocket,
   });
 
+  const speechDetectorState = useSpeechDetector({
+    mediaStream,
+    isRecording: state.type === "obs-recording",
+  });
+
+  useWatchForSpeechDetected(speechDetectorState, () => {
+    setTimeout(() => {
+      if (state.type === "obs-recording" || state.type === "obs-connected") {
+        addToImportQueue(state.latestOutputPath!);
+      }
+    }, TIME_AFTER_CLIP_DELAY);
+  });
+
   return {
     state,
     mediaStream,
     isImporting,
+    speechDetectorState,
   };
 };
 

@@ -2,7 +2,7 @@ import { DBService } from "@/services/db-service";
 import { withDatabaseDump } from "@/services/dump-service";
 import { layerLive } from "@/services/layer";
 import { TotalTypeScriptCLIService } from "@/services/tt-cli-service";
-import { Effect, Schema } from "effect";
+import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/videos.$videoId.append-from-obs";
 
 const appendFromOBSSchema = Schema.Struct({
@@ -45,8 +45,34 @@ export const action = async (args: Route.ActionArgs) => {
       return [];
     }
 
-    const clips = yield* db.appendClips(videoId, latestOBSVideoClips.clips);
+    const { clips: existingClips } = yield* db.getVideoWithClipsById(videoId, {
+      withArchived: true,
+    });
+
+    // Only add new clips
+    const clipsToAdd = latestOBSVideoClips.clips.filter(
+      (clip) =>
+        !existingClips.some(
+          (existingClip) =>
+            existingClip.videoFilename === clip.inputVideo &&
+            existingClip.sourceStartTime === clip.startTime &&
+            existingClip.sourceEndTime === clip.endTime
+        )
+    );
+
+    if (clipsToAdd.length === 0) {
+      return [];
+    }
+
+    const clips = yield* db.appendClips(videoId, clipsToAdd);
 
     return clips;
-  }).pipe(withDatabaseDump, Effect.provide(layerLive), Effect.runPromise);
+  }).pipe(
+    withDatabaseDump,
+    Effect.tapErrorCause((e) => {
+      return Console.log(e);
+    }),
+    Effect.provide(layerLive),
+    Effect.runPromise
+  );
 };

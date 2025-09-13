@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type SpeechDetectorState =
   | {
@@ -178,4 +178,22 @@ export const useSpeechDetector = (opts: {
   }, [opts.mediaStream, state]);
 
   return resolveFrontendSpeechDetectorState(state);
+};
+
+export const useWatchForSpeechDetected = (
+  frontendSpeechDetectorState: FrontendSpeechDetectorState,
+  onSpeechDetected: () => void
+) => {
+  const prevState = useRef<FrontendSpeechDetectorState>(
+    frontendSpeechDetectorState
+  );
+  useEffect(() => {
+    if (
+      prevState.current === "long-enough-speaking-for-clip-detected" &&
+      frontendSpeechDetectorState === "silence"
+    ) {
+      onSpeechDetected();
+    }
+    prevState.current = frontendSpeechDetectorState;
+  }, [frontendSpeechDetectorState, onSpeechDetected]);
 };

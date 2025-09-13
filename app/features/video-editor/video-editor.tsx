@@ -160,8 +160,6 @@ export const VideoEditor = (props: {
     state.runningState === "playing" ||
     state.forceViewTimeline;
 
-  console.log(props.obsConnectorState);
-
   return (
     <div className="flex flex-col lg:flex-row p-6 gap-6 gap-y-10">
       {/* Video Player Section - Shows first on mobile, second on desktop */}

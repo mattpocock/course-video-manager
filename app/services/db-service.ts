@@ -130,7 +130,10 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
     });
 
     const getVideoWithClipsById = Effect.fn("getVideoWithClipsById")(function* (
-      id: string
+      id: string,
+      opts?: {
+        withArchived?: boolean;
+      }
     ) {
       const video = yield* makeDbCall(() =>
         db.query.videos.findFirst({
@@ -147,7 +150,9 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
             },
             clips: {
               orderBy: asc(clips.order),
-              where: eq(clips.archived, false),
+              ...(opts?.withArchived
+                ? {}
+                : { where: eq(clips.archived, false) }),
             },
           },
         })
