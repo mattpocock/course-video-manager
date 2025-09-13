@@ -288,20 +288,24 @@ export const useOBSConnector = (props: {
     isRecording: state.type === "obs-recording",
   });
 
-  useWatchForSpeechDetected(speechDetectorState, () => {
-    if (state.type === "obs-recording" && !state.hasSpeechBeenDetected) {
-      setState({
-        ...state,
-        hasSpeechBeenDetected: true,
-      });
-    }
-
-    if (state.type === "obs-recording") {
-      props.onNewClipOptimisticallyAdded({
-        type: "optimistically-added",
-        id: crypto.randomUUID(),
-      });
-    }
+  useWatchForSpeechDetected({
+    state: speechDetectorState,
+    onSpeechPartEnded: () => {
+      if (state.type === "obs-recording" && !state.hasSpeechBeenDetected) {
+        setState({
+          ...state,
+          hasSpeechBeenDetected: true,
+        });
+      }
+    },
+    onSpeechPartStarted: () => {
+      if (state.type === "obs-recording") {
+        props.onNewClipOptimisticallyAdded({
+          type: "optimistically-added",
+          id: crypto.randomUUID(),
+        });
+      }
+    },
   });
 
   return {

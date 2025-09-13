@@ -331,12 +331,6 @@ export const VideoEditor = (props: {
             );
           })}
         </div>
-        {props.obsConnectorState.type === "obs-recording" && (
-          <div className="text-sm text-muted-foreground flex justify-center items-center w-full mt-4">
-            <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-            <span>Appending video from OBS...</span>
-          </div>
-        )}
       </div>
     </div>
   );

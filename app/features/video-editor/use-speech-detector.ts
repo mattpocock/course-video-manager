@@ -189,20 +189,25 @@ export const useSpeechDetector = (opts: {
   return resolveFrontendSpeechDetectorState(state);
 };
 
-export const useWatchForSpeechDetected = (
-  frontendSpeechDetectorState: FrontendSpeechDetectorState,
-  onSpeechDetected: () => void
-) => {
-  const prevState = useRef<FrontendSpeechDetectorState>(
-    frontendSpeechDetectorState
-  );
+export const useWatchForSpeechDetected = (opts: {
+  state: FrontendSpeechDetectorState;
+  onSpeechPartEnded: () => void;
+  onSpeechPartStarted: () => void;
+}) => {
+  const prevState = useRef<FrontendSpeechDetectorState>(opts.state);
   useEffect(() => {
     if (
       prevState.current.type === "long-enough-speaking-for-clip-detected" &&
-      frontendSpeechDetectorState.type === "silence"
+      opts.state.type === "silence"
     ) {
-      onSpeechDetected();
+      opts.onSpeechPartEnded();
     }
-    prevState.current = frontendSpeechDetectorState;
-  }, [frontendSpeechDetectorState, onSpeechDetected]);
+    if (
+      prevState.current.type === "speaking-detected" &&
+      opts.state.type === "long-enough-speaking-for-clip-detected"
+    ) {
+      opts.onSpeechPartStarted();
+    }
+    prevState.current = opts.state;
+  }, [opts.state, opts.onSpeechPartEnded]);
 };
