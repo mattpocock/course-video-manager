@@ -13,9 +13,11 @@ export type OBSConnectionState =
     }
   | {
       type: "obs-connected";
+      profile: string;
     }
   | {
       type: "obs-recording";
+      profile: string;
     };
 
 const createNotRunningListener = (
@@ -34,7 +36,7 @@ const createNotRunningListener = (
 };
 
 export const useConnectToOBSVirtualCamera = (props: {
-  connected: boolean;
+  state: OBSConnectionState;
   websocket: OBSWebSocket;
 }) => {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -46,7 +48,10 @@ export const useConnectToOBSVirtualCamera = (props: {
 
   // Manage virtualCameraState
   useEffect(() => {
-    if (!props.connected) {
+    if (
+      props.state.type !== "obs-connected" &&
+      props.state.type !== "obs-recording"
+    ) {
       cleanupMediaStream();
 
       return;
@@ -87,7 +92,6 @@ export const useConnectToOBSVirtualCamera = (props: {
           video: {
             deviceId: obsVirtualcamDevice.deviceId,
             width: 1280,
-            height: 720,
           },
           audio: true,
         });
@@ -99,7 +103,7 @@ export const useConnectToOBSVirtualCamera = (props: {
     return () => {
       unmounted = true;
     };
-  }, [props.connected, props.websocket]);
+  }, [props.state, props.websocket]);
 
   return mediaStream;
 };
@@ -173,8 +177,12 @@ export const useOBSConnector = (props: {
     if (state.type === "checking-obs-connection-status") {
       websocket
         .connect("ws://192.168.1.55:4455")
-        .then(() => {
-          setState({ type: "obs-connected" });
+        .then(async () => {
+          const profile = await websocket.call("GetProfileList");
+          setState({
+            type: "obs-connected",
+            profile: profile.currentProfileName,
+          });
         })
         .catch((e) => {
           console.error(e);
@@ -207,22 +215,34 @@ export const useOBSConnector = (props: {
         outputPath: string;
       }) => {
         if (e.outputState === "OBS_WEBSOCKET_OUTPUT_STARTED") {
-          setState({ type: "obs-recording" });
+          setState({ type: "obs-recording", profile: state.profile });
         } else if (e.outputState === "OBS_WEBSOCKET_OUTPUT_STOPPED") {
-          setState({ type: "obs-connected" });
+          setState({ type: "obs-connected", profile: state.profile });
           addToImportQueue(e.outputPath);
         }
       };
 
       websocket.on("RecordStateChanged", recordingListener);
+
+      const currentProfileChangedListener = (e: { profileName: string }) => {
+        console.log("currentProfileChangedListener", e.profileName);
+        setState({ type: state.type, profile: e.profileName });
+      };
+
+      websocket.on("CurrentProfileChanged", currentProfileChangedListener);
+
       return () => {
-        websocket.removeAllListeners();
+        websocket.removeListener("RecordStateChanged", recordingListener);
+        websocket.removeListener(
+          "CurrentProfileChanged",
+          currentProfileChangedListener
+        );
       };
     }
   }, [state]);
 
   const mediaStream = useConnectToOBSVirtualCamera({
-    connected: state.type === "obs-connected" || state.type === "obs-recording",
+    state,
     websocket,
   });
 

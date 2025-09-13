@@ -160,6 +160,8 @@ export const VideoEditor = (props: {
     state.runningState === "playing" ||
     state.forceViewTimeline;
 
+  console.log(props.obsConnectorState);
+
   return (
     <div className="flex flex-col lg:flex-row p-6 gap-6 gap-y-10">
       {/* Video Player Section - Shows first on mobile, second on desktop */}
@@ -182,7 +184,11 @@ export const VideoEditor = (props: {
             {props.liveMediaStream && (
               <div
                 className={cn(
-                  "w-full h-full relative",
+                  "w-full h-full relative aspect-[16/9]",
+                  (props.obsConnectorState.type === "obs-connected" ||
+                    props.obsConnectorState.type === "obs-recording") &&
+                    props.obsConnectorState.profile === "TikTok" &&
+                    "w-92 aspect-[9/16]",
                   shouldShowVideoPlayer && "hidden"
                 )}
               >
