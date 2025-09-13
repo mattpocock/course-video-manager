@@ -11,6 +11,11 @@ export type ClipOnDatabase = {
 export type ClipOptimisticallyAdded = {
   type: "optimistically-added";
   id: string;
+  /**
+   * If true, when the optimistically added clip is replaced with the database clip,
+   * the clip will be archived. Allows the user to delete the clip before it's transcribed.
+   */
+  shouldArchive?: boolean;
 };
 
 export type Clip = ClipOnDatabase | ClipOptimisticallyAdded;

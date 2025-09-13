@@ -17,27 +17,6 @@ import { TitleSection } from "./title-section";
 import { type FrontendSpeechDetectorState } from "./use-speech-detector";
 import { useDebounceIdStore } from "./utils";
 
-const useDebounceArchiveClips = () => {
-  const archiveClipFetcher = useFetcher();
-
-  const setClipsToArchive = useDebounceIdStore(
-    (ids) =>
-      archiveClipFetcher.submit(
-        { clipIds: ids },
-        {
-          method: "POST",
-          action: "/clips/archive",
-          encType: "application/json",
-        }
-      ),
-    500
-  );
-
-  return {
-    setClipsToArchive,
-  };
-};
-
 export const VideoEditor = (props: {
   obsConnectorState: OBSConnectionState;
   clips: Clip[];
@@ -52,13 +31,10 @@ export const VideoEditor = (props: {
   clipIdsBeingTranscribed: Set<string>;
   onClipsRemoved: (clipIds: string[]) => void;
 }) => {
-  const { setClipsToArchive } = useDebounceArchiveClips();
-
   const [state, dispatch] = useReducer(
     makeVideoEditorReducer(
       (effect) => {
         if (effect.type === "archive-clips") {
-          setClipsToArchive(effect.clipIds);
           props.onClipsRemoved(effect.clipIds);
         }
       },

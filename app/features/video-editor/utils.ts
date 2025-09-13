@@ -9,7 +9,7 @@ export const useDebounceIdStore = (
   useEffect(() => {
     if (ids.length === 0) return;
     const timeout = setTimeout(async () => {
-      await fn(ids);
+      await fn([...new Set(ids)]);
 
       setIds([]);
     }, delay);

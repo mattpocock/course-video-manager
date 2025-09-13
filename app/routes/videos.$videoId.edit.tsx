@@ -1,9 +1,16 @@
 import { Button } from "@/components/ui/button";
+import type { DB } from "@/db/schema";
 import {
   OBSConnectionButton,
   useOBSConnector,
 } from "@/features/video-editor/obs-connector";
+import type {
+  Clip,
+  ClipOnDatabase,
+  ClipOptimisticallyAdded,
+} from "@/features/video-editor/reducer";
 import { TitleSection } from "@/features/video-editor/title-section";
+import { useDebounceIdStore } from "@/features/video-editor/utils";
 import {
   LiveMediaStream,
   RecordingSignalIndicator,
@@ -13,12 +20,9 @@ import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import { Effect } from "effect";
 import { ChevronLeftIcon } from "lucide-react";
+import { startTransition, useEffect, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import type { Route } from "./+types/videos.$videoId.edit";
-import { useDebounceIdStore } from "@/features/video-editor/utils";
-import { useEffect, useState } from "react";
-import type { Clip, ClipOnDatabase } from "@/features/video-editor/reducer";
-import type { DB } from "@/db/schema";
 
 // Core data model - flat array of clips
 
@@ -83,6 +87,8 @@ const useDebounceTranscribeClips = (
 };
 
 export default function Component(props: Route.ComponentProps) {
+  const { setClipsToArchive } = useDebounceArchiveClips();
+
   const [clips, setClips] = useState<Clip[]>(
     props.loaderData.clips.map((clip) => ({
       ...clip,
@@ -93,27 +99,46 @@ export default function Component(props: Route.ComponentProps) {
   const obsConnector = useOBSConnector({
     videoId: props.loaderData.video.id,
     onNewDatabaseClips: (databaseClips) => {
+      const toArchive = new Set<string>();
       setClips((prev) => {
         const newClips = [...prev];
-        for (const clip of databaseClips) {
+        for (const databaseClip of databaseClips) {
+          // Find the most recently added optimistically added clip
           const optimisticallyAddedClipIndex = newClips.findIndex(
             (c) => c.type === "optimistically-added"
           );
-          if (optimisticallyAddedClipIndex !== -1) {
-            newClips[optimisticallyAddedClipIndex] = {
-              ...clip,
-              type: "on-database",
-            };
-          } else {
+
+          if (optimisticallyAddedClipIndex === -1) {
             newClips.push({
-              ...clip,
+              ...databaseClip,
               type: "on-database",
             });
+            continue;
+          }
+
+          const optimisticallyAddedClip = newClips[
+            optimisticallyAddedClipIndex
+          ]! as ClipOptimisticallyAdded;
+
+          // If the optimistically added clip should be archived,
+          // archive it and remove it from the list
+          if (optimisticallyAddedClip.shouldArchive) {
+            toArchive.add(databaseClip.id);
+            newClips.splice(optimisticallyAddedClipIndex, 1);
+          } else {
+            newClips[optimisticallyAddedClipIndex] = {
+              ...databaseClip,
+              type: "on-database",
+            };
           }
         }
 
         return newClips;
       });
+
+      if (toArchive.size > 0) {
+        setClipsToArchive(Array.from(toArchive));
+      }
 
       window.scrollTo({
         top: document.body.scrollHeight,
@@ -205,10 +230,52 @@ export default function Component(props: Route.ComponentProps) {
   return (
     <VideoEditor
       onClipsRemoved={(clipIds) => {
-        setClips((prev) => prev.filter((clip) => !clipIds.includes(clip.id)));
+        const clipsToRemove = clips.filter((clip) => clipIds.includes(clip.id));
+
+        console.log("clipsToRemove", clipsToRemove);
+
+        const optimisticClipsToMarkForArchive = clipsToRemove.filter(
+          (clip) => clip.type === "optimistically-added"
+        );
+
+        const databaseClipsToRemoveDirectly = clipsToRemove.filter(
+          (clip) => clip.type === "on-database"
+        );
+
+        startTransition(() => {
+          setClips((prev) =>
+            prev
+              // Remove the database clips directly
+              .filter((clip) =>
+                databaseClipsToRemoveDirectly.every((c) => c.id !== clip.id)
+              )
+              // Mark the optimistic clips for archive
+              .map((clip) => {
+                if (
+                  clip.type === "optimistically-added" &&
+                  optimisticClipsToMarkForArchive.some((c) => c.id === clip.id)
+                ) {
+                  return {
+                    ...clip,
+                    shouldArchive: true,
+                  };
+                }
+                return clip;
+              })
+          );
+
+          setClipsToArchive(
+            databaseClipsToRemoveDirectly.map((clip) => clip.id)
+          );
+        });
       }}
       obsConnectorState={obsConnector.state}
-      clips={clips}
+      clips={clips.filter((clip) => {
+        if (clip.type === "optimistically-added" && clip.shouldArchive) {
+          return false;
+        }
+        return true;
+      })}
       // waveformDataForClip={props.loaderData.waveformData ?? {}}
       repoId={props.loaderData.video.lesson.section.repo.id}
       lessonId={props.loaderData.video.lesson.id}
@@ -222,3 +289,24 @@ export default function Component(props: Route.ComponentProps) {
     />
   );
 }
+
+const useDebounceArchiveClips = () => {
+  const archiveClipFetcher = useFetcher();
+
+  const setClipsToArchive = useDebounceIdStore(
+    (ids) =>
+      archiveClipFetcher.submit(
+        { clipIds: ids },
+        {
+          method: "POST",
+          action: "/clips/archive",
+          encType: "application/json",
+        }
+      ),
+    500
+  );
+
+  return {
+    setClipsToArchive,
+  };
+};
