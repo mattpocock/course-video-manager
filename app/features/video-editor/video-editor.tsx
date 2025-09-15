@@ -9,7 +9,7 @@ import {
   MicIcon,
   MicOffIcon,
 } from "lucide-react";
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import type { Clip } from "./clip-state-reducer";
 import { OBSConnectionButton, type OBSConnectionState } from "./obs-connector";

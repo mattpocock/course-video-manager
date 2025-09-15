@@ -117,7 +117,7 @@ export const useConnectToOBSVirtualCamera = (props: {
     return () => {
       unmounted = true;
     };
-  }, [props.state, props.websocket]);
+  }, [props.state.type, props.websocket]);
 
   return mediaStream;
 };
