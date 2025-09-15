@@ -138,6 +138,7 @@ export default function Component(props: Route.ComponentProps) {
 
             <LiveMediaStream
               mediaStream={obsConnector.mediaStream}
+              obsConnectorState={obsConnector.state}
               speechDetectorState={obsConnector.speechDetectorState}
             />
           </div>
