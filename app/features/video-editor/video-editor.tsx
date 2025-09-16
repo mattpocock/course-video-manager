@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ChevronLeftIcon,
   DownloadIcon,
+  EyeIcon,
   Loader2,
   MicIcon,
   MicOffIcon,
@@ -44,7 +45,7 @@ export const VideoEditor = (props: {
       props.clips.map((clip) => clip.frontendId)
     ),
     {
-      forceViewTimeline: false,
+      showLastFrameOfVideo: false,
       runningState: "paused",
       currentClipId: props.clips[0]?.frontendId,
       currentTimeInClip: 0,
@@ -103,19 +104,10 @@ export const VideoEditor = (props: {
         dispatch({ type: "press-home" });
       } else if (e.key === "End") {
         dispatch({ type: "press-end" });
-      } else if (e.key === "v") {
-        dispatch({ type: "keydown-v" });
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "v") {
-        dispatch({ type: "keyup-v" });
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
@@ -130,6 +122,8 @@ export const VideoEditor = (props: {
       );
       if (data.type === "delete-last-clip") {
         dispatch({ type: "delete-last-clip" });
+      } else if (data.type === "toggle-last-frame-of-video") {
+        dispatch({ type: "toggle-last-frame-of-video" });
       }
     });
     return () => {
@@ -146,10 +140,19 @@ export const VideoEditor = (props: {
     return acc;
   }, 0);
 
-  const shouldShowVideoPlayer =
-    !props.liveMediaStream ||
-    state.runningState === "playing" ||
-    state.forceViewTimeline;
+  let viewMode: "video-player" | "live-stream" | "last-frame" = "video-player";
+
+  if (state.showLastFrameOfVideo) {
+    viewMode = "last-frame";
+  } else if (!props.liveMediaStream || state.runningState === "playing") {
+    viewMode = "video-player";
+  } else {
+    viewMode = "live-stream";
+  }
+
+  const lastDatabaseClip = props.clips.findLast(
+    (clip) => clip.type === "on-database"
+  );
 
   return (
     <div className="flex flex-col lg:flex-row p-6 gap-6 gap-y-10">
@@ -179,7 +182,7 @@ export const VideoEditor = (props: {
                     props.obsConnectorState.type === "obs-paused") &&
                     props.obsConnectorState.profile === "TikTok" &&
                     "w-92 aspect-[9/16]",
-                  shouldShowVideoPlayer && "hidden"
+                  viewMode !== "live-stream" && "hidden"
                 )}
               >
                 {props.obsConnectorState.type === "obs-recording" && (
@@ -193,7 +196,7 @@ export const VideoEditor = (props: {
                 />
               </div>
             )}
-            <div className={cn(!shouldShowVideoPlayer && "hidden")}>
+            <div className={cn(viewMode !== "video-player" && "hidden")}>
               <PreloadableClipManager
                 clipsToAggressivelyPreload={clipsToAggressivelyPreload}
                 clips={props.clips
@@ -211,6 +214,22 @@ export const VideoEditor = (props: {
                 playbackRate={state.playbackRate}
               />
             </div>
+            {lastDatabaseClip && (
+              <div
+                className={cn(
+                  viewMode !== "last-frame" && "hidden",
+                  "relative"
+                )}
+              >
+                <img
+                  className="w-full h-full rounded-lg outline-4 outline-orange-500"
+                  src={`/clips/${lastDatabaseClip.databaseId}/last-frame`}
+                />
+                <div className="absolute top-4 left-4 bg-orange-500 rounded-full size-8 flex items-center justify-center">
+                  <EyeIcon className="size-4 text-white" />
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 mt-4">
               <Button asChild variant="secondary">

@@ -1,6 +1,10 @@
-import { Command } from "@effect/platform";
+import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
 import { Data, Effect, Schema } from "effect";
+import { execSync } from "node:child_process";
+import crypto from "node:crypto";
+import path from "node:path";
+import { tmpdir } from "os";
 
 const getLatestOBSVideoClipsSchema = Schema.Struct({
   clips: Schema.Array(
@@ -43,6 +47,8 @@ export class TotalTypeScriptCLIService extends Effect.Service<TotalTypeScriptCLI
   "TotalTypeScriptCLIService",
   {
     effect: Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+
       const getLatestOBSVideoClips = Effect.fn("getLatestOBSVideoClips")(
         function* (opts: {
           filePath: string | undefined;
@@ -111,10 +117,48 @@ export class TotalTypeScriptCLIService extends Effect.Service<TotalTypeScriptCLI
         );
       });
 
+      const getLastFrame = Effect.fn("getLastFrame")(function* (
+        inputVideo: string,
+        seekTo: number
+      ) {
+        // A hash of the input video and seekTo
+        const inputHash = crypto
+          .createHash("sha256")
+          .update(inputVideo + seekTo.toFixed(2))
+          .digest("hex")
+          .slice(0, 10);
+
+        const folder = path.join(tmpdir(), "tt-cli-images");
+        yield* fs.makeDirectory(folder, { recursive: true });
+
+        const outputFile = path.join(folder, `${inputHash}.png`);
+
+        const outputFileExists = yield* fs.exists(outputFile);
+
+        if (outputFileExists) {
+          return outputFile;
+        }
+
+        const command = Command.make(
+          "ffmpeg",
+          "-ss",
+          seekTo.toFixed(2),
+          "-i",
+          inputVideo,
+          "-frames:v",
+          "1",
+          outputFile
+        );
+        const output = yield* Command.exitCode(command);
+
+        return outputFile;
+      });
+
       return {
         getLatestOBSVideoClips,
         exportVideoClips,
         transcribeClips,
+        getLastFrame,
       };
     }),
     dependencies: [NodeContext.layer],

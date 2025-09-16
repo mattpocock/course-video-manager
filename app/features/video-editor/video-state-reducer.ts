@@ -9,7 +9,7 @@ export interface State {
   currentTimeInClip: number;
   selectedClipsSet: Set<FrontendId>;
   playbackRate: number;
-  forceViewTimeline: boolean;
+  showLastFrameOfVideo: boolean;
 }
 
 export type Effect = {
@@ -65,12 +65,6 @@ export type Action =
       type: "press-l";
     }
   | {
-      type: "keydown-v";
-    }
-  | {
-      type: "keyup-v";
-    }
-  | {
       type: "press-home";
     }
   | {
@@ -78,6 +72,9 @@ export type Action =
     }
   | {
       type: "press-k";
+    }
+  | {
+      type: "toggle-last-frame-of-video";
     };
 
 const preloadSelectedClips = (clipIds: FrontendId[], state: State): State => {
@@ -117,10 +114,8 @@ export const makeVideoEditorReducer =
   (reportEffect: (effect: Effect) => void, clipIds: FrontendId[]) =>
   (state: State, action: Action): State => {
     switch (action.type) {
-      case "keydown-v":
-        return { ...state, forceViewTimeline: true };
-      case "keyup-v":
-        return { ...state, forceViewTimeline: false };
+      case "toggle-last-frame-of-video":
+        return { ...state, showLastFrameOfVideo: !state.showLastFrameOfVideo };
       case "press-space-bar":
         return {
           ...state,

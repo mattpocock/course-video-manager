@@ -33,6 +33,10 @@ const httpServer = http.createServer((req, res) => {
     sendMessage({
       type: "delete-last-clip",
     });
+  } else if (req.url === "/api/toggle-last-frame-of-video") {
+    sendMessage({
+      type: "toggle-last-frame-of-video",
+    });
   }
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Hello, world!");
