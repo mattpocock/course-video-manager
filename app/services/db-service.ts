@@ -55,6 +55,7 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
       clipId: string,
       updatedClip: {
         text?: string;
+        scene?: string;
         transcribedAt?: Date;
       }
     ) {

@@ -3,13 +3,22 @@ import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import {
   AlertCircleIcon,
+  CameraIcon,
   CheckIcon,
   ChevronLeftIcon,
+  CircleQuestionMarkIcon,
+  CodeIcon,
+  Columns2,
   DownloadIcon,
   EyeIcon,
   Loader2,
   MicIcon,
   MicOffIcon,
+  MonitorIcon,
+  SmileIcon,
+  SquareUserRound,
+  UserIcon,
+  UserRound,
 } from "lucide-react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
@@ -178,8 +187,7 @@ export const VideoEditor = (props: {
                 className={cn(
                   "w-full h-full relative aspect-[16/9]",
                   (props.obsConnectorState.type === "obs-connected" ||
-                    props.obsConnectorState.type === "obs-recording" ||
-                    props.obsConnectorState.type === "obs-paused") &&
+                    props.obsConnectorState.type === "obs-recording") &&
                     props.obsConnectorState.profile === "TikTok" &&
                     "w-92 aspect-[9/16]",
                   viewMode !== "live-stream" && "hidden"
@@ -287,7 +295,7 @@ export const VideoEditor = (props: {
                 className={cn(
                   "bg-gray-800 px-4 py-2 rounded-md text-left block relative overflow-hidden w-full",
                   state.selectedClipsSet.has(clip.frontendId) &&
-                    "outline-2 outline-blue-200 bg-gray-600",
+                    "outline-2 outline-gray-200 bg-gray-700",
                   clip.frontendId === currentClipId && "bg-blue-900"
                 )}
                 onClick={(e) => {
@@ -326,7 +334,23 @@ export const VideoEditor = (props: {
                     })}
                   </div>
                 )} */}
-                <span className="z-10 block relative text-white text-sm mr-6 leading-6">
+                <span className="z-10 relative text-white text-sm mr-6 leading-6 flex items-center">
+                  <div
+                    className={cn(
+                      "text-gray-400",
+                      clip.frontendId === currentClipId && "text-blue-100"
+                    )}
+                  >
+                    {clip.scene === "Camera" ? (
+                      <UserRound className="size-5 mr-4 flex-shrink-0" />
+                    ) : clip.scene === "No Face" ? (
+                      <MonitorIcon className="size-5 mr-4 flex-shrink-0" />
+                    ) : clip.scene === "Code" ? (
+                      <Columns2 className="size-5 mr-4 flex-shrink-0" />
+                    ) : (
+                      <CircleQuestionMarkIcon className="size-5 mr-4 flex-shrink-0" />
+                    )}
+                  </div>
                   {props.clipIdsBeingTranscribed.has(clip.frontendId) &&
                     clip.type === "on-database" &&
                     !clip.transcribedAt &&
@@ -337,7 +361,14 @@ export const VideoEditor = (props: {
                       </div>
                     )}
                   {clip.type === "on-database" ? (
-                    clip.text
+                    <span
+                      className={cn(
+                        "text-gray-100",
+                        clip.frontendId === currentClipId && "text-white"
+                      )}
+                    >
+                      {clip.text}
+                    </span>
                   ) : (
                     <div className="flex items-center">
                       <Loader2 className="w-4 h-4 mr-2 animate-spin text-gray-300" />

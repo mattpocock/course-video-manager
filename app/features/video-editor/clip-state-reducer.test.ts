@@ -17,6 +17,7 @@ describe("clipStateReducer", () => {
         },
         {
           type: "new-optimistic-clip-detected",
+          scene: "Unknown",
         }
       );
 
@@ -77,6 +78,7 @@ describe("clipStateReducer", () => {
         },
         {
           type: "new-optimistic-clip-detected",
+          scene: "Unknown",
         }
       );
 
@@ -120,6 +122,7 @@ describe("clipStateReducer", () => {
         },
         {
           type: "new-optimistic-clip-detected",
+          scene: "Camera",
         }
       );
 
@@ -127,10 +130,12 @@ describe("clipStateReducer", () => {
         stateWithOneOptimisticClip,
         {
           type: "new-optimistic-clip-detected",
+          scene: "No Face",
         }
       );
 
-      const stateWithOneDatabaseClip = clipStateReducer(reportEffect1)(
+      const reportEffect2 = vi.fn();
+      const stateWithOneDatabaseClip = clipStateReducer(reportEffect2)(
         stateWithTwoOptimisticClips,
         {
           type: "new-database-clips",
@@ -138,19 +143,30 @@ describe("clipStateReducer", () => {
         }
       );
 
+      expect(reportEffect2).toHaveBeenCalledWith({
+        type: "update-clips-scene",
+        clips: [["1", "Camera"]],
+      });
+
       expect(stateWithOneDatabaseClip.clips.length).toBe(2);
       expect(stateWithOneDatabaseClip.clips[0]).toMatchObject({
         type: "on-database",
         id: "1",
       });
 
-      const stateWithTwoDatabaseClips = clipStateReducer(reportEffect1)(
+      const reportEffect3 = vi.fn();
+      const stateWithTwoDatabaseClips = clipStateReducer(reportEffect3)(
         stateWithOneDatabaseClip,
         {
           type: "new-database-clips",
           clips: [fromPartial({ id: "2" })],
         }
       );
+
+      expect(reportEffect3).toHaveBeenCalledWith({
+        type: "update-clips-scene",
+        clips: [["2", "No Face"]],
+      });
 
       expect(stateWithTwoDatabaseClips.clips.length).toBe(2);
       expect(stateWithTwoDatabaseClips.clips[0]).toMatchObject({
@@ -193,6 +209,7 @@ describe("clipStateReducer", () => {
         },
         {
           type: "new-optimistic-clip-detected",
+          scene: "Unknown",
         }
       );
 
@@ -220,6 +237,7 @@ describe("clipStateReducer", () => {
         },
         {
           type: "new-optimistic-clip-detected",
+          scene: "Unknown",
         }
       );
 

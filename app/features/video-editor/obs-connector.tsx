@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import type { DB } from "@/db/schema";
-import { CheckIcon, Loader2, MicIcon, PauseIcon } from "lucide-react";
+import { CheckIcon, Loader2, MicIcon } from "lucide-react";
 import { OBSWebSocket } from "obs-websocket-js";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -18,16 +18,13 @@ export type OBSConnectionState =
   | {
       type: "obs-connected";
       profile: string;
+      scene: string;
       latestOutputPath: string | null;
-    }
-  | {
-      type: "obs-paused";
-      profile: string;
-      latestOutputPath: string;
     }
   | {
       type: "obs-recording";
       profile: string;
+      scene: string;
       latestOutputPath: string;
       hasSpeechBeenDetected: boolean;
     };
@@ -62,8 +59,7 @@ export const useConnectToOBSVirtualCamera = (props: {
   useEffect(() => {
     if (
       props.state.type !== "obs-connected" &&
-      props.state.type !== "obs-recording" &&
-      props.state.type !== "obs-paused"
+      props.state.type !== "obs-recording"
     ) {
       cleanupMediaStream();
 
@@ -165,7 +161,7 @@ export const useRunOBSImportRepeatedly = (props: {
 export const useOBSConnector = (props: {
   videoId: string;
   onNewDatabaseClips: (clips: DB.Clip[]) => void;
-  onNewClipOptimisticallyAdded: () => void;
+  onNewClipOptimisticallyAdded: (scene: string) => void;
 }) => {
   const [websocket] = useState(() => new OBSWebSocket());
 
@@ -193,11 +189,13 @@ export const useOBSConnector = (props: {
         .connect("ws://192.168.1.55:4455")
         .then(async () => {
           const profile = await websocket.call("GetProfileList");
+          const scene = await websocket.call("GetSceneList");
 
           setState({
             type: "obs-connected",
             profile: profile.currentProfileName,
             latestOutputPath: null,
+            scene: scene.currentProgramSceneName,
           });
 
           try {
@@ -224,11 +222,7 @@ export const useOBSConnector = (props: {
   }, [state]);
 
   useEffect(() => {
-    if (
-      state.type === "obs-connected" ||
-      state.type === "obs-recording" ||
-      state.type === "obs-paused"
-    ) {
+    if (state.type === "obs-connected" || state.type === "obs-recording") {
       createNotRunningListener(websocket, () => {
         setState({ type: "obs-not-running" });
       });
@@ -238,27 +232,20 @@ export const useOBSConnector = (props: {
         outputState: string;
         outputPath: string;
       }) => {
-        if (
-          e.outputState === "OBS_WEBSOCKET_OUTPUT_STARTED" ||
-          e.outputState === "OBS_WEBSOCKET_OUTPUT_RESUMED"
-        ) {
+        if (e.outputState === "OBS_WEBSOCKET_OUTPUT_STARTED") {
           setState({
             type: "obs-recording",
             profile: state.profile,
             latestOutputPath: e.outputPath,
             hasSpeechBeenDetected: false,
+            scene: state.scene,
           });
         } else if (e.outputState === "OBS_WEBSOCKET_OUTPUT_STOPPED") {
           setState({
             type: "obs-connected",
             profile: state.profile,
             latestOutputPath: e.outputPath,
-          });
-        } else if (e.outputState === "OBS_WEBSOCKET_OUTPUT_PAUSED") {
-          setState({
-            type: "obs-paused",
-            profile: state.profile,
-            latestOutputPath: e.outputPath,
+            scene: state.scene,
           });
         }
       };
@@ -274,11 +261,24 @@ export const useOBSConnector = (props: {
 
       websocket.on("CurrentProfileChanged", currentProfileChangedListener);
 
+      const currentSceneChangedListener = (e: { sceneName: string }) => {
+        setState({
+          ...state,
+          scene: e.sceneName,
+        });
+      };
+
+      websocket.on("CurrentProgramSceneChanged", currentSceneChangedListener);
+
       return () => {
         websocket.removeListener("RecordStateChanged", recordingListener);
         websocket.removeListener(
           "CurrentProfileChanged",
           currentProfileChangedListener
+        );
+        websocket.removeListener(
+          "CurrentProgramSceneChanged",
+          currentSceneChangedListener
         );
       };
     }
@@ -306,7 +306,7 @@ export const useOBSConnector = (props: {
     },
     onSpeechPartStarted: () => {
       if (state.type === "obs-recording") {
-        props.onNewClipOptimisticallyAdded();
+        props.onNewClipOptimisticallyAdded(state.scene);
       }
     },
   });
@@ -333,12 +333,6 @@ export const OBSConnectionButton = (props: { state: OBSConnectionState }) => {
         <>
           <MicIcon className="w-4 h-4 mr-1" />
           Recording...
-        </>
-      )}
-      {props.state.type === "obs-paused" && (
-        <>
-          <PauseIcon className="w-4 h-4 mr-1" />
-          Paused
         </>
       )}
       {props.state.type === "obs-connected" && (

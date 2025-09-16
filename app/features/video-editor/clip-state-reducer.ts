@@ -13,11 +13,13 @@ export type ClipOnDatabase = {
   sourceEndTime: number; // End time in source video (seconds)
   text: string;
   transcribedAt: Date | null;
+  scene: string | null;
 };
 
 export type ClipOptimisticallyAdded = {
   type: "optimistically-added";
   frontendId: FrontendId;
+  scene: string;
   /**
    * If true, when the optimistically added clip is replaced with the database clip,
    * the clip will be archived. Allows the user to delete the clip before it's transcribed.
@@ -39,6 +41,7 @@ type State = {
 type Action =
   | {
       type: "new-optimistic-clip-detected";
+      scene: string;
     }
   | {
       type: "new-database-clips";
@@ -67,6 +70,10 @@ type Effect =
     }
   | {
       type: "scroll-to-bottom";
+    }
+  | {
+      type: "update-clips-scene";
+      clips: [DatabaseId, string][];
     };
 
 export const clipStateReducer =
@@ -84,6 +91,7 @@ export const clipStateReducer =
             {
               type: "optimistically-added",
               frontendId: createFrontendId(),
+              scene: action.scene,
             },
           ],
         };
@@ -96,6 +104,7 @@ export const clipStateReducer =
         const clipsToArchive = new Set<DatabaseId>();
         const databaseClipIdsToTranscribe = new Set<DatabaseId>();
         const frontendClipIdsToTranscribe = new Set<FrontendId>();
+        const clipsToUpdateScene = new Map<DatabaseId, string>();
 
         for (const databaseClip of action.clips) {
           // Find the first optimistically added clip
@@ -103,21 +112,23 @@ export const clipStateReducer =
             (c) => c?.type === "optimistically-added"
           );
           if (index !== -1) {
-            const clipToReplace = clips[index]!;
+            const frontendClip = clips[index]!;
             if (
-              clipToReplace.type === "optimistically-added" &&
-              clipToReplace.shouldArchive
+              frontendClip.type === "optimistically-added" &&
+              frontendClip.shouldArchive
             ) {
               clipsToArchive.add(databaseClip.id);
               clips[index] = undefined;
-            } else {
+            } else if (frontendClip.type === "optimistically-added") {
               clips[index] = {
                 ...databaseClip,
                 type: "on-database",
-                frontendId: clipToReplace.frontendId,
+                frontendId: frontendClip.frontendId,
                 databaseId: databaseClip.id,
+                scene: frontendClip.scene,
               };
-              frontendClipIdsToTranscribe.add(clipToReplace.frontendId);
+              clipsToUpdateScene.set(databaseClip.id, frontendClip.scene);
+              frontendClipIdsToTranscribe.add(frontendClip.frontendId);
               databaseClipIdsToTranscribe.add(databaseClip.id);
             }
           } else {
@@ -133,6 +144,13 @@ export const clipStateReducer =
             databaseClipIdsToTranscribe.add(databaseClip.id);
             shouldScrollToBottom = true;
           }
+        }
+
+        if (clipsToUpdateScene.size > 0) {
+          reportEffect({
+            type: "update-clips-scene",
+            clips: Array.from(clipsToUpdateScene.entries()),
+          });
         }
 
         if (shouldScrollToBottom) {
