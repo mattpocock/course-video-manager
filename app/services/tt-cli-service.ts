@@ -80,19 +80,23 @@ export class TotalTypeScriptCLIService extends Effect.Service<TotalTypeScriptCLI
         }
       );
 
-      const exportVideoClips = Effect.fn("exportVideoClips")(function* (
-        videoId: string,
+      const exportVideoClips = Effect.fn("exportVideoClips")(function* (opts: {
+        videoId: string;
         clips: {
           inputVideo: string;
           startTime: number;
           duration: number;
-        }[]
-      ) {
+        }[];
+        shortsDirectoryOutputName: string | undefined;
+      }) {
         const command = Command.make(
           "tt",
           "create-video-from-clips",
-          JSON.stringify(clips),
-          videoId
+          JSON.stringify(opts.clips),
+          opts.videoId,
+          ...(opts.shortsDirectoryOutputName
+            ? [opts.shortsDirectoryOutputName]
+            : [])
         );
         const result = yield* Command.string(command);
         return result;
@@ -149,7 +153,7 @@ export class TotalTypeScriptCLIService extends Effect.Service<TotalTypeScriptCLI
           "1",
           outputFile
         );
-        const output = yield* Command.exitCode(command);
+        yield* Command.exitCode(command);
 
         return outputFile;
       });

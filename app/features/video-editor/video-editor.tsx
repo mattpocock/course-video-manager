@@ -1,4 +1,13 @@
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import {
@@ -86,6 +95,13 @@ export const VideoEditor = (props: {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLButtonElement
+      ) {
+        return;
+      }
       if (e.key === " ") {
         e.preventDefault();
         if (e.repeat) return;
@@ -141,6 +157,7 @@ export const VideoEditor = (props: {
   }, []);
 
   const exportVideoClipsFetcher = useFetcher();
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const totalDuration = props.clips.reduce((acc, clip) => {
     if (clip.type === "on-database") {
@@ -247,19 +264,64 @@ export const VideoEditor = (props: {
                 </Link>
               </Button>
 
-              <exportVideoClipsFetcher.Form
-                method="post"
-                action={`/api/videos/${props.videoId}/export`}
+              <Dialog
+                open={isExportModalOpen}
+                onOpenChange={setIsExportModalOpen}
               >
-                <Button variant="default">
-                  {exportVideoClipsFetcher.state === "submitting" ? (
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  ) : (
+                <DialogTrigger asChild>
+                  <Button variant="default">
                     <DownloadIcon className="w-4 h-4 mr-1" />
-                  )}
-                  Export
-                </Button>
-              </exportVideoClipsFetcher.Form>
+                    Export
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Export</DialogTitle>
+                  </DialogHeader>
+                  <exportVideoClipsFetcher.Form
+                    method="post"
+                    action={`/api/videos/${props.videoId}/export`}
+                    className="space-y-4 py-4"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await exportVideoClipsFetcher.submit(e.currentTarget);
+                      setIsExportModalOpen(false);
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="shorts-directory-output-name">
+                        Short Title
+                      </Label>
+                      <Input
+                        id="shorts-directory-output-name"
+                        placeholder="Leave empty for normal export only..."
+                        name="shortsDirectoryOutputName"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        If provided, the video will be queued for YouTube and
+                        TikTok under the given title.
+                      </p>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsExportModalOpen(false)}
+                        type="button"
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit">
+                        {exportVideoClipsFetcher.state === "submitting" ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <DownloadIcon className="w-4 h-4 mr-1" />
+                        )}
+                        Export
+                      </Button>
+                    </div>
+                  </exportVideoClipsFetcher.Form>
+                </DialogContent>
+              </Dialog>
               <OBSConnectionButton state={props.obsConnectorState} />
             </div>
           </div>
