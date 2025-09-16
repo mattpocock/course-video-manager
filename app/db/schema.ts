@@ -1,3 +1,4 @@
+import type { DatabaseId } from "@/features/video-editor/clip-state-reducer";
 import { relations, sql, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
@@ -110,7 +111,9 @@ export const clips = createTable("clip", {
 });
 
 export namespace DB {
-  export type Clip = InferSelectModel<typeof clips>;
+  export interface Clip extends Omit<InferSelectModel<typeof clips>, "id"> {
+    id: DatabaseId;
+  }
 }
 
 export const clipsRelations = relations(clips, ({ one }) => ({

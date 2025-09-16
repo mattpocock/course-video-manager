@@ -1,8 +1,13 @@
 import type { DB } from "@/db/schema";
+import type { Brand } from "./utils";
+
+export type DatabaseId = Brand<string, "DatabaseId">;
+export type FrontendId = Brand<string, "FrontendId">;
 
 export type ClipOnDatabase = {
   type: "on-database";
-  id: string;
+  frontendId: FrontendId;
+  databaseId: DatabaseId;
   videoFilename: string;
   sourceStartTime: number; // Start time in source video (seconds)
   sourceEndTime: number; // End time in source video (seconds)
@@ -12,7 +17,7 @@ export type ClipOnDatabase = {
 
 export type ClipOptimisticallyAdded = {
   type: "optimistically-added";
-  id: string;
+  frontendId: FrontendId;
   /**
    * If true, when the optimistically added clip is replaced with the database clip,
    * the clip will be archived. Allows the user to delete the clip before it's transcribed.
@@ -20,11 +25,15 @@ export type ClipOptimisticallyAdded = {
   shouldArchive?: boolean;
 };
 
+export const createFrontendId = (): FrontendId => {
+  return crypto.randomUUID() as FrontendId;
+};
+
 export type Clip = ClipOnDatabase | ClipOptimisticallyAdded;
 
 type State = {
   clips: Clip[];
-  clipIdsBeingTranscribed: Set<string>;
+  clipIdsBeingTranscribed: Set<FrontendId>;
 };
 
 type Action =
@@ -37,21 +46,24 @@ type Action =
     }
   | {
       type: "clips-deleted";
-      clipIds: string[];
+      clipIds: FrontendId[];
     }
   | {
       type: "clips-transcribed";
-      clips: DB.Clip[];
+      clips: {
+        databaseId: DatabaseId;
+        text: string;
+      }[];
     };
 
 type Effect =
   | {
       type: "transcribe-clips";
-      clipIds: string[];
+      clipIds: DatabaseId[];
     }
   | {
       type: "archive-clips";
-      clipIds: string[];
+      clipIds: DatabaseId[];
     }
   | {
       type: "scroll-to-bottom";
@@ -71,7 +83,7 @@ export const clipStateReducer =
             ...state.clips,
             {
               type: "optimistically-added",
-              id: crypto.randomUUID(),
+              frontendId: createFrontendId(),
             },
           ],
         };
@@ -81,7 +93,9 @@ export const clipStateReducer =
 
         const clips: (Clip | undefined)[] = [...state.clips];
 
-        const clipsToArchive = new Set<string>();
+        const clipsToArchive = new Set<DatabaseId>();
+        const databaseClipIdsToTranscribe = new Set<DatabaseId>();
+        const frontendClipIdsToTranscribe = new Set<FrontendId>();
 
         for (const databaseClip of action.clips) {
           // Find the first optimistically added clip
@@ -97,11 +111,25 @@ export const clipStateReducer =
               clipsToArchive.add(databaseClip.id);
               clips[index] = undefined;
             } else {
-              clips[index] = { type: "on-database", ...databaseClip };
+              clips[index] = {
+                ...databaseClip,
+                type: "on-database",
+                frontendId: clipToReplace.frontendId,
+                databaseId: databaseClip.id,
+              };
+              frontendClipIdsToTranscribe.add(clipToReplace.frontendId);
             }
           } else {
+            const newFrontendId = createFrontendId();
             // If no optimistically added clip is found, add a new one
-            clips.push({ type: "on-database", ...databaseClip });
+            clips.push({
+              type: "on-database",
+              ...databaseClip,
+              frontendId: newFrontendId,
+              databaseId: databaseClip.id,
+            });
+            frontendClipIdsToTranscribe.add(newFrontendId);
+            databaseClipIdsToTranscribe.add(databaseClip.id);
             shouldScrollToBottom = true;
           }
         }
@@ -119,38 +147,34 @@ export const clipStateReducer =
           });
         }
 
-        const clipIdsToTranscribe = action.clips
-          .map((clip) => clip.id)
-          .filter((id) => !clipsToArchive.has(id));
-
-        if (clipIdsToTranscribe.length > 0) {
+        if (databaseClipIdsToTranscribe.size > 0) {
           reportEffect({
             type: "transcribe-clips",
-            clipIds: clipIdsToTranscribe,
+            clipIds: Array.from(databaseClipIdsToTranscribe),
           });
         }
 
         return {
           ...state,
           clipIdsBeingTranscribed: new Set([
-            ...state.clipIdsBeingTranscribed,
-            ...action.clips.map((clip) => clip.id),
+            ...Array.from(state.clipIdsBeingTranscribed),
+            ...Array.from(frontendClipIdsToTranscribe),
           ]),
           clips: clips.filter((c) => c !== undefined),
         };
       }
       case "clips-deleted": {
-        const clipsToArchive = new Set<string>();
+        const clipsToArchive = new Set<DatabaseId>();
         const clips: (Clip | undefined)[] = [...state.clips];
         for (const clipId of action.clipIds) {
-          const index = clips.findIndex((c) => c?.id === clipId);
+          const index = clips.findIndex((c) => c?.frontendId === clipId);
           if (index === -1) continue;
 
           const clipToReplace = clips[index]!;
           if (clipToReplace.type === "optimistically-added") {
             clips[index] = { ...clipToReplace, shouldArchive: true };
           } else if (clipToReplace.type === "on-database") {
-            clipsToArchive.add(clipToReplace.id);
+            clipsToArchive.add(clipToReplace.databaseId);
             clips[index] = undefined;
           }
         }
@@ -169,23 +193,20 @@ export const clipStateReducer =
       case "clips-transcribed": {
         const set = new Set([...state.clipIdsBeingTranscribed]);
 
-        action.clips.forEach((clip) => {
-          set.delete(clip.id);
-        });
-
-        const textMap: Record<string, string> = action.clips.reduce(
+        const textMap: Record<DatabaseId, string> = action.clips.reduce(
           (acc, clip) => {
-            acc[clip.id] = clip.text;
+            acc[clip.databaseId] = clip.text;
             return acc;
           },
-          {} as Record<string, string>
+          {} as Record<DatabaseId, string>
         );
 
         return {
           ...state,
           clips: state.clips.map((clip) => {
-            if (clip.type === "on-database" && textMap[clip.id]) {
-              return { ...clip, text: textMap[clip.id]! };
+            if (clip.type === "on-database" && textMap[clip.databaseId]) {
+              set.delete(clip.frontendId);
+              return { ...clip, text: textMap[clip.databaseId]! };
             }
             return clip;
           }),

@@ -20,3 +20,5 @@ export const useDebounceIdStore = (
     setIds((prev) => [...prev, ...ids]);
   };
 };
+
+export type Brand<T, B extends string> = T & { __brand: B };

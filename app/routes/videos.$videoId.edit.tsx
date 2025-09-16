@@ -7,6 +7,7 @@ import {
 import type {
   ClipOnDatabase,
   ClipOptimisticallyAdded,
+  FrontendId,
 } from "@/features/video-editor/clip-state-reducer";
 import { TitleSection } from "@/features/video-editor/title-section";
 import { useDebounceIdStore } from "@/features/video-editor/utils";
@@ -22,7 +23,10 @@ import { ChevronLeftIcon } from "lucide-react";
 import { startTransition, useEffect, useReducer, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import type { Route } from "./+types/videos.$videoId.edit";
-import { clipStateReducer } from "@/features/video-editor/clip-state-reducer";
+import {
+  clipStateReducer,
+  createFrontendId,
+} from "@/features/video-editor/clip-state-reducer";
 
 // Core data model - flat array of clips
 
@@ -32,7 +36,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const db = yield* DBService;
     const video = yield* db.getVideoWithClipsById(videoId);
 
-    return { video, clips: video.clips, waveformData: undefined };
+    return { video, clips: video.clips as DB.Clip[], waveformData: undefined };
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
@@ -72,7 +76,13 @@ export default function Component(props: Route.ComponentProps) {
         })
           .then((res) => res.json())
           .then((clips: DB.Clip[]) => {
-            dispatch({ type: "clips-transcribed", clips: clips });
+            dispatch({
+              type: "clips-transcribed",
+              clips: clips.map((clip) => ({
+                databaseId: clip.id,
+                text: clip.text,
+              })),
+            });
           });
       } else if (effect.type === "archive-clips") {
         setClipsToArchive(effect.clipIds);
@@ -92,9 +102,11 @@ export default function Component(props: Route.ComponentProps) {
         (clip): ClipOnDatabase => ({
           ...clip,
           type: "on-database",
+          frontendId: createFrontendId(),
+          databaseId: clip.id,
         })
       ),
-      clipIdsBeingTranscribed: new Set() satisfies Set<string>,
+      clipIdsBeingTranscribed: new Set() satisfies Set<FrontendId>,
     }
   );
 

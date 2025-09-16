@@ -116,7 +116,7 @@ export const PreloadableClip = (props: {
 
   return (
     <video
-      key={props.clip.id}
+      key={props.clip.frontendId}
       src={`/view-video?videoPath=${props.clip.videoFilename}#t=${preloadFrom},${modifiedEndTime}`}
       className={cn(props.hidden && "hidden")}
       ref={ref}
@@ -137,7 +137,7 @@ export const PreloadableClipManager = (props: {
   return (
     <div className="">
       {props.clips.map((clip) => {
-        const isCurrentlyPlaying = clip.id === props.currentClipId;
+        const isCurrentlyPlaying = clip.frontendId === props.currentClipId;
 
         const onFinish = () => {
           if (!isCurrentlyPlaying) {
@@ -147,21 +147,21 @@ export const PreloadableClipManager = (props: {
           props.onClipFinished();
         };
 
-        const isFinalClip = clip.id === props.finalClipId;
+        const isFinalClip = clip.frontendId === props.finalClipId;
 
         const modifiedClip = isFinalClip
           ? { ...clip, sourceEndTime: clip.sourceEndTime + FINAL_VIDEO_PADDING }
           : clip;
 
         return (
-          <div key={clip.id}>
+          <div key={clip.frontendId}>
             <PreloadableClip
               playbackRate={props.playbackRate}
               clip={modifiedClip}
-              key={clip.id}
+              key={clip.frontendId}
               onFinish={onFinish}
               aggressivePreload={props.clipsToAggressivelyPreload.includes(
-                clip.id
+                clip.frontendId
               )}
               hidden={!isCurrentlyPlaying}
               state={props.state}

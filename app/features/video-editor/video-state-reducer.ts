@@ -1,18 +1,20 @@
+import type { FrontendId } from "./clip-state-reducer";
+
 export type RunningState = "playing" | "paused";
 
 export interface State {
-  clipIdsPreloaded: Set<string>;
+  clipIdsPreloaded: Set<FrontendId>;
   runningState: RunningState;
-  currentClipId: string;
+  currentClipId: FrontendId;
   currentTimeInClip: number;
-  selectedClipsSet: Set<string>;
+  selectedClipsSet: Set<FrontendId>;
   playbackRate: number;
   forceViewTimeline: boolean;
 }
 
 export type Effect = {
   type: "archive-clips";
-  clipIds: string[];
+  clipIds: FrontendId[];
 };
 
 export type Action =
@@ -24,7 +26,7 @@ export type Action =
     }
   | {
       type: "click-clip";
-      clipId: string;
+      clipId: FrontendId;
       ctrlKey: boolean;
       shiftKey: boolean;
     }
@@ -78,7 +80,7 @@ export type Action =
       type: "press-k";
     };
 
-const preloadSelectedClips = (clipIds: string[], state: State): State => {
+const preloadSelectedClips = (clipIds: FrontendId[], state: State): State => {
   const currentClipIndex = clipIds.findIndex(
     (clipId) => clipId === state.currentClipId
   );
@@ -108,7 +110,7 @@ const preloadSelectedClips = (clipIds: string[], state: State): State => {
 };
 
 export const makeVideoEditorReducer =
-  (reportEffect: (effect: Effect) => void, clipIds: string[]) =>
+  (reportEffect: (effect: Effect) => void, clipIds: FrontendId[]) =>
   (state: State, action: Action): State => {
     switch (action.type) {
       case "keydown-v":

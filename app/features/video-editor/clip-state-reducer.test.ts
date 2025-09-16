@@ -1,6 +1,10 @@
 import { fromPartial } from "@total-typescript/shoehorn";
 import { describe, expect, it, vi } from "vitest";
-import { clipStateReducer } from "./clip-state-reducer";
+import {
+  clipStateReducer,
+  type DatabaseId,
+  type FrontendId,
+} from "./clip-state-reducer";
 
 describe("clipStateReducer", () => {
   describe("Transcribing", () => {
@@ -16,7 +20,7 @@ describe("clipStateReducer", () => {
         }
       );
 
-      const clipIds = newState.clips.map((clip) => clip.id);
+      const clipIds = newState.clips.map((clip) => clip.frontendId);
 
       expect(reportEffect).not.toHaveBeenCalledWith({
         type: "transcribe-clips",
@@ -47,16 +51,16 @@ describe("clipStateReducer", () => {
         clipIds: ["123"],
       });
 
-      expect(newState.clipIdsBeingTranscribed.has("123")).toBe(true);
+      expect(newState.clipIdsBeingTranscribed.size).toBe(1);
 
       const stateAfterTranscribe = clipStateReducer(reportEffect)(newState, {
         type: "clips-transcribed",
-        clips: [fromPartial({ id: "123", text: "Hello" })],
+        clips: [
+          fromPartial({ databaseId: "123" as DatabaseId, text: "Hello" }),
+        ],
       });
 
-      expect(stateAfterTranscribe.clipIdsBeingTranscribed.has("123")).toBe(
-        false
-      );
+      expect(stateAfterTranscribe.clipIdsBeingTranscribed.size).toBe(0);
       expect(stateAfterTranscribe.clips[0]).toMatchObject({
         text: "Hello",
       });
@@ -188,7 +192,7 @@ describe("clipStateReducer", () => {
         }
       );
 
-      const optimisticClipId = stateWithOneOptimisticClip.clips[0]!.id;
+      const optimisticClipId = stateWithOneOptimisticClip.clips[0]!.frontendId;
 
       const stateWithOneOptimisticClipDeleted = clipStateReducer(reportEffect)(
         stateWithOneOptimisticClip,
@@ -215,7 +219,7 @@ describe("clipStateReducer", () => {
         }
       );
 
-      const optimisticClipId = stateWithOneOptimisticClip.clips[0]!.id;
+      const optimisticClipId = stateWithOneOptimisticClip.clips[0]!.frontendId;
 
       const stateWithOneOptimisticClipDeleted = clipStateReducer(() => {})(
         stateWithOneOptimisticClip,
@@ -260,7 +264,7 @@ describe("clipStateReducer", () => {
         }
       );
 
-      const databaseClipId = stateWithOneDatabaseClip.clips[0]!.id;
+      const databaseClipId = stateWithOneDatabaseClip.clips[0]!.frontendId;
 
       const reportEffect2 = vi.fn();
       const stateWithOneDatabaseClipDeleted = clipStateReducer(reportEffect2)(

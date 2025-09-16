@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
-import type { Clip } from "./clip-state-reducer";
+import type { Clip, FrontendId } from "./clip-state-reducer";
 import { OBSConnectionButton, type OBSConnectionState } from "./obs-connector";
 import { PreloadableClipManager } from "./preloadable-clip";
 import { TitleSection } from "./title-section";
@@ -30,8 +30,8 @@ export const VideoEditor = (props: {
   videoId: string;
   liveMediaStream: MediaStream | null;
   speechDetectorState: FrontendSpeechDetectorState;
-  clipIdsBeingTranscribed: Set<string>;
-  onClipsRemoved: (clipIds: string[]) => void;
+  clipIdsBeingTranscribed: Set<FrontendId>;
+  onClipsRemoved: (clipIds: FrontendId[]) => void;
 }) => {
   const [state, dispatch] = useReducer(
     makeVideoEditorReducer(
@@ -40,16 +40,16 @@ export const VideoEditor = (props: {
           props.onClipsRemoved(effect.clipIds);
         }
       },
-      props.clips.map((clip) => clip.id)
+      props.clips.map((clip) => clip.frontendId)
     ),
     {
       forceViewTimeline: false,
       runningState: "paused",
-      currentClipId: props.clips[0]?.id ?? "",
+      currentClipId: props.clips[0]?.frontendId!,
       currentTimeInClip: 0,
-      selectedClipsSet: new Set<string>(),
-      clipIdsPreloaded: new Set<string>(
-        [props.clips[0]?.id, props.clips[1]?.id].filter(
+      selectedClipsSet: new Set<FrontendId>(),
+      clipIdsPreloaded: new Set<FrontendId>(
+        [props.clips[0]?.frontendId, props.clips[1]?.frontendId].filter(
           (id) => id !== undefined
         )
       ),
@@ -58,7 +58,7 @@ export const VideoEditor = (props: {
   );
 
   const currentClipIndex = props.clips.findIndex(
-    (clip) => clip.id === state.currentClipId
+    (clip) => clip.frontendId === state.currentClipId
   );
 
   const nextClip = props.clips[currentClipIndex + 1];
@@ -67,9 +67,9 @@ export const VideoEditor = (props: {
 
   const clipsToAggressivelyPreload = [
     state.currentClipId,
-    nextClip?.id,
+    nextClip?.frontendId,
     selectedClipId,
-  ].filter((id) => id !== undefined);
+  ].filter((id) => id !== undefined) as FrontendId[];
 
   const currentClipId = state.currentClipId;
 
@@ -196,9 +196,9 @@ export const VideoEditor = (props: {
               <PreloadableClipManager
                 clipsToAggressivelyPreload={clipsToAggressivelyPreload}
                 clips={props.clips
-                  .filter((clip) => state.clipIdsPreloaded.has(clip.id))
+                  .filter((clip) => state.clipIdsPreloaded.has(clip.frontendId))
                   .filter((clip) => clip.type === "on-database")}
-                finalClipId={props.clips[props.clips.length - 1]?.id}
+                finalClipId={props.clips[props.clips.length - 1]?.frontendId}
                 state={state.runningState}
                 currentClipId={currentClipId}
                 onClipFinished={() => {
@@ -255,24 +255,24 @@ export const VideoEditor = (props: {
 
             return (
               <button
-                key={clip.id}
+                key={clip.frontendId}
                 className={cn(
                   "bg-gray-800 px-4 py-2 rounded-md text-left block relative overflow-hidden w-full",
-                  state.selectedClipsSet.has(clip.id) &&
+                  state.selectedClipsSet.has(clip.frontendId) &&
                     "outline-2 outline-blue-200 bg-gray-600",
-                  clip.id === currentClipId && "bg-blue-900"
+                  clip.frontendId === currentClipId && "bg-blue-900"
                 )}
                 onClick={(e) => {
                   dispatch({
                     type: "click-clip",
-                    clipId: clip.id,
+                    clipId: clip.frontendId,
                     ctrlKey: e.ctrlKey,
                     shiftKey: e.shiftKey,
                   });
                 }}
               >
                 {/* Moving bar indicator */}
-                {clip.id === currentClipId && (
+                {clip.frontendId === currentClipId && (
                   <div
                     className="absolute top-0 left-0 w-full h-full bg-blue-700 z-0"
                     style={{
@@ -299,7 +299,7 @@ export const VideoEditor = (props: {
                   </div>
                 )} */}
                 <span className="z-10 block relative text-white text-sm mr-6 leading-6">
-                  {props.clipIdsBeingTranscribed.has(clip.id) &&
+                  {props.clipIdsBeingTranscribed.has(clip.frontendId) &&
                     clip.type === "on-database" &&
                     !clip.transcribedAt &&
                     !clip.text && (
@@ -339,8 +339,9 @@ export const VideoEditor = (props: {
                   <div
                     className={cn(
                       "absolute top-0 right-0 text-xs mt-1 mr-2 text-gray-500",
-                      clip.id === currentClipId && "text-blue-200",
-                      state.selectedClipsSet.has(clip.id) && "text-gray-300"
+                      clip.frontendId === currentClipId && "text-blue-200",
+                      state.selectedClipsSet.has(clip.frontendId) &&
+                        "text-gray-300"
                     )}
                   >
                     {formatSecondsToTime(duration)}
