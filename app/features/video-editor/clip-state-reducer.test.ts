@@ -105,6 +105,10 @@ describe("clipStateReducer", () => {
       expect(reportEffect2).not.toHaveBeenCalledWith({
         type: "scroll-to-bottom",
       });
+      expect(reportEffect2).toHaveBeenCalledWith({
+        type: "transcribe-clips",
+        clipIds: ["123"],
+      });
     });
 
     it("Should handle two optimistic clips which get replaced with a database clip", () => {

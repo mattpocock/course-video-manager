@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ClipOnDatabase } from "./clip-state-reducer";
+import type { ClipOnDatabase, FrontendId } from "./clip-state-reducer";
 import { cn } from "@/lib/utils";
 import { FINAL_VIDEO_PADDING } from "./constants";
 import type { RunningState } from "./video-state-reducer";
@@ -130,7 +130,7 @@ export const PreloadableClipManager = (props: {
   finalClipId: string | undefined;
   clipsToAggressivelyPreload: string[];
   state: RunningState;
-  currentClipId: string;
+  currentClipId: FrontendId | undefined;
   onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
 }) => {

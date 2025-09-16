@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import {
+  AlertCircleIcon,
   CheckIcon,
   ChevronLeftIcon,
   DownloadIcon,
@@ -45,7 +46,7 @@ export const VideoEditor = (props: {
     {
       forceViewTimeline: false,
       runningState: "paused",
-      currentClipId: props.clips[0]?.frontendId!,
+      currentClipId: props.clips[0]?.frontendId,
       currentTimeInClip: 0,
       selectedClipsSet: new Set<FrontendId>(),
       clipIdsPreloaded: new Set<FrontendId>(
@@ -241,6 +242,14 @@ export const VideoEditor = (props: {
       {/* Clips Section - Shows second on mobile, first on desktop */}
       <div className="lg:flex-1 flex-wrap flex gap-2 h-full order-2 lg:order-1">
         <div className="flex gap-3 h-full flex-col w-full">
+          {props.clips.length === 0 && (
+            <div className="">
+              <h2 className="text-lg font-bold text-gray-100 mb-1">
+                No clips found
+              </h2>
+              <p className="text-sm">Time to start recording!</p>
+            </div>
+          )}
           {props.clips.map((clip) => {
             const duration =
               clip.type === "on-database"

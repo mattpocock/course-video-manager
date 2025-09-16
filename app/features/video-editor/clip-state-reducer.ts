@@ -118,6 +118,7 @@ export const clipStateReducer =
                 databaseId: databaseClip.id,
               };
               frontendClipIdsToTranscribe.add(clipToReplace.frontendId);
+              databaseClipIdsToTranscribe.add(databaseClip.id);
             }
           } else {
             const newFrontendId = createFrontendId();

@@ -5,7 +5,7 @@ export type RunningState = "playing" | "paused";
 export interface State {
   clipIdsPreloaded: Set<FrontendId>;
   runningState: RunningState;
-  currentClipId: FrontendId;
+  currentClipId: FrontendId | undefined;
   currentTimeInClip: number;
   selectedClipsSet: Set<FrontendId>;
   playbackRate: number;
@@ -81,6 +81,10 @@ export type Action =
     };
 
 const preloadSelectedClips = (clipIds: FrontendId[], state: State): State => {
+  if (!state.currentClipId) {
+    return state;
+  }
+
   const currentClipIndex = clipIds.findIndex(
     (clipId) => clipId === state.currentClipId
   );
@@ -278,9 +282,9 @@ export const makeVideoEditorReducer =
           backupClipToMoveSelectionTo ??
           finalBackupClipToMoveSelectionTo;
 
-        const isCurrentClipDeleted = state.selectedClipsSet.has(
-          state.currentClipId
-        );
+        const isCurrentClipDeleted =
+          state.currentClipId &&
+          state.selectedClipsSet.has(state.currentClipId);
 
         reportEffect({
           type: "archive-clips",
@@ -347,7 +351,7 @@ export const makeVideoEditorReducer =
       }
       case "press-arrow-up":
       case "press-arrow-left": {
-        if (state.selectedClipsSet.size === 0) {
+        if (state.selectedClipsSet.size === 0 && state.currentClipId) {
           return preloadSelectedClips(clipIds, {
             ...state,
             selectedClipsSet: new Set([state.currentClipId]),
@@ -371,7 +375,7 @@ export const makeVideoEditorReducer =
       }
       case "press-arrow-down":
       case "press-arrow-right": {
-        if (state.selectedClipsSet.size === 0) {
+        if (state.selectedClipsSet.size === 0 && state.currentClipId) {
           return preloadSelectedClips(clipIds, {
             ...state,
             selectedClipsSet: new Set([state.currentClipId]),

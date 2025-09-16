@@ -120,45 +120,6 @@ export default function Component(props: Route.ComponentProps) {
     },
   });
 
-  if (clipState.clips.length === 0) {
-    return (
-      <div className="flex p-6 w-full">
-        <div className="flex-1">
-          <TitleSection
-            videoPath={props.loaderData.video.path}
-            lessonPath={props.loaderData.video.lesson.path}
-            repoName={props.loaderData.video.lesson.section.repo.name}
-          />
-          <p className="text-sm text-muted-foreground mb-4">No clips found</p>
-          <div className="flex gap-2 mb-4">
-            <Button asChild variant="secondary">
-              <Link
-                to={`/?repoId=${props.loaderData.video.lesson.section.repo.id}#${props.loaderData.video.lesson.id}`}
-              >
-                <ChevronLeftIcon className="w-4 h-4 mr-1" />
-                Go Back
-              </Link>
-            </Button>
-            <OBSConnectionButton state={obsConnector.state} />
-          </div>
-        </div>
-        {obsConnector.mediaStream && (
-          <div className="w-full flex-1 relative">
-            {obsConnector.state.type === "obs-recording" && (
-              <RecordingSignalIndicator />
-            )}
-
-            <LiveMediaStream
-              mediaStream={obsConnector.mediaStream}
-              obsConnectorState={obsConnector.state}
-              speechDetectorState={obsConnector.speechDetectorState}
-            />
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <VideoEditor
       onClipsRemoved={(clipIds) => {
@@ -171,7 +132,6 @@ export default function Component(props: Route.ComponentProps) {
         }
         return true;
       })}
-      // waveformDataForClip={props.loaderData.waveformData ?? {}}
       repoId={props.loaderData.video.lesson.section.repo.id}
       lessonId={props.loaderData.video.lesson.id}
       videoPath={props.loaderData.video.path}
