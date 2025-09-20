@@ -185,6 +185,21 @@ export const VideoEditor = (props: {
     (clip) => clip.frontendId === currentClipId
   );
 
+  let timecode = 0;
+
+  const clipsWithTimecode = props.clips.map((clip) => {
+    if (clip.type === "optimistically-added") return clip;
+
+    const timecodeString = formatSecondsToTimeCode(timecode);
+
+    const duration = clip.sourceEndTime - clip.sourceStartTime;
+    timecode += duration;
+    return {
+      ...clip,
+      timecode: timecodeString,
+    };
+  });
+
   return (
     <div className="flex flex-col lg:flex-row p-6 gap-6 gap-y-10">
       {/* Video Player Section - Shows first on mobile, second on desktop */}
@@ -346,7 +361,7 @@ export const VideoEditor = (props: {
               <p className="text-sm">Time to start recording!</p>
             </div>
           )}
-          {props.clips.map((clip) => {
+          {clipsWithTimecode.map((clip) => {
             const duration =
               clip.type === "on-database"
                 ? clip.sourceEndTime - clip.sourceStartTime
@@ -465,7 +480,7 @@ export const VideoEditor = (props: {
               >
                 Delete
               </Button> */}
-                {duration && (
+                {clip.type === "on-database" && (
                   <div
                     className={cn(
                       "absolute top-0 right-0 text-xs mt-1 mr-2 text-gray-500",
@@ -474,7 +489,7 @@ export const VideoEditor = (props: {
                         "text-gray-300"
                     )}
                   >
-                    {formatSecondsToTime(duration)}
+                    {clip.timecode}
                   </div>
                 )}
               </button>
