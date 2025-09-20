@@ -1,83 +1,89 @@
+import type { EffectReducer } from "use-effect-reducer";
 import type { FrontendId } from "./clip-state-reducer";
 
 export type RunningState = "playing" | "paused";
 
-export interface State {
-  clipIdsPreloaded: Set<FrontendId>;
-  runningState: RunningState;
-  currentClipId: FrontendId | undefined;
-  currentTimeInClip: number;
-  selectedClipsSet: Set<FrontendId>;
-  playbackRate: number;
-  showLastFrameOfVideo: boolean;
+export namespace videoStateReducer {
+  export interface State {
+    clipIdsPreloaded: Set<FrontendId>;
+    runningState: RunningState;
+    currentClipId: FrontendId | undefined;
+    currentTimeInClip: number;
+    selectedClipsSet: Set<FrontendId>;
+    playbackRate: number;
+    showLastFrameOfVideo: boolean;
+  }
+
+  export type Effect = {
+    type: "archive-clips";
+    clipIds: FrontendId[];
+  };
+
+  export type Action =
+    | {
+        type: "press-pause";
+      }
+    | {
+        type: "press-play";
+      }
+    | {
+        type: "click-clip";
+        clipId: FrontendId;
+        ctrlKey: boolean;
+        shiftKey: boolean;
+      }
+    | {
+        type: "update-clip-current-time";
+        time: number;
+      }
+    | {
+        type: "delete-last-clip";
+      }
+    | {
+        type: "clip-finished";
+      }
+    | {
+        type: "press-delete";
+      }
+    | {
+        type: "press-space-bar";
+      }
+    | {
+        type: "press-return";
+      }
+    | {
+        type: "press-arrow-left";
+      }
+    | {
+        type: "press-arrow-right";
+      }
+    | {
+        type: "press-arrow-up";
+      }
+    | {
+        type: "press-arrow-down";
+      }
+    | {
+        type: "press-l";
+      }
+    | {
+        type: "press-home";
+      }
+    | {
+        type: "press-end";
+      }
+    | {
+        type: "press-k";
+      }
+    | {
+        type: "toggle-last-frame-of-video";
+      };
 }
 
-export type Effect = {
-  type: "archive-clips";
-  clipIds: FrontendId[];
-};
-
-export type Action =
-  | {
-      type: "press-pause";
-    }
-  | {
-      type: "press-play";
-    }
-  | {
-      type: "click-clip";
-      clipId: FrontendId;
-      ctrlKey: boolean;
-      shiftKey: boolean;
-    }
-  | {
-      type: "update-clip-current-time";
-      time: number;
-    }
-  | {
-      type: "delete-last-clip";
-    }
-  | {
-      type: "clip-finished";
-    }
-  | {
-      type: "press-delete";
-    }
-  | {
-      type: "press-space-bar";
-    }
-  | {
-      type: "press-return";
-    }
-  | {
-      type: "press-arrow-left";
-    }
-  | {
-      type: "press-arrow-right";
-    }
-  | {
-      type: "press-arrow-up";
-    }
-  | {
-      type: "press-arrow-down";
-    }
-  | {
-      type: "press-l";
-    }
-  | {
-      type: "press-home";
-    }
-  | {
-      type: "press-end";
-    }
-  | {
-      type: "press-k";
-    }
-  | {
-      type: "toggle-last-frame-of-video";
-    };
-
-const preloadSelectedClips = (clipIds: FrontendId[], state: State): State => {
+const preloadSelectedClips = (
+  clipIds: FrontendId[],
+  state: videoStateReducer.State
+): videoStateReducer.State => {
   if (!state.currentClipId) {
     return state;
   }
@@ -111,8 +117,14 @@ const preloadSelectedClips = (clipIds: FrontendId[], state: State): State => {
 };
 
 export const makeVideoEditorReducer =
-  (reportEffect: (effect: Effect) => void, clipIds: FrontendId[]) =>
-  (state: State, action: Action): State => {
+  (
+    clipIds: FrontendId[]
+  ): EffectReducer<
+    videoStateReducer.State,
+    videoStateReducer.Action,
+    videoStateReducer.Effect
+  > =>
+  (state, action, exec) => {
     switch (action.type) {
       case "toggle-last-frame-of-video":
         return { ...state, showLastFrameOfVideo: !state.showLastFrameOfVideo };
@@ -281,7 +293,7 @@ export const makeVideoEditorReducer =
           state.currentClipId &&
           state.selectedClipsSet.has(state.currentClipId);
 
-        reportEffect({
+        exec({
           type: "archive-clips",
           clipIds: Array.from(state.selectedClipsSet),
         });
@@ -303,7 +315,7 @@ export const makeVideoEditorReducer =
           return state;
         }
 
-        reportEffect({
+        exec({
           type: "archive-clips",
           clipIds: [lastClipId],
         });

@@ -8,13 +8,11 @@ import {
   createFrontendId,
 } from "@/features/video-editor/clip-state-reducer";
 import { useOBSConnector } from "@/features/video-editor/obs-connector";
-import { useDebounceIdStore } from "@/features/video-editor/utils";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import { Effect } from "effect";
-import { useReducer } from "react";
-import { useFetcher } from "react-router";
+import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/videos.$videoId.edit";
 
 // Core data model - flat array of clips
@@ -29,36 +27,30 @@ export const loader = async (args: Route.LoaderArgs) => {
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
-// export const clientLoader = async (args: Route.ClientLoaderArgs) => {
-//   const { video } = await args.serverLoader();
-
-//   if (video.clips.length === 0) {
-//     return { clips: [], video };
-//   }
-
-//   const audioBuffer = await extractAudioFromVideoURL(
-//     `/view-video?videoPath=${video.clips[0]!.videoFilename}`
-//   );
-
-//   const waveformData = video.clips.reduce((acc, clip) => {
-//     acc[clip.id] = getWaveformForTimeRange(
-//       audioBuffer,
-//       clip.sourceStartTime,
-//       clip.sourceEndTime,
-//       200
-//     );
-//     return acc;
-//   }, {} as Record<string, number[]>);
-
-//   return { clips: video.clips, waveformData, video };
-// };
-
 export default function Component(props: Route.ComponentProps) {
-  const { setClipsToArchive } = useDebounceArchiveClips();
-
-  const [clipState, dispatch] = useReducer(
-    clipStateReducer((effect) => {
-      if (effect.type === "transcribe-clips") {
+  const [clipState, dispatch] = useEffectReducer(
+    clipStateReducer,
+    {
+      clips: props.loaderData.clips.map(
+        (clip): ClipOnDatabase => ({
+          ...clip,
+          type: "on-database",
+          frontendId: createFrontendId(),
+          databaseId: clip.id,
+        })
+      ),
+      clipIdsBeingTranscribed: new Set() satisfies Set<FrontendId>,
+    },
+    {
+      "archive-clips": (state, effect, dispatch) => {
+        fetch("/clips/archive", {
+          method: "POST",
+          body: JSON.stringify({ clipIds: effect.clipIds }),
+        }).then((res) => {
+          res.json();
+        });
+      },
+      "transcribe-clips": (state, effect, dispatch) => {
         fetch("/clips/transcribe", {
           method: "POST",
           body: JSON.stringify({ clipIds: effect.clipIds }),
@@ -73,36 +65,21 @@ export default function Component(props: Route.ComponentProps) {
               })),
             });
           });
-      } else if (effect.type === "archive-clips") {
-        setClipsToArchive(effect.clipIds);
-      } else if (effect.type === "scroll-to-bottom") {
-        // Wrap in a setTimeout to ensure the frontend is rendered
-        // before scrolling to the bottom
-        setTimeout(() => {
-          window.scrollTo({
-            top: document.body.scrollHeight,
-            behavior: "smooth",
-          });
-        }, 0);
-      } else if (effect.type === "update-clips") {
+      },
+      "scroll-to-bottom": () => {
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "smooth",
+        });
+      },
+      "update-clips": (state, effect, dispatch) => {
         fetch("/clips/update", {
           method: "POST",
           body: JSON.stringify({ clips: effect.clips }),
         }).then((res) => {
           res.json();
         });
-      }
-    }),
-    {
-      clips: props.loaderData.clips.map(
-        (clip): ClipOnDatabase => ({
-          ...clip,
-          type: "on-database",
-          frontendId: createFrontendId(),
-          databaseId: clip.id,
-        })
-      ),
-      clipIdsBeingTranscribed: new Set() satisfies Set<FrontendId>,
+      },
     }
   );
 
@@ -140,24 +117,3 @@ export default function Component(props: Route.ComponentProps) {
     />
   );
 }
-
-const useDebounceArchiveClips = () => {
-  const archiveClipFetcher = useFetcher();
-
-  const setClipsToArchive = useDebounceIdStore(
-    (ids) =>
-      archiveClipFetcher.submit(
-        { clipIds: ids },
-        {
-          method: "POST",
-          action: "/clips/archive",
-          encType: "application/json",
-        }
-      ),
-    500
-  );
-
-  return {
-    setClipsToArchive,
-  };
-};

@@ -57,6 +57,7 @@
     "shiki": "^3.8.1",
     "tailwind-merge": "^3.3.1",
     "tsx": "^4.20.5",
+    "use-effect-reducer": "^0.7.0",
     "use-stick-to-bottom": "^1.1.1",
     "vitest": "^3.2.4",
     "ws": "^8.18.3",

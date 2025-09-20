@@ -11,12 +11,9 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import {
-  AlertCircleIcon,
-  CameraIcon,
   CheckIcon,
   ChevronLeftIcon,
   CircleQuestionMarkIcon,
-  CodeIcon,
   Columns2,
   DownloadIcon,
   EyeIcon,
@@ -24,20 +21,21 @@ import {
   MicIcon,
   MicOffIcon,
   MonitorIcon,
-  SmileIcon,
-  SquareUserRound,
-  UserIcon,
   UserRound,
 } from "lucide-react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
+import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
 import type { Clip, FrontendId } from "./clip-state-reducer";
 import { OBSConnectionButton, type OBSConnectionState } from "./obs-connector";
 import { PreloadableClipManager } from "./preloadable-clip";
 import { TitleSection } from "./title-section";
 import { type FrontendSpeechDetectorState } from "./use-speech-detector";
-import { makeVideoEditorReducer } from "./video-state-reducer";
-import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
+import {
+  makeVideoEditorReducer,
+  type videoStateReducer,
+} from "./video-state-reducer";
+import { useEffectReducer } from "use-effect-reducer";
 
 export const VideoEditor = (props: {
   obsConnectorState: OBSConnectionState;
@@ -53,15 +51,12 @@ export const VideoEditor = (props: {
   clipIdsBeingTranscribed: Set<FrontendId>;
   onClipsRemoved: (clipIds: FrontendId[]) => void;
 }) => {
-  const [state, dispatch] = useReducer(
-    makeVideoEditorReducer(
-      (effect) => {
-        if (effect.type === "archive-clips") {
-          props.onClipsRemoved(effect.clipIds);
-        }
-      },
-      props.clips.map((clip) => clip.frontendId)
-    ),
+  const [state, dispatch] = useEffectReducer<
+    videoStateReducer.State,
+    videoStateReducer.Action,
+    videoStateReducer.Effect
+  >(
+    makeVideoEditorReducer(props.clips.map((clip) => clip.frontendId)),
     {
       showLastFrameOfVideo: false,
       runningState: "paused",
@@ -74,6 +69,11 @@ export const VideoEditor = (props: {
         )
       ),
       playbackRate: 1,
+    },
+    {
+      "archive-clips": (state, effect, dispatch) => {
+        props.onClipsRemoved(effect.clipIds);
+      },
     }
   );
 
