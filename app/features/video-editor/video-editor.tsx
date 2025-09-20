@@ -10,22 +10,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
+import levenshtein from "js-levenshtein";
 import {
+  AlertTriangleIcon,
   CheckIcon,
   ChevronLeftIcon,
   CircleQuestionMarkIcon,
   Columns2,
   DownloadIcon,
-  EyeIcon,
   Loader2,
   MicIcon,
   MicOffIcon,
   MonitorIcon,
   UserRound,
 } from "lucide-react";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
+import { useEffectReducer } from "use-effect-reducer";
 import type { Clip, FrontendId } from "./clip-state-reducer";
 import { OBSConnectionButton, type OBSConnectionState } from "./obs-connector";
 import { PreloadableClipManager } from "./preloadable-clip";
@@ -35,7 +37,17 @@ import {
   makeVideoEditorReducer,
   type videoStateReducer,
 } from "./video-state-reducer";
-import { useEffectReducer } from "use-effect-reducer";
+
+function calculateTextSimilarity(str1: string, str2: string): number {
+  const distance = levenshtein(str1, str2);
+  const maxLength = Math.max(str1.length, str2.length);
+
+  // Handle edge case of empty strings
+  if (maxLength === 0) return 100;
+
+  const similarity = (1 - distance / maxLength) * 100;
+  return Math.max(0, Math.round(similarity * 100) / 100); // Round to 2 decimal places
+}
 
 export const VideoEditor = (props: {
   obsConnectorState: OBSConnectionState;
@@ -187,18 +199,30 @@ export const VideoEditor = (props: {
 
   let timecode = 0;
 
-  const clipsWithTimecode = props.clips.map((clip) => {
-    if (clip.type === "optimistically-added") return clip;
+  const clipsWithTimecodeAndLevenshtein = useMemo(
+    () =>
+      props.clips.map((clip, index, clips) => {
+        if (clip.type === "optimistically-added") return clip;
 
-    const timecodeString = formatSecondsToTimeCode(timecode);
+        const nextClip = clips[index + 1];
 
-    const duration = clip.sourceEndTime - clip.sourceStartTime;
-    timecode += duration;
-    return {
-      ...clip,
-      timecode: timecodeString,
-    };
-  });
+        const nextLevenshtein =
+          nextClip?.type === "on-database" && nextClip?.text
+            ? calculateTextSimilarity(clip.text, nextClip.text)
+            : 0;
+
+        const timecodeString = formatSecondsToTimeCode(timecode);
+
+        const duration = clip.sourceEndTime - clip.sourceStartTime;
+        timecode += duration;
+        return {
+          ...clip,
+          nextLevenshtein,
+          timecode: timecodeString,
+        };
+      }),
+    [props.clips]
+  );
 
   return (
     <div className="flex flex-col lg:flex-row p-6 gap-6 gap-y-10">
@@ -360,7 +384,7 @@ export const VideoEditor = (props: {
               <p className="text-sm">Time to start recording!</p>
             </div>
           )}
-          {clipsWithTimecode.map((clip) => {
+          {clipsWithTimecodeAndLevenshtein.map((clip) => {
             const duration =
               clip.type === "on-database"
                 ? clip.sourceEndTime - clip.sourceStartTime
@@ -436,7 +460,7 @@ export const VideoEditor = (props: {
                       <CircleQuestionMarkIcon className="size-5 mr-4 flex-shrink-0" />
                     )}
                   </div>
-                  {props.clipIdsBeingTranscribed.has(clip.frontendId) &&
+                  {props.clipIdsBeingTranscribed.has(clip.frontendId) ? (
                     clip.type === "on-database" &&
                     !clip.transcribedAt &&
                     !clip.text && (
@@ -444,16 +468,25 @@ export const VideoEditor = (props: {
                         <Loader2 className="w-4 h-4 mr-2 animate-spin text-gray-300" />
                         <span className="text-gray-400">Transcribing...</span>
                       </div>
-                    )}
-                  {clip.type === "on-database" ? (
-                    <span
-                      className={cn(
-                        "text-gray-100",
-                        clip.frontendId === currentClipId && "text-white"
+                    )
+                  ) : clip.type === "on-database" ? (
+                    <>
+                      {clip.nextLevenshtein >
+                        DANGEROUS_TEXT_SIMILARITY_THRESHOLD && (
+                        <span className="text-orange-500 mr-2 text-base font-semibold inline-flex items-center">
+                          <AlertTriangleIcon className="w-4 h-4 mr-2" />
+                          {clip.nextLevenshtein.toFixed(0)}%
+                        </span>
                       )}
-                    >
-                      {clip.text}
-                    </span>
+                      <span
+                        className={cn(
+                          "text-gray-100",
+                          clip.frontendId === currentClipId && "text-white"
+                        )}
+                      >
+                        {clip.text}
+                      </span>
+                    </>
                   ) : (
                     <div className="flex items-center">
                       <Loader2 className="w-4 h-4 mr-2 animate-spin text-gray-300" />
@@ -584,3 +617,5 @@ export const RecordingSignalIndicator = () => {
     </div>
   );
 };
+
+const DANGEROUS_TEXT_SIMILARITY_THRESHOLD = 40;

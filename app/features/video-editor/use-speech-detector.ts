@@ -25,7 +25,7 @@ export type FrontendSpeechDetectorState =
 
 const SPEAKING_THRESHOLD = -33;
 const LONG_ENOUGH_TIME_IN_MILLISECONDS = 800;
-const LONG_ENOUGH_SPEECH_TIME_IN_MILLISECONDS = 1200;
+const LONG_ENOUGH_SPEECH_TIME_IN_MILLISECONDS = 1400;
 
 const resolveFrontendSpeechDetectorState = (
   state: SpeechDetectorState
