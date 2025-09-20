@@ -127,12 +127,22 @@ export const makeVideoEditorReducer =
   (state, action, exec) => {
     switch (action.type) {
       case "toggle-last-frame-of-video":
-        return { ...state, showLastFrameOfVideo: !state.showLastFrameOfVideo };
-      case "press-space-bar":
         return {
           ...state,
-          runningState: state.runningState === "playing" ? "paused" : "playing",
+          showLastFrameOfVideo: !state.showLastFrameOfVideo,
+          runningState: "paused",
         };
+      case "press-space-bar": {
+        const newRunningState =
+          state.runningState === "playing" ? "paused" : "playing";
+
+        return {
+          ...state,
+          runningState: newRunningState,
+          showLastFrameOfVideo:
+            newRunningState === "playing" ? false : state.showLastFrameOfVideo,
+        };
+      }
       case "press-home":
         const firstClip = clipIds[0];
         if (!firstClip) {
@@ -172,12 +182,16 @@ export const makeVideoEditorReducer =
         return { ...state, runningState: "paused" };
       case "press-play":
         return { ...state, runningState: "playing" };
-      case "press-return":
+      case "press-return": {
+        const newRunningState =
+          state.runningState === "playing" ? "paused" : "playing";
+        const newShowLastFrameOfVideo =
+          newRunningState === "playing" ? false : state.showLastFrameOfVideo;
         if (state.selectedClipsSet.size === 0) {
           return {
             ...state,
-            runningState:
-              state.runningState === "playing" ? "paused" : "playing",
+            runningState: newRunningState,
+            showLastFrameOfVideo: newShowLastFrameOfVideo,
           };
         }
         const mostRecentClipId = Array.from(state.selectedClipsSet).pop()!;
@@ -186,8 +200,8 @@ export const makeVideoEditorReducer =
           return {
             ...state,
             selectedClipsSet: new Set([state.currentClipId]),
-            runningState:
-              state.runningState === "playing" ? "paused" : "playing",
+            runningState: newRunningState,
+            showLastFrameOfVideo: newShowLastFrameOfVideo,
           };
         }
 
@@ -198,6 +212,7 @@ export const makeVideoEditorReducer =
           currentTimeInClip: 0,
           selectedClipsSet: new Set([mostRecentClipId]),
         });
+      }
       case "click-clip":
         if (action.ctrlKey) {
           const newSelectedClipsSet = new Set(state.selectedClipsSet);

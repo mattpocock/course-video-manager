@@ -227,7 +227,9 @@ export const VideoEditor = (props: {
                     props.obsConnectorState.type === "obs-recording") &&
                     props.obsConnectorState.profile === "TikTok" &&
                     "w-92 aspect-[9/16]",
-                  viewMode !== "live-stream" && "hidden"
+                  "hidden",
+                  (viewMode === "live-stream" || viewMode === "last-frame") &&
+                    "block"
                 )}
               >
                 {props.obsConnectorState.type === "obs-recording" && (
@@ -239,6 +241,20 @@ export const VideoEditor = (props: {
                   obsConnectorState={props.obsConnectorState}
                   speechDetectorState={props.speechDetectorState}
                 />
+                {lastDatabaseClip && viewMode === "last-frame" && (
+                  <div
+                    className={cn(
+                      "absolute top-0 left-0 rounded-lg",
+                      lastDatabaseClip.profile === "TikTok" &&
+                        "w-92 aspect-[9/16]"
+                    )}
+                  >
+                    <img
+                      className="w-full h-full rounded-lg opacity-50"
+                      src={`/clips/${lastDatabaseClip.databaseId}/last-frame`}
+                    />
+                  </div>
+                )}
               </div>
             )}
             <div className={cn(viewMode !== "video-player" && "hidden")}>
@@ -260,23 +276,6 @@ export const VideoEditor = (props: {
                 playbackRate={state.playbackRate}
               />
             </div>
-            {lastDatabaseClip && (
-              <div
-                className={cn(
-                  viewMode !== "last-frame" && "hidden",
-                  "relative",
-                  lastDatabaseClip.profile === "TikTok" && "w-92 aspect-[9/16]"
-                )}
-              >
-                <img
-                  className="w-full h-full rounded-lg outline-4 outline-orange-500"
-                  src={`/clips/${lastDatabaseClip.databaseId}/last-frame`}
-                />
-                <div className="absolute top-4 left-4 bg-orange-500 rounded-full size-8 flex items-center justify-center">
-                  <EyeIcon className="size-4 text-white" />
-                </div>
-              </div>
-            )}
 
             <div className="flex gap-2 mt-4">
               <Button asChild variant="secondary">
