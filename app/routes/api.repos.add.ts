@@ -45,15 +45,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
     Effect.tapErrorCause((e) => {
       return Console.dir(e, { depth: null });
     }),
-    Effect.catchTag("ParseError", (e) => {
+    Effect.catchTag("ParseError", (_e) => {
       return Effect.succeed(new Response("Invalid request", { status: 400 }));
     }),
-    Effect.catchTag("RepoDoesNotExistError", (e) => {
+    Effect.catchTag("RepoDoesNotExistError", (_e) => {
       return Effect.succeed(
         new Response("Repo path does not exist locally", { status: 404 })
       );
     }),
-    Effect.catchAll((e) => {
+    Effect.catchAll((_e) => {
       return Effect.succeed(
         new Response("Internal server error", { status: 500 })
       );

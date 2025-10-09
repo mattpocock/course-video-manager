@@ -311,7 +311,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
       return Console.log(e);
     }),
     Effect.catchTags({
-      ParseError: (e) =>
+      ParseError: (_e) =>
         Effect.succeed(new Response("Invalid request", { status: 400 })),
       RepoDoesNotExistError: () =>
         Effect.succeed(
@@ -334,7 +334,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
         ),
     }),
     Effect.withConfigProvider(ConfigProvider.fromEnv()),
-    Effect.catchAll((e) => {
+    Effect.catchAll((_e) => {
       return Effect.succeed(
         new Response("Internal server error", { status: 500 })
       );

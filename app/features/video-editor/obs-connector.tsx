@@ -1,6 +1,4 @@
-import { Button } from "@/components/ui/button";
 import type { DB } from "@/db/schema";
-import { CheckIcon, Loader2, MicIcon } from "lucide-react";
 import { OBSWebSocket } from "obs-websocket-js";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -360,7 +358,7 @@ export const useOBSConnector = (props: {
       };
     },
     {
-      "wait-before-reconnecting": (state, effect, dispatch) => {
+      "wait-before-reconnecting": (_state, _effect, dispatch) => {
         const timeout = setTimeout(() => {
           dispatch({ type: "trigger-reconnect" });
         }, 1000);
@@ -369,15 +367,15 @@ export const useOBSConnector = (props: {
           clearTimeout(timeout);
         };
       },
-      "stop-recording": (state, effect, dispatch) => {
+      "stop-recording": (_state, _effect, _dispatch) => {
         websocket.call("StopRecord").catch((e) => {
           console.error(e);
         });
       },
-      "log-error": (state, effect, dispatch) => {
+      "log-error": (_state, effect, _dispatch) => {
         console.error(effect.error);
       },
-      "attempt-to-connect": (state, effect, dispatch) => {
+      "attempt-to-connect": (_state, _effect, dispatch) => {
         console.log("Attempting to reconnect");
         websocket
           .connect("ws://192.168.1.55:4455")
@@ -396,7 +394,7 @@ export const useOBSConnector = (props: {
             dispatch({ type: "obs-connection-failed", error: e });
           });
       },
-      "run-event-listeners": (state, effect, dispatch) => {
+      "run-event-listeners": (_state, _effect, dispatch) => {
         createNotRunningListener(websocket, () => {
           dispatch({ type: "connection-closed" });
         });

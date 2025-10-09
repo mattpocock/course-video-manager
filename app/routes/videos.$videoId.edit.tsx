@@ -42,7 +42,7 @@ export default function Component(props: Route.ComponentProps) {
       clipIdsBeingTranscribed: new Set() satisfies Set<FrontendId>,
     },
     {
-      "archive-clips": (state, effect, dispatch) => {
+      "archive-clips": (_state, effect, _dispatch) => {
         fetch("/clips/archive", {
           method: "POST",
           body: JSON.stringify({ clipIds: effect.clipIds }),
@@ -50,7 +50,7 @@ export default function Component(props: Route.ComponentProps) {
           res.json();
         });
       },
-      "transcribe-clips": (state, effect, dispatch) => {
+      "transcribe-clips": (_state, effect, dispatch) => {
         fetch("/clips/transcribe", {
           method: "POST",
           body: JSON.stringify({ clipIds: effect.clipIds }),
@@ -72,7 +72,7 @@ export default function Component(props: Route.ComponentProps) {
           behavior: "smooth",
         });
       },
-      "update-clips": (state, effect, dispatch) => {
+      "update-clips": (_state, effect, _dispatch) => {
         fetch("/clips/update", {
           method: "POST",
           body: JSON.stringify({ clips: effect.clips }),

@@ -85,7 +85,7 @@ export const VideoEditor = (props: {
       playbackRate: 1,
     },
     {
-      "archive-clips": (state, effect, dispatch) => {
+      "archive-clips": (_state, effect, _dispatch) => {
         props.onClipsRemoved(effect.clipIds);
       },
     }
@@ -596,9 +596,6 @@ export const VideoEditor = (props: {
   );
 };
 
-const formatSecondsToTime = (seconds: number) => {
-  return seconds.toFixed(1) + "s";
-};
 
 export const LiveMediaStream = (props: {
   mediaStream: MediaStream;

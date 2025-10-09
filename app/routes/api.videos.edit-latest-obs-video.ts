@@ -2,7 +2,6 @@ import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import { Effect, Schema } from "effect";
 import type { Route } from "./+types/api.videos.edit-latest-obs-video";
-import { execSync } from "child_process";
 import { withDatabaseDump } from "@/services/dump-service";
 import { Command } from "@effect/platform";
 

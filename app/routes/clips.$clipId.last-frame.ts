@@ -4,7 +4,6 @@ import type { Route } from "./+types/clips.$clipId.last-frame";
 import { layerLive } from "@/services/layer";
 import { TotalTypeScriptCLIService } from "@/services/tt-cli-service";
 import { createReadStream } from "fs";
-import path from "path";
 
 export const loader = async (args: Route.LoaderArgs) => {
   const { clipId } = args.params;

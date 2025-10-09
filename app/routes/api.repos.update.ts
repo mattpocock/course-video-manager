@@ -255,7 +255,7 @@ export const action = async (args: Route.ActionArgs) => {
     Effect.tapErrorCause((cause) => {
       return Console.error(cause);
     }),
-    Effect.catchAll((e) => {
+    Effect.catchAll((_e) => {
       return Effect.succeed(
         new Response("Internal server error", { status: 500 })
       );

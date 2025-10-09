@@ -33,8 +33,6 @@ import {
   VideoOffIcon,
   VideotapeIcon,
 } from "lucide-react";
-import { homedir } from "node:os";
-import path from "node:path";
 import React, { useEffect, useState } from "react";
 import { Link, useFetcher, useSearchParams } from "react-router";
 import type { Route } from "./+types/_index";
@@ -107,7 +105,7 @@ export const loader = async (args: Route.LoaderArgs) => {
 
     return { repos, selectedRepo, hasExportedVideoMap };
   }).pipe(
-    Effect.catchTag("NotFoundError", (e) => {
+    Effect.catchTag("NotFoundError", (_e) => {
       return Effect.succeed(new Response("Not Found", { status: 404 }));
     }),
     Effect.provide(layerLive),
@@ -482,10 +480,10 @@ export default function Component(props: Route.ComponentProps) {
                                         value={video.id}
                                       />
                                       <Button
+                                        type="submit"
                                         variant="ghost"
                                         size="sm"
                                         className="h-6 w-6 p-0"
-                                        onClick={() => {}}
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </Button>

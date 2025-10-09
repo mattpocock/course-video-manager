@@ -3,21 +3,28 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clipStateReducer,
   type DatabaseId,
-  type FrontendId,
 } from "./clip-state-reducer";
+
+const createMockExec = () => {
+  const fn = vi.fn() as any;
+  fn.stop = vi.fn();
+  fn.replace = vi.fn();
+  return fn;
+};
 
 describe("clipStateReducer", () => {
   describe("Transcribing", () => {
     it("should not transcribe when a new optimistic clip is added", () => {
-      const reportEffect = vi.fn();
-      const newState = clipStateReducer(reportEffect)(
+      const reportEffect = createMockExec();
+      const newState = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
         },
         fromPartial({
           type: "new-optimistic-clip-detected",
-        })
+        }),
+        reportEffect
       );
 
       const clipIds = newState.clips.map((clip) => clip.frontendId);
@@ -29,8 +36,8 @@ describe("clipStateReducer", () => {
     });
 
     it("Should transcribe when a new database clip is added", () => {
-      const reportEffect = vi.fn();
-      const newState = clipStateReducer(reportEffect)(
+      const reportEffect = createMockExec();
+      const newState = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
@@ -43,7 +50,8 @@ describe("clipStateReducer", () => {
               text: "",
             }),
           ],
-        }
+        },
+        reportEffect
       );
 
       expect(reportEffect).toHaveBeenCalledWith({
@@ -53,12 +61,12 @@ describe("clipStateReducer", () => {
 
       expect(newState.clipIdsBeingTranscribed.size).toBe(1);
 
-      const stateAfterTranscribe = clipStateReducer(reportEffect)(newState, {
+      const stateAfterTranscribe = clipStateReducer(newState, {
         type: "clips-transcribed",
         clips: [
           fromPartial({ databaseId: "123" as DatabaseId, text: "Hello" }),
         ],
-      });
+      }, reportEffect);
 
       expect(stateAfterTranscribe.clipIdsBeingTranscribed.size).toBe(0);
       expect(stateAfterTranscribe.clips[0]).toMatchObject({
@@ -69,15 +77,16 @@ describe("clipStateReducer", () => {
 
   describe("Optimistic Clips", () => {
     it("Should handle a single optimistic clip which gets replaced with a database clip", () => {
-      const reportEffect1 = vi.fn();
-      const stateWithOneOptimisticClip = clipStateReducer(reportEffect1)(
+      const reportEffect1 = createMockExec();
+      const stateWithOneOptimisticClip = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
         },
         fromPartial({
           type: "new-optimistic-clip-detected",
-        })
+        }),
+        reportEffect1
       );
 
       expect(stateWithOneOptimisticClip.clips[0]).toMatchObject({
@@ -87,13 +96,14 @@ describe("clipStateReducer", () => {
         type: "scroll-to-bottom",
       });
 
-      const reportEffect2 = vi.fn();
-      const stateWithOneDatabaseClip = clipStateReducer(reportEffect2)(
+      const reportEffect2 = createMockExec();
+      const stateWithOneDatabaseClip = clipStateReducer(
         stateWithOneOptimisticClip,
         {
           type: "new-database-clips",
           clips: [fromPartial({ id: "123" })],
-        }
+        },
+        reportEffect2
       );
 
       expect(stateWithOneDatabaseClip.clips.length).toBe(1);
@@ -112,8 +122,8 @@ describe("clipStateReducer", () => {
     });
 
     it("Should handle two optimistic clips which get replaced with a database clip", () => {
-      const reportEffect1 = vi.fn();
-      const stateWithOneOptimisticClip = clipStateReducer(reportEffect1)(
+      const reportEffect1 = createMockExec();
+      const stateWithOneOptimisticClip = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
@@ -122,25 +132,28 @@ describe("clipStateReducer", () => {
           type: "new-optimistic-clip-detected",
           scene: "Camera",
           profile: "Landscape",
-        })
+        }),
+        reportEffect1
       );
 
-      const stateWithTwoOptimisticClips = clipStateReducer(reportEffect1)(
+      const stateWithTwoOptimisticClips = clipStateReducer(
         stateWithOneOptimisticClip,
         fromPartial({
           type: "new-optimistic-clip-detected",
           scene: "No Face",
           profile: "Portrait",
-        })
+        }),
+        reportEffect1
       );
 
-      const reportEffect2 = vi.fn();
-      const stateWithOneDatabaseClip = clipStateReducer(reportEffect2)(
+      const reportEffect2 = createMockExec();
+      const stateWithOneDatabaseClip = clipStateReducer(
         stateWithTwoOptimisticClips,
         fromPartial({
           type: "new-database-clips",
           clips: [fromPartial({ id: "1" })],
-        })
+        }),
+        reportEffect2
       );
 
       expect(reportEffect2).toHaveBeenCalledWith({
@@ -154,13 +167,14 @@ describe("clipStateReducer", () => {
         id: "1",
       });
 
-      const reportEffect3 = vi.fn();
-      const stateWithTwoDatabaseClips = clipStateReducer(reportEffect3)(
+      const reportEffect3 = createMockExec();
+      const stateWithTwoDatabaseClips = clipStateReducer(
         stateWithOneDatabaseClip,
         fromPartial({
           type: "new-database-clips",
           clips: [fromPartial({ id: "2" })],
-        })
+        }),
+        reportEffect3
       );
 
       expect(reportEffect3).toHaveBeenCalledWith({
@@ -180,8 +194,8 @@ describe("clipStateReducer", () => {
     });
 
     it("If there are no optimistic clips, a new database clip should be added", () => {
-      const reportEffect = vi.fn();
-      const stateWithASingleDatabaseClip = clipStateReducer(reportEffect)(
+      const reportEffect = createMockExec();
+      const stateWithASingleDatabaseClip = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
@@ -189,7 +203,8 @@ describe("clipStateReducer", () => {
         fromPartial({
           type: "new-database-clips",
           clips: [fromPartial({ id: "123" })],
-        })
+        }),
+        reportEffect
       );
 
       expect(stateWithASingleDatabaseClip.clips.length).toBe(1);
@@ -201,25 +216,27 @@ describe("clipStateReducer", () => {
 
   describe("Archiving Optimistically Added Clips", () => {
     it("Should archive an optimistically added clip when it is deleted", () => {
-      const reportEffect = vi.fn();
-      const stateWithOneOptimisticClip = clipStateReducer(reportEffect)(
+      const reportEffect = createMockExec();
+      const stateWithOneOptimisticClip = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
         },
         fromPartial({
           type: "new-optimistic-clip-detected",
-        })
+        }),
+        reportEffect
       );
 
       const optimisticClipId = stateWithOneOptimisticClip.clips[0]!.frontendId;
 
-      const stateWithOneOptimisticClipDeleted = clipStateReducer(reportEffect)(
+      const stateWithOneOptimisticClipDeleted = clipStateReducer(
         stateWithOneOptimisticClip,
         fromPartial({
           type: "clips-deleted",
           clipIds: [optimisticClipId],
-        })
+        }),
+        reportEffect
       );
 
       expect(stateWithOneOptimisticClipDeleted.clips[0]).toMatchObject({
@@ -229,33 +246,38 @@ describe("clipStateReducer", () => {
     });
 
     it("Optimistically added clips that have been archived will archive database clips that replace them", () => {
-      const stateWithOneOptimisticClip = clipStateReducer(() => {})(
+      const mockExec1 = createMockExec();
+      const stateWithOneOptimisticClip = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
         },
         fromPartial({
           type: "new-optimistic-clip-detected",
-        })
+        }),
+        mockExec1
       );
 
       const optimisticClipId = stateWithOneOptimisticClip.clips[0]!.frontendId;
 
-      const stateWithOneOptimisticClipDeleted = clipStateReducer(() => {})(
+      const mockExec2 = createMockExec();
+      const stateWithOneOptimisticClipDeleted = clipStateReducer(
         stateWithOneOptimisticClip,
         {
           type: "clips-deleted",
           clipIds: [optimisticClipId],
-        }
+        },
+        mockExec2
       );
 
-      const reportEffect = vi.fn();
-      const stateWithNoDatabaseClips = clipStateReducer(reportEffect)(
+      const reportEffect = createMockExec();
+      const stateWithNoDatabaseClips = clipStateReducer(
         stateWithOneOptimisticClipDeleted,
         {
           type: "new-database-clips",
           clips: [fromPartial({ id: "123" })],
-        }
+        },
+        reportEffect
       );
 
       expect(stateWithNoDatabaseClips.clips.length).toBe(0);
@@ -272,8 +294,8 @@ describe("clipStateReducer", () => {
 
   describe("Archiving Database Clips", () => {
     it("Should archive a database clip when it is deleted", () => {
-      const reportEffect1 = vi.fn();
-      const stateWithOneDatabaseClip = clipStateReducer(reportEffect1)(
+      const reportEffect1 = createMockExec();
+      const stateWithOneDatabaseClip = clipStateReducer(
         {
           clips: [],
           clipIdsBeingTranscribed: new Set(),
@@ -281,18 +303,20 @@ describe("clipStateReducer", () => {
         {
           type: "new-database-clips",
           clips: [fromPartial({ id: "123" })],
-        }
+        },
+        reportEffect1
       );
 
       const databaseClipId = stateWithOneDatabaseClip.clips[0]!.frontendId;
 
-      const reportEffect2 = vi.fn();
-      const stateWithOneDatabaseClipDeleted = clipStateReducer(reportEffect2)(
+      const reportEffect2 = createMockExec();
+      const stateWithOneDatabaseClipDeleted = clipStateReducer(
         stateWithOneDatabaseClip,
         {
           type: "clips-deleted",
           clipIds: [databaseClipId],
-        }
+        },
+        reportEffect2
       );
 
       expect(stateWithOneDatabaseClipDeleted.clips.length).toBe(0);

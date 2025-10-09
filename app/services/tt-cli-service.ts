@@ -1,7 +1,6 @@
 import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
 import { Data, Effect, Schema } from "effect";
-import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import path from "node:path";
 import { tmpdir } from "os";
