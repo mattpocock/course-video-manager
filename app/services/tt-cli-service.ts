@@ -164,11 +164,32 @@ export class TotalTypeScriptCLIService extends Effect.Service<TotalTypeScriptCLI
         return outputFile;
       });
 
+      const sendClipsToDavinciResolve = Effect.fn("sendClipsToDavinciResolve")(
+        function* (opts: {
+          timelineName: string;
+          clips: {
+            inputVideo: string;
+            startTime: number;
+            duration: number;
+          }[];
+        }) {
+          const command = Command.make(
+            "tt",
+            "send-clips-to-davinci-resolve",
+            JSON.stringify(opts.clips),
+            opts.timelineName
+          );
+          const result = yield* Command.string(command);
+          return result;
+        }
+      );
+
       return {
         getLatestOBSVideoClips,
         exportVideoClips,
         transcribeClips,
         getLastFrame,
+        sendClipsToDavinciResolve,
       };
     }),
     dependencies: [NodeContext.layer],

@@ -19,6 +19,7 @@ import {
   Columns2,
   CopyIcon,
   DownloadIcon,
+  FilmIcon,
   Loader2,
   MicIcon,
   MicOffIcon,
@@ -171,6 +172,7 @@ export const VideoEditor = (props: {
   }, []);
 
   const exportVideoClipsFetcher = useFetcher();
+  const exportToDavinciResolveFetcher = useFetcher();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -412,6 +414,23 @@ export const VideoEditor = (props: {
                   </exportVideoClipsFetcher.Form>
                 </DialogContent>
               </Dialog>
+
+              <Button
+                variant="secondary"
+                aria-label="Export to Davinci Resolve"
+                onClick={() => {
+                  exportToDavinciResolveFetcher.submit(null, {
+                    method: "post",
+                    action: `/videos/${props.videoId}/export-to-davinci-resolve`,
+                  });
+                }}
+              >
+                {exportToDavinciResolveFetcher.state === "submitting" ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <FilmIcon className="w-4 h-4 mr-1" />
+                )}
+              </Button>
             </div>
           </div>
         </div>
