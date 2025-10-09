@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
+import { useEffect } from "react";
 import { useFetcher } from "react-router";
 
 interface AddRepoModalProps {
@@ -18,6 +19,12 @@ interface AddRepoModalProps {
 
 export function AddRepoModal({ isOpen, onOpenChange }: AddRepoModalProps) {
   const addRepoFetcher = useFetcher();
+
+  useEffect(() => {
+    if (addRepoFetcher.state === "idle" && addRepoFetcher.data) {
+      onOpenChange(false);
+    }
+  }, [addRepoFetcher.state, addRepoFetcher.data, onOpenChange]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

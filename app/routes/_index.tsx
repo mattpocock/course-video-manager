@@ -22,6 +22,7 @@ import { formatSecondsToTimeCode } from "@/services/utils";
 import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import {
+  FolderGit2,
   Loader2,
   PencilIcon,
   Play,
@@ -223,14 +224,21 @@ export default function Component(props: Route.ComponentProps) {
       {/* Left Sidebar - Repos */}
       <div className="w-80 border-r bg-muted/30 hidden lg:block">
         <div className="p-4 pb-0">
-          <h2 className="text-lg font-semibold mb-4">Repos</h2>
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <FolderGit2 className="w-5 h-5" />
+            Repos
+          </h2>
           <ScrollArea className="h-[calc(100vh-120px)]">
             <div className="space-y-2">
               {repos.map((repo) => (
                 <Button
                   key={repo.id}
                   variant={selectedRepoId === repo.id ? "default" : "ghost"}
-                  className="w-full justify-start"
+                  className={cn(
+                    "w-full justify-start whitespace-normal text-left h-auto",
+                    selectedRepoId === repo.id &&
+                      "bg-muted text-foreground/90 hover:bg-muted/90"
+                  )}
                   onClick={() => {
                     setSearchParams({ repoId: repo.id });
                   }}
