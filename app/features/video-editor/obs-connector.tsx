@@ -84,6 +84,20 @@ export const useConnectToOBSVirtualCamera = (props: {
 
       stream.getTracks().forEach((track) => track.stop());
 
+      while (true) {
+        const tracks = stream.getTracks();
+
+        if (tracks.length === 0) {
+          break;
+        }
+
+        if (tracks.every((track) => track.readyState === "ended")) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
       if (unmounted) return;
 
       const devices = await navigator.mediaDevices.enumerateDevices();
