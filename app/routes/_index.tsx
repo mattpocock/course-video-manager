@@ -104,7 +104,26 @@ export const loader = async (args: Route.LoaderArgs) => {
       });
     });
 
-    return { repos, selectedRepo, hasExportedVideoMap };
+    // Check for explainer folder in each lesson
+    const hasExplainerFolderMap: Record<string, boolean> = {};
+
+    const lessons = selectedRepo?.sections.flatMap((section) =>
+      section.lessons.map((lesson) => ({
+        id: lesson.id,
+        fullPath: `${selectedRepo.filePath}/${section.path}/${lesson.path}`,
+      }))
+    ) ?? [];
+
+    yield* Effect.forEach(lessons, (lesson) => {
+      return Effect.gen(function* () {
+        const explainerPath = `${lesson.fullPath}/explainer`;
+        const hasExplainerFolder = yield* fs.exists(explainerPath);
+
+        hasExplainerFolderMap[lesson.id] = hasExplainerFolder;
+      });
+    });
+
+    return { repos, selectedRepo, hasExportedVideoMap, hasExplainerFolderMap };
   }).pipe(
     Effect.catchTag("NotFoundError", (_e) => {
       return Effect.succeed(new Response("Not Found", { status: 404 }));
@@ -189,8 +208,17 @@ export default function Component(props: Route.ComponentProps) {
   const currentRepo = data.selectedRepo;
 
   // Function to determine the path based on video count
-  const getVideoPath = (lesson: { videos: unknown[] }) => {
+  const getVideoPath = (lesson: { id: string; videos: unknown[] }) => {
     const videoCount = lesson.videos.length;
+    const hasExplainerFolder = data.hasExplainerFolderMap[lesson.id];
+
+    if (hasExplainerFolder) {
+      if (videoCount === 0) {
+        return "Explainer";
+      } else {
+        return `Explainer ${videoCount + 1}`;
+      }
+    }
 
     if (videoCount === 0) {
       return "Problem";
