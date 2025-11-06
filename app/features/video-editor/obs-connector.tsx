@@ -77,12 +77,24 @@ export const useConnectToOBSVirtualCamera = (props: {
 
       if (unmounted) return;
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
+      let stream: MediaStream | undefined;
 
-      stream.getTracks().forEach((track) => track.stop());
+      while (!unmounted) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+
+          stream.getTracks().forEach((track) => track.stop());
+          break;
+        } catch (e) {
+          console.error("Error getting initial media stream, retrying...", e);
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
+
+      if (unmounted || !stream) return;
 
       while (true) {
         const tracks = stream.getTracks();
@@ -111,15 +123,23 @@ export const useConnectToOBSVirtualCamera = (props: {
       if (unmounted) return;
 
       if (obsVirtualcamDevice) {
-        const obsStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            deviceId: obsVirtualcamDevice.deviceId,
-            width: 1280,
-          },
-          audio: true,
-        });
+        while (!unmounted) {
+          try {
+            const obsStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: obsVirtualcamDevice.deviceId,
+                width: 1280,
+              },
+              audio: true,
+            });
 
-        setMediaStream(obsStream);
+            setMediaStream(obsStream);
+            break;
+          } catch (e) {
+            console.error("Error connecting to OBS Virtual Camera, retrying...", e);
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+        }
       }
     })();
 
