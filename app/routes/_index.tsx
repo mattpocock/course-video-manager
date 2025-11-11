@@ -1,22 +1,14 @@
 "use client";
 
 import { AddRepoModal } from "@/components/add-repo-modal";
+import { AddVideoModal } from "@/components/add-video-modal";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { VideoModal } from "@/components/video-player";
@@ -204,8 +196,6 @@ export default function Component(props: Route.ComponentProps) {
     };
   }, [selectedRepoId]);
 
-  const addVideoFetcher = useFetcher();
-
   const deleteVideoFetcher = useFetcher();
   const deleteLessonFetcher = useFetcher();
 
@@ -214,28 +204,6 @@ export default function Component(props: Route.ComponentProps) {
   const repos = data.repos;
 
   const currentRepo = data.selectedRepo;
-
-  // Function to determine the path based on video count
-  const getVideoPath = (lesson: { id: string; videos: unknown[] }) => {
-    const videoCount = lesson.videos.length;
-    const hasExplainerFolder = data.hasExplainerFolderMap[lesson.id];
-
-    if (hasExplainerFolder) {
-      if (videoCount === 0) {
-        return "Explainer";
-      } else {
-        return `Explainer ${videoCount + 1}`;
-      }
-    }
-
-    if (videoCount === 0) {
-      return "Problem";
-    } else if (videoCount === 1) {
-      return "Solution";
-    } else {
-      return `Solution ${videoCount}`;
-    }
-  };
 
   const totalLessonsWithVideos =
     data.selectedRepo?.sections.reduce((acc, section) => {
@@ -419,78 +387,31 @@ export default function Component(props: Route.ComponentProps) {
                                 {lesson.path}
                               </h3>
                               <div className="flex items-center space-x-2">
-                                <Dialog
+                                <Button
+                                  type="submit"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-xs"
+                                  onClick={() =>
+                                    setAddVideoToLessonId(lesson.id)
+                                  }
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                                <AddVideoModal
+                                  lessonId={lesson.id}
+                                  videoCount={lesson.videos.length}
+                                  hasExplainerFolder={
+                                    data.hasExplainerFolderMap[lesson.id] ??
+                                    false
+                                  }
                                   open={addVideoToLessonId === lesson.id}
                                   onOpenChange={(open) => {
                                     setAddVideoToLessonId(
                                       open ? lesson.id : null
                                     );
                                   }}
-                                >
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      type="submit"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 text-xs"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="sm:max-w-md">
-                                    <DialogHeader>
-                                      <DialogTitle>Add New Video</DialogTitle>
-                                    </DialogHeader>
-                                    <addVideoFetcher.Form
-                                      method="post"
-                                      action={`/api/lessons/${lesson.id}/add-video`}
-                                      className="space-y-4 py-4"
-                                      onSubmit={async (e) => {
-                                        e.preventDefault();
-                                        await addVideoFetcher.submit(
-                                          e.currentTarget
-                                        );
-                                        setAddVideoToLessonId(null);
-                                      }}
-                                    >
-                                      <input
-                                        type="hidden"
-                                        name="lessonId"
-                                        value={lesson.id}
-                                      />
-                                      <div className="space-y-2">
-                                        <Label htmlFor="video-path">
-                                          Video Name
-                                        </Label>
-                                        <Input
-                                          id="video-path"
-                                          placeholder="Problem, Solution, Explainer..."
-                                          defaultValue={getVideoPath(lesson)}
-                                          name="path"
-                                        />
-                                      </div>
-                                      <div className="flex justify-end space-x-2">
-                                        <Button
-                                          variant="outline"
-                                          onClick={() =>
-                                            setAddVideoToLessonId(null)
-                                          }
-                                          type="button"
-                                        >
-                                          Cancel
-                                        </Button>
-                                        <Button type="submit">
-                                          {addVideoFetcher.state ===
-                                          "submitting" ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                          ) : (
-                                            "Add Video"
-                                          )}
-                                        </Button>
-                                      </div>
-                                    </addVideoFetcher.Form>
-                                  </DialogContent>
-                                </Dialog>
+                                />
                                 <deleteLessonFetcher.Form
                                   method="post"
                                   action="/api/lessons/delete"

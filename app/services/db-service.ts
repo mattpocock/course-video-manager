@@ -195,6 +195,7 @@ export class DBService extends Effect.Service<DBService>()("DBService", {
                     repo: true,
                   },
                 },
+                videos: true,
               },
             },
             clips: {

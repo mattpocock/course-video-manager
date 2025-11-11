@@ -11,6 +11,7 @@ import { useOBSConnector } from "@/features/video-editor/obs-connector";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
+import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/videos.$videoId.edit";
@@ -21,13 +22,29 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
     const db = yield* DBService;
+    const fs = yield* FileSystem.FileSystem;
     const video = yield* db.getVideoWithClipsById(videoId);
 
-    return { video, clips: video.clips as DB.Clip[], waveformData: undefined };
+    // Check if lesson has explainer folder
+    const lessonFullPath = `${video.lesson.section.repo.filePath}/${video.lesson.section.path}/${video.lesson.path}`;
+    const explainerPath = `${lessonFullPath}/explainer`;
+    const hasExplainerFolder = yield* fs.exists(explainerPath);
+
+    return {
+      video,
+      clips: video.clips as DB.Clip[],
+      waveformData: undefined,
+      hasExplainerFolder,
+      videoCount: video.lesson.videos.length,
+    };
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
 export default function Component(props: Route.ComponentProps) {
+  return <ComponentInner {...props} key={props.loaderData.video.id} />;
+}
+
+export const ComponentInner = (props: Route.ComponentProps) => {
   const [clipState, dispatch] = useEffectReducer(
     clipStateReducer,
     {
@@ -114,6 +131,8 @@ export default function Component(props: Route.ComponentProps) {
       liveMediaStream={obsConnector.mediaStream}
       speechDetectorState={obsConnector.speechDetectorState}
       clipIdsBeingTranscribed={clipState.clipIdsBeingTranscribed}
+      hasExplainerFolder={props.loaderData.hasExplainerFolder}
+      videoCount={props.loaderData.videoCount}
     />
   );
-}
+};

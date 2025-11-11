@@ -1,3 +1,4 @@
+import { AddVideoModal } from "@/components/add-video-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,6 +39,7 @@ import {
   MicOffIcon,
   MonitorIcon,
   PencilIcon,
+  Plus,
   UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -77,6 +79,8 @@ export const VideoEditor = (props: {
   speechDetectorState: FrontendSpeechDetectorState;
   clipIdsBeingTranscribed: Set<FrontendId>;
   onClipsRemoved: (clipIds: FrontendId[]) => void;
+  hasExplainerFolder: boolean;
+  videoCount: number;
 }) => {
   const [state, dispatch] = useEffectReducer<
     videoStateReducer.State,
@@ -188,6 +192,7 @@ export const VideoEditor = (props: {
   const exportToDavinciResolveFetcher = useFetcher();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isAddVideoModalOpen, setIsAddVideoModalOpen] = useState(false);
 
   const copyTranscriptToClipboard = async () => {
     try {
@@ -534,6 +539,20 @@ export const VideoEditor = (props: {
                         </span>
                       </div>
                     </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setIsAddVideoModalOpen(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">Add New Video</span>
+                        <span className="text-xs text-muted-foreground">
+                          Add another video to this lesson
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TooltipProvider>
@@ -541,6 +560,14 @@ export const VideoEditor = (props: {
           </div>
         </div>
       </div>
+
+      <AddVideoModal
+        lessonId={props.lessonId}
+        videoCount={props.videoCount}
+        hasExplainerFolder={props.hasExplainerFolder}
+        open={isAddVideoModalOpen}
+        onOpenChange={setIsAddVideoModalOpen}
+      />
 
       {/* Clips Section - Shows second on mobile, first on desktop */}
       <div className="lg:flex-1 flex-wrap flex gap-2 h-full order-2 lg:order-1 overflow-y-auto">
