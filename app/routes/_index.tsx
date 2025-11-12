@@ -220,6 +220,16 @@ export default function Component(props: Route.ComponentProps) {
       return acc + section.lessons.length;
     }, 0) ?? 0;
 
+  const totalVideos =
+    data.selectedRepo?.sections.reduce((acc, section) => {
+      return (
+        acc +
+        section.lessons.reduce((lessonAcc, lesson) => {
+          return lessonAcc + lesson.videos.length;
+        }, 0)
+      );
+    }, 0) ?? 0;
+
   const percentageComplete =
     totalLessons > 0
       ? Math.round((totalLessonsWithVideos / totalLessons) * 100)
@@ -277,10 +287,14 @@ export default function Component(props: Route.ComponentProps) {
                   <h1 className="text-2xl font-bold mb-2">
                     {currentRepo.name}
                   </h1>
-                  <p className="text-sm text-muted-foreground mb-8">
-                    {totalLessonsWithVideos} / {totalLessons} lessons with
-                    recordings ({percentageComplete}%)
-                  </p>
+                  <div className="flex items-center gap-2 mb-8">
+                    <span className="inline-flex items-center rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+                      {totalLessonsWithVideos} / {totalLessons} lessons ({percentageComplete}%)
+                    </span>
+                    <span className="inline-flex items-center rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+                      {totalVideos} videos
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <DropdownMenu>
