@@ -43,3 +43,11 @@ When the teacher refers to a terminal output, show the output of the terminal co
 
 When showing code samples, try to show code in the context where it's being used. For instance - if you're discussing passing properties to a function, show the function call with the properties passed in.
 `.trim();
+
+export const TODO_COMMENTS = `
+<todo-comments>
+There will likely be TODO comments in the code samples. These are important instructions for the user.
+
+When showing code samples, include the TODO comments related to them in full. They will help the user situate themselves in the code and understand what's needed.
+</todo-comments>
+`;

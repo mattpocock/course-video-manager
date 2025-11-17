@@ -32,5 +32,8 @@ Steps to complete can use codeblocks too! This should especially be used when st
 \`\`\`
 
 </codeblock-example>
+
+If the step to complete is related to a TODO comment, include the TODO comment in full inside the relevant codeblock.
+
 </steps-to-complete>
 `.trim();

@@ -1,7 +1,7 @@
 import { getVideoTranscriptPath } from "@/lib/get-video";
 import { generateArticlePrompt } from "@/prompts/generate-article";
 import { generateStepsToCompleteForProjectPrompt } from "@/prompts/generate-steps-to-complete-for-project";
-import { generateStepsToCompleteForSkillBuildingPrompt } from "@/prompts/generate-steps-to-complete-for-skill-building";
+import { generateStepsToCompleteForSkillBuildingProblemPrompt } from "@/prompts/generate-steps-to-complete-for-skill-building-problem";
 import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -209,7 +209,7 @@ export const action = async (args: Route.ActionArgs) => {
             transcript,
           });
         case "skill-building":
-          return generateStepsToCompleteForSkillBuildingPrompt({
+          return generateStepsToCompleteForSkillBuildingProblemPrompt({
             code: codeContext,
             transcript,
           });
@@ -226,17 +226,17 @@ export const action = async (args: Route.ActionArgs) => {
       model: anthropic("claude-sonnet-4-5"),
       messages: modelMessages,
       system: systemPrompt,
-      experimental_transform: xmlTagTransform({
-        name: "code-snippet",
-        attributes: ["path", "startText", "endText"],
-        transform: ({ attributes }) =>
-          parseCodeSnippet({
-            cwd: lessonPath,
-            path: attributes.path,
-            startText: attributes.startText,
-            endText: attributes.endText,
-          }),
-      }),
+      // experimental_transform: xmlTagTransform({
+      //   name: "code-snippet",
+      //   attributes: ["path", "startText", "endText"],
+      //   transform: ({ attributes }) =>
+      //     parseCodeSnippet({
+      //       cwd: lessonPath,
+      //       path: attributes.path,
+      //       startText: attributes.startText,
+      //       endText: attributes.endText,
+      //     }),
+      // }),
     });
 
     return result.toUIMessageStreamResponse();
@@ -267,8 +267,6 @@ const xmlTagTransform =
           controller.enqueue(chunk);
           return;
         }
-
-        console.log(state.type, chunk);
 
         if (state.type === "not-capturing-xml-tag") {
           if (chunk.text.includes(`<`)) {
