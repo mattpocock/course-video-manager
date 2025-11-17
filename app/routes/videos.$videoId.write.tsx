@@ -26,10 +26,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Array as EffectArray, Effect } from "effect";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CopyIcon,
+  SaveIcon,
+  CheckIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 import type { Route } from "./+types/videos.$videoId.write";
 import path from "path";
 import { FileSystem } from "@effect/platform";
@@ -183,6 +195,39 @@ export function InnerComponent(props: Route.ComponentProps) {
     }),
   });
 
+  const writeToReadmeFetcher = useFetcher();
+  const [isCopied, setIsCopied] = useState(false);
+
+  // Get last assistant message
+  const lastAssistantMessage = messages
+    .slice()
+    .reverse()
+    .find((m) => m.role === "assistant");
+  const lastAssistantMessageText = lastAssistantMessage
+    ? partsToText(lastAssistantMessage.parts)
+    : "";
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(lastAssistantMessageText);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy to clipboard:", error);
+    }
+  };
+
+  const writeToReadme = () => {
+    writeToReadmeFetcher.submit(
+      { lessonId, content: lastAssistantMessageText },
+      {
+        method: "POST",
+        action: "/api/write-readme",
+        encType: "application/json",
+      }
+    );
+  };
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     sendMessage(
@@ -257,11 +302,7 @@ export function InnerComponent(props: Route.ComponentProps) {
 
                 return (
                   <AIMessage from={message.role} key={message.id}>
-                    <AIResponse
-                      imageBasePath={fullPath}
-                      lessonId={lessonId}
-                      hasExplainerOrProblem={hasExplainerOrProblem}
-                    >
+                    <AIResponse imageBasePath={fullPath}>
                       {partsToText(message.parts)}
                     </AIResponse>
                   </AIMessage>
@@ -272,22 +313,93 @@ export function InnerComponent(props: Route.ComponentProps) {
           </AIConversation>
           <div className="border-t p-4 bg-background">
             <div className="max-w-2xl mx-auto">
-              <div className="mb-4">
+              <div className="mb-4 flex gap-2 items-center">
                 <Select
                   value={mode}
                   onValueChange={(value) => handleModeChange(value as Mode)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select mode" />
+                    {mode === "article"
+                      ? "Article"
+                      : mode === "project"
+                      ? "Project Steps"
+                      : "Skill Building Steps"}
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="article">Article</SelectItem>
-                    <SelectItem value="project">Project Steps</SelectItem>
+                    <SelectItem value="article">
+                      <div>
+                        <div>Article</div>
+                        <div className="text-xs text-muted-foreground">
+                          Educational content and explanations
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="project">
+                      <div>
+                        <div>Steps - Project</div>
+                        <div className="text-xs text-muted-foreground">
+                          Write steps for project
+                        </div>
+                      </div>
+                    </SelectItem>
                     <SelectItem value="skill-building">
-                      Skill Building Steps
+                      <div>
+                        <div>Steps - Skill Building</div>
+                        <div className="text-xs text-muted-foreground">
+                          Write steps for skill building problem
+                        </div>
+                      </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyToClipboard}
+                  disabled={status === "streaming"}
+                >
+                  {isCopied ? (
+                    <>
+                      <CheckIcon className="h-4 w-4 mr-1" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="h-4 w-4 mr-1" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={writeToReadme}
+                          disabled={
+                            !hasExplainerOrProblem ||
+                            status === "streaming" ||
+                            writeToReadmeFetcher.state === "submitting" ||
+                            writeToReadmeFetcher.state === "loading"
+                          }
+                        >
+                          <SaveIcon className="h-4 w-4 mr-1" />
+                          {writeToReadmeFetcher.state === "submitting" ||
+                          writeToReadmeFetcher.state === "loading"
+                            ? "Writing..."
+                            : "Readme"}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!hasExplainerOrProblem && (
+                      <TooltipContent>
+                        <p>No explainer or problem folder</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
               <AIInput onSubmit={handleSubmit}>
                 <AIInputTextarea

@@ -25,22 +25,13 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CheckIcon, CopyIcon, SaveIcon } from "lucide-react";
-import { useFetcher } from "react-router";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import "katex/dist/katex.min.css";
 
 export type AIResponseProps = HTMLAttributes<HTMLDivElement> & {
   options?: Options;
   children: Options["children"];
   imageBasePath: string;
-  lessonId?: string;
-  hasExplainerOrProblem?: boolean;
 };
 
 const getComponents = (imageBasePath: string): Options["components"] => ({
@@ -196,7 +187,6 @@ const getComponents = (imageBasePath: string): Options["components"] => ({
 export const AIResponse = memo(
   ({ className, options, children, ...props }: AIResponseProps) => {
     const [isCopied, setIsCopied] = useState(false);
-    const writeToReadmeFetcher = useFetcher();
 
     const copyToClipboard = async () => {
       try {
@@ -210,28 +200,10 @@ export const AIResponse = memo(
       }
     };
 
-    const writeToReadme = () => {
-      const textContent = typeof children === "string" ? children : "";
-      writeToReadmeFetcher.submit(
-        { lessonId: props.lessonId!, content: textContent },
-        {
-          method: "POST",
-          action: "/api/write-readme",
-          encType: "application/json",
-        }
-      );
-    };
-
     const components = useMemo(
       () => getComponents(props.imageBasePath),
       [props.imageBasePath]
     );
-
-    const showWriteButton =
-      props.lessonId && props.hasExplainerOrProblem !== undefined;
-    const isWriting =
-      writeToReadmeFetcher.state === "submitting" ||
-      writeToReadmeFetcher.state === "loading";
 
     return (
       <div
@@ -241,53 +213,24 @@ export const AIResponse = memo(
         )}
         {...props}
       >
-        <div className="absolute bottom-2 -right-24 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-2">
-          <Button
-            variant="ghost"
-            className="w-24 text-left"
-            onClick={copyToClipboard}
-            title="Copy to clipboard"
-          >
-            {isCopied ? (
-              <div className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4" />
-                <span>Copied</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <CopyIcon className="h-4 w-4" />
-                <span>Copy</span>
-              </div>
-            )}
-          </Button>
-          {showWriteButton && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      variant="ghost"
-                      className="w-24 text-left"
-                      onClick={writeToReadme}
-                      disabled={!props.hasExplainerOrProblem || isWriting}
-                      title="Write to readme"
-                    >
-                      <div className="flex items-center gap-2">
-                        <SaveIcon className="h-4 w-4" />
-                        <span>{isWriting ? "Writing..." : "Write"}</span>
-                      </div>
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {!props.hasExplainerOrProblem && (
-                  <TooltipContent>
-                    <p>No explainer or problem folder</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
+        <Button
+          variant="ghost"
+          className="w-24 absolute bottom-2 -right-24 z-10 opacity-0 group-hover:opacity-100 transition-opacity text-left"
+          onClick={copyToClipboard}
+          title="Copy to clipboard"
+        >
+          {isCopied ? (
+            <div className="flex items-center gap-2">
+              <CheckIcon className="h-4 w-4" />
+              <span>Copied</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <CopyIcon className="h-4 w-4" />
+              <span>Copy</span>
+            </div>
           )}
-        </div>
+        </Button>
         <ReactMarkdown
           components={components}
           rehypePlugins={[rehypeKatex]}
