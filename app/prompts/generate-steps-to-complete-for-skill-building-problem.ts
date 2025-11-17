@@ -1,4 +1,5 @@
 import path from "node:path";
+import { getImageInstructions } from "./image-instructions";
 import { STEPS_TO_COMPLETE } from "./steps-to-complete";
 import { CODE_SAMPLES, STYLE_GUIDE, TODO_COMMENTS } from "./style-guide";
 import { readFileSync } from "node:fs";
@@ -14,6 +15,7 @@ export const generateStepsToCompleteForSkillBuildingProblemPrompt = (opts: {
     content: string;
   }[];
   transcript: string;
+  images: string[];
 }) =>
   `
 <role-context>
@@ -45,6 +47,8 @@ ${SKILL_BUILDING_STEPS_TO_COMPLETE_SAMPLE}
 ${STYLE_GUIDE}
 
 ${CODE_SAMPLES}
+
+${getImageInstructions(opts.images)}
 
 <rules>
 ${STEPS_TO_COMPLETE}

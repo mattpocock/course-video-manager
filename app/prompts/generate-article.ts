@@ -1,3 +1,4 @@
+import { getImageInstructions } from "./image-instructions";
 import { CODE_SAMPLES, STYLE_GUIDE } from "./style-guide";
 
 const taskInstructions = `
@@ -18,6 +19,7 @@ export const generateArticlePrompt = (opts: {
     content: string;
   }[];
   transcript: string;
+  images: string[];
 }) => `
 You are a helpful assistant being asked to format a transcript of a video to accompany it for easier reading. The video is a screencast from a coding lesson, where the viewer can see the code.
 
@@ -40,6 +42,8 @@ ${opts.code
 ## Task Instructions
 
 ${taskInstructions}
+
+${getImageInstructions(opts.images)}
 
 ## IMPORTANT INSTRUCTIONS
 

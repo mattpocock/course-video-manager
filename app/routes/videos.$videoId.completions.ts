@@ -120,13 +120,21 @@ export const action = async (args: Route.ActionArgs) => {
         }
 
         const relativePath = path.relative(lessonPath, filePath);
-        const isDiagram =
-          filePath.includes("diagram") && filePath.endsWith(".png");
+        const imageExtensions = [
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".gif",
+          ".svg",
+          ".webp",
+          ".bmp",
+        ];
+        const isImage = imageExtensions.some((ext) => filePath.endsWith(ext));
 
-        if (isDiagram) {
+        if (isImage) {
           const fileContent = yield* fs.readFile(filePath);
           return {
-            type: "diagram" as const,
+            type: "image" as const,
             path: relativePath,
             content: fileContent,
           };
@@ -148,8 +156,8 @@ export const action = async (args: Route.ActionArgs) => {
         fileContent: f.fileContent,
       }));
 
-    const diagramFiles = allFiles
-      .filter((f) => f.type === "diagram")
+    const imageFiles = allFiles
+      .filter((f) => f.type === "image")
       .map((f) => ({
         path: f.path,
         content: f.content,
@@ -180,14 +188,14 @@ export const action = async (args: Route.ActionArgs) => {
 
     const modelMessages = convertToModelMessages(messages);
 
-    if (diagramFiles.length > 0) {
+    if (imageFiles.length > 0) {
       modelMessages.unshift({
         role: "user",
-        content: diagramFiles.flatMap((file) => {
+        content: imageFiles.flatMap((file) => {
           return [
             {
               type: "text",
-              text: `The following diagram is at "${file.path}":`,
+              text: `The following image is at "${file.path}":`,
             },
             {
               type: "image",
@@ -203,23 +211,28 @@ export const action = async (args: Route.ActionArgs) => {
       content: file.fileContent,
     }));
 
+    const imagePaths = imageFiles.map((file) => file.path);
+
     const systemPrompt = (() => {
       switch (mode) {
         case "project":
           return generateStepsToCompleteForProjectPrompt({
             code: codeContext,
             transcript,
+            images: imagePaths,
           });
         case "skill-building":
           return generateStepsToCompleteForSkillBuildingProblemPrompt({
             code: codeContext,
             transcript,
+            images: imagePaths,
           });
         case "article":
         default:
           return generateArticlePrompt({
             code: codeContext,
             transcript,
+            images: imagePaths,
           });
       }
     })();

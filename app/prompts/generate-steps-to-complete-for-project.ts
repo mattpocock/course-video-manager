@@ -1,3 +1,4 @@
+import { getImageInstructions } from "./image-instructions";
 import { CODE_SAMPLES, STYLE_GUIDE } from "./style-guide";
 import { STEPS_TO_COMPLETE } from "./steps-to-complete";
 
@@ -7,6 +8,7 @@ export const generateStepsToCompleteForProjectPrompt = (opts: {
     content: string;
   }[];
   transcript: string;
+  images: string[];
 }) => `
 <role-context>
 You are a helpful assistant being asked to turn a transcript of a video (a screencast from a coding lesson) into a list of steps to recreate the work done in the video. The user will be following these steps to complete the lesson.
@@ -31,6 +33,8 @@ ${opts.code
 ${STYLE_GUIDE}
 
 ${CODE_SAMPLES}
+
+${getImageInstructions(opts.images)}
 
 <rules>
 ${STEPS_TO_COMPLETE}
