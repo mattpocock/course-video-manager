@@ -14,8 +14,8 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "2.0.0-beta.9",
-    "@ai-sdk/react": "2.0.0-beta.28",
+    "@ai-sdk/anthropic": "2.0.44",
+    "@ai-sdk/react": "2.0.93",
     "@effect/platform": "^0.90.0",
     "@effect/platform-node": "^0.94.0",
     "@icons-pack/react-simple-icons": "^13.6.0",
@@ -38,7 +38,7 @@
     "@total-typescript/shoehorn": "^0.1.2",
     "@types/js-levenshtein": "^1.1.3",
     "@types/ws": "^8.18.1",
-    "ai": "5.0.0-beta.28",
+    "ai": "5.0.93",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dedent": "^1.6.0",

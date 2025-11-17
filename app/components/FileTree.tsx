@@ -4,7 +4,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronRightIcon, FileIcon, FolderIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 
 type FileMetadata = {
@@ -96,7 +96,7 @@ const FileTreeNode = ({
     return (
       <div
         className="flex items-center gap-2 py-1 hover:bg-accent/50 rounded px-2"
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
         <Checkbox
           checked={isChecked}
@@ -104,7 +104,6 @@ const FileTreeNode = ({
             onToggle([node.path], !!checked);
           }}
         />
-        <FileIcon className="size-4 text-muted-foreground flex-shrink-0" />
         <span className="text-sm flex-1 min-w-0 truncate">{node.name}</span>
         {node.size !== undefined && (
           <span className="text-xs text-muted-foreground flex-shrink-0">
@@ -119,13 +118,17 @@ const FileTreeNode = ({
   const enabledDescendants = descendantPaths.filter((p) => enabledFiles.has(p));
   const allEnabled = enabledDescendants.length === descendantPaths.length;
   const someEnabled = enabledDescendants.length > 0;
-  const checkboxState = allEnabled ? true : someEnabled ? "indeterminate" : false;
+  const checkboxState = allEnabled
+    ? true
+    : someEnabled
+    ? "indeterminate"
+    : false;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div
         className="flex items-center gap-2 py-1 hover:bg-accent/50 rounded px-2"
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
         <Checkbox
           checked={checkboxState}
@@ -140,7 +143,6 @@ const FileTreeNode = ({
                 isOpen ? "rotate-90" : ""
               }`}
             />
-            <FolderIcon className="size-4 text-muted-foreground flex-shrink-0" />
             <span className="text-sm truncate">{node.name}</span>
           </button>
         </CollapsibleTrigger>

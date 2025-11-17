@@ -1,5 +1,7 @@
 import { getVideoTranscriptPath } from "@/lib/get-video";
 import { generateArticlePrompt } from "@/prompts/generate-article";
+import { generateStepsToCompleteForProjectPrompt } from "@/prompts/generate-steps-to-complete-for-project";
+import { generateStepsToCompleteForSkillBuildingPrompt } from "@/prompts/generate-steps-to-complete-for-skill-building";
 import { DBService } from "@/services/db-service";
 import { layerLive } from "@/services/layer";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -19,6 +21,7 @@ import type { Route } from "./+types/videos.$videoId.completions";
 const chatSchema = Schema.Struct({
   messages: Schema.Any,
   enabledFiles: Schema.Array(Schema.String),
+  mode: Schema.String,
 });
 
 const NOT_A_FILE = Symbol("NOT_A_FILE");
@@ -43,7 +46,7 @@ export const DEFAULT_CHECKED_EXTENSIONS = [
 
 export const ALWAYS_EXCLUDED_DIRECTORIES = ["node_modules", ".vite"];
 
-export const DEFAULT_UNCHECKED_PATHS = ["readme.md", "solution"];
+export const DEFAULT_UNCHECKED_PATHS = ["readme.md"];
 
 const transcriptSchema = Schema.Struct({
   clips: Schema.Array(
@@ -79,6 +82,7 @@ export const action = async (args: Route.ActionArgs) => {
     const parsed = yield* Schema.decodeUnknown(chatSchema)(body);
     const messages: UIMessage[] = parsed.messages;
     const enabledFiles: string[] = [...parsed.enabledFiles];
+    const mode: string = parsed.mode;
 
     const video = yield* db.getVideoWithClipsById(videoId);
 
@@ -114,7 +118,8 @@ export const action = async (args: Route.ActionArgs) => {
         }
 
         const relativePath = path.relative(lessonPath, filePath);
-        const isDiagram = filePath.includes("diagram") && filePath.endsWith(".png");
+        const isDiagram =
+          filePath.includes("diagram") && filePath.endsWith(".png");
 
         if (isDiagram) {
           const fileContent = yield* fs.readFile(filePath);
@@ -134,15 +139,19 @@ export const action = async (args: Route.ActionArgs) => {
       });
     }).pipe(Effect.map(Array.filter((r) => r !== NOT_A_FILE)));
 
-    const textFiles = allFiles.filter((f) => f.type === "text").map((f) => ({
-      filePath: f.filePath,
-      fileContent: f.fileContent,
-    }));
+    const textFiles = allFiles
+      .filter((f) => f.type === "text")
+      .map((f) => ({
+        filePath: f.filePath,
+        fileContent: f.fileContent,
+      }));
 
-    const diagramFiles = allFiles.filter((f) => f.type === "diagram").map((f) => ({
-      path: f.path,
-      content: f.content,
-    }));
+    const diagramFiles = allFiles
+      .filter((f) => f.type === "diagram")
+      .map((f) => ({
+        path: f.path,
+        content: f.content,
+      }));
 
     let transcript = video.clips
       .map((clip) => clip.text)
@@ -187,16 +196,36 @@ export const action = async (args: Route.ActionArgs) => {
       });
     }
 
+    const codeContext = textFiles.map((file) => ({
+      path: file.filePath,
+      content: file.fileContent,
+    }));
+
+    const systemPrompt = (() => {
+      switch (mode) {
+        case "project":
+          return generateStepsToCompleteForProjectPrompt({
+            code: codeContext,
+            transcript,
+          });
+        case "skill-building":
+          return generateStepsToCompleteForSkillBuildingPrompt({
+            code: codeContext,
+            transcript,
+          });
+        case "article":
+        default:
+          return generateArticlePrompt({
+            code: codeContext,
+            transcript,
+          });
+      }
+    })();
+
     const result = streamText({
-      model: anthropic("claude-3-7-sonnet-20250219"),
+      model: anthropic("claude-sonnet-4-5"),
       messages: modelMessages,
-      system: generateArticlePrompt({
-        code: textFiles.map((file) => ({
-          path: file.filePath,
-          content: file.fileContent,
-        })),
-        transcript,
-      }),
+      system: systemPrompt,
       experimental_transform: xmlTagTransform({
         name: "code-snippet",
         attributes: ["path", "startText", "endText"],

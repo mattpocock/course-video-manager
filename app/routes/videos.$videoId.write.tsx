@@ -20,9 +20,12 @@ import { Button } from "@/components/ui/button";
 import { AIMessage, AIMessageContent } from "components/ui/kibo-ui/ai/message";
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import {
-  AISuggestion,
-  AISuggestions,
-} from "components/ui/kibo-ui/ai/suggestion";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Array as EffectArray, Effect } from "effect";
 import { ChevronLeftIcon } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -113,82 +116,6 @@ export const loader = async (args: Route.LoaderArgs) => {
   }).pipe(Effect.provide(layerLive), Effect.runPromise);
 };
 
-const PROBLEM_PROMPT = () =>
-  `
-Go.
-
-## Problem Code
-
-Show COPIOUS examples of the problem code. Show the TODO's in the code so the user can navigate to the correct location.
-
-## Solution Code
-
-Do NOT refer to the solution code in the steps. Do not reveal the exact solution - just describe the problem they need to solve. Do not attempt to solve the problem for the user.
-
-The purpose of this material is to help the user solve the problem.
-
-## Steps To Complete Instructions
-
-At the end of the output, add a list of steps to complete to solve the problem.
-
-Include steps to test whether the problem has been solved, such as logging in the terminal (running the exercise via \`pnpm run dev\`), observing the local dev server at localhost:3000, or checking the browser console.
-
-This should be in the format of checkboxes. Only the top level steps should be checkboxes. You can can use nested lists, but they should not be checkboxes.
-
-Each top-level step should be separated by two newlines.
-
-<example>
-
-## Steps To Complete
-
-- [ ] <A description of the step to take>
-  - <some substep>
-
-- [ ] <A description of the step to take>
-
-- [ ] <A description of the step to take>
-  - <some substep>
-  - <some substep>
-
-</example>
-`.trim();
-
-const CODE_TIP_PROMPT = () =>
-  `
-  Go.
-
-  <rules>
-
-  The purpose of the material is to show a user a cool tip that will help them in the future. They are not solving a problem in an active exercise, they are passively learning a tip.
-
-  Stick closely to the transcript. Use copious code examples.
-
-  The code samples shown should mirror the order in the transcript.
-
-  </rules>
-`.trim();
-
-const DIAGRAM_TIP_PROMPT = () =>
-  `
-  Go.
-
-  <rules>
-
-  The purpose of the material is to show a user a cool tip that will help them in the future. They are not solving a problem in an active exercise, they are passively learning a tip.
-
-  Stick closely to the transcript.
-
-  The video the transcript is based on is of an instructor walking through diagrams. You have been provided with the diagrams. Use them as markdown links in the output:
-
-  <example>
-  ![Diagram 1](./path/to/diagram.png)
-  </example>
-  <example>
-  ![Diagram 2](./path/to/diagram.png)
-  </example>
-
-  </rules>
-  `.trim();
 
 const Video = (props: { src: string }) => {
   const ref = useRef<HTMLVideoElement>(null);
@@ -202,14 +129,32 @@ const Video = (props: { src: string }) => {
   return <video src={props.src} className="w-full" controls ref={ref} />;
 };
 
+type Mode = "article" | "project" | "skill-building";
+
+const MODE_STORAGE_KEY = "article-writer-mode";
+
 export default function Component(props: Route.ComponentProps) {
   const { videoId } = props.params;
   const { videoPath, lessonPath, sectionPath, repoId, lessonId, fullPath, files } =
     props.loaderData;
   const [text, setText] = useState<string>("");
+  const [mode, setMode] = useState<Mode>(() => {
+    if (typeof localStorage !== "undefined") {
+      const saved = localStorage.getItem(MODE_STORAGE_KEY);
+      return (saved as Mode) || "article";
+    }
+    return "article";
+  });
   const [enabledFiles, setEnabledFiles] = useState<Set<string>>(() => {
     return new Set(files.filter((f) => f.defaultEnabled).map((f) => f.path));
   });
+
+  const handleModeChange = (newMode: Mode) => {
+    setMode(newMode);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(MODE_STORAGE_KEY, newMode);
+    }
+  };
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
@@ -220,8 +165,8 @@ export default function Component(props: Route.ComponentProps) {
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     sendMessage(
-      { text },
-      { body: { enabledFiles: Array.from(enabledFiles) } }
+      { text: text.trim() || "Go" },
+      { body: { enabledFiles: Array.from(enabledFiles), mode } }
     );
 
     setText("");
@@ -282,35 +227,18 @@ export default function Component(props: Route.ComponentProps) {
           </AIConversation>
           <div className="border-t p-4">
             <div className="max-w-2xl mx-auto">
-              <AISuggestions className="mb-4">
-                <AISuggestion
-                  suggestion="Problem Description"
-                  onClick={() => {
-                    sendMessage(
-                      { text: PROBLEM_PROMPT() },
-                      { body: { enabledFiles: Array.from(enabledFiles) } }
-                    );
-                  }}
-                ></AISuggestion>
-                <AISuggestion
-                  suggestion="Code Tip"
-                  onClick={() => {
-                    sendMessage(
-                      { text: CODE_TIP_PROMPT() },
-                      { body: { enabledFiles: Array.from(enabledFiles) } }
-                    );
-                  }}
-                ></AISuggestion>
-                <AISuggestion
-                  suggestion="Diagram Tip"
-                  onClick={() => {
-                    sendMessage(
-                      { text: DIAGRAM_TIP_PROMPT() },
-                      { body: { enabledFiles: Array.from(enabledFiles) } }
-                    );
-                  }}
-                ></AISuggestion>
-              </AISuggestions>
+              <div className="mb-4">
+                <Select value={mode} onValueChange={(value) => handleModeChange(value as Mode)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="article">Article</SelectItem>
+                    <SelectItem value="project">Project Steps</SelectItem>
+                    <SelectItem value="skill-building">Skill Building Steps</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <AIInput onSubmit={handleSubmit}>
                 <AIInputTextarea
                   value={text}
