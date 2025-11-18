@@ -49,6 +49,7 @@ ${PROJECT_STEPS_SAMPLE}
 
 <rules>
 - Extract the title from the commit message for the H2 heading
+- Add markdown comment <!-- VIDEO --> immediately after H2
 - Start directly with H2 (no intro section)
 - Use H3 for "Steps To Complete"
 - Use H4 for each substep grouping

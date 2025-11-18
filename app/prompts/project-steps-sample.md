@@ -1,5 +1,7 @@
 ## Adding BM25 Search
 
+<!-- VIDEO -->
+
 Let's start by adding BM25 search to the search page.
 
 ### Steps To Complete
