@@ -15,16 +15,16 @@ describe("computeVideoWarnings", () => {
     ).toEqual([]);
   });
 
-  it("raises missingOpeningSection when the video has clips but no sections", () => {
+  it("raises missingOpeningChapter when the video has clips but no sections", () => {
     expect(
       computeVideoWarnings({
         clips: [{ order: "a1", archived: false }],
         chapters: [],
       })
-    ).toEqual([{ kind: "missingOpeningSection" }]);
+    ).toEqual([{ kind: "missingOpeningChapter" }]);
   });
 
-  it("raises missingOpeningSection when the first section comes after the first clip", () => {
+  it("raises missingOpeningChapter when the first section comes after the first clip", () => {
     expect(
       computeVideoWarnings({
         clips: [
@@ -33,7 +33,7 @@ describe("computeVideoWarnings", () => {
         ],
         chapters: [{ order: "a2", archived: false }],
       })
-    ).toEqual([{ kind: "missingOpeningSection" }]);
+    ).toEqual([{ kind: "missingOpeningChapter" }]);
   });
 
   it("ignores archived clips when locating the first clip", () => {
@@ -54,7 +54,7 @@ describe("computeVideoWarnings", () => {
         clips: [{ order: "a2", archived: false }],
         chapters: [{ order: "a1", archived: true }],
       })
-    ).toEqual([{ kind: "missingOpeningSection" }]);
+    ).toEqual([{ kind: "missingOpeningChapter" }]);
   });
 
   it("returns no warnings when only archived clips remain", () => {

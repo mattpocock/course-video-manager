@@ -1,4 +1,4 @@
-export type VideoWarningKind = "missingOpeningSection";
+export type VideoWarningKind = "missingOpeningChapter";
 
 export type VideoWarning = { kind: VideoWarningKind };
 
@@ -28,5 +28,5 @@ export const computeVideoWarnings = (input: {
   const opensWithSection =
     firstSectionOrder !== null && firstSectionOrder < minClipOrder;
 
-  return opensWithSection ? [] : [{ kind: "missingOpeningSection" }];
+  return opensWithSection ? [] : [{ kind: "missingOpeningChapter" }];
 };

@@ -5,7 +5,7 @@ import {
   buildChaptersUserMessage,
 } from "@/prompts/generate-chapters";
 import { Console, Effect } from "effect";
-import type { Route } from "./+types/api.videos.$videoId.suggest-clip-sections";
+import type { Route } from "./+types/api.videos.$videoId.suggest-chapters";
 import { anthropic } from "@ai-sdk/anthropic";
 import { streamObject } from "ai";
 import { data } from "react-router";

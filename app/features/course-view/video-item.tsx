@@ -54,7 +54,7 @@ export function VideoItem({
   const isLatestVersion = data.isLatestVersion;
   const showWarning =
     isLatestVersion &&
-    video.warnings.some((w) => w.kind === "missingOpeningSection");
+    video.warnings.some((w) => w.kind === "missingOpeningChapter");
   const canGenerateChapters = isLatestVersion && video.clipCount > 0;
 
   return (

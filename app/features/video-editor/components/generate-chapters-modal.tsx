@@ -55,7 +55,7 @@ export const GenerateChaptersModal = (props: {
     setConfirming(false);
 
     const source = new EventSource(
-      `/api/videos/${props.videoId}/suggest-clip-sections`
+      `/api/videos/${props.videoId}/suggest-chapters`
     );
 
     source.addEventListener("clips", (e) => {

@@ -253,7 +253,7 @@ export default function Component(props: Route.ComponentProps) {
     for (const section of displaySections) {
       for (const lesson of section.lessons) {
         for (const video of lesson.videos) {
-          if (video.warnings.some((w) => w.kind === "missingOpeningSection")) {
+          if (video.warnings.some((w) => w.kind === "missingOpeningChapter")) {
             count++;
           }
         }

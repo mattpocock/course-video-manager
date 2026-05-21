@@ -59,7 +59,7 @@ function VideoThumbnailItem({
   const openGenerateChapters = useGenerateChaptersAction();
   const showWarning =
     !isReadOnly &&
-    video.warnings.some((w) => w.kind === "missingOpeningSection");
+    video.warnings.some((w) => w.kind === "missingOpeningChapter");
   const canGenerateChapters = !isReadOnly && video.clipCount > 0;
 
   return (
