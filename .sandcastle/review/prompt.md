@@ -8,12 +8,6 @@ You are an expert code reviewer. Your job is **not just to comment** — activel
 
 Read `CONTEXT.md`, `.sandcastle/CODING_STANDARDS.md`, and any relevant ADRs under `docs/adr/` before starting.
 
-<recent-commits>
-
-!`git log -n 10 --format="%H%n%ad%n%B---" --date=short`
-
-</recent-commits>
-
 <linked-issue>
 
 !`gh issue view {{ISSUE_NUMBER}} --comments`
