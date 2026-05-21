@@ -113,7 +113,7 @@ Emit a single `<output>` block as the **last thing** in your response. The block
     {
       "path": "app/services/auth.ts",
       "line": 87,
-      "body": "This `user!` non-null assertion is the root cause — `ctx.user` is `undefined` when the token has expired. The guard clause I added on line 85 handles this."
+      "body": "This user! non-null assertion is the root cause — `ctx.user` is `undefined` when the token has expired. The guard clause I added on line 85 handles this."
     },
     {
       "path": "app/utils/helpers.ts",
