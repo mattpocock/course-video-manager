@@ -49,7 +49,7 @@ export default function ArchivedCourses(props: Route.ComponentProps) {
                     variant="link"
                     className="h-auto p-0 font-medium text-base"
                     onClick={() => {
-                      navigate(`/?courseId=${course.id}`, {
+                      navigate(`/courses/${course.id}`, {
                         preventScrollReset: true,
                       });
                     }}

@@ -33,7 +33,7 @@ export function DuplicateCourseModal(props: {
   useEffect(() => {
     if (fetcher.data && "id" in fetcher.data) {
       props.onOpenChange(false);
-      navigate(`/?courseId=${fetcher.data.id}`);
+      navigate(`/courses/${fetcher.data.id}`);
     } else if (fetcher.data && "error" in fetcher.data) {
       setError(fetcher.data.error);
     }

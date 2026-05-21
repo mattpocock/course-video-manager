@@ -47,7 +47,7 @@ export default function Component(props: Route.ComponentProps) {
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-3xl mx-auto p-6">
         <div className="mb-6">
-          <Link to={`/?courseId=${repo.id}`}>
+          <Link to={`/courses/${repo.id}`}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to {repo.name}

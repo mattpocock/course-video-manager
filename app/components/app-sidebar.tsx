@@ -33,7 +33,6 @@ import {
   useLocation,
   useNavigate,
   useRouteLoaderData,
-  useSearchParams,
 } from "react-router";
 
 export interface SidebarCourse {
@@ -54,10 +53,10 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   const topCourses = data?.topCourses ?? [];
 
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const selectedCourseId = searchParams.get("courseId");
+  const courseMatch = location.pathname.match(/^\/courses\/([^/]+)/);
+  const selectedCourseId = courseMatch?.[1] ?? null;
 
   const archiveCourseFetcher = useFetcher();
   const createPitchFetcher = useFetcher<{ id: string }>();
@@ -80,14 +79,15 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   const onVideosPath =
     location.pathname === "/videos" ||
     location.pathname === "/videos/concatenate";
-  const onDeliverablesPath = location.pathname.startsWith("/deliverables");
+  const onDeliverablesPath =
+    location.pathname === "/" || location.pathname.startsWith("/deliverables");
 
   const content = (
     <div className="space-y-3 flex-1 overflow-y-auto">
       <EntityCard
         icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />}
         label="Deliverables"
-        href="/deliverables"
+        href="/"
         active={onDeliverablesPath}
       />
 
@@ -112,7 +112,7 @@ export function AppSidebar({ variant }: AppSidebarProps) {
             <ContextMenu key={course.id}>
               <ContextMenuTrigger asChild>
                 <Link
-                  to={`/?courseId=${course.id}`}
+                  to={`/courses/${course.id}`}
                   preventScrollReset
                   className={cn(
                     "block w-full text-left text-sm px-2 py-1.5 rounded-md hover:bg-accent transition-colors truncate",

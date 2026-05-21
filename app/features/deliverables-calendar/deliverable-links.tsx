@@ -14,7 +14,7 @@ export interface LinkedPitch {
 }
 
 export function courseHref(id: string) {
-  return `/?courseId=${id}`;
+  return `/courses/${id}`;
 }
 
 export function pitchHref(id: string) {
