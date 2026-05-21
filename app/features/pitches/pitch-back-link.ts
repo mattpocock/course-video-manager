@@ -3,7 +3,7 @@ export function pitchBackLink(from: string | null): {
   label: string;
 } {
   if (from === "deliverables") {
-    return { href: "/deliverables", label: "Back to Deliverables" };
+    return { href: "/", label: "Back to Deliverables" };
   }
   return { href: "/pitches", label: "Back to Pitches" };
 }

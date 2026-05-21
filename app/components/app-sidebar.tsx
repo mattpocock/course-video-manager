@@ -80,14 +80,14 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   const onVideosPath =
     location.pathname === "/videos" ||
     location.pathname === "/videos/concatenate";
-  const onDeliverablesPath = location.pathname.startsWith("/deliverables");
+  const onDeliverablesPath = location.pathname === "/";
 
   const content = (
     <div className="space-y-3 flex-1 overflow-y-auto">
       <EntityCard
         icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />}
         label="Deliverables"
-        href="/deliverables"
+        href="/"
         active={onDeliverablesPath}
       />
 
