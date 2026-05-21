@@ -35,6 +35,7 @@ import {
   CANVAS_HEIGHT,
   getLeftAlignedPosition,
 } from "@/features/thumbnail-editor/canvas-compositor";
+import { RuleOfThirdsGrid } from "@/features/thumbnail-editor/rule-of-thirds-grid";
 
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
@@ -322,13 +323,14 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
                 ? "Editing Thumbnail"
                 : "Canvas Preview"}
             </h3>
-            <div className="inline-block overflow-hidden rounded-lg border">
+            <div className="relative inline-block overflow-hidden rounded-lg border">
               <canvas
                 ref={canvasRef}
                 width={CANVAS_WIDTH}
                 height={CANVAS_HEIGHT}
                 className="h-auto max-w-2xl w-full"
               />
+              <RuleOfThirdsGrid width={CANVAS_WIDTH} height={CANVAS_HEIGHT} />
             </div>
             {/* Layer controls */}
             <div className="mt-4 space-y-3">
