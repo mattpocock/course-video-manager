@@ -1,5 +1,6 @@
 export const CANVAS_WIDTH = 1280;
 export const CANVAS_HEIGHT = 720;
+export const TLDRAW_DARK_BACKGROUND = "hsl(240, 5%, 6.5%)";
 
 export interface ThumbnailLayers {
   capturedPhoto: string | null;
@@ -63,8 +64,7 @@ export async function composeThumbnailLayers(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  // Clear canvas to black (covers gaps when image is offset or no background)
-  ctx.fillStyle = "#000";
+  ctx.fillStyle = TLDRAW_DARK_BACKGROUND;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   // Layer 1: Background photo (positioned to match cutout for hand-through-frame illusion)
