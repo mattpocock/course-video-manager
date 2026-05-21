@@ -216,10 +216,6 @@ export const loader = async (args: Route.LoaderArgs) => {
 };
 
 export default function Component(props: Route.ComponentProps) {
-  return <ComponentInner {...props} />;
-}
-
-function ComponentInner(props: Route.ComponentProps) {
   const navigate = useNavigate();
   const selectedCourseId = props.params.courseId;
   const loaderData = props.loaderData;

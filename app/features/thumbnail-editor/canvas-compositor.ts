@@ -63,7 +63,6 @@ export async function composeThumbnailLayers(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  // Clear canvas to black (covers gaps when image is offset or no background)
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
