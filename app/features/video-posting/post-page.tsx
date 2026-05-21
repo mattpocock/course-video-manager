@@ -1,9 +1,9 @@
 "use client";
 
-import { useContext, useEffect, useState, useCallback } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { toast } from "sonner";
-import { useFetcher, useRevalidator } from "react-router";
+import { useFetcher } from "react-router";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -251,30 +251,17 @@ export function PostPage({
   );
 
   const deleteThumbnailFetcher = useFetcher();
-  const revalidator = useRevalidator();
 
-  const handleDeleteThumbnail = useCallback(
-    (thumbnailId: string) => {
-      if (!confirm("Delete this thumbnail?")) return;
-      if (thumbnailId === selectedThumbnailId) {
-        setSelectedThumbnailId(null);
-      }
-      deleteThumbnailFetcher.submit(null, {
-        method: "post",
-        action: `/api/thumbnails/${thumbnailId}/delete`,
-      });
-    },
-    [selectedThumbnailId, deleteThumbnailFetcher]
-  );
-
-  useEffect(() => {
-    if (
-      deleteThumbnailFetcher.state === "idle" &&
-      deleteThumbnailFetcher.data
-    ) {
-      revalidator.revalidate();
+  const handleDeleteThumbnail = (thumbnailId: string) => {
+    if (!confirm("Delete this thumbnail?")) return;
+    if (thumbnailId === selectedThumbnailId) {
+      setSelectedThumbnailId(null);
     }
-  }, [deleteThumbnailFetcher.state, deleteThumbnailFetcher.data, revalidator]);
+    deleteThumbnailFetcher.submit(null, {
+      method: "post",
+      action: `/api/thumbnails/${thumbnailId}/delete`,
+    });
+  };
 
   const [isCheckingExport, setIsCheckingExport] = useState(false);
 
