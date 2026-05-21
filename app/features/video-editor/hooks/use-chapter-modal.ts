@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { FrontendId, TimelineItem } from "../clip-state-reducer.types";
 import type { ChapterNamingModal } from "../types";
 
-export const useSectionModal = (
+export const useChapterModal = (
   timelineItems: TimelineItem[],
   selectedClipsSet: Set<FrontendId>,
   onAddChapter: (name: string) => void
@@ -16,21 +16,21 @@ export const useSectionModal = (
         item.type === "chapter-on-database" ||
         item.type === "chapter-optimistically-added"
     ).length;
-    return `Section ${existingChapterCount + 1}`;
+    return `Chapter ${existingChapterCount + 1}`;
   }, [timelineItems]);
 
-  const onEditSection = useCallback(
-    (sectionId: FrontendId, currentName: string) => {
+  const onEditChapter = useCallback(
+    (chapterId: FrontendId, currentName: string) => {
       setChapterNamingModal({
         mode: "edit",
-        chapterId: sectionId,
+        chapterId,
         currentName,
       });
     },
     []
   );
 
-  const onAddSectionBefore = useCallback(
+  const onAddChapterBefore = useCallback(
     (itemId: FrontendId, defaultName: string) => {
       setChapterNamingModal({
         mode: "add-at",
@@ -42,7 +42,7 @@ export const useSectionModal = (
     []
   );
 
-  const onAddSectionAfter = useCallback(
+  const onAddChapterAfter = useCallback(
     (itemId: FrontendId, defaultName: string) => {
       setChapterNamingModal({
         mode: "add-at",
@@ -54,11 +54,11 @@ export const useSectionModal = (
     []
   );
 
-  const onAddIntroSection = useCallback(() => {
+  const onAddIntroChapter = useCallback(() => {
     onAddChapter("Intro");
   }, [onAddChapter]);
 
-  const onOpenCreateSectionModal = useCallback(() => {
+  const onOpenCreateChapterModal = useCallback(() => {
     setChapterNamingModal({
       mode: "create",
       defaultName: generateDefaultChapterName(),
@@ -87,22 +87,22 @@ export const useSectionModal = (
           (selectedItem.type === "chapter-on-database" ||
             selectedItem.type === "chapter-optimistically-added")
         ) {
-          onEditSection(selectedId, selectedItem.name);
+          onEditChapter(selectedId, selectedItem.name);
         }
       }
     };
     window.addEventListener("keydown", handleF2);
     return () => window.removeEventListener("keydown", handleF2);
-  }, [selectedClipsSet, timelineItems, onEditSection]);
+  }, [selectedClipsSet, timelineItems, onEditChapter]);
 
   return {
     chapterNamingModal,
     setChapterNamingModal,
     generateDefaultChapterName,
-    onEditSection,
-    onAddSectionBefore,
-    onAddSectionAfter,
-    onAddIntroSection,
-    onOpenCreateSectionModal,
+    onEditChapter,
+    onAddChapterBefore,
+    onAddChapterAfter,
+    onAddIntroChapter,
+    onOpenCreateChapterModal,
   };
 };

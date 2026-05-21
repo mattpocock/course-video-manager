@@ -24,21 +24,18 @@ import { VideoEditorContext } from "../video-editor-context";
 /**
  * ChapterItem component displays a chapter divider with context menu
  * in the video editor timeline.
- *
- * Handles section selection, insertion point display, and all section actions
- * including insert before/after, add section before/after, edit, move, and delete.
  */
 export const ChapterItem = (props: {
-  section: Chapter;
+  chapter: Chapter;
   isFirstItem: boolean;
   isLastItem: boolean;
-  onEditSection: () => void;
-  onAddSectionBefore: () => void;
-  onAddSectionAfter: () => void;
+  onEditChapter: () => void;
+  onAddChapterBefore: () => void;
+  onAddChapterAfter: () => void;
 }) => {
   // Use context selectors
   const isSelected = useContextSelector(VideoEditorContext, (ctx) =>
-    ctx.selectedClipsSet.has(props.section.frontendId)
+    ctx.selectedClipsSet.has(props.chapter.frontendId)
   );
   const insertionPoint = useContextSelector(
     VideoEditorContext,
@@ -69,8 +66,8 @@ export const ChapterItem = (props: {
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <ChapterDivider
-            id={`section-${props.section.frontendId}`}
-            name={props.section.name}
+            id={`chapter-${props.chapter.frontendId}`}
+            name={props.chapter.name}
             isSelected={isSelected}
             onClick={(e) => {
               // If already selected and clicked again (without modifiers),
@@ -78,18 +75,18 @@ export const ChapterItem = (props: {
               if (
                 !e.ctrlKey &&
                 !e.shiftKey &&
-                selectedClipsSet.has(props.section.frontendId) &&
+                selectedClipsSet.has(props.chapter.frontendId) &&
                 selectedClipsSet.size === 1
               ) {
                 dispatch({
                   type: "play-from-chapter",
-                  chapterId: props.section.frontendId,
+                  chapterId: props.chapter.frontendId,
                 });
                 return;
               }
               dispatch({
                 type: "click-clip",
-                clipId: props.section.frontendId,
+                clipId: props.chapter.frontendId,
                 ctrlKey: e.ctrlKey,
                 shiftKey: e.shiftKey,
               });
@@ -99,7 +96,7 @@ export const ChapterItem = (props: {
         <ContextMenuContent>
           <ContextMenuItem
             onSelect={() => {
-              onSetInsertionPoint("before", props.section.frontendId);
+              onSetInsertionPoint("before", props.chapter.frontendId);
             }}
           >
             <ChevronLeftIcon />
@@ -107,30 +104,30 @@ export const ChapterItem = (props: {
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
-              onSetInsertionPoint("after", props.section.frontendId);
+              onSetInsertionPoint("after", props.chapter.frontendId);
             }}
           >
             <ChevronRightIcon />
             Insert After
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onSelect={props.onAddSectionBefore}>
+          <ContextMenuItem onSelect={props.onAddChapterBefore}>
             <PlusIcon />
-            Add Section Before
+            Add Chapter Before
           </ContextMenuItem>
-          <ContextMenuItem onSelect={props.onAddSectionAfter}>
+          <ContextMenuItem onSelect={props.onAddChapterAfter}>
             <PlusIcon />
-            Add Section After
+            Add Chapter After
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onSelect={props.onEditSection}>
+          <ContextMenuItem onSelect={props.onEditChapter}>
             <PencilIcon />
             Edit
           </ContextMenuItem>
           <ContextMenuItem
             disabled={props.isFirstItem}
             onSelect={() => {
-              onMoveClip(props.section.frontendId, "up");
+              onMoveClip(props.chapter.frontendId, "up");
             }}
           >
             <ArrowUpIcon />
@@ -139,7 +136,7 @@ export const ChapterItem = (props: {
           <ContextMenuItem
             disabled={props.isLastItem}
             onSelect={() => {
-              onMoveClip(props.section.frontendId, "down");
+              onMoveClip(props.chapter.frontendId, "down");
             }}
           >
             <ArrowDownIcon />
@@ -164,7 +161,7 @@ export const ChapterItem = (props: {
             onSelect={() => {
               dispatch({
                 type: "delete-clip",
-                clipId: props.section.frontendId,
+                clipId: props.chapter.frontendId,
               });
             }}
           >
@@ -174,7 +171,7 @@ export const ChapterItem = (props: {
         </ContextMenuContent>
       </ContextMenu>
       {insertionPoint.type === "after-chapter" &&
-        insertionPoint.frontendChapterId === props.section.frontendId && (
+        insertionPoint.frontendChapterId === props.chapter.frontendId && (
           <InsertionPointWithSession />
         )}
     </div>

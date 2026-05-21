@@ -10,25 +10,7 @@ import { Button } from "@/components/ui/button";
 import type { ChapterNamingModal } from "../types";
 import type { FrontendId } from "../clip-state-reducer";
 
-/**
- * Modal dialog for creating, editing, or adding chapters.
- *
- * Supports three modes:
- * - create: Creates a new section at the end
- * - edit: Renames an existing section
- * - add-at: Creates a new section before/after a specific item
- *
- * When dismissed or cancelled, no section is created.
- *
- * @example
- * <ChapterNamingModal
- *   modalState={chapterNamingModal}
- *   onClose={() => setChapterNamingModal(null)}
- *   onAddChapter={handleAddChapter}
- *   onUpdateChapter={handleUpdateChapter}
- *   onAddChapterAt={handleAddChapterAt}
- * />
- */
+/** Modal dialog for creating, editing, or adding chapters. */
 export function ChapterNamingModal({
   modalState,
   onClose,

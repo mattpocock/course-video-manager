@@ -119,7 +119,7 @@ export const ActionsDropdown = (props: {
         >
           <Sparkles className="w-4 h-4 mr-2" />
           <div className="flex flex-col">
-            <span className="font-medium">Generate Sections</span>
+            <span className="font-medium">Generate Chapters</span>
             <span className="text-xs text-muted-foreground">
               {props.allClipsHaveText
                 ? "AI-propose Chapters from clip transcripts"

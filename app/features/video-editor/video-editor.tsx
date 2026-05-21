@@ -13,7 +13,7 @@ import {
   useDiagramPin,
   type UpdateClipDiagramPinFn,
 } from "./hooks/use-diagram-pin";
-import { useSectionModal } from "./hooks/use-chapter-modal";
+import { useChapterModal } from "./hooks/use-chapter-modal";
 import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { RenameVideoModal } from "@/components/rename-video-modal";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
@@ -275,12 +275,12 @@ export const VideoEditor = (props: {
     chapterNamingModal,
     setChapterNamingModal,
     generateDefaultChapterName,
-    onEditSection,
-    onAddSectionBefore,
-    onAddSectionAfter,
-    onAddIntroSection,
-    onOpenCreateSectionModal,
-  } = useSectionModal(
+    onEditChapter,
+    onAddChapterBefore,
+    onAddChapterAfter,
+    onAddIntroChapter,
+    onOpenCreateChapterModal,
+  } = useChapterModal(
     timelineItems,
     state.selectedClipsSet,
     props.onAddChapter
@@ -433,32 +433,29 @@ export const VideoEditor = (props: {
       onUpdateCurrentTime: (time: number) => {
         dispatch({ type: "update-clip-current-time", time });
       },
-      onSectionClick: (sectionId: FrontendId, index: number) => {
-        // Select the section
+      onChapterClick: (chapterId: FrontendId, index: number) => {
         dispatch({
           type: "click-clip",
-          clipId: sectionId,
+          clipId: chapterId,
           ctrlKey: false,
           shiftKey: false,
         });
 
-        // Scroll to the section in the timeline after React finishes re-rendering
-        // Use the index to find the section since IDs change on re-render
         requestAnimationFrame(() => {
-          const allSections = document.querySelectorAll('[id^="section-"]');
-          if (allSections[index]) {
-            allSections[index].scrollIntoView({
+          const allChapters = document.querySelectorAll('[id^="chapter-"]');
+          if (allChapters[index]) {
+            allChapters[index].scrollIntoView({
               behavior: "instant",
               block: "center",
             });
           }
         });
       },
-      onAddIntroSection,
-      onOpenCreateSectionModal,
-      onEditSection,
-      onAddSectionBefore,
-      onAddSectionAfter,
+      onAddIntroChapter,
+      onOpenCreateChapterModal,
+      onEditChapter,
+      onAddChapterBefore,
+      onAddChapterAfter,
       generateDefaultChapterName,
 
       // Clipboard
@@ -544,11 +541,11 @@ export const VideoEditor = (props: {
       setIsCreateVideoModalOpen,
       suggestionState,
       setSuggestionState,
-      onAddIntroSection,
-      onOpenCreateSectionModal,
-      onEditSection,
-      onAddSectionBefore,
-      onAddSectionAfter,
+      onAddIntroChapter,
+      onOpenCreateChapterModal,
+      onEditChapter,
+      onAddChapterBefore,
+      onAddChapterAfter,
       generateDefaultChapterName,
       onOpenGenerateChaptersModal,
       onUnpinDiagram,
@@ -608,9 +605,9 @@ export const VideoEditor = (props: {
           candidates={props.referenceCandidates}
           selectedId={activeReference}
           onRemove={() => setReferenceVideoId(null)}
-          onAddSectionAt={props.onAddReferenceChapterAt}
-          onEditSectionName={props.onEditReferenceChapterName}
-          onDeleteSection={props.onDeleteReferenceChapter}
+          onAddChapterAt={props.onAddReferenceChapterAt}
+          onEditChapterName={props.onEditReferenceChapterName}
+          onDeleteChapter={props.onDeleteReferenceChapter}
           onGenerateChapters={() => onOpenGenerateForReference(activeReference)}
           className="h-full"
         />

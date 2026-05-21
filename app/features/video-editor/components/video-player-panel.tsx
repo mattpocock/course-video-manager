@@ -221,9 +221,9 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.selectedClipsSet
   );
-  const onSectionClick = useContextSelector(
+  const onChapterClick = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onSectionClick
+    (ctx) => ctx.onChapterClick
   );
   const videoCount = useContextSelector(
     VideoEditorContext,
@@ -553,7 +553,7 @@ export const VideoPlayerPanel = () => {
               <TableOfContents
                 chapters={chapters}
                 selectedClipsSet={selectedClipsSet}
-                onSectionClick={onSectionClick}
+                onChapterClick={onChapterClick}
               />
             )}
 

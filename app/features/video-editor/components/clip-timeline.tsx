@@ -38,17 +38,17 @@ export const ClipTimeline = () => {
     VideoEditorContext,
     (ctx) => ctx.generateDefaultChapterName
   );
-  const onEditSection = useContextSelector(
+  const onEditChapter = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onEditSection
+    (ctx) => ctx.onEditChapter
   );
-  const onAddSectionBefore = useContextSelector(
+  const onAddChapterBefore = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onAddSectionBefore
+    (ctx) => ctx.onAddChapterBefore
   );
-  const onAddSectionAfter = useContextSelector(
+  const onAddChapterAfter = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onAddSectionAfter
+    (ctx) => ctx.onAddChapterAfter
   );
   const sessions = useContextSelector(
     VideoEditorContext,
@@ -58,9 +58,9 @@ export const ClipTimeline = () => {
     VideoEditorContext,
     (ctx) => ctx.allItems
   );
-  const onOpenCreateSectionModal = useContextSelector(
+  const onOpenCreateChapterModal = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onOpenCreateSectionModal
+    (ctx) => ctx.onOpenCreateChapterModal
   );
 
   /**
@@ -103,10 +103,10 @@ export const ClipTimeline = () => {
             <Button
               variant="outline"
               className="w-full"
-              onClick={onOpenCreateSectionModal}
+              onClick={onOpenCreateChapterModal}
             >
               <Plus className="size-4 mr-2" />
-              Add Section
+              Add Chapter
             </Button>
           </>
         )}
@@ -123,20 +123,20 @@ export const ClipTimeline = () => {
                 return (
                   <div key={item.frontendId}>
                     <ChapterItem
-                      section={item}
+                      chapter={item}
                       isFirstItem={isFirstItem}
                       isLastItem={isLastItem}
-                      onEditSection={() => {
-                        onEditSection(item.frontendId, item.name);
+                      onEditChapter={() => {
+                        onEditChapter(item.frontendId, item.name);
                       }}
-                      onAddSectionBefore={() => {
-                        onAddSectionBefore(
+                      onAddChapterBefore={() => {
+                        onAddChapterBefore(
                           item.frontendId,
                           generateDefaultChapterName()
                         );
                       }}
-                      onAddSectionAfter={() => {
-                        onAddSectionAfter(
+                      onAddChapterAfter={() => {
+                        onAddChapterAfter(
                           item.frontendId,
                           generateDefaultChapterName()
                         );
@@ -163,14 +163,14 @@ export const ClipTimeline = () => {
                     isLastItem={isLastItem}
                     timecode={timecode}
                     nextLevenshtein={nextLevenshtein}
-                    onAddSectionBefore={() => {
-                      onAddSectionBefore(
+                    onAddChapterBefore={() => {
+                      onAddChapterBefore(
                         clip.frontendId,
                         generateDefaultChapterName()
                       );
                     }}
-                    onAddSectionAfter={() => {
-                      onAddSectionAfter(
+                    onAddChapterAfter={() => {
+                      onAddChapterAfter(
                         clip.frontendId,
                         generateDefaultChapterName()
                       );

@@ -53,8 +53,8 @@ export type ClipItemProps = {
   isLastItem: boolean;
   timecode: string;
   nextLevenshtein: number;
-  onAddSectionBefore: () => void;
-  onAddSectionAfter: () => void;
+  onAddChapterBefore: () => void;
+  onAddChapterAfter: () => void;
 };
 
 /**
@@ -67,8 +67,8 @@ export const ClipItem = (props: ClipItemProps) => {
     isLastItem,
     timecode,
     nextLevenshtein,
-    onAddSectionBefore,
-    onAddSectionAfter,
+    onAddChapterBefore,
+    onAddChapterAfter,
   } = props;
 
   // Compute isSelected and isCurrentClip via context selectors
@@ -260,13 +260,13 @@ export const ClipItem = (props: ClipItemProps) => {
           Insert After
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={onAddSectionBefore}>
+        <ContextMenuItem onSelect={onAddChapterBefore}>
           <PlusIcon />
-          Add Section Before
+          Add Chapter Before
         </ContextMenuItem>
-        <ContextMenuItem onSelect={onAddSectionAfter}>
+        <ContextMenuItem onSelect={onAddChapterAfter}>
           <PlusIcon />
-          Add Section After
+          Add Chapter After
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuSub>
