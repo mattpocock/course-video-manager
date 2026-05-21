@@ -3,18 +3,34 @@
 import { Link } from "react-router";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { CheckIcon, ImageIcon, PlusIcon } from "lucide-react";
+import {
+  CheckIcon,
+  DownloadIcon,
+  ImageIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 export function ThumbnailSelector({
   videoId,
   thumbnails,
   selectedThumbnailId,
   onSelectThumbnail,
+  onDeleteThumbnail,
 }: {
   videoId: string;
   thumbnails: Array<{ id: string }>;
   selectedThumbnailId: string | null;
   onSelectThumbnail: (id: string | null) => void;
+  onDeleteThumbnail: (id: string) => void;
 }) {
   const handleToggle = (thumbnailId: string) => {
     onSelectThumbnail(thumbnailId === selectedThumbnailId ? null : thumbnailId);
@@ -40,26 +56,56 @@ export function ThumbnailSelector({
             {thumbnails.map((thumbnail) => {
               const isSelected = thumbnail.id === selectedThumbnailId;
               return (
-                <button
-                  key={thumbnail.id}
-                  onClick={() => handleToggle(thumbnail.id)}
-                  className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
-                    isSelected
-                      ? "border-primary ring-2 ring-primary/30"
-                      : "border-transparent hover:border-muted-foreground/30"
-                  }`}
-                >
-                  <img
-                    src={`/api/thumbnails/${thumbnail.id}/image`}
-                    alt="Thumbnail"
-                    className="w-full h-full object-cover"
-                  />
-                  {isSelected && (
-                    <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-0.5">
-                      <CheckIcon className="h-3 w-3" />
-                    </div>
-                  )}
-                </button>
+                <ContextMenu key={thumbnail.id}>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      onClick={() => handleToggle(thumbnail.id)}
+                      className={`cursor-context-menu relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                        isSelected
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-transparent hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <img
+                        src={`/api/thumbnails/${thumbnail.id}/image`}
+                        alt="Thumbnail"
+                        className="w-full h-full object-cover"
+                      />
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-0.5">
+                          <CheckIcon className="h-3 w-3" />
+                        </div>
+                      )}
+                    </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = `/api/thumbnails/${thumbnail.id}/image`;
+                        a.download = `thumbnail-${thumbnail.id}.png`;
+                        a.click();
+                      }}
+                    >
+                      <DownloadIcon className="size-4" />
+                      Download
+                    </ContextMenuItem>
+                    <ContextMenuItem asChild>
+                      <Link to={`/videos/${videoId}/thumbnails`}>
+                        <PencilIcon className="size-4" />
+                        Edit
+                      </Link>
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      variant="destructive"
+                      onClick={() => onDeleteThumbnail(thumbnail.id)}
+                    >
+                      <Trash2Icon className="size-4" />
+                      Delete
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })}
           </div>
