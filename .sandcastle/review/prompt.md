@@ -102,30 +102,55 @@ If the code is already clean and there are no human comments to address, make no
 
 # OUTPUT
 
-Emit a single block as the last thing in your response:
+Emit a single `<output>` block as the **last thing** in your response. The block must contain valid JSON matching one of the examples below — **copy the field names exactly**.
+
+## Example: review with inline comments and thread replies
 
 <output>
 {
-  "summary": "Top-level summary comment posted on the PR. 1–3 short paragraphs in markdown. Describe what you changed and why; flag anything notable for the human reviewer.",
+  "summary": "Fixed a null-dereference in `getUser` and added a guard clause. The original code assumed `ctx.user` was always present, but it can be `undefined` after token expiry. Also flagging an unrelated naming inconsistency in `helpers.ts`.",
   "inlineComments": [
     {
-      "path": "app/foo/bar.ts",
-      "line": 42,
-      "body": "Markdown body. Anchored to the post-commit HEAD."
+      "path": "app/services/auth.ts",
+      "line": 87,
+      "body": "This `user!` non-null assertion is the root cause — `ctx.user` is `undefined` when the token has expired. The guard clause I added on line 85 handles this."
+    },
+    {
+      "path": "app/utils/helpers.ts",
+      "line": 14,
+      "body": "Nit: `calcVal` doesn't say what it calculates. Consider `calculateDiscount`."
     }
   ],
   "replies": [
     {
-      "commentId": "PRRC_kwDOABC123",
-      "body": "Markdown reply posted in-thread."
+      "commentId": "PRRC_kwDOPSEf9c8AAAABX1234",
+      "body": "Good catch — fixed in my commit. I added the early-return guard you suggested."
     }
   ]
 }
 </output>
 
-Rules:
+## Example: clean review, no changes needed
 
-- `summary` is required. Even on a clean review, write a short "Reviewed, no changes needed because X."
-- `inlineComments[].line` is a single integer line number in the **post-commit** version of the file (not a range like `"122-125"`). The workflow validates that the path/line exists in the diff; hallucinated anchors are dropped with a warning.
-- `replies[].commentId` must come from a `review_thread` entry in `<pr-comments>`. Don't invent IDs.
-- Empty arrays are fine. Omit `inlineComments` / `replies` entirely if you have none.
+<output>
+{
+  "summary": "Reviewed the full diff against the spec. All stated outcomes are covered, tests pass, no edge-case gaps found. No changes needed.",
+  "inlineComments": [],
+  "replies": []
+}
+</output>
+
+## Field reference
+
+| Field                   | Type    | Required | Notes                                                                                                                                                                                                             |
+| ----------------------- | ------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `summary`               | string  | **yes**  | 1–3 short markdown paragraphs. Even on a clean review, explain why no changes were needed.                                                                                                                        |
+| `inlineComments`        | array   | no       | Omit or `[]` if none.                                                                                                                                                                                             |
+| `inlineComments[].path` | string  | **yes**  | Relative file path, e.g. `"app/foo/bar.ts"`.                                                                                                                                                                      |
+| `inlineComments[].line` | integer | **yes**  | A **single line number** (e.g. `42`), not a range. Must be a number, not a string. Points to the post-commit HEAD. The workflow validates path+line exist in the diff; hallucinated anchors are silently dropped. |
+| `inlineComments[].body` | string  | **yes**  | Markdown comment body.                                                                                                                                                                                            |
+| `replies`               | array   | no       | Omit or `[]` if none.                                                                                                                                                                                             |
+| `replies[].commentId`   | string  | **yes**  | Must be a `commentId` from a `review_thread` in `<pr-comments>`. Do not invent IDs.                                                                                                                               |
+| `replies[].body`        | string  | **yes**  | Markdown reply posted in-thread.                                                                                                                                                                                  |
+
+Do **not** add fields that aren't listed above (no `verdict`, no `file`, no `lineRange`, no `comment`). The JSON is machine-parsed; extra or renamed fields cause a validation failure.
