@@ -14,7 +14,7 @@ Bridges Stream Deck button presses to the video editor via WebSocket.
 | Delete Last Clip   | `GET /api/delete-last-clip`           | Deletes the most recently inserted clip                            |
 | Toggle Last Frame  | `GET /api/toggle-last-frame-of-video` | Toggles the last frame overlay                                     |
 | Toggle Beat        | `GET /api/toggle-beat`                | Toggles beat/pause at the insertion point                          |
-| Add Clip Section   | `GET /api/add-clip-section`           | Opens the clip section naming modal                                |
+| Add Chapter        | `GET /api/add-chapter`                | Opens the chapter naming modal                                     |
 | Clear All Archived | `GET /api/clear-all-archived`         | Clears all deleted clips and orphans across all recording sessions |
 
 ## Stream Deck Setup

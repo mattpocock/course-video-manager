@@ -1,7 +1,7 @@
 /**
  * PROTOTYPE — throwaway. Answers: "Does our prompt produce good Chapter proposals?"
  *
- * Run:  pnpm tsx scripts/prototype-generate-clip-sections.ts <videoId>
+ * Run:  pnpm tsx scripts/prototype-generate-chapters.ts <videoId>
  *
  * Loads a real Video's clips + existing Chapters from the DB, sends them to
  * Claude with the candidate prompt, and prints the proposed Chapters in the
@@ -59,7 +59,7 @@ const ProposalSchema = z.object({
 const videoId = process.argv[2];
 if (!videoId) {
   console.error(
-    "Usage: pnpm tsx scripts/prototype-generate-clip-sections.ts <videoId>"
+    "Usage: pnpm tsx scripts/prototype-generate-chapters.ts <videoId>"
   );
   process.exit(1);
 }

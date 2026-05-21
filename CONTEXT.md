@@ -16,7 +16,7 @@ _Avoid_: Repo (ambiguous without "Course" prefix)
 
 **Section**:
 A directory-backed grouping of lessons within a course version, ordered by fractional index.
-_Avoid_: Module, Chapter, Unit
+_Avoid_: Module, Unit
 
 **Lesson**:
 A single learning unit within a section, corresponding to a folder on disk.
@@ -82,7 +82,7 @@ _Avoid_: Completed, Reopened
 ### Video and clips
 
 **Video**:
-A container of clips and clip sections that represents a single producible video output.
+A container of clips and chapters that represents a single producible video output.
 _Avoid_: Recording
 
 **Standalone Video**:
@@ -97,27 +97,27 @@ _Avoid_: Segment, Cut, Take
 A special clip for non-speech content (white noise, transitions) manually inserted into the timeline.
 _Avoid_: Filler, Spacer
 
-**ClipSection**:
-A named marker/divider within a video's timeline that visually groups related clips.
-_Avoid_: Clip group, Divider, Marker (in authoring); Chapter (outside the export context)
+**Chapter**:
+A named marker/divider within a video's timeline that visually groups related clips. Maps 1:1 to YouTube chapters.
+_Avoid_: Clip group, Divider, Marker, Section (ambiguous with course Section)
 
 **Optimistic Clip**:
 A clip added to the frontend state during recording before it is persisted to the database.
 _Avoid_: Pending clip, Temporary clip
 
 **Transcript**:
-The ordered text projection of a **Video** — its **Clips** and **ClipSections** interleaved in timeline order. The unit of comparison for changelog diffs and the format shipped as `{video}.transcript.md` during **Publish**. Changes to either Clips or ClipSections are first-class changes to the Transcript: a ClipSection rename, insertion, deletion, or reorder is a Transcript change in the same sense that editing a Clip's text is. Rendered with each ClipSection as a `## <name>` header between paragraphs of clip text.
+The ordered text projection of a **Video** — its **Clips** and **Chapters** interleaved in timeline order. The unit of comparison for changelog diffs and the format shipped as `{video}.transcript.md` during **Publish**. Changes to either Clips or Chapters are first-class changes to the Transcript: a Chapter rename, insertion, deletion, or reorder is a Transcript change in the same sense that editing a Clip's text is. Rendered with each Chapter as a `## <name>` header between paragraphs of clip text.
 _Avoid_: Clip text (only covers Clips), Joined clips, Caption (reserved for the per-clip transcription product)
 
 ### Video warnings
 
 **Video Warning**:
-A derived, non-blocking authoring problem surfaced on a **Video** in the UI. Computed live from the video's clips and clip sections — never stored. Each warning has a stable kind (e.g. `missingOpeningSection`). Generalizes the existing per-clip "danger" signal (Levenshtein text similarity) to the video level so course-tree views can flag videos at a glance.
+A derived, non-blocking authoring problem surfaced on a **Video** in the UI. Computed live from the video's clips and chapters — never stored. Each warning has a stable kind (e.g. `missingOpeningChapter`). Generalizes the existing per-clip "danger" signal (Levenshtein text similarity) to the video level so course-tree views can flag videos at a glance.
 _Avoid_: Lint warning, Lint error, Danger (reserved for the per-clip text-similarity signal until it is renamed to a Video Warning kind), Authoring issue
 
-**Missing Opening Section**:
-The Video Warning kind raised when a **Video** has at least one **Clip** but no **ClipSection** positioned before its first clip in timeline order. Models the YouTube convention that every published video opens with a named chapter. Videos with zero clips do not raise this warning.
-_Avoid_: No intro section, Missing 0:00 chapter
+**Missing Opening Chapter**:
+The Video Warning kind raised when a **Video** has at least one **Clip** but no **Chapter** positioned before its first clip in timeline order. Models the YouTube convention that every published video opens with a named chapter. Videos with zero clips do not raise this warning.
+_Avoid_: No intro chapter, Missing 0:00 chapter
 
 ### Video export and hashing
 
@@ -148,7 +148,7 @@ A per-Recording-Session setting (`short` or `long`) that controls how long a sil
 _Avoid_: Silence mode, Silence sensitivity, Pause threshold
 
 **Insertion Point**:
-The position in a video timeline where new clips or clip sections will be added (start, after-clip, after-clip-section, end).
+The position in a video timeline where new clips or chapters will be added (start, after-clip, after-chapter, end).
 _Avoid_: Cursor, Drop target
 
 **Transcription**:
@@ -180,7 +180,7 @@ The pitches index defaults to showing `idle + scheduled + shipped-to-youtube` �
 ### Reference video
 
 **Reference Video**:
-Another **Video** on the same **Lesson**, opened alongside the one being recorded so the author can read its **Clip** transcripts (grouped by **ClipSection**) while re-recording. Not a domain link — there's no FK; the candidate set is derived as "other non-archived Videos on this Lesson." Opt-in per editor session: hidden by default, added via the editor's actions menu ("Add Reference"), and removed the same way. The visible reference is whichever sibling the user picked; the panel never auto-selects. When the Lesson has no eligible siblings, the action is unavailable and the editor stays in its default two-column layout.
+Another **Video** on the same **Lesson**, opened alongside the one being recorded so the author can read its **Clip** transcripts (grouped by **Chapter**) while re-recording. Not a domain link — there's no FK; the candidate set is derived as "other non-archived Videos on this Lesson." Opt-in per editor session: hidden by default, added via the editor's actions menu ("Add Reference"), and removed the same way. The visible reference is whichever sibling the user picked; the panel never auto-selects. When the Lesson has no eligible siblings, the action is unavailable and the editor stays in its default two-column layout.
 _Avoid_: Previous Take (implies take-history we don't model), Reference Take, Source Video
 
 ### Diagrams

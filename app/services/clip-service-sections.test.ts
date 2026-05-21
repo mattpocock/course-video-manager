@@ -104,7 +104,7 @@ describe("ClipService", () => {
 
       const section = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
-        name: "After Clip Section",
+        name: "After Clip Chapter",
         insertionPoint: afterClip(clip!.id),
         items: await getItems(clipService, video.id),
       });
