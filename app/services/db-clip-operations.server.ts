@@ -111,7 +111,7 @@ export const createClipOperations = (db: DrizzleDB) => {
       })
     );
 
-    const allClipSections = yield* makeDbCall(() =>
+    const allChapters = yield* makeDbCall(() =>
       db.query.chapters.findMany({
         where: and(
           eq(chapters.videoId, clip.videoId),
@@ -124,7 +124,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     // Combine and sort by order - clips and clip sections share the same ordering space
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
-      ...allClipSections.map((cs) => ({
+      ...allChapters.map((cs) => ({
         type: "clip-section" as const,
         ...cs,
       })),
@@ -209,7 +209,7 @@ export const createClipOperations = (db: DrizzleDB) => {
       })
     );
 
-    const allClipSections = yield* makeDbCall(() =>
+    const allChapters = yield* makeDbCall(() =>
       db.query.chapters.findMany({
         where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
         orderBy: asc(chapters.order),
@@ -219,7 +219,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     // Combine and sort by order
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
-      ...allClipSections.map((cs) => ({
+      ...allChapters.map((cs) => ({
         type: "clip-section" as const,
         ...cs,
       })),
@@ -315,7 +315,7 @@ export const createClipOperations = (db: DrizzleDB) => {
         })
       );
 
-      const allClipSections = yield* makeDbCall(() =>
+      const allChapters = yield* makeDbCall(() =>
         db.query.chapters.findMany({
           where: and(
             eq(chapters.videoId, videoId),
@@ -328,7 +328,7 @@ export const createClipOperations = (db: DrizzleDB) => {
       // Combine and sort by order
       const allItems = [
         ...allClips.map((c) => ({ type: "clip" as const, ...c })),
-        ...allClipSections.map((cs) => ({
+        ...allChapters.map((cs) => ({
           type: "clip-section" as const,
           ...cs,
         })),
@@ -485,7 +485,7 @@ export const createClipOperations = (db: DrizzleDB) => {
       })
     );
 
-    const allClipSections = yield* makeDbCall(() =>
+    const allChapters = yield* makeDbCall(() =>
       db.query.chapters.findMany({
         where: and(
           eq(chapters.videoId, clipSection.videoId),
@@ -498,7 +498,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     // Combine and sort by order
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
-      ...allClipSections.map((cs) => ({
+      ...allChapters.map((cs) => ({
         type: "clip-section" as const,
         ...cs,
       })),
@@ -566,7 +566,7 @@ export const createClipOperations = (db: DrizzleDB) => {
       })
     );
 
-    const allClipSections = yield* makeDbCall(() =>
+    const allChapters = yield* makeDbCall(() =>
       db.query.chapters.findMany({
         where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
         orderBy: asc(chapters.order),
@@ -576,7 +576,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     // Combine and sort by order to get correct insertion position
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
-      ...allClipSections.map((cs) => ({
+      ...allChapters.map((cs) => ({
         type: "clip-section" as const,
         ...cs,
       })),

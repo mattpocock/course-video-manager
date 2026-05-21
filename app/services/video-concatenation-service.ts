@@ -56,7 +56,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
 
       // Get all non-archived clips and clip sections, sorted together
       const sourceClips = sourceVideo.clips; // already sorted by order, non-archived
-      const sourceClipSections = sourceVideo.chapters; // already sorted by order, non-archived
+      const sourceChapters = sourceVideo.chapters; // already sorted by order, non-archived
 
       const allItems = [
         ...sourceClips.map((c: any) => ({
@@ -64,7 +64,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
           item: c,
           order: c.order,
         })),
-        ...sourceClipSections.map((s: any) => ({
+        ...sourceChapters.map((s: any) => ({
           type: "clip-section" as const,
           item: s,
           order: s.order,

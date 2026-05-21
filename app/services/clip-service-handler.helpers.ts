@@ -79,7 +79,7 @@ export const getOrderedItems = Effect.fn("getOrderedItems")(function* (
     })
   );
 
-  const allClipSections = yield* Effect.promise(() =>
+  const allChapters = yield* Effect.promise(() =>
     db.query.chapters.findMany({
       where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
       orderBy: asc(chapters.order),
@@ -88,7 +88,7 @@ export const getOrderedItems = Effect.fn("getOrderedItems")(function* (
 
   const allItems = [
     ...allClips.map((c) => ({ type: "clip" as const, ...c })),
-    ...allClipSections.map((cs) => ({
+    ...allChapters.map((cs) => ({
       type: "clip-section" as const,
       ...cs,
     })),
