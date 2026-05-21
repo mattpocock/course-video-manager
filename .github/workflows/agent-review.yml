@@ -1,7 +1,12 @@
 name: Agent Review
 
 on:
-  pull_request:
+  # pull_request_target rather than pull_request: the standard pull_request
+  # trigger depends on a generated merge commit, which GitHub fails to
+  # produce when the PR is out-of-date or conflicting. pull_request_target
+  # runs in the base context and does not need the merge commit, so the
+  # labeled event fires reliably.
+  pull_request_target:
     types: [labeled]
 
 jobs:
@@ -19,6 +24,7 @@ jobs:
     env:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       BRANCH: ${{ github.event.pull_request.head.ref }}
+      BRANCH_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
 
@@ -71,12 +77,14 @@ jobs:
         id: push
         if: success()
         run: |
+          # Lease against the SHA we checked out — fails cleanly if anything
+          # pushed to the branch during our run.
           set +e
-          git push origin "$BRANCH" 2> push_err.txt
+          git push --force-with-lease="refs/heads/$BRANCH:$BRANCH_HEAD_SHA" origin "$BRANCH" 2> push_err.txt
           status=$?
           set -e
           if [ $status -ne 0 ]; then
-            if grep -qiE "non-fast-forward|rejected|fetch first" push_err.txt; then
+            if grep -qiE "non-fast-forward|rejected|fetch first|stale info" push_err.txt; then
               echo "Branch advanced during review run." > "${RUNNER_TEMP}/failure_reason.txt"
               echo "race=true" >> "$GITHUB_OUTPUT"
               cat push_err.txt

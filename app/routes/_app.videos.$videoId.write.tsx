@@ -1,5 +1,7 @@
 "use client";
 
+export const handle = { fullscreen: true };
+
 import { DBFunctionsService } from "@/services/db-service.server";
 import { runtimeLive } from "@/services/layer.server";
 import { buildTranscript } from "@/lib/transcript-builder";

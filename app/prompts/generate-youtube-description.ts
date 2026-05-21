@@ -68,6 +68,8 @@ ${transcriptSection}${courseStructureSection}${codeSection}${chaptersSection}</d
 <the-ask>
 Generate a YouTube video description for this coding lesson.
 
+Avoid using emojis anywhere in the description.
+
 The description should have the following structure:
 
 1. **Opening Summary** (First section)

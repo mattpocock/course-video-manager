@@ -1,3 +1,5 @@
+export const handle = { fullscreen: true };
+
 import { DBFunctionsService } from "@/services/db-service.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";

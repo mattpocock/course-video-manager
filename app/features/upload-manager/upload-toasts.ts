@@ -18,15 +18,19 @@ export function showSuccessToast(upload: uploadReducer.UploadEntry): void {
       },
     });
   } else if (upload.uploadType === "youtube") {
-    const youtubeStudioUrl = `https://studio.youtube.com/video/${upload.youtubeVideoId}/edit`;
     const postUrl = `/videos/${upload.videoId}/post`;
 
     toast.success(`"${upload.title}" uploaded to YouTube`, {
       duration: Infinity,
-      action: {
-        label: "YouTube Studio",
-        onClick: () => window.open(youtubeStudioUrl, "_blank"),
-      },
+      action: upload.youtubeVideoId
+        ? {
+            label: "Copy YouTube Studio Link",
+            onClick: () =>
+              navigator.clipboard.writeText(
+                `https://studio.youtube.com/video/${upload.youtubeVideoId}/edit`
+              ),
+          }
+        : undefined,
       cancel: {
         label: "Go to Post",
         onClick: () => {

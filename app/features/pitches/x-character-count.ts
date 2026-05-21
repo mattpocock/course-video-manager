@@ -1,0 +1,1 @@
+export const X_POST_CHARACTER_LIMIT = 280;

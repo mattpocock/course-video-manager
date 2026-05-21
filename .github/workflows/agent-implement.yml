@@ -118,7 +118,10 @@ jobs:
         if: steps.preflight.outputs.refused != 'true' && success()
         env:
           BRANCH: ${{ steps.branch.outputs.name }}
-        run: git push origin "$BRANCH"
+        # Lease with empty expected SHA = "push only if remote ref does not
+        # exist". Overwrites stale leftover branches from prior failed runs
+        # while still bailing on a concurrent create of the same ref.
+        run: git push --force-with-lease="refs/heads/$BRANCH:" origin "$BRANCH"
 
       - name: Open PR
         if: steps.preflight.outputs.refused != 'true' && success()

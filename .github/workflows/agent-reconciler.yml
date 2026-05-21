@@ -1,0 +1,127 @@
+name: Agent Reconciler
+
+# Backup for label-driven agent workflows. GitHub occasionally drops
+# `labeled` webhook events, leaving PRs/issues with a trigger label
+# applied but no workflow run created. This job scans for that state
+# and re-fires the trigger by removing + re-adding the label using
+# AGENT_PAT (so the resulting event isn't filtered out the way
+# GITHUB_TOKEN-driven label events are).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "If true, report what would be reconciled but do not re-add labels."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_REPO: ${{ github.repository }}
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+      # Minimum age (seconds) a label must have before we treat it as
+      # stuck. Avoids racing the normal labeled-event workflow trigger.
+      MIN_AGE_SECONDS: "180"
+
+    steps:
+      - name: Reconcile stuck label triggers
+        env:
+          AGENT_PAT: ${{ secrets.AGENT_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${AGENT_PAT:-}" ]; then
+            echo "::error::AGENT_PAT not configured. Reconciler requires a PAT because GITHUB_TOKEN-driven label adds do not fire downstream workflows."
+            exit 1
+          fi
+
+          # Use the read-capable default token for queries; only use AGENT_PAT
+          # when actually mutating labels.
+          export GH_TOKEN="$GITHUB_TOKEN"
+
+          now_epoch=$(date -u +%s)
+
+          # trigger_label | in_progress_label | scope (pr|issue)
+          configs=(
+            "agent:review|agent:reviewing|pr"
+            "agent:update-branch|agent:updating-branch|pr"
+            "agent:implement|agent:in-progress|issue"
+          )
+
+          reconcile_item() {
+            local scope="$1" number="$2" trigger="$3"
+            echo "  → reconciling $scope #$number (re-adding '$trigger')"
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "    (dry-run: skipping mutation)"
+              return 0
+            fi
+            local edit_cmd="pr"
+            if [ "$scope" = "issue" ]; then edit_cmd="issue"; fi
+            # Remove + re-add using AGENT_PAT so the labeled event fires.
+            GH_TOKEN="$AGENT_PAT" gh "$edit_cmd" edit "$number" --remove-label "$trigger" || true
+            sleep 2
+            GH_TOKEN="$AGENT_PAT" gh "$edit_cmd" edit "$number" --add-label "$trigger"
+          }
+
+          for cfg in "${configs[@]}"; do
+            IFS='|' read -r trigger in_progress scope <<< "$cfg"
+            echo ""
+            echo "== Checking $scope items with '$trigger' =="
+
+            if [ "$scope" = "pr" ]; then
+              items=$(gh pr list --state open --label "$trigger" --json number,labels --limit 100)
+            else
+              items=$(gh issue list --state open --label "$trigger" --json number,labels --limit 100)
+            fi
+
+            count=$(echo "$items" | jq 'length')
+            if [ "$count" -eq 0 ]; then
+              echo "  (none)"
+              continue
+            fi
+
+            echo "$items" | jq -c '.[]' | while read -r item; do
+              number=$(echo "$item" | jq -r '.number')
+              has_in_progress=$(echo "$item" | jq --arg ip "$in_progress" '[.labels[].name] | any(. == $ip)')
+
+              if [ "$has_in_progress" = "true" ]; then
+                echo "  #$number: '$in_progress' present — workflow running, skipping"
+                continue
+              fi
+
+              # Check when the trigger label was most recently added. If it
+              # was added very recently, the normal labeled-event workflow
+              # may still be starting up; don't race it.
+              last_added=$(gh api "repos/${GH_REPO}/issues/${number}/timeline" \
+                --paginate \
+                --jq "[.[] | select(.event == \"labeled\" and .label.name == \"$trigger\") | .created_at] | last")
+
+              if [ -z "$last_added" ] || [ "$last_added" = "null" ]; then
+                echo "  #$number: label present but no labeled-event found (manual label edit?) — reconciling"
+              else
+                added_epoch=$(date -u -d "$last_added" +%s)
+                age=$((now_epoch - added_epoch))
+                if [ "$age" -lt "$MIN_AGE_SECONDS" ]; then
+                  echo "  #$number: label added ${age}s ago (< ${MIN_AGE_SECONDS}s) — too fresh, skipping"
+                  continue
+                fi
+                echo "  #$number: label added ${age}s ago, no '$in_progress' present — looks stuck"
+              fi
+
+              if ! reconcile_item "$scope" "$number" "$trigger"; then
+                echo "  #$number: reconcile failed — continuing"
+              fi
+            done
+          done
+
+          echo ""
+          echo "Reconciler complete."
