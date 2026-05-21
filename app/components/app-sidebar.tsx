@@ -80,7 +80,7 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   const onVideosPath =
     location.pathname === "/videos" ||
     location.pathname === "/videos/concatenate";
-  const onDeliverablesPath = location.pathname === "/";
+  const onDeliverablesPath = location.pathname === "/" && !selectedCourseId;
 
   const content = (
     <div className="space-y-3 flex-1 overflow-y-auto">

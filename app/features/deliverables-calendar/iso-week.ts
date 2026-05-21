@@ -1,3 +1,10 @@
+export function isoWeekStart(week: number, year: number): Date {
+  const jan4 = new Date(year, 0, 4);
+  const dayNr = (jan4.getDay() + 6) % 7;
+  const monday = new Date(year, 0, 4 - dayNr + (week - 1) * 7);
+  return monday;
+}
+
 export function isoWeek(d: Date): { week: number; year: number } {
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const dayNr = (target.getDay() + 6) % 7;

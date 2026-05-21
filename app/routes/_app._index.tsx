@@ -14,7 +14,10 @@ import {
   groupDeliverables,
   type DeliverableForGrouping,
 } from "@/features/deliverables-calendar/deliverable-grouping";
-import { isoWeek } from "@/features/deliverables-calendar/iso-week";
+import {
+  isoWeek,
+  isoWeekStart,
+} from "@/features/deliverables-calendar/iso-week";
 import type { PitchStatus } from "@/components/status-icon-badge";
 import { DBFunctionsService } from "@/services/db-service.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -89,14 +92,6 @@ export const loader = async () => {
 };
 
 type DeliverableWithLinks = DeliverableForGrouping & DeliverableForCard;
-
-function isoWeekStart(week: number, year: number): Date {
-  const jan4 = new Date(year, 0, 4);
-  const dayNr = (jan4.getDay() + 6) % 7;
-  const week1Monday = new Date(year, 0, 4 - dayNr);
-  week1Monday.setDate(week1Monday.getDate() + (week - 1) * 7);
-  return week1Monday;
-}
 
 function formatDateStr(d: Date): string {
   const y = d.getFullYear();
