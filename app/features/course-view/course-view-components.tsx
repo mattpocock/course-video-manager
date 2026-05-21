@@ -17,14 +17,11 @@ import {
   ListChecks,
   MessageCircle,
   Play,
-  Plus,
   Search,
-  VideoIcon,
   X,
 } from "lucide-react";
 import { Suspense, use } from "react";
-import { Link, useNavigate } from "react-router";
-import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router";
 import { Input } from "@/components/ui/input";
 import type { LoaderData } from "./course-view-types";
 
@@ -288,89 +285,6 @@ export function ReadOnlyBanner() {
   );
 }
 
-export function NoCourseView({
-  courses,
-  standaloneVideos,
-  dispatch,
-}: {
-  courses: LoaderData["courses"];
-  standaloneVideos: LoaderData["standaloneVideos"];
-  dispatch: (action: courseViewReducer.Action) => void;
-}) {
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-2">Course Video Manager</h1>
-        <p className="text-sm text-muted-foreground">Select a course</p>
-      </div>
-
-      {standaloneVideos.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4">
-            Recent Unattached Videos
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {standaloneVideos.slice(0, 3).map((video) => {
-              return (
-                <Link
-                  key={video.id}
-                  to={`/videos/${video.id}/edit`}
-                  className="block border rounded-lg p-4 hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <VideoIcon className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium truncate">
-                      {video.path}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {courses.map((course) => (
-          <Link
-            key={course.id}
-            to={`?courseId=${course.id}`}
-            className="block border rounded-lg p-6 hover:border-primary/50 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-lg font-semibold">{course.name}</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {course.filePath ?? "Ghost course"}
-            </p>
-          </Link>
-        ))}
-      </div>
-
-      {courses.length === 0 && (
-        <div className="text-center py-12">
-          <div className="mb-4">
-            <VideoIcon className="w-16 h-16 mx-auto text-muted-foreground/50" />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">No courses found</h3>
-          <p className="text-muted-foreground mb-6">
-            Get started by adding your first course
-          </p>
-          <Button
-            onClick={() =>
-              dispatch({ type: "set-add-course-modal-open", open: true })
-            }
-            className="mx-auto"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Course
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function RouteModals({
   currentCourse,
   data,
@@ -444,7 +358,7 @@ export function RouteModals({
             dispatch({ type: "set-version-selector-modal-open", open })
           }
           onSelectVersion={(versionId) => {
-            navigate(`?courseId=${selectedCourseId}&versionId=${versionId}`, {
+            navigate(`/courses/${selectedCourseId}?versionId=${versionId}`, {
               preventScrollReset: true,
             });
           }}

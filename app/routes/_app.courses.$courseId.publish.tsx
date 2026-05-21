@@ -122,14 +122,14 @@ export default function Component(props: Route.ComponentProps) {
     setPublishStarted(true);
     startPublish(course.id, course.name, name.trim(), description.trim());
     // Navigate back to course — progress shows in GlobalUploadProgress
-    navigate(`/?courseId=${course.id}`);
+    navigate(`/courses/${course.id}`);
   }, [course.id, course.name, name, description, startPublish, navigate]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-3xl mx-auto p-6">
         <div className="mb-6">
-          <Link to={`/?courseId=${course.id}`}>
+          <Link to={`/courses/${course.id}`}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to {course.name}

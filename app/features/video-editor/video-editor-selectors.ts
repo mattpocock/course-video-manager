@@ -363,7 +363,7 @@ export const getBackButtonUrl = (
   repoId: string | undefined,
   lessonId: string | undefined
 ): string => {
-  return repoId && lessonId ? `/?courseId=${repoId}#${lessonId}` : "/videos";
+  return repoId && lessonId ? `/courses/${repoId}#${lessonId}` : "/videos";
 };
 
 export const getShowCenterLine = (

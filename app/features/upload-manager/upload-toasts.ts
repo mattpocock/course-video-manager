@@ -121,7 +121,7 @@ export function showSuccessToast(upload: uploadReducer.UploadEntry): void {
         ? {
             label: "Go to Draft",
             onClick: () => {
-              window.location.href = `/?courseId=${courseId}&versionId=${newDraftVersionId}`;
+              window.location.href = `/courses/${courseId}?versionId=${newDraftVersionId}`;
             },
           }
         : undefined,

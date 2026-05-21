@@ -22,7 +22,7 @@ export function AddCourseModal({ isOpen, onOpenChange }: AddCourseModalProps) {
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.id) {
       onOpenChange(false);
-      navigate(`/?courseId=${fetcher.data.id}`);
+      navigate(`/courses/${fetcher.data.id}`);
     }
   }, [fetcher.state, fetcher.data, onOpenChange, navigate]);
 
