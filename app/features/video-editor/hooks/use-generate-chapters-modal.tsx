@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import {
   GenerateChaptersModal,
   type ClipForPreview,
-} from "../components/generate-clip-sections-modal";
+} from "../components/generate-chapters-modal";
 import type { Clip } from "../clip-state-reducer";
 import type { ReferenceCandidate } from "../components/reference-panel";
 

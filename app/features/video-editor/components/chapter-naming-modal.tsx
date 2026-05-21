@@ -77,17 +77,17 @@ export function ChapterNamingModal({
         <DialogHeader>
           <DialogTitle>
             {modalState?.mode === "create"
-              ? "Name Clip Section"
+              ? "Name Chapter"
               : modalState?.mode === "add-at"
-                ? "Name Clip Section"
-                : "Edit Clip Section"}
+                ? "Name Chapter"
+                : "Edit Chapter"}
           </DialogTitle>
         </DialogHeader>
         <form className="space-y-4 py-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="clip-section-name">Section Name</Label>
+            <Label htmlFor="chapter-name">Chapter Name</Label>
             <Input
-              id="clip-section-name"
+              id="chapter-name"
               name="name"
               autoFocus
               defaultValue={

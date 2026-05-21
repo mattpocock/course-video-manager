@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { BeatIndicator } from "./timeline-indicators";
 import { ClipItem } from "./clip-item";
-import { ChapterItem } from "./clip-section-item";
+import { ChapterItem } from "./chapter-item";
 import { PreRecordingChecklist } from "./pre-recording-checklist";
 import { InlineSuggestion } from "./inline-suggestion";
 import { InsertionPointWithSession } from "./insertion-point-with-session";

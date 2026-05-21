@@ -1,4 +1,4 @@
-import { GenerateChaptersModal } from "@/features/video-editor/components/generate-clip-sections-modal";
+import { GenerateChaptersModal } from "@/features/video-editor/components/generate-chapters-modal";
 import { createHttpClipService } from "@/services/clip-service";
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRevalidator } from "react-router";

@@ -1,4 +1,4 @@
-import { ChapterNamingModal as ChapterNamingModalComponent } from "./components/clip-section-naming-modal";
+import { ChapterNamingModal as ChapterNamingModalComponent } from "./components/chapter-naming-modal";
 import { CreateVideoFromSelectionModal } from "./components/create-video-from-selection-modal";
 import { FilePasteModalWithFsData } from "./components/file-paste-modal-with-fs-data";
 import { VideoPlayerPanel } from "./components/video-player-panel";
@@ -8,12 +8,12 @@ import {
   ReferencePanel,
   type ReferenceCandidate,
 } from "./components/reference-panel";
-import { useGenerateChaptersModal } from "./hooks/use-generate-clip-sections-modal";
+import { useGenerateChaptersModal } from "./hooks/use-generate-chapters-modal";
 import {
   useDiagramPin,
   type UpdateClipDiagramPinFn,
 } from "./hooks/use-diagram-pin";
-import { useSectionModal } from "./hooks/use-section-modal";
+import { useSectionModal } from "./hooks/use-chapter-modal";
 import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { RenameVideoModal } from "@/components/rename-video-modal";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";

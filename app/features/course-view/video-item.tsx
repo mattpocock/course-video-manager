@@ -23,7 +23,7 @@ import {
 import { use } from "react";
 import { Link, useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
-import { useGenerateChaptersAction } from "./generate-clip-sections-context";
+import { useGenerateChaptersAction } from "./generate-chapters-context";
 
 export function VideoItem({
   video,
@@ -130,7 +130,7 @@ export function VideoItem({
             }}
           >
             <Sparkles className="w-4 h-4" />
-            Generate Clip Sections
+            Generate Chapters
           </ContextMenuItem>
         )}
         <ContextMenuItem

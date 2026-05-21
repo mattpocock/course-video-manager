@@ -132,7 +132,7 @@ export const GenerateChaptersModal = (props: {
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="size-4" /> Generate Sections
+            <Sparkles className="size-4" /> Generate Chapters
           </DialogTitle>
           <DialogDescription>
             Preview AI-proposed Chapters for{" "}

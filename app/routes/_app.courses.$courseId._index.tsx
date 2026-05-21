@@ -34,7 +34,7 @@ import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId._index";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { ActionsDropdown } from "@/features/course-view/actions-menu";
-import { GenerateChaptersProvider } from "@/features/course-view/generate-clip-sections-context";
+import { GenerateChaptersProvider } from "@/features/course-view/generate-chapters-context";
 import { SectionGrid } from "@/features/course-view/section-grid";
 import {
   FilterBar,

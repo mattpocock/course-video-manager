@@ -389,16 +389,14 @@ export const ReferencePanel = (props: {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {modal?.mode === "edit"
-                ? "Edit Clip Section"
-                : "Name Clip Section"}
+              {modal?.mode === "edit" ? "Edit Chapter" : "Name Chapter"}
             </DialogTitle>
           </DialogHeader>
           <form className="space-y-4 py-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="reference-clip-section-name">Section Name</Label>
+              <Label htmlFor="reference-chapter-name">Chapter Name</Label>
               <Input
-                id="reference-clip-section-name"
+                id="reference-chapter-name"
                 name="name"
                 autoFocus
                 defaultValue={

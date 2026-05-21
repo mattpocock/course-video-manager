@@ -3,7 +3,7 @@ import { runtimeLive } from "@/services/layer.server";
 import {
   generateChaptersSystemPrompt,
   buildChaptersUserMessage,
-} from "@/prompts/generate-clip-sections";
+} from "@/prompts/generate-chapters";
 import { Console, Effect } from "effect";
 import type { Route } from "./+types/api.videos.$videoId.suggest-clip-sections";
 import { anthropic } from "@ai-sdk/anthropic";

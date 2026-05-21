@@ -16,7 +16,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import type { Chapter } from "../clip-state-reducer";
-import { ChapterDivider } from "./clip-section-divider";
+import { ChapterDivider } from "./chapter-divider";
 import { InsertionPointWithSession } from "./insertion-point-with-session";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
