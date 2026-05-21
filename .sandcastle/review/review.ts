@@ -4,6 +4,7 @@ import { execSync, execFileSync } from "node:child_process";
 import { z } from "zod";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { parseDiffLines } from "./parse-diff-lines";
+import { ReviewOutput } from "./review-output";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
 
 const PR_NUMBER = required("PR_NUMBER");
@@ -155,28 +156,6 @@ const prComments = {
   ),
 };
 
-const ReviewOutput = z.object({
-  verdict: z.enum(["improved", "clean"]),
-  summary: z.string().min(1),
-  inlineComments: z
-    .array(
-      z.object({
-        path: z.string().min(1),
-        line: z.number().int().positive(),
-        body: z.string().min(1),
-      })
-    )
-    .default([]),
-  replies: z
-    .array(
-      z.object({
-        commentId: z.string().min(1),
-        body: z.string().min(1),
-      })
-    )
-    .default([]),
-});
-
 const result = await sandcastle.run({
   name: `review-pr-${PR_NUMBER}`,
   agent: sandcastle.claudeCode("claude-opus-4-6", {
@@ -200,14 +179,7 @@ const result = await sandcastle.run({
   }),
 });
 
-if (result.output.verdict === "improved" && result.commits.length === 0) {
-  fail("Agent claimed verdict=improved but produced no commits.");
-}
-if (result.output.verdict === "clean" && result.commits.length > 0) {
-  fail(
-    `Agent claimed verdict=clean but produced ${result.commits.length} commit(s).`
-  );
-}
+const verdict = result.commits.length > 0 ? "improved" : "clean";
 
 const headSha = sh("git rev-parse HEAD").trim();
 const diffLines = parseDiffLines(safeSh("git diff main...HEAD"));
@@ -262,10 +234,10 @@ fs.writeFileSync(
   JSON.stringify(validReplies, null, 2)
 );
 fs.writeFileSync(path.join(OUTPUT_DIR, "summary.md"), result.output.summary);
-fs.writeFileSync(path.join(OUTPUT_DIR, "verdict.txt"), result.output.verdict);
+fs.writeFileSync(path.join(OUTPUT_DIR, "verdict.txt"), verdict);
 
 console.log(`\nReview complete.`);
-console.log(`  verdict: ${result.output.verdict}`);
+console.log(`  verdict: ${verdict}`);
 console.log(`  commits: ${result.commits.length}`);
 console.log(`  inline comments: ${validInlineComments.length}`);
 console.log(`  replies: ${validReplies.length}`);

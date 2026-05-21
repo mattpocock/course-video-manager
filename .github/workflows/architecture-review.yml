@@ -1,0 +1,107 @@
+name: Architecture Review
+
+on:
+  schedule:
+    # 09:00 UTC, Monday–Friday. GitHub may delay scheduled runs under load.
+    - cron: "0 9 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  architecture-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: architecture-review
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run architecture-review.ts
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          OUTPUT_DIR: ${{ runner.temp }}
+        run: npx tsx .sandcastle/architecture-review/architecture-review.ts
+
+      - name: Publish PRD issue
+        id: publish
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/architecture_review_output.json
+          TITLE_FILE: ${{ runner.temp }}/prd_title.txt
+          BODY_FILE: ${{ runner.temp }}/prd_body.md
+          LABEL: source:architecture-review
+        run: |
+          set -euo pipefail
+          status=$(jq -r '.status' "$OUTPUT_FILE")
+          if [ "$status" != "proposed" ]; then
+            echo "Status is '$status' — nothing to publish."
+            exit 0
+          fi
+          title=$(cat "$TITLE_FILE")
+          # Ensure the provenance label exists (idempotent — succeeds if already present).
+          gh label create "$LABEL" \
+            --color "5319E7" \
+            --description "PRDs proposed by the automated architecture-review workflow" \
+            >/dev/null 2>&1 || true
+          # gh issue create prints the URL on the last line.
+          issue_url=$(gh issue create \
+            --title "$title" \
+            --body-file "$BODY_FILE" \
+            --label "$LABEL" | tail -n1)
+          issue_number=$(basename "$issue_url")
+          echo "issue_url=$issue_url" >> "$GITHUB_OUTPUT"
+          echo "issue_number=$issue_number" >> "$GITHUB_OUTPUT"
+          echo "Published #${issue_number}: ${issue_url}"
+
+      - name: Summarise run
+        if: always()
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/architecture_review_output.json
+        run: |
+          if [ ! -f "$OUTPUT_FILE" ]; then
+            echo "No output file produced — agent likely crashed before emitting a result."
+            exit 0
+          fi
+          status=$(jq -r '.status' "$OUTPUT_FILE")
+          {
+            echo "## Architecture review"
+            echo ""
+            if [ "$status" = "proposed" ]; then
+              issue_url="${{ steps.publish.outputs.issue_url }}"
+              title=$(jq -r '.title' "$OUTPUT_FILE")
+              summary=$(jq -r '.oneLineSummary' "$OUTPUT_FILE")
+              echo "**Created:** [$title]($issue_url)"
+              echo ""
+              echo "$summary"
+              echo ""
+              echo "### Candidates considered"
+              jq -r '.candidatesConsidered[] | "- \(.)"' "$OUTPUT_FILE"
+            elif [ "$status" = "skipped" ]; then
+              reason=$(jq -r '.reason' "$OUTPUT_FILE")
+              echo "**Skipped — no fresh candidates today.**"
+              echo ""
+              echo "$reason"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

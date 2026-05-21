@@ -8,7 +8,7 @@ jobs:
   implement-prd:
     if: github.event.label.name == 'agent:implement'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     concurrency:
       group: agent-implement-prd-issue-${{ github.event.issue.number }}
       cancel-in-progress: false

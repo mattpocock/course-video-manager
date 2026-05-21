@@ -35,9 +35,9 @@ const result = await sandcastle.run({
   }),
 });
 
-if (result.commits.length === 0) {
-  fail("Agent produced no commits.");
-}
+// No explicit "did this produce commits?" check: the workflow's `gh pr create`
+// step will fail naturally on an empty branch, and there are no destructive
+// steps (e.g. closing an issue) in between to leave state inconsistent.
 
 fs.writeFileSync(path.join(OUTPUT_DIR, "pr_title.txt"), result.output.prTitle);
 fs.writeFileSync(

@@ -39,11 +39,10 @@ const result = await sandcastle.run({
   }),
 });
 
-if (result.commits.length === 0) {
-  fail(
-    `Agent produced no commits while implementing sub-issue #${SUB_ISSUE_NUMBER}.`
-  );
-}
+// No "did this produce commits?" check: a sub-issue's work may already have
+// been completed by a previous iteration, in which case the agent legitimately
+// produces zero new commits and we still want the workflow to proceed (close
+// the sub-issue, advance to the next one).
 
 fs.writeFileSync(path.join(OUTPUT_DIR, "pr_title.txt"), result.output.prTitle);
 fs.writeFileSync(
@@ -62,10 +61,4 @@ function required(name: string): string {
     process.exit(1);
   }
   return value;
-}
-
-function fail(message: string): never {
-  console.error(`\nFAILED: ${message}`);
-  fs.writeFileSync(path.join(OUTPUT_DIR, "failure_reason.txt"), message);
-  process.exit(1);
 }

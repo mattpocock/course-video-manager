@@ -13,7 +13,7 @@ jobs:
   review:
     if: github.event.label.name == 'agent:review'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     concurrency:
       group: agent-mutate-pr-${{ github.event.pull_request.number }}
       cancel-in-progress: false

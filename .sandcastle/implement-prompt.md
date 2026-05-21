@@ -10,14 +10,6 @@ Work on branch {{BRANCH}}. Make commits, run tests, and close the issue when don
 
 # CONTEXT
 
-Here are the last 10 commits:
-
-<recent-commits>
-
-!`git log -n 10 --format="%H%n%ad%n%B---" --date=short`
-
-</recent-commits>
-
 # EXPLORATION
 
 Explore the repo and fill your context window with relevant information that will allow you to complete the task.
