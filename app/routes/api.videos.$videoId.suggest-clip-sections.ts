@@ -41,7 +41,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     }));
     const validIds = new Set(clips.map((c) => c.id));
 
-    const existingSections = video.clipSections.map((s) => ({
+    const existingSections = video.chapters.map((s) => ({
       order: s.order,
       name: s.name,
     }));

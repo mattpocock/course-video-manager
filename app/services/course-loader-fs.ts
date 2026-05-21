@@ -110,10 +110,10 @@ export function toSlimVideo<
       order: string;
       archived: boolean;
     }[];
-    clipSections: { order: string; archived: boolean }[];
+    chapters: { order: string; archived: boolean }[];
   },
 >(video: T) {
-  const { clips, clipSections, ...rest } = video;
+  const { clips, chapters, ...rest } = video;
   return {
     ...rest,
     clipCount: clips.length,
@@ -122,6 +122,6 @@ export function toSlimVideo<
       0
     ),
     firstClipId: clips[0]?.id ?? null,
-    warnings: computeVideoWarnings({ clips, clipSections }),
+    warnings: computeVideoWarnings({ clips, chapters }),
   };
 }

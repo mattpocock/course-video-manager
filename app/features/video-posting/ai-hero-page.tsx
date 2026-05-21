@@ -64,7 +64,7 @@ export function AiHeroPage({
   includeTranscript,
   courseStructure,
   includeCourseStructure,
-  clipSections,
+  chapters,
 }: {
   videoId: string;
   aiHero: { connected: true; userId: string } | { connected: false };
@@ -73,7 +73,7 @@ export function AiHeroPage({
   includeTranscript: boolean;
   courseStructure: CourseStructure | null;
   includeCourseStructure: boolean;
-  clipSections: SectionWithWordCount[];
+  chapters: SectionWithWordCount[];
 }) {
   // Title with localStorage persistence
   const [title, setTitle] = useState(() => {
@@ -280,7 +280,7 @@ export function AiHeroPage({
     setIsGeneratingSeo(true);
     try {
       const transcriptEnabled =
-        clipSections.length > 0 ? enabledSections.size > 0 : includeTranscript;
+        chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
 
       const response = await fetch(`/api/videos/${videoId}/generate`, {
         method: "POST",
@@ -404,11 +404,7 @@ export function AiHeroPage({
         {(hasLocalImages || isUploadingImages) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isUploadingImages}
-              >
+              <Button variant="outline" size="sm" disabled={isUploadingImages}>
                 {isUploadingImages ? (
                   <>
                     <Loader2Icon className="h-4 w-4 animate-spin" />

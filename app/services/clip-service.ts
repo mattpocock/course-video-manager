@@ -11,14 +11,14 @@
  */
 
 import type { InferSelectModel } from "drizzle-orm";
-import type { clips, clipSections, videos } from "@/db/schema";
+import type { clips, chapters, videos } from "@/db/schema";
 import type { PauseLength } from "@/silence-detection-constants";
 // ============================================================================
 // Database Types
 // ============================================================================
 
 export type Clip = InferSelectModel<typeof clips>;
-export type ClipSection = InferSelectModel<typeof clipSections>;
+export type ClipSection = InferSelectModel<typeof chapters>;
 export type RegeneratedClipSection = ClipSection & { beforeClipId: string };
 export type Video = InferSelectModel<typeof videos>;
 

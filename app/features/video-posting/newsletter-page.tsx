@@ -21,7 +21,7 @@ const NEWSLETTER_STORAGE_KEY = (videoId: string) =>
 
 export interface NewsletterPagePanelProps {
   videoId: string;
-  clipSections: SectionWithWordCount[];
+  chapters: SectionWithWordCount[];
   enabledSections: Set<string>;
   enabledFiles: Set<string>;
   includeTranscript: boolean;
@@ -33,7 +33,7 @@ export interface NewsletterPagePanelProps {
 export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
   const {
     videoId,
-    clipSections,
+    chapters,
     enabledSections,
     enabledFiles,
     includeTranscript,
@@ -73,7 +73,7 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
     setIsGenerating(true);
     try {
       const transcriptEnabled =
-        clipSections.length > 0 ? enabledSections.size > 0 : includeTranscript;
+        chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
 
       const response = await fetch(`/videos/${videoId}/completions`, {
         method: "POST",

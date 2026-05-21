@@ -1,5 +1,5 @@
 import type { DrizzleDB } from "@/services/drizzle-service.server";
-import { clips, clipSections } from "@/db/schema";
+import { clips, chapters } from "@/db/schema";
 import {
   NotFoundError,
   UnknownDBServiceError,
@@ -112,12 +112,12 @@ export const createClipOperations = (db: DrizzleDB) => {
     );
 
     const allClipSections = yield* makeDbCall(() =>
-      db.query.clipSections.findMany({
+      db.query.chapters.findMany({
         where: and(
-          eq(clipSections.videoId, clip.videoId),
-          eq(clipSections.archived, false)
+          eq(chapters.videoId, clip.videoId),
+          eq(chapters.archived, false)
         ),
-        orderBy: asc(clipSections.order),
+        orderBy: asc(chapters.order),
       })
     );
 
@@ -172,7 +172,7 @@ export const createClipOperations = (db: DrizzleDB) => {
   ) {
     const [clipSection] = yield* makeDbCall(() =>
       db
-        .insert(clipSections)
+        .insert(chapters)
         .values({
           videoId,
           name,
@@ -210,12 +210,9 @@ export const createClipOperations = (db: DrizzleDB) => {
     );
 
     const allClipSections = yield* makeDbCall(() =>
-      db.query.clipSections.findMany({
-        where: and(
-          eq(clipSections.videoId, videoId),
-          eq(clipSections.archived, false)
-        ),
-        orderBy: asc(clipSections.order),
+      db.query.chapters.findMany({
+        where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
+        orderBy: asc(chapters.order),
       })
     );
 
@@ -283,7 +280,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
     const [clipSection] = yield* makeDbCall(() =>
       db
-        .insert(clipSections)
+        .insert(chapters)
         .values({
           videoId,
           name,
@@ -319,12 +316,12 @@ export const createClipOperations = (db: DrizzleDB) => {
       );
 
       const allClipSections = yield* makeDbCall(() =>
-        db.query.clipSections.findMany({
+        db.query.chapters.findMany({
           where: and(
-            eq(clipSections.videoId, videoId),
-            eq(clipSections.archived, false)
+            eq(chapters.videoId, videoId),
+            eq(chapters.archived, false)
           ),
-          orderBy: asc(clipSections.order),
+          orderBy: asc(chapters.order),
         })
       );
 
@@ -370,7 +367,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
       const [clipSection] = yield* makeDbCall(() =>
         db
-          .insert(clipSections)
+          .insert(chapters)
           .values({
             videoId,
             name,
@@ -394,8 +391,8 @@ export const createClipOperations = (db: DrizzleDB) => {
     clipSectionId: string
   ) {
     const clipSection = yield* makeDbCall(() =>
-      db.query.clipSections.findFirst({
-        where: eq(clipSections.id, clipSectionId),
+      db.query.chapters.findFirst({
+        where: eq(chapters.id, clipSectionId),
       })
     );
 
@@ -417,9 +414,9 @@ export const createClipOperations = (db: DrizzleDB) => {
   ) {
     const [clipSection] = yield* makeDbCall(() =>
       db
-        .update(clipSections)
+        .update(chapters)
         .set(updates)
-        .where(eq(clipSections.id, clipSectionId))
+        .where(eq(chapters.id, clipSectionId))
         .returning()
     );
 
@@ -437,8 +434,8 @@ export const createClipOperations = (db: DrizzleDB) => {
     clipSectionId: string
   ) {
     const clipSectionExists = yield* makeDbCall(() =>
-      db.query.clipSections.findFirst({
-        where: eq(clipSections.id, clipSectionId),
+      db.query.chapters.findFirst({
+        where: eq(chapters.id, clipSectionId),
       })
     );
 
@@ -451,9 +448,9 @@ export const createClipOperations = (db: DrizzleDB) => {
 
     yield* makeDbCall(() =>
       db
-        .update(clipSections)
+        .update(chapters)
         .set({ archived: true })
-        .where(eq(clipSections.id, clipSectionId))
+        .where(eq(chapters.id, clipSectionId))
     );
 
     return { success: true };
@@ -465,8 +462,8 @@ export const createClipOperations = (db: DrizzleDB) => {
   ) {
     // Get the clip section to know what video we're working with
     const clipSection = yield* makeDbCall(() =>
-      db.query.clipSections.findFirst({
-        where: eq(clipSections.id, clipSectionId),
+      db.query.chapters.findFirst({
+        where: eq(chapters.id, clipSectionId),
       })
     );
 
@@ -489,12 +486,12 @@ export const createClipOperations = (db: DrizzleDB) => {
     );
 
     const allClipSections = yield* makeDbCall(() =>
-      db.query.clipSections.findMany({
+      db.query.chapters.findMany({
         where: and(
-          eq(clipSections.videoId, clipSection.videoId),
-          eq(clipSections.archived, false)
+          eq(chapters.videoId, clipSection.videoId),
+          eq(chapters.archived, false)
         ),
-        orderBy: asc(clipSections.order),
+        orderBy: asc(chapters.order),
       })
     );
 
@@ -537,9 +534,9 @@ export const createClipOperations = (db: DrizzleDB) => {
 
     yield* makeDbCall(() =>
       db
-        .update(clipSections)
+        .update(chapters)
         .set({ order: newOrder })
-        .where(eq(clipSections.id, clipSectionId))
+        .where(eq(chapters.id, clipSectionId))
     );
 
     return { success: true };
@@ -570,12 +567,9 @@ export const createClipOperations = (db: DrizzleDB) => {
     );
 
     const allClipSections = yield* makeDbCall(() =>
-      db.query.clipSections.findMany({
-        where: and(
-          eq(clipSections.videoId, videoId),
-          eq(clipSections.archived, false)
-        ),
-        orderBy: asc(clipSections.order),
+      db.query.chapters.findMany({
+        where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
+        orderBy: asc(chapters.order),
       })
     );
 

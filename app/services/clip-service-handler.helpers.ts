@@ -2,7 +2,7 @@
  * Helper functions and types for ClipService handler.
  */
 
-import { clips, clipSections, videos } from "@/db/schema";
+import { clips, chapters, videos } from "@/db/schema";
 import { compareOrderStrings } from "@/lib/sort-by-order";
 import { and, asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -80,12 +80,9 @@ export const getOrderedItems = Effect.fn("getOrderedItems")(function* (
   );
 
   const allClipSections = yield* Effect.promise(() =>
-    db.query.clipSections.findMany({
-      where: and(
-        eq(clipSections.videoId, videoId),
-        eq(clipSections.archived, false)
-      ),
-      orderBy: asc(clipSections.order),
+    db.query.chapters.findMany({
+      where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
+      orderBy: asc(chapters.order),
     })
   );
 
@@ -417,7 +414,7 @@ export const handleCreateVideoFromSelection = Effect.fn(
       );
     } else {
       yield* Effect.promise(() =>
-        db.insert(clipSections).values({
+        db.insert(chapters).values({
           videoId: newVideo.id,
           name: item.name,
           order,
@@ -438,9 +435,9 @@ export const handleCreateVideoFromSelection = Effect.fn(
     for (const clipSectionId of clipSectionIds) {
       yield* Effect.promise(() =>
         db
-          .update(clipSections)
+          .update(chapters)
           .set({ archived: true })
-          .where(eq(clipSections.id, clipSectionId))
+          .where(eq(chapters.id, clipSectionId))
       );
     }
 

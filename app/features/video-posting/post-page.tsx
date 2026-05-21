@@ -55,7 +55,7 @@ export function PostPage({
   includeTranscript,
   courseStructure,
   includeCourseStructure,
-  clipSections,
+  chapters,
   pitchYoutubeTitle,
 }: {
   videoId: string;
@@ -66,7 +66,7 @@ export function PostPage({
   includeTranscript: boolean;
   courseStructure: CourseStructure | null;
   includeCourseStructure: boolean;
-  clipSections: SectionWithWordCount[];
+  chapters: SectionWithWordCount[];
   pitchYoutubeTitle: string | null;
 }) {
   const [title, setTitle] = useLocalStorage(
@@ -154,7 +154,7 @@ export function PostPage({
     mode: "youtube-title" | "youtube-title-single" | "youtube-description"
   ) => {
     const transcriptEnabled =
-      clipSections.length > 0 ? enabledSections.size > 0 : includeTranscript;
+      chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
 
     const response = await fetch(`/api/videos/${videoId}/generate`, {
       method: "POST",

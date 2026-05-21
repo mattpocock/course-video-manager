@@ -435,8 +435,7 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
       const enabledSectionIds = new Set(props.enabledSections ?? []);
       const allSectionsEnabled =
         enabledSectionIds.size === 0 ||
-        (props.enabledSections?.length === 0 &&
-          video.clipSections.length === 0);
+        (props.enabledSections?.length === 0 && video.chapters.length === 0);
 
       // Combine clips and clip sections, sort by order (ASCII ordering to match PostgreSQL COLLATE "C")
       const allItems = [
@@ -445,7 +444,7 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
           order: clip.order,
           clip,
         })),
-        ...video.clipSections.map((section) => ({
+        ...video.chapters.map((section) => ({
           type: "clip-section" as const,
           order: section.order,
           section,
@@ -498,7 +497,7 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
         order: clip.order,
         clip,
       })),
-      ...video.clipSections.map((section) => ({
+      ...video.chapters.map((section) => ({
         type: "clip-section" as const,
         order: section.order,
         section,
@@ -527,10 +526,10 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
     const enabledSectionIds = new Set(props.enabledSections ?? []);
     const allSectionsEnabled =
       enabledSectionIds.size === 0 ||
-      (props.enabledSections?.length === 0 && video.clipSections.length === 0);
+      (props.enabledSections?.length === 0 && video.chapters.length === 0);
     const sectionNames = allSectionsEnabled
-      ? video.clipSections.map((section) => section.name)
-      : video.clipSections
+      ? video.chapters.map((section) => section.name)
+      : video.chapters
           .filter((section) => enabledSectionIds.has(section.id))
           .map((section) => section.name);
 

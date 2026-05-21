@@ -22,7 +22,7 @@ const SOCIAL_CAPTION_STORAGE_KEY = (videoId: string) =>
 
 export interface SocialPagePanelProps {
   videoId: string;
-  clipSections: SectionWithWordCount[];
+  chapters: SectionWithWordCount[];
   enabledSections: Set<string>;
   enabledFiles: Set<string>;
   includeTranscript: boolean;
@@ -34,7 +34,7 @@ export interface SocialPagePanelProps {
 export const SocialPagePanel = (props: SocialPagePanelProps) => {
   const {
     videoId,
-    clipSections,
+    chapters,
     enabledSections,
     enabledFiles,
     includeTranscript,
@@ -67,7 +67,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     setIsGeneratingCaption(true);
     try {
       const transcriptEnabled =
-        clipSections.length > 0 ? enabledSections.size > 0 : includeTranscript;
+        chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
 
       const response = await fetch(`/api/videos/${videoId}/generate`, {
         method: "POST",

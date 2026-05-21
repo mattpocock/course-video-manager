@@ -56,7 +56,7 @@ export interface WritePageProps {
     isStandalone: boolean;
     transcript: string;
     transcriptWordCount: number;
-    clipSections: SectionWithWordCount[];
+    chapters: SectionWithWordCount[];
     indexedClips: IndexedClip[];
     links: Array<{ id: string; url: string; title: string }>;
     courseStructure: {
@@ -87,7 +87,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     isStandalone,
     transcript,
     transcriptWordCount,
-    clipSections,
+    chapters,
     indexedClips,
     links,
     courseStructure,
@@ -98,7 +98,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
 
   const [state, dispatch] = useReducer(
     writePageReducer,
-    { files, clipSections, initialMemory },
+    { files, chapters, initialMemory },
     createInitialState
   );
 
@@ -401,7 +401,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
 
   const getBodyPayload = useCallback(() => {
     const transcriptEnabled =
-      clipSections.length > 0 ? enabledSections.size > 0 : includeTranscript;
+      chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
     const base = {
       enabledFiles: Array.from(enabledFiles),
       model,
@@ -413,7 +413,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     };
     return isDocumentMode ? { ...base, document, mode } : { ...base, mode };
   }, [
-    clipSections.length,
+    chapters.length,
     enabledSections,
     includeTranscript,
     enabledFiles,
@@ -491,7 +491,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
   const handleGoLive = () => {
     dispatch({ type: "set-mode", mode: "interview" });
     const transcriptEnabled =
-      clipSections.length > 0 ? enabledSections.size > 0 : includeTranscript;
+      chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
     sendMessage(
       {
         text: "Let's go live! Start the interview based on what we discussed.",
@@ -578,7 +578,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
           videoSrc={`/api/videos/${videoId}/stream`}
           transcriptWordCount={transcriptWordCount}
           onCopyTranscript={handleCopyTranscript}
-          clipSections={clipSections}
+          chapters={chapters}
           enabledSections={enabledSections}
           onEnabledSectionsChange={(sections: Set<string>) =>
             dispatch({ type: "set-enabled-sections", sections })

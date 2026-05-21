@@ -176,11 +176,11 @@ export function writePageReducer(
 
 export function createInitialState({
   files,
-  clipSections,
+  chapters,
   initialMemory,
 }: {
   files: Array<{ path: string; defaultEnabled: boolean }>;
-  clipSections: Array<{ id: string }>;
+  chapters: Array<{ id: string }>;
   initialMemory: string;
 }): WritePageState {
   const mode: Mode =
@@ -217,7 +217,7 @@ export function createInitialState({
     model,
     enabledFiles,
     includeTranscript: true,
-    enabledSections: new Set(clipSections.map((s) => s.id)),
+    enabledSections: new Set(chapters.map((s) => s.id)),
     includeCourseStructure,
     memory: initialMemory,
     memoryEnabled,

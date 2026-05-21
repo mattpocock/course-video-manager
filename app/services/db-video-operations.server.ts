@@ -1,5 +1,5 @@
 import type { DrizzleDB } from "@/services/drizzle-service.server";
-import { clips, clipSections, videos } from "@/db/schema";
+import { clips, chapters, videos } from "@/db/schema";
 import {
   CannotArchiveLessonVideoError,
   NotFoundError,
@@ -182,11 +182,11 @@ export const createVideoOperations = (
               },
             },
           },
-          clipSections: {
-            orderBy: asc(clipSections.order),
+          chapters: {
+            orderBy: asc(chapters.order),
             ...(opts?.withArchived
               ? {}
-              : { where: eq(clipSections.archived, false) }),
+              : { where: eq(chapters.archived, false) }),
           },
         },
       })
@@ -636,9 +636,9 @@ export const createVideoOperations = (
                 transcribedAt: true,
               },
             },
-            clipSections: {
-              where: eq(clipSections.archived, false),
-              orderBy: asc(clipSections.order),
+            chapters: {
+              where: eq(chapters.archived, false),
+              orderBy: asc(chapters.order),
               columns: { id: true, order: true, name: true },
             },
           },

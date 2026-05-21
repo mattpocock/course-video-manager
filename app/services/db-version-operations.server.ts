@@ -1,7 +1,7 @@
 import type { DrizzleDB } from "@/services/drizzle-service.server";
 import {
   clips,
-  clipSections,
+  chapters,
   lessons,
   courses,
   courseVersions,
@@ -105,9 +105,9 @@ export const createVersionOperations = (db: DrizzleDB) => {
                     orderBy: asc(clips.order),
                     where: eq(clips.archived, false),
                   },
-                  clipSections: {
-                    orderBy: asc(clipSections.order),
-                    where: eq(clipSections.archived, false),
+                  chapters: {
+                    orderBy: asc(chapters.order),
+                    where: eq(chapters.archived, false),
                   },
                 },
               },
@@ -342,9 +342,9 @@ export const createVersionOperations = (db: DrizzleDB) => {
                       orderBy: asc(clips.order),
                       where: eq(clips.archived, false),
                     },
-                    clipSections: {
-                      orderBy: asc(clipSections.order),
-                      where: eq(clipSections.archived, false),
+                    chapters: {
+                      orderBy: asc(chapters.order),
+                      where: eq(chapters.archived, false),
                     },
                     thumbnails: true,
                   },
@@ -437,10 +437,10 @@ export const createVersionOperations = (db: DrizzleDB) => {
               );
             }
 
-            if (sourceVideo.clipSections.length > 0) {
+            if (sourceVideo.chapters.length > 0) {
               yield* makeDbCall(() =>
-                db.insert(clipSections).values(
-                  sourceVideo.clipSections.map((section) => ({
+                db.insert(chapters).values(
+                  sourceVideo.chapters.map((section) => ({
                     videoId: newVideo.id,
                     name: section.name,
                     order: section.order,
@@ -526,9 +526,9 @@ export const createVersionOperations = (db: DrizzleDB) => {
                           orderBy: asc(clips.order),
                           where: eq(clips.archived, false),
                         },
-                        clipSections: {
-                          orderBy: asc(clipSections.order),
-                          where: eq(clipSections.archived, false),
+                        chapters: {
+                          orderBy: asc(chapters.order),
+                          where: eq(chapters.archived, false),
                         },
                       },
                     },
@@ -559,7 +559,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
               videos: l.videos.map((v) => ({
                 id: v.id,
                 path: v.path,
-                transcript: toTranscriptItems(v.clips, v.clipSections),
+                transcript: toTranscriptItems(v.clips, v.chapters),
               })),
             })),
         })),

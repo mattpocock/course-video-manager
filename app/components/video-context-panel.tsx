@@ -46,7 +46,7 @@ export type VideoContextPanelProps = {
 
   // Transcript and sections
   transcriptWordCount: number;
-  clipSections: SectionWithWordCount[];
+  chapters: SectionWithWordCount[];
   enabledSections: Set<string>;
   onEnabledSectionsChange: (sections: Set<string>) => void;
   includeTranscript: boolean;
@@ -92,7 +92,7 @@ export type VideoContextPanelProps = {
 export const VideoContextPanel = memo(function VideoContextPanel({
   videoSrc,
   transcriptWordCount,
-  clipSections,
+  chapters,
   enabledSections,
   onEnabledSectionsChange,
   includeTranscript,
@@ -189,8 +189,8 @@ export const VideoContextPanel = memo(function VideoContextPanel({
               <Checkbox
                 id="include-transcript"
                 checked={
-                  clipSections.length > 0
-                    ? enabledSections.size === clipSections.length
+                  chapters.length > 0
+                    ? enabledSections.size === chapters.length
                       ? true
                       : enabledSections.size > 0
                         ? "indeterminate"
@@ -198,10 +198,10 @@ export const VideoContextPanel = memo(function VideoContextPanel({
                     : includeTranscript
                 }
                 onCheckedChange={(checked) => {
-                  if (clipSections.length > 0) {
+                  if (chapters.length > 0) {
                     if (checked) {
                       onEnabledSectionsChange(
-                        new Set(clipSections.map((s) => s.id))
+                        new Set(chapters.map((s) => s.id))
                       );
                     } else {
                       onEnabledSectionsChange(new Set());
@@ -240,11 +240,11 @@ export const VideoContextPanel = memo(function VideoContextPanel({
               )}
             </div>
             {/* Section checkboxes */}
-            {clipSections.length > 0 && (
+            {chapters.length > 0 && (
               <div className="shrink-0">
                 <ScrollArea className="h-48">
                   <div className="space-y-1 px-2">
-                    {clipSections.map((section) => (
+                    {chapters.map((section) => (
                       <div
                         key={section.id}
                         className="flex items-center gap-2 py-1 pl-6"

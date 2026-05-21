@@ -165,7 +165,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         })
       : [];
 
-    // Combine clips and clipSections into a unified items array, sorted by order
+    // Combine clips and chapters into a unified items array, sorted by order
     const clipItems = video.clips.map((clip) => ({
       type: "clip" as const,
       order: clip.order,
@@ -176,7 +176,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       type: "clip-section";
       order: string;
       data: DB.ClipSection;
-    }> = (video.clipSections as DB.ClipSection[]).map((clipSection) => ({
+    }> = (video.chapters as DB.ClipSection[]).map((clipSection) => ({
       type: "clip-section" as const,
       order: clipSection.order,
       data: clipSection,
@@ -184,9 +184,9 @@ export const loader = async (args: Route.LoaderArgs) => {
 
     const sortedItems = sortByOrder([...clipItems, ...clipSectionItems]);
 
-    // Strip clips/clipSections from video sent to client (already in items)
+    // Strip clips/chapters from video sent to client (already in items)
     const lesson = video.lesson;
-    const { clips: _clips, clipSections: _clipSections, ...slimVideo } = video;
+    const { clips: _clips, chapters: _chapters, ...slimVideo } = video;
 
     const whiteNoiseAssetPath = path.join(
       process.cwd(),

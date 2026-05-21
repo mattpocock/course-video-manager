@@ -1,7 +1,7 @@
 import type { DrizzleDB } from "@/services/drizzle-service.server";
 import {
   clips,
-  clipSections,
+  chapters,
   courses,
   courseVersions,
   sections,
@@ -232,12 +232,12 @@ export const createCourseOperations = (db: DrizzleDB) => {
                               orderBy: asc(clips.order),
                               where: eq(clips.archived, false),
                             },
-                            clipSections: {
+                            chapters: {
                               columns: {
                                 order: true,
                                 archived: true,
                               },
-                              where: eq(clipSections.archived, false),
+                              where: eq(chapters.archived, false),
                             },
                           },
                         },
@@ -293,10 +293,10 @@ export const createCourseOperations = (db: DrizzleDB) => {
                             orderBy: asc(clips.order),
                             where: eq(clips.archived, false),
                           },
-                          clipSections: {
+                          chapters: {
                             columns: { name: true, order: true },
-                            orderBy: asc(clipSections.order),
-                            where: eq(clipSections.archived, false),
+                            orderBy: asc(chapters.order),
+                            where: eq(chapters.archived, false),
                           },
                         },
                       },
@@ -316,7 +316,7 @@ export const createCourseOperations = (db: DrizzleDB) => {
       for (const section of version.sections) {
         for (const lesson of section.lessons) {
           for (const video of lesson.videos) {
-            const items = toTranscriptItems(video.clips, video.clipSections);
+            const items = toTranscriptItems(video.clips, video.chapters);
             transcripts[video.id] = formatProseTranscript(items);
           }
         }
@@ -612,9 +612,9 @@ export const createCourseOperations = (db: DrizzleDB) => {
                     orderBy: asc(clips.order),
                     where: eq(clips.archived, false),
                   },
-                  clipSections: {
-                    orderBy: asc(clipSections.order),
-                    where: eq(clipSections.archived, false),
+                  chapters: {
+                    orderBy: asc(chapters.order),
+                    where: eq(chapters.archived, false),
                   },
                   thumbnails: true,
                 },
@@ -697,10 +697,10 @@ export const createCourseOperations = (db: DrizzleDB) => {
             );
           }
 
-          if (sourceVideo.clipSections.length > 0) {
+          if (sourceVideo.chapters.length > 0) {
             yield* makeDbCall(() =>
-              db.insert(clipSections).values(
-                sourceVideo.clipSections.map((section) => ({
+              db.insert(chapters).values(
+                sourceVideo.chapters.map((section) => ({
                   videoId: newVideo.id,
                   name: section.name,
                   order: section.order,

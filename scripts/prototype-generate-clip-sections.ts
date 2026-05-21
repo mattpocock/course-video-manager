@@ -74,7 +74,7 @@ const program = Effect.gen(function* () {
     text: c.text ?? "",
   }));
 
-  const existingSections = video.clipSections.map((s) => ({
+  const existingSections = video.chapters.map((s) => ({
     id: s.id,
     order: s.order,
     name: s.name,

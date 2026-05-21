@@ -148,7 +148,7 @@ type ChapterSection = {
 
 export const buildChapters = (
   clips: ChapterClip[],
-  clipSections: ChapterSection[]
+  chapters: ChapterSection[]
 ): Chapter[] | null => {
   type Item =
     | { kind: "clip"; order: string; duration: number }
@@ -162,7 +162,7 @@ export const buildChapters = (
         duration: c.sourceEndTime - c.sourceStartTime,
       })
     ),
-    ...clipSections.map(
+    ...chapters.map(
       (s): Item => ({ kind: "section", order: s.order, name: s.name })
     ),
   ].sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));

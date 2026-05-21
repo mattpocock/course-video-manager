@@ -8,7 +8,7 @@
  * appropriate database operations.
  */
 
-import { clips, clipSections, videos } from "@/db/schema";
+import { clips, chapters, videos } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
@@ -346,7 +346,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
         const [clipSection] = yield* Effect.promise(() =>
           db
-            .insert(clipSections)
+            .insert(chapters)
             .values({
               videoId,
               name,
@@ -404,7 +404,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
         const [clipSection] = yield* Effect.promise(() =>
           db
-            .insert(clipSections)
+            .insert(chapters)
             .values({
               videoId,
               name,
@@ -433,14 +433,14 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
       case "update-clip-section": {
         yield* Effect.promise(() =>
           db
-            .update(clipSections)
+            .update(chapters)
             .set({ name: event.name })
-            .where(eq(clipSections.id, event.clipSectionId))
+            .where(eq(chapters.id, event.clipSectionId))
         );
 
         const section = yield* Effect.promise(() =>
-          db.query.clipSections.findFirst({
-            where: eq(clipSections.id, event.clipSectionId),
+          db.query.chapters.findFirst({
+            where: eq(chapters.id, event.clipSectionId),
           })
         );
         if (section) {
@@ -458,16 +458,16 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
         for (const clipSectionId of event.clipSectionIds) {
           yield* Effect.promise(() =>
             db
-              .update(clipSections)
+              .update(chapters)
               .set({ archived: true })
-              .where(eq(clipSections.id, clipSectionId))
+              .where(eq(chapters.id, clipSectionId))
           );
         }
 
         if (event.clipSectionIds.length > 0) {
           const firstSection = yield* Effect.promise(() =>
-            db.query.clipSections.findFirst({
-              where: eq(clipSections.id, event.clipSectionIds[0]!),
+            db.query.chapters.findFirst({
+              where: eq(chapters.id, event.clipSectionIds[0]!),
             })
           );
           if (firstSection) {
@@ -483,8 +483,8 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
       case "reorder-clip-section": {
         const clipSection = yield* Effect.promise(() =>
-          db.query.clipSections.findFirst({
-            where: eq(clipSections.id, event.clipSectionId),
+          db.query.chapters.findFirst({
+            where: eq(chapters.id, event.clipSectionId),
           })
         );
 
@@ -524,9 +524,9 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
         yield* Effect.promise(() =>
           db
-            .update(clipSections)
+            .update(chapters)
             .set({ order: newOrder })
-            .where(eq(clipSections.id, event.clipSectionId))
+            .where(eq(chapters.id, event.clipSectionId))
         );
 
         yield* touchVideoUpdatedAt(db, clipSection.videoId);
@@ -649,13 +649,13 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
         yield* Effect.promise(() =>
           db
-            .update(clipSections)
+            .update(chapters)
             .set({ archived: true })
-            .where(eq(clipSections.videoId, videoId))
+            .where(eq(chapters.videoId, videoId))
         );
 
         const inserted: Array<
-          typeof clipSections.$inferSelect & { beforeClipId: string }
+          typeof chapters.$inferSelect & { beforeClipId: string }
         > = [];
         for (const p of validatedProposed) {
           const targetClip = activeClips[p.clipIndex]!;
@@ -667,7 +667,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
           const [row] = yield* Effect.promise(() =>
             db
-              .insert(clipSections)
+              .insert(chapters)
               .values({
                 videoId,
                 name: p.title,

@@ -63,7 +63,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       text: clip.text,
     }));
 
-    const clipSectionItems: ClipSectionItem[] = video.clipSections.map(
+    const clipSectionItems: ClipSectionItem[] = video.chapters.map(
       (section) => ({
         type: "clip-section" as const,
         order: section.order,
@@ -102,7 +102,7 @@ export const loader = async (args: Route.LoaderArgs) => {
 
     for (const item of sortedItems) {
       if (item.type === "clip-section") {
-        const section = video.clipSections.find((s) => s.order === item.order);
+        const section = video.chapters.find((s) => s.order === item.order);
         if (section) {
           currentSectionIndex = sectionsWithWordCount.length;
           sectionsWithWordCount.push({
@@ -162,7 +162,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         files: standaloneFiles,
         isStandalone: true,
         transcriptWordCount,
-        clipSections: sectionsWithWordCount,
+        chapters: sectionsWithWordCount,
         links: globalLinks,
         courseStructure: null as CourseStructure | null,
         showSocialShareButtons,
@@ -245,7 +245,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       files: filesWithMetadata,
       isStandalone: false,
       transcriptWordCount,
-      clipSections: sectionsWithWordCount,
+      chapters: sectionsWithWordCount,
       links: globalLinks,
       courseStructure,
       showSocialShareButtons,
@@ -280,7 +280,7 @@ export default function SocialPage(props: Route.ComponentProps) {
     files,
     isStandalone,
     transcriptWordCount,
-    clipSections,
+    chapters,
     links,
     courseStructure,
     showSocialShareButtons,
@@ -292,7 +292,7 @@ export default function SocialPage(props: Route.ComponentProps) {
   });
   const [includeTranscript, setIncludeTranscript] = useState(true);
   const [enabledSections, setEnabledSections] = useState<Set<string>>(() => {
-    return new Set(clipSections.map((s) => s.id));
+    return new Set(chapters.map((s) => s.id));
   });
   const [includeCourseStructure, setIncludeCourseStructure] = useState(false);
 
@@ -357,7 +357,7 @@ export default function SocialPage(props: Route.ComponentProps) {
         <VideoContextPanel
           videoSrc={`/api/videos/${videoId}/stream`}
           transcriptWordCount={transcriptWordCount}
-          clipSections={clipSections}
+          chapters={chapters}
           enabledSections={enabledSections}
           onEnabledSectionsChange={setEnabledSections}
           includeTranscript={includeTranscript}
@@ -396,7 +396,7 @@ export default function SocialPage(props: Route.ComponentProps) {
 
         <SocialPagePanel
           videoId={videoId}
-          clipSections={clipSections}
+          chapters={chapters}
           enabledSections={enabledSections}
           enabledFiles={enabledFiles}
           includeTranscript={includeTranscript}

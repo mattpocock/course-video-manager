@@ -67,7 +67,7 @@ describe("appendClips", () => {
           id: c.id,
           order: c.order,
         })),
-        ...video.clipSections.map((s: any) => ({
+        ...video.chapters.map((s: any) => ({
           type: "clip-section" as const,
           id: s.id,
           order: s.order,

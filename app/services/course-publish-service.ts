@@ -398,11 +398,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             for (const video of lesson.videos) {
               videoTranscriptItemsMap.set(
                 video.id,
-                toTranscriptItems(video.clips, video.clipSections)
+                toTranscriptItems(video.clips, video.chapters)
               );
               videoChaptersMap.set(
                 video.id,
-                buildChapters(video.clips, video.clipSections)
+                buildChapters(video.clips, video.chapters)
               );
             }
           }

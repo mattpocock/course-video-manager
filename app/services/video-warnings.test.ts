@@ -3,14 +3,14 @@ import { computeVideoWarnings } from "./video-warnings";
 
 describe("computeVideoWarnings", () => {
   it("returns no warnings for a video with zero clips", () => {
-    expect(computeVideoWarnings({ clips: [], clipSections: [] })).toEqual([]);
+    expect(computeVideoWarnings({ clips: [], chapters: [] })).toEqual([]);
   });
 
   it("returns no warnings when a clip section sits before the first clip", () => {
     expect(
       computeVideoWarnings({
         clips: [{ order: "a1", archived: false }],
-        clipSections: [{ order: "a0", archived: false }],
+        chapters: [{ order: "a0", archived: false }],
       })
     ).toEqual([]);
   });
@@ -19,7 +19,7 @@ describe("computeVideoWarnings", () => {
     expect(
       computeVideoWarnings({
         clips: [{ order: "a1", archived: false }],
-        clipSections: [],
+        chapters: [],
       })
     ).toEqual([{ kind: "missingOpeningSection" }]);
   });
@@ -31,7 +31,7 @@ describe("computeVideoWarnings", () => {
           { order: "a1", archived: false },
           { order: "a3", archived: false },
         ],
-        clipSections: [{ order: "a2", archived: false }],
+        chapters: [{ order: "a2", archived: false }],
       })
     ).toEqual([{ kind: "missingOpeningSection" }]);
   });
@@ -43,7 +43,7 @@ describe("computeVideoWarnings", () => {
           { order: "a1", archived: true },
           { order: "a3", archived: false },
         ],
-        clipSections: [{ order: "a2", archived: false }],
+        chapters: [{ order: "a2", archived: false }],
       })
     ).toEqual([]);
   });
@@ -52,7 +52,7 @@ describe("computeVideoWarnings", () => {
     expect(
       computeVideoWarnings({
         clips: [{ order: "a2", archived: false }],
-        clipSections: [{ order: "a1", archived: true }],
+        chapters: [{ order: "a1", archived: true }],
       })
     ).toEqual([{ kind: "missingOpeningSection" }]);
   });
@@ -61,7 +61,7 @@ describe("computeVideoWarnings", () => {
     expect(
       computeVideoWarnings({
         clips: [{ order: "a1", archived: true }],
-        clipSections: [],
+        chapters: [],
       })
     ).toEqual([]);
   });

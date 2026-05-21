@@ -7,7 +7,7 @@ import type { ClipSection, FrontendId } from "../clip-state-reducer";
  */
 export type TableOfContentsProps = {
   /** List of clip sections to display */
-  clipSections: ClipSection[];
+  chapters: ClipSection[];
   /** Set of selected clip/section IDs */
   selectedClipsSet: Set<FrontendId>;
   /** Callback when a section is clicked */
@@ -20,12 +20,12 @@ export type TableOfContentsProps = {
  * which section is currently selected.
  */
 export function TableOfContents(props: TableOfContentsProps) {
-  if (props.clipSections.length === 0) return null;
+  if (props.chapters.length === 0) return null;
 
   return (
     <ScrollArea className="h-[200px]">
       <div className="space-y-2 pr-4">
-        {props.clipSections.map((section, index) => (
+        {props.chapters.map((section, index) => (
           <button
             key={section.frontendId}
             onClick={() => props.onSectionClick(section.frontendId, index)}

@@ -56,7 +56,7 @@ export function SkillsChangelogPage({
   includeTranscript,
   courseStructure,
   includeCourseStructure,
-  clipSections,
+  chapters,
 }: {
   videoId: string;
   aiHero: { connected: true; userId: string } | { connected: false };
@@ -65,7 +65,7 @@ export function SkillsChangelogPage({
   includeTranscript: boolean;
   courseStructure: CourseStructure | null;
   includeCourseStructure: boolean;
-  clipSections: SectionWithWordCount[];
+  chapters: SectionWithWordCount[];
 }) {
   const {
     title,
@@ -272,7 +272,7 @@ export function SkillsChangelogPage({
     setIsGeneratingDescription(true);
     try {
       const transcriptEnabled =
-        clipSections.length > 0 ? enabledSections.size > 0 : includeTranscript;
+        chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
 
       const response = await fetch(`/api/videos/${videoId}/generate`, {
         method: "POST",

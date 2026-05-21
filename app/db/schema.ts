@@ -226,7 +226,7 @@ export const clips = createTable("clip", {
   ),
 });
 
-export const clipSections = createTable("clip_section", {
+export const chapters = createTable("chapter", {
   id: varchar("id", { length: 255 })
     .notNull()
     .primaryKey()
@@ -251,7 +251,7 @@ export namespace DB {
   }
 
   export interface ClipSection extends Omit<
-    InferSelectModel<typeof clipSections>,
+    InferSelectModel<typeof chapters>,
     "id"
   > {
     id: DatabaseId;
@@ -266,9 +266,9 @@ export const clipsRelations = relations(clips, ({ one }) => ({
   }),
 }));
 
-export const clipSectionsRelations = relations(clipSections, ({ one }) => ({
+export const chaptersRelations = relations(chapters, ({ one }) => ({
   video: one(videos, {
-    fields: [clipSections.videoId],
+    fields: [chapters.videoId],
     references: [videos.id],
   }),
 }));
@@ -282,7 +282,7 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   lesson: one(lessons, { fields: [videos.lessonId], references: [lessons.id] }),
   pitch: one(pitches, { fields: [videos.pitchId], references: [pitches.id] }),
   clips: many(clips),
-  clipSections: many(clipSections),
+  chapters: many(chapters),
   thumbnails: many(thumbnails),
 }));
 

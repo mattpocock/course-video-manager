@@ -35,7 +35,7 @@ type OrderedItem =
 
 function toOrderedItems(
   clips: readonly ClipInput[],
-  clipSections: readonly ClipSectionInput[]
+  chapters: readonly ClipSectionInput[]
 ): OrderedItem[] {
   return sortByOrder<OrderedItem>([
     ...clips.map<OrderedItem>((clip) => ({
@@ -46,7 +46,7 @@ function toOrderedItems(
       sourceEndTime: clip.sourceEndTime,
       videoFilename: clip.videoFilename,
     })),
-    ...clipSections.map<OrderedItem>((section) => ({
+    ...chapters.map<OrderedItem>((section) => ({
       type: "section",
       order: section.order,
       id: section.id,
@@ -67,7 +67,7 @@ export type ProjectionClipSectionInput = {
 
 export function toTranscriptItems(
   clips: readonly ProjectionClipInput[],
-  clipSections: readonly ProjectionClipSectionInput[]
+  chapters: readonly ProjectionClipSectionInput[]
 ): TranscriptItem[] {
   const sorted = sortByOrder<
     | { kind: "clip"; order: string; text: string | null }
@@ -78,7 +78,7 @@ export function toTranscriptItems(
       order: c.order,
       text: c.text,
     })),
-    ...clipSections.map((s) => ({
+    ...chapters.map((s) => ({
       kind: "section" as const,
       order: s.order,
       name: s.name,
@@ -126,14 +126,14 @@ export function toDiffArray(items: readonly TranscriptItem[]): string[] {
 
 export function buildTranscript(
   clips: readonly ClipInput[],
-  clipSections: readonly ClipSectionInput[]
+  chapters: readonly ClipSectionInput[]
 ): {
   indexedClips: IndexedClip[];
   transcript: string;
   wordCount: number;
   sections: SectionWithWordCount[];
 } {
-  const sortedItems = toOrderedItems(clips, clipSections);
+  const sortedItems = toOrderedItems(clips, chapters);
 
   const indexedClips: IndexedClip[] = [];
   const transcriptParts: string[] = [];

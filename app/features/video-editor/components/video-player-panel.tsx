@@ -275,7 +275,7 @@ export const VideoPlayerPanel = () => {
     [clips]
   );
 
-  const clipSections = useMemo(() => getClipSectionsSelector(items), [items]);
+  const chapters = useMemo(() => getClipSectionsSelector(items), [items]);
   const hasSections = getHasSectionsSelector(items);
 
   const isOBSActive = getIsOBSActiveSelector(obsConnectorState);
@@ -551,7 +551,7 @@ export const VideoPlayerPanel = () => {
 
             {activeTab === "toc" && hasSections && (
               <TableOfContents
-                clipSections={clipSections}
+                chapters={chapters}
                 selectedClipsSet={selectedClipsSet}
                 onSectionClick={onSectionClick}
               />

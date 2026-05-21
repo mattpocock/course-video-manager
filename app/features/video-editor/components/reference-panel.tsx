@@ -56,7 +56,7 @@ export type ReferenceCandidate = {
     text: string;
     transcribedAt: Date | null;
   }>;
-  clipSections: Array<{ id: string; order: string; name: string }>;
+  chapters: Array<{ id: string; order: string; name: string }>;
 };
 
 type GroupItem =
@@ -70,7 +70,7 @@ type Group = {
 
 const groupByClipSection = (candidate: ReferenceCandidate): Group[] => {
   const items: Array<GroupItem & { order: string }> = [
-    ...candidate.clipSections.map((s) => ({
+    ...candidate.chapters.map((s) => ({
       kind: "section" as const,
       order: s.order,
       id: s.id,
@@ -154,7 +154,7 @@ export const ReferencePanel = (props: {
   if (!selected) return null;
 
   const groups = groupByClipSection(selected);
-  const sectionIds = selected.clipSections.map((s) => s.id);
+  const sectionIds = selected.chapters.map((s) => s.id);
   const allCollapsed =
     sectionIds.length > 0 && sectionIds.every((id) => collapsed[id]);
   const toggleAll = () => {
@@ -165,7 +165,7 @@ export const ReferencePanel = (props: {
     });
   };
 
-  const defaultSectionName = `Section ${selected.clipSections.length + 1}`;
+  const defaultSectionName = `Section ${selected.chapters.length + 1}`;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

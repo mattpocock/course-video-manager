@@ -42,7 +42,7 @@ function* (currentVideo: {
 If a function only needs IDs and paths for navigation but loads full nested trees including clips, transcripts, etc. — create a slim query variant.
 
 ```typescript
-// BAD — loads clips, clipSections, thumbnails etc. just to get video IDs
+// BAD — loads clips, chapters, thumbnails etc. just to get video IDs
 const course = yield * getCourseWithSectionsById(repoId);
 
 // GOOD — dedicated lightweight query
@@ -53,7 +53,7 @@ Slim query checklist:
 
 - `columns: { id: true, path: true }` — only select needed columns on leaf relations
 - `limit: 1` on relations like versions where you only need the latest
-- Omit `with:` for relations you don't traverse (clips, clipSections, thumbnails)
+- Omit `with:` for relations you don't traverse (clips, chapters, thumbnails)
 - Keep `where:` filters (e.g. `archived = false`) and `orderBy` intact
 
 ### 3. Sequential independent queries

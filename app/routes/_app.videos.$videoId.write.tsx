@@ -43,7 +43,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       transcript,
       wordCount: transcriptWordCount,
       sections: sectionsWithWordCount,
-    } = buildTranscript(video.clips, video.clipSections);
+    } = buildTranscript(video.clips, video.chapters);
 
     if (!lesson) {
       const [nextVideoId, previousVideoId] = yield* Effect.all(
@@ -64,7 +64,7 @@ export const loader = async (args: Route.LoaderArgs) => {
           isStandalone: true,
           transcript,
           transcriptWordCount,
-          clipSections: sectionsWithWordCount,
+          chapters: sectionsWithWordCount,
           indexedClips,
           links: globalLinks,
           courseStructure: null as null | {
@@ -150,7 +150,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         isStandalone: false,
         transcript,
         transcriptWordCount,
-        clipSections: sectionsWithWordCount,
+        chapters: sectionsWithWordCount,
         indexedClips,
         links: globalLinks,
         courseStructure,

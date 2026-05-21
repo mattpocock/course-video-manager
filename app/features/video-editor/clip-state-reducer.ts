@@ -129,7 +129,7 @@ export const clipStateReducer: EffectReducer<
     case "new-database-clips":
       return handleNewDatabaseClips(state, action, exec);
     case "clips-deleted": {
-      const { items, clipsToArchive, clipSectionsToArchive, insertionPoint } =
+      const { items, clipsToArchive, chaptersToArchive, insertionPoint } =
         archiveClips(state.items, action.clipIds, state.insertionPoint);
 
       if (clipsToArchive.size > 0) {
@@ -138,10 +138,10 @@ export const clipStateReducer: EffectReducer<
           clipIds: Array.from(clipsToArchive),
         });
       }
-      if (clipSectionsToArchive.size > 0) {
+      if (chaptersToArchive.size > 0) {
         exec({
           type: "archive-clip-sections",
-          clipSectionIds: Array.from(clipSectionsToArchive),
+          clipSectionIds: Array.from(chaptersToArchive),
         });
       }
       return {
@@ -268,7 +268,7 @@ export const clipStateReducer: EffectReducer<
         if (!lastClip) {
           return state;
         }
-        const { items, clipsToArchive, clipSectionsToArchive, insertionPoint } =
+        const { items, clipsToArchive, chaptersToArchive, insertionPoint } =
           archiveClips(
             state.items,
             [lastClip.frontendId],
@@ -281,10 +281,10 @@ export const clipStateReducer: EffectReducer<
             clipIds: Array.from(clipsToArchive),
           });
         }
-        if (clipSectionsToArchive.size > 0) {
+        if (chaptersToArchive.size > 0) {
           exec({
             type: "archive-clip-sections",
-            clipSectionIds: Array.from(clipSectionsToArchive),
+            clipSectionIds: Array.from(chaptersToArchive),
           });
         }
 
@@ -312,10 +312,10 @@ export const clipStateReducer: EffectReducer<
           clipIds: Array.from(archiveResult.clipsToArchive),
         });
       }
-      if (archiveResult.clipSectionsToArchive.size > 0) {
+      if (archiveResult.chaptersToArchive.size > 0) {
         exec({
           type: "archive-clip-sections",
-          clipSectionIds: Array.from(archiveResult.clipSectionsToArchive),
+          clipSectionIds: Array.from(archiveResult.chaptersToArchive),
         });
       }
 

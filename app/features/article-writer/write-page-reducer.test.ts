@@ -5,7 +5,7 @@ describe("writePageReducer - files-loaded", () => {
   it("sets enabledFiles from defaultEnabled=true files", () => {
     const initialState = createInitialState({
       files: [],
-      clipSections: [],
+      chapters: [],
       initialMemory: "",
     });
 
@@ -24,7 +24,7 @@ describe("writePageReducer - files-loaded", () => {
   it("enables only readme files in style-guide-skill-building mode", () => {
     const initialState = createInitialState({
       files: [],
-      clipSections: [],
+      chapters: [],
       initialMemory: "",
     });
     const stateInMode = writePageReducer(initialState, {
@@ -49,7 +49,7 @@ describe("writePageReducer - files-loaded", () => {
   it("replaces existing enabledFiles when files arrive", () => {
     const initialState = createInitialState({
       files: [],
-      clipSections: [],
+      chapters: [],
       initialMemory: "",
     });
     // Simulate user having manually toggled some files
@@ -72,7 +72,7 @@ describe("writePageReducer - files-loaded", () => {
   it("handles empty files array (directory not found)", () => {
     const initialState = createInitialState({
       files: [],
-      clipSections: [],
+      chapters: [],
       initialMemory: "",
     });
 
@@ -87,7 +87,7 @@ describe("writePageReducer - files-loaded", () => {
   it("enables no files when all have defaultEnabled=false", () => {
     const initialState = createInitialState({
       files: [],
-      clipSections: [],
+      chapters: [],
       initialMemory: "",
     });
 

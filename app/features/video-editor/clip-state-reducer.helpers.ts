@@ -499,10 +499,10 @@ export const archiveClips = (
   items: TimelineItem[];
   insertionPoint: FrontendInsertionPoint;
   clipsToArchive: Set<DatabaseId>;
-  clipSectionsToArchive: Set<DatabaseId>;
+  chaptersToArchive: Set<DatabaseId>;
 } => {
   const clipsToArchive = new Set<DatabaseId>();
-  const clipSectionsToArchive = new Set<DatabaseId>();
+  const chaptersToArchive = new Set<DatabaseId>();
 
   let archiveClipMode: ArchiveClipMode;
 
@@ -561,7 +561,7 @@ export const archiveClips = (
     } else if (itemToReplace.type === "clip-section-optimistically-added") {
       itemToReplace.shouldArchive = true;
     } else if (itemToReplace.type === "clip-section-on-database") {
-      clipSectionsToArchive.add(itemToReplace.databaseId);
+      chaptersToArchive.add(itemToReplace.databaseId);
       items[index] = undefined;
     }
   }
@@ -602,7 +602,7 @@ export const archiveClips = (
       items: items.filter((c) => c !== undefined),
       insertionPoint: newInsertionPoint,
       clipsToArchive,
-      clipSectionsToArchive,
+      chaptersToArchive,
     };
   }
 
@@ -647,7 +647,7 @@ export const archiveClips = (
       items: items.filter((c) => c !== undefined),
       insertionPoint: newInsertionPoint,
       clipsToArchive,
-      clipSectionsToArchive,
+      chaptersToArchive,
     };
   }
 
@@ -655,7 +655,7 @@ export const archiveClips = (
     items: items.filter((c) => c !== undefined),
     insertionPoint: insertionPoint,
     clipsToArchive: clipsToArchive,
-    clipSectionsToArchive: clipSectionsToArchive,
+    chaptersToArchive: chaptersToArchive,
   };
 };
 
