@@ -50,23 +50,23 @@ export type LogEvent =
       direction: "up" | "down";
     }
   | {
-      type: "clip-section-created";
+      type: "chapter-created";
       sectionId: string;
       name: string;
       order: string;
     }
   | {
-      type: "clip-section-updated";
-      clipSectionId: string;
+      type: "chapter-updated";
+      chapterId: string;
       name: string;
     }
   | {
-      type: "clip-sections-archived";
-      clipSectionIds: string[];
+      type: "chapters-archived";
+      chapterIds: string[];
     }
   | {
-      type: "clip-section-reordered";
-      clipSectionId: string;
+      type: "chapter-reordered";
+      chapterId: string;
       direction: "up" | "down";
     }
   | {
@@ -101,7 +101,7 @@ export type LogEvent =
       newVideoId: string;
     }
   | {
-      type: "clip-sections-regenerated";
+      type: "chapters-regenerated";
       count: number;
       titles: string[];
     };

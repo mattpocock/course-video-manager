@@ -26,7 +26,7 @@ beforeAll(async () => {
   );
 });
 
-/** Helper: create a standalone video with clips and optional clip sections */
+/** Helper: create a standalone video with clips and optional chapters */
 const createVideoWithClips = (
   name: string,
   clipSpecs: Array<{
@@ -64,18 +64,14 @@ const createVideoWithClips = (
       }
     }
 
-    // Add clip sections after specific clips
+    // Add chapters after specific clips
     if (sectionSpecs) {
       for (const sectionSpec of sectionSpecs) {
         const afterClip = createdClips[sectionSpec.afterClipIndex]!;
-        yield* db.createClipSectionAtInsertionPoint(
-          video.id,
-          sectionSpec.name,
-          {
-            type: "after-clip",
-            databaseClipId: afterClip.id,
-          }
-        );
+        yield* db.createChapterAtInsertionPoint(video.id, sectionSpec.name, {
+          type: "after-clip",
+          databaseClipId: afterClip.id,
+        });
       }
     }
 
@@ -194,7 +190,7 @@ describe("concatenateVideos", () => {
       }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("preserves clip sections from source videos", () =>
+  it.effect("preserves chapters from source videos", () =>
     Effect.gen(function* () {
       const video1 = yield* createVideoWithClips(
         "Source With Sections",

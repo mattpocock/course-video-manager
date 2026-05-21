@@ -3,7 +3,7 @@ import type {
   Clip,
   ClipOnDatabase,
   ClipOptimisticallyAdded,
-  ClipSection,
+  Chapter,
   FrontendId,
   SessionId,
   TimelineItem,
@@ -18,7 +18,7 @@ import {
   getIsClipPortrait,
   getIsClipDangerous,
   getLastTranscribedClipId,
-  getClipSections,
+  getChapters,
   getHasSections,
   getIsOBSActive,
   getIsLiveStreamPortrait,
@@ -63,11 +63,8 @@ const makeOptimisticClip = (
   ...overrides,
 });
 
-const makeClipSection = (
-  frontendId: FrontendId,
-  name: string
-): ClipSection => ({
-  type: "clip-section-on-database",
+const makeChapter = (frontendId: FrontendId, name: string): Chapter => ({
+  type: "chapter-on-database",
   frontendId,
   databaseId: `db-${frontendId}` as any,
   name,
@@ -281,14 +278,14 @@ describe("getLastTranscribedClipId", () => {
   });
 });
 
-describe("getClipSections", () => {
-  it("filters items to clip sections only", () => {
+describe("getChapters", () => {
+  it("filters items to chapters only", () => {
     const items: TimelineItem[] = [
-      makeClipSection(id("s1"), "Intro"),
+      makeChapter(id("s1"), "Intro"),
       makeClipOnDatabase({ frontendId: id("c1") }),
-      makeClipSection(id("s2"), "Body"),
+      makeChapter(id("s2"), "Body"),
     ];
-    const sections = getClipSections(items);
+    const sections = getChapters(items);
     expect(sections).toHaveLength(2);
     expect(sections.map((s) => s.name)).toEqual(["Intro", "Body"]);
   });
@@ -297,7 +294,7 @@ describe("getClipSections", () => {
 describe("getHasSections", () => {
   it("returns true when sections exist", () => {
     const items: TimelineItem[] = [
-      makeClipSection(id("s1"), "Intro"),
+      makeChapter(id("s1"), "Intro"),
       makeClipOnDatabase({ frontendId: id("c1") }),
     ];
     expect(getHasSections(items)).toBe(true);

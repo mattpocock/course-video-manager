@@ -14,8 +14,8 @@ export type FrontendInsertionPoint =
       frontendClipId: FrontendId;
     }
   | {
-      type: "after-clip-section";
-      frontendClipSectionId: FrontendId;
+      type: "after-chapter";
+      frontendChapterId: FrontendId;
     }
   | {
       type: "end";
@@ -117,27 +117,25 @@ export type Clip =
   | ClipOptimisticallyAdded
   | ClipEffectOptimisticallyAdded;
 
-export type ClipSectionOnDatabase = {
-  type: "clip-section-on-database";
+export type ChapterOnDatabase = {
+  type: "chapter-on-database";
   frontendId: FrontendId;
   databaseId: DatabaseId;
   name: string;
   insertionOrder: number | null;
 };
 
-export type ClipSectionOptimisticallyAdded = {
-  type: "clip-section-optimistically-added";
+export type ChapterOptimisticallyAdded = {
+  type: "chapter-optimistically-added";
   frontendId: FrontendId;
   name: string;
   insertionOrder: number;
   shouldArchive?: boolean;
 };
 
-export type ClipSection =
-  | ClipSectionOnDatabase
-  | ClipSectionOptimisticallyAdded;
+export type Chapter = ChapterOnDatabase | ChapterOptimisticallyAdded;
 
-export type TimelineItem = Clip | ClipSection;
+export type TimelineItem = Clip | Chapter;
 
 export type EditorError = {
   message: string;
@@ -242,27 +240,27 @@ export type ClipReducerAction =
       direction: "up" | "down";
     }
   | {
-      type: "add-clip-section";
+      type: "add-chapter";
       name: string;
     }
   | {
-      type: "update-clip-section";
-      clipSectionId: FrontendId;
+      type: "update-chapter";
+      chapterId: FrontendId;
       name: string;
     }
   | {
-      type: "add-clip-section-at";
+      type: "add-chapter-at";
       name: string;
       position: "before" | "after";
       itemId: FrontendId;
     }
   | {
-      type: "clip-section-created";
+      type: "chapter-created";
       frontendId: FrontendId;
       databaseId: DatabaseId;
     }
   | {
-      type: "clip-sections-replaced";
+      type: "chapters-replaced";
       sections: Array<{
         databaseId: DatabaseId;
         name: string;
@@ -339,39 +337,39 @@ export type ClipReducerEffect =
       direction: "up" | "down";
     }
   | {
-      type: "reorder-clip-section";
-      clipSectionId: DatabaseId;
+      type: "reorder-chapter";
+      chapterId: DatabaseId;
       direction: "up" | "down";
     }
   | {
-      type: "archive-clip-sections";
-      clipSectionIds: DatabaseId[];
+      type: "archive-chapters";
+      chapterIds: DatabaseId[];
     }
   | {
-      type: "create-clip-section";
+      type: "create-chapter";
       frontendId: FrontendId;
       name: string;
       insertionPoint: FrontendInsertionPoint;
     }
   | {
-      type: "update-clip-section";
-      clipSectionId: DatabaseId;
+      type: "update-chapter";
+      chapterId: DatabaseId;
       name: string;
     }
   | {
-      type: "create-clip-section-at";
+      type: "create-chapter-at";
       frontendId: FrontendId;
       name: string;
       position: "before" | "after";
       targetItemId: DatabaseId;
-      targetItemType: "clip" | "clip-section";
+      targetItemType: "clip" | "chapter";
     }
   | {
       type: "create-effect-clip-at";
       frontendId: FrontendId;
       position: "before" | "after";
       targetItemId: DatabaseId;
-      targetItemType: "clip" | "clip-section";
+      targetItemType: "clip" | "chapter";
       videoFilename: string;
       sourceStartTime: number;
       sourceEndTime: number;

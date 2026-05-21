@@ -1,13 +1,13 @@
-export const generateClipSectionsSystemPrompt = `You generate ClipSections (YouTube-chapter-style segment markers) for a recorded video.
+export const generateChaptersSystemPrompt = `You generate Chapters (YouTube-chapter-style segment markers) for a recorded video.
 
 You are given the video's clips in order. Each clip has an ID and a transcript.
-You may also be given existing ClipSections the author placed by hand — use these
+You may also be given existing Chapters the author placed by hand — use these
 as a soft guide for where they think breaks belong, but feel free to move, rename,
 merge, drop, or add new ones as the content warrants. Your output replaces the
 existing set entirely.
 
-A ClipSection is a marker placed BEFORE a clip; it labels the segment that begins
-with that clip and runs until the next ClipSection (or the end of the video).
+A Chapter is a marker placed BEFORE a clip; it labels the segment that begins
+with that clip and runs until the next Chapter (or the end of the video).
 
 Title rules:
 - Short, descriptive, YouTube-chapter style (2–6 words typical).
@@ -21,7 +21,7 @@ input. Order in the array doesn't matter — positions are determined by beforeC
 
 If the video is too short or homogeneous to warrant sectioning, return an empty array.`;
 
-export const buildClipSectionsUserMessage = (input: {
+export const buildChaptersUserMessage = (input: {
   clips: Array<{ id: string; order: string; text: string }>;
   existingSections: Array<{ order: string; name: string }>;
 }): string => {
@@ -40,7 +40,7 @@ export const buildClipSectionsUserMessage = (input: {
   ].sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
 
   return [
-    `Video has ${input.clips.length} clips and ${input.existingSections.length} existing ClipSection(s).`,
+    `Video has ${input.clips.length} clips and ${input.existingSections.length} existing Chapter(s).`,
     "",
     "Timeline (existing sections shown as [[SECTION: name]] lines):",
     "",
@@ -50,6 +50,6 @@ export const buildClipSectionsUserMessage = (input: {
         : `clip ${it.id}: ${it.text}`
     ),
     "",
-    "Propose the full replacement set of ClipSections.",
+    "Propose the full replacement set of Chapters.",
   ].join("\n");
 };

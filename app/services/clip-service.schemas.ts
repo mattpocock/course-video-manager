@@ -14,8 +14,8 @@ const InsertionPointSchema = Schema.Union(
     databaseClipId: Schema.String,
   }),
   Schema.Struct({
-    type: Schema.Literal("after-clip-section"),
-    clipSectionId: Schema.String,
+    type: Schema.Literal("after-chapter"),
+    chapterId: Schema.String,
   })
 );
 
@@ -31,7 +31,7 @@ const PositionSchema = Schema.Union(
 
 const TargetItemTypeSchema = Schema.Union(
   Schema.Literal("clip"),
-  Schema.Literal("clip-section")
+  Schema.Literal("chapter")
 );
 
 const ClipInputSchema = Schema.Struct({
@@ -60,13 +60,13 @@ const UpdateClipInputSchema = Schema.Struct({
   beatType: Schema.String,
 });
 
-const CreateClipSectionAtInsertionPointInputSchema = Schema.Struct({
+const CreateChapterAtInsertionPointInputSchema = Schema.Struct({
   videoId: Schema.String,
   name: Schema.String,
   insertionPoint: InsertionPointSchema,
 });
 
-const CreateClipSectionAtPositionInputSchema = Schema.Struct({
+const CreateChapterAtPositionInputSchema = Schema.Struct({
   videoId: Schema.String,
   name: Schema.String,
   position: PositionSchema,
@@ -93,7 +93,7 @@ const CreateVideoFromSelectionModeSchema = Schema.Union(
   Schema.Literal("move")
 );
 
-const RegenerateClipSectionsInputSchema = Schema.Struct({
+const RegenerateChaptersInputSchema = Schema.Struct({
   videoId: Schema.String,
   sections: Schema.Array(
     Schema.Struct({
@@ -106,7 +106,7 @@ const RegenerateClipSectionsInputSchema = Schema.Struct({
 const CreateVideoFromSelectionInputSchema = Schema.Struct({
   sourceVideoId: Schema.String,
   clipIds: Schema.Array(Schema.String),
-  clipSectionIds: Schema.Array(Schema.String),
+  chapterIds: Schema.Array(Schema.String),
   title: Schema.String,
   mode: CreateVideoFromSelectionModeSchema,
 });
@@ -155,25 +155,25 @@ export const ClipServiceEventSchema = Schema.Union(
     direction: ReorderDirectionSchema,
   }),
   Schema.Struct({
-    type: Schema.Literal("create-clip-section-at-insertion-point"),
-    input: CreateClipSectionAtInsertionPointInputSchema,
+    type: Schema.Literal("create-chapter-at-insertion-point"),
+    input: CreateChapterAtInsertionPointInputSchema,
   }),
   Schema.Struct({
-    type: Schema.Literal("create-clip-section-at-position"),
-    input: CreateClipSectionAtPositionInputSchema,
+    type: Schema.Literal("create-chapter-at-position"),
+    input: CreateChapterAtPositionInputSchema,
   }),
   Schema.Struct({
-    type: Schema.Literal("update-clip-section"),
-    clipSectionId: Schema.String,
+    type: Schema.Literal("update-chapter"),
+    chapterId: Schema.String,
     name: Schema.String,
   }),
   Schema.Struct({
-    type: Schema.Literal("archive-clip-sections"),
-    clipSectionIds: Schema.Array(Schema.String),
+    type: Schema.Literal("archive-chapters"),
+    chapterIds: Schema.Array(Schema.String),
   }),
   Schema.Struct({
-    type: Schema.Literal("reorder-clip-section"),
-    clipSectionId: Schema.String,
+    type: Schema.Literal("reorder-chapter"),
+    chapterId: Schema.String,
     direction: ReorderDirectionSchema,
   }),
   Schema.Struct({
@@ -185,7 +185,7 @@ export const ClipServiceEventSchema = Schema.Union(
     input: CreateVideoFromSelectionInputSchema,
   }),
   Schema.Struct({
-    type: Schema.Literal("regenerate-clip-sections"),
-    input: RegenerateClipSectionsInputSchema,
+    type: Schema.Literal("regenerate-chapters"),
+    input: RegenerateChaptersInputSchema,
   })
 );

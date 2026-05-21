@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { BeatIndicator } from "./timeline-indicators";
 import { ClipItem } from "./clip-item";
-import { ClipSectionItem } from "./clip-section-item";
+import { ChapterItem } from "./clip-section-item";
 import { PreRecordingChecklist } from "./pre-recording-checklist";
 import { InlineSuggestion } from "./inline-suggestion";
 import { InsertionPointWithSession } from "./insertion-point-with-session";
-import { isClipSection } from "../clip-utils";
+import { isChapter } from "../clip-utils";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,12 @@ import { Plus } from "lucide-react";
 import type { FrontendId } from "../clip-state-reducer";
 
 /**
- * ClipTimeline component displays the main timeline of clips and clip sections.
+ * ClipTimeline component displays the main timeline of clips and chapters.
  *
  * Handles rendering:
  * - Pre-recording checklist (when no clips exist)
  * - Insertion point indicators (start/end/after-clip positions)
- * - Clip sections (with full interactivity)
+ * - Chapters (with full interactivity)
  * - Clips (with full interactivity)
  * - Beat indicators between clips
  */
@@ -34,9 +34,9 @@ export const ClipTimeline = () => {
     VideoEditorContext,
     (ctx) => ctx.clipComputedProps
   );
-  const generateDefaultClipSectionName = useContextSelector(
+  const generateDefaultChapterName = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.generateDefaultClipSectionName
+    (ctx) => ctx.generateDefaultChapterName
   );
   const onEditSection = useContextSelector(
     VideoEditorContext,
@@ -88,7 +88,7 @@ export const ClipTimeline = () => {
         (i) =>
           i.type !== "optimistically-added" &&
           i.type !== "effect-clip-optimistically-added" &&
-          i.type !== "clip-section-optimistically-added"
+          i.type !== "chapter-optimistically-added"
       );
 
     return lastNonOptimistic?.frontendId ?? null;
@@ -118,11 +118,11 @@ export const ClipTimeline = () => {
               const isFirstItem = itemIndex === 0;
               const isLastItem = itemIndex === items.length - 1;
 
-              // Render clip section divider
-              if (isClipSection(item)) {
+              // Render chapter divider
+              if (isChapter(item)) {
                 return (
                   <div key={item.frontendId}>
-                    <ClipSectionItem
+                    <ChapterItem
                       section={item}
                       isFirstItem={isFirstItem}
                       isLastItem={isLastItem}
@@ -132,13 +132,13 @@ export const ClipTimeline = () => {
                       onAddSectionBefore={() => {
                         onAddSectionBefore(
                           item.frontendId,
-                          generateDefaultClipSectionName()
+                          generateDefaultChapterName()
                         );
                       }}
                       onAddSectionAfter={() => {
                         onAddSectionAfter(
                           item.frontendId,
-                          generateDefaultClipSectionName()
+                          generateDefaultChapterName()
                         );
                       }}
                     />
@@ -166,13 +166,13 @@ export const ClipTimeline = () => {
                     onAddSectionBefore={() => {
                       onAddSectionBefore(
                         clip.frontendId,
-                        generateDefaultClipSectionName()
+                        generateDefaultChapterName()
                       );
                     }}
                     onAddSectionAfter={() => {
                       onAddSectionAfter(
                         clip.frontendId,
-                        generateDefaultClipSectionName()
+                        generateDefaultChapterName()
                       );
                     }}
                   />

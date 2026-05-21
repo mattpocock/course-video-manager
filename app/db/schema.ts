@@ -250,7 +250,7 @@ export namespace DB {
     id: DatabaseId;
   }
 
-  export interface ClipSection extends Omit<
+  export interface Chapter extends Omit<
     InferSelectModel<typeof chapters>,
     "id"
   > {

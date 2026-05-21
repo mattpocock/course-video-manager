@@ -32,8 +32,8 @@ function makeVideo(path: string, transcript: Video["transcript"]): Video {
   return { id: `video-${path}`, path, transcript };
 }
 
-describe("changelog ClipSection changes", () => {
-  it("treats a ClipSection rename as a first-class video update", () => {
+describe("changelog Chapter changes", () => {
+  it("treats a Chapter rename as a first-class video update", () => {
     const prevVersion = makeVersion("v1", "v1.0", [
       makeSection("s1", "01-intro", [
         {

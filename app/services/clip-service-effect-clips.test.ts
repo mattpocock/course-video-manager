@@ -155,7 +155,7 @@ describe("ClipService", () => {
       ]);
     });
 
-    it("inserts effect clip before a clip section", async () => {
+    it("inserts effect clip before a chapter", async () => {
       const video = await clipService.createVideo("test-video.mp4");
 
       const [clip] = await clipService.appendClips({
@@ -165,7 +165,7 @@ describe("ClipService", () => {
         clips: [{ inputVideo: "test.mp4", startTime: 0, endTime: 10 }],
       });
 
-      const section = await clipService.createClipSectionAtPosition({
+      const section = await clipService.createChapterAtPosition({
         videoId: video.id,
         name: "Section",
         position: "after",
@@ -177,7 +177,7 @@ describe("ClipService", () => {
         videoId: video.id,
         position: "before",
         targetItemId: section.id,
-        targetItemType: "clip-section",
+        targetItemType: "chapter",
         ...effectClipDefaults,
       });
 
@@ -185,7 +185,7 @@ describe("ClipService", () => {
       expect(timeline.map((t) => ({ type: t.type, id: t.data.id }))).toEqual([
         { type: "clip", id: clip!.id },
         { type: "clip", id: effectClip.id },
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
       ]);
     });
   });

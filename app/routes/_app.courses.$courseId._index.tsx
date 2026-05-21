@@ -34,7 +34,7 @@ import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId._index";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { ActionsDropdown } from "@/features/course-view/actions-menu";
-import { GenerateClipSectionsProvider } from "@/features/course-view/generate-clip-sections-context";
+import { GenerateChaptersProvider } from "@/features/course-view/generate-clip-sections-context";
 import { SectionGrid } from "@/features/course-view/section-grid";
 import {
   FilterBar,
@@ -351,7 +351,7 @@ export default function Component(props: Route.ComponentProps) {
   };
 
   return (
-    <GenerateClipSectionsProvider>
+    <GenerateChaptersProvider>
       <div className="flex-1 flex flex-col bg-background text-foreground">
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">
@@ -545,6 +545,6 @@ export default function Component(props: Route.ComponentProps) {
           navigate={navigate}
         />
       </div>
-    </GenerateClipSectionsProvider>
+    </GenerateChaptersProvider>
   );
 }

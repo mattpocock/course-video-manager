@@ -102,8 +102,8 @@ export const createClipOperations = (db: DrizzleDB) => {
       });
     }
 
-    // Get all non-archived clips and clip sections for this video
-    // We need both because clips and clip sections share the same ordering space
+    // Get all non-archived clips and chapters for this video
+    // We need both because clips and chapters share the same ordering space
     const allClips = yield* makeDbCall(() =>
       db.query.clips.findMany({
         where: and(eq(clips.videoId, clip.videoId), eq(clips.archived, false)),
@@ -121,11 +121,11 @@ export const createClipOperations = (db: DrizzleDB) => {
       })
     );
 
-    // Combine and sort by order - clips and clip sections share the same ordering space
+    // Combine and sort by order - clips and chapters share the same ordering space
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
       ...allChapters.map((cs) => ({
-        type: "clip-section" as const,
+        type: "chapter" as const,
         ...cs,
       })),
     ].sort((a, b) => compareOrderStrings(a.order, b.order));
@@ -165,12 +165,12 @@ export const createClipOperations = (db: DrizzleDB) => {
     return { success: true };
   });
 
-  const createClipSection = Effect.fn("createClipSection")(function* (
+  const createChapter = Effect.fn("createChapter")(function* (
     videoId: string,
     name: string,
     order: string
   ) {
-    const [clipSection] = yield* makeDbCall(() =>
+    const [chapter] = yield* makeDbCall(() =>
       db
         .insert(chapters)
         .values({
@@ -182,26 +182,26 @@ export const createClipOperations = (db: DrizzleDB) => {
         .returning()
     );
 
-    if (!clipSection) {
+    if (!chapter) {
       return yield* new UnknownDBServiceError({
-        cause: "No clip section was returned from the database",
+        cause: "No chapter was returned from the database",
       });
     }
 
-    return clipSection;
+    return chapter;
   });
 
-  const createClipSectionAtInsertionPoint = Effect.fn(
-    "createClipSectionAtInsertionPoint"
+  const createChapterAtInsertionPoint = Effect.fn(
+    "createChapterAtInsertionPoint"
   )(function* (
     videoId: string,
     name: string,
     insertionPoint:
       | { type: "start" }
       | { type: "after-clip"; databaseClipId: string }
-      | { type: "after-clip-section"; clipSectionId: string }
+      | { type: "after-chapter"; chapterId: string }
   ) {
-    // Get all non-archived clips and clip sections for this video, ordered
+    // Get all non-archived clips and chapters for this video, ordered
     const allClips = yield* makeDbCall(() =>
       db.query.clips.findMany({
         where: and(eq(clips.videoId, videoId), eq(clips.archived, false)),
@@ -220,7 +220,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
       ...allChapters.map((cs) => ({
-        type: "clip-section" as const,
+        type: "chapter" as const,
         ...cs,
       })),
     ].sort((a, b) => compareOrderStrings(a.order, b.order));
@@ -242,7 +242,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
       if (insertAfterClipIndex === -1) {
         return yield* new NotFoundError({
-          type: "createClipSectionAtInsertionPoint",
+          type: "createChapterAtInsertionPoint",
           params: { videoId, insertionPoint },
           message: `Could not find a clip to insert after`,
         });
@@ -253,19 +253,18 @@ export const createClipOperations = (db: DrizzleDB) => {
 
       const nextItem = allItems[insertAfterClipIndex + 1];
       nextOrder = nextItem?.order ?? null;
-    } else if (insertionPoint.type === "after-clip-section") {
-      // Insert after specific clip section
+    } else if (insertionPoint.type === "after-chapter") {
+      // Insert after specific chapter
       const insertAfterSectionIndex = allItems.findIndex(
         (item) =>
-          item.type === "clip-section" &&
-          item.id === insertionPoint.clipSectionId
+          item.type === "chapter" && item.id === insertionPoint.chapterId
       );
 
       if (insertAfterSectionIndex === -1) {
         return yield* new NotFoundError({
-          type: "createClipSectionAtInsertionPoint",
+          type: "createChapterAtInsertionPoint",
           params: { videoId, insertionPoint },
-          message: `Could not find a clip section to insert after`,
+          message: `Could not find a chapter to insert after`,
         });
       }
 
@@ -278,7 +277,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
     const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
-    const [clipSection] = yield* makeDbCall(() =>
+    const [chapter] = yield* makeDbCall(() =>
       db
         .insert(chapters)
         .values({
@@ -290,24 +289,24 @@ export const createClipOperations = (db: DrizzleDB) => {
         .returning()
     );
 
-    if (!clipSection) {
+    if (!chapter) {
       return yield* new UnknownDBServiceError({
-        cause: "No clip section was returned from the database",
+        cause: "No chapter was returned from the database",
       });
     }
 
-    return clipSection;
+    return chapter;
   });
 
-  const createClipSectionAtPosition = Effect.fn("createClipSectionAtPosition")(
+  const createChapterAtPosition = Effect.fn("createChapterAtPosition")(
     function* (
       videoId: string,
       name: string,
       position: "before" | "after",
       targetItemId: string,
-      targetItemType: "clip" | "clip-section"
+      targetItemType: "clip" | "chapter"
     ) {
-      // Get all non-archived clips and clip sections for this video, ordered
+      // Get all non-archived clips and chapters for this video, ordered
       const allClips = yield* makeDbCall(() =>
         db.query.clips.findMany({
           where: and(eq(clips.videoId, videoId), eq(clips.archived, false)),
@@ -329,7 +328,7 @@ export const createClipOperations = (db: DrizzleDB) => {
       const allItems = [
         ...allClips.map((c) => ({ type: "clip" as const, ...c })),
         ...allChapters.map((cs) => ({
-          type: "clip-section" as const,
+          type: "chapter" as const,
           ...cs,
         })),
       ].sort((a, b) => compareOrderStrings(a.order, b.order));
@@ -341,7 +340,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
       if (targetIndex === -1) {
         return yield* new NotFoundError({
-          type: "createClipSectionAtPosition",
+          type: "createChapterAtPosition",
           params: { videoId, targetItemId, targetItemType },
           message: `Could not find the target ${targetItemType} to position relative to`,
         });
@@ -365,7 +364,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
       const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
-      const [clipSection] = yield* makeDbCall(() =>
+      const [chapter] = yield* makeDbCall(() =>
         db
           .insert(chapters)
           .values({
@@ -377,72 +376,72 @@ export const createClipOperations = (db: DrizzleDB) => {
           .returning()
       );
 
-      if (!clipSection) {
+      if (!chapter) {
         return yield* new UnknownDBServiceError({
-          cause: "No clip section was returned from the database",
+          cause: "No chapter was returned from the database",
         });
       }
 
-      return clipSection;
+      return chapter;
     }
   );
 
-  const getClipSectionById = Effect.fn("getClipSectionById")(function* (
-    clipSectionId: string
+  const getChapterById = Effect.fn("getChapterById")(function* (
+    chapterId: string
   ) {
-    const clipSection = yield* makeDbCall(() =>
+    const chapter = yield* makeDbCall(() =>
       db.query.chapters.findFirst({
-        where: eq(chapters.id, clipSectionId),
+        where: eq(chapters.id, chapterId),
       })
     );
 
-    if (!clipSection) {
+    if (!chapter) {
       return yield* new NotFoundError({
-        type: "getClipSectionById",
-        params: { clipSectionId },
+        type: "getChapterById",
+        params: { chapterId },
       });
     }
 
-    return clipSection;
+    return chapter;
   });
 
-  const updateClipSection = Effect.fn("updateClipSection")(function* (
-    clipSectionId: string,
+  const updateChapter = Effect.fn("updateChapter")(function* (
+    chapterId: string,
     updates: {
       name?: string;
     }
   ) {
-    const [clipSection] = yield* makeDbCall(() =>
+    const [chapter] = yield* makeDbCall(() =>
       db
         .update(chapters)
         .set(updates)
-        .where(eq(chapters.id, clipSectionId))
+        .where(eq(chapters.id, chapterId))
         .returning()
     );
 
-    if (!clipSection) {
+    if (!chapter) {
       return yield* new NotFoundError({
-        type: "updateClipSection",
-        params: { clipSectionId },
+        type: "updateChapter",
+        params: { chapterId },
       });
     }
 
-    return clipSection;
+    return chapter;
   });
 
-  const archiveClipSection = Effect.fn("archiveClipSection")(function* (
-    clipSectionId: string
+  const archiveChapter = Effect.fn("archiveChapter")(function* (
+    chapterId: string
   ) {
-    const clipSectionExists = yield* makeDbCall(() =>
+    const chapterExists = yield* makeDbCall(() =>
       db.query.chapters.findFirst({
-        where: eq(chapters.id, clipSectionId),
+        where: eq(chapters.id, chapterId),
       })
     );
 
-    if (!clipSectionExists) {
+    if (!chapterExists) {
       return yield* new NotFoundError({
-        type: "archiveClipSection",
-        params: { clipSectionId },
+        type: "archiveChapter",
+        params: { chapterId },
       });
     }
 
@@ -450,35 +449,35 @@ export const createClipOperations = (db: DrizzleDB) => {
       db
         .update(chapters)
         .set({ archived: true })
-        .where(eq(chapters.id, clipSectionId))
+        .where(eq(chapters.id, chapterId))
     );
 
     return { success: true };
   });
 
-  const reorderClipSection = Effect.fn("reorderClipSection")(function* (
-    clipSectionId: string,
+  const reorderChapter = Effect.fn("reorderChapter")(function* (
+    chapterId: string,
     direction: "up" | "down"
   ) {
-    // Get the clip section to know what video we're working with
-    const clipSection = yield* makeDbCall(() =>
+    // Get the chapter to know what video we're working with
+    const chapter = yield* makeDbCall(() =>
       db.query.chapters.findFirst({
-        where: eq(chapters.id, clipSectionId),
+        where: eq(chapters.id, chapterId),
       })
     );
 
-    if (!clipSection) {
+    if (!chapter) {
       return yield* new NotFoundError({
-        type: "reorderClipSection",
-        params: { clipSectionId },
+        type: "reorderChapter",
+        params: { chapterId },
       });
     }
 
-    // Get all non-archived clips and clip sections for this video, ordered
+    // Get all non-archived clips and chapters for this video, ordered
     const allClips = yield* makeDbCall(() =>
       db.query.clips.findMany({
         where: and(
-          eq(clips.videoId, clipSection.videoId),
+          eq(clips.videoId, chapter.videoId),
           eq(clips.archived, false)
         ),
         orderBy: asc(clips.order),
@@ -488,7 +487,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     const allChapters = yield* makeDbCall(() =>
       db.query.chapters.findMany({
         where: and(
-          eq(chapters.videoId, clipSection.videoId),
+          eq(chapters.videoId, chapter.videoId),
           eq(chapters.archived, false)
         ),
         orderBy: asc(chapters.order),
@@ -499,13 +498,13 @@ export const createClipOperations = (db: DrizzleDB) => {
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
       ...allChapters.map((cs) => ({
-        type: "clip-section" as const,
+        type: "chapter" as const,
         ...cs,
       })),
     ].sort((a, b) => compareOrderStrings(a.order, b.order));
 
     const itemIndex = allItems.findIndex(
-      (item) => item.type === "clip-section" && item.id === clipSectionId
+      (item) => item.type === "chapter" && item.id === chapterId
     );
     const targetIndex = direction === "up" ? itemIndex - 1 : itemIndex + 1;
 
@@ -536,7 +535,7 @@ export const createClipOperations = (db: DrizzleDB) => {
       db
         .update(chapters)
         .set({ order: newOrder })
-        .where(eq(chapters.id, clipSectionId))
+        .where(eq(chapters.id, chapterId))
     );
 
     return { success: true };
@@ -547,7 +546,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     insertionPoint:
       | { type: "start" }
       | { type: "after-clip"; databaseClipId: string }
-      | { type: "after-clip-section"; clipSectionId: string };
+      | { type: "after-chapter"; chapterId: string };
     clips: readonly {
       inputVideo: string;
       startTime: number;
@@ -558,7 +557,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     let prevOrder: string | null | undefined = null;
     let nextOrder: string | null | undefined = null;
 
-    // Get all non-archived clips and clip sections for this video
+    // Get all non-archived clips and chapters for this video
     const allClips = yield* makeDbCall(() =>
       db.query.clips.findMany({
         where: and(eq(clips.videoId, videoId), eq(clips.archived, false)),
@@ -577,7 +576,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     const allItems = [
       ...allClips.map((c) => ({ type: "clip" as const, ...c })),
       ...allChapters.map((cs) => ({
-        type: "clip-section" as const,
+        type: "chapter" as const,
         ...cs,
       })),
     ].sort((a, b) => compareOrderStrings(a.order, b.order));
@@ -608,19 +607,18 @@ export const createClipOperations = (db: DrizzleDB) => {
       // Get the next item (could be a clip OR a section)
       const nextItem = allItems[insertAfterClipIndex + 1];
       nextOrder = nextItem?.order;
-    } else if (insertionPoint.type === "after-clip-section") {
-      // Insert after specific clip section
+    } else if (insertionPoint.type === "after-chapter") {
+      // Insert after specific chapter
       const insertAfterSectionIndex = allItems.findIndex(
         (item) =>
-          item.type === "clip-section" &&
-          item.id === insertionPoint.clipSectionId
+          item.type === "chapter" && item.id === insertionPoint.chapterId
       );
 
       if (insertAfterSectionIndex === -1) {
         return yield* new NotFoundError({
           type: "appendClips",
           params: { videoId, insertionPoint },
-          message: `Could not find a clip section to insert after`,
+          message: `Could not find a chapter to insert after`,
         });
       }
 
@@ -664,13 +662,13 @@ export const createClipOperations = (db: DrizzleDB) => {
     updateClip,
     archiveClip,
     reorderClip,
-    createClipSection,
-    createClipSectionAtInsertionPoint,
-    createClipSectionAtPosition,
-    getClipSectionById,
-    updateClipSection,
-    archiveClipSection,
-    reorderClipSection,
+    createChapter,
+    createChapterAtInsertionPoint,
+    createChapterAtPosition,
+    getChapterById,
+    updateChapter,
+    archiveChapter,
+    reorderChapter,
     appendClips,
   };
 };

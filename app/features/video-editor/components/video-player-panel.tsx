@@ -15,7 +15,7 @@ import { VideoPlayerLinksTab } from "./video-player-links-tab";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
   getLastTranscribedClipId as getLastTranscribedClipIdSelector,
-  getClipSections as getClipSectionsSelector,
+  getChapters as getChaptersSelector,
   getHasSections as getHasSectionsSelector,
   getIsOBSActive as getIsOBSActiveSelector,
   getIsLiveStreamPortrait as getIsLiveStreamPortraitSelector,
@@ -175,9 +175,9 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.setReferenceVideoId
   );
-  const onOpenGenerateClipSectionsModal = useContextSelector(
+  const onOpenGenerateChaptersModal = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onOpenGenerateClipSectionsModal
+    (ctx) => ctx.onOpenGenerateChaptersModal
   );
   const isCopied = useContextSelector(
     VideoEditorContext,
@@ -275,7 +275,7 @@ export const VideoPlayerPanel = () => {
     [clips]
   );
 
-  const chapters = useMemo(() => getClipSectionsSelector(items), [items]);
+  const chapters = useMemo(() => getChaptersSelector(items), [items]);
   const hasSections = getHasSectionsSelector(items);
 
   const isOBSActive = getIsOBSActiveSelector(obsConnectorState);
@@ -302,7 +302,7 @@ export const VideoPlayerPanel = () => {
       }
       return {
         frontendId: item.frontendId as string,
-        kind: "clip-section" as const,
+        kind: "chapter" as const,
         diagramSnapshotId: null,
       };
     });
@@ -486,7 +486,7 @@ export const VideoPlayerPanel = () => {
               referenceCandidates={referenceCandidates}
               referenceVideoId={referenceVideoId}
               setReferenceVideoId={setReferenceVideoId}
-              onGenerateClipSectionsClick={onOpenGenerateClipSectionsModal}
+              onGenerateChaptersClick={onOpenGenerateChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
             />
             <Button variant="secondary" onClick={onAddNoteFromClipboard}>

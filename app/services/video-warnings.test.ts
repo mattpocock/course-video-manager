@@ -6,7 +6,7 @@ describe("computeVideoWarnings", () => {
     expect(computeVideoWarnings({ clips: [], chapters: [] })).toEqual([]);
   });
 
-  it("returns no warnings when a clip section sits before the first clip", () => {
+  it("returns no warnings when a chapter sits before the first clip", () => {
     expect(
       computeVideoWarnings({
         clips: [{ order: "a1", archived: false }],
@@ -48,7 +48,7 @@ describe("computeVideoWarnings", () => {
     ).toEqual([]);
   });
 
-  it("ignores archived clip sections", () => {
+  it("ignores archived chapters", () => {
     expect(
       computeVideoWarnings({
         clips: [{ order: "a2", archived: false }],

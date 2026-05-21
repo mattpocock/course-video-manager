@@ -7,11 +7,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import type { ClipSectionNamingModal } from "../types";
+import type { ChapterNamingModal } from "../types";
 import type { FrontendId } from "../clip-state-reducer";
 
 /**
- * Modal dialog for creating, editing, or adding clip sections.
+ * Modal dialog for creating, editing, or adding chapters.
  *
  * Supports three modes:
  * - create: Creates a new section at the end
@@ -21,26 +21,26 @@ import type { FrontendId } from "../clip-state-reducer";
  * When dismissed or cancelled, no section is created.
  *
  * @example
- * <ClipSectionNamingModal
- *   modalState={clipSectionNamingModal}
- *   onClose={() => setClipSectionNamingModal(null)}
- *   onAddClipSection={handleAddClipSection}
- *   onUpdateClipSection={handleUpdateClipSection}
- *   onAddClipSectionAt={handleAddClipSectionAt}
+ * <ChapterNamingModal
+ *   modalState={chapterNamingModal}
+ *   onClose={() => setChapterNamingModal(null)}
+ *   onAddChapter={handleAddChapter}
+ *   onUpdateChapter={handleUpdateChapter}
+ *   onAddChapterAt={handleAddChapterAt}
  * />
  */
-export function ClipSectionNamingModal({
+export function ChapterNamingModal({
   modalState,
   onClose,
-  onAddClipSection,
-  onUpdateClipSection,
-  onAddClipSectionAt,
+  onAddChapter,
+  onUpdateChapter,
+  onAddChapterAt,
 }: {
-  modalState: ClipSectionNamingModal;
+  modalState: ChapterNamingModal;
   onClose: () => void;
-  onAddClipSection: (name: string) => void;
-  onUpdateClipSection: (clipSectionId: FrontendId, name: string) => void;
-  onAddClipSectionAt: (
+  onAddChapter: (name: string) => void;
+  onUpdateChapter: (chapterId: FrontendId, name: string) => void;
+  onAddChapterAt: (
     name: string,
     position: "before" | "after",
     itemId: FrontendId
@@ -55,11 +55,11 @@ export function ClipSectionNamingModal({
     const formData = new FormData(e.currentTarget);
     const name = formData.get("name") as string;
     if (modalState?.mode === "create") {
-      onAddClipSection(name);
+      onAddChapter(name);
     } else if (modalState?.mode === "edit") {
-      onUpdateClipSection(modalState.clipSectionId, name);
+      onUpdateChapter(modalState.chapterId, name);
     } else if (modalState?.mode === "add-at") {
-      onAddClipSectionAt(name, modalState.position, modalState.itemId);
+      onAddChapterAt(name, modalState.position, modalState.itemId);
     }
     onClose();
   };

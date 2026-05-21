@@ -41,9 +41,9 @@ const httpServer = http.createServer((req, res) => {
     sendMessage({
       type: "toggle-beat",
     });
-  } else if (req.url === "/api/add-clip-section") {
+  } else if (req.url === "/api/add-chapter") {
     sendMessage({
-      type: "add-clip-section",
+      type: "add-chapter",
     });
   } else if (req.url === "/api/clear-all-archived") {
     sendMessage({

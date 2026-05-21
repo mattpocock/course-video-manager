@@ -1,29 +1,29 @@
 import { useState, useCallback, useEffect } from "react";
 import type { FrontendId, TimelineItem } from "../clip-state-reducer.types";
-import type { ClipSectionNamingModal } from "../types";
+import type { ChapterNamingModal } from "../types";
 
 export const useSectionModal = (
   timelineItems: TimelineItem[],
   selectedClipsSet: Set<FrontendId>,
-  onAddClipSection: (name: string) => void
+  onAddChapter: (name: string) => void
 ) => {
-  const [clipSectionNamingModal, setClipSectionNamingModal] =
-    useState<ClipSectionNamingModal>(null);
+  const [chapterNamingModal, setChapterNamingModal] =
+    useState<ChapterNamingModal>(null);
 
-  const generateDefaultClipSectionName = useCallback(() => {
-    const existingClipSectionCount = timelineItems.filter(
+  const generateDefaultChapterName = useCallback(() => {
+    const existingChapterCount = timelineItems.filter(
       (item) =>
-        item.type === "clip-section-on-database" ||
-        item.type === "clip-section-optimistically-added"
+        item.type === "chapter-on-database" ||
+        item.type === "chapter-optimistically-added"
     ).length;
-    return `Section ${existingClipSectionCount + 1}`;
+    return `Section ${existingChapterCount + 1}`;
   }, [timelineItems]);
 
   const onEditSection = useCallback(
     (sectionId: FrontendId, currentName: string) => {
-      setClipSectionNamingModal({
+      setChapterNamingModal({
         mode: "edit",
-        clipSectionId: sectionId,
+        chapterId: sectionId,
         currentName,
       });
     },
@@ -32,7 +32,7 @@ export const useSectionModal = (
 
   const onAddSectionBefore = useCallback(
     (itemId: FrontendId, defaultName: string) => {
-      setClipSectionNamingModal({
+      setChapterNamingModal({
         mode: "add-at",
         position: "before",
         itemId,
@@ -44,7 +44,7 @@ export const useSectionModal = (
 
   const onAddSectionAfter = useCallback(
     (itemId: FrontendId, defaultName: string) => {
-      setClipSectionNamingModal({
+      setChapterNamingModal({
         mode: "add-at",
         position: "after",
         itemId,
@@ -55,15 +55,15 @@ export const useSectionModal = (
   );
 
   const onAddIntroSection = useCallback(() => {
-    onAddClipSection("Intro");
-  }, [onAddClipSection]);
+    onAddChapter("Intro");
+  }, [onAddChapter]);
 
   const onOpenCreateSectionModal = useCallback(() => {
-    setClipSectionNamingModal({
+    setChapterNamingModal({
       mode: "create",
-      defaultName: generateDefaultClipSectionName(),
+      defaultName: generateDefaultChapterName(),
     });
-  }, [generateDefaultClipSectionName]);
+  }, [generateDefaultChapterName]);
 
   useEffect(() => {
     const handleF2 = (e: KeyboardEvent) => {
@@ -84,8 +84,8 @@ export const useSectionModal = (
         );
         if (
           selectedItem &&
-          (selectedItem.type === "clip-section-on-database" ||
-            selectedItem.type === "clip-section-optimistically-added")
+          (selectedItem.type === "chapter-on-database" ||
+            selectedItem.type === "chapter-optimistically-added")
         ) {
           onEditSection(selectedId, selectedItem.name);
         }
@@ -96,9 +96,9 @@ export const useSectionModal = (
   }, [selectedClipsSet, timelineItems, onEditSection]);
 
   return {
-    clipSectionNamingModal,
-    setClipSectionNamingModal,
-    generateDefaultClipSectionName,
+    chapterNamingModal,
+    setChapterNamingModal,
+    generateDefaultChapterName,
     onEditSection,
     onAddSectionBefore,
     onAddSectionAfter,

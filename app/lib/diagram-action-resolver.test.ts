@@ -46,7 +46,7 @@ describe("resolveForVideo", () => {
   }
 
   function section(frontendId: string): ResolverTimelineItem {
-    return { frontendId, kind: "clip-section", diagramSnapshotId: null };
+    return { frontendId, kind: "chapter", diagramSnapshotId: null };
   }
 
   it("returns home when insertion point is start", () => {
@@ -97,11 +97,11 @@ describe("resolveForVideo", () => {
     });
   });
 
-  it("handles after-clip-section by walking backwards from the section marker", () => {
+  it("handles after-chapter by walking backwards from the section marker", () => {
     const items = [clip("c1", "snap-1"), section("s1"), clip("c2")];
     const ip: FrontendInsertionPoint = {
-      type: "after-clip-section",
-      frontendClipSectionId: "s1" as any,
+      type: "after-chapter",
+      frontendChapterId: "s1" as any,
     };
     expect(resolveForVideo(items, ip, lookup)).toEqual({
       kind: "diagram",
@@ -118,8 +118,8 @@ describe("resolveForVideo", () => {
       clip("c3"),
     ];
     const ip: FrontendInsertionPoint = {
-      type: "after-clip-section",
-      frontendClipSectionId: "s2" as any,
+      type: "after-chapter",
+      frontendChapterId: "s2" as any,
     };
     expect(resolveForVideo(items, ip, lookup)).toEqual({
       kind: "diagram",
@@ -166,11 +166,11 @@ describe("resolveForVideo", () => {
     });
   });
 
-  it("returns home when after-clip-section target is not found in items", () => {
+  it("returns home when after-chapter target is not found in items", () => {
     const items = [clip("c1", "snap-1"), section("s1")];
     const ip: FrontendInsertionPoint = {
-      type: "after-clip-section",
-      frontendClipSectionId: "nonexistent" as any,
+      type: "after-chapter",
+      frontendChapterId: "nonexistent" as any,
     };
     expect(resolveForVideo(items, ip, lookup)).toEqual({ kind: "home" });
   });

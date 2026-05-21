@@ -31,7 +31,7 @@ const initialState: StreamState = {
   errorMessage: null,
 };
 
-export const GenerateClipSectionsModal = (props: {
+export const GenerateChaptersModal = (props: {
   open: boolean;
   videoId: string;
   videoLabel: string;
@@ -135,9 +135,9 @@ export const GenerateClipSectionsModal = (props: {
             <Sparkles className="size-4" /> Generate Sections
           </DialogTitle>
           <DialogDescription>
-            Preview AI-proposed ClipSections for{" "}
+            Preview AI-proposed Chapters for{" "}
             <span className="font-medium">{props.videoLabel}</span>. Confirming
-            replaces all existing ClipSections on this video.
+            replaces all existing Chapters on this video.
           </DialogDescription>
         </DialogHeader>
 
@@ -159,8 +159,8 @@ export const GenerateClipSectionsModal = (props: {
             visibleSections.length === 0 &&
             state.errorMessage === null && (
               <div className="text-sm text-muted-foreground italic">
-                AI proposed no ClipSections for this video. Confirming will
-                archive any existing ones.
+                AI proposed no Chapters for this video. Confirming will archive
+                any existing ones.
               </div>
             )}
 

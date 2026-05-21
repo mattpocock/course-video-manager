@@ -49,7 +49,7 @@ const getItems = async (
       };
     } else {
       return {
-        type: "clip-section-on-database",
+        type: "chapter-on-database",
         frontendId: item.data.id as FrontendId,
         databaseId: item.data.id as DatabaseId,
       };
@@ -63,8 +63,8 @@ const afterClip = (id: string): FrontendInsertionPoint => ({
 });
 
 const afterSection = (id: string): FrontendInsertionPoint => ({
-  type: "after-clip-section",
-  frontendClipSectionId: id as FrontendId,
+  type: "after-chapter",
+  frontendChapterId: id as FrontendId,
 });
 
 const start: FrontendInsertionPoint = { type: "start" };
@@ -82,7 +82,7 @@ describe("ClipService", () => {
         items: [],
         clips: [{ inputVideo: "test.mp4", startTime: 0, endTime: 10 }],
       });
-      const section = await clipService.createClipSectionAtInsertionPoint({
+      const section = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section 1",
         insertionPoint: afterClip(clipA!.id),
@@ -97,7 +97,7 @@ describe("ClipService", () => {
           databaseId: clipA!.id as DatabaseId,
         },
         {
-          type: "clip-section-on-database",
+          type: "chapter-on-database",
           frontendId: section.id as FrontendId,
           databaseId: section.id as DatabaseId,
         },
@@ -121,7 +121,7 @@ describe("ClipService", () => {
       const timeline = await clipService.getTimeline(video.id);
       expect(timeline.map((t) => ({ type: t.type, id: t.data.id }))).toEqual([
         { type: "clip", id: clipA!.id },
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
         { type: "clip", id: expect.any(String) }, // New clip after section
       ]);
     });
@@ -130,7 +130,7 @@ describe("ClipService", () => {
       const video = await clipService.createVideo("test-video.mp4");
 
       // Seed: [Section1, ClipA] in DB
-      const section = await clipService.createClipSectionAtInsertionPoint({
+      const section = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section 1",
         insertionPoint: start,
@@ -146,7 +146,7 @@ describe("ClipService", () => {
       // Frontend items: [Section1 (db), ClipA (db), OptClip1 (optimistic)]
       const items: FrontendTimelineItem[] = [
         {
-          type: "clip-section-on-database",
+          type: "chapter-on-database",
           frontendId: section.id as FrontendId,
           databaseId: section.id as DatabaseId,
         },
@@ -174,17 +174,17 @@ describe("ClipService", () => {
 
       const timeline = await clipService.getTimeline(video.id);
       expect(timeline.map((t) => ({ type: t.type, id: t.data.id }))).toEqual([
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
         { type: "clip", id: clipA!.id },
         { type: "clip", id: expect.any(String) }, // New clip after clipA
       ]);
     });
 
-    it("resolves after-clip-section on optimistic section to nearest persisted item", async () => {
+    it("resolves after-chapter on optimistic section to nearest persisted item", async () => {
       const video = await clipService.createVideo("test-video.mp4");
 
       // Seed: [Section1, ClipA] in DB
-      const section = await clipService.createClipSectionAtInsertionPoint({
+      const section = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section 1",
         insertionPoint: start,
@@ -200,7 +200,7 @@ describe("ClipService", () => {
       // Frontend items: [Section1 (db), ClipA (db), OptSection (optimistic)]
       const items: FrontendTimelineItem[] = [
         {
-          type: "clip-section-on-database",
+          type: "chapter-on-database",
           frontendId: section.id as FrontendId,
           databaseId: section.id as DatabaseId,
         },
@@ -210,7 +210,7 @@ describe("ClipService", () => {
           databaseId: clipA!.id as DatabaseId,
         },
         {
-          type: "clip-section-optimistically-added",
+          type: "chapter-optimistically-added",
           frontendId: "opt-section-1" as FrontendId,
         },
       ];
@@ -219,8 +219,8 @@ describe("ClipService", () => {
       await clipService.appendClips({
         videoId: video.id,
         insertionPoint: {
-          type: "after-clip-section",
-          frontendClipSectionId: "opt-section-1" as FrontendId,
+          type: "after-chapter",
+          frontendChapterId: "opt-section-1" as FrontendId,
         },
         items,
         clips: [{ inputVideo: "test.mp4", startTime: 10, endTime: 20 }],
@@ -228,7 +228,7 @@ describe("ClipService", () => {
 
       const timeline = await clipService.getTimeline(video.id);
       expect(timeline.map((t) => ({ type: t.type, id: t.data.id }))).toEqual([
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
         { type: "clip", id: clipA!.id },
         { type: "clip", id: expect.any(String) }, // New clip after clipA
       ]);

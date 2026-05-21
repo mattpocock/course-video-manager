@@ -81,7 +81,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
             return { type: "clip", data: clipData };
           } else {
             const { type, ...sectionData } = item;
-            return { type: "clip-section", data: sectionData };
+            return { type: "chapter", data: sectionData };
           }
         });
 
@@ -295,7 +295,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
         return;
       }
 
-      case "create-clip-section-at-insertion-point": {
+      case "create-chapter-at-insertion-point": {
         const { videoId, name, insertionPoint } = event.input;
         const allItems = yield* getOrderedItems(db, videoId);
 
@@ -322,16 +322,15 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
           const nextItem = allItems[insertAfterClipIndex + 1];
           nextOrder = nextItem?.order ?? null;
-        } else if (insertionPoint.type === "after-clip-section") {
+        } else if (insertionPoint.type === "after-chapter") {
           const insertAfterSectionIndex = allItems.findIndex(
             (item) =>
-              item.type === "clip-section" &&
-              item.id === insertionPoint.clipSectionId
+              item.type === "chapter" && item.id === insertionPoint.chapterId
           );
 
           if (insertAfterSectionIndex === -1) {
             throw new Error(
-              `Could not find a clip section to insert after: ${insertionPoint.clipSectionId}`
+              `Could not find a chapter to insert after: ${insertionPoint.chapterId}`
             );
           }
 
@@ -344,7 +343,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
         const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
-        const [clipSection] = yield* Effect.promise(() =>
+        const [chapter] = yield* Effect.promise(() =>
           db
             .insert(chapters)
             .values({
@@ -356,23 +355,23 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
             .returning()
         );
 
-        if (!clipSection) {
-          throw new Error("Failed to create clip section");
+        if (!chapter) {
+          throw new Error("Failed to create chapter");
         }
 
         yield* touchVideoUpdatedAt(db, videoId);
 
         logger.log(videoId, {
-          type: "clip-section-created",
-          sectionId: clipSection.id,
+          type: "chapter-created",
+          sectionId: chapter.id,
           name,
           order: order!,
         });
 
-        return clipSection;
+        return chapter;
       }
 
-      case "create-clip-section-at-position": {
+      case "create-chapter-at-position": {
         const { videoId, name, position, targetItemId, targetItemType } =
           event.input;
         const allItems = yield* getOrderedItems(db, videoId);
@@ -402,7 +401,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
 
         const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
-        const [clipSection] = yield* Effect.promise(() =>
+        const [chapter] = yield* Effect.promise(() =>
           db
             .insert(chapters)
             .values({
@@ -414,89 +413,88 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
             .returning()
         );
 
-        if (!clipSection) {
-          throw new Error("Failed to create clip section");
+        if (!chapter) {
+          throw new Error("Failed to create chapter");
         }
 
         yield* touchVideoUpdatedAt(db, videoId);
 
         logger.log(videoId, {
-          type: "clip-section-created",
-          sectionId: clipSection.id,
+          type: "chapter-created",
+          sectionId: chapter.id,
           name,
           order: order!,
         });
 
-        return clipSection;
+        return chapter;
       }
 
-      case "update-clip-section": {
+      case "update-chapter": {
         yield* Effect.promise(() =>
           db
             .update(chapters)
             .set({ name: event.name })
-            .where(eq(chapters.id, event.clipSectionId))
+            .where(eq(chapters.id, event.chapterId))
         );
 
         const section = yield* Effect.promise(() =>
           db.query.chapters.findFirst({
-            where: eq(chapters.id, event.clipSectionId),
+            where: eq(chapters.id, event.chapterId),
           })
         );
         if (section) {
           yield* touchVideoUpdatedAt(db, section.videoId);
           logger.log(section.videoId, {
-            type: "clip-section-updated",
-            clipSectionId: event.clipSectionId,
+            type: "chapter-updated",
+            chapterId: event.chapterId,
             name: event.name,
           });
         }
         return;
       }
 
-      case "archive-clip-sections": {
-        for (const clipSectionId of event.clipSectionIds) {
+      case "archive-chapters": {
+        for (const chapterId of event.chapterIds) {
           yield* Effect.promise(() =>
             db
               .update(chapters)
               .set({ archived: true })
-              .where(eq(chapters.id, clipSectionId))
+              .where(eq(chapters.id, chapterId))
           );
         }
 
-        if (event.clipSectionIds.length > 0) {
+        if (event.chapterIds.length > 0) {
           const firstSection = yield* Effect.promise(() =>
             db.query.chapters.findFirst({
-              where: eq(chapters.id, event.clipSectionIds[0]!),
+              where: eq(chapters.id, event.chapterIds[0]!),
             })
           );
           if (firstSection) {
             yield* touchVideoUpdatedAt(db, firstSection.videoId);
             logger.log(firstSection.videoId, {
-              type: "clip-sections-archived",
-              clipSectionIds: [...event.clipSectionIds],
+              type: "chapters-archived",
+              chapterIds: [...event.chapterIds],
             });
           }
         }
         return;
       }
 
-      case "reorder-clip-section": {
-        const clipSection = yield* Effect.promise(() =>
+      case "reorder-chapter": {
+        const chapter = yield* Effect.promise(() =>
           db.query.chapters.findFirst({
-            where: eq(chapters.id, event.clipSectionId),
+            where: eq(chapters.id, event.chapterId),
           })
         );
 
-        if (!clipSection) {
-          throw new Error(`Clip section not found: ${event.clipSectionId}`);
+        if (!chapter) {
+          throw new Error(`Chapter not found: ${event.chapterId}`);
         }
 
-        const allItems = yield* getOrderedItems(db, clipSection.videoId);
+        const allItems = yield* getOrderedItems(db, chapter.videoId);
 
         const itemIndex = allItems.findIndex(
-          (item) =>
-            item.type === "clip-section" && item.id === event.clipSectionId
+          (item) => item.type === "chapter" && item.id === event.chapterId
         );
         const targetIndex =
           event.direction === "up" ? itemIndex - 1 : itemIndex + 1;
@@ -526,14 +524,14 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
           db
             .update(chapters)
             .set({ order: newOrder })
-            .where(eq(chapters.id, event.clipSectionId))
+            .where(eq(chapters.id, event.chapterId))
         );
 
-        yield* touchVideoUpdatedAt(db, clipSection.videoId);
+        yield* touchVideoUpdatedAt(db, chapter.videoId);
 
-        logger.log(clipSection.videoId, {
-          type: "clip-section-reordered",
-          clipSectionId: event.clipSectionId,
+        logger.log(chapter.videoId, {
+          type: "chapter-reordered",
+          chapterId: event.chapterId,
           direction: event.direction,
         });
         return;
@@ -620,7 +618,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
         return yield* handleCreateVideoFromSelection(db, event.input, logger);
       }
 
-      case "regenerate-clip-sections": {
+      case "regenerate-chapters": {
         const { videoId, sections: proposed } = event.input;
 
         const orderedClips = yield* Effect.promise(() =>
@@ -677,14 +675,14 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
               .returning()
           );
 
-          if (!row) throw new Error("Failed to insert ClipSection");
+          if (!row) throw new Error("Failed to insert Chapter");
           inserted.push({ ...row, beforeClipId: p.beforeClipId });
         }
 
         yield* touchVideoUpdatedAt(db, videoId);
 
         logger.log(videoId, {
-          type: "clip-sections-regenerated",
+          type: "chapters-regenerated",
           count: inserted.length,
           titles: inserted.map((s) => s.name),
         });

@@ -34,7 +34,7 @@ describe("clipStateReducer", () => {
           })
         )
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .send(
@@ -78,7 +78,7 @@ describe("clipStateReducer", () => {
           })
         )
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .send(
@@ -133,7 +133,7 @@ describe("clipStateReducer", () => {
 
       // Add section first
       tester.send({
-        type: "add-clip-section",
+        type: "add-chapter",
         name: "Section 1",
       });
 
@@ -208,7 +208,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
@@ -255,17 +255,17 @@ describe("clipStateReducer", () => {
         })
       );
 
-      // Add section - insertion point moves to after-clip-section
+      // Add section - insertion point moves to after-chapter
       const stateWithSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
 
       expect(stateWithSection.insertionPoint).toEqual({
-        type: "after-clip-section",
-        frontendClipSectionId: stateWithSection.items[1]!.frontendId,
+        type: "after-chapter",
+        frontendChapterId: stateWithSection.items[1]!.frontendId,
       });
 
       // First OBS clip after section
@@ -319,7 +319,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
@@ -358,13 +358,13 @@ describe("clipStateReducer", () => {
       });
     });
 
-    it("Should fire reorder-clip-section effect when moving a section down", () => {
+    it("Should fire reorder-chapter effect when moving a section down", () => {
       const tester = new ReducerTester(
         clipStateReducer,
         createInitialState({
           items: [
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
@@ -396,8 +396,8 @@ describe("clipStateReducer", () => {
       ]);
 
       expect(tester.getExec()).toHaveBeenCalledWith({
-        type: "reorder-clip-section",
-        clipSectionId: "db-s1",
+        type: "reorder-chapter",
+        chapterId: "db-s1",
         direction: "down",
       });
     });
@@ -415,7 +415,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
@@ -456,7 +456,7 @@ describe("clipStateReducer", () => {
         createInitialState({
           items: [
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
@@ -470,7 +470,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s2" as FrontendId,
               databaseId: "db-s2" as DatabaseId,
               name: "Section 2",
@@ -499,8 +499,8 @@ describe("clipStateReducer", () => {
       ]);
 
       expect(state.insertionPoint).toEqual({
-        type: "after-clip-section",
-        frontendClipSectionId: "fe-s1",
+        type: "after-chapter",
+        frontendChapterId: "fe-s1",
       });
     });
 
@@ -517,7 +517,7 @@ describe("clipStateReducer", () => {
           })
         )
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .send(
@@ -544,8 +544,8 @@ describe("clipStateReducer", () => {
 
       // Insertion point should be after the section (the previous item)
       expect(stateAfterDelete.insertionPoint).toEqual({
-        type: "after-clip-section",
-        frontendClipSectionId: stateAfterDelete.items[1]!.frontendId,
+        type: "after-chapter",
+        frontendChapterId: stateAfterDelete.items[1]!.frontendId,
       });
     });
   });

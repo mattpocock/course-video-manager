@@ -1,23 +1,23 @@
 import { cn } from "@/lib/utils";
 import React from "react";
-import type { ClipSectionDividerProps } from "../types";
+import type { ChapterDividerProps } from "../types";
 
 /**
- * Visual divider component for clip sections in the timeline.
+ * Visual divider component for chapters in the timeline.
  *
  * Displays a horizontal line with the section name in the center.
  * Uses sticky positioning to stay visible while scrolling through clips.
  *
  * @example
- * <ClipSectionDivider
+ * <ChapterDivider
  *   name="Introduction"
  *   isSelected={selectedClipsSet.has(sectionId)}
  *   onClick={() => handleSectionClick(sectionId)}
  * />
  */
-export const ClipSectionDivider = React.forwardRef<
+export const ChapterDivider = React.forwardRef<
   HTMLButtonElement,
-  ClipSectionDividerProps
+  ChapterDividerProps
 >(({ name, isSelected, onClick, className, ...rest }, ref) => {
   return (
     <button
@@ -40,4 +40,4 @@ export const ClipSectionDivider = React.forwardRef<
     </button>
   );
 });
-ClipSectionDivider.displayName = "ClipSectionDivider";
+ChapterDivider.displayName = "ChapterDivider";

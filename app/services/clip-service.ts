@@ -2,7 +2,7 @@
  * ClipService - Deep module with RPC transport for clip operations
  *
  * This service provides a simple, typed, Promise-based interface for all clip
- * and clip-section operations. The frontend calls typed methods, and internally
+ * and chapter operations. The frontend calls typed methods, and internally
  * these are dispatched through an RPC-style transport.
  *
  * Two transports are available:
@@ -18,8 +18,8 @@ import type { PauseLength } from "@/silence-detection-constants";
 // ============================================================================
 
 export type Clip = InferSelectModel<typeof clips>;
-export type ClipSection = InferSelectModel<typeof chapters>;
-export type RegeneratedClipSection = ClipSection & { beforeClipId: string };
+export type Chapter = InferSelectModel<typeof chapters>;
+export type RegeneratedChapter = Chapter & { beforeClipId: string };
 export type Video = InferSelectModel<typeof videos>;
 
 // ============================================================================
@@ -33,26 +33,26 @@ export type Video = InferSelectModel<typeof videos>;
 type InsertionPoint =
   | { type: "start" }
   | { type: "after-clip"; databaseClipId: string }
-  | { type: "after-clip-section"; clipSectionId: string };
+  | { type: "after-chapter"; chapterId: string };
 
 /**
- * Position for creating clip sections relative to a target item.
- * Used by createClipSectionAtPosition.
+ * Position for creating chapters relative to a target item.
+ * Used by createChapterAtPosition.
  */
 export type Position = "before" | "after";
-export type TargetItemType = "clip" | "clip-section";
+export type TargetItemType = "clip" | "chapter";
 
 // ============================================================================
 // Timeline Types
 // ============================================================================
 
 /**
- * Unified timeline item - either a clip or a clip section.
+ * Unified timeline item - either a clip or a chapter.
  * Returned by getTimeline, sorted by order.
  */
 export type TimelineItem =
   | { type: "clip"; data: Clip }
-  | { type: "clip-section"; data: ClipSection };
+  | { type: "chapter"; data: Chapter };
 
 // ============================================================================
 // Direction Types
@@ -79,7 +79,7 @@ export type DatabaseId = string & { readonly __brand: "DatabaseId" };
 export type FrontendInsertionPoint =
   | { type: "start" }
   | { type: "after-clip"; frontendClipId: FrontendId }
-  | { type: "after-clip-section"; frontendClipSectionId: FrontendId }
+  | { type: "after-chapter"; frontendChapterId: FrontendId }
   | { type: "end" };
 
 /**
@@ -95,11 +95,11 @@ export type FrontendTimelineItem =
     }
   | { type: "optimistically-added"; frontendId: FrontendId }
   | {
-      type: "clip-section-on-database";
+      type: "chapter-on-database";
       frontendId: FrontendId;
       databaseId: DatabaseId;
     }
-  | { type: "clip-section-optimistically-added"; frontendId: FrontendId }
+  | { type: "chapter-optimistically-added"; frontendId: FrontendId }
   | { type: "effect-clip-optimistically-added"; frontendId: FrontendId };
 
 /**
@@ -114,9 +114,9 @@ const isPersistedAndActive = (
   c: FrontendTimelineItem
 ): c is
   | Extract<FrontendTimelineItem, { type: "on-database" }>
-  | Extract<FrontendTimelineItem, { type: "clip-section-on-database" }> =>
+  | Extract<FrontendTimelineItem, { type: "chapter-on-database" }> =>
   (c.type === "on-database" && !c.shouldArchive) ||
-  c.type === "clip-section-on-database";
+  c.type === "chapter-on-database";
 
 const resolveInsertionPoint = (
   insertionPoint: FrontendInsertionPoint,
@@ -142,10 +142,10 @@ const resolveInsertionPoint = (
       return { type: "start" };
     }
 
-    if (previousPersistedItem.type === "clip-section-on-database") {
+    if (previousPersistedItem.type === "chapter-on-database") {
       return {
-        type: "after-clip-section",
-        clipSectionId: previousPersistedItem.databaseId,
+        type: "after-chapter",
+        chapterId: previousPersistedItem.databaseId,
       };
     }
 
@@ -155,37 +155,37 @@ const resolveInsertionPoint = (
     };
   }
 
-  if (insertionPoint.type === "after-clip-section") {
-    const frontendClipSectionIndex = items.findIndex(
-      (c) => c.frontendId === insertionPoint.frontendClipSectionId
+  if (insertionPoint.type === "after-chapter") {
+    const frontendChapterIndex = items.findIndex(
+      (c) => c.frontendId === insertionPoint.frontendChapterId
     );
-    if (frontendClipSectionIndex === -1) {
-      throw new Error("Clip section not found");
+    if (frontendChapterIndex === -1) {
+      throw new Error("Chapter not found");
     }
 
-    const section = items[frontendClipSectionIndex]!;
+    const section = items[frontendChapterIndex]!;
 
-    // If the section is persisted, use the new after-clip-section API type
-    if (section.type === "clip-section-on-database") {
+    // If the section is persisted, use the new after-chapter API type
+    if (section.type === "chapter-on-database") {
       return {
-        type: "after-clip-section",
-        clipSectionId: section.databaseId,
+        type: "after-chapter",
+        chapterId: section.databaseId,
       };
     }
 
     // Optimistic section (no DB ID yet) — fall back to last persisted item before it
     const previousPersistedItem = items
-      .slice(0, frontendClipSectionIndex + 1)
+      .slice(0, frontendChapterIndex + 1)
       .findLast(isPersistedAndActive);
 
     if (!previousPersistedItem) {
       return { type: "start" };
     }
 
-    if (previousPersistedItem.type === "clip-section-on-database") {
+    if (previousPersistedItem.type === "chapter-on-database") {
       return {
-        type: "after-clip-section",
-        clipSectionId: previousPersistedItem.databaseId,
+        type: "after-chapter",
+        chapterId: previousPersistedItem.databaseId,
       };
     }
 
@@ -203,10 +203,10 @@ const resolveInsertionPoint = (
       return { type: "start" };
     }
 
-    if (lastPersistedItem.type === "clip-section-on-database") {
+    if (lastPersistedItem.type === "chapter-on-database") {
       return {
-        type: "after-clip-section",
-        clipSectionId: lastPersistedItem.databaseId,
+        type: "after-chapter",
+        chapterId: lastPersistedItem.databaseId,
       };
     }
 
@@ -249,14 +249,14 @@ export interface UpdateClipInput {
   beatType: string;
 }
 
-export interface CreateClipSectionAtInsertionPointInput {
+export interface CreateChapterAtInsertionPointInput {
   videoId: string;
   name: string;
   insertionPoint: FrontendInsertionPoint;
   items: FrontendTimelineItem[];
 }
 
-export interface CreateClipSectionAtPositionInput {
+export interface CreateChapterAtPositionInput {
   videoId: string;
   name: string;
   position: Position;
@@ -278,7 +278,7 @@ export interface CreateEffectClipAtPositionInput {
   beatType: string;
 }
 
-export interface RegenerateClipSectionsInput {
+export interface RegenerateChaptersInput {
   videoId: string;
   sections: Array<{ beforeClipId: string; title: string }>;
 }
@@ -292,7 +292,7 @@ export type CreateVideoFromSelectionMode = "copy" | "move";
 export interface CreateVideoFromSelectionInput {
   sourceVideoId: string;
   clipIds: string[];
-  clipSectionIds: string[];
+  chapterIds: string[];
   title: string;
   mode: CreateVideoFromSelectionMode;
 }
@@ -318,7 +318,7 @@ interface InternalAppendFromObsInput {
   pauseLength?: PauseLength;
 }
 
-interface InternalCreateClipSectionAtInsertionPointInput {
+interface InternalCreateChapterAtInsertionPointInput {
   videoId: string;
   name: string;
   insertionPoint: InsertionPoint;
@@ -348,19 +348,16 @@ export interface ClipService {
   updateBeat(clipId: string, beatType: string): Promise<void>;
   reorderClip(clipId: string, direction: ReorderDirection): Promise<void>;
 
-  // Clip section operations
-  createClipSectionAtInsertionPoint(
-    input: CreateClipSectionAtInsertionPointInput
-  ): Promise<ClipSection>;
-  createClipSectionAtPosition(
-    input: CreateClipSectionAtPositionInput
-  ): Promise<ClipSection>;
-  updateClipSection(clipSectionId: string, name: string): Promise<void>;
-  archiveClipSections(clipSectionIds: string[]): Promise<void>;
-  reorderClipSection(
-    clipSectionId: string,
-    direction: ReorderDirection
-  ): Promise<void>;
+  // Chapter operations
+  createChapterAtInsertionPoint(
+    input: CreateChapterAtInsertionPointInput
+  ): Promise<Chapter>;
+  createChapterAtPosition(
+    input: CreateChapterAtPositionInput
+  ): Promise<Chapter>;
+  updateChapter(chapterId: string, name: string): Promise<void>;
+  archiveChapters(chapterIds: string[]): Promise<void>;
+  reorderChapter(chapterId: string, direction: ReorderDirection): Promise<void>;
 
   // Effect clip operations
   createEffectClipAtPosition(
@@ -372,10 +369,10 @@ export interface ClipService {
     input: CreateVideoFromSelectionInput
   ): Promise<Video>;
 
-  // AI-driven bulk replace of all ClipSections on a Video
-  regenerateClipSections(
-    input: RegenerateClipSectionsInput
-  ): Promise<RegeneratedClipSection[]>;
+  // AI-driven bulk replace of all Chapters on a Video
+  regenerateChapters(
+    input: RegenerateChaptersInput
+  ): Promise<RegeneratedChapter[]>;
 }
 
 // ============================================================================
@@ -397,18 +394,18 @@ export type ClipServiceEvent =
   | { type: "update-beat"; clipId: string; beatType: string }
   | { type: "reorder-clip"; clipId: string; direction: ReorderDirection }
   | {
-      type: "create-clip-section-at-insertion-point";
-      input: InternalCreateClipSectionAtInsertionPointInput;
+      type: "create-chapter-at-insertion-point";
+      input: InternalCreateChapterAtInsertionPointInput;
     }
   | {
-      type: "create-clip-section-at-position";
-      input: CreateClipSectionAtPositionInput;
+      type: "create-chapter-at-position";
+      input: CreateChapterAtPositionInput;
     }
-  | { type: "update-clip-section"; clipSectionId: string; name: string }
-  | { type: "archive-clip-sections"; clipSectionIds: readonly string[] }
+  | { type: "update-chapter"; chapterId: string; name: string }
+  | { type: "archive-chapters"; chapterIds: readonly string[] }
   | {
-      type: "reorder-clip-section";
-      clipSectionId: string;
+      type: "reorder-chapter";
+      chapterId: string;
       direction: ReorderDirection;
     }
   | {
@@ -420,8 +417,8 @@ export type ClipServiceEvent =
       input: CreateVideoFromSelectionInput;
     }
   | {
-      type: "regenerate-clip-sections";
-      input: RegenerateClipSectionsInput;
+      type: "regenerate-chapters";
+      input: RegenerateChaptersInput;
     };
 
 // ============================================================================
@@ -501,35 +498,35 @@ export function createClipService(send: ClipServiceTransport): ClipService {
       await send({ type: "reorder-clip", clipId, direction });
     },
 
-    async createClipSectionAtInsertionPoint(input) {
+    async createChapterAtInsertionPoint(input) {
       const resolved = resolveInsertionPoint(input.insertionPoint, input.items);
       return send({
-        type: "create-clip-section-at-insertion-point",
+        type: "create-chapter-at-insertion-point",
         input: {
           videoId: input.videoId,
           name: input.name,
           insertionPoint: resolved,
         },
-      }) as Promise<ClipSection>;
+      }) as Promise<Chapter>;
     },
 
-    async createClipSectionAtPosition(input) {
+    async createChapterAtPosition(input) {
       return send({
-        type: "create-clip-section-at-position",
+        type: "create-chapter-at-position",
         input,
-      }) as Promise<ClipSection>;
+      }) as Promise<Chapter>;
     },
 
-    async updateClipSection(clipSectionId, name) {
-      await send({ type: "update-clip-section", clipSectionId, name });
+    async updateChapter(chapterId, name) {
+      await send({ type: "update-chapter", chapterId, name });
     },
 
-    async archiveClipSections(clipSectionIds) {
-      await send({ type: "archive-clip-sections", clipSectionIds });
+    async archiveChapters(chapterIds) {
+      await send({ type: "archive-chapters", chapterIds });
     },
 
-    async reorderClipSection(clipSectionId, direction) {
-      await send({ type: "reorder-clip-section", clipSectionId, direction });
+    async reorderChapter(chapterId, direction) {
+      await send({ type: "reorder-chapter", chapterId, direction });
     },
 
     async createEffectClipAtPosition(input) {
@@ -546,11 +543,11 @@ export function createClipService(send: ClipServiceTransport): ClipService {
       }) as Promise<Video>;
     },
 
-    async regenerateClipSections(input) {
+    async regenerateChapters(input) {
       return send({
-        type: "regenerate-clip-sections",
+        type: "regenerate-chapters",
         input,
-      }) as Promise<RegeneratedClipSection[]>;
+      }) as Promise<RegeneratedChapter[]>;
     },
   };
 }

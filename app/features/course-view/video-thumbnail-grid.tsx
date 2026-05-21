@@ -22,7 +22,7 @@ import {
 import { use } from "react";
 import { Link, useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
-import { useGenerateClipSectionsAction } from "./generate-clip-sections-context";
+import { useGenerateChaptersAction } from "./generate-clip-sections-context";
 import {
   Tooltip,
   TooltipContent,
@@ -56,11 +56,11 @@ function VideoThumbnailItem({
   const hasExportedVideoMap = use(data.hasExportedVideoMap);
   const isReadOnly = !data.isLatestVersion;
   const totalDuration = video.totalDuration;
-  const openGenerateClipSections = useGenerateClipSectionsAction();
+  const openGenerateChapters = useGenerateChaptersAction();
   const showWarning =
     !isReadOnly &&
     video.warnings.some((w) => w.kind === "missingOpeningSection");
-  const canGenerateClipSections = !isReadOnly && video.clipCount > 0;
+  const canGenerateChapters = !isReadOnly && video.clipCount > 0;
 
   return (
     <ContextMenu>
@@ -142,10 +142,10 @@ function VideoThumbnailItem({
           <Combine className="w-4 h-4" />
           Create Concatenated Video
         </ContextMenuItem>
-        {canGenerateClipSections && (
+        {canGenerateChapters && (
           <ContextMenuItem
             onSelect={() => {
-              openGenerateClipSections({
+              openGenerateChapters({
                 videoId: video.id,
                 videoLabel: `${section.path}/${lesson.path}/${video.path}`,
               });

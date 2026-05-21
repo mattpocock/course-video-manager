@@ -1,13 +1,13 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { ClipSection, FrontendId } from "../clip-state-reducer";
+import type { Chapter, FrontendId } from "../clip-state-reducer";
 
 /**
  * Props for the TableOfContents component.
  */
 export type TableOfContentsProps = {
-  /** List of clip sections to display */
-  chapters: ClipSection[];
+  /** List of chapters to display */
+  chapters: Chapter[];
   /** Set of selected clip/section IDs */
   selectedClipsSet: Set<FrontendId>;
   /** Callback when a section is clicked */
@@ -15,7 +15,7 @@ export type TableOfContentsProps = {
 };
 
 /**
- * TableOfContents component displays a navigable list of clip sections.
+ * TableOfContents component displays a navigable list of chapters.
  * Allows users to jump to specific sections in the timeline and shows
  * which section is currently selected.
  */

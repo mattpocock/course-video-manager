@@ -5,7 +5,7 @@ import {
   toDiffArray,
   toTranscriptItems,
 } from "./transcript-builder";
-import type { ClipInput, ClipSectionInput } from "./transcript-builder";
+import type { ClipInput, ChapterInput } from "./transcript-builder";
 
 const makeClip = (
   order: string,
@@ -24,7 +24,7 @@ const makeSection = (
   id: string,
   order: string,
   name: string
-): ClipSectionInput => ({ id, order, name });
+): ChapterInput => ({ id, order, name });
 
 describe("buildTranscript", () => {
   it("returns empty results for empty inputs", () => {

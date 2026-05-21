@@ -12,7 +12,7 @@ export interface ClipInput {
   videoFilename: string;
 }
 
-export interface ClipSectionInput {
+export interface ChapterInput {
   id: string;
   order: string;
   name: string;
@@ -35,7 +35,7 @@ type OrderedItem =
 
 function toOrderedItems(
   clips: readonly ClipInput[],
-  chapters: readonly ClipSectionInput[]
+  chapters: readonly ChapterInput[]
 ): OrderedItem[] {
   return sortByOrder<OrderedItem>([
     ...clips.map<OrderedItem>((clip) => ({
@@ -60,14 +60,14 @@ export type ProjectionClipInput = {
   text: string | null;
 };
 
-export type ProjectionClipSectionInput = {
+export type ProjectionChapterInput = {
   order: string;
   name: string;
 };
 
 export function toTranscriptItems(
   clips: readonly ProjectionClipInput[],
-  chapters: readonly ProjectionClipSectionInput[]
+  chapters: readonly ProjectionChapterInput[]
 ): TranscriptItem[] {
   const sorted = sortByOrder<
     | { kind: "clip"; order: string; text: string | null }
@@ -126,7 +126,7 @@ export function toDiffArray(items: readonly TranscriptItem[]): string[] {
 
 export function buildTranscript(
   clips: readonly ClipInput[],
-  chapters: readonly ClipSectionInput[]
+  chapters: readonly ChapterInput[]
 ): {
   indexedClips: IndexedClip[];
   transcript: string;

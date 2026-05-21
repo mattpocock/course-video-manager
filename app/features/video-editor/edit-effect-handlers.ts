@@ -147,69 +147,69 @@ export function createEditEffectHandlers(
           });
         });
     },
-    "reorder-clip-section": (_state, effect, dispatch) => {
+    "reorder-chapter": (_state, effect, dispatch) => {
       clipService
-        .reorderClipSection(effect.clipSectionId, effect.direction)
+        .reorderChapter(effect.chapterId, effect.direction)
         .catch((error) => {
           dispatch({
             type: "effect-failed",
-            effectType: "reorder-clip-section",
+            effectType: "reorder-chapter",
             message:
               error instanceof Error
                 ? error.message
-                : "Failed to reorder clip section",
+                : "Failed to reorder chapter",
           });
         });
     },
-    "archive-clip-sections": (_state, effect, dispatch) => {
-      clipService.archiveClipSections(effect.clipSectionIds).catch((error) => {
+    "archive-chapters": (_state, effect, dispatch) => {
+      clipService.archiveChapters(effect.chapterIds).catch((error) => {
         dispatch({
           type: "effect-failed",
-          effectType: "archive-clip-sections",
+          effectType: "archive-chapters",
           message:
             error instanceof Error
               ? error.message
-              : "Failed to archive clip sections",
+              : "Failed to archive chapters",
         });
       });
     },
-    "create-clip-section": (state, effect, dispatch) => {
+    "create-chapter": (state, effect, dispatch) => {
       clipService
-        .createClipSectionAtInsertionPoint({
+        .createChapterAtInsertionPoint({
           videoId,
           name: effect.name,
           insertionPoint: effect.insertionPoint,
           items: state.items,
         })
-        .then((clipSection) => {
+        .then((chapter) => {
           dispatch({
-            type: "clip-section-created",
+            type: "chapter-created",
             frontendId: effect.frontendId,
-            databaseId: clipSection.id as DatabaseId,
+            databaseId: chapter.id as DatabaseId,
           });
         })
         .catch((error) => {
           dispatch({
             type: "effect-failed",
-            effectType: "create-clip-section",
+            effectType: "create-chapter",
             message:
               error instanceof Error
                 ? error.message
-                : "Failed to create clip section",
+                : "Failed to create chapter",
           });
         });
     },
-    "update-clip-section": (_state, effect, dispatch) => {
+    "update-chapter": (_state, effect, dispatch) => {
       clipService
-        .updateClipSection(effect.clipSectionId, effect.name)
+        .updateChapter(effect.chapterId, effect.name)
         .catch((error) => {
           dispatch({
             type: "effect-failed",
-            effectType: "update-clip-section",
+            effectType: "update-chapter",
             message:
               error instanceof Error
                 ? error.message
-                : "Failed to update clip section",
+                : "Failed to update chapter",
           });
         });
     },
@@ -292,30 +292,30 @@ export function createEditEffectHandlers(
         clipId: effect.clipId,
       });
     },
-    "create-clip-section-at": (_state, effect, dispatch) => {
+    "create-chapter-at": (_state, effect, dispatch) => {
       clipService
-        .createClipSectionAtPosition({
+        .createChapterAtPosition({
           videoId,
           name: effect.name,
           position: effect.position,
           targetItemId: effect.targetItemId,
           targetItemType: effect.targetItemType,
         })
-        .then((clipSection) => {
+        .then((chapter) => {
           dispatch({
-            type: "clip-section-created",
+            type: "chapter-created",
             frontendId: effect.frontendId,
-            databaseId: clipSection.id as DatabaseId,
+            databaseId: chapter.id as DatabaseId,
           });
         })
         .catch((error) => {
           dispatch({
             type: "effect-failed",
-            effectType: "create-clip-section-at",
+            effectType: "create-chapter-at",
             message:
               error instanceof Error
                 ? error.message
-                : "Failed to create clip section at position",
+                : "Failed to create chapter at position",
           });
         });
     },

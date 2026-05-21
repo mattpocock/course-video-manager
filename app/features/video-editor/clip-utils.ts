@@ -1,5 +1,5 @@
 import levenshtein from "js-levenshtein";
-import type { Clip, ClipSection, TimelineItem } from "./clip-state-reducer";
+import type { Clip, Chapter, TimelineItem } from "./clip-state-reducer";
 
 /**
  * Calculate text similarity between two strings using Levenshtein distance.
@@ -23,8 +23,8 @@ export const isClip = (item: TimelineItem): item is Clip =>
   item.type === "on-database" || item.type === "optimistically-added";
 
 /**
- * Type guard to check if a timeline item is a clip section.
+ * Type guard to check if a timeline item is a chapter.
  */
-export const isClipSection = (item: TimelineItem): item is ClipSection =>
-  item.type === "clip-section-on-database" ||
-  item.type === "clip-section-optimistically-added";
+export const isChapter = (item: TimelineItem): item is Chapter =>
+  item.type === "chapter-on-database" ||
+  item.type === "chapter-optimistically-added";

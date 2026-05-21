@@ -52,8 +52,8 @@ const getClipIdToTruncateAfter = (
     return clip?.type === "on-database" ? clip.databaseId : undefined;
   }
 
-  if (insertionPoint.type === "after-clip-section") {
-    // Find the last clip before this clip section
+  if (insertionPoint.type === "after-chapter") {
+    // Find the last clip before this chapter
     // We need to iterate through clips and find the one just before the section
     // For now, return undefined to use full transcript (safe default)
     return undefined;

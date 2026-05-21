@@ -43,7 +43,7 @@ export namespace videoStateReducer {
     | {
         type: "create-video-from-selection";
         clipIds: FrontendId[];
-        clipSectionIds: FrontendId[];
+        chapterIds: FrontendId[];
         title: string;
         mode: "copy" | "move";
       };
@@ -122,8 +122,8 @@ export namespace videoStateReducer {
         type: "press-alt-arrow-down";
       }
     | {
-        type: "play-from-clip-section";
-        clipSectionId: FrontendId;
+        type: "play-from-chapter";
+        chapterId: FrontendId;
       }
     | {
         type: "scrub-to-time";
@@ -179,9 +179,9 @@ const preloadSelectedClips = (
 /**
  * Creates the video editor reducer.
  *
- * @param itemIds - All timeline item IDs (clips + clip sections) for navigation (arrow keys, Home/End)
+ * @param itemIds - All timeline item IDs (clips + chapters) for navigation (arrow keys, Home/End)
  * @param clipIds - Only clip IDs (subset of itemIds) for video playback operations
- *                  (preloading, clip-finished) since clip sections have no video
+ *                  (preloading, clip-finished) since chapters have no video
  */
 export const makeVideoEditorReducer =
   (
@@ -272,23 +272,23 @@ export const makeVideoEditorReducer =
         }
         const mostRecentItemId = Array.from(state.selectedClipsSet).pop()!;
 
-        // Check if the selected item is a clip section (not in clipIds)
+        // Check if the selected item is a chapter (not in clipIds)
         const clipIdsSet = new Set(clipIds);
-        const isClipSection = !clipIdsSet.has(mostRecentItemId);
+        const isChapter = !clipIdsSet.has(mostRecentItemId);
 
-        if (isClipSection) {
-          // If it's a clip section, find the first clip after it and play from there
-          const clipSectionIndex = itemIds.findIndex(
+        if (isChapter) {
+          // If it's a chapter, find the first clip after it and play from there
+          const chapterIndex = itemIds.findIndex(
             (id) => id === mostRecentItemId
           );
 
-          if (clipSectionIndex === -1) {
+          if (chapterIndex === -1) {
             return state;
           }
 
-          // Find the first clip that comes after this clip section
+          // Find the first clip that comes after this chapter
           let firstClipAfterSection: FrontendId | undefined;
-          for (let i = clipSectionIndex + 1; i < itemIds.length; i++) {
+          for (let i = chapterIndex + 1; i < itemIds.length; i++) {
             if (clipIdsSet.has(itemIds[i]!)) {
               firstClipAfterSection = itemIds[i];
               break;
@@ -326,22 +326,20 @@ export const makeVideoEditorReducer =
           selectedClipsSet: new Set([mostRecentItemId]),
         });
       }
-      case "play-from-clip-section": {
-        // Find the clip section's position in itemIds
-        const clipSectionIndex = itemIds.findIndex(
-          (id) => id === action.clipSectionId
-        );
+      case "play-from-chapter": {
+        // Find the chapter's position in itemIds
+        const chapterIndex = itemIds.findIndex((id) => id === action.chapterId);
 
-        if (clipSectionIndex === -1) {
+        if (chapterIndex === -1) {
           return state;
         }
 
-        // Find the first clip that comes after this clip section in itemIds
-        // by looking for the first item after clipSectionIndex that exists in clipIds
+        // Find the first clip that comes after this chapter in itemIds
+        // by looking for the first item after chapterIndex that exists in clipIds
         const clipIdsSet = new Set(clipIds);
         let firstClipAfterSection: FrontendId | undefined;
 
-        for (let i = clipSectionIndex + 1; i < itemIds.length; i++) {
+        for (let i = chapterIndex + 1; i < itemIds.length; i++) {
           if (clipIdsSet.has(itemIds[i]!)) {
             firstClipAfterSection = itemIds[i];
             break;
@@ -349,10 +347,10 @@ export const makeVideoEditorReducer =
         }
 
         if (!firstClipAfterSection) {
-          // No clip after this section, just select the clip section
+          // No clip after this section, just select the chapter
           return {
             ...state,
-            selectedClipsSet: new Set([action.clipSectionId]),
+            selectedClipsSet: new Set([action.chapterId]),
           };
         }
 
@@ -436,7 +434,7 @@ export const makeVideoEditorReducer =
         }
       }
       case "press-delete": {
-        // Handle deletion of both clips and clip sections
+        // Handle deletion of both clips and chapters
         // First check if there are any selected items at all
         if (state.selectedClipsSet.size === 0) {
           return state;
@@ -447,7 +445,7 @@ export const makeVideoEditorReducer =
           return state.selectedClipsSet.has(clipId);
         });
 
-        // Determine next clip to select (only from clips, not clip sections)
+        // Determine next clip to select (only from clips, not chapters)
         let newSelectedClipId: FrontendId | undefined;
         if (lastClipBeingDeletedIndex !== -1) {
           const clipToMoveSelectionTo = clipIds[lastClipBeingDeletedIndex + 1];
@@ -460,7 +458,7 @@ export const makeVideoEditorReducer =
             backupClipToMoveSelectionTo ??
             finalBackupClipToMoveSelectionTo;
         } else {
-          // Only clip sections were selected, keep first clip selected
+          // Only chapters were selected, keep first clip selected
           newSelectedClipId = clipIds[0];
         }
 
@@ -633,23 +631,23 @@ export const makeVideoEditorReducer =
         return state;
       }
       case "create-video-from-selection-confirmed": {
-        // Separate clips from clip sections based on what's in clipIds array
+        // Separate clips from chapters based on what's in clipIds array
         const clipIdsSet = new Set(clipIds);
         const selectedClipIds: FrontendId[] = [];
-        const selectedClipSectionIds: FrontendId[] = [];
+        const selectedChapterIds: FrontendId[] = [];
 
         for (const id of state.selectedClipsSet) {
           if (clipIdsSet.has(id)) {
             selectedClipIds.push(id);
           } else {
-            selectedClipSectionIds.push(id);
+            selectedChapterIds.push(id);
           }
         }
 
         exec({
           type: "create-video-from-selection",
           clipIds: selectedClipIds,
-          clipSectionIds: selectedClipSectionIds,
+          chapterIds: selectedChapterIds,
           title: action.title,
           mode: action.mode,
         });

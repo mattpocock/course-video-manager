@@ -17,7 +17,7 @@ export type DocumentAgentMessage = UIMessage<
 >;
 
 /**
- * Represents clip sections with calculated word counts for UI display.
+ * Represents chapters with calculated word counts for UI display.
  * Used in the write page to show section checkboxes with word counts.
  */
 export type SectionWithWordCount = {

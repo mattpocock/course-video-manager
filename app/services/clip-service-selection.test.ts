@@ -50,7 +50,7 @@ const getItems = async (
       };
     } else {
       return {
-        type: "clip-section-on-database",
+        type: "chapter-on-database",
         frontendId: item.data.id as FrontendId,
         databaseId: item.data.id as DatabaseId,
       };
@@ -64,8 +64,8 @@ const afterClip = (id: string): FrontendInsertionPoint => ({
 });
 
 const afterSection = (id: string): FrontendInsertionPoint => ({
-  type: "after-clip-section",
-  frontendClipSectionId: id as FrontendId,
+  type: "after-chapter",
+  frontendChapterId: id as FrontendId,
 });
 
 const start: FrontendInsertionPoint = { type: "start" };
@@ -89,7 +89,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [clipA!.id],
-        clipSectionIds: [],
+        chapterIds: [],
         title: "New Video from Selection",
         mode: "copy",
       });
@@ -113,17 +113,17 @@ describe("ClipService", () => {
       ]);
     });
 
-    it("copy mode creates a new video with selected clip sections, originals remain", async () => {
+    it("copy mode creates a new video with selected chapters, originals remain", async () => {
       const video = await clipService.createVideo("source-video.mp4");
 
-      const sectionA = await clipService.createClipSectionAtInsertionPoint({
+      const sectionA = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section A",
         insertionPoint: start,
         items: [],
       });
 
-      await clipService.createClipSectionAtInsertionPoint({
+      await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section B",
         insertionPoint: afterSection(sectionA.id),
@@ -134,7 +134,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [],
-        clipSectionIds: [sectionA.id],
+        chapterIds: [sectionA.id],
         title: "Sections Video",
         mode: "copy",
       });
@@ -142,7 +142,7 @@ describe("ClipService", () => {
       // New video should have the copied section
       const newTimeline = await clipService.getTimeline(newVideo.id);
       expect(newTimeline).toHaveLength(1);
-      expect(newTimeline[0]!.type).toBe("clip-section");
+      expect(newTimeline[0]!.type).toBe("chapter");
       expect((newTimeline[0]!.data as any).name).toBe("Section A");
 
       // Source video should still have both sections
@@ -153,7 +153,7 @@ describe("ClipService", () => {
     it("mixed selection creates a new video with all selected items", async () => {
       const video = await clipService.createVideo("source-video.mp4");
 
-      const sectionA = await clipService.createClipSectionAtInsertionPoint({
+      const sectionA = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section A",
         insertionPoint: start,
@@ -167,7 +167,7 @@ describe("ClipService", () => {
         clips: [{ inputVideo: "footage.mp4", startTime: 0, endTime: 10 }],
       });
 
-      await clipService.createClipSectionAtInsertionPoint({
+      await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section B",
         insertionPoint: afterClip(clipA!.id),
@@ -178,14 +178,14 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [clipA!.id],
-        clipSectionIds: [sectionA.id],
+        chapterIds: [sectionA.id],
         title: "Mixed Selection",
         mode: "copy",
       });
 
       const newTimeline = await clipService.getTimeline(newVideo.id);
       expect(newTimeline).toHaveLength(2);
-      expect(newTimeline.map((t) => t.type)).toEqual(["clip-section", "clip"]);
+      expect(newTimeline.map((t) => t.type)).toEqual(["chapter", "clip"]);
     });
 
     it("items in new video preserve their relative order from source timeline", async () => {
@@ -199,7 +199,7 @@ describe("ClipService", () => {
         clips: [{ inputVideo: "footage.mp4", startTime: 0, endTime: 10 }],
       });
 
-      const sectionX = await clipService.createClipSectionAtInsertionPoint({
+      const sectionX = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section X",
         insertionPoint: afterClip(clipA!.id),
@@ -220,7 +220,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [clipC!.id, clipA!.id],
-        clipSectionIds: [sectionX.id],
+        chapterIds: [sectionX.id],
         title: "Ordered Selection",
         mode: "copy",
       });
@@ -230,7 +230,7 @@ describe("ClipService", () => {
       // Should be in original timeline order: [ClipA, SectionX, ClipC]
       expect(newTimeline.map((t) => t.type)).toEqual([
         "clip",
-        "clip-section",
+        "chapter",
         "clip",
       ]);
     });
@@ -258,7 +258,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [clip!.id],
-        clipSectionIds: [],
+        chapterIds: [],
         title: "Metadata Test",
         mode: "copy",
       });
@@ -279,10 +279,10 @@ describe("ClipService", () => {
       expect(copiedClip!.id).not.toBe(clip!.id);
     });
 
-    it("copied clip sections retain their names", async () => {
+    it("copied chapters retain their names", async () => {
       const video = await clipService.createVideo("source-video.mp4");
 
-      const section = await clipService.createClipSectionAtInsertionPoint({
+      const section = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Important Section Name",
         insertionPoint: start,
@@ -292,7 +292,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [],
-        clipSectionIds: [section.id],
+        chapterIds: [section.id],
         title: "Section Name Test",
         mode: "copy",
       });
@@ -363,7 +363,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [clip!.id],
-        clipSectionIds: [],
+        chapterIds: [],
         title: "Inherits Lesson",
         mode: "copy",
       });
@@ -384,7 +384,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [clip!.id],
-        clipSectionIds: [],
+        chapterIds: [],
         title: "Single Clip",
         mode: "copy",
       });
@@ -397,7 +397,7 @@ describe("ClipService", () => {
     it("selecting all items creates a new video with everything", async () => {
       const video = await clipService.createVideo("source-video.mp4");
 
-      const sectionA = await clipService.createClipSectionAtInsertionPoint({
+      const sectionA = await clipService.createChapterAtInsertionPoint({
         videoId: video.id,
         name: "Section A",
         insertionPoint: start,
@@ -418,7 +418,7 @@ describe("ClipService", () => {
       const newVideo = await clipService.createVideoFromSelection({
         sourceVideoId: video.id,
         clipIds: [clipA!.id, clipB!.id],
-        clipSectionIds: [sectionA.id],
+        chapterIds: [sectionA.id],
         title: "Complete Copy",
         mode: "copy",
       });
@@ -426,7 +426,7 @@ describe("ClipService", () => {
       const newTimeline = await clipService.getTimeline(newVideo.id);
       expect(newTimeline).toHaveLength(3);
       expect(newTimeline.map((t) => t.type)).toEqual([
-        "clip-section",
+        "chapter",
         "clip",
         "clip",
       ]);

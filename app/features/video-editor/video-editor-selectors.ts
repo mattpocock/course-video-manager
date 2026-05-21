@@ -3,7 +3,7 @@ import type {
   Clip,
   ClipOnDatabase,
   ClipOptimisticallyAdded,
-  ClipSection,
+  Chapter,
   FrontendId,
   FrontendInsertionPoint,
   RecordingSession,
@@ -11,7 +11,7 @@ import type {
   TimelineItem,
 } from "./clip-state-reducer";
 import type { OBSConnectionOuterState } from "./obs-connector";
-import { calculateTextSimilarity, isClip, isClipSection } from "./clip-utils";
+import { calculateTextSimilarity, isClip, isChapter } from "./clip-utils";
 import type { ClipComputedProps } from "./types";
 
 export const DANGEROUS_TEXT_SIMILARITY_THRESHOLD = 40;
@@ -21,17 +21,14 @@ export const DANGEROUS_TEXT_SIMILARITY_THRESHOLD = 40;
 // ---------------------------------------------------------------------------
 
 /**
- * Returns items for the main timeline — on-database clips and clip sections.
+ * Returns items for the main timeline — on-database clips and chapters.
  * Excludes all optimistic clips and any items with shouldArchive.
  */
 export const getTimelineItems = (items: TimelineItem[]): TimelineItem[] => {
   return items.filter((item) => {
     if (item.type === "optimistically-added") return false;
     if (item.type === "on-database" && item.shouldArchive) return false;
-    if (
-      item.type === "clip-section-optimistically-added" &&
-      item.shouldArchive
-    ) {
+    if (item.type === "chapter-optimistically-added" && item.shouldArchive) {
       return false;
     }
     return true;
@@ -195,11 +192,10 @@ export const getDatabaseClipBeforeInsertionPoint = (
     ) as ClipOnDatabase | undefined;
   }
 
-  if (insertionPoint.type === "after-clip-section") {
+  if (insertionPoint.type === "after-chapter") {
     const sectionIndex = items.findIndex(
       (item) =>
-        item.frontendId === insertionPoint.frontendClipSectionId &&
-        isClipSection(item)
+        item.frontendId === insertionPoint.frontendChapterId && isChapter(item)
     );
     if (sectionIndex === -1) return undefined;
 
@@ -316,12 +312,12 @@ export const getLastTranscribedClipId = (clips: Clip[]): FrontendId | null => {
     : null;
 };
 
-export const getClipSections = (items: TimelineItem[]): ClipSection[] => {
-  return items.filter(isClipSection);
+export const getChapters = (items: TimelineItem[]): Chapter[] => {
+  return items.filter(isChapter);
 };
 
 export const getHasSections = (items: TimelineItem[]): boolean => {
-  return getClipSections(items).length > 0;
+  return getChapters(items).length > 0;
 };
 
 // ---------------------------------------------------------------------------

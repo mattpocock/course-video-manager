@@ -49,7 +49,7 @@ const getItems = async (
       };
     } else {
       return {
-        type: "clip-section-on-database",
+        type: "chapter-on-database",
         frontendId: item.data.id as FrontendId,
         databaseId: item.data.id as DatabaseId,
       };

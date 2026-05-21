@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { DB } from "@/db/schema";
 import type {
   ClipOnDatabase,
-  ClipSectionOnDatabase,
+  ChapterOnDatabase,
   DatabaseId,
   FrontendId,
   FrontendInsertionPoint,
@@ -172,17 +172,17 @@ export const loader = async (args: Route.LoaderArgs) => {
       data: clip,
     }));
 
-    const clipSectionItems: Array<{
-      type: "clip-section";
+    const chapterItems: Array<{
+      type: "chapter";
       order: string;
-      data: DB.ClipSection;
-    }> = (video.chapters as DB.ClipSection[]).map((clipSection) => ({
-      type: "clip-section" as const,
-      order: clipSection.order,
-      data: clipSection,
+      data: DB.Chapter;
+    }> = (video.chapters as DB.Chapter[]).map((chapter) => ({
+      type: "chapter" as const,
+      order: chapter.order,
+      data: chapter,
     }));
 
-    const sortedItems = sortByOrder([...clipItems, ...clipSectionItems]);
+    const sortedItems = sortByOrder([...clipItems, ...chapterItems]);
 
     // Strip clips/chapters from video sent to client (already in items)
     const lesson = video.lesson;
@@ -234,19 +234,19 @@ function getDefaultInsertionPoint(
   for (let i = 0; i < items.length; i++) {
     const item = items[i]!;
     if (
-      item.type === "clip-section-on-database" ||
-      item.type === "clip-section-optimistically-added"
+      item.type === "chapter-on-database" ||
+      item.type === "chapter-optimistically-added"
     ) {
       const nextItem = items[i + 1];
       // Section is "empty" if the next item is another section or there's nothing after it
       const isEmpty =
         !nextItem ||
-        nextItem.type === "clip-section-on-database" ||
-        nextItem.type === "clip-section-optimistically-added";
+        nextItem.type === "chapter-on-database" ||
+        nextItem.type === "chapter-optimistically-added";
       if (isEmpty) {
         return {
-          type: "after-clip-section",
-          frontendClipSectionId: item.frontendId,
+          type: "after-chapter",
+          frontendChapterId: item.frontendId,
         };
       }
     }
@@ -276,14 +276,14 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           diagramName: clip.diagramSnapshot?.diagram?.name ?? null,
         } satisfies ClipOnDatabase;
       } else {
-        const clipSection = item.data;
+        const chapter = item.data;
         return {
-          type: "clip-section-on-database",
+          type: "chapter-on-database",
           frontendId: createFrontendId(),
-          databaseId: clipSection.id,
-          name: clipSection.name,
+          databaseId: chapter.id,
+          name: chapter.name,
           insertionOrder: null,
-        } satisfies ClipSectionOnDatabase;
+        } satisfies ChapterOnDatabase;
       }
     }
   );
@@ -436,14 +436,14 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       onMoveClip={(clipId, direction) => {
         dispatch({ type: "move-clip", clipId, direction });
       }}
-      onAddClipSection={(name) => {
-        dispatch({ type: "add-clip-section", name });
+      onAddChapter={(name) => {
+        dispatch({ type: "add-chapter", name });
       }}
-      onUpdateClipSection={(clipSectionId, name) => {
-        dispatch({ type: "update-clip-section", clipSectionId, name });
+      onUpdateChapter={(chapterId, name) => {
+        dispatch({ type: "update-chapter", chapterId, name });
       }}
-      onAddClipSectionAt={(name, position, itemId) => {
-        dispatch({ type: "add-clip-section-at", name, position, itemId });
+      onAddChapterAt={(name, position, itemId) => {
+        dispatch({ type: "add-chapter-at", name, position, itemId });
       }}
       onAddEffectClipAt={(effectType, position, itemId) => {
         dispatch({ type: "add-effect-clip-at", effectType, position, itemId });
@@ -475,7 +475,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       fsData={props.loaderData.fsData}
       videoCount={props.loaderData.videoCount}
       referenceCandidates={props.loaderData.referenceCandidates}
-      onAddReferenceClipSectionAt={({
+      onAddReferenceChapterAt={({
         videoId,
         targetItemId,
         targetItemType,
@@ -483,7 +483,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
         name,
       }) => {
         clipService
-          .createClipSectionAtPosition({
+          .createChapterAtPosition({
             videoId,
             name,
             position,
@@ -492,34 +492,34 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           })
           .then(() => revalidator.revalidate())
           .catch((error) => {
-            console.error("Failed to add reference clip section", error);
+            console.error("Failed to add reference chapter", error);
           });
       }}
-      onEditReferenceClipSectionName={(clipSectionId, name) => {
+      onEditReferenceChapterName={(chapterId, name) => {
         clipService
-          .updateClipSection(clipSectionId, name)
+          .updateChapter(chapterId, name)
           .then(() => revalidator.revalidate())
           .catch((error) => {
-            console.error("Failed to edit reference clip section", error);
+            console.error("Failed to edit reference chapter", error);
           });
       }}
-      onDeleteReferenceClipSection={(clipSectionId) => {
+      onDeleteReferenceChapter={(chapterId) => {
         clipService
-          .archiveClipSections([clipSectionId])
+          .archiveChapters([chapterId])
           .then(() => revalidator.revalidate())
           .catch((error) => {
-            console.error("Failed to delete reference clip section", error);
+            console.error("Failed to delete reference chapter", error);
           });
       }}
-      onRegenerateClipSections={async (videoId, sections) => {
+      onRegenerateChapters={async (videoId, sections) => {
         try {
-          const inserted = await clipService.regenerateClipSections({
+          const inserted = await clipService.regenerateChapters({
             videoId,
             sections,
           });
           if (videoId === props.loaderData.video.id) {
             dispatch({
-              type: "clip-sections-replaced",
+              type: "chapters-replaced",
               sections: inserted.map((s) => ({
                 databaseId: s.id as DatabaseId,
                 name: s.name,
@@ -529,7 +529,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           }
           revalidator.revalidate();
         } catch (error) {
-          console.error("Failed to regenerate clip sections", error);
+          console.error("Failed to regenerate chapters", error);
           throw error;
         }
       }}
@@ -560,7 +560,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       error={clipState.error}
       onCreateVideoFromSelection={(
         frontendClipIds,
-        frontendClipSectionIds,
+        frontendChapterIds,
         title,
         mode
       ) => {
@@ -573,13 +573,13 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           }
         }
 
-        const clipSectionIds: string[] = [];
-        for (const frontendId of frontendClipSectionIds) {
+        const chapterIds: string[] = [];
+        for (const frontendId of frontendChapterIds) {
           const section = clipState.items.find(
             (c) => c.frontendId === frontendId
           );
-          if (section?.type === "clip-section-on-database") {
-            clipSectionIds.push(section.databaseId as string);
+          if (section?.type === "chapter-on-database") {
+            chapterIds.push(section.databaseId as string);
           }
         }
 
@@ -587,7 +587,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           .createVideoFromSelection({
             sourceVideoId: props.loaderData.video.id,
             clipIds,
-            clipSectionIds,
+            chapterIds,
             title,
             mode,
           })

@@ -23,7 +23,7 @@ import {
 import { use } from "react";
 import { Link, useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
-import { useGenerateClipSectionsAction } from "./generate-clip-sections-context";
+import { useGenerateChaptersAction } from "./generate-clip-sections-context";
 
 export function VideoItem({
   video,
@@ -48,14 +48,14 @@ export function VideoItem({
   deleteVideoFileFetcher: ReturnType<typeof useFetcher>;
   submitDeleteVideo: (videoId: string) => void;
 }) {
-  const openGenerateClipSections = useGenerateClipSectionsAction();
+  const openGenerateChapters = useGenerateChaptersAction();
   const hasExportedVideoMap = use(data.hasExportedVideoMap);
   const totalDuration = video.totalDuration;
   const isLatestVersion = data.isLatestVersion;
   const showWarning =
     isLatestVersion &&
     video.warnings.some((w) => w.kind === "missingOpeningSection");
-  const canGenerateClipSections = isLatestVersion && video.clipCount > 0;
+  const canGenerateChapters = isLatestVersion && video.clipCount > 0;
 
   return (
     <ContextMenu>
@@ -120,10 +120,10 @@ export function VideoItem({
           <Combine className="w-4 h-4" />
           Create Concatenated Video
         </ContextMenuItem>
-        {canGenerateClipSections && (
+        {canGenerateChapters && (
           <ContextMenuItem
             onSelect={() => {
-              openGenerateClipSections({
+              openGenerateChapters({
                 videoId: video.id,
                 videoLabel: `${section.path}/${lesson.path}/${video.path}`,
               });

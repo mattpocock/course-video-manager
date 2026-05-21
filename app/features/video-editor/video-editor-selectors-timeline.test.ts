@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   ClipOnDatabase,
   ClipOptimisticallyAdded,
-  ClipSection,
+  Chapter,
   FrontendId,
   SessionId,
   TimelineItem,
@@ -46,11 +46,8 @@ const makeOptimisticClip = (
   ...overrides,
 });
 
-const makeClipSection = (
-  frontendId: FrontendId,
-  name: string
-): ClipSection => ({
-  type: "clip-section-on-database",
+const makeChapter = (frontendId: FrontendId, name: string): Chapter => ({
+  type: "chapter-on-database",
   frontendId,
   databaseId: `db-${frontendId}` as any,
   name,
@@ -96,27 +93,27 @@ describe("getTimelineItems", () => {
     expect(result).toHaveLength(2);
   });
 
-  it("includes clip sections (on-database)", () => {
+  it("includes chapters (on-database)", () => {
     const items: TimelineItem[] = [
-      makeClipSection(id("s1"), "Intro"),
+      makeChapter(id("s1"), "Intro"),
       makeClipOnDatabase({ frontendId: id("c1") }),
-      makeClipSection(id("s2"), "Body"),
+      makeChapter(id("s2"), "Body"),
     ];
     const result = getTimelineItems(items);
     expect(result).toHaveLength(3);
   });
 
-  it("excludes clip sections with shouldArchive", () => {
+  it("excludes chapters with shouldArchive", () => {
     const items: TimelineItem[] = [
       makeClipOnDatabase({ frontendId: id("c1") }),
       {
-        type: "clip-section-optimistically-added",
+        type: "chapter-optimistically-added",
         frontendId: id("s1"),
         name: "Archived Section",
         insertionOrder: 1,
         shouldArchive: true,
       },
-      makeClipSection(id("s2"), "Visible Section"),
+      makeChapter(id("s2"), "Visible Section"),
     ];
     const result = getTimelineItems(items);
     expect(result).toHaveLength(2);
@@ -148,11 +145,11 @@ describe("getTimelineItems", () => {
 
   it("preserves order of remaining items", () => {
     const items: TimelineItem[] = [
-      makeClipSection(id("s1"), "Intro"),
+      makeChapter(id("s1"), "Intro"),
       makeOptimisticClip({ frontendId: id("c1") }),
       makeClipOnDatabase({ frontendId: id("c2") }),
       makeOptimisticClip({ frontendId: id("c3") }),
-      makeClipSection(id("s2"), "Body"),
+      makeChapter(id("s2"), "Body"),
       makeClipOnDatabase({ frontendId: id("c4") }),
     ];
     const result = getTimelineItems(items);
@@ -230,7 +227,7 @@ describe("getSessionPanels", () => {
     ];
     const items: TimelineItem[] = [
       makeClipOnDatabase({ frontendId: id("c1") }),
-      makeClipSection(id("s1"), "Intro"),
+      makeChapter(id("s1"), "Intro"),
       makeOptimisticClip({ frontendId: id("c2"), sessionId: sid("s1") }),
     ];
     const panels = getSessionPanels(items, sessions);

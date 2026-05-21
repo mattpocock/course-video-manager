@@ -5,7 +5,7 @@ export const streamDeckForwarderMessageSchema = z.object({
     "delete-last-clip",
     "toggle-last-frame-of-video",
     "toggle-beat",
-    "add-clip-section",
+    "add-chapter",
     "clear-all-archived",
   ]),
 });

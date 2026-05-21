@@ -1,4 +1,4 @@
-import { ClipSectionNamingModal as ClipSectionNamingModalComponent } from "./components/clip-section-naming-modal";
+import { ChapterNamingModal as ChapterNamingModalComponent } from "./components/clip-section-naming-modal";
 import { CreateVideoFromSelectionModal } from "./components/create-video-from-selection-modal";
 import { FilePasteModalWithFsData } from "./components/file-paste-modal-with-fs-data";
 import { VideoPlayerPanel } from "./components/video-player-panel";
@@ -8,7 +8,7 @@ import {
   ReferencePanel,
   type ReferenceCandidate,
 } from "./components/reference-panel";
-import { useGenerateClipSectionsModal } from "./hooks/use-generate-clip-sections-modal";
+import { useGenerateChaptersModal } from "./hooks/use-generate-clip-sections-modal";
 import {
   useDiagramPin,
   type UpdateClipDiagramPinFn,
@@ -75,11 +75,11 @@ const useVideoEditor = (props: {
   onClipsRetranscribe: (clipIds: FrontendId[]) => void;
   onToggleBeatForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
-  onAddClipSection: (name: string) => void;
-  onUpdateClipSection: (clipSectionId: FrontendId, name: string) => void;
+  onAddChapter: (name: string) => void;
+  onUpdateChapter: (chapterId: FrontendId, name: string) => void;
   onCreateVideoFromSelection: (
     clipIds: FrontendId[],
-    clipSectionIds: FrontendId[],
+    chapterIds: FrontendId[],
     title: string,
     mode: "copy" | "move"
   ) => void;
@@ -123,7 +123,7 @@ const useVideoEditor = (props: {
       "create-video-from-selection": (_state, effect, _dispatch) => {
         props.onCreateVideoFromSelection(
           effect.clipIds,
-          effect.clipSectionIds,
+          effect.chapterIds,
           effect.title,
           effect.mode
         );
@@ -162,16 +162,16 @@ export const VideoEditor = (props: {
   }>;
   videoCount: number;
   referenceCandidates: ReferenceCandidate[];
-  onAddReferenceClipSectionAt: (input: {
+  onAddReferenceChapterAt: (input: {
     videoId: string;
     targetItemId: string;
-    targetItemType: "clip" | "clip-section";
+    targetItemType: "clip" | "chapter";
     position: "before" | "after";
     name: string;
   }) => void;
-  onEditReferenceClipSectionName: (clipSectionId: string, name: string) => void;
-  onDeleteReferenceClipSection: (clipSectionId: string) => void;
-  onRegenerateClipSections: (
+  onEditReferenceChapterName: (chapterId: string, name: string) => void;
+  onDeleteReferenceChapter: (chapterId: string) => void;
+  onRegenerateChapters: (
     videoId: string,
     sections: Array<{ beforeClipId: string; title: string }>
   ) => Promise<void>;
@@ -181,9 +181,9 @@ export const VideoEditor = (props: {
   onToggleBeat: () => void;
   onToggleBeatForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
-  onAddClipSection: (name: string) => void;
-  onUpdateClipSection: (clipSectionId: FrontendId, name: string) => void;
-  onAddClipSectionAt: (
+  onAddChapter: (name: string) => void;
+  onUpdateChapter: (chapterId: FrontendId, name: string) => void;
+  onAddChapterAt: (
     name: string,
     position: "before" | "after",
     itemId: FrontendId
@@ -199,7 +199,7 @@ export const VideoEditor = (props: {
   error: EditorError | null;
   onCreateVideoFromSelection: (
     clipIds: FrontendId[],
-    clipSectionIds: FrontendId[],
+    chapterIds: FrontendId[],
     title: string,
     mode: "copy" | "move"
   ) => void;
@@ -230,8 +230,8 @@ export const VideoEditor = (props: {
     onClipsRetranscribe: props.onClipsRetranscribe,
     onToggleBeatForClip: props.onToggleBeatForClip,
     onMoveClip: props.onMoveClip,
-    onAddClipSection: props.onAddClipSection,
-    onUpdateClipSection: props.onUpdateClipSection,
+    onAddChapter: props.onAddChapter,
+    onUpdateChapter: props.onUpdateChapter,
     onCreateVideoFromSelection: props.onCreateVideoFromSelection,
   });
 
@@ -251,15 +251,15 @@ export const VideoEditor = (props: {
   const revalidator = useRevalidator();
 
   const {
-    openForMain: onOpenGenerateClipSectionsModal,
+    openForMain: onOpenGenerateChaptersModal,
     openForReference: onOpenGenerateForReference,
-    modal: generateClipSectionsModal,
-  } = useGenerateClipSectionsModal({
+    modal: generateChaptersModal,
+  } = useGenerateChaptersModal({
     mainVideoId: props.videoId,
     mainVideoPath: props.videoPath,
     clips,
     referenceCandidates: props.referenceCandidates,
-    onRegenerateClipSections: props.onRegenerateClipSections,
+    onRegenerateChapters: props.onRegenerateChapters,
   });
 
   // Suggestion state for sharing between SuggestionsPanel and ClipTimeline
@@ -272,9 +272,9 @@ export const VideoEditor = (props: {
   });
 
   const {
-    clipSectionNamingModal,
-    setClipSectionNamingModal,
-    generateDefaultClipSectionName,
+    chapterNamingModal,
+    setChapterNamingModal,
+    generateDefaultChapterName,
     onEditSection,
     onAddSectionBefore,
     onAddSectionAfter,
@@ -283,7 +283,7 @@ export const VideoEditor = (props: {
   } = useSectionModal(
     timelineItems,
     state.selectedClipsSet,
-    props.onAddClipSection
+    props.onAddChapter
   );
 
   const { onUnpinDiagram } = useDiagramPin(
@@ -300,8 +300,8 @@ export const VideoEditor = (props: {
     onDeleteLatestInsertedClip: props.onDeleteLatestInsertedClip,
     onToggleBeat: props.onToggleBeat,
     onClearAllArchived: props.onClearAllArchived,
-    setClipSectionNamingModal,
-    generateDefaultClipSectionName,
+    setChapterNamingModal,
+    generateDefaultChapterName,
   });
 
   // Clipboard operations for transcript and YouTube chapters
@@ -421,9 +421,9 @@ export const VideoEditor = (props: {
       onSetInsertionPoint: props.onSetInsertionPoint,
       onMoveClip: props.onMoveClip,
       onToggleBeatForClip: props.onToggleBeatForClip,
-      onAddClipSection: props.onAddClipSection,
-      onUpdateClipSection: props.onUpdateClipSection,
-      onAddClipSectionAt: props.onAddClipSectionAt,
+      onAddChapter: props.onAddChapter,
+      onUpdateChapter: props.onUpdateChapter,
+      onAddChapterAt: props.onAddChapterAt,
       onAddEffectClipAt: props.onAddEffectClipAt,
       onRestoreClip: props.onRestoreClip,
       onPermanentlyRemoveArchived: props.onPermanentlyRemoveArchived,
@@ -459,7 +459,7 @@ export const VideoEditor = (props: {
       onEditSection,
       onAddSectionBefore,
       onAddSectionAfter,
-      generateDefaultClipSectionName,
+      generateDefaultChapterName,
 
       // Clipboard
       copyTranscriptToClipboard,
@@ -481,7 +481,7 @@ export const VideoEditor = (props: {
       suggestionState,
       setSuggestionState,
 
-      onOpenGenerateClipSectionsModal,
+      onOpenGenerateChaptersModal,
 
       // Diagram pin
       onUnpinDiagram,
@@ -524,9 +524,9 @@ export const VideoEditor = (props: {
       props.onSetInsertionPoint,
       props.onMoveClip,
       props.onToggleBeatForClip,
-      props.onAddClipSection,
-      props.onUpdateClipSection,
-      props.onAddClipSectionAt,
+      props.onAddChapter,
+      props.onUpdateChapter,
+      props.onAddChapterAt,
       props.onAddEffectClipAt,
       props.onRestoreClip,
       props.onPermanentlyRemoveArchived,
@@ -549,8 +549,8 @@ export const VideoEditor = (props: {
       onEditSection,
       onAddSectionBefore,
       onAddSectionAfter,
-      generateDefaultClipSectionName,
-      onOpenGenerateClipSectionsModal,
+      generateDefaultChapterName,
+      onOpenGenerateChaptersModal,
       onUnpinDiagram,
     ]
   );
@@ -568,12 +568,12 @@ export const VideoEditor = (props: {
 
   const modals = (
     <>
-      <ClipSectionNamingModalComponent
-        modalState={clipSectionNamingModal}
-        onClose={() => setClipSectionNamingModal(null)}
-        onAddClipSection={props.onAddClipSection}
-        onUpdateClipSection={props.onUpdateClipSection}
-        onAddClipSectionAt={props.onAddClipSectionAt}
+      <ChapterNamingModalComponent
+        modalState={chapterNamingModal}
+        onClose={() => setChapterNamingModal(null)}
+        onAddChapter={props.onAddChapter}
+        onUpdateChapter={props.onUpdateChapter}
+        onAddChapterAt={props.onAddChapterAt}
       />
       <Suspense>
         <FilePasteModalWithFsData
@@ -596,7 +596,7 @@ export const VideoEditor = (props: {
         onOpenChange={setIsCreateVideoModalOpen}
         onSubmit={handleCreateVideoFromSelection}
       />
-      {generateClipSectionsModal}
+      {generateChaptersModal}
     </>
   );
 
@@ -608,12 +608,10 @@ export const VideoEditor = (props: {
           candidates={props.referenceCandidates}
           selectedId={activeReference}
           onRemove={() => setReferenceVideoId(null)}
-          onAddSectionAt={props.onAddReferenceClipSectionAt}
-          onEditSectionName={props.onEditReferenceClipSectionName}
-          onDeleteSection={props.onDeleteReferenceClipSection}
-          onGenerateClipSections={() =>
-            onOpenGenerateForReference(activeReference)
-          }
+          onAddSectionAt={props.onAddReferenceChapterAt}
+          onEditSectionName={props.onEditReferenceChapterName}
+          onDeleteSection={props.onDeleteReferenceChapter}
+          onGenerateChapters={() => onOpenGenerateForReference(activeReference)}
           className="h-full"
         />
       </div>

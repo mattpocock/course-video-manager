@@ -1,8 +1,8 @@
 import { DBFunctionsService } from "@/services/db-service.server";
 import { runtimeLive } from "@/services/layer.server";
 import {
-  generateClipSectionsSystemPrompt,
-  buildClipSectionsUserMessage,
+  generateChaptersSystemPrompt,
+  buildChaptersUserMessage,
 } from "@/prompts/generate-clip-sections";
 import { Console, Effect } from "effect";
 import type { Route } from "./+types/api.videos.$videoId.suggest-clip-sections";
@@ -46,7 +46,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       name: s.name,
     }));
 
-    const userMessage = buildClipSectionsUserMessage({
+    const userMessage = buildChaptersUserMessage({
       clips,
       existingSections,
     });
@@ -56,7 +56,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const result = streamObject({
       model: anthropic("claude-sonnet-4-5"),
       schema: proposalSchema,
-      system: generateClipSectionsSystemPrompt,
+      system: generateChaptersSystemPrompt,
       messages: [{ role: "user", content: userMessage }],
       abortSignal: abortController.signal,
     });

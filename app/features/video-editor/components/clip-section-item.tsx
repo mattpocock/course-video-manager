@@ -15,21 +15,21 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
-import type { ClipSection } from "../clip-state-reducer";
-import { ClipSectionDivider } from "./clip-section-divider";
+import type { Chapter } from "../clip-state-reducer";
+import { ChapterDivider } from "./clip-section-divider";
 import { InsertionPointWithSession } from "./insertion-point-with-session";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 
 /**
- * ClipSectionItem component displays a clip section divider with context menu
+ * ChapterItem component displays a chapter divider with context menu
  * in the video editor timeline.
  *
  * Handles section selection, insertion point display, and all section actions
  * including insert before/after, add section before/after, edit, move, and delete.
  */
-export const ClipSectionItem = (props: {
-  section: ClipSection;
+export const ChapterItem = (props: {
+  section: Chapter;
   isFirstItem: boolean;
   isLastItem: boolean;
   onEditSection: () => void;
@@ -68,7 +68,7 @@ export const ClipSectionItem = (props: {
     <div>
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <ClipSectionDivider
+          <ChapterDivider
             id={`section-${props.section.frontendId}`}
             name={props.section.name}
             isSelected={isSelected}
@@ -82,8 +82,8 @@ export const ClipSectionItem = (props: {
                 selectedClipsSet.size === 1
               ) {
                 dispatch({
-                  type: "play-from-clip-section",
-                  clipSectionId: props.section.frontendId,
+                  type: "play-from-chapter",
+                  chapterId: props.section.frontendId,
                 });
                 return;
               }
@@ -173,8 +173,8 @@ export const ClipSectionItem = (props: {
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
-      {insertionPoint.type === "after-clip-section" &&
-        insertionPoint.frontendClipSectionId === props.section.frontendId && (
+      {insertionPoint.type === "after-chapter" &&
+        insertionPoint.frontendChapterId === props.section.frontendId && (
           <InsertionPointWithSession />
         )}
     </div>

@@ -3,7 +3,7 @@ import {
   calculateYouTubeChapters,
   type YouTubeChaptersItem,
 } from "@/services/utils";
-import { isClip, isClipSection } from "../clip-utils";
+import { isClip, isChapter } from "../clip-utils";
 import type { TimelineItem } from "../clip-state-reducer";
 
 /**
@@ -13,7 +13,7 @@ import type { TimelineItem } from "../clip-state-reducer";
  * - copyTranscriptToClipboard: Copies transcript with section headers to clipboard
  * - copyYoutubeChaptersToClipboard: Copies YouTube chapters with timestamps
  * - isCopied/isChaptersCopied: State for showing copy feedback
- * - youtubeChapters: Computed chapters from clip sections
+ * - youtubeChapters: Computed chapters from chapters
  */
 export const useClipboardOperations = (items: TimelineItem[]) => {
   const [isCopied, setIsCopied] = useState(false);
@@ -21,12 +21,12 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
 
   const copyTranscriptToClipboard = async () => {
     try {
-      // Build transcript with clip sections as markdown headers
+      // Build transcript with chapters as markdown headers
       const parts: string[] = [];
       let currentParagraph: string[] = [];
 
       for (const item of items) {
-        if (isClipSection(item)) {
+        if (isChapter(item)) {
           // Flush current paragraph before starting a new section
           if (currentParagraph.length > 0) {
             parts.push(currentParagraph.join(" "));
@@ -55,12 +55,12 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
     }
   };
 
-  // Generate YouTube chapters from clip sections
-  // Format: "0:00 Section Name" for each clip section
+  // Generate YouTube chapters from chapters
+  // Format: "0:00 Section Name" for each chapter
   const youtubeChapters = useMemo(() => {
     const chaptersItems: YouTubeChaptersItem[] = items
       .map((item): YouTubeChaptersItem | null => {
-        if (isClipSection(item)) {
+        if (isChapter(item)) {
           return { type: "section", name: item.name };
         } else if (isClip(item) && item.type === "on-database") {
           return {

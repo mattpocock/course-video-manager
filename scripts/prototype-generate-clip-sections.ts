@@ -1,10 +1,10 @@
 /**
- * PROTOTYPE — throwaway. Answers: "Does our prompt produce good ClipSection proposals?"
+ * PROTOTYPE — throwaway. Answers: "Does our prompt produce good Chapter proposals?"
  *
  * Run:  pnpm tsx scripts/prototype-generate-clip-sections.ts <videoId>
  *
- * Loads a real Video's clips + existing ClipSections from the DB, sends them to
- * Claude with the candidate prompt, and prints the proposed ClipSections in the
+ * Loads a real Video's clips + existing Chapters from the DB, sends them to
+ * Claude with the candidate prompt, and prints the proposed Chapters in the
  * same grouped layout the confirmation modal will use (title header → clip
  * transcripts beneath).
  *
@@ -20,16 +20,16 @@ import { z } from "zod";
 
 // ─── The prompt under test ────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You generate ClipSections (YouTube-chapter-style segment markers) for a recorded video.
+const SYSTEM_PROMPT = `You generate Chapters (YouTube-chapter-style segment markers) for a recorded video.
 
 You are given the video's clips in order. Each clip has an ID and a transcript.
-You may also be given existing ClipSections the author placed by hand — use these
+You may also be given existing Chapters the author placed by hand — use these
 as a soft guide for where they think breaks belong, but feel free to move, rename,
 merge, drop, or add new ones as the content warrants. Your output replaces the
 existing set entirely.
 
-A ClipSection is a marker placed BEFORE a clip; it labels the segment that begins
-with that clip and runs until the next ClipSection (or the end of the video).
+A Chapter is a marker placed BEFORE a clip; it labels the segment that begins
+with that clip and runs until the next Chapter (or the end of the video).
 
 Title rules:
 - Short, descriptive, YouTube-chapter style (2–6 words typical).
@@ -103,7 +103,7 @@ const program = Effect.gen(function* () {
   ].sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
 
   const userMessage = [
-    `Video has ${clips.length} clips and ${existingSections.length} existing ClipSection(s).`,
+    `Video has ${clips.length} clips and ${existingSections.length} existing Chapter(s).`,
     "",
     "Timeline (existing sections shown as [[SECTION: name]] lines):",
     "",
@@ -113,13 +113,13 @@ const program = Effect.gen(function* () {
         : `clip ${it.id}: ${it.text}`
     ),
     "",
-    "Propose the full replacement set of ClipSections.",
+    "Propose the full replacement set of Chapters.",
   ].join("\n");
 
   console.log("─".repeat(72));
   console.log(`Video: ${videoId}`);
   console.log(
-    `Clips: ${clips.length}  |  Existing ClipSections: ${existingSections.length}`
+    `Clips: ${clips.length}  |  Existing Chapters: ${existingSections.length}`
   );
   console.log("─".repeat(72));
   console.log();
@@ -136,7 +136,7 @@ const program = Effect.gen(function* () {
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
   console.log(
-    `✔ Generated ${object.sections.length} ClipSection(s) in ${elapsed}s\n`
+    `✔ Generated ${object.sections.length} Chapter(s) in ${elapsed}s\n`
   );
 
   // Render in the same grouped layout as the reference panel:

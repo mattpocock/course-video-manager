@@ -6,8 +6,8 @@ import type {
   ClipReducerAction,
   ClipReducerExec,
   ClipReducerState,
-  ClipSectionOnDatabase,
-  ClipSectionOptimisticallyAdded,
+  ChapterOnDatabase,
+  ChapterOptimisticallyAdded,
   DatabaseId,
   FrontendId,
   FrontendInsertionPoint,
@@ -99,14 +99,14 @@ export const handleNewOptimisticClipDetected = (
       frontendClipId: newFrontendId,
     };
   } else {
-    // after-clip-section
-    const targetClipSectionId = state.insertionPoint.frontendClipSectionId;
+    // after-chapter
+    const targetChapterId = state.insertionPoint.frontendChapterId;
     // Insert at insertion point
     const insertionPointIndex = state.items.findIndex(
-      (c) => c.frontendId === targetClipSectionId
+      (c) => c.frontendId === targetChapterId
     );
     if (insertionPointIndex === -1) {
-      throw new Error("Target clip section not found when inserting after");
+      throw new Error("Target chapter not found when inserting after");
     }
     newClips = [
       ...state.items.slice(0, insertionPointIndex + 1),
@@ -168,14 +168,14 @@ const insertClip = (
       type: "after-clip",
       frontendClipId: targetClipId,
     };
-  } else if (insertionPoint.type === "after-clip-section") {
-    const targetClipSectionId = insertionPoint.frontendClipSectionId;
+  } else if (insertionPoint.type === "after-chapter") {
+    const targetChapterId = insertionPoint.frontendChapterId;
     // Insert at insertion point
     const insertionPointIndex = items.findIndex(
-      (c) => c?.frontendId === targetClipSectionId
+      (c) => c?.frontendId === targetChapterId
     );
     if (insertionPointIndex === -1) {
-      throw new Error("Target clip section not found when inserting after");
+      throw new Error("Target chapter not found when inserting after");
     }
     newItems = [
       ...items.slice(0, insertionPointIndex + 1),
@@ -369,9 +369,9 @@ export const handleNewDatabaseClips = (
   };
 };
 
-export const handleAddClipSectionAt = (
+export const handleAddChapterAt = (
   state: ClipReducerState,
-  action: Extract<ClipReducerAction, { type: "add-clip-section-at" }>,
+  action: Extract<ClipReducerAction, { type: "add-chapter-at" }>,
   exec: ClipReducerExec
 ): ClipReducerState => {
   const targetItem = state.items.find(
@@ -386,8 +386,8 @@ export const handleAddClipSectionAt = (
   );
 
   const newFrontendId = createFrontendId();
-  const newClipSection: ClipSectionOptimisticallyAdded = {
-    type: "clip-section-optimistically-added",
+  const newChapter: ChapterOptimisticallyAdded = {
+    type: "chapter-optimistically-added",
     frontendId: newFrontendId,
     name: action.name,
     insertionOrder: state.insertionOrder + 1,
@@ -398,14 +398,14 @@ export const handleAddClipSectionAt = (
   if (action.position === "before") {
     newItems = [
       ...state.items.slice(0, targetIndex),
-      newClipSection,
+      newChapter,
       ...state.items.slice(targetIndex),
     ];
   } else {
     // after
     newItems = [
       ...state.items.slice(0, targetIndex + 1),
-      newClipSection,
+      newChapter,
       ...state.items.slice(targetIndex + 1),
     ];
   }
@@ -413,13 +413,13 @@ export const handleAddClipSectionAt = (
   // Fire the appropriate effect based on whether the target has a database ID
   if (
     targetItem.type === "on-database" ||
-    targetItem.type === "clip-section-on-database"
+    targetItem.type === "chapter-on-database"
   ) {
     const targetDatabaseId = targetItem.databaseId;
-    const targetItemType: "clip" | "clip-section" =
-      targetItem.type === "on-database" ? "clip" : "clip-section";
+    const targetItemType: "clip" | "chapter" =
+      targetItem.type === "on-database" ? "clip" : "chapter";
     exec({
-      type: "create-clip-section-at",
+      type: "create-chapter-at",
       frontendId: newFrontendId,
       name: action.name,
       position: action.position,
@@ -430,10 +430,10 @@ export const handleAddClipSectionAt = (
     // For optimistically added items, calculate the insertion point
     let insertionPoint: FrontendInsertionPoint;
     if (action.position === "after") {
-      if (targetItem.type === "clip-section-optimistically-added") {
+      if (targetItem.type === "chapter-optimistically-added") {
         insertionPoint = {
-          type: "after-clip-section",
-          frontendClipSectionId: targetItem.frontendId,
+          type: "after-chapter",
+          frontendChapterId: targetItem.frontendId,
         };
       } else {
         insertionPoint = {
@@ -457,14 +457,14 @@ export const handleAddClipSectionAt = (
           };
         } else {
           insertionPoint = {
-            type: "after-clip-section",
-            frontendClipSectionId: prevItem.frontendId,
+            type: "after-chapter",
+            frontendChapterId: prevItem.frontendId,
           };
         }
       }
     }
     exec({
-      type: "create-clip-section",
+      type: "create-chapter",
       frontendId: newFrontendId,
       name: action.name,
       insertionPoint,
@@ -520,15 +520,13 @@ export const archiveClips = (
       originalClipIndex: prevClipIndex,
     };
   } else if (
-    insertionPoint.type === "after-clip-section" &&
-    frontendIds.includes(insertionPoint.frontendClipSectionId)
+    insertionPoint.type === "after-chapter" &&
+    frontendIds.includes(insertionPoint.frontendChapterId)
   ) {
-    const clipSectionId = insertionPoint.frontendClipSectionId;
-    const prevClipIndex = allItems.findIndex(
-      (c) => c.frontendId === clipSectionId
-    );
+    const chapterId = insertionPoint.frontendChapterId;
+    const prevClipIndex = allItems.findIndex((c) => c.frontendId === chapterId);
     if (prevClipIndex === -1) {
-      throw new Error("Previous clip section not found when archiving");
+      throw new Error("Previous chapter not found when archiving");
     }
     archiveClipMode = {
       type: "move-insertion-point-to-previous-clip",
@@ -558,9 +556,9 @@ export const archiveClips = (
     } else if (itemToReplace.type === "on-database") {
       clipsToArchive.add(itemToReplace.databaseId);
       items[index] = undefined;
-    } else if (itemToReplace.type === "clip-section-optimistically-added") {
+    } else if (itemToReplace.type === "chapter-optimistically-added") {
       itemToReplace.shouldArchive = true;
-    } else if (itemToReplace.type === "clip-section-on-database") {
+    } else if (itemToReplace.type === "chapter-on-database") {
       chaptersToArchive.add(itemToReplace.databaseId);
       items[index] = undefined;
     }
@@ -588,8 +586,8 @@ export const archiveClips = (
         };
       } else {
         newInsertionPoint = {
-          type: "after-clip-section",
-          frontendClipSectionId: previousNonUndefinedItem.frontendId,
+          type: "after-chapter",
+          frontendChapterId: previousNonUndefinedItem.frontendId,
         };
       }
     } else {
@@ -606,21 +604,21 @@ export const archiveClips = (
     };
   }
 
-  // When a clip section is deleted and the insertion point was not on it,
+  // When a chapter is deleted and the insertion point was not on it,
   // move the insertion point to the item before the deleted section
-  const firstDeletedClipSectionIndex = frontendIds
+  const firstDeletedChapterIndex = frontendIds
     .map((id) => allItems.findIndex((item) => item.frontendId === id))
     .find((idx) => {
       const item = allItems[idx];
       return (
         item &&
-        (item.type === "clip-section-on-database" ||
-          item.type === "clip-section-optimistically-added")
+        (item.type === "chapter-on-database" ||
+          item.type === "chapter-optimistically-added")
       );
     });
 
-  if (firstDeletedClipSectionIndex !== undefined) {
-    const slicedItems = items.slice(0, firstDeletedClipSectionIndex);
+  if (firstDeletedChapterIndex !== undefined) {
+    const slicedItems = items.slice(0, firstDeletedChapterIndex);
     const previousItem = slicedItems.findLast((c) => c !== undefined);
 
     let newInsertionPoint: FrontendInsertionPoint;
@@ -635,8 +633,8 @@ export const archiveClips = (
         };
       } else {
         newInsertionPoint = {
-          type: "after-clip-section",
-          frontendClipSectionId: previousItem.frontendId,
+          type: "after-chapter",
+          frontendChapterId: previousItem.frontendId,
         };
       }
     } else {
@@ -659,14 +657,14 @@ export const archiveClips = (
   };
 };
 
-export const handleClipSectionsReplaced = (
+export const handleChaptersReplaced = (
   state: ClipReducerState,
-  action: Extract<ClipReducerAction, { type: "clip-sections-replaced" }>
+  action: Extract<ClipReducerAction, { type: "chapters-replaced" }>
 ): ClipReducerState => {
   const withoutSections = state.items.filter(
     (item) =>
-      item.type !== "clip-section-on-database" &&
-      item.type !== "clip-section-optimistically-added"
+      item.type !== "chapter-on-database" &&
+      item.type !== "chapter-optimistically-added"
   );
 
   const newSectionByClipDbId = new Map(
@@ -678,8 +676,8 @@ export const handleClipSectionsReplaced = (
     if (item.type === "on-database") {
       const match = newSectionByClipDbId.get(item.databaseId);
       if (match) {
-        const sectionItem: ClipSectionOnDatabase = {
-          type: "clip-section-on-database",
+        const sectionItem: ChapterOnDatabase = {
+          type: "chapter-on-database",
           frontendId: createFrontendId(),
           databaseId: match.databaseId,
           name: match.name,

@@ -56,7 +56,7 @@ export const ActionsDropdown = (props: {
   isCopied: boolean;
   /** Callback to copy transcript to clipboard */
   copyTranscriptToClipboard: () => void;
-  /** YouTube chapters generated from clip sections */
+  /** YouTube chapters generated from chapters */
   youtubeChapters: { timestamp: string; name: string }[];
   /** Whether YouTube chapters have been copied (shows checkmark) */
   isChaptersCopied: boolean;
@@ -80,8 +80,8 @@ export const ActionsDropdown = (props: {
   referenceVideoId: string | null;
   /** Set or clear the Reference Video */
   setReferenceVideoId: (id: string | null) => void;
-  /** Open the AI-driven ClipSection generation modal */
-  onGenerateClipSectionsClick: () => void;
+  /** Open the AI-driven Chapter generation modal */
+  onGenerateChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
   onOpenDiagramPlayground: () => void;
 }) => {
@@ -114,7 +114,7 @@ export const ActionsDropdown = (props: {
       </Tooltip>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuItem
-          onSelect={props.onGenerateClipSectionsClick}
+          onSelect={props.onGenerateChaptersClick}
           disabled={!props.allClipsHaveText}
         >
           <Sparkles className="w-4 h-4 mr-2" />
@@ -122,7 +122,7 @@ export const ActionsDropdown = (props: {
             <span className="font-medium">Generate Sections</span>
             <span className="text-xs text-muted-foreground">
               {props.allClipsHaveText
-                ? "AI-propose ClipSections from clip transcripts"
+                ? "AI-propose Chapters from clip transcripts"
                 : "Waiting for transcription to complete"}
             </span>
           </div>

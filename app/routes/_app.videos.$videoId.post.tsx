@@ -61,10 +61,10 @@ export const loader = async (args: Route.LoaderArgs) => {
 
     const lesson = video.lesson;
 
-    // Build transcript from clips and clip sections
+    // Build transcript from clips and chapters
     type ClipItem = { type: "clip"; order: string; text: string | null };
-    type ClipSectionItem = {
-      type: "clip-section";
+    type ChapterItem = {
+      type: "chapter";
       order: string;
       name: string;
     };
@@ -75,22 +75,20 @@ export const loader = async (args: Route.LoaderArgs) => {
       text: clip.text,
     }));
 
-    const clipSectionItems: ClipSectionItem[] = video.chapters.map(
-      (section) => ({
-        type: "clip-section" as const,
-        order: section.order,
-        name: section.name,
-      })
-    );
+    const chapterItems: ChapterItem[] = video.chapters.map((section) => ({
+      type: "chapter" as const,
+      order: section.order,
+      name: section.name,
+    }));
 
-    const sortedItems = sortByOrder([...clipItems, ...clipSectionItems]);
+    const sortedItems = sortByOrder([...clipItems, ...chapterItems]);
 
     // Build formatted transcript with sections as H2 headers
     const transcriptParts: string[] = [];
     let currentParagraph: string[] = [];
 
     for (const item of sortedItems) {
-      if (item.type === "clip-section") {
+      if (item.type === "chapter") {
         if (currentParagraph.length > 0) {
           transcriptParts.push(currentParagraph.join(" "));
           currentParagraph = [];
@@ -113,7 +111,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     let currentSectionIndex = -1;
 
     for (const item of sortedItems) {
-      if (item.type === "clip-section") {
+      if (item.type === "chapter") {
         const section = video.chapters.find((s) => s.order === item.order);
         if (section) {
           currentSectionIndex = sectionsWithWordCount.length;

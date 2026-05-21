@@ -264,13 +264,13 @@ describe("videoStateReducer", () => {
       expect(tester.getExec()).toHaveBeenCalledWith({
         type: "create-video-from-selection",
         clipIds: [clip1, clip2],
-        clipSectionIds: [],
+        chapterIds: [],
         title: "New Video Title",
         mode: "copy",
       });
     });
 
-    it("should separate clip IDs and clip section IDs in the effect payload", () => {
+    it("should separate clip IDs and chapter IDs in the effect payload", () => {
       const clip1 = "clip-1" as FrontendId;
       const section1 = "section-1" as FrontendId;
       const clip2 = "clip-2" as FrontendId;
@@ -297,7 +297,7 @@ describe("videoStateReducer", () => {
       expect(tester.getExec()).toHaveBeenCalledWith({
         type: "create-video-from-selection",
         clipIds: [clip1, clip2],
-        clipSectionIds: [section1],
+        chapterIds: [section1],
         title: "Mixed Selection Video",
         mode: "copy",
       });
@@ -388,7 +388,7 @@ describe("videoStateReducer", () => {
       expect(tester.getExec()).toHaveBeenCalledWith({
         type: "create-video-from-selection",
         clipIds: [clip1],
-        clipSectionIds: [],
+        chapterIds: [],
         title: "Move Video",
         mode: "move",
       });

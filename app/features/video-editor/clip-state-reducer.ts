@@ -8,8 +8,8 @@ import type {
   ClipReducerAction,
   ClipReducerEffect,
   ClipReducerState,
-  ClipSectionOnDatabase,
-  ClipSectionOptimisticallyAdded,
+  ChapterOnDatabase,
+  ChapterOptimisticallyAdded,
   DatabaseId,
   FrontendInsertionPoint,
   RecordingSession,
@@ -18,8 +18,8 @@ import type {
 import { createFrontendId, createSessionId } from "./clip-state-reducer.types";
 import {
   archiveClips,
-  handleAddClipSectionAt,
-  handleClipSectionsReplaced,
+  handleAddChapterAt,
+  handleChaptersReplaced,
   handleNewDatabaseClips,
   handleNewOptimisticClipDetected,
 } from "./clip-state-reducer.helpers";
@@ -140,8 +140,8 @@ export const clipStateReducer: EffectReducer<
       }
       if (chaptersToArchive.size > 0) {
         exec({
-          type: "archive-clip-sections",
-          clipSectionIds: Array.from(chaptersToArchive),
+          type: "archive-chapters",
+          chapterIds: Array.from(chaptersToArchive),
         });
       }
       return {
@@ -198,8 +198,8 @@ export const clipStateReducer: EffectReducer<
         };
       } else {
         insertionPoint = {
-          type: "after-clip-section",
-          frontendClipSectionId: action.clipId,
+          type: "after-chapter",
+          frontendChapterId: action.clipId,
         };
       }
 
@@ -239,8 +239,8 @@ export const clipStateReducer: EffectReducer<
             };
           } else {
             insertionPoint = {
-              type: "after-clip-section",
-              frontendClipSectionId: previousItem.frontendId,
+              type: "after-chapter",
+              frontendChapterId: previousItem.frontendId,
             };
           }
         } else {
@@ -283,8 +283,8 @@ export const clipStateReducer: EffectReducer<
         }
         if (chaptersToArchive.size > 0) {
           exec({
-            type: "archive-clip-sections",
-            clipSectionIds: Array.from(chaptersToArchive),
+            type: "archive-chapters",
+            chapterIds: Array.from(chaptersToArchive),
           });
         }
 
@@ -298,7 +298,7 @@ export const clipStateReducer: EffectReducer<
       const clipIdToArchive =
         state.insertionPoint.type === "after-clip"
           ? state.insertionPoint.frontendClipId
-          : state.insertionPoint.frontendClipSectionId;
+          : state.insertionPoint.frontendChapterId;
 
       const archiveResult = archiveClips(
         state.items,
@@ -314,8 +314,8 @@ export const clipStateReducer: EffectReducer<
       }
       if (archiveResult.chaptersToArchive.size > 0) {
         exec({
-          type: "archive-clip-sections",
-          clipSectionIds: Array.from(archiveResult.chaptersToArchive),
+          type: "archive-chapters",
+          chapterIds: Array.from(archiveResult.chaptersToArchive),
         });
       }
 
@@ -352,8 +352,8 @@ export const clipStateReducer: EffectReducer<
         ) {
           clipToToggle = item;
         }
-      } else if (state.insertionPoint.type === "after-clip-section") {
-        // Don't toggle beat for clip sections
+      } else if (state.insertionPoint.type === "after-chapter") {
+        // Don't toggle beat for chapters
         return state;
       }
 
@@ -446,10 +446,10 @@ export const clipStateReducer: EffectReducer<
           clipId: item.databaseId,
           direction: action.direction,
         });
-      } else if (item.type === "clip-section-on-database") {
+      } else if (item.type === "chapter-on-database") {
         exec({
-          type: "reorder-clip-section",
-          clipSectionId: item.databaseId,
+          type: "reorder-chapter",
+          chapterId: item.databaseId,
           direction: action.direction,
         });
       }
@@ -459,62 +459,60 @@ export const clipStateReducer: EffectReducer<
         items: newItems,
       };
     }
-    case "add-clip-section": {
+    case "add-chapter": {
       const newFrontendId = createFrontendId();
-      const newClipSection: ClipSectionOptimisticallyAdded = {
-        type: "clip-section-optimistically-added",
+      const newChapter: ChapterOptimisticallyAdded = {
+        type: "chapter-optimistically-added",
         frontendId: newFrontendId,
         name: action.name,
         insertionOrder: state.insertionOrder + 1,
       };
 
       let newInsertionPoint: FrontendInsertionPoint = {
-        type: "after-clip-section",
-        frontendClipSectionId: newFrontendId,
+        type: "after-chapter",
+        frontendChapterId: newFrontendId,
       };
 
       let newItems: TimelineItem[];
       if (state.insertionPoint.type === "end") {
         // Append to end
-        newItems = [...state.items, newClipSection];
+        newItems = [...state.items, newChapter];
       } else if (state.insertionPoint.type === "start") {
         // Insert at start
-        newItems = [newClipSection, ...state.items];
+        newItems = [newChapter, ...state.items];
       } else if (state.insertionPoint.type === "after-clip") {
         const targetClipId = state.insertionPoint.frontendClipId;
         const insertionPointIndex = state.items.findIndex(
           (c) => c.frontendId === targetClipId
         );
         if (insertionPointIndex === -1) {
-          throw new Error(
-            "Target clip not found when inserting clip section after"
-          );
+          throw new Error("Target clip not found when inserting chapter after");
         }
         newItems = [
           ...state.items.slice(0, insertionPointIndex + 1),
-          newClipSection,
+          newChapter,
           ...state.items.slice(insertionPointIndex + 1),
         ];
       } else {
-        // after-clip-section
-        const targetClipSectionId = state.insertionPoint.frontendClipSectionId;
+        // after-chapter
+        const targetChapterId = state.insertionPoint.frontendChapterId;
         const insertionPointIndex = state.items.findIndex(
-          (c) => c.frontendId === targetClipSectionId
+          (c) => c.frontendId === targetChapterId
         );
         if (insertionPointIndex === -1) {
           throw new Error(
-            "Target clip section not found when inserting clip section after"
+            "Target chapter not found when inserting chapter after"
           );
         }
         newItems = [
           ...state.items.slice(0, insertionPointIndex + 1),
-          newClipSection,
+          newChapter,
           ...state.items.slice(insertionPointIndex + 1),
         ];
       }
 
       exec({
-        type: "create-clip-section",
+        type: "create-chapter",
         frontendId: newFrontendId,
         name: action.name,
         insertionPoint: state.insertionPoint,
@@ -531,23 +529,23 @@ export const clipStateReducer: EffectReducer<
         insertionPoint: newInsertionPoint,
       };
     }
-    case "update-clip-section": {
-      const clipSection = state.items.find(
-        (item) => item.frontendId === action.clipSectionId
+    case "update-chapter": {
+      const chapter = state.items.find(
+        (item) => item.frontendId === action.chapterId
       );
       if (
-        !clipSection ||
-        (clipSection.type !== "clip-section-on-database" &&
-          clipSection.type !== "clip-section-optimistically-added")
+        !chapter ||
+        (chapter.type !== "chapter-on-database" &&
+          chapter.type !== "chapter-optimistically-added")
       ) {
         return state;
       }
 
-      // Only fire effect for database clip sections
-      if (clipSection.type === "clip-section-on-database") {
+      // Only fire effect for database chapters
+      if (chapter.type === "chapter-on-database") {
         exec({
-          type: "update-clip-section",
-          clipSectionId: clipSection.databaseId,
+          type: "update-chapter",
+          chapterId: chapter.databaseId,
           name: action.name,
         });
       }
@@ -555,15 +553,15 @@ export const clipStateReducer: EffectReducer<
       return {
         ...state,
         items: state.items.map((item) => {
-          if (item.frontendId === action.clipSectionId) {
+          if (item.frontendId === action.chapterId) {
             return { ...item, name: action.name };
           }
           return item;
         }),
       };
     }
-    case "add-clip-section-at":
-      return handleAddClipSectionAt(state, action, exec);
+    case "add-chapter-at":
+      return handleAddChapterAt(state, action, exec);
     case "add-effect-clip-at":
       return handleAddEffectClipAt(state, action, exec);
     case "effect-clip-created": {
@@ -596,16 +594,16 @@ export const clipStateReducer: EffectReducer<
         }),
       };
     }
-    case "clip-section-created": {
+    case "chapter-created": {
       return {
         ...state,
         items: state.items.map((item) => {
           if (
             item.frontendId === action.frontendId &&
-            item.type === "clip-section-optimistically-added"
+            item.type === "chapter-optimistically-added"
           ) {
-            const onDatabase: ClipSectionOnDatabase = {
-              type: "clip-section-on-database",
+            const onDatabase: ChapterOnDatabase = {
+              type: "chapter-on-database",
               frontendId: item.frontendId,
               databaseId: action.databaseId,
               name: item.name,
@@ -617,8 +615,8 @@ export const clipStateReducer: EffectReducer<
         }),
       };
     }
-    case "clip-sections-replaced":
-      return handleClipSectionsReplaced(state, action);
+    case "chapters-replaced":
+      return handleChaptersReplaced(state, action);
     case "restore-clip": {
       const item = state.items.find((c) => c.frontendId === action.clipId);
 

@@ -10,7 +10,7 @@ export type ResolverClip = {
 
 export type ResolverTimelineItem = {
   frontendId: string;
-  kind: "clip" | "clip-section";
+  kind: "clip" | "chapter";
   diagramSnapshotId: string | null;
 };
 
@@ -40,7 +40,7 @@ export function resolveForVideo(
     const targetId =
       insertionPoint.type === "after-clip"
         ? insertionPoint.frontendClipId
-        : insertionPoint.frontendClipSectionId;
+        : insertionPoint.frontendChapterId;
     endIndex = items.findIndex((item) => item.frontendId === targetId);
     if (endIndex === -1) return { kind: "home" };
   }

@@ -80,11 +80,11 @@ export const handleAddEffectClipAt = (
   // Fire the appropriate effect based on whether the target has a database ID
   if (
     targetItem.type === "on-database" ||
-    targetItem.type === "clip-section-on-database"
+    targetItem.type === "chapter-on-database"
   ) {
     const targetDatabaseId = targetItem.databaseId;
-    const targetItemType: "clip" | "clip-section" =
-      targetItem.type === "on-database" ? "clip" : "clip-section";
+    const targetItemType: "clip" | "chapter" =
+      targetItem.type === "on-database" ? "clip" : "chapter";
     exec({
       type: "create-effect-clip-at",
       frontendId: newFrontendId,

@@ -20,7 +20,7 @@ const createInitialState = (
 });
 
 describe("clipStateReducer", () => {
-  describe("Inserting clips with clip sections", () => {
+  describe("Inserting clips with chapters", () => {
     it("Should correctly insert a clip just before a section (after a clip that precedes the section)", () => {
       // Setup: Clip 1 -> Section -> Clip 2
       const tester = new ReducerTester(clipStateReducer, createInitialState());
@@ -41,7 +41,7 @@ describe("clipStateReducer", () => {
       // Add section after first clip
       const stateWithSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
@@ -118,7 +118,7 @@ describe("clipStateReducer", () => {
       // Add section at start
       const stateWithSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
@@ -180,15 +180,15 @@ describe("clipStateReducer", () => {
       // Add section
       const stateWithSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
 
       // Insertion point should now be after the section
       expect(stateWithSection.insertionPoint).toEqual({
-        type: "after-clip-section",
-        frontendClipSectionId: stateWithSection.items[1]!.frontendId,
+        type: "after-chapter",
+        frontendChapterId: stateWithSection.items[1]!.frontendId,
       });
 
       // Insert a new clip after the section
@@ -217,30 +217,30 @@ describe("clipStateReducer", () => {
     });
   });
 
-  describe("Adding clip section after optimistic clip section", () => {
-    it("Should add a clip section after an optimistically added clip section", () => {
+  describe("Adding chapter after optimistic chapter", () => {
+    it("Should add a chapter after an optimistically added chapter", () => {
       const tester = new ReducerTester(clipStateReducer, createInitialState());
 
-      // Add first section via add-clip-section (creates an optimistically added section)
+      // Add first section via add-chapter (creates an optimistically added section)
       const stateWithFirstSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
 
       expect(stateWithFirstSection.items).toHaveLength(1);
       expect(stateWithFirstSection.items[0]).toMatchObject({
-        type: "clip-section-optimistically-added",
+        type: "chapter-optimistically-added",
         name: "Section 1",
       });
 
       const firstSectionId = stateWithFirstSection.items[0]!.frontendId;
 
-      // Now add another section after the optimistic section via add-clip-section-at
+      // Now add another section after the optimistic section via add-chapter-at
       const stateWithSecondSection = tester
         .send({
-          type: "add-clip-section-at",
+          type: "add-chapter-at",
           name: "Section 2",
           position: "after",
           itemId: firstSectionId,
@@ -255,13 +255,13 @@ describe("clipStateReducer", () => {
       ]);
     });
 
-    it("Should add a clip section before an optimistically added clip section", () => {
+    it("Should add a chapter before an optimistically added chapter", () => {
       const tester = new ReducerTester(clipStateReducer, createInitialState());
 
       // Add first section
       const stateWithFirstSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
@@ -271,7 +271,7 @@ describe("clipStateReducer", () => {
       // Add section before the optimistic section
       const stateWithSecondSection = tester
         .send({
-          type: "add-clip-section-at",
+          type: "add-chapter-at",
           name: "Section 0",
           position: "before",
           itemId: firstSectionId,
@@ -286,20 +286,20 @@ describe("clipStateReducer", () => {
     });
   });
 
-  describe("Clip section lifecycle (optimistic → on-database)", () => {
-    it("Should transition an optimistic clip section to on-database when clip-section-created is dispatched", () => {
+  describe("Chapter lifecycle (optimistic → on-database)", () => {
+    it("Should transition an optimistic chapter to on-database when chapter-created is dispatched", () => {
       const tester = new ReducerTester(clipStateReducer, createInitialState());
 
       // Add an optimistic section
       const stateWithSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
 
       expect(stateWithSection.items[0]).toMatchObject({
-        type: "clip-section-optimistically-added",
+        type: "chapter-optimistically-added",
         name: "Section 1",
       });
 
@@ -309,7 +309,7 @@ describe("clipStateReducer", () => {
       const stateAfterCreated = tester
         .send(
           fromPartial({
-            type: "clip-section-created",
+            type: "chapter-created",
             frontendId,
             databaseId: "db-s1",
           })
@@ -318,14 +318,14 @@ describe("clipStateReducer", () => {
 
       // Should now be on-database
       expect(stateAfterCreated.items[0]).toMatchObject({
-        type: "clip-section-on-database",
+        type: "chapter-on-database",
         frontendId,
         databaseId: "db-s1",
         name: "Section 1",
       });
     });
 
-    it("Should replace all clip sections when clip-sections-replaced is dispatched", () => {
+    it("Should replace all chapters when chapters-replaced is dispatched", () => {
       const tester = new ReducerTester(
         clipStateReducer,
         createInitialState({
@@ -338,7 +338,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-old-s" as FrontendId,
               databaseId: "db-old-s" as DatabaseId,
               name: "Old Section",
@@ -364,7 +364,7 @@ describe("clipStateReducer", () => {
 
       const state = tester
         .send({
-          type: "clip-sections-replaced",
+          type: "chapters-replaced",
           sections: [
             {
               databaseId: "db-new-s1" as DatabaseId,
@@ -382,7 +382,7 @@ describe("clipStateReducer", () => {
 
       expect(state.items).toHaveLength(5);
       expect(state.items[0]).toMatchObject({
-        type: "clip-section-on-database",
+        type: "chapter-on-database",
         databaseId: "db-new-s1",
         name: "New Section A",
       });
@@ -395,7 +395,7 @@ describe("clipStateReducer", () => {
         databaseId: "db-2",
       });
       expect(state.items[3]).toMatchObject({
-        type: "clip-section-on-database",
+        type: "chapter-on-database",
         databaseId: "db-new-s2",
         name: "New Section B",
       });
@@ -407,13 +407,12 @@ describe("clipStateReducer", () => {
       // No old section remains
       expect(
         state.items.find(
-          (i) =>
-            i.type === "clip-section-on-database" && i.databaseId === "db-old-s"
+          (i) => i.type === "chapter-on-database" && i.databaseId === "db-old-s"
         )
       ).toBeUndefined();
     });
 
-    it("Should remove all sections when clip-sections-replaced is dispatched with empty array", () => {
+    it("Should remove all sections when chapters-replaced is dispatched with empty array", () => {
       const tester = new ReducerTester(
         clipStateReducer,
         createInitialState({
@@ -426,7 +425,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s" as FrontendId,
               databaseId: "db-s" as DatabaseId,
               name: "Old Section",
@@ -444,7 +443,7 @@ describe("clipStateReducer", () => {
       );
 
       const state = tester
-        .send({ type: "clip-sections-replaced", sections: [] })
+        .send({ type: "chapters-replaced", sections: [] })
         .getState();
 
       expect(state.items).toHaveLength(2);
@@ -469,7 +468,7 @@ describe("clipStateReducer", () => {
 
       const state = tester
         .send({
-          type: "clip-sections-replaced",
+          type: "chapters-replaced",
           sections: [
             {
               databaseId: "db-new-s" as DatabaseId,
@@ -497,7 +496,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-old-s" as FrontendId,
               databaseId: "db-old-s" as DatabaseId,
               name: "Old",
@@ -505,14 +504,14 @@ describe("clipStateReducer", () => {
             }),
           ],
           insertionPoint: {
-            type: "after-clip-section",
-            frontendClipSectionId: "fe-old-s" as FrontendId,
+            type: "after-chapter",
+            frontendChapterId: "fe-old-s" as FrontendId,
           },
         })
       );
 
       const state = tester
-        .send({ type: "clip-sections-replaced", sections: [] })
+        .send({ type: "chapters-replaced", sections: [] })
         .getState();
 
       expect(state.insertionPoint).toEqual({ type: "end" });
@@ -531,7 +530,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-old-s" as FrontendId,
               databaseId: "db-old-s" as DatabaseId,
               name: "Old",
@@ -546,7 +545,7 @@ describe("clipStateReducer", () => {
       );
 
       const state = tester
-        .send({ type: "clip-sections-replaced", sections: [] })
+        .send({ type: "chapters-replaced", sections: [] })
         .getState();
 
       expect(state.insertionPoint).toEqual({
@@ -555,7 +554,7 @@ describe("clipStateReducer", () => {
       });
     });
 
-    it("Should fire reorder-clip-section effect when moving a section that was optimistic but has been persisted", () => {
+    it("Should fire reorder-chapter effect when moving a section that was optimistic but has been persisted", () => {
       const tester = new ReducerTester(
         clipStateReducer,
         createInitialState({
@@ -574,7 +573,7 @@ describe("clipStateReducer", () => {
       // Add an optimistic section after Clip 1
       const stateWithSection = tester
         .send({
-          type: "add-clip-section",
+          type: "add-chapter",
           name: "Section 1",
         })
         .getState();
@@ -584,7 +583,7 @@ describe("clipStateReducer", () => {
       // Simulate DB response - section now has a database ID
       tester.send(
         fromPartial({
-          type: "clip-section-created",
+          type: "chapter-created",
           frontendId: sectionFrontendId,
           databaseId: "db-s1",
         })
@@ -599,8 +598,8 @@ describe("clipStateReducer", () => {
 
       // The reorder effect should have fired with the database ID
       expect(tester.getExec()).toHaveBeenCalledWith({
-        type: "reorder-clip-section",
-        clipSectionId: "db-s1",
+        type: "reorder-chapter",
+        chapterId: "db-s1",
         direction: "up",
       });
     });

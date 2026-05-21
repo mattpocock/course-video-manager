@@ -25,7 +25,7 @@ beforeAll(async () => {
 type InsertionPoint =
   | { type: "start" }
   | { type: "after-clip"; databaseClipId: string }
-  | { type: "after-clip-section"; clipSectionId: string };
+  | { type: "after-chapter"; chapterId: string };
 
 describe("appendClips", () => {
   let videoId: string;
@@ -50,7 +50,7 @@ describe("appendClips", () => {
   const createSection = (name: string, insertionPoint: InsertionPoint) =>
     Effect.gen(function* () {
       const db = yield* DBFunctionsService;
-      return yield* db.createClipSectionAtInsertionPoint(
+      return yield* db.createChapterAtInsertionPoint(
         videoId,
         name,
         insertionPoint
@@ -68,7 +68,7 @@ describe("appendClips", () => {
           order: c.order,
         })),
         ...video.chapters.map((s: any) => ({
-          type: "clip-section" as const,
+          type: "chapter" as const,
           id: s.id,
           order: s.order,
         })),
@@ -86,7 +86,7 @@ describe("appendClips", () => {
     videoId = video.id;
   });
 
-  it.effect("inserts after a clip section", () =>
+  it.effect("inserts after a chapter", () =>
     Effect.gen(function* () {
       // Seed: [Clip A, Section, Clip B]
       const clipA = (yield* appendClips({ type: "start" }))[0]!;
@@ -95,19 +95,19 @@ describe("appendClips", () => {
         databaseClipId: clipA.id,
       });
       const clipB = (yield* appendClips({
-        type: "after-clip-section",
-        clipSectionId: section.id,
+        type: "after-chapter",
+        chapterId: section.id,
       }))[0]!;
 
       yield* appendClips({
-        type: "after-clip-section",
-        clipSectionId: section.id,
+        type: "after-chapter",
+        chapterId: section.id,
       });
 
       const items = yield* getAllItemsSorted();
       expect(items.map((i) => ({ type: i.type, id: i.id }))).toEqual([
         { type: "clip", id: clipA.id },
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
         { type: "clip", id: expect.any(String) }, // New clip
         { type: "clip", id: clipB.id },
       ]);
@@ -123,8 +123,8 @@ describe("appendClips", () => {
         databaseClipId: clipA.id,
       });
       const clipB = (yield* appendClips({
-        type: "after-clip-section",
-        clipSectionId: section.id,
+        type: "after-chapter",
+        chapterId: section.id,
       }))[0]!;
 
       yield* appendClips({
@@ -136,7 +136,7 @@ describe("appendClips", () => {
       expect(items.map((i) => ({ type: i.type, id: i.id }))).toEqual([
         { type: "clip", id: clipA.id },
         { type: "clip", id: expect.any(String) }, // New clip — before section
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
         { type: "clip", id: clipB.id },
       ]);
     }).pipe(Effect.provide(testLayer))
@@ -147,8 +147,8 @@ describe("appendClips", () => {
       // Seed: [Section, Clip A]
       const section = yield* createSection("Section 1", { type: "start" });
       const clipA = (yield* appendClips({
-        type: "after-clip-section",
-        clipSectionId: section.id,
+        type: "after-chapter",
+        chapterId: section.id,
       }))[0]!;
 
       yield* appendClips({ type: "start" });
@@ -156,13 +156,13 @@ describe("appendClips", () => {
       const items = yield* getAllItemsSorted();
       expect(items.map((i) => ({ type: i.type, id: i.id }))).toEqual([
         { type: "clip", id: expect.any(String) }, // New clip
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
         { type: "clip", id: clipA.id },
       ]);
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("inserts after a clip section at end of timeline", () =>
+  it.effect("inserts after a chapter at end of timeline", () =>
     Effect.gen(function* () {
       // Seed: [Clip A, Section]
       const clipA = (yield* appendClips({ type: "start" }))[0]!;
@@ -172,14 +172,14 @@ describe("appendClips", () => {
       });
 
       yield* appendClips({
-        type: "after-clip-section",
-        clipSectionId: section.id,
+        type: "after-chapter",
+        chapterId: section.id,
       });
 
       const items = yield* getAllItemsSorted();
       expect(items.map((i) => ({ type: i.type, id: i.id }))).toEqual([
         { type: "clip", id: clipA.id },
-        { type: "clip-section", id: section.id },
+        { type: "chapter", id: section.id },
         { type: "clip", id: expect.any(String) }, // New clip
       ]);
     }).pipe(Effect.provide(testLayer))
@@ -194,10 +194,7 @@ describe("appendClips", () => {
         databaseClipId: clipA.id,
       });
 
-      yield* appendClips(
-        { type: "after-clip-section", clipSectionId: section.id },
-        3
-      );
+      yield* appendClips({ type: "after-chapter", chapterId: section.id }, 3);
 
       const items = yield* getAllItemsSorted();
       expect(items.length).toBe(5); // clip-a + section + 3 new clips
@@ -219,12 +216,12 @@ describe("appendClips", () => {
 
         // Append clips one at a time after the section (like OBS pen does)
         const clip1 = (yield* appendClips({
-          type: "after-clip-section",
-          clipSectionId: section.id,
+          type: "after-chapter",
+          chapterId: section.id,
         }))[0]!;
 
         const items1 = yield* getAllItemsSorted();
-        expect(items1.map((i) => i.type)).toEqual(["clip-section", "clip"]);
+        expect(items1.map((i) => i.type)).toEqual(["chapter", "clip"]);
 
         // Now append after clip1 (insertion point moves to last clip)
         const clip2 = (yield* appendClips({
@@ -234,7 +231,7 @@ describe("appendClips", () => {
 
         const items2 = yield* getAllItemsSorted();
         expect(items2.map((i) => ({ type: i.type, id: i.id }))).toEqual([
-          { type: "clip-section", id: section.id },
+          { type: "chapter", id: section.id },
           { type: "clip", id: clip1.id },
           { type: "clip", id: clip2.id },
         ]);
@@ -247,7 +244,7 @@ describe("appendClips", () => {
 
         const items3 = yield* getAllItemsSorted();
         expect(items3.map((i) => ({ type: i.type, id: i.id }))).toEqual([
-          { type: "clip-section", id: section.id },
+          { type: "chapter", id: section.id },
           { type: "clip", id: clip1.id },
           { type: "clip", id: clip2.id },
           { type: "clip", id: clip3.id },
@@ -266,16 +263,16 @@ describe("appendClips", () => {
           databaseClipId: clipA.id,
         });
         const clipB = (yield* appendClips({
-          type: "after-clip-section",
-          clipSectionId: section1.id,
+          type: "after-chapter",
+          chapterId: section1.id,
         }))[0]!;
         const section2 = yield* createSection("Section 2", {
           type: "after-clip",
           databaseClipId: clipB.id,
         });
         const clipC = (yield* appendClips({
-          type: "after-clip-section",
-          clipSectionId: section2.id,
+          type: "after-chapter",
+          chapterId: section2.id,
         }))[0]!;
 
         // Now append after the very last clip
@@ -287,9 +284,9 @@ describe("appendClips", () => {
         const items = yield* getAllItemsSorted();
         expect(items.map((i) => ({ type: i.type, id: i.id }))).toEqual([
           { type: "clip", id: clipA.id },
-          { type: "clip-section", id: section1.id },
+          { type: "chapter", id: section1.id },
           { type: "clip", id: clipB.id },
-          { type: "clip-section", id: section2.id },
+          { type: "chapter", id: section2.id },
           { type: "clip", id: clipC.id },
           { type: "clip", id: clipD.id },
         ]);
@@ -322,7 +319,7 @@ describe("appendClips", () => {
           "clip",
           "clip",
           "clip", // new clip inserted between Clip B and Section
-          "clip-section",
+          "chapter",
         ]);
         expect(items[0]!.id).toBe(clipA.id);
         expect(items[1]!.id).toBe(clipB.id);
@@ -349,8 +346,8 @@ describe("appendClips", () => {
 
         // Continue appending after section
         const clip3 = (yield* appendClips({
-          type: "after-clip-section",
-          clipSectionId: section.id,
+          type: "after-chapter",
+          chapterId: section.id,
         }))[0]!;
         const clip4 = (yield* appendClips({
           type: "after-clip",
@@ -361,7 +358,7 @@ describe("appendClips", () => {
         expect(items.map((i) => ({ type: i.type, id: i.id }))).toEqual([
           { type: "clip", id: clip1.id },
           { type: "clip", id: clip2.id },
-          { type: "clip-section", id: section.id },
+          { type: "chapter", id: section.id },
           { type: "clip", id: clip3.id },
           { type: "clip", id: clip4.id },
         ]);
@@ -375,8 +372,8 @@ describe("appendClips", () => {
         // Build complex layout: [S1, C1, C2, S2, C3, S3, C4]
         const s1 = yield* createSection("Section 1", { type: "start" });
         const c1 = (yield* appendClips({
-          type: "after-clip-section",
-          clipSectionId: s1.id,
+          type: "after-chapter",
+          chapterId: s1.id,
         }))[0]!;
         const c2 = (yield* appendClips({
           type: "after-clip",
@@ -387,26 +384,26 @@ describe("appendClips", () => {
           databaseClipId: c2.id,
         });
         const c3 = (yield* appendClips({
-          type: "after-clip-section",
-          clipSectionId: s2.id,
+          type: "after-chapter",
+          chapterId: s2.id,
         }))[0]!;
         const s3 = yield* createSection("Section 3", {
           type: "after-clip",
           databaseClipId: c3.id,
         });
         const c4 = (yield* appendClips({
-          type: "after-clip-section",
-          clipSectionId: s3.id,
+          type: "after-chapter",
+          chapterId: s3.id,
         }))[0]!;
 
         const items = yield* getAllItemsSorted();
         expect(items.map((i) => ({ type: i.type, id: i.id }))).toEqual([
-          { type: "clip-section", id: s1.id },
+          { type: "chapter", id: s1.id },
           { type: "clip", id: c1.id },
           { type: "clip", id: c2.id },
-          { type: "clip-section", id: s2.id },
+          { type: "chapter", id: s2.id },
           { type: "clip", id: c3.id },
-          { type: "clip-section", id: s3.id },
+          { type: "chapter", id: s3.id },
           { type: "clip", id: c4.id },
         ]);
 
@@ -422,12 +419,12 @@ describe("appendClips", () => {
 
         const items2 = yield* getAllItemsSorted();
         expect(items2.map((i) => ({ type: i.type, id: i.id }))).toEqual([
-          { type: "clip-section", id: s1.id },
+          { type: "chapter", id: s1.id },
           { type: "clip", id: c1.id },
           { type: "clip", id: c2.id },
-          { type: "clip-section", id: s2.id },
+          { type: "chapter", id: s2.id },
           { type: "clip", id: c3.id },
-          { type: "clip-section", id: s3.id },
+          { type: "chapter", id: s3.id },
           { type: "clip", id: c4.id },
           { type: "clip", id: c5.id },
           { type: "clip", id: c6.id },

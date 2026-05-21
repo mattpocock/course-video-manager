@@ -68,7 +68,7 @@ type Group = {
   clips: Array<{ id: string; text: string }>;
 };
 
-const groupByClipSection = (candidate: ReferenceCandidate): Group[] => {
+const groupByChapter = (candidate: ReferenceCandidate): Group[] => {
   const items: Array<GroupItem & { order: string }> = [
     ...candidate.chapters.map((s) => ({
       kind: "section" as const,
@@ -106,11 +106,11 @@ type ModalState =
   | {
       mode: "add-at";
       targetItemId: string;
-      targetItemType: "clip" | "clip-section";
+      targetItemType: "clip" | "chapter";
       position: "before" | "after";
       defaultName: string;
     }
-  | { mode: "edit"; clipSectionId: string; currentName: string }
+  | { mode: "edit"; chapterId: string; currentName: string }
   | null;
 
 export const ReferencePanel = (props: {
@@ -120,13 +120,13 @@ export const ReferencePanel = (props: {
   onAddSectionAt: (input: {
     videoId: string;
     targetItemId: string;
-    targetItemType: "clip" | "clip-section";
+    targetItemType: "clip" | "chapter";
     position: "before" | "after";
     name: string;
   }) => void;
-  onEditSectionName: (clipSectionId: string, name: string) => void;
-  onDeleteSection: (clipSectionId: string) => void;
-  onGenerateClipSections: () => void;
+  onEditSectionName: (chapterId: string, name: string) => void;
+  onDeleteSection: (chapterId: string) => void;
+  onGenerateChapters: () => void;
   className?: string;
 }) => {
   const selected =
@@ -153,7 +153,7 @@ export const ReferencePanel = (props: {
 
   if (!selected) return null;
 
-  const groups = groupByClipSection(selected);
+  const groups = groupByChapter(selected);
   const sectionIds = selected.chapters.map((s) => s.id);
   const allCollapsed =
     sectionIds.length > 0 && sectionIds.every((id) => collapsed[id]);
@@ -182,7 +182,7 @@ export const ReferencePanel = (props: {
         name,
       });
     } else {
-      props.onEditSectionName(modal.clipSectionId, name);
+      props.onEditSectionName(modal.chapterId, name);
     }
     setModal(null);
   };
@@ -211,7 +211,7 @@ export const ReferencePanel = (props: {
                 variant="ghost"
                 size="sm"
                 className="size-6 p-0"
-                onClick={props.onGenerateClipSections}
+                onClick={props.onGenerateChapters}
                 disabled={!allTranscribed}
                 aria-label="Generate Sections with AI"
               >
@@ -282,7 +282,7 @@ export const ReferencePanel = (props: {
                     onSelect={() =>
                       setModal({
                         mode: "edit",
-                        clipSectionId: group.section!.id,
+                        chapterId: group.section!.id,
                         currentName: group.section!.name,
                       })
                     }
@@ -296,7 +296,7 @@ export const ReferencePanel = (props: {
                       setModal({
                         mode: "add-at",
                         targetItemId: group.section!.id,
-                        targetItemType: "clip-section",
+                        targetItemType: "chapter",
                         position: "before",
                         defaultName: defaultSectionName,
                       })
@@ -310,7 +310,7 @@ export const ReferencePanel = (props: {
                       setModal({
                         mode: "add-at",
                         targetItemId: group.section!.id,
-                        targetItemType: "clip-section",
+                        targetItemType: "chapter",
                         position: "after",
                         defaultName: defaultSectionName,
                       })

@@ -16,8 +16,8 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 /**
  * Creates a new standalone video by concatenating clips from multiple source videos.
  *
- * For each source video, all non-archived clips and clip sections are copied in order.
- * Boundary clip sections are inserted between each source video, named after the source.
+ * For each source video, all non-archived clips and chapters are copied in order.
+ * Boundary chapters are inserted between each source video, named after the source.
  * The resulting video is a normal standalone video (null lessonId).
  */
 export const concatenateVideos = Effect.fn("concatenateVideos")(
@@ -39,7 +39,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
       const sourceVideo =
         yield* dbFunctions.getVideoWithClipsById(sourceVideoId);
 
-      // Insert boundary clip section between sources (not before the first)
+      // Insert boundary chapter between sources (not before the first)
       if (i > 0) {
         const [boundaryOrder] = generateNKeysBetween(prevOrder, null, 1);
         prevOrder = boundaryOrder!;
@@ -54,7 +54,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
         );
       }
 
-      // Get all non-archived clips and clip sections, sorted together
+      // Get all non-archived clips and chapters, sorted together
       const sourceClips = sourceVideo.clips; // already sorted by order, non-archived
       const sourceChapters = sourceVideo.chapters; // already sorted by order, non-archived
 
@@ -65,7 +65,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
           order: c.order,
         })),
         ...sourceChapters.map((s: any) => ({
-          type: "clip-section" as const,
+          type: "chapter" as const,
           item: s,
           order: s.order,
         })),

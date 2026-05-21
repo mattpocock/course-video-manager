@@ -21,7 +21,7 @@ const createInitialState = (
 
 describe("clipStateReducer", () => {
   describe("Deleting clips", () => {
-    it("Should move the insertion point to the previous item when a clip section is deleted", () => {
+    it("Should move the insertion point to the previous item when a chapter is deleted", () => {
       const tester = new ReducerTester(
         clipStateReducer,
         createInitialState({
@@ -34,7 +34,7 @@ describe("clipStateReducer", () => {
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
@@ -72,13 +72,13 @@ describe("clipStateReducer", () => {
       });
     });
 
-    it("Should move the insertion point to end when deleting a clip section that is the first item", () => {
+    it("Should move the insertion point to end when deleting a chapter that is the first item", () => {
       const tester = new ReducerTester(
         clipStateReducer,
         createInitialState({
           items: [
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
@@ -115,20 +115,20 @@ describe("clipStateReducer", () => {
       });
     });
 
-    it("Should move the insertion point to the previous clip section when deleting a clip section after another section", () => {
+    it("Should move the insertion point to the previous chapter when deleting a chapter after another section", () => {
       const tester = new ReducerTester(
         clipStateReducer,
         createInitialState({
           items: [
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s1" as FrontendId,
               databaseId: "db-s1" as DatabaseId,
               name: "Section 1",
               insertionOrder: null,
             }),
             fromPartial({
-              type: "clip-section-on-database",
+              type: "chapter-on-database",
               frontendId: "fe-s2" as FrontendId,
               databaseId: "db-s2" as DatabaseId,
               name: "Section 2",
@@ -164,8 +164,8 @@ describe("clipStateReducer", () => {
 
       // Should select the previous item (Section 1)
       expect(state.insertionPoint).toEqual({
-        type: "after-clip-section",
-        frontendClipSectionId: "fe-s1",
+        type: "after-chapter",
+        frontendChapterId: "fe-s1",
       });
     });
   });

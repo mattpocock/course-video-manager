@@ -247,11 +247,11 @@ describe("buildChapters", () => {
   });
   const section = (order: string, name: string) => ({ order, name });
 
-  it("returns null when there are no clip sections", () => {
+  it("returns null when there are no chapters", () => {
     expect(buildChapters([clip("a0", 10)], [])).toBeNull();
   });
 
-  it("returns null when every clip section is zero-length", () => {
+  it("returns null when every chapter is zero-length", () => {
     // Two sections back-to-back with no clips between them and nothing after.
     expect(
       buildChapters([clip("a0", 5)], [section("a1", "A"), section("a2", "B")])
