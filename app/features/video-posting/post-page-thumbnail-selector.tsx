@@ -1,10 +1,12 @@
 "use client";
 
 import { Link } from "react-router";
+import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   CheckIcon,
+  ClipboardIcon,
   DownloadIcon,
   ImageIcon,
   PencilIcon,
@@ -79,6 +81,25 @@ export function ThumbnailSelector({
                     </button>
                   </ContextMenuTrigger>
                   <ContextMenuContent>
+                    <ContextMenuItem
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(
+                            `/api/thumbnails/${thumbnail.id}/image`
+                          );
+                          const blob = await res.blob();
+                          await navigator.clipboard.write([
+                            new ClipboardItem({ [blob.type]: blob }),
+                          ]);
+                          toast("Copied to clipboard");
+                        } catch {
+                          toast.error("Failed to copy to clipboard");
+                        }
+                      }}
+                    >
+                      <ClipboardIcon className="size-4" />
+                      Copy to clipboard
+                    </ContextMenuItem>
                     <ContextMenuItem
                       onClick={() => {
                         const a = document.createElement("a");
