@@ -6,7 +6,6 @@ import { LessonSectionOperationsService } from "@/services/db-lesson-section-ope
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { Effect } from "effect";
 
@@ -22,7 +21,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
       const linkAuthOps = yield* LinkAuthOperationsService;
       const thumbnailOps = yield* ThumbnailOperationsService;
       const pitchOps = yield* PitchOperationsService;
-      const diagramOps = yield* DiagramOperationsService;
       const deliverableOps = yield* DeliverableOperationsService;
 
       return {
@@ -143,21 +141,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
         createVideoFromPitch: pitchOps.createVideoFromPitch,
         deletePitch: pitchOps.deletePitch,
 
-        createDiagram: diagramOps.createDiagram,
-        listDiagrams: diagramOps.listDiagrams,
-        getDiagram: diagramOps.getDiagram,
-        updateDiagram: diagramOps.updateDiagram,
-        updateDiagramHead: diagramOps.updateDiagramHead,
-        createSnapshot: diagramOps.createSnapshot,
-        getDiagramSnapshot: diagramOps.getDiagramSnapshot,
-        listSnapshots: diagramOps.listSnapshots,
-        listSnapshotsWithClips: diagramOps.listSnapshotsWithClips,
-        listAllSnapshotsWithClips: diagramOps.listAllSnapshotsWithClips,
-        setSnapshotArchived: diagramOps.setSnapshotArchived,
-        restoreSnapshotToHead: diagramOps.restoreSnapshotToHead,
-        createSnapshotForClip: diagramOps.createSnapshotForClip,
-        updateClipDiagramPin: diagramOps.updateClipDiagramPin,
-
         listDeliverables: deliverableOps.listDeliverables,
         createDeliverable: deliverableOps.createDeliverable,
         updateDeliverableStatus: deliverableOps.updateDeliverableStatus,
@@ -175,7 +158,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
       LinkAuthOperationsService.Default,
       ThumbnailOperationsService.Default,
       PitchOperationsService.Default,
-      DiagramOperationsService.Default,
       DeliverableOperationsService.Default,
     ],
   }

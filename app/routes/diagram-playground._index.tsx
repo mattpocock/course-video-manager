@@ -5,7 +5,7 @@ import { sendToParent } from "@/lib/diagram-protocol";
 import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { EditableDiagramName } from "@/features/diagrams/editable-diagram-name";
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { filteredNewestSnapshot } from "@/lib/filtered-newest-snapshot";
 import { data } from "react-router";
@@ -17,9 +17,9 @@ export const meta: Route.MetaFunction = () => {
 
 export const loader = async () => {
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const diagramOps = yield* DiagramOperationsService;
     const [diagrams, allSnapshots] = yield* Effect.all(
-      [db.listDiagrams(), db.listAllSnapshotsWithClips()],
+      [diagramOps.listDiagrams(), diagramOps.listAllSnapshotsWithClips()],
       { concurrency: "unbounded" }
     );
 

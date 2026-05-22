@@ -1,14 +1,14 @@
 import { Console, Effect } from "effect";
 import { data } from "react-router";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { filteredNewestSnapshot } from "@/lib/filtered-newest-snapshot";
 
 export const loadDiagramPlaygroundActive = async () => {
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const diagramOps = yield* DiagramOperationsService;
     const [diagrams, allSnapshots] = yield* Effect.all(
-      [db.listDiagrams(), db.listAllSnapshotsWithClips()],
+      [diagramOps.listDiagrams(), diagramOps.listAllSnapshotsWithClips()],
       { concurrency: "unbounded" }
     );
 

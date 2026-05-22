@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.diagrams.$diagramId.snapshots";
 import { data } from "react-router";
@@ -40,15 +40,15 @@ export const action = async (args: Route.ActionArgs) => {
       }
     }
 
-    const db = yield* DBFunctionsService;
+    const diagramOps = yield* DiagramOperationsService;
 
     let snapshot;
     if (clipId) {
-      snapshot = yield* db.createSnapshotForClip(diagramId, clipId, {
+      snapshot = yield* diagramOps.createSnapshotForClip(diagramId, clipId, {
         thumbnailPng,
       });
     } else {
-      snapshot = yield* db.createSnapshot(diagramId, {
+      snapshot = yield* diagramOps.createSnapshot(diagramId, {
         preserved,
         thumbnailPng,
       });

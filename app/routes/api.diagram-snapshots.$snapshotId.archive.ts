@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.diagram-snapshots.$snapshotId.archive";
 import { data } from "react-router";
@@ -13,8 +13,11 @@ export const action = async (args: Route.ActionArgs) => {
       : true;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const snapshot = yield* db.setSnapshotArchived(snapshotId, archived);
+    const diagramOps = yield* DiagramOperationsService;
+    const snapshot = yield* diagramOps.setSnapshotArchived(
+      snapshotId,
+      archived
+    );
     return data({ snapshot });
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),

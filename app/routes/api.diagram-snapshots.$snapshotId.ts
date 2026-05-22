@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.diagram-snapshots.$snapshotId";
 import { data } from "react-router";
@@ -8,8 +8,8 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { snapshotId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const snapshot = yield* db.getDiagramSnapshot(snapshotId);
+    const diagramOps = yield* DiagramOperationsService;
+    const snapshot = yield* diagramOps.getDiagramSnapshot(snapshotId);
     return data({
       scene: snapshot.scene,
       diagramId: snapshot.diagramId,

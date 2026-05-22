@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.diagrams.$diagramId.snapshots.list";
 import { data } from "react-router";
@@ -10,10 +10,10 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { diagramId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const diagramOps = yield* DiagramOperationsService;
     const [snapshots, diagram] = yield* Effect.all([
-      db.listSnapshotsWithClips(diagramId),
-      db.getDiagram(diagramId),
+      diagramOps.listSnapshotsWithClips(diagramId),
+      diagramOps.getDiagram(diagramId),
     ]);
     const visibleSnapshots = snapshots.filter((s) =>
       isVisibleInTimeline(s, s.clips)

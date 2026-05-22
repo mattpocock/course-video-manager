@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.diagrams.$diagramId.head";
 import { data } from "react-router";
@@ -8,8 +8,8 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { diagramId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const diagram = yield* db.getDiagram(diagramId);
+    const diagramOps = yield* DiagramOperationsService;
+    const diagram = yield* diagramOps.getDiagram(diagramId);
     return data({ headScene: diagram.headScene });
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
@@ -38,8 +38,8 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const db = yield* DBFunctionsService;
-    const diagram = yield* db.updateDiagramHead(diagramId, body);
+    const diagramOps = yield* DiagramOperationsService;
+    const diagram = yield* diagramOps.updateDiagramHead(diagramId, body);
     return data({ ok: true, updatedAt: diagram.updatedAt.toISOString() });
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),

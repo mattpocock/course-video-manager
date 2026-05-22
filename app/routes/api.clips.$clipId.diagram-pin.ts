@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.clips.$clipId.diagram-pin";
 import { data } from "react-router";
@@ -33,8 +33,11 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const db = yield* DBFunctionsService;
-    const clip = yield* db.updateClipDiagramPin(clipId, diagramSnapshotId);
+    const diagramOps = yield* DiagramOperationsService;
+    const clip = yield* diagramOps.updateClipDiagramPin(
+      clipId,
+      diagramSnapshotId
+    );
     return data({ clip });
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),

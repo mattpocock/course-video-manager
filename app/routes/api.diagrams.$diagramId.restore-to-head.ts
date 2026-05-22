@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.diagrams.$diagramId.restore-to-head";
 import { data } from "react-router";
@@ -22,8 +22,11 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const db = yield* DBFunctionsService;
-    const diagram = yield* db.restoreSnapshotToHead(diagramId, snapshotId);
+    const diagramOps = yield* DiagramOperationsService;
+    const diagram = yield* diagramOps.restoreSnapshotToHead(
+      diagramId,
+      snapshotId
+    );
 
     return data({ diagram });
   }).pipe(

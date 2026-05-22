@@ -1,5 +1,5 @@
 import { Console, Effect, Schema } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.diagrams.$diagramId.update";
 import { withDatabaseDump } from "@/services/dump-service";
@@ -28,8 +28,8 @@ export const action = async (args: Route.ActionArgs) => {
     if (parsed.archived !== undefined)
       fields.archived = parsed.archived === "true";
 
-    const db = yield* DBFunctionsService;
-    const diagram = yield* db.updateDiagram(diagramId, fields);
+    const diagramOps = yield* DiagramOperationsService;
+    const diagram = yield* diagramOps.updateDiagram(diagramId, fields);
     return data({ diagram });
   }).pipe(
     withDatabaseDump,
