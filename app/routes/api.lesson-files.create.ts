@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { Route } from "./+types/api.lesson-files.create";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -29,11 +29,11 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
     // Validate video exists and is a lesson-connected video
-    const video = yield* db.getVideoWithClipsById(videoId);
+    const video = yield* videoOps.getVideoWithClipsById(videoId);
     if (video.lessonId === null) {
       return yield* Effect.die(
         data("Cannot add files to standalone videos via this endpoint", {

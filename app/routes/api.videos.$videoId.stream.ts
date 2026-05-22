@@ -1,5 +1,5 @@
 import { CoursePublishService } from "@/services/course-publish-service";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { FileSystem } from "@effect/platform";
 import { Console, Effect } from "effect";
@@ -76,12 +76,12 @@ export const action = async (args: Route.ActionArgs) => {
   const { videoId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const publishService = yield* CoursePublishService;
 
     // Verify video exists in DB
-    yield* db.getVideoById(videoId);
+    yield* videoOps.getVideoDeepById(videoId);
 
     const videoPath = yield* publishService.resolveExportPath(videoId);
 

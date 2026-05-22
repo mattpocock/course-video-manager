@@ -3,7 +3,7 @@
 export const handle = { fullscreen: true };
 
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { buildTranscript } from "@/lib/transcript-builder";
@@ -29,12 +29,12 @@ export const loader = async (args: Route.LoaderArgs) => {
 
   // Phase 1: Fast operations (DB queries + transcript building)
   const immediateData = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const courseOps = yield* CourseOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const publishService = yield* CoursePublishService;
-    const video = yield* db.getVideoWithClipsById(videoId);
+    const video = yield* videoOps.getVideoWithClipsById(videoId);
     const [globalLinks, videoExists] = yield* Effect.all(
       [linkAuthOps.getLinks(), publishService.isExported(video)],
       { concurrency: "unbounded" }
@@ -51,7 +51,7 @@ export const loader = async (args: Route.LoaderArgs) => {
 
     if (!lesson) {
       const [nextVideoId, previousVideoId] = yield* Effect.all(
-        [db.getNextVideoId(video), db.getPreviousVideoId(video)],
+        [videoOps.getNextVideoId(video), videoOps.getPreviousVideoId(video)],
         { concurrency: "unbounded" }
       );
       return {
@@ -105,10 +105,13 @@ export const loader = async (args: Route.LoaderArgs) => {
       repoWithSections,
     ] = yield* Effect.all(
       [
-        Effect.all([db.getNextVideoId(video), db.getPreviousVideoId(video)], {
-          concurrency: "unbounded",
-        }),
-        db.getNextLessonWithoutVideo(video),
+        Effect.all(
+          [videoOps.getNextVideoId(video), videoOps.getPreviousVideoId(video)],
+          {
+            concurrency: "unbounded",
+          }
+        ),
+        videoOps.getNextLessonWithoutVideo(video),
         courseOps.getCourseStructureById(section.repoVersion.repoId),
       ],
       { concurrency: "unbounded" }

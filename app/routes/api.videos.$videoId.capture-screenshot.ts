@@ -1,6 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.videos.$videoId.capture-screenshot";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import { runtimeLive } from "@/services/layer.server";
 import { data } from "react-router";
@@ -21,11 +21,11 @@ export const action = async (args: Route.ActionArgs) => {
     const { timestamp, videoFilename } =
       yield* Schema.decodeUnknown(RequestSchema)(json);
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const ffmpeg = yield* FFmpegCommandsService;
     const fs = yield* FileSystem.FileSystem;
 
-    const video = yield* db.getVideoById(videoId);
+    const video = yield* videoOps.getVideoDeepById(videoId);
 
     // Determine base directory for saving screenshots
     let baseDir: string;

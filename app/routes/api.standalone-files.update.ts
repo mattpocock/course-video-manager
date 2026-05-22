@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { Route } from "./+types/api.standalone-files.update";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
@@ -31,11 +31,11 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
     // Validate video exists and is a standalone video
-    const video = yield* db.getVideoById(videoId);
+    const video = yield* videoOps.getVideoDeepById(videoId);
     if (video.lessonId !== null) {
       return yield* Effect.die(
         data("Cannot modify files for lesson-connected videos", { status: 400 })

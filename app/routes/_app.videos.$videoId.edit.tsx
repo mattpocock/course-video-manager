@@ -17,7 +17,7 @@ import { useOBSConnector } from "@/features/video-editor/obs-connector";
 import { usePauseLength } from "@/features/video-editor/use-pause-length";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { FileSystem } from "@effect/platform";
 import { Console, Effect } from "effect";
@@ -155,11 +155,11 @@ const loadVideoEditorFsData = (opts: {
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const video = yield* db.getVideoWithClipsById(videoId);
+    const videoOps = yield* VideoOperationsService;
+    const video = yield* videoOps.getVideoWithClipsById(videoId);
 
     const referenceCandidates = video.lesson
-      ? yield* db.getReferenceVideoCandidates({
+      ? yield* videoOps.getReferenceVideoCandidates({
           lessonId: video.lesson.id,
           excludeVideoId: video.id,
         })

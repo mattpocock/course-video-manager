@@ -1,6 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.videos.$videoId.archive";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -23,9 +23,9 @@ export const action = async (args: Route.ActionArgs) => {
     const { archived } =
       yield* Schema.decodeUnknown(archiveVideoSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
 
-    yield* db.updateVideoArchiveStatus({ videoId, archived });
+    yield* videoOps.updateVideoArchiveStatus({ videoId, archived });
 
     return { success: true };
   })

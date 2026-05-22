@@ -7,7 +7,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { FileSystem } from "@effect/platform";
 import { Console, Effect } from "effect";
@@ -30,13 +30,13 @@ import type { Route } from "./+types/_app.videos.$videoId";
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const fs = yield* FileSystem.FileSystem;
-    const video = yield* db.getVideoWithLessonById(videoId);
+    const video = yield* videoOps.getVideoWithLessonById(videoId);
 
     const [nextVideoId, previousVideoId] = yield* Effect.all([
-      db.getNextVideoId(video),
-      db.getPreviousVideoId(video),
+      videoOps.getNextVideoId(video),
+      videoOps.getPreviousVideoId(video),
     ]);
 
     const lesson = video.lesson;

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import {
@@ -59,10 +59,10 @@ const computeDuration = (
 
 export const loader = async () => {
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const courseOps = yield* CourseOperationsService;
     const [videos, courseList] = yield* Effect.all(
-      [db.getAllStandaloneVideos(), courseOps.getCourses()],
+      [videoOps.getAllStandaloneVideos(), courseOps.getCourses()],
       { concurrency: "unbounded" }
     );
 

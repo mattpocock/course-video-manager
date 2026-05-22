@@ -1,7 +1,7 @@
 import { Console, Effect, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { Route } from "./+types/api.standalone-files.read";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
 import { data } from "react-router";
@@ -61,11 +61,11 @@ export const loader = async (args: Route.LoaderArgs) => {
       filename,
     });
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
     // Validate video exists and is a standalone video
-    const video = yield* db.getVideoById(parsed.videoId);
+    const video = yield* videoOps.getVideoDeepById(parsed.videoId);
     if (video.lessonId !== null) {
       return yield* Effect.die(
         data("Cannot read files from lesson-connected videos", { status: 400 })

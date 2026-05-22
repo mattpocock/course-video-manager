@@ -12,7 +12,7 @@ import { UploadContext } from "@/features/upload-manager/upload-context";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { CoursePublishService } from "@/services/course-publish-service";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
 import {
@@ -38,11 +38,14 @@ export const meta: Route.MetaFunction = () => {
 
 export const loader = async () => {
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const publishService = yield* CoursePublishService;
 
     const [videos, archivedVideos] = yield* Effect.all(
-      [db.getAllStandaloneVideos(), db.getArchivedStandaloneVideos()],
+      [
+        videoOps.getAllStandaloneVideos(),
+        videoOps.getArchivedStandaloneVideos(),
+      ],
       { concurrency: "unbounded" }
     );
 

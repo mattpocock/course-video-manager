@@ -1,6 +1,6 @@
 import { Console, Effect } from "effect";
 import type { Route } from "./+types/videos.$videoId.export-to-davinci-resolve";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
@@ -8,11 +8,11 @@ import { data } from "react-router";
 
 export const action = async (args: Route.ActionArgs) => {
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const videoProcessing = yield* VideoProcessingService;
     const { videoId } = args.params;
 
-    const video = yield* db.getVideoWithClipsById(videoId, {
+    const video = yield* videoOps.getVideoWithClipsById(videoId, {
       withArchived: false,
     });
 

@@ -1,5 +1,5 @@
 import { Console, Effect, Schema } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.videos.delete";
 import { withDatabaseDump } from "@/services/dump-service";
@@ -16,9 +16,9 @@ export const action = async (args: Route.ActionArgs) => {
     const { videoId } =
       yield* Schema.decodeUnknown(deleteVideoSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
 
-    yield* db.deleteVideo(videoId);
+    yield* videoOps.deleteVideo(videoId);
 
     return { success: true };
   }).pipe(

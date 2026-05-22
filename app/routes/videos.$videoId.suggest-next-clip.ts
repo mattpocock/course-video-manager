@@ -5,7 +5,7 @@ import {
   generateSuggestNextClipPrompt,
   type FewShotExample,
 } from "@/prompts/generate-suggest-next-clip";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { ToolLoopAgent as Agent } from "ai";
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/videos.$videoId.suggest-next-clip";
@@ -59,7 +59,7 @@ export const action = async (args: Route.ActionArgs) => {
   const videoId = args.params.videoId;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const parsed = yield* Schema.decodeUnknown(requestSchema)(body);
     const enabledFiles: string[] = [...parsed.enabledFiles];
     const truncateAfterClipId = parsed.truncateAfterClipId;
@@ -72,7 +72,7 @@ export const action = async (args: Route.ActionArgs) => {
     });
 
     // Get the video with clips for building the transcript
-    const video = yield* db.getVideoWithClipsById(videoId);
+    const video = yield* videoOps.getVideoWithClipsById(videoId);
 
     // Build transcript, truncated if specified
     const transcript = buildSuggestionTranscript(
@@ -81,7 +81,7 @@ export const action = async (args: Route.ActionArgs) => {
     );
 
     // Get videos for few-shot examples (excluding current video)
-    const exampleVideos = yield* db.getVideosForFewShotExamples(videoId);
+    const exampleVideos = yield* videoOps.getVideosForFewShotExamples(videoId);
 
     // Build few-shot examples from the example videos
     // For each video, take the clip transcripts to show the progression

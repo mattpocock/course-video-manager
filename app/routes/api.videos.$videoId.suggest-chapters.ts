@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import {
   generateChaptersSystemPrompt,
@@ -31,8 +31,8 @@ export const loader = async (args: Route.LoaderArgs) => {
   const videoId = args.params.videoId;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const video = yield* db.getVideoWithClipsById(videoId);
+    const videoOps = yield* VideoOperationsService;
+    const video = yield* videoOps.getVideoWithClipsById(videoId);
 
     const clips = video.clips.map((c) => ({
       id: c.id,

@@ -1,6 +1,6 @@
 import { Console, Effect } from "effect";
 import type { Route } from "./+types/api.videos.$videoId.open-folder";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { OpenFolderService } from "@/services/open-folder-service";
 import { runtimeLive } from "@/services/layer.server";
 import { data } from "react-router";
@@ -11,10 +11,10 @@ export const action = async (args: Route.ActionArgs) => {
   const videoId = args.params.videoId;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const openFolder = yield* OpenFolderService;
 
-    const video = yield* db.getVideoById(videoId);
+    const video = yield* videoOps.getVideoDeepById(videoId);
 
     if (!video.lesson) {
       // Standalone video — open asset directory in Windows Explorer

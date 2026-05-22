@@ -1,7 +1,7 @@
 import { Console, Effect, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { Route } from "./+types/api.lesson-files.delete";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { data } from "react-router";
 import path from "path";
@@ -19,10 +19,10 @@ export const action = async (args: Route.ActionArgs) => {
     const parsed =
       yield* Schema.decodeUnknown(deleteFileSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
-    const video = yield* db.getVideoById(parsed.videoId);
+    const video = yield* videoOps.getVideoDeepById(parsed.videoId);
     if (video.lessonId === null) {
       return yield* Effect.die(
         data("Cannot delete lesson files from standalone videos", {

@@ -3,7 +3,7 @@
 export const handle = { fullscreen: true };
 
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { FeatureFlagService } from "@/services/feature-flag-service";
 import { sortByOrder } from "@/lib/sort-by-order";
@@ -38,13 +38,13 @@ import { FileSystem } from "@effect/platform";
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const courseOps = yield* CourseOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const featureFlags = yield* FeatureFlagService;
     const [video, globalLinks] = yield* Effect.all(
-      [db.getVideoWithClipsById(videoId), linkAuthOps.getLinks()],
+      [videoOps.getVideoWithClipsById(videoId), linkAuthOps.getLinks()],
       { concurrency: "unbounded" }
     );
     const showSocialShareButtons = featureFlags.isEnabled(

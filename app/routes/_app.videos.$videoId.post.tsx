@@ -1,7 +1,7 @@
 "use client";
 
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
@@ -41,7 +41,7 @@ import { PostPage } from "@/features/video-posting/post-page";
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const courseOps = yield* CourseOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const thumbnailOps = yield* ThumbnailOperationsService;
@@ -51,7 +51,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const [video, youtubeAuth, globalLinks, videoThumbnails] =
       yield* Effect.all(
         [
-          db.getVideoWithClipsById(videoId),
+          videoOps.getVideoWithClipsById(videoId),
           linkAuthOps.getYoutubeAuth(),
           linkAuthOps.getLinks(),
           thumbnailOps.getThumbnailsByVideoId(videoId),

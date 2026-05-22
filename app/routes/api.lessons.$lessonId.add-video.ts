@@ -1,5 +1,5 @@
 import { Console, Effect, Schema } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.lessons.$lessonId.add-video";
@@ -18,11 +18,11 @@ export const action = async (args: Route.ActionArgs) => {
   return Effect.gen(function* () {
     const result = yield* Schema.decodeUnknown(addVideoSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
     yield* lessonSectionOps.getLessonById(lessonId);
 
-    const video = yield* db.createVideo(lessonId, {
+    const video = yield* videoOps.createVideo(lessonId, {
       path: result.path,
       originalFootagePath: "",
     });

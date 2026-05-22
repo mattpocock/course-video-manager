@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
@@ -36,10 +36,10 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const courseOps = yield* CourseOperationsService;
 
-    const video = yield* db.getVideoWithLessonById(videoId);
+    const video = yield* videoOps.getVideoWithLessonById(videoId);
     const courses = yield* courseOps.getCourses();
 
     const coursesWithSections = yield* Effect.all(
@@ -113,7 +113,7 @@ export const action = async (args: Route.ActionArgs) => {
   const formDataObject = Object.fromEntries(formData);
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const repoWrite = yield* CourseRepoWriteService;
@@ -208,7 +208,7 @@ export const action = async (args: Route.ActionArgs) => {
     }
 
     // Update video's lessonId in the database
-    yield* db.updateVideoLesson({ videoId, lessonId: targetLessonId });
+    yield* videoOps.updateVideoLesson({ videoId, lessonId: targetLessonId });
 
     return redirect(
       buildMoveToCourseRedirectUrl({

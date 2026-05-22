@@ -3,7 +3,7 @@
 export const handle = { fullscreen: true };
 
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { sortByOrder } from "@/lib/sort-by-order";
 import { runtimeLive } from "@/services/layer.server";
@@ -37,13 +37,13 @@ import { AiHeroPage } from "@/features/video-posting/ai-hero-page";
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const courseOps = yield* CourseOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const [video, aiHeroAuth, globalLinks] = yield* Effect.all(
       [
-        db.getVideoWithClipsById(videoId),
+        videoOps.getVideoWithClipsById(videoId),
         linkAuthOps.getAiHeroAuth(),
         linkAuthOps.getLinks(),
       ],
