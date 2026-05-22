@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import { clips, diagrams, diagramSnapshots } from "@/db/schema";
 import {
   NotFoundError,
@@ -446,3 +449,13 @@ export const createDiagramOperations = (db: DrizzleDB) => {
     updateClipDiagramPin,
   };
 };
+
+export class DiagramOperationsService extends Effect.Service<DiagramOperationsService>()(
+  "DiagramOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createDiagramOperations(db);
+    }),
+  }
+) {}

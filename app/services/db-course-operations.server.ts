@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import {
   clips,
   chapters,
@@ -751,3 +754,13 @@ export const createCourseOperations = (db: DrizzleDB) => {
     duplicateCourse,
   };
 };
+
+export class CourseOperationsService extends Effect.Service<CourseOperationsService>()(
+  "CourseOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createCourseOperations(db);
+    }),
+  }
+) {}

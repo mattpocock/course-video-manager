@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import {
   deliverables,
   deliverablesCourses,
@@ -250,3 +253,13 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
     archiveDeliverable,
   };
 };
+
+export class DeliverableOperationsService extends Effect.Service<DeliverableOperationsService>()(
+  "DeliverableOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createDeliverableOperations(db);
+    }),
+  }
+) {}

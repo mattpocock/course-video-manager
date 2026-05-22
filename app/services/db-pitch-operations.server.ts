@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import { clips, pitches, videos } from "@/db/schema";
 import {
   NotFoundError,
@@ -215,3 +218,13 @@ export const createPitchOperations = (db: DrizzleDB) => {
     deletePitch,
   };
 };
+
+export class PitchOperationsService extends Effect.Service<PitchOperationsService>()(
+  "PitchOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createPitchOperations(db);
+    }),
+  }
+) {}

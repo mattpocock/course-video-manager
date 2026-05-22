@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import { links, youtubeAuth, aiHeroAuth } from "@/db/schema";
 import {
   NotFoundError,
@@ -176,3 +179,13 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
     deleteAiHeroAuth,
   };
 };
+
+export class LinkAuthOperationsService extends Effect.Service<LinkAuthOperationsService>()(
+  "LinkAuthOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createLinkAuthOperations(db);
+    }),
+  }
+) {}

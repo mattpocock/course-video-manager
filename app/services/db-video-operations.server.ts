@@ -1,4 +1,8 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { clips, chapters, videos } from "@/db/schema";
 import {
   CannotArchiveLessonVideoError,
@@ -672,3 +676,17 @@ export const createVideoOperations = (
     getVideosForFewShotExamples,
   };
 };
+
+export class VideoOperationsService extends Effect.Service<VideoOperationsService>()(
+  "VideoOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      const courseOps = yield* CourseOperationsService;
+      return createVideoOperations(db, {
+        getCourseNavigationData: courseOps.getCourseNavigationData,
+      });
+    }),
+    dependencies: [CourseOperationsService.Default],
+  }
+) {}

@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import {
   clips,
   chapters,
@@ -581,3 +584,13 @@ export const createVersionOperations = (db: DrizzleDB) => {
     getAllVersionsWithStructure,
   };
 };
+
+export class VersionOperationsService extends Effect.Service<VersionOperationsService>()(
+  "VersionOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createVersionOperations(db);
+    }),
+  }
+) {}

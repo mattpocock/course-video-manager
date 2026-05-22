@@ -16,16 +16,36 @@ import { CourseWriteService } from "./course-write-service";
 import { CourseRepoSyncValidationService } from "./course-repo-sync-validation";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { CoursePublishService } from "./course-publish-service";
+import { ClipOperationsService } from "./db-clip-operations.server";
+import { CourseOperationsService } from "./db-course-operations.server";
+import { VideoOperationsService } from "./db-video-operations.server";
+import { VersionOperationsService } from "./db-version-operations.server";
+import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
+import { DiagramOperationsService } from "./db-diagram-operations.server";
+import { PitchOperationsService } from "./db-pitch-operations.server";
+import { DeliverableOperationsService } from "./db-deliverable-operations.server";
+import { ThumbnailOperationsService } from "./db-thumbnail-operations.server";
+import { LinkAuthOperationsService } from "./db-link-auth-operations.server";
 
 const CloudinaryMarkdownLayer = CloudinaryMarkdownService.Default.pipe(
   Layer.provide(CloudinaryService.Default)
 );
 
 const coreLayer = Layer.mergeAll(
+  ClipOperationsService.Default,
+  CourseOperationsService.Default,
+  VideoOperationsService.Default,
+  VersionOperationsService.Default,
+  LessonSectionOperationsService.Default,
+  DiagramOperationsService.Default,
+  PitchOperationsService.Default,
+  DeliverableOperationsService.Default,
+  ThumbnailOperationsService.Default,
+  LinkAuthOperationsService.Default,
+  DBFunctionsService.Default,
   CourseRepoParserService.Default,
   DatabaseDumpService.Default,
   VideoProcessingService.Default,
-  DBFunctionsService.Default,
   BackgroundRemovalService.Default,
   VideoEditorLoggerService.Default,
   FeatureFlagService.Default,

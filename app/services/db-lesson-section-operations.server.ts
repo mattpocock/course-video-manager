@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import { lessons, sections, videos } from "@/db/schema";
 import {
   NotFoundError,
@@ -383,3 +386,13 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
     batchUpdateSectionOrders,
   };
 };
+
+export class LessonSectionOperationsService extends Effect.Service<LessonSectionOperationsService>()(
+  "LessonSectionOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createLessonSectionOperations(db);
+    }),
+  }
+) {}

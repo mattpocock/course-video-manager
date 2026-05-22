@@ -1,4 +1,7 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import { thumbnails } from "@/db/schema";
 import {
   NotFoundError,
@@ -119,3 +122,13 @@ export const createThumbnailOperations = (db: DrizzleDB) => {
     deleteThumbnail,
   };
 };
+
+export class ThumbnailOperationsService extends Effect.Service<ThumbnailOperationsService>()(
+  "ThumbnailOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createThumbnailOperations(db);
+    }),
+  }
+) {}
