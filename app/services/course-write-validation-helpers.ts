@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { DBFunctionsService } from "./db-service.server";
+import type { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import {
   type CourseRepoSyncValidationService,
   CourseRepoSyncError,
@@ -15,7 +15,7 @@ import {
  * scoped to the touched repo for the same reason.
  */
 export function createValidationHelpers(
-  db: DBFunctionsService,
+  lessonSectionOps: LessonSectionOperationsService,
   syncService: CourseRepoSyncValidationService
 ) {
   const runValidation = (repoPath: string | null) =>
@@ -43,12 +43,12 @@ export function createValidationHelpers(
     });
 
   const repoPathForSection = (sectionId: string) =>
-    db
+    lessonSectionOps
       .getSectionWithHierarchyById(sectionId)
       .pipe(Effect.map((s) => s.repoVersion.repo.filePath));
 
   const repoPathForLesson = (lessonId: string) =>
-    db
+    lessonSectionOps
       .getLessonWithHierarchyById(lessonId)
       .pipe(Effect.map((l) => l.section.repoVersion.repo.filePath));
 

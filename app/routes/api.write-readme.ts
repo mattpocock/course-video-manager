@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { CloudinaryMarkdownService } from "@/services/cloudinary-markdown-service";
 import { FileSystem } from "@effect/platform";
@@ -20,14 +20,14 @@ export const action = async (args: Route.ActionArgs) => {
   const body = await args.request.json();
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const lessonSectionOps = yield* LessonSectionOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const cloudinaryMarkdown = yield* CloudinaryMarkdownService;
 
     const parsed = yield* Schema.decodeUnknown(writeReadmeSchema)(body);
     const { lessonId, mode, targetFolder } = parsed;
 
-    const lesson = yield* db.getLessonWithHierarchyById(lessonId);
+    const lesson = yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
     const lessonFullPath = path.join(
       lesson.section.repoVersion.repo.filePath!,
       lesson.section.path,

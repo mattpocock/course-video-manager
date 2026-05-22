@@ -10,6 +10,7 @@ import {
   type TestDb,
 } from "@/test-utils/pglite";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
@@ -34,7 +35,10 @@ const setup = async () => {
   );
 
   const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  const dbLayer = DBFunctionsService.Default.pipe(Layer.provide(drizzleLayer));
+  const dbLayer = Layer.mergeAll(
+    DBFunctionsService.Default,
+    LessonSectionOperationsService.Default
+  ).pipe(Layer.provide(drizzleLayer));
 
   // Mock VideoProcessingService: creates a dummy file at {videoId}.mp4
   const mockVideoProcessing = Layer.succeed(VideoProcessingService, {
@@ -85,8 +89,8 @@ const setup = async () => {
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const section = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const sections = yield* db.createSections({
+    const lsOps = yield* LessonSectionOperationsService;
+    const sections = yield* lsOps.createSections({
       repoVersionId: version.id,
       sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
     });
@@ -94,8 +98,8 @@ const setup = async () => {
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const lesson = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const lessons = yield* db.createLessons(section.id, [
+    const lsOps = yield* LessonSectionOperationsService;
+    const lessons = yield* lsOps.createLessons(section.id, [
       { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
     ]);
     return lessons[0]!;

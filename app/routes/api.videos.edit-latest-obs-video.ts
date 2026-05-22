@@ -1,4 +1,5 @@
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.videos.edit-latest-obs-video";
@@ -20,8 +21,9 @@ export const action = async (args: Route.ActionArgs) => {
     )(formDataObject);
 
     const db = yield* DBFunctionsService;
+    const lessonSectionOps = yield* LessonSectionOperationsService;
 
-    const lesson = yield* db.getLessonById(lessonId);
+    const lesson = yield* lessonSectionOps.getLessonById(lessonId);
 
     const video = yield* db.createVideo(lesson.id, {
       path,

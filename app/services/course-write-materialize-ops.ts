@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { FileSystem } from "@effect/platform";
 import nodePath from "node:path";
 import type { DBFunctionsService } from "./db-service.server";
+import type { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import type { CourseRepoWriteService } from "./course-repo-write-service";
 import {
   toSlug,
@@ -17,7 +18,8 @@ import {
 } from "./lesson-authoring-status";
 
 export function createMaterializeOps<E1>(
-  db: DBFunctionsService,
+  lessonSectionOps: LessonSectionOperationsService,
+  db: Pick<DBFunctionsService, "updateCourseFilePath">,
   repoWrite: CourseRepoWriteService,
   fileSystem: FileSystem.FileSystem,
   renumberSections: (
@@ -31,7 +33,8 @@ export function createMaterializeOps<E1>(
     title: string,
     opts?: { adjacentLessonId?: string; position?: "before" | "after" }
   ) {
-    const section = yield* db.getSectionWithHierarchyById(sectionId);
+    const section =
+      yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
     const repoPath = section.repoVersion.repo.filePath;
 
     if (!repoPath) {
@@ -50,7 +53,8 @@ export function createMaterializeOps<E1>(
     let sectionMaterialized = false;
     let sectionNumber: number;
     if (!parsed) {
-      const allSections = yield* db.getSectionsByRepoVersionId(repoVersionId);
+      const allSections =
+        yield* lessonSectionOps.getSectionsByRepoVersionId(repoVersionId);
       const positionIndex = allSections.findIndex((s) => s.id === sectionId);
       let realBefore = 0;
       for (let i = 0; i < positionIndex; i++) {
@@ -60,14 +64,14 @@ export function createMaterializeOps<E1>(
 
       const sectionSlug = toSlug(sectionPath) || "untitled";
       sectionPath = buildSectionPath(sectionNumber, sectionSlug);
-      yield* db.updateSectionPath(sectionId, sectionPath);
+      yield* lessonSectionOps.updateSectionPath(sectionId, sectionPath);
       sectionMaterialized = true;
     } else {
       sectionNumber = parsed.sectionNumber;
     }
 
     // Get all lessons in section
-    const lessons = yield* db.getLessonsBySectionId(sectionId);
+    const lessons = yield* lessonSectionOps.getLessonsBySectionId(sectionId);
     const maxOrder =
       lessons.length > 0 ? Math.max(...lessons.map((l) => l.order)) : 0;
     let insertOrder = maxOrder + 1;
@@ -102,7 +106,7 @@ export function createMaterializeOps<E1>(
           const shiftUpdates = lessons
             .slice(idx)
             .map((l) => ({ id: l.id, order: l.order + 1 }));
-          yield* db.batchUpdateLessonOrders(shiftUpdates);
+          yield* lessonSectionOps.batchUpdateLessonOrders(shiftUpdates);
           insertOrder = lessons[idx] ? lessons[idx]!.order : maxOrder + 1;
         }
       }
@@ -132,7 +136,9 @@ export function createMaterializeOps<E1>(
       });
 
       for (const rename of plan.renames) {
-        yield* db.updateLesson(rename.id, { path: rename.newPath });
+        yield* lessonSectionOps.updateLesson(rename.id, {
+          path: rename.newPath,
+        });
       }
     }
 
@@ -144,13 +150,13 @@ export function createMaterializeOps<E1>(
     });
 
     // Create DB entry as ghost, then update to real
-    const [newLesson] = yield* db.createGhostLesson(sectionId, {
+    const [newLesson] = yield* lessonSectionOps.createGhostLesson(sectionId, {
       title,
       path: plan.newLessonDirName,
       order: insertOrder,
     });
 
-    yield* db.updateLesson(newLesson!.id, {
+    yield* lessonSectionOps.updateLesson(newLesson!.id, {
       fsStatus: "real",
       authoringStatus: statusForCreateLesson("real"),
     });
@@ -172,7 +178,7 @@ export function createMaterializeOps<E1>(
     lessonId: string,
     opts?: { repoPath?: string }
   ) {
-    const lesson = yield* db.getLessonWithHierarchyById(lessonId);
+    const lesson = yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
 
     if (lesson.fsStatus !== "ghost") {
       return yield* new CourseWriteError({
@@ -210,7 +216,8 @@ export function createMaterializeOps<E1>(
     let sectionMaterialized = false;
     let sectionNumber: number;
     if (!parsed) {
-      const allSections = yield* db.getSectionsByRepoVersionId(repoVersionId);
+      const allSections =
+        yield* lessonSectionOps.getSectionsByRepoVersionId(repoVersionId);
       const positionIndex = allSections.findIndex(
         (s) => s.id === lesson.sectionId
       );
@@ -222,13 +229,15 @@ export function createMaterializeOps<E1>(
 
       const sectionSlug = toSlug(sectionPath) || "untitled";
       sectionPath = buildSectionPath(sectionNumber, sectionSlug);
-      yield* db.updateSectionPath(lesson.sectionId, sectionPath);
+      yield* lessonSectionOps.updateSectionPath(lesson.sectionId, sectionPath);
       sectionMaterialized = true;
     } else {
       sectionNumber = parsed.sectionNumber;
     }
 
-    const sectionLessons = yield* db.getLessonsBySectionId(lesson.sectionId);
+    const sectionLessons = yield* lessonSectionOps.getLessonsBySectionId(
+      lesson.sectionId
+    );
     const ghostOrder = lesson.order;
 
     const realLessons = sectionLessons.filter((l) => l.fsStatus !== "ghost");
@@ -265,7 +274,7 @@ export function createMaterializeOps<E1>(
       for (const rename of plan.renames) {
         const renamedParsed = parseLessonPath(rename.newPath);
         if (renamedParsed) {
-          yield* db.updateLesson(rename.id, {
+          yield* lessonSectionOps.updateLesson(rename.id, {
             path: rename.newPath,
           });
         }
@@ -278,7 +287,7 @@ export function createMaterializeOps<E1>(
       lessonDirName: plan.newLessonDirName,
     });
 
-    yield* db.updateLesson(lessonId, {
+    yield* lessonSectionOps.updateLesson(lessonId, {
       fsStatus: "real",
       path: plan.newLessonDirName,
       sectionId: lesson.sectionId,
@@ -308,7 +317,8 @@ export function createMaterializeOps<E1>(
       filePath: string,
       opts?: { adjacentLessonId?: string; position?: "before" | "after" }
     ) {
-      const section = yield* db.getSectionWithHierarchyById(sectionId);
+      const section =
+        yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
       const courseId = section.repoVersion.repo.id;
       const originalSectionPath = section.path;
 
@@ -333,7 +343,10 @@ export function createMaterializeOps<E1>(
               repoId: courseId,
               filePath: null,
             });
-            yield* db.updateSectionPath(sectionId, originalSectionPath);
+            yield* lessonSectionOps.updateSectionPath(
+              sectionId,
+              originalSectionPath
+            );
             const entriesAfter = yield* fileSystem
               .readDirectory(filePath)
               .pipe(Effect.catchAll(() => Effect.succeed([] as string[])));

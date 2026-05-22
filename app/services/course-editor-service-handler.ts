@@ -8,7 +8,7 @@
 
 import { Effect } from "effect";
 import { CourseWriteService } from "./course-write-service";
-import { DBFunctionsService } from "./db-service.server";
+import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { toSlug } from "./lesson-path-service";
 import { parseSectionPath } from "./section-path-service";
 import {
@@ -24,7 +24,7 @@ import {
 export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
   function* (event: CourseEditorEvent) {
     const service = yield* CourseWriteService;
-    const db = yield* DBFunctionsService;
+    const lessonSectionOps = yield* LessonSectionOperationsService;
 
     switch (event.type) {
       // --- Section events ---
@@ -37,7 +37,9 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-section-name": {
-        const section = yield* db.getSectionWithHierarchyById(event.sectionId);
+        const section = yield* lessonSectionOps.getSectionWithHierarchyById(
+          event.sectionId
+        );
         const parsed = parseSectionPath(section.path);
         if (parsed) {
           // Real (materialized) section: rename on disk with slug conversion
@@ -46,13 +48,13 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
         }
         // Ghost section: just update the DB path with the raw title
         const newPath = event.title.trim() || "untitled";
-        yield* db.updateSectionPath(event.sectionId, newPath);
+        yield* lessonSectionOps.updateSectionPath(event.sectionId, newPath);
         return { success: true, path: newPath };
       }
 
       case "update-section-description": {
-        yield* db.getSectionWithHierarchyById(event.sectionId);
-        yield* db.updateSectionDescription(
+        yield* lessonSectionOps.getSectionWithHierarchyById(event.sectionId);
+        yield* lessonSectionOps.updateSectionDescription(
           event.sectionId,
           event.description.trim()
         );
@@ -87,9 +89,11 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-lesson-title": {
-        const lesson = yield* db.getLessonWithHierarchyById(event.lessonId);
+        const lesson = yield* lessonSectionOps.getLessonWithHierarchyById(
+          event.lessonId
+        );
         const slug = toSlug(event.title) || "untitled";
-        yield* db.updateLesson(event.lessonId, {
+        yield* lessonSectionOps.updateLesson(event.lessonId, {
           title: event.title.trim(),
           path: slug,
           sectionId: lesson.sectionId,
@@ -98,32 +102,32 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-lesson-description": {
-        yield* db.getLessonWithHierarchyById(event.lessonId);
-        yield* db.updateLesson(event.lessonId, {
+        yield* lessonSectionOps.getLessonWithHierarchyById(event.lessonId);
+        yield* lessonSectionOps.updateLesson(event.lessonId, {
           description: event.description.trim(),
         });
         return { success: true };
       }
 
       case "update-lesson-icon": {
-        yield* db.getLessonWithHierarchyById(event.lessonId);
-        yield* db.updateLesson(event.lessonId, {
+        yield* lessonSectionOps.getLessonWithHierarchyById(event.lessonId);
+        yield* lessonSectionOps.updateLesson(event.lessonId, {
           icon: event.icon,
         });
         return { success: true };
       }
 
       case "update-lesson-priority": {
-        yield* db.getLessonWithHierarchyById(event.lessonId);
-        yield* db.updateLesson(event.lessonId, {
+        yield* lessonSectionOps.getLessonWithHierarchyById(event.lessonId);
+        yield* lessonSectionOps.updateLesson(event.lessonId, {
           priority: event.priority,
         });
         return { success: true };
       }
 
       case "update-lesson-dependencies": {
-        yield* db.getLessonWithHierarchyById(event.lessonId);
-        yield* db.updateLesson(event.lessonId, {
+        yield* lessonSectionOps.getLessonWithHierarchyById(event.lessonId);
+        yield* lessonSectionOps.updateLesson(event.lessonId, {
           dependencies: event.dependencies,
         });
         return { success: true };
@@ -155,8 +159,8 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "set-lesson-authoring-status": {
-        yield* db.getLessonWithHierarchyById(event.lessonId);
-        yield* db.updateLesson(event.lessonId, {
+        yield* lessonSectionOps.getLessonWithHierarchyById(event.lessonId);
+        yield* lessonSectionOps.updateLesson(event.lessonId, {
           authoringStatus: event.status,
         });
         return { success: true };

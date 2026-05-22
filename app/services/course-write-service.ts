@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { DBFunctionsService } from "./db-service.server";
+import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { CourseRepoWriteService } from "./course-repo-write-service";
 import {
   toSlug,
@@ -24,6 +25,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
   "CourseWriteService",
   {
     effect: Effect.gen(function* () {
+      const lessonSectionOps = yield* LessonSectionOperationsService;
       const db = yield* DBFunctionsService;
       const repoWrite = yield* CourseRepoWriteService;
       const syncService = yield* CourseRepoSyncValidationService;
@@ -34,19 +36,18 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         withPostValidation,
         repoPathForSection,
         repoPathForLesson,
-      } = createValidationHelpers(db, syncService);
+      } = createValidationHelpers(lessonSectionOps, syncService);
 
       const { renumberSections, reorderSections, renameSection } =
-        createSectionOps(db, repoWrite);
+        createSectionOps(lessonSectionOps, repoWrite);
 
-      /** Creates a ghost section in the database (no filesystem operations). */
       const addGhostSection = Effect.fn("addGhostSection")(function* (
         repoVersionId: string,
         title: string,
         maxOrder: number = 0
       ) {
         const sectionNumber = maxOrder + 1;
-        const [newSection] = yield* db.createSections({
+        const [newSection] = yield* lessonSectionOps.createSections({
           repoVersionId,
           sections: [
             {
@@ -63,15 +64,21 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         createRealLesson,
         materializeGhost,
         materializeCourseWithLesson,
-      } = createMaterializeOps(db, repoWrite, fileSystem, renumberSections);
+      } = createMaterializeOps(
+        lessonSectionOps,
+        db,
+        repoWrite,
+        fileSystem,
+        renumberSections
+      );
 
-      /** Creates a ghost lesson. Supports optional insertion before/after a lesson. */
       const addGhostLesson = Effect.fn("addGhostLesson")(function* (
         sectionId: string,
         title: string,
         opts?: { adjacentLessonId?: string; position?: "before" | "after" }
       ) {
-        const lessons = yield* db.getLessonsBySectionId(sectionId);
+        const lessons =
+          yield* lessonSectionOps.getLessonsBySectionId(sectionId);
         const maxOrder =
           lessons.length > 0 ? Math.max(...lessons.map((l) => l.order)) : 0;
         let insertOrder = maxOrder + 1;
@@ -85,25 +92,27 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             const shiftUpdates = lessons
               .slice(idx)
               .map((l) => ({ id: l.id, order: l.order + 1 }));
-            yield* db.batchUpdateLessonOrders(shiftUpdates);
+            yield* lessonSectionOps.batchUpdateLessonOrders(shiftUpdates);
             insertOrder = lessons[idx] ? lessons[idx]!.order : maxOrder + 1;
           }
         }
 
-        const [newLesson] = yield* db.createGhostLesson(sectionId, {
-          title,
-          path: toSlug(title) || "untitled",
-          order: insertOrder,
-        });
+        const [newLesson] = yield* lessonSectionOps.createGhostLesson(
+          sectionId,
+          {
+            title,
+            path: toSlug(title) || "untitled",
+            order: insertOrder,
+          }
+        );
         return { success: true, lessonId: newLesson!.id };
       });
 
-      /** Deletes a lesson. If real, removes the directory from disk first,
-       *  renumbers remaining lessons, and reverts section if no real lessons remain. */
       const deleteLesson = Effect.fn("deleteLesson")(function* (
         lessonId: string
       ) {
-        const lesson = yield* db.getLessonWithHierarchyById(lessonId);
+        const lesson =
+          yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
 
         if (lesson.fsStatus !== "ghost") {
           const repoPath = lesson.section.repoVersion.repo.filePath!;
@@ -118,10 +127,10 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           });
 
           // Delete DB entry before renumbering so it's excluded
-          yield* db.deleteLesson(lessonId);
+          yield* lessonSectionOps.deleteLesson(lessonId);
 
           // Renumber remaining real lessons to close the gap
-          const sectionLessons = yield* db.getLessonsBySectionId(
+          const sectionLessons = yield* lessonSectionOps.getLessonsBySectionId(
             lesson.sectionId
           );
           const remainingReal = sectionLessons.filter(
@@ -152,7 +161,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
               });
 
               for (const rename of renames) {
-                yield* db.updateLesson(rename.id, {
+                yield* lessonSectionOps.updateLesson(rename.id, {
                   path: rename.newPath,
                 });
               }
@@ -166,24 +175,27 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             if (sectionParsed) {
               yield* repoWrite.deleteSectionDir({ repoPath, sectionPath });
               const title = titleFromSlug(sectionParsed.slug);
-              yield* db.updateSectionPath(lesson.sectionId, title);
+              yield* lessonSectionOps.updateSectionPath(
+                lesson.sectionId,
+                title
+              );
               yield* renumberSections(lesson.section.repoVersionId, repoPath);
             }
           }
           yield* runValidation(repoPath);
         } else {
           // Ghost lesson: DB-only delete, skip filesystem validation
-          yield* db.deleteLesson(lessonId);
+          yield* lessonSectionOps.deleteLesson(lessonId);
         }
 
         return { success: true };
       });
 
-      /** Converts a real lesson to a ghost. */
       const convertToGhost = Effect.fn("convertToGhost")(function* (
         lessonId: string
       ) {
-        const lesson = yield* db.getLessonWithHierarchyById(lessonId);
+        const lesson =
+          yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
 
         if (lesson.fsStatus !== "real") {
           return yield* new CourseWriteError({
@@ -205,13 +217,13 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         });
 
         // Mark lesson as ghost in DB
-        yield* db.updateLesson(lessonId, {
+        yield* lessonSectionOps.updateLesson(lessonId, {
           fsStatus: "ghost",
           authoringStatus: statusForConvertToGhost(),
         });
 
         // Renumber remaining real lessons to close the gap
-        const sectionLessons = yield* db.getLessonsBySectionId(
+        const sectionLessons = yield* lessonSectionOps.getLessonsBySectionId(
           lesson.sectionId
         );
         const remainingReal = sectionLessons.filter(
@@ -242,7 +254,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             });
 
             for (const rename of renames) {
-              yield* db.updateLesson(rename.id, {
+              yield* lessonSectionOps.updateLesson(rename.id, {
                 path: rename.newPath,
               });
             }
@@ -256,7 +268,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           if (sectionParsed) {
             yield* repoWrite.deleteSectionDir({ repoPath, sectionPath });
             const title = titleFromSlug(sectionParsed.slug);
-            yield* db.updateSectionPath(lesson.sectionId, title);
+            yield* lessonSectionOps.updateSectionPath(lesson.sectionId, title);
             yield* renumberSections(lesson.section.repoVersionId, repoPath);
           }
         }
@@ -264,12 +276,12 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         return { success: true };
       });
 
-      /** Renames a lesson's slug (preserves lesson number). */
       const renameLesson = Effect.fn("renameLesson")(function* (
         lessonId: string,
         newSlug: string
       ) {
-        const lesson = yield* db.getLessonWithHierarchyById(lessonId);
+        const lesson =
+          yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
 
         const oldParsed = parseLessonPath(lesson.path);
 
@@ -278,7 +290,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           if (lesson.path === newSlug) {
             return { success: true, path: lesson.path };
           }
-          yield* db.updateLesson(lessonId, { path: newSlug });
+          yield* lessonSectionOps.updateLesson(lessonId, { path: newSlug });
           return { success: true, path: newSlug };
         }
 
@@ -308,7 +320,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           });
         }
 
-        yield* db.updateLesson(lessonId, {
+        yield* lessonSectionOps.updateLesson(lessonId, {
           path: newPath,
         });
 
@@ -320,16 +332,17 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         return { success: true, path: newPath };
       });
 
-      /** Reorders lessons within a section. */
       const reorderLessons = Effect.fn("reorderLessons")(function* (
         sectionId: string,
         newOrderIds: readonly string[]
       ) {
-        const section = yield* db.getSectionWithHierarchyById(sectionId);
+        const section =
+          yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
         const repoPath = section.repoVersion.repo.filePath!;
         const sectionPath = section.path;
 
-        const sectionLessons = yield* db.getLessonsBySectionId(sectionId);
+        const sectionLessons =
+          yield* lessonSectionOps.getLessonsBySectionId(sectionId);
 
         // Only real lessons participate in filesystem renaming
         const realLessons = sectionLessons.filter(
@@ -360,7 +373,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           for (const rename of renames) {
             const parsed = parseLessonPath(rename.newPath);
             if (parsed) {
-              yield* db.updateLesson(rename.id, {
+              yield* lessonSectionOps.updateLesson(rename.id, {
                 path: rename.newPath,
                 lessonNumber: parsed.lessonNumber,
               });
@@ -369,20 +382,21 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         }
 
         // Update order for ALL lessons (ghost + real) in a single query
-        yield* db.batchUpdateLessonOrders(
+        yield* lessonSectionOps.batchUpdateLessonOrders(
           newOrderIds.map((id, i) => ({ id, order: i }))
         );
 
         return { success: true, renames };
       });
 
-      /** Moves a lesson to a different section. */
       const moveToSection = Effect.fn("moveToSection")(function* (
         lessonId: string,
         targetSectionId: string
       ) {
-        const lesson = yield* db.getLessonWithHierarchyById(lessonId);
-        const targetLessons = yield* db.getLessonsBySectionId(targetSectionId);
+        const lesson =
+          yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
+        const targetLessons =
+          yield* lessonSectionOps.getLessonsBySectionId(targetSectionId);
         const maxOrder =
           targetLessons.length > 0
             ? Math.max(...targetLessons.map((l) => l.order))
@@ -390,8 +404,10 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
 
         // Ghost lesson: DB-only move — skip filesystem validation entirely
         if (lesson.fsStatus === "ghost") {
-          yield* db.updateLesson(lessonId, { sectionId: targetSectionId });
-          yield* db.updateLessonOrder(lessonId, maxOrder + 1);
+          yield* lessonSectionOps.updateLesson(lessonId, {
+            sectionId: targetSectionId,
+          });
+          yield* lessonSectionOps.updateLessonOrder(lessonId, maxOrder + 1);
           return { success: true };
         }
 
@@ -400,7 +416,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         const sourceSectionPath = lesson.section.path;
         const repoVersionId = lesson.section.repoVersionId;
         const targetSection =
-          yield* db.getSectionWithHierarchyById(targetSectionId);
+          yield* lessonSectionOps.getSectionWithHierarchyById(targetSectionId);
         let targetSectionPath = targetSection.path;
 
         const sourceParsed = parseSectionPath(sourceSectionPath);
@@ -411,7 +427,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         let targetSectionMaterialized = false;
         if (!targetParsed) {
           const allSections =
-            yield* db.getSectionsByRepoVersionId(repoVersionId);
+            yield* lessonSectionOps.getSectionsByRepoVersionId(repoVersionId);
           const posIdx = allSections.findIndex((s) => s.id === targetSectionId);
           let realBefore = 0;
           for (let i = 0; i < posIdx; i++) {
@@ -420,7 +436,10 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           const sectionNumber = realBefore + 1;
           const sectionSlug = toSlug(targetSectionPath) || "untitled";
           targetSectionPath = `${String(sectionNumber).padStart(2, "0")}-${sectionSlug}`;
-          yield* db.updateSectionPath(targetSectionId, targetSectionPath);
+          yield* lessonSectionOps.updateSectionPath(
+            targetSectionId,
+            targetSectionPath
+          );
           targetParsed = parseSectionPath(targetSectionPath);
           targetSectionMaterialized = true;
         }
@@ -449,14 +468,16 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         });
 
         // Update DB: move to target section with new path
-        yield* db.updateLesson(lessonId, {
+        yield* lessonSectionOps.updateLesson(lessonId, {
           sectionId: targetSectionId,
           path: newLessonPath,
         });
-        yield* db.updateLessonOrder(lessonId, maxOrder + 1);
+        yield* lessonSectionOps.updateLessonOrder(lessonId, maxOrder + 1);
 
         // Renumber source section real lessons to close the gap
-        const sourceLessons = yield* db.getLessonsBySectionId(lesson.sectionId);
+        const sourceLessons = yield* lessonSectionOps.getLessonsBySectionId(
+          lesson.sectionId
+        );
         const sourceRealLessons = sourceLessons.filter(
           (l) => l.fsStatus !== "ghost" && l.id !== lessonId
         );
@@ -485,7 +506,9 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             });
 
             for (const rename of renames) {
-              yield* db.updateLesson(rename.id, { path: rename.newPath });
+              yield* lessonSectionOps.updateLesson(rename.id, {
+                path: rename.newPath,
+              });
             }
           }
         }
@@ -497,7 +520,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             sectionPath: sourceSectionPath,
           });
           const title = titleFromSlug(sourceParsed.slug);
-          yield* db.updateSectionPath(lesson.sectionId, title);
+          yield* lessonSectionOps.updateSectionPath(lesson.sectionId, title);
         }
 
         // Renumber sections if any were materialized or dematerialized
@@ -512,11 +535,11 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         return { success: true };
       });
 
-      /** Archives a section (soft-delete). Only works if there are no real lessons. */
       const archiveSection = Effect.fn("archiveSection")(function* (
         sectionId: string
       ) {
-        const sectionLessons = yield* db.getLessonsBySectionId(sectionId);
+        const sectionLessons =
+          yield* lessonSectionOps.getLessonsBySectionId(sectionId);
         const realLessons = sectionLessons.filter(
           (l) => l.fsStatus !== "ghost"
         );
@@ -529,7 +552,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           });
         }
 
-        yield* db.archiveSection(sectionId);
+        yield* lessonSectionOps.archiveSection(sectionId);
         return { success: true };
       });
 
@@ -585,6 +608,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
       };
     }),
     dependencies: [
+      LessonSectionOperationsService.Default,
       DBFunctionsService.Default,
       CourseRepoWriteService.Default,
       CourseRepoSyncValidationService.Default,

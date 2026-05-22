@@ -2,7 +2,6 @@ import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
@@ -17,7 +16,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
       const courseOps = yield* CourseOperationsService;
       const videoOps = yield* VideoOperationsService;
       const versionOps = yield* VersionOperationsService;
-      const lessonSectionOps = yield* LessonSectionOperationsService;
       const linkAuthOps = yield* LinkAuthOperationsService;
       const thumbnailOps = yield* ThumbnailOperationsService;
       const pitchOps = yield* PitchOperationsService;
@@ -94,27 +92,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
         getVideoIdsForVersion: versionOps.getVideoIdsForVersion,
         getAllVersionsWithStructure: versionOps.getAllVersionsWithStructure,
 
-        getLessonById: lessonSectionOps.getLessonById,
-        getLessonsBySectionId: lessonSectionOps.getLessonsBySectionId,
-        getLessonWithHierarchyById: lessonSectionOps.getLessonWithHierarchyById,
-        getSectionWithHierarchyById:
-          lessonSectionOps.getSectionWithHierarchyById,
-        createSections: lessonSectionOps.createSections,
-        createLessons: lessonSectionOps.createLessons,
-        createGhostLesson: lessonSectionOps.createGhostLesson,
-        updateLesson: lessonSectionOps.updateLesson,
-        deleteLesson: lessonSectionOps.deleteLesson,
-        deleteSection: lessonSectionOps.deleteSection,
-        archiveSection: lessonSectionOps.archiveSection,
-        updateSectionOrder: lessonSectionOps.updateSectionOrder,
-        updateSectionPath: lessonSectionOps.updateSectionPath,
-        updateSectionDescription: lessonSectionOps.updateSectionDescription,
-        getSectionsByIds: lessonSectionOps.getSectionsByIds,
-        getSectionsByRepoVersionId: lessonSectionOps.getSectionsByRepoVersionId,
-        updateLessonOrder: lessonSectionOps.updateLessonOrder,
-        batchUpdateLessonOrders: lessonSectionOps.batchUpdateLessonOrders,
-        batchUpdateSectionOrders: lessonSectionOps.batchUpdateSectionOrders,
-
         getLinks: linkAuthOps.getLinks,
         createLink: linkAuthOps.createLink,
         deleteLink: linkAuthOps.deleteLink,
@@ -154,7 +131,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
       CourseOperationsService.Default,
       VideoOperationsService.Default,
       VersionOperationsService.Default,
-      LessonSectionOperationsService.Default,
       LinkAuthOperationsService.Default,
       ThumbnailOperationsService.Default,
       PitchOperationsService.Default,

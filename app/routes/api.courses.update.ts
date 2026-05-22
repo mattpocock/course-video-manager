@@ -1,4 +1,5 @@
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { ConfigProvider, Console, Data, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.courses.update";
@@ -75,6 +76,7 @@ export const action = async (args: Route.ActionArgs) => {
     const modifiedLessons = { ...decoded.modifiedLessons };
 
     const db = yield* DBFunctionsService;
+    const lessonSectionOps = yield* LessonSectionOperationsService;
 
     const baseCourse = yield* db.getCourseByFilePath(decoded.filePath);
 
@@ -110,7 +112,7 @@ export const action = async (args: Route.ActionArgs) => {
         return sectionId;
       }
 
-      const [section] = yield* db.createSections({
+      const [section] = yield* lessonSectionOps.createSections({
         sections: [{ sectionPathWithNumber: sectionPath, sectionNumber }],
         repoVersionId: latestVersion.id,
       });
@@ -148,7 +150,7 @@ export const action = async (args: Route.ActionArgs) => {
         continue;
       }
 
-      const lesson = yield* db.getLessonById(lessonId);
+      const lesson = yield* lessonSectionOps.getLessonById(lessonId);
 
       if (lesson && lesson.videos && lesson.videos.length > 0) {
         // Throw an error and abort the update if a deleted lesson has an attached video
@@ -180,7 +182,7 @@ export const action = async (args: Route.ActionArgs) => {
         newLessonPathParsed.sectionNumber
       );
 
-      yield* db.updateLesson(existingLessonId, {
+      yield* lessonSectionOps.updateLesson(existingLessonId, {
         path: newLessonPathParsed.lessonPathWithNumber,
         sectionId,
         lessonNumber: newLessonPathParsed.lessonNumber,
@@ -222,7 +224,7 @@ export const action = async (args: Route.ActionArgs) => {
         continue;
       }
 
-      const [newLesson] = yield* db.createLessons(sectionId, [
+      const [newLesson] = yield* lessonSectionOps.createLessons(sectionId, [
         {
           lessonPathWithNumber: pathParseResult.lessonPathWithNumber,
           lessonNumber: pathParseResult.lessonNumber,
@@ -251,7 +253,7 @@ export const action = async (args: Route.ActionArgs) => {
         continue;
       }
 
-      yield* db.deleteLesson(lessonId);
+      yield* lessonSectionOps.deleteLesson(lessonId);
     }
 
     // 5. After all updates, check for any sections that have no lessons left
@@ -267,7 +269,7 @@ export const action = async (args: Route.ActionArgs) => {
     );
 
     for (const section of sectionsWithNoLessons) {
-      yield* db.deleteSection(section.id);
+      yield* lessonSectionOps.deleteSection(section.id);
     }
 
     return {

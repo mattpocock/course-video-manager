@@ -1,5 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.lessons.$lessonId.add-video";
 import { data, redirect } from "react-router";
@@ -18,7 +19,8 @@ export const action = async (args: Route.ActionArgs) => {
     const result = yield* Schema.decodeUnknown(addVideoSchema)(formDataObject);
 
     const db = yield* DBFunctionsService;
-    yield* db.getLessonById(lessonId);
+    const lessonSectionOps = yield* LessonSectionOperationsService;
+    yield* lessonSectionOps.getLessonById(lessonId);
 
     const video = yield* db.createVideo(lessonId, {
       path: result.path,

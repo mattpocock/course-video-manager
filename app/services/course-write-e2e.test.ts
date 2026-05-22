@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
 import { NodeContext } from "@effect/platform-node";
@@ -39,10 +40,14 @@ const setup = async () => {
 
   const testLayer = Layer.mergeAll(
     CourseWriteService.Default,
-    DBFunctionsService.Default
+    DBFunctionsService.Default,
+    LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
 
-  const dbLayer = DBFunctionsService.Default.pipe(Layer.provide(drizzleLayer));
+  const dbLayer = Layer.mergeAll(
+    DBFunctionsService.Default,
+    LessonSectionOperationsService.Default
+  ).pipe(Layer.provide(drizzleLayer));
 
   const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
     Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
@@ -65,8 +70,8 @@ const setup = async () => {
       cwd: tempDir,
     });
     const sections = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createSections({
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createSections({
         repoVersionId: version.id,
         sections: [
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
@@ -94,8 +99,8 @@ const setup = async () => {
       cwd: tempDir,
     });
     const lessons = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createLessons(sectionId, [
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createLessons(sectionId, [
         { lessonPathWithNumber: lessonPath, lessonNumber: order },
       ]);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -109,8 +114,8 @@ const setup = async () => {
     order: number
   ) => {
     const lesson = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createGhostLesson(sectionId, {
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createGhostLesson(sectionId, {
         title,
         path: slug,
         order,
@@ -121,8 +126,8 @@ const setup = async () => {
 
   const createGhostSection = async (sectionPath: string, order: number) => {
     const sections = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createSections({
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createSections({
         repoVersionId: version.id,
         sections: [
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
@@ -134,14 +139,14 @@ const setup = async () => {
 
   const getLesson = (lessonId: string) =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.getLessonWithHierarchyById(lessonId);
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.getLessonWithHierarchyById(lessonId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const getSection = (sectionId: string) =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.getSectionWithHierarchyById(sectionId);
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.getSectionWithHierarchyById(sectionId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   return {
@@ -167,7 +172,6 @@ describe("CourseWriteService", () => {
     it("full flow with slugified section path works without errors", async () => {
       const { run, createSection, getLesson } = await setup();
 
-      // Create section with proper NN-slug path (as the fixed route now does)
       const section = await createSection("01-before-we-start", 1);
 
       // Add ghost lesson
@@ -492,16 +496,20 @@ describe("CourseWriteService", () => {
       const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
       const testLayer = Layer.mergeAll(
         CourseWriteService.Default,
-        DBFunctionsService.Default
+        DBFunctionsService.Default,
+        LessonSectionOperationsService.Default
       ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
-      const dbLayer = DBFunctionsService.Default.pipe(
-        Layer.provide(drizzleLayer)
-      );
+      const dbLayer = Layer.mergeAll(
+        DBFunctionsService.Default,
+        LessonSectionOperationsService.Default
+      ).pipe(Layer.provide(drizzleLayer));
       const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
         Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
-      const dbRun = <A, E>(effect: Effect.Effect<A, E, DBFunctionsService>) =>
-        Effect.runPromise(effect.pipe(Effect.provide(dbLayer)));
+      const dbRun = <A, E>(effect: Effect.Effect<A, E, any>) =>
+        Effect.runPromise(
+          effect.pipe(Effect.provide(dbLayer) as any)
+        ) as Promise<A>;
 
       const repo = await dbRun(
         Effect.gen(function* () {
@@ -525,8 +533,8 @@ describe("CourseWriteService", () => {
       );
       await dbRun(
         Effect.gen(function* () {
-          const db = yield* DBFunctionsService;
-          return yield* db.createSections({
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.createSections({
             repoVersionId: oldVersion.id,
             sections: [
               { sectionPathWithNumber: "01-old-name", sectionNumber: 1 },
@@ -559,8 +567,8 @@ describe("CourseWriteService", () => {
       // Create matching section in current version DB
       const [section] = await dbRun(
         Effect.gen(function* () {
-          const db = yield* DBFunctionsService;
-          return yield* db.createSections({
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.createSections({
             repoVersionId: currentVersion.id,
             sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
           });
@@ -568,8 +576,8 @@ describe("CourseWriteService", () => {
       );
       await dbRun(
         Effect.gen(function* () {
-          const db = yield* DBFunctionsService;
-          return yield* db.createLessons(section!.id, [
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.createLessons(section!.id, [
             { lessonPathWithNumber: "01.01-basics", lessonNumber: 1 },
           ]);
         })

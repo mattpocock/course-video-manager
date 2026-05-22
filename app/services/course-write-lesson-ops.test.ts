@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
 import { NodeContext } from "@effect/platform-node";
@@ -39,10 +40,14 @@ const setup = async () => {
 
   const testLayer = Layer.mergeAll(
     CourseWriteService.Default,
-    DBFunctionsService.Default
+    DBFunctionsService.Default,
+    LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
 
-  const dbLayer = DBFunctionsService.Default.pipe(Layer.provide(drizzleLayer));
+  const dbLayer = Layer.mergeAll(
+    DBFunctionsService.Default,
+    LessonSectionOperationsService.Default
+  ).pipe(Layer.provide(drizzleLayer));
 
   const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
     Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
@@ -65,8 +70,8 @@ const setup = async () => {
       cwd: tempDir,
     });
     const sections = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createSections({
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createSections({
         repoVersionId: version.id,
         sections: [
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
@@ -94,8 +99,8 @@ const setup = async () => {
       cwd: tempDir,
     });
     const lessons = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createLessons(sectionId, [
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createLessons(sectionId, [
         { lessonPathWithNumber: lessonPath, lessonNumber: order },
       ]);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -109,8 +114,8 @@ const setup = async () => {
     order: number
   ) => {
     const lesson = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createGhostLesson(sectionId, {
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createGhostLesson(sectionId, {
         title,
         path: slug,
         order,
@@ -121,14 +126,14 @@ const setup = async () => {
 
   const getLesson = (lessonId: string) =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.getLessonWithHierarchyById(lessonId);
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.getLessonWithHierarchyById(lessonId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const getSection = (sectionId: string) =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.getSectionWithHierarchyById(sectionId);
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.getSectionWithHierarchyById(sectionId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   return {
@@ -223,19 +228,19 @@ describe("CourseWriteService", () => {
       // First lesson unchanged
       const updatedReal1 = await getLesson(real1.id);
       expect(updatedReal1.path).toBe("01.01-first");
-      expect(
-        fs.existsSync(path.join(tempDir, "01-intro", "01.01-first"))
-      ).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, "01-intro", "01.01-first"))).toBe(
+        true
+      );
 
       // Third lesson renumbered: 01.03 → 01.02
       const updatedReal3 = await getLesson(real3.id);
       expect(updatedReal3.path).toBe("01.02-third");
-      expect(
-        fs.existsSync(path.join(tempDir, "01-intro", "01.02-third"))
-      ).toBe(true);
-      expect(
-        fs.existsSync(path.join(tempDir, "01-intro", "01.03-third"))
-      ).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, "01-intro", "01.02-third"))).toBe(
+        true
+      );
+      expect(fs.existsSync(path.join(tempDir, "01-intro", "01.03-third"))).toBe(
+        false
+      );
     });
 
     it("reverts section to ghost path when last real lesson is deleted", async () => {
@@ -515,7 +520,13 @@ describe("CourseWriteService", () => {
       // Directory exists on disk
       expect(
         fs.existsSync(
-          path.join(tempDir, "01-intro", "01.01-my-first-lesson", "explainer", "readme.md")
+          path.join(
+            tempDir,
+            "01-intro",
+            "01.01-my-first-lesson",
+            "explainer",
+            "readme.md"
+          )
         )
       ).toBe(true);
 
@@ -560,9 +571,7 @@ describe("CourseWriteService", () => {
 
       // New lesson dir exists
       expect(
-        fs.existsSync(
-          path.join(tempDir, "01-intro", "01.02-inserted-lesson")
-        )
+        fs.existsSync(path.join(tempDir, "01-intro", "01.02-inserted-lesson"))
       ).toBe(true);
 
       // First lesson unchanged
@@ -609,15 +618,15 @@ describe("CourseWriteService", () => {
       );
 
       const ghostSection = await Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
-        const sections = yield* db.createSections({
+        const lsOps = yield* LessonSectionOperationsService;
+        const sections = yield* lsOps.createSections({
           repoVersionId: ghostVersion.id,
           sections: [{ sectionPathWithNumber: "Planning", sectionNumber: 1 }],
         });
         return sections[0]!;
       }).pipe(
         Effect.provide(
-          DBFunctionsService.Default.pipe(
+          LessonSectionOperationsService.Default.pipe(
             Layer.provide(Layer.succeed(DrizzleService, testDb as any))
           )
         ),

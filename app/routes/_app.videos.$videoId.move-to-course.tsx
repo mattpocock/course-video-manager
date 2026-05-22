@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
 import { toSlug } from "@/services/lesson-path-service";
@@ -111,6 +112,7 @@ export const action = async (args: Route.ActionArgs) => {
 
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const lessonSectionOps = yield* LessonSectionOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const repoWrite = yield* CourseRepoWriteService;
 
@@ -123,7 +125,8 @@ export const action = async (args: Route.ActionArgs) => {
 
     if (lessonId && lessonId !== "new") {
       // Use existing lesson
-      const lesson = yield* db.getLessonWithHierarchyById(lessonId);
+      const lesson =
+        yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
       const repo = lesson.section.repoVersion.repo;
       const section = lesson.section;
       targetLessonId = lesson.id;
@@ -131,7 +134,8 @@ export const action = async (args: Route.ActionArgs) => {
       lessonDirPath = path.join(repo.filePath!, section.path, lesson.path);
     } else {
       // Create a new real lesson at end of section
-      const section = yield* db.getSectionWithHierarchyById(sectionId);
+      const section =
+        yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
       const repo = section.repoVersion.repo;
       const parsed = parseSectionPath(section.path);
       const sectionNumber = parsed?.sectionNumber ?? 1;
@@ -144,7 +148,7 @@ export const action = async (args: Route.ActionArgs) => {
         slug,
       });
 
-      const [newLesson] = yield* db.createLessons(sectionId, [
+      const [newLesson] = yield* lessonSectionOps.createLessons(sectionId, [
         { lessonPathWithNumber: lessonDirName, lessonNumber },
       ]);
 
