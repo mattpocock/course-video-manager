@@ -2,6 +2,7 @@ import { Config, Data, Effect, Schedule } from "effect";
 import { Command, FileSystem } from "@effect/platform";
 import path from "node:path";
 import { DBFunctionsService } from "./db-service.server";
+import { VersionOperationsService } from "./db-version-operations.server";
 import {
   VideoProcessingService,
   type BeatType,
@@ -91,6 +92,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
   {
     effect: Effect.gen(function* () {
       const db = yield* DBFunctionsService;
+      const versionOps = yield* VersionOperationsService;
       const videoProcessing = yield* VideoProcessingService;
       const effectFs = yield* FileSystem.FileSystem;
       const FINISHED_VIDEOS_DIRECTORY = yield* Config.string(
@@ -204,7 +206,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         versionId: string,
         sendEvent?: (event: string, data: unknown) => void
       ) {
-        const version = yield* db.getVersionWithSections(versionId);
+        const version = yield* versionOps.getVersionWithSections(versionId);
         const courseId = version.repo.id;
 
         // Find unexported videos
@@ -279,7 +281,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
       const validatePublishability = Effect.fn("validatePublishability")(
         function* (versionId: string) {
-          const version = yield* db.getVersionWithSections(versionId);
+          const version = yield* versionOps.getVersionWithSections(versionId);
           const courseId = version.repo.id;
 
           const unexportedVideoIds: string[] = [];
@@ -321,7 +323,8 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
       ) {
         onProgress?.("validating");
 
-        const latestVersion = yield* db.getLatestCourseVersion(courseId);
+        const latestVersion =
+          yield* versionOps.getLatestCourseVersion(courseId);
         if (!latestVersion) {
           return yield* Effect.die(new Error("No version found for course"));
         }
@@ -339,10 +342,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         const course = yield* db.getCourseById(courseId);
         const repoParser = yield* CourseRepoParserService;
 
-        const repoWithSections = yield* db.getCourseWithSectionsByVersion({
-          repoId: courseId,
-          versionId: latestVersion.id,
-        });
+        const repoWithSections =
+          yield* versionOps.getCourseWithSectionsByVersion({
+            repoId: courseId,
+            versionId: latestVersion.id,
+          });
 
         const sectionsOnFileSystem = yield* repoParser.parseRepo(
           repoWithSections.filePath!
@@ -527,7 +531,8 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         // Generate changelog (treat draft as published with given name)
-        const allVersions = yield* db.getAllVersionsWithStructure(courseId);
+        const allVersions =
+          yield* versionOps.getAllVersionsWithStructure(courseId);
         const changelogVersions = allVersions.map((v) =>
           v.id === latestVersion.id
             ? { ...v, name: versionName, description: versionDescription }
@@ -552,7 +557,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
         // Freeze draft (set name/description)
         onProgress?.("freezing");
-        yield* db.updateCourseVersion({
+        yield* versionOps.updateCourseVersion({
           versionId: latestVersion.id,
           name: versionName,
           description: versionDescription,
@@ -560,7 +565,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
         // Clone new draft
         onProgress?.("cloning");
-        const { version: newDraft } = yield* db.copyVersionStructure({
+        const { version: newDraft } = yield* versionOps.copyVersionStructure({
           sourceVersionId: latestVersion.id,
           repoId: courseId,
           newVersionName: "",

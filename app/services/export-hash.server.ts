@@ -1,7 +1,7 @@
 import path from "node:path";
 import { Config, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { computeExportHash } from "@/services/export-hash";
 
 /**
@@ -15,15 +15,15 @@ import { computeExportHash } from "@/services/export-hash";
  */
 export const garbageCollect = (courseId: string) =>
   Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const finishedVideosDir = yield* Config.string("FINISHED_VIDEOS_DIRECTORY");
 
-    const versionsMeta = yield* db.getCourseVersions(courseId);
+    const versionsMeta = yield* versionOps.getCourseVersions(courseId);
     const allValidHashes = new Set<string>();
 
     for (const meta of versionsMeta) {
-      const version = yield* db.getVersionWithSections(meta.id);
+      const version = yield* versionOps.getVersionWithSections(meta.id);
       for (const section of version.sections) {
         for (const lesson of section.lessons) {
           for (const video of lesson.videos) {

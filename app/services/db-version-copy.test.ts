@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import {
   createTestDb,
@@ -10,12 +10,12 @@ import {
 import * as schema from "@/db/schema";
 
 let testDb: TestDb;
-let testLayer: Layer.Layer<DBFunctionsService>;
+let testLayer: Layer.Layer<VersionOperationsService>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  testLayer = DBFunctionsService.Default.pipe(
+  testLayer = VersionOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as any))
   );
 });
@@ -24,7 +24,7 @@ beforeEach(async () => {
   await truncateAllTables(testDb);
 });
 
-const run = <A, E>(eff: Effect.Effect<A, E, DBFunctionsService>) =>
+const run = <A, E>(eff: Effect.Effect<A, E, VersionOperationsService>) =>
   Effect.runPromise(eff.pipe(Effect.provide(testLayer)));
 
 describe("copyVersionStructure", () => {
@@ -56,8 +56,8 @@ describe("copyVersionStructure", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
-        return yield* db.copyVersionStructure({
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
           sourceVersionId: version!.id,
           repoId: course!.id,
           newVersionName: "v2",
@@ -95,8 +95,8 @@ describe("copyVersionStructure", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
-        return yield* db.copyVersionStructure({
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
           sourceVersionId: version!.id,
           repoId: course!.id,
           newVersionName: "v2",
@@ -136,8 +136,8 @@ describe("copyVersionStructure", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
-        return yield* db.copyVersionStructure({
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
           sourceVersionId: version!.id,
           repoId: course!.id,
           newVersionName: "v2",
@@ -197,8 +197,8 @@ describe("copyVersionStructure", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
-        return yield* db.copyVersionStructure({
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
           sourceVersionId: version!.id,
           repoId: course!.id,
           newVersionName: "v2",
@@ -308,8 +308,8 @@ describe("copyVersionStructure", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
-        return yield* db.copyVersionStructure({
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
           sourceVersionId: version!.id,
           repoId: course!.id,
           newVersionName: "v2",

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
 import { ArrowLeft, Check, Copy } from "lucide-react";
@@ -12,12 +12,12 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { courseId: repoId, versionId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
 
     const [version, repoWithSections] = yield* Effect.all(
       [
-        db.getCourseVersionById(versionId),
-        db.getCourseWithSectionsByVersionSlim({ repoId, versionId }),
+        versionOps.getCourseVersionById(versionId),
+        versionOps.getCourseWithSectionsByVersionSlim({ repoId, versionId }),
       ],
       { concurrency: "unbounded" }
     );

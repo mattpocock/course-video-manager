@@ -1,4 +1,5 @@
 import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { ConfigProvider, Console, Data, Effect, Schema } from "effect";
@@ -76,12 +77,15 @@ export const action = async (args: Route.ActionArgs) => {
     const modifiedLessons = { ...decoded.modifiedLessons };
 
     const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
 
     const baseCourse = yield* db.getCourseByFilePath(decoded.filePath);
 
     // Get the latest version - updates should only affect latest version
-    const latestVersion = yield* db.getLatestCourseVersion(baseCourse.id);
+    const latestVersion = yield* versionOps.getLatestCourseVersion(
+      baseCourse.id
+    );
 
     if (!latestVersion) {
       return yield* new NotLatestVersionError({
@@ -89,10 +93,12 @@ export const action = async (args: Route.ActionArgs) => {
       });
     }
 
-    const courseWithSections = yield* db.getCourseWithSectionsByVersion({
-      repoId: baseCourse.id,
-      versionId: latestVersion.id,
-    });
+    const courseWithSections = yield* versionOps.getCourseWithSectionsByVersion(
+      {
+        repoId: baseCourse.id,
+        versionId: latestVersion.id,
+      }
+    );
 
     const lessonPathToLessonId = new Map<string, string>();
 
@@ -259,10 +265,12 @@ export const action = async (args: Route.ActionArgs) => {
     // 5. After all updates, check for any sections that have no lessons left
     //    - Delete or archive empty sections as needed (only for the latest version)
 
-    const courseAfterUpdates = yield* db.getCourseWithSectionsByVersion({
-      repoId: courseWithSections.id,
-      versionId: latestVersion.id,
-    });
+    const courseAfterUpdates = yield* versionOps.getCourseWithSectionsByVersion(
+      {
+        repoId: courseWithSections.id,
+        versionId: latestVersion.id,
+      }
+    );
 
     const sectionsWithNoLessons = courseAfterUpdates.sections.filter(
       (section) => section.lessons.length === 0

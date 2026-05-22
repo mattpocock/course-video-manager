@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { generateChangelog } from "@/services/changelog-service";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
 import { ArrowLeft } from "lucide-react";
@@ -15,9 +16,13 @@ export const loader = async (args: Route.LoaderArgs) => {
 
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
 
     const [repo, versions] = yield* Effect.all(
-      [db.getCourseById(repoId), db.getAllVersionsWithStructure(repoId)],
+      [
+        db.getCourseById(repoId),
+        versionOps.getAllVersionsWithStructure(repoId),
+      ],
       { concurrency: "unbounded" }
     );
     const changelog = generateChangelog(versions);

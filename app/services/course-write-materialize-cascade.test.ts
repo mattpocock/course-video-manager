@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -38,11 +39,13 @@ const setupGhostCourse = async () => {
   const testLayer = Layer.mergeAll(
     CourseWriteService.Default,
     DBFunctionsService.Default,
+    VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
 
   const dbLayer = Layer.mergeAll(
     DBFunctionsService.Default,
+    VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
@@ -55,8 +58,8 @@ const setupGhostCourse = async () => {
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    return yield* db.createCourseVersion({
+    const versionOps = yield* VersionOperationsService;
+    return yield* versionOps.createCourseVersion({
       repoId: ghostCourse.id,
       name: "v1",
     });

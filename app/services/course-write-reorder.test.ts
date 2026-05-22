@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -41,11 +42,13 @@ const setup = async () => {
   const testLayer = Layer.mergeAll(
     CourseWriteService.Default,
     DBFunctionsService.Default,
+    VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
 
   const dbLayer = Layer.mergeAll(
     DBFunctionsService.Default,
+    VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
@@ -58,8 +61,11 @@ const setup = async () => {
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    return yield* db.createCourseVersion({ repoId: repo.id, name: "v1" });
+    const versionOps = yield* VersionOperationsService;
+    return yield* versionOps.createCourseVersion({
+      repoId: repo.id,
+      name: "v1",
+    });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const createSection = async (sectionPath: string, order: number) => {

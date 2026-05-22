@@ -1,6 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.courses.$courseId.rename-version";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -21,9 +21,9 @@ export const action = async (args: Route.ActionArgs) => {
     const { versionId, name, description } =
       yield* Schema.decodeUnknown(editVersionSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
 
-    yield* db.updateCourseVersion({
+    yield* versionOps.updateCourseVersion({
       versionId,
       name: name.trim(),
       description: description.trim(),

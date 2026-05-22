@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ConfigProvider, Data, Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { batchExportProgram } from "@/services/batch-export.server";
 
@@ -42,7 +42,7 @@ const makeTestLayer = (opts: {
     onStageChange?: (stage: "concatenating-clips" | "normalizing-audio") => void
   ) => Effect.Effect<void, ExportFailedError>;
 }) => {
-  const dbLayer = Layer.succeed(DBFunctionsService, {
+  const dbLayer = Layer.succeed(VersionOperationsService, {
     getVersionWithSections: (...args: unknown[]) => {
       if (!opts.version) {
         return Effect.fail(

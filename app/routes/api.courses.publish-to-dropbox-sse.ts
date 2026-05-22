@@ -15,7 +15,7 @@ import {
   Schema,
 } from "effect";
 import { runtimeLive } from "@/services/layer.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { Command, FileSystem } from "@effect/platform";
 import path from "node:path";
 import { makeSemaphore } from "effect/Effect";
@@ -80,9 +80,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
         );
 
         const repoParserService = yield* CourseRepoParserService;
-        const db = yield* DBFunctionsService;
+        const versionOps = yield* VersionOperationsService;
 
-        const latestVersion = yield* db.getLatestCourseVersion(result.repoId);
+        const latestVersion = yield* versionOps.getLatestCourseVersion(
+          result.repoId
+        );
 
         if (!latestVersion) {
           return yield* new DoesNotExistOnDbError({
@@ -92,10 +94,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
           });
         }
 
-        const repoWithSections = yield* db.getCourseWithSectionsByVersion({
-          repoId: result.repoId,
-          versionId: latestVersion.id,
-        });
+        const repoWithSections =
+          yield* versionOps.getCourseWithSectionsByVersion({
+            repoId: result.repoId,
+            versionId: latestVersion.id,
+          });
 
         const sectionsOnFileSystem = yield* repoParserService.parseRepo(
           repoWithSections.filePath!
@@ -350,7 +353,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
         yield* Effect.forEach(filesToDelete, (file) => fs.remove(file));
 
         // Generate and write changelog
-        const allVersions = yield* db.getAllVersionsWithStructure(
+        const allVersions = yield* versionOps.getAllVersionsWithStructure(
           result.repoId
         );
         const changelogContent = generateChangelog(allVersions);

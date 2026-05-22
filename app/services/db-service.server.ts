@@ -1,6 +1,5 @@
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
@@ -13,7 +12,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
     effect: Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       const videoOps = yield* VideoOperationsService;
-      const versionOps = yield* VersionOperationsService;
       const linkAuthOps = yield* LinkAuthOperationsService;
       const thumbnailOps = yield* ThumbnailOperationsService;
       const pitchOps = yield* PitchOperationsService;
@@ -62,20 +60,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
         getNextLessonWithoutVideo: videoOps.getNextLessonWithoutVideo,
         getVideosForFewShotExamples: videoOps.getVideosForFewShotExamples,
 
-        getCourseVersions: versionOps.getCourseVersions,
-        getLatestCourseVersion: versionOps.getLatestCourseVersion,
-        getCourseVersionById: versionOps.getCourseVersionById,
-        getCourseWithSectionsByVersion:
-          versionOps.getCourseWithSectionsByVersion,
-        getCourseWithSectionsByVersionSlim:
-          versionOps.getCourseWithSectionsByVersionSlim,
-        getVersionWithSections: versionOps.getVersionWithSections,
-        createCourseVersion: versionOps.createCourseVersion,
-        updateCourseVersion: versionOps.updateCourseVersion,
-        copyVersionStructure: versionOps.copyVersionStructure,
-        getVideoIdsForVersion: versionOps.getVideoIdsForVersion,
-        getAllVersionsWithStructure: versionOps.getAllVersionsWithStructure,
-
         getLinks: linkAuthOps.getLinks,
         createLink: linkAuthOps.createLink,
         deleteLink: linkAuthOps.deleteLink,
@@ -113,7 +97,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
     dependencies: [
       CourseOperationsService.Default,
       VideoOperationsService.Default,
-      VersionOperationsService.Default,
       LinkAuthOperationsService.Default,
       ThumbnailOperationsService.Default,
       PitchOperationsService.Default,

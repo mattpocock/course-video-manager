@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
   computeExportHash,
   exportFilename,
@@ -236,7 +236,7 @@ describe("export-hash", () => {
         createdAt: new Date(),
       }));
 
-      const dbLayer = Layer.succeed(DBFunctionsService, {
+      const dbLayer = Layer.succeed(VersionOperationsService, {
         getCourseVersions: () => Effect.succeed(versionMeta),
         getVersionWithSections: (versionId: string) => {
           const ver = opts.versions.find((v) => v.id === versionId);

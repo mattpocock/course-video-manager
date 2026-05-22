@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { CoursePublishService } from "@/services/course-publish-service";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.courseVersions.$versionId.unexported-videos";
 import { data } from "react-router";
@@ -10,13 +10,13 @@ export const action = async (args: Route.ActionArgs) => {
 
   return Effect.gen(function* () {
     const publishService = yield* CoursePublishService;
-    const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
 
     const { unexportedVideoIds } =
       yield* publishService.validatePublishability(versionId);
 
     // Map unexported video IDs to display paths
-    const version = yield* db.getVersionWithSections(versionId);
+    const version = yield* versionOps.getVersionWithSections(versionId);
     const unexportedVideos: Array<{ id: string; title: string }> = [];
 
     for (const section of version.sections) {

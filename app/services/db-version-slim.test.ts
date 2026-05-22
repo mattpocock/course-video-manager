@@ -1,7 +1,7 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import {
   createTestDb,
@@ -11,12 +11,12 @@ import {
 import * as schema from "@/db/schema";
 
 let testDb: TestDb;
-let testLayer: Layer.Layer<DBFunctionsService>;
+let testLayer: Layer.Layer<VersionOperationsService>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  testLayer = DBFunctionsService.Default.pipe(
+  testLayer = VersionOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as any))
   );
 });
@@ -90,8 +90,8 @@ describe("getCourseWithSectionsByVersionSlim", () => {
         })
       );
 
-      const db = yield* DBFunctionsService;
-      const result = yield* db.getCourseWithSectionsByVersionSlim({
+      const versionOps = yield* VersionOperationsService;
+      const result = yield* versionOps.getCourseWithSectionsByVersionSlim({
         repoId: course.id,
         versionId: version.id,
       });
@@ -121,8 +121,8 @@ describe("getCourseWithSectionsByVersionSlim", () => {
         })
       );
 
-      const db = yield* DBFunctionsService;
-      const result = yield* db.getCourseWithSectionsByVersionSlim({
+      const versionOps = yield* VersionOperationsService;
+      const result = yield* versionOps.getCourseWithSectionsByVersionSlim({
         repoId: course.id,
         versionId: version.id,
       });
@@ -159,8 +159,8 @@ describe("getCourseWithSectionsByVersionSlim", () => {
         ])
       );
 
-      const db = yield* DBFunctionsService;
-      const result = yield* db.getCourseWithSectionsByVersionSlim({
+      const versionOps = yield* VersionOperationsService;
+      const result = yield* versionOps.getCourseWithSectionsByVersionSlim({
         repoId: course.id,
         versionId: version.id,
       });

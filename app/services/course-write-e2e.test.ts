@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -41,11 +42,13 @@ const setup = async () => {
   const testLayer = Layer.mergeAll(
     CourseWriteService.Default,
     DBFunctionsService.Default,
+    VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
 
   const dbLayer = Layer.mergeAll(
     DBFunctionsService.Default,
+    VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
@@ -58,8 +61,11 @@ const setup = async () => {
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    return yield* db.createCourseVersion({ repoId: repo.id, name: "v1" });
+    const versionOps = yield* VersionOperationsService;
+    return yield* versionOps.createCourseVersion({
+      repoId: repo.id,
+      name: "v1",
+    });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const createSection = async (sectionPath: string, order: number) => {
@@ -497,15 +503,14 @@ describe("CourseWriteService", () => {
       const testLayer = Layer.mergeAll(
         CourseWriteService.Default,
         DBFunctionsService.Default,
+        VersionOperationsService.Default,
         LessonSectionOperationsService.Default
       ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
       const dbLayer = Layer.mergeAll(
         DBFunctionsService.Default,
+        VersionOperationsService.Default,
         LessonSectionOperationsService.Default
       ).pipe(Layer.provide(drizzleLayer));
-      const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-        Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
-
       const dbRun = <A, E>(effect: Effect.Effect<A, E, any>) =>
         Effect.runPromise(
           effect.pipe(Effect.provide(dbLayer) as any)
@@ -521,40 +526,27 @@ describe("CourseWriteService", () => {
         })
       );
 
-      // Create old version with a stale section path (no directory on disk)
-      const oldVersion = await dbRun(
+      const currentVersion = await dbRun(
         Effect.gen(function* () {
-          const db = yield* DBFunctionsService;
-          return yield* db.createCourseVersion({
+          const versionOps = yield* VersionOperationsService;
+          const lsOps = yield* LessonSectionOperationsService;
+          const stale = yield* versionOps.createCourseVersion({
             repoId: repo.id,
             name: "v1-stale",
           });
-        })
-      );
-      await dbRun(
-        Effect.gen(function* () {
-          const lsOps = yield* LessonSectionOperationsService;
-          return yield* lsOps.createSections({
-            repoVersionId: oldVersion.id,
+          yield* lsOps.createSections({
+            repoVersionId: stale.id,
             sections: [
               { sectionPathWithNumber: "01-old-name", sectionNumber: 1 },
             ],
           });
-        })
-      );
-
-      // Create latest version with section matching disk
-      const currentVersion = await dbRun(
-        Effect.gen(function* () {
-          const db = yield* DBFunctionsService;
-          return yield* db.createCourseVersion({
+          return yield* versionOps.createCourseVersion({
             repoId: repo.id,
             name: "v2-current",
           });
         })
       );
 
-      // Create section on disk
       const sectionDir = path.join(tempDir, "01-intro");
       fs.mkdirSync(sectionDir, { recursive: true });
       const lessonDir = path.join(sectionDir, "01.01-basics", "explainer");
@@ -564,31 +556,25 @@ describe("CourseWriteService", () => {
         cwd: tempDir,
       });
 
-      // Create matching section in current version DB
       const [section] = await dbRun(
         Effect.gen(function* () {
           const lsOps = yield* LessonSectionOperationsService;
-          return yield* lsOps.createSections({
+          const sections = yield* lsOps.createSections({
             repoVersionId: currentVersion.id,
             sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
           });
-        })
-      );
-      await dbRun(
-        Effect.gen(function* () {
-          const lsOps = yield* LessonSectionOperationsService;
-          return yield* lsOps.createLessons(section!.id, [
+          yield* lsOps.createLessons(sections[0]!.id, [
             { lessonPathWithNumber: "01.01-basics", lessonNumber: 1 },
           ]);
+          return sections;
         })
       );
 
-      // Operation should succeed — only latest version is validated
-      const result = await run(
+      const result = await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.renameSection(section!.id, "getting-started");
-        })
+        }).pipe(Effect.provide(testLayer))
       );
 
       expect(result.success).toBe(true);

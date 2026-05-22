@@ -3,6 +3,7 @@ import type { Route } from "./+types/api.courses.add";
 import { Console, Effect, Schema } from "effect";
 import { runtimeLive } from "@/services/layer.server";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -22,6 +23,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
     const repoParserService = yield* CourseRepoParserService;
 
     const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
 
     const parsedSections = yield* repoParserService.parseRepo(result.repoPath);
@@ -32,7 +34,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
       name: result.name,
     });
 
-    const version = yield* db.createCourseVersion({
+    const version = yield* versionOps.createCourseVersion({
       repoId: repo.id,
       name: "v1.0",
     });

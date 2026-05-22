@@ -1,6 +1,6 @@
 import { Config, Effect, Schedule } from "effect";
 import { FileSystem } from "@effect/platform";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
   VideoProcessingService,
   type BeatType,
@@ -15,7 +15,7 @@ export const batchExportProgram = (
   sendEvent: (event: string, data: unknown) => void
 ) =>
   Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
     const videoProcessing = yield* VideoProcessingService;
     const fs = yield* FileSystem.FileSystem;
     const FINISHED_VIDEOS_DIRECTORY = yield* Config.string(
@@ -23,7 +23,7 @@ export const batchExportProgram = (
     );
 
     // Find unexported videos
-    const version = yield* db.getVersionWithSections(versionId);
+    const version = yield* versionOps.getVersionWithSections(versionId);
 
     const unexportedVideos: Array<{
       id: string;

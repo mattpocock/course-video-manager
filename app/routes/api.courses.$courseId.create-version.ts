@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect, Schema } from "effect";
@@ -17,9 +17,9 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
   return await Effect.gen(function* () {
     const result =
       yield* Schema.decodeUnknown(createVersionSchema)(formDataObject);
-    const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
 
-    const { version: newVersion } = yield* db.copyVersionStructure({
+    const { version: newVersion } = yield* versionOps.copyVersionStructure({
       sourceVersionId: result.sourceVersionId,
       repoId: params.courseId,
       newVersionName: result.name,

@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import type { Route } from "./+types/api.courses.$courseId.purge-exports";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { FileSystem } from "@effect/platform";
 import { CoursePublishService } from "@/services/course-publish-service";
@@ -17,11 +17,11 @@ export const action = async (args: Route.ActionArgs) => {
     const { versionId } =
       yield* Schema.decodeUnknown(purgeExportsSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const versionOps = yield* VersionOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const publishService = yield* CoursePublishService;
 
-    const videoIds = yield* db.getVideoIdsForVersion(versionId);
+    const videoIds = yield* versionOps.getVideoIdsForVersion(versionId);
 
     let deletedCount = 0;
     for (const videoId of videoIds) {
