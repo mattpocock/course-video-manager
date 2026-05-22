@@ -11,7 +11,7 @@ import {
 } from "@/services/course-loader-fs";
 import type { ExportClip } from "@/services/export-hash";
 import { getGitStatusAsync } from "@/services/git-status-service.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Effect } from "effect";
@@ -41,7 +41,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   }
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const versionOps = yield* VersionOperationsService;
 
     // Get the version to use
@@ -51,7 +51,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       resolvedVersionId = latestVersion?.id ?? null;
     }
 
-    const course = yield* db
+    const course = yield* courseOps
       .getCourseWithSlimClipsById(courseId, resolvedVersionId ?? undefined)
       .pipe(Effect.catchAll(() => Effect.succeed(undefined)));
 

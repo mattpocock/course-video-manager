@@ -1,5 +1,4 @@
 import { Layer, ManagedRuntime } from "effect";
-import { DBFunctionsService } from "./db-service.server";
 import { DrizzleService } from "./drizzle-service.server";
 import { DatabaseDumpService } from "./dump-service";
 import { CourseRepoParserService } from "./course-repo-parser";
@@ -42,7 +41,6 @@ const coreLayer = Layer.mergeAll(
   DeliverableOperationsService.Default,
   ThumbnailOperationsService.Default,
   LinkAuthOperationsService.Default,
-  DBFunctionsService.Default,
   CourseRepoParserService.Default,
   DatabaseDumpService.Default,
   VideoProcessingService.Default,

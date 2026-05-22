@@ -8,7 +8,6 @@
 import { handleCourseEditorEvent } from "@/services/course-editor-service-handler";
 import { CourseEditorEventSchema } from "@/services/course-editor-service.schemas";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
-import { DBFunctionsService } from "@/services/db-service.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect, Schema } from "effect";
@@ -19,8 +18,6 @@ export const action = async (args: Route.ActionArgs) => {
   const json = await args.request.json();
 
   return Effect.gen(function* () {
-    yield* DBFunctionsService;
-
     const event = yield* Schema.decodeUnknown(CourseEditorEventSchema)(json);
 
     const result = yield* handleCourseEditorEvent(event as CourseEditorEvent);

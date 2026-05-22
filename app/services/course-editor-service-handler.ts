@@ -2,7 +2,7 @@
  * CourseEditorService Handler
  *
  * Processes CourseEditorEvents by delegating to CourseWriteService
- * (for structural operations) or DBFunctionsService (for property updates).
+ * (for structural operations) or LessonSectionOperationsService (for property updates).
  * Also provides the direct transport factory for testing.
  */
 

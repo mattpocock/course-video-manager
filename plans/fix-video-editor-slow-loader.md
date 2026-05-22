@@ -14,7 +14,7 @@ The video editor page takes 8+ seconds to load. Profiling revealed the bottlenec
 
 ### Test file: `app/services/db-service-video-navigation.test.ts`
 
-Setup follows `db-service-clip-ordering.test.ts` pattern: PGlite in `beforeAll`, `truncateAllTables` in `beforeEach`, `DBFunctionsService` layer.
+Setup follows `db-service-clip-ordering.test.ts` pattern: PGlite in `beforeAll`, `truncateAllTables` in `beforeEach`, domain operations service layer.
 
 Fixture helper: `buildCourseFixture(testDb, { sections: [...] })` — inserts course → version → sections → lessons → videos using direct Drizzle inserts (pattern from `course-editor-service-test-setup.ts:createCourseWithVersion` + `createSectionWithLessons`).
 

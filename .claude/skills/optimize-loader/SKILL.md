@@ -2,7 +2,7 @@
 name: optimize-loader
 description:
   "Optimize slow React Router loaders by eliminating redundant DB queries, creating slim query variants, and parallelizing independent fetches.
-  Use proactively when writing or reviewing loader code that calls DBFunctionsService, or when triaging a slow page load."
+  Use proactively when writing or reviewing loader code that calls domain operations services (e.g. CourseOperationsService, VideoOperationsService), or when triaging a slow page load."
 ---
 
 # Optimize Loader
@@ -75,6 +75,5 @@ const [nextVideoId, previousVideoId] =
 When adding a new query (like `getCourseNavigationData`) that lives in course operations but is used by video operations:
 
 1. Add the query to `db-course-operations.server.ts` and export it
-2. Add it to the `deps` parameter of `createVideoOperations`
-3. Wire it in `db-service.server.ts` where `createVideoOperations` is called
-4. Do **not** add it to the `DBFunctionsService` return object unless loaders need it directly
+2. Declare the cross-domain dependency in `VideoOperationsService`'s `effect` block via `yield* CourseOperationsService`
+3. The Effect Layer system resolves cross-domain dependencies automatically
