@@ -16,6 +16,7 @@ export function useDocumentPanelActions({
   setIsCopied: (v: boolean) => void;
 }) {
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [isUploadingForCopy, setIsUploadingForCopy] = useState(false);
   const [isWritingToReadme, setIsWritingToReadme] = useState(false);
 
   const uploadAndReplaceImages = useCallback(
@@ -60,6 +61,7 @@ export function useDocumentPanelActions({
   const handleCopyAsMarkdown = useCallback(async () => {
     const currentDoc = documentRef.current;
     if (!currentDoc) return;
+    setIsUploadingForCopy(true);
     try {
       let contentToCopy = currentDoc;
       try {
@@ -76,12 +78,15 @@ export function useDocumentPanelActions({
       setTimeout(() => setIsCopied(false), 2000);
     } catch (error) {
       console.error("Failed to copy to clipboard:", error);
+    } finally {
+      setIsUploadingForCopy(false);
     }
   }, [documentRef, setIsCopied, uploadAndReplaceImages, updateDocument]);
 
   const handleCopyAsRichText = useCallback(async () => {
     const currentDoc = documentRef.current;
     if (!currentDoc) return;
+    setIsUploadingForCopy(true);
     try {
       let contentToCopy = currentDoc;
       try {
@@ -103,6 +108,8 @@ export function useDocumentPanelActions({
       setTimeout(() => setIsCopied(false), 2000);
     } catch (error) {
       console.error("Failed to copy as rich text:", error);
+    } finally {
+      setIsUploadingForCopy(false);
     }
   }, [documentRef, setIsCopied, uploadAndReplaceImages, updateDocument]);
 
@@ -148,6 +155,7 @@ export function useDocumentPanelActions({
   return {
     isWritingToReadme,
     isUploadingImages,
+    isUploadingForCopy,
     handleUploadImages,
     handleCopyAsMarkdown,
     handleCopyAsRichText,

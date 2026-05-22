@@ -293,6 +293,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
   const {
     isWritingToReadme,
     isUploadingImages,
+    isUploadingForCopy,
     handleUploadImages,
     handleCopyAsMarkdown: handleDocCopyAsMarkdown,
     handleCopyAsRichText: handleDocCopyAsRichText,
@@ -624,6 +625,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
                 preprocessMarkdown={docPreprocessMarkdown}
                 onDocumentChange={updateDocument}
                 isCopied={isCopied}
+                isUploadingForCopy={isUploadingForCopy}
                 onCopyAsMarkdown={handleDocCopyAsMarkdown}
                 onCopyAsRichText={handleDocCopyAsRichText}
                 isStandalone={isStandalone}

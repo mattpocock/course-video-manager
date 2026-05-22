@@ -41,6 +41,7 @@ export interface DocumentPanelProps {
   preprocessMarkdown?: (md: string) => string;
   onDocumentChange?: (content: string) => void;
   isCopied?: boolean;
+  isUploadingForCopy?: boolean;
   onCopyAsMarkdown?: () => void;
   onCopyAsRichText?: () => void;
   isStandalone?: boolean;
@@ -67,6 +68,7 @@ export const DocumentPanel = memo(function DocumentPanel({
   preprocessMarkdown,
   onDocumentChange,
   isCopied,
+  isUploadingForCopy,
   onCopyAsMarkdown,
   onCopyAsRichText,
   isStandalone,
@@ -178,9 +180,15 @@ export const DocumentPanel = memo(function DocumentPanel({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
-                    disabled={!document || hasUnresolvedScreenshots}
+                    disabled={
+                      !document ||
+                      hasUnresolvedScreenshots ||
+                      isUploadingForCopy
+                    }
                   >
-                    {isCopied ? (
+                    {isUploadingForCopy ? (
+                      <Loader2Icon className="h-4 w-4 animate-spin" />
+                    ) : isCopied ? (
                       <CheckIcon className="h-4 w-4" />
                     ) : (
                       <CopyIcon className="h-4 w-4" />
@@ -189,7 +197,13 @@ export const DocumentPanel = memo(function DocumentPanel({
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{isCopied ? "Copied" : "Copy document"}</p>
+                <p>
+                  {isUploadingForCopy
+                    ? "Uploading images..."
+                    : isCopied
+                      ? "Copied"
+                      : "Copy document"}
+                </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
