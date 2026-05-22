@@ -290,6 +290,8 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     [documentRef, updateDocument]
   );
 
+  const revalidator = useRevalidator();
+
   const {
     isWritingToReadme,
     isUploadingImages,
@@ -304,6 +306,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     updateDocument,
     lessonId,
     setIsCopied: (v: boolean) => dispatch({ type: "set-is-copied", value: v }),
+    revalidate: revalidator.revalidate,
   });
 
   const docExtraComponents = useMemo((): Options["components"] | undefined => {
@@ -438,8 +441,6 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
       toast.error(result.error);
     }
   }, [openFolderFetcher.state, openFolderFetcher.data]);
-
-  const revalidator = useRevalidator();
 
   const {
     phrases: bannedPhrases,

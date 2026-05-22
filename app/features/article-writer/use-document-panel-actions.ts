@@ -8,12 +8,14 @@ export function useDocumentPanelActions({
   updateDocument,
   lessonId,
   setIsCopied,
+  revalidate,
 }: {
   videoId: string;
   documentRef: MutableRefObject<string | undefined>;
   updateDocument: (content: string) => void;
   lessonId: string | null;
   setIsCopied: (v: boolean) => void;
+  revalidate: () => void;
 }) {
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isUploadingForCopy, setIsUploadingForCopy] = useState(false);
@@ -141,6 +143,7 @@ export function useDocumentPanelActions({
           updateDocument(result.body);
         }
         toast.success(`Saved to ${targetFolder}/readme.md`);
+        revalidate();
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Failed to write to README"
@@ -149,7 +152,7 @@ export function useDocumentPanelActions({
         setIsWritingToReadme(false);
       }
     },
-    [documentRef, updateDocument, lessonId]
+    [documentRef, updateDocument, lessonId, revalidate]
   );
 
   return {

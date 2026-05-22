@@ -57,18 +57,3 @@ function required(name: string): string {
   }
   return value;
 }
-
-function fail(message: string): never {
-  console.error(`\nFAILED: ${message}`);
-  fs.writeFileSync(path.join(OUTPUT_DIR, "failure_reason.txt"), message);
-  process.exit(1);
-}
-
-function formatError(err: unknown): string {
-  if (err instanceof z.ZodError) {
-    return err.issues
-      .map((i) => `${i.path.join(".")}: ${i.message}`)
-      .join("; ");
-  }
-  return err instanceof Error ? err.message : String(err);
-}
