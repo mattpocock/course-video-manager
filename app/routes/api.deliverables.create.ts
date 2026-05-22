@@ -1,6 +1,6 @@
 import { Console, Effect } from "effect";
 import { Schema } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -33,8 +33,8 @@ export const action = async (args: Route.ActionArgs) => {
   return Effect.gen(function* () {
     const input = yield* Schema.decodeUnknown(createSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
-    const deliverable = yield* db.createDeliverable({
+    const deliverableOps = yield* DeliverableOperationsService;
+    const deliverable = yield* deliverableOps.createDeliverable({
       title: input.title,
       date: input.date,
       notes: input.notes,

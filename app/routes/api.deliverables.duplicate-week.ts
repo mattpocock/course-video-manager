@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -20,10 +20,10 @@ export const action = async (args: Route.ActionArgs) => {
       return yield* Effect.die(data("No ids provided", { status: 400 }));
     }
 
-    const db = yield* DBFunctionsService;
+    const deliverableOps = yield* DeliverableOperationsService;
     const results = yield* Effect.forEach(
       ids,
-      (id) => db.duplicateDeliverable(id),
+      (id) => deliverableOps.duplicateDeliverable(id),
       { concurrency: 1 }
     );
 

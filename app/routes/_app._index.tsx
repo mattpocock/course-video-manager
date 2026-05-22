@@ -17,6 +17,7 @@ import {
 import { isoWeek } from "@/features/deliverables-calendar/iso-week";
 import type { PitchStatus } from "@/components/status-icon-badge";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
@@ -37,9 +38,14 @@ export const meta: Route.MetaFunction = () => {
 export const loader = async () => {
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const deliverableOps = yield* DeliverableOperationsService;
     const pitchOps = yield* PitchOperationsService;
     const [deliverables, courses, pitches] = yield* Effect.all(
-      [db.listDeliverables(), db.getCourses(), pitchOps.listPitches()],
+      [
+        deliverableOps.listDeliverables(),
+        db.getCourses(),
+        pitchOps.listPitches(),
+      ],
       { concurrency: "unbounded" }
     );
 

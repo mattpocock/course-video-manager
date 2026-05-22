@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -9,8 +9,8 @@ export const action = async (args: Route.ActionArgs) => {
   const { deliverableId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const deliverable = yield* db.archiveDeliverable(deliverableId);
+    const deliverableOps = yield* DeliverableOperationsService;
+    const deliverable = yield* deliverableOps.archiveDeliverable(deliverableId);
 
     return data({ id: deliverable.id });
   }).pipe(
