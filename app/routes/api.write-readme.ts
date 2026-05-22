@@ -4,7 +4,6 @@ import { CloudinaryMarkdownService } from "@/services/cloudinary-markdown-servic
 import { FileSystem } from "@effect/platform";
 import { Console, Effect, Schema } from "effect";
 import path from "node:path";
-import nodeFs from "node:fs";
 import type { Route } from "./+types/api.write-readme";
 import { data } from "react-router";
 
@@ -35,7 +34,6 @@ export const action = async (args: Route.ActionArgs) => {
       lesson.path
     );
 
-    // Upload local images to Cloudinary and replace paths in content
     const uploadResult = yield* cloudinaryMarkdown
       .uploadImagesInMarkdown(parsed.content, lessonFullPath)
       .pipe(
@@ -48,11 +46,8 @@ export const action = async (args: Route.ActionArgs) => {
       );
     const content = uploadResult.body;
 
-    // Delete local files that were uploaded
     for (const uploadedPath of uploadResult.uploadedFilePaths) {
-      yield* Effect.try(() => nodeFs.unlinkSync(uploadedPath)).pipe(
-        Effect.catchAll(() => Effect.void)
-      );
+      yield* fs.remove(uploadedPath).pipe(Effect.catchAll(() => Effect.void));
     }
 
     let targetPath: string;
