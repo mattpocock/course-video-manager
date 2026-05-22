@@ -160,6 +160,14 @@ jobs:
         # the issue number — any remote ref here is an orphan.
         run: git push --force origin "$BRANCH"
 
+      - name: Write PR title and description
+        if: steps.shape.outputs.proceed == 'true' && steps.preflight.outputs.refused != 'true' && success()
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          OUTPUT_DIR: ${{ runner.temp }}
+        run: npx tsx .sandcastle/write-pr/write-pr.ts
+
       - name: Open PR
         if: steps.shape.outputs.proceed == 'true' && steps.preflight.outputs.refused != 'true' && success()
         id: open_pr

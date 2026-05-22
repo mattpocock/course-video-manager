@@ -5,7 +5,7 @@ import { CloudinaryMarkdownService } from "@/services/cloudinary-markdown-servic
 import { runtimeLive } from "@/services/layer.server";
 import { data } from "react-router";
 import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
-import fs from "node:fs";
+import { FileSystem } from "@effect/platform";
 import path from "node:path";
 
 const RequestSchema = Schema.Struct({
@@ -23,6 +23,7 @@ export const action = async (args: Route.ActionArgs) => {
 
     const db = yield* DBFunctionsService;
     const cloudinaryMarkdown = yield* CloudinaryMarkdownService;
+    const fs = yield* FileSystem.FileSystem;
 
     const video = yield* db.getVideoById(videoId);
 
@@ -46,9 +47,7 @@ export const action = async (args: Route.ActionArgs) => {
     // Delete local files if requested and upload succeeded
     if (deleteLocalFiles && result.uploadedFilePaths.length > 0) {
       for (const filePath of result.uploadedFilePaths) {
-        yield* Effect.try(() => fs.unlinkSync(filePath)).pipe(
-          Effect.catchAll(() => Effect.void)
-        );
+        yield* fs.remove(filePath).pipe(Effect.catchAll(() => Effect.void));
       }
     }
 

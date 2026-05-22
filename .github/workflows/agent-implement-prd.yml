@@ -202,16 +202,35 @@ jobs:
           commit_sha=$(git rev-parse HEAD)
           gh issue close "$SUB_ISSUE_NUMBER" --comment "Implemented in ${commit_sha}. Part of #${PRD_NUMBER}."
 
-      - name: Open draft PR if one doesn't exist for this branch
+      - name: Check whether a PR already exists for this branch
         if: steps.shape.outputs.mode == 'run' && success()
-        id: open_pr
+        id: pr_lookup
         env:
           BRANCH: ${{ steps.branch.outputs.name }}
         run: |
           set -euo pipefail
           existing_pr=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
-          if [ -n "$existing_pr" ]; then
-            echo "pr_number=$existing_pr" >> "$GITHUB_OUTPUT"
+          echo "existing_pr=$existing_pr" >> "$GITHUB_OUTPUT"
+
+      - name: Write PR title and description (only when opening a new PR)
+        if: steps.shape.outputs.mode == 'run' && success() && steps.pr_lookup.outputs.existing_pr == ''
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PRD_NUMBER: ${{ env.PRD_NUMBER }}
+          PRD_TITLE: ${{ env.PRD_TITLE }}
+          OUTPUT_DIR: ${{ runner.temp }}
+        run: npx tsx .sandcastle/write-prd-pr/write-prd-pr.ts
+
+      - name: Open draft PR if one doesn't exist for this branch
+        if: steps.shape.outputs.mode == 'run' && success()
+        id: open_pr
+        env:
+          BRANCH: ${{ steps.branch.outputs.name }}
+          EXISTING_PR: ${{ steps.pr_lookup.outputs.existing_pr }}
+        run: |
+          set -euo pipefail
+          if [ -n "$EXISTING_PR" ]; then
+            echo "pr_number=$EXISTING_PR" >> "$GITHUB_OUTPUT"
             echo "created=false" >> "$GITHUB_OUTPUT"
           else
             PR_TITLE=$(cat "${RUNNER_TEMP}/pr_title.txt")

@@ -1,0 +1,129 @@
+name: Agent To-Issues PRD
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  to-issues-prd:
+    if: github.event.label.name == 'agent:to-issues'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: agent-to-issues-prd-issue-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+
+    env:
+      PRD_NUMBER: ${{ github.event.issue.number }}
+      PRD_TITLE: ${{ github.event.issue.title }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Detect — existing sub-issues + parent shape
+        id: shape
+        run: |
+          set -euo pipefail
+          sub_count=$(gh api "repos/${GH_REPO}/issues/${PRD_NUMBER}/sub_issues" --jq 'length' 2>/dev/null || echo "0")
+          owner="${GH_REPO%/*}"
+          repo="${GH_REPO#*/}"
+          parent_number=$(gh api graphql \
+            -f query='query($owner: String!, $repo: String!, $num: Int!) { repository(owner: $owner, name: $repo) { issue(number: $num) { parent { number } } } }' \
+            -f owner="$owner" -f repo="$repo" -F num="$PRD_NUMBER" \
+            --jq '.data.repository.issue.parent.number // empty' 2>/dev/null || echo "")
+
+          if [ "$sub_count" != "0" ]; then
+            mode="refuse-has-sub-issues"
+          elif [ -n "$parent_number" ]; then
+            mode="refuse-nested-prd"
+          else
+            mode="run"
+          fi
+
+          echo "sub_count=$sub_count" >> "$GITHUB_OUTPUT"
+          echo "parent_number=$parent_number" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse — PRD already has sub-issues
+        if: steps.shape.outputs.mode == 'refuse-has-sub-issues'
+        env:
+          SUB_COUNT: ${{ steps.shape.outputs.sub_count }}
+        run: |
+          gh issue edit "$PRD_NUMBER" --remove-label "agent:to-issues" || true
+          gh issue edit "$PRD_NUMBER" --add-label "agent:blocked" || true
+          gh issue comment "$PRD_NUMBER" --body "Refused to run: this PRD already has ${SUB_COUNT} sub-issue(s). \`agent:to-issues\` only runs against a PRD with no sub-issues. Close or detach the existing sub-issues before retrying."
+
+      - name: Refuse — PRD is itself a sub-issue
+        if: steps.shape.outputs.mode == 'refuse-nested-prd'
+        env:
+          PARENT_NUMBER: ${{ steps.shape.outputs.parent_number }}
+        run: |
+          gh issue edit "$PRD_NUMBER" --remove-label "agent:to-issues" || true
+          gh issue edit "$PRD_NUMBER" --add-label "agent:blocked" || true
+          gh issue comment "$PRD_NUMBER" --body "Refused to run: this issue is itself a sub-issue of #${PARENT_NUMBER}. Nested PRDs are not supported. Flatten the structure before retrying."
+
+      - name: Transition labels — PRD into in-progress
+        if: steps.shape.outputs.mode == 'run'
+        run: |
+          gh issue edit "$PRD_NUMBER" --remove-label "agent:to-issues" || true
+          gh issue edit "$PRD_NUMBER" --remove-label "agent:blocked" || true
+          gh issue edit "$PRD_NUMBER" --add-label "agent:in-progress" || true
+
+      - name: Checkout main
+        if: steps.shape.outputs.mode == 'run'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node.js 22
+        if: steps.shape.outputs.mode == 'run'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        if: steps.shape.outputs.mode == 'run'
+        run: npm install
+
+      - name: Install Claude Code
+        if: steps.shape.outputs.mode == 'run'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run to-issues-prd.ts
+        if: steps.shape.outputs.mode == 'run'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PRD_NUMBER: ${{ env.PRD_NUMBER }}
+          PRD_TITLE: ${{ env.PRD_TITLE }}
+          GH_REPO: ${{ env.GH_REPO }}
+        run: npx tsx .sandcastle/to-issues-prd/to-issues-prd.ts
+
+      - name: Mark blocked on failure
+        if: steps.shape.outputs.mode == 'run' && failure()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set +e
+          created=$(gh api "repos/${GH_REPO}/issues/${PRD_NUMBER}/sub_issues" --jq '[.[] | "#\(.number)"] | join(", ")' 2>/dev/null || echo "")
+          if [ -z "$created" ]; then
+            created="(none)"
+          fi
+          gh issue edit "$PRD_NUMBER" --add-label "agent:blocked" || true
+          gh issue comment "$PRD_NUMBER" --body "$(cat <<EOF
+          \`agent:to-issues\` run failed.
+
+          **Sub-issues created before the failure:** ${created}
+
+          **Workflow run:** ${RUN_URL}
+
+          Clean up any partial sub-issues, then remove \`agent:blocked\` and re-add \`agent:to-issues\` to retry.
+          EOF
+          )"
+
+      - name: Always remove in-progress from PRD
+        if: always() && steps.shape.outputs.mode == 'run'
+        run: gh issue edit "$PRD_NUMBER" --remove-label "agent:in-progress" || true

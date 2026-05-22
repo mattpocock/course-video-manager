@@ -28,18 +28,4 @@ Before committing, run `npm run typecheck` and `npm run test`.
 
 Make one or more git commits on `{{BRANCH}}`. Use conventional-commit messages (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`). Do NOT use a `RALPH:` prefix — that prefix is reserved for the RALPH loop.
 
-# OUTPUT
-
-When the work is committed, emit a single block as the last thing in your response:
-
-<output>
-{
-  "prTitle": "feat: short imperative summary",
-  "prDescription": "## Summary\n\n- bullet 1\n- bullet 2\n\nCloses #{{ISSUE_NUMBER}}"
-}
-</output>
-
-- `prTitle` must be a single line, under 70 characters.
-- `prDescription` must include `Closes #{{ISSUE_NUMBER}}` so the PR closes the issue on merge.
-
 Do not close the issue yourself.

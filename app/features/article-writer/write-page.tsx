@@ -290,9 +290,12 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     [documentRef, updateDocument]
   );
 
+  const revalidator = useRevalidator();
+
   const {
-    writeToReadmeFetcher: docWriteToReadmeFetcher,
+    isWritingToReadme,
     isUploadingImages,
+    isUploadingForCopy,
     handleUploadImages,
     handleCopyAsMarkdown: handleDocCopyAsMarkdown,
     handleCopyAsRichText: handleDocCopyAsRichText,
@@ -303,6 +306,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     updateDocument,
     lessonId,
     setIsCopied: (v: boolean) => dispatch({ type: "set-is-copied", value: v }),
+    revalidate: revalidator.revalidate,
   });
 
   const docExtraComponents = useMemo((): Options["components"] | undefined => {
@@ -437,8 +441,6 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
       toast.error(result.error);
     }
   }, [openFolderFetcher.state, openFolderFetcher.data]);
-
-  const revalidator = useRevalidator();
 
   const {
     phrases: bannedPhrases,
@@ -624,12 +626,15 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
                 preprocessMarkdown={docPreprocessMarkdown}
                 onDocumentChange={updateDocument}
                 isCopied={isCopied}
+                isUploadingForCopy={isUploadingForCopy}
                 onCopyAsMarkdown={handleDocCopyAsMarkdown}
                 onCopyAsRichText={handleDocCopyAsRichText}
                 isStandalone={isStandalone}
                 availableFolders={availableFolders}
                 foldersWithReadme={foldersWithReadme}
-                writeToReadmeFetcherState={docWriteToReadmeFetcher.state}
+                writeToReadmeFetcherState={
+                  isWritingToReadme ? "submitting" : "idle"
+                }
                 hasUnresolvedScreenshots={hasUnresolvedScreenshots(
                   document ?? ""
                 )}

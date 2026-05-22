@@ -30,11 +30,11 @@ jobs:
       GH_REPO: ${{ github.repository }}
 
     steps:
-      - name: Transition labels — remove trigger + blocked, add updating
+      - name: Transition labels — remove trigger + blocked, add in-progress
         run: |
           gh pr edit "$PR_NUMBER" --remove-label "agent:update-branch" || true
-          gh pr edit "$PR_NUMBER" --remove-label "agent:update-branch-blocked" || true
-          gh pr edit "$PR_NUMBER" --add-label "agent:updating-branch"
+          gh pr edit "$PR_NUMBER" --remove-label "agent:blocked" || true
+          gh pr edit "$PR_NUMBER" --add-label "agent:in-progress"
 
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -112,7 +112,7 @@ jobs:
           if [ -f "${RUNNER_TEMP}/failure_reason.txt" ]; then
             reason=$(cat "${RUNNER_TEMP}/failure_reason.txt")
           fi
-          gh pr edit "$PR_NUMBER" --add-label "agent:update-branch-blocked" || true
+          gh pr edit "$PR_NUMBER" --add-label "agent:blocked" || true
           gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
           \`agent:update-branch\` run failed.
 
@@ -124,6 +124,6 @@ jobs:
           EOF
           )"
 
-      - name: Always remove updating-branch label
+      - name: Always remove in-progress label
         if: always()
-        run: gh pr edit "$PR_NUMBER" --remove-label "agent:updating-branch" || true
+        run: gh pr edit "$PR_NUMBER" --remove-label "agent:in-progress" || true
