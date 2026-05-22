@@ -1,6 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.courses.$courseId.duplicate";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -29,10 +29,10 @@ export const action = async (args: Route.ActionArgs) => {
     const name = parsed.name.trim();
     const filePath = parsed.filePath.trim();
 
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
 
     // Get source course to validate name/path differ
-    const sourceCourse = yield* db.getCourseById(courseId);
+    const sourceCourse = yield* courseOps.getCourseById(courseId);
 
     if (name === sourceCourse.name) {
       return yield* Effect.die(
@@ -53,8 +53,8 @@ export const action = async (args: Route.ActionArgs) => {
     }
 
     // Check name and file path uniqueness
-    const allCourses = yield* db.getCourses();
-    const archivedCourses = yield* db.getArchivedCourses();
+    const allCourses = yield* courseOps.getCourses();
+    const archivedCourses = yield* courseOps.getArchivedCourses();
     const allCoursesCombined = [...allCourses, ...archivedCourses];
 
     if (allCoursesCombined.some((c) => c.name === name)) {
@@ -113,7 +113,7 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const result = yield* db.duplicateCourse({
+    const result = yield* courseOps.duplicateCourse({
       sourceCourseId: courseId,
       name,
       filePath,

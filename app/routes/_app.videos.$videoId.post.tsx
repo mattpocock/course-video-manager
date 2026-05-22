@@ -1,5 +1,6 @@
 "use client";
 
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DBFunctionsService } from "@/services/db-service.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
@@ -41,6 +42,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const thumbnailOps = yield* ThumbnailOperationsService;
     const pitchOps = yield* PitchOperationsService;
@@ -236,7 +238,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     ).pipe(Effect.map(EffectArray.filter((f) => f !== null)));
 
     // Fetch course structure for non-standalone videos
-    const repoWithSections = yield* db.getCourseStructureById(
+    const repoWithSections = yield* courseOps.getCourseStructureById(
       section.repoVersion.repoId
     );
     const matchingVersion = repoWithSections?.versions.find(

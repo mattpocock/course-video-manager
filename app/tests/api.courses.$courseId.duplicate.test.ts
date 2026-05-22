@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import {
   createTestDb,
@@ -12,12 +12,12 @@ import { FileSystem } from "@effect/platform";
 import * as Path from "node:path";
 
 let testDb: TestDb;
-let dbLayer: Layer.Layer<DBFunctionsService>;
+let courseLayer: Layer.Layer<CourseOperationsService>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  dbLayer = DBFunctionsService.Default.pipe(
+  courseLayer = CourseOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as any))
   );
 });
@@ -39,9 +39,9 @@ function duplicateCourseValidation(opts: {
     const name = opts.name.trim();
     const filePath = opts.filePath.trim();
 
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
 
-    const sourceCourse = yield* db.getCourseById(opts.courseId);
+    const sourceCourse = yield* courseOps.getCourseById(opts.courseId);
 
     if (name === sourceCourse.name) {
       return yield* Effect.fail({
@@ -55,8 +55,8 @@ function duplicateCourseValidation(opts: {
       });
     }
 
-    const allCourses = yield* db.getCourses();
-    const archivedCourses = yield* db.getArchivedCourses();
+    const allCourses = yield* courseOps.getCourses();
+    const archivedCourses = yield* courseOps.getArchivedCourses();
     const allCoursesCombined = [...allCourses, ...archivedCourses];
 
     if (allCoursesCombined.some((c) => c.name === name)) {
@@ -100,7 +100,7 @@ function duplicateCourseValidation(opts: {
       });
     }
 
-    const result = yield* db.duplicateCourse({
+    const result = yield* courseOps.duplicateCourse({
       sourceCourseId: opts.courseId,
       name,
       filePath,
@@ -118,25 +118,25 @@ function makeFsLayer(existingPaths: string[]) {
 }
 
 function run<A>(
-  eff: Effect.Effect<A, any, DBFunctionsService | FileSystem.FileSystem>,
+  eff: Effect.Effect<A, any, CourseOperationsService | FileSystem.FileSystem>,
   existingPaths: string[] = []
 ) {
   return Effect.runPromise(
     eff.pipe(
-      Effect.provide(dbLayer),
+      Effect.provide(courseLayer),
       Effect.provide(makeFsLayer(existingPaths))
     )
   );
 }
 
 function runExpectFail(
-  eff: Effect.Effect<any, any, DBFunctionsService | FileSystem.FileSystem>,
+  eff: Effect.Effect<any, any, CourseOperationsService | FileSystem.FileSystem>,
   existingPaths: string[] = []
 ) {
   return Effect.runPromise(
     eff.pipe(
       Effect.flip,
-      Effect.provide(dbLayer),
+      Effect.provide(courseLayer),
       Effect.provide(makeFsLayer(existingPaths))
     )
   );

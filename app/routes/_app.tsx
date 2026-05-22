@@ -1,5 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
 import { Outlet, useMatches } from "react-router";
@@ -7,8 +7,8 @@ import type { Route } from "./+types/_app";
 
 export const loader = async (_args: Route.LoaderArgs) => {
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const topCourses = yield* db.getTopActiveCourses(3);
+    const courseOps = yield* CourseOperationsService;
+    const topCourses = yield* courseOps.getTopActiveCourses(3);
     return {
       topCourses: topCourses.map((c) => ({ id: c.id, name: c.name })),
     };

@@ -1,6 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.courses.$courseId.rewrite-path";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -38,9 +38,9 @@ export const action = async (args: Route.ActionArgs) => {
       });
     }
 
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
 
-    yield* db.updateCourseFilePath({ repoId, filePath: trimmedPath });
+    yield* courseOps.updateCourseFilePath({ repoId, filePath: trimmedPath });
 
     return { success: true };
   }).pipe(

@@ -1,7 +1,7 @@
 import type { Route } from "./+types/api.courses.add-ghost";
 import { Console, Effect, Schema } from "effect";
 import { runtimeLive } from "@/services/layer.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -18,10 +18,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
     const result =
       yield* Schema.decodeUnknown(addGhostCourseSchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const versionOps = yield* VersionOperationsService;
 
-    const course = yield* db.createGhostCourse({
+    const course = yield* courseOps.createGhostCourse({
       name: result.name,
     });
 

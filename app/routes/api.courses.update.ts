@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -76,11 +76,11 @@ export const action = async (args: Route.ActionArgs) => {
     const deletedLessons = [...decoded.deletedLessons];
     const modifiedLessons = { ...decoded.modifiedLessons };
 
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const versionOps = yield* VersionOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
 
-    const baseCourse = yield* db.getCourseByFilePath(decoded.filePath);
+    const baseCourse = yield* courseOps.getCourseByFilePath(decoded.filePath);
 
     // Get the latest version - updates should only affect latest version
     const latestVersion = yield* versionOps.getLatestCourseVersion(

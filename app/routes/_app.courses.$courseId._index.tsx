@@ -9,7 +9,7 @@ import {
 } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { Button } from "@/components/ui/button";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
   loadExportStatusMap,
@@ -84,11 +84,11 @@ export const loader = async (args: Route.LoaderArgs) => {
   const selectedVersionId = url.searchParams.get("versionId");
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const versionOps = yield* VersionOperationsService;
     const featureFlags = yield* FeatureFlagService;
 
-    const courses = yield* db.getCourses();
+    const courses = yield* courseOps.getCourses();
 
     const versions = yield* versionOps.getCourseVersions(selectedCourseId);
 
@@ -109,7 +109,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         yield* versionOps.getLatestCourseVersion(selectedCourseId);
     }
 
-    const selectedCourse = yield* db
+    const selectedCourse = yield* courseOps
       .getCourseWithSlimClipsById(selectedCourseId, selectedVersion?.id)
       .pipe(
         Effect.andThen((course) => {
@@ -180,7 +180,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const lessonFsMaps = runtimeLive.runPromise(loadLessonFsMaps({ lessons }));
 
     const videoTranscripts = runtimeLive.runPromise(
-      db.getVideoTranscripts(selectedCourseId)
+      courseOps.getVideoTranscripts(selectedCourseId)
     );
 
     const latestVersion = versions[0];

@@ -1,6 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/api.courses.$courseId.update-memory";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
@@ -18,9 +18,9 @@ export const action = async (args: Route.ActionArgs) => {
     const { memory } =
       yield* Schema.decodeUnknown(updateMemorySchema)(formDataObject);
 
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
 
-    yield* db.updateCourseMemory({ repoId, memory });
+    yield* courseOps.updateCourseMemory({ repoId, memory });
 
     return { success: true };
   }).pipe(

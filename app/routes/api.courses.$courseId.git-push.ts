@@ -1,6 +1,6 @@
 import { Console, Effect } from "effect";
 import type { Route } from "./+types/api.courses.$courseId.git-push";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { data } from "react-router";
 import { execFileSync } from "node:child_process";
@@ -9,9 +9,9 @@ export const action = async (args: Route.ActionArgs) => {
   const repoId = args.params.courseId;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
 
-    const repo = yield* db.getCourseById(repoId);
+    const repo = yield* courseOps.getCourseById(repoId);
 
     if (!repo) {
       return Effect.die(data("Repo not found", { status: 404 }));

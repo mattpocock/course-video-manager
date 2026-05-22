@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DBFunctionsService } from "@/services/db-service.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
@@ -36,12 +37,13 @@ export const loader = async (args: Route.LoaderArgs) => {
 
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
 
     const video = yield* db.getVideoWithLessonById(videoId);
-    const courses = yield* db.getCourses();
+    const courses = yield* courseOps.getCourses();
 
     const coursesWithSections = yield* Effect.all(
-      courses.map((course) => db.getCourseStructureById(course.id))
+      courses.map((course) => courseOps.getCourseStructureById(course.id))
     );
 
     return { video, courses: coursesWithSections };

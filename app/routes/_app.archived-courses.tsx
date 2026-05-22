@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
 import { ArchiveRestore } from "lucide-react";
@@ -16,8 +16,8 @@ export const meta: Route.MetaFunction = () => {
 
 export const loader = async (_args: Route.LoaderArgs) => {
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const archivedCourses = yield* db.getArchivedCourses();
+    const courseOps = yield* CourseOperationsService;
+    const archivedCourses = yield* courseOps.getArchivedCourses();
     return { archivedCourses };
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),

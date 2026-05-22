@@ -2,7 +2,7 @@ import { CourseRepoParserService } from "@/services/course-repo-parser";
 import type { Route } from "./+types/api.courses.add";
 import { Console, Effect, Schema } from "effect";
 import { runtimeLive } from "@/services/layer.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
@@ -22,14 +22,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
     const repoParserService = yield* CourseRepoParserService;
 
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const versionOps = yield* VersionOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
 
     const parsedSections = yield* repoParserService.parseRepo(result.repoPath);
     console.log(parsedSections);
 
-    const repo = yield* db.createCourse({
+    const repo = yield* courseOps.createCourse({
       filePath: result.repoPath,
       name: result.name,
     });

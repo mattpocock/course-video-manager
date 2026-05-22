@@ -2,6 +2,7 @@
 
 export const handle = { fullscreen: true };
 
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DBFunctionsService } from "@/services/db-service.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -29,6 +30,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   // Phase 1: Fast operations (DB queries + transcript building)
   const immediateData = await Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const publishService = yield* CoursePublishService;
@@ -107,7 +109,7 @@ export const loader = async (args: Route.LoaderArgs) => {
           concurrency: "unbounded",
         }),
         db.getNextLessonWithoutVideo(video),
-        db.getCourseStructureById(section.repoVersion.repoId),
+        courseOps.getCourseStructureById(section.repoVersion.repoId),
       ],
       { concurrency: "unbounded" }
     );

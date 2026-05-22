@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { generateChangelog } from "@/services/changelog-service";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
@@ -15,12 +15,12 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { courseId: repoId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const versionOps = yield* VersionOperationsService;
 
     const [repo, versions] = yield* Effect.all(
       [
-        db.getCourseById(repoId),
+        courseOps.getCourseById(repoId),
         versionOps.getAllVersionsWithStructure(repoId),
       ],
       { concurrency: "unbounded" }

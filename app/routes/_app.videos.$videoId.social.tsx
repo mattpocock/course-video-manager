@@ -2,6 +2,7 @@
 
 export const handle = { fullscreen: true };
 
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DBFunctionsService } from "@/services/db-service.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { FeatureFlagService } from "@/services/feature-flag-service";
@@ -38,6 +39,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const featureFlags = yield* FeatureFlagService;
@@ -217,7 +219,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     ).pipe(Effect.map(EffectArray.filter((f) => f !== null)));
 
     // Fetch course structure for non-standalone videos
-    const repoWithSections = yield* db.getCourseStructureById(
+    const repoWithSections = yield* courseOps.getCourseStructureById(
       section.repoVersion.repoId
     );
     const matchingVersion = repoWithSections?.versions.find(

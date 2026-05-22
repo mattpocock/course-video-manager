@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DBFunctionsService } from "@/services/db-service.server";
 import { runtimeLive } from "@/services/layer.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
@@ -59,14 +60,17 @@ const computeDuration = (
 export const loader = async () => {
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const courseOps = yield* CourseOperationsService;
     const [videos, courseList] = yield* Effect.all(
-      [db.getAllStandaloneVideos(), db.getCourses()],
+      [db.getAllStandaloneVideos(), courseOps.getCourses()],
       { concurrency: "unbounded" }
     );
 
     // Load all courses with their sections/lessons/videos (draft version) in parallel
     const fullCourses = yield* Effect.all(
-      courseList.map((course) => db.getCourseWithSectionsById(course.id)),
+      courseList.map((course) =>
+        courseOps.getCourseWithSectionsById(course.id)
+      ),
       { concurrency: "unbounded" }
     );
 
