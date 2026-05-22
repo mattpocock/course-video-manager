@@ -1,7 +1,7 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import {
   createTestDb,
@@ -11,13 +11,13 @@ import {
 import * as schema from "@/db/schema";
 
 let testDb: TestDb;
-let testLayer: Layer.Layer<DBFunctionsService>;
+let testLayer: Layer.Layer<CourseOperationsService>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
 
-  testLayer = DBFunctionsService.Default.pipe(
+  testLayer = CourseOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as any))
   );
 });
@@ -127,7 +127,7 @@ describe("getCourseStructureById - archived section filtering", () => {
         ])
       );
 
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       const result = yield* db.getCourseStructureById(course!.id);
 
       const sections = result.versions[0]!.sections;
@@ -171,7 +171,7 @@ describe("getCourseStructureById - archived section filtering", () => {
         ])
       );
 
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       const result = yield* db.getCourseStructureById(course!.id);
 
       expect(result.versions[0]!.sections).toHaveLength(0);
@@ -185,7 +185,7 @@ describe("getCourseStructureById", () => {
       const { courseId, versionId, sectionId, lessonRealId, lessonGhostId } =
         yield* Effect.promise(() => buildCourseWithVideos());
 
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       const result = yield* db.getCourseStructureById(courseId);
 
       expect(result.id).toBe(courseId);
@@ -215,7 +215,7 @@ describe("getCourseStructureById", () => {
     Effect.gen(function* () {
       const { courseId } = yield* Effect.promise(() => buildCourseWithVideos());
 
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       const result = yield* db.getCourseStructureById(courseId);
 
       const lesson = result.versions[0]!.sections[0]!.lessons[0]!;
@@ -225,7 +225,7 @@ describe("getCourseStructureById", () => {
 
   it.effect("throws NotFoundError for unknown course id", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       const result = yield* db
         .getCourseStructureById("nonexistent-id")
         .pipe(Effect.flip);
@@ -251,7 +251,7 @@ describe("getCourseStructureById", () => {
           .values({ repoId: course!.id, name: "v1" })
       );
 
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       const result = yield* db.getCourseStructureById(course!.id);
 
       expect(result.memory).toBe("This is the AI context for the course");
@@ -308,7 +308,7 @@ describe("getCourseStructureById", () => {
         ])
       );
 
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       const result = yield* db.getCourseStructureById(course!.id);
 
       const sections = result.versions[0]!.sections;

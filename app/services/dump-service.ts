@@ -1,5 +1,5 @@
 import { Config, Effect, Queue } from "effect";
-import { DBFunctionsService } from "./db-service.server";
+import { CourseOperationsService } from "./db-course-operations.server";
 import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 
@@ -7,15 +7,17 @@ export class DatabaseDumpService extends Effect.Service<DatabaseDumpService>()(
   "DatabaseDumpService",
   {
     effect: Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const courseOps = yield* CourseOperationsService;
       const fs = yield* FileSystem.FileSystem;
       const DUMP_FILE_LOCATION = yield* Config.string("DUMP_FILE_LOCATION");
 
       const runDump = Effect.fn("dump")(function* () {
-        const courses = yield* db.getCourses();
+        const courses = yield* courseOps.getCourses();
 
         const courseDumps = yield* Effect.all(
-          courses.map((course) => db.getCourseWithSectionsById(course.id)),
+          courses.map((course) =>
+            courseOps.getCourseWithSectionsById(course.id)
+          ),
           { concurrency: "unbounded" }
         );
 
@@ -43,7 +45,7 @@ export class DatabaseDumpService extends Effect.Service<DatabaseDumpService>()(
         requestDump,
       };
     }),
-    dependencies: [NodeFileSystem.layer, DBFunctionsService.Default],
+    dependencies: [NodeFileSystem.layer, CourseOperationsService.Default],
   }
 ) {}
 

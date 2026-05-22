@@ -2,6 +2,7 @@ import { Config, Data, Effect, Schedule } from "effect";
 import { Command, FileSystem } from "@effect/platform";
 import path from "node:path";
 import { DBFunctionsService } from "./db-service.server";
+import { CourseOperationsService } from "./db-course-operations.server";
 import { VersionOperationsService } from "./db-version-operations.server";
 import {
   VideoProcessingService,
@@ -92,6 +93,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
   {
     effect: Effect.gen(function* () {
       const db = yield* DBFunctionsService;
+      const courseOps = yield* CourseOperationsService;
       const versionOps = yield* VersionOperationsService;
       const videoProcessing = yield* VideoProcessingService;
       const effectFs = yield* FileSystem.FileSystem;
@@ -339,7 +341,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // Upload to Dropbox
         onProgress?.("uploading");
         const DROPBOX_PATH = yield* Config.string("DROPBOX_PATH");
-        const course = yield* db.getCourseById(courseId);
+        const course = yield* courseOps.getCourseById(courseId);
         const repoParser = yield* CourseRepoParserService;
 
         const repoWithSections =

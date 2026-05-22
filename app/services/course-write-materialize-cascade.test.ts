@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
@@ -38,13 +38,13 @@ const setupGhostCourse = async () => {
 
   const testLayer = Layer.mergeAll(
     CourseWriteService.Default,
-    DBFunctionsService.Default,
+    CourseOperationsService.Default,
     VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
 
   const dbLayer = Layer.mergeAll(
-    DBFunctionsService.Default,
+    CourseOperationsService.Default,
     VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
@@ -53,7 +53,7 @@ const setupGhostCourse = async () => {
     Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const ghostCourse = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const db = yield* CourseOperationsService;
     return yield* db.createGhostCourse({ name: "ghost-course" });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
@@ -109,7 +109,7 @@ const setupGhostCourse = async () => {
 
   const getCourse = (courseId: string) =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* CourseOperationsService;
       return yield* db.getCourseById(courseId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 

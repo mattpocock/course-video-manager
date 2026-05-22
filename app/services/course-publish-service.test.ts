@@ -10,6 +10,7 @@ import {
   type TestDb,
 } from "@/test-utils/pglite";
 import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
@@ -38,6 +39,7 @@ const setup = async () => {
   const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
   const dbLayer = Layer.mergeAll(
     DBFunctionsService.Default,
+    CourseOperationsService.Default,
     VersionOperationsService.Default,
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
@@ -64,6 +66,7 @@ const setup = async () => {
   // Build a core layer with all deps, then provide to CoursePublishService
   const coreTestLayer = Layer.mergeAll(
     DBFunctionsService.Default,
+    CourseOperationsService.Default,
     VersionOperationsService.Default,
     mockVideoProcessing,
     NodeContext.layer
@@ -76,8 +79,8 @@ const setup = async () => {
 
   // Seed data
   const course = await Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    return yield* db.createCourse({
+    const courseOps = yield* CourseOperationsService;
+    return yield* courseOps.createCourse({
       filePath: "/tmp/test-course",
       name: "test-course",
     });

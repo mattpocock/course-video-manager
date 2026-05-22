@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import {
   createTestDb,
@@ -11,12 +11,12 @@ import * as schema from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 let testDb: TestDb;
-let testLayer: Layer.Layer<DBFunctionsService>;
+let testLayer: Layer.Layer<CourseOperationsService>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  testLayer = DBFunctionsService.Default.pipe(
+  testLayer = CourseOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as any))
   );
 });
@@ -25,7 +25,7 @@ beforeEach(async () => {
   await truncateAllTables(testDb);
 });
 
-const run = <A, E>(eff: Effect.Effect<A, E, DBFunctionsService>) =>
+const run = <A, E>(eff: Effect.Effect<A, E, CourseOperationsService>) =>
   Effect.runPromise(eff.pipe(Effect.provide(testLayer)));
 
 async function createFullCourseStructure() {
@@ -160,7 +160,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Duplicated Course",
@@ -178,7 +178,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -195,7 +195,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -217,7 +217,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -244,7 +244,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -278,7 +278,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -300,7 +300,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -332,7 +332,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -371,7 +371,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -407,7 +407,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
@@ -457,7 +457,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
@@ -484,7 +484,7 @@ describe("duplicateCourse", () => {
     await expect(
       run(
         Effect.gen(function* () {
-          const db = yield* DBFunctionsService;
+          const db = yield* CourseOperationsService;
           return yield* db.duplicateCourse({
             sourceCourseId: "non-existent-id",
             name: "Dup",
@@ -504,7 +504,7 @@ describe("duplicateCourse", () => {
     await expect(
       run(
         Effect.gen(function* () {
-          const db = yield* DBFunctionsService;
+          const db = yield* CourseOperationsService;
           return yield* db.duplicateCourse({
             sourceCourseId: course!.id,
             name: "Dup",
@@ -534,7 +534,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
@@ -565,7 +565,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
@@ -607,7 +607,7 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* CourseOperationsService;
         return yield* db.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",

@@ -13,7 +13,7 @@ import {
 import { createDirectCourseEditorService } from "./course-editor-service-handler";
 import type { CourseEditorService } from "./course-editor-service";
 import { DrizzleService } from "./drizzle-service.server";
-import { DBFunctionsService } from "./db-service.server";
+import { CourseOperationsService } from "./db-course-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { CourseWriteService } from "./course-write-service";
 import { CourseRepoWriteService } from "./course-repo-write-service";
@@ -38,7 +38,7 @@ export function setupEditorServiceTests() {
 
     const testDrizzleLayer = Layer.succeed(DrizzleService, testDb as any);
     const testDbFunctionsLayer = Layer.mergeAll(
-      DBFunctionsService.Default,
+      CourseOperationsService.Default,
       LessonSectionOperationsService.Default
     ).pipe(Layer.provide(testDrizzleLayer));
 

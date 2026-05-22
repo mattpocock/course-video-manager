@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
-import { DBFunctionsService } from "./db-service.server";
+import { CourseOperationsService } from "./db-course-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { CourseRepoWriteService } from "./course-repo-write-service";
 import {
@@ -26,7 +26,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
   {
     effect: Effect.gen(function* () {
       const lessonSectionOps = yield* LessonSectionOperationsService;
-      const db = yield* DBFunctionsService;
+      const courseOps = yield* CourseOperationsService;
       const repoWrite = yield* CourseRepoWriteService;
       const syncService = yield* CourseRepoSyncValidationService;
       const fileSystem = yield* FileSystem.FileSystem;
@@ -66,7 +66,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         materializeCourseWithLesson,
       } = createMaterializeOps(
         lessonSectionOps,
-        db,
+        courseOps,
         repoWrite,
         fileSystem,
         renumberSections
@@ -609,7 +609,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
     }),
     dependencies: [
       LessonSectionOperationsService.Default,
-      DBFunctionsService.Default,
+      CourseOperationsService.Default,
       CourseRepoWriteService.Default,
       CourseRepoSyncValidationService.Default,
       NodeFileSystem.layer,

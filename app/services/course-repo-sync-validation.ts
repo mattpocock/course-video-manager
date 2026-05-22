@@ -2,7 +2,7 @@ import { Data, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import path from "node:path";
-import { DBFunctionsService } from "./db-service.server";
+import { CourseOperationsService } from "./db-course-operations.server";
 import { parseSectionPath } from "./section-path-service";
 
 export class CourseRepoSyncError extends Data.TaggedError(
@@ -16,7 +16,7 @@ export class CourseRepoSyncValidationService extends Effect.Service<CourseRepoSy
   "CourseRepoSyncValidationService",
   {
     effect: Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const courseOps = yield* CourseOperationsService;
       const fs = yield* FileSystem.FileSystem;
 
       const validate = Effect.fn("validateRepoSync")(function* (opts: {
@@ -29,7 +29,7 @@ export class CourseRepoSyncValidationService extends Effect.Service<CourseRepoSy
         if (opts.repoPath === null) return; // ghost course — nothing to validate
         const scopedRepoPath = opts.repoPath;
 
-        const allCourses = yield* db.getCourses();
+        const allCourses = yield* courseOps.getCourses();
         const courses = allCourses.filter((c) => c.filePath === scopedRepoPath);
         const mismatches: string[] = [];
 
@@ -45,7 +45,9 @@ export class CourseRepoSyncValidationService extends Effect.Service<CourseRepoSy
             continue;
           }
 
-          const courseData = yield* db.getCourseWithSectionsById(course.id);
+          const courseData = yield* courseOps.getCourseWithSectionsById(
+            course.id
+          );
 
           // Only validate the latest version (versions are ordered newest-first).
           // The filesystem only represents one version's state at a time, so
@@ -147,6 +149,6 @@ export class CourseRepoSyncValidationService extends Effect.Service<CourseRepoSy
 
       return { validate };
     }),
-    dependencies: [NodeFileSystem.layer, DBFunctionsService.Default],
+    dependencies: [NodeFileSystem.layer, CourseOperationsService.Default],
   }
 ) {}

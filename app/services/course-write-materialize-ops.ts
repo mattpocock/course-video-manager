@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import type { FileSystem } from "@effect/platform";
 import nodePath from "node:path";
-import type { DBFunctionsService } from "./db-service.server";
+import type { CourseOperationsService } from "./db-course-operations.server";
 import type { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import type { CourseRepoWriteService } from "./course-repo-write-service";
 import {
@@ -19,7 +19,7 @@ import {
 
 export function createMaterializeOps<E1>(
   lessonSectionOps: LessonSectionOperationsService,
-  db: Pick<DBFunctionsService, "updateCourseFilePath">,
+  db: Pick<CourseOperationsService, "updateCourseFilePath">,
   repoWrite: CourseRepoWriteService,
   fileSystem: FileSystem.FileSystem,
   renumberSections: (
