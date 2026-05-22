@@ -2,7 +2,7 @@ import { clips, chapters } from "@/db/schema";
 import { compareOrderStrings } from "@/lib/sort-by-order";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
-import { DBFunctionsService } from "./db-service.server";
+import { VideoOperationsService } from "./db-video-operations.server";
 import { DrizzleService } from "./drizzle-service.server";
 import { UnknownDBServiceError } from "./db-service-errors";
 
@@ -24,10 +24,10 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
   function* (opts: { name: string; sourceVideoIds: string[] }) {
     const { name, sourceVideoIds } = opts;
     const db = yield* DrizzleService;
-    const dbFunctions = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
 
     // Create the new standalone video
-    const newVideo = yield* dbFunctions.createStandaloneVideo({ path: name });
+    const newVideo = yield* videoOps.createStandaloneVideo({ path: name });
 
     // Track the running order position across all sources
     let prevOrder: string | null = null;
@@ -36,8 +36,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
       const sourceVideoId = sourceVideoIds[i]!;
 
       // Load source video with clips and sections
-      const sourceVideo =
-        yield* dbFunctions.getVideoWithClipsById(sourceVideoId);
+      const sourceVideo = yield* videoOps.getVideoWithClipsById(sourceVideoId);
 
       // Insert boundary chapter between sources (not before the first)
       if (i > 0) {

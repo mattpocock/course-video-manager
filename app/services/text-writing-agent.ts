@@ -24,7 +24,7 @@ import {
   type UIMessage,
 } from "ai";
 import { Array, Effect } from "effect";
-import { DBFunctionsService } from "./db-service.server";
+import { VideoOperationsService } from "./db-video-operations.server";
 import path from "node:path";
 import { FileSystem } from "@effect/platform";
 import { calculateYouTubeChapters, type YouTubeChaptersItem } from "./utils";
@@ -254,10 +254,10 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
     includeTranscript?: boolean;
     enabledSections?: string[];
   }) {
-    const db = yield* DBFunctionsService;
+    const videoOps = yield* VideoOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
-    const video = yield* db.getVideoWithClipsById(props.videoId);
+    const video = yield* videoOps.getVideoWithClipsById(props.videoId);
 
     const lesson = video.lesson;
 

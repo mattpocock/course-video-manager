@@ -12,7 +12,7 @@
  */
 
 import { runtimeLive } from "@/services/layer.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject } from "ai";
 import { Effect } from "effect";
@@ -65,8 +65,8 @@ if (!videoId) {
 }
 
 const program = Effect.gen(function* () {
-  const db = yield* DBFunctionsService;
-  const video = yield* db.getVideoWithClipsById(videoId);
+  const videoOps = yield* VideoOperationsService;
+  const video = yield* videoOps.getVideoWithClipsById(videoId);
 
   const clips = video.clips.map((c) => ({
     id: c.id,

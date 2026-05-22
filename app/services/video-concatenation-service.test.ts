@@ -3,7 +3,6 @@ import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { DBFunctionsService } from "@/services/db-service.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { sortByOrder } from "@/lib/sort-by-order";
 import { concatenateVideos } from "@/services/video-concatenation-service";
@@ -15,10 +14,7 @@ import {
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<
-  | ClipOperationsService
-  | VideoOperationsService
-  | DBFunctionsService
-  | DrizzleService
+  ClipOperationsService | VideoOperationsService | DrizzleService
 >;
 
 beforeAll(async () => {
@@ -29,7 +25,6 @@ beforeAll(async () => {
   testLayer = Layer.mergeAll(
     ClipOperationsService.Default,
     VideoOperationsService.Default,
-    DBFunctionsService.Default,
     drizzleLayer
   ).pipe(Layer.provide(drizzleLayer));
 });
@@ -188,8 +183,8 @@ describe("concatenateVideos", () => {
           sourceVideoIds: [video1.id],
         });
 
-        const db = yield* DBFunctionsService;
-        const newVideo = yield* db.getVideoWithClipsById(result.id);
+        const videoOps = yield* VideoOperationsService;
+        const newVideo = yield* videoOps.getVideoWithClipsById(result.id);
 
         expect(newVideo.clips).toHaveLength(1);
         const clip = newVideo.clips[0]!;
@@ -268,8 +263,8 @@ describe("concatenateVideos", () => {
           sourceVideoIds: [video1.id, video2.id, video3.id],
         });
 
-        const db = yield* DBFunctionsService;
-        const newVideo = yield* db.getVideoWithClipsById(result.id);
+        const videoOps = yield* VideoOperationsService;
+        const newVideo = yield* videoOps.getVideoWithClipsById(result.id);
 
         const allItems = sortByOrder([
           ...newVideo.clips.map((c: any) => ({ type: "clip" as const, ...c })),
@@ -345,8 +340,8 @@ describe("concatenateVideos", () => {
           sourceVideoIds: [video1.id, video2.id, video3.id],
         });
 
-        const db = yield* DBFunctionsService;
-        const newVideo = yield* db.getVideoWithClipsById(result.id);
+        const videoOps = yield* VideoOperationsService;
+        const newVideo = yield* videoOps.getVideoWithClipsById(result.id);
 
         const allItems = sortByOrder([
           ...newVideo.clips.map((c: any) => ({ type: "clip" as const, ...c })),

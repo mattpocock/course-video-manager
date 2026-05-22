@@ -1,8 +1,8 @@
 import { Config, Data, Effect, Schedule } from "effect";
 import { Command, FileSystem } from "@effect/platform";
 import path from "node:path";
-import { DBFunctionsService } from "./db-service.server";
 import { CourseOperationsService } from "./db-course-operations.server";
+import { VideoOperationsService } from "./db-video-operations.server";
 import { VersionOperationsService } from "./db-version-operations.server";
 import {
   VideoProcessingService,
@@ -92,8 +92,8 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
   "CoursePublishService",
   {
     effect: Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
       const courseOps = yield* CourseOperationsService;
+      const videoOps = yield* VideoOperationsService;
       const versionOps = yield* VersionOperationsService;
       const videoProcessing = yield* VideoProcessingService;
       const effectFs = yield* FileSystem.FileSystem;
@@ -106,7 +106,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
       ) {
         const video =
           typeof videoOrId === "string"
-            ? yield* db.getVideoWithClipsById(videoOrId)
+            ? yield* videoOps.getVideoWithClipsById(videoOrId)
             : videoOrId;
         if (video.clips.length === 0) return null;
 
@@ -138,7 +138,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         videoId: string,
         onStage?: (stage: "concatenating-clips" | "normalizing-audio") => void
       ) {
-        const video = yield* db.getVideoWithClipsById(videoId);
+        const video = yield* videoOps.getVideoWithClipsById(videoId);
         const courseId = video.lesson?.section.repoVersion.repo.id;
         const owner: ExportOwner = courseId
           ? { kind: "course", courseId }
