@@ -1,8 +1,10 @@
 import { DBFunctionsService } from "@/services/db-service.server";
 import { runtimeLive } from "@/services/layer.server";
+import { CloudinaryMarkdownService } from "@/services/cloudinary-markdown-service";
 import { FileSystem } from "@effect/platform";
 import { Console, Effect, Schema } from "effect";
 import path from "node:path";
+import nodeFs from "node:fs";
 import type { Route } from "./+types/api.write-readme";
 import { data } from "react-router";
 
@@ -21,9 +23,10 @@ export const action = async (args: Route.ActionArgs) => {
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
     const fs = yield* FileSystem.FileSystem;
+    const cloudinaryMarkdown = yield* CloudinaryMarkdownService;
 
     const parsed = yield* Schema.decodeUnknown(writeReadmeSchema)(body);
-    const { lessonId, content, mode, targetFolder } = parsed;
+    const { lessonId, mode, targetFolder } = parsed;
 
     const lesson = yield* db.getLessonWithHierarchyById(lessonId);
     const lessonFullPath = path.join(
@@ -31,6 +34,26 @@ export const action = async (args: Route.ActionArgs) => {
       lesson.section.path,
       lesson.path
     );
+
+    // Upload local images to Cloudinary and replace paths in content
+    const uploadResult = yield* cloudinaryMarkdown
+      .uploadImagesInMarkdown(parsed.content, lessonFullPath)
+      .pipe(
+        Effect.catchAll(() =>
+          Effect.succeed({
+            body: parsed.content,
+            uploadedFilePaths: [] as string[],
+          })
+        )
+      );
+    const content = uploadResult.body;
+
+    // Delete local files that were uploaded
+    for (const uploadedPath of uploadResult.uploadedFilePaths) {
+      yield* Effect.try(() => nodeFs.unlinkSync(uploadedPath)).pipe(
+        Effect.catchAll(() => Effect.void)
+      );
+    }
 
     let targetPath: string;
     if (targetFolder) {
@@ -60,7 +83,6 @@ export const action = async (args: Route.ActionArgs) => {
       }
     }
 
-    // Handle append mode
     if (mode === "append") {
       const fileExists = yield* fs.exists(targetPath);
       if (fileExists) {
@@ -70,14 +92,13 @@ export const action = async (args: Route.ActionArgs) => {
           existingContent + "\n\n" + content
         );
       } else {
-        // If file doesn't exist, just create it
         yield* fs.writeFileString(targetPath, content);
       }
     } else {
       yield* fs.writeFileString(targetPath, content);
     }
 
-    return Response.json({ success: true });
+    return Response.json({ success: true, body: content });
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
     Effect.catchTag("ParseError", () => {

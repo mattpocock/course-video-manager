@@ -291,7 +291,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
   );
 
   const {
-    writeToReadmeFetcher: docWriteToReadmeFetcher,
+    isWritingToReadme,
     isUploadingImages,
     handleUploadImages,
     handleCopyAsMarkdown: handleDocCopyAsMarkdown,
@@ -629,7 +629,9 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
                 isStandalone={isStandalone}
                 availableFolders={availableFolders}
                 foldersWithReadme={foldersWithReadme}
-                writeToReadmeFetcherState={docWriteToReadmeFetcher.state}
+                writeToReadmeFetcherState={
+                  isWritingToReadme ? "submitting" : "idle"
+                }
                 hasUnresolvedScreenshots={hasUnresolvedScreenshots(
                   document ?? ""
                 )}
