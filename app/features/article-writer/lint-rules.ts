@@ -154,27 +154,6 @@ export const BASE_LINT_RULES: LintRule[] = [
     fixInstruction:
       "Remove the markdown heading from the start of the content. Do not start with a heading - begin directly with the content.",
   },
-  {
-    id: "no-orphaned-paragraph",
-    name: "No Orphaned Paragraphs",
-    description:
-      "A markdown heading must have at least 2 paragraphs after it before the next heading",
-    modes: ["article", "skill-building"],
-    pattern: /^#{1,6} .+\n\n(?:(?!#{1,6} |\n)[^\n]+\n)*\n(?=#{1,6} )/gm,
-    matchFilter: (match: string) => {
-      // Exclude matches where the content is a table (lines starting with |)
-      const lines = match.split("\n").filter((l) => l.trim() !== "");
-      const contentLines = lines.slice(1); // Skip the heading line
-      return !contentLines.every((l) => l.trimStart().startsWith("|"));
-    },
-    fixInstruction: (matches: string[]) => {
-      const sections = matches.map((m) => {
-        const heading = m.split("\n")[0];
-        return `"${heading}"`;
-      });
-      return `The following heading${sections.length > 1 ? "s have" : " has"} only a single paragraph beneath ${sections.length > 1 ? "them" : "it"} (orphaned paragraph${sections.length > 1 ? "s" : ""}):\n${sections.join("\n")}\n\nFix ONLY ${sections.length > 1 ? "these specific sections" : "this specific section"} - do NOT make changes elsewhere in the document. Either merge the section into an adjacent section or remove the heading. Do not add more paragraphs to justify the heading.`;
-    },
-  },
 ];
 
 /**

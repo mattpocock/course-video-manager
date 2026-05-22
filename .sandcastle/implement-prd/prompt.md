@@ -51,24 +51,3 @@ sub-issue is the workflow's job, and closing the PRD is the merged PR's job.
 
 Do not close the sub-issue yourself. Do not push the branch. The workflow
 handles both.
-
-# OUTPUT
-
-When the work is committed, emit a single block as the last thing in your
-response:
-
-<output>
-{
-  "prTitle": "feat: short imperative summary of the PRD as a whole",
-  "prDescription": "## Summary\n\nWhat the PRD delivers, in 1–3 paragraphs framed around the whole effort (not just this sub-issue).\n\n## Sub-issues\n\n- #N — title\n- #M — title\n\nCloses #{{PRD_NUMBER}}"
-}
-</output>
-
-Rules:
-
-- `prTitle` must be a single line, under 70 characters, framed around the **PRD** as a whole — not this individual sub-issue. It will be reused across all sub-issue runs.
-- `prDescription` must:
-  - describe the PRD's overall intent (read the PRD body and restate its goal),
-  - list every sub-issue with its number and title,
-  - end with `Closes #{{PRD_NUMBER}}` so the PR auto-closes the PRD on merge.
-- The workflow only uses `prTitle`/`prDescription` on the **first** sub-issue run (when the PR doesn't yet exist). On later runs it ignores them. Generate them anyway — they're cheap and keep the prompt uniform.

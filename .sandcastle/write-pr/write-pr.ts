@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
+import { z } from "zod";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
 
@@ -9,8 +9,13 @@ const ISSUE_TITLE = required("ISSUE_TITLE");
 const BRANCH = required("BRANCH");
 const OUTPUT_DIR = process.env.OUTPUT_DIR ?? "/tmp";
 
+const PromptOutput = z.object({
+  prTitle: z.string().min(1).max(256),
+  prDescription: z.string().min(1),
+});
+
 const result = await sandcastle.run({
-  name: `implement-#${ISSUE_NUMBER}`,
+  name: `write-pr-#${ISSUE_NUMBER}`,
   agent: sandcastle.claudeCode("claude-opus-4-6", {
     env: {
       CLAUDE_CODE_OAUTH_TOKEN: required("CLAUDE_CODE_OAUTH_TOKEN"),
@@ -24,19 +29,20 @@ const result = await sandcastle.run({
     ISSUE_TITLE,
     BRANCH,
   },
+  output: sandcastle.Output.object({
+    tag: "output",
+    schema: PromptOutput,
+  }),
 });
 
-const commitsAhead = Number(
-  execSync("git rev-list --count main..HEAD", { encoding: "utf8" }).trim()
+fs.writeFileSync(path.join(OUTPUT_DIR, "pr_title.txt"), result.output.prTitle);
+fs.writeFileSync(
+  path.join(OUTPUT_DIR, "pr_description.txt"),
+  result.output.prDescription
 );
-if (!Number.isFinite(commitsAhead) || commitsAhead === 0) {
-  fail("Agent finished but no commits were made on the branch.");
-}
 
-console.log(
-  `\nImplementation produced ${commitsAhead} commit(s) on ${BRANCH}.`
-);
-console.log(`  commits this run: ${result.commits.length}`);
+console.log(`\nWrote PR metadata to ${OUTPUT_DIR}`);
+console.log(`  title: ${result.output.prTitle}`);
 
 function required(name: string): string {
   const value = process.env[name];
@@ -45,10 +51,4 @@ function required(name: string): string {
     process.exit(1);
   }
   return value;
-}
-
-function fail(message: string): never {
-  console.error(`\nFAILED: ${message}`);
-  fs.writeFileSync(path.join(OUTPUT_DIR, "failure_reason.txt"), message);
-  process.exit(1);
 }
