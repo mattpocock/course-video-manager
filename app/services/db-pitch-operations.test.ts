@@ -2,7 +2,7 @@ import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { eq } from "drizzle-orm";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import * as schema from "@/db/schema";
 import {
@@ -12,13 +12,13 @@ import {
 } from "@/test-utils/pglite";
 
 let testDb: TestDb;
-let testLayer: Layer.Layer<DBFunctionsService>;
+let testLayer: Layer.Layer<PitchOperationsService>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
 
-  testLayer = DBFunctionsService.Default.pipe(
+  testLayer = PitchOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as any))
   );
 });
@@ -30,7 +30,7 @@ beforeEach(async () => {
 describe("createPitch", () => {
   it.effect("creates a pitch with default values", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const pitch = yield* db.createPitch();
 
       expect(pitch.id).toEqual(expect.any(String));
@@ -55,7 +55,7 @@ describe("listPitches", () => {
     "returns all non-archived pitches sorted by priority asc then createdAt desc",
     () =>
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* PitchOperationsService;
 
         const p1 = yield* db.createPitch();
         yield* db.updatePitchField(p1.id, "title", "First");
@@ -77,7 +77,7 @@ describe("listPitches", () => {
 
   it.effect("returns empty array when no pitches exist", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const list = yield* db.listPitches();
       expect(list).toEqual([]);
     }).pipe(Effect.provide(testLayer))
@@ -87,7 +87,7 @@ describe("listPitches", () => {
 describe("getPitch", () => {
   it.effect("returns a pitch by id", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const created = yield* db.createPitch();
       const fetched = yield* db.getPitch(created.id);
 
@@ -97,7 +97,7 @@ describe("getPitch", () => {
 
   it.effect("fails with NotFoundError for missing id", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const result = yield* db.getPitch("nonexistent-id").pipe(Effect.flip);
 
       expect(result._tag).toBe("NotFoundError");
@@ -108,7 +108,7 @@ describe("getPitch", () => {
 describe("updatePitchField", () => {
   it.effect("updates only the named field and bumps updatedAt", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const created = yield* db.createPitch();
       const originalUpdatedAt = created.updatedAt;
 
@@ -129,7 +129,7 @@ describe("updatePitchField", () => {
 
   it.effect("updates priority as a number", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const created = yield* db.createPitch();
       const updated = yield* db.updatePitchField(created.id, "priority", 1);
 
@@ -139,7 +139,7 @@ describe("updatePitchField", () => {
 
   it.effect("fails with NotFoundError for non-existent pitch", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const result = yield* db
         .updatePitchField("nonexistent-id", "title", "Nope")
         .pipe(Effect.flip);
@@ -149,7 +149,7 @@ describe("updatePitchField", () => {
 
   it.effect("updates status field", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const created = yield* db.createPitch();
 
       const updated = yield* db.updatePitchField(
@@ -170,7 +170,7 @@ describe("updatePitchField", () => {
 
   it.effect("updating one field does not clobber another", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const created = yield* db.createPitch();
 
       yield* db.updatePitchField(created.id, "title", "My Pitch");
@@ -188,7 +188,7 @@ describe("updatePitchField", () => {
 describe("listPitches with filters", () => {
   it.effect("filters by status", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const p1 = yield* db.createPitch();
       yield* db.updatePitchField(p1.id, "title", "Idle one");
@@ -214,7 +214,7 @@ describe("listPitches with filters", () => {
 
   it.effect("filters by priority", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const p1 = yield* db.createPitch();
       yield* db.updatePitchField(p1.id, "priority", 1);
@@ -235,7 +235,7 @@ describe("listPitches with filters", () => {
 
   it.effect("filters by archived flag", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       yield* db.createPitch();
       const p2 = yield* db.createPitch();
@@ -251,7 +251,7 @@ describe("listPitches with filters", () => {
 
   it.effect("sorts by priority asc then createdAt desc", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const p1 = yield* db.createPitch();
       yield* db.updatePitchField(p1.id, "title", "P2 older");
@@ -274,7 +274,7 @@ describe("listPitches with filters", () => {
 
   it.effect("combines status and priority filters", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const p1 = yield* db.createPitch();
       yield* db.updatePitchField(p1.id, "priority", 1);
@@ -300,7 +300,7 @@ describe("listPitches with filters", () => {
     "returns all non-archived when called with no filters (backward compat)",
     () =>
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* PitchOperationsService;
 
         yield* db.createPitch();
         yield* db.createPitch();
@@ -314,7 +314,7 @@ describe("listPitches with filters", () => {
 
   it.effect("treats empty status array as no status filter", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       yield* db.createPitch();
       const p2 = yield* db.createPitch();
@@ -327,7 +327,7 @@ describe("listPitches with filters", () => {
 
   it.effect("treats empty priority array as no priority filter", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const p1 = yield* db.createPitch();
       yield* db.updatePitchField(p1.id, "priority", 1);
@@ -343,7 +343,7 @@ describe("listPitches with filters", () => {
 describe("deletePitch", () => {
   it.effect("removes the pitch row", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const created = yield* db.createPitch();
       yield* db.deletePitch(created.id);
 
@@ -354,29 +354,34 @@ describe("deletePitch", () => {
 
   it.effect("does not error when deleting a non-existent pitch", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       yield* db.deletePitch("nonexistent-id");
     }).pipe(Effect.provide(testLayer))
   );
 
   it.effect("sets pitchId to NULL on linked videos", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const pitch = yield* db.createPitch();
-      const video = yield* db.createStandaloneVideo({ path: "test-vid" });
+      const [video] = yield* Effect.promise(() =>
+        testDb
+          .insert(schema.videos)
+          .values({ path: "test-vid", originalFootagePath: "" })
+          .returning()
+      );
 
       yield* Effect.promise(() =>
         testDb
           .update(schema.videos)
           .set({ pitchId: pitch.id })
-          .where(eq(schema.videos.id, video.id))
+          .where(eq(schema.videos.id, video!.id))
       );
 
       yield* db.deletePitch(pitch.id);
 
       const updatedVideo = yield* Effect.promise(() =>
         testDb.query.videos.findFirst({
-          where: eq(schema.videos.id, video.id),
+          where: eq(schema.videos.id, video!.id),
         })
       );
       expect(updatedVideo!.pitchId).toBeNull();
@@ -387,7 +392,7 @@ describe("deletePitch", () => {
 describe("listPitchesWithVideos", () => {
   it.effect("returns pitches with their linked videos", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const pitch = yield* db.createPitch();
       yield* db.updatePitchField(pitch.id, "title", "Has videos");
@@ -405,7 +410,7 @@ describe("listPitchesWithVideos", () => {
     "returns pitches with empty videos array when no videos linked",
     () =>
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* PitchOperationsService;
 
         yield* db.createPitch();
 
@@ -419,7 +424,7 @@ describe("listPitchesWithVideos", () => {
     "includes clips relation for computing first frame thumbnails",
     () =>
       Effect.gen(function* () {
-        const db = yield* DBFunctionsService;
+        const db = yield* PitchOperationsService;
 
         const pitch = yield* db.createPitch();
         yield* db.createVideoFromPitch(pitch.id);
@@ -431,15 +436,17 @@ describe("listPitchesWithVideos", () => {
 
   it.effect("excludes archived videos from results", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const pitch = yield* db.createPitch();
       const video1 = yield* db.createVideoFromPitch(pitch.id);
       yield* db.createVideoFromPitch(pitch.id);
-      yield* db.updateVideoArchiveStatus({
-        videoId: video1.id,
-        archived: true,
-      });
+      yield* Effect.promise(() =>
+        testDb
+          .update(schema.videos)
+          .set({ archived: true })
+          .where(eq(schema.videos.id, video1.id))
+      );
 
       const list = yield* db.listPitchesWithVideos({ status: ["idle"] });
       expect(list).toHaveLength(1);
@@ -449,7 +456,7 @@ describe("listPitchesWithVideos", () => {
 
   it.effect("returns multiple videos per pitch", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const pitch = yield* db.createPitch();
       yield* db.createVideoFromPitch(pitch.id);
@@ -466,7 +473,7 @@ describe("listPitchesWithVideos", () => {
 describe("getPitchWithVideos", () => {
   it.effect("returns a pitch with its linked videos and clips", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const pitch = yield* db.createPitch();
       const video = yield* db.createVideoFromPitch(pitch.id);
@@ -481,7 +488,7 @@ describe("getPitchWithVideos", () => {
 
   it.effect("fails with NotFoundError for non-existent pitch", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const result = yield* db
         .getPitchWithVideos("nonexistent-id")
         .pipe(Effect.flip);
@@ -491,14 +498,16 @@ describe("getPitchWithVideos", () => {
 
   it.effect("excludes archived videos", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
 
       const pitch = yield* db.createPitch();
       const video = yield* db.createVideoFromPitch(pitch.id);
-      yield* db.updateVideoArchiveStatus({
-        videoId: video.id,
-        archived: true,
-      });
+      yield* Effect.promise(() =>
+        testDb
+          .update(schema.videos)
+          .set({ archived: true })
+          .where(eq(schema.videos.id, video.id))
+      );
 
       const result = yield* db.getPitchWithVideos(pitch.id);
       expect(result.videos).toHaveLength(0);
@@ -509,7 +518,7 @@ describe("getPitchWithVideos", () => {
 describe("createVideoFromPitch", () => {
   it.effect("creates a standalone video with pitchId set", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const pitch = yield* db.createPitch();
       const video = yield* db.createVideoFromPitch(pitch.id);
 
@@ -523,18 +532,22 @@ describe("createVideoFromPitch", () => {
 
   it.effect("creates a video with no clips", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const pitch = yield* db.createPitch();
       const video = yield* db.createVideoFromPitch(pitch.id);
 
-      const fullVideo = yield* db.getVideoWithClipsById(video.id);
-      expect(fullVideo.clips).toHaveLength(0);
+      const videoClips = yield* Effect.promise(() =>
+        testDb.query.clips.findMany({
+          where: eq(schema.clips.videoId, video.id),
+        })
+      );
+      expect(videoClips).toHaveLength(0);
     }).pipe(Effect.provide(testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent pitch", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const result = yield* db
         .createVideoFromPitch("nonexistent-pitch-id")
         .pipe(Effect.flip);
@@ -544,7 +557,7 @@ describe("createVideoFromPitch", () => {
 
   it.effect("allows multiple videos from the same pitch", () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const db = yield* PitchOperationsService;
       const pitch = yield* db.createPitch();
 
       const v1 = yield* db.createVideoFromPitch(pitch.id);

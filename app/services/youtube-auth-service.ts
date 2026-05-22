@@ -1,5 +1,5 @@
 import { Config, ConfigProvider, Data, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 
 export class YouTubeAuthError extends Data.TaggedError("YouTubeAuthError")<{
   message: string;
@@ -69,7 +69,7 @@ const refreshAccessToken = Effect.fn("refreshAccessToken")(function* (
  * Returns the access token string if authenticated, or fails with NotAuthenticatedError.
  */
 export const getValidAccessToken = Effect.gen(function* () {
-  const db = yield* DBFunctionsService;
+  const db = yield* LinkAuthOperationsService;
   const auth = yield* db.getYoutubeAuth();
 
   if (!auth) {
@@ -105,7 +105,7 @@ export const getValidAccessToken = Effect.gen(function* () {
  * Returns true if there are stored tokens (doesn't validate them).
  */
 export const isYoutubeAuthenticated = Effect.gen(function* () {
-  const db = yield* DBFunctionsService;
+  const db = yield* LinkAuthOperationsService;
   const auth = yield* db.getYoutubeAuth();
   return auth !== null;
 });

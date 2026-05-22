@@ -3,6 +3,7 @@
 export const handle = { fullscreen: true };
 
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { sortByOrder } from "@/lib/sort-by-order";
 import { runtimeLive } from "@/services/layer.server";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
@@ -36,9 +37,14 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const [video, aiHeroAuth, globalLinks] = yield* Effect.all(
-      [db.getVideoWithClipsById(videoId), db.getAiHeroAuth(), db.getLinks()],
+      [
+        db.getVideoWithClipsById(videoId),
+        linkAuthOps.getAiHeroAuth(),
+        linkAuthOps.getLinks(),
+      ],
       { concurrency: "unbounded" }
     );
     const aiHero: { connected: true; userId: string } | { connected: false } =

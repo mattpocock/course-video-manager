@@ -17,7 +17,7 @@ import {
   type PitchStatus,
 } from "@/components/status-icon-badge";
 import { CoursePublishService } from "@/services/course-publish-service";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { Console, Effect } from "effect";
@@ -63,7 +63,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { pitchId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const db = yield* PitchOperationsService;
     const publishService = yield* CoursePublishService;
 
     const pitchRaw = yield* db.getPitchWithVideos(pitchId);

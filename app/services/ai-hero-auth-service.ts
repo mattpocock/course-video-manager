@@ -1,5 +1,5 @@
 import { Config, ConfigProvider, Data, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 
 export class AiHeroAuthError extends Data.TaggedError("AiHeroAuthError")<{
   message: string;
@@ -123,7 +123,7 @@ export const pollForToken = (deviceCode: string) =>
         });
 
         // Store the token in the database
-        const db = yield* DBFunctionsService;
+        const db = yield* LinkAuthOperationsService;
         yield* db.upsertAiHeroAuth({
           accessToken: result.access_token,
           userId: userInfo.id,
@@ -155,7 +155,7 @@ export const pollForToken = (deviceCode: string) =>
  * Returns the access token string if authenticated, or fails with AiHeroNotAuthenticatedError.
  */
 export const getAiHeroAccessToken = Effect.gen(function* () {
-  const db = yield* DBFunctionsService;
+  const db = yield* LinkAuthOperationsService;
   const auth = yield* db.getAiHeroAuth();
 
   if (!auth) {
@@ -169,7 +169,7 @@ export const getAiHeroAccessToken = Effect.gen(function* () {
  * Check if the user is authenticated with AI Hero.
  */
 export const isAiHeroAuthenticated = Effect.gen(function* () {
-  const db = yield* DBFunctionsService;
+  const db = yield* LinkAuthOperationsService;
   const auth = yield* db.getAiHeroAuth();
   return auth !== null;
 });

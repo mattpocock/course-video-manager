@@ -3,6 +3,7 @@
 export const handle = { fullscreen: true };
 
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { buildTranscript } from "@/lib/transcript-builder";
 import { Array as EffectArray, Console, Effect } from "effect";
@@ -28,11 +29,12 @@ export const loader = async (args: Route.LoaderArgs) => {
   // Phase 1: Fast operations (DB queries + transcript building)
   const immediateData = await Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const publishService = yield* CoursePublishService;
     const video = yield* db.getVideoWithClipsById(videoId);
     const [globalLinks, videoExists] = yield* Effect.all(
-      [db.getLinks(), publishService.isExported(video)],
+      [linkAuthOps.getLinks(), publishService.isExported(video)],
       { concurrency: "unbounded" }
     );
 

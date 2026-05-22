@@ -1,6 +1,6 @@
 import { createReadStream } from "fs";
 import type { Route } from "./+types/api.thumbnails.$thumbnailId.layer.$layerType";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Console, Effect } from "effect";
 import { data } from "react-router";
@@ -38,7 +38,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       );
     }
 
-    const db = yield* DBFunctionsService;
+    const db = yield* ThumbnailOperationsService;
     const record = yield* db.getThumbnailById(thumbnailId);
 
     const layers = record.layers as {

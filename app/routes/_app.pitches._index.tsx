@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CoursePublishService } from "@/services/course-publish-service";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { Console, Effect } from "effect";
@@ -114,7 +114,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   const priorityFilter = parsePriorityParam(url.searchParams.get("priority"));
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const db = yield* PitchOperationsService;
     const publishService = yield* CoursePublishService;
 
     const pitchesRaw = yield* db.listPitchesWithVideos({

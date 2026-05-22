@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import {
   acquireTextWritingContext,
@@ -77,8 +77,8 @@ export const action = async (args: Route.ActionArgs) => {
       enabledSections,
     });
 
-    const db = yield* DBFunctionsService;
-    const links = yield* db.getLinks();
+    const linkAuthOps = yield* LinkAuthOperationsService;
+    const links = yield* linkAuthOps.getLinks();
 
     let courseStructureText: string | undefined;
     if (parsed.courseStructure) {

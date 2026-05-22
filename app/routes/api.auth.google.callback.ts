@@ -1,7 +1,7 @@
 import { Config, ConfigProvider, Console, Data, Effect } from "effect";
 import { redirect } from "react-router";
 import { runtimeLive } from "@/services/layer.server";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 
 class GoogleOAuthError extends Data.TaggedError("GoogleOAuthError")<{
   message: string;
@@ -32,7 +32,7 @@ export const loader = async ({ request }: { request: Request }) => {
   return Effect.gen(function* () {
     const clientId = yield* Config.string("GOOGLE_CLIENT_ID");
     const clientSecret = yield* Config.string("GOOGLE_CLIENT_SECRET");
-    const db = yield* DBFunctionsService;
+    const db = yield* LinkAuthOperationsService;
 
     // Build the redirect URI (must match what was used in initiate)
     const origin = url.origin;

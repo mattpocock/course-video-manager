@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import type { Route } from "./+types/api.pitches.$pitchId.delete";
 import { withDatabaseDump } from "@/services/dump-service";
@@ -11,7 +11,7 @@ export const action = async (args: Route.ActionArgs) => {
   const redirectTo = formData.get("redirectTo");
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const db = yield* PitchOperationsService;
     yield* db.deletePitch(pitchId);
     if (
       typeof redirectTo === "string" &&

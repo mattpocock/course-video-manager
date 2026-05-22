@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { Route } from "./+types/api.thumbnails.create";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
@@ -43,7 +43,7 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const db = yield* DBFunctionsService;
+    const db = yield* ThumbnailOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
     const compositeBytes = decodeDataUrl(imageDataUrl);

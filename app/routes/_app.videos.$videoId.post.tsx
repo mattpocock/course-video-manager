@@ -1,6 +1,9 @@
 "use client";
 
 import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { sortByOrder } from "@/lib/sort-by-order";
 import { runtimeLive } from "@/services/layer.server";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
@@ -38,15 +41,18 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
   return Effect.gen(function* () {
     const db = yield* DBFunctionsService;
+    const linkAuthOps = yield* LinkAuthOperationsService;
+    const thumbnailOps = yield* ThumbnailOperationsService;
+    const pitchOps = yield* PitchOperationsService;
     const fs = yield* FileSystem.FileSystem;
     const publishService = yield* CoursePublishService;
     const [video, youtubeAuth, globalLinks, videoThumbnails] =
       yield* Effect.all(
         [
           db.getVideoWithClipsById(videoId),
-          db.getYoutubeAuth(),
-          db.getLinks(),
-          db.getThumbnailsByVideoId(videoId),
+          linkAuthOps.getYoutubeAuth(),
+          linkAuthOps.getLinks(),
+          thumbnailOps.getThumbnailsByVideoId(videoId),
         ],
         { concurrency: "unbounded" }
       );
@@ -54,7 +60,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const isYoutubeAuthenticated = youtubeAuth !== null;
 
     const pitch = video.pitchId
-      ? yield* db
+      ? yield* pitchOps
           .getPitch(video.pitchId)
           .pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(null)))
       : null;

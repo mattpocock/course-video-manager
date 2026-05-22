@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import type { Route } from "./+types/api.pitches.$pitchId.create-video";
@@ -9,7 +9,7 @@ export const action = async (args: Route.ActionArgs) => {
   const { pitchId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const db = yield* PitchOperationsService;
     const video = yield* db.createVideoFromPitch(pitchId);
     return data({ id: video.id });
   }).pipe(

@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { acquireTextWritingContext } from "@/services/text-writing-agent";
 import { generateYoutubeTitlePrompt } from "@/prompts/generate-youtube-title";
@@ -68,8 +68,8 @@ export const action = async (args: Route.ActionArgs) => {
     });
 
     // Fetch global links for injection into prompts
-    const db = yield* DBFunctionsService;
-    const links = yield* db.getLinks();
+    const linkAuthOps = yield* LinkAuthOperationsService;
+    const links = yield* linkAuthOps.getLinks();
 
     // Format course structure as indented text tree
     let courseStructureText: string | undefined;
