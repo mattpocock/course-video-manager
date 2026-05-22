@@ -1,4 +1,3 @@
-import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
@@ -12,7 +11,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
   "DBFunctionsService",
   {
     effect: Effect.gen(function* () {
-      const clipOps = yield* ClipOperationsService;
       const courseOps = yield* CourseOperationsService;
       const videoOps = yield* VideoOperationsService;
       const versionOps = yield* VersionOperationsService;
@@ -22,20 +20,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
       const deliverableOps = yield* DeliverableOperationsService;
 
       return {
-        getClipById: clipOps.getClipById,
-        getClipsByIds: clipOps.getClipsByIds,
-        updateClip: clipOps.updateClip,
-        archiveClip: clipOps.archiveClip,
-        reorderClip: clipOps.reorderClip,
-        createChapter: clipOps.createChapter,
-        createChapterAtInsertionPoint: clipOps.createChapterAtInsertionPoint,
-        createChapterAtPosition: clipOps.createChapterAtPosition,
-        getChapterById: clipOps.getChapterById,
-        updateChapter: clipOps.updateChapter,
-        archiveChapter: clipOps.archiveChapter,
-        reorderChapter: clipOps.reorderChapter,
-        appendClips: clipOps.appendClips,
-
         getCourseById: courseOps.getCourseById,
         getCourseByFilePath: courseOps.getCourseByFilePath,
         getCourseWithSectionsById: courseOps.getCourseWithSectionsById,
@@ -127,7 +111,6 @@ export class DBFunctionsService extends Effect.Service<DBFunctionsService>()(
       };
     }),
     dependencies: [
-      ClipOperationsService.Default,
       CourseOperationsService.Default,
       VideoOperationsService.Default,
       VersionOperationsService.Default,

@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/clips.transcribe";
@@ -14,14 +14,14 @@ export const action = async (args: Route.ActionArgs) => {
   const json = await args.request.json();
 
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
+    const clipOps = yield* ClipOperationsService;
     const videoProcessing = yield* VideoProcessingService;
 
     const { clipIds } = yield* Schema.decodeUnknown(transcribeClipsSchema)(
       json
     );
 
-    const clips = yield* db.getClipsByIds(clipIds);
+    const clips = yield* clipOps.getClipsByIds(clipIds);
 
     const transcribedClips = yield* videoProcessing.transcribeClips(
       clips.map((clip) => ({
@@ -35,7 +35,7 @@ export const action = async (args: Route.ActionArgs) => {
     const updatedClips = yield* Effect.forEach(
       transcribedClips,
       (transcribedClip) => {
-        return db.updateClip(transcribedClip.id, {
+        return clipOps.updateClip(transcribedClip.id, {
           text: transcribedClip.segments
             .map((segment) => segment.text)
             .join(" "),

@@ -12,7 +12,6 @@ import {
 } from "@/services/clip-service-handler";
 import { ClipServiceEventSchema } from "@/services/clip-service.schemas";
 import type { ClipServiceEvent } from "@/services/clip-service";
-import { DBFunctionsService } from "@/services/db-service.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
@@ -26,10 +25,6 @@ export const action = async (args: Route.ActionArgs) => {
   const json = await args.request.json();
 
   return Effect.gen(function* () {
-    // Access DBFunctionsService to ensure the full dependency tree is available
-    // (needed for withDatabaseDump middleware)
-    yield* DBFunctionsService;
-
     // Parse and validate the event
     const event = yield* Schema.decodeUnknown(ClipServiceEventSchema)(json);
 

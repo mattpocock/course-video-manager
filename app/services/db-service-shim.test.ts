@@ -18,19 +18,6 @@ beforeAll(async () => {
 });
 
 const EXPECTED_METHODS = [
-  "getClipById",
-  "getClipsByIds",
-  "updateClip",
-  "archiveClip",
-  "reorderClip",
-  "createChapter",
-  "createChapterAtInsertionPoint",
-  "createChapterAtPosition",
-  "getChapterById",
-  "updateChapter",
-  "archiveChapter",
-  "reorderChapter",
-  "appendClips",
   "getCourseById",
   "getCourseByFilePath",
   "getCourseWithSectionsById",

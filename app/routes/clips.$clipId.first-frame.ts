@@ -1,4 +1,4 @@
-import { DBFunctionsService } from "@/services/db-service.server";
+import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { Console, Effect } from "effect";
 import type { Route } from "./+types/clips.$clipId.first-frame";
 import { runtimeLive } from "@/services/layer.server";
@@ -9,8 +9,8 @@ import { data } from "react-router";
 export const loader = async (args: Route.LoaderArgs) => {
   const { clipId } = args.params;
   return Effect.gen(function* () {
-    const db = yield* DBFunctionsService;
-    const clip = yield* db.getClipById(clipId);
+    const clipOps = yield* ClipOperationsService;
+    const clip = yield* clipOps.getClipById(clipId);
 
     const inputVideo = clip.videoFilename;
 

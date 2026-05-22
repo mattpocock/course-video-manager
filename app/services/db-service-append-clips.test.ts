@@ -1,7 +1,8 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { DBFunctionsService } from "@/services/db-service.server";
+import { ClipOperationsService } from "@/services/db-clip-operations.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { sortByOrder } from "@/lib/sort-by-order";
 import {
@@ -11,15 +12,16 @@ import {
 } from "@/test-utils/pglite";
 
 let testDb: TestDb;
-let testLayer: Layer.Layer<DBFunctionsService>;
+let testLayer: Layer.Layer<ClipOperationsService | VideoOperationsService>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
 
-  testLayer = DBFunctionsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
+  testLayer = Layer.mergeAll(
+    ClipOperationsService.Default,
+    VideoOperationsService.Default
+  ).pipe(Layer.provide(Layer.succeed(DrizzleService, testDb as any)));
 });
 
 type InsertionPoint =
@@ -33,10 +35,10 @@ describe("appendClips", () => {
 
   const appendClips = (insertionPoint: InsertionPoint, clipCount = 1) =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
+      const clipOps = yield* ClipOperationsService;
       const offset = clipCounter;
       clipCounter += clipCount;
-      return yield* db.appendClips({
+      return yield* clipOps.appendClips({
         videoId,
         insertionPoint,
         clips: Array.from({ length: clipCount }, (_, i) => ({
@@ -49,8 +51,8 @@ describe("appendClips", () => {
 
   const createSection = (name: string, insertionPoint: InsertionPoint) =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createChapterAtInsertionPoint(
+      const clipOps = yield* ClipOperationsService;
+      return yield* clipOps.createChapterAtInsertionPoint(
         videoId,
         name,
         insertionPoint
@@ -59,8 +61,8 @@ describe("appendClips", () => {
 
   const getAllItemsSorted = () =>
     Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      const video = yield* db.getVideoWithClipsById(videoId);
+      const videoOps = yield* VideoOperationsService;
+      const video = yield* videoOps.getVideoWithClipsById(videoId);
       return sortByOrder([
         ...video.clips.map((c: any) => ({
           type: "clip" as const,
@@ -80,8 +82,8 @@ describe("appendClips", () => {
     await truncateAllTables(testDb);
 
     const video = await Effect.gen(function* () {
-      const db = yield* DBFunctionsService;
-      return yield* db.createStandaloneVideo({ path: "test-video.mp4" });
+      const videoOps = yield* VideoOperationsService;
+      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
     }).pipe(Effect.provide(testLayer), Effect.runPromise);
     videoId = video.id;
   });
