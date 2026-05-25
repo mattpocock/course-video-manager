@@ -12,8 +12,8 @@ const CreateLinkSchema = Schema.Struct({
 
 export const loader = async (_args: Route.LoaderArgs) => {
   return Effect.gen(function* () {
-    const db = yield* LinkAuthOperationsService;
-    const links = yield* db.getLinks();
+    const linkAuthOps = yield* LinkAuthOperationsService;
+    const links = yield* linkAuthOps.getLinks();
 
     return { links };
   }).pipe(
@@ -45,9 +45,9 @@ export const action = async (args: Route.ActionArgs) => {
       return yield* Effect.die(data("Invalid URL format", { status: 400 }));
     }
 
-    const db = yield* LinkAuthOperationsService;
+    const linkAuthOps = yield* LinkAuthOperationsService;
 
-    const link = yield* db.createLink({
+    const link = yield* linkAuthOps.createLink({
       title: parsed.title.trim(),
       url: parsed.url.trim(),
       description: parsed.description?.trim() ?? parsed.description,

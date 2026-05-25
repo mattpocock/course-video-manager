@@ -7,8 +7,8 @@ import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.se
  */
 export const loader = async () => {
   return Effect.gen(function* () {
-    const db = yield* LinkAuthOperationsService;
-    const auth = yield* db.getAiHeroAuth();
+    const linkAuthOps = yield* LinkAuthOperationsService;
+    const auth = yield* linkAuthOps.getAiHeroAuth();
 
     if (!auth) {
       return Response.json({ connected: false });

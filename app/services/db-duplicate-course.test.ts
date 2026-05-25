@@ -160,8 +160,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Duplicated Course",
           filePath: "/tmp/duplicated",
@@ -178,8 +178,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -195,8 +195,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -217,8 +217,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -244,8 +244,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -278,8 +278,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -300,8 +300,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -332,8 +332,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -371,8 +371,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -407,8 +407,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -457,8 +457,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -484,8 +484,8 @@ describe("duplicateCourse", () => {
     await expect(
       run(
         Effect.gen(function* () {
-          const db = yield* CourseOperationsService;
-          return yield* db.duplicateCourse({
+          const courseOps = yield* CourseOperationsService;
+          return yield* courseOps.duplicateCourse({
             sourceCourseId: "non-existent-id",
             name: "Dup",
             filePath: "/tmp/dup",
@@ -504,8 +504,8 @@ describe("duplicateCourse", () => {
     await expect(
       run(
         Effect.gen(function* () {
-          const db = yield* CourseOperationsService;
-          return yield* db.duplicateCourse({
+          const courseOps = yield* CourseOperationsService;
+          return yield* courseOps.duplicateCourse({
             sourceCourseId: course!.id,
             name: "Dup",
             filePath: "/tmp/dup",
@@ -534,8 +534,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -565,8 +565,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
           filePath: "/tmp/dup",
@@ -607,8 +607,8 @@ describe("duplicateCourse", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.duplicateCourse({
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
           filePath: "/tmp/dup",

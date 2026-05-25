@@ -9,8 +9,8 @@ export const action = async (args: Route.ActionArgs) => {
   const { pitchId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* PitchOperationsService;
-    const video = yield* db.createVideoFromPitch(pitchId);
+    const pitchOps = yield* PitchOperationsService;
+    const video = yield* pitchOps.createVideoFromPitch(pitchId);
     return data({ id: video.id });
   }).pipe(
     withDatabaseDump,

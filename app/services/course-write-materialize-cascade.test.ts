@@ -53,8 +53,8 @@ const setupGhostCourse = async () => {
     Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const ghostCourse = await Effect.gen(function* () {
-    const db = yield* CourseOperationsService;
-    return yield* db.createGhostCourse({ name: "ghost-course" });
+    const courseOps = yield* CourseOperationsService;
+    return yield* courseOps.createGhostCourse({ name: "ghost-course" });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
@@ -109,8 +109,8 @@ const setupGhostCourse = async () => {
 
   const getCourse = (courseId: string) =>
     Effect.gen(function* () {
-      const db = yield* CourseOperationsService;
-      return yield* db.getCourseById(courseId);
+      const courseOps = yield* CourseOperationsService;
+      return yield* courseOps.getCourseById(courseId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   return {

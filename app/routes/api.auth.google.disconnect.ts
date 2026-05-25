@@ -7,8 +7,8 @@ import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.se
  */
 export const action = async () => {
   return Effect.gen(function* () {
-    const db = yield* LinkAuthOperationsService;
-    yield* db.deleteYoutubeAuth();
+    const linkAuthOps = yield* LinkAuthOperationsService;
+    yield* linkAuthOps.deleteYoutubeAuth();
     return Response.json({ success: true });
   }).pipe(
     Effect.tapErrorCause((e) => Console.log(e)),

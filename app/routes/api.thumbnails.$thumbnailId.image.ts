@@ -9,8 +9,8 @@ export const loader = async (args: Route.LoaderArgs) => {
   const { thumbnailId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* ThumbnailOperationsService;
-    const record = yield* db.getThumbnailById(thumbnailId);
+    const thumbnailOps = yield* ThumbnailOperationsService;
+    const record = yield* thumbnailOps.getThumbnailById(thumbnailId);
 
     if (!record.filePath) {
       return yield* Effect.die(

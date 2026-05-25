@@ -38,8 +38,8 @@ export const loader = async (args: Route.LoaderArgs) => {
       );
     }
 
-    const db = yield* ThumbnailOperationsService;
-    const record = yield* db.getThumbnailById(thumbnailId);
+    const thumbnailOps = yield* ThumbnailOperationsService;
+    const record = yield* thumbnailOps.getThumbnailById(thumbnailId);
 
     const layers = record.layers as {
       backgroundPhoto: { filePath: string };

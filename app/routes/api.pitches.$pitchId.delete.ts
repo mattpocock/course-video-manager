@@ -11,8 +11,8 @@ export const action = async (args: Route.ActionArgs) => {
   const redirectTo = formData.get("redirectTo");
 
   return Effect.gen(function* () {
-    const db = yield* PitchOperationsService;
-    yield* db.deletePitch(pitchId);
+    const pitchOps = yield* PitchOperationsService;
+    yield* pitchOps.deletePitch(pitchId);
     if (
       typeof redirectTo === "string" &&
       redirectTo.startsWith("/") &&

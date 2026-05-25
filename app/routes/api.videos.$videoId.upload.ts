@@ -38,8 +38,8 @@ export const action = async (args: Route.ActionArgs) => {
   }
 
   const selectedThumbnail = await Effect.gen(function* () {
-    const db = yield* ThumbnailOperationsService;
-    return yield* db.getThumbnailById(thumbnailId);
+    const thumbnailOps = yield* ThumbnailOperationsService;
+    return yield* thumbnailOps.getThumbnailById(thumbnailId);
   }).pipe(
     Effect.catchTag("NotFoundError", () => Effect.succeed(null)),
     runtimeLive.runPromise

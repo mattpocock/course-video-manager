@@ -8,8 +8,8 @@ export const action = async (args: Route.ActionArgs) => {
   const { linkId } = args.params;
 
   return Effect.gen(function* () {
-    const db = yield* LinkAuthOperationsService;
-    yield* db.deleteLink(linkId);
+    const linkAuthOps = yield* LinkAuthOperationsService;
+    yield* linkAuthOps.deleteLink(linkId);
 
     return { success: true };
   }).pipe(

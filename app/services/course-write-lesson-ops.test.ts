@@ -56,8 +56,11 @@ const setup = async () => {
     Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const repo = await Effect.gen(function* () {
-    const db = yield* CourseOperationsService;
-    return yield* db.createCourse({ filePath: tempDir, name: "test-repo" });
+    const courseOps = yield* CourseOperationsService;
+    return yield* courseOps.createCourse({
+      filePath: tempDir,
+      name: "test-repo",
+    });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
@@ -597,8 +600,8 @@ describe("CourseWriteService", () => {
 
       // Create a ghost course (no filePath)
       const ghostCourse = await Effect.gen(function* () {
-        const db = yield* CourseOperationsService;
-        return yield* db.createGhostCourse({ name: "ghost-course" });
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.createGhostCourse({ name: "ghost-course" });
       }).pipe(
         Effect.provide(
           CourseOperationsService.Default.pipe(

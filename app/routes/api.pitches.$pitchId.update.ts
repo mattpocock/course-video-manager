@@ -32,13 +32,13 @@ export const action = async (args: Route.ActionArgs) => {
     const { field, value } =
       yield* Schema.decodeUnknown(updateSchema)(formDataObject);
 
-    const db = yield* PitchOperationsService;
+    const pitchOps = yield* PitchOperationsService;
 
     let coerced: string | number | boolean = value;
     if (field === "priority") coerced = Number(value);
     if (field === "archived") coerced = value === "true";
 
-    const pitch = yield* db.updatePitchField(pitchId, field, coerced);
+    const pitch = yield* pitchOps.updatePitchField(pitchId, field, coerced);
     return data({ pitch });
   }).pipe(
     withDatabaseDump,

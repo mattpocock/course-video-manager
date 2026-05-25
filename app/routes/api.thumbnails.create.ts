@@ -43,7 +43,7 @@ export const action = async (args: Route.ActionArgs) => {
       );
     }
 
-    const db = yield* ThumbnailOperationsService;
+    const thumbnailOps = yield* ThumbnailOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
     const compositeBytes = decodeDataUrl(imageDataUrl);
@@ -122,7 +122,7 @@ export const action = async (args: Route.ActionArgs) => {
       cutout: cutoutLayer,
     };
 
-    const thumbnail = yield* db.createThumbnail({
+    const thumbnail = yield* thumbnailOps.createThumbnail({
       videoId,
       layers,
       filePath,

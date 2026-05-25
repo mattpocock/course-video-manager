@@ -6,8 +6,8 @@ import { data } from "react-router";
 
 export const action = async () => {
   return Effect.gen(function* () {
-    const db = yield* PitchOperationsService;
-    const pitch = yield* db.createPitch();
+    const pitchOps = yield* PitchOperationsService;
+    const pitch = yield* pitchOps.createPitch();
     return data({ id: pitch.id });
   }).pipe(
     withDatabaseDump,
