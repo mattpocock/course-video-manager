@@ -2,6 +2,16 @@ import { Data, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
 
+export const TODO_MARKER_BODY = `# TODO
+
+This lesson is marked **TODO** on the authoring side — it is intentionally incomplete in this version.
+
+- If a stub for this lesson does **not** yet exist on the course platform, create one.
+- If a stub **does** exist, leave it as-is. Do not edit it while this marker is present.
+
+The marker will be removed automatically once the lesson is marked **Ready** in a future published version (see the \`Marked Ready\` section of \`changelog.md\`).
+`;
+
 export const ALLOWED_FILE_EXTENSIONS_FROM_REPO = [
   ".ts",
   ".tsx",

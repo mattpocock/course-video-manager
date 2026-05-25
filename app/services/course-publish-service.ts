@@ -20,7 +20,9 @@ import { generateChangelog } from "./changelog-service";
 import {
   ALLOWED_FILE_EXTENSIONS_FROM_REPO,
   buildChapters,
+  DoesNotExistOnDbError,
   resolveSectionsWithVideos,
+  TODO_MARKER_BODY,
 } from "./publish-to-dropbox";
 import {
   formatProseTranscript,
@@ -48,16 +50,6 @@ export type VideoForExport = {
 };
 
 const MAX_CONCURRENT_EXPORTS = 6;
-
-const TODO_MARKER_BODY = `# TODO
-
-This lesson is marked **TODO** on the authoring side — it is intentionally incomplete in this version.
-
-- If a stub for this lesson does **not** yet exist on the course platform, create one.
-- If a stub **does** exist, leave it as-is. Do not edit it while this marker is present.
-
-The marker will be removed automatically once the lesson is marked **Ready** in a future published version (see the \`Marked Ready\` section of \`changelog.md\`).
-`;
 
 /** Extract ExportClip data from DB clip records */
 const toExportClips = (
@@ -305,36 +297,21 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
       );
 
-      const publish = Effect.fn("publish")(function* (
+      const syncToDropbox = Effect.fn("syncToDropbox")(function* (
         courseId: string,
-        versionName: string,
-        versionDescription: string,
-        onProgress?: (
-          stage:
-            | "validating"
-            | "uploading"
-            | "freezing"
-            | "cloning"
-            | "complete"
-        ) => void
+        onProgress?: (event: string, data: unknown) => void,
+        versionOverride?: { name: string; description: string }
       ) {
-        onProgress?.("validating");
-
         const latestVersion =
           yield* versionOps.getLatestCourseVersion(courseId);
         if (!latestVersion) {
-          return yield* Effect.die(new Error("No version found for course"));
+          return yield* new DoesNotExistOnDbError({
+            type: "section",
+            path: "",
+            message: `No version found for repo ${courseId}`,
+          });
         }
 
-        const { unexportedVideoIds } = yield* validatePublishability(
-          latestVersion.id
-        );
-        if (unexportedVideoIds.length > 0) {
-          return yield* new PublishValidationError({ unexportedVideoIds });
-        }
-
-        // Upload to Dropbox
-        onProgress?.("uploading");
         const DROPBOX_PATH = yield* Config.string("DROPBOX_PATH");
         const course = yield* courseOps.getCourseById(courseId);
         const repoParser = yield* CourseRepoParserService;
@@ -349,7 +326,34 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           repoWithSections.filePath!
         );
 
-        // Build content-addressed path overrides for video resolution
+        for (const sectionOnFileSystem of sectionsOnFileSystem) {
+          const sectionInDb = repoWithSections.sections.find(
+            (s) => s.path === sectionOnFileSystem.sectionPathWithNumber
+          );
+
+          if (!sectionInDb) {
+            return yield* new DoesNotExistOnDbError({
+              type: "section",
+              path: sectionOnFileSystem.sectionPathWithNumber,
+              message: `Section ${sectionOnFileSystem.sectionPathWithNumber} does not exist on the database`,
+            });
+          }
+
+          for (const lesson of sectionOnFileSystem.lessons) {
+            const lessonInDb = sectionInDb.lessons.find(
+              (l) => l.path === lesson.lessonPathWithNumber
+            );
+
+            if (!lessonInDb) {
+              return yield* new DoesNotExistOnDbError({
+                type: "lesson",
+                path: lesson.lessonPathWithNumber,
+                message: `Lesson ${lesson.lessonPathWithNumber} does not exist on the database`,
+              });
+            }
+          }
+        }
+
         const videoPathOverrides = new Map<string, string>();
         for (const section of repoWithSections.sections) {
           for (const lesson of section.lessons) {
@@ -371,15 +375,48 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           }
         }
 
-        const { sections } = yield* resolveSectionsWithVideos({
+        const { sections, missingVideos } = yield* resolveSectionsWithVideos({
           sectionsOnFileSystem,
           sectionsInDb: repoWithSections.sections,
           finishedVideosDirectory: FINISHED_VIDEOS_DIRECTORY,
           videoPathOverrides,
         });
 
+        const totalLessons = sections.reduce(
+          (sum, s) => sum + s.lessons.length,
+          0
+        );
+        let completedLessons = 0;
+
+        const copyFileSemaphore = yield* Effect.makeSemaphore(20);
         const dropboxCourseDir = path.join(DROPBOX_PATH, course.name);
         const filesSupposedToBeInDropbox = new Set<string>();
+
+        const copyFileToDropbox = Effect.fn("copyFileToDropbox")(
+          function* (opts: { fromPath: string; toPath: string }) {
+            yield* copyFileSemaphore.withPermits(1)(
+              Effect.fork(
+                Effect.gen(function* () {
+                  yield* effectFs.makeDirectory(path.dirname(opts.toPath), {
+                    recursive: true,
+                  });
+
+                  if (yield* effectFs.exists(opts.toPath)) {
+                    const toPathStats = yield* effectFs.stat(opts.toPath);
+                    const fromPathStats = yield* effectFs.stat(opts.fromPath);
+                    if (toPathStats.size === fromPathStats.size) {
+                      return;
+                    }
+                  }
+
+                  yield* effectFs.copyFile(opts.fromPath, opts.toPath);
+                })
+              )
+            );
+
+            filesSupposedToBeInDropbox.add(opts.toPath);
+          }
+        );
 
         const videoTranscriptItemsMap = new Map<
           string,
@@ -389,7 +426,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           string,
           ReturnType<typeof buildChapters>
         >();
-        // Build a lookup of lesson authoring status keyed by sectionPath/lessonPath
         const lessonTodoSet = new Set<string>();
         for (const section of repoWithSections.sections) {
           for (const lesson of section.lessons) {
@@ -426,24 +462,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
             for (const video of lesson.videos) {
               const extName = path.extname(video.absolutePath);
-              const destPath = path.join(
-                dropboxLessonDir,
-                `${video.name}${extName}`
-              );
+              yield* copyFileToDropbox({
+                fromPath: video.absolutePath,
+                toPath: path.join(dropboxLessonDir, `${video.name}${extName}`),
+              });
 
-              // Copy video (skip if same size)
-              if (yield* effectFs.exists(destPath)) {
-                const destStat = yield* effectFs.stat(destPath);
-                const srcStat = yield* effectFs.stat(video.absolutePath);
-                if (destStat.size !== srcStat.size) {
-                  yield* effectFs.copyFile(video.absolutePath, destPath);
-                }
-              } else {
-                yield* effectFs.copyFile(video.absolutePath, destPath);
-              }
-              filesSupposedToBeInDropbox.add(destPath);
-
-              // Write chapters meta file
               const chapters = videoChaptersMap.get(video.id);
               if (chapters) {
                 const metaPath = path.join(
@@ -457,7 +480,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
                 filesSupposedToBeInDropbox.add(metaPath);
               }
 
-              // Write transcript
               const transcriptItems = videoTranscriptItemsMap.get(video.id);
               if (transcriptItems && transcriptItems.length > 0) {
                 const transcript = formatProseTranscript(transcriptItems);
@@ -472,7 +494,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
               }
             }
 
-            // Copy source files from course repo
             const lessonDir = path.join(
               repoWithSections.filePath!,
               section.path,
@@ -484,35 +505,31 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
               const files = yield* effectFs
                 .readDirectory(lessonDir, { recursive: true })
                 .pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
-              for (const file of files) {
-                if (
-                  ALLOWED_FILE_EXTENSIONS_FROM_REPO.includes(
-                    path.extname(file)
-                  ) &&
-                  !file.includes("node_modules")
-                ) {
-                  const fromPath = path.join(lessonDir, file);
-                  const toPath = path.join(dropboxLessonDir, file);
-                  yield* effectFs.makeDirectory(path.dirname(toPath), {
-                    recursive: true,
-                  });
-                  if (yield* effectFs.exists(toPath)) {
-                    const toStat = yield* effectFs.stat(toPath);
-                    const fromStat = yield* effectFs.stat(fromPath);
-                    if (toStat.size !== fromStat.size) {
-                      yield* effectFs.copyFile(fromPath, toPath);
-                    }
-                  } else {
-                    yield* effectFs.copyFile(fromPath, toPath);
-                  }
-                  filesSupposedToBeInDropbox.add(toPath);
-                }
-              }
+              const sourceFiles = files
+                .filter(
+                  (file) =>
+                    ALLOWED_FILE_EXTENSIONS_FROM_REPO.includes(
+                      path.extname(file)
+                    ) && !file.includes("node_modules")
+                )
+                .map((file) => ({
+                  fromPath: path.join(lessonDir, file),
+                  toPath: path.join(dropboxLessonDir, file),
+                }));
+              yield* Effect.forEach(sourceFiles, copyFileToDropbox, {
+                concurrency: "unbounded",
+              });
+            }
+
+            completedLessons++;
+            if (totalLessons > 0) {
+              onProgress?.("progress", {
+                percentage: Math.round((completedLessons / totalLessons) * 100),
+              });
             }
           }
         }
 
-        // Delete stale files from Dropbox
         const dropboxExists = yield* effectFs.exists(dropboxCourseDir);
         if (dropboxExists) {
           const allFiles = yield* effectFs
@@ -527,19 +544,23 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           yield* Effect.forEach(filesToDelete, (file) => effectFs.remove(file));
         }
 
-        // Generate changelog (treat draft as published with given name)
         const allVersions =
           yield* versionOps.getAllVersionsWithStructure(courseId);
-        const changelogVersions = allVersions.map((v) =>
-          v.id === latestVersion.id
-            ? { ...v, name: versionName, description: versionDescription }
-            : v
-        );
+        const changelogVersions = versionOverride
+          ? allVersions.map((v) =>
+              v.id === latestVersion.id
+                ? {
+                    ...v,
+                    name: versionOverride.name,
+                    description: versionOverride.description,
+                  }
+                : v
+            )
+          : allVersions;
         const changelogContent = generateChangelog(changelogVersions);
         const changelogPath = path.join(dropboxCourseDir, "changelog.md");
         yield* effectFs.writeFileString(changelogPath, changelogContent);
 
-        // Delete empty directories
         yield* Command.make(
           "find",
           dropboxCourseDir,
@@ -552,7 +573,43 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           Effect.catchAll(() => Effect.succeed(0))
         );
 
-        // Freeze draft (set name/description)
+        return { missingVideos };
+      });
+
+      const publish = Effect.fn("publish")(function* (
+        courseId: string,
+        versionName: string,
+        versionDescription: string,
+        onProgress?: (
+          stage:
+            | "validating"
+            | "uploading"
+            | "freezing"
+            | "cloning"
+            | "complete"
+        ) => void
+      ) {
+        onProgress?.("validating");
+
+        const latestVersion =
+          yield* versionOps.getLatestCourseVersion(courseId);
+        if (!latestVersion) {
+          return yield* Effect.die(new Error("No version found for course"));
+        }
+
+        const { unexportedVideoIds } = yield* validatePublishability(
+          latestVersion.id
+        );
+        if (unexportedVideoIds.length > 0) {
+          return yield* new PublishValidationError({ unexportedVideoIds });
+        }
+
+        onProgress?.("uploading");
+        yield* syncToDropbox(courseId, undefined, {
+          name: versionName,
+          description: versionDescription,
+        });
+
         onProgress?.("freezing");
         yield* versionOps.updateCourseVersion({
           versionId: latestVersion.id,
@@ -560,7 +617,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           description: versionDescription,
         });
 
-        // Clone new draft
         onProgress?.("cloning");
         const { version: newDraft } = yield* versionOps.copyVersionStructure({
           sourceVersionId: latestVersion.id,
@@ -582,6 +638,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         isExported,
         resolveExportPath,
         validatePublishability,
+        syncToDropbox,
         publish,
       };
     }),
