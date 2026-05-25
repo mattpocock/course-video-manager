@@ -1,0 +1,213 @@
+name: Agent Implement (PR)
+
+on:
+  # See agent-review.yml — pull_request_target fires reliably on labels
+  # even when the PR is out-of-date or conflicting.
+  pull_request_target:
+    types: [labeled]
+
+jobs:
+  implement-pr:
+    if: github.event.label.name == 'agent:implement'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Shared with agent-review.yml — both push to the PR branch.
+    concurrency:
+      group: agent-mutate-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+      BRANCH_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_STATE: ${{ github.event.pull_request.state }}
+      PR_MERGED: ${{ github.event.pull_request.merged }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Pre-flight — refuse if PR is closed or merged
+        id: state
+        run: |
+          if [ "$PR_STATE" != "open" ] || [ "$PR_MERGED" = "true" ]; then
+            gh pr edit "$PR_NUMBER" --remove-label "agent:implement" || true
+            gh pr comment "$PR_NUMBER" --body "Refused to run \`agent:implement\`: PR is not open."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pre-flight — refuse if there is nothing to act on
+        if: steps.state.outputs.proceed == 'true'
+        id: inputs
+        run: |
+          set -euo pipefail
+          top_level=$(gh pr view "$PR_NUMBER" --json comments --jq '.comments | length')
+          review_summaries=$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '[.[] | select(.body != null and .body != "")] | length')
+          owner="${GH_REPO%/*}"
+          repo="${GH_REPO#*/}"
+          unresolved=$(gh api graphql \
+            -F owner="$owner" -F repo="$repo" -F number="$PR_NUMBER" \
+            -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
+          total=$((top_level + review_summaries + unresolved))
+          if [ "$total" -eq 0 ]; then
+            gh pr edit "$PR_NUMBER" --remove-label "agent:implement" || true
+            gh pr comment "$PR_NUMBER" --body "Refused to run \`agent:implement\`: no unresolved review threads, review summaries, or top-level PR comments to act on."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Transition labels — remove trigger + blocked, add in-progress
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        run: |
+          gh pr edit "$PR_NUMBER" --remove-label "agent:implement" || true
+          gh pr edit "$PR_NUMBER" --remove-label "agent:blocked" || true
+          gh pr edit "$PR_NUMBER" --add-label "agent:in-progress"
+
+      - name: Checkout PR branch
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.AGENT_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Ensure main is available for diffing
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        run: |
+          git fetch origin main:main || git fetch origin main
+          git checkout "$BRANCH" 2>/dev/null || git checkout -B "$BRANCH"
+
+      - name: Setup Node.js 22
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        run: npm install
+
+      - name: Install Claude Code
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Configure git identity
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        run: |
+          git config user.name "claude-code[bot]"
+          git config user.email "claude-code[bot]@users.noreply.github.com"
+
+      - name: Run implement-pr.ts
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        id: implement
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          OUTPUT_DIR: ${{ runner.temp }}
+        run: npx tsx .sandcastle/implement-pr/implement-pr.ts
+
+      - name: Push branch (abort cleanly if non-fast-forward)
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true' && success()
+        id: push
+        run: |
+          has_commits=$(cat "${RUNNER_TEMP}/has_commits.txt")
+          if [ "$has_commits" != "true" ]; then
+            echo "No commits this run — skipping push."
+            exit 0
+          fi
+          set +e
+          git push --force-with-lease="refs/heads/$BRANCH:$BRANCH_HEAD_SHA" origin "$BRANCH" 2> push_err.txt
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            if grep -qiE "non-fast-forward|rejected|fetch first|stale info" push_err.txt; then
+              echo "Branch advanced during implement run." > "${RUNNER_TEMP}/failure_reason.txt"
+              cat push_err.txt
+              exit 1
+            fi
+            cat push_err.txt
+            exit $status
+          fi
+
+      - name: Post thread replies
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true' && success()
+        env:
+          REPLIES: ${{ runner.temp }}/implement_thread_replies.json
+        run: |
+          count=$(jq 'length' "$REPLIES")
+          for i in $(seq 0 $((count - 1))); do
+            commentId=$(jq -r ".[$i].commentId" "$REPLIES")
+            body=$(jq -r ".[$i].body" "$REPLIES")
+            rest_id=$(gh api graphql -f query="query(\$id:ID!){ node(id:\$id){ ... on PullRequestReviewComment { databaseId } } }" -F id="$commentId" --jq '.data.node.databaseId')
+            if [ -z "$rest_id" ] || [ "$rest_id" = "null" ]; then
+              echo "Could not resolve REST id for $commentId — skipping" >&2
+              continue
+            fi
+            gh api \
+              --method POST \
+              "repos/{owner}/{repo}/pulls/${PR_NUMBER}/comments/${rest_id}/replies" \
+              -f body="$body"
+          done
+
+      - name: Post new inline comments
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true' && success()
+        env:
+          INLINE: ${{ runner.temp }}/implement_new_inline_comments.json
+        run: |
+          commit_id=$(jq -r '.commit_id' "$INLINE")
+          count=$(jq '.comments | length' "$INLINE")
+          for i in $(seq 0 $((count - 1))); do
+            path=$(jq -r ".comments[$i].path" "$INLINE")
+            line=$(jq -r ".comments[$i].line" "$INLINE")
+            side=$(jq -r ".comments[$i].side" "$INLINE")
+            body=$(jq -r ".comments[$i].body" "$INLINE")
+            gh api \
+              --method POST \
+              "repos/{owner}/{repo}/pulls/${PR_NUMBER}/comments" \
+              -f body="$body" \
+              -f commit_id="$commit_id" \
+              -f path="$path" \
+              -F line="$line" \
+              -f side="$side"
+          done
+
+      - name: Post top-level PR comments
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true' && success()
+        env:
+          TOP: ${{ runner.temp }}/implement_top_level_comments.json
+        run: |
+          count=$(jq 'length' "$TOP")
+          for i in $(seq 0 $((count - 1))); do
+            body=$(jq -r ".[$i].body" "$TOP")
+            gh pr comment "$PR_NUMBER" --body "$body"
+          done
+
+      - name: Mark blocked on failure
+        if: steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true' && failure()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          reason="(no reason file written — check workflow logs)"
+          if [ -f "${RUNNER_TEMP}/failure_reason.txt" ]; then
+            reason=$(cat "${RUNNER_TEMP}/failure_reason.txt")
+          fi
+          gh pr edit "$PR_NUMBER" --add-label "agent:blocked" || true
+          gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
+          \`agent:implement\` run on this PR failed.
+
+          **Reason:** $reason
+
+          **Workflow run:** $RUN_URL
+
+          Re-add \`agent:implement\` to retry.
+          EOF
+          )"
+
+      - name: Always remove in-progress label
+        if: always() && steps.state.outputs.proceed == 'true' && steps.inputs.outputs.proceed == 'true'
+        run: gh pr edit "$PR_NUMBER" --remove-label "agent:in-progress" || true

@@ -16,9 +16,11 @@ gh issue view {{PRD_NUMBER}} --comments
 gh api repos/$GH_REPO/issues/{{PRD_NUMBER}}/sub_issues
 ```
 
+Draft the title and description, framed around the whole PRD.
+
 # OUTPUT
 
-Emit a single block as the last thing in your response:
+Based on the PRD and sub-issues you just read, emit a single `<output>` block as the **last thing** in your response:
 
 <output>
 {

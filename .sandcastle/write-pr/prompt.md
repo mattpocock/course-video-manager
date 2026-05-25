@@ -26,9 +26,11 @@ If the diff is large, focus on the commit messages and the `--stat`
 summary; only `git diff` specific files when a commit message is
 unclear.
 
+Draft the title and description from what you read.
+
 # OUTPUT
 
-Emit a single block as the last thing in your response:
+Once you've read everything, emit a single `<output>` block as the **last thing** in your response:
 
 <output>
 {

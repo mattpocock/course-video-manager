@@ -39,15 +39,3 @@ After resolving, run whatever checks you think are warranted — `npm run typech
 # COMMIT
 
 Stage everything and finish the merge with a single commit. Conventional-commit style, e.g. `chore: merge origin/{{BASE_REF}} into {{BRANCH}}`. The wrapper will push whatever you commit.
-
-# OUTPUT
-
-Emit a single block as the last thing in your response:
-
-<output>
-{
-  "comment": "Markdown body posted as a PR comment. Free-form prose. Describe which conflicts existed, how you resolved each, and flag any uncertainty or remaining problems (e.g. typecheck failures, ambiguous intent). Reference commit SHAs or file paths where useful."
-}
-</output>
-
-The comment is the only safety net for the human author. Write it like you're handing the branch back to them and want them to be able to spot any bad call you made in 30 seconds.

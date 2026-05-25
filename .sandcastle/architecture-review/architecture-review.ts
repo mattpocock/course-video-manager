@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { z } from "zod";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
+import { runWithExtraction } from "../run-with-extraction";
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR ?? "/tmp";
 
@@ -20,7 +21,7 @@ const PromptOutput = z.discriminatedUnion("status", [
   }),
 ]);
 
-const result = await sandcastle.run({
+const result = await runWithExtraction({
   name: `architecture-review-${new Date().toISOString().slice(0, 10)}`,
   agent: sandcastle.claudeCode("claude-opus-4-6", {
     env: {
@@ -34,6 +35,10 @@ const result = await sandcastle.run({
     tag: "output",
     schema: PromptOutput,
   }),
+  extractionPrompt: fs.readFileSync(
+    path.join(import.meta.dirname, "extraction.md"),
+    "utf8"
+  ),
 });
 
 fs.writeFileSync(

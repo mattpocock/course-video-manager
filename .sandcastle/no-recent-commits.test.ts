@@ -5,7 +5,15 @@ import { join } from "node:path";
 const SANDCASTLE_DIR = import.meta.dirname;
 
 const promptFiles = readdirSync(SANDCASTLE_DIR, { recursive: true })
-  .filter((f): f is string => typeof f === "string" && f.endsWith(".md"))
+  .filter(
+    (f): f is string =>
+      typeof f === "string" &&
+      f.endsWith(".md") &&
+      // worktrees/ holds throwaway repo checkouts with stale prompt copies —
+      // not part of this repo's prompts. (Also excluded from vitest collection
+      // in vite.config.ts, but that doesn't govern files a test reads itself.)
+      !f.split(/[/\\]/).includes("worktrees")
+  )
   .map((rel) => [rel, join(SANDCASTLE_DIR, rel)] as const);
 
 describe("sandcastle prompts", () => {

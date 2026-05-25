@@ -12,7 +12,6 @@ write. Your job is:
 3. Pick **one** top candidate.
 4. Publish it via `/to-prd-project`.
 5. Apply the `source:architecture-review` label to the new issue.
-6. Emit a single `<output>` block at the end of your response.
 
 The full process — including the methodology (deletion test, deepening,
 glossary), the loose-duplicate rule, the PRD shape, and the exact `<output>`
@@ -34,9 +33,3 @@ recorded decision.
   prior `source:architecture-review` proposal, emit a `skipped` output and
   stop.
 - No questions to a user — there is none. Make the call.
-
-# OUTPUT
-
-End your response with a single `<output>` block, exactly as specified in
-the project skill `improve-codebase-architecture-project`. The driver script
-parses this block and fails the workflow if it is missing or malformed.

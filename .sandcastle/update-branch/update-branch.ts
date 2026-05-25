@@ -4,6 +4,7 @@ import { execSync, execFileSync } from "node:child_process";
 import { z } from "zod";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
+import { runWithExtraction } from "../run-with-extraction";
 
 const PR_NUMBER = required("PR_NUMBER");
 const BRANCH = required("BRANCH");
@@ -44,7 +45,7 @@ const PromptOutput = z.object({
   comment: z.string().min(1),
 });
 
-const result = await sandcastle.run({
+const result = await runWithExtraction({
   name: `update-branch-pr-${PR_NUMBER}`,
   agent: sandcastle.claudeCode("claude-opus-4-6", {
     env: {
@@ -63,6 +64,10 @@ const result = await sandcastle.run({
     tag: "output",
     schema: PromptOutput,
   }),
+  extractionPrompt: fs.readFileSync(
+    path.join(import.meta.dirname, "extraction.md"),
+    "utf8"
+  ),
 });
 
 const postSha = sh("git rev-parse HEAD").trim();

@@ -3,8 +3,8 @@ import * as path from "node:path";
 import { execSync, execFileSync } from "node:child_process";
 import { z } from "zod";
 import * as sandcastle from "@ai-hero/sandcastle";
-import { parseDiffLines } from "./parse-diff-lines";
-import { ReviewOutput } from "./review-output";
+import { parseDiffLines } from "../review/parse-diff-lines";
+import { ImplementPrOutput } from "./implement-pr-output";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
 import { runWithExtraction } from "../run-with-extraction";
 
@@ -158,7 +158,7 @@ const prComments = {
 };
 
 const result = await runWithExtraction({
-  name: `review-pr-${PR_NUMBER}`,
+  name: `implement-pr-${PR_NUMBER}`,
   agent: sandcastle.claudeCode("claude-opus-4-6", {
     env: {
       CLAUDE_CODE_OAUTH_TOKEN: required("CLAUDE_CODE_OAUTH_TOKEN"),
@@ -176,7 +176,7 @@ const result = await runWithExtraction({
   },
   output: sandcastle.Output.object({
     tag: "output",
-    schema: ReviewOutput,
+    schema: ImplementPrOutput,
   }),
   extractionPrompt: fs.readFileSync(
     path.join(import.meta.dirname, "extraction.md"),
@@ -184,11 +184,21 @@ const result = await runWithExtraction({
   ),
 });
 
-const verdict = result.commits.length > 0 ? "improved" : "clean";
+const commitsThisRun = result.commits.length;
+const replyCount =
+  result.output.threadReplies.length +
+  result.output.newInlineComments.length +
+  result.output.topLevelComments.length;
+
+if (commitsThisRun === 0 && replyCount === 0) {
+  fail(
+    "Agent produced no commits and no replies — nothing to do for the unresolved feedback."
+  );
+}
 
 const headSha = sh("git rev-parse HEAD").trim();
 const diffLines = parseDiffLines(safeSh("git diff main...HEAD"));
-const validInlineComments = result.output.inlineComments.filter((c) => {
+const validInlineComments = result.output.newInlineComments.filter((c) => {
   const fileLines = diffLines.get(c.path);
   if (!fileLines) {
     console.warn(
@@ -208,7 +218,7 @@ const validInlineComments = result.output.inlineComments.filter((c) => {
 const validReplyIds = new Set(
   prComments.review_threads.map((c) => c.commentId)
 );
-const validReplies = result.output.replies.filter((r) => {
+const validThreadReplies = result.output.threadReplies.filter((r) => {
   if (!validReplyIds.has(r.commentId)) {
     console.warn(
       `Dropping reply for commentId=${r.commentId} — not in fetched threads.`
@@ -218,34 +228,40 @@ const validReplies = result.output.replies.filter((r) => {
   return true;
 });
 
-const reviewPayload = {
-  commit_id: headSha,
-  event: "COMMENT" as const,
-  body: result.output.summary,
-  comments: validInlineComments.map((c) => ({
-    path: c.path,
-    line: c.line,
-    side: "RIGHT" as const,
-    body: c.body,
-  })),
-};
-
 fs.writeFileSync(
-  path.join(OUTPUT_DIR, "review_payload.json"),
-  JSON.stringify(reviewPayload, null, 2)
+  path.join(OUTPUT_DIR, "implement_thread_replies.json"),
+  JSON.stringify(validThreadReplies, null, 2)
 );
 fs.writeFileSync(
-  path.join(OUTPUT_DIR, "replies.json"),
-  JSON.stringify(validReplies, null, 2)
+  path.join(OUTPUT_DIR, "implement_new_inline_comments.json"),
+  JSON.stringify(
+    {
+      commit_id: headSha,
+      comments: validInlineComments.map((c) => ({
+        path: c.path,
+        line: c.line,
+        side: c.side,
+        body: c.body,
+      })),
+    },
+    null,
+    2
+  )
 );
-fs.writeFileSync(path.join(OUTPUT_DIR, "summary.md"), result.output.summary);
-fs.writeFileSync(path.join(OUTPUT_DIR, "verdict.txt"), verdict);
+fs.writeFileSync(
+  path.join(OUTPUT_DIR, "implement_top_level_comments.json"),
+  JSON.stringify(result.output.topLevelComments, null, 2)
+);
+fs.writeFileSync(
+  path.join(OUTPUT_DIR, "has_commits.txt"),
+  commitsThisRun > 0 ? "true" : "false"
+);
 
-console.log(`\nReview complete.`);
-console.log(`  verdict: ${verdict}`);
-console.log(`  commits: ${result.commits.length}`);
-console.log(`  inline comments: ${validInlineComments.length}`);
-console.log(`  replies: ${validReplies.length}`);
+console.log(`\nImplement-PR complete.`);
+console.log(`  commits this run: ${commitsThisRun}`);
+console.log(`  thread replies: ${validThreadReplies.length}`);
+console.log(`  new inline comments: ${validInlineComments.length}`);
+console.log(`  top-level comments: ${result.output.topLevelComments.length}`);
 
 function sh(cmd: string): string {
   return execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });

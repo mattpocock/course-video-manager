@@ -45,10 +45,12 @@ Rules:
   session can build a couple of files, write tests, and run
   typecheck/test. Don't draft slices that are unrealistic for one session.
 
+Draft the ordered list of slices, each with a title, what to build, and
+acceptance criteria.
+
 # OUTPUT
 
-Emit a single `<output>` block as the last thing in your response. The
-script parses it with a strict schema.
+Emit the breakdown you just drafted as a single `<output>` block — the last thing in your response. The script parses it with a strict schema.
 
 <output>
 {
