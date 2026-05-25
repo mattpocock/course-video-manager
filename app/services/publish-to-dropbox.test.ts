@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildChapters, resolveSectionsWithVideos } from "./publish-to-dropbox";
+import {
+  buildChapters,
+  resolveSectionsWithVideos,
+  ALLOWED_FILE_EXTENSIONS_FROM_REPO,
+  DoesNotExistOnDbError,
+} from "./publish-to-dropbox";
 import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 
@@ -304,5 +309,41 @@ describe("buildChapters", () => {
   it("drops a trailing zero-length chapter", () => {
     const result = buildChapters([clip("a0", 10)], [section("a1", "Trailing")]);
     expect(result).toBeNull();
+  });
+});
+
+describe("ALLOWED_FILE_EXTENSIONS_FROM_REPO", () => {
+  it("contains the expected file extensions", () => {
+    expect(ALLOWED_FILE_EXTENSIONS_FROM_REPO).toEqual([
+      ".ts",
+      ".tsx",
+      ".json",
+      ".txt",
+      ".md",
+      ".mp4",
+    ]);
+  });
+});
+
+describe("DoesNotExistOnDbError", () => {
+  it("is a tagged error with the correct tag", () => {
+    const error = new DoesNotExistOnDbError({
+      type: "section",
+      path: "/some/path",
+      message: "Section not found",
+    });
+    expect(error._tag).toBe("DoesNotExistOnDbError");
+    expect(error.type).toBe("section");
+    expect(error.path).toBe("/some/path");
+    expect(error.message).toBe("Section not found");
+  });
+
+  it("accepts lesson type", () => {
+    const error = new DoesNotExistOnDbError({
+      type: "lesson",
+      path: "/lesson/path",
+      message: "Lesson not found",
+    });
+    expect(error.type).toBe("lesson");
   });
 });

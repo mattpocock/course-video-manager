@@ -17,7 +17,11 @@ import {
 import { garbageCollect } from "./export-hash.server";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import { generateChangelog } from "./changelog-service";
-import { buildChapters, resolveSectionsWithVideos } from "./publish-to-dropbox";
+import {
+  ALLOWED_FILE_EXTENSIONS_FROM_REPO,
+  buildChapters,
+  resolveSectionsWithVideos,
+} from "./publish-to-dropbox";
 import {
   formatProseTranscript,
   toTranscriptItems,
@@ -44,15 +48,6 @@ export type VideoForExport = {
 };
 
 const MAX_CONCURRENT_EXPORTS = 6;
-
-const ALLOWED_FILE_EXTENSIONS_FROM_REPO = [
-  ".ts",
-  ".tsx",
-  ".json",
-  ".txt",
-  ".md",
-  ".mp4",
-];
 
 const TODO_MARKER_BODY = `# TODO
 

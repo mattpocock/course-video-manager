@@ -1,6 +1,8 @@
 import { CourseRepoParserService } from "@/services/course-repo-parser";
 import {
+  ALLOWED_FILE_EXTENSIONS_FROM_REPO,
   buildChapters,
+  DoesNotExistOnDbError,
   resolveSectionsWithVideos,
 } from "@/services/publish-to-dropbox";
 import type { Route } from "./+types/api.courses.publish-to-dropbox";
@@ -35,26 +37,11 @@ const publishRepoSchema = Schema.Struct({
   repoId: Schema.String,
 });
 
-class DoesNotExistOnDbError extends Data.TaggedError("DoesNotExistOnDbError")<{
-  type: "section" | "lesson";
-  path: string;
-  message: string;
-}> {}
-
 class FailedToDeleteEmptyDirectoriesError extends Data.TaggedError(
   "FailedToDeleteEmptyDirectoriesError"
 )<{
   exitCode: number;
 }> {}
-
-const ALLOWED_FILE_EXTENSIONS_FROM_REPO = [
-  ".ts",
-  ".tsx",
-  ".json",
-  ".txt",
-  ".md",
-  ".mp4",
-];
 
 export const action = async ({ request }: Route.ActionArgs) => {
   const formData = await request.formData();

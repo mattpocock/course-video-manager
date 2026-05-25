@@ -1,6 +1,23 @@
-import { Effect } from "effect";
+import { Data, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
+
+export const ALLOWED_FILE_EXTENSIONS_FROM_REPO = [
+  ".ts",
+  ".tsx",
+  ".json",
+  ".txt",
+  ".md",
+  ".mp4",
+];
+
+export class DoesNotExistOnDbError extends Data.TaggedError(
+  "DoesNotExistOnDbError"
+)<{
+  type: "section" | "lesson";
+  path: string;
+  message: string;
+}> {}
 
 type DbSection = {
   id: string;
