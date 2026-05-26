@@ -80,6 +80,7 @@ Red flags:
 - Test name describes HOW not WHAT
 - Verifying through external means (e.g. querying a DB) instead of through the interface
 - Testing a trivial function (one-liner, simple mapping, string concatenation) where the test just mirrors the code — these tests add no confidence and break on any refactor
+- Thin delegation tests for route handlers — when a route's only job is to parse input and call a service method, testing that it "delegates correctly" by mocking the service duplicates the route code in the test. The real behavior lives in the service; test that instead.
 
 ### Mocking
 
