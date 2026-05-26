@@ -30,7 +30,6 @@ export const action = async (args: {
   ];
 
   return makeAction({
-    errors: {},
     effect: () =>
       Effect.gen(function* () {
         const input = yield* Schema.decodeUnknown(createSchema)(formDataObject);

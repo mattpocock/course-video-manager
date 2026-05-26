@@ -225,7 +225,7 @@ describe("makeAction", () => {
       } catch (error) {
         const defect = extractDieDefect(error) as any;
         expect(defect.init.status).toBe(404);
-        expect(defect.data).toBe("Not found");
+        expect(defect.data).toBe("missing");
       }
     });
 
@@ -246,6 +246,92 @@ describe("makeAction", () => {
       } catch (error) {
         const defect = extractDieDefect(error) as any;
         expect(defect.init.status).toBe(400);
+      }
+    });
+
+    it("uses error.message for custom-mapped errors when available", async () => {
+      const runtime = makeTestRuntime();
+
+      const action = makeAction(
+        {
+          errors: { NotFoundError: 404 },
+          effect: () =>
+            Effect.fail(
+              new NotFoundError({ message: "Course version not found" })
+            ),
+        },
+        runtime
+      );
+
+      try {
+        await action({ request: mockRequest(), params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(404);
+        expect(defect.data).toBe("Course version not found");
+      }
+    });
+
+    it("falls back to generic message for custom-mapped errors without message", async () => {
+      const runtime = makeTestRuntime();
+
+      const action = makeAction(
+        {
+          errors: { SomeError: 409 },
+          effect: () => Effect.fail({ _tag: "SomeError" as const }),
+        },
+        runtime
+      );
+
+      try {
+        await action({ request: mockRequest(), params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(409);
+        expect(defect.data).toBe("Conflict");
+      }
+    });
+
+    it("uses generic message for default-mapped errors even with message", async () => {
+      const runtime = makeTestRuntime();
+
+      const action = makeAction(
+        {
+          effect: () =>
+            Effect.fail({ _tag: "ParseError" as const, message: "detailed" }),
+        },
+        runtime
+      );
+
+      try {
+        await action({ request: mockRequest(), params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(400);
+        expect(defect.data).toBe("Invalid request");
+      }
+    });
+
+    it("propagates Effect.die from inside the effect as-is", async () => {
+      const runtime = makeTestRuntime();
+      const sentinel = { custom: "defect" };
+
+      const action = makeAction(
+        {
+          effect: () => Effect.die(sentinel),
+        },
+        runtime
+      );
+
+      try {
+        await action({ request: mockRequest(), params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error);
+        expect(defect).toBe(sentinel);
       }
     });
   });

@@ -11,16 +11,11 @@ class GitPushError extends Data.TaggedError("GitPushError")<{
 
 export const action = makeAction({
   dump: false,
-  errors: { GitPushError: 500 },
   effect: ({ params }) =>
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
 
       const repo = yield* courseOps.getCourseById(params.courseId!);
-
-      if (!repo) {
-        return Effect.die(data("Repo not found", { status: 404 }));
-      }
 
       const cwd = repo.filePath!;
 
@@ -45,5 +40,9 @@ export const action = makeAction({
       });
 
       return { success: true };
-    }),
+    }).pipe(
+      Effect.catchTag("GitPushError", (e) =>
+        Effect.die(data(`Git ${e.step} failed`, { status: 500 }))
+      )
+    ),
 });

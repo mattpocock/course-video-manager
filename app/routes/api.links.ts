@@ -5,6 +5,11 @@ import { data } from "react-router";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { makeAction } from "@/services/route-action.server";
 
+function normalizePayload(payload: unknown): unknown {
+  const obj = payload as Record<string, unknown>;
+  return { ...obj, description: obj.description || null };
+}
+
 const CreateLinkSchema = Schema.Struct({
   title: Schema.String,
   url: Schema.String,
@@ -31,7 +36,9 @@ export const action = makeAction({
   dump: false,
   effect: ({ payload }) =>
     Effect.gen(function* () {
-      const parsed = yield* Schema.decodeUnknown(CreateLinkSchema)(payload);
+      const parsed = yield* Schema.decodeUnknown(CreateLinkSchema)(
+        normalizePayload(payload)
+      );
 
       try {
         new URL(parsed.url);

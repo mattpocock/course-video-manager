@@ -66,9 +66,20 @@ export function makeAction(
           typeof (error as Record<string, unknown>)._tag === "string"
             ? ((error as Record<string, unknown>)._tag as string)
             : undefined;
+        const isCustomMapped =
+          tag !== undefined && config.errors != null && tag in config.errors;
         const status =
           tag !== undefined && tag in errorMap ? errorMap[tag]! : 500;
-        return Effect.die(data(statusMessage(status), { status }));
+        const message =
+          isCustomMapped &&
+          error != null &&
+          typeof error === "object" &&
+          "message" in error &&
+          typeof (error as Record<string, unknown>).message === "string" &&
+          (error as Record<string, unknown>).message !== ""
+            ? ((error as Record<string, unknown>).message as string)
+            : statusMessage(status);
+        return Effect.die(data(message, { status }));
       })
     );
 

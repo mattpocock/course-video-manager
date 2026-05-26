@@ -17,7 +17,6 @@ export const action = async (args: {
   ];
 
   return makeAction({
-    errors: {},
     effect: () =>
       Effect.gen(function* () {
         if (ids.length === 0) {
