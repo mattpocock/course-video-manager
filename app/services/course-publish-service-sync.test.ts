@@ -23,6 +23,7 @@ import {
 } from "@/services/export-hash";
 import { clips as clipsTable } from "@/db/schema";
 import { CourseRepoParserService } from "@/services/course-repo-parser";
+import { fromPartial } from "@total-typescript/shoehorn";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
@@ -47,15 +48,21 @@ const setupSync = async () => {
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
-  const mockVideoProcessing = Layer.succeed(VideoProcessingService, {
-    exportVideoClips: (opts: any) =>
-      Effect.sync(() => {
-        const outputPath = path.join(finishedVideosDir, `${opts.videoId}.mp4`);
-        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-        fs.writeFileSync(outputPath, "dummy-video-content");
-        return outputPath;
-      }),
-  } as any);
+  const mockVideoProcessing = Layer.succeed(
+    VideoProcessingService,
+    fromPartial({
+      exportVideoClips: (opts: any) =>
+        Effect.sync(() => {
+          const outputPath = path.join(
+            finishedVideosDir,
+            `${opts.videoId}.mp4`
+          );
+          fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+          fs.writeFileSync(outputPath, "dummy-video-content");
+          return outputPath;
+        }),
+    })
+  );
 
   const course = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -170,19 +177,22 @@ const setupSync = async () => {
     "export default function Setup() {}"
   );
 
-  const mockRepoParser = Layer.succeed(CourseRepoParserService, {
-    parseRepo: () =>
-      Effect.succeed([
-        {
-          sectionPathWithNumber: "01-intro",
-          sectionNumber: 1,
-          lessons: [
-            { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
-            { lessonPathWithNumber: "01.02-setup", lessonNumber: 2 },
-          ],
-        },
-      ]),
-  } as any);
+  const mockRepoParser = Layer.succeed(
+    CourseRepoParserService,
+    fromPartial({
+      parseRepo: () =>
+        Effect.succeed([
+          {
+            sectionPathWithNumber: "01-intro",
+            sectionNumber: 1,
+            lessons: [
+              { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
+              { lessonPathWithNumber: "01.02-setup", lessonNumber: 2 },
+            ],
+          },
+        ]),
+    })
+  );
 
   const configLayer = Layer.setConfigProvider(
     ConfigProvider.fromMap(
