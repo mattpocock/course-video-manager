@@ -1,49 +1,33 @@
-import type { Route } from "./+types/api.courses.add-ghost";
-import { Console, Effect, Schema } from "effect";
-import { runtimeLive } from "@/services/layer.server";
+import { Effect, Schema } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { withDatabaseDump } from "@/services/dump-service";
+import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
 const addGhostCourseSchema = Schema.Struct({
   name: Schema.String,
 });
 
-export const action = async ({ request }: Route.ActionArgs) => {
-  const formData = await request.formData();
-  const formDataObject = Object.fromEntries(formData);
+export const action = makeAction({
+  input: "formData",
+  effect: ({ payload }) =>
+    Effect.gen(function* () {
+      const result = yield* Schema.decodeUnknown(addGhostCourseSchema)(payload);
 
-  return await Effect.gen(function* () {
-    const result =
-      yield* Schema.decodeUnknown(addGhostCourseSchema)(formDataObject);
+      const courseOps = yield* CourseOperationsService;
+      const versionOps = yield* VersionOperationsService;
 
-    const courseOps = yield* CourseOperationsService;
-    const versionOps = yield* VersionOperationsService;
+      const course = yield* courseOps.createGhostCourse({
+        name: result.name,
+      });
 
-    const course = yield* courseOps.createGhostCourse({
-      name: result.name,
-    });
+      yield* versionOps.createCourseVersion({
+        repoId: course.id,
+        name: "v1.0",
+      });
 
-    yield* versionOps.createCourseVersion({
-      repoId: course.id,
-      name: "v1.0",
-    });
-
-    return data({
-      id: course.id,
-    });
-  }).pipe(
-    withDatabaseDump,
-    Effect.tapErrorCause((e) => {
-      return Console.dir(e, { depth: null });
+      return data({
+        id: course.id,
+      });
     }),
-    Effect.catchTag("ParseError", () => {
-      return Effect.die(data("Invalid request", { status: 400 }));
-    }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
