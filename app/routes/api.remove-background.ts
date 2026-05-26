@@ -1,7 +1,6 @@
-import { Console, Effect } from "effect";
-import type { Route } from "./+types/api.remove-background";
+import { Effect } from "effect";
 import { BackgroundRemovalService } from "@/services/background-removal-service";
-import { runtimeLive } from "@/services/layer.server";
+import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
@@ -25,31 +24,29 @@ function uint8ArrayToBase64DataUrl(bytes: Uint8Array): string {
   return `data:image/png;base64,${btoa(binary)}`;
 }
 
-export const action = async (args: Route.ActionArgs) => {
-  const body = await args.request.json();
+export const action = makeAction({
+  input: "json",
+  dump: false,
+  effect: ({ payload }) =>
+    Effect.gen(function* () {
+      const { imageDataUrl } = payload as any;
 
-  return Effect.gen(function* () {
-    const { imageDataUrl } = body;
+      if (
+        typeof imageDataUrl !== "string" ||
+        !imageDataUrl.startsWith("data:")
+      ) {
+        return yield* Effect.die(
+          data("imageDataUrl is required and must be a base64 data URL", {
+            status: 400,
+          })
+        );
+      }
 
-    if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:")) {
-      return yield* Effect.die(
-        data("imageDataUrl is required and must be a base64 data URL", {
-          status: 400,
-        })
-      );
-    }
+      const imageBytes = decodeDataUrl(imageDataUrl);
+      const bgRemoval = yield* BackgroundRemovalService;
+      const resultBytes = yield* bgRemoval.removeBackground(imageBytes);
+      const resultDataUrl = uint8ArrayToBase64DataUrl(resultBytes);
 
-    const imageBytes = decodeDataUrl(imageDataUrl);
-    const bgRemoval = yield* BackgroundRemovalService;
-    const resultBytes = yield* bgRemoval.removeBackground(imageBytes);
-    const resultDataUrl = uint8ArrayToBase64DataUrl(resultBytes);
-
-    return { success: true, imageDataUrl: resultDataUrl };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+      return { success: true, imageDataUrl: resultDataUrl };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
