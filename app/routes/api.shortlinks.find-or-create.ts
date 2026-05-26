@@ -1,14 +1,12 @@
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { findOrCreateShortLink } from "@/services/ai-hero-shortlink-service";
-import { runtimeLive } from "@/services/layer.server";
+import { makeAction } from "@/services/route-action.server";
 
-/**
- * POST /api/shortlinks/find-or-create
- * Body: { url: string, description: string }
- * Returns: { shortLinkUrl: string }
- */
-export const action = async ({ request }: { request: Request }) => {
-  const body = await request.json();
+export const action = async (args: {
+  request: Request;
+  params: Record<string, string | undefined>;
+}) => {
+  const body = await args.request.json();
   const rawBody = body as { url: string; description: string };
   const url =
     typeof rawBody.url === "string" ? rawBody.url.trim() : rawBody.url;
@@ -24,37 +22,32 @@ export const action = async ({ request }: { request: Request }) => {
     );
   }
 
-  return Effect.gen(function* () {
-    const result = yield* findOrCreateShortLink({ url, description });
-    return Response.json(result);
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.log(e)),
-    Effect.catchTag("AiHeroShortLinkError", (e) => {
-      return Effect.succeed(
-        Response.json({ error: e.message }, { status: 500 })
-      );
-    }),
-    Effect.catchTag("AiHeroNotAuthenticatedError", () => {
-      return Effect.succeed(
-        Response.json(
-          { error: "Not authenticated with AI Hero" },
-          { status: 401 }
+  return makeAction({
+    dump: false,
+    effect: () =>
+      Effect.gen(function* () {
+        const result = yield* findOrCreateShortLink({ url, description });
+        return Response.json(result);
+      }).pipe(
+        Effect.catchTag("AiHeroShortLinkError", (e) =>
+          Effect.succeed(Response.json({ error: e.message }, { status: 500 }))
+        ),
+        Effect.catchTag("AiHeroNotAuthenticatedError", () =>
+          Effect.succeed(
+            Response.json(
+              { error: "Not authenticated with AI Hero" },
+              { status: 401 }
+            )
+          )
+        ),
+        Effect.catchTag("ConfigError", () =>
+          Effect.succeed(
+            Response.json(
+              { error: "AI_HERO_BASE_URL is not configured" },
+              { status: 500 }
+            )
+          )
         )
-      );
-    }),
-    Effect.catchTag("ConfigError", () => {
-      return Effect.succeed(
-        Response.json(
-          { error: "AI_HERO_BASE_URL is not configured" },
-          { status: 500 }
-        )
-      );
-    }),
-    Effect.catchAll(() => {
-      return Effect.succeed(
-        Response.json({ error: "Internal server error" }, { status: 500 })
-      );
-    }),
-    runtimeLive.runPromise
-  );
+      ),
+  })(args);
 };

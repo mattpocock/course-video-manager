@@ -1,9 +1,6 @@
-import { Console, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { withDatabaseDump } from "@/services/dump-service";
-import { data } from "react-router";
-import type { Route } from "./+types/api.deliverables.$deliverableId.update";
+import { makeAction } from "@/services/route-action.server";
 
 const updateSchema = Schema.Struct({
   title: Schema.String.pipe(Schema.minLength(1)),
@@ -12,8 +9,10 @@ const updateSchema = Schema.Struct({
   status: Schema.Literal("planned", "done", "cancelled"),
 });
 
-export const action = async (args: Route.ActionArgs) => {
-  const { deliverableId } = args.params;
+export const action = async (args: {
+  request: Request;
+  params: Record<string, string | undefined>;
+}) => {
   const formData = await args.request.formData();
   const formDataObject = Object.fromEntries(formData);
   const courseIds = [
@@ -31,30 +30,23 @@ export const action = async (args: Route.ActionArgs) => {
     ),
   ];
 
-  return Effect.gen(function* () {
-    const input = yield* Schema.decodeUnknown(updateSchema)(formDataObject);
+  return makeAction({
+    effect: ({ params }) =>
+      Effect.gen(function* () {
+        const input = yield* Schema.decodeUnknown(updateSchema)(formDataObject);
 
-    const deliverableOps = yield* DeliverableOperationsService;
-    const deliverable = yield* deliverableOps.updateDeliverable({
-      id: deliverableId,
-      title: input.title,
-      date: input.date,
-      notes: input.notes,
-      status: input.status,
-      courseIds,
-      pitchIds,
-    });
+        const deliverableOps = yield* DeliverableOperationsService;
+        const deliverable = yield* deliverableOps.updateDeliverable({
+          id: params.deliverableId!,
+          title: input.title,
+          date: input.date,
+          notes: input.notes,
+          status: input.status,
+          courseIds,
+          pitchIds,
+        });
 
-    return data({ id: deliverable.id });
-  }).pipe(
-    withDatabaseDump,
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("ParseError", () => {
-      return Effect.die(data("Invalid request", { status: 400 }));
-    }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
+        return { id: deliverable.id };
+      }),
+  })(args);
 };

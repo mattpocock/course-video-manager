@@ -1,8 +1,6 @@
-import { Console, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import type { Route } from "./+types/api.pitches.$pitchId.update";
-import { withDatabaseDump } from "@/services/dump-service";
+import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
 const updatableFields = [
@@ -23,32 +21,24 @@ const updateSchema = Schema.Struct({
   value: Schema.String,
 });
 
-export const action = async (args: Route.ActionArgs) => {
-  const { pitchId } = args.params;
-  const formData = await args.request.formData();
-  const formDataObject = Object.fromEntries(formData);
+export const action = makeAction({
+  input: "formData",
+  effect: ({ params, payload }) =>
+    Effect.gen(function* () {
+      const { field, value } =
+        yield* Schema.decodeUnknown(updateSchema)(payload);
 
-  return Effect.gen(function* () {
-    const { field, value } =
-      yield* Schema.decodeUnknown(updateSchema)(formDataObject);
+      const pitchOps = yield* PitchOperationsService;
 
-    const pitchOps = yield* PitchOperationsService;
+      let coerced: string | number | boolean = value;
+      if (field === "priority") coerced = Number(value);
+      if (field === "archived") coerced = value === "true";
 
-    let coerced: string | number | boolean = value;
-    if (field === "priority") coerced = Number(value);
-    if (field === "archived") coerced = value === "true";
-
-    const pitch = yield* pitchOps.updatePitchField(pitchId, field, coerced);
-    return data({ pitch });
-  }).pipe(
-    withDatabaseDump,
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("ParseError", () => {
-      return Effect.die(data("Invalid request", { status: 400 }));
+      const pitch = yield* pitchOps.updatePitchField(
+        params.pitchId!,
+        field,
+        coerced
+      );
+      return data({ pitch });
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});

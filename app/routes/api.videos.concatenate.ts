@@ -1,8 +1,6 @@
-import { Console, Effect, Schema } from "effect";
-import { runtimeLive } from "@/services/layer.server";
-import { withDatabaseDump } from "@/services/dump-service";
+import { Effect, Schema } from "effect";
 import { concatenateVideos } from "@/services/video-concatenation-service";
-import type { Route } from "./+types/api.videos.concatenate";
+import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
 const ConcatenateSchema = Schema.Struct({
@@ -12,27 +10,17 @@ const ConcatenateSchema = Schema.Struct({
   ),
 });
 
-export const action = async (args: Route.ActionArgs) => {
-  const body = await args.request.json();
+export const action = makeAction({
+  input: "json",
+  effect: ({ payload }) =>
+    Effect.gen(function* () {
+      const input = yield* Schema.decodeUnknown(ConcatenateSchema)(payload);
 
-  return Effect.gen(function* () {
-    const input = yield* Schema.decodeUnknown(ConcatenateSchema)(body);
+      const newVideo = yield* concatenateVideos({
+        name: input.name,
+        sourceVideoIds: [...input.sourceVideoIds],
+      });
 
-    const newVideo = yield* concatenateVideos({
-      name: input.name,
-      sourceVideoIds: [...input.sourceVideoIds],
-    });
-
-    return data({ id: newVideo.id });
-  }).pipe(
-    withDatabaseDump,
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("ParseError", () => {
-      return Effect.die(data("Invalid request", { status: 400 }));
+      return data({ id: newVideo.id });
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
