@@ -1,11 +1,11 @@
 import { CoursePublishService } from "@/services/course-publish-service";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
+import { makeAction } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { createReadStream, statSync } from "fs";
 import type { Route } from "./+types/api.videos.$videoId.stream";
-import { data } from "react-router";
 
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
@@ -33,7 +33,6 @@ export const loader = async (args: Route.LoaderArgs) => {
     let end: number;
 
     if (range) {
-      // Handle range requests for video seeking
       const parts = range.replace(/bytes=/, "").split("-");
       start = parseInt(parts[0]!, 10);
       end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
@@ -47,7 +46,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const stream = createReadStream(videoPath, { start, end });
 
     return new Response(stream as any, {
-      status: 206, // Partial Content
+      status: 206,
       headers: {
         "Content-Range": `bytes ${start}-${end}/${fileSize}`,
         "Accept-Ranges": "bytes",
@@ -62,6 +61,36 @@ export const loader = async (args: Route.LoaderArgs) => {
   }
 };
 
+const innerAction = makeAction({
+  dump: false,
+  errors: { NotFoundError: 404 },
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      const fs = yield* FileSystem.FileSystem;
+      const publishService = yield* CoursePublishService;
+
+      yield* videoOps.getVideoDeepById(params.videoId!);
+
+      const videoPath = yield* publishService.resolveExportPath(
+        params.videoId!
+      );
+
+      if (!videoPath) {
+        return { success: true, deletedPath: null };
+      }
+
+      const exists = yield* fs.exists(videoPath);
+      if (!exists) {
+        return { success: true, deletedPath: videoPath };
+      }
+
+      yield* fs.remove(videoPath);
+
+      return { success: true, deletedPath: videoPath };
+    }),
+});
+
 export const action = async (args: Route.ActionArgs) => {
   if (args.request.method !== "DELETE") {
     return new Response(
@@ -72,40 +101,5 @@ export const action = async (args: Route.ActionArgs) => {
       }
     );
   }
-
-  const { videoId } = args.params;
-
-  return Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const fs = yield* FileSystem.FileSystem;
-    const publishService = yield* CoursePublishService;
-
-    // Verify video exists in DB
-    yield* videoOps.getVideoDeepById(videoId);
-
-    const videoPath = yield* publishService.resolveExportPath(videoId);
-
-    if (!videoPath) {
-      return { success: true, deletedPath: null };
-    }
-
-    const exists = yield* fs.exists(videoPath);
-    if (!exists) {
-      return { success: true, deletedPath: videoPath };
-    }
-
-    // Delete file (handle ENOENT as success)
-    yield* fs.remove(videoPath);
-
-    return { success: true, deletedPath: videoPath };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
-    }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
+  return innerAction(args);
 };

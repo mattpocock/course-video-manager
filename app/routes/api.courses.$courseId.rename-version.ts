@@ -1,9 +1,6 @@
-import { Console, Effect, Schema } from "effect";
-import type { Route } from "./+types/api.courses.$courseId.rename-version";
+import { Effect, Schema } from "effect";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { withDatabaseDump } from "@/services/dump-service";
-import { data } from "react-router";
+import { makeAction } from "@/services/route-action.server";
 
 const editVersionSchema = Schema.Struct({
   versionId: Schema.String.pipe(Schema.minLength(1)),
@@ -13,37 +10,22 @@ const editVersionSchema = Schema.Struct({
   description: Schema.optionalWith(Schema.String, { default: () => "" }),
 });
 
-export const action = async (args: Route.ActionArgs) => {
-  const formData = await args.request.formData();
-  const formDataObject = Object.fromEntries(formData);
+export const action = makeAction({
+  input: "formData",
+  errors: { CannotUpdatePublishedVersionError: 400 },
+  effect: ({ payload }) =>
+    Effect.gen(function* () {
+      const { versionId, name, description } =
+        yield* Schema.decodeUnknown(editVersionSchema)(payload);
 
-  return Effect.gen(function* () {
-    const { versionId, name, description } =
-      yield* Schema.decodeUnknown(editVersionSchema)(formDataObject);
+      const versionOps = yield* VersionOperationsService;
 
-    const versionOps = yield* VersionOperationsService;
+      yield* versionOps.updateCourseVersion({
+        versionId,
+        name: name.trim(),
+        description: description.trim(),
+      });
 
-    yield* versionOps.updateCourseVersion({
-      versionId,
-      name: name.trim(),
-      description: description.trim(),
-    });
-
-    return { success: true };
-  }).pipe(
-    withDatabaseDump,
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("ParseError", () => {
-      return Effect.die(data("Invalid request", { status: 400 }));
+      return { success: true };
     }),
-    Effect.catchTag("CannotUpdatePublishedVersionError", () => {
-      return Effect.die(
-        data("Cannot update a published version", { status: 400 })
-      );
-    }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});

@@ -1,9 +1,7 @@
-import { Console, Effect, Schema } from "effect";
-import type { Route } from "./+types/api.videos.$videoId.upload-images";
+import { Effect, Schema } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CloudinaryMarkdownService } from "@/services/cloudinary-markdown-service";
-import { runtimeLive } from "@/services/layer.server";
-import { data } from "react-router";
+import { makeAction } from "@/services/route-action.server";
 import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
@@ -13,73 +11,46 @@ const RequestSchema = Schema.Struct({
   deleteLocalFiles: Schema.optional(Schema.Boolean),
 });
 
-export const action = async (args: Route.ActionArgs) => {
-  const videoId = args.params.videoId;
-  const json = await args.request.json();
+export const action = makeAction({
+  input: "json",
+  dump: false,
+  errors: {
+    NotFoundError: 404,
+    ImageUploadError: 400,
+    CloudinaryUrlNotSetError: 500,
+    CouldNotParseCloudinaryUrlError: 500,
+  },
+  effect: ({ params, payload }) =>
+    Effect.gen(function* () {
+      const { body, deleteLocalFiles } =
+        yield* Schema.decodeUnknown(RequestSchema)(payload);
 
-  return Effect.gen(function* () {
-    const { body, deleteLocalFiles } =
-      yield* Schema.decodeUnknown(RequestSchema)(json);
+      const videoOps = yield* VideoOperationsService;
+      const cloudinaryMarkdown = yield* CloudinaryMarkdownService;
+      const fs = yield* FileSystem.FileSystem;
 
-    const videoOps = yield* VideoOperationsService;
-    const cloudinaryMarkdown = yield* CloudinaryMarkdownService;
-    const fs = yield* FileSystem.FileSystem;
+      const video = yield* videoOps.getVideoDeepById(params.videoId!);
 
-    const video = yield* videoOps.getVideoDeepById(videoId);
-
-    // Determine base directory for resolving image paths
-    let baseDir: string;
-    if (!video.lesson) {
-      // Standalone video — images relative to video's asset directory
-      baseDir = path.resolve(getStandaloneVideoFilePath(videoId));
-    } else {
-      // Lesson-connected video — images relative to lesson directory
-      const repo = video.lesson.section.repoVersion.repo;
-      const section = video.lesson.section;
-      baseDir = path.join(repo.filePath!, section.path, video.lesson.path);
-    }
-
-    const result = yield* cloudinaryMarkdown.uploadImagesInMarkdown(
-      body,
-      baseDir
-    );
-
-    // Delete local files if requested and upload succeeded
-    if (deleteLocalFiles && result.uploadedFilePaths.length > 0) {
-      for (const filePath of result.uploadedFilePaths) {
-        yield* fs.remove(filePath).pipe(Effect.catchAll(() => Effect.void));
+      let baseDir: string;
+      if (!video.lesson) {
+        baseDir = path.resolve(getStandaloneVideoFilePath(params.videoId!));
+      } else {
+        const repo = video.lesson.section.repoVersion.repo;
+        const section = video.lesson.section;
+        baseDir = path.join(repo.filePath!, section.path, video.lesson.path);
       }
-    }
 
-    return { body: result.body };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("ParseError", () => {
-      return Effect.die(data("Invalid request", { status: 400 }));
-    }),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
-    }),
-    Effect.catchTag("ImageUploadError", (e) => {
-      return Effect.die(data(e.message, { status: 400 }));
-    }),
-    Effect.catchTag("CloudinaryUrlNotSetError", () => {
-      return Effect.die(
-        data("CLOUDINARY_URL environment variable is not configured", {
-          status: 500,
-        })
+      const result = yield* cloudinaryMarkdown.uploadImagesInMarkdown(
+        body,
+        baseDir
       );
+
+      if (deleteLocalFiles && result.uploadedFilePaths.length > 0) {
+        for (const filePath of result.uploadedFilePaths) {
+          yield* fs.remove(filePath).pipe(Effect.catchAll(() => Effect.void));
+        }
+      }
+
+      return { body: result.body };
     }),
-    Effect.catchTag("CouldNotParseCloudinaryUrlError", () => {
-      return Effect.die(
-        data("CLOUDINARY_URL environment variable is malformed", {
-          status: 500,
-        })
-      );
-    }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Failed to upload images", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});

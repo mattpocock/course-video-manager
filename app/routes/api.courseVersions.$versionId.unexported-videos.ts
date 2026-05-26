@@ -1,46 +1,38 @@
 import { Effect } from "effect";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import type { Route } from "./+types/api.courseVersions.$versionId.unexported-videos";
-import { data } from "react-router";
+import { makeAction } from "@/services/route-action.server";
 
-export const action = async (args: Route.ActionArgs) => {
-  const { versionId } = args.params;
+export const action = makeAction({
+  dump: false,
+  errors: { NotFoundError: 404 },
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const publishService = yield* CoursePublishService;
+      const versionOps = yield* VersionOperationsService;
 
-  return Effect.gen(function* () {
-    const publishService = yield* CoursePublishService;
-    const versionOps = yield* VersionOperationsService;
+      const { unexportedVideoIds } =
+        yield* publishService.validatePublishability(params.versionId!);
 
-    const { unexportedVideoIds } =
-      yield* publishService.validatePublishability(versionId);
+      const version = yield* versionOps.getVersionWithSections(
+        params.versionId!
+      );
+      const unexportedVideos: Array<{ id: string; title: string }> = [];
 
-    // Map unexported video IDs to display paths
-    const version = yield* versionOps.getVersionWithSections(versionId);
-    const unexportedVideos: Array<{ id: string; title: string }> = [];
-
-    for (const section of version.sections) {
-      for (const lesson of section.lessons) {
-        if (lesson.fsStatus === "ghost") continue;
-        for (const video of lesson.videos) {
-          if (unexportedVideoIds.includes(video.id)) {
-            unexportedVideos.push({
-              id: video.id,
-              title: `${section.path}/${lesson.path}/${video.path}`,
-            });
+      for (const section of version.sections) {
+        for (const lesson of section.lessons) {
+          if (lesson.fsStatus === "ghost") continue;
+          for (const video of lesson.videos) {
+            if (unexportedVideoIds.includes(video.id)) {
+              unexportedVideos.push({
+                id: video.id,
+                title: `${section.path}/${lesson.path}/${video.path}`,
+              });
+            }
           }
         }
       }
-    }
 
-    return { videos: unexportedVideos };
-  }).pipe(
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Version not found", { status: 404 }));
+      return { videos: unexportedVideos };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});

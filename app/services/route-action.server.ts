@@ -19,6 +19,8 @@ function statusMessage(status: number): string {
       return "Invalid request";
     case 404:
       return "Not found";
+    case 409:
+      return "Conflict";
     default:
       return "Internal server error";
   }
