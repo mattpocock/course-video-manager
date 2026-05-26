@@ -1,22 +1,13 @@
-import { Console, Effect } from "effect";
-import { runtimeLive } from "@/services/layer.server";
+import { Effect } from "effect";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { makeAction } from "@/services/route-action.server";
 
-/**
- * Disconnect AI Hero account by deleting stored OAuth token.
- */
-export const action = async () => {
-  return Effect.gen(function* () {
-    const linkAuthOps = yield* LinkAuthOperationsService;
-    yield* linkAuthOps.deleteAiHeroAuth();
-    return Response.json({ success: true });
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.log(e)),
-    Effect.catchAll(() => {
-      return Effect.succeed(
-        Response.json({ error: "Failed to disconnect" }, { status: 500 })
-      );
+export const action = makeAction({
+  dump: false,
+  effect: () =>
+    Effect.gen(function* () {
+      const linkAuthOps = yield* LinkAuthOperationsService;
+      yield* linkAuthOps.deleteAiHeroAuth();
+      return { success: true };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
