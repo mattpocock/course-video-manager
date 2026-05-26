@@ -95,6 +95,27 @@ describe("runWithExtraction", () => {
     expect(extractCall.prompt).toBe("Emit the <output> block.");
   });
 
+  it("keeps promptArgs on the produce call but drops it from the inline extraction", async () => {
+    mockRun
+      .mockResolvedValueOnce(produceResult())
+      .mockResolvedValueOnce(extractionResult("ok"));
+
+    const promptArgs = { PR_NUMBER: "878" };
+    await runWithExtraction({ ...baseOptions(), promptArgs });
+
+    // The produce call uses promptFile, so promptArgs is valid there.
+    const produceCall = mockRun.mock.calls[0]![0];
+    expect(produceCall.promptArgs).toBe(promptArgs);
+    expect(produceCall.promptFile).toBe("/repo/prompt.md");
+
+    // The extraction call swaps to an inline prompt; Sandcastle rejects
+    // promptArgs alongside an inline prompt, so it must be dropped.
+    const extractCall = mockRun.mock.calls[1]![0];
+    expect(extractCall.prompt).toBe("Emit the <output> block.");
+    expect(extractCall.promptFile).toBeUndefined();
+    expect(extractCall).not.toHaveProperty("promptArgs");
+  });
+
   it("retries on StructuredOutputError, feeding back the bad output and cause", async () => {
     mockRun
       .mockResolvedValueOnce(produceResult())

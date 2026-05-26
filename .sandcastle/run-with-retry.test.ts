@@ -97,6 +97,26 @@ describe("runWithRetry", () => {
     expect(retryPrompt).toContain("Unexpected token }");
   });
 
+  it("keeps promptArgs on the first call but drops it from the inline retry", async () => {
+    mockRun
+      .mockRejectedValueOnce(structuredError('{"value":}'))
+      .mockResolvedValueOnce(successResult("recovered"));
+
+    const promptArgs = { PR_NUMBER: "878" };
+    await runWithRetry({ ...baseOptions(), promptArgs });
+
+    // First call uses promptFile, so promptArgs is valid there.
+    const firstCall = mockRun.mock.calls[0]![0];
+    expect(firstCall.promptArgs).toBe(promptArgs);
+    expect(firstCall.promptFile).toBe("/repo/prompt.md");
+
+    // The retry swaps to an inline feedback prompt; Sandcastle rejects
+    // promptArgs alongside an inline prompt, so it must be dropped.
+    const retryCall = mockRun.mock.calls[1]![0];
+    expect(retryCall.promptFile).toBeUndefined();
+    expect(retryCall).not.toHaveProperty("promptArgs");
+  });
+
   it("describes a missing tag distinctly from a validation failure", async () => {
     mockRun
       .mockRejectedValueOnce(structuredError(undefined))
