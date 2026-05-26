@@ -71,8 +71,12 @@ export async function runWithRetry<T>(
         );
       }
 
+      // The retry uses an inline `prompt` (the feedback message), so drop
+      // `promptArgs` — Sandcastle only allows promptArgs alongside a promptFile,
+      // and the feedback prompt needs no substitution.
+      const { promptArgs: _retryArgs, ...retryOptions } = runOptions;
       return await run({
-        ...runOptions,
+        ...retryOptions,
         name: runOptions.name
           ? `${runOptions.name} (retry ${attempt - 1})`
           : undefined,
