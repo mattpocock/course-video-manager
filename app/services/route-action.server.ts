@@ -1,16 +1,20 @@
-import { Console, Effect } from "effect";
+import { Console, Effect, type ManagedRuntime } from "effect";
 import { data } from "react-router";
 import { runtimeLive } from "./layer.server";
 import { withDatabaseDump } from "./dump-service";
 
-interface MakeActionConfig {
+type ErrorTags<E> = E extends { readonly _tag: infer T extends string }
+  ? T
+  : never;
+
+interface MakeActionConfig<A, E, R> {
   input?: "json" | "formData" | "none";
   dump?: boolean;
-  errors?: Record<string, number>;
+  errors?: { [K in ErrorTags<E>]?: number };
   effect: (ctx: {
     params: Record<string, string | undefined>;
     payload: unknown;
-  }) => Effect.Effect<any, any, any>;
+  }) => Effect.Effect<A, E, R>;
 }
 
 function statusMessage(status: number): string {
@@ -26,19 +30,19 @@ function statusMessage(status: number): string {
   }
 }
 
-export function makeAction(
-  config: MakeActionConfig,
-  runtime: { runPromise: (...args: any[]) => Promise<any> } = runtimeLive
-) {
+export function makeAction<A, E, R>(
+  config: MakeActionConfig<A, E, R>,
+  runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
+): (args: {
+  request: Request;
+  params: Record<string, string | undefined>;
+}) => Promise<A> {
   const errorMap: Record<string, number> = {
     ParseError: 400,
     ...config.errors,
   };
 
-  return async (args: {
-    request: Request;
-    params: Record<string, string | undefined>;
-  }) => {
+  return async (args) => {
     let payload: unknown;
     if (config.input === "json") {
       payload = await args.request.json();
@@ -47,18 +51,18 @@ export function makeAction(
       payload = Object.fromEntries(formData);
     }
 
-    let effect: Effect.Effect<any, any, any> = config.effect({
+    let effect: Effect.Effect<A, E, R> = config.effect({
       params: args.params,
       payload,
     });
 
     if (config.dump !== false) {
-      effect = effect.pipe(withDatabaseDump);
+      effect = effect.pipe(withDatabaseDump) as typeof effect;
     }
 
     const pipeline = effect.pipe(
       Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-      Effect.catchAll((error: unknown) => {
+      Effect.catchAll((error: NoInfer<E>) => {
         const tag =
           error != null &&
           typeof error === "object" &&
@@ -83,6 +87,6 @@ export function makeAction(
       })
     );
 
-    return runtime.runPromise(pipeline);
+    return runtime.runPromise(pipeline as Effect.Effect<A, never, R>);
   };
 }

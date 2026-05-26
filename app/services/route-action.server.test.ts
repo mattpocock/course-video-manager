@@ -232,10 +232,11 @@ describe("makeAction", () => {
     it("custom errors extend rather than replace the default map", async () => {
       const runtime = makeTestRuntime();
 
+      type E = { _tag: "ParseError" } | NotFoundError;
       const action = makeAction(
         {
           errors: { NotFoundError: 404 },
-          effect: () => Effect.fail({ _tag: "ParseError" as const }),
+          effect: () => Effect.fail<E>({ _tag: "ParseError" }),
         },
         runtime
       );
