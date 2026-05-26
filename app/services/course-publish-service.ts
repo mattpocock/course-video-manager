@@ -392,23 +392,21 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         const copyFileToDropbox = Effect.fn("copyFileToDropbox")(
           function* (opts: { fromPath: string; toPath: string }) {
             yield* copyFileSemaphore.withPermits(1)(
-              Effect.fork(
-                Effect.gen(function* () {
-                  yield* effectFs.makeDirectory(path.dirname(opts.toPath), {
-                    recursive: true,
-                  });
+              Effect.gen(function* () {
+                yield* effectFs.makeDirectory(path.dirname(opts.toPath), {
+                  recursive: true,
+                });
 
-                  if (yield* effectFs.exists(opts.toPath)) {
-                    const toPathStats = yield* effectFs.stat(opts.toPath);
-                    const fromPathStats = yield* effectFs.stat(opts.fromPath);
-                    if (toPathStats.size === fromPathStats.size) {
-                      return;
-                    }
+                if (yield* effectFs.exists(opts.toPath)) {
+                  const toPathStats = yield* effectFs.stat(opts.toPath);
+                  const fromPathStats = yield* effectFs.stat(opts.fromPath);
+                  if (toPathStats.size === fromPathStats.size) {
+                    return;
                   }
+                }
 
-                  yield* effectFs.copyFile(opts.fromPath, opts.toPath);
-                })
-              )
+                yield* effectFs.copyFile(opts.fromPath, opts.toPath);
+              })
             );
 
             filesSupposedToBeInDropbox.add(opts.toPath);
