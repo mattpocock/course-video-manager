@@ -1,7 +1,6 @@
 import { Config, Data, Effect, Schedule } from "effect";
 import { Command, FileSystem } from "@effect/platform";
 import path from "node:path";
-import { CourseOperationsService } from "./db-course-operations.server";
 import { VideoOperationsService } from "./db-video-operations.server";
 import { VersionOperationsService } from "./db-version-operations.server";
 import {
@@ -79,7 +78,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
   "CoursePublishService",
   {
     effect: Effect.gen(function* () {
-      const courseOps = yield* CourseOperationsService;
       const videoOps = yield* VideoOperationsService;
       const versionOps = yield* VersionOperationsService;
       const videoProcessing = yield* VideoProcessingService;
@@ -313,7 +311,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         const DROPBOX_PATH = yield* Config.string("DROPBOX_PATH");
-        const course = yield* courseOps.getCourseById(courseId);
         const repoParser = yield* CourseRepoParserService;
 
         const repoWithSections =
@@ -389,7 +386,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         let completedLessons = 0;
 
         const copyFileSemaphore = yield* Effect.makeSemaphore(20);
-        const dropboxCourseDir = path.join(DROPBOX_PATH, course.name);
+        const dropboxCourseDir = path.join(DROPBOX_PATH, repoWithSections.name);
         const filesSupposedToBeInDropbox = new Set<string>();
 
         const copyFileToDropbox = Effect.fn("copyFileToDropbox")(
