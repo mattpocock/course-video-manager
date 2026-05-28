@@ -21,7 +21,6 @@ import type { CourseStructure } from "@/components/video-context-panel";
 export interface VideoPostingContext {
   videoPath: string;
   pitchId: string | null;
-  transcript: string;
   transcriptWordCount: number;
   chapters: SectionWithWordCount[];
   files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
@@ -64,7 +63,6 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
       return {
         videoPath: video.path,
         pitchId: video.pitchId ?? null,
-        transcript,
         transcriptWordCount,
         chapters: sectionsWithWordCount,
         files: standaloneFiles,
@@ -95,7 +93,6 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
     return {
       videoPath: video.path,
       pitchId: video.pitchId ?? null,
-      transcript,
       transcriptWordCount,
       chapters: sectionsWithWordCount,
       files: lessonFiles,

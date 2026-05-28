@@ -155,27 +155,21 @@ function setupStandaloneDir(videoId: string): string {
 }
 
 describe("loadVideoPostingContext", () => {
-  describe("transcript formatting", () => {
-    it.effect(
-      "formats transcript with chapters as H2 headers and clips joined into paragraphs",
-      () =>
-        Effect.gen(function* () {
-          const video = yield* createStandaloneVideoWithClips(
-            "test-video",
-            ["Hello world.", "This is great.", "Chapter two content."],
-            [{ name: "Introduction", afterClipIndex: 0 }]
-          );
+  describe("transcript word count", () => {
+    it.effect("computes word count from clips and chapters", () =>
+      Effect.gen(function* () {
+        const video = yield* createStandaloneVideoWithClips(
+          "test-video",
+          ["Hello world.", "This is great.", "Chapter two content."],
+          [{ name: "Introduction", afterClipIndex: 0 }]
+        );
 
-          setupStandaloneDir(video.id);
+        setupStandaloneDir(video.id);
 
-          const ctx = yield* loadVideoPostingContext(video.id);
+        const ctx = yield* loadVideoPostingContext(video.id);
 
-          expect(ctx.transcript).toContain("## Introduction");
-          expect(ctx.transcript).toContain("Hello world.");
-          expect(ctx.transcript).toContain("This is great.");
-          expect(ctx.transcript).toContain("Chapter two content.");
-          expect(ctx.transcriptWordCount).toBeGreaterThan(0);
-        }).pipe(Effect.provide(testLayer))
+        expect(ctx.transcriptWordCount).toBe(10);
+      }).pipe(Effect.provide(testLayer))
     );
   });
 
@@ -359,7 +353,6 @@ describe("loadVideoPostingContext", () => {
 
         const ctx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.transcript).toBe("");
         expect(ctx.transcriptWordCount).toBe(0);
         expect(ctx.chapters).toEqual([]);
       }).pipe(Effect.provide(testLayer))
