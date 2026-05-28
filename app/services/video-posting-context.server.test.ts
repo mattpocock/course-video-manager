@@ -365,4 +365,32 @@ describe("loadVideoPostingContext", () => {
       }).pipe(Effect.provide(testLayer))
     );
   });
+
+  describe("pitchId", () => {
+    it.effect("returns null pitchId for standalone videos", () =>
+      Effect.gen(function* () {
+        const video = yield* createStandaloneVideoWithClips("test-video", [
+          "text",
+        ]);
+
+        setupStandaloneDir(video.id);
+
+        const ctx = yield* loadVideoPostingContext(video.id);
+
+        expect(ctx.pitchId).toBeNull();
+      }).pipe(Effect.provide(testLayer))
+    );
+
+    it.effect("returns null pitchId for lesson videos", () =>
+      Effect.gen(function* () {
+        const { video } = yield* createLessonVideo((lessonDir) => {
+          nodeFs.writeFileSync(path.join(lessonDir, "index.ts"), "export {}");
+        });
+
+        const ctx = yield* loadVideoPostingContext(video.id);
+
+        expect(ctx.pitchId).toBeNull();
+      }).pipe(Effect.provide(testLayer))
+    );
+  });
 });

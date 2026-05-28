@@ -20,6 +20,7 @@ import type { CourseStructure } from "@/components/video-context-panel";
 
 export interface VideoPostingContext {
   videoPath: string;
+  pitchId: string | null;
   transcript: string;
   transcriptWordCount: number;
   chapters: SectionWithWordCount[];
@@ -62,6 +63,7 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
       const standaloneFiles = yield* loadStandaloneFiles(fs, videoId);
       return {
         videoPath: video.path,
+        pitchId: video.pitchId ?? null,
         transcript,
         transcriptWordCount,
         chapters: sectionsWithWordCount,
@@ -92,6 +94,7 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
 
     return {
       videoPath: video.path,
+      pitchId: video.pitchId ?? null,
       transcript,
       transcriptWordCount,
       chapters: sectionsWithWordCount,
