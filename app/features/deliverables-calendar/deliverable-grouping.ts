@@ -45,7 +45,7 @@ export function groupDeliverables<T extends DeliverableForGrouping>(
 ): GroupedDeliverables<T> {
   const active = deliverables.filter((d) => !d.archived);
   const todayStr = formatDate(today);
-  const todayWeekInfo = isoWeek(today);
+  const todayWeek = isoWeek(today);
 
   const pastHistory: T[] = [];
   const inline: T[] = [];
@@ -55,8 +55,8 @@ export function groupDeliverables<T extends DeliverableForGrouping>(
     if (isPast && (d.status === "done" || d.status === "cancelled")) {
       const itemWeek = isoWeek(parseDate(d.date));
       if (
-        itemWeek.week === todayWeekInfo.week &&
-        itemWeek.year === todayWeekInfo.year
+        itemWeek.week === todayWeek.week &&
+        itemWeek.year === todayWeek.year
       ) {
         inline.push(d);
       } else {
@@ -79,7 +79,6 @@ export function groupDeliverables<T extends DeliverableForGrouping>(
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
 
-  const todayWeek = isoWeek(today);
   const weekKey = (w: number, y: number) =>
     `${y}-${String(w).padStart(2, "0")}`;
 
