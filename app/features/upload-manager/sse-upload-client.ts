@@ -1,3 +1,5 @@
+import { consumeSSEStream } from "./consume-sse-stream";
+
 export interface SSEUploadParams {
   videoId: string;
   title: string;
@@ -12,75 +14,25 @@ export interface SSEUploadCallbacks {
   onError: (message: string) => void;
 }
 
-/**
- * Initiates an SSE upload connection to the server and parses the event stream.
- * Returns an AbortController that can be used to cancel the upload connection.
- */
 export const startSSEUpload = (
   params: SSEUploadParams,
   callbacks: SSEUploadCallbacks
-): AbortController => {
-  const abortController = new AbortController();
-
-  performSSEUpload(params, callbacks, abortController.signal).catch((error) => {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return;
-    }
-    callbacks.onError(error instanceof Error ? error.message : "Upload failed");
-  });
-
-  return abortController;
-};
-
-const performSSEUpload = async (
-  params: SSEUploadParams,
-  callbacks: SSEUploadCallbacks,
-  signal: AbortSignal
-): Promise<void> => {
-  const response = await fetch(`/api/videos/${params.videoId}/upload`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+): AbortController =>
+  consumeSSEStream({
+    url: `/api/videos/${params.videoId}/upload`,
+    body: {
       title: params.title,
       description: params.description,
       privacyStatus: params.privacyStatus,
       thumbnailId: params.thumbnailId,
-    }),
-    signal,
+    },
+    events: {
+      progress: (data: { percentage: number }) =>
+        callbacks.onProgress(data.percentage),
+      complete: (data: { videoId: string }) =>
+        callbacks.onComplete(data.videoId),
+      error: (data: { message: string }) => callbacks.onError(data.message),
+    },
+    onError: callbacks.onError,
+    errorLabel: "Upload failed",
   });
-
-  if (!response.ok || !response.body) {
-    callbacks.onError("Failed to start upload");
-    return;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    let eventType = "";
-    for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        eventType = line.slice(7);
-      } else if (line.startsWith("data: ") && eventType) {
-        const eventData = JSON.parse(line.slice(6));
-        if (eventType === "progress") {
-          callbacks.onProgress(eventData.percentage);
-        } else if (eventType === "complete") {
-          callbacks.onComplete(eventData.videoId);
-        } else if (eventType === "error") {
-          callbacks.onError(eventData.message);
-        }
-        eventType = "";
-      }
-    }
-  }
-};
