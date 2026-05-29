@@ -15,6 +15,7 @@ import { AIMessage, AIMessageContent } from "components/ui/kibo-ui/ai/message";
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import type { Options } from "react-markdown";
 import type { HTMLAttributes } from "react";
+import { Loader2Icon } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { partsToText, saveMessagesToStorage } from "./write-utils";
 import type { WriteToolbarProps } from "./write-toolbar";
@@ -41,6 +42,7 @@ export interface WriteChatProps {
   videoId: string;
   className?: string;
   toolbarProps: WriteToolbarProps;
+  queuedMessages?: string[];
   documentRef?: React.RefObject<string | undefined>;
   updateDocument?: (content: string) => void;
 }
@@ -58,6 +60,7 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
     videoId,
     className,
     toolbarProps,
+    queuedMessages,
     documentRef,
     updateDocument,
   } = props;
@@ -262,6 +265,16 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
               </AIMessage>
             );
           })}
+          {queuedMessages?.map((text, i) => (
+            <AIMessage from="user" key={`queued-${i}`}>
+              <AIMessageContent>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2Icon className="h-3 w-3 animate-spin shrink-0" />
+                  {text}
+                </span>
+              </AIMessageContent>
+            </AIMessage>
+          ))}
         </AIConversationContent>
         <AIConversationScrollButton />
       </AIConversation>

@@ -6,6 +6,7 @@ import {
   uploadVideoToYouTube,
 } from "@/services/youtube-upload-service";
 import { runtimeLive } from "@/services/layer.server";
+import { createSSEResponse } from "@/lib/create-sse-response.server";
 import { Effect } from "effect";
 import type { Route } from "./+types/api.videos.$videoId.upload";
 
@@ -54,16 +55,10 @@ export const action = async (args: Route.ActionArgs) => {
 
   const thumbnailFilePath = selectedThumbnail.filePath;
 
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      const sendEvent = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-        );
-      };
-
-      const program = Effect.gen(function* () {
+  return createSSEResponse({
+    runtime: runtimeLive,
+    program: (sendEvent) =>
+      Effect.gen(function* () {
         const publishService = yield* CoursePublishService;
         const filePath = yield* publishService.resolveExportPath(videoId);
 
@@ -92,45 +87,21 @@ export const action = async (args: Route.ActionArgs) => {
         });
 
         sendEvent("complete", { videoId: result.videoId });
-      });
-
-      program
-        .pipe(
-          Effect.catchTag("NotAuthenticatedError", () =>
-            Effect.sync(() => {
-              sendEvent("error", {
-                message: "Not authenticated with YouTube",
-              });
-            })
-          ),
-          Effect.catchTag("YouTubeUploadError", (e) =>
-            Effect.sync(() => {
-              sendEvent("error", { message: e.message });
-            })
-          ),
-          Effect.catchAll((e) =>
-            Effect.sync(() => {
-              sendEvent("error", {
-                message:
-                  "message" in e && typeof e.message === "string"
-                    ? e.message
-                    : "Upload failed unexpectedly",
-              });
-            })
-          ),
-          runtimeLive.runPromise
-        )
-        .finally(() => {
-          controller.close();
-        });
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+      }),
+    errorHandlers: [
+      {
+        tag: "NotAuthenticatedError",
+        handler: (_, sendEvent) => {
+          sendEvent("error", { message: "Not authenticated with YouTube" });
+        },
+      },
+      {
+        tag: "YouTubeUploadError",
+        handler: (e, sendEvent) => {
+          sendEvent("error", { message: e.message });
+        },
+      },
+    ],
+    fallbackMessage: "Upload failed unexpectedly",
   });
 };
