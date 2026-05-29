@@ -1,4 +1,5 @@
-export type PublishStage = "validating" | "uploading" | "freezing" | "cloning";
+import { consumeSSEStream } from "./consume-sse-stream";
+import type { uploadReducer } from "./upload-reducer";
 
 export interface SSEPublishParams {
   courseId: string;
@@ -7,7 +8,7 @@ export interface SSEPublishParams {
 }
 
 export interface SSEPublishCallbacks {
-  onStageChange: (stage: PublishStage) => void;
+  onStageChange: (stage: uploadReducer.PublishStage) => void;
   onComplete: (result: {
     publishedVersionId: string;
     newDraftVersionId: string;
@@ -15,80 +16,26 @@ export interface SSEPublishCallbacks {
   onError: (message: string) => void;
 }
 
-/**
- * Initiates an SSE connection to the publish endpoint and parses the event stream.
- * Returns an AbortController that can be used to cancel the connection.
- */
 export const startSSEPublish = (
   params: SSEPublishParams,
   callbacks: SSEPublishCallbacks
-): AbortController => {
-  const abortController = new AbortController();
-
-  performSSEPublish(params, callbacks, abortController.signal).catch(
-    (error) => {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-      callbacks.onError(
-        error instanceof Error ? error.message : "Publish failed"
-      );
-    }
-  );
-
-  return abortController;
-};
-
-const performSSEPublish = async (
-  params: SSEPublishParams,
-  callbacks: SSEPublishCallbacks,
-  signal: AbortSignal
-): Promise<void> => {
-  const response = await fetch(`/api/courses/${params.courseId}/publish-sse`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: params.name,
-      description: params.description,
-    }),
-    signal,
+): AbortController =>
+  consumeSSEStream({
+    url: `/api/courses/${params.courseId}/publish-sse`,
+    body: { name: params.name, description: params.description },
+    events: {
+      progress: (data: { stage: uploadReducer.PublishStage }) =>
+        callbacks.onStageChange(data.stage),
+      complete: (data: {
+        publishedVersionId: string;
+        newDraftVersionId: string;
+      }) =>
+        callbacks.onComplete({
+          publishedVersionId: data.publishedVersionId,
+          newDraftVersionId: data.newDraftVersionId,
+        }),
+      error: (data: { message: string }) => callbacks.onError(data.message),
+    },
+    onError: callbacks.onError,
+    errorLabel: "Publish failed",
   });
-
-  if (!response.ok || !response.body) {
-    callbacks.onError("Failed to start publish");
-    return;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    let eventType = "";
-    for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        eventType = line.slice(7);
-      } else if (line.startsWith("data: ") && eventType) {
-        const eventData = JSON.parse(line.slice(6));
-        if (eventType === "progress") {
-          callbacks.onStageChange(eventData.stage);
-        } else if (eventType === "complete") {
-          callbacks.onComplete({
-            publishedVersionId: eventData.publishedVersionId,
-            newDraftVersionId: eventData.newDraftVersionId,
-          });
-        } else if (eventType === "error") {
-          callbacks.onError(eventData.message);
-        }
-        eventType = "";
-      }
-    }
-  }
-};
