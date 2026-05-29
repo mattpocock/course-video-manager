@@ -45,6 +45,7 @@ import { useVideoContextHandlers } from "./use-video-context-handlers";
 import { useToolbarProps } from "./use-toolbar-props";
 import { writePageReducer, createInitialState } from "./write-page-reducer";
 import { useDocumentPanelActions } from "./use-document-panel-actions";
+import { useMessageQueue } from "./use-message-queue";
 import { SessionTimer } from "./use-session-timer";
 
 export interface WritePageProps {
@@ -399,6 +400,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
 
   const handleClearChat = () => {
     setMessages([]);
+    clearQueue();
     saveMessagesToStorage(videoId, mode, []);
     if (isDocumentMode) clearDocument();
   };
@@ -483,12 +485,18 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     bannedPhrases
   );
 
-  const handleSubmit = useCallback(
+  const handleSend = useCallback(
     (text: string) => {
       sendMessage({ text }, { body: getBodyPayload() });
     },
     [sendMessage, getBodyPayload]
   );
+
+  const {
+    submit: handleSubmit,
+    queuedMessages,
+    clearQueue,
+  } = useMessageQueue(status, handleSend);
 
   const handleGoLive = () => {
     dispatch({ type: "set-mode", mode: "interview" });
@@ -553,6 +561,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
       mode,
       videoId,
       toolbarProps,
+      queuedMessages,
       documentRef: isDocumentMode ? documentRef : undefined,
       updateDocument: isDocumentMode ? updateDocument : undefined,
     }),
@@ -567,6 +576,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
       mode,
       videoId,
       toolbarProps,
+      queuedMessages,
       isDocumentMode,
       documentRef,
       updateDocument,
