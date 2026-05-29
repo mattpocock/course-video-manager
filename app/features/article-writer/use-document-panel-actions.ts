@@ -43,7 +43,7 @@ export function useDocumentPanelActions({
     if (!currentDoc?.trim()) return;
     setIsUploadingImages(true);
     try {
-      const updatedBody = await uploadAndReplaceImages(currentDoc);
+      const updatedBody = await uploadAndReplaceImages(currentDoc, true);
       if (updatedBody !== currentDoc) {
         updateDocument(updatedBody);
         toast.success("Images uploaded to Cloudinary");
