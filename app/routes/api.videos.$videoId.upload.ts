@@ -54,7 +54,6 @@ export const action = async (args: Route.ActionArgs) => {
 
   const thumbnailFilePath = selectedThumbnail.filePath;
 
-  // Set up SSE stream
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -86,7 +85,6 @@ export const action = async (args: Route.ActionArgs) => {
           },
         });
 
-        // Set the selected thumbnail on YouTube (validated before stream)
         yield* setYouTubeThumbnail({
           accessToken,
           youtubeVideoId: result.videoId,
@@ -110,9 +108,14 @@ export const action = async (args: Route.ActionArgs) => {
               sendEvent("error", { message: e.message });
             })
           ),
-          Effect.catchAll(() =>
+          Effect.catchAll((e) =>
             Effect.sync(() => {
-              sendEvent("error", { message: "Upload failed unexpectedly" });
+              sendEvent("error", {
+                message:
+                  "message" in e && typeof e.message === "string"
+                    ? e.message
+                    : "Upload failed unexpectedly",
+              });
             })
           ),
           runtimeLive.runPromise

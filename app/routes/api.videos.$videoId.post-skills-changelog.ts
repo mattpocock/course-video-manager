@@ -84,10 +84,13 @@ export const action = async (args: Route.ActionArgs) => {
               sendEvent("error", { message: e.message });
             })
           ),
-          Effect.catchAll(() =>
+          Effect.catchAll((e) =>
             Effect.sync(() => {
               sendEvent("error", {
-                message: "Skills Changelog post failed unexpectedly",
+                message:
+                  "message" in e && typeof e.message === "string"
+                    ? e.message
+                    : "Skills Changelog post failed unexpectedly",
               });
             })
           ),

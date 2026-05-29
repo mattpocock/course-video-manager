@@ -12,10 +12,6 @@ export interface SSEUploadCallbacks {
   onError: (message: string) => void;
 }
 
-/**
- * Initiates an SSE upload connection to the server and parses the event stream.
- * Returns an AbortController that can be used to cancel the upload connection.
- */
 export const startSSEUpload = (
   params: SSEUploadParams,
   callbacks: SSEUploadCallbacks

@@ -11,11 +11,6 @@ export interface SSEBatchExportCallbacks {
   onError: (videoId: string | null, message: string) => void;
 }
 
-/**
- * Initiates a single SSE connection to the batch export endpoint.
- * Multiplexes per-video progress events over the one stream.
- * Returns an AbortController that can be used to cancel the connection.
- */
 export const startSSEBatchExport = (
   params: SSEBatchExportParams,
   callbacks: SSEBatchExportCallbacks

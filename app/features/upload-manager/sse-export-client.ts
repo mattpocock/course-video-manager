@@ -10,10 +10,6 @@ export interface SSEExportCallbacks {
   onError: (message: string) => void;
 }
 
-/**
- * Initiates an SSE connection to the export endpoint and parses the event stream.
- * Returns an AbortController that can be used to cancel the connection.
- */
 export const startSSEExport = (
   params: SSEExportParams,
   callbacks: SSEExportCallbacks

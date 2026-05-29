@@ -1,6 +1,6 @@
 import { CoursePublishService } from "@/services/course-publish-service";
 import type { Route } from "./+types/api.courses.publish-to-dropbox-sse";
-import { ConfigProvider, Console, Effect, Schema } from "effect";
+import { ConfigProvider, Effect, Schema } from "effect";
 import { runtimeLive } from "@/services/layer.server";
 
 const publishRepoSchema = Schema.Struct({
@@ -35,9 +35,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
       program
         .pipe(
-          Effect.tapErrorCause((e) => {
-            return Console.log(e);
-          }),
           Effect.catchAll((e) =>
             Effect.sync(() => {
               sendEvent("error", {

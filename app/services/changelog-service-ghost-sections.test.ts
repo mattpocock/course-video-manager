@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateChangelog } from "./changelog-service";
+import { detectChanges } from "./changelog-detection";
 
 type VersionWithStructure = Parameters<typeof generateChangelog>[0][number];
 
@@ -116,5 +117,64 @@ describe("ghost sections excluded from changelog", () => {
 
     expect(changelog).not.toContain("Upcoming Section");
     expect(changelog).not.toContain("future-lesson");
+  });
+
+  it("returns no changes when only ghost sections differ between versions", () => {
+    const prevVersion = makeVersion("v1", "v1.0", [
+      makeSection("s1", "01-intro", [
+        makeLesson("l1", "01.01-welcome", null, ["Hello"]),
+      ]),
+    ]);
+
+    const currentVersion = makeVersion("v2", "v2.0", [
+      makeSection(
+        "s2",
+        "01-intro",
+        [makeLesson("l2", "01.01-welcome", "l1", ["Hello"])],
+        "s1"
+      ),
+      makeSection("gs1", "Ghost Only", [
+        makeLesson("gl1", "ghost-lesson", null, ["Ghost content"]),
+      ]),
+    ]);
+
+    const changes = detectChanges(currentVersion, prevVersion);
+
+    expect(changes).not.toBeNull();
+    expect(changes!.newLessons).toHaveLength(0);
+    expect(changes!.deletedSections).toHaveLength(0);
+    expect(changes!.deletedLessons).toHaveLength(0);
+    expect(changes!.renamedSections).toHaveLength(0);
+  });
+
+  it("does not show real lessons as deleted when referenced only by ghost sections", () => {
+    const prevVersion = makeVersion("v1", "v1.0", [
+      makeSection("s1", "01-intro", [
+        makeLesson("l1", "01.01-welcome", null, ["Hello"]),
+        makeLesson("l2", "01.02-setup", null, ["Setup content"]),
+      ]),
+    ]);
+
+    const currentVersion = makeVersion("v2", "v2.0", [
+      makeSection(
+        "s2",
+        "01-intro",
+        [makeLesson("l3", "01.01-welcome", "l1", ["Hello"])],
+        "s1"
+      ),
+      makeSection("gs1", "Upcoming", [
+        makeLesson("gl1", "moved-lesson", "l2", ["Setup content"]),
+      ]),
+    ]);
+
+    const changes = detectChanges(currentVersion, prevVersion);
+
+    expect(changes!.deletedLessons).toEqual([
+      {
+        sectionPath: "01-intro",
+        lessonPath: "01.02-setup",
+        videoPaths: ["Problem"],
+      },
+    ]);
   });
 });

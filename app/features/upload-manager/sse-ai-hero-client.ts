@@ -12,10 +12,6 @@ export interface SSEAiHeroCallbacks {
   onError: (message: string) => void;
 }
 
-/**
- * Initiates an SSE connection to the AI Hero post endpoint and parses the event stream.
- * Returns an AbortController that can be used to cancel the connection.
- */
 export const startSSEAiHeroPost = (
   params: SSEAiHeroParams,
   callbacks: SSEAiHeroCallbacks

@@ -20,7 +20,6 @@ export const action = async (args: Route.ActionArgs) => {
     return Response.json({ error: "Title is required" }, { status: 400 });
   }
 
-  // Set up SSE stream
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -67,10 +66,13 @@ export const action = async (args: Route.ActionArgs) => {
               sendEvent("error", { message: e.message });
             })
           ),
-          Effect.catchAll(() =>
+          Effect.catchAll((e) =>
             Effect.sync(() => {
               sendEvent("error", {
-                message: "AI Hero post failed unexpectedly",
+                message:
+                  "message" in e && typeof e.message === "string"
+                    ? e.message
+                    : "AI Hero post failed unexpectedly",
               });
             })
           ),

@@ -196,7 +196,6 @@ export const action = async (args: Route.ActionArgs) => {
     );
   }
 
-  // Set up SSE stream
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -260,10 +259,13 @@ export const action = async (args: Route.ActionArgs) => {
               sendEvent("error", { message: e.message });
             })
           ),
-          Effect.catchAll(() =>
+          Effect.catchAll((e) =>
             Effect.sync(() => {
               sendEvent("error", {
-                message: "Social post failed unexpectedly",
+                message:
+                  "message" in e && typeof e.message === "string"
+                    ? e.message
+                    : "Social post failed unexpectedly",
               });
             })
           ),

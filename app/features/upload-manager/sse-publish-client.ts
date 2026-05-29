@@ -1,4 +1,4 @@
-export type PublishStage = "validating" | "uploading" | "freezing" | "cloning";
+import type { uploadReducer } from "./upload-reducer";
 
 export interface SSEPublishParams {
   courseId: string;
@@ -7,7 +7,7 @@ export interface SSEPublishParams {
 }
 
 export interface SSEPublishCallbacks {
-  onStageChange: (stage: PublishStage) => void;
+  onStageChange: (stage: uploadReducer.PublishStage) => void;
   onComplete: (result: {
     publishedVersionId: string;
     newDraftVersionId: string;
@@ -15,10 +15,6 @@ export interface SSEPublishCallbacks {
   onError: (message: string) => void;
 }
 
-/**
- * Initiates an SSE connection to the publish endpoint and parses the event stream.
- * Returns an AbortController that can be used to cancel the connection.
- */
 export const startSSEPublish = (
   params: SSEPublishParams,
   callbacks: SSEPublishCallbacks
