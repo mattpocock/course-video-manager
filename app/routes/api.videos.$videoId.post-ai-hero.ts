@@ -1,6 +1,7 @@
 import { CoursePublishService } from "@/services/course-publish-service";
 import { postToAiHero } from "@/services/ai-hero-upload-service";
 import { runtimeLive } from "@/services/layer.server";
+import { createSSEResponse } from "@/lib/create-sse-response.server";
 import { Effect } from "effect";
 import type { Route } from "./+types/api.videos.$videoId.post-ai-hero";
 
@@ -20,17 +21,10 @@ export const action = async (args: Route.ActionArgs) => {
     return Response.json({ error: "Title is required" }, { status: 400 });
   }
 
-  // Set up SSE stream
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      const sendEvent = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-        );
-      };
-
-      const program = Effect.gen(function* () {
+  return createSSEResponse({
+    runtime: runtimeLive,
+    program: (sendEvent) =>
+      Effect.gen(function* () {
         const publishService = yield* CoursePublishService;
         const filePath = yield* publishService.resolveExportPath(videoId);
 
@@ -51,42 +45,21 @@ export const action = async (args: Route.ActionArgs) => {
         });
 
         sendEvent("complete", { slug: result.slug });
-      });
-
-      program
-        .pipe(
-          Effect.catchTag("AiHeroNotAuthenticatedError", () =>
-            Effect.sync(() => {
-              sendEvent("error", {
-                message: "Not authenticated with AI Hero",
-              });
-            })
-          ),
-          Effect.catchTag("AiHeroUploadError", (e) =>
-            Effect.sync(() => {
-              sendEvent("error", { message: e.message });
-            })
-          ),
-          Effect.catchAll(() =>
-            Effect.sync(() => {
-              sendEvent("error", {
-                message: "AI Hero post failed unexpectedly",
-              });
-            })
-          ),
-          runtimeLive.runPromise
-        )
-        .finally(() => {
-          controller.close();
-        });
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+      }),
+    errorHandlers: [
+      {
+        tag: "AiHeroNotAuthenticatedError",
+        handler: (_, sendEvent) => {
+          sendEvent("error", { message: "Not authenticated with AI Hero" });
+        },
+      },
+      {
+        tag: "AiHeroUploadError",
+        handler: (e, sendEvent) => {
+          sendEvent("error", { message: e.message });
+        },
+      },
+    ],
+    fallbackMessage: "AI Hero post failed unexpectedly",
   });
 };

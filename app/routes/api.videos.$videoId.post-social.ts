@@ -1,4 +1,5 @@
 import { CoursePublishService } from "@/services/course-publish-service";
+import { createSSEResponse } from "@/lib/create-sse-response.server";
 import { runtimeLive } from "@/services/layer.server";
 import { Command } from "@effect/platform";
 import { Data, Effect } from "effect";
@@ -196,17 +197,10 @@ export const action = async (args: Route.ActionArgs) => {
     );
   }
 
-  // Set up SSE stream
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      const sendEvent = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-        );
-      };
-
-      const program = Effect.gen(function* () {
+  return createSSEResponse({
+    runtime: runtimeLive,
+    program: (sendEvent) =>
+      Effect.gen(function* () {
         const publishService = yield* CoursePublishService;
         const sourcePath = yield* publishService.resolveExportPath(videoId);
 
@@ -251,35 +245,15 @@ export const action = async (args: Route.ActionArgs) => {
 
         // Done
         sendEvent("complete", {});
-      });
-
-      program
-        .pipe(
-          Effect.catchTag("SocialPostError", (e) =>
-            Effect.sync(() => {
-              sendEvent("error", { message: e.message });
-            })
-          ),
-          Effect.catchAll(() =>
-            Effect.sync(() => {
-              sendEvent("error", {
-                message: "Social post failed unexpectedly",
-              });
-            })
-          ),
-          runtimeLive.runPromise
-        )
-        .finally(() => {
-          controller.close();
-        });
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+      }),
+    errorHandlers: [
+      {
+        tag: "SocialPostError",
+        handler: (e, sendEvent) => {
+          sendEvent("error", { message: e.message });
+        },
+      },
+    ],
+    fallbackMessage: "Social post failed unexpectedly",
   });
 };
