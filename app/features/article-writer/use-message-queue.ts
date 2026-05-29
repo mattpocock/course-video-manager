@@ -33,11 +33,10 @@ export function useMessageQueue(
 
   const submit = useCallback(
     (text: string) => {
-      const result = processSubmit(status, text, []);
-      if (result.sent !== null) {
-        onSendRef.current(result.sent);
-      } else {
+      if (status === "streaming" || status === "submitted") {
         setQueue((prev) => [...prev, text]);
+      } else {
+        onSendRef.current(text);
       }
     },
     [status]
