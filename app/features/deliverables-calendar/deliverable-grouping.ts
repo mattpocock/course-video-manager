@@ -45,6 +45,7 @@ export function groupDeliverables<T extends DeliverableForGrouping>(
 ): GroupedDeliverables<T> {
   const active = deliverables.filter((d) => !d.archived);
   const todayStr = formatDate(today);
+  const todayWeekInfo = isoWeek(today);
 
   const pastHistory: T[] = [];
   const inline: T[] = [];
@@ -52,7 +53,15 @@ export function groupDeliverables<T extends DeliverableForGrouping>(
   for (const d of active) {
     const isPast = d.date < todayStr;
     if (isPast && (d.status === "done" || d.status === "cancelled")) {
-      pastHistory.push(d);
+      const itemWeek = isoWeek(parseDate(d.date));
+      if (
+        itemWeek.week === todayWeekInfo.week &&
+        itemWeek.year === todayWeekInfo.year
+      ) {
+        inline.push(d);
+      } else {
+        pastHistory.push(d);
+      }
     } else {
       inline.push(d);
     }

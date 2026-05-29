@@ -105,4 +105,24 @@ describe("deliverableDisplay", () => {
   ])("$label", ({ d, expected }) => {
     expect(deliverableDisplay(d, today)).toEqual(expected);
   });
+
+  it("done, past day in current week → this-week (not history)", () => {
+    // Today = Wednesday 2026-05-20 (ISO week 21)
+    // Monday 2026-05-18 is past but same ISO week
+    const wednesday = new Date(2026, 4, 20);
+    const d = makeDeliverable({ date: "2026-05-18", status: "done" });
+    expect(deliverableDisplay(d, wednesday)).toEqual({
+      bucket: "this-week",
+      overdue: false,
+    });
+  });
+
+  it("cancelled, past day in current week → this-week (not history)", () => {
+    const wednesday = new Date(2026, 4, 20);
+    const d = makeDeliverable({ date: "2026-05-19", status: "cancelled" });
+    expect(deliverableDisplay(d, wednesday)).toEqual({
+      bucket: "this-week",
+      overdue: false,
+    });
+  });
 });

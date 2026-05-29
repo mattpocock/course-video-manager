@@ -522,6 +522,48 @@ describe("groupDeliverables", () => {
     expect(result.weekGroups[4]!.overdueCount).toBe(0);
   });
 
+  it("keeps current-week past done/cancelled items inline, not in pastHistory", () => {
+    // Today is Wednesday (2026-05-20), ISO week 21
+    // Monday and Tuesday are past but same ISO week
+    const wednesday = new Date(2026, 4, 20);
+    const items = [
+      makeDeliverable({
+        date: "2026-05-18",
+        title: "Done Monday",
+        status: "done",
+      }),
+      makeDeliverable({
+        date: "2026-05-19",
+        title: "Cancelled Tuesday",
+        status: "cancelled",
+      }),
+    ];
+    const result = groupDeliverables(items, wednesday);
+    expect(result.pastHistory).toHaveLength(0);
+    expect(result.weekGroups[0]!.week).toBe(21);
+    expect(result.weekGroups[0]!.items).toHaveLength(2);
+    expect(result.weekGroups[0]!.items.map((i) => i.title)).toEqual([
+      "Done Monday",
+      "Cancelled Tuesday",
+    ]);
+  });
+
+  it("still moves previous-week past done items to pastHistory", () => {
+    // Today is Wednesday (2026-05-20), ISO week 21
+    // 2026-05-15 (Friday) is ISO week 20 — should go to pastHistory
+    const wednesday = new Date(2026, 4, 20);
+    const items = [
+      makeDeliverable({
+        date: "2026-05-15",
+        title: "Done last week",
+        status: "done",
+      }),
+    ];
+    const result = groupDeliverables(items, wednesday);
+    expect(result.pastHistory).toHaveLength(1);
+    expect(result.pastHistory[0]!.title).toBe("Done last week");
+  });
+
   it("preserves extra properties on extended types through grouping", () => {
     interface Extended extends DeliverableForGrouping {
       linkedCourses: { id: string; name: string }[];
