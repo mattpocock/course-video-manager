@@ -21,6 +21,7 @@ import {
 import { asc, and, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { toTranscriptItems } from "@/lib/transcript-builder";
+import { parseSectionPath } from "./section-path-service";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -548,24 +549,26 @@ export const createVersionOperations = (db: DrizzleDB) => {
         name: version.name,
         description: version.description,
         createdAt: version.createdAt,
-        sections: version.sections.map((s) => ({
-          id: s.id,
-          path: s.path,
-          previousVersionSectionId: s.previousVersionSectionId,
-          lessons: s.lessons
-            .filter((l) => l.fsStatus !== "ghost")
-            .map((l) => ({
-              id: l.id,
-              path: l.path,
-              previousVersionLessonId: l.previousVersionLessonId,
-              authoringStatus: l.authoringStatus as "todo" | "done" | null,
-              videos: l.videos.map((v) => ({
-                id: v.id,
-                path: v.path,
-                transcript: toTranscriptItems(v.clips, v.chapters),
+        sections: version.sections
+          .filter((s) => parseSectionPath(s.path) !== null)
+          .map((s) => ({
+            id: s.id,
+            path: s.path,
+            previousVersionSectionId: s.previousVersionSectionId,
+            lessons: s.lessons
+              .filter((l) => l.fsStatus !== "ghost")
+              .map((l) => ({
+                id: l.id,
+                path: l.path,
+                previousVersionLessonId: l.previousVersionLessonId,
+                authoringStatus: l.authoringStatus as "todo" | "done" | null,
+                videos: l.videos.map((v) => ({
+                  id: v.id,
+                  path: v.path,
+                  transcript: toTranscriptItems(v.clips, v.chapters),
+                })),
               })),
-            })),
-        })),
+          })),
       }));
     }
   );
