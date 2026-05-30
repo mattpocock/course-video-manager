@@ -32,7 +32,15 @@ export const action = makeAction({
       const pitchOps = yield* PitchOperationsService;
 
       let coerced: string | number | boolean = value;
-      if (field === "priority" || field === "effort") coerced = Number(value);
+      if (field === "priority" || field === "effort") {
+        coerced = Number(value);
+        if (coerced !== 1 && coerced !== 2 && coerced !== 3) {
+          return data(
+            { error: `${field} must be 1, 2, or 3` },
+            { status: 400 }
+          );
+        }
+      }
       if (field === "archived") coerced = value === "true";
 
       const pitch = yield* pitchOps.updatePitchField(
