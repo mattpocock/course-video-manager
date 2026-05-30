@@ -8,13 +8,13 @@ import { cn } from "@/lib/utils";
 
 export type Effort = 1 | 2 | 3;
 
-const EFFORT_DOT_COLORS: Record<Effort, string> = {
+export const EFFORT_DOT_COLORS: Record<Effort, string> = {
   1: "bg-green-500",
   2: "bg-amber-500",
   3: "bg-red-500",
 };
 
-const EFFORT_LABELS: Record<Effort, string> = {
+export const EFFORT_LABELS: Record<Effort, string> = {
   1: "Low",
   2: "Med",
   3: "High",
@@ -25,9 +25,6 @@ const EFFORT_MENU_LABELS: Record<Effort, string> = {
   2: "Medium effort",
   3: "High effort",
 };
-
-export const EFFORT_FILTER_DOT_COLORS = EFFORT_DOT_COLORS;
-export const EFFORT_FILTER_LABELS = EFFORT_LABELS;
 
 interface EffortSelectorProps {
   effort: Effort;

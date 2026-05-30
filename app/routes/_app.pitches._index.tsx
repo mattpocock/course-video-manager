@@ -1,7 +1,7 @@
 import {
   EffortSelector,
-  EFFORT_FILTER_DOT_COLORS,
-  EFFORT_FILTER_LABELS,
+  EFFORT_DOT_COLORS,
+  EFFORT_LABELS,
   type Effort,
 } from "@/components/effort-selector";
 import {
@@ -324,11 +324,11 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
                       className={cn(
                         "inline-block w-2 h-2 rounded-full",
                         showAsActive
-                          ? EFFORT_FILTER_DOT_COLORS[effort]
+                          ? EFFORT_DOT_COLORS[effort]
                           : "bg-muted-foreground/30"
                       )}
                     />
-                    {EFFORT_FILTER_LABELS[effort]}
+                    {EFFORT_LABELS[effort]}
                   </button>
                 );
               })}
