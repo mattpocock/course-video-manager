@@ -211,7 +211,7 @@ _Avoid_: Changelog (ambiguous with course publish changelog), Skill post, Change
 ### Deliverables and scheduling
 
 **Deliverable**:
-A manually-authored entry on the **Deliverables Calendar**, pinned to a single all-day date. May link to zero or more **Courses** and/or **Pitches**; links are informational only, never derived. Archived Deliverables are hidden from both the active calendar and the history disclosure — archive is the only hide.
+A manually-authored entry on the **Deliverables Calendar**, pinned to a single all-day date. May link to zero or more **Courses** and/or **Pitches**; the Deliverable's own state is never derived, but a linked Pitch's **Pitch Desk State** is derived from it. Archived Deliverables are hidden from both the active calendar and the history disclosure — archive is the only hide.
 _Avoid_: Task, Item, Scheduled work, Ship target
 
 **Deliverable Status**:

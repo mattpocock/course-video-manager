@@ -248,3 +248,33 @@ describe("deskState derivation via listPitchesWithVideos", () => {
     }).pipe(Effect.provide(testLayer))
   );
 });
+
+describe("deskState derivation via getPitchWithVideos", () => {
+  it.effect("derives deskState from linked deliverables", () =>
+    Effect.gen(function* () {
+      const pitchOps = yield* PitchOperationsService;
+
+      const pitch = yield* pitchOps.createPitch();
+      const del = yield* Effect.promise(() =>
+        seedDeliverable(testDb, { status: "done" })
+      );
+      yield* Effect.promise(() =>
+        linkPitchToDeliverable(testDb, pitch.id, del.id)
+      );
+
+      const result = yield* pitchOps.getPitchWithVideos(pitch.id);
+      expect(result.deskState).toBe("shipped");
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("returns idle when no deliverables linked", () =>
+    Effect.gen(function* () {
+      const pitchOps = yield* PitchOperationsService;
+
+      const pitch = yield* pitchOps.createPitch();
+
+      const result = yield* pitchOps.getPitchWithVideos(pitch.id);
+      expect(result.deskState).toBe("idle");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
