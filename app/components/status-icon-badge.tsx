@@ -1,35 +1,17 @@
-import {
-  CalendarClock,
-  CheckCircle2,
-  Lightbulb,
-  XCircle,
-  Youtube,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { CalendarClock, CheckCircle2, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { PitchState } from "@/services/db-pitch-operations.server";
 
-export type PitchStatus =
-  | "idle"
-  | "scheduled"
-  | "shipped-to-youtube"
-  | "shipped"
-  | "cancelled";
+export type { PitchState };
 
-export const PITCH_STATUS_ORDER: readonly PitchStatus[] = [
+export const PITCH_STATE_ORDER: readonly PitchState[] = [
   "idle",
   "scheduled",
-  "shipped-to-youtube",
   "shipped",
-  "cancelled",
 ] as const;
 
-export const STATUS_META: Record<
-  PitchStatus,
+export const PITCH_STATE_META: Record<
+  PitchState,
   {
     label: string;
     icon: typeof Lightbulb;
@@ -46,99 +28,47 @@ export const STATUS_META: Record<
     icon: CalendarClock,
     iconWrap: "bg-muted text-muted-foreground",
   },
-  "shipped-to-youtube": {
-    label: "Shipped to YouTube",
-    icon: Youtube,
-    iconWrap: "bg-muted text-muted-foreground",
-  },
   shipped: {
     label: "Shipped",
     icon: CheckCircle2,
     iconWrap: "bg-muted text-muted-foreground",
   },
-  cancelled: {
-    label: "Cancelled",
-    icon: XCircle,
-    iconWrap: "bg-muted text-muted-foreground",
-  },
 };
 
-export function StatusIconBadge({
-  status,
-  onSelect,
-  readOnly,
+export function PitchStateBadge({
+  state,
   showLabel,
 }: {
-  status: PitchStatus;
-  onSelect?: (s: PitchStatus) => void;
-  readOnly?: boolean;
+  state: PitchState;
   showLabel?: boolean;
 }) {
-  const m = STATUS_META[status];
+  const m = PITCH_STATE_META[state];
   const Icon = m.icon;
-  const trigger = showLabel ? (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex items-center gap-1.5 h-6 pl-1 pr-2.5 rounded-full text-xs font-medium",
-        m.iconWrap
-      )}
-      title={readOnly ? m.label : `${m.label} — click to change`}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full">
-        <Icon className="w-3 h-3" />
+  if (showLabel) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 h-6 pl-1 pr-2.5 rounded-full text-xs font-medium",
+          m.iconWrap
+        )}
+        title={m.label}
+      >
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full">
+          <Icon className="w-3 h-3" />
+        </span>
+        {m.label}
       </span>
-      {m.label}
-    </button>
-  ) : (
-    <button
-      type="button"
+    );
+  }
+  return (
+    <span
       className={cn(
         "inline-flex items-center justify-center w-6 h-6 rounded-full",
         m.iconWrap
       )}
-      title={readOnly ? m.label : `${m.label} — click to change`}
-      onClick={(e) => e.stopPropagation()}
+      title={m.label}
     >
       <Icon className="w-3 h-3" />
-    </button>
-  );
-  if (readOnly || !onSelect) return trigger;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-        {trigger}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[160px]">
-        {PITCH_STATUS_ORDER.map((s) => {
-          const sm = STATUS_META[s];
-          const SIcon = sm.icon;
-          return (
-            <DropdownMenuItem
-              key={s}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(s);
-              }}
-              className={cn(
-                "text-xs font-medium flex items-center gap-2",
-                status === s && "bg-accent"
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-flex items-center justify-center w-5 h-5 rounded-full",
-                  sm.iconWrap
-                )}
-              >
-                <SIcon className="w-3 h-3" />
-              </span>
-              {sm.label}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </span>
   );
 }

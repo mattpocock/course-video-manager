@@ -10,6 +10,16 @@ import {
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 
+export type PitchState = "idle" | "scheduled" | "shipped";
+
+export function derivePitchState(deliverableStatuses: string[]): PitchState {
+  if (deliverableStatuses.length === 0) return "idle";
+  const allTerminal = deliverableStatuses.every(
+    (s) => s === "done" || s === "cancelled"
+  );
+  return allTerminal ? "shipped" : "scheduled";
+}
+
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
     try: fn,
@@ -19,15 +29,11 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 
 export const createPitchOperations = (db: DrizzleDB) => {
   const buildPitchFilters = (filters?: {
-    status?: string[];
     priority?: number[];
     effort?: number[];
     archived?: boolean;
   }) => {
     const conditions = [eq(pitches.archived, filters?.archived ?? false)];
-    if (filters?.status && filters.status.length > 0) {
-      conditions.push(inArray(pitches.status, filters.status));
-    }
     if (filters?.priority && filters.priority.length > 0) {
       conditions.push(inArray(pitches.priority, filters.priority));
     }
@@ -54,12 +60,12 @@ export const createPitchOperations = (db: DrizzleDB) => {
   });
 
   const listPitches = Effect.fn("listPitches")(function* (filters?: {
-    status?: string[];
+    state?: PitchState[];
     priority?: number[];
     effort?: number[];
     archived?: boolean;
   }) {
-    return yield* makeDbCall(() =>
+    const rows = yield* makeDbCall(() =>
       db.query.pitches.findMany({
         where: buildPitchFilters(filters),
         orderBy: [
@@ -67,18 +73,40 @@ export const createPitchOperations = (db: DrizzleDB) => {
           asc(pitches.effort),
           desc(pitches.createdAt),
         ],
+        with: {
+          deliverablesPitches: {
+            with: {
+              deliverable: {
+                columns: { status: true },
+              },
+            },
+          },
+        },
       })
     );
+
+    const withState = rows.map((row) => {
+      const { deliverablesPitches: dpLinks, ...rest } = row;
+      const statuses = dpLinks.map((dp) => dp.deliverable.status);
+      return { ...rest, state: derivePitchState(statuses) };
+    });
+
+    if (filters?.state && filters.state.length > 0) {
+      const allowed = new Set(filters.state);
+      return withState.filter((p) => allowed.has(p.state));
+    }
+
+    return withState;
   });
 
   const listPitchesWithVideos = Effect.fn("listPitchesWithVideos")(
     function* (filters?: {
-      status?: string[];
+      state?: PitchState[];
       priority?: number[];
       effort?: number[];
       archived?: boolean;
     }) {
-      return yield* makeDbCall(() =>
+      const rows = yield* makeDbCall(() =>
         db.query.pitches.findMany({
           where: buildPitchFilters(filters),
           orderBy: [
@@ -96,9 +124,29 @@ export const createPitchOperations = (db: DrizzleDB) => {
                 },
               },
             },
+            deliverablesPitches: {
+              with: {
+                deliverable: {
+                  columns: { status: true },
+                },
+              },
+            },
           },
         })
       );
+
+      const withState = rows.map((row) => {
+        const { deliverablesPitches: dpLinks, ...rest } = row;
+        const statuses = dpLinks.map((dp) => dp.deliverable.status);
+        return { ...rest, state: derivePitchState(statuses) };
+      });
+
+      if (filters?.state && filters.state.length > 0) {
+        const allowed = new Set(filters.state);
+        return withState.filter((p) => allowed.has(p.state));
+      }
+
+      return withState;
     }
   );
 
@@ -135,6 +183,13 @@ export const createPitchOperations = (db: DrizzleDB) => {
               },
             },
           },
+          deliverablesPitches: {
+            with: {
+              deliverable: {
+                columns: { status: true },
+              },
+            },
+          },
         },
       })
     );
@@ -146,7 +201,9 @@ export const createPitchOperations = (db: DrizzleDB) => {
       });
     }
 
-    return pitch;
+    const { deliverablesPitches: dpLinks, ...rest } = pitch;
+    const statuses = dpLinks.map((dp) => dp.deliverable.status);
+    return { ...rest, state: derivePitchState(statuses) };
   });
 
   const updatePitchField = Effect.fn("updatePitchField")(function* (

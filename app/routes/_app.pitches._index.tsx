@@ -10,10 +10,8 @@ import {
   type Priority,
 } from "@/components/priority-selector";
 import {
-  PITCH_STATUS_ORDER,
-  StatusIconBadge,
-  STATUS_META,
-  type PitchStatus,
+  PitchStateBadge,
+  type PitchState,
 } from "@/components/status-icon-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,26 +20,13 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { Console, Effect } from "effect";
-import {
-  ChevronDown,
-  FileVideo,
-  Filter,
-  Lightbulb,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { FileVideo, Lightbulb, Plus, Trash2 } from "lucide-react";
 import { useEffect } from "react";
 import {
   data,
@@ -58,34 +43,6 @@ export const meta: Route.MetaFunction = () => {
 
 type PitchPriority = 1 | 2 | 3;
 type PitchEffort = 1 | 2 | 3;
-
-const ALL_STATUSES: PitchStatus[] = [...PITCH_STATUS_ORDER];
-
-const DEFAULT_STATUS_FILTER: PitchStatus[] = [
-  "idle",
-  "scheduled",
-  "shipped-to-youtube",
-];
-
-function isDefaultStatusFilter(values: PitchStatus[]): boolean {
-  if (values.length !== DEFAULT_STATUS_FILTER.length) return false;
-  const set = new Set(values);
-  return DEFAULT_STATUS_FILTER.every((s) => set.has(s));
-}
-
-function parseStatusParam(raw: string | null): PitchStatus[] {
-  if (!raw) return [...DEFAULT_STATUS_FILTER];
-  const values = [
-    ...new Set(
-      raw
-        .split(",")
-        .filter((s): s is PitchStatus =>
-          ALL_STATUSES.includes(s as PitchStatus)
-        )
-    ),
-  ];
-  return values.length > 0 ? values : [...DEFAULT_STATUS_FILTER];
-}
 
 function parsePriorityParam(raw: string | null): PitchPriority[] {
   if (!raw) return [];
@@ -122,7 +79,7 @@ interface PitchWithVideos {
   id: string;
   title: string;
   description: string;
-  status: string;
+  state: PitchState;
   priority: number;
   effort: number;
   videos: PitchVideo[];
@@ -130,16 +87,20 @@ interface PitchWithVideos {
 
 export const loader = async (args: Route.LoaderArgs) => {
   const url = new URL(args.request.url);
-  const statusFilter = parseStatusParam(url.searchParams.get("status"));
   const priorityFilter = parsePriorityParam(url.searchParams.get("priority"));
   const effortFilter = parseEffortParam(url.searchParams.get("effort"));
+  const showShipped = url.searchParams.get("shipped") === "1";
+
+  const stateFilter: PitchState[] = showShipped
+    ? ["idle", "scheduled", "shipped"]
+    : ["idle", "scheduled"];
 
   return Effect.gen(function* () {
     const db = yield* PitchOperationsService;
     const publishService = yield* CoursePublishService;
 
     const pitchesRaw = yield* db.listPitchesWithVideos({
-      status: statusFilter,
+      state: stateFilter,
       priority: priorityFilter.length > 0 ? priorityFilter : undefined,
       effort: effortFilter.length > 0 ? effortFilter : undefined,
     });
@@ -160,7 +121,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       id: p.id,
       title: p.title,
       description: p.description,
-      status: p.status,
+      state: p.state,
       priority: p.priority,
       effort: p.effort,
       videos: p.videos.map((v) => ({
@@ -193,9 +154,9 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
   const createPitchFetcher = useFetcher<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const statusFilter = parseStatusParam(searchParams.get("status"));
   const priorityFilter = parsePriorityParam(searchParams.get("priority"));
   const effortFilter = parseEffortParam(searchParams.get("effort"));
+  const showShipped = searchParams.get("shipped") === "1";
 
   useEffect(() => {
     if (createPitchFetcher.state === "idle" && createPitchFetcher.data?.id) {
@@ -204,18 +165,12 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
   }, [createPitchFetcher.state, createPitchFetcher.data, navigate]);
 
   const updateFilters = (
-    nextStatus: PitchStatus[],
     nextPriority: PitchPriority[],
-    nextEffort: PitchEffort[]
+    nextEffort: PitchEffort[],
+    nextShowShipped: boolean
   ) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-
-      if (isDefaultStatusFilter(nextStatus)) {
-        next.delete("status");
-      } else {
-        next.set("status", nextStatus.join(","));
-      }
 
       if (nextPriority.length === 0) {
         next.delete("priority");
@@ -229,6 +184,12 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
         next.set("effort", nextEffort.join(","));
       }
 
+      if (nextShowShipped) {
+        next.set("shipped", "1");
+      } else {
+        next.delete("shipped");
+      }
+
       return next;
     });
   };
@@ -237,24 +198,22 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
     const next = priorityFilter.includes(p)
       ? priorityFilter.filter((x) => x !== p)
       : [...priorityFilter, p];
-    updateFilters(statusFilter, next, effortFilter);
+    updateFilters(next, effortFilter, showShipped);
   };
 
   const toggleEffort = (e: PitchEffort) => {
     const next = effortFilter.includes(e)
       ? effortFilter.filter((x) => x !== e)
       : [...effortFilter, e];
-    updateFilters(statusFilter, priorityFilter, next);
+    updateFilters(priorityFilter, next, showShipped);
   };
 
   const clearAll = () => {
-    updateFilters([...DEFAULT_STATUS_FILTER], [], []);
+    updateFilters([], [], false);
   };
 
   const hasActiveFilters =
-    priorityFilter.length > 0 ||
-    effortFilter.length > 0 ||
-    !isDefaultStatusFilter(statusFilter);
+    priorityFilter.length > 0 || effortFilter.length > 0 || showShipped;
 
   return (
     <div className="flex-1 flex flex-col bg-background text-foreground">
@@ -335,12 +294,19 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
 
               <span className="text-muted-foreground mx-0.5">|</span>
 
-              <StatusFilterDropdown
-                value={statusFilter}
-                onChange={(next) =>
-                  updateFilters(next, priorityFilter, effortFilter)
+              <button
+                className={cn(
+                  "text-xs px-2 py-0.5 rounded-sm font-medium transition-colors",
+                  showShipped
+                    ? "bg-accent text-accent-foreground ring-1 ring-current"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+                onClick={() =>
+                  updateFilters(priorityFilter, effortFilter, !showShipped)
                 }
-              />
+              >
+                Show shipped
+              </button>
 
               {hasActiveFilters && (
                 <>
@@ -398,69 +364,6 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
   );
 }
 
-function StatusFilterDropdown({
-  value,
-  onChange,
-}: {
-  value: PitchStatus[];
-  onChange: (v: PitchStatus[]) => void;
-}) {
-  const toggle = (s: PitchStatus) => {
-    const next = value.includes(s)
-      ? value.filter((x) => x !== s)
-      : [...value, s];
-    onChange(next.length > 0 ? next : [...DEFAULT_STATUS_FILTER]);
-  };
-
-  const summary =
-    value.length === ALL_STATUSES.length
-      ? "All status"
-      : value.map((s) => STATUS_META[s].label).join(", ");
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors">
-          <Filter className="w-3 h-3" />
-          {summary}
-          <ChevronDown className="w-3 h-3 opacity-60" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[180px]">
-        {ALL_STATUSES.map((s) => {
-          const m = STATUS_META[s];
-          const Icon = m.icon;
-          const isOn = value.includes(s);
-          return (
-            <DropdownMenuItem
-              key={s}
-              onClick={(e) => {
-                e.preventDefault();
-                toggle(s);
-              }}
-              className={cn(
-                "text-xs font-medium flex items-center gap-2",
-                isOn && "bg-accent"
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-flex items-center justify-center w-5 h-5 rounded-full",
-                  m.iconWrap
-                )}
-              >
-                <Icon className="w-3 h-3" />
-              </span>
-              <span className="flex-1">{m.label}</span>
-              {isOn && <span className="text-xs opacity-60">✓</span>}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function PitchRow({
   pitch,
   hasExportedVideoMap,
@@ -470,7 +373,6 @@ function PitchRow({
 }) {
   const navigate = useNavigate();
   const createVideoFetcher = useFetcher<{ id: string }>();
-  const statusFetcher = useFetcher();
   const priorityFetcher = useFetcher();
   const effortFetcher = useFetcher();
   const deleteFetcher = useFetcher();
@@ -478,8 +380,6 @@ function PitchRow({
     deleteFetcher.state !== "idle" ||
     deleteFetcher.formAction === `/api/pitches/${pitch.id}/delete`;
 
-  const optimisticStatus = (statusFetcher.formData?.get("value") ??
-    pitch.status) as PitchStatus;
   const optimisticPriority = (Number(priorityFetcher.formData?.get("value")) ||
     pitch.priority) as Priority;
   const optimisticEffort = (Number(effortFetcher.formData?.get("value")) ||
@@ -498,18 +398,7 @@ function PitchRow({
       <ContextMenuTrigger asChild>
         <div className="border rounded-lg bg-card hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 px-4 py-3">
-            <StatusIconBadge
-              status={optimisticStatus}
-              onSelect={(s) => {
-                statusFetcher.submit(
-                  { field: "status", value: s },
-                  {
-                    method: "post",
-                    action: `/api/pitches/${pitch.id}/update`,
-                  }
-                );
-              }}
-            />
+            <PitchStateBadge state={pitch.state} />
             <Link
               to={`/pitches/${pitch.id}`}
               className="flex-1 min-w-0 font-medium truncate"

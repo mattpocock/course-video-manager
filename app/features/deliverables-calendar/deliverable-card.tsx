@@ -25,8 +25,8 @@ import {
   XIcon,
 } from "lucide-react";
 import {
-  PITCH_STATUS_ORDER,
-  STATUS_META,
+  PITCH_STATE_ORDER,
+  PITCH_STATE_META,
 } from "@/components/status-icon-badge";
 import {
   CourseBadge,
@@ -152,24 +152,24 @@ function PitchContextMenu({
             );
           }}
         >
-          {PITCH_STATUS_ORDER.flatMap((status) => {
+          {PITCH_STATE_ORDER.flatMap((state) => {
             const inGroup = allPitches
-              .filter((ap) => ap.status === status)
+              .filter((ap) => ap.state === state)
               .sort((a, b) =>
                 a.priority !== b.priority
                   ? a.priority - b.priority
                   : a.title.localeCompare(b.title)
               );
             if (inGroup.length === 0) return [];
-            const Icon = STATUS_META[status].icon;
+            const Icon = PITCH_STATE_META[state].icon;
             return [
               <ContextMenuLabel
-                key={`label-${status}`}
+                key={`label-${state}`}
                 className="text-[10px] uppercase tracking-wider text-muted-foreground pt-2"
               >
                 <span className="flex items-center gap-1.5">
                   <Icon className="size-3" />
-                  {STATUS_META[status].label}
+                  {PITCH_STATE_META[state].label}
                 </span>
               </ContextMenuLabel>,
               ...inGroup.map((ap) => (

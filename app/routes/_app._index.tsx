@@ -15,7 +15,6 @@ import {
   type DeliverableForGrouping,
 } from "@/features/deliverables-calendar/deliverable-grouping";
 import { isoWeek } from "@/features/deliverables-calendar/iso-week";
-import type { PitchStatus } from "@/components/status-icon-badge";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
@@ -53,7 +52,7 @@ export const loader = async () => {
     const pitchMap = new Map(
       pitches.map((p) => [
         p.id,
-        { title: p.title, priority: p.priority, status: p.status },
+        { title: p.title, priority: p.priority, state: p.state },
       ])
     );
 
@@ -84,7 +83,7 @@ export const loader = async () => {
         id: p.id,
         title: p.title,
         priority: p.priority,
-        status: p.status as PitchStatus,
+        state: p.state,
       })),
     };
   }).pipe(

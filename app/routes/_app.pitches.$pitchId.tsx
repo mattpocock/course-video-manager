@@ -13,10 +13,7 @@ import {
   PrioritySelector,
   type Priority,
 } from "@/components/priority-selector";
-import {
-  StatusIconBadge,
-  type PitchStatus,
-} from "@/components/status-icon-badge";
+import { PitchStateBadge } from "@/components/status-icon-badge";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -100,7 +97,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         youtubeThumbnailDescription: pitchRaw.youtubeThumbnailDescription,
         newsletterTitle: pitchRaw.newsletterTitle,
         tweet: pitchRaw.tweet,
-        status: pitchRaw.status,
+        state: pitchRaw.state,
         priority: pitchRaw.priority,
         effort: pitchRaw.effort,
       },
@@ -226,7 +223,6 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
   const [searchParams] = useSearchParams();
   const backLink = pitchBackLink(searchParams.get("from"));
   const deleteFetcher = useFetcher();
-  const statusFetcher = useFetcher();
   const priorityFetcher = useFetcher();
   const effortFetcher = useFetcher();
   const createVideoFetcher = useFetcher<{ id: string }>();
@@ -241,8 +237,6 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
     initialPitch.newsletterTitle
   );
   const [tweet, setTweet] = useState(initialPitch.tweet);
-  const status = (statusFetcher.formData?.get("value") ??
-    initialPitch.status) as PitchStatus;
   const priority = (Number(priorityFetcher.formData?.get("value")) ||
     initialPitch.priority) as Priority;
   const effort = (Number(effortFetcher.formData?.get("value")) ||
@@ -329,19 +323,7 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
         </div>
 
         <div className="flex items-center gap-2 mb-8">
-          <StatusIconBadge
-            status={status}
-            showLabel
-            onSelect={(s) => {
-              statusFetcher.submit(
-                { field: "status", value: s },
-                {
-                  method: "post",
-                  action: `/api/pitches/${initialPitch.id}/update`,
-                }
-              );
-            }}
-          />
+          <PitchStateBadge state={initialPitch.state} showLabel />
           <PrioritySelector
             priority={priority}
             onSelect={(p) => {
