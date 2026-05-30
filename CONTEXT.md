@@ -68,7 +68,7 @@ The chain reaction when materializing a lesson inside a ghost course: assigns fi
 ### Authoring lifecycle
 
 **Lesson Authoring Status**:
-A per-version marker on a real **Lesson** indicating where it sits in the authoring workflow. Two values: `todo` (default for newly created or materialized real lessons) and `done` (set by clicking the To-Do pill in the UI). Stored as `authoringStatus` on the lesson row and copied forward by `copyVersionStructure` at Publish, so a Published Version's lessons keep whatever status they had at publish time. Subject to a biconditional invariant with `fsStatus`: a real lesson always has a status, a **Ghost Lesson** never does. Distinct from `fsStatus` (filesystem presence) and from **Pitch Desk State** (which tracks pitches, not lessons). Surfaced in the published output via the **TODO Marker** and in the changelog via the **Marked Ready** / **Marked TODO** transitions.
+A per-version marker on a real **Lesson** indicating where it sits in the authoring workflow. Two values: `todo` (default for newly created or materialized real lessons) and `done` (set by clicking the To-Do pill in the UI). Stored as `authoringStatus` on the lesson row and copied forward by `copyVersionStructure` at Publish, so a Published Version's lessons keep whatever status they had at publish time. Subject to a biconditional invariant with `fsStatus`: a real lesson always has a status, a **Ghost Lesson** never does. Distinct from `fsStatus` (filesystem presence) and from **Pitch Status** (which tracks pitches, not lessons). Surfaced in the published output via the **TODO Marker** and in the changelog via the **Marked Ready** / **Marked TODO** transitions.
 _Avoid_: TODO flag, Lesson status (ambiguous with `fsStatus`), Completion
 
 **TODO Marker**:
@@ -162,17 +162,21 @@ A reusable packaging artifact — the YouTube/newsletter/tweet copy and thumbnai
 _Avoid_: Idea, Concept, Draft (overloaded with Draft Version)
 
 **Pitch Desk State**:
-A derived, read-only marker on a Pitch with three values, computed live from the **Deliverable Status** of linked **Deliverables** (never stored):
+A Pitch's state, derived (never stored) from the **Deliverable Status** of its linked **Deliverables**:
 
-- `idle` — no linked Deliverable; still drafting / mulling
-- `scheduled` — at least one linked Deliverable exists and not all are terminal (`done` or `cancelled`)
-- `shipped` — at least one linked Deliverable exists and every linked Deliverable is terminal (`done` or `cancelled`)
+- **Idle** — no linked Deliverable.
+- **Scheduled** — at least one linked Deliverable, not all terminal.
+- **Shipped** — at least one linked Deliverable, all terminal (`done`/`cancelled`).
 
-Abandoning a pitch is done via **Archive**, not via desk state.
-_Avoid_: Pitch Status (removed — was previously a manual five-value field), State (too generic)
+Abandonment is separate: a Pitch is hidden by **Archive**, not by Desk State.
+_Avoid_: Pitch Status (no stored status field), Pipeline state
+
+**Effort**:
+A planning estimate of how much work the eventual video will take to produce — one of three levels: `low`, `medium` (default), `high`. Lives on the Pitch (not the Video) because the estimate is a triage input used _before_ the video exists, when deciding whether the idea is worth making. Set manually; never derived. Used alongside **Priority** to rank pitches: within a given priority, a lower-effort pitch is the more attractive one to make next ("low-hanging fruit"). Effort never overrides priority — it only breaks ties within a priority band.
+_Avoid_: Estimate, Cost, Size, Complexity
 
 **Default Pitch Filter**:
-The pitches index defaults to showing `idle + scheduled` — the "still on my desk" set. `shipped` is hidden by default, revealed via a "Show shipped" toggle. When the filter equals this default set, no URL param is set (bookmarks of `/pitches` survive future default changes).
+The pitches index defaults to **Idle + Scheduled** (everything that isn't **Shipped**); a reveal toggle brings **Shipped** into view. At the default, the filter URL param is omitted so `/pitches` bookmarks survive default changes.
 
 ### Reference video
 
