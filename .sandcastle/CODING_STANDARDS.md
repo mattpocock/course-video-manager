@@ -22,6 +22,10 @@ When a fetcher action's sole job after success is to navigate, return `redirect(
 
 ---
 
+For optimistic UI on fetcher mutations, derive the optimistic value from `fetcher.formData` instead of mirroring it into `useState` + syncing back with `useEffect`. When the fetcher is in-flight, `fetcher.formData.get("value")` holds the pending value; when it settles, `formData` becomes `undefined` and the component falls back to the revalidated loader data. Example: `const optimistic = (fetcher.formData?.get("value") ?? loaderValue) as MyType;`. This eliminates state-sync bugs and removes the need for `useEffect` entirely.
+
+---
+
 ## Testing
 
 ### Core Principle

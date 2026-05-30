@@ -42,7 +42,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   data,
   Link,
@@ -478,25 +478,12 @@ function PitchRow({
     deleteFetcher.state !== "idle" ||
     deleteFetcher.formAction === `/api/pitches/${pitch.id}/delete`;
 
-  const [optimisticStatus, setOptimisticStatus] = useState<PitchStatus>(
-    pitch.status as PitchStatus
-  );
-  const [optimisticPriority, setOptimisticPriority] = useState<Priority>(
-    pitch.priority as Priority
-  );
-  const [optimisticEffort, setOptimisticEffort] = useState<Effort>(
-    pitch.effort as Effort
-  );
-
-  useEffect(() => {
-    setOptimisticStatus(pitch.status as PitchStatus);
-  }, [pitch.status]);
-  useEffect(() => {
-    setOptimisticPriority(pitch.priority as Priority);
-  }, [pitch.priority]);
-  useEffect(() => {
-    setOptimisticEffort(pitch.effort as Effort);
-  }, [pitch.effort]);
+  const optimisticStatus = (statusFetcher.formData?.get("value") ??
+    pitch.status) as PitchStatus;
+  const optimisticPriority = (Number(priorityFetcher.formData?.get("value")) ||
+    pitch.priority) as Priority;
+  const optimisticEffort = (Number(effortFetcher.formData?.get("value")) ||
+    pitch.effort) as Effort;
 
   useEffect(() => {
     if (createVideoFetcher.state === "idle" && createVideoFetcher.data?.id) {
@@ -514,7 +501,6 @@ function PitchRow({
             <StatusIconBadge
               status={optimisticStatus}
               onSelect={(s) => {
-                setOptimisticStatus(s);
                 statusFetcher.submit(
                   { field: "status", value: s },
                   {
@@ -533,7 +519,6 @@ function PitchRow({
             <PrioritySelector
               priority={optimisticPriority}
               onSelect={(p) => {
-                setOptimisticPriority(p);
                 priorityFetcher.submit(
                   { field: "priority", value: String(p) },
                   {
@@ -546,7 +531,6 @@ function PitchRow({
             <EffortSelector
               effort={optimisticEffort}
               onSelect={(e) => {
-                setOptimisticEffort(e);
                 effortFetcher.submit(
                   { field: "effort", value: String(e) },
                   {

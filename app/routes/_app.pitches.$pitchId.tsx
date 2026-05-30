@@ -241,13 +241,12 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
     initialPitch.newsletterTitle
   );
   const [tweet, setTweet] = useState(initialPitch.tweet);
-  const [status, setStatus] = useState<PitchStatus>(
-    initialPitch.status as PitchStatus
-  );
-  const [priority, setPriority] = useState<Priority>(
-    initialPitch.priority as Priority
-  );
-  const [effort, setEffort] = useState<Effort>(initialPitch.effort as Effort);
+  const status = (statusFetcher.formData?.get("value") ??
+    initialPitch.status) as PitchStatus;
+  const priority = (Number(priorityFetcher.formData?.get("value")) ||
+    initialPitch.priority) as Priority;
+  const effort = (Number(effortFetcher.formData?.get("value")) ||
+    initialPitch.effort) as Effort;
 
   const { save, saveImmediate, saveState } = usePitchAutoSave(initialPitch.id);
 
@@ -334,7 +333,6 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
             status={status}
             showLabel
             onSelect={(s) => {
-              setStatus(s);
               statusFetcher.submit(
                 { field: "status", value: s },
                 {
@@ -347,7 +345,6 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
           <PrioritySelector
             priority={priority}
             onSelect={(p) => {
-              setPriority(p);
               priorityFetcher.submit(
                 { field: "priority", value: String(p) },
                 {
@@ -360,7 +357,6 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
           <EffortSelector
             effort={effort}
             onSelect={(e) => {
-              setEffort(e);
               effortFetcher.submit(
                 { field: "effort", value: String(e) },
                 {
