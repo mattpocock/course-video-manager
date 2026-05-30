@@ -13,6 +13,7 @@ const updatableFields = [
   "tweet",
   "status",
   "priority",
+  "effort",
   "archived",
 ] as const;
 
@@ -31,7 +32,7 @@ export const action = makeAction({
       const pitchOps = yield* PitchOperationsService;
 
       let coerced: string | number | boolean = value;
-      if (field === "priority") coerced = Number(value);
+      if (field === "priority" || field === "effort") coerced = Number(value);
       if (field === "archived") coerced = value === "true";
 
       const pitch = yield* pitchOps.updatePitchField(

@@ -174,6 +174,10 @@ Lifecycle ladder: `idle → scheduled → shipped-to-youtube → shipped`, with 
 
 A Pitch can have any status independent of how many Videos are linked to it.
 
+**Effort**:
+A manual planning estimate on a **Pitch** — how much work the eventual video will take to produce. Three values: `low` (1), `medium` (2), `high` (3). Stored as an integer mirroring **Priority**; defaults to `medium`. A production metric on a packaging artifact: effort lives on the Pitch (not the Video) because it is a planning input used _before_ the video exists. Within a priority band, low-effort pitches sort first ("low-hanging fruit"); effort never overrides priority across bands. No distinct "unestimated" state — `medium + untouched` means "haven't looked yet."
+_Avoid_: Complexity, Size, T-shirt size
+
 **Default Pitch Filter**:
 The pitches index defaults to showing `idle + scheduled + shipped-to-youtube` — the "still on my desk" set. `shipped` and `cancelled` are hidden by default. When the filter equals this default set, the `status` URL param is omitted (bookmarks of `/pitches` survive future default changes).
 

@@ -1,4 +1,10 @@
 import {
+  EffortSelector,
+  EFFORT_FILTER_DOT_COLORS,
+  EFFORT_FILTER_LABELS,
+  type Effort,
+} from "@/components/effort-selector";
+import {
   PrioritySelector,
   PRIORITY_STYLES,
   type Priority,
@@ -51,6 +57,7 @@ export const meta: Route.MetaFunction = () => {
 };
 
 type PitchPriority = 1 | 2 | 3;
+type PitchEffort = 1 | 2 | 3;
 
 const ALL_STATUSES: PitchStatus[] = [...PITCH_STATUS_ORDER];
 
@@ -92,6 +99,18 @@ function parsePriorityParam(raw: string | null): PitchPriority[] {
   ];
 }
 
+function parseEffortParam(raw: string | null): PitchEffort[] {
+  if (!raw) return [];
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map(Number)
+        .filter((n): n is PitchEffort => n === 1 || n === 2 || n === 3)
+    ),
+  ];
+}
+
 interface PitchVideo {
   id: string;
   path: string;
@@ -105,6 +124,7 @@ interface PitchWithVideos {
   description: string;
   status: string;
   priority: number;
+  effort: number;
   videos: PitchVideo[];
 }
 
@@ -112,6 +132,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   const url = new URL(args.request.url);
   const statusFilter = parseStatusParam(url.searchParams.get("status"));
   const priorityFilter = parsePriorityParam(url.searchParams.get("priority"));
+  const effortFilter = parseEffortParam(url.searchParams.get("effort"));
 
   return Effect.gen(function* () {
     const db = yield* PitchOperationsService;
@@ -120,6 +141,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const pitchesRaw = yield* db.listPitchesWithVideos({
       status: statusFilter,
       priority: priorityFilter.length > 0 ? priorityFilter : undefined,
+      effort: effortFilter.length > 0 ? effortFilter : undefined,
     });
 
     const hasExportedVideoMap: Record<string, boolean> = {};
@@ -140,6 +162,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       description: p.description,
       status: p.status,
       priority: p.priority,
+      effort: p.effort,
       videos: p.videos.map((v) => ({
         id: v.id,
         path: v.path,
@@ -172,6 +195,7 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
 
   const statusFilter = parseStatusParam(searchParams.get("status"));
   const priorityFilter = parsePriorityParam(searchParams.get("priority"));
+  const effortFilter = parseEffortParam(searchParams.get("effort"));
 
   useEffect(() => {
     if (createPitchFetcher.state === "idle" && createPitchFetcher.data?.id) {
@@ -181,7 +205,8 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
 
   const updateFilters = (
     nextStatus: PitchStatus[],
-    nextPriority: PitchPriority[]
+    nextPriority: PitchPriority[],
+    nextEffort: PitchEffort[]
   ) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -198,6 +223,12 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
         next.set("priority", nextPriority.join(","));
       }
 
+      if (nextEffort.length === 0) {
+        next.delete("effort");
+      } else {
+        next.set("effort", nextEffort.join(","));
+      }
+
       return next;
     });
   };
@@ -206,15 +237,24 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
     const next = priorityFilter.includes(p)
       ? priorityFilter.filter((x) => x !== p)
       : [...priorityFilter, p];
-    updateFilters(statusFilter, next);
+    updateFilters(statusFilter, next, effortFilter);
+  };
+
+  const toggleEffort = (e: PitchEffort) => {
+    const next = effortFilter.includes(e)
+      ? effortFilter.filter((x) => x !== e)
+      : [...effortFilter, e];
+    updateFilters(statusFilter, priorityFilter, next);
   };
 
   const clearAll = () => {
-    updateFilters([...DEFAULT_STATUS_FILTER], []);
+    updateFilters([...DEFAULT_STATUS_FILTER], [], []);
   };
 
   const hasActiveFilters =
-    priorityFilter.length > 0 || !isDefaultStatusFilter(statusFilter);
+    priorityFilter.length > 0 ||
+    effortFilter.length > 0 ||
+    !isDefaultStatusFilter(statusFilter);
 
   return (
     <div className="flex-1 flex flex-col bg-background text-foreground">
@@ -265,9 +305,41 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
 
               <span className="text-muted-foreground mx-0.5">|</span>
 
+              {([1, 2, 3] as const).map((effort) => {
+                const isSelected = effortFilter.includes(effort);
+                const showAsActive = effortFilter.length === 0 || isSelected;
+                return (
+                  <button
+                    key={`effort-${effort}`}
+                    className={cn(
+                      "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-sm font-medium transition-colors",
+                      showAsActive
+                        ? "text-muted-foreground"
+                        : "text-muted-foreground/40 hover:text-muted-foreground/60",
+                      isSelected && "ring-1 ring-current"
+                    )}
+                    onClick={() => toggleEffort(effort)}
+                  >
+                    <span
+                      className={cn(
+                        "inline-block w-2 h-2 rounded-full",
+                        showAsActive
+                          ? EFFORT_FILTER_DOT_COLORS[effort]
+                          : "bg-muted-foreground/30"
+                      )}
+                    />
+                    {EFFORT_FILTER_LABELS[effort]}
+                  </button>
+                );
+              })}
+
+              <span className="text-muted-foreground mx-0.5">|</span>
+
               <StatusFilterDropdown
                 value={statusFilter}
-                onChange={(next) => updateFilters(next, priorityFilter)}
+                onChange={(next) =>
+                  updateFilters(next, priorityFilter, effortFilter)
+                }
               />
 
               {hasActiveFilters && (
@@ -400,6 +472,7 @@ function PitchRow({
   const createVideoFetcher = useFetcher<{ id: string }>();
   const statusFetcher = useFetcher();
   const priorityFetcher = useFetcher();
+  const effortFetcher = useFetcher();
   const deleteFetcher = useFetcher();
   const isDeleting =
     deleteFetcher.state !== "idle" ||
@@ -411,6 +484,9 @@ function PitchRow({
   const [optimisticPriority, setOptimisticPriority] = useState<Priority>(
     pitch.priority as Priority
   );
+  const [optimisticEffort, setOptimisticEffort] = useState<Effort>(
+    pitch.effort as Effort
+  );
 
   useEffect(() => {
     setOptimisticStatus(pitch.status as PitchStatus);
@@ -418,6 +494,9 @@ function PitchRow({
   useEffect(() => {
     setOptimisticPriority(pitch.priority as Priority);
   }, [pitch.priority]);
+  useEffect(() => {
+    setOptimisticEffort(pitch.effort as Effort);
+  }, [pitch.effort]);
 
   useEffect(() => {
     if (createVideoFetcher.state === "idle" && createVideoFetcher.data?.id) {
@@ -457,6 +536,19 @@ function PitchRow({
                 setOptimisticPriority(p);
                 priorityFetcher.submit(
                   { field: "priority", value: String(p) },
+                  {
+                    method: "post",
+                    action: `/api/pitches/${pitch.id}/update`,
+                  }
+                );
+              }}
+            />
+            <EffortSelector
+              effort={optimisticEffort}
+              onSelect={(e) => {
+                setOptimisticEffort(e);
+                effortFetcher.submit(
+                  { field: "effort", value: String(e) },
                   {
                     method: "post",
                     action: `/api/pitches/${pitch.id}/update`,

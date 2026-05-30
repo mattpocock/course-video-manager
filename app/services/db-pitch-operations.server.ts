@@ -21,6 +21,7 @@ export const createPitchOperations = (db: DrizzleDB) => {
   const buildPitchFilters = (filters?: {
     status?: string[];
     priority?: number[];
+    effort?: number[];
     archived?: boolean;
   }) => {
     const conditions = [eq(pitches.archived, filters?.archived ?? false)];
@@ -29,6 +30,9 @@ export const createPitchOperations = (db: DrizzleDB) => {
     }
     if (filters?.priority && filters.priority.length > 0) {
       conditions.push(inArray(pitches.priority, filters.priority));
+    }
+    if (filters?.effort && filters.effort.length > 0) {
+      conditions.push(inArray(pitches.effort, filters.effort));
     }
     return and(...conditions);
   };
@@ -52,12 +56,17 @@ export const createPitchOperations = (db: DrizzleDB) => {
   const listPitches = Effect.fn("listPitches")(function* (filters?: {
     status?: string[];
     priority?: number[];
+    effort?: number[];
     archived?: boolean;
   }) {
     return yield* makeDbCall(() =>
       db.query.pitches.findMany({
         where: buildPitchFilters(filters),
-        orderBy: [asc(pitches.priority), desc(pitches.createdAt)],
+        orderBy: [
+          asc(pitches.priority),
+          asc(pitches.effort),
+          desc(pitches.createdAt),
+        ],
       })
     );
   });
@@ -66,12 +75,17 @@ export const createPitchOperations = (db: DrizzleDB) => {
     function* (filters?: {
       status?: string[];
       priority?: number[];
+      effort?: number[];
       archived?: boolean;
     }) {
       return yield* makeDbCall(() =>
         db.query.pitches.findMany({
           where: buildPitchFilters(filters),
-          orderBy: [asc(pitches.priority), desc(pitches.createdAt)],
+          orderBy: [
+            asc(pitches.priority),
+            asc(pitches.effort),
+            desc(pitches.createdAt),
+          ],
           with: {
             videos: {
               where: eq(videos.archived, false),
