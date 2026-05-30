@@ -1,6 +1,5 @@
 import type { TranscriptItem } from "@/lib/transcript-builder";
 import { toDiffArray } from "@/lib/transcript-builder";
-import { parseSectionPath } from "./section-path-service";
 
 export type VersionWithStructure = {
   id: string;
@@ -173,12 +172,6 @@ function hasNameChanged(oldPath: string, newPath: string): boolean {
   return stripNumericPrefix(oldPath) !== stripNumericPrefix(newPath);
 }
 
-type Section = VersionWithStructure["sections"][number];
-
-function isRealSection(section: Section): boolean {
-  return parseSectionPath(section.path) !== null;
-}
-
 export function detectChanges(
   currentVersion: VersionWithStructure,
   previousVersion: VersionWithStructure | undefined
@@ -186,9 +179,6 @@ export function detectChanges(
   if (!previousVersion) {
     return null;
   }
-
-  const currentSections = currentVersion.sections.filter(isRealSection);
-  const previousSections = previousVersion.sections.filter(isRealSection);
 
   const changes: VersionChanges = {
     newLessons: [],
@@ -201,15 +191,11 @@ export function detectChanges(
     deletedLessons: [],
   };
 
-  const filteredPreviousVersion = {
-    ...previousVersion,
-    sections: previousSections,
-  };
-  const prevLessonLookup = buildLessonLookup(filteredPreviousVersion);
-  const prevSectionLookup = buildSectionLookup(filteredPreviousVersion);
+  const prevLessonLookup = buildLessonLookup(previousVersion);
+  const prevSectionLookup = buildSectionLookup(previousVersion);
   const renamedSectionIds = new Set<string>();
 
-  for (const section of currentSections) {
+  for (const section of currentVersion.sections) {
     if (section.previousVersionSectionId) {
       const prevSectionPath = prevSectionLookup.get(
         section.previousVersionSectionId
@@ -323,7 +309,7 @@ export function detectChanges(
   const referencedSectionIds = new Set<string>();
   const referencedLessonIds = new Set<string>();
 
-  for (const section of currentSections) {
+  for (const section of currentVersion.sections) {
     if (section.previousVersionSectionId) {
       referencedSectionIds.add(section.previousVersionSectionId);
     }
@@ -334,7 +320,7 @@ export function detectChanges(
     }
   }
 
-  for (const prevSection of previousSections) {
+  for (const prevSection of previousVersion.sections) {
     if (!referencedSectionIds.has(prevSection.id)) {
       changes.deletedSections.push({ sectionPath: prevSection.path });
     } else {

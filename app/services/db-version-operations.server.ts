@@ -21,7 +21,6 @@ import {
 import { asc, and, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { toTranscriptItems } from "@/lib/transcript-builder";
-import { parseSectionPath } from "./section-path-service";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -550,7 +549,11 @@ export const createVersionOperations = (db: DrizzleDB) => {
         description: version.description,
         createdAt: version.createdAt,
         sections: version.sections
-          .filter((s) => parseSectionPath(s.path) !== null)
+          .filter(
+            (s) =>
+              s.lessons.length === 0 ||
+              s.lessons.some((l) => l.fsStatus !== "ghost")
+          )
           .map((s) => ({
             id: s.id,
             path: s.path,

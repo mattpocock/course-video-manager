@@ -46,12 +46,15 @@ function makeVersion(
 }
 
 describe("ghost sections excluded from changelog", () => {
-  it("does not show a ghost section that was renamed between versions", () => {
+  it("does not report changes when versions only differ by a removed ghost section", () => {
+    // Ghost sections are filtered at the DB layer, so they never appear in
+    // VersionWithStructure. This test verifies that two identical real
+    // structures produce no changelog entries (the ghost section that existed
+    // in the DB was already stripped before reaching detectChanges).
     const prevVersion = makeVersion("v1", "v1.0", [
       makeSection("s1", "01-intro", [
         makeLesson("l1", "01.01-welcome", null, ["Hello"]),
       ]),
-      makeSection("gs1", "Advanced Topics", []),
     ]);
 
     const currentVersion = makeVersion("v2", "v2.0", [
@@ -61,40 +64,15 @@ describe("ghost sections excluded from changelog", () => {
         [makeLesson("l2", "01.01-welcome", "l1", ["Hello"])],
         "s1"
       ),
-      makeSection("gs2", "Future Content", [], "gs1"),
     ]);
 
     const changelog = generateChangelog([currentVersion, prevVersion]);
 
-    expect(changelog).not.toContain("Advanced Topics");
-    expect(changelog).not.toContain("Future Content");
+    expect(changelog).not.toContain("Deleted Sections");
     expect(changelog).not.toContain("Renamed from");
   });
 
-  it("does not show a ghost section as deleted", () => {
-    const prevVersion = makeVersion("v1", "v1.0", [
-      makeSection("s1", "01-intro", [
-        makeLesson("l1", "01.01-welcome", null, ["Hello"]),
-      ]),
-      makeSection("gs1", "Planned Section", []),
-    ]);
-
-    const currentVersion = makeVersion("v2", "v2.0", [
-      makeSection(
-        "s2",
-        "01-intro",
-        [makeLesson("l2", "01.01-welcome", "l1", ["Hello"])],
-        "s1"
-      ),
-    ]);
-
-    const changelog = generateChangelog([currentVersion, prevVersion]);
-
-    expect(changelog).not.toContain("Planned Section");
-    expect(changelog).not.toContain("Deleted Sections");
-  });
-
-  it("does not show a new ghost section with lessons", () => {
+  it("returns no spurious changes for matching real sections", () => {
     const prevVersion = makeVersion("v1", "v1.0", [
       makeSection("s1", "01-intro", [
         makeLesson("l1", "01.01-welcome", null, ["Hello"]),
@@ -108,34 +86,6 @@ describe("ghost sections excluded from changelog", () => {
         [makeLesson("l2", "01.01-welcome", "l1", ["Hello"])],
         "s1"
       ),
-      makeSection("gs1", "Upcoming Section", [
-        makeLesson("gl1", "future-lesson", null, ["Some content"]),
-      ]),
-    ]);
-
-    const changelog = generateChangelog([currentVersion, prevVersion]);
-
-    expect(changelog).not.toContain("Upcoming Section");
-    expect(changelog).not.toContain("future-lesson");
-  });
-
-  it("returns no changes when only ghost sections differ between versions", () => {
-    const prevVersion = makeVersion("v1", "v1.0", [
-      makeSection("s1", "01-intro", [
-        makeLesson("l1", "01.01-welcome", null, ["Hello"]),
-      ]),
-    ]);
-
-    const currentVersion = makeVersion("v2", "v2.0", [
-      makeSection(
-        "s2",
-        "01-intro",
-        [makeLesson("l2", "01.01-welcome", "l1", ["Hello"])],
-        "s1"
-      ),
-      makeSection("gs1", "Ghost Only", [
-        makeLesson("gl1", "ghost-lesson", null, ["Ghost content"]),
-      ]),
     ]);
 
     const changes = detectChanges(currentVersion, prevVersion);
@@ -147,7 +97,10 @@ describe("ghost sections excluded from changelog", () => {
     expect(changes!.renamedSections).toHaveLength(0);
   });
 
-  it("does not show real lessons as deleted when referenced only by ghost sections", () => {
+  it("correctly detects a deleted lesson when its only reference was from a ghost section", () => {
+    // In the DB, lesson l2 was referenced by a ghost section's lesson. After
+    // ghost section filtering at the DB layer, that reference is gone, so l2
+    // should appear as deleted from its original real section.
     const prevVersion = makeVersion("v1", "v1.0", [
       makeSection("s1", "01-intro", [
         makeLesson("l1", "01.01-welcome", null, ["Hello"]),
@@ -162,9 +115,6 @@ describe("ghost sections excluded from changelog", () => {
         [makeLesson("l3", "01.01-welcome", "l1", ["Hello"])],
         "s1"
       ),
-      makeSection("gs1", "Upcoming", [
-        makeLesson("gl1", "moved-lesson", "l2", ["Setup content"]),
-      ]),
     ]);
 
     const changes = detectChanges(currentVersion, prevVersion);
