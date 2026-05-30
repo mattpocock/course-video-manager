@@ -10,9 +10,9 @@ import {
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 
-export type PitchDeskState = "idle" | "scheduled" | "shipped";
+export type PitchState = "idle" | "scheduled" | "shipped";
 
-export function deriveDeskState(deliverableStatuses: string[]): PitchDeskState {
+export function derivePitchState(deliverableStatuses: string[]): PitchState {
   if (deliverableStatuses.length === 0) return "idle";
   const allTerminal = deliverableStatuses.every(
     (s) => s === "done" || s === "cancelled"
@@ -56,7 +56,7 @@ export const createPitchOperations = (db: DrizzleDB) => {
   });
 
   const listPitches = Effect.fn("listPitches")(function* (filters?: {
-    deskState?: PitchDeskState[];
+    state?: PitchState[];
     priority?: number[];
     archived?: boolean;
   }) {
@@ -76,23 +76,23 @@ export const createPitchOperations = (db: DrizzleDB) => {
       })
     );
 
-    const withDeskState = rows.map((row) => {
+    const withState = rows.map((row) => {
       const { deliverablesPitches: dpLinks, ...rest } = row;
       const statuses = dpLinks.map((dp) => dp.deliverable.status);
-      return { ...rest, deskState: deriveDeskState(statuses) };
+      return { ...rest, state: derivePitchState(statuses) };
     });
 
-    if (filters?.deskState && filters.deskState.length > 0) {
-      const allowed = new Set(filters.deskState);
-      return withDeskState.filter((p) => allowed.has(p.deskState));
+    if (filters?.state && filters.state.length > 0) {
+      const allowed = new Set(filters.state);
+      return withState.filter((p) => allowed.has(p.state));
     }
 
-    return withDeskState;
+    return withState;
   });
 
   const listPitchesWithVideos = Effect.fn("listPitchesWithVideos")(
     function* (filters?: {
-      deskState?: PitchDeskState[];
+      state?: PitchState[];
       priority?: number[];
       archived?: boolean;
     }) {
@@ -121,18 +121,18 @@ export const createPitchOperations = (db: DrizzleDB) => {
         })
       );
 
-      const withDeskState = rows.map((row) => {
+      const withState = rows.map((row) => {
         const { deliverablesPitches: dpLinks, ...rest } = row;
         const statuses = dpLinks.map((dp) => dp.deliverable.status);
-        return { ...rest, deskState: deriveDeskState(statuses) };
+        return { ...rest, state: derivePitchState(statuses) };
       });
 
-      if (filters?.deskState && filters.deskState.length > 0) {
-        const allowed = new Set(filters.deskState);
-        return withDeskState.filter((p) => allowed.has(p.deskState));
+      if (filters?.state && filters.state.length > 0) {
+        const allowed = new Set(filters.state);
+        return withState.filter((p) => allowed.has(p.state));
       }
 
-      return withDeskState;
+      return withState;
     }
   );
 
@@ -189,7 +189,7 @@ export const createPitchOperations = (db: DrizzleDB) => {
 
     const { deliverablesPitches: dpLinks, ...rest } = pitch;
     const statuses = dpLinks.map((dp) => dp.deliverable.status);
-    return { ...rest, deskState: deriveDeskState(statuses) };
+    return { ...rest, state: derivePitchState(statuses) };
   });
 
   const updatePitchField = Effect.fn("updatePitchField")(function* (

@@ -4,8 +4,8 @@ import {
   type Priority,
 } from "@/components/priority-selector";
 import {
-  DeskStateBadge,
-  type PitchDeskState,
+  PitchStateBadge,
+  type PitchState,
 } from "@/components/status-icon-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,7 +60,7 @@ interface PitchWithVideos {
   id: string;
   title: string;
   description: string;
-  deskState: PitchDeskState;
+  state: PitchState;
   priority: number;
   videos: PitchVideo[];
 }
@@ -70,7 +70,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   const priorityFilter = parsePriorityParam(url.searchParams.get("priority"));
   const showShipped = url.searchParams.get("shipped") === "1";
 
-  const deskStateFilter: PitchDeskState[] = showShipped
+  const stateFilter: PitchState[] = showShipped
     ? ["idle", "scheduled", "shipped"]
     : ["idle", "scheduled"];
 
@@ -79,7 +79,7 @@ export const loader = async (args: Route.LoaderArgs) => {
     const publishService = yield* CoursePublishService;
 
     const pitchesRaw = yield* db.listPitchesWithVideos({
-      deskState: deskStateFilter,
+      state: stateFilter,
       priority: priorityFilter.length > 0 ? priorityFilter : undefined,
     });
 
@@ -99,7 +99,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       id: p.id,
       title: p.title,
       description: p.description,
-      deskState: p.deskState,
+      state: p.state,
       priority: p.priority,
       videos: p.videos.map((v) => ({
         id: v.id,
@@ -329,7 +329,7 @@ function PitchRow({
       <ContextMenuTrigger asChild>
         <div className="border rounded-lg bg-card hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 px-4 py-3">
-            <DeskStateBadge state={pitch.deskState} />
+            <PitchStateBadge state={pitch.state} />
             <Link
               to={`/pitches/${pitch.id}`}
               className="flex-1 min-w-0 font-medium truncate"

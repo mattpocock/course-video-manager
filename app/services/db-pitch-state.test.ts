@@ -51,7 +51,7 @@ async function linkPitchToDeliverable(
     .values({ pitchId, deliverableId });
 }
 
-describe("deskState derivation via listPitches", () => {
+describe("state derivation via listPitches", () => {
   it.effect("pitch with no linked deliverable → idle", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
@@ -59,7 +59,7 @@ describe("deskState derivation via listPitches", () => {
 
       const list = yield* pitchOps.listPitches();
       expect(list).toHaveLength(1);
-      expect(list[0]!.deskState).toBe("idle");
+      expect(list[0]!.state).toBe("idle");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -75,7 +75,7 @@ describe("deskState derivation via listPitches", () => {
       );
 
       const list = yield* pitchOps.listPitches();
-      expect(list[0]!.deskState).toBe("scheduled");
+      expect(list[0]!.state).toBe("scheduled");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -91,7 +91,7 @@ describe("deskState derivation via listPitches", () => {
       );
 
       const list = yield* pitchOps.listPitches();
-      expect(list[0]!.deskState).toBe("shipped");
+      expect(list[0]!.state).toBe("shipped");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -113,7 +113,7 @@ describe("deskState derivation via listPitches", () => {
       );
 
       const list = yield* pitchOps.listPitches();
-      expect(list[0]!.deskState).toBe("scheduled");
+      expect(list[0]!.state).toBe("scheduled");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -129,11 +129,11 @@ describe("deskState derivation via listPitches", () => {
       );
 
       const list = yield* pitchOps.listPitches();
-      expect(list[0]!.deskState).toBe("shipped");
+      expect(list[0]!.state).toBe("shipped");
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("archived pitch excluded regardless of desk state", () =>
+  it.effect("archived pitch excluded regardless of pitch state", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
@@ -144,7 +144,7 @@ describe("deskState derivation via listPitches", () => {
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("default deskState filter returns idle + scheduled only", () =>
+  it.effect("default state filter returns idle + scheduled only", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
@@ -170,7 +170,7 @@ describe("deskState derivation via listPitches", () => {
       );
 
       const list = yield* pitchOps.listPitches({
-        deskState: ["idle", "scheduled"],
+        state: ["idle", "scheduled"],
       });
       expect(list).toHaveLength(2);
       const titles = list.map((p) => p.title);
@@ -180,7 +180,7 @@ describe("deskState derivation via listPitches", () => {
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("deskState filter for shipped includes shipped pitches", () =>
+  it.effect("state filter for shipped includes shipped pitches", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
@@ -196,7 +196,7 @@ describe("deskState derivation via listPitches", () => {
       );
 
       const list = yield* pitchOps.listPitches({
-        deskState: ["shipped"],
+        state: ["shipped"],
       });
       expect(list).toHaveLength(1);
       expect(list[0]!.title).toBe("Shipped");
@@ -227,8 +227,8 @@ describe("deskState derivation via listPitches", () => {
   );
 });
 
-describe("deskState derivation via listPitchesWithVideos", () => {
-  it.effect("attaches deskState alongside videos", () =>
+describe("state derivation via listPitchesWithVideos", () => {
+  it.effect("attaches state alongside videos", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
@@ -243,14 +243,14 @@ describe("deskState derivation via listPitchesWithVideos", () => {
 
       const list = yield* pitchOps.listPitchesWithVideos();
       expect(list).toHaveLength(1);
-      expect(list[0]!.deskState).toBe("scheduled");
+      expect(list[0]!.state).toBe("scheduled");
       expect(list[0]!.videos).toHaveLength(1);
     }).pipe(Effect.provide(testLayer))
   );
 });
 
-describe("deskState derivation via getPitchWithVideos", () => {
-  it.effect("derives deskState from linked deliverables", () =>
+describe("state derivation via getPitchWithVideos", () => {
+  it.effect("derives state from linked deliverables", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
@@ -263,7 +263,7 @@ describe("deskState derivation via getPitchWithVideos", () => {
       );
 
       const result = yield* pitchOps.getPitchWithVideos(pitch.id);
-      expect(result.deskState).toBe("shipped");
+      expect(result.state).toBe("shipped");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -274,7 +274,7 @@ describe("deskState derivation via getPitchWithVideos", () => {
       const pitch = yield* pitchOps.createPitch();
 
       const result = yield* pitchOps.getPitchWithVideos(pitch.id);
-      expect(result.deskState).toBe("idle");
+      expect(result.state).toBe("idle");
     }).pipe(Effect.provide(testLayer))
   );
 });

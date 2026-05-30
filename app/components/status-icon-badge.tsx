@@ -1,17 +1,17 @@
 import { CalendarClock, CheckCircle2, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PitchDeskState } from "@/services/db-pitch-operations.server";
+import type { PitchState } from "@/services/db-pitch-operations.server";
 
-export type { PitchDeskState };
+export type { PitchState };
 
-export const DESK_STATE_ORDER: readonly PitchDeskState[] = [
+export const PITCH_STATE_ORDER: readonly PitchState[] = [
   "idle",
   "scheduled",
   "shipped",
 ] as const;
 
-export const DESK_STATE_META: Record<
-  PitchDeskState,
+export const PITCH_STATE_META: Record<
+  PitchState,
   {
     label: string;
     icon: typeof Lightbulb;
@@ -35,14 +35,14 @@ export const DESK_STATE_META: Record<
   },
 };
 
-export function DeskStateBadge({
+export function PitchStateBadge({
   state,
   showLabel,
 }: {
-  state: PitchDeskState;
+  state: PitchState;
   showLabel?: boolean;
 }) {
-  const m = DESK_STATE_META[state];
+  const m = PITCH_STATE_META[state];
   const Icon = m.icon;
   if (showLabel) {
     return (

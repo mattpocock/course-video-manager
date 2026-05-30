@@ -12,7 +12,7 @@ import {
   PrioritySelector,
   type Priority,
 } from "@/components/priority-selector";
-import { DeskStateBadge } from "@/components/status-icon-badge";
+import { PitchStateBadge } from "@/components/status-icon-badge";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -96,7 +96,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         youtubeThumbnailDescription: pitchRaw.youtubeThumbnailDescription,
         newsletterTitle: pitchRaw.newsletterTitle,
         tweet: pitchRaw.tweet,
-        deskState: pitchRaw.deskState,
+        state: pitchRaw.state,
         priority: pitchRaw.priority,
       },
       videos,
@@ -319,7 +319,7 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
         </div>
 
         <div className="flex items-center gap-2 mb-8">
-          <DeskStateBadge state={initialPitch.deskState} showLabel />
+          <PitchStateBadge state={initialPitch.state} showLabel />
           <PrioritySelector
             priority={priority}
             onSelect={(p) => {

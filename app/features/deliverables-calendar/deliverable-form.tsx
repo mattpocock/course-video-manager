@@ -23,9 +23,9 @@ import {
   type LinkedPitch,
 } from "./deliverable-links";
 import {
-  DESK_STATE_ORDER,
-  DESK_STATE_META,
-  type PitchDeskState,
+  PITCH_STATE_ORDER,
+  PITCH_STATE_META,
+  type PitchState,
 } from "@/components/status-icon-badge";
 
 export interface DeliverableForForm {
@@ -47,7 +47,7 @@ export interface PitchOption {
   id: string;
   title: string;
   priority: number;
-  deskState: PitchDeskState;
+  state: PitchState;
 }
 
 type PickerEntry =
@@ -232,24 +232,24 @@ export function DeliverableForm({
     d?.date ?? initialDate ?? todayStr
   );
 
-  const groupedPitchEntries: PickerEntry[] = DESK_STATE_ORDER.flatMap(
+  const groupedPitchEntries: PickerEntry[] = PITCH_STATE_ORDER.flatMap(
     (state) => {
       const inGroup = allPitches
-        .filter((p) => p.deskState === state)
+        .filter((p) => p.state === state)
         .sort((a, b) =>
           a.priority !== b.priority
             ? a.priority - b.priority
             : a.title.localeCompare(b.title)
         );
       if (inGroup.length === 0) return [];
-      const Icon = DESK_STATE_META[state].icon;
+      const Icon = PITCH_STATE_META[state].icon;
       return [
         {
           key: state,
           groupLabel: (
             <span className="flex items-center gap-1.5">
               <Icon className="size-3" />
-              {DESK_STATE_META[state].label}
+              {PITCH_STATE_META[state].label}
             </span>
           ),
         } as PickerEntry,

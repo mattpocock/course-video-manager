@@ -249,14 +249,14 @@ describe("listPitches with filters", () => {
       }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("treats empty deskState array as no deskState filter", () =>
+  it.effect("treats empty state array as no state filter", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
       yield* pitchOps.createPitch();
       yield* pitchOps.createPitch();
 
-      const list = yield* pitchOps.listPitches({ deskState: [] });
+      const list = yield* pitchOps.listPitches({ state: [] });
       expect(list).toHaveLength(2);
     }).pipe(Effect.provide(testLayer))
   );

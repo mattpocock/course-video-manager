@@ -12,7 +12,7 @@ A Pitch already links to zero-or-more **Deliverables** (many-to-many via `delive
 
 ## Decision
 
-Delete the `status` column on Pitch. Derive a **Pitch Desk State** live from the **Deliverable Status** of the Deliverables linked to the pitch — never stored — as a three-way partition of every non-archived pitch:
+Delete the `status` column on Pitch. Derive a **Pitch State** live from the **Deliverable Status** of the Deliverables linked to the pitch — never stored — as a three-way partition of every non-archived pitch:
 
 - **Idle** — no linked Deliverable.
 - **Scheduled** — at least one linked Deliverable, but not all terminal.

@@ -52,7 +52,7 @@ export const loader = async () => {
     const pitchMap = new Map(
       pitches.map((p) => [
         p.id,
-        { title: p.title, priority: p.priority, deskState: p.deskState },
+        { title: p.title, priority: p.priority, state: p.state },
       ])
     );
 
@@ -83,7 +83,7 @@ export const loader = async () => {
         id: p.id,
         title: p.title,
         priority: p.priority,
-        deskState: p.deskState,
+        state: p.state,
       })),
     };
   }).pipe(
