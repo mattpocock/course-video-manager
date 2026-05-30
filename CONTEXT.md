@@ -68,7 +68,7 @@ The chain reaction when materializing a lesson inside a ghost course: assigns fi
 ### Authoring lifecycle
 
 **Lesson Authoring Status**:
-A per-version marker on a real **Lesson** indicating where it sits in the authoring workflow. Two values: `todo` (default for newly created or materialized real lessons) and `done` (set by clicking the To-Do pill in the UI). Stored as `authoringStatus` on the lesson row and copied forward by `copyVersionStructure` at Publish, so a Published Version's lessons keep whatever status they had at publish time. Subject to a biconditional invariant with `fsStatus`: a real lesson always has a status, a **Ghost Lesson** never does. Distinct from `fsStatus` (filesystem presence) and from **Pitch Status** (which tracks pitches, not lessons). Surfaced in the published output via the **TODO Marker** and in the changelog via the **Marked Ready** / **Marked TODO** transitions.
+A per-version marker on a real **Lesson** indicating where it sits in the authoring workflow. Two values: `todo` (default for newly created or materialized real lessons) and `done` (set by clicking the To-Do pill in the UI). Stored as `authoringStatus` on the lesson row and copied forward by `copyVersionStructure` at Publish, so a Published Version's lessons keep whatever status they had at publish time. Subject to a biconditional invariant with `fsStatus`: a real lesson always has a status, a **Ghost Lesson** never does. Distinct from `fsStatus` (filesystem presence) and from **Pitch Desk State** (which tracks pitches, not lessons). Surfaced in the published output via the **TODO Marker** and in the changelog via the **Marked Ready** / **Marked TODO** transitions.
 _Avoid_: TODO flag, Lesson status (ambiguous with `fsStatus`), Completion
 
 **TODO Marker**:
@@ -161,21 +161,18 @@ _Avoid_: Caption, Subtitle
 A reusable packaging artifact — the YouTube/newsletter/tweet copy and thumbnail concept for a video idea — authored _before_ the video itself is recorded. A Pitch is independent of the Course hierarchy; it relates only to **Standalone Videos**.
 _Avoid_: Idea, Concept, Draft (overloaded with Draft Version)
 
-**Pitch Status**:
-A manual marker on a Pitch with five values, all user-set (none derived from linked Videos):
+**Pitch Desk State**:
+A derived, read-only marker on a Pitch with three values, computed live from the **Deliverable Status** of linked **Deliverables** (never stored):
 
-- `idle` (default) — drafting / mulling; not yet committed to making the video
-- `scheduled` — queued for delivery (typically linked from the **Deliverables Calendar**, set manually); not yet scheduled inside YouTube itself
-- `shipped-to-youtube` — uploaded to YouTube and queued in YouTube's own scheduler; awaiting go-live and remaining channels (newsletter, tweet)
-- `shipped` — fully delivered across channels; the Pitch is done
-- `cancelled` — decided not to make this video; sideways off-ramp from any other state, reversible by flipping back to `idle`
+- `idle` — no linked Deliverable; still drafting / mulling
+- `scheduled` — at least one linked Deliverable exists and not all are terminal (`done` or `cancelled`)
+- `shipped` — at least one linked Deliverable exists and every linked Deliverable is terminal (`done` or `cancelled`)
 
-Lifecycle ladder: `idle → scheduled → shipped-to-youtube → shipped`, with `cancelled` as a sideways off-ramp from any of them. `shipped` and `cancelled` are mutually exclusive. All transitions are reversible — the field is just a manual bookkeeping marker.
-
-A Pitch can have any status independent of how many Videos are linked to it.
+Abandoning a pitch is done via **Archive**, not via desk state.
+_Avoid_: Pitch Status (removed — was previously a manual five-value field), State (too generic)
 
 **Default Pitch Filter**:
-The pitches index defaults to showing `idle + scheduled + shipped-to-youtube` — the "still on my desk" set. `shipped` and `cancelled` are hidden by default. When the filter equals this default set, the `status` URL param is omitted (bookmarks of `/pitches` survive future default changes).
+The pitches index defaults to showing `idle + scheduled` — the "still on my desk" set. `shipped` is hidden by default, revealed via a "Show shipped" toggle. When the filter equals this default set, no URL param is set (bookmarks of `/pitches` survive future default changes).
 
 ### Reference video
 

@@ -12,10 +12,7 @@ import {
   PrioritySelector,
   type Priority,
 } from "@/components/priority-selector";
-import {
-  StatusIconBadge,
-  type PitchStatus,
-} from "@/components/status-icon-badge";
+import { DeskStateBadge } from "@/components/status-icon-badge";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -99,7 +96,7 @@ export const loader = async (args: Route.LoaderArgs) => {
         youtubeThumbnailDescription: pitchRaw.youtubeThumbnailDescription,
         newsletterTitle: pitchRaw.newsletterTitle,
         tweet: pitchRaw.tweet,
-        status: pitchRaw.status,
+        deskState: pitchRaw.deskState,
         priority: pitchRaw.priority,
       },
       videos,
@@ -224,7 +221,6 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
   const [searchParams] = useSearchParams();
   const backLink = pitchBackLink(searchParams.get("from"));
   const deleteFetcher = useFetcher();
-  const statusFetcher = useFetcher();
   const priorityFetcher = useFetcher();
   const createVideoFetcher = useFetcher<{ id: string }>();
 
@@ -238,9 +234,6 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
     initialPitch.newsletterTitle
   );
   const [tweet, setTweet] = useState(initialPitch.tweet);
-  const [status, setStatus] = useState<PitchStatus>(
-    initialPitch.status as PitchStatus
-  );
   const [priority, setPriority] = useState<Priority>(
     initialPitch.priority as Priority
   );
@@ -326,20 +319,7 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
         </div>
 
         <div className="flex items-center gap-2 mb-8">
-          <StatusIconBadge
-            status={status}
-            showLabel
-            onSelect={(s) => {
-              setStatus(s);
-              statusFetcher.submit(
-                { field: "status", value: s },
-                {
-                  method: "post",
-                  action: `/api/pitches/${initialPitch.id}/update`,
-                }
-              );
-            }}
-          />
+          <DeskStateBadge state={initialPitch.deskState} showLabel />
           <PrioritySelector
             priority={priority}
             onSelect={(p) => {

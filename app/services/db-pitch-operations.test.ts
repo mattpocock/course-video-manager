@@ -41,7 +41,6 @@ describe("createPitch", () => {
       expect(pitch.youtubeThumbnailDescription).toBe("");
       expect(pitch.newsletterTitle).toBe("");
       expect(pitch.tweet).toBe("");
-      expect(pitch.status).toBe("idle");
       expect(pitch.priority).toBe(2);
       expect(pitch.archived).toBe(false);
       expect(pitch.createdAt).toBeInstanceOf(Date);
@@ -122,7 +121,6 @@ describe("updatePitchField", () => {
 
       expect(updated.title).toBe("New Title");
       expect(updated.description).toBe("");
-      expect(updated.status).toBe("idle");
       expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
         originalUpdatedAt.getTime()
       );
@@ -153,27 +151,6 @@ describe("updatePitchField", () => {
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("updates status field", () =>
-    Effect.gen(function* () {
-      const pitchOps = yield* PitchOperationsService;
-      const created = yield* pitchOps.createPitch();
-
-      const updated = yield* pitchOps.updatePitchField(
-        created.id,
-        "status",
-        "scheduled"
-      );
-      expect(updated.status).toBe("scheduled");
-
-      const updated2 = yield* pitchOps.updatePitchField(
-        created.id,
-        "status",
-        "cancelled"
-      );
-      expect(updated2.status).toBe("cancelled");
-    }).pipe(Effect.provide(testLayer))
-  );
-
   it.effect("updating one field does not clobber another", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
@@ -196,32 +173,6 @@ describe("updatePitchField", () => {
 });
 
 describe("listPitches with filters", () => {
-  it.effect("filters by status", () =>
-    Effect.gen(function* () {
-      const pitchOps = yield* PitchOperationsService;
-
-      const p1 = yield* pitchOps.createPitch();
-      yield* pitchOps.updatePitchField(p1.id, "title", "Idle one");
-
-      const p2 = yield* pitchOps.createPitch();
-      yield* pitchOps.updatePitchField(p2.id, "title", "Scheduled one");
-      yield* pitchOps.updatePitchField(p2.id, "status", "scheduled");
-
-      const p3 = yield* pitchOps.createPitch();
-      yield* pitchOps.updatePitchField(p3.id, "title", "Cancelled one");
-      yield* pitchOps.updatePitchField(p3.id, "status", "cancelled");
-
-      const idleOnly = yield* pitchOps.listPitches({ status: ["idle"] });
-      expect(idleOnly).toHaveLength(1);
-      expect(idleOnly[0]!.title).toBe("Idle one");
-
-      const multiStatus = yield* pitchOps.listPitches({
-        status: ["idle", "scheduled"],
-      });
-      expect(multiStatus).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
-  );
-
   it.effect("filters by priority", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
@@ -282,30 +233,6 @@ describe("listPitches with filters", () => {
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("combines status and priority filters", () =>
-    Effect.gen(function* () {
-      const pitchOps = yield* PitchOperationsService;
-
-      const p1 = yield* pitchOps.createPitch();
-      yield* pitchOps.updatePitchField(p1.id, "priority", 1);
-
-      const p2 = yield* pitchOps.createPitch();
-      yield* pitchOps.updatePitchField(p2.id, "priority", 2);
-      yield* pitchOps.updatePitchField(p2.id, "status", "scheduled");
-
-      const p3 = yield* pitchOps.createPitch();
-      yield* pitchOps.updatePitchField(p3.id, "priority", 1);
-      yield* pitchOps.updatePitchField(p3.id, "status", "scheduled");
-
-      const result = yield* pitchOps.listPitches({
-        status: ["scheduled"],
-        priority: [1],
-      });
-      expect(result).toHaveLength(1);
-      expect(result[0]!.id).toBe(p3.id);
-    }).pipe(Effect.provide(testLayer))
-  );
-
   it.effect(
     "returns all non-archived when called with no filters (backward compat)",
     () =>
@@ -322,15 +249,14 @@ describe("listPitches with filters", () => {
       }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("treats empty status array as no status filter", () =>
+  it.effect("treats empty deskState array as no deskState filter", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
       yield* pitchOps.createPitch();
-      const p2 = yield* pitchOps.createPitch();
-      yield* pitchOps.updatePitchField(p2.id, "status", "scheduled");
+      yield* pitchOps.createPitch();
 
-      const list = yield* pitchOps.listPitches({ status: [] });
+      const list = yield* pitchOps.listPitches({ deskState: [] });
       expect(list).toHaveLength(2);
     }).pipe(Effect.provide(testLayer))
   );
@@ -408,7 +334,7 @@ describe("listPitchesWithVideos", () => {
       yield* pitchOps.updatePitchField(pitch.id, "title", "Has videos");
       const video = yield* pitchOps.createVideoFromPitch(pitch.id);
 
-      const list = yield* pitchOps.listPitchesWithVideos({ status: ["idle"] });
+      const list = yield* pitchOps.listPitchesWithVideos();
       expect(list).toHaveLength(1);
       expect(list[0]!.videos).toHaveLength(1);
       expect(list[0]!.videos[0]!.id).toBe(video.id);
@@ -424,9 +350,7 @@ describe("listPitchesWithVideos", () => {
 
         yield* pitchOps.createPitch();
 
-        const list = yield* pitchOps.listPitchesWithVideos({
-          status: ["idle"],
-        });
+        const list = yield* pitchOps.listPitchesWithVideos();
         expect(list).toHaveLength(1);
         expect(list[0]!.videos).toHaveLength(0);
       }).pipe(Effect.provide(testLayer))
@@ -441,9 +365,7 @@ describe("listPitchesWithVideos", () => {
         const pitch = yield* pitchOps.createPitch();
         yield* pitchOps.createVideoFromPitch(pitch.id);
 
-        const list = yield* pitchOps.listPitchesWithVideos({
-          status: ["idle"],
-        });
+        const list = yield* pitchOps.listPitchesWithVideos();
         expect(list[0]!.videos[0]!.clips).toEqual([]);
       }).pipe(Effect.provide(testLayer))
   );
@@ -462,7 +384,7 @@ describe("listPitchesWithVideos", () => {
           .where(eq(schema.videos.id, video1.id))
       );
 
-      const list = yield* pitchOps.listPitchesWithVideos({ status: ["idle"] });
+      const list = yield* pitchOps.listPitchesWithVideos();
       expect(list).toHaveLength(1);
       expect(list[0]!.videos).toHaveLength(1);
     }).pipe(Effect.provide(testLayer))
@@ -477,7 +399,7 @@ describe("listPitchesWithVideos", () => {
       yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* pitchOps.createVideoFromPitch(pitch.id);
 
-      const list = yield* pitchOps.listPitchesWithVideos({ status: ["idle"] });
+      const list = yield* pitchOps.listPitchesWithVideos();
       expect(list).toHaveLength(1);
       expect(list[0]!.videos).toHaveLength(3);
     }).pipe(Effect.provide(testLayer))

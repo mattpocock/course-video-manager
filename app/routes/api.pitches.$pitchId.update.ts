@@ -11,7 +11,6 @@ const updatableFields = [
   "youtubeThumbnailDescription",
   "newsletterTitle",
   "tweet",
-  "status",
   "priority",
   "archived",
 ] as const;
