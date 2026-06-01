@@ -161,14 +161,14 @@ export const uploadReducer = (
         dependsOn,
       };
 
-      const config = uploadTypeRegistry[uploadType];
-      if (!config) return state;
-
       return {
         ...state,
         uploads: {
           ...state.uploads,
-          [action.uploadId]: config.createEntry(base, action),
+          [action.uploadId]: uploadTypeRegistry[uploadType].createEntry(
+            base,
+            action
+          ),
         },
       };
     }
@@ -288,15 +288,9 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload) return state;
 
-      const config = uploadTypeRegistry[upload.uploadType];
-      const entry: uploadReducer.UploadEntry = config
-        ? config.applySuccess(upload, action)
-        : ({
-            ...upload,
-            status: "success" as const,
-            progress: 100,
-            errorMessage: null,
-          } as uploadReducer.UploadEntry);
+      const entry: uploadReducer.UploadEntry = uploadTypeRegistry[
+        upload.uploadType
+      ].applySuccess(upload, action);
 
       // Activate any jobs waiting on this upload
       const updatedUploads = { ...state.uploads, [action.uploadId]: entry };
@@ -374,14 +368,14 @@ export const uploadReducer = (
         dependsOn: upload.dependsOn,
       };
 
-      const config = uploadTypeRegistry[upload.uploadType];
-      if (!config) return state;
-
       return {
         ...state,
         uploads: {
           ...state.uploads,
-          [action.uploadId]: config.resetEntry(base, upload),
+          [action.uploadId]: uploadTypeRegistry[upload.uploadType].resetEntry(
+            base,
+            upload
+          ),
         },
       };
     }

@@ -525,8 +525,9 @@ const publishConfig: UploadTypeConfig<
   supportsDependsOn: false,
 };
 
-export const uploadTypeRegistry: Partial<
-  Record<uploadReducer.UploadType, UploadTypeConfig<any, any>>
+export const uploadTypeRegistry: Record<
+  uploadReducer.UploadType,
+  UploadTypeConfig<any, any>
 > = {
   export: exportConfig,
   youtube: youtubeConfig,

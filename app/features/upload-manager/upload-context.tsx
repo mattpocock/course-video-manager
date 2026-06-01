@@ -8,7 +8,6 @@ import {
 import { uploadReducer, createInitialUploadState } from "./upload-reducer";
 import { showSuccessToast, showErrorToast } from "./upload-toasts";
 import { startSSEBatchExport } from "./sse-batch-export-client";
-import { createExportInitiator } from "./upload-context-initiators";
 import { uploadTypeRegistry } from "./upload-type-registry";
 
 export interface UploadContextType {
@@ -79,11 +78,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   // Maps videoId → uploadId for batch exports
   const batchVideoIdToUploadIdRef = useRef<Map<string, string>>(new Map());
 
-  const initiateSSEExportConnection = useCallback(
-    createExportInitiator(dispatch, abortControllersRef.current),
-    []
-  );
-
   const startUpload = useCallback(
     (
       videoId: string,
@@ -107,7 +101,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!dependsOn) {
-        const config = uploadTypeRegistry["youtube"]!;
+        const config = uploadTypeRegistry["youtube"];
         const entry: uploadReducer.YouTubeUploadEntry = {
           uploadId,
           videoId,
@@ -149,7 +143,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         uploadType: "buffer",
       });
 
-      const config = uploadTypeRegistry["buffer"]!;
+      const config = uploadTypeRegistry["buffer"];
       const entry: uploadReducer.BufferUploadEntry = {
         uploadId,
         videoId,
@@ -199,7 +193,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!dependsOn) {
-        const config = uploadTypeRegistry["ai-hero"]!;
+        const config = uploadTypeRegistry["ai-hero"];
         const entry: uploadReducer.AiHeroUploadEntry = {
           uploadId,
           videoId,
@@ -263,7 +257,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!dependsOn) {
-        const config = uploadTypeRegistry["skills-changelog"]!;
+        const config = uploadTypeRegistry["skills-changelog"];
         const entry: uploadReducer.SkillsChangelogUploadEntry = {
           uploadId,
           videoId,
@@ -290,24 +284,41 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const startExportUpload = useCallback(
-    (videoId: string, title: string) => {
-      const uploadId = generateUploadId();
+  const startExportUpload = useCallback((videoId: string, title: string) => {
+    const uploadId = generateUploadId();
 
-      dispatch({
-        type: "START_UPLOAD",
-        uploadId,
-        videoId,
-        title,
-        uploadType: "export",
-      });
+    dispatch({
+      type: "START_UPLOAD",
+      uploadId,
+      videoId,
+      title,
+      uploadType: "export",
+    });
 
-      initiateSSEExportConnection(uploadId, videoId);
+    const config = uploadTypeRegistry["export"];
+    const entry: uploadReducer.ExportUploadEntry = {
+      uploadId,
+      videoId,
+      title,
+      progress: 0,
+      status: "uploading",
+      uploadType: "export",
+      exportStage: "queued",
+      isBatchEntry: false,
+      errorMessage: null,
+      retryCount: 0,
+      dependsOn: null,
+    };
+    config.initiate(
+      uploadId,
+      entry,
+      undefined,
+      dispatch,
+      abortControllersRef.current
+    );
 
-      return uploadId;
-    },
-    [initiateSSEExportConnection]
-  );
+    return uploadId;
+  }, []);
 
   const startBatchExportUpload = useCallback((versionId: string) => {
     const abortController = startSSEBatchExport(
@@ -395,7 +406,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         uploadType: "dropbox-publish",
       });
 
-      const config = uploadTypeRegistry["dropbox-publish"]!;
+      const config = uploadTypeRegistry["dropbox-publish"];
       const entry: uploadReducer.DropboxPublishUploadEntry = {
         uploadId,
         videoId: "",
@@ -442,7 +453,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         courseId,
       });
 
-      const config = uploadTypeRegistry["publish"]!;
+      const config = uploadTypeRegistry["publish"];
       const entry: uploadReducer.PublishUploadEntry = {
         uploadId,
         videoId: "",
@@ -501,32 +512,26 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (upload.status === "retrying") {
         dispatch({ type: "RETRY", uploadId });
 
-        const retryConfig = uploadTypeRegistry[upload.uploadType];
-        if (retryConfig) {
-          const storedParams = paramsMapRef.current.get(uploadId);
-          retryConfig.initiate(
-            uploadId,
-            upload,
-            storedParams?.params,
-            dispatch,
-            abortControllersRef.current
-          );
-        }
+        const storedParams = paramsMapRef.current.get(uploadId);
+        uploadTypeRegistry[upload.uploadType].initiate(
+          uploadId,
+          upload,
+          storedParams?.params,
+          dispatch,
+          abortControllersRef.current
+        );
       }
 
       // Handle waiting → uploading transition (dependency completed)
       if (prevUpload.status === "waiting" && upload.status === "uploading") {
-        const depConfig = uploadTypeRegistry[upload.uploadType];
-        if (depConfig) {
-          const storedParams = paramsMapRef.current.get(uploadId);
-          depConfig.initiate(
-            uploadId,
-            upload,
-            storedParams?.params,
-            dispatch,
-            abortControllersRef.current
-          );
-        }
+        const storedParams = paramsMapRef.current.get(uploadId);
+        uploadTypeRegistry[upload.uploadType].initiate(
+          uploadId,
+          upload,
+          storedParams?.params,
+          dispatch,
+          abortControllersRef.current
+        );
       }
     }
 
