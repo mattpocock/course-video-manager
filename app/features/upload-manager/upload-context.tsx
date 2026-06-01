@@ -8,11 +8,7 @@ import {
 import { uploadReducer, createInitialUploadState } from "./upload-reducer";
 import { showSuccessToast, showErrorToast } from "./upload-toasts";
 import { startSSEBatchExport } from "./sse-batch-export-client";
-import {
-  createDropboxPublishInitiator,
-  createExportInitiator,
-  createPublishInitiator,
-} from "./upload-context-initiators";
+import { createExportInitiator } from "./upload-context-initiators";
 import { uploadTypeRegistry } from "./upload-type-registry";
 
 export interface UploadContextType {
@@ -87,26 +83,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     createExportInitiator(dispatch, abortControllersRef.current),
     []
   );
-
-  const initiateSSEDropboxPublishConnection = useCallback(
-    createDropboxPublishInitiator(dispatch, abortControllersRef.current),
-    []
-  );
-
-  const initiateSSEPublishConnection = useCallback(
-    createPublishInitiator(dispatch, abortControllersRef.current),
-    []
-  );
-
-  // Stores repoId for Dropbox publish retries
-  const dropboxPublishParamsRef = useRef<Map<string, { repoId: string }>>(
-    new Map()
-  );
-
-  // Stores params for publish retries
-  const publishParamsRef = useRef<
-    Map<string, { courseId: string; name: string; description: string }>
-  >(new Map());
 
   const startUpload = useCallback(
     (
@@ -405,7 +381,11 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     (repoId: string, repoName: string) => {
       const uploadId = generateUploadId();
 
-      dropboxPublishParamsRef.current.set(uploadId, { repoId });
+      const params = { repoId };
+      paramsMapRef.current.set(uploadId, {
+        type: "dropbox-publish",
+        params,
+      });
 
       dispatch({
         type: "START_UPLOAD",
@@ -415,11 +395,30 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         uploadType: "dropbox-publish",
       });
 
-      initiateSSEDropboxPublishConnection(uploadId, repoId);
+      const config = uploadTypeRegistry["dropbox-publish"]!;
+      const entry: uploadReducer.DropboxPublishUploadEntry = {
+        uploadId,
+        videoId: "",
+        title: repoName,
+        progress: 0,
+        status: "uploading",
+        uploadType: "dropbox-publish",
+        missingVideoCount: null,
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+      config.initiate(
+        uploadId,
+        entry,
+        params,
+        dispatch,
+        abortControllersRef.current
+      );
 
       return uploadId;
     },
-    [initiateSSEDropboxPublishConnection]
+    []
   );
 
   const startPublish = useCallback(
@@ -431,7 +430,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const uploadId = generateUploadId();
 
-      publishParamsRef.current.set(uploadId, { courseId, name, description });
+      const params = { courseId, name, description };
+      paramsMapRef.current.set(uploadId, { type: "publish", params });
 
       dispatch({
         type: "START_UPLOAD",
@@ -442,11 +442,32 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         courseId,
       });
 
-      initiateSSEPublishConnection(uploadId, courseId, name, description);
+      const config = uploadTypeRegistry["publish"]!;
+      const entry: uploadReducer.PublishUploadEntry = {
+        uploadId,
+        videoId: "",
+        title: courseName,
+        progress: 0,
+        status: "uploading",
+        uploadType: "publish",
+        publishStage: "validating",
+        newDraftVersionId: null,
+        courseId,
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+      config.initiate(
+        uploadId,
+        entry,
+        params,
+        dispatch,
+        abortControllersRef.current
+      );
 
       return uploadId;
     },
-    [initiateSSEPublishConnection]
+    []
   );
 
   const dismissUpload = useCallback((uploadId: string) => {
@@ -456,8 +477,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       abortControllersRef.current.delete(uploadId);
     }
     paramsMapRef.current.delete(uploadId);
-    dropboxPublishParamsRef.current.delete(uploadId);
-    publishParamsRef.current.delete(uploadId);
     dispatch({ type: "DISMISS", uploadId });
   }, []);
 
@@ -492,21 +511,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             dispatch,
             abortControllersRef.current
           );
-        } else if (upload.uploadType === "dropbox-publish") {
-          const params = dropboxPublishParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSEDropboxPublishConnection(uploadId, params.repoId);
-          }
-        } else if (upload.uploadType === "publish") {
-          const params = publishParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSEPublishConnection(
-              uploadId,
-              params.courseId,
-              params.name,
-              params.description
-            );
-          }
         }
       }
 
@@ -527,11 +531,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     }
 
     previousUploadsRef.current = current;
-  }, [
-    state.uploads,
-    initiateSSEDropboxPublishConnection,
-    initiateSSEPublishConnection,
-  ]);
+  }, [state.uploads]);
 
   // Clean up abort controllers on unmount
   useEffect(() => {

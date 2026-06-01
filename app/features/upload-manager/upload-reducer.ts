@@ -162,43 +162,13 @@ export const uploadReducer = (
       };
 
       const config = uploadTypeRegistry[uploadType];
-      if (config) {
-        return {
-          ...state,
-          uploads: {
-            ...state.uploads,
-            [action.uploadId]: config.createEntry(base, action),
-          },
-        };
-      }
-
-      let entry: uploadReducer.UploadEntry;
-      switch (uploadType) {
-        case "dropbox-publish":
-          entry = {
-            ...base,
-            uploadType: "dropbox-publish",
-            missingVideoCount: null,
-          };
-          break;
-        case "publish":
-          entry = {
-            ...base,
-            uploadType: "publish",
-            publishStage: "validating",
-            newDraftVersionId: null,
-            courseId: action.courseId ?? "",
-          };
-          break;
-        default:
-          return state;
-      }
+      if (!config) return state;
 
       return {
         ...state,
         uploads: {
           ...state.uploads,
-          [action.uploadId]: entry,
+          [action.uploadId]: config.createEntry(base, action),
         },
       };
     }
@@ -318,39 +288,15 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload) return state;
 
-      let entry: uploadReducer.UploadEntry;
       const config = uploadTypeRegistry[upload.uploadType];
-      if (config) {
-        entry = config.applySuccess(upload, action);
-      } else {
-        const base = {
-          ...upload,
-          status: "success" as const,
-          progress: 100,
-          errorMessage: null,
-        };
-
-        switch (upload.uploadType) {
-          case "dropbox-publish":
-            entry = {
-              ...base,
-              uploadType: "dropbox-publish",
-              missingVideoCount: upload.missingVideoCount,
-            };
-            break;
-          case "publish":
-            entry = {
-              ...base,
-              uploadType: "publish",
-              publishStage: null,
-              newDraftVersionId: upload.newDraftVersionId,
-              courseId: upload.courseId,
-            };
-            break;
-          default:
-            entry = base as uploadReducer.UploadEntry;
-        }
-      }
+      const entry: uploadReducer.UploadEntry = config
+        ? config.applySuccess(upload, action)
+        : ({
+            ...upload,
+            status: "success" as const,
+            progress: 100,
+            errorMessage: null,
+          } as uploadReducer.UploadEntry);
 
       // Activate any jobs waiting on this upload
       const updatedUploads = { ...state.uploads, [action.uploadId]: entry };
@@ -429,43 +375,13 @@ export const uploadReducer = (
       };
 
       const config = uploadTypeRegistry[upload.uploadType];
-      if (config) {
-        return {
-          ...state,
-          uploads: {
-            ...state.uploads,
-            [action.uploadId]: config.resetEntry(base, upload),
-          },
-        };
-      }
-
-      let entry: uploadReducer.UploadEntry;
-      switch (upload.uploadType) {
-        case "dropbox-publish":
-          entry = {
-            ...base,
-            uploadType: "dropbox-publish",
-            missingVideoCount: null,
-          };
-          break;
-        case "publish":
-          entry = {
-            ...base,
-            uploadType: "publish",
-            publishStage: "validating",
-            newDraftVersionId: null,
-            courseId: upload.courseId,
-          };
-          break;
-        default:
-          return state;
-      }
+      if (!config) return state;
 
       return {
         ...state,
         uploads: {
           ...state.uploads,
-          [action.uploadId]: entry,
+          [action.uploadId]: config.resetEntry(base, upload),
         },
       };
     }

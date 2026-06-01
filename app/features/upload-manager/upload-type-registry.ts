@@ -1,6 +1,8 @@
 import type { uploadReducer } from "./upload-reducer";
 import { startSSEAiHeroPost } from "./sse-ai-hero-client";
+import { startSSEDropboxPublish } from "./sse-dropbox-publish-client";
 import { startSSEExport } from "./sse-export-client";
+import { startSSEPublish } from "./sse-publish-client";
 import { startSSESkillsChangelogPost } from "./sse-skills-changelog-client";
 import { startSSESocialPost } from "./sse-social-client";
 import { startSSEUpload } from "./sse-upload-client";
@@ -383,6 +385,146 @@ const skillsChangelogConfig: UploadTypeConfig<
   supportsDependsOn: true,
 };
 
+export interface DropboxPublishParams {
+  repoId: string;
+}
+
+const dropboxPublishConfig: UploadTypeConfig<
+  DropboxPublishParams,
+  uploadReducer.DropboxPublishUploadEntry
+> = {
+  createEntry: (base) => ({
+    ...base,
+    uploadType: "dropbox-publish" as const,
+    missingVideoCount: null,
+  }),
+
+  resetEntry: (base) => ({
+    ...base,
+    uploadType: "dropbox-publish" as const,
+    missingVideoCount: null,
+  }),
+
+  applySuccess: (entry) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    missingVideoCount: entry.missingVideoCount,
+  }),
+
+  initiate: (uploadId, _entry, params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSEDropboxPublish(
+        { repoId: params.repoId },
+        {
+          onProgress: (percentage) => {
+            dispatch({
+              type: "UPDATE_PROGRESS",
+              uploadId,
+              progress: percentage,
+            });
+          },
+          onComplete: (missingVideoCount) => {
+            if (missingVideoCount > 0) {
+              dispatch({
+                type: "UPDATE_DROPBOX_PUBLISH_MISSING_COUNT",
+                uploadId,
+                missingVideoCount,
+              });
+            }
+            dispatch({ type: "UPLOAD_SUCCESS", uploadId });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: false,
+};
+
+export interface PublishParams {
+  courseId: string;
+  name: string;
+  description: string;
+}
+
+const publishConfig: UploadTypeConfig<
+  PublishParams,
+  uploadReducer.PublishUploadEntry
+> = {
+  createEntry: (base, action) => ({
+    ...base,
+    uploadType: "publish" as const,
+    publishStage: "validating" as const,
+    newDraftVersionId: null,
+    courseId: action.courseId ?? "",
+  }),
+
+  resetEntry: (base, prev) => ({
+    ...base,
+    uploadType: "publish" as const,
+    publishStage: "validating" as const,
+    newDraftVersionId: null,
+    courseId: prev.courseId,
+  }),
+
+  applySuccess: (entry) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    publishStage: null,
+    newDraftVersionId: entry.newDraftVersionId,
+    courseId: entry.courseId,
+  }),
+
+  initiate: (uploadId, _entry, params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSEPublish(
+        {
+          courseId: params.courseId,
+          name: params.name,
+          description: params.description,
+        },
+        {
+          onStageChange: (stage) => {
+            dispatch({ type: "UPDATE_PUBLISH_STAGE", uploadId, stage });
+          },
+          onComplete: (result) => {
+            dispatch({
+              type: "PUBLISH_COMPLETE",
+              uploadId,
+              newDraftVersionId: result.newDraftVersionId,
+            });
+            dispatch({ type: "UPLOAD_SUCCESS", uploadId });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: false,
+};
+
 export const uploadTypeRegistry: Partial<
   Record<uploadReducer.UploadType, UploadTypeConfig<any, any>>
 > = {
@@ -391,4 +533,6 @@ export const uploadTypeRegistry: Partial<
   buffer: bufferConfig,
   "ai-hero": aiHeroConfig,
   "skills-changelog": skillsChangelogConfig,
+  "dropbox-publish": dropboxPublishConfig,
+  publish: publishConfig,
 };
