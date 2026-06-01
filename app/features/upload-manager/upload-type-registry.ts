@@ -1,5 +1,6 @@
 import type { uploadReducer } from "./upload-reducer";
 import { startSSEExport } from "./sse-export-client";
+import { startSSEUpload } from "./sse-upload-client";
 
 type StartUploadAction = Extract<
   uploadReducer.Action,
@@ -102,8 +103,77 @@ const exportConfig: UploadTypeConfig<
   supportsDependsOn: false,
 };
 
+export interface YouTubeParams {
+  description: string;
+  privacyStatus: "public" | "unlisted";
+  thumbnailId: string;
+}
+
+const youtubeConfig: UploadTypeConfig<
+  YouTubeParams,
+  uploadReducer.YouTubeUploadEntry
+> = {
+  createEntry: (base) => ({
+    ...base,
+    uploadType: "youtube" as const,
+    youtubeVideoId: null,
+  }),
+
+  resetEntry: (base, prev) => ({
+    ...base,
+    uploadType: "youtube" as const,
+    youtubeVideoId: prev.youtubeVideoId,
+  }),
+
+  applySuccess: (entry, action) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    youtubeVideoId: action.youtubeVideoId ?? null,
+  }),
+
+  initiate: (uploadId, entry, params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSEUpload(
+        {
+          videoId: entry.videoId,
+          title: entry.title,
+          description: params.description,
+          privacyStatus: params.privacyStatus,
+          thumbnailId: params.thumbnailId,
+        },
+        {
+          onProgress: (percentage) => {
+            dispatch({
+              type: "UPDATE_PROGRESS",
+              uploadId,
+              progress: percentage,
+            });
+          },
+          onComplete: (youtubeVideoId) => {
+            dispatch({ type: "UPLOAD_SUCCESS", uploadId, youtubeVideoId });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: true,
+};
+
 export const uploadTypeRegistry: Partial<
   Record<uploadReducer.UploadType, UploadTypeConfig<any, any>>
 > = {
   export: exportConfig,
+  youtube: youtubeConfig,
 };

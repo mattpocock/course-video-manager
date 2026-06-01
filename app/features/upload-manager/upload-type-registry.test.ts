@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { uploadReducer } from "./upload-reducer";
 import { uploadTypeRegistry } from "./upload-type-registry";
 
 const exportConfig = uploadTypeRegistry["export"]!;
+const youtubeConfig = uploadTypeRegistry["youtube"]!;
 
 const makeBase = (
   overrides: Partial<uploadReducer.BaseUploadEntry> = {}
@@ -188,6 +189,239 @@ describe("export registry entry", () => {
       });
 
       expect(result.errorMessage).toBeNull();
+    });
+  });
+});
+
+describe("youtube registry entry", () => {
+  it("should be registered in the registry", () => {
+    expect(youtubeConfig).toBeDefined();
+  });
+
+  it("should have supportsDependsOn set to true", () => {
+    expect(youtubeConfig.supportsDependsOn).toBe(true);
+  });
+
+  describe("createEntry", () => {
+    it("should create a youtube entry with youtubeVideoId null", () => {
+      const base = makeBase();
+
+      const entry = youtubeConfig.createEntry(base, {
+        type: "START_UPLOAD",
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Video",
+      });
+
+      expect(entry).toEqual({
+        ...base,
+        uploadType: "youtube",
+        youtubeVideoId: null,
+      });
+    });
+
+    it("should preserve waiting status from base when dependsOn is set", () => {
+      const base = makeBase({ status: "waiting", dependsOn: "upload-0" });
+
+      const entry = youtubeConfig.createEntry(base, {
+        type: "START_UPLOAD",
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Video",
+      });
+
+      expect(entry.status).toBe("waiting");
+      expect(entry.dependsOn).toBe("upload-0");
+    });
+  });
+
+  describe("resetEntry", () => {
+    it("should preserve youtubeVideoId from previous entry", () => {
+      const base = makeBase({
+        errorMessage: "some error",
+        retryCount: 1,
+      });
+
+      const prevEntry: uploadReducer.YouTubeUploadEntry = {
+        ...base,
+        uploadType: "youtube",
+        youtubeVideoId: "yt-abc123",
+      };
+
+      const entry = youtubeConfig.resetEntry(base, prevEntry);
+
+      expect(entry).toEqual({
+        ...base,
+        uploadType: "youtube",
+        youtubeVideoId: "yt-abc123",
+      });
+    });
+
+    it("should preserve null youtubeVideoId", () => {
+      const base = makeBase({ retryCount: 2 });
+
+      const prevEntry: uploadReducer.YouTubeUploadEntry = {
+        ...base,
+        uploadType: "youtube",
+        youtubeVideoId: null,
+      };
+
+      const entry = youtubeConfig.resetEntry(base, prevEntry);
+
+      expect(entry).toMatchObject({
+        uploadType: "youtube",
+        youtubeVideoId: null,
+      });
+    });
+  });
+
+  describe("applySuccess", () => {
+    it("should set status to success and store youtubeVideoId", () => {
+      const entry: uploadReducer.YouTubeUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Video",
+        progress: 80,
+        status: "uploading",
+        uploadType: "youtube",
+        youtubeVideoId: null,
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+
+      const result = youtubeConfig.applySuccess(entry, {
+        type: "UPLOAD_SUCCESS",
+        uploadId: "upload-1",
+        youtubeVideoId: "yt-abc123",
+      });
+
+      expect(result).toEqual({
+        ...entry,
+        status: "success",
+        progress: 100,
+        errorMessage: null,
+        youtubeVideoId: "yt-abc123",
+      });
+    });
+
+    it("should default youtubeVideoId to null when not provided", () => {
+      const entry: uploadReducer.YouTubeUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Video",
+        progress: 80,
+        status: "uploading",
+        uploadType: "youtube",
+        youtubeVideoId: null,
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+
+      const result = youtubeConfig.applySuccess(entry, {
+        type: "UPLOAD_SUCCESS",
+        uploadId: "upload-1",
+      });
+
+      expect(result.youtubeVideoId).toBeNull();
+    });
+
+    it("should clear previous error message on success", () => {
+      const entry: uploadReducer.YouTubeUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Video",
+        progress: 50,
+        status: "uploading",
+        uploadType: "youtube",
+        youtubeVideoId: null,
+        errorMessage: "previous error",
+        retryCount: 1,
+        dependsOn: null,
+      };
+
+      const result = youtubeConfig.applySuccess(entry, {
+        type: "UPLOAD_SUCCESS",
+        uploadId: "upload-1",
+        youtubeVideoId: "yt-abc",
+      });
+
+      expect(result.errorMessage).toBeNull();
+    });
+  });
+
+  describe("initiate", () => {
+    it("should call startSSEUpload with correct params and wire dispatch", async () => {
+      const { startSSEUpload } = await import("./sse-upload-client");
+      vi.mocked(startSSEUpload);
+
+      const dispatch = vi.fn();
+      const abortControllers = new Map<string, AbortController>();
+
+      const entry: uploadReducer.YouTubeUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Video",
+        progress: 0,
+        status: "uploading",
+        uploadType: "youtube",
+        youtubeVideoId: null,
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+
+      const params = {
+        description: "A test video",
+        privacyStatus: "unlisted" as const,
+        thumbnailId: "thumb-1",
+      };
+
+      youtubeConfig.initiate(
+        "upload-1",
+        entry,
+        params,
+        dispatch,
+        abortControllers
+      );
+
+      expect(abortControllers.has("upload-1")).toBe(true);
+    });
+
+    it("should abort existing controller before starting new one", () => {
+      const dispatch = vi.fn();
+      const abortControllers = new Map<string, AbortController>();
+      const existingController = new AbortController();
+      const abortSpy = vi.spyOn(existingController, "abort");
+      abortControllers.set("upload-1", existingController);
+
+      const entry: uploadReducer.YouTubeUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Video",
+        progress: 0,
+        status: "uploading",
+        uploadType: "youtube",
+        youtubeVideoId: null,
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+
+      youtubeConfig.initiate(
+        "upload-1",
+        entry,
+        {
+          description: "desc",
+          privacyStatus: "public" as const,
+          thumbnailId: "thumb-1",
+        },
+        dispatch,
+        abortControllers
+      );
+
+      expect(abortSpy).toHaveBeenCalled();
     });
   });
 });

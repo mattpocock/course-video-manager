@@ -203,9 +203,6 @@ export const uploadReducer = (
             courseId: action.courseId ?? "",
           };
           break;
-        case "youtube":
-          entry = { ...base, uploadType: "youtube", youtubeVideoId: null };
-          break;
         default:
           return state;
       }
@@ -347,13 +344,6 @@ export const uploadReducer = (
         };
 
         switch (upload.uploadType) {
-          case "youtube":
-            entry = {
-              ...base,
-              uploadType: "youtube",
-              youtubeVideoId: action.youtubeVideoId ?? null,
-            };
-            break;
           case "buffer":
             entry = { ...base, uploadType: "buffer", bufferStage: null };
             break;
@@ -508,13 +498,6 @@ export const uploadReducer = (
             publishStage: "validating",
             newDraftVersionId: null,
             courseId: upload.courseId,
-          };
-          break;
-        case "youtube":
-          entry = {
-            ...base,
-            uploadType: "youtube",
-            youtubeVideoId: upload.youtubeVideoId,
           };
           break;
         default:

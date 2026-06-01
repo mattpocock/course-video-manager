@@ -7,7 +7,6 @@ import {
 } from "react";
 import { uploadReducer, createInitialUploadState } from "./upload-reducer";
 import { showSuccessToast, showErrorToast } from "./upload-toasts";
-import { startSSEUpload } from "./sse-upload-client";
 import { startSSEBatchExport } from "./sse-batch-export-client";
 import {
   createAiHeroInitiator,
@@ -80,16 +79,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const previousUploadsRef = useRef<uploadReducer.State["uploads"]>({});
 
-  // Stores description + privacyStatus + thumbnailId for YouTube retries
-  const uploadParamsRef = useRef<
-    Map<
-      string,
-      {
-        description: string;
-        privacyStatus: "public" | "unlisted";
-        thumbnailId: string;
-      }
-    >
+  const paramsMapRef = useRef<
+    Map<string, { type: uploadReducer.UploadType; params: unknown }>
   >(new Map());
 
   // Stores caption for Buffer retries
@@ -117,54 +108,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   // Maps videoId → uploadId for batch exports
   const batchVideoIdToUploadIdRef = useRef<Map<string, string>>(new Map());
-
-  const initiateSSEConnection = useCallback(
-    (
-      uploadId: string,
-      videoId: string,
-      title: string,
-      description: string,
-      privacyStatus: "public" | "unlisted",
-      thumbnailId: string
-    ) => {
-      const existing = abortControllersRef.current.get(uploadId);
-      if (existing) {
-        existing.abort();
-      }
-
-      const abortController = startSSEUpload(
-        { videoId, title, description, privacyStatus, thumbnailId },
-        {
-          onProgress: (percentage) => {
-            dispatch({
-              type: "UPDATE_PROGRESS",
-              uploadId,
-              progress: percentage,
-            });
-          },
-          onComplete: (youtubeVideoId) => {
-            dispatch({
-              type: "UPLOAD_SUCCESS",
-              uploadId,
-              youtubeVideoId,
-            });
-            abortControllersRef.current.delete(uploadId);
-          },
-          onError: (message) => {
-            dispatch({
-              type: "UPLOAD_ERROR",
-              uploadId,
-              errorMessage: message,
-            });
-            abortControllersRef.current.delete(uploadId);
-          },
-        }
-      );
-
-      abortControllersRef.current.set(uploadId, abortController);
-    },
-    []
-  );
 
   const initiateSSESocialConnection = useCallback(
     createSocialInitiator(dispatch, abortControllersRef.current),
@@ -217,11 +160,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const uploadId = generateUploadId();
 
-      uploadParamsRef.current.set(uploadId, {
-        description,
-        privacyStatus,
-        thumbnailId,
-      });
+      const params = { description, privacyStatus, thumbnailId };
+      paramsMapRef.current.set(uploadId, { type: "youtube", params });
 
       dispatch({
         type: "START_UPLOAD",
@@ -232,19 +172,31 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!dependsOn) {
-        initiateSSEConnection(
+        const config = uploadTypeRegistry["youtube"]!;
+        const entry: uploadReducer.YouTubeUploadEntry = {
           uploadId,
           videoId,
           title,
-          description,
-          privacyStatus,
-          thumbnailId
+          progress: 0,
+          status: "uploading",
+          uploadType: "youtube",
+          youtubeVideoId: null,
+          errorMessage: null,
+          retryCount: 0,
+          dependsOn: null,
+        };
+        config.initiate(
+          uploadId,
+          entry,
+          params,
+          dispatch,
+          abortControllersRef.current
         );
       }
 
       return uploadId;
     },
-    [initiateSSEConnection]
+    []
   );
 
   const startSocialUpload = useCallback(
@@ -498,7 +450,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       abortController.abort();
       abortControllersRef.current.delete(uploadId);
     }
-    uploadParamsRef.current.delete(uploadId);
+    paramsMapRef.current.delete(uploadId);
     socialParamsRef.current.delete(uploadId);
     aiHeroParamsRef.current.delete(uploadId);
     skillsChangelogParamsRef.current.delete(uploadId);
@@ -530,10 +482,11 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
         const retryConfig = uploadTypeRegistry[upload.uploadType];
         if (retryConfig) {
+          const storedParams = paramsMapRef.current.get(uploadId);
           retryConfig.initiate(
             uploadId,
             upload,
-            undefined,
+            storedParams?.params,
             dispatch,
             abortControllersRef.current
           );
@@ -544,18 +497,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               uploadId,
               upload.videoId,
               params.caption
-            );
-          }
-        } else if (upload.uploadType === "youtube") {
-          const params = uploadParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSEConnection(
-              uploadId,
-              upload.videoId,
-              upload.title,
-              params.description,
-              params.privacyStatus,
-              params.thumbnailId
             );
           }
         } else if (upload.uploadType === "ai-hero") {
@@ -607,25 +548,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (prevUpload.status === "waiting" && upload.status === "uploading") {
         const depConfig = uploadTypeRegistry[upload.uploadType];
         if (depConfig) {
+          const storedParams = paramsMapRef.current.get(uploadId);
           depConfig.initiate(
             uploadId,
             upload,
-            undefined,
+            storedParams?.params,
             dispatch,
             abortControllersRef.current
           );
-        } else if (upload.uploadType === "youtube") {
-          const params = uploadParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSEConnection(
-              uploadId,
-              upload.videoId,
-              upload.title,
-              params.description,
-              params.privacyStatus,
-              params.thumbnailId
-            );
-          }
         } else if (upload.uploadType === "ai-hero") {
           const params = aiHeroParamsRef.current.get(uploadId);
           if (params) {
@@ -669,7 +599,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     previousUploadsRef.current = current;
   }, [
     state.uploads,
-    initiateSSEConnection,
     initiateSSESocialConnection,
     initiateSSEAiHeroConnection,
     initiateSSESkillsChangelogConnection,
