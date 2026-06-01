@@ -4,41 +4,8 @@ import { startSSESkillsChangelogPost } from "./sse-skills-changelog-client";
 import { startSSEExport } from "./sse-export-client";
 import { startSSEDropboxPublish } from "./sse-dropbox-publish-client";
 import { startSSEPublish } from "./sse-publish-client";
-import { startSSESocialPost } from "./sse-social-client";
 
 type AnyDispatch = Dispatch<any>;
-
-export function createSocialInitiator(
-  dispatch: AnyDispatch,
-  abortControllers: Map<string, AbortController>
-) {
-  return (uploadId: string, videoId: string, caption: string) => {
-    const existing = abortControllers.get(uploadId);
-    if (existing) existing.abort();
-
-    const abortController = startSSESocialPost(
-      { videoId, caption },
-      {
-        onProgress: (percentage) => {
-          dispatch({ type: "UPDATE_PROGRESS", uploadId, progress: percentage });
-        },
-        onStageChange: (stage) => {
-          dispatch({ type: "UPDATE_BUFFER_STAGE", uploadId, stage });
-        },
-        onComplete: () => {
-          dispatch({ type: "UPLOAD_SUCCESS", uploadId });
-          abortControllers.delete(uploadId);
-        },
-        onError: (message) => {
-          dispatch({ type: "UPLOAD_ERROR", uploadId, errorMessage: message });
-          abortControllers.delete(uploadId);
-        },
-      }
-    );
-
-    abortControllers.set(uploadId, abortController);
-  };
-}
 
 export function createExportInitiator(
   dispatch: AnyDispatch,

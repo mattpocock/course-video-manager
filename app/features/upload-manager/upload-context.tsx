@@ -14,7 +14,6 @@ import {
   createExportInitiator,
   createPublishInitiator,
   createSkillsChangelogInitiator,
-  createSocialInitiator,
 } from "./upload-context-initiators";
 import { uploadTypeRegistry } from "./upload-type-registry";
 
@@ -83,9 +82,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     Map<string, { type: uploadReducer.UploadType; params: unknown }>
   >(new Map());
 
-  // Stores caption for Buffer retries
-  const socialParamsRef = useRef<Map<string, { caption: string }>>(new Map());
-
   // Stores body + description + slug for AI Hero retries
   const aiHeroParamsRef = useRef<
     Map<string, { body: string; description: string; slug: string }>
@@ -108,11 +104,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   // Maps videoId → uploadId for batch exports
   const batchVideoIdToUploadIdRef = useRef<Map<string, string>>(new Map());
-
-  const initiateSSESocialConnection = useCallback(
-    createSocialInitiator(dispatch, abortControllersRef.current),
-    []
-  );
 
   const initiateSSEAiHeroConnection = useCallback(
     createAiHeroInitiator(dispatch, abortControllersRef.current),
@@ -203,7 +194,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     (videoId: string, title: string, caption: string) => {
       const uploadId = generateUploadId();
 
-      socialParamsRef.current.set(uploadId, { caption });
+      const params = { caption };
+      paramsMapRef.current.set(uploadId, { type: "buffer", params });
 
       dispatch({
         type: "START_UPLOAD",
@@ -213,11 +205,30 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         uploadType: "buffer",
       });
 
-      initiateSSESocialConnection(uploadId, videoId, caption);
+      const config = uploadTypeRegistry["buffer"]!;
+      const entry: uploadReducer.BufferUploadEntry = {
+        uploadId,
+        videoId,
+        title,
+        progress: 0,
+        status: "uploading",
+        uploadType: "buffer",
+        bufferStage: "copying",
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+      config.initiate(
+        uploadId,
+        entry,
+        params,
+        dispatch,
+        abortControllersRef.current
+      );
 
       return uploadId;
     },
-    [initiateSSESocialConnection]
+    []
   );
 
   const startAiHeroUpload = useCallback(
@@ -451,7 +462,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       abortControllersRef.current.delete(uploadId);
     }
     paramsMapRef.current.delete(uploadId);
-    socialParamsRef.current.delete(uploadId);
     aiHeroParamsRef.current.delete(uploadId);
     skillsChangelogParamsRef.current.delete(uploadId);
     dropboxPublishParamsRef.current.delete(uploadId);
@@ -490,15 +500,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             dispatch,
             abortControllersRef.current
           );
-        } else if (upload.uploadType === "buffer") {
-          const params = socialParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSESocialConnection(
-              uploadId,
-              upload.videoId,
-              params.caption
-            );
-          }
         } else if (upload.uploadType === "ai-hero") {
           const params = aiHeroParamsRef.current.get(uploadId);
           if (params) {
@@ -583,15 +584,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               params.newsletterCopy
             );
           }
-        } else if (upload.uploadType === "buffer") {
-          const params = socialParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSESocialConnection(
-              uploadId,
-              upload.videoId,
-              params.caption
-            );
-          }
         }
       }
     }
@@ -599,7 +591,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     previousUploadsRef.current = current;
   }, [
     state.uploads,
-    initiateSSESocialConnection,
     initiateSSEAiHeroConnection,
     initiateSSESkillsChangelogConnection,
     initiateSSEDropboxPublishConnection,

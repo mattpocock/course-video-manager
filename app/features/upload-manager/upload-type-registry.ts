@@ -1,5 +1,6 @@
 import type { uploadReducer } from "./upload-reducer";
 import { startSSEExport } from "./sse-export-client";
+import { startSSESocialPost } from "./sse-social-client";
 import { startSSEUpload } from "./sse-upload-client";
 
 type StartUploadAction = Extract<
@@ -171,9 +172,73 @@ const youtubeConfig: UploadTypeConfig<
   supportsDependsOn: true,
 };
 
+export interface BufferParams {
+  caption: string;
+}
+
+const bufferConfig: UploadTypeConfig<
+  BufferParams,
+  uploadReducer.BufferUploadEntry
+> = {
+  createEntry: (base) => ({
+    ...base,
+    uploadType: "buffer" as const,
+    bufferStage: "copying" as const,
+  }),
+
+  resetEntry: (base) => ({
+    ...base,
+    uploadType: "buffer" as const,
+    bufferStage: "copying" as const,
+  }),
+
+  applySuccess: (entry) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    bufferStage: null,
+  }),
+
+  initiate: (uploadId, entry, params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSESocialPost(
+        { videoId: entry.videoId, caption: params.caption },
+        {
+          onProgress: (percentage) => {
+            dispatch({
+              type: "UPDATE_PROGRESS",
+              uploadId,
+              progress: percentage,
+            });
+          },
+          onStageChange: (stage) => {
+            dispatch({ type: "UPDATE_BUFFER_STAGE", uploadId, stage });
+          },
+          onComplete: () => {
+            dispatch({ type: "UPLOAD_SUCCESS", uploadId });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: false,
+};
+
 export const uploadTypeRegistry: Partial<
   Record<uploadReducer.UploadType, UploadTypeConfig<any, any>>
 > = {
   export: exportConfig,
   youtube: youtubeConfig,
+  buffer: bufferConfig,
 };

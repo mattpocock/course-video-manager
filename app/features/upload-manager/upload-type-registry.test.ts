@@ -4,6 +4,7 @@ import { uploadTypeRegistry } from "./upload-type-registry";
 
 const exportConfig = uploadTypeRegistry["export"]!;
 const youtubeConfig = uploadTypeRegistry["youtube"]!;
+const bufferConfig = uploadTypeRegistry["buffer"]!;
 
 const makeBase = (
   overrides: Partial<uploadReducer.BaseUploadEntry> = {}
@@ -417,6 +418,181 @@ describe("youtube registry entry", () => {
           privacyStatus: "public" as const,
           thumbnailId: "thumb-1",
         },
+        dispatch,
+        abortControllers
+      );
+
+      expect(abortSpy).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("buffer registry entry", () => {
+  it("should be registered in the registry", () => {
+    expect(bufferConfig).toBeDefined();
+  });
+
+  describe("createEntry", () => {
+    it("should create a buffer entry with bufferStage copying", () => {
+      const base = makeBase();
+
+      const entry = bufferConfig.createEntry(base, {
+        type: "START_UPLOAD",
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Social Post",
+      });
+
+      expect(entry).toEqual({
+        ...base,
+        uploadType: "buffer",
+        bufferStage: "copying",
+      });
+    });
+
+    it("should preserve waiting status from base when dependsOn is set", () => {
+      const base = makeBase({ status: "waiting", dependsOn: "upload-0" });
+
+      const entry = bufferConfig.createEntry(base, {
+        type: "START_UPLOAD",
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Social Post",
+      });
+
+      expect(entry.status).toBe("waiting");
+      expect(entry.dependsOn).toBe("upload-0");
+    });
+  });
+
+  describe("resetEntry", () => {
+    it("should reset bufferStage to copying", () => {
+      const base = makeBase({
+        errorMessage: "some error",
+        retryCount: 1,
+      });
+
+      const prevEntry: uploadReducer.BufferUploadEntry = {
+        ...base,
+        uploadType: "buffer",
+        bufferStage: "sending-webhook",
+      };
+
+      const entry = bufferConfig.resetEntry(base, prevEntry);
+
+      expect(entry).toEqual({
+        ...base,
+        uploadType: "buffer",
+        bufferStage: "copying",
+      });
+    });
+  });
+
+  describe("applySuccess", () => {
+    it("should set status to success and clear bufferStage", () => {
+      const entry: uploadReducer.BufferUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Social Post",
+        progress: 80,
+        status: "uploading",
+        uploadType: "buffer",
+        bufferStage: "sending-webhook",
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+
+      const result = bufferConfig.applySuccess(entry, {
+        type: "UPLOAD_SUCCESS",
+        uploadId: "upload-1",
+      });
+
+      expect(result).toEqual({
+        ...entry,
+        status: "success",
+        progress: 100,
+        errorMessage: null,
+        bufferStage: null,
+      });
+    });
+
+    it("should clear previous error message on success", () => {
+      const entry: uploadReducer.BufferUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Social Post",
+        progress: 50,
+        status: "uploading",
+        uploadType: "buffer",
+        bufferStage: "syncing",
+        errorMessage: "previous error",
+        retryCount: 1,
+        dependsOn: null,
+      };
+
+      const result = bufferConfig.applySuccess(entry, {
+        type: "UPLOAD_SUCCESS",
+        uploadId: "upload-1",
+      });
+
+      expect(result.errorMessage).toBeNull();
+    });
+  });
+
+  describe("initiate", () => {
+    it("should store abort controller in the map", () => {
+      const dispatch = vi.fn();
+      const abortControllers = new Map<string, AbortController>();
+
+      const entry: uploadReducer.BufferUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Social Post",
+        progress: 0,
+        status: "uploading",
+        uploadType: "buffer",
+        bufferStage: "copying",
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+
+      bufferConfig.initiate(
+        "upload-1",
+        entry,
+        { caption: "Hello world" },
+        dispatch,
+        abortControllers
+      );
+
+      expect(abortControllers.has("upload-1")).toBe(true);
+    });
+
+    it("should abort existing controller before starting new one", () => {
+      const dispatch = vi.fn();
+      const abortControllers = new Map<string, AbortController>();
+      const existingController = new AbortController();
+      const abortSpy = vi.spyOn(existingController, "abort");
+      abortControllers.set("upload-1", existingController);
+
+      const entry: uploadReducer.BufferUploadEntry = {
+        uploadId: "upload-1",
+        videoId: "video-1",
+        title: "Test Social Post",
+        progress: 0,
+        status: "uploading",
+        uploadType: "buffer",
+        bufferStage: "copying",
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      };
+
+      bufferConfig.initiate(
+        "upload-1",
+        entry,
+        { caption: "Hello world" },
         dispatch,
         abortControllers
       );

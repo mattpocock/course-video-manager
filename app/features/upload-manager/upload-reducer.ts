@@ -174,9 +174,6 @@ export const uploadReducer = (
 
       let entry: uploadReducer.UploadEntry;
       switch (uploadType) {
-        case "buffer":
-          entry = { ...base, uploadType: "buffer", bufferStage: "copying" };
-          break;
         case "ai-hero":
           entry = { ...base, uploadType: "ai-hero", aiHeroSlug: null };
           break;
@@ -344,9 +341,6 @@ export const uploadReducer = (
         };
 
         switch (upload.uploadType) {
-          case "buffer":
-            entry = { ...base, uploadType: "buffer", bufferStage: null };
-            break;
           case "ai-hero":
             entry = {
               ...base,
@@ -471,9 +465,6 @@ export const uploadReducer = (
 
       let entry: uploadReducer.UploadEntry;
       switch (upload.uploadType) {
-        case "buffer":
-          entry = { ...base, uploadType: "buffer", bufferStage: "copying" };
-          break;
         case "ai-hero":
           entry = { ...base, uploadType: "ai-hero", aiHeroSlug: null };
           break;
