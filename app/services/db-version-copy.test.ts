@@ -153,6 +153,66 @@ describe("copyVersionStructure", () => {
     expect(newSections[0]!.path).toBe("01-active");
   });
 
+  it("skips archived lessons when copying a version", async () => {
+    const [course] = await testDb
+      .insert(schema.courses)
+      .values({
+        name: "Archived Lesson Copy Test",
+        filePath: "/tmp/archived-lesson-copy",
+      })
+      .returning();
+
+    const [version] = await testDb
+      .insert(schema.courseVersions)
+      .values({ repoId: course!.id, name: "v1" })
+      .returning();
+
+    const [section] = await testDb
+      .insert(schema.sections)
+      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .returning();
+
+    await testDb.insert(schema.lessons).values([
+      {
+        sectionId: section!.id,
+        path: "01.01-active",
+        order: 1,
+        fsStatus: "real",
+        title: "Active Lesson",
+        authoringStatus: "done",
+      },
+      {
+        sectionId: section!.id,
+        path: "01.02-archived",
+        order: 2,
+        fsStatus: "real",
+        title: "Archived Lesson",
+        authoringStatus: "done",
+        archived: true,
+      },
+    ]);
+
+    const result = await run(
+      Effect.gen(function* () {
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
+          sourceVersionId: version!.id,
+          repoId: course!.id,
+          newVersionName: "v2",
+        });
+      })
+    );
+
+    const newSections = await testDb.query.sections.findMany({
+      where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
+      with: { lessons: true },
+    });
+
+    expect(newSections).toHaveLength(1);
+    expect(newSections[0]!.lessons).toHaveLength(1);
+    expect(newSections[0]!.lessons[0]!.title).toBe("Active Lesson");
+  });
+
   it("preserves lesson authoringStatus when copying a version", async () => {
     const [course] = await testDb
       .insert(schema.courses)

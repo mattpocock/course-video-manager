@@ -133,7 +133,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             lessonDirName: lesson.path,
           });
 
-          // Delete DB entry before renumbering so it's excluded
+          // Archive before renumbering so it's excluded from the sibling list
           yield* lessonSectionOps.deleteLesson(lessonId);
 
           // Renumber remaining real lessons to close the gap
