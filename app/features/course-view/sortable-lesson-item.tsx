@@ -45,6 +45,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { useLessonDependencyDrag } from "./use-lesson-dependency-drag";
 import { use, useCallback, useRef, useState } from "react";
 import { useNavigate, useFetcher } from "react-router";
 
@@ -188,6 +189,10 @@ export function SortableLessonItem({
     })
     .filter(Boolean) as { number: string; priority: number }[];
 
+  const { dragClassName, dragTargetHandlers } = useLessonDependencyDrag(
+    lesson.id
+  );
+
   const handleDependenciesChange = useCallback(
     (newDeps: string[]) => {
       submitEvent({
@@ -214,14 +219,15 @@ export function SortableLessonItem({
   );
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} {...dragTargetHandlers}>
       {!hideAnchor && <a id={lesson.id} />}
       {lessonIndex > 0 && <Separator className="my-1" />}
       <div
         className={cn(
-          "rounded-md px-2 py-2 group",
+          "rounded-md px-2 py-2 group transition-shadow",
           showGhostStyle &&
-            "border border-dashed border-muted-foreground/30 bg-muted/20"
+            "border border-dashed border-muted-foreground/30 bg-muted/20",
+          dragClassName
         )}
       >
         <ContextMenu>

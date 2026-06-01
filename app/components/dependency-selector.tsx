@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -7,6 +7,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { AlertTriangle, Link2 } from "lucide-react";
+import { wouldCreateCycle } from "@/features/course-view/dependency-drag";
+import { useDependencyDragOptional } from "@/features/course-view/dependency-drag-context";
 
 export interface DependencyLessonItem {
   id: string;
@@ -37,25 +39,6 @@ interface DependencySelectorProps {
   dependencyMap: Record<string, string[]>;
 }
 
-function wouldCreateCycle(
-  fromId: string,
-  toId: string,
-  depMap: Record<string, string[]>
-): boolean {
-  const visited = new Set<string>();
-  const stack = [toId];
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    if (current === fromId) return true;
-    if (visited.has(current)) continue;
-    visited.add(current);
-    for (const dep of depMap[current] ?? []) {
-      stack.push(dep);
-    }
-  }
-  return false;
-}
-
 export function DependencySelector({
   lessonId,
   dependencies,
@@ -69,6 +52,9 @@ export function DependencySelector({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dragContext = useDependencyDragOptional();
+  const wasDraggingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -76,6 +62,48 @@ export function DependencySelector({
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [open]);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragContext) return;
+      wasDraggingRef.current = false;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const element = buttonRef.current;
+      if (!element) return;
+
+      const onMove = (me: PointerEvent) => {
+        const dx = me.clientX - startX;
+        const dy = me.clientY - startY;
+        if (dx * dx + dy * dy > 25) {
+          wasDraggingRef.current = true;
+          dragContext.startDrag(lessonId, dependencies, element);
+          cleanup();
+        }
+      };
+
+      const onUp = () => {
+        cleanup();
+      };
+
+      const cleanup = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    },
+    [dragContext, lessonId, dependencies]
+  );
+
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    if (wasDraggingRef.current) {
+      wasDraggingRef.current = false;
+      return;
+    }
+    setOpen(newOpen);
+  }, []);
 
   const hasOrderViolation = orderViolations.length > 0;
   const hasPriorityViolation = priorityViolations.length > 0;
@@ -128,15 +156,17 @@ export function DependencySelector({
           : undefined;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
+          ref={buttonRef}
           className={`text-xs flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted ${
             hasAnyViolation
               ? "bg-amber-500/20 text-amber-600"
               : "text-muted-foreground hover:text-foreground"
-          }`}
+          } ${dragContext ? "cursor-grab active:cursor-grabbing" : ""}`}
           title={title}
+          onPointerDown={handlePointerDown}
         >
           <Link2 className="w-3 h-3" />
           {hasDependencies && (
