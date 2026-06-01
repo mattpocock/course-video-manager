@@ -174,16 +174,6 @@ export const uploadReducer = (
 
       let entry: uploadReducer.UploadEntry;
       switch (uploadType) {
-        case "ai-hero":
-          entry = { ...base, uploadType: "ai-hero", aiHeroSlug: null };
-          break;
-        case "skills-changelog":
-          entry = {
-            ...base,
-            uploadType: "skills-changelog",
-            skillsChangelogSlug: null,
-          };
-          break;
         case "dropbox-publish":
           entry = {
             ...base,
@@ -341,20 +331,6 @@ export const uploadReducer = (
         };
 
         switch (upload.uploadType) {
-          case "ai-hero":
-            entry = {
-              ...base,
-              uploadType: "ai-hero",
-              aiHeroSlug: action.aiHeroSlug ?? null,
-            };
-            break;
-          case "skills-changelog":
-            entry = {
-              ...base,
-              uploadType: "skills-changelog",
-              skillsChangelogSlug: action.skillsChangelogSlug ?? null,
-            };
-            break;
           case "dropbox-publish":
             entry = {
               ...base,
@@ -465,16 +441,6 @@ export const uploadReducer = (
 
       let entry: uploadReducer.UploadEntry;
       switch (upload.uploadType) {
-        case "ai-hero":
-          entry = { ...base, uploadType: "ai-hero", aiHeroSlug: null };
-          break;
-        case "skills-changelog":
-          entry = {
-            ...base,
-            uploadType: "skills-changelog",
-            skillsChangelogSlug: null,
-          };
-          break;
         case "dropbox-publish":
           entry = {
             ...base,

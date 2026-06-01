@@ -1,5 +1,7 @@
 import type { uploadReducer } from "./upload-reducer";
+import { startSSEAiHeroPost } from "./sse-ai-hero-client";
 import { startSSEExport } from "./sse-export-client";
+import { startSSESkillsChangelogPost } from "./sse-skills-changelog-client";
 import { startSSESocialPost } from "./sse-social-client";
 import { startSSEUpload } from "./sse-upload-client";
 
@@ -235,10 +237,158 @@ const bufferConfig: UploadTypeConfig<
   supportsDependsOn: false,
 };
 
+export interface AiHeroParams {
+  body: string;
+  description: string;
+  slug: string;
+}
+
+const aiHeroConfig: UploadTypeConfig<
+  AiHeroParams,
+  uploadReducer.AiHeroUploadEntry
+> = {
+  createEntry: (base) => ({
+    ...base,
+    uploadType: "ai-hero" as const,
+    aiHeroSlug: null,
+  }),
+
+  resetEntry: (base) => ({
+    ...base,
+    uploadType: "ai-hero" as const,
+    aiHeroSlug: null,
+  }),
+
+  applySuccess: (entry, action) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    aiHeroSlug: action.aiHeroSlug ?? null,
+  }),
+
+  initiate: (uploadId, entry, params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSEAiHeroPost(
+        {
+          videoId: entry.videoId,
+          title: entry.title,
+          body: params.body,
+          description: params.description,
+          slug: params.slug,
+        },
+        {
+          onProgress: (percentage) => {
+            dispatch({
+              type: "UPDATE_PROGRESS",
+              uploadId,
+              progress: percentage,
+            });
+          },
+          onComplete: (aiHeroSlug) => {
+            dispatch({ type: "UPLOAD_SUCCESS", uploadId, aiHeroSlug });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: true,
+};
+
+export interface SkillsChangelogParams {
+  slug: string;
+  body: string;
+  description: string;
+  newsletterSubject: string;
+  newsletterPreviewText: string;
+  newsletterCopy: string;
+}
+
+const skillsChangelogConfig: UploadTypeConfig<
+  SkillsChangelogParams,
+  uploadReducer.SkillsChangelogUploadEntry
+> = {
+  createEntry: (base) => ({
+    ...base,
+    uploadType: "skills-changelog" as const,
+    skillsChangelogSlug: null,
+  }),
+
+  resetEntry: (base) => ({
+    ...base,
+    uploadType: "skills-changelog" as const,
+    skillsChangelogSlug: null,
+  }),
+
+  applySuccess: (entry, action) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    skillsChangelogSlug: action.skillsChangelogSlug ?? null,
+  }),
+
+  initiate: (uploadId, entry, params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSESkillsChangelogPost(
+        {
+          videoId: entry.videoId,
+          title: entry.title,
+          slug: params.slug,
+          body: params.body,
+          description: params.description,
+          newsletterSubject: params.newsletterSubject,
+          newsletterPreviewText: params.newsletterPreviewText,
+          newsletterCopy: params.newsletterCopy,
+        },
+        {
+          onProgress: (percentage) => {
+            dispatch({
+              type: "UPDATE_PROGRESS",
+              uploadId,
+              progress: percentage,
+            });
+          },
+          onComplete: (skillsChangelogSlug) => {
+            dispatch({
+              type: "UPLOAD_SUCCESS",
+              uploadId,
+              skillsChangelogSlug,
+            });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: true,
+};
+
 export const uploadTypeRegistry: Partial<
   Record<uploadReducer.UploadType, UploadTypeConfig<any, any>>
 > = {
   export: exportConfig,
   youtube: youtubeConfig,
   buffer: bufferConfig,
+  "ai-hero": aiHeroConfig,
+  "skills-changelog": skillsChangelogConfig,
 };

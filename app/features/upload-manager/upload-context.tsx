@@ -9,11 +9,9 @@ import { uploadReducer, createInitialUploadState } from "./upload-reducer";
 import { showSuccessToast, showErrorToast } from "./upload-toasts";
 import { startSSEBatchExport } from "./sse-batch-export-client";
 import {
-  createAiHeroInitiator,
   createDropboxPublishInitiator,
   createExportInitiator,
   createPublishInitiator,
-  createSkillsChangelogInitiator,
 } from "./upload-context-initiators";
 import { uploadTypeRegistry } from "./upload-type-registry";
 
@@ -82,38 +80,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     Map<string, { type: uploadReducer.UploadType; params: unknown }>
   >(new Map());
 
-  // Stores body + description + slug for AI Hero retries
-  const aiHeroParamsRef = useRef<
-    Map<string, { body: string; description: string; slug: string }>
-  >(new Map());
-
-  // Stores all skills-changelog fields for retries
-  const skillsChangelogParamsRef = useRef<
-    Map<
-      string,
-      {
-        slug: string;
-        body: string;
-        description: string;
-        newsletterSubject: string;
-        newsletterPreviewText: string;
-        newsletterCopy: string;
-      }
-    >
-  >(new Map());
-
   // Maps videoId → uploadId for batch exports
   const batchVideoIdToUploadIdRef = useRef<Map<string, string>>(new Map());
-
-  const initiateSSEAiHeroConnection = useCallback(
-    createAiHeroInitiator(dispatch, abortControllersRef.current),
-    []
-  );
-
-  const initiateSSESkillsChangelogConnection = useCallback(
-    createSkillsChangelogInitiator(dispatch, abortControllersRef.current),
-    []
-  );
 
   const initiateSSEExportConnection = useCallback(
     createExportInitiator(dispatch, abortControllersRef.current),
@@ -242,7 +210,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const uploadId = generateUploadId();
 
-      aiHeroParamsRef.current.set(uploadId, { body, description, slug });
+      const params = { body, description, slug };
+      paramsMapRef.current.set(uploadId, { type: "ai-hero", params });
 
       dispatch({
         type: "START_UPLOAD",
@@ -254,19 +223,31 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!dependsOn) {
-        initiateSSEAiHeroConnection(
+        const config = uploadTypeRegistry["ai-hero"]!;
+        const entry: uploadReducer.AiHeroUploadEntry = {
           uploadId,
           videoId,
           title,
-          body,
-          description,
-          slug
+          progress: 0,
+          status: "uploading",
+          uploadType: "ai-hero",
+          aiHeroSlug: null,
+          errorMessage: null,
+          retryCount: 0,
+          dependsOn: null,
+        };
+        config.initiate(
+          uploadId,
+          entry,
+          params,
+          dispatch,
+          abortControllersRef.current
         );
       }
 
       return uploadId;
     },
-    [initiateSSEAiHeroConnection]
+    []
   );
 
   const startSkillsChangelogUpload = useCallback(
@@ -283,13 +264,17 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     ) => {
       const uploadId = generateUploadId();
 
-      skillsChangelogParamsRef.current.set(uploadId, {
+      const params = {
         slug,
         body,
         description,
         newsletterSubject,
         newsletterPreviewText,
         newsletterCopy,
+      };
+      paramsMapRef.current.set(uploadId, {
+        type: "skills-changelog",
+        params,
       });
 
       dispatch({
@@ -302,22 +287,31 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!dependsOn) {
-        initiateSSESkillsChangelogConnection(
+        const config = uploadTypeRegistry["skills-changelog"]!;
+        const entry: uploadReducer.SkillsChangelogUploadEntry = {
           uploadId,
           videoId,
           title,
-          slug,
-          body,
-          description,
-          newsletterSubject,
-          newsletterPreviewText,
-          newsletterCopy
+          progress: 0,
+          status: "uploading",
+          uploadType: "skills-changelog",
+          skillsChangelogSlug: null,
+          errorMessage: null,
+          retryCount: 0,
+          dependsOn: null,
+        };
+        config.initiate(
+          uploadId,
+          entry,
+          params,
+          dispatch,
+          abortControllersRef.current
         );
       }
 
       return uploadId;
     },
-    [initiateSSESkillsChangelogConnection]
+    []
   );
 
   const startExportUpload = useCallback(
@@ -462,8 +456,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       abortControllersRef.current.delete(uploadId);
     }
     paramsMapRef.current.delete(uploadId);
-    aiHeroParamsRef.current.delete(uploadId);
-    skillsChangelogParamsRef.current.delete(uploadId);
     dropboxPublishParamsRef.current.delete(uploadId);
     publishParamsRef.current.delete(uploadId);
     dispatch({ type: "DISMISS", uploadId });
@@ -500,33 +492,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             dispatch,
             abortControllersRef.current
           );
-        } else if (upload.uploadType === "ai-hero") {
-          const params = aiHeroParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSEAiHeroConnection(
-              uploadId,
-              upload.videoId,
-              upload.title,
-              params.body,
-              params.description,
-              params.slug
-            );
-          }
-        } else if (upload.uploadType === "skills-changelog") {
-          const params = skillsChangelogParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSESkillsChangelogConnection(
-              uploadId,
-              upload.videoId,
-              upload.title,
-              params.slug,
-              params.body,
-              params.description,
-              params.newsletterSubject,
-              params.newsletterPreviewText,
-              params.newsletterCopy
-            );
-          }
         } else if (upload.uploadType === "dropbox-publish") {
           const params = dropboxPublishParamsRef.current.get(uploadId);
           if (params) {
@@ -557,33 +522,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             dispatch,
             abortControllersRef.current
           );
-        } else if (upload.uploadType === "ai-hero") {
-          const params = aiHeroParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSEAiHeroConnection(
-              uploadId,
-              upload.videoId,
-              upload.title,
-              params.body,
-              params.description,
-              params.slug
-            );
-          }
-        } else if (upload.uploadType === "skills-changelog") {
-          const params = skillsChangelogParamsRef.current.get(uploadId);
-          if (params) {
-            initiateSSESkillsChangelogConnection(
-              uploadId,
-              upload.videoId,
-              upload.title,
-              params.slug,
-              params.body,
-              params.description,
-              params.newsletterSubject,
-              params.newsletterPreviewText,
-              params.newsletterCopy
-            );
-          }
         }
       }
     }
@@ -591,8 +529,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     previousUploadsRef.current = current;
   }, [
     state.uploads,
-    initiateSSEAiHeroConnection,
-    initiateSSESkillsChangelogConnection,
     initiateSSEDropboxPublishConnection,
     initiateSSEPublishConnection,
   ]);
