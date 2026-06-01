@@ -27,57 +27,163 @@ const createYouTubeEntry = (
   ...overrides,
 });
 
-const createBufferEntry = (
-  overrides: Partial<Omit<uploadReducer.BufferUploadEntry, "uploadType">> = {}
-): uploadReducer.BufferUploadEntry => ({
-  uploadId: "upload-1",
-  videoId: "video-1",
-  title: "Test Video",
-  progress: 0,
-  status: "uploading",
-  uploadType: "buffer",
-  bufferStage: "copying",
-  errorMessage: null,
-  retryCount: 0,
-  dependsOn: null,
-  ...overrides,
+describe("START_UPLOAD", () => {
+  it("should create entry via registry with uploading status", () => {
+    const state = reduce(createState(), {
+      type: "START_UPLOAD",
+      uploadId: "upload-1",
+      videoId: "video-1",
+      title: "My Video",
+    });
+
+    const upload = state.uploads["upload-1"]!;
+    expect(upload.status).toBe("uploading");
+    expect(upload.progress).toBe(0);
+    expect(upload.errorMessage).toBeNull();
+    expect(upload.retryCount).toBe(0);
+    expect(upload.dependsOn).toBeNull();
+  });
+
+  it("should default uploadType to youtube", () => {
+    const state = reduce(createState(), {
+      type: "START_UPLOAD",
+      uploadId: "upload-1",
+      videoId: "video-1",
+      title: "My Video",
+    });
+
+    expect(state.uploads["upload-1"]!.uploadType).toBe("youtube");
+  });
+
+  it("should not affect existing uploads", () => {
+    const existing = createYouTubeEntry({
+      uploadId: "upload-1",
+      progress: 50,
+    });
+    const state = reduce(createState({ uploads: { "upload-1": existing } }), {
+      type: "START_UPLOAD",
+      uploadId: "upload-2",
+      videoId: "video-2",
+      title: "Second Video",
+    });
+
+    expect(state.uploads["upload-1"]).toEqual(existing);
+    expect(state.uploads["upload-2"]).toBeDefined();
+  });
+
+  it("should overwrite if same uploadId is started again", () => {
+    const existing = createYouTubeEntry({
+      uploadId: "upload-1",
+      progress: 50,
+      status: "error",
+      retryCount: 3,
+    });
+    const state = reduce(createState({ uploads: { "upload-1": existing } }), {
+      type: "START_UPLOAD",
+      uploadId: "upload-1",
+      videoId: "video-1",
+      title: "Restarted Video",
+    });
+
+    expect(state.uploads["upload-1"]!.progress).toBe(0);
+    expect(state.uploads["upload-1"]!.status).toBe("uploading");
+    expect(state.uploads["upload-1"]!.retryCount).toBe(0);
+  });
+
+  it("should set waiting status when dependsOn is provided", () => {
+    let state = createState();
+    state = reduce(state, {
+      type: "START_UPLOAD",
+      uploadId: "export-1",
+      videoId: "video-1",
+      title: "Export",
+      uploadType: "export",
+    });
+    state = reduce(state, {
+      type: "START_UPLOAD",
+      uploadId: "yt-1",
+      videoId: "video-1",
+      title: "Upload",
+      dependsOn: "export-1",
+    });
+
+    expect(state.uploads["yt-1"]!.status).toBe("waiting");
+    expect(state.uploads["yt-1"]!.dependsOn).toBe("export-1");
+  });
+
+  it("should create type-specific entries via registry for each upload type", () => {
+    const types: uploadReducer.UploadType[] = [
+      "youtube",
+      "buffer",
+      "ai-hero",
+      "skills-changelog",
+      "export",
+      "dropbox-publish",
+      "publish",
+    ];
+
+    for (const uploadType of types) {
+      const state = reduce(createState(), {
+        type: "START_UPLOAD",
+        uploadId: `upload-${uploadType}`,
+        videoId: "video-1",
+        title: "Test",
+        uploadType,
+      });
+
+      expect(state.uploads[`upload-${uploadType}`]!.uploadType).toBe(
+        uploadType
+      );
+    }
+  });
 });
 
-const createAiHeroEntry = (
-  overrides: Partial<Omit<uploadReducer.AiHeroUploadEntry, "uploadType">> = {}
-): uploadReducer.AiHeroUploadEntry => ({
-  uploadId: "upload-1",
-  videoId: "video-1",
-  title: "Test Video",
-  progress: 0,
-  status: "uploading",
-  uploadType: "ai-hero",
-  aiHeroSlug: null,
-  errorMessage: null,
-  retryCount: 0,
-  dependsOn: null,
-  ...overrides,
-});
+describe("UPDATE_PROGRESS", () => {
+  it("should update progress for existing upload", () => {
+    const state = reduce(
+      createState({
+        uploads: { "upload-1": createYouTubeEntry() },
+      }),
+      { type: "UPDATE_PROGRESS", uploadId: "upload-1", progress: 42 }
+    );
 
-const createExportEntry = (
-  overrides: Partial<Omit<uploadReducer.ExportUploadEntry, "uploadType">> = {}
-): uploadReducer.ExportUploadEntry => ({
-  uploadId: "upload-1",
-  videoId: "video-1",
-  title: "Test Video",
-  progress: 0,
-  status: "uploading",
-  uploadType: "export",
-  exportStage: "queued",
-  isBatchEntry: false,
-  errorMessage: null,
-  retryCount: 0,
-  dependsOn: null,
-  ...overrides,
+    expect(state.uploads["upload-1"]!.progress).toBe(42);
+  });
+
+  it("should not modify state for non-existent upload", () => {
+    const initial = createState();
+    const state = reduce(initial, {
+      type: "UPDATE_PROGRESS",
+      uploadId: "non-existent",
+      progress: 50,
+    });
+
+    expect(state).toBe(initial);
+  });
+
+  it("should not affect other uploads", () => {
+    const upload1 = createYouTubeEntry({
+      uploadId: "upload-1",
+      progress: 10,
+    });
+    const upload2 = createYouTubeEntry({
+      uploadId: "upload-2",
+      progress: 20,
+    });
+    const state = reduce(
+      createState({
+        uploads: { "upload-1": upload1, "upload-2": upload2 },
+      }),
+      { type: "UPDATE_PROGRESS", uploadId: "upload-1", progress: 75 }
+    );
+
+    expect(state.uploads["upload-1"]!.progress).toBe(75);
+    expect(state.uploads["upload-2"]!.progress).toBe(20);
+  });
 });
 
 describe("UPLOAD_SUCCESS", () => {
-  it("should set status to success and store youtube video id", () => {
+  it("should set status to success via registry applySuccess", () => {
     const state = reduce(
       createState({
         uploads: {
@@ -94,9 +200,6 @@ describe("UPLOAD_SUCCESS", () => {
     const upload = state.uploads["upload-1"]!;
     expect(upload.status).toBe("success");
     expect(upload.progress).toBe(100);
-    expect(upload.uploadType === "youtube" && upload.youtubeVideoId).toBe(
-      "yt-abc123"
-    );
     expect(upload.errorMessage).toBeNull();
   });
 
@@ -105,7 +208,6 @@ describe("UPLOAD_SUCCESS", () => {
     const state = reduce(initial, {
       type: "UPLOAD_SUCCESS",
       uploadId: "non-existent",
-      youtubeVideoId: "yt-abc",
     });
 
     expect(state).toBe(initial);
@@ -129,92 +231,6 @@ describe("UPLOAD_SUCCESS", () => {
     );
 
     expect(state.uploads["upload-1"]!.errorMessage).toBeNull();
-  });
-
-  it("should work without youtubeVideoId for buffer uploads", () => {
-    const state = reduce(
-      createState({
-        uploads: {
-          "upload-1": createBufferEntry({
-            bufferStage: "sending-webhook",
-            progress: 100,
-          }),
-        },
-      }),
-      {
-        type: "UPLOAD_SUCCESS",
-        uploadId: "upload-1",
-      }
-    );
-
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.status).toBe("success");
-    expect(upload.progress).toBe(100);
-    expect(upload.uploadType).toBe("buffer");
-  });
-
-  it("should clear bufferStage on success", () => {
-    const state = reduce(
-      createState({
-        uploads: {
-          "upload-1": createBufferEntry({
-            bufferStage: "sending-webhook",
-          }),
-        },
-      }),
-      {
-        type: "UPLOAD_SUCCESS",
-        uploadId: "upload-1",
-      }
-    );
-
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.uploadType === "buffer" && upload.bufferStage).toBeNull();
-  });
-
-  it("should store aiHeroSlug for ai-hero uploads", () => {
-    const state = reduce(
-      createState({
-        uploads: {
-          "upload-1": createAiHeroEntry({ progress: 95 }),
-        },
-      }),
-      {
-        type: "UPLOAD_SUCCESS",
-        uploadId: "upload-1",
-        aiHeroSlug: "my-post~abc123",
-      }
-    );
-
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.status).toBe("success");
-    expect(upload.progress).toBe(100);
-    expect(upload.uploadType === "ai-hero" && upload.aiHeroSlug).toBe(
-      "my-post~abc123"
-    );
-    expect(upload.errorMessage).toBeNull();
-  });
-
-  it("should clear exportStage on success for export uploads", () => {
-    const state = reduce(
-      createState({
-        uploads: {
-          "upload-1": createExportEntry({
-            exportStage: "normalizing-audio",
-          }),
-        },
-      }),
-      {
-        type: "UPLOAD_SUCCESS",
-        uploadId: "upload-1",
-      }
-    );
-
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.status).toBe("success");
-    expect(upload.progress).toBe(100);
-    expect(upload.uploadType).toBe("export");
-    expect(upload.uploadType === "export" && upload.exportStage).toBeNull();
   });
 });
 
@@ -253,9 +269,8 @@ describe("UPLOAD_ERROR", () => {
       }
     );
 
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.status).toBe("retrying");
-    expect(upload.retryCount).toBe(2);
+    expect(state.uploads["upload-1"]!.status).toBe("retrying");
+    expect(state.uploads["upload-1"]!.retryCount).toBe(2);
   });
 
   it("should transition to error when retryCount reaches 3", () => {
@@ -291,7 +306,7 @@ describe("UPLOAD_ERROR", () => {
 });
 
 describe("RETRY", () => {
-  it("should reset status to uploading and progress to 0", () => {
+  it("should reset status to uploading and progress to 0 via registry", () => {
     const state = reduce(
       createState({
         uploads: {
@@ -321,27 +336,7 @@ describe("RETRY", () => {
     expect(state).toBe(initial);
   });
 
-  it("should reset bufferStage to copying for buffer uploads", () => {
-    const state = reduce(
-      createState({
-        uploads: {
-          "upload-1": createBufferEntry({
-            bufferStage: "syncing",
-            status: "retrying",
-            retryCount: 1,
-          }),
-        },
-      }),
-      { type: "RETRY", uploadId: "upload-1" }
-    );
-
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.uploadType === "buffer" && upload.bufferStage).toBe(
-      "copying"
-    );
-  });
-
-  it("should keep youtube type on retry", () => {
+  it("should preserve upload type through retry", () => {
     const state = reduce(
       createState({
         uploads: {
@@ -356,27 +351,6 @@ describe("RETRY", () => {
 
     expect(state.uploads["upload-1"]!.uploadType).toBe("youtube");
   });
-
-  it("should reset aiHeroSlug to null for ai-hero uploads", () => {
-    const state = reduce(
-      createState({
-        uploads: {
-          "upload-1": createAiHeroEntry({
-            status: "retrying",
-            retryCount: 1,
-            aiHeroSlug: "old-slug~123",
-          }),
-        },
-      }),
-      { type: "RETRY", uploadId: "upload-1" }
-    );
-
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.uploadType).toBe("ai-hero");
-    expect(upload.uploadType === "ai-hero" && upload.aiHeroSlug).toBeNull();
-    expect(upload.status).toBe("uploading");
-    expect(upload.progress).toBe(0);
-  });
 });
 
 describe("DISMISS", () => {
@@ -384,9 +358,7 @@ describe("DISMISS", () => {
     const state = reduce(
       createState({
         uploads: {
-          "upload-1": createYouTubeEntry({
-            status: "success",
-          }),
+          "upload-1": createYouTubeEntry({ status: "success" }),
         },
       }),
       { type: "DISMISS", uploadId: "upload-1" }
