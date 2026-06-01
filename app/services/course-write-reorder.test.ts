@@ -139,12 +139,33 @@ const setup = async () => {
       return yield* lsOps.getLessonWithHierarchyById(lessonId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
+  const createGhostSection = async (sectionPath: string, order: number) => {
+    const sections = await Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.createSections({
+        repoVersionId: version.id,
+        sections: [
+          { sectionPathWithNumber: sectionPath, sectionNumber: order },
+        ],
+      });
+    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    return sections[0]!;
+  };
+
+  const getSection = (sectionId: string) =>
+    Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      return yield* lsOps.getSectionWithHierarchyById(sectionId);
+    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
   return {
     run,
     createSection,
+    createGhostSection,
     createRealLesson,
     createGhostLesson,
     getLesson,
+    getSection,
   };
 };
 
@@ -518,6 +539,96 @@ describe("CourseWriteService", () => {
       expect(movedLesson.sectionId).toBe(section2.id);
       expect(movedLesson.fsStatus).toBe("ghost");
       expect(movedLesson.path).toBe("ghost-lesson"); // path unchanged for ghost
+    });
+
+    it("materializes ghost target section when moving a real lesson into it", async () => {
+      const {
+        run,
+        createSection,
+        createGhostSection,
+        createRealLesson,
+        getLesson,
+        getSection,
+      } = await setup();
+
+      const section1 = await createSection("01-intro", 1);
+      const ghostSection = await createGhostSection("Advanced Topics", 2);
+
+      const real1 = await createRealLesson(
+        section1.id,
+        "01-intro",
+        "01.01-first",
+        1
+      );
+
+      await run(
+        Effect.gen(function* () {
+          const service = yield* CourseWriteService;
+          return yield* service.moveToSection(real1.id, ghostSection.id);
+        })
+      );
+
+      // Ghost section should be materialized with a directory on disk.
+      // Source section reverted to ghost (lost its only real lesson),
+      // so renumbering shifts target from 02 → 01.
+      const updatedSection = await getSection(ghostSection.id);
+      expect(updatedSection.path).toBe("01-advanced-topics");
+      expect(fs.existsSync(path.join(tempDir, "01-advanced-topics"))).toBe(
+        true
+      );
+
+      // Lesson should be moved into the materialized section
+      expect(
+        fs.existsSync(path.join(tempDir, "01-advanced-topics", "01.01-first"))
+      ).toBe(true);
+
+      const movedLesson = await getLesson(real1.id);
+      expect(movedLesson.sectionId).toBe(ghostSection.id);
+      expect(movedLesson.path).toBe("01.01-first");
+    });
+
+    it("materializes ghost target section keeping numbering when source stays real", async () => {
+      const {
+        run,
+        createSection,
+        createGhostSection,
+        createRealLesson,
+        getLesson,
+        getSection,
+      } = await setup();
+
+      const section1 = await createSection("01-intro", 1);
+      const ghostSection = await createGhostSection("Advanced Topics", 2);
+
+      const real1 = await createRealLesson(
+        section1.id,
+        "01-intro",
+        "01.01-first",
+        1
+      );
+      await createRealLesson(section1.id, "01-intro", "01.02-second", 2);
+
+      await run(
+        Effect.gen(function* () {
+          const service = yield* CourseWriteService;
+          return yield* service.moveToSection(real1.id, ghostSection.id);
+        })
+      );
+
+      // Source still has a real lesson, so no revert — ghost materializes as 02
+      const updatedSection = await getSection(ghostSection.id);
+      expect(updatedSection.path).toBe("02-advanced-topics");
+      expect(fs.existsSync(path.join(tempDir, "02-advanced-topics"))).toBe(
+        true
+      );
+
+      expect(
+        fs.existsSync(path.join(tempDir, "02-advanced-topics", "02.01-first"))
+      ).toBe(true);
+
+      const movedLesson = await getLesson(real1.id);
+      expect(movedLesson.sectionId).toBe(ghostSection.id);
+      expect(movedLesson.path).toBe("02.01-first");
     });
 
     it("moves a real lesson to an empty section", async () => {

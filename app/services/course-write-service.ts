@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
+import nodePath from "node:path";
 import { CourseOperationsService } from "./db-course-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { CourseRepoWriteService } from "./course-repo-write-service";
@@ -439,6 +440,10 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           yield* lessonSectionOps.updateSectionPath(
             targetSectionId,
             targetSectionPath
+          );
+          yield* fileSystem.makeDirectory(
+            nodePath.join(repoPath, targetSectionPath),
+            { recursive: true }
           );
           targetParsed = parseSectionPath(targetSectionPath);
           targetSectionMaterialized = true;
