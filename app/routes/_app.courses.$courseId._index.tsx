@@ -281,6 +281,7 @@ export default function Component(props: Route.ComponentProps) {
     iconFilter,
     fsStatusFilter,
     searchQuery,
+    viewMode,
   } = viewState;
 
   const [nextUpDismissed, setNextUpDismissed] = useState(false);
@@ -443,6 +444,7 @@ export default function Component(props: Route.ComponentProps) {
                       fsStatusFilter={fsStatusFilter}
                       fsStatusCounts={fsStatusCounts}
                       searchQuery={searchQuery}
+                      viewMode={viewMode}
                       dispatch={dispatch}
                       isRealCourse={currentCourse?.filePath != null}
                     />
@@ -452,6 +454,7 @@ export default function Component(props: Route.ComponentProps) {
                     currentCourse={currentCourse}
                     data={loaderData}
                     isGhostCourse={!currentCourse?.filePath}
+                    viewMode={viewMode}
                     sensors={sensors}
                     handleSectionDragEnd={handleSectionDragEnd}
                     handleLessonDragEnd={handleLessonDragEnd}

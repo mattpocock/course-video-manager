@@ -6,21 +6,13 @@ import {
   DependencySelector,
   type DependencyLessonItem,
 } from "@/components/dependency-selector";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { PrioritySelector } from "@/components/priority-selector";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { LessonTitleEditor, useLessonTitleEditor } from "./lesson-title-editor";
+import { LessonContextMenuContent } from "./lesson-context-menu";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { VideoThumbnailGrid } from "./video-thumbnail-grid";
@@ -31,19 +23,7 @@ import {
 } from "./course-view-types";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  ArrowRightLeft,
-  BookOpen,
-  Code,
-  Ghost,
-  GripVertical,
-  ListTodo,
-  MessageCircle,
-  PencilIcon,
-  Play,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Code, Ghost, GripVertical, MessageCircle, Play } from "lucide-react";
 
 import { useLessonDependencyDrag } from "./use-lesson-dependency-drag";
 import { use, useCallback, useRef, useState } from "react";
@@ -70,6 +50,7 @@ export function SortableLessonItem({
   allSections,
   hideAnchor,
   isGhostCourse,
+  compact,
 }: {
   lesson: Lesson;
   lessonIndex: number;
@@ -91,6 +72,7 @@ export function SortableLessonItem({
   allSections: { id: string; path: string }[];
   hideAnchor?: boolean;
   isGhostCourse?: boolean;
+  compact?: boolean;
 }) {
   const {
     attributes,
@@ -113,6 +95,8 @@ export function SortableLessonItem({
   const isReadOnly = !data.isLatestVersion;
   const isGhost = lesson.fsStatus === "ghost";
   const showGhostStyle = isGhost && !isGhostCourse;
+
+  const [videosExpanded, setVideosExpanded] = useState(false);
 
   const currentDescription = lesson.description ?? "";
   const [editingDesc, setEditingDesc] = useState(false);
@@ -327,210 +311,72 @@ export function SortableLessonItem({
                   </button>
                 )}
               </div>
-              <div className="ml-5">
-                {!isReadOnly && editingDesc ? (
-                  <div className="mt-1 max-w-[65ch]">
-                    <Textarea
-                      ref={descTextareaRef}
-                      value={descValue}
-                      onChange={(e) => setDescValue(e.target.value)}
-                      placeholder="What should this lesson teach?"
-                      className="text-sm min-h-[60px]"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                          setDescValue(currentDescription);
-                          setEditingDesc(false);
-                        }
-                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                          saveDescription(descValue);
-                        }
+              {!compact && (
+                <div className="ml-5">
+                  {!isReadOnly && editingDesc ? (
+                    <div className="mt-1 max-w-[65ch]">
+                      <Textarea
+                        ref={descTextareaRef}
+                        value={descValue}
+                        onChange={(e) => setDescValue(e.target.value)}
+                        placeholder="What should this lesson teach?"
+                        className="text-sm min-h-[60px]"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setDescValue(currentDescription);
+                            setEditingDesc(false);
+                          }
+                          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                            saveDescription(descValue);
+                          }
+                        }}
+                        onBlur={() => saveDescription(descValue)}
+                      />
+                    </div>
+                  ) : currentDescription ? (
+                    <div
+                      className={cn(
+                        "text-xs text-muted-foreground mt-1 whitespace-pre-line max-w-[65ch]",
+                        !isReadOnly && "cursor-pointer hover:text-foreground/70"
+                      )}
+                      onClick={() => {
+                        if (isReadOnly) return;
+                        setDescValue(currentDescription);
+                        setEditingDesc(true);
                       }}
-                      onBlur={() => saveDescription(descValue)}
-                    />
-                  </div>
-                ) : currentDescription ? (
-                  <div
-                    className={cn(
-                      "text-xs text-muted-foreground mt-1 whitespace-pre-line max-w-[65ch]",
-                      !isReadOnly && "cursor-pointer hover:text-foreground/70"
-                    )}
-                    onClick={() => {
-                      if (isReadOnly) return;
-                      setDescValue(currentDescription);
-                      setEditingDesc(true);
-                    }}
-                  >
-                    {currentDescription}
-                  </div>
-                ) : !isReadOnly ? (
-                  <button
-                    className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                    onClick={() => {
-                      setDescValue("");
-                      setEditingDesc(true);
-                    }}
-                  >
-                    + Add description
-                  </button>
-                ) : null}
-              </div>
+                    >
+                      {currentDescription}
+                    </div>
+                  ) : !isReadOnly ? (
+                    <button
+                      className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                      onClick={() => {
+                        setDescValue("");
+                        setEditingDesc(true);
+                      }}
+                    >
+                      + Add description
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
           </ContextMenuTrigger>
-          <ContextMenuContent>
-            {!isReadOnly && (
-              <>
-                {isGhost ? (
-                  <>
-                    <ContextMenuItem
-                      onSelect={() => {
-                        if (isGhostCourse) {
-                          dispatch({
-                            type: "set-create-on-disk-lesson-id",
-                            lessonId: lesson.id,
-                          });
-                        } else {
-                          submitEvent({
-                            type: "create-on-disk",
-                            lessonId: lesson.id,
-                          });
-                        }
-                      }}
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      Create on Disk
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onSelect={startEditingTitle}>
-                      <PencilIcon className="w-4 h-4" />
-                      Rename
-                    </ContextMenuItem>
-                  </>
-                ) : (
-                  <>
-                    <ContextMenuItem
-                      onSelect={() =>
-                        dispatch({
-                          type: "set-add-video-to-lesson-id",
-                          lessonId: lesson.id,
-                        })
-                      }
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Video
-                    </ContextMenuItem>
-                    <ContextMenuItem onSelect={startEditingTitle}>
-                      <PencilIcon className="w-4 h-4" />
-                      Rename
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                      onSelect={() =>
-                        dispatch({
-                          type: "set-convert-to-ghost-lesson-id",
-                          lessonId: lesson.id,
-                        })
-                      }
-                    >
-                      <Ghost className="w-4 h-4" />
-                      Convert to Ghost
-                    </ContextMenuItem>
-                    {lesson.authoringStatus === "done" && (
-                      <ContextMenuItem
-                        onSelect={() =>
-                          submitEvent({
-                            type: "set-lesson-authoring-status",
-                            lessonId: lesson.id,
-                            status: "todo",
-                          })
-                        }
-                      >
-                        <ListTodo className="w-4 h-4" />
-                        Mark as TODO
-                      </ContextMenuItem>
-                    )}
-                  </>
-                )}
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  onSelect={() =>
-                    dispatch({
-                      type: "set-insert-lesson",
-                      sectionId: section.id,
-                      adjacentLessonId: lesson.id,
-                      position: "before",
-                    })
-                  }
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Lesson Before
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onSelect={() =>
-                    dispatch({
-                      type: "set-insert-lesson",
-                      sectionId: section.id,
-                      adjacentLessonId: lesson.id,
-                      position: "after",
-                    })
-                  }
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Lesson After
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuSub>
-                  <ContextMenuSubTrigger>
-                    <ArrowRightLeft className="w-4 h-4" />
-                    Move to Section
-                  </ContextMenuSubTrigger>
-                  <ContextMenuSubContent>
-                    {allSections
-                      .filter((s) => s.id !== section.id)
-                      .map((targetSection) => (
-                        <ContextMenuItem
-                          key={targetSection.id}
-                          onSelect={() =>
-                            submitEvent({
-                              type: "move-lesson-to-section",
-                              lessonId: lesson.id,
-                              targetSectionId: targetSection.id,
-                            })
-                          }
-                        >
-                          {targetSection.path}
-                        </ContextMenuItem>
-                      ))}
-                    {allSections.filter((s) => s.id !== section.id).length ===
-                      0 && (
-                      <ContextMenuItem disabled>
-                        No other sections
-                      </ContextMenuItem>
-                    )}
-                  </ContextMenuSubContent>
-                </ContextMenuSub>
-                <ContextMenuItem
-                  variant="destructive"
-                  onSelect={() => {
-                    if (isGhost) {
-                      submitEvent({
-                        type: "delete-lesson",
-                        lessonId: lesson.id,
-                      });
-                    } else {
-                      dispatch({
-                        type: "set-delete-lesson-id",
-                        lessonId: lesson.id,
-                      });
-                    }
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </ContextMenuItem>
-              </>
-            )}
-          </ContextMenuContent>
+          <LessonContextMenuContent
+            lesson={lesson}
+            section={section}
+            isGhost={isGhost}
+            isReadOnly={isReadOnly}
+            isGhostCourse={isGhostCourse}
+            compact={compact}
+            videosExpanded={videosExpanded}
+            onToggleVideos={() => setVideosExpanded((v) => !v)}
+            allSections={allSections}
+            dispatch={dispatch}
+            submitEvent={submitEvent}
+            startEditingTitle={startEditingTitle}
+          />
         </ContextMenu>
         <AddVideoModal
           lessonId={lesson.id}
@@ -587,20 +433,22 @@ export function SortableLessonItem({
             }}
           />
         )}
-        <div className="ml-5 mt-3">
-          <VideoThumbnailGrid
-            videos={lesson.videos}
-            section={section}
-            lesson={lesson}
-            data={data}
-            navigate={navigate}
-            dispatch={dispatch}
-            startExportUpload={startExportUpload}
-            revealVideoFetcher={revealVideoFetcher}
-            deleteVideoFileFetcher={deleteVideoFileFetcher}
-            submitDeleteVideo={submitDeleteVideo}
-          />
-        </div>
+        {(!compact || videosExpanded) && (
+          <div className="ml-5 mt-3">
+            <VideoThumbnailGrid
+              videos={lesson.videos}
+              section={section}
+              lesson={lesson}
+              data={data}
+              navigate={navigate}
+              dispatch={dispatch}
+              startExportUpload={startExportUpload}
+              revealVideoFetcher={revealVideoFetcher}
+              deleteVideoFileFetcher={deleteVideoFileFetcher}
+              submitDeleteVideo={submitDeleteVideo}
+            />
+          </div>
+        )}
         <CreateOnDiskModal
           lessonId={lesson.id}
           open={createOnDiskLessonId === lesson.id}

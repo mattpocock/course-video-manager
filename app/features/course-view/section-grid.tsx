@@ -108,6 +108,7 @@ export function SectionGrid({
   iconFilter,
   fsStatusFilter,
   searchQuery,
+  viewMode,
   addGhostLessonSectionId,
   insertAdjacentLessonId,
   insertPosition,
@@ -129,6 +130,7 @@ export function SectionGrid({
   currentCourse: NonNullable<LoaderData["selectedCourse"]>;
   data: LoaderData;
   isGhostCourse: boolean;
+  viewMode: "expanded" | "compact";
   sensors: ReturnType<typeof useSensors>;
   handleSectionDragEnd: (
     sections: {
@@ -313,16 +315,17 @@ export function SectionGrid({
                                     )}
                                   </div>
                                   <div className="flex items-center gap-1.5">
-                                    {!isGhostSection && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-[10px]"
-                                      >
-                                        {formatSecondsToTimeCode(
-                                          sectionDuration
-                                        )}
-                                      </Badge>
-                                    )}
+                                    {!isGhostSection &&
+                                      viewMode === "expanded" && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-[10px]"
+                                        >
+                                          {formatSecondsToTimeCode(
+                                            sectionDuration
+                                          )}
+                                        </Badge>
+                                      )}
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -343,12 +346,14 @@ export function SectionGrid({
                                   </div>
                                 </div>
                               </div>
-                              <SectionDescriptionEditor
-                                sectionId={section.id}
-                                description={section.description ?? ""}
-                                isReadOnly={isReadOnly}
-                                submitEvent={submitEvent}
-                              />
+                              {viewMode === "expanded" && (
+                                <SectionDescriptionEditor
+                                  sectionId={section.id}
+                                  description={section.description ?? ""}
+                                  isReadOnly={isReadOnly}
+                                  submitEvent={submitEvent}
+                                />
+                              )}
                             </div>
                             {(!collapsedSections.has(section.id) ||
                               searchQuery) && (
@@ -399,6 +404,7 @@ export function SectionGrid({
                                         allSections={currentCourse.sections}
                                         dependencyMap={dependencyMap}
                                         isGhostCourse={isGhostCourse}
+                                        compact={viewMode === "compact"}
                                       />
                                     ))}
                                   </SortableContext>

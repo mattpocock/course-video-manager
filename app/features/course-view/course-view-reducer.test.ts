@@ -418,6 +418,37 @@ describe("courseViewReducer", () => {
     });
   });
 
+  describe("View mode", () => {
+    it("46. initial view mode is expanded", () => {
+      const state = createTester().getState();
+      expect(state.viewMode).toBe("expanded");
+    });
+
+    it("47. toggle-view-mode: switches from expanded to compact", () => {
+      const state = createTester()
+        .send({ type: "toggle-view-mode" })
+        .getState();
+      expect(state.viewMode).toBe("compact");
+    });
+
+    it("48. toggle-view-mode: switches back from compact to expanded", () => {
+      const state = createTester()
+        .send({ type: "toggle-view-mode" })
+        .send({ type: "toggle-view-mode" })
+        .getState();
+      expect(state.viewMode).toBe("expanded");
+    });
+
+    it("49. toggle-view-mode: does not affect other state", () => {
+      const state = createTester()
+        .send({ type: "toggle-priority-filter", priority: 1 })
+        .send({ type: "toggle-view-mode" })
+        .getState();
+      expect(state.viewMode).toBe("compact");
+      expect(state.priorityFilter).toEqual([1]);
+    });
+  });
+
   describe("State independence", () => {
     it("44. modal toggle does not affect filters", () => {
       const state = createTester()
