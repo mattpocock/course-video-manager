@@ -46,7 +46,10 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
   ) {
     return yield* makeDbCall(() =>
       db.query.lessons.findMany({
-        where: eq(lessons.sectionId, sectionId),
+        where: and(
+          eq(lessons.sectionId, sectionId),
+          eq(lessons.archived, false)
+        ),
         orderBy: asc(lessons.order),
       })
     );
@@ -220,7 +223,7 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
 
   const deleteLesson = Effect.fn("deleteLesson")(function* (lessonId: string) {
     const lessonResult = yield* makeDbCall(() =>
-      db.delete(lessons).where(eq(lessons.id, lessonId))
+      db.update(lessons).set({ archived: true }).where(eq(lessons.id, lessonId))
     );
 
     return lessonResult;
@@ -283,7 +286,7 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
     return yield* makeDbCall(() =>
       db.query.sections.findMany({
         where: inArray(sections.id, ids as string[]),
-        with: { lessons: true },
+        with: { lessons: { where: eq(lessons.archived, false) } },
       })
     );
   });
@@ -317,7 +320,7 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
           isNull(sections.archivedAt)
         ),
         orderBy: asc(sections.order),
-        with: { lessons: true },
+        with: { lessons: { where: eq(lessons.archived, false) } },
       })
     );
   });

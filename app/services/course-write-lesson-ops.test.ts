@@ -192,8 +192,9 @@ describe("CourseWriteService", () => {
         fs.existsSync(path.join(tempDir, "01-intro", "01.01-to-delete"))
       ).toBe(false);
 
-      // Record removed from DB
-      await expect(getLesson(real.id)).rejects.toThrow();
+      // Record soft-deleted (archived) in DB
+      const archived = await getLesson(real.id);
+      expect(archived.archived).toBe(true);
     });
 
     it("deletes a real lesson and renumbers remaining lessons", async () => {
@@ -231,8 +232,9 @@ describe("CourseWriteService", () => {
         fs.existsSync(path.join(tempDir, "01-intro", "01.02-second"))
       ).toBe(false);
 
-      // Deleted lesson removed from DB
-      await expect(getLesson(real2.id)).rejects.toThrow();
+      // Deleted lesson soft-deleted (archived) in DB
+      const archivedLesson = await getLesson(real2.id);
+      expect(archivedLesson.archived).toBe(true);
 
       // First lesson unchanged
       const updatedReal1 = await getLesson(real1.id);
@@ -300,8 +302,9 @@ describe("CourseWriteService", () => {
         })
       );
 
-      // Record removed from DB
-      await expect(getLesson(ghost.id)).rejects.toThrow();
+      // Record soft-deleted (archived) in DB
+      const archivedGhost = await getLesson(ghost.id);
+      expect(archivedGhost.archived).toBe(true);
     });
   });
 

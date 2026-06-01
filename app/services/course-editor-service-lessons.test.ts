@@ -219,16 +219,20 @@ describe("CourseEditorService — lessons", () => {
   });
 
   describe("delete-lesson", () => {
-    it("deletes a ghost lesson", async () => {
+    it("soft-deletes a ghost lesson (sets archived, not removed from DB)", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
       const l = await svc().addGhostLesson(s.sectionId, "To Delete");
 
       await svc().deleteLesson(l.lessonId);
       expect(await getLessons(s.sectionId)).toHaveLength(0);
+
+      const archived = await getLessonById(l.lessonId);
+      expect(archived).toBeDefined();
+      expect(archived!.archived).toBe(true);
     });
 
-    it("deletes a real lesson and renumbers remaining", async () => {
+    it("soft-deletes a real lesson and renumbers remaining", async () => {
       const { version } = await createCourseWithVersion("/tmp/test-repo");
       const { section, lessons } = await createSectionWithLessons(
         version.id,
@@ -246,6 +250,10 @@ describe("CourseEditorService — lessons", () => {
       const remaining = await getLessons(section.id);
       expect(remaining).toHaveLength(2);
       expect(remaining[1]!.path).toBe("01.02-third");
+
+      const archived = await getLessonById(lessons[1]!.id);
+      expect(archived).toBeDefined();
+      expect(archived!.archived).toBe(true);
     });
   });
 

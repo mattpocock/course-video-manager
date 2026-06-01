@@ -100,6 +100,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
         with: {
           lessons: {
             orderBy: asc(lessons.order),
+            where: eq(lessons.archived, false),
             with: {
               videos: {
                 orderBy: asc(videos.path),
@@ -153,6 +154,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
         with: {
           lessons: {
             orderBy: asc(lessons.order),
+            where: eq(lessons.archived, false),
             with: {
               videos: {
                 orderBy: asc(videos.path),
@@ -193,6 +195,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
             with: {
               lessons: {
                 orderBy: asc(lessons.order),
+                where: eq(lessons.archived, false),
                 with: {
                   videos: {
                     orderBy: asc(videos.path),
@@ -336,6 +339,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
           with: {
             lessons: {
               orderBy: asc(lessons.order),
+              where: eq(lessons.archived, false),
               with: {
                 videos: {
                   orderBy: asc(videos.path),
@@ -484,6 +488,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
         ),
         with: {
           lessons: {
+            where: eq(lessons.archived, false),
             with: {
               videos: {
                 columns: {
@@ -521,6 +526,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
               with: {
                 lessons: {
                   orderBy: asc(lessons.order),
+                  where: eq(lessons.archived, false),
                   with: {
                     videos: {
                       orderBy: asc(videos.path),

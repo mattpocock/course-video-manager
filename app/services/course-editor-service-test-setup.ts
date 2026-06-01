@@ -121,7 +121,8 @@ export async function getSections(repoVersionId: string) {
 
 export async function getLessons(sectionId: string) {
   return testDb.query.lessons.findMany({
-    where: (l, { eq }) => eq(l.sectionId, sectionId),
+    where: (l, { eq, and }) =>
+      and(eq(l.sectionId, sectionId), eq(l.archived, false)),
     orderBy: (l, { asc }) => asc(l.order),
   });
 }

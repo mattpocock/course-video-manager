@@ -125,6 +125,7 @@ export const lessons = createTable(
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
     order: doublePrecision("order").notNull(),
+    archived: boolean("archived").notNull().default(false),
   },
   (table) => [
     check(

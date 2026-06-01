@@ -81,6 +81,7 @@ export const createCourseOperations = (db: DrizzleDB) => {
                   where: isNull(sections.archivedAt),
                   with: {
                     lessons: {
+                      where: eq(lessons.archived, false),
                       with: {
                         videos: {
                           orderBy: asc(videos.path),
@@ -131,6 +132,7 @@ export const createCourseOperations = (db: DrizzleDB) => {
                   with: {
                     lessons: {
                       orderBy: asc(lessons.order),
+                      where: eq(lessons.archived, false),
                       with: {
                         videos: {
                           columns: { id: true, path: true },
@@ -177,6 +179,7 @@ export const createCourseOperations = (db: DrizzleDB) => {
                 with: {
                   lessons: {
                     orderBy: asc(lessons.order),
+                    where: eq(lessons.archived, false),
                     columns: {
                       id: true,
                       path: true,
@@ -218,6 +221,7 @@ export const createCourseOperations = (db: DrizzleDB) => {
                   where: isNull(sections.archivedAt),
                   with: {
                     lessons: {
+                      where: eq(lessons.archived, false),
                       with: {
                         videos: {
                           orderBy: asc(videos.path),
@@ -286,6 +290,7 @@ export const createCourseOperations = (db: DrizzleDB) => {
                 with: {
                   lessons: {
                     columns: { id: true },
+                    where: eq(lessons.archived, false),
                     with: {
                       videos: {
                         columns: { id: true },
@@ -606,6 +611,7 @@ export const createCourseOperations = (db: DrizzleDB) => {
         with: {
           lessons: {
             orderBy: asc(lessons.order),
+            where: eq(lessons.archived, false),
             with: {
               videos: {
                 orderBy: asc(videos.path),
