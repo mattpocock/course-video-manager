@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useCallback,
+  useMemo,
   useState,
   useRef,
   useEffect,
@@ -137,13 +138,16 @@ export function DependencyDragProvider({
     };
   }, [dragState]);
 
-  const contextValue: DependencyDragContextValue = {
-    dragState,
-    hoveredTargetId,
-    startDrag,
-    setHoveredTarget,
-    getDropResult,
-  };
+  const contextValue = useMemo<DependencyDragContextValue>(
+    () => ({
+      dragState,
+      hoveredTargetId,
+      startDrag,
+      setHoveredTarget,
+      getDropResult,
+    }),
+    [dragState, hoveredTargetId, startDrag, setHoveredTarget, getDropResult]
+  );
 
   return (
     <DependencyDragContext.Provider value={contextValue}>

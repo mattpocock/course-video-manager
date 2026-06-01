@@ -9,17 +9,17 @@ export function useLessonDependencyDrag(lessonId: string) {
     ? depDrag?.getDropResult(lessonId)?.action
     : null;
 
-  const dragClassName = isDragSource
-    ? "opacity-60"
-    : isDragTarget
-      ? dropAction === "add"
-        ? "ring-2 ring-green-500/50 bg-green-500/5"
-        : dropAction === "remove"
-          ? "ring-2 ring-amber-500/50 bg-amber-500/5"
-          : dropAction === "noop"
-            ? "ring-2 ring-red-500/50 bg-red-500/5"
-            : ""
-      : "";
+  let dragClassName = "";
+  if (isDragSource) {
+    dragClassName = "opacity-60";
+  } else if (isDragTarget) {
+    if (dropAction === "add")
+      dragClassName = "ring-2 ring-green-500/50 bg-green-500/5";
+    else if (dropAction === "remove")
+      dragClassName = "ring-2 ring-amber-500/50 bg-amber-500/5";
+    else if (dropAction === "noop")
+      dragClassName = "ring-2 ring-red-500/50 bg-red-500/5";
+  }
 
   return {
     dragClassName,

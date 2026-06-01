@@ -50,6 +50,22 @@ describe("computeDropResult", () => {
       dependencies: [],
     });
   });
+
+  it("removes all occurrences when dependency appears multiple times", () => {
+    expect(computeDropResult("A", "B", ["B", "C", "B"], {})).toEqual({
+      action: "remove",
+      dependencies: ["C"],
+    });
+  });
+
+  it("adds when target has deps but none lead back to source", () => {
+    expect(
+      computeDropResult("A", "B", [], { B: ["C", "D"], C: ["E"] })
+    ).toEqual({
+      action: "add",
+      dependencies: ["B"],
+    });
+  });
 });
 
 describe("wouldCreateCycle", () => {
