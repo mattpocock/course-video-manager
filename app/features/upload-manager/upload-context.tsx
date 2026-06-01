@@ -61,6 +61,28 @@ export const UploadContext = createContext<UploadContextType>(null!);
 let nextUploadId = 0;
 const generateUploadId = () => `upload-${++nextUploadId}`;
 
+function initiateFromRegistry(
+  uploadType: uploadReducer.UploadType,
+  action: Extract<uploadReducer.Action, { type: "START_UPLOAD" }>,
+  params: unknown,
+  dispatch: (action: uploadReducer.Action) => void,
+  abortControllers: Map<string, AbortController>
+) {
+  const config = uploadTypeRegistry[uploadType];
+  const base: uploadReducer.BaseUploadEntry = {
+    uploadId: action.uploadId,
+    videoId: action.videoId,
+    title: action.title,
+    progress: 0,
+    status: "uploading",
+    errorMessage: null,
+    retryCount: 0,
+    dependsOn: null,
+  };
+  const entry = config.createEntry(base, action);
+  config.initiate(action.uploadId, entry, params, dispatch, abortControllers);
+}
+
 export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(
     uploadReducer,
@@ -92,31 +114,19 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       const params = { description, privacyStatus, thumbnailId };
       paramsMapRef.current.set(uploadId, { type: "youtube", params });
 
-      dispatch({
-        type: "START_UPLOAD",
+      const action = {
+        type: "START_UPLOAD" as const,
         uploadId,
         videoId,
         title,
         dependsOn,
-      });
+      };
+      dispatch(action);
 
       if (!dependsOn) {
-        const config = uploadTypeRegistry["youtube"];
-        const entry: uploadReducer.YouTubeUploadEntry = {
-          uploadId,
-          videoId,
-          title,
-          progress: 0,
-          status: "uploading",
-          uploadType: "youtube",
-          youtubeVideoId: null,
-          errorMessage: null,
-          retryCount: 0,
-          dependsOn: null,
-        };
-        config.initiate(
-          uploadId,
-          entry,
+        initiateFromRegistry(
+          "youtube",
+          action,
           params,
           dispatch,
           abortControllersRef.current
@@ -135,30 +145,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       const params = { caption };
       paramsMapRef.current.set(uploadId, { type: "buffer", params });
 
-      dispatch({
-        type: "START_UPLOAD",
+      const action = {
+        type: "START_UPLOAD" as const,
         uploadId,
         videoId,
         title,
-        uploadType: "buffer",
-      });
-
-      const config = uploadTypeRegistry["buffer"];
-      const entry: uploadReducer.BufferUploadEntry = {
-        uploadId,
-        videoId,
-        title,
-        progress: 0,
-        status: "uploading",
-        uploadType: "buffer",
-        bufferStage: "copying",
-        errorMessage: null,
-        retryCount: 0,
-        dependsOn: null,
+        uploadType: "buffer" as const,
       };
-      config.initiate(
-        uploadId,
-        entry,
+      dispatch(action);
+
+      initiateFromRegistry(
+        "buffer",
+        action,
         params,
         dispatch,
         abortControllersRef.current
@@ -183,32 +181,20 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       const params = { body, description, slug };
       paramsMapRef.current.set(uploadId, { type: "ai-hero", params });
 
-      dispatch({
-        type: "START_UPLOAD",
+      const action = {
+        type: "START_UPLOAD" as const,
         uploadId,
         videoId,
         title,
-        uploadType: "ai-hero",
+        uploadType: "ai-hero" as const,
         dependsOn,
-      });
+      };
+      dispatch(action);
 
       if (!dependsOn) {
-        const config = uploadTypeRegistry["ai-hero"];
-        const entry: uploadReducer.AiHeroUploadEntry = {
-          uploadId,
-          videoId,
-          title,
-          progress: 0,
-          status: "uploading",
-          uploadType: "ai-hero",
-          aiHeroSlug: null,
-          errorMessage: null,
-          retryCount: 0,
-          dependsOn: null,
-        };
-        config.initiate(
-          uploadId,
-          entry,
+        initiateFromRegistry(
+          "ai-hero",
+          action,
           params,
           dispatch,
           abortControllersRef.current
@@ -247,32 +233,20 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         params,
       });
 
-      dispatch({
-        type: "START_UPLOAD",
+      const action = {
+        type: "START_UPLOAD" as const,
         uploadId,
         videoId,
         title,
-        uploadType: "skills-changelog",
+        uploadType: "skills-changelog" as const,
         dependsOn,
-      });
+      };
+      dispatch(action);
 
       if (!dependsOn) {
-        const config = uploadTypeRegistry["skills-changelog"];
-        const entry: uploadReducer.SkillsChangelogUploadEntry = {
-          uploadId,
-          videoId,
-          title,
-          progress: 0,
-          status: "uploading",
-          uploadType: "skills-changelog",
-          skillsChangelogSlug: null,
-          errorMessage: null,
-          retryCount: 0,
-          dependsOn: null,
-        };
-        config.initiate(
-          uploadId,
-          entry,
+        initiateFromRegistry(
+          "skills-changelog",
+          action,
           params,
           dispatch,
           abortControllersRef.current
@@ -287,31 +261,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const startExportUpload = useCallback((videoId: string, title: string) => {
     const uploadId = generateUploadId();
 
-    dispatch({
-      type: "START_UPLOAD",
+    const action = {
+      type: "START_UPLOAD" as const,
       uploadId,
       videoId,
       title,
-      uploadType: "export",
-    });
-
-    const config = uploadTypeRegistry["export"];
-    const entry: uploadReducer.ExportUploadEntry = {
-      uploadId,
-      videoId,
-      title,
-      progress: 0,
-      status: "uploading",
-      uploadType: "export",
-      exportStage: "queued",
-      isBatchEntry: false,
-      errorMessage: null,
-      retryCount: 0,
-      dependsOn: null,
+      uploadType: "export" as const,
     };
-    config.initiate(
-      uploadId,
-      entry,
+    dispatch(action);
+
+    initiateFromRegistry(
+      "export",
+      action,
       undefined,
       dispatch,
       abortControllersRef.current
@@ -398,30 +359,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         params,
       });
 
-      dispatch({
-        type: "START_UPLOAD",
+      const action = {
+        type: "START_UPLOAD" as const,
         uploadId,
         videoId: "",
         title: repoName,
-        uploadType: "dropbox-publish",
-      });
-
-      const config = uploadTypeRegistry["dropbox-publish"];
-      const entry: uploadReducer.DropboxPublishUploadEntry = {
-        uploadId,
-        videoId: "",
-        title: repoName,
-        progress: 0,
-        status: "uploading",
-        uploadType: "dropbox-publish",
-        missingVideoCount: null,
-        errorMessage: null,
-        retryCount: 0,
-        dependsOn: null,
+        uploadType: "dropbox-publish" as const,
       };
-      config.initiate(
-        uploadId,
-        entry,
+      dispatch(action);
+
+      initiateFromRegistry(
+        "dropbox-publish",
+        action,
         params,
         dispatch,
         abortControllersRef.current
@@ -444,33 +393,19 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       const params = { courseId, name, description };
       paramsMapRef.current.set(uploadId, { type: "publish", params });
 
-      dispatch({
-        type: "START_UPLOAD",
+      const action = {
+        type: "START_UPLOAD" as const,
         uploadId,
         videoId: "",
         title: courseName,
-        uploadType: "publish",
+        uploadType: "publish" as const,
         courseId,
-      });
-
-      const config = uploadTypeRegistry["publish"];
-      const entry: uploadReducer.PublishUploadEntry = {
-        uploadId,
-        videoId: "",
-        title: courseName,
-        progress: 0,
-        status: "uploading",
-        uploadType: "publish",
-        publishStage: "validating",
-        newDraftVersionId: null,
-        courseId,
-        errorMessage: null,
-        retryCount: 0,
-        dependsOn: null,
       };
-      config.initiate(
-        uploadId,
-        entry,
+      dispatch(action);
+
+      initiateFromRegistry(
+        "publish",
+        action,
         params,
         dispatch,
         abortControllersRef.current

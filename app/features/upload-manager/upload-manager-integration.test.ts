@@ -357,6 +357,73 @@ describe("dependency activation integration", () => {
   });
 });
 
+describe("export retry with no stored params", () => {
+  it("should retry export type when paramsMap has no entry for the upload", () => {
+    const dispatch = vi.fn();
+    const abortControllers = new Map<string, AbortController>();
+    const paramsMap = new Map<
+      string,
+      { type: uploadReducer.UploadType; params: unknown }
+    >();
+
+    const prev: uploadReducer.State["uploads"] = {
+      "exp-1": {
+        uploadId: "exp-1",
+        videoId: "video-1",
+        title: "Export",
+        progress: 50,
+        status: "uploading",
+        uploadType: "export",
+        exportStage: "concatenating-clips",
+        isBatchEntry: false,
+        errorMessage: null,
+        retryCount: 0,
+        dependsOn: null,
+      },
+    };
+
+    let state = createState({ uploads: prev });
+    state = reduce(state, {
+      type: "UPLOAD_ERROR",
+      uploadId: "exp-1",
+      errorMessage: "FFmpeg crashed",
+    });
+
+    expect(state.uploads["exp-1"]!.status).toBe("retrying");
+
+    simulateEffect(prev, state.uploads, paramsMap, dispatch, abortControllers);
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "RETRY",
+      uploadId: "exp-1",
+    });
+    expect(abortControllers.has("exp-1")).toBe(true);
+  });
+});
+
+describe("registry completeness", () => {
+  it("should have an entry for every upload type", () => {
+    const allTypes: uploadReducer.UploadType[] = [
+      "youtube",
+      "buffer",
+      "ai-hero",
+      "skills-changelog",
+      "export",
+      "dropbox-publish",
+      "publish",
+    ];
+
+    for (const uploadType of allTypes) {
+      const config = uploadTypeRegistry[uploadType];
+      expect(config).toBeDefined();
+      expect(typeof config.createEntry).toBe("function");
+      expect(typeof config.resetEntry).toBe("function");
+      expect(typeof config.applySuccess).toBe("function");
+      expect(typeof config.initiate).toBe("function");
+    }
+  });
+});
+
 describe("full integration: reducer + registry through lifecycle", () => {
   it("should handle start → error → retry → success with registry-driven entry creation", () => {
     let state = createState();
@@ -457,5 +524,118 @@ describe("full integration: reducer + registry through lifecycle", () => {
     expect(ytSuccess.uploadType === "youtube" && ytSuccess.youtubeVideoId).toBe(
       "yt-xyz"
     );
+  });
+
+  it("should preserve dropbox-publish missingVideoCount through the full lifecycle", () => {
+    let state = createState();
+
+    state = reduce(state, {
+      type: "START_UPLOAD",
+      uploadId: "dp-1",
+      videoId: "",
+      title: "My Course",
+      uploadType: "dropbox-publish",
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_PROGRESS",
+      uploadId: "dp-1",
+      progress: 60,
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_DROPBOX_PUBLISH_MISSING_COUNT",
+      uploadId: "dp-1",
+      missingVideoCount: 3,
+    });
+
+    state = reduce(state, {
+      type: "UPLOAD_SUCCESS",
+      uploadId: "dp-1",
+    });
+
+    const success = state.uploads["dp-1"]!;
+    expect(success.status).toBe("success");
+    expect(success.progress).toBe(100);
+    expect(
+      success.uploadType === "dropbox-publish" && success.missingVideoCount
+    ).toBe(3);
+  });
+
+  it("should reset dropbox-publish missingVideoCount on retry", () => {
+    let state = createState();
+
+    state = reduce(state, {
+      type: "START_UPLOAD",
+      uploadId: "dp-1",
+      videoId: "",
+      title: "My Course",
+      uploadType: "dropbox-publish",
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_DROPBOX_PUBLISH_MISSING_COUNT",
+      uploadId: "dp-1",
+      missingVideoCount: 5,
+    });
+
+    state = reduce(state, {
+      type: "UPLOAD_ERROR",
+      uploadId: "dp-1",
+      errorMessage: "Network error",
+    });
+
+    state = reduce(state, { type: "RETRY", uploadId: "dp-1" });
+
+    const retried = state.uploads["dp-1"]!;
+    expect(retried.status).toBe("uploading");
+    expect(retried.uploadType).toBe("dropbox-publish");
+    if (retried.uploadType === "dropbox-publish") {
+      expect(retried.missingVideoCount).toBeNull();
+    }
+  });
+
+  it("should handle publish lifecycle: stages → complete → success preserves newDraftVersionId", () => {
+    let state = createState();
+
+    state = reduce(state, {
+      type: "START_UPLOAD",
+      uploadId: "pub-1",
+      videoId: "",
+      title: "My Course",
+      uploadType: "publish",
+      courseId: "course-1",
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_PUBLISH_STAGE",
+      uploadId: "pub-1",
+      stage: "uploading",
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_PUBLISH_STAGE",
+      uploadId: "pub-1",
+      stage: "freezing",
+    });
+
+    state = reduce(state, {
+      type: "PUBLISH_COMPLETE",
+      uploadId: "pub-1",
+      newDraftVersionId: "version-42",
+    });
+
+    state = reduce(state, {
+      type: "UPLOAD_SUCCESS",
+      uploadId: "pub-1",
+    });
+
+    const success = state.uploads["pub-1"]!;
+    expect(success.status).toBe("success");
+    if (success.uploadType === "publish") {
+      expect(success.newDraftVersionId).toBe("version-42");
+      expect(success.courseId).toBe("course-1");
+      expect(success.publishStage).toBeNull();
+    }
   });
 });
