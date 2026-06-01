@@ -17,6 +17,7 @@ import {
   createSkillsChangelogInitiator,
   createSocialInitiator,
 } from "./upload-context-initiators";
+import { uploadTypeRegistry } from "./upload-type-registry";
 
 export interface UploadContextType {
   uploads: uploadReducer.State["uploads"];
@@ -527,7 +528,16 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (upload.status === "retrying") {
         dispatch({ type: "RETRY", uploadId });
 
-        if (upload.uploadType === "buffer") {
+        const retryConfig = uploadTypeRegistry[upload.uploadType];
+        if (retryConfig) {
+          retryConfig.initiate(
+            uploadId,
+            upload,
+            undefined,
+            dispatch,
+            abortControllersRef.current
+          );
+        } else if (upload.uploadType === "buffer") {
           const params = socialParamsRef.current.get(uploadId);
           if (params) {
             initiateSSESocialConnection(
@@ -575,8 +585,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               params.newsletterCopy
             );
           }
-        } else if (upload.uploadType === "export") {
-          initiateSSEExportConnection(uploadId, upload.videoId);
         } else if (upload.uploadType === "dropbox-publish") {
           const params = dropboxPublishParamsRef.current.get(uploadId);
           if (params) {
@@ -597,7 +605,16 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
       // Handle waiting → uploading transition (dependency completed)
       if (prevUpload.status === "waiting" && upload.status === "uploading") {
-        if (upload.uploadType === "youtube") {
+        const depConfig = uploadTypeRegistry[upload.uploadType];
+        if (depConfig) {
+          depConfig.initiate(
+            uploadId,
+            upload,
+            undefined,
+            dispatch,
+            abortControllersRef.current
+          );
+        } else if (upload.uploadType === "youtube") {
           const params = uploadParamsRef.current.get(uploadId);
           if (params) {
             initiateSSEConnection(
@@ -645,8 +662,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               params.caption
             );
           }
-        } else if (upload.uploadType === "export") {
-          initiateSSEExportConnection(uploadId, upload.videoId);
         }
       }
     }
@@ -658,7 +673,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     initiateSSESocialConnection,
     initiateSSEAiHeroConnection,
     initiateSSESkillsChangelogConnection,
-    initiateSSEExportConnection,
     initiateSSEDropboxPublishConnection,
     initiateSSEPublishConnection,
   ]);

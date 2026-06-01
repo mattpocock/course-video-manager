@@ -1,3 +1,5 @@
+import { uploadTypeRegistry } from "./upload-type-registry";
+
 export namespace uploadReducer {
   export type UploadStatus =
     | "waiting"
@@ -24,7 +26,7 @@ export namespace uploadReducer {
     | "freezing"
     | "cloning";
 
-  interface BaseUploadEntry {
+  export interface BaseUploadEntry {
     uploadId: string;
     videoId: string;
     title: string;
@@ -148,7 +150,7 @@ export const uploadReducer = (
       const uploadType = action.uploadType ?? "youtube";
       const dependsOn = action.dependsOn ?? null;
       const status = dependsOn ? ("waiting" as const) : ("uploading" as const);
-      const base = {
+      const base: uploadReducer.BaseUploadEntry = {
         uploadId: action.uploadId,
         videoId: action.videoId,
         title: action.title,
@@ -158,6 +160,17 @@ export const uploadReducer = (
         retryCount: 0,
         dependsOn,
       };
+
+      const config = uploadTypeRegistry[uploadType];
+      if (config) {
+        return {
+          ...state,
+          uploads: {
+            ...state.uploads,
+            [action.uploadId]: config.createEntry(base, action),
+          },
+        };
+      }
 
       let entry: uploadReducer.UploadEntry;
       switch (uploadType) {
@@ -172,14 +185,6 @@ export const uploadReducer = (
             ...base,
             uploadType: "skills-changelog",
             skillsChangelogSlug: null,
-          };
-          break;
-        case "export":
-          entry = {
-            ...base,
-            uploadType: "export",
-            exportStage: "queued",
-            isBatchEntry: action.isBatchEntry ?? false,
           };
           break;
         case "dropbox-publish":
@@ -198,9 +203,11 @@ export const uploadReducer = (
             courseId: action.courseId ?? "",
           };
           break;
-        default:
+        case "youtube":
           entry = { ...base, uploadType: "youtube", youtubeVideoId: null };
           break;
+        default:
+          return state;
       }
 
       return {
@@ -327,63 +334,62 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload) return state;
 
-      const base = {
-        ...upload,
-        status: "success" as const,
-        progress: 100,
-        errorMessage: null,
-      };
-
       let entry: uploadReducer.UploadEntry;
-      switch (upload.uploadType) {
-        case "youtube":
-          entry = {
-            ...base,
-            uploadType: "youtube",
-            youtubeVideoId: action.youtubeVideoId ?? null,
-          };
-          break;
-        case "buffer":
-          entry = { ...base, uploadType: "buffer", bufferStage: null };
-          break;
-        case "ai-hero":
-          entry = {
-            ...base,
-            uploadType: "ai-hero",
-            aiHeroSlug: action.aiHeroSlug ?? null,
-          };
-          break;
-        case "skills-changelog":
-          entry = {
-            ...base,
-            uploadType: "skills-changelog",
-            skillsChangelogSlug: action.skillsChangelogSlug ?? null,
-          };
-          break;
-        case "export":
-          entry = {
-            ...base,
-            uploadType: "export",
-            exportStage: null,
-            isBatchEntry: upload.isBatchEntry,
-          };
-          break;
-        case "dropbox-publish":
-          entry = {
-            ...base,
-            uploadType: "dropbox-publish",
-            missingVideoCount: upload.missingVideoCount,
-          };
-          break;
-        case "publish":
-          entry = {
-            ...base,
-            uploadType: "publish",
-            publishStage: null,
-            newDraftVersionId: upload.newDraftVersionId,
-            courseId: upload.courseId,
-          };
-          break;
+      const config = uploadTypeRegistry[upload.uploadType];
+      if (config) {
+        entry = config.applySuccess(upload, action);
+      } else {
+        const base = {
+          ...upload,
+          status: "success" as const,
+          progress: 100,
+          errorMessage: null,
+        };
+
+        switch (upload.uploadType) {
+          case "youtube":
+            entry = {
+              ...base,
+              uploadType: "youtube",
+              youtubeVideoId: action.youtubeVideoId ?? null,
+            };
+            break;
+          case "buffer":
+            entry = { ...base, uploadType: "buffer", bufferStage: null };
+            break;
+          case "ai-hero":
+            entry = {
+              ...base,
+              uploadType: "ai-hero",
+              aiHeroSlug: action.aiHeroSlug ?? null,
+            };
+            break;
+          case "skills-changelog":
+            entry = {
+              ...base,
+              uploadType: "skills-changelog",
+              skillsChangelogSlug: action.skillsChangelogSlug ?? null,
+            };
+            break;
+          case "dropbox-publish":
+            entry = {
+              ...base,
+              uploadType: "dropbox-publish",
+              missingVideoCount: upload.missingVideoCount,
+            };
+            break;
+          case "publish":
+            entry = {
+              ...base,
+              uploadType: "publish",
+              publishStage: null,
+              newDraftVersionId: upload.newDraftVersionId,
+              courseId: upload.courseId,
+            };
+            break;
+          default:
+            entry = base as uploadReducer.UploadEntry;
+        }
       }
 
       // Activate any jobs waiting on this upload
@@ -451,7 +457,7 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload) return state;
 
-      const base = {
+      const base: uploadReducer.BaseUploadEntry = {
         uploadId: upload.uploadId,
         videoId: upload.videoId,
         title: upload.title,
@@ -461,6 +467,17 @@ export const uploadReducer = (
         retryCount: upload.retryCount,
         dependsOn: upload.dependsOn,
       };
+
+      const config = uploadTypeRegistry[upload.uploadType];
+      if (config) {
+        return {
+          ...state,
+          uploads: {
+            ...state.uploads,
+            [action.uploadId]: config.resetEntry(base, upload),
+          },
+        };
+      }
 
       let entry: uploadReducer.UploadEntry;
       switch (upload.uploadType) {
@@ -475,14 +492,6 @@ export const uploadReducer = (
             ...base,
             uploadType: "skills-changelog",
             skillsChangelogSlug: null,
-          };
-          break;
-        case "export":
-          entry = {
-            ...base,
-            uploadType: "export",
-            exportStage: "queued",
-            isBatchEntry: upload.isBatchEntry,
           };
           break;
         case "dropbox-publish":
@@ -501,13 +510,15 @@ export const uploadReducer = (
             courseId: upload.courseId,
           };
           break;
-        default:
+        case "youtube":
           entry = {
             ...base,
             uploadType: "youtube",
             youtubeVideoId: upload.youtubeVideoId,
           };
           break;
+        default:
+          return state;
       }
 
       return {
