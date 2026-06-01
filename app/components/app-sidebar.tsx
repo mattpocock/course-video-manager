@@ -183,31 +183,31 @@ export function AppSidebar({ variant }: AppSidebarProps) {
 
   return (
     <>
-      {variant === "rail" ? (
-        <div className="w-80 border-r bg-muted/30 flex flex-col shrink-0">
+      {variant === "rail" && (
+        <div className="hidden md:flex w-80 border-r bg-muted/30 flex-col shrink-0">
           <div className="p-4 flex-1 flex flex-col min-h-0">{content}</div>
         </div>
-      ) : (
-        <>
-          <Button
-            className="fixed bottom-4 left-4 z-40 rounded-full shadow-lg size-12"
-            size="icon"
-            onClick={() => setSheetOpen(true)}
-            aria-label="Open navigation"
-          >
-            <Menu className="size-5" />
-          </Button>
-
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetContent side="left" className="p-0 flex flex-col">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Navigation</SheetTitle>
-              </SheetHeader>
-              <div className="p-4 flex-1 flex flex-col min-h-0">{content}</div>
-            </SheetContent>
-          </Sheet>
-        </>
       )}
+
+      <div className={variant === "rail" ? "md:hidden" : undefined}>
+        <Button
+          className="fixed bottom-4 left-4 z-40 rounded-full shadow-lg size-12"
+          size="icon"
+          onClick={() => setSheetOpen(true)}
+          aria-label="Open navigation"
+        >
+          <Menu className="size-5" />
+        </Button>
+
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent side="left" className="p-0 flex flex-col">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navigation</SheetTitle>
+            </SheetHeader>
+            <div className="p-4 flex-1 flex flex-col min-h-0">{content}</div>
+          </SheetContent>
+        </Sheet>
+      </div>
 
       <AddCourseModal
         isOpen={isAddCourseOpen}
