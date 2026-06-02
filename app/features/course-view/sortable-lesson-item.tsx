@@ -137,6 +137,7 @@ export function SortableLessonItem({
   hideAnchor,
   isGhostCourse,
   compact,
+  isSelected,
 }: {
   lesson: Lesson;
   lessonIndex: number;
@@ -159,6 +160,7 @@ export function SortableLessonItem({
   hideAnchor?: boolean;
   isGhostCourse?: boolean;
   compact?: boolean;
+  isSelected?: boolean;
 }) {
   const {
     attributes,
@@ -257,6 +259,27 @@ export function SortableLessonItem({
     })
     .filter(Boolean) as { number: string; priority: number }[];
 
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (isReadOnly) return;
+      e.stopPropagation();
+      if (e.metaKey || e.ctrlKey) {
+        dispatch({
+          type: "toggle-lesson-selection",
+          lessonId: lesson.id,
+          sectionId: section.id,
+        });
+      } else {
+        dispatch({
+          type: "select-lesson-only",
+          lessonId: lesson.id,
+          sectionId: section.id,
+        });
+      }
+    },
+    [isReadOnly, lesson.id, section.id, dispatch]
+  );
+
   const { dragClassName, dragTargetHandlers } = useLessonDependencyDrag(
     lesson.id
   );
@@ -294,12 +317,13 @@ export function SortableLessonItem({
         className={cn(
           "rounded-md px-2 group transition-shadow",
           compact ? "py-1" : "py-2",
-          dragClassName
+          dragClassName,
+          isSelected && "bg-primary/10 ring-1 ring-primary/20"
         )}
       >
         <ContextMenu>
           <ContextMenuTrigger asChild>
-            <div>
+            <div onClick={handleRowClick}>
               <div className="flex items-center gap-2 mb-1.5 cursor-context-menu hover:bg-muted/50 rounded px-1 py-0.5 transition-colors">
                 {!isReadOnly && (
                   <button

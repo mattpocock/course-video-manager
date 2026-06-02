@@ -24,6 +24,11 @@ export namespace courseViewReducer {
     videoPath: string;
   } | null;
 
+  export type LessonSelection = {
+    sectionId: string;
+    lessonIds: Set<string>;
+  } | null;
+
   export type State = {
     // Boolean modal toggles
     isAddCourseModalOpen: boolean;
@@ -58,6 +63,9 @@ export namespace courseViewReducer {
     moveVideoState: MoveVideoState;
     moveLessonState: MoveLessonState;
     renameVideoState: RenameVideoState;
+
+    // Lesson selection
+    lessonSelection: LessonSelection;
 
     // Filter states
     priorityFilter: number[];
@@ -131,6 +139,19 @@ export namespace courseViewReducer {
     // Rename video
     | { type: "open-rename-video"; videoId: string; videoPath: string }
     | { type: "close-rename-video" }
+    // Lesson selection
+    | {
+        type: "select-lesson-only";
+        lessonId: string;
+        sectionId: string;
+      }
+    | {
+        type: "toggle-lesson-selection";
+        lessonId: string;
+        sectionId: string;
+      }
+    | { type: "clear-lesson-selection" }
+    | { type: "prune-lesson-selection"; currentLessonIds: string[] }
     // Filters
     | { type: "toggle-priority-filter"; priority: number }
     | { type: "toggle-icon-filter"; icon: string }
@@ -166,6 +187,7 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     moveVideoState: null,
     moveLessonState: null,
     renameVideoState: null,
+    lessonSelection: null,
     priorityFilter: [],
     iconFilter: [],
     fsStatusFilter: null,
@@ -295,6 +317,61 @@ export const courseViewReducer: EffectReducer<
       };
     case "close-rename-video":
       return { ...state, renameVideoState: null };
+
+    // Lesson selection
+    case "select-lesson-only":
+      return {
+        ...state,
+        lessonSelection: {
+          sectionId: action.sectionId,
+          lessonIds: new Set([action.lessonId]),
+        },
+      };
+    case "toggle-lesson-selection": {
+      if (
+        !state.lessonSelection ||
+        state.lessonSelection.sectionId !== action.sectionId
+      ) {
+        return {
+          ...state,
+          lessonSelection: {
+            sectionId: action.sectionId,
+            lessonIds: new Set([action.lessonId]),
+          },
+        };
+      }
+      const next = new Set(state.lessonSelection.lessonIds);
+      if (next.has(action.lessonId)) {
+        next.delete(action.lessonId);
+      } else {
+        next.add(action.lessonId);
+      }
+      return {
+        ...state,
+        lessonSelection:
+          next.size === 0
+            ? null
+            : { sectionId: action.sectionId, lessonIds: next },
+      };
+    }
+    case "clear-lesson-selection":
+      return { ...state, lessonSelection: null };
+    case "prune-lesson-selection": {
+      if (!state.lessonSelection) return state;
+      const allowed = new Set(action.currentLessonIds);
+      const pruned = new Set(
+        [...state.lessonSelection.lessonIds].filter((id) => allowed.has(id))
+      );
+      if (pruned.size === state.lessonSelection.lessonIds.size) return state;
+      if (pruned.size === 0) return { ...state, lessonSelection: null };
+      return {
+        ...state,
+        lessonSelection: {
+          sectionId: state.lessonSelection.sectionId,
+          lessonIds: pruned,
+        },
+      };
+    }
 
     // Filters
     case "toggle-priority-filter":

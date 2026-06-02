@@ -29,7 +29,14 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Console, Effect } from "effect";
 import { getGitStatusAsync } from "@/services/git-status-service.server";
 import { AlertTriangle, Plus } from "lucide-react";
-import { useCallback, useContext, useMemo, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { readCookie, useCookieState } from "@/hooks/use-cookie-state";
 import { data, useFetcher, useNavigate, useSubmit } from "react-router";
 import { useEffectReducer } from "use-effect-reducer";
@@ -282,6 +289,7 @@ export default function Component(props: Route.ComponentProps) {
     deleteLessonId,
     createOnDiskLessonId,
     archiveSectionId,
+    lessonSelection,
     videoPlayerState,
     priorityFilter,
     iconFilter,
@@ -358,6 +366,16 @@ export default function Component(props: Route.ComponentProps) {
     if (!loaderData.selectedVersion) return;
     startBatchExportUpload(loaderData.selectedVersion.id);
   };
+
+  const lessonSelectionRef = useRef(lessonSelection);
+  lessonSelectionRef.current = lessonSelection;
+  useEffect(() => {
+    const sel = lessonSelectionRef.current;
+    if (!sel) return;
+    const section = displaySections.find((s) => s.id === sel.sectionId);
+    const currentLessonIds = section?.lessons.map((l) => l.id) ?? [];
+    dispatch({ type: "prune-lesson-selection", currentLessonIds });
+  }, [displaySections, dispatch]);
 
   return (
     <GenerateChaptersProvider>
@@ -480,6 +498,7 @@ export default function Component(props: Route.ComponentProps) {
                     deleteLessonId={deleteLessonId}
                     createOnDiskLessonId={createOnDiskLessonId}
                     archiveSectionId={archiveSectionId}
+                    lessonSelection={lessonSelection}
                     dispatch={dispatch}
                     submitEvent={submitEvent}
                     navigate={navigate}

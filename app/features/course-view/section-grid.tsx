@@ -37,6 +37,7 @@ import { useLessonDrag } from "./use-lesson-drag";
 import { ChevronRight, Ghost, GripVertical } from "lucide-react";
 import { Fragment, useState, useCallback } from "react";
 import { useNavigate, useFetcher } from "react-router";
+import { useLessonSelectionClear } from "./use-lesson-selection-clear";
 
 /** Insertion indicator shown at the drop anchor during a cross-section drag. */
 function DropLine() {
@@ -62,6 +63,7 @@ export function SectionGrid({
   deleteLessonId,
   createOnDiskLessonId,
   archiveSectionId,
+  lessonSelection,
   dispatch,
   submitEvent,
   navigate,
@@ -101,6 +103,7 @@ export function SectionGrid({
   deleteLessonId: string | null;
   createOnDiskLessonId: string | null;
   archiveSectionId: string | null;
+  lessonSelection: courseViewReducer.LessonSelection;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
   navigate: ReturnType<typeof useNavigate>;
@@ -172,6 +175,8 @@ export function SectionGrid({
 
   const isReadOnly = !data.isLatestVersion;
 
+  const handleGridClick = useLessonSelectionClear(lessonSelection, dispatch);
+
   const handleDependencyDrop = useCallback(
     (sourceId: string, newDeps: string[]) => {
       submitEvent({
@@ -225,6 +230,7 @@ export function SectionGrid({
               "grid grid-cols-1 gap-8",
               viewMode === "compact" ? "lg:grid-cols-3" : "lg:grid-cols-2"
             )}
+            onClick={handleGridClick}
           >
             {displaySections.map((section) => {
               const lessons = section.lessons;
@@ -408,6 +414,13 @@ export function SectionGrid({
                                             dependencyMap={dependencyMap}
                                             isGhostCourse={isGhostCourse}
                                             compact={viewMode === "compact"}
+                                            isSelected={
+                                              lessonSelection?.sectionId ===
+                                                section.id &&
+                                              lessonSelection.lessonIds.has(
+                                                lesson.id
+                                              )
+                                            }
                                           />
                                         </Fragment>
                                       ))}
