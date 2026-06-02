@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolveLessonDrop,
   computeReorderIds,
+  computeBulkReorderIds,
   computeFsStatusCounts,
   computeCourseStats,
 } from "./course-editor-helpers";
@@ -155,6 +156,101 @@ describe("computeReorderIds", () => {
 
   it("returns null when the order is unchanged", () => {
     expect(computeReorderIds(lessons, "a", "b")).toBeNull();
+  });
+});
+
+describe("computeBulkReorderIds", () => {
+  const lessons = [
+    { id: "a" },
+    { id: "b" },
+    { id: "c" },
+    { id: "d" },
+    { id: "e" },
+  ];
+
+  it("collapses a non-contiguous selection to a contiguous block at the anchor", () => {
+    // a, b, c, d, e → select a + c, drop before d → b, a, c, d, e
+    expect(computeBulkReorderIds(lessons, new Set(["a", "c"]), "d")).toEqual([
+      "b",
+      "a",
+      "c",
+      "d",
+      "e",
+    ]);
+  });
+
+  it("preserves relative order of selected lessons", () => {
+    // a, b, c, d, e → select e + b, drop before a → e, b kept in original order → b, e, a, c, d
+    expect(computeBulkReorderIds(lessons, new Set(["e", "b"]), "a")).toEqual([
+      "b",
+      "e",
+      "a",
+      "c",
+      "d",
+    ]);
+  });
+
+  it("appends when beforeLessonId is null", () => {
+    expect(computeBulkReorderIds(lessons, new Set(["a", "c"]), null)).toEqual([
+      "b",
+      "d",
+      "e",
+      "a",
+      "c",
+    ]);
+  });
+
+  it("returns null when the order is unchanged (already contiguous at anchor)", () => {
+    // a, b, c, d, e → select b + c, drop before d → b, c already before d → no-op
+    expect(computeBulkReorderIds(lessons, new Set(["b", "c"]), "d")).toBeNull();
+  });
+
+  it("returns null when appending an already-trailing selection", () => {
+    expect(
+      computeBulkReorderIds(lessons, new Set(["d", "e"]), null)
+    ).toBeNull();
+  });
+
+  it("handles selection containing the anchor", () => {
+    // a, b, c, d, e → select a + c + d, drop before d → selected are spliced out, reinserted before where d was
+    // without = [b, e], anchor d was selected so insert at end of remaining? No — anchor is in selected set.
+    // The anchor is part of the selection; anchor resolves to the position of d in the *without* array.
+    // Since d is removed, the before-anchor fallback puts them where d would have been.
+    expect(
+      computeBulkReorderIds(lessons, new Set(["a", "c", "d"]), "d")
+    ).toEqual(["b", "a", "c", "d", "e"]);
+  });
+
+  it("handles ghost IDs the same as real IDs", () => {
+    const mixed = [
+      { id: "real1" },
+      { id: "ghost1" },
+      { id: "real2" },
+      { id: "ghost2" },
+    ];
+    expect(
+      computeBulkReorderIds(mixed, new Set(["ghost1", "ghost2"]), "real1")
+    ).toEqual(["ghost1", "ghost2", "real1", "real2"]);
+  });
+
+  it("returns null for a single selected lesson that stays in place", () => {
+    expect(computeBulkReorderIds(lessons, new Set(["b"]), "c")).toBeNull();
+  });
+
+  it("works with a single selected lesson that moves", () => {
+    expect(computeBulkReorderIds(lessons, new Set(["c"]), "a")).toEqual([
+      "c",
+      "a",
+      "b",
+      "d",
+      "e",
+    ]);
+  });
+
+  it("handles an anchor not in the lessons list (fallback to append)", () => {
+    expect(
+      computeBulkReorderIds(lessons, new Set(["a", "b"]), "unknown")
+    ).toEqual(["c", "d", "e", "a", "b"]);
   });
 });
 

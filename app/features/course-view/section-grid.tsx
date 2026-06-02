@@ -1,6 +1,5 @@
-import { AddGhostLessonModal } from "@/components/add-ghost-lesson-modal";
-import { ArchiveSectionModal } from "@/components/archive-section-modal";
 import { type DependencyLessonItem } from "@/components/dependency-selector";
+import { SectionModals } from "./section-modals";
 import { Badge } from "@/components/ui/badge";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
@@ -194,6 +193,7 @@ export function SectionGrid({
   const {
     dropIndicator,
     activeLesson,
+    bulkDragIds,
     onDragStart,
     onDragOver,
     onDragEnd,
@@ -205,6 +205,8 @@ export function SectionGrid({
       displaySections,
       data.selectedVersion!.id
     ),
+    lessonSelection,
+    dispatch,
   });
 
   return (
@@ -421,6 +423,11 @@ export function SectionGrid({
                                                 lesson.id
                                               )
                                             }
+                                            isBulkDragPeer={
+                                              bulkDragIds != null &&
+                                              bulkDragIds.has(lesson.id) &&
+                                              lesson.id !== activeLesson?.id
+                                            }
                                           />
                                         </Fragment>
                                       ))}
@@ -447,51 +454,17 @@ export function SectionGrid({
                           submitEvent={submitEvent}
                         />
                       </ContextMenu>
-                      <AddGhostLessonModal
+                      <SectionModals
                         sectionId={section.id}
-                        open={addGhostLessonSectionId === section.id}
-                        onOpenChange={(open) => {
-                          dispatch({
-                            type: "set-add-lesson-section-id",
-                            sectionId: open ? section.id : null,
-                          });
-                        }}
-                        onAddLesson={({ title, isReal }) => {
-                          submitEvent({
-                            type: isReal
-                              ? "create-real-lesson"
-                              : "add-ghost-lesson",
-                            sectionId: section.id,
-                            title,
-                            ...(insertAdjacentLessonId
-                              ? {
-                                  adjacentLessonId: insertAdjacentLessonId,
-                                  position: insertPosition ?? undefined,
-                                }
-                              : {}),
-                          });
-                        }}
-                        adjacentLessonId={insertAdjacentLessonId}
-                        position={insertPosition}
-                        courseFilePath={currentCourse.filePath}
-                      />
-                      <ArchiveSectionModal
-                        sectionId={section.id}
-                        sectionTitle={section.path}
+                        sectionPath={section.path}
                         lessonCount={lessons.length}
-                        open={archiveSectionId === section.id}
-                        onOpenChange={(open) => {
-                          dispatch({
-                            type: "set-archive-section-id",
-                            sectionId: open ? section.id : null,
-                          });
-                        }}
-                        onArchive={() => {
-                          submitEvent({
-                            type: "archive-section",
-                            sectionId: section.id,
-                          });
-                        }}
+                        addGhostLessonSectionId={addGhostLessonSectionId}
+                        insertAdjacentLessonId={insertAdjacentLessonId}
+                        insertPosition={insertPosition}
+                        archiveSectionId={archiveSectionId}
+                        courseFilePath={currentCourse.filePath}
+                        dispatch={dispatch}
+                        submitEvent={submitEvent}
                       />
                     </>
                   )}
@@ -502,10 +475,17 @@ export function SectionGrid({
         </SortableContext>
         <DragOverlay>
           {activeLesson ? (
-            <div className="rounded-md border bg-card px-2 py-1 text-sm shadow-lg">
-              {activeLesson.fsStatus === "ghost"
-                ? activeLesson.title || activeLesson.path
-                : activeLesson.path}
+            <div className="rounded-md border bg-card px-2 py-1 text-sm shadow-lg flex items-center gap-2">
+              <span>
+                {activeLesson.fsStatus === "ghost"
+                  ? activeLesson.title || activeLesson.path
+                  : activeLesson.path}
+              </span>
+              {bulkDragIds && bulkDragIds.size > 1 && (
+                <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium min-w-5 h-5 px-1.5">
+                  {bulkDragIds.size}
+                </span>
+              )}
             </div>
           ) : null}
         </DragOverlay>

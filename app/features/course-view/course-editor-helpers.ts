@@ -114,6 +114,48 @@ export function computeReorderIds(
   return next;
 }
 
+/**
+ * New lesson-id ordering after bulk-moving a selection to an anchor, or `null`
+ * if the selection is already contiguous at that position (no-op).
+ *
+ * Selected lessons are spliced out and re-inserted as one contiguous block at
+ * `beforeLessonId`, preserving their relative order within the original array.
+ */
+export function computeBulkReorderIds(
+  lessons: { id: string }[],
+  selectedIds: Set<string>,
+  beforeLessonId: string | null
+): string[] | null {
+  const ids = lessons.map((l) => l.id);
+  const selected = ids.filter((id) => selectedIds.has(id));
+  const without = ids.filter((id) => !selectedIds.has(id));
+
+  let insertAt: number;
+  if (!beforeLessonId) {
+    insertAt = without.length;
+  } else if (!selectedIds.has(beforeLessonId)) {
+    insertAt = without.indexOf(beforeLessonId);
+    if (insertAt === -1) insertAt = without.length;
+  } else {
+    const anchorIdx = ids.indexOf(beforeLessonId);
+    const successor = ids
+      .slice(anchorIdx + 1)
+      .find((id) => !selectedIds.has(id));
+    insertAt = successor ? without.indexOf(successor) : without.length;
+  }
+
+  const next = [
+    ...without.slice(0, insertAt),
+    ...selected,
+    ...without.slice(insertAt),
+  ];
+
+  if (next.length === ids.length && next.every((id, i) => id === ids[i])) {
+    return null;
+  }
+  return next;
+}
+
 export function computeFsStatusCounts(
   sections: Section[],
   filters: {

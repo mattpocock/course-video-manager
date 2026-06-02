@@ -138,6 +138,7 @@ export function SortableLessonItem({
   isGhostCourse,
   compact,
   isSelected,
+  isBulkDragPeer,
 }: {
   lesson: Lesson;
   lessonIndex: number;
@@ -161,6 +162,7 @@ export function SortableLessonItem({
   isGhostCourse?: boolean;
   compact?: boolean;
   isSelected?: boolean;
+  isBulkDragPeer?: boolean;
 }) {
   const {
     attributes,
@@ -177,7 +179,7 @@ export function SortableLessonItem({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : undefined,
+    opacity: isDragging ? 0.5 : isBulkDragPeer ? 0.4 : undefined,
   };
 
   const isReadOnly = !data.isLatestVersion;

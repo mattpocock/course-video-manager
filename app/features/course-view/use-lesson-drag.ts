@@ -6,9 +6,11 @@ import type {
 } from "@dnd-kit/core";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import type { Section } from "./course-view-types";
+import type { courseViewReducer } from "./course-view-reducer";
 import {
   resolveLessonDrop,
   computeReorderIds,
+  computeBulkReorderIds,
   type LessonDrop,
 } from "./course-editor-helpers";
 
@@ -18,20 +20,42 @@ import {
  * drops become a `move-lesson-to-section` anchored at the drop position.
  * Section drags are delegated to `onSectionDragEnd`. The returned
  * `dropIndicator` powers the insertion line, `activeLesson` powers the overlay.
+ *
+ * When a multi-lesson selection exists, dragging a selected lesson's grip
+ * moves the whole set; dragging an unselected lesson clears the selection
+ * and degrades to single-drag.
  */
 export function useLessonDrag(opts: {
   sections: Section[];
   submitEvent: (event: CourseEditorEvent) => void;
   onSectionDragEnd: (event: DragEndEvent) => void;
+  lessonSelection: courseViewReducer.LessonSelection;
+  dispatch: (action: courseViewReducer.Action) => void;
 }) {
-  const { sections, submitEvent, onSectionDragEnd } = opts;
+  const { sections, submitEvent, onSectionDragEnd, lessonSelection, dispatch } =
+    opts;
 
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<LessonDrop | null>(null);
+  const [bulkDragIds, setBulkDragIds] = useState<Set<string> | null>(null);
 
   const onDragStart = (event: DragStartEvent) => {
     if (event.active.data.current?.type === "lesson") {
-      setActiveLessonId(String(event.active.id));
+      const draggedId = String(event.active.id);
+      setActiveLessonId(draggedId);
+
+      if (
+        lessonSelection &&
+        lessonSelection.lessonIds.has(draggedId) &&
+        lessonSelection.lessonIds.size > 1
+      ) {
+        setBulkDragIds(lessonSelection.lessonIds);
+      } else {
+        setBulkDragIds(null);
+        if (lessonSelection) {
+          dispatch({ type: "clear-lesson-selection" });
+        }
+      }
     }
   };
 
@@ -42,8 +66,10 @@ export function useLessonDrag(opts: {
 
   const onDragEnd = (event: DragEndEvent) => {
     const type = event.active.data.current?.type;
+    const currentBulkDragIds = bulkDragIds;
     setActiveLessonId(null);
     setDropIndicator(null);
+    setBulkDragIds(null);
 
     if (type === "section") {
       onSectionDragEnd(event);
@@ -61,17 +87,32 @@ export function useLessonDrag(opts: {
     if (!source) return;
 
     if (source.id === drop.targetSectionId) {
-      const lessonIds = computeReorderIds(
-        source.lessons,
-        lessonId,
-        drop.beforeLessonId
-      );
-      if (lessonIds) {
-        submitEvent({
-          type: "reorder-lessons",
-          sectionId: source.id,
-          lessonIds,
-        });
+      if (currentBulkDragIds && currentBulkDragIds.size > 1) {
+        const lessonIds = computeBulkReorderIds(
+          source.lessons,
+          currentBulkDragIds,
+          drop.beforeLessonId
+        );
+        if (lessonIds) {
+          submitEvent({
+            type: "reorder-lessons",
+            sectionId: source.id,
+            lessonIds,
+          });
+        }
+      } else {
+        const lessonIds = computeReorderIds(
+          source.lessons,
+          lessonId,
+          drop.beforeLessonId
+        );
+        if (lessonIds) {
+          submitEvent({
+            type: "reorder-lessons",
+            sectionId: source.id,
+            lessonIds,
+          });
+        }
       }
     } else {
       submitEvent({
@@ -81,11 +122,14 @@ export function useLessonDrag(opts: {
         beforeLessonId: drop.beforeLessonId,
       });
     }
+
+    dispatch({ type: "clear-lesson-selection" });
   };
 
   const onDragCancel = () => {
     setActiveLessonId(null);
     setDropIndicator(null);
+    setBulkDragIds(null);
   };
 
   const activeLesson = activeLessonId
@@ -95,6 +139,7 @@ export function useLessonDrag(opts: {
   return {
     dropIndicator,
     activeLesson,
+    bulkDragIds,
     onDragStart,
     onDragOver,
     onDragEnd,
