@@ -14,6 +14,8 @@ export const CourseEditorEventSchema = Schema.Union(
     repoVersionId: nonEmptyString,
     title: nonEmptyString,
     maxOrder: Schema.Number,
+    adjacentSectionId: Schema.optional(nonEmptyString),
+    position: Schema.optional(Schema.Literal("before", "after")),
   }),
   Schema.Struct({
     type: Schema.Literal("update-section-name"),
