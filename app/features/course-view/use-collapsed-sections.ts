@@ -35,16 +35,26 @@ export function useCollapsedSections() {
     });
   }, []);
 
-  const expandAll = useCallback(() => {
-    const next = new Set<string>();
-    persistToLocalStorage(next);
-    setCollapsedSections(next);
+  const expandAll = useCallback((sectionIds: string[]) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      for (const id of sectionIds) {
+        next.delete(id);
+      }
+      persistToLocalStorage(next);
+      return next;
+    });
   }, []);
 
   const collapseAll = useCallback((sectionIds: string[]) => {
-    const next = new Set(sectionIds);
-    persistToLocalStorage(next);
-    setCollapsedSections(next);
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      for (const id of sectionIds) {
+        next.add(id);
+      }
+      persistToLocalStorage(next);
+      return next;
+    });
   }, []);
 
   return { collapsedSections, toggleSection, expandAll, collapseAll };

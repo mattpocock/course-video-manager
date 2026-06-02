@@ -319,7 +319,7 @@ export default function Component(props: Route.ComponentProps) {
     sectionIds.every((id) => collapsedSections.has(id));
   const handleToggleAllSections = useCallback(() => {
     if (allSectionsCollapsed) {
-      expandAll();
+      expandAll(sectionIds);
     } else {
       collapseAll(sectionIds);
     }
