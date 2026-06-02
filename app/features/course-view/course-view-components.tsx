@@ -93,6 +93,7 @@ export function FilterBar({
   fsStatusCounts,
   searchQuery,
   viewMode,
+  onToggleViewMode,
   dispatch,
   isRealCourse,
 }: {
@@ -102,6 +103,7 @@ export function FilterBar({
   fsStatusCounts: { ghost: number; real: number; todo: number };
   searchQuery: string;
   viewMode: "expanded" | "compact";
+  onToggleViewMode: () => void;
   dispatch: (action: courseViewReducer.Action) => void;
   isRealCourse: boolean;
 }) {
@@ -284,7 +286,7 @@ export function FilterBar({
                 ? "bg-foreground/10 text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
-            onClick={() => dispatch({ type: "toggle-view-mode" })}
+            onClick={onToggleViewMode}
             title={
               viewMode === "compact"
                 ? "Switch to expanded view"

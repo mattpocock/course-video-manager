@@ -30,6 +30,7 @@ import { Console, Effect } from "effect";
 import { getGitStatusAsync } from "@/services/git-status-service.server";
 import { AlertTriangle, Plus } from "lucide-react";
 import { Suspense, useCallback, useContext, useMemo, useState } from "react";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { data, useFetcher, useNavigate, useSubmit } from "react-router";
 import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId._index";
@@ -281,8 +282,12 @@ export default function Component(props: Route.ComponentProps) {
     iconFilter,
     fsStatusFilter,
     searchQuery,
-    viewMode,
   } = viewState;
+
+  const [viewMode, setViewMode] = useLocalStorage("view-mode", "expanded") as [
+    "expanded" | "compact",
+    (value: "expanded" | "compact") => void,
+  ];
 
   const [nextUpDismissed, setNextUpDismissed] = useState(false);
   const { startExportUpload, startBatchExportUpload } =
@@ -445,6 +450,11 @@ export default function Component(props: Route.ComponentProps) {
                       fsStatusCounts={fsStatusCounts}
                       searchQuery={searchQuery}
                       viewMode={viewMode}
+                      onToggleViewMode={() =>
+                        setViewMode(
+                          viewMode === "expanded" ? "compact" : "expanded"
+                        )
+                      }
                       dispatch={dispatch}
                       isRealCourse={currentCourse?.filePath != null}
                     />

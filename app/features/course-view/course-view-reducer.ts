@@ -64,9 +64,6 @@ export namespace courseViewReducer {
     iconFilter: string[];
     fsStatusFilter: string | null;
     searchQuery: string;
-
-    // View mode
-    viewMode: "expanded" | "compact";
   };
 
   export type Action =
@@ -138,9 +135,7 @@ export namespace courseViewReducer {
     | { type: "toggle-priority-filter"; priority: number }
     | { type: "toggle-icon-filter"; icon: string }
     | { type: "toggle-fs-status-filter"; status: string }
-    | { type: "set-search-query"; query: string }
-    // View mode
-    | { type: "toggle-view-mode" };
+    | { type: "set-search-query"; query: string };
 
   export type Effect = never;
 }
@@ -175,7 +170,6 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     iconFilter: [],
     fsStatusFilter: null,
     searchQuery: "",
-    viewMode: "expanded",
   };
 }
 
@@ -325,12 +319,5 @@ export const courseViewReducer: EffectReducer<
       };
     case "set-search-query":
       return { ...state, searchQuery: action.query };
-
-    // View mode
-    case "toggle-view-mode":
-      return {
-        ...state,
-        viewMode: state.viewMode === "expanded" ? "compact" : "expanded",
-      };
   }
 };
