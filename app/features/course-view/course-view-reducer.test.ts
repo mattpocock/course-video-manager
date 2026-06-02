@@ -474,6 +474,29 @@ describe("courseViewReducer", () => {
     });
   });
 
+  describe("Edit description lesson", () => {
+    it("50. set-edit-description-lesson-id: sets the lesson ID", () => {
+      const state = createTester()
+        .send({
+          type: "set-edit-description-lesson-id",
+          lessonId: "lesson-5",
+        })
+        .getState();
+      expect(state.editDescriptionLessonId).toBe("lesson-5");
+    });
+
+    it("51. set-edit-description-lesson-id: clears with null", () => {
+      const state = createTester()
+        .send({
+          type: "set-edit-description-lesson-id",
+          lessonId: "lesson-5",
+        })
+        .send({ type: "set-edit-description-lesson-id", lessonId: null })
+        .getState();
+      expect(state.editDescriptionLessonId).toBeNull();
+    });
+  });
+
   describe("State independence", () => {
     it("44. modal toggle does not affect filters", () => {
       const state = createTester()

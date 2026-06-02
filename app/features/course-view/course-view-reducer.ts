@@ -59,6 +59,7 @@ export namespace courseViewReducer {
     deleteLessonId: string | null;
     archiveSectionId: string | null;
     createOnDiskLessonId: string | null;
+    editDescriptionLessonId: string | null;
 
     // Complex object states
     videoPlayerState: VideoPlayerState;
@@ -114,6 +115,7 @@ export namespace courseViewReducer {
     | { type: "set-delete-lesson-id"; lessonId: string | null }
     | { type: "set-archive-section-id"; sectionId: string | null }
     | { type: "set-create-on-disk-lesson-id"; lessonId: string | null }
+    | { type: "set-edit-description-lesson-id"; lessonId: string | null }
     // Video player
     | {
         type: "open-video-player";
@@ -192,6 +194,7 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     deleteLessonId: null,
     archiveSectionId: null,
     createOnDiskLessonId: null,
+    editDescriptionLessonId: null,
     videoPlayerState: { isOpen: false, videoId: "", videoPath: "" },
     moveVideoState: null,
     moveLessonState: null,
@@ -282,6 +285,8 @@ export const courseViewReducer: EffectReducer<
       return { ...state, archiveSectionId: action.sectionId };
     case "set-create-on-disk-lesson-id":
       return { ...state, createOnDiskLessonId: action.lessonId };
+    case "set-edit-description-lesson-id":
+      return { ...state, editDescriptionLessonId: action.lessonId };
 
     // Video player
     case "open-video-player":

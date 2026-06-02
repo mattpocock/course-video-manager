@@ -61,6 +61,7 @@ export function SectionGrid({
   convertToGhostLessonId,
   deleteLessonId,
   createOnDiskLessonId,
+  editDescriptionLessonId,
   archiveSectionId,
   lessonSelection,
   dispatch,
@@ -101,6 +102,7 @@ export function SectionGrid({
   convertToGhostLessonId: string | null;
   deleteLessonId: string | null;
   createOnDiskLessonId: string | null;
+  editDescriptionLessonId: string | null;
   archiveSectionId: string | null;
   lessonSelection: courseViewReducer.LessonSelection;
   dispatch: (action: courseViewReducer.Action) => void;
@@ -397,6 +399,9 @@ export function SectionGrid({
                                             deleteLessonId={deleteLessonId}
                                             createOnDiskLessonId={
                                               createOnDiskLessonId
+                                            }
+                                            editDescriptionLessonId={
+                                              editDescriptionLessonId
                                             }
                                             dispatch={dispatch}
                                             submitEvent={submitEvent}

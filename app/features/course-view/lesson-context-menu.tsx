@@ -13,6 +13,7 @@ import type { useNavigate } from "react-router";
 import {
   ArrowRightLeft,
   BookOpen,
+  FileText,
   FileVideo,
   Ghost,
   ListTodo,
@@ -33,6 +34,7 @@ export function LessonContextMenuContent({
   dispatch,
   submitEvent,
   startEditingTitle,
+  startEditingDescription,
 }: {
   lesson: Lesson;
   section: Section;
@@ -45,6 +47,7 @@ export function LessonContextMenuContent({
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
   startEditingTitle: () => void;
+  startEditingDescription: () => void;
 }) {
   return (
     <ContextMenuContent>
@@ -89,6 +92,12 @@ export function LessonContextMenuContent({
                 <PencilIcon className="w-4 h-4" />
                 Rename
               </ContextMenuItem>
+              {compact && (
+                <ContextMenuItem onSelect={startEditingDescription}>
+                  <FileText className="w-4 h-4" />
+                  Edit Description
+                </ContextMenuItem>
+              )}
             </>
           ) : (
             <>
@@ -107,6 +116,12 @@ export function LessonContextMenuContent({
                 <PencilIcon className="w-4 h-4" />
                 Rename
               </ContextMenuItem>
+              {compact && (
+                <ContextMenuItem onSelect={startEditingDescription}>
+                  <FileText className="w-4 h-4" />
+                  Edit Description
+                </ContextMenuItem>
+              )}
               <ContextMenuSeparator />
               <ContextMenuItem
                 onSelect={() =>

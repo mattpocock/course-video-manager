@@ -292,6 +292,7 @@ export default function Component(props: Route.ComponentProps) {
     convertToGhostLessonId,
     deleteLessonId,
     createOnDiskLessonId,
+    editDescriptionLessonId,
     archiveSectionId,
     lessonSelection,
     videoPlayerState,
@@ -449,6 +450,7 @@ export default function Component(props: Route.ComponentProps) {
                         convertToGhostLessonId={convertToGhostLessonId}
                         deleteLessonId={deleteLessonId}
                         createOnDiskLessonId={createOnDiskLessonId}
+                        editDescriptionLessonId={editDescriptionLessonId}
                         dispatch={dispatch}
                         submitEvent={submitEvent}
                         startExportUpload={startExportUpload}
@@ -501,6 +503,7 @@ export default function Component(props: Route.ComponentProps) {
                     convertToGhostLessonId={convertToGhostLessonId}
                     deleteLessonId={deleteLessonId}
                     createOnDiskLessonId={createOnDiskLessonId}
+                    editDescriptionLessonId={editDescriptionLessonId}
                     archiveSectionId={archiveSectionId}
                     lessonSelection={lessonSelection}
                     dispatch={dispatch}

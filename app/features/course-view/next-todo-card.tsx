@@ -23,6 +23,7 @@ export function NextTodoCard({
   convertToGhostLessonId,
   deleteLessonId,
   createOnDiskLessonId,
+  editDescriptionLessonId,
   dispatch,
   submitEvent,
   startExportUpload,
@@ -41,6 +42,7 @@ export function NextTodoCard({
   convertToGhostLessonId: string | null;
   deleteLessonId: string | null;
   createOnDiskLessonId: string | null;
+  editDescriptionLessonId: string | null;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
   startExportUpload: (videoId: string, path: string) => void;
@@ -102,6 +104,7 @@ export function NextTodoCard({
                 convertToGhostLessonId={convertToGhostLessonId}
                 deleteLessonId={deleteLessonId}
                 createOnDiskLessonId={createOnDiskLessonId}
+                editDescriptionLessonId={editDescriptionLessonId}
                 dispatch={dispatch}
                 submitEvent={submitEvent}
                 startExportUpload={startExportUpload}
