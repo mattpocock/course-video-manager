@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type {
   DragStartEvent,
   DragOverEvent,
@@ -9,8 +9,7 @@ import type { Section } from "./course-view-types";
 import type { courseViewReducer } from "./course-view-reducer";
 import {
   resolveLessonDrop,
-  computeReorderIds,
-  computeBulkReorderIds,
+  buildLessonDropEvent,
   type LessonDrop,
 } from "./course-editor-helpers";
 
@@ -39,6 +38,10 @@ export function useLessonDrag(opts: {
   const [dropIndicator, setDropIndicator] = useState<LessonDrop | null>(null);
   const [bulkDragIds, setBulkDragIds] = useState<Set<string> | null>(null);
 
+  // Ref mirrors bulkDragIds so onDragEnd can read it synchronously — React
+  // state set in onDragStart may not be committed before onDragEnd fires.
+  const bulkDragIdsRef = useRef<Set<string> | null>(null);
+
   const onDragStart = (event: DragStartEvent) => {
     if (event.active.data.current?.type === "lesson") {
       const draggedId = String(event.active.id);
@@ -49,8 +52,10 @@ export function useLessonDrag(opts: {
         lessonSelection.lessonIds.has(draggedId) &&
         lessonSelection.lessonIds.size > 1
       ) {
+        bulkDragIdsRef.current = lessonSelection.lessonIds;
         setBulkDragIds(lessonSelection.lessonIds);
       } else {
+        bulkDragIdsRef.current = null;
         setBulkDragIds(null);
         if (lessonSelection) {
           dispatch({ type: "clear-lesson-selection" });
@@ -66,7 +71,8 @@ export function useLessonDrag(opts: {
 
   const onDragEnd = (event: DragEndEvent) => {
     const type = event.active.data.current?.type;
-    const currentBulkDragIds = bulkDragIds;
+    const currentBulkDragIds = bulkDragIdsRef.current;
+    bulkDragIdsRef.current = null;
     setActiveLessonId(null);
     setDropIndicator(null);
     setBulkDragIds(null);
@@ -81,52 +87,21 @@ export function useLessonDrag(opts: {
     const drop = resolveLessonDrop(event, sections);
     if (!drop) return;
 
-    const source = sections.find((s) =>
-      s.lessons.some((l) => l.id === lessonId)
-    );
-    if (!source) return;
-
-    if (source.id === drop.targetSectionId) {
-      if (currentBulkDragIds && currentBulkDragIds.size > 1) {
-        const lessonIds = computeBulkReorderIds(
-          source.lessons,
-          currentBulkDragIds,
-          drop.beforeLessonId
-        );
-        if (lessonIds) {
-          submitEvent({
-            type: "reorder-lessons",
-            sectionId: source.id,
-            lessonIds,
-          });
-        }
-      } else {
-        const lessonIds = computeReorderIds(
-          source.lessons,
-          lessonId,
-          drop.beforeLessonId
-        );
-        if (lessonIds) {
-          submitEvent({
-            type: "reorder-lessons",
-            sectionId: source.id,
-            lessonIds,
-          });
-        }
-      }
-    } else {
-      submitEvent({
-        type: "move-lesson-to-section",
-        lessonId,
-        targetSectionId: drop.targetSectionId,
-        beforeLessonId: drop.beforeLessonId,
-      });
+    const editorEvent = buildLessonDropEvent({
+      sections,
+      lessonId,
+      drop,
+      bulkDragIds: currentBulkDragIds,
+    });
+    if (editorEvent) {
+      submitEvent(editorEvent);
     }
 
     dispatch({ type: "clear-lesson-selection" });
   };
 
   const onDragCancel = () => {
+    bulkDragIdsRef.current = null;
     setActiveLessonId(null);
     setDropIndicator(null);
     setBulkDragIds(null);

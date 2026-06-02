@@ -156,6 +156,52 @@ export function computeBulkReorderIds(
   return next;
 }
 
+/**
+ * Pure decision function: given the dragged lesson, drop target, and optional
+ * bulk-drag set, return the editor event to submit — or `null` for a no-op.
+ *
+ * Extracted from onDragEnd so it can be tested without dnd-kit or React state.
+ */
+export function buildLessonDropEvent(opts: {
+  sections: { id: string; lessons: { id: string }[] }[];
+  lessonId: string;
+  drop: LessonDrop;
+  bulkDragIds: Set<string> | null;
+}): CourseEditorEvent | null {
+  const { sections, lessonId, drop, bulkDragIds } = opts;
+
+  const source = sections.find((s) => s.lessons.some((l) => l.id === lessonId));
+  if (!source) return null;
+
+  if (source.id === drop.targetSectionId) {
+    if (bulkDragIds && bulkDragIds.size > 1) {
+      const lessonIds = computeBulkReorderIds(
+        source.lessons,
+        bulkDragIds,
+        drop.beforeLessonId
+      );
+      return lessonIds
+        ? { type: "reorder-lessons", sectionId: source.id, lessonIds }
+        : null;
+    }
+    const lessonIds = computeReorderIds(
+      source.lessons,
+      lessonId,
+      drop.beforeLessonId
+    );
+    return lessonIds
+      ? { type: "reorder-lessons", sectionId: source.id, lessonIds }
+      : null;
+  }
+
+  return {
+    type: "move-lesson-to-section",
+    lessonId,
+    targetSectionId: drop.targetSectionId,
+    beforeLessonId: drop.beforeLessonId,
+  };
+}
+
 export function computeFsStatusCounts(
   sections: Section[],
   filters: {
