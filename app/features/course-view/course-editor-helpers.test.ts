@@ -346,6 +346,58 @@ describe("buildLessonDropEvent", () => {
     });
     expect(result).toBeNull();
   });
+
+  it("returns null when bulk reorder is a no-op", () => {
+    const result = buildLessonDropEvent({
+      sections,
+      lessonId: "a",
+      drop: { targetSectionId: "s1", beforeLessonId: "c" },
+      bulkDragIds: new Set(["a", "b"]),
+    });
+    expect(result).toBeNull();
+  });
+
+  it("appends to end of section for single reorder", () => {
+    const result = buildLessonDropEvent({
+      sections,
+      lessonId: "a",
+      drop: { targetSectionId: "s1", beforeLessonId: null },
+      bulkDragIds: null,
+    });
+    expect(result).toEqual({
+      type: "reorder-lessons",
+      sectionId: "s1",
+      lessonIds: ["b", "c", "d", "e", "a"],
+    });
+  });
+
+  it("appends to end of section for bulk reorder", () => {
+    const result = buildLessonDropEvent({
+      sections,
+      lessonId: "a",
+      drop: { targetSectionId: "s1", beforeLessonId: null },
+      bulkDragIds: new Set(["a", "c"]),
+    });
+    expect(result).toEqual({
+      type: "reorder-lessons",
+      sectionId: "s1",
+      lessonIds: ["b", "d", "e", "a", "c"],
+    });
+  });
+
+  it("falls back to single reorder when bulkDragIds is empty", () => {
+    const result = buildLessonDropEvent({
+      sections,
+      lessonId: "c",
+      drop: { targetSectionId: "s1", beforeLessonId: "a" },
+      bulkDragIds: new Set(),
+    });
+    expect(result).toEqual({
+      type: "reorder-lessons",
+      sectionId: "s1",
+      lessonIds: ["c", "a", "b", "d", "e"],
+    });
+  });
 });
 
 describe("computeFsStatusCounts", () => {

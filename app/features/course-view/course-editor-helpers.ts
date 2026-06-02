@@ -156,12 +156,6 @@ export function computeBulkReorderIds(
   return next;
 }
 
-/**
- * Pure decision function: given the dragged lesson, drop target, and optional
- * bulk-drag set, return the editor event to submit — or `null` for a no-op.
- *
- * Extracted from onDragEnd so it can be tested without dnd-kit or React state.
- */
 export function buildLessonDropEvent(opts: {
   sections: { id: string; lessons: { id: string }[] }[];
   lessonId: string;

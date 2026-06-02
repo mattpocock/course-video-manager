@@ -38,8 +38,7 @@ export function useLessonDrag(opts: {
   const [dropIndicator, setDropIndicator] = useState<LessonDrop | null>(null);
   const [bulkDragIds, setBulkDragIds] = useState<Set<string> | null>(null);
 
-  // Ref mirrors bulkDragIds so onDragEnd can read it synchronously — React
-  // state set in onDragStart may not be committed before onDragEnd fires.
+  // React state set in onDragStart may not be committed before onDragEnd fires.
   const bulkDragIdsRef = useRef<Set<string> | null>(null);
 
   const onDragStart = (event: DragStartEvent) => {
