@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFetchers } from "react-router";
 import { toast } from "sonner";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
@@ -44,6 +44,7 @@ export function useOptimisticCourse(loaderData: LoaderData): LoaderData {
 export function useCourseEditorFailureToast() {
   const fetchers = useFetchers();
   const prevStatesRef = useRef<Map<string, string>>(new Map());
+  const [divergenceReport, setDivergenceReport] = useState<string | null>(null);
 
   useEffect(() => {
     const prevStates = prevStatesRef.current;
@@ -65,10 +66,31 @@ export function useCourseEditorFailureToast() {
         fetcher.data instanceof Response &&
         !fetcher.data.ok
       ) {
-        toast.error("Action failed — your change was reverted.");
+        if (fetcher.data.status === 409) {
+          fetcher.data
+            .clone()
+            .text()
+            .then((body) => {
+              try {
+                const parsed = JSON.parse(body);
+                setDivergenceReport(typeof parsed === "string" ? parsed : body);
+              } catch {
+                setDivergenceReport(body);
+              }
+            });
+        } else {
+          toast.error("Action failed — your change was reverted.");
+        }
       }
     }
 
     prevStatesRef.current = nextStates;
   }, [fetchers]);
+
+  const clearDivergenceReport = useCallback(
+    () => setDivergenceReport(null),
+    []
+  );
+
+  return { divergenceReport, clearDivergenceReport };
 }

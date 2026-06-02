@@ -66,6 +66,7 @@ import {
   useOptimisticCourse,
   useCourseEditorFailureToast,
 } from "@/features/course-view/use-optimistic-course";
+import { DivergenceReportModal } from "@/features/course-view/divergence-report-modal";
 
 export const meta: Route.MetaFunction = ({ data }) => {
   const selectedCourse = data?.selectedCourse;
@@ -258,7 +259,8 @@ export default function Component(props: Route.ComponentProps) {
   );
 
   const optimisticData = useOptimisticCourse(loaderData);
-  useCourseEditorFailureToast();
+  const { divergenceReport, clearDivergenceReport } =
+    useCourseEditorFailureToast();
 
   const currentCourse = optimisticData.selectedCourse;
   const displaySections = currentCourse?.sections ?? [];
@@ -585,6 +587,11 @@ export default function Component(props: Route.ComponentProps) {
           viewState={viewState}
           dispatch={dispatch}
           navigate={navigate}
+        />
+
+        <DivergenceReportModal
+          report={divergenceReport}
+          onClose={clearDivergenceReport}
         />
       </div>
     </GenerateChaptersProvider>
