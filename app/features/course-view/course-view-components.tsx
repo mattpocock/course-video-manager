@@ -10,6 +10,8 @@ import { computeCourseStats } from "@/features/course-view/course-editor-helpers
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
   Code,
   FileVideo,
   Ghost,
@@ -94,6 +96,9 @@ export function FilterBar({
   searchQuery,
   viewMode,
   onToggleViewMode,
+  allSectionsCollapsed,
+  onToggleAllSections,
+  sectionCount,
   dispatch,
   isRealCourse,
 }: {
@@ -104,6 +109,9 @@ export function FilterBar({
   searchQuery: string;
   viewMode: "expanded" | "compact";
   onToggleViewMode: () => void;
+  allSectionsCollapsed: boolean;
+  onToggleAllSections: () => void;
+  sectionCount: number;
   dispatch: (action: courseViewReducer.Action) => void;
   isRealCourse: boolean;
 }) {
@@ -279,7 +287,28 @@ export function FilterBar({
           </>
         )}
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            className="flex items-center justify-center w-7 h-7 rounded transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:pointer-events-none"
+            onClick={onToggleAllSections}
+            disabled={sectionCount === 0}
+            title={
+              allSectionsCollapsed
+                ? "Expand all sections"
+                : "Collapse all sections"
+            }
+            aria-label={
+              allSectionsCollapsed
+                ? "Expand all sections"
+                : "Collapse all sections"
+            }
+          >
+            {allSectionsCollapsed ? (
+              <ChevronsUpDown className="w-4 h-4" />
+            ) : (
+              <ChevronsDownUp className="w-4 h-4" />
+            )}
+          </button>
           <button
             className={`flex items-center justify-center w-7 h-7 rounded transition-colors ${
               viewMode === "compact"
