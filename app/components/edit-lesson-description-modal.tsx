@@ -45,8 +45,7 @@ export function EditLessonDescriptionModal(props: {
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                props.onSave(value);
-                props.onOpenChange(false);
+                e.currentTarget.form?.requestSubmit();
               }
             }}
           />
