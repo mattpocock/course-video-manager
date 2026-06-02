@@ -46,9 +46,29 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
       const addGhostSection = Effect.fn("addGhostSection")(function* (
         repoVersionId: string,
         title: string,
-        maxOrder: number = 0
+        maxOrder: number = 0,
+        opts?: { adjacentSectionId: string; position: "before" | "after" }
       ) {
-        const sectionNumber = maxOrder + 1;
+        let sectionNumber = maxOrder + 1;
+
+        if (opts) {
+          const sections =
+            yield* lessonSectionOps.getSectionsByRepoVersionId(repoVersionId);
+          const adjIdx = sections.findIndex(
+            (s) => s.id === opts.adjacentSectionId
+          );
+          if (adjIdx !== -1) {
+            const idx = opts.position === "after" ? adjIdx + 1 : adjIdx;
+            const shiftUpdates = sections
+              .slice(idx)
+              .map((s) => ({ id: s.id, order: s.order + 1 }));
+            yield* lessonSectionOps.batchUpdateSectionOrders(shiftUpdates);
+            sectionNumber = sections[idx]
+              ? sections[idx]!.order
+              : Math.max(...sections.map((s) => s.order)) + 1;
+          }
+        }
+
         const [newSection] = yield* lessonSectionOps.createSections({
           repoVersionId,
           sections: [

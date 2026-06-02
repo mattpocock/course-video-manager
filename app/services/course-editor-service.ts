@@ -19,6 +19,8 @@ export type CourseEditorEvent =
       repoVersionId: string;
       title: string;
       maxOrder: number;
+      adjacentSectionId?: string;
+      position?: "before" | "after";
     }
   | {
       type: "update-section-name";
@@ -134,7 +136,8 @@ export interface CourseEditorService {
   createSection(
     repoVersionId: string,
     title: string,
-    maxOrder: number
+    maxOrder: number,
+    opts?: { adjacentSectionId: string; position: "before" | "after" }
   ): Promise<{ success: true; sectionId: string }>;
 
   updateSectionName(sectionId: string, title: string): Promise<unknown>;
@@ -232,12 +235,13 @@ export function createCourseEditorService(
 ): CourseEditorService {
   return {
     // --- Section operations ---
-    async createSection(repoVersionId, title, maxOrder) {
+    async createSection(repoVersionId, title, maxOrder, opts) {
       return send({
         type: "create-section",
         repoVersionId,
         title,
         maxOrder,
+        ...opts,
       }) as Promise<{ success: true; sectionId: string }>;
     },
 

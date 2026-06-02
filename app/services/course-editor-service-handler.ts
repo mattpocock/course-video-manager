@@ -32,7 +32,13 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
         return yield* service.addGhostSection(
           event.repoVersionId,
           event.title,
-          event.maxOrder
+          event.maxOrder,
+          event.adjacentSectionId && event.position
+            ? {
+                adjacentSectionId: event.adjacentSectionId,
+                position: event.position,
+              }
+            : undefined
         );
       }
 
