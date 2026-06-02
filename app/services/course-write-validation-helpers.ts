@@ -8,14 +8,16 @@ import {
 /**
  * Builds validation helpers used by CourseWriteService.
  *
- * Two wrappers:
- * - `withPostValidation` — post-write only, for conditionally-FS operations
- *   that gate validation internally.
- * - `withPreAndPostValidation` — pre-flight gate + post-write, for
- *   always-filesystem operations. The pre-flight refuses to act on an
- *   already-divergent repo; the post-write catches divergence the write's
- *   own logic might introduce. This accepts two full repo scans per
- *   filesystem write as the cost of both guarantees.
+ * Every filesystem-touching write runs both a pre-flight gate and a post-write
+ * validation. The pre-flight refuses to act on an already-divergent repo; the
+ * post-write catches divergence the write's own logic might introduce. This
+ * accepts two full repo scans per filesystem write as the cost of both
+ * guarantees.
+ *
+ * Always-FS operations use `withPreAndPostValidation`; conditionally-FS
+ * operations (delete, rename, move, convert-to-ghost) call `runValidation`
+ * directly inside their filesystem-touch branches so ghost-only edits pay
+ * nothing.
  *
  * Validation is scoped to the touched repo to avoid O(courses) FS traversals.
  */
@@ -35,17 +37,6 @@ export function createValidationHelpers(
         );
       })
     );
-
-  const withPostValidation = <A, E1, E2, R1, R2>(
-    resolveRepoPath: Effect.Effect<string | null, E1, R1>,
-    effect: Effect.Effect<A, E2, R2>
-  ): Effect.Effect<A, E1 | E2 | CourseRepoSyncError, R1 | R2> =>
-    Effect.gen(function* () {
-      const result = yield* effect;
-      const repoPath = yield* resolveRepoPath;
-      yield* runValidation(repoPath);
-      return result;
-    });
 
   const withPreAndPostValidation = <A, E1, E2, R1, R2>(
     resolveRepoPath: Effect.Effect<string | null, E1, R1>,
@@ -71,7 +62,6 @@ export function createValidationHelpers(
 
   return {
     runValidation,
-    withPostValidation,
     withPreAndPostValidation,
     repoPathForSection,
     repoPathForLesson,

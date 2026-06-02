@@ -1,9 +1,7 @@
 /**
- * Tests that sync validation is skipped for DB-only operations
- * and only runs once (post-operation) for filesystem operations.
- *
- * This verifies the performance optimization from Issue #685:
- * pre-validation was removed and ghost operations skip validation entirely.
+ * Tests that every filesystem-touching write runs pre-flight + post-write
+ * validation (PRD #952), DB-only operations skip validation entirely,
+ * and ghost-only edits in conditionally-FS operations pay nothing.
  */
 
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
@@ -233,8 +231,8 @@ describe("sync validation optimization (Issue #685)", () => {
     });
   });
 
-  describe("conditionally-FS operations validate once (post-only)", () => {
-    it("deleting a real lesson validates once after", async () => {
+  describe("conditionally-FS operations validate twice (pre + post)", () => {
+    it("deleting a real lesson validates twice", async () => {
       const { version } = await createCourseWithVersion("/tmp/test-repo");
       const { lessons } = await createSectionWithLessons(
         version.id,
@@ -252,10 +250,10 @@ describe("sync validation optimization (Issue #685)", () => {
 
       validateCallCount = 0;
       await svc().deleteLesson(lessons[0]!.id);
-      expect(validateCallCount).toBe(1);
+      expect(validateCallCount).toBe(2);
     });
 
-    it("moving a real lesson validates once after", async () => {
+    it("moving a real lesson validates twice", async () => {
       const { version } = await createCourseWithVersion("/tmp/test-repo");
       const { lessons } = await createSectionWithLessons(
         version.id,
@@ -279,10 +277,10 @@ describe("sync validation optimization (Issue #685)", () => {
 
       validateCallCount = 0;
       await svc().moveLessonToSection(lessons[0]!.id, sectionB.id);
-      expect(validateCallCount).toBe(1);
+      expect(validateCallCount).toBe(2);
     });
 
-    it("renaming a real lesson validates once after", async () => {
+    it("renaming a real lesson validates twice", async () => {
       const { version } = await createCourseWithVersion("/tmp/test-repo");
       const { lessons } = await createSectionWithLessons(
         version.id,
@@ -300,7 +298,28 @@ describe("sync validation optimization (Issue #685)", () => {
 
       validateCallCount = 0;
       await svc().updateLessonName(lessons[0]!.id, "new-name");
-      expect(validateCallCount).toBe(1);
+      expect(validateCallCount).toBe(2);
+    });
+
+    it("converting a real lesson to ghost validates twice", async () => {
+      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { lessons } = await createSectionWithLessons(
+        version.id,
+        "01-intro",
+        0,
+        [
+          {
+            path: "01.01-my-lesson",
+            title: "My Lesson",
+            fsStatus: "real",
+            order: 0,
+          },
+        ]
+      );
+
+      validateCallCount = 0;
+      await svc().convertToGhost(lessons[0]!.id);
+      expect(validateCallCount).toBe(2);
     });
   });
 });
@@ -435,6 +454,142 @@ describe("pre-flight validation gate (PRD #952)", () => {
 
       const lessons = await ddb().select().from(schema.lessons);
       expect(lessons).toHaveLength(0);
+    });
+  });
+
+  describe("conditionally-FS operations are refused on a divergent repo", () => {
+    it("deleteLesson fails with CourseRepoSyncError for a real lesson", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { lessons } = await createSection(version.id, "01-intro", 0, [
+        {
+          path: "01.01-my-lesson",
+          title: "My Lesson",
+          fsStatus: "real",
+          order: 0,
+        },
+      ]);
+
+      await expect(dsvc().deleteLesson(lessons[0]!.id)).rejects.toThrow(
+        "Divergent repo"
+      );
+
+      const dbLessons = await ddb().select().from(schema.lessons);
+      expect(dbLessons).toHaveLength(1);
+    });
+
+    it("deleteLesson succeeds for a ghost lesson on a divergent repo", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { lessons } = await createSection(version.id, "01-intro", 0, [
+        {
+          path: "my-lesson",
+          title: "My Lesson",
+          fsStatus: "ghost",
+          order: 0,
+        },
+      ]);
+
+      const result = await dsvc().deleteLesson(lessons[0]!.id);
+      expect(result.success).toBe(true);
+    });
+
+    it("renameLesson fails with CourseRepoSyncError for a real lesson", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { lessons } = await createSection(version.id, "01-intro", 0, [
+        {
+          path: "01.01-my-lesson",
+          title: "My Lesson",
+          fsStatus: "real",
+          order: 0,
+        },
+      ]);
+
+      await expect(
+        dsvc().updateLessonName(lessons[0]!.id, "new-name")
+      ).rejects.toThrow("Divergent repo");
+
+      const dbLessons = await ddb().select().from(schema.lessons);
+      expect(dbLessons[0]!.path).toBe("01.01-my-lesson");
+    });
+
+    it("renameLesson succeeds for a ghost lesson on a divergent repo", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { lessons } = await createSection(version.id, "01-intro", 0, [
+        {
+          path: "my-lesson",
+          title: "My Lesson",
+          fsStatus: "ghost",
+          order: 0,
+        },
+      ]);
+
+      const result = await dsvc().updateLessonName(lessons[0]!.id, "new-name");
+      expect(result.success).toBe(true);
+    });
+
+    it("moveToSection fails with CourseRepoSyncError when plan has fs ops", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { lessons } = await createSection(version.id, "01-intro", 0, [
+        {
+          path: "01.01-my-lesson",
+          title: "My Lesson",
+          fsStatus: "real",
+          order: 0,
+        },
+      ]);
+      const { section: sectionB } = await createSection(
+        version.id,
+        "02-basics",
+        1
+      );
+
+      await expect(
+        dsvc().moveLessonToSection(lessons[0]!.id, sectionB.id)
+      ).rejects.toThrow("Divergent repo");
+
+      const dbLessons = await ddb().select().from(schema.lessons);
+      expect(dbLessons[0]!.sectionId).toBe(lessons[0]!.sectionId);
+    });
+
+    it("moveToSection succeeds for a ghost lesson on a divergent repo", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { lessons } = await createSection(version.id, "01-intro", 0, [
+        {
+          path: "my-lesson",
+          title: "My Lesson",
+          fsStatus: "ghost",
+          order: 0,
+        },
+      ]);
+      const { section: sectionB } = await createSection(
+        version.id,
+        "02-basics",
+        1
+      );
+
+      const result = await dsvc().moveLessonToSection(
+        lessons[0]!.id,
+        sectionB.id
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("convertToGhost fails with CourseRepoSyncError for a real lesson", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { lessons } = await createSection(version.id, "01-intro", 0, [
+        {
+          path: "01.01-my-lesson",
+          title: "My Lesson",
+          fsStatus: "real",
+          order: 0,
+        },
+      ]);
+
+      await expect(dsvc().convertToGhost(lessons[0]!.id)).rejects.toThrow(
+        "Divergent repo"
+      );
+
+      const dbLessons = await ddb().select().from(schema.lessons);
+      expect(dbLessons[0]!.fsStatus).toBe("real");
     });
   });
 

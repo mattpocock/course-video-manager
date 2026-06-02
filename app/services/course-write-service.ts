@@ -35,7 +35,6 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
 
       const {
         runValidation,
-        withPostValidation,
         withPreAndPostValidation,
         repoPathForSection,
         repoPathForLesson,
@@ -143,6 +142,8 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           const parsed = parseSectionPath(sectionPath);
           const sectionNumber = parsed?.sectionNumber ?? 1;
 
+          yield* runValidation(repoPath);
+
           yield* repoWrite.deleteLesson({
             repoPath,
             sectionPath,
@@ -232,6 +233,8 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         const parsed = parseSectionPath(sectionPath);
         const sectionNumber = parsed?.sectionNumber ?? 1;
 
+        yield* runValidation(repoPath);
+
         // Delete the lesson directory from disk
         yield* repoWrite.deleteLesson({
           repoPath,
@@ -296,6 +299,8 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           }
         }
 
+        yield* runValidation(repoPath);
+
         return { success: true };
       });
 
@@ -335,6 +340,8 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           const repoPath = lesson.section.repoVersion.repo.filePath!;
           const sectionPath = lesson.section.path;
 
+          yield* runValidation(repoPath);
+
           yield* repoWrite.renameLesson({
             repoPath,
             sectionPath,
@@ -347,7 +354,6 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           path: newPath,
         });
 
-        // Only validate after filesystem-modifying renames
         if (lesson.fsStatus !== "ghost") {
           yield* runValidation(lesson.section.repoVersion.repo.filePath);
         }
@@ -456,6 +462,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
               message: "Cannot move a real lesson in a course with no path",
             });
           }
+          yield* runValidation(repoPath);
           for (const op of plan.fsOps) {
             switch (op.kind) {
               case "makeSectionDir":
@@ -556,11 +563,6 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             Effect.succeed<string | null>(args[2]),
             materializeCourseWithLesson(...args)
           ),
-        convertToGhost: (...args: Parameters<typeof convertToGhost>) =>
-          withPostValidation(
-            repoPathForLesson(args[0]),
-            convertToGhost(...args)
-          ),
         reorderLessons: (...args: Parameters<typeof reorderLessons>) =>
           withPreAndPostValidation(
             repoPathForSection(args[0]),
@@ -582,7 +584,9 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         archiveSection,
         addGhostSection,
         addGhostLesson,
-        // Conditionally-FS operations: validate internally only when FS is touched
+        // Conditionally-FS operations: pre-flight + post-write internally
+        // when the operation touches disk; ghost-only edits pay nothing.
+        convertToGhost,
         deleteLesson,
         renameLesson,
         moveToSection,
