@@ -47,11 +47,11 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         repoVersionId: string,
         title: string,
         maxOrder: number = 0,
-        opts?: { adjacentSectionId?: string; position?: "before" | "after" }
+        opts?: { adjacentSectionId: string; position: "before" | "after" }
       ) {
         let sectionNumber = maxOrder + 1;
 
-        if (opts?.adjacentSectionId && opts?.position) {
+        if (opts) {
           const sections =
             yield* lessonSectionOps.getSectionsByRepoVersionId(repoVersionId);
           const adjIdx = sections.findIndex(

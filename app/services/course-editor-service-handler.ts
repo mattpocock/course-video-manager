@@ -33,10 +33,12 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
           event.repoVersionId,
           event.title,
           event.maxOrder,
-          {
-            adjacentSectionId: event.adjacentSectionId,
-            position: event.position,
-          }
+          event.adjacentSectionId && event.position
+            ? {
+                adjacentSectionId: event.adjacentSectionId,
+                position: event.position,
+              }
+            : undefined
         );
       }
 

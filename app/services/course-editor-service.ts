@@ -137,7 +137,7 @@ export interface CourseEditorService {
     repoVersionId: string,
     title: string,
     maxOrder: number,
-    opts?: { adjacentSectionId?: string; position?: "before" | "after" }
+    opts?: { adjacentSectionId: string; position: "before" | "after" }
   ): Promise<{ success: true; sectionId: string }>;
 
   updateSectionName(sectionId: string, title: string): Promise<unknown>;
@@ -241,10 +241,7 @@ export function createCourseEditorService(
         repoVersionId,
         title,
         maxOrder,
-        ...(opts?.adjacentSectionId && {
-          adjacentSectionId: opts.adjacentSectionId,
-        }),
-        ...(opts?.position && { position: opts.position }),
+        ...opts,
       }) as Promise<{ success: true; sectionId: string }>;
     },
 

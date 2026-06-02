@@ -108,6 +108,22 @@ describe("CourseEditorService — sections", () => {
       const sections = await getSections(version.id);
       expect(sections.map((s) => s.path)).toEqual(["Alpha", "Beta", "Gamma"]);
     });
+
+    it("inserts before the first section and shifts all orders", async () => {
+      const { version } = await createCourseWithVersion();
+      await svc().createSection(version.id, "Beta", 0);
+      await svc().createSection(version.id, "Gamma", 1);
+
+      const sections1 = await getSections(version.id);
+      await svc().createSection(version.id, "Alpha", 0, {
+        adjacentSectionId: sections1[0]!.id,
+        position: "before",
+      });
+
+      const sections = await getSections(version.id);
+      expect(sections.map((s) => s.path)).toEqual(["Alpha", "Beta", "Gamma"]);
+      expect(sections.every((s, i) => s.order === i + 1)).toBe(true);
+    });
   });
 
   describe("update-section-name", () => {
