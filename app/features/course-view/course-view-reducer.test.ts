@@ -418,6 +418,62 @@ describe("courseViewReducer", () => {
     });
   });
 
+  describe("Insert section", () => {
+    it("46. set-insert-section: opens modal and sets adjacent section state", () => {
+      const state = createTester()
+        .send({
+          type: "set-insert-section",
+          adjacentSectionId: "section-1",
+          position: "before",
+        })
+        .getState();
+      expect(state.isCreateSectionModalOpen).toBe(true);
+      expect(state.insertAdjacentSectionId).toBe("section-1");
+      expect(state.insertSectionPosition).toBe("before");
+    });
+
+    it("47. set-insert-section: after position", () => {
+      const state = createTester()
+        .send({
+          type: "set-insert-section",
+          adjacentSectionId: "section-2",
+          position: "after",
+        })
+        .getState();
+      expect(state.isCreateSectionModalOpen).toBe(true);
+      expect(state.insertAdjacentSectionId).toBe("section-2");
+      expect(state.insertSectionPosition).toBe("after");
+    });
+
+    it("48. set-create-section-modal-open clears insert section state", () => {
+      const state = createTester()
+        .send({
+          type: "set-insert-section",
+          adjacentSectionId: "section-1",
+          position: "before",
+        })
+        .send({ type: "set-create-section-modal-open", open: true })
+        .getState();
+      expect(state.isCreateSectionModalOpen).toBe(true);
+      expect(state.insertAdjacentSectionId).toBeNull();
+      expect(state.insertSectionPosition).toBeNull();
+    });
+
+    it("49. closing create section modal clears insert section state", () => {
+      const state = createTester()
+        .send({
+          type: "set-insert-section",
+          adjacentSectionId: "section-1",
+          position: "before",
+        })
+        .send({ type: "set-create-section-modal-open", open: false })
+        .getState();
+      expect(state.isCreateSectionModalOpen).toBe(false);
+      expect(state.insertAdjacentSectionId).toBeNull();
+      expect(state.insertSectionPosition).toBeNull();
+    });
+  });
+
   describe("State independence", () => {
     it("44. modal toggle does not affect filters", () => {
       const state = createTester()

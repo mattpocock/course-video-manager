@@ -45,6 +45,8 @@ export namespace courseViewReducer {
     addGhostLessonSectionId: string | null;
     insertAdjacentLessonId: string | null;
     insertPosition: "before" | "after" | null;
+    insertAdjacentSectionId: string | null;
+    insertSectionPosition: "before" | "after" | null;
     addVideoToLessonId: string | null;
     editLessonId: string | null;
     editSectionId: string | null;
@@ -90,6 +92,11 @@ export namespace courseViewReducer {
         type: "set-insert-lesson";
         sectionId: string;
         adjacentLessonId: string;
+        position: "before" | "after";
+      }
+    | {
+        type: "set-insert-section";
+        adjacentSectionId: string;
         position: "before" | "after";
       }
     | { type: "set-add-video-to-lesson-id"; lessonId: string | null }
@@ -155,6 +162,8 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     addGhostLessonSectionId: null,
     insertAdjacentLessonId: null,
     insertPosition: null,
+    insertAdjacentSectionId: null,
+    insertSectionPosition: null,
     addVideoToLessonId: null,
     editLessonId: null,
     editSectionId: null,
@@ -183,7 +192,12 @@ export const courseViewReducer: EffectReducer<
     case "set-add-course-modal-open":
       return { ...state, isAddCourseModalOpen: action.open };
     case "set-create-section-modal-open":
-      return { ...state, isCreateSectionModalOpen: action.open };
+      return {
+        ...state,
+        isCreateSectionModalOpen: action.open,
+        insertAdjacentSectionId: null,
+        insertSectionPosition: null,
+      };
     case "set-version-selector-modal-open":
       return { ...state, isVersionSelectorModalOpen: action.open };
     case "set-rename-course-modal-open":
@@ -224,6 +238,13 @@ export const courseViewReducer: EffectReducer<
         addGhostLessonSectionId: action.sectionId,
         insertAdjacentLessonId: action.adjacentLessonId,
         insertPosition: action.position,
+      };
+    case "set-insert-section":
+      return {
+        ...state,
+        isCreateSectionModalOpen: true,
+        insertAdjacentSectionId: action.adjacentSectionId,
+        insertSectionPosition: action.position,
       };
     case "set-add-video-to-lesson-id":
       return { ...state, addVideoToLessonId: action.lessonId };

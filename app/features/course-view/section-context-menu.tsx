@@ -66,6 +66,35 @@ export function SectionContextMenuItems({
           Copy Section Transcript
         </ContextMenuItem>
       )}
+      {!isReadOnly && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() =>
+              dispatch({
+                type: "set-insert-section",
+                adjacentSectionId: section.id,
+                position: "before",
+              })
+            }
+          >
+            <Plus className="w-4 h-4" />
+            Add Section Before
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() =>
+              dispatch({
+                type: "set-insert-section",
+                adjacentSectionId: section.id,
+                position: "after",
+              })
+            }
+          >
+            <Plus className="w-4 h-4" />
+            Add Section After
+          </ContextMenuItem>
+        </>
+      )}
       {!isReadOnly && isGhostSection && (
         <>
           <ContextMenuSeparator />

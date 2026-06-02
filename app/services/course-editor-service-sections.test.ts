@@ -66,6 +66,48 @@ describe("CourseEditorService — sections", () => {
       ]);
       expect(sections.map((s) => s.order)).toEqual([1, 2, 3]);
     });
+
+    it("inserts a section before an existing section", async () => {
+      const { version } = await createCourseWithVersion();
+      const r1 = await svc().createSection(version.id, "Alpha", 0);
+      await svc().createSection(version.id, "Gamma", 1);
+
+      await svc().createSection(version.id, "Beta", 0, {
+        adjacentSectionId: r1.sectionId,
+        position: "before",
+      });
+
+      const sections = await getSections(version.id);
+      expect(sections.map((s) => s.path)).toEqual(["Beta", "Alpha", "Gamma"]);
+    });
+
+    it("inserts a section after an existing section", async () => {
+      const { version } = await createCourseWithVersion();
+      const r1 = await svc().createSection(version.id, "Alpha", 0);
+      await svc().createSection(version.id, "Gamma", 1);
+
+      await svc().createSection(version.id, "Beta", 0, {
+        adjacentSectionId: r1.sectionId,
+        position: "after",
+      });
+
+      const sections = await getSections(version.id);
+      expect(sections.map((s) => s.path)).toEqual(["Alpha", "Beta", "Gamma"]);
+    });
+
+    it("inserts after the last section appends to the end", async () => {
+      const { version } = await createCourseWithVersion();
+      await svc().createSection(version.id, "Alpha", 0);
+      const r2 = await svc().createSection(version.id, "Beta", 1);
+
+      await svc().createSection(version.id, "Gamma", 0, {
+        adjacentSectionId: r2.sectionId,
+        position: "after",
+      });
+
+      const sections = await getSections(version.id);
+      expect(sections.map((s) => s.path)).toEqual(["Alpha", "Beta", "Gamma"]);
+    });
   });
 
   describe("update-section-name", () => {

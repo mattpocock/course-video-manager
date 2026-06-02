@@ -273,6 +273,8 @@ export default function Component(props: Route.ComponentProps) {
 
   const {
     isCreateSectionModalOpen,
+    insertAdjacentSectionId,
+    insertSectionPosition,
     addGhostLessonSectionId,
     insertAdjacentLessonId,
     insertPosition,
@@ -526,6 +528,12 @@ export default function Component(props: Route.ComponentProps) {
                         repoVersionId: loaderData.selectedVersion!.id,
                         title,
                         maxOrder,
+                        ...(insertAdjacentSectionId
+                          ? {
+                              adjacentSectionId: insertAdjacentSectionId,
+                              position: insertSectionPosition ?? undefined,
+                            }
+                          : {}),
                       });
                     }}
                   />
