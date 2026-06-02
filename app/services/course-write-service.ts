@@ -36,6 +36,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
       const {
         runValidation,
         withPostValidation,
+        withPreAndPostValidation,
         repoPathForSection,
         repoPathForLesson,
       } = createValidationHelpers(lessonSectionOps, syncService);
@@ -537,21 +538,21 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
       });
 
       return {
-        // Always-FS operations: validate after, scoped to the touched repo
+        // Always-FS operations: pre-flight gate + post-write validation
         materializeGhost: (...args: Parameters<typeof materializeGhost>) =>
-          withPostValidation(
+          withPreAndPostValidation(
             repoPathForLesson(args[0]),
             materializeGhost(...args)
           ),
         createRealLesson: (...args: Parameters<typeof createRealLesson>) =>
-          withPostValidation(
+          withPreAndPostValidation(
             repoPathForSection(args[0]),
             createRealLesson(...args)
           ),
         materializeCourseWithLesson: (
           ...args: Parameters<typeof materializeCourseWithLesson>
         ) =>
-          withPostValidation(
+          withPreAndPostValidation(
             Effect.succeed<string | null>(args[2]),
             materializeCourseWithLesson(...args)
           ),
@@ -561,19 +562,19 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             convertToGhost(...args)
           ),
         reorderLessons: (...args: Parameters<typeof reorderLessons>) =>
-          withPostValidation(
+          withPreAndPostValidation(
             repoPathForSection(args[0]),
             reorderLessons(...args)
           ),
         reorderSections: (...args: Parameters<typeof reorderSections>) =>
-          withPostValidation(
+          withPreAndPostValidation(
             args[0][0]
               ? repoPathForSection(args[0][0])
               : Effect.succeed<string | null>(null),
             reorderSections(...args)
           ),
         renameSection: (...args: Parameters<typeof renameSection>) =>
-          withPostValidation(
+          withPreAndPostValidation(
             repoPathForSection(args[0]),
             renameSection(...args)
           ),

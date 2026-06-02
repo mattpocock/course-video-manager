@@ -20,7 +20,10 @@ import { CourseOperationsService } from "./db-course-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { CourseWriteService } from "./course-write-service";
 import { CourseRepoWriteService } from "./course-repo-write-service";
-import { CourseRepoSyncValidationService } from "./course-repo-sync-validation";
+import {
+  CourseRepoSyncValidationService,
+  CourseRepoSyncError,
+} from "./course-repo-sync-validation";
 import { NodeFileSystem } from "@effect/platform-node";
 import * as schema from "@/db/schema";
 
@@ -216,8 +219,8 @@ describe("sync validation optimization (Issue #685)", () => {
     });
   });
 
-  describe("filesystem operations validate exactly once (post-only)", () => {
-    it("creating a real lesson validates once after", async () => {
+  describe("always-FS operations validate twice (pre + post)", () => {
+    it("creating a real lesson validates twice", async () => {
       const { version } = await createCourseWithVersion("/tmp/test-repo");
       const [section] = await db()
         .insert(schema.sections)
@@ -226,9 +229,11 @@ describe("sync validation optimization (Issue #685)", () => {
 
       validateCallCount = 0;
       await svc().createRealLesson(section!.id, "New Lesson");
-      expect(validateCallCount).toBe(1);
+      expect(validateCallCount).toBe(2);
     });
+  });
 
+  describe("conditionally-FS operations validate once (post-only)", () => {
     it("deleting a real lesson validates once after", async () => {
       const { version } = await createCourseWithVersion("/tmp/test-repo");
       const { lessons } = await createSectionWithLessons(
@@ -296,6 +301,165 @@ describe("sync validation optimization (Issue #685)", () => {
       validateCallCount = 0;
       await svc().updateLessonName(lessons[0]!.id, "new-name");
       expect(validateCallCount).toBe(1);
+    });
+  });
+});
+
+describe("pre-flight validation gate (PRD #952)", () => {
+  let divergentDb: TestDb;
+  let divergentEditorService: CourseEditorService;
+
+  beforeAll(async () => {
+    const result = await createTestDb();
+    divergentDb = result.testDb;
+  });
+
+  beforeEach(async () => {
+    await truncateAllTables(divergentDb);
+
+    const testDrizzleLayer = Layer.succeed(DrizzleService, divergentDb as any);
+    const testDbFunctionsLayer = Layer.mergeAll(
+      CourseOperationsService.Default,
+      LessonSectionOperationsService.Default
+    ).pipe(Layer.provide(testDrizzleLayer));
+
+    const mockRepoWriteLayer = Layer.succeed(CourseRepoWriteService, {
+      createLessonDirectory: Effect.fn(function* (_opts: any) {
+        return { lessonDirName: "mock", lessonNumber: 1 };
+      }),
+      addLesson: Effect.fn(function* (_opts: any) {
+        return { newLessonDirName: "mock" };
+      }),
+      renameLesson: Effect.fn(function* (_opts: any) {
+        return { newLessonDirName: "mock" };
+      }),
+      renameLessons: Effect.fn(function* (_opts: any) {}),
+      renameSections: Effect.fn(function* (_opts: any) {}),
+      deleteLesson: Effect.fn(function* (_opts: any) {}),
+      moveLessonToSection: Effect.fn(function* (_opts: any) {}),
+      sectionDirExists: Effect.fn(function* (_opts: any) {
+        return false;
+      }),
+      deleteSectionDir: Effect.fn(function* (_opts: any) {}),
+    } as any);
+
+    const failingSyncValidationLayer = Layer.succeed(
+      CourseRepoSyncValidationService,
+      {
+        validate: () =>
+          Effect.fail(
+            new CourseRepoSyncError({
+              cause: null,
+              message: "Divergent repo: missing directory 06-section",
+            })
+          ),
+      } as any
+    );
+
+    const testLayer = Layer.mergeAll(
+      testDbFunctionsLayer,
+      mockRepoWriteLayer,
+      failingSyncValidationLayer,
+      NodeFileSystem.layer
+    ).pipe(Layer.provideMerge(testDrizzleLayer));
+
+    const serviceLayer = (
+      CourseWriteService as any
+    ).DefaultWithoutDependencies.pipe(Layer.provide(testLayer));
+
+    const fullLayer = Layer.merge(testLayer, serviceLayer) as Layer.Layer<
+      any,
+      never,
+      never
+    >;
+
+    const runtime = ManagedRuntime.make(fullLayer);
+    divergentEditorService = createDirectCourseEditorService((effect) =>
+      runtime.runPromise(effect as any)
+    );
+  });
+
+  const dsvc = () => divergentEditorService;
+  const ddb = () => divergentDb;
+
+  async function createCourse(filePath: string | null = "/tmp/test-repo") {
+    const [course] = await ddb()
+      .insert(schema.courses)
+      .values({ name: "Test Course", filePath })
+      .returning();
+    const [version] = await ddb()
+      .insert(schema.courseVersions)
+      .values({ repoId: course!.id, name: "v1" })
+      .returning();
+    return { course: course!, version: version! };
+  }
+
+  async function createSection(
+    repoVersionId: string,
+    path: string,
+    order: number,
+    lessonDefs: {
+      path: string;
+      title: string;
+      fsStatus: string;
+      order: number;
+    }[] = []
+  ) {
+    const [section] = await ddb()
+      .insert(schema.sections)
+      .values({ repoVersionId, path, order })
+      .returning();
+    const lessons = [];
+    for (const def of lessonDefs) {
+      const [lesson] = await ddb()
+        .insert(schema.lessons)
+        .values({
+          sectionId: section!.id,
+          ...def,
+          authoringStatus: def.fsStatus === "real" ? "done" : null,
+        })
+        .returning();
+      lessons.push(lesson!);
+    }
+    return { section: section!, lessons };
+  }
+
+  describe("always-FS operations are refused on a divergent repo", () => {
+    it("createRealLesson fails with CourseRepoSyncError before mutation", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { section } = await createSection(version.id, "01-intro", 0);
+
+      await expect(
+        dsvc().createRealLesson(section.id, "New Lesson")
+      ).rejects.toThrow("Divergent repo");
+
+      const lessons = await ddb().select().from(schema.lessons);
+      expect(lessons).toHaveLength(0);
+    });
+  });
+
+  describe("DB-only operations bypass the gate on a divergent repo", () => {
+    it("addGhostSection succeeds despite divergent repo", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+
+      const result = await dsvc().createSection(version.id, "New Section", 0);
+      expect(result.sectionId).toBeDefined();
+    });
+
+    it("addGhostLesson succeeds despite divergent repo", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const s = await dsvc().createSection(version.id, "Section A", 0);
+
+      const result = await dsvc().addGhostLesson(s.sectionId, "New Lesson");
+      expect(result.lessonId).toBeDefined();
+    });
+
+    it("archiveSection succeeds despite divergent repo", async () => {
+      const { version } = await createCourse("/tmp/test-repo");
+      const { section } = await createSection(version.id, "01-intro", 0);
+
+      const result = await dsvc().archiveSection(section.id);
+      expect(result.success).toBe(true);
     });
   });
 });
