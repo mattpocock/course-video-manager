@@ -8,9 +8,9 @@ import {
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -24,71 +24,61 @@ import {
   HistoryIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { data, Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation } from "react-router";
 import type { Route } from "./+types/_app.videos.$videoId";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { videoId } = args.params;
-  return Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const fs = yield* FileSystem.FileSystem;
-    const video = yield* videoOps.getVideoWithLessonById(videoId);
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const videoId = params.videoId!;
+      const videoOps = yield* VideoOperationsService;
+      const fs = yield* FileSystem.FileSystem;
+      const video = yield* videoOps.getVideoWithLessonById(videoId);
 
-    const [nextVideoId, previousVideoId] = yield* Effect.all([
-      videoOps.getNextVideoId(video),
-      videoOps.getPreviousVideoId(video),
-    ]);
+      const [nextVideoId, previousVideoId] = yield* Effect.all([
+        videoOps.getNextVideoId(video),
+        videoOps.getPreviousVideoId(video),
+      ]);
 
-    const lesson = video.lesson;
+      const lesson = video.lesson;
 
-    if (!lesson) {
-      // Standalone video (or pitch-attached)
+      if (!lesson) {
+        return {
+          videoId,
+          videoPath: video.path,
+          lessonPath: null,
+          sectionPath: null,
+          repoId: null,
+          lessonId: null,
+          pitchId: video.pitchId,
+          isStandalone: true,
+          nextVideoId,
+          previousVideoId,
+          videoCount: 1,
+          hasExplainerFolder: false,
+        };
+      }
+
+      const hasExplainerFolder = yield* fs.exists(
+        `${lesson.section.repoVersion.repo.filePath}/${lesson.section.path}/${lesson.path}/explainer`
+      );
+
       return {
         videoId,
         videoPath: video.path,
-        lessonPath: null,
-        sectionPath: null,
-        repoId: null,
-        lessonId: null,
+        lessonPath: lesson.path,
+        sectionPath: lesson.section.path,
+        repoId: lesson.section.repoVersion.repoId,
+        lessonId: lesson.id,
         pitchId: video.pitchId,
-        isStandalone: true,
+        isStandalone: false,
         nextVideoId,
         previousVideoId,
-        videoCount: 1,
-        hasExplainerFolder: false,
+        videoCount: lesson.videos.length,
+        hasExplainerFolder,
       };
-    }
-
-    const hasExplainerFolder = yield* fs.exists(
-      `${lesson.section.repoVersion.repo.filePath}/${lesson.section.path}/${lesson.path}/explainer`
-    );
-
-    // Lesson-attached video
-    return {
-      videoId,
-      videoPath: video.path,
-      lessonPath: lesson.path,
-      sectionPath: lesson.section.path,
-      repoId: lesson.section.repoVersion.repoId,
-      lessonId: lesson.id,
-      pitchId: video.pitchId,
-      isStandalone: false,
-      nextVideoId,
-      previousVideoId,
-      videoCount: lesson.videos.length,
-      hasExplainerFolder,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 type Tab =
   | "edit"

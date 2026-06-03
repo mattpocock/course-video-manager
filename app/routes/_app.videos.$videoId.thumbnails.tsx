@@ -1,9 +1,9 @@
 export const handle = { fullscreen: true };
 
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
-import { data, Link } from "react-router";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
+import { Link } from "react-router";
 import type { Route } from "./+types/_app.videos.$videoId.thumbnails";
 import {
   CameraIcon,
@@ -39,21 +39,16 @@ import {
 } from "@/features/thumbnail-editor/canvas-compositor";
 import { RuleOfThirdsGrid } from "@/features/thumbnail-editor/rule-of-thirds-grid";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { videoId } = args.params;
-  return Effect.gen(function* () {
-    const db = yield* ThumbnailOperationsService;
-    const thumbnails = yield* db.getThumbnailsByVideoId(videoId);
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const videoId = params.videoId!;
+      const db = yield* ThumbnailOperationsService;
+      const thumbnails = yield* db.getThumbnailsByVideoId(videoId);
 
-    return { videoId, thumbnails };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+      return { videoId, thumbnails };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 function YouTubePreview({
   src,

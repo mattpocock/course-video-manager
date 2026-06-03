@@ -19,15 +19,16 @@ import { VideoEditor } from "@/features/video-editor/video-editor";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { useEffectReducer } from "use-effect-reducer";
 import { getActiveDiagramId } from "@/lib/diagram-window";
 import { isDiagramFocused } from "@/lib/diagram-focus-tracking";
 import type { Route } from "./+types/_app.videos.$videoId.edit";
 
 export const handle = { fullscreen: true };
-import { data, useNavigate, useRevalidator } from "react-router";
+import { useNavigate, useRevalidator } from "react-router";
 import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
 import { Array as EffectArray } from "effect";
 import { sortByOrder } from "@/lib/sort-by-order";
@@ -152,74 +153,63 @@ const loadVideoEditorFsData = (opts: {
 
 // Core data model - flat array of clips
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { videoId } = args.params;
-  return Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const video = yield* videoOps.getVideoWithClipsById(videoId);
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const videoId = params.videoId!;
+      const videoOps = yield* VideoOperationsService;
+      const video = yield* videoOps.getVideoWithClipsById(videoId);
 
-    const referenceCandidates = video.lesson
-      ? yield* videoOps.getReferenceVideoCandidates({
-          lessonId: video.lesson.id,
-          excludeVideoId: video.id,
-        })
-      : [];
+      const referenceCandidates = video.lesson
+        ? yield* videoOps.getReferenceVideoCandidates({
+            lessonId: video.lesson.id,
+            excludeVideoId: video.id,
+          })
+        : [];
 
-    // Combine clips and chapters into a unified items array, sorted by order
-    const clipItems = video.clips.map((clip) => ({
-      type: "clip" as const,
-      order: clip.order,
-      data: clip,
-    }));
+      const clipItems = video.clips.map((clip) => ({
+        type: "clip" as const,
+        order: clip.order,
+        data: clip,
+      }));
 
-    const chapterItems: Array<{
-      type: "chapter";
-      order: string;
-      data: DB.Chapter;
-    }> = (video.chapters as DB.Chapter[]).map((chapter) => ({
-      type: "chapter" as const,
-      order: chapter.order,
-      data: chapter,
-    }));
+      const chapterItems: Array<{
+        type: "chapter";
+        order: string;
+        data: DB.Chapter;
+      }> = (video.chapters as DB.Chapter[]).map((chapter) => ({
+        type: "chapter" as const,
+        order: chapter.order,
+        data: chapter,
+      }));
 
-    const sortedItems = sortByOrder([...clipItems, ...chapterItems]);
+      const sortedItems = sortByOrder([...clipItems, ...chapterItems]);
 
-    // Strip clips/chapters from video sent to client (already in items)
-    const lesson = video.lesson;
-    const { clips: _clips, chapters: _chapters, ...slimVideo } = video;
+      const lesson = video.lesson;
+      const { clips: _clips, chapters: _chapters, ...slimVideo } = video;
 
-    const whiteNoiseAssetPath = path.join(
-      process.cwd(),
-      "assets",
-      "effects",
-      "white-noise.mp4"
-    );
+      const whiteNoiseAssetPath = path.join(
+        process.cwd(),
+        "assets",
+        "effects",
+        "white-noise.mp4"
+      );
 
-    // Deferred: FS-heavy operations streamed after initial render
-    const fsData = runtimeLive.runPromise(
-      loadVideoEditorFsData({ videoId, lesson })
-    );
+      const fsData = runtimeLive.runPromise(
+        loadVideoEditorFsData({ videoId, lesson })
+      );
 
-    return {
-      video: slimVideo,
-      items: sortedItems,
-      waveformData: undefined,
-      videoCount: lesson?.videos.length ?? 1,
-      whiteNoiseAssetPath,
-      fsData,
-      referenceCandidates,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
+      return {
+        video: slimVideo,
+        items: sortedItems,
+        waveformData: undefined,
+        videoCount: lesson?.videos.length ?? 1,
+        whiteNoiseAssetPath,
+        fsData,
+        referenceCandidates,
+      };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 // Create ClipService instance for all clip operations
 const clipService = createHttpClipService();

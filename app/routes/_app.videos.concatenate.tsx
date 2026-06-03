@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import {
   DndContext,
@@ -21,11 +21,11 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { GripVertical, Loader2, Plus, Trash2, VideoIcon } from "lucide-react";
 import { buildQueueTreeLines } from "@/lib/queue-tree";
 import { useState, useCallback } from "react";
-import { data, useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/_app.videos.concatenate";
 
 export const meta: Route.MetaFunction = () => {
@@ -57,73 +57,67 @@ const computeDuration = (
   clips: { sourceStartTime: number; sourceEndTime: number }[]
 ) => clips.reduce((acc, c) => acc + (c.sourceEndTime - c.sourceStartTime), 0);
 
-export const loader = async () => {
-  return Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const courseOps = yield* CourseOperationsService;
-    const [videos, courseList] = yield* Effect.all(
-      [videoOps.getAllStandaloneVideos(), courseOps.getCourses()],
-      { concurrency: "unbounded" }
-    );
+export const loader = makeLoader({
+  effect: () =>
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      const courseOps = yield* CourseOperationsService;
+      const [videos, courseList] = yield* Effect.all(
+        [videoOps.getAllStandaloneVideos(), courseOps.getCourses()],
+        { concurrency: "unbounded" }
+      );
 
-    // Load all courses with their sections/lessons/videos (draft version) in parallel
-    const fullCourses = yield* Effect.all(
-      courseList.map((course) =>
-        courseOps.getCourseWithSectionsById(course.id)
-      ),
-      { concurrency: "unbounded" }
-    );
+      const fullCourses = yield* Effect.all(
+        courseList.map((course) =>
+          courseOps.getCourseWithSectionsById(course.id)
+        ),
+        { concurrency: "unbounded" }
+      );
 
-    const courseSources: CourseSource[] = [];
-    for (let i = 0; i < courseList.length; i++) {
-      const course = courseList[i]!;
-      const full = fullCourses[i]!;
-      const draftVersion = full.versions[0];
-      if (!draftVersion) continue;
+      const courseSources: CourseSource[] = [];
+      for (let i = 0; i < courseList.length; i++) {
+        const course = courseList[i]!;
+        const full = fullCourses[i]!;
+        const draftVersion = full.versions[0];
+        if (!draftVersion) continue;
 
-      const sections: CourseVideoSection[] = [];
-      for (const section of draftVersion.sections) {
-        const lessons: CourseVideoSection["lessons"] = [];
-        for (const lesson of section.lessons) {
-          const lessonVideos: VideoItem[] = lesson.videos.map((v) => ({
-            id: v.id,
-            path: v.path,
-            duration: computeDuration(v.clips),
-            contextParts: [course.name, section.path, lesson.path],
-          }));
-          if (lessonVideos.length > 0) {
-            lessons.push({
-              lessonPath: lesson.path,
-              videos: lessonVideos,
-            });
+        const sections: CourseVideoSection[] = [];
+        for (const section of draftVersion.sections) {
+          const lessons: CourseVideoSection["lessons"] = [];
+          for (const lesson of section.lessons) {
+            const lessonVideos: VideoItem[] = lesson.videos.map((v) => ({
+              id: v.id,
+              path: v.path,
+              duration: computeDuration(v.clips),
+              contextParts: [course.name, section.path, lesson.path],
+            }));
+            if (lessonVideos.length > 0) {
+              lessons.push({
+                lessonPath: lesson.path,
+                videos: lessonVideos,
+              });
+            }
+          }
+          if (lessons.length > 0) {
+            sections.push({ sectionPath: section.path, lessons });
           }
         }
-        if (lessons.length > 0) {
-          sections.push({ sectionPath: section.path, lessons });
+        if (sections.length > 0) {
+          courseSources.push({ id: course.id, name: course.name, sections });
         }
       }
-      if (sections.length > 0) {
-        courseSources.push({ id: course.id, name: course.name, sections });
-      }
-    }
 
-    return {
-      videos: videos.map((v) => ({
-        id: v.id,
-        path: v.path,
-        duration: computeDuration(v.clips),
-      })),
-      courseSources,
-      courses: courseList,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+      return {
+        videos: videos.map((v) => ({
+          id: v.id,
+          path: v.path,
+          duration: computeDuration(v.clips),
+        })),
+        courseSources,
+        courses: courseList,
+      };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 interface QueueItem {
   id: string;

@@ -4,10 +4,10 @@ export const handle = { fullscreen: true };
 
 import { loadVideoPostingContext } from "@/services/video-posting-context.server";
 import { FeatureFlagService } from "@/services/feature-flag-service";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
-import { data, useFetcher } from "react-router";
+import { useFetcher } from "react-router";
 import { toast } from "sonner";
 import { VideoContextPanel } from "@/components/video-context-panel";
 import { FilePreviewModal } from "@/components/file-preview-modal";
@@ -20,26 +20,17 @@ import { LessonFilePasteModal } from "@/components/lesson-file-paste-modal";
 import { SocialPagePanel } from "@/features/video-posting/social-page";
 import type { Route } from "./+types/_app.videos.$videoId.social";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { videoId } = args.params;
-  return Effect.gen(function* () {
-    const ctx = yield* loadVideoPostingContext(videoId);
-    const featureFlags = yield* FeatureFlagService;
-    const showSocialShareButtons = featureFlags.isEnabled(
-      "ENABLE_SOCIAL_SHARE_BUTTONS"
-    );
-    return { ...ctx, showSocialShareButtons };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const ctx = yield* loadVideoPostingContext(params.videoId!);
+      const featureFlags = yield* FeatureFlagService;
+      const showSocialShareButtons = featureFlags.isEnabled(
+        "ENABLE_SOCIAL_SHARE_BUTTONS"
+      );
+      return { ...ctx, showSocialShareButtons };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 const Video = (props: { src: string }) => {
   const ref = useRef<HTMLVideoElement>(null);

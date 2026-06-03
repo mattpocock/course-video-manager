@@ -15,6 +15,7 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { toSlug } from "@/services/lesson-path-service";
 import { CourseRepoWriteService } from "@/services/course-repo-write-service";
 import { parseSectionPath } from "@/services/section-path-service";
@@ -32,32 +33,22 @@ export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Move Video to Course" }];
 };
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { videoId } = args.params;
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      const courseOps = yield* CourseOperationsService;
 
-  return Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const courseOps = yield* CourseOperationsService;
+      const video = yield* videoOps.getVideoWithLessonById(params.videoId!);
+      const courses = yield* courseOps.getCourses();
 
-    const video = yield* videoOps.getVideoWithLessonById(videoId);
-    const courses = yield* courseOps.getCourses();
+      const coursesWithSections = yield* Effect.all(
+        courses.map((course) => courseOps.getCourseStructureById(course.id))
+      );
 
-    const coursesWithSections = yield* Effect.all(
-      courses.map((course) => courseOps.getCourseStructureById(course.id))
-    );
-
-    return { video, courses: coursesWithSections };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
+      return { video, courses: coursesWithSections };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 const moveToCourseSchema = Schema.Struct({
   sectionId: Schema.String.pipe(

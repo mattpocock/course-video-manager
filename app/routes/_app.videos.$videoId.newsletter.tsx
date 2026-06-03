@@ -3,10 +3,10 @@
 export const handle = { fullscreen: true };
 
 import { loadVideoPostingContext } from "@/services/video-posting-context.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
-import { data, useFetcher } from "react-router";
+import { useFetcher } from "react-router";
 import { VideoContextPanel } from "@/components/video-context-panel";
 import { FilePreviewModal } from "@/components/file-preview-modal";
 import { AddLinkModal } from "@/components/add-link-modal";
@@ -19,24 +19,15 @@ import { NewsletterPagePanel } from "@/features/video-posting/newsletter-page";
 import type { Route } from "./+types/_app.videos.$videoId.newsletter";
 import { toast } from "sonner";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { videoId } = args.params;
-  return Effect.gen(function* () {
-    const ctx = yield* loadVideoPostingContext(videoId);
-    const kitSequenceUrl =
-      process.env.KIT_SEQUENCE_URL || "https://app.kit.com/sequences/2625552";
-    return { ...ctx, kitSequenceUrl };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const ctx = yield* loadVideoPostingContext(params.videoId!);
+      const kitSequenceUrl =
+        process.env.KIT_SEQUENCE_URL || "https://app.kit.com/sequences/2625552";
+      return { ...ctx, kitSequenceUrl };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 const Video = (props: { src: string }) => {
   const ref = useRef<HTMLVideoElement>(null);

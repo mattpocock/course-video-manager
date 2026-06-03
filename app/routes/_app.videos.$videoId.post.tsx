@@ -6,10 +6,10 @@ import { loadVideoPostingContext } from "@/services/video-posting-context.server
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
-import { data, useFetcher } from "react-router";
+import { useFetcher } from "react-router";
 import { toast } from "sonner";
 import type { Route } from "./+types/_app.videos.$videoId.post";
 import { VideoContextPanel } from "@/components/video-context-panel";
@@ -24,48 +24,40 @@ import { LessonFilePasteModal } from "@/components/lesson-file-paste-modal";
 import { VideoOffIcon } from "lucide-react";
 import { PostPage } from "@/features/video-posting/post-page";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { videoId } = args.params;
-  return Effect.gen(function* () {
-    const ctx = yield* loadVideoPostingContext(videoId);
-    const linkAuthOps = yield* LinkAuthOperationsService;
-    const thumbnailOps = yield* ThumbnailOperationsService;
-    const pitchOps = yield* PitchOperationsService;
-    const publishService = yield* CoursePublishService;
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const videoId = params.videoId!;
+      const ctx = yield* loadVideoPostingContext(videoId);
+      const linkAuthOps = yield* LinkAuthOperationsService;
+      const thumbnailOps = yield* ThumbnailOperationsService;
+      const pitchOps = yield* PitchOperationsService;
+      const publishService = yield* CoursePublishService;
 
-    const [youtubeAuth, videoThumbnails, videoExists] = yield* Effect.all(
-      [
-        linkAuthOps.getYoutubeAuth(),
-        thumbnailOps.getThumbnailsByVideoId(videoId),
-        publishService.isExported(videoId),
-      ],
-      { concurrency: "unbounded" }
-    );
+      const [youtubeAuth, videoThumbnails, videoExists] = yield* Effect.all(
+        [
+          linkAuthOps.getYoutubeAuth(),
+          thumbnailOps.getThumbnailsByVideoId(videoId),
+          publishService.isExported(videoId),
+        ],
+        { concurrency: "unbounded" }
+      );
 
-    const pitch = ctx.pitchId
-      ? yield* pitchOps
-          .getPitch(ctx.pitchId)
-          .pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(null)))
-      : null;
+      const pitch = ctx.pitchId
+        ? yield* pitchOps
+            .getPitch(ctx.pitchId)
+            .pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(null)))
+        : null;
 
-    return {
-      ...ctx,
-      videoExists,
-      isYoutubeAuthenticated: youtubeAuth !== null,
-      thumbnails: videoThumbnails,
-      pitchYoutubeTitle: pitch?.youtubeTitle ?? null,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
+      return {
+        ...ctx,
+        videoExists,
+        isYoutubeAuthenticated: youtubeAuth !== null,
+        thumbnails: videoThumbnails,
+        pitchYoutubeTitle: pitch?.youtubeTitle ?? null,
+      };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 const Video = (props: { src: string }) => {
   const ref = useRef<HTMLVideoElement>(null);

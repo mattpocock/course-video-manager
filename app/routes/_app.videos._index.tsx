@@ -13,8 +13,8 @@ import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import {
   Archive,
   ArrowRightLeft,
@@ -29,47 +29,42 @@ import {
   VideoOffIcon,
 } from "lucide-react";
 import { useContext, useState } from "react";
-import { data, Link, useFetcher, useNavigate } from "react-router";
+import { Link, useFetcher, useNavigate } from "react-router";
 import type { Route } from "./+types/_app.videos._index";
 
 export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Videos" }];
 };
 
-export const loader = async () => {
-  return Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const publishService = yield* CoursePublishService;
+export const loader = makeLoader({
+  effect: () =>
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      const publishService = yield* CoursePublishService;
 
-    const [videos, archivedVideos] = yield* Effect.all(
-      [
-        videoOps.getAllStandaloneVideos(),
-        videoOps.getArchivedStandaloneVideos(),
-      ],
-      { concurrency: "unbounded" }
-    );
+      const [videos, archivedVideos] = yield* Effect.all(
+        [
+          videoOps.getAllStandaloneVideos(),
+          videoOps.getArchivedStandaloneVideos(),
+        ],
+        { concurrency: "unbounded" }
+      );
 
-    // Check export status for each video
-    const hasExportedVideoMap: Record<string, boolean> = {};
-    yield* Effect.forEach([...videos, ...archivedVideos], (video) => {
-      return Effect.gen(function* () {
-        hasExportedVideoMap[video.id] = yield* publishService.isExported(video);
+      const hasExportedVideoMap: Record<string, boolean> = {};
+      yield* Effect.forEach([...videos, ...archivedVideos], (video) => {
+        return Effect.gen(function* () {
+          hasExportedVideoMap[video.id] =
+            yield* publishService.isExported(video);
+        });
       });
-    });
 
-    return {
-      videos,
-      archivedVideos,
-      hasExportedVideoMap,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+      return {
+        videos,
+        archivedVideos,
+        hasExportedVideoMap,
+      };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 export default function Component(props: Route.ComponentProps) {
   const { videos, archivedVideos, hasExportedVideoMap } = props.loaderData;
