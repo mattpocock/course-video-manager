@@ -512,6 +512,50 @@ describe("makeLoader", () => {
       }
     });
 
+    it("propagates Effect.die from inside the effect as-is", async () => {
+      const runtime = makeTestRuntime();
+      const sentinel = { custom: "defect" };
+
+      const loader = makeLoader(
+        {
+          effect: () => Effect.die(sentinel),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error);
+        expect(defect).toBe(sentinel);
+      }
+    });
+
+    it("uses error.message when NotFoundError is explicitly configured", async () => {
+      const runtime = makeTestRuntime();
+
+      const loader = makeLoader(
+        {
+          errors: { NotFoundError: 404 },
+          effect: () =>
+            Effect.fail(
+              new NotFoundError({ message: "Course version not found" })
+            ),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(404);
+        expect(defect.data).toBe("Course version not found");
+      }
+    });
+
     it("custom errors extend rather than replace default mappings", async () => {
       const runtime = makeTestRuntime();
 
