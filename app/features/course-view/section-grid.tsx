@@ -34,7 +34,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useLessonDrag } from "./use-lesson-drag";
 import { ChevronRight, Ghost, GripVertical } from "lucide-react";
-import { Fragment, useState, useCallback } from "react";
+import { Fragment, useState, useCallback, useMemo } from "react";
 import { useNavigate, useFetcher } from "react-router";
 import { useLessonSelectionClear } from "./use-lesson-selection-clear";
 
@@ -146,6 +146,11 @@ export function SectionGrid({
 
   const displaySections = currentCourse.sections;
 
+  const allSectionIds = useMemo(
+    () => displaySections.map((s) => s.id),
+    [displaySections]
+  );
+
   // Build flat lessons list for dependency selector
   const allFlatLessons: DependencyLessonItem[] = displaySections.flatMap(
     (section, sectionIdx) =>
@@ -223,10 +228,7 @@ export function SectionGrid({
         onDragEnd={onDragEnd}
         onDragCancel={onDragCancel}
       >
-        <SortableContext
-          items={displaySections.map((s) => s.id)}
-          strategy={rectSortingStrategy}
-        >
+        <SortableContext items={allSectionIds} strategy={rectSortingStrategy}>
           <div
             className={cn(
               "grid grid-cols-1 gap-8",
@@ -448,7 +450,7 @@ export function SectionGrid({
                         <SectionContextMenuItems
                           section={section}
                           lessons={lessons}
-                          allSectionIds={displaySections.map((s) => s.id)}
+                          allSectionIds={allSectionIds}
                           isReadOnly={isReadOnly}
                           isGhostSection={isGhostSection}
                           dispatch={dispatch}

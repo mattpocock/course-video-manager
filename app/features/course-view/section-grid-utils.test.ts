@@ -151,6 +151,23 @@ describe("computeSectionSwap", () => {
     expect(computeSectionSwap(["a", "b"], "b", "up")).toEqual(["b", "a"]);
     expect(computeSectionSwap(["a", "b"], "a", "down")).toEqual(["b", "a"]);
   });
+
+  it("returns null for a single section in either direction", () => {
+    expect(computeSectionSwap(["only"], "only", "up")).toBeNull();
+    expect(computeSectionSwap(["only"], "only", "down")).toBeNull();
+  });
+
+  it("returns null for an empty array", () => {
+    expect(computeSectionSwap([], "any", "up")).toBeNull();
+    expect(computeSectionSwap([], "any", "down")).toBeNull();
+  });
+
+  it("does not mutate the input array", () => {
+    const original = ["s1", "s2", "s3"];
+    const copy = [...original];
+    computeSectionSwap(original, "s2", "up");
+    expect(original).toEqual(copy);
+  });
 });
 
 describe("computeSectionDependencyRuns", () => {
