@@ -15,6 +15,7 @@ export default defineConfig({
       "**/.react-router/**",
       "**/.sandcastle/worktrees/**",
     ],
+    globalSetup: ["./app/test-utils/global-setup.ts"],
     pool: "forks",
     poolOptions: {
       forks: {

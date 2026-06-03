@@ -2,9 +2,18 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
-import { pushSchema } from "drizzle-kit/api";
+import { readFileSync } from "node:fs";
 
 export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
+
+async function getSnapshotPath(): Promise<string | undefined> {
+  try {
+    const { inject } = await import("vitest");
+    return inject("pgliteSnapshotPath");
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Creates a single PGlite instance and migrates the schema once.
@@ -16,6 +25,16 @@ export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
  * Use {@link truncateAllTables} in `beforeEach` to reset state between tests.
  */
 export const createTestDb = async () => {
+  const snapshotPath = await getSnapshotPath();
+
+  if (snapshotPath) {
+    const blob = new Blob([readFileSync(snapshotPath)]);
+    const pglite = new PGlite({ loadDataDir: blob });
+    const testDb = drizzle(pglite, { schema });
+    return { pglite, testDb };
+  }
+
+  const { pushSchema } = await import("drizzle-kit/api");
   const pglite = new PGlite();
   const testDb = drizzle(pglite, { schema });
   const { apply } = await pushSchema(schema, testDb as any);
