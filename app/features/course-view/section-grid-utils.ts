@@ -131,6 +131,21 @@ export function computeSectionDependencyRuns(
   return { runs, spinePairs, revalidateKey };
 }
 
+export function computeSectionSwap(
+  sectionIds: string[],
+  sectionId: string,
+  direction: "up" | "down"
+): string[] | null {
+  const idx = sectionIds.indexOf(sectionId);
+  if (idx === -1) return null;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= sectionIds.length) return null;
+  const result = [...sectionIds];
+  result[idx] = sectionIds[swapIdx]!;
+  result[swapIdx] = sectionIds[idx]!;
+  return result;
+}
+
 export function calcSectionDuration(lessons: Lesson[]): number {
   return lessons.reduce(
     (acc, lesson) =>

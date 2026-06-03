@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeSectionDependencyRuns,
+  computeSectionSwap,
   filterLessons,
 } from "./section-grid-utils";
 import type { Lesson } from "./course-view-types";
@@ -120,6 +121,35 @@ describe("filterLessons", () => {
     );
     expect(hasActiveFilters).toBe(false);
     expect(filteredLessons).toHaveLength(3);
+  });
+});
+
+describe("computeSectionSwap", () => {
+  const ids = ["s1", "s2", "s3"];
+
+  it("moves a section up by swapping with its predecessor", () => {
+    expect(computeSectionSwap(ids, "s2", "up")).toEqual(["s2", "s1", "s3"]);
+  });
+
+  it("moves a section down by swapping with its successor", () => {
+    expect(computeSectionSwap(ids, "s2", "down")).toEqual(["s1", "s3", "s2"]);
+  });
+
+  it("returns null when moving the first section up", () => {
+    expect(computeSectionSwap(ids, "s1", "up")).toBeNull();
+  });
+
+  it("returns null when moving the last section down", () => {
+    expect(computeSectionSwap(ids, "s3", "down")).toBeNull();
+  });
+
+  it("returns null for an unknown section id", () => {
+    expect(computeSectionSwap(ids, "unknown", "up")).toBeNull();
+  });
+
+  it("works with two sections", () => {
+    expect(computeSectionSwap(["a", "b"], "b", "up")).toEqual(["b", "a"]);
+    expect(computeSectionSwap(["a", "b"], "a", "down")).toEqual(["b", "a"]);
   });
 });
 

@@ -448,6 +448,7 @@ export function SectionGrid({
                         <SectionContextMenuItems
                           section={section}
                           lessons={lessons}
+                          allSectionIds={displaySections.map((s) => s.id)}
                           isReadOnly={isReadOnly}
                           isGhostSection={isGhostSection}
                           dispatch={dispatch}

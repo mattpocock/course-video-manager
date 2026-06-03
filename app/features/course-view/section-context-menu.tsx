@@ -5,12 +5,21 @@ import {
 } from "@/components/ui/context-menu";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
-import { Archive, ClipboardCopy, PencilIcon, Plus } from "lucide-react";
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  ClipboardCopy,
+  PencilIcon,
+  Plus,
+} from "lucide-react";
 import type { Lesson } from "./course-view-types";
+import { computeSectionSwap } from "./section-grid-utils";
 
 export function SectionContextMenuItems({
   section,
   lessons,
+  allSectionIds,
   isReadOnly,
   isGhostSection,
   dispatch,
@@ -18,6 +27,7 @@ export function SectionContextMenuItems({
 }: {
   section: { id: string; path: string; description?: string | null };
   lessons: Lesson[];
+  allSectionIds: string[];
   isReadOnly: boolean;
   isGhostSection: boolean;
   dispatch: (action: courseViewReducer.Action) => void;
@@ -92,6 +102,37 @@ export function SectionContextMenuItems({
           >
             <Plus className="w-4 h-4" />
             Add Section After
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            disabled={!computeSectionSwap(allSectionIds, section.id, "up")}
+            onSelect={() => {
+              const newOrder = computeSectionSwap(
+                allSectionIds,
+                section.id,
+                "up"
+              );
+              if (newOrder)
+                submitEvent({ type: "reorder-sections", sectionIds: newOrder });
+            }}
+          >
+            <ArrowUp className="w-4 h-4" />
+            Move Up
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={!computeSectionSwap(allSectionIds, section.id, "down")}
+            onSelect={() => {
+              const newOrder = computeSectionSwap(
+                allSectionIds,
+                section.id,
+                "down"
+              );
+              if (newOrder)
+                submitEvent({ type: "reorder-sections", sectionIds: newOrder });
+            }}
+          >
+            <ArrowDown className="w-4 h-4" />
+            Move Down
           </ContextMenuItem>
         </>
       )}
