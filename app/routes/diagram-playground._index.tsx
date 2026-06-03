@@ -4,9 +4,9 @@ import { Plus } from "lucide-react";
 import { sendToParent } from "@/lib/diagram-protocol";
 import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { EditableDiagramName } from "@/features/diagrams/editable-diagram-name";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
-import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { filteredNewestSnapshot } from "@/lib/filtered-newest-snapshot";
 import { data } from "react-router";
 import type { Route } from "./+types/diagram-playground._index";
@@ -15,56 +15,51 @@ export const meta: Route.MetaFunction = () => {
   return [{ title: "Diagram Playground" }];
 };
 
-export const loader = async () => {
-  return Effect.gen(function* () {
-    const diagramOps = yield* DiagramOperationsService;
-    const [diagrams, allSnapshots] = yield* Effect.all(
-      [diagramOps.listDiagrams(), diagramOps.listAllSnapshotsWithClips()],
-      { concurrency: "unbounded" }
-    );
+export const loader = makeLoader({
+  effect: () =>
+    Effect.gen(function* () {
+      const diagramOps = yield* DiagramOperationsService;
+      const [diagrams, allSnapshots] = yield* Effect.all(
+        [diagramOps.listDiagrams(), diagramOps.listAllSnapshotsWithClips()],
+        { concurrency: "unbounded" }
+      );
 
-    const snapshotsByDiagram = new Map<
-      string,
-      {
-        id: string;
-        contentHash: string;
-        preserved: boolean;
-        createdAt: Date;
-        clips: { archived: boolean }[];
-      }[]
-    >();
-    for (const s of allSnapshots) {
-      let arr = snapshotsByDiagram.get(s.diagramId);
-      if (!arr) {
-        arr = [];
-        snapshotsByDiagram.set(s.diagramId, arr);
+      const snapshotsByDiagram = new Map<
+        string,
+        {
+          id: string;
+          contentHash: string;
+          preserved: boolean;
+          createdAt: Date;
+          clips: { archived: boolean }[];
+        }[]
+      >();
+      for (const s of allSnapshots) {
+        let arr = snapshotsByDiagram.get(s.diagramId);
+        if (!arr) {
+          arr = [];
+          snapshotsByDiagram.set(s.diagramId, arr);
+        }
+        arr.push(s);
       }
-      arr.push(s);
-    }
 
-    const tiles = diagrams.map((d) => {
-      const snapshots = snapshotsByDiagram.get(d.id) ?? [];
-      const newestId = filteredNewestSnapshot(snapshots);
-      const newestSnapshot = newestId
-        ? snapshots.find((s) => s.id === newestId)
-        : null;
-      return {
-        id: d.id,
-        name: d.name,
-        updatedAt: d.updatedAt.toISOString(),
-        thumbnailContentHash: newestSnapshot?.contentHash ?? null,
-      };
-    });
+      const tiles = diagrams.map((d) => {
+        const snapshots = snapshotsByDiagram.get(d.id) ?? [];
+        const newestId = filteredNewestSnapshot(snapshots);
+        const newestSnapshot = newestId
+          ? snapshots.find((s) => s.id === newestId)
+          : null;
+        return {
+          id: d.id,
+          name: d.name,
+          updatedAt: d.updatedAt.toISOString(),
+          thumbnailContentHash: newestSnapshot?.contentHash ?? null,
+        };
+      });
 
-    return data({ tiles });
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+      return data({ tiles });
     }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 function formatTimeAgo(date: Date): string {
   const now = new Date();

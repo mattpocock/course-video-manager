@@ -1,9 +1,7 @@
-import { Console, Effect, Schema } from "effect";
-import type { Route } from "./+types/api.links";
-import { runtimeLive } from "@/services/layer.server";
+import { Effect, Schema } from "effect";
 import { data } from "react-router";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
-import { makeAction } from "@/services/route-action.server";
+import { makeAction, makeLoader } from "@/services/route-action.server";
 
 function normalizePayload(payload: unknown): unknown {
   const obj = payload as Record<string, unknown>;
@@ -16,20 +14,15 @@ const CreateLinkSchema = Schema.Struct({
   description: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-export const loader = async (_args: Route.LoaderArgs) => {
-  return Effect.gen(function* () {
-    const linkAuthOps = yield* LinkAuthOperationsService;
-    const links = yield* linkAuthOps.getLinks();
+export const loader = makeLoader({
+  effect: () =>
+    Effect.gen(function* () {
+      const linkAuthOps = yield* LinkAuthOperationsService;
+      const links = yield* linkAuthOps.getLinks();
 
-    return { links };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+      return { links };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 export const action = makeAction({
   input: "formData",

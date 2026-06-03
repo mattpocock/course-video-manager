@@ -1,28 +1,17 @@
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { makeAction } from "@/services/route-action.server";
+import { makeAction, makeLoader } from "@/services/route-action.server";
 import type { Route } from "./+types/api.diagrams.$diagramId.head";
 import { data } from "react-router";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { diagramId } = args.params;
-
-  return Effect.gen(function* () {
-    const diagramOps = yield* DiagramOperationsService;
-    const diagram = yield* diagramOps.getDiagram(diagramId);
-    return data({ headScene: diagram.headScene });
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Diagram not found", { status: 404 }));
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const diagramOps = yield* DiagramOperationsService;
+      const diagram = yield* diagramOps.getDiagram(params.diagramId!);
+      return data({ headScene: diagram.headScene });
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 const innerAction = makeAction({
   input: "json",

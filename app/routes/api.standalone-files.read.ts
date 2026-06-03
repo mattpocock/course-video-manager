@@ -1,8 +1,8 @@
-import { Console, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { Route } from "./+types/api.standalone-files.read";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
 import { data } from "react-router";
 
@@ -55,59 +55,46 @@ export const loader = async (args: Route.LoaderArgs) => {
   const videoId = url.searchParams.get("videoId");
   const filename = url.searchParams.get("filename");
 
-  return Effect.gen(function* () {
-    const parsed = yield* Schema.decodeUnknown(readFileSchema)({
-      videoId,
-      filename,
-    });
+  return makeLoader({
+    effect: () =>
+      Effect.gen(function* () {
+        const parsed = yield* Schema.decodeUnknown(readFileSchema)({
+          videoId,
+          filename,
+        });
 
-    const videoOps = yield* VideoOperationsService;
-    const fs = yield* FileSystem.FileSystem;
+        const videoOps = yield* VideoOperationsService;
+        const fs = yield* FileSystem.FileSystem;
 
-    // Validate video exists and is a standalone video
-    const video = yield* videoOps.getVideoDeepById(parsed.videoId);
-    if (video.lessonId !== null) {
-      return yield* Effect.die(
-        data("Cannot read files from lesson-connected videos", { status: 400 })
-      );
-    }
+        const video = yield* videoOps.getVideoDeepById(parsed.videoId);
+        if (video.lessonId !== null) {
+          return yield* Effect.die(
+            data("Cannot read files from lesson-connected videos", {
+              status: 400,
+            })
+          );
+        }
 
-    // Construct file path
-    const filePath = getStandaloneVideoFilePath(
-      parsed.videoId,
-      parsed.filename
-    );
+        const filePath = getStandaloneVideoFilePath(
+          parsed.videoId,
+          parsed.filename
+        );
 
-    // Check if file exists
-    const fileExists = yield* fs.exists(filePath);
-    if (!fileExists) {
-      return yield* Effect.die(data("File not found", { status: 404 }));
-    }
+        const fileExists = yield* fs.exists(filePath);
+        if (!fileExists) {
+          return yield* Effect.die(data("File not found", { status: 404 }));
+        }
 
-    // Read file as binary data
-    const content = yield* fs.readFile(filePath);
+        const content = yield* fs.readFile(filePath);
 
-    // Determine MIME type
-    const mimeType = getMimeType(parsed.filename);
+        const mimeType = getMimeType(parsed.filename);
 
-    // Convert Uint8Array to Buffer for Response
-    return new Response(Buffer.from(content), {
-      status: 200,
-      headers: {
-        "Content-Type": mimeType,
-      },
-    });
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("ParseError", () => {
-      return Effect.die(data("Invalid request", { status: 400 }));
-    }),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Video not found", { status: 404 }));
-    }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
+        return new Response(Buffer.from(content), {
+          status: 200,
+          headers: {
+            "Content-Type": mimeType,
+          },
+        });
+      }),
+  })(args);
 };
