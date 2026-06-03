@@ -2,6 +2,7 @@ import { AddVideoModal } from "@/components/add-video-modal";
 import { ConvertToGhostModal } from "@/components/convert-to-ghost-modal";
 import { CreateOnDiskModal } from "./create-on-disk-modal";
 import { DeleteLessonModal } from "@/components/delete-lesson-modal";
+import { EditLessonDescriptionModal } from "@/components/edit-lesson-description-modal";
 import {
   DependencySelector,
   type DependencyLessonItem,
@@ -125,6 +126,7 @@ export function SortableLessonItem({
   convertToGhostLessonId,
   deleteLessonId,
   createOnDiskLessonId,
+  editDescriptionLessonId,
   dispatch,
   submitEvent,
   startExportUpload,
@@ -149,6 +151,7 @@ export function SortableLessonItem({
   convertToGhostLessonId: string | null;
   deleteLessonId: string | null;
   createOnDiskLessonId: string | null;
+  editDescriptionLessonId: string | null;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
   startExportUpload: (videoId: string, path: string) => void;
@@ -485,6 +488,12 @@ export function SortableLessonItem({
             dispatch={dispatch}
             submitEvent={submitEvent}
             startEditingTitle={startEditingTitle}
+            startEditingDescription={() =>
+              dispatch({
+                type: "set-edit-description-lesson-id",
+                lessonId: lesson.id,
+              })
+            }
           />
         </ContextMenu>
         <Suspense>
@@ -530,6 +539,26 @@ export function SortableLessonItem({
               lessonId: lesson.id,
               repoPath,
             });
+          }}
+        />
+        <EditLessonDescriptionModal
+          lessonTitle={lesson.title || lesson.path}
+          currentDescription={currentDescription}
+          open={editDescriptionLessonId === lesson.id}
+          onOpenChange={(open) => {
+            dispatch({
+              type: "set-edit-description-lesson-id",
+              lessonId: open ? lesson.id : null,
+            });
+          }}
+          onSave={(description) => {
+            if (description !== currentDescription) {
+              submitEvent({
+                type: "update-lesson-description",
+                lessonId: lesson.id,
+                description,
+              });
+            }
           }}
         />
       </div>

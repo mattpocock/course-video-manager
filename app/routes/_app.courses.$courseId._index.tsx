@@ -37,6 +37,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useCollapsedSections } from "@/features/course-view/use-collapsed-sections";
 import { readCookie, useCookieState } from "@/hooks/use-cookie-state";
 import { data, useFetcher, useNavigate, useSubmit } from "react-router";
 import { useEffectReducer } from "use-effect-reducer";
@@ -292,6 +293,7 @@ export default function Component(props: Route.ComponentProps) {
     convertToGhostLessonId,
     deleteLessonId,
     createOnDiskLessonId,
+    editDescriptionLessonId,
     archiveSectionId,
     lessonSelection,
     videoPlayerState,
@@ -305,6 +307,24 @@ export default function Component(props: Route.ComponentProps) {
     "view-mode",
     loaderData.viewMode
   ) as ["expanded" | "compact", (value: "expanded" | "compact") => void];
+
+  const { collapsedSections, toggleSection, expandAll, collapseAll } =
+    useCollapsedSections();
+
+  const sectionIds = useMemo(
+    () => displaySections.map((s) => s.id),
+    [displaySections]
+  );
+  const allSectionsCollapsed =
+    sectionIds.length > 0 &&
+    sectionIds.every((id) => collapsedSections.has(id));
+  const handleToggleAllSections = useCallback(() => {
+    if (allSectionsCollapsed) {
+      expandAll(sectionIds);
+    } else {
+      collapseAll(sectionIds);
+    }
+  }, [allSectionsCollapsed, expandAll, collapseAll, sectionIds]);
 
   const [nextUpDismissed, setNextUpDismissed] = useState(false);
   const { startExportUpload, startBatchExportUpload } =
@@ -449,6 +469,7 @@ export default function Component(props: Route.ComponentProps) {
                         convertToGhostLessonId={convertToGhostLessonId}
                         deleteLessonId={deleteLessonId}
                         createOnDiskLessonId={createOnDiskLessonId}
+                        editDescriptionLessonId={editDescriptionLessonId}
                         dispatch={dispatch}
                         submitEvent={submitEvent}
                         startExportUpload={startExportUpload}
@@ -477,6 +498,9 @@ export default function Component(props: Route.ComponentProps) {
                           viewMode === "expanded" ? "compact" : "expanded"
                         )
                       }
+                      allSectionsCollapsed={allSectionsCollapsed}
+                      onToggleAllSections={handleToggleAllSections}
+                      sectionCount={sectionIds.length}
                       dispatch={dispatch}
                       isRealCourse={currentCourse?.filePath != null}
                     />
@@ -501,7 +525,10 @@ export default function Component(props: Route.ComponentProps) {
                     convertToGhostLessonId={convertToGhostLessonId}
                     deleteLessonId={deleteLessonId}
                     createOnDiskLessonId={createOnDiskLessonId}
+                    editDescriptionLessonId={editDescriptionLessonId}
                     archiveSectionId={archiveSectionId}
+                    collapsedSections={collapsedSections}
+                    toggleSection={toggleSection}
                     lessonSelection={lessonSelection}
                     dispatch={dispatch}
                     submitEvent={submitEvent}

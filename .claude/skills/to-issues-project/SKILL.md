@@ -34,6 +34,8 @@ If non-zero, stop and ask the user whether to (a) abort, (b) add more on top of 
 
 If you haven't already, explore the repo to understand the area you're touching. Use the project's domain glossary (`CONTEXT.md`) and respect ADRs under `docs/adr/`. Sub-issue titles and bodies should use the project's vocabulary.
 
+Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
+
 ### 4. Draft vertical slices
 
 Break the PRD into **tracer-bullet** sub-issues. Each slice is a thin vertical cut through every layer (schema → API → UI → tests), NOT a horizontal slice of one layer.
@@ -41,8 +43,8 @@ Break the PRD into **tracer-bullet** sub-issues. Each slice is a thin vertical c
 <vertical-slice-rules>
 - Each slice delivers a narrow but COMPLETE path through every layer
 - A completed slice is demoable or verifiable on its own
-- Prefer many thin slices over few thick ones
 - Sub-issues are **flat** — a sub-issue must not itself need sub-issues. If a slice is too big to leaf, split it into multiple peer slices instead of nesting
+- Any prefactoring should be done first, in its own slice(s) at the start of the list
 - Sub-issues run in **list order** under the PRD. Order them so dependencies are satisfied: if slice B builds on slice A's schema, A must come first
 </vertical-slice-rules>
 

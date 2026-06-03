@@ -6,6 +6,7 @@ import {
   getSectionAndLessonNumberFromPath,
   notFound,
 } from "@/services/course-repo-parser";
+import { computeDenseLessonOrders } from "@/services/lesson-order-renumber";
 import { makeAction } from "@/services/route-action.server";
 
 class NotLatestVersionError extends Data.TaggedError("NotLatestVersionError")<{
@@ -92,6 +93,18 @@ export const action = makeAction({
           repoId: baseCourse.id,
           versionId: latestVersion.id,
         });
+
+      // Snapshot every lesson's order *before* resync mutates anything. Used
+      // below to break real/ghost ties when renumbering, so an interleaved
+      // ghost lands back in the slot the user dragged it to rather than
+      // colliding with the real lesson resync re-claims. See
+      // `computeDenseLessonOrders`.
+      const preResyncOrderByLessonId = new Map<string, number>();
+      for (const section of courseWithSections.sections) {
+        for (const lesson of section.lessons) {
+          preResyncOrderByLessonId.set(lesson.id, lesson.order);
+        }
+      }
 
       const lessonPathToLessonId = new Map<string, string>();
 
@@ -246,6 +259,35 @@ export const action = makeAction({
 
       for (const section of sectionsWithNoLessons) {
         yield* lessonSectionOps.deleteSection(section.id);
+      }
+
+      // Renumber each surviving section densely. Resync set real lessons'
+      // order from their on-disk path number, which can drop a real lesson
+      // onto an interleaved ghost's slot; this collapses every section to
+      // collision-free 0..n-1 orders while preserving display order (and ghost
+      // placement, via the pre-resync snapshot tie-break).
+      for (const section of courseAfterUpdates.sections) {
+        if (section.lessons.length === 0) continue;
+
+        const renumbered = computeDenseLessonOrders(
+          section.lessons.map((lesson) => ({
+            id: lesson.id,
+            order: lesson.order,
+            fsStatus: lesson.fsStatus,
+          })),
+          preResyncOrderByLessonId
+        );
+
+        const changed = renumbered.filter((next) => {
+          const current = section.lessons.find(
+            (lesson) => lesson.id === next.id
+          );
+          return current?.order !== next.order;
+        });
+
+        if (changed.length > 0) {
+          yield* lessonSectionOps.batchUpdateLessonOrders(changed);
+        }
       }
 
       return {
