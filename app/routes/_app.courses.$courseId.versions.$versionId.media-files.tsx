@@ -1,42 +1,35 @@
 import { Button } from "@/components/ui/button";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import { ArrowLeft, Check, Copy } from "lucide-react";
 import { useState } from "react";
-import { data, Link } from "react-router";
+import { Link } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.versions.$versionId.media-files";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { courseId: repoId, versionId } = args.params;
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const versionOps = yield* VersionOperationsService;
 
-  return Effect.gen(function* () {
-    const versionOps = yield* VersionOperationsService;
+      const [version, repoWithSections] = yield* Effect.all(
+        [
+          versionOps.getCourseVersionById(params.versionId!),
+          versionOps.getCourseWithSectionsByVersionSlim({
+            repoId: params.courseId!,
+            versionId: params.versionId!,
+          }),
+        ],
+        { concurrency: "unbounded" }
+      );
 
-    const [version, repoWithSections] = yield* Effect.all(
-      [
-        versionOps.getCourseVersionById(versionId),
-        versionOps.getCourseWithSectionsByVersionSlim({ repoId, versionId }),
-      ],
-      { concurrency: "unbounded" }
-    );
-
-    return {
-      repo: repoWithSections,
-      version,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Not found", { status: 404 }));
+      return {
+        repo: repoWithSections,
+        version,
+      };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 export default function Component(props: Route.ComponentProps) {
   const { repo, version } = props.loaderData;

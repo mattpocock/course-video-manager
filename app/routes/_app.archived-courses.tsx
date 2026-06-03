@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import { ArchiveRestore } from "lucide-react";
 import { useFetcher, useNavigate } from "react-router";
 import type { Route } from "./+types/_app.archived-courses";
@@ -14,16 +14,14 @@ export const meta: Route.MetaFunction = () => {
   ];
 };
 
-export const loader = async (_args: Route.LoaderArgs) => {
-  return Effect.gen(function* () {
-    const courseOps = yield* CourseOperationsService;
-    const archivedCourses = yield* courseOps.getArchivedCourses();
-    return { archivedCourses };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    runtimeLive.runPromise
-  );
-};
+export const loader = makeLoader({
+  effect: () =>
+    Effect.gen(function* () {
+      const courseOps = yield* CourseOperationsService;
+      const archivedCourses = yield* courseOps.getArchivedCourses();
+      return { archivedCourses };
+    }),
+});
 
 export default function ArchivedCourses(props: Route.ComponentProps) {
   const unarchiveCourseFetcher = useFetcher();

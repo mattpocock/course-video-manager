@@ -9,8 +9,8 @@ import { generateChangelog } from "@/services/changelog-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import { ArrowLeft, Download, AlertCircle, ChevronRight } from "lucide-react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
@@ -18,62 +18,51 @@ import rehypeRaw from "rehype-raw";
 import { data, Link, useNavigate, useRevalidator } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.publish";
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { courseId } = args.params;
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const courseOps = yield* CourseOperationsService;
+      const versionOps = yield* VersionOperationsService;
+      const publishService = yield* CoursePublishService;
 
-  return Effect.gen(function* () {
-    const courseOps = yield* CourseOperationsService;
-    const versionOps = yield* VersionOperationsService;
-    const publishService = yield* CoursePublishService;
+      const [course, allVersions] = yield* Effect.all(
+        [
+          courseOps.getCourseById(params.courseId!),
+          versionOps.getAllVersionsWithStructure(params.courseId!),
+        ],
+        { concurrency: "unbounded" }
+      );
 
-    const [course, allVersions] = yield* Effect.all(
-      [
-        courseOps.getCourseById(courseId),
-        versionOps.getAllVersionsWithStructure(courseId),
-      ],
-      { concurrency: "unbounded" }
-    );
+      const latestVersion = allVersions[0];
+      if (!latestVersion) {
+        return yield* Effect.die(data("No version found", { status: 404 }));
+      }
 
-    const latestVersion = allVersions[0];
-    if (!latestVersion) {
-      return yield* Effect.die(data("No version found", { status: 404 }));
-    }
+      // Get changelog preview (treat draft as if it were published with a placeholder name)
+      const changelogVersions = allVersions.map((v) =>
+        v.id === latestVersion.id
+          ? { ...v, name: "(Draft — pending publish)" }
+          : v
+      );
+      const changelog = generateChangelog(changelogVersions);
 
-    // Get changelog preview (treat draft as if it were published with a placeholder name)
-    const changelogVersions = allVersions.map((v) =>
-      v.id === latestVersion.id
-        ? { ...v, name: "(Draft — pending publish)" }
-        : v
-    );
-    const changelog = generateChangelog(changelogVersions);
+      // Get previous published version name (allVersions is sorted newest first)
+      const previousVersion = allVersions.length > 1 ? allVersions[1] : null;
 
-    // Get previous published version name (allVersions is sorted newest first)
-    const previousVersion = allVersions.length > 1 ? allVersions[1] : null;
+      // Get unexported videos
+      const { unexportedVideoIds } =
+        yield* publishService.validatePublishability(latestVersion.id);
 
-    // Get unexported videos
-    const { unexportedVideoIds } = yield* publishService.validatePublishability(
-      latestVersion.id
-    );
-
-    const { sections: _, ...latestVersionMeta } = latestVersion;
-    return {
-      course,
-      latestVersion: latestVersionMeta,
-      previousVersionName: previousVersion?.name ?? null,
-      changelog,
-      unexportedVideoCount: unexportedVideoIds.length,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Course not found", { status: 404 }));
+      const { sections: _, ...latestVersionMeta } = latestVersion;
+      return {
+        course,
+        latestVersion: latestVersionMeta,
+        previousVersionName: previousVersion?.name ?? null,
+        changelog,
+        unexportedVideoCount: unexportedVideoIds.length,
+      };
     }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 export default function Component(props: Route.ComponentProps) {
   const {

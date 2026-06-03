@@ -18,6 +18,7 @@ import {
 } from "@/services/course-loader-fs";
 import type { ExportClip } from "@/services/export-hash";
 import { FeatureFlagService } from "@/services/feature-flag-service";
+import { makeLoader } from "@/services/route-action.server";
 import { runtimeLive } from "@/services/layer.server";
 import {
   PointerSensor,
@@ -26,7 +27,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { getGitStatusAsync } from "@/services/git-status-service.server";
 import { AlertTriangle, Plus } from "lucide-react";
 import {
@@ -39,7 +40,7 @@ import {
 } from "react";
 import { useCollapsedSections } from "@/features/course-view/use-collapsed-sections";
 import { readCookie, useCookieState } from "@/hooks/use-cookie-state";
-import { data, useFetcher, useNavigate, useSubmit } from "react-router";
+import { useFetcher, useNavigate, useSubmit } from "react-router";
 import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId._index";
 import { UploadContext } from "@/features/upload-manager/upload-context";
@@ -88,7 +89,6 @@ export const meta: Route.MetaFunction = ({ data }) => {
 };
 
 export const loader = async (args: Route.LoaderArgs) => {
-  const { courseId: selectedCourseId } = args.params;
   const url = new URL(args.request.url);
   const selectedVersionId = url.searchParams.get("versionId");
 
@@ -97,140 +97,137 @@ export const loader = async (args: Route.LoaderArgs) => {
       ? "compact"
       : "expanded";
 
-  return Effect.gen(function* () {
-    const courseOps = yield* CourseOperationsService;
-    const versionOps = yield* VersionOperationsService;
-    const featureFlags = yield* FeatureFlagService;
+  return makeLoader({
+    effect: ({ params }) =>
+      Effect.gen(function* () {
+        const selectedCourseId = params.courseId!;
+        const courseOps = yield* CourseOperationsService;
+        const versionOps = yield* VersionOperationsService;
+        const featureFlags = yield* FeatureFlagService;
 
-    const courses = yield* courseOps.getCourses();
+        const courses = yield* courseOps.getCourses();
 
-    const versions = yield* versionOps.getCourseVersions(selectedCourseId);
+        const versions = yield* versionOps.getCourseVersions(selectedCourseId);
 
-    let selectedVersion: Awaited<
-      ReturnType<typeof versionOps.getLatestCourseVersion>
-    > extends Effect.Effect<infer R, any, any>
-      ? R
-      : never = undefined;
+        let selectedVersion: Awaited<
+          ReturnType<typeof versionOps.getLatestCourseVersion>
+        > extends Effect.Effect<infer R, any, any>
+          ? R
+          : never = undefined;
 
-    if (selectedVersionId) {
-      selectedVersion = yield* versionOps
-        .getCourseVersionById(selectedVersionId)
-        .pipe(
-          Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
-        );
-    } else {
-      selectedVersion =
-        yield* versionOps.getLatestCourseVersion(selectedCourseId);
-    }
+        if (selectedVersionId) {
+          selectedVersion = yield* versionOps
+            .getCourseVersionById(selectedVersionId)
+            .pipe(
+              Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
+            );
+        } else {
+          selectedVersion =
+            yield* versionOps.getLatestCourseVersion(selectedCourseId);
+        }
 
-    const selectedCourse = yield* courseOps
-      .getCourseWithSlimClipsById(selectedCourseId, selectedVersion?.id)
-      .pipe(
-        Effect.andThen((course) => {
-          if (!course) {
-            return undefined;
-          }
+        const selectedCourse = yield* courseOps
+          .getCourseWithSlimClipsById(selectedCourseId, selectedVersion?.id)
+          .pipe(
+            Effect.andThen((course) => {
+              if (!course) {
+                return undefined;
+              }
 
-          const allSections = course.versions[0]?.sections ?? [];
+              const allSections = course.versions[0]?.sections ?? [];
 
-          return {
-            ...course,
-            sections: allSections.filter((section) => {
-              return !section.path.endsWith("ARCHIVE");
-            }),
-          };
-        })
-      );
-
-    const allVideos = selectedCourse?.sections.flatMap((s) =>
-      s.lessons.flatMap((l) => l.videos)
-    );
-
-    const slimCourse = selectedCourse
-      ? (() => {
-          const { versions, sections, ...courseRest } = selectedCourse;
-          return {
-            ...courseRest,
-            sections: sections.map((section) => {
-              const { lessons, ...sectionRest } = section;
               return {
-                ...sectionRest,
-                lessons: lessons.map((lesson) => {
-                  const { videos, ...lessonRest } = lesson;
+                ...course,
+                sections: allSections.filter((section) => {
+                  return !section.path.endsWith("ARCHIVE");
+                }),
+              };
+            })
+          );
+
+        const allVideos = selectedCourse?.sections.flatMap((s) =>
+          s.lessons.flatMap((l) => l.videos)
+        );
+
+        const slimCourse = selectedCourse
+          ? (() => {
+              const { versions, sections, ...courseRest } = selectedCourse;
+              return {
+                ...courseRest,
+                sections: sections.map((section) => {
+                  const { lessons, ...sectionRest } = section;
                   return {
-                    ...lessonRest,
-                    videos: videos.map(toSlimVideo),
+                    ...sectionRest,
+                    lessons: lessons.map((lesson) => {
+                      const { videos, ...lessonRest } = lesson;
+                      return {
+                        ...lessonRest,
+                        videos: videos.map(toSlimVideo),
+                      };
+                    }),
                   };
                 }),
               };
-            }),
-          };
-        })()
-      : undefined;
+            })()
+          : undefined;
 
-    const lessons = selectedCourse?.filePath
-      ? selectedCourse.sections.flatMap((section) =>
-          section.lessons
-            .filter((lesson) => lesson.fsStatus !== "ghost")
-            .map((lesson) => ({
-              id: lesson.id,
-              fullPath: `${selectedCourse.filePath}/${section.path}/${lesson.path}`,
-            }))
-        )
-      : [];
+        const lessons = selectedCourse?.filePath
+          ? selectedCourse.sections.flatMap((section) =>
+              section.lessons
+                .filter((lesson) => lesson.fsStatus !== "ghost")
+                .map((lesson) => ({
+                  id: lesson.id,
+                  fullPath: `${selectedCourse.filePath}/${section.path}/${lesson.path}`,
+                }))
+            )
+          : [];
 
-    const hasExportedVideoMap = selectedCourse
-      ? runtimeLive.runPromise(
-          loadExportStatusMap({
-            courseId: selectedCourse.id,
-            videos: (allVideos ?? []).map((v) => ({
-              id: v.id,
-              clips: v.clips as ExportClip[],
-            })),
-          })
-        )
-      : Promise.resolve({} as Record<string, boolean>);
+        const hasExportedVideoMap = selectedCourse
+          ? runtimeLive.runPromise(
+              loadExportStatusMap({
+                courseId: selectedCourse.id,
+                videos: (allVideos ?? []).map((v) => ({
+                  id: v.id,
+                  clips: v.clips as ExportClip[],
+                })),
+              })
+            )
+          : Promise.resolve({} as Record<string, boolean>);
 
-    const lessonFsMaps = runtimeLive.runPromise(loadLessonFsMaps({ lessons }));
+        const lessonFsMaps = runtimeLive.runPromise(
+          loadLessonFsMaps({ lessons })
+        );
 
-    const videoTranscripts = runtimeLive.runPromise(
-      courseOps.getVideoTranscripts(selectedCourseId)
-    );
+        const videoTranscripts = runtimeLive.runPromise(
+          courseOps.getVideoTranscripts(selectedCourseId)
+        );
 
-    const latestVersion = versions[0];
-    const isLatestVersion = !!(
-      selectedVersion &&
-      latestVersion &&
-      selectedVersion.id === latestVersion.id
-    );
+        const latestVersion = versions[0];
+        const isLatestVersion = !!(
+          selectedVersion &&
+          latestVersion &&
+          selectedVersion.id === latestVersion.id
+        );
 
-    const gitStatus = selectedCourse?.filePath
-      ? getGitStatusAsync(selectedCourse.filePath)
-      : Promise.resolve(null);
+        const gitStatus = selectedCourse?.filePath
+          ? getGitStatusAsync(selectedCourse.filePath)
+          : Promise.resolve(null);
 
-    return {
-      courses,
-      selectedCourse: slimCourse,
-      versions,
-      selectedVersion,
-      isLatestVersion,
-      hasExportedVideoMap,
-      lessonFsMaps,
-      videoTranscripts,
-      gitStatus,
-      showMediaFilesList: featureFlags.isEnabled("ENABLE_MEDIA_FILES_LIST"),
-      viewMode,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () => {
-      return Effect.die(data("Not Found", { status: 404 }));
-    }),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
+        return {
+          courses,
+          selectedCourse: slimCourse,
+          versions,
+          selectedVersion,
+          isLatestVersion,
+          hasExportedVideoMap,
+          lessonFsMaps,
+          videoTranscripts,
+          gitStatus,
+          showMediaFilesList: featureFlags.isEnabled("ENABLE_MEDIA_FILES_LIST"),
+          viewMode,
+        };
+      }),
+  })(args);
 };
 
 export default function Component(props: Route.ComponentProps) {

@@ -23,18 +23,12 @@ import {
 import { cn } from "@/lib/utils";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { FileVideo, Lightbulb, Plus, Trash2 } from "lucide-react";
 import { useEffect } from "react";
-import {
-  data,
-  Link,
-  useFetcher,
-  useNavigate,
-  useSearchParams,
-} from "react-router";
+import { Link, useFetcher, useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/_app.pitches._index";
 
 export const meta: Route.MetaFunction = () => {
@@ -95,57 +89,54 @@ export const loader = async (args: Route.LoaderArgs) => {
     ? ["idle", "scheduled", "shipped"]
     : ["idle", "scheduled"];
 
-  return Effect.gen(function* () {
-    const db = yield* PitchOperationsService;
-    const publishService = yield* CoursePublishService;
+  return makeLoader({
+    effect: () =>
+      Effect.gen(function* () {
+        const db = yield* PitchOperationsService;
+        const publishService = yield* CoursePublishService;
 
-    const pitchesRaw = yield* db.listPitchesWithVideos({
-      state: stateFilter,
-      priority: priorityFilter.length > 0 ? priorityFilter : undefined,
-      effort: effortFilter.length > 0 ? effortFilter : undefined,
-    });
+        const pitchesRaw = yield* db.listPitchesWithVideos({
+          state: stateFilter,
+          priority: priorityFilter.length > 0 ? priorityFilter : undefined,
+          effort: effortFilter.length > 0 ? effortFilter : undefined,
+        });
 
-    const hasExportedVideoMap: Record<string, boolean> = {};
-    const allVideos = pitchesRaw.flatMap((p) => p.videos);
-    yield* Effect.forEach(
-      allVideos,
-      (video) =>
-        Effect.gen(function* () {
-          hasExportedVideoMap[video.id] =
-            yield* publishService.isExported(video);
-        }),
-      { concurrency: "unbounded" }
-    );
+        const hasExportedVideoMap: Record<string, boolean> = {};
+        const allVideos = pitchesRaw.flatMap((p) => p.videos);
+        yield* Effect.forEach(
+          allVideos,
+          (video) =>
+            Effect.gen(function* () {
+              hasExportedVideoMap[video.id] =
+                yield* publishService.isExported(video);
+            }),
+          { concurrency: "unbounded" }
+        );
 
-    const pitches: PitchWithVideos[] = pitchesRaw.map((p) => ({
-      id: p.id,
-      title: p.title,
-      description: p.description,
-      state: p.state,
-      priority: p.priority,
-      effort: p.effort,
-      videos: p.videos.map((v) => ({
-        id: v.id,
-        path: v.path,
-        firstClipId: v.clips[0]?.id ?? null,
-        totalDuration: v.clips.reduce(
-          (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),
-          0
-        ),
-      })),
-    }));
+        const pitches: PitchWithVideos[] = pitchesRaw.map((p) => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          state: p.state,
+          priority: p.priority,
+          effort: p.effort,
+          videos: p.videos.map((v) => ({
+            id: v.id,
+            path: v.path,
+            firstClipId: v.clips[0]?.id ?? null,
+            totalDuration: v.clips.reduce(
+              (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),
+              0
+            ),
+          })),
+        }));
 
-    return {
-      pitches,
-      hasExportedVideoMap,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
-    }),
-    runtimeLive.runPromise
-  );
+        return {
+          pitches,
+          hasExportedVideoMap,
+        };
+      }),
+  })(args);
 };
 
 export default function PitchesIndexRoute(props: Route.ComponentProps) {
