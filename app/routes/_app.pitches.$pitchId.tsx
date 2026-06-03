@@ -16,9 +16,9 @@ import {
 import { PitchStateBadge } from "@/components/status-icon-badge";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { runtimeLive } from "@/services/layer.server";
+import { makeLoader } from "@/services/route-action.server";
 import { formatSecondsToTimeCode } from "@/services/utils";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import {
   ArrowLeft,
   Check,
@@ -34,13 +34,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownMonacoEditor } from "@/components/markdown-monaco-editor";
-import {
-  data,
-  Link,
-  useFetcher,
-  useNavigate,
-  useSearchParams,
-} from "react-router";
+import { Link, useFetcher, useNavigate, useSearchParams } from "react-router";
 import { pitchBackLink } from "@/features/pitches/pitch-back-link";
 import { X_POST_CHARACTER_LIMIT } from "@/features/pitches/x-character-count";
 import type { Route } from "./+types/_app.pitches.$pitchId";
@@ -57,64 +51,54 @@ interface PitchVideo {
   totalDuration: number;
 }
 
-export const loader = async (args: Route.LoaderArgs) => {
-  const { pitchId } = args.params;
+export const loader = makeLoader({
+  effect: ({ params }) =>
+    Effect.gen(function* () {
+      const db = yield* PitchOperationsService;
+      const publishService = yield* CoursePublishService;
 
-  return Effect.gen(function* () {
-    const db = yield* PitchOperationsService;
-    const publishService = yield* CoursePublishService;
+      const pitchRaw = yield* db.getPitchWithVideos(params.pitchId!);
 
-    const pitchRaw = yield* db.getPitchWithVideos(pitchId);
+      const hasExportedVideoMap: Record<string, boolean> = {};
+      yield* Effect.forEach(
+        pitchRaw.videos,
+        (video) =>
+          Effect.gen(function* () {
+            hasExportedVideoMap[video.id] =
+              yield* publishService.isExported(video);
+          }),
+        { concurrency: "unbounded" }
+      );
 
-    const hasExportedVideoMap: Record<string, boolean> = {};
-    yield* Effect.forEach(
-      pitchRaw.videos,
-      (video) =>
-        Effect.gen(function* () {
-          hasExportedVideoMap[video.id] =
-            yield* publishService.isExported(video);
-        }),
-      { concurrency: "unbounded" }
-    );
+      const videos: PitchVideo[] = pitchRaw.videos.map((v) => ({
+        id: v.id,
+        path: v.path,
+        firstClipId: v.clips[0]?.id ?? null,
+        totalDuration: v.clips.reduce(
+          (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),
+          0
+        ),
+      }));
 
-    const videos: PitchVideo[] = pitchRaw.videos.map((v) => ({
-      id: v.id,
-      path: v.path,
-      firstClipId: v.clips[0]?.id ?? null,
-      totalDuration: v.clips.reduce(
-        (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),
-        0
-      ),
-    }));
-
-    return {
-      pitch: {
-        id: pitchRaw.id,
-        title: pitchRaw.title,
-        description: pitchRaw.description,
-        contentPlan: pitchRaw.contentPlan,
-        youtubeTitle: pitchRaw.youtubeTitle,
-        youtubeThumbnailDescription: pitchRaw.youtubeThumbnailDescription,
-        newsletterTitle: pitchRaw.newsletterTitle,
-        tweet: pitchRaw.tweet,
-        state: pitchRaw.state,
-        priority: pitchRaw.priority,
-        effort: pitchRaw.effort,
-      },
-      videos,
-      hasExportedVideoMap,
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchTag("NotFoundError", () =>
-      Effect.die(data("Pitch not found", { status: 404 }))
-    ),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+      return {
+        pitch: {
+          id: pitchRaw.id,
+          title: pitchRaw.title,
+          description: pitchRaw.description,
+          contentPlan: pitchRaw.contentPlan,
+          youtubeTitle: pitchRaw.youtubeTitle,
+          youtubeThumbnailDescription: pitchRaw.youtubeThumbnailDescription,
+          newsletterTitle: pitchRaw.newsletterTitle,
+          tweet: pitchRaw.tweet,
+          state: pitchRaw.state,
+          priority: pitchRaw.priority,
+          effort: pitchRaw.effort,
+        },
+        videos,
+        hasExportedVideoMap,
+      };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 const SAVE_THROTTLE_MS = 600;
 

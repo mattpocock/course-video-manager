@@ -18,8 +18,8 @@ import { isoWeek } from "@/features/deliverables-calendar/iso-week";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { runtimeLive } from "@/services/layer.server";
-import { Console, Effect } from "effect";
+import { makeLoader } from "@/services/route-action.server";
+import { Effect } from "effect";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -27,73 +27,68 @@ import {
   Plus,
 } from "lucide-react";
 import { useState } from "react";
-import { data, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
 import type { Route } from "./+types/_app._index";
 
 export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Deliverables Calendar" }];
 };
 
-export const loader = async () => {
-  return Effect.gen(function* () {
-    const courseOps = yield* CourseOperationsService;
-    const deliverableOps = yield* DeliverableOperationsService;
-    const pitchOps = yield* PitchOperationsService;
-    const [deliverables, courses, pitches] = yield* Effect.all(
-      [
-        deliverableOps.listDeliverables(),
-        courseOps.getCourses(),
-        pitchOps.listPitches(),
-      ],
-      { concurrency: "unbounded" }
-    );
+export const loader = makeLoader({
+  effect: () =>
+    Effect.gen(function* () {
+      const courseOps = yield* CourseOperationsService;
+      const deliverableOps = yield* DeliverableOperationsService;
+      const pitchOps = yield* PitchOperationsService;
+      const [deliverables, courses, pitches] = yield* Effect.all(
+        [
+          deliverableOps.listDeliverables(),
+          courseOps.getCourses(),
+          pitchOps.listPitches(),
+        ],
+        { concurrency: "unbounded" }
+      );
 
-    const courseMap = new Map(courses.map((c) => [c.id, c.name]));
-    const pitchMap = new Map(
-      pitches.map((p) => [
-        p.id,
-        { title: p.title, priority: p.priority, state: p.state },
-      ])
-    );
+      const courseMap = new Map(courses.map((c) => [c.id, c.name]));
+      const pitchMap = new Map(
+        pitches.map((p) => [
+          p.id,
+          { title: p.title, priority: p.priority, state: p.state },
+        ])
+      );
 
-    return {
-      deliverables: deliverables.map((d) => ({
-        id: d.id,
-        title: d.title,
-        notes: d.notes,
-        date: d.date,
-        status: d.status as "planned" | "done" | "cancelled",
-        archived: d.archived,
-        createdAt: d.createdAt.toISOString(),
-        linkedCourses: d.deliverablesCourses.map((dc) => ({
-          id: dc.courseId,
-          name: courseMap.get(dc.courseId) ?? dc.courseId,
+      return {
+        deliverables: deliverables.map((d) => ({
+          id: d.id,
+          title: d.title,
+          notes: d.notes,
+          date: d.date,
+          status: d.status as "planned" | "done" | "cancelled",
+          archived: d.archived,
+          createdAt: d.createdAt.toISOString(),
+          linkedCourses: d.deliverablesCourses.map((dc) => ({
+            id: dc.courseId,
+            name: courseMap.get(dc.courseId) ?? dc.courseId,
+          })),
+          linkedPitches: d.deliverablesPitches.map((dp) => {
+            const p = pitchMap.get(dp.pitchId);
+            return {
+              id: dp.pitchId,
+              title: p?.title ?? dp.pitchId,
+              priority: p?.priority ?? 999,
+            };
+          }),
         })),
-        linkedPitches: d.deliverablesPitches.map((dp) => {
-          const p = pitchMap.get(dp.pitchId);
-          return {
-            id: dp.pitchId,
-            title: p?.title ?? dp.pitchId,
-            priority: p?.priority ?? 999,
-          };
-        }),
-      })),
-      courses: courses.map((c) => ({ id: c.id, name: c.name })),
-      pitches: pitches.map((p) => ({
-        id: p.id,
-        title: p.title,
-        priority: p.priority,
-        state: p.state,
-      })),
-    };
-  }).pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
-    Effect.catchAll(() => {
-      return Effect.die(data("Internal server error", { status: 500 }));
+        courses: courses.map((c) => ({ id: c.id, name: c.name })),
+        pitches: pitches.map((p) => ({
+          id: p.id,
+          title: p.title,
+          priority: p.priority,
+          state: p.state,
+        })),
+      };
     }),
-    runtimeLive.runPromise
-  );
-};
+});
 
 type DeliverableWithLinks = DeliverableForGrouping & DeliverableForCard;
 

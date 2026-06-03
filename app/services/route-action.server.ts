@@ -63,6 +63,31 @@ function buildErrorPipeline<A, E, R>(
   ) as Effect.Effect<A, never, R>;
 }
 
+interface MakeLoaderConfig<A, E, R> {
+  errors?: { [K in ErrorTags<E>]?: number };
+  effect: (ctx: {
+    params: Record<string, string | undefined>;
+  }) => Effect.Effect<A, E, R>;
+}
+
+export function makeLoader<A, E, R>(
+  config: MakeLoaderConfig<A, E, R>,
+  runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
+): (args: { params: Record<string, string | undefined> }) => Promise<A> {
+  const errorMap: Record<string, number> = {
+    ParseError: 400,
+    NotFoundError: 404,
+    ...config.errors,
+  };
+
+  return (args) => {
+    const effect = config.effect({ params: args.params });
+    return runtime.runPromise(
+      buildErrorPipeline(effect, errorMap, config.errors)
+    );
+  };
+}
+
 export function makeAction<A, E, R>(
   config: MakeActionConfig<A, E, R>,
   runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive

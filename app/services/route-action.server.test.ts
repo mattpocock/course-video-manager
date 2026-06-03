@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Cause, Data, Effect, Layer, ManagedRuntime, Runtime } from "effect";
-import { makeAction } from "./route-action.server";
+import { makeAction, makeLoader } from "./route-action.server";
 import { DatabaseDumpService } from "./dump-service";
 
 function extractDieDefect(error: unknown): unknown {
@@ -384,6 +384,175 @@ describe("makeAction", () => {
 
       try {
         await action({ request: mockRequest(), params: {} });
+      } catch {
+        // expected
+      }
+
+      expect(consoleDirSpy).toHaveBeenCalled();
+      consoleDirSpy.mockRestore();
+    });
+  });
+});
+
+describe("makeLoader", () => {
+  it("returns success value when effect succeeds", async () => {
+    const runtime = makeTestRuntime();
+
+    const loader = makeLoader(
+      {
+        effect: () => Effect.succeed({ items: [1, 2, 3] }),
+      },
+      runtime
+    );
+
+    const result = await loader({ params: {} });
+
+    expect(result).toEqual({ items: [1, 2, 3] });
+  });
+
+  it("passes params to the effect", async () => {
+    const runtime = makeTestRuntime();
+
+    const loader = makeLoader(
+      {
+        effect: ({ params }) => Effect.succeed({ id: params.pitchId }),
+      },
+      runtime
+    );
+
+    const result = await loader({ params: { pitchId: "abc-123" } });
+
+    expect(result).toEqual({ id: "abc-123" });
+  });
+
+  describe("error handling", () => {
+    it("maps NotFoundError to 404 by default", async () => {
+      const runtime = makeTestRuntime();
+
+      const loader = makeLoader(
+        {
+          effect: () => Effect.fail(new NotFoundError({ message: "missing" })),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(404);
+        expect(defect.data).toBe("Not found");
+      }
+    });
+
+    it("maps ParseError to 400 by default", async () => {
+      const runtime = makeTestRuntime();
+
+      const loader = makeLoader(
+        {
+          effect: () => Effect.fail({ _tag: "ParseError" as const }),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(400);
+        expect(defect.data).toBe("Invalid request");
+      }
+    });
+
+    it("maps custom error tags to configured status codes", async () => {
+      const runtime = makeTestRuntime();
+
+      class AiHeroAuthError extends Data.TaggedError("AiHeroAuthError")<{
+        message: string;
+      }> {}
+
+      const loader = makeLoader(
+        {
+          errors: { AiHeroAuthError: 401 },
+          effect: () =>
+            Effect.fail(new AiHeroAuthError({ message: "Not authenticated" })),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(401);
+        expect(defect.data).toBe("Not authenticated");
+      }
+    });
+
+    it("maps unmapped errors to 500", async () => {
+      const runtime = makeTestRuntime();
+
+      const loader = makeLoader(
+        {
+          effect: () => Effect.fail(new Error("something broke")),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(500);
+        expect(defect.data).toBe("Internal server error");
+      }
+    });
+
+    it("custom errors extend rather than replace default mappings", async () => {
+      const runtime = makeTestRuntime();
+
+      type E =
+        | { _tag: "ParseError" }
+        | NotFoundError
+        | { _tag: "SomeCustomError" };
+      const loader = makeLoader(
+        {
+          errors: { SomeCustomError: 409 },
+          effect: () => Effect.fail<E>({ _tag: "ParseError" }),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        const defect = extractDieDefect(error) as any;
+        expect(defect.init.status).toBe(400);
+      }
+    });
+  });
+
+  describe("logging", () => {
+    it("logs error cause via Console.dir on error", async () => {
+      const runtime = makeTestRuntime();
+      const consoleDirSpy = vi
+        .spyOn(console, "dir")
+        .mockImplementation(() => {});
+
+      const loader = makeLoader(
+        {
+          effect: () => Effect.fail(new Error("boom")),
+        },
+        runtime
+      );
+
+      try {
+        await loader({ params: {} });
       } catch {
         // expected
       }
