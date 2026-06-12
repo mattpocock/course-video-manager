@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Archive } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 export function ArchiveSectionModal(props: {
   sectionId: string;
@@ -21,11 +21,11 @@ export function ArchiveSectionModal(props: {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Archive className="w-5 h-5 text-destructive" />
-            Archive Section
+            <Trash2 className="w-5 h-5 text-destructive" />
+            Delete Section
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to archive "{props.sectionTitle}"?
+            Are you sure you want to delete "{props.sectionTitle}"?
             {props.lessonCount > 0 && (
               <>
                 {" "}
@@ -52,7 +52,7 @@ export function ArchiveSectionModal(props: {
               props.onOpenChange(false);
             }}
           >
-            Archive Section
+            Delete Section
           </Button>
         </div>
       </DialogContent>

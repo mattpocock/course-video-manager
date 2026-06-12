@@ -6,12 +6,12 @@ import {
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import {
-  Archive,
   ArrowDown,
   ArrowUp,
   ClipboardCopy,
   PencilIcon,
   Plus,
+  Trash2,
 } from "lucide-react";
 import type { Lesson } from "./course-view-types";
 import { computeSectionSwap } from "./section-grid-utils";
@@ -155,8 +155,8 @@ export function SectionContextMenuItems({
               }
             }}
           >
-            <Archive className="w-4 h-4" />
-            Archive Section
+            <Trash2 className="w-4 h-4" />
+            Delete Section
           </ContextMenuItem>
         </>
       )}
