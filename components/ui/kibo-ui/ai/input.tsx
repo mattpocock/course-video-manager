@@ -212,27 +212,13 @@ export const AIInputSubmit = ({
     Icon = <XIcon />;
   }
 
-  if (isActive && onStop) {
-    return (
-      <Button
-        className={cn("gap-1.5 rounded-lg rounded-br-xl", className)}
-        size={size}
-        type="button"
-        variant={variant}
-        onClick={onStop}
-        {...props}
-      >
-        {children ?? Icon}
-      </Button>
-    );
-  }
-
   return (
     <Button
       className={cn("gap-1.5 rounded-lg rounded-br-xl", className)}
       size={size}
-      type="submit"
+      type={isActive && onStop ? "button" : "submit"}
       variant={variant}
+      onClick={isActive && onStop ? onStop : undefined}
       {...props}
     >
       {children ?? Icon}
