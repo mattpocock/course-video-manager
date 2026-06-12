@@ -4,7 +4,6 @@ import type {
   SectionWithWordCount,
   IndexedClip,
   Mode,
-  Model,
 } from "@/features/article-writer/types";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -195,6 +194,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     sendMessage,
     regenerate,
     addToolOutput,
+    stop,
     status,
     error,
   } = useChat({
@@ -394,10 +394,6 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     }
   };
 
-  const handleModelChange = (newModel: Model) => {
-    dispatch({ type: "set-model", model: newModel });
-  };
-
   const handleClearChat = () => {
     setMessages([]);
     clearQueue();
@@ -542,7 +538,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     getBodyPayload,
     regenerate,
     onModeChange: handleModeChange,
-    onModelChange: handleModelChange,
+    onModelChange: (m) => dispatch({ type: "set-model", model: m }),
     onGoLive: handleGoLive,
     onClearChat: handleClearChat,
     onOpenBannedPhrases: () =>
@@ -556,6 +552,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
       error,
       fullPath,
       onSubmit: handleSubmit,
+      onStop: stop,
       status,
       indexedClips,
       mode,
@@ -571,6 +568,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
       error,
       fullPath,
       handleSubmit,
+      stop,
       status,
       indexedClips,
       mode,

@@ -36,6 +36,7 @@ export interface WriteChatProps {
   error: Error | undefined;
   fullPath: string;
   onSubmit: (text: string) => void;
+  onStop: () => void;
   status: "streaming" | "submitted" | "ready" | "error";
   indexedClips: IndexedClip[];
   mode: Mode;
@@ -54,6 +55,7 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
     error,
     fullPath,
     onSubmit,
+    onStop,
     status,
     indexedClips,
     mode,
@@ -294,7 +296,7 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
               placeholder="What would you like to create?"
             />
             <AIInputToolbar>
-              <AIInputSubmit status={status} />
+              <AIInputSubmit status={status} onStop={onStop} />
             </AIInputToolbar>
           </AIInput>
         </div>
