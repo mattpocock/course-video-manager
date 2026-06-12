@@ -57,7 +57,6 @@ export interface DocumentPanelProps {
   onUploadImages?: () => void;
   violations?: LintViolation[];
   onFixLintViolations?: () => void;
-  isStreaming?: boolean;
   sessionTimer?: React.ReactNode;
 }
 
@@ -81,7 +80,6 @@ export const DocumentPanel = memo(function DocumentPanel({
   onUploadImages,
   violations,
   onFixLintViolations,
-  isStreaming,
   sessionTimer,
 }: DocumentPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -315,7 +313,6 @@ export const DocumentPanel = memo(function DocumentPanel({
                   size="sm"
                   className="h-8"
                   onClick={onFixLintViolations}
-                  disabled={isStreaming}
                 >
                   <AlertTriangleIcon className="h-4 w-4 mr-1 text-orange-500" />
                   Fix ({violations.reduce((sum, v) => sum + v.count, 0)})

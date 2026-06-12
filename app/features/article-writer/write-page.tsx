@@ -538,7 +538,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     writeToReadmeFetcher,
     lessonId,
     composeFixMessage,
-    sendMessage,
+    submitMessage: handleSubmit,
     getBodyPayload,
     regenerate,
     onModeChange: handleModeChange,
@@ -653,7 +653,6 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
                 onUploadImages={handleUploadImages}
                 violations={violations}
                 onFixLintViolations={toolbarProps.onFixLintViolations}
-                isStreaming={status === "streaming"}
                 sessionTimer={<SessionTimer videoId={videoId} mode={mode} />}
               />
             </div>

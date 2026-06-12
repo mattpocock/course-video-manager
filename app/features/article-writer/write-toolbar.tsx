@@ -127,7 +127,6 @@ export function WriteToolbar(props: WriteToolbarProps) {
       {!isDocumentMode && violations.length > 0 && (
         <LintFixButton
           violations={violations}
-          status={status}
           onFixLintViolations={onFixLintViolations}
         />
       )}
@@ -359,20 +358,14 @@ function CopyButtons(props: {
 
 function LintFixButton(props: {
   violations: LintViolation[];
-  status: string;
   onFixLintViolations: () => void;
 }) {
-  const { violations, status, onFixLintViolations } = props;
+  const { violations, onFixLintViolations } = props;
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onFixLintViolations}
-            disabled={status === "streaming"}
-          >
+          <Button variant="outline" size="sm" onClick={onFixLintViolations}>
             <AlertTriangleIcon className="h-4 w-4 mr-1 text-orange-500" />
             Fix ({violations.reduce((sum, v) => sum + v.count, 0)})
           </Button>
