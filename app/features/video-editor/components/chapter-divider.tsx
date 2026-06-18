@@ -2,19 +2,6 @@ import { cn } from "@/lib/utils";
 import React from "react";
 import type { ChapterDividerProps } from "../types";
 
-/**
- * Visual divider component for chapters in the timeline.
- *
- * Displays a horizontal line with the section name in the center.
- * Uses sticky positioning to stay visible while scrolling through clips.
- *
- * @example
- * <ChapterDivider
- *   name="Introduction"
- *   isSelected={selectedClipsSet.has(sectionId)}
- *   onClick={() => handleSectionClick(sectionId)}
- * />
- */
 export const ChapterDivider = React.forwardRef<
   HTMLButtonElement,
   ChapterDividerProps

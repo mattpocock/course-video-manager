@@ -40,36 +40,6 @@ export type VideoPostingLayoutProps = {
   children: (contextState: VideoPostingContextState) => React.ReactNode;
 };
 
-export function createInitialEnabledFiles(files: FileMetadata[]): Set<string> {
-  return new Set(files.filter((f) => f.defaultEnabled).map((f) => f.path));
-}
-
-export function createInitialEnabledSections(
-  chapters: SectionWithWordCount[]
-): Set<string> {
-  return new Set(chapters.map((s) => s.id));
-}
-
-export function createHandleFileClick(
-  setPreviewFilePath: (path: string) => void,
-  setIsPreviewModalOpen: (open: boolean) => void
-) {
-  return (filePath: string) => {
-    setPreviewFilePath(filePath);
-    setIsPreviewModalOpen(true);
-  };
-}
-
-export function createHandleDeleteFile(
-  setFileToDelete: (filename: string) => void,
-  setIsDeleteModalOpen: (open: boolean) => void
-) {
-  return (filename: string) => {
-    setFileToDelete(filename);
-    setIsDeleteModalOpen(true);
-  };
-}
-
 export function createHandleEditFile(
   videoId: string,
   setters: {
@@ -119,12 +89,12 @@ export function VideoPostingLayout({
   onRevealInFileSystem,
   children,
 }: VideoPostingLayoutProps) {
-  const [enabledFiles, setEnabledFiles] = useState<Set<string>>(() =>
-    createInitialEnabledFiles(files)
+  const [enabledFiles, setEnabledFiles] = useState<Set<string>>(
+    () => new Set(files.filter((f) => f.defaultEnabled).map((f) => f.path))
   );
   const [includeTranscript, setIncludeTranscript] = useState(true);
-  const [enabledSections, setEnabledSections] = useState<Set<string>>(() =>
-    createInitialEnabledSections(chapters)
+  const [enabledSections, setEnabledSections] = useState<Set<string>>(
+    () => new Set(chapters.map((s) => s.id))
   );
   const [includeCourseStructure, setIncludeCourseStructure] = useState(false);
 
@@ -152,10 +122,10 @@ export function VideoPostingLayout({
 
   const [isLessonPasteModalOpen, setIsLessonPasteModalOpen] = useState(false);
 
-  const handleFileClick = createHandleFileClick(
-    setPreviewFilePath,
-    setIsPreviewModalOpen
-  );
+  const handleFileClick = (filePath: string) => {
+    setPreviewFilePath(filePath);
+    setIsPreviewModalOpen(true);
+  };
 
   const handleEditFile = createHandleEditFile(videoId, {
     setSelectedFilename,
@@ -163,10 +133,10 @@ export function VideoPostingLayout({
     setIsFileModalOpen,
   });
 
-  const handleDeleteFile = createHandleDeleteFile(
-    setFileToDelete,
-    setIsDeleteModalOpen
-  );
+  const handleDeleteFile = (filename: string) => {
+    setFileToDelete(filename);
+    setIsDeleteModalOpen(true);
+  };
 
   const defaultVideoSlot = <Video src={`/api/videos/${videoId}/stream`} />;
 
