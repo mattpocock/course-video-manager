@@ -1,57 +1,28 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import nodeFs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { FileSystem } from "@effect/platform";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
 import { loadVideoPostingContext } from "@/services/video-posting-context.server";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-type TestServices =
-  | ClipOperationsService
-  | VideoOperationsService
-  | CourseOperationsService
-  | VersionOperationsService
-  | LessonSectionOperationsService
-  | LinkAuthOperationsService
-  | DrizzleService
-  | FileSystem.FileSystem;
-
-let testLayer: Layer.Layer<TestServices>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  testLayer = Layer.mergeAll(
+const ctx = setupEffectTest({
+  services: [
     ClipOperationsService.Default,
     VideoOperationsService.Default,
     CourseOperationsService.Default,
     VersionOperationsService.Default,
     LessonSectionOperationsService.Default,
     LinkAuthOperationsService.Default,
-    drizzleLayer,
-    NodeContext.layer
-  ).pipe(Layer.provide(drizzleLayer));
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
+  ],
+  extraProvide: [NodeContext.layer],
 });
 
 const createStandaloneVideoWithClips = (
@@ -169,7 +140,7 @@ describe("loadVideoPostingContext", () => {
         const ctx = yield* loadVideoPostingContext(video.id);
 
         expect(ctx.transcriptWordCount).toBe(10);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -201,7 +172,7 @@ describe("loadVideoPostingContext", () => {
         expect(ctx.chapters[1]!.name).toBe("Chapter B");
         // "ten eleven twelve" (3)
         expect(ctx.chapters[1]!.wordCount).toBe(3);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -233,7 +204,7 @@ describe("loadVideoPostingContext", () => {
         const mdFile = ctx.files.find((f) => f.path === "notes.md");
         expect(mdFile).toBeDefined();
         expect(mdFile!.defaultEnabled).toBe(true);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("returns empty files array when directory does not exist", () =>
@@ -246,7 +217,7 @@ describe("loadVideoPostingContext", () => {
 
         expect(ctx.isStandalone).toBe(true);
         expect(ctx.files).toEqual([]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -284,7 +255,7 @@ describe("loadVideoPostingContext", () => {
             f.path.includes("node_modules")
           );
           expect(nodeModulesFile).toBeUndefined();
-        }).pipe(Effect.provide(testLayer))
+        }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -323,7 +294,7 @@ describe("loadVideoPostingContext", () => {
             (l) => l.path === "002-ghost-lesson"
           );
           expect(ghostLessons).toHaveLength(0);
-        }).pipe(Effect.provide(testLayer))
+        }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("returns null courseStructure for standalone videos", () =>
@@ -337,7 +308,7 @@ describe("loadVideoPostingContext", () => {
         const ctx = yield* loadVideoPostingContext(video.id);
 
         expect(ctx.courseStructure).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -355,7 +326,7 @@ describe("loadVideoPostingContext", () => {
 
         expect(ctx.transcriptWordCount).toBe(0);
         expect(ctx.chapters).toEqual([]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -371,7 +342,7 @@ describe("loadVideoPostingContext", () => {
         const ctx = yield* loadVideoPostingContext(video.id);
 
         expect(ctx.pitchId).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("returns null pitchId for lesson videos", () =>
@@ -383,7 +354,7 @@ describe("loadVideoPostingContext", () => {
         const ctx = yield* loadVideoPostingContext(video.id);
 
         expect(ctx.pitchId).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 });

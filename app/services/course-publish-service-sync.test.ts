@@ -1,19 +1,13 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import {
@@ -24,29 +18,23 @@ import {
 import { clips as clipsTable } from "@/db/schema";
 import { CourseRepoParserService } from "@/services/course-repo-parser";
 import { fromPartial } from "@total-typescript/shoehorn";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let finishedVideosDir: string;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-});
-
-const setupSync = async () => {
-  await truncateAllTables(testDb);
-
-  finishedVideosDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-videos-"));
-  const dropboxDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-dropbox-"));
-  const courseRepoDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-repo-"));
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  const dbLayer = Layer.mergeAll(
+const ctx = setupEffectTest({
+  services: [
     CourseOperationsService.Default,
     VideoOperationsService.Default,
     VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer));
+    LessonSectionOperationsService.Default,
+  ],
+});
+
+let finishedVideosDir: string;
+
+const setupSync = async () => {
+  finishedVideosDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-videos-"));
+  const dropboxDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-dropbox-"));
+  const courseRepoDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-repo-"));
 
   const mockVideoProcessing = Layer.succeed(
     VideoProcessingService,
@@ -64,65 +52,79 @@ const setupSync = async () => {
     })
   );
 
-  const course = await Effect.gen(function* () {
-    const courseOps = yield* CourseOperationsService;
-    return yield* courseOps.createCourse({
-      filePath: courseRepoDir,
-      name: "test-course",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const course = await ctx.run(
+    Effect.gen(function* () {
+      const courseOps = yield* CourseOperationsService;
+      return yield* courseOps.createCourse({
+        filePath: courseRepoDir,
+        name: "test-course",
+      });
+    })
+  );
 
-  const version = await Effect.gen(function* () {
-    const versionOps = yield* VersionOperationsService;
-    return yield* versionOps.createCourseVersion({
-      repoId: course.id,
-      name: "",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const version = await ctx.run(
+    Effect.gen(function* () {
+      const versionOps = yield* VersionOperationsService;
+      return yield* versionOps.createCourseVersion({
+        repoId: course.id,
+        name: "",
+      });
+    })
+  );
 
-  const section = await Effect.gen(function* () {
-    const lsOps = yield* LessonSectionOperationsService;
-    const sections = yield* lsOps.createSections({
-      repoVersionId: version.id,
-      sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
-    });
-    return sections[0]!;
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const section = await ctx.run(
+    Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      const sections = yield* lsOps.createSections({
+        repoVersionId: version.id,
+        sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
+      });
+      return sections[0]!;
+    })
+  );
 
   // lesson1: authoringStatus "done"
-  const lesson1 = await Effect.gen(function* () {
-    const lsOps = yield* LessonSectionOperationsService;
-    const lessons = yield* lsOps.createLessons(section.id, [
-      { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
-    ]);
-    yield* lsOps.updateLesson(lessons[0]!.id, { authoringStatus: "done" });
-    return lessons[0]!;
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const lesson1 = await ctx.run(
+    Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      const lessons = yield* lsOps.createLessons(section.id, [
+        { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
+      ]);
+      yield* lsOps.updateLesson(lessons[0]!.id, { authoringStatus: "done" });
+      return lessons[0]!;
+    })
+  );
 
   // lesson2: authoringStatus "todo" (default)
-  const lesson2 = await Effect.gen(function* () {
-    const lsOps = yield* LessonSectionOperationsService;
-    const lessons = yield* lsOps.createLessons(section.id, [
-      { lessonPathWithNumber: "01.02-setup", lessonNumber: 2 },
-    ]);
-    return lessons[0]!;
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const lesson2 = await ctx.run(
+    Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      const lessons = yield* lsOps.createLessons(section.id, [
+        { lessonPathWithNumber: "01.02-setup", lessonNumber: 2 },
+      ]);
+      return lessons[0]!;
+    })
+  );
 
-  const video1 = await Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    return yield* videoOps.createVideo(lesson1.id, {
-      path: "Problem",
-      originalFootagePath: "/tmp/footage1.mp4",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const video1 = await ctx.run(
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      return yield* videoOps.createVideo(lesson1.id, {
+        path: "Problem",
+        originalFootagePath: "/tmp/footage1.mp4",
+      });
+    })
+  );
 
-  const video2 = await Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    return yield* videoOps.createVideo(lesson2.id, {
-      path: "Solution",
-      originalFootagePath: "/tmp/footage2.mp4",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const video2 = await ctx.run(
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      return yield* videoOps.createVideo(lesson2.id, {
+        path: "Solution",
+        originalFootagePath: "/tmp/footage2.mp4",
+      });
+    })
+  );
 
   const clipData = [
     {
@@ -143,10 +145,10 @@ const setupSync = async () => {
     },
   ];
 
-  await testDb
+  await ctx.db
     .insert(clipsTable)
     .values(clipData.map((c) => ({ ...c, videoId: video1.id })));
-  await testDb
+  await ctx.db
     .insert(clipsTable)
     .values(clipData.map((c) => ({ ...c, videoId: video2.id })));
 
@@ -204,13 +206,11 @@ const setupSync = async () => {
   );
 
   const coreTestLayer = Layer.mergeAll(
-    CourseOperationsService.Default,
-    VideoOperationsService.Default,
-    VersionOperationsService.Default,
+    ctx.testLayer,
     mockVideoProcessing,
     mockRepoParser,
     NodeContext.layer
-  ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
+  ).pipe(Layer.provide(configLayer));
 
   const testLayer = Layer.merge(
     coreTestLayer,

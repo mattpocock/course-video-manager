@@ -46,19 +46,25 @@ export function setupEffectTest(
     if (services.length === 0) {
       composed = drizzleLayer;
     } else if (services.length === 1) {
-      composed = services[0]!.pipe(Layer.provide(drizzleLayer));
+      composed = Layer.merge(
+        services[0]!.pipe(Layer.provide(drizzleLayer)),
+        drizzleLayer
+      );
     } else {
-      composed = Layer.mergeAll(
-        ...(services as [
-          Layer.Layer<any, any, DrizzleService>,
-          ...Layer.Layer<any, any, DrizzleService>[],
-        ])
-      ).pipe(Layer.provide(drizzleLayer));
+      composed = Layer.merge(
+        Layer.mergeAll(
+          ...(services as [
+            Layer.Layer<any, any, DrizzleService>,
+            ...Layer.Layer<any, any, DrizzleService>[],
+          ])
+        ).pipe(Layer.provide(drizzleLayer)),
+        drizzleLayer
+      );
     }
 
     if (extraProvide && extraProvide.length > 0) {
       for (const extra of extraProvide) {
-        composed = composed.pipe(Layer.provide(extra));
+        composed = Layer.merge(composed, extra);
       }
     }
 

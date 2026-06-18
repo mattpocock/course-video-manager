@@ -1,33 +1,15 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { sortByOrder } from "@/lib/sort-by-order";
 import { concatenateVideos } from "@/services/video-concatenation-service";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<
-  ClipOperationsService | VideoOperationsService | DrizzleService
->;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  testLayer = Layer.mergeAll(
-    ClipOperationsService.Default,
-    VideoOperationsService.Default,
-    drizzleLayer
-  ).pipe(Layer.provide(drizzleLayer));
-});
+const ctx = setupEffectTest(
+  ClipOperationsService.Default,
+  VideoOperationsService.Default
+);
 
 /** Helper: create a standalone video with clips and optional chapters */
 const createVideoWithClips = (
@@ -87,10 +69,6 @@ const createVideoWithClips = (
   });
 
 describe("concatenateVideos", () => {
-  beforeEach(async () => {
-    await truncateAllTables(testDb);
-  });
-
   it.effect("concatenates two videos with correct clip ordering", () =>
     Effect.gen(function* () {
       const video1 = yield* createVideoWithClips("Video One", [
@@ -161,7 +139,7 @@ describe("concatenateVideos", () => {
         type: "clip",
         videoFilename: "/footage/v2-b.mp4",
       });
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -195,7 +173,7 @@ describe("concatenateVideos", () => {
         expect(clip.beatType).toBe("long");
         // New clip should have a different ID than the source
         expect(clip.id).not.toBe(video1.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("preserves chapters from source videos", () =>
@@ -241,7 +219,7 @@ describe("concatenateVideos", () => {
         type: "clip",
         videoFilename: "c.mp4",
       });
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -290,7 +268,7 @@ describe("concatenateVideos", () => {
           type: "clip",
           videoFilename: "c.mp4",
         });
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("handles single video concatenation (edge case)", () =>
@@ -315,7 +293,7 @@ describe("concatenateVideos", () => {
       const sortedClips = sortByOrder(newVideo.clips);
       expect(sortedClips[0]!.sourceStartTime).toBe(0);
       expect(sortedClips[1]!.sourceStartTime).toBe(10);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -366,6 +344,6 @@ describe("concatenateVideos", () => {
           "v3.mp4",
           "v3.mp4",
         ]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 });

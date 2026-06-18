@@ -1,48 +1,36 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
 import { clips as clipsTable } from "@/db/schema";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let finishedVideosDir: string;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
+const ctx = setupEffectTest({
+  services: [
+    CourseOperationsService.Default,
+    VideoOperationsService.Default,
+    VersionOperationsService.Default,
+    LessonSectionOperationsService.Default,
+  ],
 });
+
+let finishedVideosDir: string;
 
 /** Create temp directories and seed a course with one version, one section,
  *  one lesson, one video with clips in the PGLite database. Returns IDs. */
 const setup = async () => {
-  await truncateAllTables(testDb);
-
   finishedVideosDir = fs.mkdtempSync(
     path.join(tmpdir(), "publish-test-videos-")
   );
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  const dbLayer = Layer.mergeAll(
-    CourseOperationsService.Default,
-    VideoOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer));
 
   // Mock VideoProcessingService: creates a dummy file at {videoId}.mp4
   const mockVideoProcessing = Layer.succeed(VideoProcessingService, {
@@ -65,12 +53,10 @@ const setup = async () => {
 
   // Build a core layer with all deps, then provide to CoursePublishService
   const coreTestLayer = Layer.mergeAll(
-    CourseOperationsService.Default,
-    VideoOperationsService.Default,
-    VersionOperationsService.Default,
+    ctx.testLayer,
     mockVideoProcessing,
     NodeContext.layer
-  ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
+  ).pipe(Layer.provide(configLayer));
 
   const testLayer = Layer.merge(
     coreTestLayer,
@@ -78,49 +64,59 @@ const setup = async () => {
   );
 
   // Seed data
-  const course = await Effect.gen(function* () {
-    const courseOps = yield* CourseOperationsService;
-    return yield* courseOps.createCourse({
-      filePath: "/tmp/test-course",
-      name: "test-course",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const course = await ctx.run(
+    Effect.gen(function* () {
+      const courseOps = yield* CourseOperationsService;
+      return yield* courseOps.createCourse({
+        filePath: "/tmp/test-course",
+        name: "test-course",
+      });
+    })
+  );
 
-  const version = await Effect.gen(function* () {
-    const versionOps = yield* VersionOperationsService;
-    return yield* versionOps.createCourseVersion({
-      repoId: course.id,
-      name: "v1",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const version = await ctx.run(
+    Effect.gen(function* () {
+      const versionOps = yield* VersionOperationsService;
+      return yield* versionOps.createCourseVersion({
+        repoId: course.id,
+        name: "v1",
+      });
+    })
+  );
 
-  const section = await Effect.gen(function* () {
-    const lsOps = yield* LessonSectionOperationsService;
-    const sections = yield* lsOps.createSections({
-      repoVersionId: version.id,
-      sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
-    });
-    return sections[0]!;
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const section = await ctx.run(
+    Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      const sections = yield* lsOps.createSections({
+        repoVersionId: version.id,
+        sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
+      });
+      return sections[0]!;
+    })
+  );
 
-  const lesson = await Effect.gen(function* () {
-    const lsOps = yield* LessonSectionOperationsService;
-    const lessons = yield* lsOps.createLessons(section.id, [
-      { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
-    ]);
-    return lessons[0]!;
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const lesson = await ctx.run(
+    Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      const lessons = yield* lsOps.createLessons(section.id, [
+        { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
+      ]);
+      return lessons[0]!;
+    })
+  );
 
-  const video = await Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    return yield* videoOps.createVideo(lesson.id, {
-      path: "Problem",
-      originalFootagePath: "/tmp/footage.mp4",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  const video = await ctx.run(
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      return yield* videoOps.createVideo(lesson.id, {
+        path: "Problem",
+        originalFootagePath: "/tmp/footage.mp4",
+      });
+    })
+  );
 
   // Add clips to the video (direct insert)
-  await testDb.insert(clipsTable).values([
+  await ctx.db.insert(clipsTable).values([
     {
       videoId: video.id,
       videoFilename: "recording.mp4",
@@ -172,7 +168,6 @@ const setup = async () => {
     clips,
     run,
     testLayer,
-    dbLayer,
   };
 };
 
