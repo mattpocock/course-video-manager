@@ -11,16 +11,7 @@ import {
 } from "./clip-state-reducer-recording";
 
 const createRecordingState = (
-  overrides: Partial<
-    Pick<
-      ClipReducerState,
-      | "sessions"
-      | "items"
-      | "insertionPoint"
-      | "insertionOrder"
-      | "clipIdsBeingTranscribed"
-    >
-  > = {}
+  overrides: Partial<ClipReducerState> = {}
 ): ClipReducerState => ({
   items: [],
   clipIdsBeingTranscribed: new Set(),
