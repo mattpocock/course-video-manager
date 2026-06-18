@@ -11,13 +11,11 @@ import { and, asc, desc, eq, ilike, max, sql, type SQL } from "drizzle-orm";
 import { Effect } from "effect";
 import { hashScene } from "@/lib/scene-hash";
 import { writeThumbnail } from "@/services/diagram-thumbnail-store.server";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createDiagramOperations = (db: DrizzleDB) => {
   const createDiagram = Effect.fn("createDiagram")(function* () {
@@ -41,20 +39,12 @@ export const createDiagramOperations = (db: DrizzleDB) => {
       nextNumber++;
     }
 
-    const results = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(diagrams)
         .values({ name: `Untitled ${nextNumber}` })
         .returning()
     );
-
-    const diagram = results[0];
-    if (!diagram) {
-      return yield* new UnknownDBServiceError({
-        cause: "No diagram was returned from the database",
-      });
-    }
-    return diagram;
   });
 
   const listDiagrams = Effect.fn("listDiagrams")(function* (opts?: {
@@ -100,59 +90,35 @@ export const createDiagramOperations = (db: DrizzleDB) => {
   });
 
   const getDiagram = Effect.fn("getDiagram")(function* (id: string) {
-    const diagram = yield* makeDbCall(() =>
-      db.query.diagrams.findFirst({
-        where: eq(diagrams.id, id),
-      })
+    return yield* dbQueryFirst(
+      () => db.query.diagrams.findFirst({ where: eq(diagrams.id, id) }),
+      { type: "getDiagram", params: { id } }
     );
-
-    if (!diagram) {
-      return yield* new NotFoundError({
-        type: "getDiagram",
-        params: { id },
-      });
-    }
-    return diagram;
   });
 
   const updateDiagram = Effect.fn("updateDiagram")(function* (
     id: string,
     fields: { name?: string; archived?: boolean }
   ) {
-    const results = yield* makeDbCall(() =>
-      db
-        .update(diagrams)
-        .set({ ...fields, updatedAt: new Date() })
-        .where(eq(diagrams.id, id))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(diagrams)
+          .set({ ...fields, updatedAt: new Date() })
+          .where(eq(diagrams.id, id))
+          .returning(),
+      { type: "updateDiagram", params: { id } }
     );
-
-    const diagram = results[0];
-    if (!diagram) {
-      return yield* new NotFoundError({
-        type: "updateDiagram",
-        params: { id },
-      });
-    }
-    return diagram;
   });
 
   const updateDiagramHead = Effect.fn("updateDiagramHead")(function* (
     id: string,
     headScene: unknown
   ) {
-    const existing = yield* makeDbCall(() =>
-      db.query.diagrams.findFirst({
-        where: eq(diagrams.id, id),
-      })
+    const existing = yield* dbQueryFirst(
+      () => db.query.diagrams.findFirst({ where: eq(diagrams.id, id) }),
+      { type: "updateDiagramHead", params: { id } }
     );
-
-    if (!existing) {
-      return yield* new NotFoundError({
-        type: "updateDiagramHead",
-        params: { id },
-      });
-    }
 
     const existingHash =
       existing.headScene == null ? null : hashScene(existing.headScene);
@@ -161,40 +127,25 @@ export const createDiagramOperations = (db: DrizzleDB) => {
       return existing;
     }
 
-    const results = yield* makeDbCall(() =>
-      db
-        .update(diagrams)
-        .set({ headScene, updatedAt: new Date() })
-        .where(eq(diagrams.id, id))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(diagrams)
+          .set({ headScene, updatedAt: new Date() })
+          .where(eq(diagrams.id, id))
+          .returning(),
+      { type: "updateDiagramHead", params: { id } }
     );
-
-    const diagram = results[0];
-    if (!diagram) {
-      return yield* new NotFoundError({
-        type: "updateDiagramHead",
-        params: { id },
-      });
-    }
-    return diagram;
   });
 
   const createSnapshot = Effect.fn("createSnapshot")(function* (
     diagramId: string,
     opts: { preserved?: boolean; thumbnailPng?: Buffer }
   ) {
-    const diagram = yield* makeDbCall(() =>
-      db.query.diagrams.findFirst({
-        where: eq(diagrams.id, diagramId),
-      })
+    const diagram = yield* dbQueryFirst(
+      () => db.query.diagrams.findFirst({ where: eq(diagrams.id, diagramId) }),
+      { type: "createSnapshot", params: { diagramId } }
     );
-
-    if (!diagram) {
-      return yield* new NotFoundError({
-        type: "createSnapshot",
-        params: { diagramId },
-      });
-    }
 
     if (diagram.headScene == null) {
       return yield* new NotFoundError({
@@ -206,10 +157,6 @@ export const createDiagramOperations = (db: DrizzleDB) => {
     const contentHash = hashScene(diagram.headScene);
     const preserved = opts.preserved ?? false;
 
-    // Write thumbnail before DB so a row never references a missing file.
-    // Thumbnails are keyed by (diagramId, contentHash) so writing on every
-    // snapshot that supplies one is safe and lets auto-pin snapshots show a
-    // preview without requiring the user to hit "Preserve".
     if (opts.thumbnailPng) {
       yield* Effect.try({
         try: () => writeThumbnail(diagramId, contentHash, opts.thumbnailPng!),
@@ -228,19 +175,18 @@ export const createDiagramOperations = (db: DrizzleDB) => {
 
     if (existing) {
       if (preserved && !existing.preserved) {
-        const updated = yield* makeDbCall(() =>
+        return yield* dbMutateReturning(() =>
           db
             .update(diagramSnapshots)
             .set({ preserved: true })
             .where(eq(diagramSnapshots.id, existing.id))
             .returning()
         );
-        return updated[0]!;
       }
       return existing;
     }
 
-    const results = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(diagramSnapshots)
         .values({
@@ -251,14 +197,6 @@ export const createDiagramOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    const snapshot = results[0];
-    if (!snapshot) {
-      return yield* new UnknownDBServiceError({
-        cause: "No snapshot was returned from the database",
-      });
-    }
-    return snapshot;
   });
 
   const listSnapshots = Effect.fn("listSnapshots")(function* (
@@ -275,19 +213,13 @@ export const createDiagramOperations = (db: DrizzleDB) => {
   const getDiagramSnapshot = Effect.fn("getDiagramSnapshot")(function* (
     snapshotId: string
   ) {
-    const snapshot = yield* makeDbCall(() =>
-      db.query.diagramSnapshots.findFirst({
-        where: eq(diagramSnapshots.id, snapshotId),
-      })
+    return yield* dbQueryFirst(
+      () =>
+        db.query.diagramSnapshots.findFirst({
+          where: eq(diagramSnapshots.id, snapshotId),
+        }),
+      { type: "getDiagramSnapshot", params: { snapshotId } }
     );
-
-    if (!snapshot) {
-      return yield* new NotFoundError({
-        type: "getDiagramSnapshot",
-        params: { snapshotId },
-      });
-    }
-    return snapshot;
   });
 
   const listSnapshotsWithClips = Effect.fn("listSnapshotsWithClips")(function* (
@@ -335,60 +267,41 @@ export const createDiagramOperations = (db: DrizzleDB) => {
     snapshotId: string,
     archived: boolean
   ) {
-    const results = yield* makeDbCall(() =>
-      db
-        .update(diagramSnapshots)
-        .set({ archived })
-        .where(eq(diagramSnapshots.id, snapshotId))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(diagramSnapshots)
+          .set({ archived })
+          .where(eq(diagramSnapshots.id, snapshotId))
+          .returning(),
+      { type: "setSnapshotArchived", params: { snapshotId } }
     );
-
-    const snapshot = results[0];
-    if (!snapshot) {
-      return yield* new NotFoundError({
-        type: "setSnapshotArchived",
-        params: { snapshotId },
-      });
-    }
-    return snapshot;
   });
 
   const restoreSnapshotToHead = Effect.fn("restoreSnapshotToHead")(function* (
     diagramId: string,
     snapshotId: string
   ) {
-    const snapshot = yield* makeDbCall(() =>
-      db.query.diagramSnapshots.findFirst({
-        where: and(
-          eq(diagramSnapshots.id, snapshotId),
-          eq(diagramSnapshots.diagramId, diagramId)
-        ),
-      })
+    const snapshot = yield* dbQueryFirst(
+      () =>
+        db.query.diagramSnapshots.findFirst({
+          where: and(
+            eq(diagramSnapshots.id, snapshotId),
+            eq(diagramSnapshots.diagramId, diagramId)
+          ),
+        }),
+      { type: "restoreSnapshotToHead", params: { diagramId, snapshotId } }
     );
 
-    if (!snapshot) {
-      return yield* new NotFoundError({
-        type: "restoreSnapshotToHead",
-        params: { diagramId, snapshotId },
-      });
-    }
-
-    const results = yield* makeDbCall(() =>
-      db
-        .update(diagrams)
-        .set({ headScene: snapshot.scene, updatedAt: new Date() })
-        .where(eq(diagrams.id, diagramId))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(diagrams)
+          .set({ headScene: snapshot.scene, updatedAt: new Date() })
+          .where(eq(diagrams.id, diagramId))
+          .returning(),
+      { type: "restoreSnapshotToHead", params: { diagramId } }
     );
-
-    const diagram = results[0];
-    if (!diagram) {
-      return yield* new NotFoundError({
-        type: "restoreSnapshotToHead",
-        params: { diagramId },
-      });
-    }
-    return diagram;
   });
 
   const createSnapshotForClip = Effect.fn("createSnapshotForClip")(function* (
@@ -414,22 +327,15 @@ export const createDiagramOperations = (db: DrizzleDB) => {
     clipId: string,
     diagramSnapshotId: string | null
   ) {
-    const results = yield* makeDbCall(() =>
-      db
-        .update(clips)
-        .set({ diagramSnapshotId })
-        .where(eq(clips.id, clipId))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(clips)
+          .set({ diagramSnapshotId })
+          .where(eq(clips.id, clipId))
+          .returning(),
+      { type: "updateClipDiagramPin", params: { clipId } }
     );
-
-    const clip = results[0];
-    if (!clip) {
-      return yield* new NotFoundError({
-        type: "updateClipDiagramPin",
-        params: { clipId },
-      });
-    }
-    return clip;
   });
 
   return {

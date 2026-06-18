@@ -15,20 +15,16 @@ import {
 } from "@/db/schema";
 import {
   CannotUpdatePublishedVersionError,
-  NotFoundError,
   NotLatestVersionError,
-  UnknownDBServiceError,
 } from "@/services/db-service-errors";
 import { asc, and, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { toTranscriptItems } from "@/lib/transcript-builder";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createVersionOperations = (db: DrizzleDB) => {
   const getCourseVersions = Effect.fn("getCourseVersions")(function* (
@@ -58,38 +54,23 @@ export const createVersionOperations = (db: DrizzleDB) => {
   const getCourseVersionById = Effect.fn("getCourseVersionById")(function* (
     versionId: string
   ) {
-    const version = yield* makeDbCall(() =>
-      db.query.courseVersions.findFirst({
-        where: eq(courseVersions.id, versionId),
-      })
+    return yield* dbQueryFirst(
+      () =>
+        db.query.courseVersions.findFirst({
+          where: eq(courseVersions.id, versionId),
+        }),
+      { type: "getCourseVersionById", params: { versionId } }
     );
-
-    if (!version) {
-      return yield* new NotFoundError({
-        type: "getCourseVersionById",
-        params: { versionId },
-      });
-    }
-
-    return version;
   });
 
   const getCourseWithSectionsByVersion = Effect.fn(
     "getCourseWithSectionsByVersion"
   )(function* (opts: { repoId: string; versionId: string }) {
     const { repoId, versionId } = opts;
-    const course = yield* makeDbCall(() =>
-      db.query.courses.findFirst({
-        where: eq(courses.id, repoId),
-      })
+    const course = yield* dbQueryFirst(
+      () => db.query.courses.findFirst({ where: eq(courses.id, repoId) }),
+      { type: "getCourseWithSectionsByVersion", params: { repoId, versionId } }
     );
-
-    if (!course) {
-      return yield* new NotFoundError({
-        type: "getCourseWithSectionsByVersion",
-        params: { repoId, versionId },
-      });
-    }
 
     const versionSections = yield* makeDbCall(() =>
       db.query.sections.findMany({
@@ -132,18 +113,13 @@ export const createVersionOperations = (db: DrizzleDB) => {
     "getCourseWithSectionsByVersionSlim"
   )(function* (opts: { repoId: string; versionId: string }) {
     const { repoId, versionId } = opts;
-    const course = yield* makeDbCall(() =>
-      db.query.courses.findFirst({
-        where: eq(courses.id, repoId),
-      })
-    );
-
-    if (!course) {
-      return yield* new NotFoundError({
+    const course = yield* dbQueryFirst(
+      () => db.query.courses.findFirst({ where: eq(courses.id, repoId) }),
+      {
         type: "getCourseWithSectionsByVersionSlim",
         params: { repoId, versionId },
-      });
-    }
+      }
+    );
 
     const versionSections = yield* makeDbCall(() =>
       db.query.sections.findMany({
@@ -185,25 +161,27 @@ export const createVersionOperations = (db: DrizzleDB) => {
   const getVersionWithSections = Effect.fn("getVersionWithSections")(function* (
     versionId: string
   ) {
-    const version = yield* makeDbCall(() =>
-      db.query.courseVersions.findFirst({
-        where: eq(courseVersions.id, versionId),
-        with: {
-          repo: true,
-          sections: {
-            where: isNull(sections.archivedAt),
-            orderBy: asc(sections.order),
-            with: {
-              lessons: {
-                orderBy: asc(lessons.order),
-                where: eq(lessons.archived, false),
-                with: {
-                  videos: {
-                    orderBy: asc(videos.path),
-                    with: {
-                      clips: {
-                        orderBy: asc(clips.order),
-                        where: eq(clips.archived, false),
+    return yield* dbQueryFirst(
+      () =>
+        db.query.courseVersions.findFirst({
+          where: eq(courseVersions.id, versionId),
+          with: {
+            repo: true,
+            sections: {
+              where: isNull(sections.archivedAt),
+              orderBy: asc(sections.order),
+              with: {
+                lessons: {
+                  orderBy: asc(lessons.order),
+                  where: eq(lessons.archived, false),
+                  with: {
+                    videos: {
+                      orderBy: asc(videos.path),
+                      with: {
+                        clips: {
+                          orderBy: asc(clips.order),
+                          where: eq(clips.archived, false),
+                        },
                       },
                     },
                   },
@@ -211,33 +189,16 @@ export const createVersionOperations = (db: DrizzleDB) => {
               },
             },
           },
-        },
-      })
+        }),
+      { type: "getVersionWithSections", params: { versionId } }
     );
-
-    if (!version) {
-      return yield* new NotFoundError({
-        type: "getVersionWithSections",
-        params: { versionId },
-      });
-    }
-
-    return version;
   });
 
   const createCourseVersion = Effect.fn("createCourseVersion")(
     function* (input: { repoId: string; name: string }) {
-      const [version] = yield* makeDbCall(() =>
+      return yield* dbMutateReturning(() =>
         db.insert(courseVersions).values(input).returning()
       );
-
-      if (!version) {
-        return yield* new UnknownDBServiceError({
-          cause: "No version was returned from the database",
-        });
-      }
-
-      return version;
     }
   );
 
@@ -245,21 +206,14 @@ export const createVersionOperations = (db: DrizzleDB) => {
     function* (opts: { versionId: string; name: string; description: string }) {
       const { versionId, name, description } = opts;
 
-      // Find the version to get its courseId
-      const version = yield* makeDbCall(() =>
-        db.query.courseVersions.findFirst({
-          where: eq(courseVersions.id, versionId),
-        })
+      const version = yield* dbQueryFirst(
+        () =>
+          db.query.courseVersions.findFirst({
+            where: eq(courseVersions.id, versionId),
+          }),
+        { type: "updateCourseVersion", params: { versionId } }
       );
 
-      if (!version) {
-        return yield* new NotFoundError({
-          type: "updateCourseVersion",
-          params: { versionId },
-        });
-      }
-
-      // Check if this is the latest (draft) version
       const latestVersion = yield* makeDbCall(() =>
         db.query.courseVersions.findFirst({
           where: eq(courseVersions.repoId, version.repoId),
@@ -271,22 +225,15 @@ export const createVersionOperations = (db: DrizzleDB) => {
         return yield* new CannotUpdatePublishedVersionError({ versionId });
       }
 
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(courseVersions)
-          .set({ name, description })
-          .where(eq(courseVersions.id, versionId))
-          .returning()
+      return yield* dbMutateReturning(
+        () =>
+          db
+            .update(courseVersions)
+            .set({ name, description })
+            .where(eq(courseVersions.id, versionId))
+            .returning(),
+        { type: "updateCourseVersion", params: { versionId } }
       );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateCourseVersion",
-          params: { versionId },
-        });
-      }
-
-      return updated;
     }
   );
 
@@ -310,7 +257,7 @@ export const createVersionOperations = (db: DrizzleDB) => {
         });
       }
 
-      const newVersion = yield* makeDbCall(() =>
+      const newVersion = yield* dbMutateReturning(() =>
         db
           .insert(courseVersions)
           .values({
@@ -318,16 +265,6 @@ export const createVersionOperations = (db: DrizzleDB) => {
             name: input.newVersionName ?? "",
           })
           .returning()
-      ).pipe(
-        Effect.andThen((arr) => {
-          const v = arr[0];
-          if (!v) {
-            return Effect.fail(
-              new UnknownDBServiceError({ cause: "No version returned" })
-            );
-          }
-          return Effect.succeed(v);
-        })
       );
 
       const sourceSections = yield* makeDbCall(() =>
