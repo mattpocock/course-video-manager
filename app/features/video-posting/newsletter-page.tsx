@@ -167,75 +167,73 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
   };
 
   return (
-    <div className="w-3/4 flex flex-col p-6 overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
-      <div className="max-w-2xl mx-auto w-full space-y-6">
-        {/* AI Hero URL input */}
-        <div className="space-y-2">
-          <Label htmlFor="ai-hero-url">AI Hero Post URL</Label>
-          <Input
-            id="ai-hero-url"
-            type="url"
-            value={aiHeroUrl}
-            onChange={(e) => setAiHeroUrl(e.target.value)}
-            placeholder="https://aihero.dev/your-post-slug"
-          />
-        </div>
+    <div className="max-w-2xl mx-auto w-full space-y-6">
+      {/* AI Hero URL input */}
+      <div className="space-y-2">
+        <Label htmlFor="ai-hero-url">AI Hero Post URL</Label>
+        <Input
+          id="ai-hero-url"
+          type="url"
+          value={aiHeroUrl}
+          onChange={(e) => setAiHeroUrl(e.target.value)}
+          placeholder="https://aihero.dev/your-post-slug"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="newsletter-content">Newsletter</Label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerate}
-              disabled={isGenerating || !aiHeroUrl.trim()}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2Icon className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <SparklesIcon className="h-4 w-4" />
-                  Generate
-                </>
-              )}
-            </Button>
-          </div>
-          <Textarea
-            id="newsletter-content"
-            value={newsletterContent}
-            onChange={(e) => setNewsletterContent(e.target.value)}
-            placeholder="Newsletter content will appear here after generation..."
-            className="min-h-[400px] resize-y"
-          />
-        </div>
-
-        {/* Copy & Open Kit button */}
-        <div className="space-y-3">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="newsletter-content">Newsletter</Label>
           <Button
-            onClick={handleCopyAndOpenKit}
-            disabled={!newsletterContent.trim()}
-            className="w-full"
-            size="lg"
+            variant="outline"
+            size="sm"
+            onClick={handleGenerate}
+            disabled={isGenerating || !aiHeroUrl.trim()}
           >
-            <ClipboardCopyIcon className="h-4 w-4" />
-            Copy & Open Kit
-            <ExternalLinkIcon className="h-4 w-4" />
+            {isGenerating ? (
+              <>
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <SparklesIcon className="h-4 w-4" />
+                Generate
+              </>
+            )}
           </Button>
-
-          {!newsletterContent.trim() && (
-            <p className="text-sm text-muted-foreground text-center">
-              Generate or write newsletter content first.
-            </p>
-          )}
-
-          <p className="text-xs text-muted-foreground text-center">
-            Copies newsletter as rich text to clipboard and opens Kit sequence
-            editor.
-          </p>
         </div>
+        <Textarea
+          id="newsletter-content"
+          value={newsletterContent}
+          onChange={(e) => setNewsletterContent(e.target.value)}
+          placeholder="Newsletter content will appear here after generation..."
+          className="min-h-[400px] resize-y"
+        />
+      </div>
+
+      {/* Copy & Open Kit button */}
+      <div className="space-y-3">
+        <Button
+          onClick={handleCopyAndOpenKit}
+          disabled={!newsletterContent.trim()}
+          className="w-full"
+          size="lg"
+        >
+          <ClipboardCopyIcon className="h-4 w-4" />
+          Copy & Open Kit
+          <ExternalLinkIcon className="h-4 w-4" />
+        </Button>
+
+        {!newsletterContent.trim() && (
+          <p className="text-sm text-muted-foreground text-center">
+            Generate or write newsletter content first.
+          </p>
+        )}
+
+        <p className="text-xs text-muted-foreground text-center">
+          Copies newsletter as rich text to clipboard and opens Kit sequence
+          editor.
+        </p>
       </div>
     </div>
   );
