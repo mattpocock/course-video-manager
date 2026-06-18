@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createDirectClipService,
   type VideoProcessingAdapter,
@@ -10,29 +10,19 @@ import type {
   FrontendTimelineItem,
   FrontendInsertionPoint,
 } from "./clip-service";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
+const ctx = setupEffectTest();
+
 let clipService: ClipService;
 let mockVideoProcessing: VideoProcessingAdapter;
 
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-
+beforeEach(() => {
   mockVideoProcessing = {
     getLatestOBSVideoClips: vi.fn().mockResolvedValue({ clips: [] }),
   };
 
-  clipService = createDirectClipService(testDb as any, mockVideoProcessing);
+  clipService = createDirectClipService(ctx.db as any, mockVideoProcessing);
 });
 
 const getItems = async (

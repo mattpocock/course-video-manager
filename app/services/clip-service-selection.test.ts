@@ -1,5 +1,5 @@
 import * as schema from "@/db/schema";
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createDirectClipService,
   type VideoProcessingAdapter,
@@ -11,29 +11,19 @@ import type {
   FrontendTimelineItem,
   FrontendInsertionPoint,
 } from "./clip-service";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
+const ctx = setupEffectTest();
+
 let clipService: ClipService;
 let mockVideoProcessing: VideoProcessingAdapter;
 
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-
+beforeEach(() => {
   mockVideoProcessing = {
     getLatestOBSVideoClips: vi.fn().mockResolvedValue({ clips: [] }),
   };
 
-  clipService = createDirectClipService(testDb as any, mockVideoProcessing);
+  clipService = createDirectClipService(ctx.db as any, mockVideoProcessing);
 });
 
 const getItems = async (
@@ -314,26 +304,26 @@ describe("ClipService", () => {
       const lessonId = crypto.randomUUID();
 
       // Insert course, courseVersion, section, lesson directly
-      await testDb.insert(schema.courses).values({
+      await ctx.db.insert(schema.courses).values({
         id: crypto.randomUUID(),
         filePath: "/test",
         name: "Test Course",
       });
 
-      await testDb.insert(schema.courseVersions).values({
+      await ctx.db.insert(schema.courseVersions).values({
         id: repoVersionId,
-        repoId: (await testDb.query.courses.findFirst())!.id,
+        repoId: (await ctx.db.query.courses.findFirst())!.id,
         name: "v1",
       });
 
-      await testDb.insert(schema.sections).values({
+      await ctx.db.insert(schema.sections).values({
         id: sectionId,
         repoVersionId,
         path: "/test/section",
         order: 0,
       });
 
-      await testDb.insert(schema.lessons).values({
+      await ctx.db.insert(schema.lessons).values({
         id: lessonId,
         sectionId,
         path: "/test/lesson",
@@ -342,14 +332,14 @@ describe("ClipService", () => {
       });
 
       // Create video with lessonId
-      await testDb.insert(schema.videos).values({
+      await ctx.db.insert(schema.videos).values({
         id: "source-video-id",
         path: "source-video.mp4",
         originalFootagePath: "",
         lessonId,
       });
 
-      const video = (await testDb.query.videos.findFirst({
+      const video = (await ctx.db.query.videos.findFirst({
         where: (v, { eq }) => eq(v.id, "source-video-id"),
       }))!;
 
