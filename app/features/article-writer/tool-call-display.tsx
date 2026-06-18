@@ -516,7 +516,7 @@ export const EditDocumentDisplay = memo(function EditDocumentDisplay({
           </span>
           <StatusIcon state={part.state} failed={failed} />
         </CollapsibleTrigger>
-        {canRevert && revertableEdits.length > 1 && (
+        {canRevert && revertableEdits.length > 0 && (
           <Button
             variant="ghost"
             size="sm"

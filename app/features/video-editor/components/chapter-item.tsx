@@ -29,6 +29,8 @@ export const ChapterItem = (props: {
   chapter: Chapter;
   isFirstItem: boolean;
   isLastItem: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
   onEditChapter: () => void;
   onAddChapterBefore: () => void;
   onAddChapterAfter: () => void;
@@ -69,6 +71,8 @@ export const ChapterItem = (props: {
             id={`chapter-${props.chapter.frontendId}`}
             name={props.chapter.name}
             isSelected={isSelected}
+            isCollapsed={props.isCollapsed}
+            onToggleCollapse={props.onToggleCollapse}
             onClick={(e) => {
               // If already selected and clicked again (without modifiers),
               // play from the next clip after this section

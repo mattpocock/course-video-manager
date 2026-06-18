@@ -316,6 +316,19 @@ export const getChapters = (items: TimelineItem[]): Chapter[] => {
   return items.filter(isChapter);
 };
 
+export const getChapterForClip = (
+  items: TimelineItem[],
+  clipId: FrontendId
+): Chapter | undefined => {
+  const clipIndex = items.findIndex((item) => item.frontendId === clipId);
+  if (clipIndex === -1) return undefined;
+  for (let i = clipIndex - 1; i >= 0; i--) {
+    const item = items[i]!;
+    if (isChapter(item)) return item;
+  }
+  return undefined;
+};
+
 export const getHasSections = (items: TimelineItem[]): boolean => {
   return getChapters(items).length > 0;
 };
