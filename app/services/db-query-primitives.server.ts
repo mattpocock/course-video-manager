@@ -31,7 +31,7 @@ export const dbMutateReturning = <T>(
   return Effect.gen(function* () {
     const results = yield* makeDbCall(fn);
     const result = results[0];
-    if (!result) {
+    if (result == null) {
       if (errorContext) {
         return yield* new NotFoundError(errorContext);
       }

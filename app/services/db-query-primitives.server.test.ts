@@ -108,6 +108,17 @@ describe("dbMutateReturning", () => {
     })
   );
 
+  it.effect("returns first element when multiple rows are returned", () =>
+    Effect.gen(function* () {
+      const first = { id: "a", name: "first" };
+      const second = { id: "b", name: "second" };
+      const result = yield* dbMutateReturning(() =>
+        Promise.resolve([first, second])
+      );
+      expect(result).toEqual(first);
+    })
+  );
+
   it.effect(
     "produces UnknownDBServiceError on empty array without errorContext",
     () =>

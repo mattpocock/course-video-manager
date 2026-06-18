@@ -7,11 +7,11 @@ import {
   deliverablesCourses,
   deliverablesPitches,
 } from "@/db/schema";
-import { UnknownDBServiceError } from "@/services/db-service-errors";
 import { asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 import {
   makeDbCall,
+  dbQueryFirst,
   dbMutateReturning,
 } from "@/services/db-query-primitives.server";
 
@@ -77,12 +77,14 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
       id: string;
       status: "planned" | "done" | "cancelled";
     }) {
-      return yield* dbMutateReturning(() =>
-        db
-          .update(deliverables)
-          .set({ status: input.status, updatedAt: new Date() })
-          .where(eq(deliverables.id, input.id))
-          .returning()
+      return yield* dbMutateReturning(
+        () =>
+          db
+            .update(deliverables)
+            .set({ status: input.status, updatedAt: new Date() })
+            .where(eq(deliverables.id, input.id))
+            .returning(),
+        { type: "updateDeliverableStatus", params: { id: input.id } }
       );
     }
   );
@@ -96,18 +98,20 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
     courseIds?: string[];
     pitchIds?: string[];
   }) {
-    const deliverable = yield* dbMutateReturning(() =>
-      db
-        .update(deliverables)
-        .set({
-          title: input.title,
-          date: input.date,
-          notes: input.notes || null,
-          status: input.status,
-          updatedAt: new Date(),
-        })
-        .where(eq(deliverables.id, input.id))
-        .returning()
+    const deliverable = yield* dbMutateReturning(
+      () =>
+        db
+          .update(deliverables)
+          .set({
+            title: input.title,
+            date: input.date,
+            notes: input.notes || null,
+            status: input.status,
+            updatedAt: new Date(),
+          })
+          .where(eq(deliverables.id, input.id))
+          .returning(),
+      { type: "updateDeliverable", params: { id: input.id } }
     );
 
     if (input.courseIds !== undefined) {
@@ -152,17 +156,10 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
   const duplicateDeliverable = Effect.fn("duplicateDeliverable")(function* (
     id: string
   ) {
-    const existing = yield* makeDbCall(() =>
-      db.query.deliverables.findFirst({
-        where: eq(deliverables.id, id),
-      })
+    const existing = yield* dbQueryFirst(
+      () => db.query.deliverables.findFirst({ where: eq(deliverables.id, id) }),
+      { type: "duplicateDeliverable", params: { id } }
     );
-
-    if (!existing) {
-      return yield* new UnknownDBServiceError({
-        cause: "Deliverable not found",
-      });
-    }
 
     const [y, m, d] = existing.date.split("-").map(Number);
     const dt = new Date(y!, m! - 1, d!);
@@ -189,12 +186,14 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
   const archiveDeliverable = Effect.fn("archiveDeliverable")(function* (
     id: string
   ) {
-    return yield* dbMutateReturning(() =>
-      db
-        .update(deliverables)
-        .set({ archived: true, updatedAt: new Date() })
-        .where(eq(deliverables.id, id))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(deliverables)
+          .set({ archived: true, updatedAt: new Date() })
+          .where(eq(deliverables.id, id))
+          .returning(),
+      { type: "archiveDeliverable", params: { id } }
     );
   });
 
