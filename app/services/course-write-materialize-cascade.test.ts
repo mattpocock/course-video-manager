@@ -1,28 +1,27 @@
-import { describe, it, expect, afterEach, beforeAll } from "vitest";
-import { Effect, Layer } from "effect";
+import { describe, it, expect, afterEach } from "vitest";
+import { Effect } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
+
+const ctx = setupEffectTest({
+  services: [
+    CourseWriteService.Default,
+    CourseOperationsService.Default,
+    VersionOperationsService.Default,
+    LessonSectionOperationsService.Default,
+  ],
+  extraProvide: [NodeContext.layer],
+});
 
 let cascadeTempDir: string;
-let testDb: TestDb;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-});
 
 const setupGhostCourse = async () => {
   cascadeTempDir = fs.mkdtempSync(path.join(tmpdir(), "course-cascade-test-"));
@@ -32,30 +31,10 @@ const setupGhostCourse = async () => {
   fs.writeFileSync(path.join(cascadeTempDir, ".gitkeep"), "");
   execSync("git add . && git commit -m 'init'", { cwd: cascadeTempDir });
 
-  await truncateAllTables(testDb);
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-
-  const testLayer = Layer.mergeAll(
-    CourseWriteService.Default,
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
-
-  const dbLayer = Layer.mergeAll(
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer));
-
-  const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
-
   const ghostCourse = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
     return yield* courseOps.createGhostCourse({ name: "ghost-course" });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
     const versionOps = yield* VersionOperationsService;
@@ -63,7 +42,7 @@ const setupGhostCourse = async () => {
       repoId: ghostCourse.id,
       name: "v1",
     });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const createGhostSection = async (sectionPath: string, order: number) => {
     const sections = await Effect.gen(function* () {
@@ -74,7 +53,7 @@ const setupGhostCourse = async () => {
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
         ],
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return sections[0]!;
   };
 
@@ -91,7 +70,7 @@ const setupGhostCourse = async () => {
         path: slug,
         order,
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return lesson[0]!;
   };
 
@@ -99,22 +78,21 @@ const setupGhostCourse = async () => {
     Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       return yield* lsOps.getLessonWithHierarchyById(lessonId);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const getSection = (sectionId: string) =>
     Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       return yield* lsOps.getSectionWithHierarchyById(sectionId);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const getCourse = (courseId: string) =>
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       return yield* courseOps.getCourseById(courseId);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   return {
-    run,
     ghostCourse,
     repoVersionId: version.id,
     createGhostSection,
@@ -133,12 +111,12 @@ describe("Materialization Cascade", () => {
   });
 
   it("materializing a lesson in a ghost course assigns file path and creates directory", async () => {
-    const { run, ghostCourse, createGhostSection, getLesson, getCourse } =
+    const { ghostCourse, createGhostSection, getLesson, getCourse } =
       await setupGhostCourse();
 
     const section = await createGhostSection("Introduction", 1);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const service = yield* CourseWriteService;
         return yield* service.materializeCourseWithLesson(
@@ -170,19 +148,14 @@ describe("Materialization Cascade", () => {
   });
 
   it("cascade materializes ghost section with correct numbering", async () => {
-    const {
-      run,
-      createGhostSection,
-      createGhostLesson,
-      getSection,
-      getLesson,
-    } = await setupGhostCourse();
+    const { createGhostSection, createGhostLesson, getSection, getLesson } =
+      await setupGhostCourse();
 
     const section1 = await createGhostSection("First Section", 1);
     const section2 = await createGhostSection("Second Section", 2);
     await createGhostLesson(section1.id, "Lesson A", "lesson-a", 1);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const service = yield* CourseWriteService;
         return yield* service.materializeCourseWithLesson(
@@ -207,12 +180,12 @@ describe("Materialization Cascade", () => {
   });
 
   it("errors when file path does not exist", async () => {
-    const { run, createGhostSection } = await setupGhostCourse();
+    const { createGhostSection } = await setupGhostCourse();
 
     const section = await createGhostSection("Introduction", 1);
 
     await expect(
-      run(
+      ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeCourseWithLesson(
@@ -226,7 +199,7 @@ describe("Materialization Cascade", () => {
   });
 
   it("errors when directory is not a git repository", async () => {
-    const { run, ghostCourse, createGhostSection, getCourse } =
+    const { ghostCourse, createGhostSection, getCourse } =
       await setupGhostCourse();
 
     const nonGitDir = fs.mkdtempSync(
@@ -236,7 +209,7 @@ describe("Materialization Cascade", () => {
     const section = await createGhostSection("Introduction", 1);
 
     await expect(
-      run(
+      ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeCourseWithLesson(
@@ -255,7 +228,7 @@ describe("Materialization Cascade", () => {
   });
 
   it("rolls back DB and filesystem when git add fails during cascade", async () => {
-    const { run, ghostCourse, createGhostSection, getCourse, getSection } =
+    const { ghostCourse, createGhostSection, getCourse, getSection } =
       await setupGhostCourse();
 
     const section = await createGhostSection("Introduction", 1);
@@ -272,7 +245,7 @@ describe("Materialization Cascade", () => {
 
     try {
       await expect(
-        run(
+        ctx.run(
           Effect.gen(function* () {
             const service = yield* CourseWriteService;
             return yield* service.materializeCourseWithLesson(
@@ -301,12 +274,12 @@ describe("Materialization Cascade", () => {
   });
 
   it("course stays real after all lessons are deleted", async () => {
-    const { run, ghostCourse, createGhostSection, getCourse } =
+    const { ghostCourse, createGhostSection, getCourse } =
       await setupGhostCourse();
 
     const section = await createGhostSection("Introduction", 1);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const service = yield* CourseWriteService;
         return yield* service.materializeCourseWithLesson(
@@ -317,7 +290,7 @@ describe("Materialization Cascade", () => {
       })
     );
 
-    await run(
+    await ctx.run(
       Effect.gen(function* () {
         const service = yield* CourseWriteService;
         return yield* service.deleteLesson(result.lessonId);

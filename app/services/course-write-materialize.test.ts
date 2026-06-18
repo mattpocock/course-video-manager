@@ -1,28 +1,27 @@
-import { describe, it, expect, afterEach, beforeAll } from "vitest";
-import { Effect, Layer } from "effect";
+import { describe, it, expect, afterEach } from "vitest";
+import { Effect } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
+
+const ctx = setupEffectTest({
+  services: [
+    CourseWriteService.Default,
+    CourseOperationsService.Default,
+    VersionOperationsService.Default,
+    LessonSectionOperationsService.Default,
+  ],
+  extraProvide: [NodeContext.layer],
+});
 
 let tempDir: string;
-let testDb: TestDb;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-});
 
 const setupTempGitRepo = () => {
   tempDir = fs.mkdtempSync(path.join(tmpdir(), "course-write-test-"));
@@ -35,25 +34,6 @@ const setupTempGitRepo = () => {
 
 const setup = async () => {
   setupTempGitRepo();
-  await truncateAllTables(testDb);
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-
-  const testLayer = Layer.mergeAll(
-    CourseWriteService.Default,
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
-
-  const dbLayer = Layer.mergeAll(
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer));
-
-  const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const repo = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -61,7 +41,7 @@ const setup = async () => {
       filePath: tempDir,
       name: "test-repo",
     });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
     const versionOps = yield* VersionOperationsService;
@@ -69,7 +49,7 @@ const setup = async () => {
       repoId: repo.id,
       name: "v1",
     });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const createSection = async (sectionPath: string, order: number) => {
     const sectionDir = path.join(tempDir, sectionPath);
@@ -86,7 +66,7 @@ const setup = async () => {
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
         ],
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return sections[0]!;
   };
 
@@ -112,7 +92,7 @@ const setup = async () => {
       return yield* lsOps.createLessons(sectionId, [
         { lessonPathWithNumber: lessonPath, lessonNumber: order },
       ]);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return lessons[0]!;
   };
 
@@ -129,7 +109,7 @@ const setup = async () => {
         path: slug,
         order,
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return lesson[0]!;
   };
 
@@ -142,7 +122,7 @@ const setup = async () => {
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
         ],
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return sections[0]!;
   };
 
@@ -150,16 +130,15 @@ const setup = async () => {
     Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       return yield* lsOps.getLessonWithHierarchyById(lessonId);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const getSection = (sectionId: string) =>
     Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       return yield* lsOps.getSectionWithHierarchyById(sectionId);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   return {
-    run,
     repoVersionId: version.id,
     createSection,
     createGhostSection,
@@ -179,13 +158,8 @@ describe("CourseWriteService", () => {
 
   describe("materializeGhost", () => {
     it("ghost at the end: creates directory, no shifts needed", async () => {
-      const {
-        run,
-        createSection,
-        createRealLesson,
-        createGhostLesson,
-        getLesson,
-      } = await setup();
+      const { createSection, createRealLesson, createGhostLesson, getLesson } =
+        await setup();
 
       const section = await createSection("01-intro", 1);
       await createRealLesson(section.id, "01-intro", "01.01-first-lesson", 1);
@@ -196,7 +170,7 @@ describe("CourseWriteService", () => {
         2
       );
 
-      const result = await run(
+      const result = await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeGhost(ghost.id);
@@ -225,13 +199,8 @@ describe("CourseWriteService", () => {
     });
 
     it("ghost in the middle: creates directory AND shifts subsequent real lessons", async () => {
-      const {
-        run,
-        createSection,
-        createRealLesson,
-        createGhostLesson,
-        getLesson,
-      } = await setup();
+      const { createSection, createRealLesson, createGhostLesson, getLesson } =
+        await setup();
 
       const section = await createSection("01-intro", 1);
       const real1 = await createRealLesson(
@@ -253,7 +222,7 @@ describe("CourseWriteService", () => {
         3
       );
 
-      const result = await run(
+      const result = await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeGhost(ghost.id);
@@ -292,13 +261,8 @@ describe("CourseWriteService", () => {
     });
 
     it("ghost at the beginning: shifts all real lessons", async () => {
-      const {
-        run,
-        createSection,
-        createRealLesson,
-        createGhostLesson,
-        getLesson,
-      } = await setup();
+      const { createSection, createRealLesson, createGhostLesson, getLesson } =
+        await setup();
 
       const section = await createSection("01-intro", 1);
       const ghost = await createGhostLesson(
@@ -320,7 +284,7 @@ describe("CourseWriteService", () => {
         2
       );
 
-      const result = await run(
+      const result = await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeGhost(ghost.id);
@@ -362,13 +326,8 @@ describe("CourseWriteService", () => {
     });
 
     it("multiple ghosts interspersed: only real lessons are shifted", async () => {
-      const {
-        run,
-        createSection,
-        createRealLesson,
-        createGhostLesson,
-        getLesson,
-      } = await setup();
+      const { createSection, createRealLesson, createGhostLesson, getLesson } =
+        await setup();
 
       const section = await createSection("01-intro", 1);
 
@@ -397,7 +356,7 @@ describe("CourseWriteService", () => {
       // Real lessons: real1(order=1), real2(order=4)
       // insertAtIndex = 1 (real2 order=4 > ghost order=3)
       // New = 01.02, real2 shifts 01.02 → 01.03
-      const result = await run(
+      const result = await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeGhost(ghost2.id);
@@ -429,7 +388,7 @@ describe("CourseWriteService", () => {
     });
 
     it("rejects materializing a lesson that is already on disk", async () => {
-      const { run, createSection, createRealLesson } = await setup();
+      const { createSection, createRealLesson } = await setup();
 
       const section = await createSection("01-intro", 1);
       const real = await createRealLesson(
@@ -440,7 +399,7 @@ describe("CourseWriteService", () => {
       );
 
       await expect(
-        run(
+        ctx.run(
           Effect.gen(function* () {
             const service = yield* CourseWriteService;
             return yield* service.materializeGhost(real.id);
@@ -452,12 +411,12 @@ describe("CourseWriteService", () => {
 
   describe("addGhostLesson", () => {
     it("creates a ghost lesson appended at end of section", async () => {
-      const { run, createSection, createRealLesson, getLesson } = await setup();
+      const { createSection, createRealLesson, getLesson } = await setup();
 
       const section = await createSection("01-intro", 1);
       await createRealLesson(section.id, "01-intro", "01.01-first", 1);
 
-      const result = await run(
+      const result = await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.addGhostLesson(section.id, "My New Lesson");
@@ -475,11 +434,11 @@ describe("CourseWriteService", () => {
     });
 
     it("creates first ghost lesson with order 1", async () => {
-      const { run, createSection, getLesson } = await setup();
+      const { createSection, getLesson } = await setup();
 
       const section = await createSection("01-intro", 1);
 
-      const result = await run(
+      const result = await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.addGhostLesson(section.id, "First Lesson");
@@ -494,7 +453,6 @@ describe("CourseWriteService", () => {
   describe("materializeGhost renumbering", () => {
     it("materializing a ghost section in the middle renumbers other sections", async () => {
       const {
-        run,
         createSection,
         createGhostSection,
         createRealLesson,
@@ -525,7 +483,7 @@ describe("CourseWriteService", () => {
       // Add and materialize ghost lesson → ghost section materializes
       const ghost = await createGhostLesson(section2.id, "Setup", "setup", 1);
 
-      await run(
+      await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeGhost(ghost.id);
@@ -564,7 +522,6 @@ describe("CourseWriteService", () => {
 
     it("materializing a ghost section at the start renumbers all other sections and lessons", async () => {
       const {
-        run,
         createSection,
         createGhostSection,
         createRealLesson,
@@ -600,7 +557,7 @@ describe("CourseWriteService", () => {
         1
       );
 
-      await run(
+      await ctx.run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
           return yield* service.materializeGhost(ghost.id);
