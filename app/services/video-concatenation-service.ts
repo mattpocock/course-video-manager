@@ -4,14 +4,7 @@ import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import { VideoOperationsService } from "./db-video-operations.server";
 import { DrizzleService } from "./drizzle-service.server";
-import { UnknownDBServiceError } from "./db-service-errors";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import { makeDbCall } from "./db-query-primitives.server";
 
 /**
  * Creates a new standalone video by concatenating clips from multiple source videos.

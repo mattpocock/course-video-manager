@@ -3,19 +3,13 @@ import {
   type DrizzleDB,
 } from "@/services/drizzle-service.server";
 import { thumbnails } from "@/db/schema";
-import {
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
 import { desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createThumbnailOperations = (db: DrizzleDB) => {
   const getThumbnailsByVideoId = Effect.fn("getThumbnailsByVideoId")(function* (
@@ -34,7 +28,7 @@ export const createThumbnailOperations = (db: DrizzleDB) => {
     layers: unknown;
     filePath: string | null;
   }) {
-    const [record] = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(thumbnails)
         .values({
@@ -44,29 +38,18 @@ export const createThumbnailOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-    if (!record) {
-      return yield* Effect.die("Failed to create thumbnail");
-    }
-    return record;
   });
 
   const getThumbnailById = Effect.fn("getThumbnailById")(function* (
     thumbnailId: string
   ) {
-    const thumbnail = yield* makeDbCall(() =>
-      db.query.thumbnails.findFirst({
-        where: eq(thumbnails.id, thumbnailId),
-      })
+    return yield* dbQueryFirst(
+      () =>
+        db.query.thumbnails.findFirst({
+          where: eq(thumbnails.id, thumbnailId),
+        }),
+      { type: "getThumbnailById", params: { thumbnailId } }
     );
-
-    if (!thumbnail) {
-      return yield* new NotFoundError({
-        type: "getThumbnailById",
-        params: { thumbnailId },
-      });
-    }
-
-    return thumbnail;
   });
 
   const updateThumbnail = Effect.fn("updateThumbnail")(function* (
@@ -76,42 +59,28 @@ export const createThumbnailOperations = (db: DrizzleDB) => {
       filePath: string | null;
     }
   ) {
-    const [updated] = yield* makeDbCall(() =>
-      db
-        .update(thumbnails)
-        .set({
-          layers: params.layers,
-          filePath: params.filePath,
-        })
-        .where(eq(thumbnails.id, thumbnailId))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(thumbnails)
+          .set({
+            layers: params.layers,
+            filePath: params.filePath,
+          })
+          .where(eq(thumbnails.id, thumbnailId))
+          .returning(),
+      { type: "updateThumbnail", params: { thumbnailId } }
     );
-
-    if (!updated) {
-      return yield* new NotFoundError({
-        type: "updateThumbnail",
-        params: { thumbnailId },
-      });
-    }
-
-    return updated;
   });
 
   const deleteThumbnail = Effect.fn("deleteThumbnail")(function* (
     thumbnailId: string
   ) {
-    const [deleted] = yield* makeDbCall(() =>
-      db.delete(thumbnails).where(eq(thumbnails.id, thumbnailId)).returning()
+    return yield* dbMutateReturning(
+      () =>
+        db.delete(thumbnails).where(eq(thumbnails.id, thumbnailId)).returning(),
+      { type: "deleteThumbnail", params: { thumbnailId } }
     );
-
-    if (!deleted) {
-      return yield* new NotFoundError({
-        type: "deleteThumbnail",
-        params: { thumbnailId },
-      });
-    }
-
-    return deleted;
   });
 
   return {

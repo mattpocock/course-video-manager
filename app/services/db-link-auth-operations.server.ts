@@ -3,28 +3,21 @@ import {
   type DrizzleDB,
 } from "@/services/drizzle-service.server";
 import { links, youtubeAuth, aiHeroAuth } from "@/db/schema";
-import {
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
+import { NotFoundError } from "@/services/db-service-errors";
 import { desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createLinkAuthOperations = (db: DrizzleDB) => {
   const getLinks = Effect.fn("getLinks")(function* () {
-    const allLinks = yield* makeDbCall(() =>
+    return yield* makeDbCall(() =>
       db.query.links.findMany({
         orderBy: desc(links.createdAt),
       })
     );
-    return allLinks;
   });
 
   const createLink = Effect.fn("createLink")(function* (link: {
@@ -32,7 +25,7 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
     url: string;
     description?: string | null;
   }) {
-    const [newLink] = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(links)
         .values({
@@ -42,14 +35,6 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    if (!newLink) {
-      return yield* new UnknownDBServiceError({
-        cause: "No link was returned from the database",
-      });
-    }
-
-    return newLink;
   });
 
   const deleteLink = Effect.fn("deleteLink")(function* (linkId: string) {
@@ -69,7 +54,7 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
   }) {
     yield* makeDbCall(() => db.delete(youtubeAuth));
 
-    const [newAuth] = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(youtubeAuth)
         .values({
@@ -79,14 +64,6 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    if (!newAuth) {
-      return yield* new UnknownDBServiceError({
-        cause: "No YouTube auth was returned from the database",
-      });
-    }
-
-    return newAuth;
   });
 
   const updateYoutubeAccessToken = Effect.fn("updateYoutubeAccessToken")(
@@ -103,26 +80,19 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
         });
       }
 
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(youtubeAuth)
-          .set({
-            accessToken: tokens.accessToken,
-            expiresAt: tokens.expiresAt,
-            updatedAt: new Date(),
-          })
-          .where(eq(youtubeAuth.id, existing.id))
-          .returning()
+      return yield* dbMutateReturning(
+        () =>
+          db
+            .update(youtubeAuth)
+            .set({
+              accessToken: tokens.accessToken,
+              expiresAt: tokens.expiresAt,
+              updatedAt: new Date(),
+            })
+            .where(eq(youtubeAuth.id, existing.id))
+            .returning(),
+        { type: "updateYoutubeAccessToken", params: {} }
       );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateYoutubeAccessToken",
-          params: {},
-        });
-      }
-
-      return updated;
     }
   );
 
@@ -142,7 +112,7 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
   }) {
     yield* makeDbCall(() => db.delete(aiHeroAuth));
 
-    const [newAuth] = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(aiHeroAuth)
         .values({
@@ -151,14 +121,6 @@ export const createLinkAuthOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    if (!newAuth) {
-      return yield* new UnknownDBServiceError({
-        cause: "No AI Hero auth was returned from the database",
-      });
-    }
-
-    return newAuth;
   });
 
   const deleteAiHeroAuth = Effect.fn("deleteAiHeroAuth")(function* () {
