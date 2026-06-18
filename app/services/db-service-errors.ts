@@ -38,3 +38,11 @@ export class CannotArchiveLessonVideoError extends Data.TaggedError(
   videoId: string;
   lessonId: string;
 }> {}
+
+export class CourseNameTakenError extends Data.TaggedError(
+  "CourseNameTakenError"
+)<{
+  name: string;
+  slug: string;
+  message: string;
+}> {}

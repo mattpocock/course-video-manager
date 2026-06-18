@@ -12,7 +12,7 @@ const addRepoSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "formData",
-  errors: { CourseRepoDoesNotExistError: 404 },
+  errors: { CourseRepoDoesNotExistError: 404, CourseNameTakenError: 409 },
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const result = yield* Schema.decodeUnknown(addRepoSchema)(payload);

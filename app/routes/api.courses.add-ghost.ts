@@ -10,6 +10,7 @@ const addGhostCourseSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "formData",
+  errors: { CourseNameTakenError: 409 },
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const result = yield* Schema.decodeUnknown(addGhostCourseSchema)(payload);

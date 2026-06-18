@@ -36,22 +36,31 @@ export const createTable = pgTableCreator(
   (name) => `course-video-manager_${name}`
 );
 
-export const courses = createTable("course", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  filePath: text("repo_path"),
-  name: text("name").notNull(),
-  archived: boolean("archived").notNull().default(false),
-  memory: text("memory").notNull().default(""),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
+export const courses = createTable(
+  "course",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    filePath: text("repo_path"),
+    name: text("name").notNull(),
+    slug: text("slug"),
+    archived: boolean("archived").notNull().default(false),
+    memory: text("memory").notNull().default(""),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("course_slug_uniq")
+      .on(table.slug)
+      .where(sql`NOT ${table.archived}`),
+  ]
+);
 
 export const courseVersions = createTable("course_version", {
   id: varchar("id", { length: 255 })

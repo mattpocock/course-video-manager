@@ -14,11 +14,13 @@ import {
 } from "@/db/schema";
 import {
   AmbiguousCourseUpdateError,
+  CourseNameTakenError,
   NotFoundError,
   UnknownDBServiceError,
 } from "@/services/db-service-errors";
-import { asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
+import { courseNameToSlug } from "@/services/course-slug";
 import {
   formatProseTranscript,
   toTranscriptItems,
@@ -33,6 +35,43 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 };
 
 export const createCourseOperations = (db: DrizzleDB) => {
+  const assertSlugAvailable = Effect.fn("assertSlugAvailable")(function* (
+    name: string,
+    excludeCourseId?: string
+  ) {
+    const slug = courseNameToSlug(name);
+    if (!slug) {
+      return yield* new CourseNameTakenError({
+        name,
+        slug: "",
+        message:
+          "Course name must produce a valid slug (at least one letter or digit)",
+      });
+    }
+
+    const conditions = [eq(courses.slug, slug), eq(courses.archived, false)];
+    if (excludeCourseId) {
+      conditions.push(ne(courses.id, excludeCourseId));
+    }
+
+    const existing = yield* makeDbCall(() =>
+      db.query.courses.findFirst({
+        where: and(...conditions),
+        columns: { id: true },
+      })
+    );
+
+    if (existing) {
+      return yield* new CourseNameTakenError({
+        name,
+        slug,
+        message: `Course name "${name}" is already taken`,
+      });
+    }
+
+    return slug;
+  });
+
   const getCourseById = Effect.fn("getCourseById")(function* (id: string) {
     const course = yield* makeDbCall(() =>
       db.query.courses.findFirst({
@@ -387,8 +426,13 @@ export const createCourseOperations = (db: DrizzleDB) => {
     filePath: string;
     name: string;
   }) {
+    const slug = yield* assertSlugAvailable(input.name);
+
     const result = yield* makeDbCall(() =>
-      db.insert(courses).values(input).returning()
+      db
+        .insert(courses)
+        .values({ ...input, slug })
+        .returning()
     );
 
     const course = result[0];
@@ -405,10 +449,12 @@ export const createCourseOperations = (db: DrizzleDB) => {
   const createGhostCourse = Effect.fn("createGhostCourse")(function* (input: {
     name: string;
   }) {
+    const slug = yield* assertSlugAvailable(input.name);
+
     const result = yield* makeDbCall(() =>
       db
         .insert(courses)
-        .values({ name: input.name, filePath: null })
+        .values({ name: input.name, filePath: null, slug })
         .returning()
     );
 
@@ -428,8 +474,14 @@ export const createCourseOperations = (db: DrizzleDB) => {
     name: string;
   }) {
     const { repoId, name } = opts;
+    const slug = yield* assertSlugAvailable(name, repoId);
+
     const [updated] = yield* makeDbCall(() =>
-      db.update(courses).set({ name }).where(eq(courses.id, repoId)).returning()
+      db
+        .update(courses)
+        .set({ name, slug })
+        .where(eq(courses.id, repoId))
+        .returning()
     );
 
     if (!updated) {

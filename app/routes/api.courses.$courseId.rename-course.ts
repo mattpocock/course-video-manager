@@ -10,6 +10,7 @@ const renameRepoSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "formData",
+  errors: { CourseNameTakenError: 409 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
       const { name } = yield* Schema.decodeUnknown(renameRepoSchema)(payload);
