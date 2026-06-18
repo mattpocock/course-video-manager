@@ -10,19 +10,14 @@ import {
   thumbnails,
   videos,
 } from "@/db/schema";
-import {
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
+import { NotFoundError } from "@/services/db-service-errors";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 /**
  * Deep-copies a course's latest draft version into a brand-new course: a single
@@ -37,18 +32,16 @@ export const makeDuplicateCourse = (db: DrizzleDB) =>
     filePath: string;
   }) {
     // Fetch source course
-    const sourceCourse = yield* makeDbCall(() =>
-      db.query.courses.findFirst({
-        where: eq(courses.id, input.sourceCourseId),
-      })
-    );
-
-    if (!sourceCourse) {
-      return yield* new NotFoundError({
+    const sourceCourse = yield* dbQueryFirst(
+      () =>
+        db.query.courses.findFirst({
+          where: eq(courses.id, input.sourceCourseId),
+        }),
+      {
         type: "duplicateCourse",
         params: { sourceCourseId: input.sourceCourseId },
-      });
-    }
+      }
+    );
 
     // Get latest draft version
     const latestVersion = yield* makeDbCall(() =>
@@ -67,7 +60,7 @@ export const makeDuplicateCourse = (db: DrizzleDB) =>
     }
 
     // Create new course with copied memory
-    const [newCourse] = yield* makeDbCall(() =>
+    const newCourse = yield* dbMutateReturning(() =>
       db
         .insert(courses)
         .values({
@@ -78,14 +71,8 @@ export const makeDuplicateCourse = (db: DrizzleDB) =>
         .returning()
     );
 
-    if (!newCourse) {
-      return yield* new UnknownDBServiceError({
-        cause: "No course returned from insert",
-      });
-    }
-
     // Create a single fresh draft version
-    const [newVersion] = yield* makeDbCall(() =>
+    const newVersion = yield* dbMutateReturning(() =>
       db
         .insert(courseVersions)
         .values({
@@ -94,12 +81,6 @@ export const makeDuplicateCourse = (db: DrizzleDB) =>
         })
         .returning()
     );
-
-    if (!newVersion) {
-      return yield* new UnknownDBServiceError({
-        cause: "No version returned from insert",
-      });
-    }
 
     // Deep-copy from source's latest draft, excluding archived entities
     const sourceSections = yield* makeDbCall(() =>

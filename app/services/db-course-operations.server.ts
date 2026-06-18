@@ -12,11 +12,7 @@ import {
   segments,
   videos,
 } from "@/db/schema";
-import {
-  AmbiguousCourseUpdateError,
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
+import { AmbiguousCourseUpdateError } from "@/services/db-service-errors";
 import { asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import {
@@ -24,121 +20,95 @@ import {
   toTranscriptItems,
 } from "@/lib/transcript-builder";
 import { makeDuplicateCourse } from "@/services/db-course-duplicate.server";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createCourseOperations = (db: DrizzleDB) => {
   const getCourseById = Effect.fn("getCourseById")(function* (id: string) {
-    const course = yield* makeDbCall(() =>
-      db.query.courses.findFirst({
-        where: eq(courses.id, id),
-      })
+    return yield* dbQueryFirst(
+      () => db.query.courses.findFirst({ where: eq(courses.id, id) }),
+      { type: "getCourse", params: { id } }
     );
-
-    if (!course) {
-      return yield* new NotFoundError({
-        type: "getCourse",
-        params: { id },
-      });
-    }
-
-    return course;
   });
 
   const getCourseByFilePath = Effect.fn("getCourseByFilePath")(function* (
     filePath: string
   ) {
-    const course = yield* makeDbCall(() =>
-      db.query.courses.findFirst({
-        where: eq(courses.filePath, filePath),
-      })
+    return yield* dbQueryFirst(
+      () =>
+        db.query.courses.findFirst({ where: eq(courses.filePath, filePath) }),
+      { type: "getCourseByFilePath", params: { filePath } }
     );
-
-    if (!course) {
-      return yield* new NotFoundError({
-        type: "getCourseByFilePath",
-        params: { filePath },
-      });
-    }
-
-    return course;
   });
 
   const getCourseWithSectionsById = Effect.fn("getCourseWithSectionsById")(
     function* (id: string) {
-      const course = yield* makeDbCall(() =>
-        db.query.courses.findFirst({
-          where: eq(courses.id, id),
-          with: {
-            versions: {
-              orderBy: desc(courseVersions.createdAt),
-              with: {
-                sections: {
-                  where: isNull(sections.archivedAt),
-                  with: {
-                    lessons: {
-                      where: eq(lessons.archived, false),
-                      with: {
-                        videos: {
-                          orderBy: asc(videos.path),
-                          where: eq(videos.archived, false),
-                          with: {
-                            clips: {
-                              orderBy: asc(clips.order),
-                              where: eq(clips.archived, false),
+      return yield* dbQueryFirst(
+        () =>
+          db.query.courses.findFirst({
+            where: eq(courses.id, id),
+            with: {
+              versions: {
+                orderBy: desc(courseVersions.createdAt),
+                with: {
+                  sections: {
+                    where: isNull(sections.archivedAt),
+                    with: {
+                      lessons: {
+                        where: eq(lessons.archived, false),
+                        with: {
+                          videos: {
+                            orderBy: asc(videos.path),
+                            where: eq(videos.archived, false),
+                            with: {
+                              clips: {
+                                orderBy: asc(clips.order),
+                                where: eq(clips.archived, false),
+                              },
                             },
                           },
                         },
+                        orderBy: asc(lessons.order),
                       },
-                      orderBy: asc(lessons.order),
                     },
+                    orderBy: asc(sections.order),
                   },
-                  orderBy: asc(sections.order),
                 },
               },
             },
-          },
-        })
+          }),
+        { type: "getCourseWithSections", params: { id } }
       );
-
-      if (!course) {
-        return yield* new NotFoundError({
-          type: "getCourseWithSections",
-          params: { id },
-        });
-      }
-
-      return course;
     }
   );
 
   const getCourseNavigationData = Effect.fn("getCourseNavigationData")(
     function* (id: string) {
-      const course = yield* makeDbCall(() =>
-        db.query.courses.findFirst({
-          where: eq(courses.id, id),
-          with: {
-            versions: {
-              orderBy: desc(courseVersions.createdAt),
-              limit: 1,
-              with: {
-                sections: {
-                  where: isNull(sections.archivedAt),
-                  orderBy: asc(sections.order),
-                  with: {
-                    lessons: {
-                      orderBy: asc(lessons.order),
-                      where: eq(lessons.archived, false),
-                      with: {
-                        videos: {
-                          columns: { id: true, path: true },
-                          orderBy: asc(videos.path),
-                          where: eq(videos.archived, false),
+      return yield* dbQueryFirst(
+        () =>
+          db.query.courses.findFirst({
+            where: eq(courses.id, id),
+            with: {
+              versions: {
+                orderBy: desc(courseVersions.createdAt),
+                limit: 1,
+                with: {
+                  sections: {
+                    where: isNull(sections.archivedAt),
+                    orderBy: asc(sections.order),
+                    with: {
+                      lessons: {
+                        orderBy: asc(lessons.order),
+                        where: eq(lessons.archived, false),
+                        with: {
+                          videos: {
+                            columns: { id: true, path: true },
+                            orderBy: asc(videos.path),
+                            where: eq(videos.archived, false),
+                          },
                         },
                       },
                     },
@@ -146,140 +116,117 @@ export const createCourseOperations = (db: DrizzleDB) => {
                 },
               },
             },
-          },
-        })
+          }),
+        { type: "getCourseNavigationData", params: { id } }
       );
-
-      if (!course) {
-        return yield* new NotFoundError({
-          type: "getCourseNavigationData",
-          params: { id },
-        });
-      }
-
-      return course;
     }
   );
 
   const getCourseStructureById = Effect.fn("getCourseStructureById")(function* (
     id: string
   ) {
-    const course = yield* makeDbCall(() =>
-      db.query.courses.findFirst({
-        where: eq(courses.id, id),
-        columns: { id: true, name: true, memory: true },
-        with: {
-          versions: {
-            orderBy: desc(courseVersions.createdAt),
-            columns: { id: true },
-            with: {
-              sections: {
-                where: isNull(sections.archivedAt),
-                orderBy: asc(sections.order),
-                columns: { id: true, path: true },
-                with: {
-                  lessons: {
-                    orderBy: asc(lessons.order),
-                    where: eq(lessons.archived, false),
-                    columns: {
-                      id: true,
-                      path: true,
-                      description: true,
-                      fsStatus: true,
+    return yield* dbQueryFirst(
+      () =>
+        db.query.courses.findFirst({
+          where: eq(courses.id, id),
+          columns: { id: true, name: true, memory: true },
+          with: {
+            versions: {
+              orderBy: desc(courseVersions.createdAt),
+              columns: { id: true },
+              with: {
+                sections: {
+                  where: isNull(sections.archivedAt),
+                  orderBy: asc(sections.order),
+                  columns: { id: true, path: true },
+                  with: {
+                    lessons: {
+                      orderBy: asc(lessons.order),
+                      where: eq(lessons.archived, false),
+                      columns: {
+                        id: true,
+                        path: true,
+                        description: true,
+                        fsStatus: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      })
+        }),
+      { type: "getCourseStructureById", params: { id } }
     );
-
-    if (!course) {
-      return yield* new NotFoundError({
-        type: "getCourseStructureById",
-        params: { id },
-      });
-    }
-
-    return course;
   });
 
   const getCourseWithSlimClipsById = Effect.fn("getCourseWithSlimClipsById")(
     function* (id: string, versionId?: string) {
-      const course = yield* makeDbCall(() =>
-        db.query.courses.findFirst({
-          where: eq(courses.id, id),
-          with: {
-            versions: {
-              orderBy: desc(courseVersions.createdAt),
-              ...(versionId
-                ? { where: eq(courseVersions.id, versionId) }
-                : { limit: 1 }),
-              with: {
-                sections: {
-                  where: isNull(sections.archivedAt),
-                  with: {
-                    lessons: {
-                      where: eq(lessons.archived, false),
-                      with: {
-                        videos: {
-                          orderBy: asc(videos.path),
-                          where: eq(videos.archived, false),
-                          with: {
-                            clips: {
-                              columns: {
-                                id: true,
-                                videoFilename: true,
-                                sourceStartTime: true,
-                                sourceEndTime: true,
-                                order: true,
-                                archived: true,
+      return yield* dbQueryFirst(
+        () =>
+          db.query.courses.findFirst({
+            where: eq(courses.id, id),
+            with: {
+              versions: {
+                orderBy: desc(courseVersions.createdAt),
+                ...(versionId
+                  ? { where: eq(courseVersions.id, versionId) }
+                  : { limit: 1 }),
+                with: {
+                  sections: {
+                    where: isNull(sections.archivedAt),
+                    with: {
+                      lessons: {
+                        where: eq(lessons.archived, false),
+                        with: {
+                          videos: {
+                            orderBy: asc(videos.path),
+                            where: eq(videos.archived, false),
+                            with: {
+                              clips: {
+                                columns: {
+                                  id: true,
+                                  videoFilename: true,
+                                  sourceStartTime: true,
+                                  sourceEndTime: true,
+                                  order: true,
+                                  archived: true,
+                                },
+                                orderBy: asc(clips.order),
+                                where: eq(clips.archived, false),
                               },
-                              orderBy: asc(clips.order),
-                              where: eq(clips.archived, false),
-                            },
-                            chapters: {
-                              columns: {
-                                order: true,
-                                archived: true,
+                              chapters: {
+                                columns: {
+                                  order: true,
+                                  archived: true,
+                                },
+                                where: eq(chapters.archived, false),
                               },
-                              where: eq(chapters.archived, false),
-                            },
-                            segments: {
-                              columns: {
-                                id: true,
-                                kind: true,
-                                title: true,
-                                description: true,
-                                order: true,
-                                videoId: true,
+                              segments: {
+                                columns: {
+                                  id: true,
+                                  kind: true,
+                                  title: true,
+                                  description: true,
+                                  order: true,
+                                  videoId: true,
+                                },
+                                orderBy: asc(segments.order),
                               },
-                              orderBy: asc(segments.order),
                             },
                           },
                         },
+                        orderBy: asc(lessons.order),
                       },
-                      orderBy: asc(lessons.order),
                     },
+                    orderBy: asc(sections.order),
                   },
-                  orderBy: asc(sections.order),
                 },
               },
             },
-          },
-        })
+          }),
+        { type: "getCourseWithSlimClips", params: { id } }
       );
-
-      if (!course) {
-        return yield* new NotFoundError({
-          type: "getCourseWithSlimClips",
-          params: { id },
-        });
-      }
-
-      return course;
     }
   );
 
@@ -387,40 +334,20 @@ export const createCourseOperations = (db: DrizzleDB) => {
     filePath: string;
     name: string;
   }) {
-    const result = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db.insert(courses).values(input).returning()
     );
-
-    const course = result[0];
-
-    if (!course) {
-      return yield* new UnknownDBServiceError({
-        cause: "No course was returned from the database",
-      });
-    }
-
-    return course;
   });
 
   const createGhostCourse = Effect.fn("createGhostCourse")(function* (input: {
     name: string;
   }) {
-    const result = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(courses)
         .values({ name: input.name, filePath: null })
         .returning()
     );
-
-    const course = result[0];
-
-    if (!course) {
-      return yield* new UnknownDBServiceError({
-        cause: "No course was returned from the database",
-      });
-    }
-
-    return course;
   });
 
   const updateCourseName = Effect.fn("updateCourseName")(function* (opts: {
@@ -428,18 +355,15 @@ export const createCourseOperations = (db: DrizzleDB) => {
     name: string;
   }) {
     const { repoId, name } = opts;
-    const [updated] = yield* makeDbCall(() =>
-      db.update(courses).set({ name }).where(eq(courses.id, repoId)).returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(courses)
+          .set({ name })
+          .where(eq(courses.id, repoId))
+          .returning(),
+      { type: "updateCourseName", params: { repoId } }
     );
-
-    if (!updated) {
-      return yield* new NotFoundError({
-        type: "updateCourseName",
-        params: { repoId },
-      });
-    }
-
-    return updated;
   });
 
   const updateCourseMemory = Effect.fn("updateCourseMemory")(function* (opts: {
@@ -447,43 +371,29 @@ export const createCourseOperations = (db: DrizzleDB) => {
     memory: string;
   }) {
     const { repoId, memory } = opts;
-    const [updated] = yield* makeDbCall(() =>
-      db
-        .update(courses)
-        .set({ memory })
-        .where(eq(courses.id, repoId))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(courses)
+          .set({ memory })
+          .where(eq(courses.id, repoId))
+          .returning(),
+      { type: "updateCourseMemory", params: { repoId } }
     );
-
-    if (!updated) {
-      return yield* new NotFoundError({
-        type: "updateCourseMemory",
-        params: { repoId },
-      });
-    }
-
-    return updated;
   });
 
   const updateCourseArchiveStatus = Effect.fn("updateCourseArchiveStatus")(
     function* (opts: { repoId: string; archived: boolean }) {
       const { repoId, archived } = opts;
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(courses)
-          .set({ archived })
-          .where(eq(courses.id, repoId))
-          .returning()
+      return yield* dbMutateReturning(
+        () =>
+          db
+            .update(courses)
+            .set({ archived })
+            .where(eq(courses.id, repoId))
+            .returning(),
+        { type: "updateCourseArchiveStatus", params: { repoId } }
       );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateCourseArchiveStatus",
-          params: { repoId },
-        });
-      }
-
-      return updated;
     }
   );
 
@@ -491,18 +401,10 @@ export const createCourseOperations = (db: DrizzleDB) => {
     function* (opts: { repoId: string; filePath: string | null }) {
       const { repoId, filePath } = opts;
 
-      const currentCourse = yield* makeDbCall(() =>
-        db.query.courses.findFirst({
-          where: eq(courses.id, repoId),
-        })
+      const currentCourse = yield* dbQueryFirst(
+        () => db.query.courses.findFirst({ where: eq(courses.id, repoId) }),
+        { type: "updateCourseFilePath", params: { repoId } }
       );
-
-      if (!currentCourse) {
-        return yield* new NotFoundError({
-          type: "updateCourseFilePath",
-          params: { repoId },
-        });
-      }
 
       if (currentCourse.filePath) {
         const coursesWithSamePath = yield* makeDbCall(() =>
@@ -519,22 +421,15 @@ export const createCourseOperations = (db: DrizzleDB) => {
         }
       }
 
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(courses)
-          .set({ filePath })
-          .where(eq(courses.id, repoId))
-          .returning()
+      return yield* dbMutateReturning(
+        () =>
+          db
+            .update(courses)
+            .set({ filePath })
+            .where(eq(courses.id, repoId))
+            .returning(),
+        { type: "updateCourseFilePath", params: { repoId } }
       );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateCourseFilePath",
-          params: { repoId },
-        });
-      }
-
-      return updated;
     }
   );
 

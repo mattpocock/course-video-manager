@@ -14,12 +14,10 @@ import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
 import type { DrizzleDB } from "@/services/drizzle-service.server";
-
-const makeDbCall = <T>(fn: () => Promise<T>) =>
-  Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
+import {
+  makeDbCall,
+  dbQueryFirst,
+} from "@/services/db-query-primitives.server";
 
 export const copyVideoImpl = (
   db: DrizzleDB,
@@ -35,18 +33,10 @@ export const copyVideoImpl = (
 
     // Load source video outside the transaction so we can surface NotFoundError
     // before opening a transaction.
-    const sourceVideo = yield* makeDbCall(() =>
-      db.query.videos.findFirst({
-        where: eq(videos.id, sourceVideoId),
-      })
+    const sourceVideo = yield* dbQueryFirst(
+      () => db.query.videos.findFirst({ where: eq(videos.id, sourceVideoId) }),
+      { type: "copyVideo", params: { sourceVideoId } }
     );
-
-    if (!sourceVideo) {
-      return yield* new NotFoundError({
-        type: "copyVideo",
-        params: { sourceVideoId },
-      });
-    }
 
     // All writes (and the reads they depend on) run inside a single transaction
     // so a partial failure leaves no orphaned rows.

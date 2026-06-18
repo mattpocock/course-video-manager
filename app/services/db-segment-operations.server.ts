@@ -3,10 +3,7 @@ import {
   type DrizzleDB,
 } from "@/services/drizzle-service.server";
 import { segments } from "@/db/schema";
-import {
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
+import { NotFoundError } from "@/services/db-service-errors";
 import {
   DEFAULT_SEGMENT_KIND,
   type SegmentKind,
@@ -14,13 +11,11 @@ import {
 import { asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createSegmentOperations = (db: DrizzleDB) => {
   /** Segments of a video, sorted by their fractional `order` key. */
@@ -65,7 +60,7 @@ export const createSegmentOperations = (db: DrizzleDB) => {
 
     const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
-    const [segment] = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(segments)
         .values({
@@ -76,26 +71,13 @@ export const createSegmentOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    if (!segment) {
-      return yield* new UnknownDBServiceError({
-        cause: "No segment was returned from the database",
-      });
-    }
-
-    return segment;
   });
 
   const requireSegment = (id: string) =>
-    Effect.gen(function* () {
-      const [updated] = yield* makeDbCall(() =>
-        db.select().from(segments).where(eq(segments.id, id))
-      );
-      if (!updated) {
-        return yield* new NotFoundError({ type: "segment", params: { id } });
-      }
-      return updated;
-    });
+    dbQueryFirst(
+      () => db.query.segments.findFirst({ where: eq(segments.id, id) }),
+      { type: "segment", params: { id } }
+    );
 
   const renameSegment = Effect.fn("renameSegment")(function* (
     id: string,
