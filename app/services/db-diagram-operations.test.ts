@@ -1,30 +1,9 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<DiagramOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  testLayer = DiagramOperationsService.Default.pipe(
-    Layer.provide(drizzleLayer)
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(DiagramOperationsService.Default);
 
 describe("createDiagram", () => {
   it.effect("creates a diagram with name Untitled 1 by default", () =>
@@ -38,7 +17,7 @@ describe("createDiagram", () => {
       expect(diagram.archived).toBe(false);
       expect(diagram.createdAt).toBeInstanceOf(Date);
       expect(diagram.updatedAt).toBeInstanceOf(Date);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("auto-increments Untitled N avoiding used numbers", () =>
@@ -52,7 +31,7 @@ describe("createDiagram", () => {
 
       const d3 = yield* diagramOps.createDiagram();
       expect(d3.name).toBe("Untitled 3");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fills gaps in Untitled N numbering", () =>
@@ -66,7 +45,7 @@ describe("createDiagram", () => {
 
       const d4 = yield* diagramOps.createDiagram();
       expect(d4.name).toBe("Untitled 1");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -79,7 +58,7 @@ describe("createDiagram", () => {
 
         const d2 = yield* diagramOps.createDiagram();
         expect(d2.name).toBe("Untitled 1");
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("does not count archived Untitled N names toward numbering", () =>
@@ -92,7 +71,7 @@ describe("createDiagram", () => {
 
       const d2 = yield* diagramOps.createDiagram();
       expect(d2.name).toBe("Untitled 1");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -112,7 +91,7 @@ describe("listDiagrams", () => {
       expect(list).toHaveLength(2);
       expect(list[0]!.id).toBe(d1.id);
       expect(list[1]!.id).toBe(d2.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("excludes archived diagrams by default", () =>
@@ -125,7 +104,7 @@ describe("listDiagrams", () => {
 
       const list = yield* diagramOps.listDiagrams();
       expect(list).toHaveLength(1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("includes archived diagrams when requested", () =>
@@ -138,7 +117,7 @@ describe("listDiagrams", () => {
 
       const list = yield* diagramOps.listDiagrams({ includeArchived: true });
       expect(list).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("filters by name substring case-insensitively", () =>
@@ -158,7 +137,7 @@ describe("listDiagrams", () => {
         nameFilter: "architecture",
       });
       expect(list).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns empty array when no diagrams exist", () =>
@@ -166,7 +145,7 @@ describe("listDiagrams", () => {
       const diagramOps = yield* DiagramOperationsService;
       const list = yield* diagramOps.listDiagrams();
       expect(list).toEqual([]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -201,7 +180,7 @@ describe("listDiagrams", () => {
         });
         expect(withoutArchived).toHaveLength(1);
         expect(withoutArchived[0]!.name).toBe("Architecture Overview");
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns no results when filter matches nothing", () =>
@@ -213,7 +192,7 @@ describe("listDiagrams", () => {
         nameFilter: "nonexistent",
       });
       expect(list).toEqual([]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -226,7 +205,7 @@ describe("getDiagram", () => {
 
       expect(fetched.id).toBe(created.id);
       expect(fetched.name).toBe(created.name);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for missing id", () =>
@@ -237,7 +216,7 @@ describe("getDiagram", () => {
         .pipe(Effect.flip);
 
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -256,7 +235,7 @@ describe("updateDiagram", () => {
       expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
         originalUpdatedAt.getTime()
       );
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("archives a diagram", () =>
@@ -268,7 +247,7 @@ describe("updateDiagram", () => {
         archived: true,
       });
       expect(updated.archived).toBe(true);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("unarchives a diagram", () =>
@@ -281,7 +260,7 @@ describe("updateDiagram", () => {
         archived: false,
       });
       expect(updated.archived).toBe(false);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent diagram", () =>
@@ -291,7 +270,7 @@ describe("updateDiagram", () => {
         .updateDiagram("nonexistent-id", { name: "Nope" })
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("updating name does not change archived", () =>
@@ -304,7 +283,7 @@ describe("updateDiagram", () => {
       });
       expect(updated.name).toBe("New Name");
       expect(updated.archived).toBe(false);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("empty fields object still bumps updatedAt", () =>
@@ -320,7 +299,7 @@ describe("updateDiagram", () => {
       expect(updated.updatedAt.getTime()).toBeGreaterThan(
         created.updatedAt.getTime()
       );
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("allows setting name and archived in a single update", () =>
@@ -334,7 +313,7 @@ describe("updateDiagram", () => {
       });
       expect(updated.name).toBe("Archived Diagram");
       expect(updated.archived).toBe(true);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -355,7 +334,7 @@ describe("updateDiagramHead", () => {
       expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
         created.updatedAt.getTime()
       );
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("overwrites previous headScene", () =>
@@ -370,7 +349,7 @@ describe("updateDiagramHead", () => {
       const updated = yield* diagramOps.updateDiagramHead(created.id, scene2);
 
       expect(updated.headScene).toEqual(scene2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent diagram", () =>
@@ -380,7 +359,7 @@ describe("updateDiagramHead", () => {
         .updateDiagramHead("nonexistent-id", { store: {} })
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("clears headScene when set to null", () =>
@@ -393,7 +372,7 @@ describe("updateDiagramHead", () => {
 
       const cleared = yield* diagramOps.updateDiagramHead(created.id, null);
       expect(cleared.headScene).toBeNull();
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("preserves name and archived when updating head", () =>
@@ -411,7 +390,7 @@ describe("updateDiagramHead", () => {
       expect(updated.name).toBe("My Diagram");
       expect(updated.archived).toBe(false);
       expect(updated.headScene).toEqual(scene);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -438,7 +417,7 @@ describe("createSnapshot", () => {
       expect(snapshot.contentHash.length).toBe(64);
       expect(snapshot.preserved).toBe(true);
       expect(snapshot.createdAt).toBeInstanceOf(Date);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("defaults preserved to false", () =>
@@ -450,7 +429,7 @@ describe("createSnapshot", () => {
       const snapshot = yield* diagramOps.createSnapshot(diagram.id, {});
 
       expect(snapshot.preserved).toBe(false);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("deduplicates by contentHash — returns existing row", () =>
@@ -464,7 +443,7 @@ describe("createSnapshot", () => {
 
       expect(second.id).toBe(first.id);
       expect(second.contentHash).toBe(first.contentHash);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("dedup does not flip preserved:true back to false", () =>
@@ -479,7 +458,7 @@ describe("createSnapshot", () => {
       });
 
       expect(second.preserved).toBe(true);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -500,7 +479,7 @@ describe("createSnapshot", () => {
         });
         expect(second.id).toBe(first.id);
         expect(second.preserved).toBe(true);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("different headScene content produces a new snapshot row", () =>
@@ -521,7 +500,7 @@ describe("createSnapshot", () => {
       expect(second.id).not.toBe(first.id);
       expect(second.contentHash).not.toBe(first.contentHash);
       expect(second.scene).toEqual(scene2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError when diagram does not exist", () =>
@@ -531,7 +510,7 @@ describe("createSnapshot", () => {
         .createSnapshot("nonexistent-id", {})
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails when headScene is null", () =>
@@ -543,7 +522,7 @@ describe("createSnapshot", () => {
         .createSnapshot(diagram.id, {})
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -567,6 +546,6 @@ describe("createSnapshot", () => {
         const s2 = yield* diagramOps.createSnapshot(d2.id, {});
 
         expect(s1.contentHash).toBe(s2.contentHash);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 });

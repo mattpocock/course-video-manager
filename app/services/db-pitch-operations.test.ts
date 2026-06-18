@@ -1,31 +1,11 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { eq } from "drizzle-orm";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import * as schema from "@/db/schema";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<PitchOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  testLayer = PitchOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(PitchOperationsService.Default);
 
 describe("createPitch", () => {
   it.effect("creates a pitch with default values", () =>
@@ -46,7 +26,7 @@ describe("createPitch", () => {
       expect(pitch.archived).toBe(false);
       expect(pitch.createdAt).toBeInstanceOf(Date);
       expect(pitch.updatedAt).toBeInstanceOf(Date);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -72,7 +52,7 @@ describe("listPitches", () => {
         expect(list).toHaveLength(2);
         expect(list[0]!.title).toBe("Second");
         expect(list[1]!.title).toBe("First");
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns empty array when no pitches exist", () =>
@@ -80,7 +60,7 @@ describe("listPitches", () => {
       const pitchOps = yield* PitchOperationsService;
       const list = yield* pitchOps.listPitches();
       expect(list).toEqual([]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -92,7 +72,7 @@ describe("getPitch", () => {
       const fetched = yield* pitchOps.getPitch(created.id);
 
       expect(fetched.id).toBe(created.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for missing id", () =>
@@ -103,7 +83,7 @@ describe("getPitch", () => {
         .pipe(Effect.flip);
 
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -125,7 +105,7 @@ describe("updatePitchField", () => {
       expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
         originalUpdatedAt.getTime()
       );
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("updates priority as a number", () =>
@@ -139,7 +119,7 @@ describe("updatePitchField", () => {
       );
 
       expect(updated.priority).toBe(1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent pitch", () =>
@@ -149,7 +129,7 @@ describe("updatePitchField", () => {
         .updatePitchField("nonexistent-id", "title", "Nope")
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("updating one field does not clobber another", () =>
@@ -169,7 +149,7 @@ describe("updatePitchField", () => {
       expect(fetched.title).toBe("My Pitch");
       expect(fetched.description).toBe("A description");
       expect(fetched.youtubeTitle).toBe("YT Title");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -192,7 +172,7 @@ describe("listPitches with filters", () => {
 
       const highAndMed = yield* pitchOps.listPitches({ priority: [1, 2] });
       expect(highAndMed).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("filters by archived flag", () =>
@@ -208,7 +188,7 @@ describe("listPitches with filters", () => {
 
       const archivedOnly = yield* pitchOps.listPitches({ archived: true });
       expect(archivedOnly).toHaveLength(1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("sorts by priority asc then createdAt desc", () =>
@@ -231,7 +211,7 @@ describe("listPitches with filters", () => {
       expect(list[0]!.title).toBe("P1");
       expect(list[1]!.title).toBe("P2 newer");
       expect(list[2]!.title).toBe("P2 older");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -247,7 +227,7 @@ describe("listPitches with filters", () => {
 
         const list = yield* pitchOps.listPitches();
         expect(list).toHaveLength(2);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("treats empty state array as no state filter", () =>
@@ -259,7 +239,7 @@ describe("listPitches with filters", () => {
 
       const list = yield* pitchOps.listPitches({ state: [] });
       expect(list).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("treats empty priority array as no priority filter", () =>
@@ -273,7 +253,7 @@ describe("listPitches with filters", () => {
 
       const list = yield* pitchOps.listPitches({ priority: [] });
       expect(list).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -286,14 +266,14 @@ describe("deletePitch", () => {
 
       const result = yield* pitchOps.getPitch(created.id).pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("does not error when deleting a non-existent pitch", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
       yield* pitchOps.deletePitch("nonexistent-id");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("sets pitchId to NULL on linked videos", () =>
@@ -301,14 +281,14 @@ describe("deletePitch", () => {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
       const [video] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.videos)
           .values({ path: "test-vid", originalFootagePath: "" })
           .returning()
       );
 
       yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .update(schema.videos)
           .set({ pitchId: pitch.id })
           .where(eq(schema.videos.id, video!.id))
@@ -317,12 +297,12 @@ describe("deletePitch", () => {
       yield* pitchOps.deletePitch(pitch.id);
 
       const updatedVideo = yield* Effect.promise(() =>
-        testDb.query.videos.findFirst({
+        ctx.db.query.videos.findFirst({
           where: eq(schema.videos.id, video!.id),
         })
       );
       expect(updatedVideo!.pitchId).toBeNull();
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -340,7 +320,7 @@ describe("listPitchesWithVideos", () => {
       expect(list[0]!.videos).toHaveLength(1);
       expect(list[0]!.videos[0]!.id).toBe(video.id);
       expect(list[0]!.videos[0]!.pitchId).toBe(pitch.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -354,7 +334,7 @@ describe("listPitchesWithVideos", () => {
         const list = yield* pitchOps.listPitchesWithVideos();
         expect(list).toHaveLength(1);
         expect(list[0]!.videos).toHaveLength(0);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -368,7 +348,7 @@ describe("listPitchesWithVideos", () => {
 
         const list = yield* pitchOps.listPitchesWithVideos();
         expect(list[0]!.videos[0]!.clips).toEqual([]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("excludes archived videos from results", () =>
@@ -379,7 +359,7 @@ describe("listPitchesWithVideos", () => {
       const video1 = yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .update(schema.videos)
           .set({ archived: true })
           .where(eq(schema.videos.id, video1.id))
@@ -388,7 +368,7 @@ describe("listPitchesWithVideos", () => {
       const list = yield* pitchOps.listPitchesWithVideos();
       expect(list).toHaveLength(1);
       expect(list[0]!.videos).toHaveLength(1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns multiple videos per pitch", () =>
@@ -403,7 +383,7 @@ describe("listPitchesWithVideos", () => {
       const list = yield* pitchOps.listPitchesWithVideos();
       expect(list).toHaveLength(1);
       expect(list[0]!.videos).toHaveLength(3);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -420,7 +400,7 @@ describe("getPitchWithVideos", () => {
       expect(result.videos).toHaveLength(1);
       expect(result.videos[0]!.id).toBe(video.id);
       expect(result.videos[0]!.clips).toEqual([]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent pitch", () =>
@@ -430,7 +410,7 @@ describe("getPitchWithVideos", () => {
         .getPitchWithVideos("nonexistent-id")
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("excludes archived videos", () =>
@@ -440,7 +420,7 @@ describe("getPitchWithVideos", () => {
       const pitch = yield* pitchOps.createPitch();
       const video = yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .update(schema.videos)
           .set({ archived: true })
           .where(eq(schema.videos.id, video.id))
@@ -448,7 +428,7 @@ describe("getPitchWithVideos", () => {
 
       const result = yield* pitchOps.getPitchWithVideos(pitch.id);
       expect(result.videos).toHaveLength(0);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -464,7 +444,7 @@ describe("createVideoFromPitch", () => {
       expect(video.lessonId).toBeNull();
       expect(video.path).toBe("");
       expect(video.originalFootagePath).toBe("");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("creates a video with no clips", () =>
@@ -474,12 +454,12 @@ describe("createVideoFromPitch", () => {
       const video = yield* pitchOps.createVideoFromPitch(pitch.id);
 
       const videoClips = yield* Effect.promise(() =>
-        testDb.query.clips.findMany({
+        ctx.db.query.clips.findMany({
           where: eq(schema.clips.videoId, video.id),
         })
       );
       expect(videoClips).toHaveLength(0);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent pitch", () =>
@@ -489,7 +469,7 @@ describe("createVideoFromPitch", () => {
         .createVideoFromPitch("nonexistent-pitch-id")
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("allows multiple videos from the same pitch", () =>
@@ -503,6 +483,6 @@ describe("createVideoFromPitch", () => {
       expect(v1.id).not.toBe(v2.id);
       expect(v1.pitchId).toBe(pitch.id);
       expect(v2.pitchId).toBe(pitch.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });

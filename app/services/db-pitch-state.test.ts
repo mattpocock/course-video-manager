@@ -1,33 +1,13 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import * as schema from "@/db/schema";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<PitchOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  testLayer = PitchOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(PitchOperationsService.Default);
 
 async function seedDeliverable(
-  db: TestDb,
+  db: typeof ctx.db,
   overrides: { status?: string } = {}
 ) {
   const [d] = await db
@@ -42,7 +22,7 @@ async function seedDeliverable(
 }
 
 async function linkPitchToDeliverable(
-  db: TestDb,
+  db: typeof ctx.db,
   pitchId: string,
   deliverableId: string
 ) {
@@ -60,7 +40,7 @@ describe("state derivation via listPitches", () => {
       const list = yield* pitchOps.listPitches();
       expect(list).toHaveLength(1);
       expect(list[0]!.state).toBe("idle");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("pitch with one planned deliverable → scheduled", () =>
@@ -68,15 +48,15 @@ describe("state derivation via listPitches", () => {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
       const del = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "planned" })
+        seedDeliverable(ctx.db, { status: "planned" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pitch.id, del.id)
+        linkPitchToDeliverable(ctx.db, pitch.id, del.id)
       );
 
       const list = yield* pitchOps.listPitches();
       expect(list[0]!.state).toBe("scheduled");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("pitch with one done deliverable → shipped", () =>
@@ -84,15 +64,15 @@ describe("state derivation via listPitches", () => {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
       const del = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "done" })
+        seedDeliverable(ctx.db, { status: "done" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pitch.id, del.id)
+        linkPitchToDeliverable(ctx.db, pitch.id, del.id)
       );
 
       const list = yield* pitchOps.listPitches();
       expect(list[0]!.state).toBe("shipped");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("pitch with one done + one planned deliverable → scheduled", () =>
@@ -100,21 +80,21 @@ describe("state derivation via listPitches", () => {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
       const d1 = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "done" })
+        seedDeliverable(ctx.db, { status: "done" })
       );
       const d2 = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "planned" })
+        seedDeliverable(ctx.db, { status: "planned" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pitch.id, d1.id)
+        linkPitchToDeliverable(ctx.db, pitch.id, d1.id)
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pitch.id, d2.id)
+        linkPitchToDeliverable(ctx.db, pitch.id, d2.id)
       );
 
       const list = yield* pitchOps.listPitches();
       expect(list[0]!.state).toBe("scheduled");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("pitch with all cancelled deliverables → shipped", () =>
@@ -122,15 +102,15 @@ describe("state derivation via listPitches", () => {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
       const del = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "cancelled" })
+        seedDeliverable(ctx.db, { status: "cancelled" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pitch.id, del.id)
+        linkPitchToDeliverable(ctx.db, pitch.id, del.id)
       );
 
       const list = yield* pitchOps.listPitches();
       expect(list[0]!.state).toBe("shipped");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("archived pitch excluded regardless of pitch state", () =>
@@ -141,7 +121,7 @@ describe("state derivation via listPitches", () => {
 
       const list = yield* pitchOps.listPitches();
       expect(list).toHaveLength(0);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("default state filter returns idle + scheduled only", () =>
@@ -154,19 +134,19 @@ describe("state derivation via listPitches", () => {
       const pScheduled = yield* pitchOps.createPitch();
       yield* pitchOps.updatePitchField(pScheduled.id, "title", "Scheduled");
       const d1 = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "planned" })
+        seedDeliverable(ctx.db, { status: "planned" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pScheduled.id, d1.id)
+        linkPitchToDeliverable(ctx.db, pScheduled.id, d1.id)
       );
 
       const pShipped = yield* pitchOps.createPitch();
       yield* pitchOps.updatePitchField(pShipped.id, "title", "Shipped");
       const d2 = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "done" })
+        seedDeliverable(ctx.db, { status: "done" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pShipped.id, d2.id)
+        linkPitchToDeliverable(ctx.db, pShipped.id, d2.id)
       );
 
       const list = yield* pitchOps.listPitches({
@@ -177,7 +157,7 @@ describe("state derivation via listPitches", () => {
       expect(titles).toContain("Idle");
       expect(titles).toContain("Scheduled");
       expect(titles).not.toContain("Shipped");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("state filter for shipped includes shipped pitches", () =>
@@ -189,10 +169,10 @@ describe("state derivation via listPitches", () => {
       const pShipped = yield* pitchOps.createPitch();
       yield* pitchOps.updatePitchField(pShipped.id, "title", "Shipped");
       const del = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "done" })
+        seedDeliverable(ctx.db, { status: "done" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pShipped.id, del.id)
+        linkPitchToDeliverable(ctx.db, pShipped.id, del.id)
       );
 
       const list = yield* pitchOps.listPitches({
@@ -200,7 +180,7 @@ describe("state derivation via listPitches", () => {
       });
       expect(list).toHaveLength(1);
       expect(list[0]!.title).toBe("Shipped");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("ordering preserved: priority asc, createdAt desc", () =>
@@ -223,7 +203,7 @@ describe("state derivation via listPitches", () => {
       expect(list[0]!.title).toBe("P1");
       expect(list[1]!.title).toBe("P2 newer");
       expect(list[2]!.title).toBe("P2 older");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -235,17 +215,17 @@ describe("state derivation via listPitchesWithVideos", () => {
       const pitch = yield* pitchOps.createPitch();
       yield* pitchOps.createVideoFromPitch(pitch.id);
       const del = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "planned" })
+        seedDeliverable(ctx.db, { status: "planned" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pitch.id, del.id)
+        linkPitchToDeliverable(ctx.db, pitch.id, del.id)
       );
 
       const list = yield* pitchOps.listPitchesWithVideos();
       expect(list).toHaveLength(1);
       expect(list[0]!.state).toBe("scheduled");
       expect(list[0]!.videos).toHaveLength(1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -256,15 +236,15 @@ describe("state derivation via getPitchWithVideos", () => {
 
       const pitch = yield* pitchOps.createPitch();
       const del = yield* Effect.promise(() =>
-        seedDeliverable(testDb, { status: "done" })
+        seedDeliverable(ctx.db, { status: "done" })
       );
       yield* Effect.promise(() =>
-        linkPitchToDeliverable(testDb, pitch.id, del.id)
+        linkPitchToDeliverable(ctx.db, pitch.id, del.id)
       );
 
       const result = yield* pitchOps.getPitchWithVideos(pitch.id);
       expect(result.state).toBe("shipped");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns idle when no deliverables linked", () =>
@@ -275,6 +255,6 @@ describe("state derivation via getPitchWithVideos", () => {
 
       const result = yield* pitchOps.getPitchWithVideos(pitch.id);
       expect(result.state).toBe("idle");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });

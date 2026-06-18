@@ -1,38 +1,15 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<
-  | DeliverableOperationsService
-  | CourseOperationsService
-  | PitchOperationsService
->;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  testLayer = Layer.mergeAll(
-    DeliverableOperationsService.Default,
-    CourseOperationsService.Default,
-    PitchOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer));
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(
+  DeliverableOperationsService.Default,
+  CourseOperationsService.Default,
+  PitchOperationsService.Default
+);
 
 describe("duplicateDeliverable", () => {
   it.effect(
@@ -70,7 +47,7 @@ describe("duplicateDeliverable", () => {
         const dup = list.find((d) => d.id === result.created.id);
         expect(dup?.deliverablesCourses).toEqual([]);
         expect(dup?.deliverablesPitches).toEqual([]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("duplicates a deliverable with no links", () =>
@@ -89,7 +66,7 @@ describe("duplicateDeliverable", () => {
 
       const list = yield* deliverableOps.listDeliverables();
       expect(list).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("correctly handles month boundary when adding 7 days", () =>
@@ -104,6 +81,6 @@ describe("duplicateDeliverable", () => {
       const result = yield* deliverableOps.duplicateDeliverable(original.id);
 
       expect(result.created.date).toBe("2026-02-04");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });

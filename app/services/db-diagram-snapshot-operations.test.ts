@@ -1,41 +1,17 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<
-  | DiagramOperationsService
-  | VideoOperationsService
-  | ClipOperationsService
-  | CourseOperationsService
->;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  testLayer = Layer.mergeAll(
-    DiagramOperationsService.Default,
-    VideoOperationsService.Default,
-    ClipOperationsService.Default,
-    CourseOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer));
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(
+  DiagramOperationsService.Default,
+  VideoOperationsService.Default,
+  ClipOperationsService.Default,
+  CourseOperationsService.Default
+);
 
 const scene1 = {
   store: { "shape:a": { id: "a", x: 1 } },
@@ -67,7 +43,7 @@ describe("listSnapshots", () => {
       expect(snapshots).toHaveLength(2);
       expect(snapshots[0]!.id).toBe(s1.id);
       expect(snapshots[1]!.id).toBe(s2.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns empty array when diagram has no snapshots", () =>
@@ -77,7 +53,7 @@ describe("listSnapshots", () => {
 
       const snapshots = yield* diagramOps.listSnapshots(diagram.id);
       expect(snapshots).toEqual([]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("does not return snapshots from other diagrams", () =>
@@ -95,7 +71,7 @@ describe("listSnapshots", () => {
       const snapshots = yield* diagramOps.listSnapshots(d1.id);
       expect(snapshots).toHaveLength(1);
       expect(snapshots[0]!.diagramId).toBe(d1.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns both preserved and non-preserved snapshots", () =>
@@ -112,7 +88,7 @@ describe("listSnapshots", () => {
       const snapshots = yield* diagramOps.listSnapshots(diagram.id);
       expect(snapshots).toHaveLength(2);
       expect(snapshots.map((s) => s.preserved)).toEqual([true, false]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -145,7 +121,7 @@ describe("listSnapshotsWithClips", () => {
       expect(result[0]!.id).toBe(snapshot.id);
       expect(result[0]!.clips).toHaveLength(1);
       expect(result[0]!.clips[0]!.id).toBe(clip.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns empty clips array for unpinned snapshot", () =>
@@ -158,7 +134,7 @@ describe("listSnapshotsWithClips", () => {
       const result = yield* diagramOps.listSnapshotsWithClips(diagram.id);
       expect(result).toHaveLength(1);
       expect(result[0]!.clips).toEqual([]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("includes archived flag on pinning clips", () =>
@@ -186,7 +162,7 @@ describe("listSnapshotsWithClips", () => {
       expect(result).toHaveLength(1);
       expect(result[0]!.clips).toHaveLength(1);
       expect(result[0]!.clips[0]!.archived).toBe(true);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -209,7 +185,7 @@ describe("restoreSnapshotToHead", () => {
       );
 
       expect(updated.headScene).toEqual(scene1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("does not mutate the snapshot row", () =>
@@ -235,7 +211,7 @@ describe("restoreSnapshotToHead", () => {
       expect(snapshotAfter.createdAt.getTime()).toBe(
         snapshotBefore.createdAt.getTime()
       );
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("bumps diagram updatedAt on restore", () =>
@@ -257,7 +233,7 @@ describe("restoreSnapshotToHead", () => {
       expect(updated.updatedAt.getTime()).toBeGreaterThan(
         diagram.updatedAt.getTime()
       );
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent diagram", () =>
@@ -267,7 +243,7 @@ describe("restoreSnapshotToHead", () => {
         .restoreSnapshotToHead("nonexistent-id", "some-snapshot-id")
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent snapshot", () =>
@@ -279,7 +255,7 @@ describe("restoreSnapshotToHead", () => {
         .restoreSnapshotToHead(diagram.id, "nonexistent-snapshot-id")
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("is idempotent when restoring the same snapshot twice", () =>
@@ -305,7 +281,7 @@ describe("restoreSnapshotToHead", () => {
 
       expect(first.headScene).toEqual(scene1);
       expect(second.headScene).toEqual(scene1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -325,7 +301,7 @@ describe("restoreSnapshotToHead", () => {
           .restoreSnapshotToHead(d2.id, snapshot.id)
           .pipe(Effect.flip);
         expect(result._tag).toBe("NotFoundError");
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -363,7 +339,7 @@ describe("updateClipDiagramPin", () => {
       );
 
       expect(updated.diagramSnapshotId).toBe(snapshot.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("unpins a snapshot from a clip by setting null", () =>
@@ -385,7 +361,7 @@ describe("updateClipDiagramPin", () => {
       const updated = yield* diagramOps.updateClipDiagramPin(clip.id, null);
 
       expect(updated.diagramSnapshotId).toBeNull();
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("fails with NotFoundError for non-existent clip", () =>
@@ -395,7 +371,7 @@ describe("updateClipDiagramPin", () => {
         .updateClipDiagramPin("nonexistent-id", null)
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -419,7 +395,7 @@ describe("updateClipDiagramPin", () => {
 
         expect(first.diagramSnapshotId).toBe(snapshot.id);
         expect(second.diagramSnapshotId).toBe(snapshot.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -433,7 +409,7 @@ describe("updateClipDiagramPin", () => {
           .updateClipDiagramPin(clip.id, "nonexistent-snapshot-id")
           .pipe(Effect.flip);
         expect(result._tag).toBe("UnknownDBServiceError");
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -477,7 +453,7 @@ describe("createSnapshotForClip", () => {
 
       const pinnedClip = yield* clipOps.getClipById(clip.id);
       expect(pinnedClip.diagramSnapshotId).toBe(snapshot.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -505,7 +481,7 @@ describe("createSnapshotForClip", () => {
 
         const pinnedClip2 = yield* clipOps.getClipById(clip2.id);
         expect(pinnedClip2.diagramSnapshotId).toBe(snap1.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("does not flip preserved:true to false on dedup auto-pin", () =>
@@ -527,6 +503,6 @@ describe("createSnapshotForClip", () => {
 
       const pinnedClip = yield* clipOps.getClipById(clip.id);
       expect(pinnedClip.diagramSnapshotId).toBe(snapshot.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });

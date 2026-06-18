@@ -1,29 +1,9 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<PitchOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  testLayer = PitchOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(PitchOperationsService.Default);
 
 describe("effort field", () => {
   it.effect("defaults to medium (2)", () =>
@@ -31,7 +11,7 @@ describe("effort field", () => {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
       expect(pitch.effort).toBe(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("updates effort as a number", () =>
@@ -40,7 +20,7 @@ describe("effort field", () => {
       const created = yield* pitchOps.createPitch();
       const updated = yield* pitchOps.updatePitchField(created.id, "effort", 1);
       expect(updated.effort).toBe(1);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -62,7 +42,7 @@ describe("effort field", () => {
         const list = yield* pitchOps.listPitches();
         expect(list[0]!.title).toBe("P2 low-effort");
         expect(list[1]!.title).toBe("P2 high-effort");
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -84,7 +64,7 @@ describe("effort field", () => {
         const list = yield* pitchOps.listPitches();
         expect(list[0]!.title).toBe("P1 high-effort");
         expect(list[1]!.title).toBe("P3 low-effort");
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("filters by effort", () =>
@@ -105,7 +85,7 @@ describe("effort field", () => {
 
       const lowAndMed = yield* pitchOps.listPitches({ effort: [1, 2] });
       expect(lowAndMed).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("effort filter ANDs with priority and status", () =>
@@ -130,7 +110,7 @@ describe("effort field", () => {
       });
       expect(result).toHaveLength(1);
       expect(result[0]!.id).toBe(p1.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("treats empty effort array as no effort filter", () =>
@@ -144,6 +124,6 @@ describe("effort field", () => {
 
       const list = yield* pitchOps.listPitches({ effort: [] });
       expect(list).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
