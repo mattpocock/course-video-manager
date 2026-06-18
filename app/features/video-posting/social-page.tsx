@@ -185,119 +185,113 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
 
   return (
     <>
-      {/* Right panel: Social posting interface */}
-      <div className="w-3/4 flex flex-col p-6 overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
-        <div className="max-w-2xl mx-auto w-full space-y-6">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="social-caption">Caption</Label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateCaption}
-                disabled={isGeneratingCaption}
-              >
-                {isGeneratingCaption ? (
-                  <>
-                    <Loader2Icon className="h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <SparklesIcon className="h-4 w-4" />
-                    Generate
-                  </>
-                )}
-              </Button>
-            </div>
-            <Textarea
-              id="social-caption"
-              value={socialCaption}
-              onChange={(e) => setSocialCaption(e.target.value)}
-              placeholder="Enter caption for X and LinkedIn..."
-              className="min-h-[200px] resize-y"
-            />
-          </div>
-
-          {/* Post buttons */}
-          {showSocialShareButtons && (
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <Button
-                  onClick={handlePostToX}
-                  disabled={!socialCaption.trim()}
-                  className="flex-1"
-                  size="lg"
-                >
-                  <CopyIcon className="h-4 w-4" />
-                  Post to X
-                </Button>
-                <Button
-                  onClick={handlePostToLinkedIn}
-                  disabled={!socialCaption.trim()}
-                  className="flex-1"
-                  size="lg"
-                  variant="outline"
-                >
-                  <CopyIcon className="h-4 w-4" />
-                  Post to LinkedIn
-                </Button>
-              </div>
-
-              {!socialCaption.trim() && (
-                <p className="text-sm text-muted-foreground text-center">
-                  Write or generate a caption before posting.
-                </p>
+      <div className="max-w-2xl mx-auto w-full space-y-6">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="social-caption">Caption</Label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateCaption}
+              disabled={isGeneratingCaption}
+            >
+              {isGeneratingCaption ? (
+                <>
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <SparklesIcon className="h-4 w-4" />
+                  Generate
+                </>
               )}
+            </Button>
+          </div>
+          <Textarea
+            id="social-caption"
+            value={socialCaption}
+            onChange={(e) => setSocialCaption(e.target.value)}
+            placeholder="Enter caption for X and LinkedIn..."
+            className="min-h-[200px] resize-y"
+          />
+        </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                Caption will be copied to clipboard. X will pre-fill the text;
-                for LinkedIn, paste from clipboard.
-              </p>
-            </div>
-          )}
-
-          {/* Short link buttons */}
-          <div className="space-y-3 pt-2 border-t border-border">
-            <Label>Short Links</Label>
+        {showSocialShareButtons && (
+          <div className="space-y-3">
             <div className="flex gap-3">
               <Button
-                variant="outline"
-                size="sm"
+                onClick={handlePostToX}
+                disabled={!socialCaption.trim()}
                 className="flex-1"
-                onClick={() => handleCreateShortLink("X")}
-                disabled={creatingShortLink !== null}
+                size="lg"
               >
-                {creatingShortLink === "X" ? (
-                  <Loader2Icon className="h-4 w-4 animate-spin" />
-                ) : (
-                  <LinkIcon className="h-4 w-4" />
-                )}
-                X
+                <CopyIcon className="h-4 w-4" />
+                Post to X
               </Button>
               <Button
-                variant="outline"
-                size="sm"
+                onClick={handlePostToLinkedIn}
+                disabled={!socialCaption.trim()}
                 className="flex-1"
-                onClick={() => handleCreateShortLink("LinkedIn")}
-                disabled={creatingShortLink !== null}
+                size="lg"
+                variant="outline"
               >
-                {creatingShortLink === "LinkedIn" ? (
-                  <Loader2Icon className="h-4 w-4 animate-spin" />
-                ) : (
-                  <LinkIcon className="h-4 w-4" />
-                )}
-                LinkedIn
+                <CopyIcon className="h-4 w-4" />
+                Post to LinkedIn
               </Button>
             </div>
+
+            {!socialCaption.trim() && (
+              <p className="text-sm text-muted-foreground text-center">
+                Write or generate a caption before posting.
+              </p>
+            )}
+
             <p className="text-xs text-muted-foreground text-center">
-              Creates a tracked short link and copies it to clipboard.
+              Caption will be copied to clipboard. X will pre-fill the text; for
+              LinkedIn, paste from clipboard.
             </p>
           </div>
+        )}
+
+        <div className="space-y-3 pt-2 border-t border-border">
+          <Label>Short Links</Label>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => handleCreateShortLink("X")}
+              disabled={creatingShortLink !== null}
+            >
+              {creatingShortLink === "X" ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <LinkIcon className="h-4 w-4" />
+              )}
+              X
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => handleCreateShortLink("LinkedIn")}
+              disabled={creatingShortLink !== null}
+            >
+              {creatingShortLink === "LinkedIn" ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <LinkIcon className="h-4 w-4" />
+              )}
+              LinkedIn
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground text-center">
+            Creates a tracked short link and copies it to clipboard.
+          </p>
         </div>
       </div>
 
-      {/* Overwrite confirmation dialog (Social caption) */}
       <Dialog
         open={confirmOverwriteCaption}
         onOpenChange={(open) => {
