@@ -8,23 +8,19 @@ import type {
   ClipReducerAction,
   ClipReducerEffect,
   ClipReducerState,
-  ChapterOnDatabase,
-  ChapterOptimisticallyAdded,
   DatabaseId,
   FrontendInsertionPoint,
 } from "./clip-state-reducer.types";
-import { createFrontendId } from "./clip-state-reducer.types";
-import {
-  archiveClips,
-  handleAddChapterAt,
-  handleChaptersReplaced,
-} from "./clip-state-reducer.helpers";
+import { archiveClips } from "./clip-state-reducer.helpers";
 import { handleAddEffectClipAt } from "./clip-state-reducer-effect-clip-helpers";
 import {
   handleRecordingAction,
   isRecordingAction,
 } from "./clip-state-reducer-recording";
-import { insertAtPoint } from "./insert-at-point";
+import {
+  handleChapterAction,
+  isChapterAction,
+} from "./clip-state-reducer-chapters";
 
 export namespace clipStateReducer {
   export type State = ClipReducerState;
@@ -43,6 +39,10 @@ export const clipStateReducer: EffectReducer<
 ): clipStateReducer.State => {
   if (isRecordingAction(action)) {
     return handleRecordingAction(state, action, exec);
+  }
+
+  if (isChapterAction(action)) {
+    return handleChapterAction(state, action, exec);
   }
 
   switch (action.type) {
@@ -377,75 +377,6 @@ export const clipStateReducer: EffectReducer<
         items: newItems,
       };
     }
-    case "add-chapter": {
-      const newFrontendId = createFrontendId();
-      const newChapter: ChapterOptimisticallyAdded = {
-        type: "chapter-optimistically-added",
-        frontendId: newFrontendId,
-        name: action.name,
-        insertionOrder: state.insertionOrder + 1,
-      };
-
-      const { items } = insertAtPoint(
-        state.items,
-        newChapter,
-        state.insertionPoint
-      );
-
-      exec({
-        type: "create-chapter",
-        frontendId: newFrontendId,
-        name: action.name,
-        insertionPoint: state.insertionPoint,
-      });
-
-      exec({
-        type: "scroll-to-insertion-point",
-      });
-
-      return {
-        ...state,
-        items,
-        insertionOrder: state.insertionOrder + 1,
-        insertionPoint: {
-          type: "after-chapter",
-          frontendChapterId: newFrontendId,
-        },
-      };
-    }
-    case "update-chapter": {
-      const chapter = state.items.find(
-        (item) => item.frontendId === action.chapterId
-      );
-      if (
-        !chapter ||
-        (chapter.type !== "chapter-on-database" &&
-          chapter.type !== "chapter-optimistically-added")
-      ) {
-        return state;
-      }
-
-      // Only fire effect for database chapters
-      if (chapter.type === "chapter-on-database") {
-        exec({
-          type: "update-chapter",
-          chapterId: chapter.databaseId,
-          name: action.name,
-        });
-      }
-
-      return {
-        ...state,
-        items: state.items.map((item) => {
-          if (item.frontendId === action.chapterId) {
-            return { ...item, name: action.name };
-          }
-          return item;
-        }),
-      };
-    }
-    case "add-chapter-at":
-      return handleAddChapterAt(state, action, exec);
     case "add-effect-clip-at":
       return handleAddEffectClipAt(state, action, exec);
     case "effect-clip-created": {
@@ -478,29 +409,6 @@ export const clipStateReducer: EffectReducer<
         }),
       };
     }
-    case "chapter-created": {
-      return {
-        ...state,
-        items: state.items.map((item) => {
-          if (
-            item.frontendId === action.frontendId &&
-            item.type === "chapter-optimistically-added"
-          ) {
-            const onDatabase: ChapterOnDatabase = {
-              type: "chapter-on-database",
-              frontendId: item.frontendId,
-              databaseId: action.databaseId,
-              name: item.name,
-              insertionOrder: item.insertionOrder,
-            };
-            return onDatabase;
-          }
-          return item;
-        }),
-      };
-    }
-    case "chapters-replaced":
-      return handleChaptersReplaced(state, action);
     case "restore-clip": {
       const item = state.items.find((c) => c.frontendId === action.clipId);
 
