@@ -12,7 +12,10 @@ import {
   DrizzleService,
   type DrizzleDB,
 } from "@/services/drizzle-service.server";
-import { NotFoundError } from "@/services/db-service-errors";
+import {
+  NotFoundError,
+  UnknownDBServiceError,
+} from "@/services/db-service-errors";
 import { asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import {
@@ -29,7 +32,7 @@ import { sectionHasRealLessons } from "@/services/section-path-service";
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
     try: fn,
-    catch: (e) => new (class extends Error {})(String(e)),
+    catch: (e) => new UnknownDBServiceError({ cause: e }),
   });
 
 const loadCourseForVfs = (

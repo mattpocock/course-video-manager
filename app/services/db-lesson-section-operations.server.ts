@@ -177,7 +177,15 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
     }[];
     repoVersionId: string;
   }) {
+    const seen = new Set<string>();
     for (const section of newSections) {
+      if (seen.has(section.sectionPathWithNumber)) {
+        return yield* new SectionPathTakenError({
+          path: section.sectionPathWithNumber,
+          message: `Section name "${section.sectionPathWithNumber}" is already taken in this version`,
+        });
+      }
+      seen.add(section.sectionPathWithNumber);
       yield* assertSectionPathAvailable(
         repoVersionId,
         section.sectionPathWithNumber
@@ -207,7 +215,15 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
       lessonNumber: number;
     }[]
   ) {
+    const seen = new Set<string>();
     for (const lesson of newLessons) {
+      if (seen.has(lesson.lessonPathWithNumber)) {
+        return yield* new LessonPathTakenError({
+          path: lesson.lessonPathWithNumber,
+          message: `Lesson name "${lesson.lessonPathWithNumber}" is already taken in this section`,
+        });
+      }
+      seen.add(lesson.lessonPathWithNumber);
       yield* assertLessonPathAvailable(sectionId, lesson.lessonPathWithNumber);
     }
 

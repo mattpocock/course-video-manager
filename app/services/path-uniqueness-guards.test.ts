@@ -399,3 +399,45 @@ describe("video path uniqueness guard", () => {
     }).pipe(Effect.provide(testLayer))
   );
 });
+
+describe("intra-batch collision guard", () => {
+  it.effect("rejects duplicate section paths within a single batch", () =>
+    Effect.gen(function* () {
+      const { versionId } = yield* Effect.promise(createCourseAndVersion);
+      const lessonSectionOps = yield* LessonSectionOperationsService;
+
+      const error = yield* lessonSectionOps
+        .createSections({
+          repoVersionId: versionId,
+          sections: [
+            { sectionPathWithNumber: "intro", sectionNumber: 1 },
+            { sectionPathWithNumber: "intro", sectionNumber: 2 },
+          ],
+        })
+        .pipe(Effect.flip);
+
+      expect(error._tag).toBe("SectionPathTakenError");
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("rejects duplicate lesson paths within a single batch", () =>
+    Effect.gen(function* () {
+      const { versionId } = yield* Effect.promise(createCourseAndVersion);
+      const lessonSectionOps = yield* LessonSectionOperationsService;
+
+      const [section] = yield* lessonSectionOps.createSections({
+        repoVersionId: versionId,
+        sections: [{ sectionPathWithNumber: "intro", sectionNumber: 1 }],
+      });
+
+      const error = yield* lessonSectionOps
+        .createLessons(section!.id, [
+          { lessonPathWithNumber: "lesson-a", lessonNumber: 1 },
+          { lessonPathWithNumber: "lesson-a", lessonNumber: 2 },
+        ])
+        .pipe(Effect.flip);
+
+      expect(error._tag).toBe("LessonPathTakenError");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
