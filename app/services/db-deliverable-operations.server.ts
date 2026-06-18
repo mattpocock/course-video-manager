@@ -10,13 +10,10 @@ import {
 import { UnknownDBServiceError } from "@/services/db-service-errors";
 import { asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createDeliverableOperations = (db: DrizzleDB) => {
   const listDeliverables = Effect.fn("listDeliverables")(function* () {
@@ -39,7 +36,7 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
     courseIds?: string[];
     pitchIds?: string[];
   }) {
-    const results = yield* makeDbCall(() =>
+    const deliverable = yield* dbMutateReturning(() =>
       db
         .insert(deliverables)
         .values({
@@ -49,14 +46,6 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    const deliverable = results[0];
-
-    if (!deliverable) {
-      return yield* new UnknownDBServiceError({
-        cause: "No deliverable was returned from the database",
-      });
-    }
 
     if (input.courseIds && input.courseIds.length > 0) {
       yield* makeDbCall(() =>
@@ -88,23 +77,13 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
       id: string;
       status: "planned" | "done" | "cancelled";
     }) {
-      const results = yield* makeDbCall(() =>
+      return yield* dbMutateReturning(() =>
         db
           .update(deliverables)
           .set({ status: input.status, updatedAt: new Date() })
           .where(eq(deliverables.id, input.id))
           .returning()
       );
-
-      const deliverable = results[0];
-
-      if (!deliverable) {
-        return yield* new UnknownDBServiceError({
-          cause: "Deliverable not found",
-        });
-      }
-
-      return deliverable;
     }
   );
 
@@ -117,7 +96,7 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
     courseIds?: string[];
     pitchIds?: string[];
   }) {
-    const results = yield* makeDbCall(() =>
+    const deliverable = yield* dbMutateReturning(() =>
       db
         .update(deliverables)
         .set({
@@ -130,14 +109,6 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
         .where(eq(deliverables.id, input.id))
         .returning()
     );
-
-    const deliverable = results[0];
-
-    if (!deliverable) {
-      return yield* new UnknownDBServiceError({
-        cause: "Deliverable not found",
-      });
-    }
 
     if (input.courseIds !== undefined) {
       yield* makeDbCall(() =>
@@ -201,7 +172,7 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
     const dd = String(dt.getDate()).padStart(2, "0");
     const newDate = `${yy}-${mm}-${dd}`;
 
-    const inserted = yield* makeDbCall(() =>
+    const created = yield* dbMutateReturning(() =>
       db
         .insert(deliverables)
         .values({
@@ -212,36 +183,19 @@ export const createDeliverableOperations = (db: DrizzleDB) => {
         .returning()
     );
 
-    const created = inserted[0];
-    if (!created) {
-      return yield* new UnknownDBServiceError({
-        cause: "No deliverable was returned from the database",
-      });
-    }
-
     return { created };
   });
 
   const archiveDeliverable = Effect.fn("archiveDeliverable")(function* (
     id: string
   ) {
-    const results = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .update(deliverables)
         .set({ archived: true, updatedAt: new Date() })
         .where(eq(deliverables.id, id))
         .returning()
     );
-
-    const deliverable = results[0];
-
-    if (!deliverable) {
-      return yield* new UnknownDBServiceError({
-        cause: "Deliverable not found",
-      });
-    }
-
-    return deliverable;
   });
 
   return {

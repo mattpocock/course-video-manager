@@ -3,42 +3,28 @@ import {
   type DrizzleDB,
 } from "@/services/drizzle-service.server";
 import { lessons, sections, videos } from "@/db/schema";
-import {
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 import { statusForCreateLesson } from "./lesson-authoring-status";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+} from "@/services/db-query-primitives.server";
 
 export const createLessonSectionOperations = (db: DrizzleDB) => {
   const getLessonById = Effect.fn("getLessonById")(function* (id: string) {
-    const lesson = yield* makeDbCall(() =>
-      db.query.lessons.findFirst({
-        where: eq(lessons.id, id),
-        with: {
-          videos: {
-            orderBy: asc(videos.path),
+    return yield* dbQueryFirst(
+      () =>
+        db.query.lessons.findFirst({
+          where: eq(lessons.id, id),
+          with: {
+            videos: {
+              orderBy: asc(videos.path),
+            },
           },
-        },
-      })
+        }),
+      { type: "getLessonById", params: { id } }
     );
-
-    if (!lesson) {
-      return yield* new NotFoundError({
-        type: "getLessonById",
-        params: { id },
-      });
-    }
-
-    return lesson;
   });
 
   const getLessonsBySectionId = Effect.fn("getLessonsBySectionId")(function* (
@@ -57,57 +43,43 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
 
   const getLessonWithHierarchyById = Effect.fn("getLessonWithHierarchyById")(
     function* (id: string) {
-      const lesson = yield* makeDbCall(() =>
-        db.query.lessons.findFirst({
-          where: eq(lessons.id, id),
-          with: {
-            section: {
-              with: {
-                repoVersion: {
-                  with: {
-                    repo: true,
+      return yield* dbQueryFirst(
+        () =>
+          db.query.lessons.findFirst({
+            where: eq(lessons.id, id),
+            with: {
+              section: {
+                with: {
+                  repoVersion: {
+                    with: {
+                      repo: true,
+                    },
                   },
                 },
               },
             },
-          },
-        })
+          }),
+        { type: "getLessonWithHierarchyById", params: { id } }
       );
-
-      if (!lesson) {
-        return yield* new NotFoundError({
-          type: "getLessonWithHierarchyById",
-          params: { id },
-        });
-      }
-
-      return lesson;
     }
   );
 
   const getSectionWithHierarchyById = Effect.fn("getSectionWithHierarchyById")(
     function* (id: string) {
-      const section = yield* makeDbCall(() =>
-        db.query.sections.findFirst({
-          where: eq(sections.id, id),
-          with: {
-            repoVersion: {
-              with: {
-                repo: true,
+      return yield* dbQueryFirst(
+        () =>
+          db.query.sections.findFirst({
+            where: eq(sections.id, id),
+            with: {
+              repoVersion: {
+                with: {
+                  repo: true,
+                },
               },
             },
-          },
-        })
+          }),
+        { type: "getSectionWithHierarchyById", params: { id } }
       );
-
-      if (!section) {
-        return yield* new NotFoundError({
-          type: "getSectionWithHierarchyById",
-          params: { id },
-        });
-      }
-
-      return section;
     }
   );
 

@@ -3,12 +3,13 @@ import {
   type DrizzleDB,
 } from "@/services/drizzle-service.server";
 import { clips, pitches, segments, videos } from "@/db/schema";
-import {
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export type PitchState = "idle" | "scheduled" | "shipped";
 
@@ -19,13 +20,6 @@ export function derivePitchState(deliverableStatuses: string[]): PitchState {
   );
   return allTerminal ? "shipped" : "scheduled";
 }
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
 
 export const createPitchOperations = (db: DrizzleDB) => {
   const buildPitchFilters = (filters?: {
@@ -44,19 +38,9 @@ export const createPitchOperations = (db: DrizzleDB) => {
   };
 
   const createPitch = Effect.fn("createPitch")(function* () {
-    const results = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db.insert(pitches).values({}).returning()
     );
-
-    const pitch = results[0];
-
-    if (!pitch) {
-      return yield* new UnknownDBServiceError({
-        cause: "No pitch was returned from the database",
-      });
-    }
-
-    return pitch;
   });
 
   const listPitches = Effect.fn("listPitches")(function* (filters?: {
@@ -151,66 +135,54 @@ export const createPitchOperations = (db: DrizzleDB) => {
   );
 
   const getPitch = Effect.fn("getPitch")(function* (id: string) {
-    const pitch = yield* makeDbCall(() =>
-      db.query.pitches.findFirst({
-        where: eq(pitches.id, id),
-      })
+    return yield* dbQueryFirst(
+      () =>
+        db.query.pitches.findFirst({
+          where: eq(pitches.id, id),
+        }),
+      { type: "getPitch", params: { id } }
     );
-
-    if (!pitch) {
-      return yield* new NotFoundError({
-        type: "getPitch",
-        params: { id },
-      });
-    }
-
-    return pitch;
   });
 
   const getPitchWithVideos = Effect.fn("getPitchWithVideos")(function* (
     id: string
   ) {
-    const pitch = yield* makeDbCall(() =>
-      db.query.pitches.findFirst({
-        where: eq(pitches.id, id),
-        with: {
-          videos: {
-            where: eq(videos.archived, false),
-            with: {
-              clips: {
-                orderBy: asc(clips.order),
-                where: eq(clips.archived, false),
-              },
-              segments: {
-                columns: {
-                  id: true,
-                  kind: true,
-                  title: true,
-                  description: true,
-                  order: true,
-                  videoId: true,
+    const pitch = yield* dbQueryFirst(
+      () =>
+        db.query.pitches.findFirst({
+          where: eq(pitches.id, id),
+          with: {
+            videos: {
+              where: eq(videos.archived, false),
+              with: {
+                clips: {
+                  orderBy: asc(clips.order),
+                  where: eq(clips.archived, false),
                 },
-                orderBy: asc(segments.order),
+                segments: {
+                  columns: {
+                    id: true,
+                    kind: true,
+                    title: true,
+                    description: true,
+                    order: true,
+                    videoId: true,
+                  },
+                  orderBy: asc(segments.order),
+                },
+              },
+            },
+            deliverablesPitches: {
+              with: {
+                deliverable: {
+                  columns: { status: true },
+                },
               },
             },
           },
-          deliverablesPitches: {
-            with: {
-              deliverable: {
-                columns: { status: true },
-              },
-            },
-          },
-        },
-      })
+        }),
+      { type: "getPitchWithVideos", params: { id } }
     );
-
-    if (!pitch) {
-      return yield* new NotFoundError({
-        type: "getPitchWithVideos",
-        params: { id },
-      });
-    }
 
     const { deliverablesPitches: dpLinks, ...rest } = pitch;
     const statuses = dpLinks.map((dp) => dp.deliverable.status);
@@ -222,43 +194,29 @@ export const createPitchOperations = (db: DrizzleDB) => {
     field: string,
     value: string | number | boolean
   ) {
-    const results = yield* makeDbCall(() =>
-      db
-        .update(pitches)
-        .set({ [field]: value, updatedAt: new Date() })
-        .where(eq(pitches.id, id))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(pitches)
+          .set({ [field]: value, updatedAt: new Date() })
+          .where(eq(pitches.id, id))
+          .returning(),
+      { type: "updatePitchField", params: { id, field } }
     );
-
-    const pitch = results[0];
-
-    if (!pitch) {
-      return yield* new NotFoundError({
-        type: "updatePitchField",
-        params: { id, field },
-      });
-    }
-
-    return pitch;
   });
 
   const createVideoFromPitch = Effect.fn("createVideoFromPitch")(function* (
     pitchId: string
   ) {
-    const pitch = yield* makeDbCall(() =>
-      db.query.pitches.findFirst({
-        where: eq(pitches.id, pitchId),
-      })
+    const pitch = yield* dbQueryFirst(
+      () =>
+        db.query.pitches.findFirst({
+          where: eq(pitches.id, pitchId),
+        }),
+      { type: "createVideoFromPitch", params: { pitchId } }
     );
 
-    if (!pitch) {
-      return yield* new NotFoundError({
-        type: "createVideoFromPitch",
-        params: { pitchId },
-      });
-    }
-
-    const results = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(videos)
         .values({
@@ -269,16 +227,6 @@ export const createPitchOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    const video = results[0];
-
-    if (!video) {
-      return yield* new UnknownDBServiceError({
-        cause: "No video was returned from the database",
-      });
-    }
-
-    return video;
   });
 
   const deletePitch = Effect.fn("deletePitch")(function* (id: string) {
