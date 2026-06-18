@@ -137,9 +137,9 @@ describe("loadVideoPostingContext", () => {
 
         setupStandaloneDir(video.id);
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.transcriptWordCount).toBe(10);
+        expect(postingCtx.transcriptWordCount).toBe(10);
       }).pipe(Effect.provide(ctx.testLayer))
     );
   });
@@ -163,15 +163,15 @@ describe("loadVideoPostingContext", () => {
 
         setupStandaloneDir(video.id);
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.chapters).toHaveLength(2);
-        expect(ctx.chapters[0]!.name).toBe("Chapter A");
+        expect(postingCtx.chapters).toHaveLength(2);
+        expect(postingCtx.chapters[0]!.name).toBe("Chapter A");
         // "four five" (2) + "six seven eight nine" (4) = 6
-        expect(ctx.chapters[0]!.wordCount).toBe(6);
-        expect(ctx.chapters[1]!.name).toBe("Chapter B");
+        expect(postingCtx.chapters[0]!.wordCount).toBe(6);
+        expect(postingCtx.chapters[1]!.name).toBe("Chapter B");
         // "ten eleven twelve" (3)
-        expect(ctx.chapters[1]!.wordCount).toBe(3);
+        expect(postingCtx.chapters[1]!.wordCount).toBe(3);
       }).pipe(Effect.provide(ctx.testLayer))
     );
   });
@@ -188,20 +188,20 @@ describe("loadVideoPostingContext", () => {
         nodeFs.writeFileSync(path.join(dir, "image.png"), "fake-png-data");
         nodeFs.writeFileSync(path.join(dir, "notes.md"), "# Notes");
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.isStandalone).toBe(true);
-        expect(ctx.files).toHaveLength(3);
+        expect(postingCtx.isStandalone).toBe(true);
+        expect(postingCtx.files).toHaveLength(3);
 
-        const tsFile = ctx.files.find((f) => f.path === "code.ts");
+        const tsFile = postingCtx.files.find((f) => f.path === "code.ts");
         expect(tsFile).toBeDefined();
         expect(tsFile!.defaultEnabled).toBe(true);
 
-        const pngFile = ctx.files.find((f) => f.path === "image.png");
+        const pngFile = postingCtx.files.find((f) => f.path === "image.png");
         expect(pngFile).toBeDefined();
         expect(pngFile!.defaultEnabled).toBe(false);
 
-        const mdFile = ctx.files.find((f) => f.path === "notes.md");
+        const mdFile = postingCtx.files.find((f) => f.path === "notes.md");
         expect(mdFile).toBeDefined();
         expect(mdFile!.defaultEnabled).toBe(true);
       }).pipe(Effect.provide(ctx.testLayer))
@@ -213,10 +213,10 @@ describe("loadVideoPostingContext", () => {
           "text",
         ]);
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.isStandalone).toBe(true);
-        expect(ctx.files).toEqual([]);
+        expect(postingCtx.isStandalone).toBe(true);
+        expect(postingCtx.files).toEqual([]);
       }).pipe(Effect.provide(ctx.testLayer))
     );
   });
@@ -238,20 +238,22 @@ describe("loadVideoPostingContext", () => {
             );
           });
 
-          const ctx = yield* loadVideoPostingContext(video.id);
+          const postingCtx = yield* loadVideoPostingContext(video.id);
 
-          expect(ctx.isStandalone).toBe(false);
-          expect(ctx.files.length).toBeGreaterThan(0);
+          expect(postingCtx.isStandalone).toBe(false);
+          expect(postingCtx.files.length).toBeGreaterThan(0);
 
-          const tsFile = ctx.files.find((f) => f.path === "index.ts");
+          const tsFile = postingCtx.files.find((f) => f.path === "index.ts");
           expect(tsFile).toBeDefined();
           expect(tsFile!.defaultEnabled).toBe(true);
 
-          const readmeFile = ctx.files.find((f) => f.path === "readme.md");
+          const readmeFile = postingCtx.files.find(
+            (f) => f.path === "readme.md"
+          );
           expect(readmeFile).toBeDefined();
           expect(readmeFile!.defaultEnabled).toBe(false);
 
-          const nodeModulesFile = ctx.files.find((f) =>
+          const nodeModulesFile = postingCtx.files.find((f) =>
             f.path.includes("node_modules")
           );
           expect(nodeModulesFile).toBeUndefined();
@@ -275,17 +277,19 @@ describe("loadVideoPostingContext", () => {
             order: 2,
           });
 
-          const ctx = yield* loadVideoPostingContext(video.id);
+          const postingCtx = yield* loadVideoPostingContext(video.id);
 
-          expect(ctx.courseStructure).not.toBeNull();
-          expect(ctx.courseStructure!.repoName).toBe("test-course");
-          expect(ctx.courseStructure!.currentSectionPath).toBe("001-intro");
-          expect(ctx.courseStructure!.currentLessonPath).toBe(
+          expect(postingCtx.courseStructure).not.toBeNull();
+          expect(postingCtx.courseStructure!.repoName).toBe("test-course");
+          expect(postingCtx.courseStructure!.currentSectionPath).toBe(
+            "001-intro"
+          );
+          expect(postingCtx.courseStructure!.currentLessonPath).toBe(
             "001-getting-started"
           );
-          expect(ctx.courseStructure!.sections).toHaveLength(1);
+          expect(postingCtx.courseStructure!.sections).toHaveLength(1);
 
-          const sectionResult = ctx.courseStructure!.sections[0]!;
+          const sectionResult = postingCtx.courseStructure!.sections[0]!;
           const realLessons = sectionResult.lessons.filter(
             (l) => l.path === "001-getting-started"
           );
@@ -305,9 +309,9 @@ describe("loadVideoPostingContext", () => {
 
         setupStandaloneDir(video.id);
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.courseStructure).toBeNull();
+        expect(postingCtx.courseStructure).toBeNull();
       }).pipe(Effect.provide(ctx.testLayer))
     );
   });
@@ -322,10 +326,10 @@ describe("loadVideoPostingContext", () => {
 
         setupStandaloneDir(video.id);
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.transcriptWordCount).toBe(0);
-        expect(ctx.chapters).toEqual([]);
+        expect(postingCtx.transcriptWordCount).toBe(0);
+        expect(postingCtx.chapters).toEqual([]);
       }).pipe(Effect.provide(ctx.testLayer))
     );
   });
@@ -339,9 +343,9 @@ describe("loadVideoPostingContext", () => {
 
         setupStandaloneDir(video.id);
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.pitchId).toBeNull();
+        expect(postingCtx.pitchId).toBeNull();
       }).pipe(Effect.provide(ctx.testLayer))
     );
 
@@ -351,9 +355,9 @@ describe("loadVideoPostingContext", () => {
           nodeFs.writeFileSync(path.join(lessonDir, "index.ts"), "export {}");
         });
 
-        const ctx = yield* loadVideoPostingContext(video.id);
+        const postingCtx = yield* loadVideoPostingContext(video.id);
 
-        expect(ctx.pitchId).toBeNull();
+        expect(postingCtx.pitchId).toBeNull();
       }).pipe(Effect.provide(ctx.testLayer))
     );
   });
