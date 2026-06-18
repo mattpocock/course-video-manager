@@ -12,18 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { FrontendId } from "../clip-state-reducer";
 
-/**
- * ClipTimeline component displays the main timeline of clips and chapters.
- *
- * Handles rendering:
- * - Pre-recording checklist (when no clips exist)
- * - Insertion point indicators (start/end/after-clip positions)
- * - Chapters (with full interactivity)
- * - Clips (with full interactivity)
- * - Beat indicators between clips
- */
 export const ClipTimeline = () => {
-  // Use context selectors for state needed by this component
   const items = useContextSelector(VideoEditorContext, (ctx) => ctx.items);
   const clips = useContextSelector(VideoEditorContext, (ctx) => ctx.clips);
   const insertionPoint = useContextSelector(
@@ -63,20 +52,13 @@ export const ClipTimeline = () => {
     (ctx) => ctx.onOpenCreateChapterModal
   );
 
-  /**
-   * When the insertion point references an optimistic clip (filtered out of
-   * `items`), compute the frontendId of the last non-optimistic item that
-   * appears before it in the full item list. This is the "visual anchor" —
-   * the filtered timeline item after which we render InsertionPointWithSession.
-   * Returns null when the insertion point is at the start/end or already
-   * references a clip present in the filtered timeline.
-   */
+  // When the insertion point references an optimistic clip (not in `items`),
+  // find the last non-optimistic item before it as the rendering anchor.
   const visualAnchorId = useMemo((): FrontendId | null => {
     if (insertionPoint.type !== "after-clip") return null;
     if (items.some((item) => item.frontendId === insertionPoint.frontendClipId))
       return null;
 
-    // Insertion point references an item not in filtered timeline (optimistic clip)
     const optIndex = allItems.findIndex(
       (i) => i.frontendId === insertionPoint.frontendClipId
     );
@@ -118,7 +100,6 @@ export const ClipTimeline = () => {
               const isFirstItem = itemIndex === 0;
               const isLastItem = itemIndex === items.length - 1;
 
-              // Render chapter divider
               if (isChapter(item)) {
                 return (
                   <div key={item.frontendId}>
@@ -149,7 +130,6 @@ export const ClipTimeline = () => {
                 );
               }
 
-              // Render clip
               const clip = item;
               const computedProps = clipComputedProps.get(clip.frontendId);
               const timecode = computedProps?.timecode ?? "";
@@ -176,9 +156,7 @@ export const ClipTimeline = () => {
                       );
                     }}
                   />
-                  {/* Beat indicator dots below clip */}
                   {clip.beatType === "long" && <BeatIndicator />}
-                  {/* Render insertion point after this clip when it is the direct or visual anchor */}
                   {((insertionPoint.type === "after-clip" &&
                     insertionPoint.frontendClipId === clip.frontendId) ||
                     visualAnchorId === clip.frontendId) && (
@@ -188,9 +166,6 @@ export const ClipTimeline = () => {
               );
             })}
 
-            {/* When insertion point references an optimistic clip with no preceding
-                non-optimistic item, show at top (handled by start case above) or
-                fall back to end if visual anchor is null and clip not found */}
             {insertionPoint.type === "after-clip" &&
               !items.some(
                 (item) => item.frontendId === insertionPoint.frontendClipId
@@ -205,7 +180,6 @@ export const ClipTimeline = () => {
           <InsertionPointWithSession />
         )}
 
-        {/* Inline suggestion display at the bottom of the timeline */}
         <InlineSuggestion />
       </div>
     </div>
