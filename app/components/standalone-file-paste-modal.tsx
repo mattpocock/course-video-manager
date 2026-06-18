@@ -183,7 +183,7 @@ export function StandaloneFilePasteModal(props: {
                 <Label>Pasted Content</Label>
                 <div className="border rounded-lg p-4 bg-muted/50 overflow-hidden">
                   {pastedContent.type === "text" ? (
-                    <pre className="text-sm whitespace-pre-wrap break-all max-h-48 overflow-y-auto font-mono">
+                    <pre className="text-sm whitespace-pre-wrap break-words max-h-48 overflow-y-auto font-mono">
                       {pastedContent.data}
                     </pre>
                   ) : (
