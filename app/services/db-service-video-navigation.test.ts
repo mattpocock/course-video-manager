@@ -1,30 +1,10 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<VideoOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  testLayer = VideoOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(VideoOperationsService.Default);
 
 const buildCourseFixture = async (
   sections: Array<{
@@ -39,12 +19,12 @@ const buildCourseFixture = async (
     }>;
   }>
 ) => {
-  const [course] = await testDb
+  const [course] = await ctx.db
     .insert(schema.courses)
     .values({ name: "Test Course", filePath: "/tmp/test-repo" })
     .returning();
 
-  const [version] = await testDb
+  const [version] = await ctx.db
     .insert(schema.courseVersions)
     .values({ repoId: course!.id, name: "v1" })
     .returning();
@@ -52,7 +32,7 @@ const buildCourseFixture = async (
   const allVideos: Array<{ id: string; path: string; lessonId: string }> = [];
 
   for (const sectionDef of sections) {
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({
         repoVersionId: version!.id,
@@ -63,7 +43,7 @@ const buildCourseFixture = async (
 
     for (const lessonDef of sectionDef.lessons) {
       const fsStatus = lessonDef.fsStatus ?? "real";
-      const [lesson] = await testDb
+      const [lesson] = await ctx.db
         .insert(schema.lessons)
         .values({
           sectionId: section!.id,
@@ -76,7 +56,7 @@ const buildCourseFixture = async (
         .returning();
 
       for (const videoDef of lessonDef.videos) {
-        const [video] = await testDb
+        const [video] = await ctx.db
           .insert(schema.videos)
           .values({
             lessonId: lesson!.id,
@@ -110,7 +90,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const nextId = yield* vOps.getNextVideoId(fetched);
         expect(nextId).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("returns null for previous when video has no lesson", () =>
@@ -123,7 +103,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const prevId = yield* vOps.getPreviousVideoId(fetched);
         expect(prevId).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -158,7 +138,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const nextId = yield* vOps.getNextVideoId(fetched);
         expect(nextId).toBe(videoC.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("returns previous video in same lesson sorted by path", () =>
@@ -191,7 +171,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const prevId = yield* vOps.getPreviousVideoId(fetched);
         expect(prevId).toBe(videoA.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 
@@ -230,7 +210,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
           const nextId = yield* vOps.getNextVideoId(fetched);
           expect(nextId).toBe(videoB.id);
-        }).pipe(Effect.provide(testLayer))
+        }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect(
@@ -267,7 +247,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
           const prevId = yield* vOps.getPreviousVideoId(fetched);
           expect(prevId).toBe(videoB.id);
-        }).pipe(Effect.provide(testLayer))
+        }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("skips ghost lessons when navigating next", () =>
@@ -309,7 +289,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const nextId = yield* vOps.getNextVideoId(fetched);
         expect(nextId).toBe(videoB.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("crosses section boundaries", () =>
@@ -356,7 +336,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fetchedB = yield* vOps.getVideoWithClipsById(videoB.id);
         const prevId = yield* vOps.getPreviousVideoId(fetchedB);
         expect(prevId).toBe(videoA.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("returns null for next at last video in course", () =>
@@ -384,7 +364,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const nextId = yield* vOps.getNextVideoId(fetched);
         expect(nextId).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("returns null for previous at first video in course", () =>
@@ -412,7 +392,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const prevId = yield* vOps.getPreviousVideoId(fetched);
         expect(prevId).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
 
     it.effect("skips archived videos in next lesson", () =>
@@ -453,7 +433,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
 
         const nextId = yield* vOps.getNextVideoId(fetched);
         expect(nextId).toBe(videoC.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
     );
   });
 });
@@ -469,7 +449,7 @@ describe("getNextLessonWithoutVideo", () => {
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
       expect(result).toBeNull();
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns next lesson in same section that has no videos", () =>
@@ -506,7 +486,7 @@ describe("getNextLessonWithoutVideo", () => {
       expect(result!.lessonPath).toBe("lesson-02");
       expect(result!.sectionPath).toBe("section-01");
       expect(result!.repoFilePath).toBe("/tmp/test-repo");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns null when all subsequent lessons have videos", () =>
@@ -540,7 +520,7 @@ describe("getNextLessonWithoutVideo", () => {
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
       expect(result).toBeNull();
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("finds empty lesson in a subsequent section", () =>
@@ -588,7 +568,7 @@ describe("getNextLessonWithoutVideo", () => {
       expect(result).not.toBeNull();
       expect(result!.lessonPath).toBe("lesson-03");
       expect(result!.sectionPath).toBe("section-02");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -618,7 +598,7 @@ describe("getNextLessonWithoutVideo", () => {
 
         const result = yield* vOps.getNextLessonWithoutVideo(fetched);
         expect(result).toBeNull();
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("skips lessons with videos to find first empty one", () =>
@@ -659,7 +639,7 @@ describe("getNextLessonWithoutVideo", () => {
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
       expect(result).not.toBeNull();
       expect(result!.lessonPath).toBe("lesson-03");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("treats lesson with only archived videos as having no videos", () =>
@@ -695,6 +675,6 @@ describe("getNextLessonWithoutVideo", () => {
       expect(result).not.toBeNull();
       expect(result!.lessonPath).toBe("lesson-02");
       expect(result!.sectionPath).toBe("section-01");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });

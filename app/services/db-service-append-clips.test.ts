@@ -1,28 +1,15 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { beforeEach } from "vitest";
+import { Effect } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { sortByOrder } from "@/lib/sort-by-order";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<ClipOperationsService | VideoOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  testLayer = Layer.mergeAll(
-    ClipOperationsService.Default,
-    VideoOperationsService.Default
-  ).pipe(Layer.provide(Layer.succeed(DrizzleService, testDb as any)));
-});
+const ctx = setupEffectTest(
+  ClipOperationsService.Default,
+  VideoOperationsService.Default
+);
 
 type InsertionPoint =
   | { type: "start" }
@@ -79,12 +66,15 @@ describe("appendClips", () => {
 
   beforeEach(async () => {
     clipCounter = 0;
-    await truncateAllTables(testDb);
 
-    const video = await Effect.gen(function* () {
-      const videoOps = yield* VideoOperationsService;
-      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
-    }).pipe(Effect.provide(testLayer), Effect.runPromise);
+    const video = await ctx.run(
+      Effect.gen(function* () {
+        const videoOps = yield* VideoOperationsService;
+        return yield* videoOps.createStandaloneVideo({
+          path: "test-video.mp4",
+        });
+      })
+    );
     videoId = video.id;
   });
 
@@ -113,7 +103,7 @@ describe("appendClips", () => {
         { type: "clip", id: expect.any(String) }, // New clip
         { type: "clip", id: clipB.id },
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("inserts after a clip (with section following)", () =>
@@ -141,7 +131,7 @@ describe("appendClips", () => {
         { type: "chapter", id: section.id },
         { type: "clip", id: clipB.id },
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("inserts at start", () =>
@@ -161,7 +151,7 @@ describe("appendClips", () => {
         { type: "chapter", id: section.id },
         { type: "clip", id: clipA.id },
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("inserts after a chapter at end of timeline", () =>
@@ -184,7 +174,7 @@ describe("appendClips", () => {
         { type: "chapter", id: section.id },
         { type: "clip", id: expect.any(String) }, // New clip
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("inserts multiple clips after a section", () =>
@@ -206,7 +196,7 @@ describe("appendClips", () => {
       expect(items[2]!.type).toBe("clip");
       expect(items[3]!.type).toBe("clip");
       expect(items[4]!.type).toBe("clip");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -251,7 +241,7 @@ describe("appendClips", () => {
           { type: "clip", id: clip2.id },
           { type: "clip", id: clip3.id },
         ]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -292,7 +282,7 @@ describe("appendClips", () => {
           { type: "clip", id: clipC.id },
           { type: "clip", id: clipD.id },
         ]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -326,7 +316,7 @@ describe("appendClips", () => {
         expect(items[0]!.id).toBe(clipA.id);
         expect(items[1]!.id).toBe(clipB.id);
         expect(items[3]!.id).toBe(section.id);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -364,7 +354,7 @@ describe("appendClips", () => {
           { type: "clip", id: clip3.id },
           { type: "clip", id: clip4.id },
         ]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -431,6 +421,6 @@ describe("appendClips", () => {
           { type: "clip", id: c5.id },
           { type: "clip", id: c6.id },
         ]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 });

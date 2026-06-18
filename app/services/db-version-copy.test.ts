@@ -1,50 +1,29 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { describe, it, expect } from "vitest";
+import { Effect } from "effect";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<VersionOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-  testLayer = VersionOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
-
-const run = <A, E>(eff: Effect.Effect<A, E, VersionOperationsService>) =>
-  Effect.runPromise(eff.pipe(Effect.provide(testLayer)));
+const ctx = setupEffectTest(VersionOperationsService.Default);
 
 describe("copyVersionStructure", () => {
   it("preserves lesson icon (type) when copying a version", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Test Course", filePath: "/tmp/test" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
       .returning();
 
-    await testDb.insert(schema.lessons).values({
+    await ctx.db.insert(schema.lessons).values({
       sectionId: section!.id,
       path: "01-intro/01-lesson",
       order: 1,
@@ -54,7 +33,7 @@ describe("copyVersionStructure", () => {
       authoringStatus: "done",
     });
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const versionOps = yield* VersionOperationsService;
         return yield* versionOps.copyVersionStructure({
@@ -65,7 +44,7 @@ describe("copyVersionStructure", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: { lessons: true },
     });
@@ -76,24 +55,24 @@ describe("copyVersionStructure", () => {
   });
 
   it("preserves section description when copying a version", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Test Course 2", filePath: "/tmp/test2" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    await testDb.insert(schema.sections).values({
+    await ctx.db.insert(schema.sections).values({
       repoVersionId: version!.id,
       path: "01-intro",
       order: 1,
       description: "This is a section description",
     });
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const versionOps = yield* VersionOperationsService;
         return yield* versionOps.copyVersionStructure({
@@ -104,7 +83,7 @@ describe("copyVersionStructure", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
     });
 
@@ -113,18 +92,18 @@ describe("copyVersionStructure", () => {
   });
 
   it("skips archived sections when copying a version", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Archive Copy Test", filePath: "/tmp/archive-copy" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
     // One active section, one archived
-    await testDb.insert(schema.sections).values([
+    await ctx.db.insert(schema.sections).values([
       { repoVersionId: version!.id, path: "01-active", order: 1 },
       {
         repoVersionId: version!.id,
@@ -134,7 +113,7 @@ describe("copyVersionStructure", () => {
       },
     ]);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const versionOps = yield* VersionOperationsService;
         return yield* versionOps.copyVersionStructure({
@@ -145,7 +124,7 @@ describe("copyVersionStructure", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
     });
 
@@ -154,7 +133,7 @@ describe("copyVersionStructure", () => {
   });
 
   it("skips archived lessons when copying a version", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({
         name: "Archived Lesson Copy Test",
@@ -162,17 +141,17 @@ describe("copyVersionStructure", () => {
       })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
       .returning();
 
-    await testDb.insert(schema.lessons).values([
+    await ctx.db.insert(schema.lessons).values([
       {
         sectionId: section!.id,
         path: "01.01-active",
@@ -192,7 +171,7 @@ describe("copyVersionStructure", () => {
       },
     ]);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const versionOps = yield* VersionOperationsService;
         return yield* versionOps.copyVersionStructure({
@@ -203,7 +182,7 @@ describe("copyVersionStructure", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: { lessons: true },
     });
@@ -214,22 +193,22 @@ describe("copyVersionStructure", () => {
   });
 
   it("preserves lesson authoringStatus when copying a version", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "AuthoringStatus Copy", filePath: "/tmp/authoring" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
       .returning();
 
-    await testDb.insert(schema.lessons).values([
+    await ctx.db.insert(schema.lessons).values([
       {
         sectionId: section!.id,
         path: "01-lesson",
@@ -255,7 +234,7 @@ describe("copyVersionStructure", () => {
       },
     ]);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const versionOps = yield* VersionOperationsService;
         return yield* versionOps.copyVersionStructure({
@@ -266,7 +245,7 @@ describe("copyVersionStructure", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: { lessons: { orderBy: (l, { asc }) => asc(l.order) } },
     });
@@ -278,23 +257,23 @@ describe("copyVersionStructure", () => {
   });
 
   it("rejects a real lesson with null authoringStatus (constraint)", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Constraint Test", filePath: "/tmp/constraint" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
       .returning();
 
     await expect(
-      testDb.insert(schema.lessons).values({
+      ctx.db.insert(schema.lessons).values({
         sectionId: section!.id,
         path: "01-lesson",
         order: 1,
@@ -305,23 +284,23 @@ describe("copyVersionStructure", () => {
   });
 
   it("rejects a ghost lesson with non-null authoringStatus (constraint)", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Constraint Test 2", filePath: "/tmp/constraint2" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
       .returning();
 
     await expect(
-      testDb.insert(schema.lessons).values({
+      ctx.db.insert(schema.lessons).values({
         sectionId: section!.id,
         path: "ghost-lesson",
         order: 1,
@@ -333,22 +312,22 @@ describe("copyVersionStructure", () => {
   });
 
   it("preserves lesson fsStatus (ghost/real) when copying a version", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Test Course 3", filePath: "/tmp/test3" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
       .returning();
 
-    await testDb.insert(schema.lessons).values([
+    await ctx.db.insert(schema.lessons).values([
       {
         sectionId: section!.id,
         path: "01-intro/01-lesson",
@@ -366,7 +345,7 @@ describe("copyVersionStructure", () => {
       },
     ]);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const versionOps = yield* VersionOperationsService;
         return yield* versionOps.copyVersionStructure({
@@ -377,7 +356,7 @@ describe("copyVersionStructure", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: { lessons: { orderBy: (l, { asc }) => asc(l.order) } },
     });
@@ -387,22 +366,22 @@ describe("copyVersionStructure", () => {
   });
 
   it("copies a video's segments, preserving kind/title/order", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Test Course", filePath: "/tmp/test" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    const [section] = await testDb
+    const [section] = await ctx.db
       .insert(schema.sections)
       .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
       .returning();
 
-    const [lesson] = await testDb
+    const [lesson] = await ctx.db
       .insert(schema.lessons)
       .values({
         sectionId: section!.id,
@@ -414,7 +393,7 @@ describe("copyVersionStructure", () => {
       })
       .returning();
 
-    const [video] = await testDb
+    const [video] = await ctx.db
       .insert(schema.videos)
       .values({
         lessonId: lesson!.id,
@@ -423,7 +402,7 @@ describe("copyVersionStructure", () => {
       })
       .returning();
 
-    await testDb.insert(schema.segments).values([
+    await ctx.db.insert(schema.segments).values([
       {
         videoId: video!.id,
         kind: "definition",
@@ -438,7 +417,7 @@ describe("copyVersionStructure", () => {
       },
     ]);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const versionOps = yield* VersionOperationsService;
         return yield* versionOps.copyVersionStructure({
@@ -453,7 +432,7 @@ describe("copyVersionStructure", () => {
       (m) => m.sourceVideoId === video!.id
     )!.newVideoId;
 
-    const copied = await testDb.query.segments.findMany({
+    const copied = await ctx.db.query.segments.findMany({
       where: (s, { eq }) => eq(s.videoId, newVideoId),
       orderBy: (s, { asc }) => asc(s.order),
     });

@@ -1,48 +1,28 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<CourseOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  testLayer = CourseOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
+const ctx = setupEffectTest(CourseOperationsService.Default);
 
 const buildCourseWithVideos = async () => {
-  const [course] = await testDb
+  const [course] = await ctx.db
     .insert(schema.courses)
     .values({ name: "Test Course", filePath: "/tmp/test-repo" })
     .returning();
 
-  const [version] = await testDb
+  const [version] = await ctx.db
     .insert(schema.courseVersions)
     .values({ repoId: course!.id, name: "v1" })
     .returning();
 
-  const [section] = await testDb
+  const [section] = await ctx.db
     .insert(schema.sections)
     .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
     .returning();
 
-  const [lessonReal] = await testDb
+  const [lessonReal] = await ctx.db
     .insert(schema.lessons)
     .values({
       sectionId: section!.id,
@@ -55,7 +35,7 @@ const buildCourseWithVideos = async () => {
     })
     .returning();
 
-  const [lessonGhost] = await testDb
+  const [lessonGhost] = await ctx.db
     .insert(schema.lessons)
     .values({
       sectionId: section!.id,
@@ -67,7 +47,7 @@ const buildCourseWithVideos = async () => {
     .returning();
 
   // Insert a video with a clip to confirm they are NOT loaded by getCourseStructureById
-  const [video] = await testDb
+  const [video] = await ctx.db
     .insert(schema.videos)
     .values({
       lessonId: lessonReal!.id,
@@ -76,7 +56,7 @@ const buildCourseWithVideos = async () => {
     })
     .returning();
 
-  await testDb.insert(schema.clips).values({
+  await ctx.db.insert(schema.clips).values({
     videoId: video!.id,
     videoFilename: "clip.mp4",
     sourceStartTime: 0,
@@ -99,7 +79,7 @@ describe("getCourseStructureById - archived section filtering", () => {
   it.effect("excludes archived sections from results", () =>
     Effect.gen(function* () {
       const [course] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courses)
           .values({
             name: "Archive Test Course",
@@ -108,7 +88,7 @@ describe("getCourseStructureById - archived section filtering", () => {
           .returning()
       );
       const [version] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courseVersions)
           .values({ repoId: course!.id, name: "v1" })
           .returning()
@@ -116,7 +96,7 @@ describe("getCourseStructureById - archived section filtering", () => {
 
       // Insert one active and one archived section
       yield* Effect.promise(() =>
-        testDb.insert(schema.sections).values([
+        ctx.db.insert(schema.sections).values([
           { repoVersionId: version!.id, path: "01-active", order: 1 },
           {
             repoVersionId: version!.id,
@@ -133,13 +113,13 @@ describe("getCourseStructureById - archived section filtering", () => {
       const sections = result.versions[0]!.sections;
       expect(sections).toHaveLength(1);
       expect(sections[0]!.path).toBe("01-active");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("returns empty sections when all are archived", () =>
     Effect.gen(function* () {
       const [course] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courses)
           .values({
             name: "All Archived Course",
@@ -148,14 +128,14 @@ describe("getCourseStructureById - archived section filtering", () => {
           .returning()
       );
       const [version] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courseVersions)
           .values({ repoId: course!.id, name: "v1" })
           .returning()
       );
 
       yield* Effect.promise(() =>
-        testDb.insert(schema.sections).values([
+        ctx.db.insert(schema.sections).values([
           {
             repoVersionId: version!.id,
             path: "01-archived",
@@ -175,7 +155,7 @@ describe("getCourseStructureById - archived section filtering", () => {
       const result = yield* courseOps.getCourseStructureById(course!.id);
 
       expect(result.versions[0]!.sections).toHaveLength(0);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -208,7 +188,7 @@ describe("getCourseStructureById", () => {
 
       const ghostLesson = section.lessons.find((l) => l.id === lessonGhostId)!;
       expect(ghostLesson.fsStatus).toBe("ghost");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("does not include videos or clips on lessons", () =>
@@ -220,7 +200,7 @@ describe("getCourseStructureById", () => {
 
       const lesson = result.versions[0]!.sections[0]!.lessons[0]!;
       expect((lesson as any).videos).toBeUndefined();
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("throws NotFoundError for unknown course id", () =>
@@ -230,13 +210,13 @@ describe("getCourseStructureById", () => {
         .getCourseStructureById("nonexistent-id")
         .pipe(Effect.flip);
       expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("includes the memory column on the course", () =>
     Effect.gen(function* () {
       const [course] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courses)
           .values({
             name: "Memory Course",
@@ -246,7 +226,7 @@ describe("getCourseStructureById", () => {
           .returning()
       );
       yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courseVersions)
           .values({ repoId: course!.id, name: "v1" })
       );
@@ -255,19 +235,19 @@ describe("getCourseStructureById", () => {
       const result = yield* courseOps.getCourseStructureById(course!.id);
 
       expect(result.memory).toBe("This is the AI context for the course");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("orders sections and lessons by their order field", () =>
     Effect.gen(function* () {
       const [course] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courses)
           .values({ name: "Ordered Course", filePath: "/tmp/ordered" })
           .returning()
       );
       const [version] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.courseVersions)
           .values({ repoId: course!.id, name: "v1" })
           .returning()
@@ -275,12 +255,12 @@ describe("getCourseStructureById", () => {
 
       // Insert sections out of order
       yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.sections)
           .values({ repoVersionId: version!.id, path: "02-advanced", order: 2 })
       );
       const [sectionA] = yield* Effect.promise(() =>
-        testDb
+        ctx.db
           .insert(schema.sections)
           .values({ repoVersionId: version!.id, path: "01-basics", order: 1 })
           .returning()
@@ -288,7 +268,7 @@ describe("getCourseStructureById", () => {
 
       // Insert lessons out of order in first section
       yield* Effect.promise(() =>
-        testDb.insert(schema.lessons).values([
+        ctx.db.insert(schema.lessons).values([
           {
             sectionId: sectionA!.id,
             path: "02-second",
@@ -318,6 +298,6 @@ describe("getCourseStructureById", () => {
       const lessons = sections[0]!.lessons;
       expect(lessons[0]!.path).toBe("01-first");
       expect(lessons[1]!.path).toBe("02-second");
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });

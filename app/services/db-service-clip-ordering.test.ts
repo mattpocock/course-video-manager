@@ -1,28 +1,15 @@
 import { describe, it, expect } from "@effect/vitest";
-import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { beforeEach } from "vitest";
+import { Effect } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { sortByOrder } from "@/lib/sort-by-order";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<ClipOperationsService | VideoOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-
-  testLayer = Layer.mergeAll(
-    ClipOperationsService.Default,
-    VideoOperationsService.Default
-  ).pipe(Layer.provide(Layer.succeed(DrizzleService, testDb as any)));
-});
+const ctx = setupEffectTest(
+  ClipOperationsService.Default,
+  VideoOperationsService.Default
+);
 
 type InsertionPoint =
   | { type: "start" }
@@ -85,12 +72,15 @@ describe("reorderClip", () => {
 
   beforeEach(async () => {
     clipCounter = 0;
-    await truncateAllTables(testDb);
 
-    const video = await Effect.gen(function* () {
-      const videoOps = yield* VideoOperationsService;
-      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
-    }).pipe(Effect.provide(testLayer), Effect.runPromise);
+    const video = await ctx.run(
+      Effect.gen(function* () {
+        const videoOps = yield* VideoOperationsService;
+        return yield* videoOps.createStandaloneVideo({
+          path: "test-video.mp4",
+        });
+      })
+    );
     videoId = video.id;
   });
 
@@ -116,7 +106,7 @@ describe("reorderClip", () => {
         { type: "clip", id: clipB.id },
         { type: "chapter", id: section.id },
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("moves a clip down past a section", () =>
@@ -141,7 +131,7 @@ describe("reorderClip", () => {
         { type: "clip", id: clipA.id },
         { type: "clip", id: clipB.id },
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -202,12 +192,15 @@ describe("reorderChapter", () => {
 
   beforeEach(async () => {
     clipCounter = 0;
-    await truncateAllTables(testDb);
 
-    const video = await Effect.gen(function* () {
-      const videoOps = yield* VideoOperationsService;
-      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
-    }).pipe(Effect.provide(testLayer), Effect.runPromise);
+    const video = await ctx.run(
+      Effect.gen(function* () {
+        const videoOps = yield* VideoOperationsService;
+        return yield* videoOps.createStandaloneVideo({
+          path: "test-video.mp4",
+        });
+      })
+    );
     videoId = video.id;
   });
 
@@ -230,7 +223,7 @@ describe("reorderChapter", () => {
       const items = yield* getAllItemsSorted();
       expect(items.map((i) => i.type)).toEqual(["chapter", "clip", "clip"]);
       expect(items[0]!.id).toBe(section.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("moves a section down past a clip", () =>
@@ -255,7 +248,7 @@ describe("reorderChapter", () => {
         { type: "clip", id: clipB.id },
         { type: "chapter", id: section.id },
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("swaps two adjacent sections", () =>
@@ -272,7 +265,7 @@ describe("reorderChapter", () => {
 
       const items = yield* getAllItemsSorted();
       expect(items.map((i: any) => i.name)).toEqual(["Section 2", "Section 1"]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 });
 
@@ -344,12 +337,15 @@ describe("createChapterAtPosition", () => {
 
   beforeEach(async () => {
     clipCounter = 0;
-    await truncateAllTables(testDb);
 
-    const video = await Effect.gen(function* () {
-      const videoOps = yield* VideoOperationsService;
-      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
-    }).pipe(Effect.provide(testLayer), Effect.runPromise);
+    const video = await ctx.run(
+      Effect.gen(function* () {
+        const videoOps = yield* VideoOperationsService;
+        return yield* videoOps.createStandaloneVideo({
+          path: "test-video.mp4",
+        });
+      })
+    );
     videoId = video.id;
   });
 
@@ -369,7 +365,7 @@ describe("createChapterAtPosition", () => {
       expect(items.map((i) => i.type)).toEqual(["clip", "chapter", "clip"]);
       expect(items[0]!.id).toBe(clipA.id);
       expect(items[2]!.id).toBe(clipB.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("creates a section after a clip", () =>
@@ -388,7 +384,7 @@ describe("createChapterAtPosition", () => {
       expect(items.map((i) => i.type)).toEqual(["clip", "chapter", "clip"]);
       expect(items[0]!.id).toBe(clipA.id);
       expect(items[2]!.id).toBe(clipB.id);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect("creates a section before another section", () =>
@@ -414,7 +410,7 @@ describe("createChapterAtPosition", () => {
         "chapter", // Section 1
         "clip",
       ]);
-    }).pipe(Effect.provide(testLayer))
+    }).pipe(Effect.provide(ctx.testLayer))
   );
 
   it.effect(
@@ -450,6 +446,6 @@ describe("createChapterAtPosition", () => {
           { type: "clip", id: clipC.id },
           { type: "clip", id: clipB.id },
         ]);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(ctx.testLayer))
   );
 });

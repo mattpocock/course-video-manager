@@ -1,35 +1,14 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
+import { describe, it, expect } from "vitest";
+import { Effect } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 
-let testDb: TestDb;
-let testLayer: Layer.Layer<CourseOperationsService>;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-  testLayer = CourseOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-});
-
-const run = <A, E>(eff: Effect.Effect<A, E, CourseOperationsService>) =>
-  Effect.runPromise(eff.pipe(Effect.provide(testLayer)));
+const ctx = setupEffectTest(CourseOperationsService.Default);
 
 async function createFullCourseStructure() {
-  const [course] = await testDb
+  const [course] = await ctx.db
     .insert(schema.courses)
     .values({
       name: "Original Course",
@@ -38,13 +17,13 @@ async function createFullCourseStructure() {
     })
     .returning();
 
-  const [version] = await testDb
+  const [version] = await ctx.db
     .insert(schema.courseVersions)
     .values({ repoId: course!.id, name: "v1" })
     .returning();
 
   // Two sections: one active, one archived
-  const [activeSection] = await testDb
+  const [activeSection] = await ctx.db
     .insert(schema.sections)
     .values({
       repoVersionId: version!.id,
@@ -54,14 +33,14 @@ async function createFullCourseStructure() {
     })
     .returning();
 
-  await testDb.insert(schema.sections).values({
+  await ctx.db.insert(schema.sections).values({
     repoVersionId: version!.id,
     path: "02-archived",
     order: 2,
     archivedAt: new Date(),
   });
 
-  const [lesson] = await testDb
+  const [lesson] = await ctx.db
     .insert(schema.lessons)
     .values({
       sectionId: activeSection!.id,
@@ -77,12 +56,12 @@ async function createFullCourseStructure() {
     .returning();
 
   // Set previousVersionSectionId on the active section
-  await testDb
+  await ctx.db
     .update(schema.sections)
     .set({ previousVersionSectionId: "some-old-section-id" })
     .where(eq(schema.sections.id, activeSection!.id));
 
-  const [video] = await testDb
+  const [video] = await ctx.db
     .insert(schema.videos)
     .values({
       lessonId: lesson!.id,
@@ -92,7 +71,7 @@ async function createFullCourseStructure() {
     .returning();
 
   // Clips: one active, one archived
-  await testDb.insert(schema.clips).values([
+  await ctx.db.insert(schema.clips).values([
     {
       videoId: video!.id,
       videoFilename: "clip-01.mp4",
@@ -115,7 +94,7 @@ async function createFullCourseStructure() {
   ]);
 
   // Chapters: one active, one archived
-  await testDb.insert(schema.chapters).values([
+  await ctx.db.insert(schema.chapters).values([
     {
       videoId: video!.id,
       name: "Section A",
@@ -130,7 +109,7 @@ async function createFullCourseStructure() {
   ]);
 
   // Thumbnails
-  await testDb.insert(schema.thumbnails).values({
+  await ctx.db.insert(schema.thumbnails).values({
     videoId: video!.id,
     layers: JSON.stringify([{ type: "text", content: "thumb" }]),
     filePath: "/thumbs/01.png",
@@ -138,7 +117,7 @@ async function createFullCourseStructure() {
   });
 
   // Archived video
-  await testDb.insert(schema.videos).values({
+  await ctx.db.insert(schema.videos).values({
     lessonId: lesson!.id,
     path: "video-archived.mp4",
     originalFootagePath: "/footage/archived.mp4",
@@ -158,7 +137,7 @@ describe("duplicateCourse", () => {
   it("creates a new course with the provided name and filePath", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -176,7 +155,7 @@ describe("duplicateCourse", () => {
   it("copies the original course's memory field", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -193,7 +172,7 @@ describe("duplicateCourse", () => {
   it("creates exactly one draft version", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -204,7 +183,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const versions = await testDb.query.courseVersions.findMany({
+    const versions = await ctx.db.query.courseVersions.findMany({
       where: (v, { eq }) => eq(v.repoId, result.course.id),
     });
 
@@ -215,7 +194,7 @@ describe("duplicateCourse", () => {
   it("deep-copies sections with correct data and nulls previousVersionSectionId", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -226,7 +205,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       orderBy: (s, { asc }) => asc(s.order),
     });
@@ -242,7 +221,7 @@ describe("duplicateCourse", () => {
   it("deep-copies lessons with correct data and nulls previousVersionLessonId", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -253,7 +232,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: { lessons: true },
     });
@@ -271,12 +250,12 @@ describe("duplicateCourse", () => {
     const { course, version } = await createFullCourseStructure();
 
     // Verify source has 2 sections (1 active + 1 archived)
-    const sourceSections = await testDb.query.sections.findMany({
+    const sourceSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, version.id),
     });
     expect(sourceSections).toHaveLength(2);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -287,7 +266,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
     });
 
@@ -298,7 +277,7 @@ describe("duplicateCourse", () => {
   it("copies videos and excludes archived videos", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -309,7 +288,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: {
         lessons: {
@@ -330,7 +309,7 @@ describe("duplicateCourse", () => {
   it("copies clips and excludes archived clips", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -341,7 +320,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: {
         lessons: {
@@ -369,7 +348,7 @@ describe("duplicateCourse", () => {
   it("copies chapters and excludes archived chapters", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -380,7 +359,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: {
         lessons: {
@@ -405,7 +384,7 @@ describe("duplicateCourse", () => {
   it("copies thumbnails", async () => {
     const { course } = await createFullCourseStructure();
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -416,7 +395,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: {
         lessons: {
@@ -438,24 +417,24 @@ describe("duplicateCourse", () => {
   });
 
   it("preserves entity ordering across sections and lessons", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Order Test", filePath: "/tmp/order" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
     // Create sections in reverse order values to verify ordering
-    await testDb.insert(schema.sections).values([
+    await ctx.db.insert(schema.sections).values([
       { repoVersionId: version!.id, path: "01-first", order: 1 },
       { repoVersionId: version!.id, path: "02-second", order: 2 },
       { repoVersionId: version!.id, path: "03-third", order: 3 },
     ]);
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -466,7 +445,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       orderBy: (s, { asc }) => asc(s.order),
     });
@@ -482,7 +461,7 @@ describe("duplicateCourse", () => {
 
   it("fails with NotFoundError for non-existent source course", async () => {
     await expect(
-      run(
+      ctx.run(
         Effect.gen(function* () {
           const courseOps = yield* CourseOperationsService;
           return yield* courseOps.duplicateCourse({
@@ -496,13 +475,13 @@ describe("duplicateCourse", () => {
   });
 
   it("fails with NotFoundError when source course has no versions", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "No Versions", filePath: "/tmp/no-versions" })
       .returning();
 
     await expect(
-      run(
+      ctx.run(
         Effect.gen(function* () {
           const courseOps = yield* CourseOperationsService;
           return yield* courseOps.duplicateCourse({
@@ -516,23 +495,23 @@ describe("duplicateCourse", () => {
   });
 
   it("handles course with sections but no lessons", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Empty Sections", filePath: "/tmp/empty" })
       .returning();
 
-    const [version] = await testDb
+    const [version] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    await testDb.insert(schema.sections).values({
+    await ctx.db.insert(schema.sections).values({
       repoVersionId: version!.id,
       path: "01-empty",
       order: 1,
     });
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -543,7 +522,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
       with: { lessons: true },
     });
@@ -554,16 +533,16 @@ describe("duplicateCourse", () => {
   });
 
   it("copies null memory field", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "No Memory", filePath: "/tmp/no-memory" })
       .returning();
 
-    await testDb
+    await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" });
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -578,34 +557,34 @@ describe("duplicateCourse", () => {
   });
 
   it("uses the latest version when multiple versions exist", async () => {
-    const [course] = await testDb
+    const [course] = await ctx.db
       .insert(schema.courses)
       .values({ name: "Multi Version", filePath: "/tmp/multi" })
       .returning();
 
-    const [oldVersion] = await testDb
+    const [oldVersion] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
 
-    await testDb.insert(schema.sections).values({
+    await ctx.db.insert(schema.sections).values({
       repoVersionId: oldVersion!.id,
       path: "01-old-section",
       order: 1,
     });
 
-    const [newVersion] = await testDb
+    const [newVersion] = await ctx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v2" })
       .returning();
 
-    await testDb.insert(schema.sections).values({
+    await ctx.db.insert(schema.sections).values({
       repoVersionId: newVersion!.id,
       path: "01-new-section",
       order: 1,
     });
 
-    const result = await run(
+    const result = await ctx.run(
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
         return yield* courseOps.duplicateCourse({
@@ -616,7 +595,7 @@ describe("duplicateCourse", () => {
       })
     );
 
-    const newSections = await testDb.query.sections.findMany({
+    const newSections = await ctx.db.query.sections.findMany({
       where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
     });
 
