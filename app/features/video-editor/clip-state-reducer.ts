@@ -12,18 +12,18 @@ import type {
   ChapterOptimisticallyAdded,
   DatabaseId,
   FrontendInsertionPoint,
-  RecordingSession,
 } from "./clip-state-reducer.types";
-import { createFrontendId, createSessionId } from "./clip-state-reducer.types";
+import { createFrontendId } from "./clip-state-reducer.types";
 import {
   archiveClips,
   handleAddChapterAt,
   handleChaptersReplaced,
-  handleNewDatabaseClips,
-  handleNewOptimisticClipDetected,
 } from "./clip-state-reducer.helpers";
 import { handleAddEffectClipAt } from "./clip-state-reducer-effect-clip-helpers";
-import { handleClipAudioWindowClosed } from "./clip-state-reducer-snapshot-pinning.helpers";
+import {
+  handleRecordingAction,
+  isRecordingAction,
+} from "./clip-state-reducer-recording";
 import { insertAtPoint } from "./insert-at-point";
 
 export namespace clipStateReducer {
@@ -41,93 +41,11 @@ export const clipStateReducer: EffectReducer<
   action: clipStateReducer.Action,
   exec
 ): clipStateReducer.State => {
+  if (isRecordingAction(action)) {
+    return handleRecordingAction(state, action, exec);
+  }
+
   switch (action.type) {
-    case "recording-started": {
-      const nextDisplayNumber =
-        state.sessions.length > 0
-          ? Math.max(...state.sessions.map((s) => s.displayNumber)) + 1
-          : 1;
-
-      const newSession: RecordingSession = {
-        id: createSessionId(),
-        displayNumber: nextDisplayNumber,
-        status: "recording",
-        outputPath: action.outputPath,
-        startedAt: Date.now(),
-        pauseLength: action.pauseLength,
-      };
-
-      exec({
-        type: "start-session-polling",
-        sessionId: newSession.id,
-        outputPath: action.outputPath,
-        pauseLength: action.pauseLength,
-      });
-
-      exec({
-        type: "scroll-to-insertion-point",
-      });
-
-      return {
-        ...state,
-        sessions: [...state.sessions, newSession],
-      };
-    }
-    case "recording-stopped": {
-      const activeSession = state.sessions.find(
-        (s) => s.status === "recording"
-      );
-      if (!activeSession) {
-        return state;
-      }
-
-      exec({
-        type: "start-session-timeout",
-        sessionId: activeSession.id,
-      });
-
-      return {
-        ...state,
-        sessions: state.sessions.map((s) =>
-          s.id === activeSession.id ? { ...s, status: "polling" } : s
-        ),
-      };
-    }
-    case "session-polling-complete": {
-      const session = state.sessions.find((s) => s.id === action.sessionId);
-      if (!session || session.status === "done") {
-        return state;
-      }
-
-      const allSessionsDone = state.sessions.every((s) =>
-        s.id === action.sessionId ? true : s.status === "done"
-      );
-
-      if (allSessionsDone) {
-        exec({ type: "revalidate-loader" });
-      }
-
-      return {
-        ...state,
-        sessions: state.sessions.map((s) =>
-          s.id === action.sessionId ? { ...s, status: "done" } : s
-        ),
-        items: state.items.map((item) => {
-          if (
-            item.type === "optimistically-added" &&
-            item.sessionId === action.sessionId &&
-            !item.shouldArchive
-          ) {
-            return { ...item, isOrphaned: true };
-          }
-          return item;
-        }),
-      };
-    }
-    case "new-optimistic-clip-detected":
-      return handleNewOptimisticClipDetected(state, action, exec);
-    case "new-database-clips":
-      return handleNewDatabaseClips(state, action, exec);
     case "clips-deleted": {
       const { items, clipsToArchive, chaptersToArchive, insertionPoint } =
         archiveClips(state.items, action.clipIds, state.insertionPoint);
@@ -683,9 +601,6 @@ export const clipStateReducer: EffectReducer<
           timestamp: Date.now(),
         },
       };
-    }
-    case "clip-audio-window-closed": {
-      return handleClipAudioWindowClosed(state, action);
     }
     case "update-clip-diagram-pin": {
       return {
