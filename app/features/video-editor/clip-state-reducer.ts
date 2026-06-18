@@ -13,7 +13,6 @@ import type {
   DatabaseId,
   FrontendInsertionPoint,
   RecordingSession,
-  TimelineItem,
 } from "./clip-state-reducer.types";
 import { createFrontendId, createSessionId } from "./clip-state-reducer.types";
 import {
@@ -25,6 +24,7 @@ import {
 } from "./clip-state-reducer.helpers";
 import { handleAddEffectClipAt } from "./clip-state-reducer-effect-clip-helpers";
 import { handleClipAudioWindowClosed } from "./clip-state-reducer-snapshot-pinning.helpers";
+import { insertAtPoint } from "./insert-at-point";
 
 export namespace clipStateReducer {
   export type State = ClipReducerState;
@@ -468,48 +468,11 @@ export const clipStateReducer: EffectReducer<
         insertionOrder: state.insertionOrder + 1,
       };
 
-      let newInsertionPoint: FrontendInsertionPoint = {
-        type: "after-chapter",
-        frontendChapterId: newFrontendId,
-      };
-
-      let newItems: TimelineItem[];
-      if (state.insertionPoint.type === "end") {
-        // Append to end
-        newItems = [...state.items, newChapter];
-      } else if (state.insertionPoint.type === "start") {
-        // Insert at start
-        newItems = [newChapter, ...state.items];
-      } else if (state.insertionPoint.type === "after-clip") {
-        const targetClipId = state.insertionPoint.frontendClipId;
-        const insertionPointIndex = state.items.findIndex(
-          (c) => c.frontendId === targetClipId
-        );
-        if (insertionPointIndex === -1) {
-          throw new Error("Target clip not found when inserting chapter after");
-        }
-        newItems = [
-          ...state.items.slice(0, insertionPointIndex + 1),
-          newChapter,
-          ...state.items.slice(insertionPointIndex + 1),
-        ];
-      } else {
-        // after-chapter
-        const targetChapterId = state.insertionPoint.frontendChapterId;
-        const insertionPointIndex = state.items.findIndex(
-          (c) => c.frontendId === targetChapterId
-        );
-        if (insertionPointIndex === -1) {
-          throw new Error(
-            "Target chapter not found when inserting chapter after"
-          );
-        }
-        newItems = [
-          ...state.items.slice(0, insertionPointIndex + 1),
-          newChapter,
-          ...state.items.slice(insertionPointIndex + 1),
-        ];
-      }
+      const { items } = insertAtPoint(
+        state.items,
+        newChapter,
+        state.insertionPoint
+      );
 
       exec({
         type: "create-chapter",
@@ -524,9 +487,12 @@ export const clipStateReducer: EffectReducer<
 
       return {
         ...state,
-        items: newItems,
+        items,
         insertionOrder: state.insertionOrder + 1,
-        insertionPoint: newInsertionPoint,
+        insertionPoint: {
+          type: "after-chapter",
+          frontendChapterId: newFrontendId,
+        },
       };
     }
     case "update-chapter": {

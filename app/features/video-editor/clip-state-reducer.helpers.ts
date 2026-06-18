@@ -1,6 +1,5 @@
 import type { BeatType } from "@/services/video-processing-service";
 import type {
-  Clip,
   ClipOnDatabase,
   ClipOptimisticallyAdded,
   ClipReducerAction,
@@ -20,6 +19,7 @@ import {
   emitSnapshotForClipEffects,
   type PendingSnapshotEffect,
 } from "./clip-state-reducer-snapshot-pinning.helpers";
+import { insertAtPoint } from "./insert-at-point";
 
 export const handleNewOptimisticClipDetected = (
   state: ClipReducerState,
@@ -67,57 +67,11 @@ export const handleNewOptimisticClipDetected = (
     sessionId: activeSession.id,
   };
 
-  let newInsertionPoint: FrontendInsertionPoint = state.insertionPoint;
-
-  let newClips: TimelineItem[];
-  if (state.insertionPoint.type === "end") {
-    // Append to end
-    newClips = [...state.items, newClip];
-  } else if (state.insertionPoint.type === "start") {
-    // Insert at start
-    newClips = [newClip, ...state.items];
-    newInsertionPoint = {
-      type: "after-clip",
-      frontendClipId: newFrontendId,
-    };
-  } else if (state.insertionPoint.type === "after-clip") {
-    const targetClipId = state.insertionPoint.frontendClipId;
-    // Insert at insertion point
-    const insertionPointIndex = state.items.findIndex(
-      (c) => c.frontendId === targetClipId
-    );
-    if (insertionPointIndex === -1) {
-      throw new Error("Target clip not found when inserting after");
-    }
-    newClips = [
-      ...state.items.slice(0, insertionPointIndex + 1),
-      newClip,
-      ...state.items.slice(insertionPointIndex + 1),
-    ];
-    newInsertionPoint = {
-      type: "after-clip",
-      frontendClipId: newFrontendId,
-    };
-  } else {
-    // after-chapter
-    const targetChapterId = state.insertionPoint.frontendChapterId;
-    // Insert at insertion point
-    const insertionPointIndex = state.items.findIndex(
-      (c) => c.frontendId === targetChapterId
-    );
-    if (insertionPointIndex === -1) {
-      throw new Error("Target chapter not found when inserting after");
-    }
-    newClips = [
-      ...state.items.slice(0, insertionPointIndex + 1),
-      newClip,
-      ...state.items.slice(insertionPointIndex + 1),
-    ];
-    newInsertionPoint = {
-      type: "after-clip",
-      frontendClipId: newFrontendId,
-    };
-  }
+  const { items, insertionPoint } = insertAtPoint(
+    state.items,
+    newClip,
+    state.insertionPoint
+  );
 
   exec({
     type: "scroll-to-insertion-point",
@@ -125,74 +79,10 @@ export const handleNewOptimisticClipDetected = (
 
   return {
     ...state,
-    items: newClips,
+    items,
     insertionOrder: state.insertionOrder + 1,
-    insertionPoint: newInsertionPoint,
+    insertionPoint,
     sessions,
-  };
-};
-
-const insertClip = (
-  items: (TimelineItem | undefined)[],
-  newClip: Clip,
-  insertionPoint: FrontendInsertionPoint
-) => {
-  let newInsertionPoint: FrontendInsertionPoint = insertionPoint;
-
-  let newItems: (TimelineItem | undefined)[];
-  if (insertionPoint.type === "end") {
-    // Append to end
-    newItems = [...items, newClip];
-  } else if (insertionPoint.type === "start") {
-    // Insert at start
-    newItems = [newClip, ...items];
-    newInsertionPoint = {
-      type: "after-clip",
-      frontendClipId: newClip.frontendId,
-    };
-  } else if (insertionPoint.type === "after-clip") {
-    const targetClipId = insertionPoint.frontendClipId;
-    // Insert at insertion point
-    const insertionPointIndex = items.findIndex(
-      (c) => c?.frontendId === targetClipId
-    );
-    if (insertionPointIndex === -1) {
-      throw new Error("Target clip not found when inserting after");
-    }
-    newItems = [
-      ...items.slice(0, insertionPointIndex + 1),
-      newClip,
-      ...items.slice(insertionPointIndex + 1),
-    ];
-    newInsertionPoint = {
-      type: "after-clip",
-      frontendClipId: targetClipId,
-    };
-  } else if (insertionPoint.type === "after-chapter") {
-    const targetChapterId = insertionPoint.frontendChapterId;
-    // Insert at insertion point
-    const insertionPointIndex = items.findIndex(
-      (c) => c?.frontendId === targetChapterId
-    );
-    if (insertionPointIndex === -1) {
-      throw new Error("Target chapter not found when inserting after");
-    }
-    newItems = [
-      ...items.slice(0, insertionPointIndex + 1),
-      newClip,
-      ...items.slice(insertionPointIndex + 1),
-    ];
-    newInsertionPoint = {
-      type: "after-clip",
-      frontendClipId: newClip.frontendId,
-    };
-  } else {
-    throw new Error("Unknown insertion point type");
-  }
-
-  return {
-    clips: newItems,
-    insertionPoint: newInsertionPoint,
   };
 };
 
@@ -201,7 +91,7 @@ export const handleNewDatabaseClips = (
   action: Extract<ClipReducerAction, { type: "new-database-clips" }>,
   exec: ClipReducerExec
 ): ClipReducerState => {
-  let newClipsState: (TimelineItem | undefined)[] = [...state.items];
+  let newClipsState: TimelineItem[] = [...state.items];
 
   const clipsToArchive = new Set<DatabaseId>();
   const databaseClipIdsToTranscribe = new Set<DatabaseId>();
@@ -225,7 +115,7 @@ export const handleNewDatabaseClips = (
   const optimisticClipsSortedByInsertionOrder = newClipsState
     .filter(
       (c): c is ClipOptimisticallyAdded =>
-        c?.type === "optimistically-added" &&
+        c.type === "optimistically-added" &&
         // If scoped by session, only consider clips from the matching session
         // (if no session matches the outputPath, this filters out everything)
         (!scopeBySession || c.sessionId === matchingSessionId)
@@ -239,7 +129,7 @@ export const handleNewDatabaseClips = (
     // Find the first optimistically added clip
     const index = newClipsState.findIndex(
       (c) =>
-        c?.type === "optimistically-added" &&
+        c.type === "optimistically-added" &&
         c.insertionOrder === firstOfSortedClips?.insertionOrder
     );
 
@@ -315,13 +205,13 @@ export const handleNewDatabaseClips = (
         diagramName: null,
       };
 
-      const result = insertClip(
+      const result = insertAtPoint(
         newClipsState,
         newDatabaseClip,
         state.insertionPoint
       );
 
-      newClipsState = result.clips;
+      newClipsState = result.items;
       newInsertionPoint = result.insertionPoint;
 
       frontendClipIdsToTranscribe.add(newFrontendId);
@@ -364,7 +254,7 @@ export const handleNewDatabaseClips = (
       ...Array.from(state.clipIdsBeingTranscribed),
       ...Array.from(frontendClipIdsToTranscribe),
     ]),
-    items: newClipsState.filter((c) => c !== undefined),
+    items: newClipsState,
     insertionPoint: newInsertionPoint,
   };
 };
