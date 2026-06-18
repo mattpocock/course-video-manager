@@ -3,38 +3,23 @@ import {
   type DrizzleDB,
 } from "@/services/drizzle-service.server";
 import { clips, chapters } from "@/db/schema";
-import {
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
+import { NotFoundError } from "@/services/db-service-errors";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import { compareOrderStrings } from "@/lib/sort-by-order";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createClipOperations = (db: DrizzleDB) => {
   const getClipById = Effect.fn("getClipById")(function* (clipId: string) {
-    const clip = yield* makeDbCall(() =>
-      db.query.clips.findFirst({
-        where: eq(clips.id, clipId),
-      })
+    return yield* dbQueryFirst(
+      () => db.query.clips.findFirst({ where: eq(clips.id, clipId) }),
+      { type: "getClipById", params: { clipId } }
     );
-
-    if (!clip) {
-      return yield* new NotFoundError({
-        type: "getClipById",
-        params: { clipId },
-      });
-    }
-
-    return clip;
   });
 
   const getClipsByIds = Effect.fn("getClipsByIds")(function* (
@@ -59,26 +44,22 @@ export const createClipOperations = (db: DrizzleDB) => {
       beatType?: string;
     }
   ) {
-    const [clip] = yield* makeDbCall(() =>
-      db.update(clips).set(updatedClip).where(eq(clips.id, clipId)).returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(clips)
+          .set(updatedClip)
+          .where(eq(clips.id, clipId))
+          .returning(),
+      { type: "updateClip", params: { clipId } }
     );
-
-    return clip!;
   });
 
   const archiveClip = Effect.fn("archiveClip")(function* (clipId: string) {
-    const clipExists = yield* makeDbCall(() =>
-      db.query.clips.findFirst({
-        where: eq(clips.id, clipId),
-      })
+    yield* dbQueryFirst(
+      () => db.query.clips.findFirst({ where: eq(clips.id, clipId) }),
+      { type: "archiveClip", params: { clipId } }
     );
-
-    if (!clipExists) {
-      return yield* new NotFoundError({
-        type: "archiveClip",
-        params: { clipId },
-      });
-    }
 
     const clip = yield* makeDbCall(() =>
       db.update(clips).set({ archived: true }).where(eq(clips.id, clipId))
@@ -91,19 +72,10 @@ export const createClipOperations = (db: DrizzleDB) => {
     clipId: string,
     direction: "up" | "down"
   ) {
-    // First, get the clip to know what video we're working with
-    const clip = yield* makeDbCall(() =>
-      db.query.clips.findFirst({
-        where: eq(clips.id, clipId),
-      })
+    const clip = yield* dbQueryFirst(
+      () => db.query.clips.findFirst({ where: eq(clips.id, clipId) }),
+      { type: "reorderClip", params: { clipId } }
     );
-
-    if (!clip) {
-      return yield* new NotFoundError({
-        type: "reorderClip",
-        params: { clipId },
-      });
-    }
 
     // Get all non-archived clips and chapters for this video
     // We need both because clips and chapters share the same ordering space
@@ -173,7 +145,7 @@ export const createClipOperations = (db: DrizzleDB) => {
     name: string,
     order: string
   ) {
-    const [chapter] = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(chapters)
         .values({
@@ -184,14 +156,6 @@ export const createClipOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    if (!chapter) {
-      return yield* new UnknownDBServiceError({
-        cause: "No chapter was returned from the database",
-      });
-    }
-
-    return chapter;
   });
 
   const createChapterAtInsertionPoint = Effect.fn(
@@ -280,7 +244,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
     const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
-    const [chapter] = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(chapters)
         .values({
@@ -291,14 +255,6 @@ export const createClipOperations = (db: DrizzleDB) => {
         })
         .returning()
     );
-
-    if (!chapter) {
-      return yield* new UnknownDBServiceError({
-        cause: "No chapter was returned from the database",
-      });
-    }
-
-    return chapter;
   });
 
   const createChapterAtPosition = Effect.fn("createChapterAtPosition")(
@@ -367,7 +323,7 @@ export const createClipOperations = (db: DrizzleDB) => {
 
       const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
-      const [chapter] = yield* makeDbCall(() =>
+      return yield* dbMutateReturning(() =>
         db
           .insert(chapters)
           .values({
@@ -378,34 +334,16 @@ export const createClipOperations = (db: DrizzleDB) => {
           })
           .returning()
       );
-
-      if (!chapter) {
-        return yield* new UnknownDBServiceError({
-          cause: "No chapter was returned from the database",
-        });
-      }
-
-      return chapter;
     }
   );
 
   const getChapterById = Effect.fn("getChapterById")(function* (
     chapterId: string
   ) {
-    const chapter = yield* makeDbCall(() =>
-      db.query.chapters.findFirst({
-        where: eq(chapters.id, chapterId),
-      })
+    return yield* dbQueryFirst(
+      () => db.query.chapters.findFirst({ where: eq(chapters.id, chapterId) }),
+      { type: "getChapterById", params: { chapterId } }
     );
-
-    if (!chapter) {
-      return yield* new NotFoundError({
-        type: "getChapterById",
-        params: { chapterId },
-      });
-    }
-
-    return chapter;
   });
 
   const updateChapter = Effect.fn("updateChapter")(function* (
@@ -414,39 +352,24 @@ export const createClipOperations = (db: DrizzleDB) => {
       name?: string;
     }
   ) {
-    const [chapter] = yield* makeDbCall(() =>
-      db
-        .update(chapters)
-        .set(updates)
-        .where(eq(chapters.id, chapterId))
-        .returning()
+    return yield* dbMutateReturning(
+      () =>
+        db
+          .update(chapters)
+          .set(updates)
+          .where(eq(chapters.id, chapterId))
+          .returning(),
+      { type: "updateChapter", params: { chapterId } }
     );
-
-    if (!chapter) {
-      return yield* new NotFoundError({
-        type: "updateChapter",
-        params: { chapterId },
-      });
-    }
-
-    return chapter;
   });
 
   const archiveChapter = Effect.fn("archiveChapter")(function* (
     chapterId: string
   ) {
-    const chapterExists = yield* makeDbCall(() =>
-      db.query.chapters.findFirst({
-        where: eq(chapters.id, chapterId),
-      })
+    yield* dbQueryFirst(
+      () => db.query.chapters.findFirst({ where: eq(chapters.id, chapterId) }),
+      { type: "archiveChapter", params: { chapterId } }
     );
-
-    if (!chapterExists) {
-      return yield* new NotFoundError({
-        type: "archiveChapter",
-        params: { chapterId },
-      });
-    }
 
     yield* makeDbCall(() =>
       db
@@ -462,19 +385,10 @@ export const createClipOperations = (db: DrizzleDB) => {
     chapterId: string,
     direction: "up" | "down"
   ) {
-    // Get the chapter to know what video we're working with
-    const chapter = yield* makeDbCall(() =>
-      db.query.chapters.findFirst({
-        where: eq(chapters.id, chapterId),
-      })
+    const chapter = yield* dbQueryFirst(
+      () => db.query.chapters.findFirst({ where: eq(chapters.id, chapterId) }),
+      { type: "reorderChapter", params: { chapterId } }
     );
-
-    if (!chapter) {
-      return yield* new NotFoundError({
-        type: "reorderChapter",
-        params: { chapterId },
-      });
-    }
 
     // Get all non-archived clips and chapters for this video, ordered
     const allClips = yield* makeDbCall(() =>

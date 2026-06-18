@@ -4,21 +4,15 @@ import {
 } from "@/services/drizzle-service.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { clips, chapters, videos } from "@/db/schema";
-import {
-  CannotArchiveLessonVideoError,
-  NotFoundError,
-  UnknownDBServiceError,
-} from "@/services/db-service-errors";
+import { CannotArchiveLessonVideoError } from "@/services/db-service-errors";
 import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { copyVideoImpl } from "@/services/db-video-operations.copy.server";
-
-const makeDbCall = <T>(fn: () => Promise<T>) => {
-  return Effect.tryPromise({
-    try: fn,
-    catch: (e) => new UnknownDBServiceError({ cause: e }),
-  });
-};
+import {
+  makeDbCall,
+  dbQueryFirst,
+  dbMutateReturning,
+} from "@/services/db-query-primitives.server";
 
 export const createVideoOperations = (
   db: DrizzleDB,
@@ -29,35 +23,28 @@ export const createVideoOperations = (
   const { getCourseNavigationData } = deps;
 
   const getVideoDeepById = Effect.fn("getVideoById")(function* (id: string) {
-    const video = yield* makeDbCall(() =>
-      db.query.videos.findFirst({
-        where: eq(videos.id, id),
-        with: {
-          lesson: {
-            with: {
-              section: {
-                with: {
-                  repoVersion: {
-                    with: {
-                      repo: true,
+    return yield* dbQueryFirst(
+      () =>
+        db.query.videos.findFirst({
+          where: eq(videos.id, id),
+          with: {
+            lesson: {
+              with: {
+                section: {
+                  with: {
+                    repoVersion: {
+                      with: {
+                        repo: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      })
+        }),
+      { type: "getVideoById", params: { id } }
     );
-
-    if (!video) {
-      return yield* new NotFoundError({
-        type: "getVideoById",
-        params: { id },
-      });
-    }
-
-    return video;
   });
 
   const getStandaloneVideos = Effect.fn("getStandaloneVideos")(function* () {
@@ -153,95 +140,83 @@ export const createVideoOperations = (
       withArchived?: boolean;
     }
   ) {
-    const video = yield* makeDbCall(() =>
-      db.query.videos.findFirst({
-        where: eq(videos.id, id),
-        with: {
-          lesson: {
-            with: {
-              section: {
-                with: {
-                  repoVersion: {
-                    with: {
-                      repo: true,
+    return yield* dbQueryFirst(
+      () =>
+        db.query.videos.findFirst({
+          where: eq(videos.id, id),
+          with: {
+            lesson: {
+              with: {
+                section: {
+                  with: {
+                    repoVersion: {
+                      with: {
+                        repo: true,
+                      },
+                    },
+                  },
+                },
+                videos: {
+                  columns: { id: true, path: true },
+                  where: eq(videos.archived, false),
+                },
+              },
+            },
+            clips: {
+              orderBy: asc(clips.order),
+              ...(opts?.withArchived
+                ? {}
+                : { where: eq(clips.archived, false) }),
+              with: {
+                diagramSnapshot: {
+                  with: {
+                    diagram: {
+                      columns: { name: true },
                     },
                   },
                 },
               },
-              videos: {
-                columns: { id: true, path: true },
-                where: eq(videos.archived, false),
-              },
+            },
+            chapters: {
+              orderBy: asc(chapters.order),
+              ...(opts?.withArchived
+                ? {}
+                : { where: eq(chapters.archived, false) }),
             },
           },
-          clips: {
-            orderBy: asc(clips.order),
-            ...(opts?.withArchived ? {} : { where: eq(clips.archived, false) }),
-            with: {
-              diagramSnapshot: {
-                with: {
-                  diagram: {
-                    columns: { name: true },
-                  },
-                },
-              },
-            },
-          },
-          chapters: {
-            orderBy: asc(chapters.order),
-            ...(opts?.withArchived
-              ? {}
-              : { where: eq(chapters.archived, false) }),
-          },
-        },
-      })
+        }),
+      { type: "getVideoWithClipsById", params: { id } }
     );
-
-    if (!video) {
-      return yield* new NotFoundError({
-        type: "getVideoWithClipsById",
-        params: { id },
-      });
-    }
-
-    return video;
   });
 
   const getVideoWithLessonById = Effect.fn("getVideoWithLessonById")(function* (
     id: string
   ) {
-    const video = yield* makeDbCall(() =>
-      db.query.videos.findFirst({
-        where: eq(videos.id, id),
-        with: {
-          lesson: {
-            with: {
-              section: {
-                with: {
-                  repoVersion: {
-                    with: {
-                      repo: true,
+    return yield* dbQueryFirst(
+      () =>
+        db.query.videos.findFirst({
+          where: eq(videos.id, id),
+          with: {
+            lesson: {
+              with: {
+                section: {
+                  with: {
+                    repoVersion: {
+                      with: {
+                        repo: true,
+                      },
                     },
                   },
                 },
-              },
-              videos: {
-                where: eq(videos.archived, false),
+                videos: {
+                  where: eq(videos.archived, false),
+                },
               },
             },
           },
-        },
-      })
+        }),
+      { type: "getVideoWithLessonById", params: { id } }
     );
-
-    if (!video) {
-      return yield* new NotFoundError({
-        type: "getVideoWithLessonById",
-        params: { id },
-      });
-    }
-
-    return video;
   });
 
   const createVideo = Effect.fn("createVideo")(function* (
@@ -251,27 +226,17 @@ export const createVideoOperations = (
       originalFootagePath: string;
     }
   ) {
-    const videoResults = yield* makeDbCall(() =>
+    return yield* dbMutateReturning(() =>
       db
         .insert(videos)
         .values({ ...video, lessonId })
         .returning()
     );
-
-    const videoResult = videoResults[0];
-
-    if (!videoResult) {
-      return yield* new UnknownDBServiceError({
-        cause: "No video was returned from the database",
-      });
-    }
-
-    return videoResult;
   });
 
   const createStandaloneVideo = Effect.fn("createStandaloneVideo")(
     function* (video: { path: string }) {
-      const videoResults = yield* makeDbCall(() =>
+      return yield* dbMutateReturning(() =>
         db
           .insert(videos)
           .values({
@@ -281,16 +246,6 @@ export const createVideoOperations = (
           })
           .returning()
       );
-
-      const videoResult = videoResults[0];
-
-      if (!videoResult) {
-        return yield* new UnknownDBServiceError({
-          cause: "No video was returned from the database",
-        });
-      }
-
-      return videoResult;
     }
   );
 
@@ -364,19 +319,10 @@ export const createVideoOperations = (
     function* (opts: { videoId: string; archived: boolean }) {
       const { videoId, archived } = opts;
 
-      // First verify the video is a standalone video (lessonId is NULL)
-      const video = yield* makeDbCall(() =>
-        db.query.videos.findFirst({
-          where: eq(videos.id, videoId),
-        })
+      const video = yield* dbQueryFirst(
+        () => db.query.videos.findFirst({ where: eq(videos.id, videoId) }),
+        { type: "updateVideoArchiveStatus", params: { videoId } }
       );
-
-      if (!video) {
-        return yield* new NotFoundError({
-          type: "updateVideoArchiveStatus",
-          params: { videoId },
-        });
-      }
 
       if (video.lessonId !== null) {
         return yield* new CannotArchiveLessonVideoError({
@@ -385,22 +331,15 @@ export const createVideoOperations = (
         });
       }
 
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(videos)
-          .set({ archived })
-          .where(eq(videos.id, videoId))
-          .returning()
+      return yield* dbMutateReturning(
+        () =>
+          db
+            .update(videos)
+            .set({ archived })
+            .where(eq(videos.id, videoId))
+            .returning(),
+        { type: "updateVideoArchiveStatus", params: { videoId } }
       );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateVideoArchiveStatus",
-          params: { videoId },
-        });
-      }
-
-      return updated;
     }
   );
 
