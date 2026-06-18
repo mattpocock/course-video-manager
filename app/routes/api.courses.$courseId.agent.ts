@@ -1,6 +1,6 @@
 import { runtimeLive } from "@/services/layer.server";
 import { buildVfsForCourse } from "@/services/vfs/vfs-loader.server";
-import { normalizePath, vfsLs } from "@/services/vfs";
+import { normalizePath, vfsLs, vfsTree, vfsCat } from "@/services/vfs";
 import {
   ToolLoopAgent as Agent,
   convertToModelMessages,
@@ -47,7 +47,8 @@ const SYSTEM_PROMPT = (
 \`\`\`
 
 ## Guidelines
-- Use \`ls\` to explore the directory tree
+- Use \`ls\` to list a directory, \`tree\` for a recursive overview, and \`cat\` to read a file
+- \`cat\` supports a \`filter\` argument for projecting large files: \`.[i]\` (single item), \`.[i:j]\` (slice), \`names\` (chapter names), \`text\` (clip texts), \`count\` (item/chapter/clip counts), \`.field\` (single field)
 - Answer questions about the course by navigating the VFS
 - When you encounter an error (e.g. "No such file or directory"), adjust your path and try again
 - Be concise in your answers
@@ -85,6 +86,47 @@ export const action = async (args: {
       },
     });
 
+    const treeTool = tool({
+      description:
+        "Print a recursive indented tree of a directory subtree. Full depth by default. Ghost (planned but unrecorded) items are tagged `[ghost]`.",
+      inputSchema: z.object({
+        path: z
+          .string()
+          .optional()
+          .describe(
+            "The directory path to tree. Defaults to the current course."
+          ),
+        depth: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Maximum depth to recurse. Omit for full depth."),
+      }),
+      execute: async ({ path, depth }) => {
+        const absolute = normalizePath(path ?? ".", anchor);
+        return vfsTree(root, absolute, depth);
+      },
+    });
+
+    const catTool = tool({
+      description:
+        "Read a leaf file's JSON content. Supports an optional filter for projecting large files: `.[i]` (item at index), `.[i:j]` (slice), `names` (chapter names), `text` (clip texts), `count` (item counts), `.field` (single field).",
+      inputSchema: z.object({
+        path: z.string().describe("The file path to read."),
+        filter: z
+          .string()
+          .optional()
+          .describe(
+            "Projection filter: .[i], .[i:j], names, text, count, or .field"
+          ),
+      }),
+      execute: async ({ path, filter }) => {
+        const absolute = normalizePath(path, anchor);
+        return vfsCat(root, absolute, filter);
+      },
+    });
+
     const modelMessages = yield* Effect.tryPromise(() =>
       convertToModelMessages(messages)
     );
@@ -92,7 +134,7 @@ export const action = async (args: {
     const agent = new Agent({
       model: anthropic("claude-haiku-4-5"),
       instructions: SYSTEM_PROMPT(anchor),
-      tools: { ls: lsTool },
+      tools: { ls: lsTool, tree: treeTool, cat: catTool },
     });
 
     const result = yield* Effect.tryPromise(() =>
