@@ -52,3 +52,5 @@ export { vfsLs } from "./vfs-ls";
 export { vfsTree } from "./vfs-tree-tool";
 
 export { vfsCat, applyFilter } from "./vfs-cat";
+
+export { vfsGrep } from "./vfs-grep";

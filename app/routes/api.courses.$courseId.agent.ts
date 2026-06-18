@@ -1,6 +1,6 @@
 import { runtimeLive } from "@/services/layer.server";
 import { buildVfsForCourse } from "@/services/vfs/vfs-loader.server";
-import { normalizePath, vfsLs, vfsTree, vfsCat } from "@/services/vfs";
+import { normalizePath, vfsLs, vfsTree, vfsCat, vfsGrep } from "@/services/vfs";
 import {
   ToolLoopAgent as Agent,
   convertToModelMessages,
@@ -47,8 +47,9 @@ const SYSTEM_PROMPT = (
 \`\`\`
 
 ## Guidelines
-- Use \`ls\` to list a directory, \`tree\` for a recursive overview, and \`cat\` to read a file
+- Use \`ls\` to list a directory, \`tree\` for a recursive overview, \`cat\` to read a file, and \`grep\` to search
 - \`cat\` supports a \`filter\` argument for projecting large files: \`.[i]\` (single item), \`.[i:j]\` (slice), \`names\` (chapter names), \`text\` (clip texts), \`count\` (item/chapter/clip counts), \`.field\` (single field)
+- \`grep\` searches with case-insensitive regex. Omit \`path\` to search the current course; use \`/\` for all courses. Content mode reports locators that round-trip into \`cat path .[i]\`
 - Answer questions about the course by navigating the VFS
 - When you encounter an error (e.g. "No such file or directory"), adjust your path and try again
 - Be concise in your answers
@@ -127,6 +128,32 @@ export const action = async (args: {
       },
     });
 
+    const grepTool = tool({
+      description:
+        "Search file content and names with regex (Postgres ~* case-insensitive). Returns matches with locators that round-trip into `cat path .[i]`. Content mode: one line per hit `path[locator]: <text>`. Files mode: deduped paths with ≥1 match.",
+      inputSchema: z.object({
+        pattern: z
+          .string()
+          .describe("Case-insensitive regex pattern to search for."),
+        path: z
+          .string()
+          .optional()
+          .describe(
+            "Scope search to this subtree (prefix match). Omit to search the current course; use `/` for catalogue-wide."
+          ),
+        mode: z
+          .enum(["content", "files"])
+          .optional()
+          .describe(
+            "Output mode: `content` (default) shows each hit with locator; `files` shows deduped paths."
+          ),
+      }),
+      execute: async ({ pattern, path, mode }) => {
+        const absolute = normalizePath(path ?? ".", anchor);
+        return vfsGrep(root, pattern, absolute, mode);
+      },
+    });
+
     const modelMessages = yield* Effect.tryPromise(() =>
       convertToModelMessages(messages)
     );
@@ -134,7 +161,7 @@ export const action = async (args: {
     const agent = new Agent({
       model: anthropic("claude-haiku-4-5"),
       instructions: SYSTEM_PROMPT(anchor),
-      tools: { ls: lsTool, tree: treeTool, cat: catTool },
+      tools: { ls: lsTool, tree: treeTool, cat: catTool, grep: grepTool },
     });
 
     const result = yield* Effect.tryPromise(() =>
