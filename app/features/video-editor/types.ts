@@ -37,6 +37,8 @@ export type ClipComputedProps = Map<
 export type ChapterDividerProps = {
   name: string;
   isSelected: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
   onClick: (e: React.MouseEvent) => void;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 

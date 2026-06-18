@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BeatIndicator } from "./timeline-indicators";
 import { ClipItem } from "./clip-item";
 import { ChapterItem } from "./chapter-item";
@@ -9,21 +9,11 @@ import { isChapter } from "../clip-utils";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Plus } from "lucide-react";
 import type { FrontendId } from "../clip-state-reducer";
+import { getChapterForClip, getChapters } from "../video-editor-selectors";
 
-/**
- * ClipTimeline component displays the main timeline of clips and chapters.
- *
- * Handles rendering:
- * - Pre-recording checklist (when no clips exist)
- * - Insertion point indicators (start/end/after-clip positions)
- * - Chapters (with full interactivity)
- * - Clips (with full interactivity)
- * - Beat indicators between clips
- */
 export const ClipTimeline = () => {
-  // Use context selectors for state needed by this component
   const items = useContextSelector(VideoEditorContext, (ctx) => ctx.items);
   const clips = useContextSelector(VideoEditorContext, (ctx) => ctx.clips);
   const insertionPoint = useContextSelector(
@@ -62,21 +52,51 @@ export const ClipTimeline = () => {
     VideoEditorContext,
     (ctx) => ctx.onOpenCreateChapterModal
   );
+  const currentClipId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.currentClipId
+  );
 
-  /**
-   * When the insertion point references an optimistic clip (filtered out of
-   * `items`), compute the frontendId of the last non-optimistic item that
-   * appears before it in the full item list. This is the "visual anchor" —
-   * the filtered timeline item after which we render InsertionPointWithSession.
-   * Returns null when the insertion point is at the start/end or already
-   * references a clip present in the filtered timeline.
-   */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const chapters = useMemo(() => getChapters(items), [items]);
+  const chapterIds = useMemo(
+    () => chapters.map((ch) => ch.frontendId),
+    [chapters]
+  );
+  const allCollapsed =
+    chapterIds.length > 0 && chapterIds.every((id) => collapsed[id as string]);
+
+  const toggleCollapsed = (chapterId: FrontendId) =>
+    setCollapsed((prev) => ({
+      ...prev,
+      [chapterId as string]: !prev[chapterId as string],
+    }));
+
+  const toggleAll = () => {
+    setCollapsed((prev) => {
+      const next = { ...prev };
+      for (const id of chapterIds) next[id as string] = !allCollapsed;
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!currentClipId) return;
+    const chapter = getChapterForClip(items, currentClipId);
+    if (chapter && collapsed[chapter.frontendId as string]) {
+      setCollapsed((prev) => ({
+        ...prev,
+        [chapter.frontendId as string]: false,
+      }));
+    }
+  }, [currentClipId, items]);
+
   const visualAnchorId = useMemo((): FrontendId | null => {
     if (insertionPoint.type !== "after-clip") return null;
     if (items.some((item) => item.frontendId === insertionPoint.frontendClipId))
       return null;
 
-    // Insertion point references an item not in filtered timeline (optimistic clip)
     const optIndex = allItems.findIndex(
       (i) => i.frontendId === insertionPoint.frontendClipId
     );
@@ -113,84 +133,113 @@ export const ClipTimeline = () => {
 
         {items.length > 0 && (
           <>
+            {chapterIds.length > 0 && (
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="size-6 p-0"
+                  onClick={toggleAll}
+                  aria-label={
+                    allCollapsed
+                      ? "Expand all chapters"
+                      : "Collapse all chapters"
+                  }
+                >
+                  {allCollapsed ? (
+                    <ChevronsUpDown className="size-3.5" />
+                  ) : (
+                    <ChevronsDownUp className="size-3.5" />
+                  )}
+                </Button>
+              </div>
+            )}
             {insertionPoint.type === "start" && <InsertionPointWithSession />}
-            {items.map((item, itemIndex) => {
-              const isFirstItem = itemIndex === 0;
-              const isLastItem = itemIndex === items.length - 1;
+            {(() => {
+              let currentChapterId: FrontendId | undefined;
+              return items.map((item, itemIndex) => {
+                const isFirstItem = itemIndex === 0;
+                const isLastItem = itemIndex === items.length - 1;
 
-              // Render chapter divider
-              if (isChapter(item)) {
+                if (isChapter(item)) {
+                  currentChapterId = item.frontendId;
+                  return (
+                    <div key={item.frontendId}>
+                      <ChapterItem
+                        chapter={item}
+                        isFirstItem={isFirstItem}
+                        isLastItem={isLastItem}
+                        isCollapsed={
+                          collapsed[item.frontendId as string] ?? false
+                        }
+                        onToggleCollapse={() =>
+                          toggleCollapsed(item.frontendId)
+                        }
+                        onEditChapter={() => {
+                          onEditChapter(item.frontendId, item.name);
+                        }}
+                        onAddChapterBefore={() => {
+                          onAddChapterBefore(
+                            item.frontendId,
+                            generateDefaultChapterName()
+                          );
+                        }}
+                        onAddChapterAfter={() => {
+                          onAddChapterAfter(
+                            item.frontendId,
+                            generateDefaultChapterName()
+                          );
+                        }}
+                      />
+                      {visualAnchorId === item.frontendId && (
+                        <InsertionPointWithSession />
+                      )}
+                    </div>
+                  );
+                }
+
+                const isChapterCollapsed =
+                  currentChapterId !== undefined &&
+                  (collapsed[currentChapterId as string] ?? false);
+                if (isChapterCollapsed) return null;
+
+                const clip = item;
+                const computedProps = clipComputedProps.get(clip.frontendId);
+                const timecode = computedProps?.timecode ?? "";
+                const nextLevenshtein = computedProps?.nextLevenshtein ?? 0;
+
                 return (
-                  <div key={item.frontendId}>
-                    <ChapterItem
-                      chapter={item}
+                  <div key={clip.frontendId}>
+                    <ClipItem
+                      clip={clip}
                       isFirstItem={isFirstItem}
                       isLastItem={isLastItem}
-                      onEditChapter={() => {
-                        onEditChapter(item.frontendId, item.name);
-                      }}
+                      timecode={timecode}
+                      nextLevenshtein={nextLevenshtein}
                       onAddChapterBefore={() => {
                         onAddChapterBefore(
-                          item.frontendId,
+                          clip.frontendId,
                           generateDefaultChapterName()
                         );
                       }}
                       onAddChapterAfter={() => {
                         onAddChapterAfter(
-                          item.frontendId,
+                          clip.frontendId,
                           generateDefaultChapterName()
                         );
                       }}
                     />
-                    {visualAnchorId === item.frontendId && (
+                    {clip.beatType === "long" && <BeatIndicator />}
+                    {((insertionPoint.type === "after-clip" &&
+                      insertionPoint.frontendClipId === clip.frontendId) ||
+                      visualAnchorId === clip.frontendId) && (
                       <InsertionPointWithSession />
                     )}
                   </div>
                 );
-              }
+              });
+            })()}
 
-              // Render clip
-              const clip = item;
-              const computedProps = clipComputedProps.get(clip.frontendId);
-              const timecode = computedProps?.timecode ?? "";
-              const nextLevenshtein = computedProps?.nextLevenshtein ?? 0;
-
-              return (
-                <div key={clip.frontendId}>
-                  <ClipItem
-                    clip={clip}
-                    isFirstItem={isFirstItem}
-                    isLastItem={isLastItem}
-                    timecode={timecode}
-                    nextLevenshtein={nextLevenshtein}
-                    onAddChapterBefore={() => {
-                      onAddChapterBefore(
-                        clip.frontendId,
-                        generateDefaultChapterName()
-                      );
-                    }}
-                    onAddChapterAfter={() => {
-                      onAddChapterAfter(
-                        clip.frontendId,
-                        generateDefaultChapterName()
-                      );
-                    }}
-                  />
-                  {/* Beat indicator dots below clip */}
-                  {clip.beatType === "long" && <BeatIndicator />}
-                  {/* Render insertion point after this clip when it is the direct or visual anchor */}
-                  {((insertionPoint.type === "after-clip" &&
-                    insertionPoint.frontendClipId === clip.frontendId) ||
-                    visualAnchorId === clip.frontendId) && (
-                    <InsertionPointWithSession />
-                  )}
-                </div>
-              );
-            })}
-
-            {/* When insertion point references an optimistic clip with no preceding
-                non-optimistic item, show at top (handled by start case above) or
-                fall back to end if visual anchor is null and clip not found */}
             {insertionPoint.type === "after-clip" &&
               !items.some(
                 (item) => item.frontendId === insertionPoint.frontendClipId
@@ -205,7 +254,6 @@ export const ClipTimeline = () => {
           <InsertionPointWithSession />
         )}
 
-        {/* Inline suggestion display at the bottom of the timeline */}
         <InlineSuggestion />
       </div>
     </div>
