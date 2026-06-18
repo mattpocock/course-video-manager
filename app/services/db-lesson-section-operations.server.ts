@@ -6,8 +6,10 @@ import { lessons, sections, videos } from "@/db/schema";
 import {
   NotFoundError,
   UnknownDBServiceError,
+  SectionPathTakenError,
+  LessonPathTakenError,
 } from "@/services/db-service-errors";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, ne, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 import { statusForCreateLesson } from "./lesson-authoring-status";
 
@@ -19,6 +21,60 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 };
 
 export const createLessonSectionOperations = (db: DrizzleDB) => {
+  const assertSectionPathAvailable = Effect.fn("assertSectionPathAvailable")(
+    function* (repoVersionId: string, path: string, excludeSectionId?: string) {
+      const conditions = [
+        eq(sections.repoVersionId, repoVersionId),
+        eq(sections.path, path),
+        isNull(sections.archivedAt),
+      ];
+      if (excludeSectionId) {
+        conditions.push(ne(sections.id, excludeSectionId));
+      }
+
+      const existing = yield* makeDbCall(() =>
+        db.query.sections.findFirst({
+          where: and(...conditions),
+          columns: { id: true },
+        })
+      );
+
+      if (existing) {
+        return yield* new SectionPathTakenError({
+          path,
+          message: `Section name "${path}" is already taken in this version`,
+        });
+      }
+    }
+  );
+
+  const assertLessonPathAvailable = Effect.fn("assertLessonPathAvailable")(
+    function* (sectionId: string, path: string, excludeLessonId?: string) {
+      const conditions = [
+        eq(lessons.sectionId, sectionId),
+        eq(lessons.path, path),
+        eq(lessons.archived, false),
+      ];
+      if (excludeLessonId) {
+        conditions.push(ne(lessons.id, excludeLessonId));
+      }
+
+      const existing = yield* makeDbCall(() =>
+        db.query.lessons.findFirst({
+          where: and(...conditions),
+          columns: { id: true },
+        })
+      );
+
+      if (existing) {
+        return yield* new LessonPathTakenError({
+          path,
+          message: `Lesson name "${path}" is already taken in this section`,
+        });
+      }
+    }
+  );
+
   const getLessonById = Effect.fn("getLessonById")(function* (id: string) {
     const lesson = yield* makeDbCall(() =>
       db.query.lessons.findFirst({
@@ -121,6 +177,13 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
     }[];
     repoVersionId: string;
   }) {
+    for (const section of newSections) {
+      yield* assertSectionPathAvailable(
+        repoVersionId,
+        section.sectionPathWithNumber
+      );
+    }
+
     const sectionResult = yield* makeDbCall(() =>
       db
         .insert(sections)
@@ -144,6 +207,10 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
       lessonNumber: number;
     }[]
   ) {
+    for (const lesson of newLessons) {
+      yield* assertLessonPathAvailable(sectionId, lesson.lessonPathWithNumber);
+    }
+
     const lessonResult = yield* makeDbCall(() =>
       db
         .insert(lessons)
@@ -169,6 +236,8 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
       order: number;
     }
   ) {
+    yield* assertLessonPathAvailable(sectionId, opts.path);
+
     const lessonResult = yield* makeDbCall(() =>
       db
         .insert(lessons)
@@ -200,6 +269,24 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
       authoringStatus?: string | null;
     }
   ) {
+    if (lesson.path !== undefined) {
+      const existing = yield* makeDbCall(() =>
+        db.query.lessons.findFirst({
+          where: eq(lessons.id, lessonId),
+          columns: { sectionId: true, path: true },
+        })
+      );
+
+      if (existing && existing.path !== lesson.path) {
+        const targetSectionId = lesson.sectionId ?? existing.sectionId;
+        yield* assertLessonPathAvailable(
+          targetSectionId,
+          lesson.path,
+          lessonId
+        );
+      }
+    }
+
     const lessonResult = yield* makeDbCall(() =>
       db
         .update(lessons)
@@ -263,6 +350,17 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
     sectionId: string,
     path: string
   ) {
+    const section = yield* makeDbCall(() =>
+      db.query.sections.findFirst({
+        where: eq(sections.id, sectionId),
+        columns: { repoVersionId: true, path: true },
+      })
+    );
+
+    if (section && section.path !== path) {
+      yield* assertSectionPathAvailable(section.repoVersionId, path, sectionId);
+    }
+
     return yield* makeDbCall(() =>
       db.update(sections).set({ path }).where(eq(sections.id, sectionId))
     );
@@ -389,6 +487,8 @@ export const createLessonSectionOperations = (db: DrizzleDB) => {
   );
 
   return {
+    assertSectionPathAvailable,
+    assertLessonPathAvailable,
     getLessonById,
     getLessonsBySectionId,
     getLessonWithHierarchyById,

@@ -64,6 +64,10 @@ const parseSectionAndLesson = (path: string) => {
 
 export const action = makeAction({
   input: "json",
+  errors: {
+    SectionPathTakenError: 409,
+    LessonPathTakenError: 409,
+  },
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const decoded = yield* Schema.decodeUnknown(updateCourseSchema)(payload);

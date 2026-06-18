@@ -12,7 +12,7 @@ const addVideoSchema = Schema.Struct({
 export const action = async (args: Route.ActionArgs) => {
   return makeAction({
     input: "formData",
-    errors: { NotFoundError: 404 },
+    errors: { NotFoundError: 404, VideoPathTakenError: 409 },
     effect: ({ params, payload }) =>
       Effect.gen(function* () {
         const result = yield* Schema.decodeUnknown(addVideoSchema)(payload);

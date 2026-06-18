@@ -80,31 +80,39 @@ export const courseVersions = createTable("course_version", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const sections = createTable("section", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  repoVersionId: varchar("course_version_id", { length: 255 })
-    .references(() => courseVersions.id, { onDelete: "cascade" })
-    .notNull(),
-  previousVersionSectionId: varchar("previous_version_section_id", {
-    length: 255,
-  }),
-  path: text("path").notNull(),
-  description: text("description").notNull().default(""),
-  archivedAt: timestamp("archived_at", {
-    mode: "date",
-    withTimezone: true,
-  }),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  order: doublePrecision("order").notNull(),
-});
+export const sections = createTable(
+  "section",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    repoVersionId: varchar("course_version_id", { length: 255 })
+      .references(() => courseVersions.id, { onDelete: "cascade" })
+      .notNull(),
+    previousVersionSectionId: varchar("previous_version_section_id", {
+      length: 255,
+    }),
+    path: text("path").notNull(),
+    description: text("description").notNull().default(""),
+    archivedAt: timestamp("archived_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    order: doublePrecision("order").notNull(),
+  },
+  (table) => [
+    uniqueIndex("section_version_path_uniq")
+      .on(table.repoVersionId, table.path)
+      .where(sql`${table.archivedAt} IS NULL`),
+  ]
+);
 
 export const lessons = createTable(
   "lesson",
@@ -141,6 +149,9 @@ export const lessons = createTable(
       "lesson_authoring_status_biconditional",
       sql`(${table.fsStatus} = 'real' AND ${table.authoringStatus} IS NOT NULL) OR (${table.fsStatus} != 'real' AND ${table.authoringStatus} IS NULL)`
     ),
+    uniqueIndex("lesson_section_path_uniq")
+      .on(table.sectionId, table.path)
+      .where(sql`NOT ${table.archived}`),
   ]
 );
 
@@ -175,33 +186,44 @@ export const pitches = createTable("pitch", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const videos = createTable("video", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  lessonId: varchar("lesson_id", { length: 255 }).references(() => lessons.id, {
-    onDelete: "cascade",
-  }),
-  pitchId: varchar("pitch_id", { length: 255 }).references(() => pitches.id, {
-    onDelete: "set null",
-  }),
-  path: text("path").notNull(),
-  originalFootagePath: text("original_footage_path").notNull(),
-  archived: boolean("archived").notNull().default(false),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp("updated_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
+export const videos = createTable(
+  "video",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    lessonId: varchar("lesson_id", { length: 255 }).references(
+      () => lessons.id,
+      {
+        onDelete: "cascade",
+      }
+    ),
+    pitchId: varchar("pitch_id", { length: 255 }).references(() => pitches.id, {
+      onDelete: "set null",
+    }),
+    path: text("path").notNull(),
+    originalFootagePath: text("original_footage_path").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("video_lesson_path_uniq")
+      .on(table.lessonId, table.path)
+      .where(sql`NOT ${table.archived}`),
+  ]
+);
 
 export const clips = createTable("clip", {
   id: varchar("id", { length: 255 })

@@ -8,6 +8,7 @@ import {
   CannotArchiveLessonVideoError,
   NotFoundError,
   UnknownDBServiceError,
+  VideoPathTakenError,
 } from "@/services/db-service-errors";
 import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
@@ -27,6 +28,33 @@ export const createVideoOperations = (
   }
 ) => {
   const { getCourseNavigationData } = deps;
+
+  const assertVideoPathAvailable = Effect.fn("assertVideoPathAvailable")(
+    function* (lessonId: string, path: string, excludeVideoId?: string) {
+      const conditions = [
+        eq(videos.lessonId, lessonId),
+        eq(videos.path, path),
+        eq(videos.archived, false),
+      ];
+      if (excludeVideoId) {
+        conditions.push(ne(videos.id, excludeVideoId));
+      }
+
+      const existing = yield* makeDbCall(() =>
+        db.query.videos.findFirst({
+          where: and(...conditions),
+          columns: { id: true },
+        })
+      );
+
+      if (existing) {
+        return yield* new VideoPathTakenError({
+          path,
+          message: `Video name "${path}" is already taken in this lesson`,
+        });
+      }
+    }
+  );
 
   const getVideoDeepById = Effect.fn("getVideoById")(function* (id: string) {
     const video = yield* makeDbCall(() =>
@@ -251,6 +279,8 @@ export const createVideoOperations = (
       originalFootagePath: string;
     }
   ) {
+    yield* assertVideoPathAvailable(lessonId, video.path);
+
     const videoResults = yield* makeDbCall(() =>
       db
         .insert(videos)
@@ -331,6 +361,17 @@ export const createVideoOperations = (
     videoId: string;
     path: string;
   }) {
+    const video = yield* makeDbCall(() =>
+      db.query.videos.findFirst({
+        where: eq(videos.id, opts.videoId),
+        columns: { lessonId: true, path: true },
+      })
+    );
+
+    if (video && video.lessonId && video.path !== opts.path) {
+      yield* assertVideoPathAvailable(video.lessonId, opts.path, opts.videoId);
+    }
+
     yield* makeDbCall(() =>
       db
         .update(videos)

@@ -46,3 +46,24 @@ export class CourseNameTakenError extends Data.TaggedError(
   slug: string;
   message: string;
 }> {}
+
+export class SectionPathTakenError extends Data.TaggedError(
+  "SectionPathTakenError"
+)<{
+  path: string;
+  message: string;
+}> {}
+
+export class LessonPathTakenError extends Data.TaggedError(
+  "LessonPathTakenError"
+)<{
+  path: string;
+  message: string;
+}> {}
+
+export class VideoPathTakenError extends Data.TaggedError(
+  "VideoPathTakenError"
+)<{
+  path: string;
+  message: string;
+}> {}
