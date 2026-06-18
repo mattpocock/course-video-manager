@@ -1,28 +1,27 @@
-import { describe, it, expect, afterEach, beforeAll } from "vitest";
-import { Effect, Layer } from "effect";
+import { describe, it, expect, afterEach } from "vitest";
+import { Effect } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseWriteService } from "@/services/course-write-service";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
+
+const ctx = setupEffectTest({
+  services: [
+    CourseWriteService.Default,
+    CourseOperationsService.Default,
+    VersionOperationsService.Default,
+    LessonSectionOperationsService.Default,
+  ],
+  extraProvide: [NodeContext.layer],
+});
 
 let tempDir: string;
-let testDb: TestDb;
-
-beforeAll(async () => {
-  const result = await createTestDb();
-  testDb = result.testDb;
-});
 
 const setupTempGitRepo = () => {
   tempDir = fs.mkdtempSync(path.join(tmpdir(), "course-write-test-"));
@@ -35,25 +34,6 @@ const setupTempGitRepo = () => {
 
 const setup = async () => {
   setupTempGitRepo();
-  await truncateAllTables(testDb);
-
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-
-  const testLayer = Layer.mergeAll(
-    CourseWriteService.Default,
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer), Layer.provide(NodeContext.layer));
-
-  const dbLayer = Layer.mergeAll(
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
-  ).pipe(Layer.provide(drizzleLayer));
-
-  const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const repo = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -61,7 +41,7 @@ const setup = async () => {
       filePath: tempDir,
       name: "test-repo",
     });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const version = await Effect.gen(function* () {
     const versionOps = yield* VersionOperationsService;
@@ -69,7 +49,7 @@ const setup = async () => {
       repoId: repo.id,
       name: "v1",
     });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+  }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const createSection = async (sectionPath: string, order: number) => {
     const sectionDir = path.join(tempDir, sectionPath);
@@ -86,7 +66,7 @@ const setup = async () => {
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
         ],
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return sections[0]!;
   };
 
@@ -112,7 +92,7 @@ const setup = async () => {
       return yield* lsOps.createLessons(sectionId, [
         { lessonPathWithNumber: lessonPath, lessonNumber: order },
       ]);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return lessons[0]!;
   };
 
@@ -129,7 +109,7 @@ const setup = async () => {
         path: slug,
         order,
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return lesson[0]!;
   };
 
@@ -137,7 +117,7 @@ const setup = async () => {
     Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       return yield* lsOps.getLessonWithHierarchyById(lessonId);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   const createGhostSection = async (sectionPath: string, order: number) => {
     const sections = await Effect.gen(function* () {
@@ -148,7 +128,7 @@ const setup = async () => {
           { sectionPathWithNumber: sectionPath, sectionNumber: order },
         ],
       });
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
     return sections[0]!;
   };
 
@@ -156,10 +136,10 @@ const setup = async () => {
     Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       return yield* lsOps.getSectionWithHierarchyById(sectionId);
-    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+    }).pipe(Effect.provide(ctx.testLayer), Effect.runPromise);
 
   return {
-    run,
+    run: ctx.run,
     createSection,
     createGhostSection,
     createRealLesson,

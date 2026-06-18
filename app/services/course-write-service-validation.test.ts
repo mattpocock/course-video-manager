@@ -4,16 +4,11 @@
  * and ghost-only edits in conditionally-FS operations pay nothing.
  */
 
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/pglite";
+import { setupEffectTest } from "@/test-utils/setup-effect-test";
 import { createDirectCourseEditorService } from "./course-editor-service-handler";
 import type { CourseEditorService } from "./course-editor-service";
-import { DrizzleService } from "./drizzle-service.server";
 import { CourseOperationsService } from "./db-course-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { SegmentOperationsService } from "./db-segment-operations.server";
@@ -26,93 +21,81 @@ import {
 import { NodeFileSystem } from "@effect/platform-node";
 import * as schema from "@/db/schema";
 
-let testDb: TestDb;
+const ctx = setupEffectTest(
+  CourseOperationsService.Default,
+  LessonSectionOperationsService.Default,
+  SegmentOperationsService.Default
+);
+
 let editorService: CourseEditorService;
 let validateCallCount: number;
 
-function setup() {
-  beforeAll(async () => {
-    const result = await createTestDb();
-    testDb = result.testDb;
-  });
+beforeEach(() => {
+  validateCallCount = 0;
 
-  beforeEach(async () => {
-    await truncateAllTables(testDb);
-    validateCallCount = 0;
+  const mockRepoWriteLayer = Layer.succeed(CourseRepoWriteService, {
+    createLessonDirectory: Effect.fn(function* (_opts: any) {
+      return { lessonDirName: "mock", lessonNumber: 1 };
+    }),
+    addLesson: Effect.fn(function* (_opts: any) {
+      return { newLessonDirName: "mock" };
+    }),
+    renameLesson: Effect.fn(function* (_opts: any) {
+      return { newLessonDirName: "mock" };
+    }),
+    renameLessons: Effect.fn(function* (_opts: any) {}),
+    renameSections: Effect.fn(function* (_opts: any) {}),
+    deleteLesson: Effect.fn(function* (_opts: any) {}),
+    moveLessonToSection: Effect.fn(function* (_opts: any) {}),
+    sectionDirExists: Effect.fn(function* (_opts: any) {
+      return false;
+    }),
+    deleteSectionDir: Effect.fn(function* (_opts: any) {}),
+  } as any);
 
-    const testDrizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-    const testDbFunctionsLayer = Layer.mergeAll(
-      CourseOperationsService.Default,
-      LessonSectionOperationsService.Default,
-      SegmentOperationsService.Default
-    ).pipe(Layer.provide(testDrizzleLayer));
+  const mockSyncValidationLayer = Layer.succeed(
+    CourseRepoSyncValidationService,
+    {
+      validate: () =>
+        Effect.sync(() => {
+          validateCallCount++;
+        }),
+    } as any
+  );
 
-    const mockRepoWriteLayer = Layer.succeed(CourseRepoWriteService, {
-      createLessonDirectory: Effect.fn(function* (_opts: any) {
-        return { lessonDirName: "mock", lessonNumber: 1 };
-      }),
-      addLesson: Effect.fn(function* (_opts: any) {
-        return { newLessonDirName: "mock" };
-      }),
-      renameLesson: Effect.fn(function* (_opts: any) {
-        return { newLessonDirName: "mock" };
-      }),
-      renameLessons: Effect.fn(function* (_opts: any) {}),
-      renameSections: Effect.fn(function* (_opts: any) {}),
-      deleteLesson: Effect.fn(function* (_opts: any) {}),
-      moveLessonToSection: Effect.fn(function* (_opts: any) {}),
-      sectionDirExists: Effect.fn(function* (_opts: any) {
-        return false;
-      }),
-      deleteSectionDir: Effect.fn(function* (_opts: any) {}),
-    } as any);
+  const testLayer = Layer.mergeAll(
+    ctx.testLayer,
+    mockRepoWriteLayer,
+    mockSyncValidationLayer,
+    NodeFileSystem.layer
+  );
 
-    // Counting mock: tracks how many times validate() is called
-    const mockSyncValidationLayer = Layer.succeed(
-      CourseRepoSyncValidationService,
-      {
-        validate: () =>
-          Effect.sync(() => {
-            validateCallCount++;
-          }),
-      } as any
-    );
+  const serviceLayer = (
+    CourseWriteService as any
+  ).DefaultWithoutDependencies.pipe(Layer.provide(testLayer));
 
-    const testLayer = Layer.mergeAll(
-      testDbFunctionsLayer,
-      mockRepoWriteLayer,
-      mockSyncValidationLayer,
-      NodeFileSystem.layer
-    ).pipe(Layer.provideMerge(testDrizzleLayer));
+  const fullLayer = Layer.merge(testLayer, serviceLayer) as Layer.Layer<
+    any,
+    never,
+    never
+  >;
 
-    const serviceLayer = (
-      CourseWriteService as any
-    ).DefaultWithoutDependencies.pipe(Layer.provide(testLayer));
-
-    const fullLayer = Layer.merge(testLayer, serviceLayer) as Layer.Layer<
-      any,
-      never,
-      never
-    >;
-
-    const runtime = ManagedRuntime.make(fullLayer);
-    editorService = createDirectCourseEditorService((effect) =>
-      runtime.runPromise(effect as any)
-    );
-  });
-}
+  const runtime = ManagedRuntime.make(fullLayer);
+  editorService = createDirectCourseEditorService((effect) =>
+    runtime.runPromise(effect as any)
+  );
+});
 
 const svc = () => editorService;
-const db = () => testDb;
 
 async function createCourseWithVersion(
   filePath: string | null = "/tmp/test-repo"
 ) {
-  const [course] = await db()
+  const [course] = await ctx.db
     .insert(schema.courses)
     .values({ name: "Test Course", filePath })
     .returning();
-  const [version] = await db()
+  const [version] = await ctx.db
     .insert(schema.courseVersions)
     .values({ repoId: course!.id, name: "v1" })
     .returning();
@@ -130,13 +113,13 @@ async function createSectionWithLessons(
     order: number;
   }[]
 ) {
-  const [section] = await db()
+  const [section] = await ctx.db
     .insert(schema.sections)
     .values({ repoVersionId, path: sectionPath, order: sectionOrder })
     .returning();
   const lessons = [];
   for (const def of lessonDefs) {
-    const [lesson] = await db()
+    const [lesson] = await ctx.db
       .insert(schema.lessons)
       .values({
         sectionId: section!.id,
@@ -148,8 +131,6 @@ async function createSectionWithLessons(
   }
   return { section: section!, lessons };
 }
-
-setup();
 
 describe("sync validation optimization (Issue #685)", () => {
   describe("DB-only operations skip validation entirely", () => {
@@ -222,7 +203,7 @@ describe("sync validation optimization (Issue #685)", () => {
   describe("always-FS operations validate twice (pre + post)", () => {
     it("creating a real lesson validates twice", async () => {
       const { version } = await createCourseWithVersion("/tmp/test-repo");
-      const [section] = await db()
+      const [section] = await ctx.db
         .insert(schema.sections)
         .values({ repoVersionId: version.id, path: "01-intro", order: 0 })
         .returning();
@@ -327,24 +308,15 @@ describe("sync validation optimization (Issue #685)", () => {
 });
 
 describe("pre-flight validation gate (PRD #952)", () => {
-  let divergentDb: TestDb;
+  const divergentCtx = setupEffectTest(
+    CourseOperationsService.Default,
+    LessonSectionOperationsService.Default,
+    SegmentOperationsService.Default
+  );
+
   let divergentEditorService: CourseEditorService;
 
-  beforeAll(async () => {
-    const result = await createTestDb();
-    divergentDb = result.testDb;
-  });
-
-  beforeEach(async () => {
-    await truncateAllTables(divergentDb);
-
-    const testDrizzleLayer = Layer.succeed(DrizzleService, divergentDb as any);
-    const testDbFunctionsLayer = Layer.mergeAll(
-      CourseOperationsService.Default,
-      LessonSectionOperationsService.Default,
-      SegmentOperationsService.Default
-    ).pipe(Layer.provide(testDrizzleLayer));
-
+  beforeEach(() => {
     const mockRepoWriteLayer = Layer.succeed(CourseRepoWriteService, {
       createLessonDirectory: Effect.fn(function* (_opts: any) {
         return { lessonDirName: "mock", lessonNumber: 1 };
@@ -379,11 +351,11 @@ describe("pre-flight validation gate (PRD #952)", () => {
     );
 
     const testLayer = Layer.mergeAll(
-      testDbFunctionsLayer,
+      divergentCtx.testLayer,
       mockRepoWriteLayer,
       failingSyncValidationLayer,
       NodeFileSystem.layer
-    ).pipe(Layer.provideMerge(testDrizzleLayer));
+    );
 
     const serviceLayer = (
       CourseWriteService as any
@@ -402,14 +374,13 @@ describe("pre-flight validation gate (PRD #952)", () => {
   });
 
   const dsvc = () => divergentEditorService;
-  const ddb = () => divergentDb;
 
   async function createCourse(filePath: string | null = "/tmp/test-repo") {
-    const [course] = await ddb()
+    const [course] = await divergentCtx.db
       .insert(schema.courses)
       .values({ name: "Test Course", filePath })
       .returning();
-    const [version] = await ddb()
+    const [version] = await divergentCtx.db
       .insert(schema.courseVersions)
       .values({ repoId: course!.id, name: "v1" })
       .returning();
@@ -427,13 +398,13 @@ describe("pre-flight validation gate (PRD #952)", () => {
       order: number;
     }[] = []
   ) {
-    const [section] = await ddb()
+    const [section] = await divergentCtx.db
       .insert(schema.sections)
       .values({ repoVersionId, path, order })
       .returning();
     const lessons = [];
     for (const def of lessonDefs) {
-      const [lesson] = await ddb()
+      const [lesson] = await divergentCtx.db
         .insert(schema.lessons)
         .values({
           sectionId: section!.id,
@@ -455,7 +426,7 @@ describe("pre-flight validation gate (PRD #952)", () => {
         dsvc().createRealLesson(section.id, "New Lesson")
       ).rejects.toThrow("Divergent repo");
 
-      const lessons = await ddb().select().from(schema.lessons);
+      const lessons = await divergentCtx.db.select().from(schema.lessons);
       expect(lessons).toHaveLength(0);
     });
   });
@@ -476,7 +447,7 @@ describe("pre-flight validation gate (PRD #952)", () => {
         "Divergent repo"
       );
 
-      const dbLessons = await ddb().select().from(schema.lessons);
+      const dbLessons = await divergentCtx.db.select().from(schema.lessons);
       expect(dbLessons).toHaveLength(1);
     });
 
@@ -510,7 +481,7 @@ describe("pre-flight validation gate (PRD #952)", () => {
         dsvc().updateLessonName(lessons[0]!.id, "new-name")
       ).rejects.toThrow("Divergent repo");
 
-      const dbLessons = await ddb().select().from(schema.lessons);
+      const dbLessons = await divergentCtx.db.select().from(schema.lessons);
       expect(dbLessons[0]!.path).toBe("01.01-my-lesson");
     });
 
@@ -549,7 +520,7 @@ describe("pre-flight validation gate (PRD #952)", () => {
         dsvc().moveLessonToSection(lessons[0]!.id, sectionB.id)
       ).rejects.toThrow("Divergent repo");
 
-      const dbLessons = await ddb().select().from(schema.lessons);
+      const dbLessons = await divergentCtx.db.select().from(schema.lessons);
       expect(dbLessons[0]!.sectionId).toBe(lessons[0]!.sectionId);
     });
 
@@ -591,7 +562,7 @@ describe("pre-flight validation gate (PRD #952)", () => {
         "Divergent repo"
       );
 
-      const dbLessons = await ddb().select().from(schema.lessons);
+      const dbLessons = await divergentCtx.db.select().from(schema.lessons);
       expect(dbLessons[0]!.fsStatus).toBe("real");
     });
   });
