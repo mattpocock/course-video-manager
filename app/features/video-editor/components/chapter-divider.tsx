@@ -34,8 +34,7 @@ export const ChapterDivider = React.forwardRef<
       >
         {onToggleCollapse !== undefined && (
           <span
-            role="button"
-            aria-label={isCollapsed ? "Expand chapter" : "Collapse chapter"}
+            aria-hidden
             className="shrink-0 text-muted-foreground hover:text-foreground"
             onClick={(e) => {
               e.stopPropagation();
@@ -43,9 +42,9 @@ export const ChapterDivider = React.forwardRef<
             }}
           >
             {isCollapsed ? (
-              <ChevronRight className="size-3.5" />
+              <ChevronRight className="size-3" />
             ) : (
-              <ChevronDown className="size-3.5" />
+              <ChevronDown className="size-3" />
             )}
           </span>
         )}

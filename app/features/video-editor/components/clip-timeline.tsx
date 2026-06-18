@@ -147,9 +147,9 @@ export const ClipTimeline = () => {
                   }
                 >
                   {allCollapsed ? (
-                    <ChevronsUpDown className="size-3.5" />
+                    <ChevronsUpDown className="size-3" />
                   ) : (
-                    <ChevronsDownUp className="size-3.5" />
+                    <ChevronsDownUp className="size-3" />
                   )}
                 </Button>
               </div>
