@@ -46,3 +46,5 @@ export {
   type LessonEntry,
   type VideoEntry,
 } from "./vfs-tree";
+
+export { vfsLs } from "./vfs-ls";

@@ -13,7 +13,15 @@ import {
   Search,
   type LucideIcon,
 } from "lucide-react";
-import type { ToolName, ToolPart } from "./mock-data";
+export type ToolName = "ls" | "tree" | "cat" | "grep";
+
+export type ToolPart = {
+  type: "tool";
+  tool: ToolName;
+  command: string;
+  output: string;
+  touched: string[];
+};
 
 const TOOL_ICON: Record<ToolName, LucideIcon> = {
   ls: FolderOpen,

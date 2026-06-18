@@ -1,11 +1,5 @@
 "use client";
 
-// Course Agent side panel (chat-first card). Folded in from the #6 prototype's
-// Variant B. Reuses the write page's kibo AI primitives for the conversation,
-// messages, markdown and input. No backend yet: messages are canned (see
-// mock-data.ts) and the input appends a local user turn — wire `useChat` here when
-// the agent-loop route lands. Thread archiving is real and persists to localStorage.
-
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -22,29 +16,48 @@ import {
 import { AIMessage, AIMessageContent } from "components/ui/kibo-ui/ai/message";
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import {
-  useMessageQueue,
-  type ChatStatus,
-} from "@/features/article-writer/use-message-queue";
-import {
   Archive,
   ArchiveRestore,
   ChevronDown,
-  Loader2Icon,
   MessageSquarePlus,
   X,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  CONTEXT_WINDOW,
-  formatTokens,
-  THREADS,
-  type Message,
-  type Part,
-  type Thread,
-} from "./mock-data";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { CourseToolCall } from "./tool-call";
+import { formatTokens, CONTEXT_WINDOW } from "./constants";
 
+type StoredThread = {
+  id: string;
+  updatedAt: number;
+  contextTokens: number;
+  messages: UIMessage[];
+  versionId?: string;
+};
+
+const THREADS_KEY = "course-agent-threads";
 const ARCHIVED_KEY = "course-agent-archived-threads";
+
+function loadThreads(courseId: string): StoredThread[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(`${THREADS_KEY}:${courseId}`);
+    if (raw) return JSON.parse(raw) as StoredThread[];
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveThreads(courseId: string, threads: StoredThread[]) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(`${THREADS_KEY}:${courseId}`, JSON.stringify(threads));
+  } catch {
+    // ignore
+  }
+}
 
 function loadArchived(): string[] {
   if (typeof localStorage === "undefined") return [];
@@ -74,27 +87,40 @@ function updatedLabel(ts: number): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function textOf(parts: Part[]): string {
-  return parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("\n\n");
-}
-
-export function CourseAgentPanel({ onClose }: { onClose: () => void }) {
-  const [threads, setThreads] = useState<Thread[]>(THREADS);
+export function CourseAgentPanel({
+  courseId,
+  versionId,
+  onClose,
+}: {
+  courseId: string;
+  versionId?: string;
+  onClose: () => void;
+}) {
+  const [threads, setThreads] = useState<StoredThread[]>(() => {
+    const stored = loadThreads(courseId);
+    if (stored.length > 0) return stored;
+    return [
+      {
+        id: `thread-${Date.now()}`,
+        updatedAt: Date.now(),
+        contextTokens: 0,
+        messages: [],
+        versionId,
+      },
+    ];
+  });
   const [archivedIds, setArchivedIds] = useState<string[]>(() =>
     loadArchived()
   );
-  const [activeId, setActiveId] = useState<string>(THREADS[0]!.id);
+  const [activeId, setActiveId] = useState<string>(() => {
+    const archived = new Set(loadArchived());
+    const active = threads.find((t) => !archived.has(t.id));
+    return active?.id ?? threads[0]!.id;
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [draft, setDraft] = useState("");
-  const [status, setStatus] = useState<ChatStatus>("ready");
   const newCount = useRef(0);
-  const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeIdRef = useRef(activeId);
-  activeIdRef.current = activeId;
 
   const archived = useMemo(() => new Set(archivedIds), [archivedIds]);
   const activeThreads = threads.filter((t) => !archived.has(t.id));
@@ -102,90 +128,105 @@ export function CourseAgentPanel({ onClose }: { onClose: () => void }) {
   const thread =
     threads.find((t) => t.id === activeId) ?? activeThreads[0] ?? threads[0]!;
 
-  const setArchived = (ids: string[]) => {
+  const threadVersionId = thread.versionId ?? versionId;
+
+  const { messages, setMessages, sendMessage, stop, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: `/api/courses/${courseId}/agent`,
+      body: { versionId: threadVersionId },
+    }),
+    messages: thread.messages,
+    onFinish({ message }) {
+      const usage = extractUsageFromMessage(message);
+      setThreads((prev) => {
+        const updated = prev.map((t) =>
+          t.id === activeId
+            ? {
+                ...t,
+                updatedAt: Date.now(),
+                contextTokens: usage?.inputTokens ?? t.contextTokens,
+              }
+            : t
+        );
+        saveThreads(courseId, updated);
+        return updated;
+      });
+    },
+  });
+
+  useEffect(() => {
+    setThreads((prev) => {
+      const updated = prev.map((t) =>
+        t.id === activeId ? { ...t, messages, updatedAt: Date.now() } : t
+      );
+      saveThreads(courseId, updated);
+      return updated;
+    });
+  }, [messages, activeId, courseId]);
+
+  const contextTokens = useMemo(() => {
+    const assistantMsgs = messages.filter((m) => m.role === "assistant");
+    const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
+    const usage = lastAssistant ? extractUsageFromMessage(lastAssistant) : null;
+    return usage?.inputTokens ?? thread.contextTokens;
+  }, [messages, thread.contextTokens]);
+
+  const setArchivedAndSave = (ids: string[]) => {
     setArchivedIds(ids);
     saveArchived(ids);
   };
 
   const archiveThread = (id: string) => {
-    setArchived([...archivedIds.filter((x) => x !== id), id]);
+    setArchivedAndSave([...archivedIds.filter((x) => x !== id), id]);
     if (id === activeId) {
       const next = threads.find((t) => t.id !== id && !archived.has(t.id));
-      if (next) setActiveId(next.id);
+      if (next) {
+        setActiveId(next.id);
+        setMessages(next.messages);
+      }
     }
   };
 
   const unarchiveThread = (id: string) => {
-    setArchived(archivedIds.filter((x) => x !== id));
+    setArchivedAndSave(archivedIds.filter((x) => x !== id));
   };
 
   const newThread = () => {
     newCount.current += 1;
-    const t: Thread = {
-      id: `new-${newCount.current}`,
+    const t: StoredThread = {
+      id: `thread-${Date.now()}-${newCount.current}`,
       updatedAt: Date.now(),
       contextTokens: 0,
       messages: [],
+      versionId,
     };
-    setThreads((prev) => [t, ...prev]);
+    setThreads((prev) => {
+      const updated = [t, ...prev];
+      saveThreads(courseId, updated);
+      return updated;
+    });
     setActiveId(t.id);
+    setMessages([]);
     setMenuOpen(false);
   };
 
-  const appendMessage = (threadId: string, msg: Message) =>
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.id === threadId
-          ? { ...t, messages: [...t.messages, msg], updatedAt: Date.now() }
-          : t
-      )
-    );
-
-  // Actually "sends" a message. No backend yet, so we fake a streaming reply so
-  // queueing + stop are observable; swap this for the real useChat send later.
-  const onSend = useCallback((text: string) => {
-    const threadId = activeIdRef.current;
-    appendMessage(threadId, {
-      id: `u-${Date.now()}`,
-      role: "user",
-      parts: [{ type: "text", text }],
-    });
-    setStatus("submitted");
-    replyTimer.current = setTimeout(() => {
-      setStatus("streaming");
-      replyTimer.current = setTimeout(() => {
-        appendMessage(threadId, {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          parts: [
-            {
-              type: "text",
-              text: "_(stub reply — the agent loop isn't wired yet.)_",
-            },
-          ],
-        });
-        setStatus("ready");
-      }, 1200);
-    }, 400);
-  }, []);
-
-  const { submit, queuedMessages, clearQueue } = useMessageQueue(
-    status,
-    onSend
-  );
-
-  const stop = () => {
-    if (replyTimer.current) clearTimeout(replyTimer.current);
-    clearQueue();
-    setStatus("ready");
+  const switchThread = (id: string) => {
+    const target = threads.find((t) => t.id === id);
+    if (target) {
+      setActiveId(id);
+      setMessages(target.messages);
+    }
+    setMenuOpen(false);
   };
 
-  const send = () => {
+  const send = useCallback(() => {
     const text = draft.trim();
     if (!text) return;
-    submit(text);
+    sendMessage({ role: "user", parts: [{ type: "text", text }] });
     setDraft("");
-  };
+  }, [draft, sendMessage]);
+
+  const isStreaming = status === "streaming" || status === "submitted";
 
   return (
     <div className="fixed right-4 top-4 bottom-4 z-40 flex w-[400px] flex-col rounded-xl border border-border bg-card text-foreground shadow-2xl">
@@ -210,10 +251,7 @@ export function CourseAgentPanel({ onClose }: { onClose: () => void }) {
                   )}
                 >
                   <button
-                    onClick={() => {
-                      setActiveId(t.id);
-                      setMenuOpen(false);
-                    }}
+                    onClick={() => switchThread(t.id)}
                     className="flex min-w-0 flex-1 items-center justify-between px-2 py-1.5 text-left text-sm"
                   >
                     <span className="truncate">
@@ -263,10 +301,7 @@ export function CourseAgentPanel({ onClose }: { onClose: () => void }) {
                         className="group flex items-center rounded hover:bg-muted"
                       >
                         <button
-                          onClick={() => {
-                            setActiveId(t.id);
-                            setMenuOpen(false);
-                          }}
+                          onClick={() => switchThread(t.id)}
                           className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm text-muted-foreground"
                         >
                           {updatedLabel(t.updatedAt)}
@@ -297,43 +332,61 @@ export function CourseAgentPanel({ onClose }: { onClose: () => void }) {
       {/* conversation */}
       <AIConversation className="flex-1">
         <AIConversationContent>
-          {thread.messages.length === 0 && (
+          {messages.length === 0 && (
             <div className="mt-10 text-center text-sm text-muted-foreground">
               Ask anything about this course.
             </div>
           )}
-          {thread.messages.map((m) => {
+          {messages.map((m) => {
             if (m.role === "user") {
+              const text = m.parts
+                .filter(
+                  (p): p is { type: "text"; text: string } => p.type === "text"
+                )
+                .map((p) => p.text)
+                .join("\n\n");
               return (
                 <AIMessage from="user" key={m.id}>
-                  <AIMessageContent>{textOf(m.parts)}</AIMessageContent>
+                  <AIMessageContent>{text}</AIMessageContent>
                 </AIMessage>
               );
             }
-            const text = textOf(m.parts);
+            const textParts = m.parts.filter(
+              (p): p is { type: "text"; text: string } => p.type === "text"
+            );
+            const text = textParts.map((p) => p.text).join("\n\n");
             return (
               <AIMessage from="assistant" key={m.id}>
                 <div className="w-full">
-                  {m.parts.map((p, i) =>
-                    p.type === "tool" ? (
-                      <CourseToolCall key={i} part={p} />
-                    ) : null
-                  )}
+                  {m.parts.map((p, i) => {
+                    if (p.type === "dynamic-tool" && isVfsTool(p.toolName)) {
+                      const input = p.input as
+                        | Record<string, string>
+                        | undefined;
+                      const pathArg = input?.path ?? input?.pattern ?? "";
+                      return (
+                        <CourseToolCall
+                          key={i}
+                          part={{
+                            type: "tool",
+                            tool: p.toolName as "ls" | "tree" | "cat" | "grep",
+                            command: `${p.toolName} ${pathArg}`.trim(),
+                            output:
+                              p.state === "output-available"
+                                ? String(p.output)
+                                : "Running...",
+                            touched: [],
+                          }}
+                        />
+                      );
+                    }
+                    return null;
+                  })}
                   {text && <AIResponse imageBasePath="">{text}</AIResponse>}
                 </div>
               </AIMessage>
             );
           })}
-          {queuedMessages.map((text, i) => (
-            <AIMessage from="user" key={`queued-${i}`}>
-              <AIMessageContent>
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2Icon className="size-3 shrink-0 animate-spin" />
-                  {text}
-                </span>
-              </AIMessageContent>
-            </AIMessage>
-          ))}
         </AIConversationContent>
         <AIConversationScrollButton />
       </AIConversation>
@@ -349,20 +402,42 @@ export function CourseAgentPanel({ onClose }: { onClose: () => void }) {
           <AIInputTextarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Message the course agent…"
+            placeholder="Message the course agent..."
           />
           <AIInputToolbar>
             <span
-              title={`${thread.contextTokens.toLocaleString()} / ${CONTEXT_WINDOW.toLocaleString()} tokens`}
+              title={`${contextTokens.toLocaleString()} / ${CONTEXT_WINDOW.toLocaleString()} tokens`}
               className="px-2 text-[11px] font-medium tabular-nums text-muted-foreground"
             >
-              {formatTokens(thread.contextTokens)} /{" "}
-              {formatTokens(CONTEXT_WINDOW)}
+              {formatTokens(contextTokens)} / {formatTokens(CONTEXT_WINDOW)}
             </span>
-            <AIInputSubmit status={status} onStop={stop} />
+            <AIInputSubmit
+              status={isStreaming ? "streaming" : "ready"}
+              onStop={stop}
+            />
           </AIInputToolbar>
         </AIInput>
       </div>
     </div>
   );
+}
+
+const VFS_TOOLS = new Set(["ls", "tree", "cat", "grep"]);
+function isVfsTool(name: string): boolean {
+  return VFS_TOOLS.has(name);
+}
+
+function extractUsageFromMessage(
+  message: UIMessage
+): { inputTokens: number; outputTokens: number } | null {
+  const meta = message.metadata as
+    | { usage?: { inputTokens?: number; outputTokens?: number } }
+    | undefined;
+  if (meta?.usage?.inputTokens != null) {
+    return {
+      inputTokens: meta.usage.inputTokens,
+      outputTokens: meta.usage.outputTokens ?? 0,
+    };
+  }
+  return null;
 }
