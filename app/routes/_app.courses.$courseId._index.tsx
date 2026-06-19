@@ -37,11 +37,8 @@ import {
 } from "react-router";
 import {
   CourseAgentSidebar,
-  AgentOpenAffordance,
-  AgentOpenSwitcher,
-  AgentHeaderButton,
-  parseAgentOpen,
-} from "@/features/course-agent/course-agent-sidebar.prototype";
+  AgentEdgeTab,
+} from "@/features/course-agent/course-agent-sidebar";
 import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId._index";
 import { UploadContext } from "@/features/upload-manager/upload-context";
@@ -278,7 +275,6 @@ export default function Component(props: Route.ComponentProps) {
   }, [displaySections, dispatch]);
 
   const agentPanelOpen = searchParams.has("agentPanel");
-  const agentOpenVariant = parseAgentOpen(searchParams.get("agentOpen"));
   const openAgentPanel = () =>
     setSearchParams(
       (prev) => {
@@ -333,9 +329,6 @@ export default function Component(props: Route.ComponentProps) {
                       handleBatchExport={handleBatchExport}
                       onOpenAgentPanel={openAgentPanel}
                     />
-                    {!agentPanelOpen && agentOpenVariant === "header" && (
-                      <AgentHeaderButton onOpen={openAgentPanel} />
-                    )}
                     {courseWarningCount > 0 && (
                       <span
                         title={`${courseWarningCount} video warning${courseWarningCount === 1 ? "" : "s"}`}
@@ -538,15 +531,7 @@ export default function Component(props: Route.ComponentProps) {
           />
         )}
       </div>
-      {!agentPanelOpen && (
-        <>
-          <AgentOpenAffordance
-            variant={agentOpenVariant}
-            onOpen={openAgentPanel}
-          />
-          <AgentOpenSwitcher current={agentOpenVariant} />
-        </>
-      )}
+      {!agentPanelOpen && <AgentEdgeTab onOpen={openAgentPanel} />}
     </GenerateChaptersProvider>
   );
 }
