@@ -109,6 +109,7 @@ export function FeedbackModal(props: {
               id="feedback-description"
               name="description"
               placeholder="Describe your feedback in detail..."
+              className="max-h-64 overflow-y-auto"
               rows={4}
               required
               onKeyDown={(e) => {
