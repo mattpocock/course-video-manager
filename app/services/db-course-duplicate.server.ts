@@ -128,6 +128,7 @@ export const makeDuplicateCourse = (db: Database) =>
                   },
                   segments: {
                     orderBy: asc(segments.order),
+                    where: eq(segments.archived, false),
                   },
                   thumbnails: true,
                 },

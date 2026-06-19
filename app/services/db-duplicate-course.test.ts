@@ -129,6 +129,24 @@ async function createFullCourseStructure() {
     },
   ]);
 
+  // Segments: one active, one archived
+  await testDb.insert(schema.segments).values([
+    {
+      videoId: video!.id,
+      kind: "definition",
+      title: "Active Segment",
+      order: "a",
+      archived: false,
+    },
+    {
+      videoId: video!.id,
+      kind: "quest",
+      title: "Archived Segment",
+      order: "b",
+      archived: true,
+    },
+  ]);
+
   // Thumbnails
   await testDb.insert(schema.thumbnails).values({
     videoId: video!.id,
@@ -622,5 +640,42 @@ describe("duplicateCourse", () => {
 
     expect(newSections).toHaveLength(1);
     expect(newSections[0]!.path).toBe("01-new-section");
+  });
+
+  it("copies segments and excludes archived segments", async () => {
+    const { course } = await createFullCourseStructure();
+
+    const result = await run(
+      Effect.gen(function* () {
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
+          sourceCourseId: course.id,
+          name: "Dup",
+          filePath: "/tmp/dup",
+        });
+      })
+    );
+
+    const newSections = await testDb.query.sections.findMany({
+      where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
+      with: {
+        lessons: {
+          with: {
+            videos: {
+              with: {
+                segments: {
+                  orderBy: (s, { asc }) => asc(s.order),
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const segments = newSections[0]!.lessons[0]!.videos[0]!.segments;
+    expect(segments).toHaveLength(1);
+    expect(segments[0]!.title).toBe("Active Segment");
+    expect(segments[0]!.kind).toBe("definition");
   });
 });

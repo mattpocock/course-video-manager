@@ -8,6 +8,7 @@ import type { ProposedOps, WriteResult } from "./types";
 import {
   asVfsToolPart,
   asWriteToolPart,
+  stringifyToolOutput,
   vfsToolIsStreaming,
   writeToolStreamingLabel,
 } from "./tool-part-helpers";
@@ -150,7 +151,7 @@ export function AssistantPart({
         type: "tool",
         tool: vfs.toolName,
         command: `${vfs.toolName} ${pathArg}`.trim(),
-        output: streaming ? "" : String(vfs.output),
+        output: streaming ? "" : stringifyToolOutput(vfs.output),
       }}
     />
   );

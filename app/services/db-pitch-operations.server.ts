@@ -191,6 +191,7 @@ export const createPitchOperations = (db: Database) => {
                   videoId: true,
                 },
                 orderBy: asc(segments.order),
+                where: eq(segments.archived, false),
               },
             },
           },

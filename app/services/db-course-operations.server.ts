@@ -296,6 +296,7 @@ export const createCourseOperations = (db: Database) => {
                                 videoId: true,
                               },
                               orderBy: asc(segments.order),
+                              where: eq(segments.archived, false),
                             },
                           },
                         },

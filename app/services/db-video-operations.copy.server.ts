@@ -135,7 +135,10 @@ export const copyVideoImpl = (
 
         if (copySegments) {
           const sourceSegments = await tx.query.segments.findMany({
-            where: eq(segments.videoId, sourceVideoId),
+            where: and(
+              eq(segments.videoId, sourceVideoId),
+              eq(segments.archived, false)
+            ),
             orderBy: asc(segments.order),
           });
 

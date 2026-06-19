@@ -356,6 +356,7 @@ export const createVersionOperations = (db: Database) => {
                     },
                     segments: {
                       orderBy: asc(segments.order),
+                      where: eq(segments.archived, false),
                     },
                     thumbnails: true,
                   },
@@ -468,6 +469,7 @@ export const createVersionOperations = (db: Database) => {
                     videoId: newVideo.id,
                     kind: segment.kind,
                     title: segment.title,
+                    description: segment.description,
                     order: segment.order,
                   }))
                 )

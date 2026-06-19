@@ -428,12 +428,14 @@ describe("copyVersionStructure", () => {
         videoId: video!.id,
         kind: "definition",
         title: "Closures",
+        description: "Explain JS closures",
         order: "a0",
       },
       {
         videoId: video!.id,
         kind: "quest",
         title: "Build a cache",
+        description: "Build a memoization cache",
         order: "a1",
       },
     ]);
@@ -458,9 +460,102 @@ describe("copyVersionStructure", () => {
       orderBy: (s, { asc }) => asc(s.order),
     });
 
+    expect(
+      copied.map((s) => ({
+        kind: s.kind,
+        title: s.title,
+        description: s.description,
+      }))
+    ).toEqual([
+      {
+        kind: "definition",
+        title: "Closures",
+        description: "Explain JS closures",
+      },
+      {
+        kind: "quest",
+        title: "Build a cache",
+        description: "Build a memoization cache",
+      },
+    ]);
+  });
+
+  it("excludes archived segments when copying a video", async () => {
+    const [course] = await testDb
+      .insert(schema.courses)
+      .values({ name: "Test Course", filePath: "/tmp/test" })
+      .returning();
+
+    const [version] = await testDb
+      .insert(schema.courseVersions)
+      .values({ repoId: course!.id, name: "v1" })
+      .returning();
+
+    const [section] = await testDb
+      .insert(schema.sections)
+      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .returning();
+
+    const [lesson] = await testDb
+      .insert(schema.lessons)
+      .values({
+        sectionId: section!.id,
+        path: "01-intro/01-lesson",
+        order: 1,
+        fsStatus: "real",
+        title: "Lesson",
+        authoringStatus: "done",
+      })
+      .returning();
+
+    const [video] = await testDb
+      .insert(schema.videos)
+      .values({
+        lessonId: lesson!.id,
+        path: "01-intro/01-lesson/video.mp4",
+        originalFootagePath: "/footage/v1",
+      })
+      .returning();
+
+    await testDb.insert(schema.segments).values([
+      {
+        videoId: video!.id,
+        kind: "definition",
+        title: "Active",
+        order: "a0",
+        archived: false,
+      },
+      {
+        videoId: video!.id,
+        kind: "quest",
+        title: "Archived",
+        order: "a1",
+        archived: true,
+      },
+    ]);
+
+    const result = await run(
+      Effect.gen(function* () {
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
+          sourceVersionId: version!.id,
+          repoId: course!.id,
+          newVersionName: "v2",
+        });
+      })
+    );
+
+    const newVideoId = result.videoIdMappings.find(
+      (m) => m.sourceVideoId === video!.id
+    )!.newVideoId;
+
+    const copied = await testDb.query.segments.findMany({
+      where: (s, { eq }) => eq(s.videoId, newVideoId),
+      orderBy: (s, { asc }) => asc(s.order),
+    });
+
     expect(copied.map((s) => ({ kind: s.kind, title: s.title }))).toEqual([
-      { kind: "definition", title: "Closures" },
-      { kind: "quest", title: "Build a cache" },
+      { kind: "definition", title: "Active" },
     ]);
   });
 });
