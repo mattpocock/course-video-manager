@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import {
   clips,
@@ -30,7 +30,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createVersionOperations = (db: DrizzleDB) => {
+export const createVersionOperations = (db: Database) => {
   const getCourseVersions = Effect.fn("getCourseVersions")(function* (
     repoId: string
   ) {

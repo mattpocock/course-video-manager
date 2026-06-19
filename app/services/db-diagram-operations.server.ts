@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { clips, diagrams, diagramSnapshots } from "@/db/schema";
 import {
@@ -19,7 +19,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createDiagramOperations = (db: DrizzleDB) => {
+export const createDiagramOperations = (db: Database) => {
   const createDiagram = Effect.fn("createDiagram")(function* () {
     const existing = yield* makeDbCall(() =>
       db.query.diagrams.findMany({

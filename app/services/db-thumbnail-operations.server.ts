@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { thumbnails } from "@/db/schema";
 import {
@@ -17,7 +17,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createThumbnailOperations = (db: DrizzleDB) => {
+export const createThumbnailOperations = (db: Database) => {
   const getThumbnailsByVideoId = Effect.fn("getThumbnailsByVideoId")(function* (
     videoId: string
   ) {

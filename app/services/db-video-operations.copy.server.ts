@@ -13,7 +13,7 @@ import {
 import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import type { Database } from "@/services/drizzle-service.server";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -22,7 +22,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) =>
   });
 
 export const copyVideoImpl = (
-  db: DrizzleDB,
+  db: Database,
   opts: {
     sourceVideoId: string;
     newPath: string;

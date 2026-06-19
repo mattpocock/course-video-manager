@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { clips, pitches, segments, videos } from "@/db/schema";
 import {
@@ -27,7 +27,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createPitchOperations = (db: DrizzleDB) => {
+export const createPitchOperations = (db: Database) => {
   const buildPitchFilters = (filters?: {
     priority?: number[];
     effort?: number[];

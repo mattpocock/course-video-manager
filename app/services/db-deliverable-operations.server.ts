@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import {
   deliverables,
@@ -18,7 +18,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createDeliverableOperations = (db: DrizzleDB) => {
+export const createDeliverableOperations = (db: Database) => {
   const listDeliverables = Effect.fn("listDeliverables")(function* () {
     return yield* makeDbCall(() =>
       db.query.deliverables.findMany({

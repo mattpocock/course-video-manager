@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { lessons, sections, videos } from "@/db/schema";
 import {
@@ -20,7 +20,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createLessonSectionOperations = (db: DrizzleDB) => {
+export const createLessonSectionOperations = (db: Database) => {
   const assertSectionPathAvailable = Effect.fn("assertSectionPathAvailable")(
     function* (repoVersionId: string, path: string, excludeSectionId?: string) {
       const conditions = [

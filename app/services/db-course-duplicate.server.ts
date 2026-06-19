@@ -1,4 +1,4 @@
-import type { DrizzleDB } from "@/services/drizzle-service.server";
+import type { Database } from "@/services/drizzle-service.server";
 import {
   clips,
   chapters,
@@ -30,7 +30,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
  * video's clips, chapters, segments, and thumbnails. Split out of
  * `db-course-operations.server.ts` to keep that module under the file-token cap.
  */
-export const makeDuplicateCourse = (db: DrizzleDB) =>
+export const makeDuplicateCourse = (db: Database) =>
   Effect.fn("duplicateCourse")(function* (input: {
     sourceCourseId: string;
     name: string;

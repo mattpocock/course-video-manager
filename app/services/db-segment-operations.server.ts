@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { segments } from "@/db/schema";
 import {
@@ -22,7 +22,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createSegmentOperations = (db: DrizzleDB) => {
+export const createSegmentOperations = (db: Database) => {
   /** Non-archived segments of a video, sorted by their fractional `order` key. */
   const listSegmentsByVideoId = (videoId: string) =>
     makeDbCall(() =>

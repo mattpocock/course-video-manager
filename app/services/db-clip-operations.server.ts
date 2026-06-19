@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { clips, chapters } from "@/db/schema";
 import {
@@ -19,7 +19,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createClipOperations = (db: DrizzleDB) => {
+export const createClipOperations = (db: Database) => {
   const getClipById = Effect.fn("getClipById")(function* (clipId: string) {
     const clip = yield* makeDbCall(() =>
       db.query.clips.findFirst({

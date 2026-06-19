@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { links, youtubeAuth, aiHeroAuth } from "@/db/schema";
 import {
@@ -17,7 +17,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createLinkAuthOperations = (db: DrizzleDB) => {
+export const createLinkAuthOperations = (db: Database) => {
   const getLinks = Effect.fn("getLinks")(function* () {
     const allLinks = yield* makeDbCall(() =>
       db.query.links.findMany({

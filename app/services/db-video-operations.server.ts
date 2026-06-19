@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { clips, chapters, videos } from "@/db/schema";
@@ -22,7 +22,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 };
 
 export const createVideoOperations = (
-  db: DrizzleDB,
+  db: Database,
   deps: {
     getCourseNavigationData: (id: string) => Effect.Effect<any, any>;
   }

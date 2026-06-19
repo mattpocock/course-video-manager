@@ -1,6 +1,6 @@
 import {
   DrizzleService,
-  type DrizzleDB,
+  type Database,
 } from "@/services/drizzle-service.server";
 import {
   clips,
@@ -34,7 +34,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createCourseOperations = (db: DrizzleDB) => {
+export const createCourseOperations = (db: Database) => {
   const assertSlugAvailable = Effect.fn("assertSlugAvailable")(function* (
     name: string,
     excludeCourseId?: string
