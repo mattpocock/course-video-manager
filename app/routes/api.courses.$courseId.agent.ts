@@ -1,7 +1,18 @@
-import type { CourseAgentUIMessage } from "@/features/course-agent/types";
+import type {
+  CourseAgentUIMessage,
+  WriteResult,
+  ProposedOps,
+} from "@/features/course-agent/types";
 import { runtimeLive } from "@/services/layer.server";
-import { buildVfsForCourse } from "@/services/vfs/vfs-loader.server";
+import {
+  buildVfsForCourse,
+  loadArchivedEntities,
+} from "@/services/vfs/vfs-loader.server";
 import { normalizePath, vfsLs, vfsTree, vfsCat, vfsGrep } from "@/services/vfs";
+import { computeContentHash, deriveDiff } from "@/services/vfs";
+import type { DiffContext, DiffInput } from "@/services/vfs";
+import { executeOps } from "@/services/vfs/agent-diff-executor";
+import { modelMessagesToDiffMessages } from "@/services/vfs/model-messages-adapter";
 import {
   SEGMENT_KINDS,
   SEGMENT_KIND_DESCRIPTIONS,
@@ -11,10 +22,16 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  type UIMessageStreamWriter,
 } from "ai";
 import { tool } from "ai";
+import type { ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { Console, Effect, Schema } from "effect";
+import { Console, Effect, Layer, Schema } from "effect";
+import {
+  DrizzleService,
+  type DrizzleDB,
+} from "@/services/drizzle-service.server";
 import { data } from "react-router";
 import { z } from "zod";
 
@@ -77,12 +94,25 @@ These terms name what you see in the VFS — keep them distinct:
 
 ## Guidelines
 - Use \`ls\` to list a directory, \`tree\` for a recursive overview, \`cat\` to read a file, and \`grep\` to search
-- \`cat\` supports a \`filter\` argument for projecting array files (\`_members.json\`): \`.[i]\` (single item), \`.[i:j]\` (slice), \`count\` (item/chapter/clip counts), \`.field\` (single field on object files)
+- \`cat\` supports a \`filter\` argument for projecting array files (\`_members.json\`): \`.[i]\` (single item), \`.[i:j]\` (slice), \`count\` (item counts), \`.field\` (single field from object files)
 - \`grep\` searches with case-insensitive regex. Omit \`path\` to search the current course; use \`/\` for all courses. Content mode reports locators that round-trip into \`cat path .[i]\`
 - Answer questions about the course by navigating the VFS
 - When you encounter an error (e.g. "No such file or directory"), adjust your path and try again
 - Be concise in your answers
 - Cite specific paths when referencing content`;
+
+const editSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("replace"),
+    old_text: z.string().describe("Exact text to find and replace"),
+    new_text: z.string().describe("Replacement text"),
+  }),
+  z.object({
+    type: z.literal("insert_after"),
+    anchor: z.string().describe("Text to insert after"),
+    new_text: z.string().describe("Text to insert"),
+  }),
+]);
 
 export const action = async (args: {
   request: Request;
@@ -95,10 +125,57 @@ export const action = async (args: {
     const parsed = yield* Schema.decodeUnknown(requestSchema)(body);
     const messages: CourseAgentUIMessage[] = parsed.messages;
 
-    const { root, anchor } = yield* buildVfsForCourse(
+    const db = (yield* DrizzleService) as unknown as DrizzleDB;
+
+    const { root, anchor, repoVersionId } = yield* buildVfsForCourse(
       courseId,
       parsed.versionId
     );
+
+    const archived = yield* loadArchivedEntities(db, repoVersionId);
+    const diffCtx: DiffContext = { root, archived };
+
+    let writer: UIMessageStreamWriter<CourseAgentUIMessage> | null = null;
+
+    function runDiff(input: DiffInput, modelMessages: ModelMessage[]) {
+      const diffMessages = modelMessagesToDiffMessages(modelMessages);
+      return deriveDiff(input, diffMessages, diffCtx);
+    }
+
+    async function applyOrReject(
+      input: DiffInput,
+      modelMessages: ModelMessage[]
+    ): Promise<WriteResult> {
+      const freshVfs = await buildVfsForCourse(courseId, parsed.versionId).pipe(
+        Effect.provide(Layer.succeed(DrizzleService, db as any)),
+        Effect.runPromise
+      );
+
+      const freshArchived = await loadArchivedEntities(
+        db,
+        freshVfs.repoVersionId
+      ).pipe(Effect.runPromise);
+
+      const freshCtx: DiffContext = {
+        root: freshVfs.root,
+        archived: freshArchived,
+      };
+      const diffMessages = modelMessagesToDiffMessages(modelMessages);
+      const res = deriveDiff(input, diffMessages, freshCtx);
+
+      if (!res.ok) {
+        return { applied: false, rejection: res.rejection };
+      }
+
+      return executeOps(res.ops, {
+        db,
+        courseId,
+        repoVersionId: freshVfs.repoVersionId,
+        filePath: freshVfs.filePath,
+        root: freshVfs.root,
+        path: input.path,
+      }).pipe(Effect.runPromise);
+    }
 
     const lsTool = tool({
       description:
@@ -141,7 +218,7 @@ export const action = async (args: {
 
     const catTool = tool({
       description:
-        "Read a leaf file's JSON content. Supports an optional filter for projecting array files: `.[i]` (item at index), `.[i:j]` (slice), `count` (item counts), `.field` (single field from object files).",
+        "Read a leaf file's JSON content. Returns {content, path, hash}. Supports an optional filter for projecting array files: `.[i]` (item at index), `.[i:j]` (slice), `count` (item counts), `.field` (single field from object files).",
       inputSchema: z.object({
         path: z.string().describe("The file path to read."),
         filter: z
@@ -151,7 +228,8 @@ export const action = async (args: {
       }),
       execute: async ({ path, filter }) => {
         const absolute = normalizePath(path, anchor);
-        return vfsCat(root, absolute, filter);
+        const content = vfsCat(root, absolute, filter);
+        return { content, path: absolute, hash: computeContentHash(content) };
       },
     });
 
@@ -181,6 +259,103 @@ export const action = async (args: {
       },
     });
 
+    const writeTool = tool({
+      description:
+        "Write the complete content of a VFS file. Use for small files like _members.json, section.json, lesson.json, video.json. You must cat the file first before writing.",
+      inputSchema: z.object({
+        path: z.string().describe("The VFS file path to write."),
+        content: z.string().describe("The complete JSON content of the file."),
+      }),
+      needsApproval: (
+        input: { path: string; content: string },
+        { toolCallId, messages: modelMessages }
+      ) => {
+        try {
+          const absolute = normalizePath(input.path, anchor);
+          const diffInput: DiffInput = {
+            path: absolute,
+            content: input.content,
+          };
+          const res = runDiff(diffInput, modelMessages);
+          if (!res.ok) return false;
+
+          const proposed: ProposedOps = {
+            toolCallId,
+            path: absolute,
+            tool: "write",
+            ops: res.ops,
+            ...(res.note ? { note: res.note } : {}),
+          };
+          writer?.write({
+            type: "data-proposed-ops",
+            id: toolCallId,
+            data: proposed,
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      execute: async (
+        input: { path: string; content: string },
+        { messages: modelMessages }
+      ): Promise<WriteResult> => {
+        const absolute = normalizePath(input.path, anchor);
+        return applyOrReject(
+          { path: absolute, content: input.content },
+          modelMessages
+        );
+      },
+    });
+
+    const editTool = tool({
+      description:
+        "Apply targeted edits to a VFS file using replace/insert_after operations. Use for large files where rewriting the whole content would be wasteful. You must cat the file first before editing.",
+      inputSchema: z.object({
+        path: z.string().describe("The VFS file path to edit."),
+        edits: z
+          .array(editSchema)
+          .describe("Array of edit operations to apply in sequence."),
+      }),
+      needsApproval: (
+        input: { path: string; edits: z.infer<typeof editSchema>[] },
+        { toolCallId, messages: modelMessages }
+      ) => {
+        try {
+          const absolute = normalizePath(input.path, anchor);
+          const diffInput: DiffInput = { path: absolute, edits: input.edits };
+          const res = runDiff(diffInput, modelMessages);
+          if (!res.ok) return false;
+
+          const proposed: ProposedOps = {
+            toolCallId,
+            path: absolute,
+            tool: "edit",
+            ops: res.ops,
+            ...(res.note ? { note: res.note } : {}),
+          };
+          writer?.write({
+            type: "data-proposed-ops",
+            id: toolCallId,
+            data: proposed,
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      execute: async (
+        input: { path: string; edits: z.infer<typeof editSchema>[] },
+        { messages: modelMessages }
+      ): Promise<WriteResult> => {
+        const absolute = normalizePath(input.path, anchor);
+        return applyOrReject(
+          { path: absolute, edits: input.edits },
+          modelMessages
+        );
+      },
+    });
+
     const modelMessages = yield* Effect.tryPromise(() =>
       convertToModelMessages(messages)
     );
@@ -188,12 +363,21 @@ export const action = async (args: {
     const agent = new Agent({
       model: anthropic("claude-sonnet-4-5"),
       instructions: SYSTEM_PROMPT(anchor),
-      tools: { ls: lsTool, tree: treeTool, cat: catTool, grep: grepTool },
+      tools: {
+        ls: lsTool,
+        tree: treeTool,
+        cat: catTool,
+        grep: grepTool,
+        write: writeTool,
+        edit: editTool,
+      },
     });
 
     const stream = createUIMessageStream<CourseAgentUIMessage>({
       originalMessages: messages,
-      execute: async ({ writer }) => {
+      execute: async ({ writer: w }) => {
+        writer = w;
+
         const result = await agent.stream({ messages: modelMessages });
         writer.merge(
           result.toUIMessageStream({

@@ -16,8 +16,9 @@ import {
   NotFoundError,
   UnknownDBServiceError,
 } from "@/services/db-service-errors";
-import { asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
+import type { ArchivedEntity, EntityType } from "./derive-diff-types";
 import {
   generateCourseLeaf,
   generateSectionLeaf,
@@ -50,6 +51,7 @@ const loadCourseForVfs = (
           slug: true,
           memory: true,
           archived: true,
+          filePath: true,
         },
         with: {
           versions: {
@@ -237,6 +239,70 @@ export const buildVfsForCourse = (courseId: string, versionId?: string) =>
 
     const anchor = `/courses/${entry.slug}`;
     const root = buildVfsTree([entry]);
+    const version = course.versions[0]!;
 
-    return { root, anchor, courseSlug: entry.slug };
+    return {
+      root,
+      anchor,
+      courseSlug: entry.slug,
+      repoVersionId: version.id,
+      filePath: course.filePath ?? null,
+    };
+  });
+
+export const loadArchivedEntities = (
+  db: DrizzleDB,
+  repoVersionId: string
+): Effect.Effect<Map<string, ArchivedEntity>, UnknownDBServiceError> =>
+  Effect.gen(function* () {
+    const map = new Map<string, ArchivedEntity>();
+
+    const archivedLessons = yield* makeDbCall(() =>
+      db
+        .select({
+          id: lessons.id,
+          sectionPath: sections.path,
+        })
+        .from(lessons)
+        .innerJoin(sections, eq(lessons.sectionId, sections.id))
+        .where(
+          and(
+            eq(lessons.archived, true),
+            eq(sections.repoVersionId, repoVersionId)
+          )
+        )
+    );
+
+    for (const row of archivedLessons) {
+      map.set(row.id, {
+        entityType: "lesson" as EntityType,
+        parentLabel: row.sectionPath,
+      });
+    }
+
+    const archivedVideos = yield* makeDbCall(() =>
+      db
+        .select({
+          id: videos.id,
+          lessonTitle: lessons.title,
+        })
+        .from(videos)
+        .innerJoin(lessons, eq(videos.lessonId, lessons.id))
+        .innerJoin(sections, eq(lessons.sectionId, sections.id))
+        .where(
+          and(
+            eq(videos.archived, true),
+            eq(sections.repoVersionId, repoVersionId)
+          )
+        )
+    );
+
+    for (const row of archivedVideos) {
+      map.set(row.id, {
+        entityType: "video" as EntityType,
+        parentLabel: row.lessonTitle,
+      });
+    }
+
+    return map;
   });
