@@ -72,4 +72,18 @@ describe("asVfsToolPart", () => {
     expect(result).not.toBeNull();
     expect(result!.errorText).toBeUndefined();
   });
+
+  it("extracts errorText from dynamic-tool with output-error", () => {
+    const part = makePart({
+      type: "dynamic-tool",
+      toolName: "grep",
+      state: "output-error",
+      errorText: "Pattern not found",
+    });
+    const result = asVfsToolPart(part);
+    expect(result).not.toBeNull();
+    expect(result!.toolName).toBe("grep");
+    expect(result!.state).toBe("output-error");
+    expect(result!.errorText).toBe("Pattern not found");
+  });
 });
