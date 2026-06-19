@@ -10,6 +10,7 @@ import {
   FileText,
   FolderOpen,
   ListTree,
+  LoaderIcon,
   Search,
   type LucideIcon,
 } from "lucide-react";
@@ -20,7 +21,6 @@ export type ToolPart = {
   tool: ToolName;
   command: string;
   output: string;
-  touched: string[];
 };
 
 const TOOL_ICON: Record<ToolName, LucideIcon> = {
@@ -30,31 +30,39 @@ const TOOL_ICON: Record<ToolName, LucideIcon> = {
   grep: Search,
 };
 
-export function CourseToolCall({ part }: { part: ToolPart }) {
+export function CourseToolCall({
+  part,
+  streaming = false,
+}: {
+  part: ToolPart;
+  streaming?: boolean;
+}) {
   const Icon = TOOL_ICON[part.tool];
   return (
     <AITool className="my-3 w-full">
       <CollapsibleTrigger className="group flex w-full items-start gap-2 p-3 text-left">
-        {/* mt-0.5 nudges the icon onto the first text line — align-top, not -middle */}
         <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         <code className="min-w-0 flex-1 break-all font-mono text-xs text-foreground">
           {part.command}
         </code>
-        <span className="mt-0.5 shrink-0 text-xs text-muted-foreground">
-          {part.touched.length} path{part.touched.length === 1 ? "" : "s"}
-        </span>
-        <ChevronDownIcon
-          className={cn(
-            "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
-            "group-data-[state=open]:rotate-180"
-          )}
-        />
+        {streaming ? (
+          <LoaderIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground animate-spin" />
+        ) : (
+          <ChevronDownIcon
+            className={cn(
+              "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
+              "group-data-[state=open]:rotate-180"
+            )}
+          />
+        )}
       </CollapsibleTrigger>
-      <AIToolContent>
-        <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">
-          {part.output}
-        </pre>
-      </AIToolContent>
+      {!streaming && (
+        <AIToolContent>
+          <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">
+            {part.output}
+          </pre>
+        </AIToolContent>
+      )}
     </AITool>
   );
 }

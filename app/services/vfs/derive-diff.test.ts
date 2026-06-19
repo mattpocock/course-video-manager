@@ -183,6 +183,30 @@ describe("parse errors", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.rejection.kind).toBe("parse-error");
   });
+
+  it("includes path details in manifest validation errors", () => {
+    const ctx = buildCtx();
+    const path = "/courses/my-course/sections/01-intro/lessons/_members.json";
+    const stamp = stampCat(ctx.root, path);
+    const messages = makeMessages([stamp]);
+    const result = deriveDiff(
+      writeInput(
+        path,
+        JSON.stringify([
+          { id: "l1", slug: "hello", title: "Hello" },
+          { id: "l2", slug: 123, title: null },
+        ])
+      ),
+      messages,
+      ctx
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.rejection.kind).toBe("parse-error");
+      expect(result.rejection.message).toContain("[1].slug");
+      expect(result.rejection.message).toContain("[1].title");
+    }
+  });
 });
 
 describe("file-not-found rejection", () => {

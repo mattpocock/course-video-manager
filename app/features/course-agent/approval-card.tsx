@@ -162,44 +162,15 @@ function ReorderOpDetail({ op }: { op: ReorderOp }) {
   );
 }
 
-export function ApprovalCard({
-  proposed,
-  onApprove,
-  onReject,
-  disabled,
-}: {
-  proposed: ProposedOps;
-  onApprove: () => void;
-  onReject: () => void;
-  disabled?: boolean;
-}) {
+function CardOpsBody({ proposed }: { proposed: ProposedOps }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      {/* header */}
-      <div className="flex items-start gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
-        <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            Proposed edit
-            <span className="rounded bg-muted px-1 py-px font-mono text-[10px] font-medium text-muted-foreground">
-              {proposed.tool}
-            </span>
-          </div>
-          <code className="block truncate text-[11px] text-muted-foreground">
-            {proposed.path}
-          </code>
-        </div>
-      </div>
-
-      {/* R8 two-step-move banner */}
+    <>
       {proposed.note && (
         <div className="flex items-start gap-1.5 border-b border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
           <ArchiveRestore className="mt-px size-3.5 shrink-0" />
           <span>{proposed.note}</span>
         </div>
       )}
-
-      {/* op list body */}
       <div className="space-y-3 p-3">
         {proposed.ops.map((op, i) => {
           const s = opStyle(op);
@@ -219,8 +190,40 @@ export function ApprovalCard({
           );
         })}
       </div>
+    </>
+  );
+}
 
-      {/* footer */}
+export function ApprovalCard({
+  proposed,
+  onApprove,
+  onReject,
+  disabled,
+}: {
+  proposed: ProposedOps;
+  onApprove: () => void;
+  onReject: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex items-start gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
+        <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            Proposed edit
+            <span className="rounded bg-muted px-1 py-px font-mono text-[10px] font-medium text-muted-foreground">
+              {proposed.tool}
+            </span>
+          </div>
+          <code className="block truncate text-[11px] text-muted-foreground">
+            {proposed.path}
+          </code>
+        </div>
+      </div>
+
+      <CardOpsBody proposed={proposed} />
+
       <div className="space-y-2 border-t border-border p-3">
         <Button className="w-full" onClick={onApprove} disabled={disabled}>
           <Check className="mr-1 size-4" /> Approve all {proposed.ops.length}{" "}
@@ -238,14 +241,49 @@ export function ApprovalCard({
   );
 }
 
+export function RejectedCard({ proposed }: { proposed: ProposedOps }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm opacity-75">
+      <div className="flex items-start gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
+        <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            Rejected edit
+            <span className="rounded bg-red-100 px-1 py-px font-mono text-[10px] font-medium text-red-700 dark:bg-red-900/50 dark:text-red-400">
+              rejected
+            </span>
+          </div>
+          <code className="block truncate text-[11px] text-muted-foreground">
+            {proposed.path}
+          </code>
+        </div>
+      </div>
+
+      <CardOpsBody proposed={proposed} />
+    </div>
+  );
+}
+
 export function InvalidEditLine({ message }: { message: string }) {
+  const newlineIdx = message.indexOf("\n");
+  const hasDetails = newlineIdx !== -1;
+  const summary = hasDetails ? message.slice(0, newlineIdx) : message;
+  const details = hasDetails ? message.slice(newlineIdx + 1) : null;
+
   return (
     <div className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-      <span>
-        Agent proposed an invalid edit — retrying.{" "}
-        <span className="italic">{message}</span>
-      </span>
+      <div className="min-w-0">
+        <span>
+          Agent proposed an invalid edit — retrying.{" "}
+          <span className="italic">{summary}</span>
+        </span>
+        {details && (
+          <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground/80">
+            {details}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }

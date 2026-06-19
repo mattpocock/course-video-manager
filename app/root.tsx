@@ -80,7 +80,10 @@ export default function App() {
       <Button
         size="icon"
         variant="outline"
-        className="fixed bottom-4 right-4 z-40 rounded-full size-10 shadow-lg"
+        className="fixed bottom-4 z-40 rounded-full size-10 shadow-lg transition-[right] duration-200"
+        style={{
+          right: "calc(1rem + var(--agent-sidebar-width, 0px))",
+        }}
         onClick={() => setFeedbackOpen(true)}
         disabled={feedbackSubmitting}
         aria-label="Send feedback"

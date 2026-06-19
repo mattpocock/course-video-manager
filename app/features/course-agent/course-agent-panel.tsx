@@ -14,30 +14,27 @@ import {
   AIInputToolbar,
 } from "components/ui/kibo-ui/ai/input";
 import { AIMessage, AIMessageContent } from "components/ui/kibo-ui/ai/message";
-import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import {
   AlertCircle,
   Archive,
   ArchiveRestore,
-  Check,
   ChevronDown,
+  Copy,
   MessageSquarePlus,
   X,
-  XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useRevalidator } from "react-router";
 import { DefaultChatTransport } from "ai";
-import { CourseToolCall } from "./tool-call";
 import { formatTokens, CONTEXT_WINDOW } from "./constants";
 import {
   courseAgentSendAutomaticallyWhen,
   type ProposedOps,
-  type WriteResult,
   type CourseAgentUIMessage,
 } from "./types";
-import { ApprovalCard, InvalidEditLine } from "./approval-card";
+import { AssistantPart } from "./assistant-part";
 import { findAppliedToolCallIds } from "./revalidation-trigger";
 import {
   type StoredThread,
@@ -46,11 +43,8 @@ import {
   loadArchived,
   saveArchived,
 } from "./thread-storage";
-import {
-  asVfsToolPart,
-  asWriteToolPart,
-  extractUsageFromMessage,
-} from "./tool-part-helpers";
+import { formatTranscript } from "./format-transcript";
+import { extractUsageFromMessage } from "./tool-part-helpers";
 
 function updatedLabel(ts: number): string {
   const label =
@@ -367,12 +361,27 @@ export function CourseAgentPanel({
           )}
         </div>
 
-        <button
-          className="ml-auto rounded p-1 hover:bg-muted"
-          onClick={onClose}
-        >
-          <X className="size-4" />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            title="Copy transcript"
+            className="rounded p-1 hover:bg-muted"
+            onClick={async () => {
+              const text = formatTranscript(messages);
+              if (!text) return;
+              try {
+                await navigator.clipboard.writeText(text);
+                toast("Chat transcript copied to clipboard");
+              } catch {
+                toast.error("Failed to copy to clipboard");
+              }
+            }}
+          >
+            <Copy className="size-4" />
+          </button>
+          <button className="rounded p-1 hover:bg-muted" onClick={onClose}>
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
 
       {/* conversation */}
@@ -400,147 +409,15 @@ export function CourseAgentPanel({
             return (
               <AIMessage from="assistant" key={m.id}>
                 <div className="w-full">
-                  {m.parts.map((p, i) => {
-                    if (p.type === "text") {
-                      return p.text ? (
-                        <AIResponse
-                          key={i}
-                          imageBasePath=""
-                          className="text-sm"
-                        >
-                          {p.text}
-                        </AIResponse>
-                      ) : null;
-                    }
-
-                    // Data parts are rendered through their correlated tool part
-                    if ((p as { type: string }).type === "data-proposed-ops") {
-                      return null;
-                    }
-
-                    // Write/edit tool parts — approval cards, invalid-edit lines, and apply confirmations
-                    const writeTool = asWriteToolPart(p);
-                    if (writeTool) {
-                      const proposed = proposedOpsMap.get(writeTool.toolCallId);
-
-                      if (
-                        writeTool.state === "approval-requested" &&
-                        proposed
-                      ) {
-                        return (
-                          <div key={i} className="my-3">
-                            <ApprovalCard
-                              proposed={proposed}
-                              disabled={isStreaming}
-                              onApprove={() =>
-                                addToolApprovalResponse({
-                                  id: writeTool.approval!.id,
-                                  approved: true,
-                                })
-                              }
-                              onReject={() =>
-                                addToolApprovalResponse({
-                                  id: writeTool.approval!.id,
-                                  approved: false,
-                                  reason: "User rejected this edit.",
-                                })
-                              }
-                            />
-                          </div>
-                        );
-                      }
-
-                      if (writeTool.state === "output-available") {
-                        const result = writeTool.output as
-                          | WriteResult
-                          | undefined;
-                        if (result?.applied === false) {
-                          return (
-                            <div key={i} className="my-2">
-                              <InvalidEditLine
-                                message={result.rejection.message}
-                              />
-                            </div>
-                          );
-                        }
-                        if (result?.applied === true) {
-                          return (
-                            <div
-                              key={i}
-                              className="my-2 flex items-center gap-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
-                            >
-                              <Check className="size-3.5 text-green-600" />
-                              <span>Edit applied successfully.</span>
-                            </div>
-                          );
-                        }
-                      }
-
-                      if (writeTool.state === "output-denied") {
-                        return (
-                          <div
-                            key={i}
-                            className="my-2 flex items-center gap-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
-                          >
-                            <XCircle className="size-3.5" />
-                            <span>You rejected this edit.</span>
-                          </div>
-                        );
-                      }
-
-                      if (writeTool.state === "output-error") {
-                        return (
-                          <div
-                            key={i}
-                            className="my-2 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive"
-                          >
-                            <AlertCircle className="size-3.5 shrink-0" />
-                            <span>
-                              {writeTool.errorText || "Tool execution failed."}
-                            </span>
-                          </div>
-                        );
-                      }
-
-                      // input-streaming / input-available / approval-responded — nothing to render
-                      return null;
-                    }
-
-                    const vfs = asVfsToolPart(p);
-                    if (!vfs) return null;
-                    const pathArg = vfs.input?.path ?? vfs.input?.pattern ?? "";
-
-                    if (vfs.state === "output-error") {
-                      return (
-                        <div
-                          key={i}
-                          className="my-2 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive"
-                        >
-                          <AlertCircle className="size-3.5 shrink-0" />
-                          <span>
-                            {`${vfs.toolName} ${pathArg}`.trim()}:{" "}
-                            {vfs.errorText || "Tool execution failed."}
-                          </span>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <CourseToolCall
-                        key={i}
-                        part={{
-                          type: "tool",
-                          tool: vfs.toolName,
-                          command: `${vfs.toolName} ${pathArg}`.trim(),
-                          output:
-                            vfs.state === "output-available"
-                              ? String(vfs.output)
-                              : "Running...",
-                          touched: [],
-                        }}
-                      />
-                    );
-                  })}
+                  {m.parts.map((p, i) => (
+                    <AssistantPart
+                      key={i}
+                      part={p}
+                      proposedOpsMap={proposedOpsMap}
+                      isStreaming={isStreaming}
+                      addToolApprovalResponse={addToolApprovalResponse}
+                    />
+                  ))}
                 </div>
               </AIMessage>
             );

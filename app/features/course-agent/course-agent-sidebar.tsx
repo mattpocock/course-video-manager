@@ -9,6 +9,16 @@ const MAX_WIDTH = 640;
 const DEFAULT_WIDTH = 400;
 const STORAGE_KEY = "agent-sidebar-width";
 
+export const SIDEBAR_WIDTH_VAR = "--agent-sidebar-width";
+
+export function setSidebarWidthVar(width: number): void {
+  document.documentElement.style.setProperty(SIDEBAR_WIDTH_VAR, `${width}px`);
+}
+
+export function clearSidebarWidthVar(): void {
+  document.documentElement.style.removeProperty(SIDEBAR_WIDTH_VAR);
+}
+
 export function clampWidth(w: number): number {
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w));
 }
@@ -60,6 +70,11 @@ export function CourseAgentSidebar(props: SidebarProps) {
       window.removeEventListener("mouseup", onUp);
     };
   }, []);
+
+  useEffect(() => {
+    setSidebarWidthVar(width);
+    return clearSidebarWidthVar;
+  }, [width]);
 
   return (
     <aside

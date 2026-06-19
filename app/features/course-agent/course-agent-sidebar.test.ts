@@ -3,6 +3,9 @@ import {
   clampWidth,
   loadSidebarWidth,
   saveSidebarWidth,
+  SIDEBAR_WIDTH_VAR,
+  setSidebarWidthVar,
+  clearSidebarWidthVar,
 } from "./course-agent-sidebar";
 
 describe("clampWidth", () => {
@@ -83,5 +86,38 @@ describe("saveSidebarWidth", () => {
     saveSidebarWidth(500);
     saveSidebarWidth(350);
     expect(store.get("agent-sidebar-width")).toBe("350");
+  });
+});
+
+describe("setSidebarWidthVar / clearSidebarWidthVar", () => {
+  const props = new Map<string, string>();
+  const mockStyle = {
+    setProperty: (k: string, v: string) => props.set(k, v),
+    removeProperty: (k: string) => props.delete(k),
+    getPropertyValue: (k: string) => props.get(k) ?? "",
+  };
+
+  beforeEach(() => {
+    props.clear();
+    vi.stubGlobal("document", {
+      documentElement: { style: mockStyle },
+    });
+  });
+
+  it("sets the CSS custom property on documentElement", () => {
+    setSidebarWidthVar(400);
+    expect(mockStyle.getPropertyValue(SIDEBAR_WIDTH_VAR)).toBe("400px");
+  });
+
+  it("updates when called with a new width", () => {
+    setSidebarWidthVar(400);
+    setSidebarWidthVar(500);
+    expect(mockStyle.getPropertyValue(SIDEBAR_WIDTH_VAR)).toBe("500px");
+  });
+
+  it("clearSidebarWidthVar removes the property", () => {
+    setSidebarWidthVar(400);
+    clearSidebarWidthVar();
+    expect(mockStyle.getPropertyValue(SIDEBAR_WIDTH_VAR)).toBe("");
   });
 });
