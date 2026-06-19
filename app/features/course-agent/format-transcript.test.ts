@@ -110,4 +110,44 @@ describe("formatTranscript", () => {
       "Assistant:\nFirst paragraph.\nSecond paragraph."
     );
   });
+
+  it("skips messages with only unrecognized parts", () => {
+    const msgs = [
+      makeMsg("assistant", [{ type: "data-proposed-ops", id: "x", data: {} }]),
+      makeMsg("user", [{ type: "text", text: "Hi" }]),
+    ];
+    expect(formatTranscript(msgs)).toBe("User:\nHi");
+  });
+
+  it("includes edit tool calls as bracketed labels", () => {
+    const msgs = [
+      makeMsg("assistant", [
+        {
+          type: "tool-edit",
+          toolCallId: "tc-2",
+          state: "output-available",
+          input: { path: "src/utils.ts" },
+          output: { applied: true, content: "", hash: "b", renames: [] },
+        },
+      ]),
+    ];
+    expect(formatTranscript(msgs)).toBe(
+      "Assistant:\n[Tool: edit src/utils.ts]"
+    );
+  });
+
+  it("handles tool calls with no path argument", () => {
+    const msgs = [
+      makeMsg("assistant", [
+        {
+          type: "tool-cat",
+          toolName: "cat",
+          state: "output-available",
+          input: {},
+          output: "",
+        },
+      ]),
+    ];
+    expect(formatTranscript(msgs)).toBe("Assistant:\n[Tool: cat]");
+  });
 });

@@ -17,7 +17,11 @@ export function formatTranscript(messages: UIMessage[]): string {
       const vfs = asVfsToolPart(part);
       if (vfs) {
         const pathArg = vfs.input?.path ?? vfs.input?.pattern ?? "";
-        lines.push(`[Tool: ${vfs.toolName} ${pathArg}]`.trim());
+        lines.push(
+          pathArg
+            ? `[Tool: ${vfs.toolName} ${pathArg}]`
+            : `[Tool: ${vfs.toolName}]`
+        );
         continue;
       }
 
@@ -27,7 +31,11 @@ export function formatTranscript(messages: UIMessage[]): string {
           (write.input?.path as string | undefined) ??
           (write.input?.filePath as string | undefined) ??
           "";
-        lines.push(`[Tool: ${write.toolName} ${pathArg}]`.trim());
+        lines.push(
+          pathArg
+            ? `[Tool: ${write.toolName} ${pathArg}]`
+            : `[Tool: ${write.toolName}]`
+        );
         continue;
       }
     }

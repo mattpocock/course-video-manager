@@ -371,12 +371,15 @@ export function CourseAgentPanel({
           <button
             title="Copy transcript"
             className="rounded p-1 hover:bg-muted"
-            onClick={() => {
+            onClick={async () => {
               const text = formatTranscript(messages);
               if (!text) return;
-              navigator.clipboard.writeText(text).then(() => {
+              try {
+                await navigator.clipboard.writeText(text);
                 toast("Chat transcript copied to clipboard");
-              });
+              } catch {
+                toast.error("Failed to copy to clipboard");
+              }
             }}
           >
             <Copy className="size-4" />
