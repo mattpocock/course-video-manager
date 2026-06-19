@@ -82,6 +82,13 @@ export function asWriteToolPart(
   };
 }
 
+export function stringifyToolOutput(output: unknown): string {
+  if (output == null) return "";
+  if (typeof output === "string") return output;
+  if (typeof output === "object") return JSON.stringify(output, null, 2);
+  return String(output);
+}
+
 export function extractUsageFromMessage(
   message: UIMessage
 ): { inputTokens: number; outputTokens: number } | null {

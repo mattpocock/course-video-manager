@@ -52,6 +52,7 @@ import {
   asVfsToolPart,
   asWriteToolPart,
   extractUsageFromMessage,
+  stringifyToolOutput,
 } from "./tool-part-helpers";
 
 function updatedLabel(ts: number): string {
@@ -519,7 +520,7 @@ export function CourseAgentPanel({
                           command: `${vfs.toolName} ${pathArg}`.trim(),
                           output:
                             vfs.state === "output-available"
-                              ? String(vfs.output)
+                              ? stringifyToolOutput(vfs.output)
                               : "Running...",
                           touched: [],
                         }}
