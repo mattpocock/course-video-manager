@@ -21,7 +21,6 @@ export type ToolPart = {
   tool: ToolName;
   command: string;
   output: string;
-  touched: string[];
 };
 
 const TOOL_ICON: Record<ToolName, LucideIcon> = {

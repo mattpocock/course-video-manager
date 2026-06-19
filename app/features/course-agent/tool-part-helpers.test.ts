@@ -17,6 +17,14 @@ describe("vfsToolIsStreaming", () => {
     expect(vfsToolIsStreaming("output-available")).toBe(false);
   });
 
+  it("returns false for output-error", () => {
+    expect(vfsToolIsStreaming("output-error")).toBe(false);
+  });
+
+  it("returns false for output-denied", () => {
+    expect(vfsToolIsStreaming("output-denied")).toBe(false);
+  });
+
   it("returns true for empty state", () => {
     expect(vfsToolIsStreaming("")).toBe(true);
   });
