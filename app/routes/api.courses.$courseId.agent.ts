@@ -1,3 +1,4 @@
+import type { CourseAgentUIMessage } from "@/features/course-agent/types";
 import { runtimeLive } from "@/services/layer.server";
 import { buildVfsForCourse } from "@/services/vfs/vfs-loader.server";
 import { normalizePath, vfsLs, vfsTree, vfsCat, vfsGrep } from "@/services/vfs";
@@ -8,7 +9,8 @@ import {
 import {
   ToolLoopAgent as Agent,
   convertToModelMessages,
-  type UIMessage,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
 } from "ai";
 import { tool } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -91,7 +93,7 @@ export const action = async (args: {
 
   return Effect.gen(function* () {
     const parsed = yield* Schema.decodeUnknown(requestSchema)(body);
-    const messages: UIMessage[] = parsed.messages;
+    const messages: CourseAgentUIMessage[] = parsed.messages;
 
     const { root, anchor } = yield* buildVfsForCourse(
       courseId,
@@ -189,23 +191,30 @@ export const action = async (args: {
       tools: { ls: lsTool, tree: treeTool, cat: catTool, grep: grepTool },
     });
 
-    const result = yield* Effect.tryPromise(() =>
-      agent.stream({ messages: modelMessages })
-    );
-
-    return result.toUIMessageStreamResponse({
-      messageMetadata({ part }) {
-        if (part.type === "finish-step") {
-          return {
-            usage: {
-              inputTokens: part.usage.inputTokens,
-              outputTokens: part.usage.outputTokens,
+    const stream = createUIMessageStream<CourseAgentUIMessage>({
+      originalMessages: messages,
+      execute: async ({ writer }) => {
+        const result = await agent.stream({ messages: modelMessages });
+        writer.merge(
+          result.toUIMessageStream({
+            originalMessages: messages,
+            messageMetadata({ part }) {
+              if (part.type === "finish-step") {
+                return {
+                  usage: {
+                    inputTokens: part.usage.inputTokens,
+                    outputTokens: part.usage.outputTokens,
+                  },
+                };
+              }
+              return undefined;
             },
-          };
-        }
-        return undefined;
+          })
+        );
       },
     });
+
+    return createUIMessageStreamResponse({ stream });
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
     Effect.catchTag("ParseError", () =>
