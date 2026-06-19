@@ -238,6 +238,57 @@ export function ApprovalCard({
   );
 }
 
+export function RejectedCard({ proposed }: { proposed: ProposedOps }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm opacity-75">
+      {/* header */}
+      <div className="flex items-start gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
+        <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            Rejected edit
+            <span className="rounded bg-red-100 px-1 py-px font-mono text-[10px] font-medium text-red-700 dark:bg-red-900/50 dark:text-red-400">
+              rejected
+            </span>
+          </div>
+          <code className="block truncate text-[11px] text-muted-foreground">
+            {proposed.path}
+          </code>
+        </div>
+      </div>
+
+      {/* note banner */}
+      {proposed.note && (
+        <div className="flex items-start gap-1.5 border-b border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          <ArchiveRestore className="mt-px size-3.5 shrink-0" />
+          <span>{proposed.note}</span>
+        </div>
+      )}
+
+      {/* op list body */}
+      <div className="space-y-3 p-3">
+        {proposed.ops.map((op, i) => {
+          const s = opStyle(op);
+          return (
+            <div key={i} className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <s.Icon className={cn("size-3.5", s.tone)} />
+                <span className={cn("text-[11px] font-semibold", s.tone)}>
+                  {s.verb}
+                </span>
+                <span className="truncate text-[11px] text-muted-foreground">
+                  {opTarget(op)}
+                </span>
+              </div>
+              <SpatialOp op={op} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function InvalidEditLine({ message }: { message: string }) {
   return (
     <div className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">

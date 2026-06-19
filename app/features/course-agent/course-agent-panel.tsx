@@ -38,7 +38,7 @@ import {
   type WriteResult,
   type CourseAgentUIMessage,
 } from "./types";
-import { ApprovalCard, InvalidEditLine } from "./approval-card";
+import { ApprovalCard, RejectedCard, InvalidEditLine } from "./approval-card";
 import { findAppliedToolCallIds } from "./revalidation-trigger";
 import {
   type StoredThread,
@@ -492,6 +492,13 @@ export function CourseAgentPanel({
                       }
 
                       if (writeTool.state === "output-denied") {
+                        if (proposed) {
+                          return (
+                            <div key={i} className="my-3">
+                              <RejectedCard proposed={proposed} />
+                            </div>
+                          );
+                        }
                         return (
                           <div
                             key={i}

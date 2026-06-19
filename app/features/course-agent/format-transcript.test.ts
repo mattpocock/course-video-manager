@@ -150,4 +150,36 @@ describe("formatTranscript", () => {
     ];
     expect(formatTranscript(msgs)).toBe("Assistant:\n[Tool: cat]");
   });
+
+  it("labels rejected write tool calls", () => {
+    const msgs = [
+      makeMsg("assistant", [
+        {
+          type: "tool-write",
+          toolCallId: "tc-1",
+          state: "output-denied",
+          input: { path: "src/app.ts" },
+        },
+      ]),
+    ];
+    expect(formatTranscript(msgs)).toBe(
+      "Assistant:\n[Rejected: write src/app.ts]"
+    );
+  });
+
+  it("labels rejected edit tool calls", () => {
+    const msgs = [
+      makeMsg("assistant", [
+        {
+          type: "tool-edit",
+          toolCallId: "tc-2",
+          state: "output-denied",
+          input: { path: "src/utils.ts" },
+        },
+      ]),
+    ];
+    expect(formatTranscript(msgs)).toBe(
+      "Assistant:\n[Rejected: edit src/utils.ts]"
+    );
+  });
 });
