@@ -450,6 +450,38 @@ describe("getPitchWithVideos", () => {
       expect(result.videos).toHaveLength(0);
     }).pipe(Effect.provide(testLayer))
   );
+
+  it.effect("excludes archived segments from video", () =>
+    Effect.gen(function* () {
+      const pitchOps = yield* PitchOperationsService;
+
+      const pitch = yield* pitchOps.createPitch();
+      const video = yield* pitchOps.createVideoFromPitch(pitch.id);
+
+      yield* Effect.promise(() =>
+        testDb.insert(schema.segments).values([
+          {
+            videoId: video.id,
+            kind: "definition",
+            title: "Active",
+            order: "a0",
+            archived: false,
+          },
+          {
+            videoId: video.id,
+            kind: "quest",
+            title: "Archived",
+            order: "a1",
+            archived: true,
+          },
+        ])
+      );
+
+      const result = yield* pitchOps.getPitchWithVideos(pitch.id);
+      expect(result.videos[0]!.segments).toHaveLength(1);
+      expect(result.videos[0]!.segments[0]!.title).toBe("Active");
+    }).pipe(Effect.provide(testLayer))
+  );
 });
 
 describe("createVideoFromPitch", () => {

@@ -321,3 +321,41 @@ describe("getCourseStructureById", () => {
     }).pipe(Effect.provide(testLayer))
   );
 });
+
+describe("getCourseWithSlimClipsById - archived segment filtering", () => {
+  it.effect("excludes archived segments from results", () =>
+    Effect.gen(function* () {
+      const { courseId } = yield* Effect.promise(() => buildCourseWithVideos());
+
+      const videoRow = yield* Effect.promise(() =>
+        testDb.query.videos.findFirst()
+      );
+
+      yield* Effect.promise(() =>
+        testDb.insert(schema.segments).values([
+          {
+            videoId: videoRow!.id,
+            kind: "definition",
+            title: "Active Segment",
+            order: "a0",
+            archived: false,
+          },
+          {
+            videoId: videoRow!.id,
+            kind: "quest",
+            title: "Archived Segment",
+            order: "a1",
+            archived: true,
+          },
+        ])
+      );
+
+      const courseOps = yield* CourseOperationsService;
+      const result = yield* courseOps.getCourseWithSlimClipsById(courseId);
+
+      const video = result.versions[0]!.sections[0]!.lessons[0]!.videos[0]!;
+      expect(video.segments).toHaveLength(1);
+      expect(video.segments[0]!.title).toBe("Active Segment");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
