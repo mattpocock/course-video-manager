@@ -230,51 +230,49 @@ function classifyManifestOps(
   const ops: Op[] = [];
   let note: string | undefined;
 
-  for (let i = 0; i < beforeIds.length; i++) {
-    const id = beforeIds[i]!;
-    if (!afterIdSet.has(id)) {
-      const beforeMember = before[i]!;
-      let deleteEntityType: EntityType;
-      if (entityType === "timeline")
-        deleteEntityType = beforeMember.type === "chapter" ? "chapter" : "clip";
-      else deleteEntityType = entityType as EntityType;
+  for (const beforeMember of before) {
+    const id = beforeMember.id as string | null | undefined;
+    if (id == null || id === "") continue;
+    if (afterIdSet.has(id)) continue;
 
-      const delCap = CAPABILITY_MATRIX[deleteEntityType];
-      if (!delCap.delete)
+    const deleteEntityType: EntityType =
+      entityType === "timeline"
+        ? beforeMember.type === "chapter"
+          ? "chapter"
+          : "clip"
+        : (entityType as EntityType);
+
+    const delCap = CAPABILITY_MATRIX[deleteEntityType];
+    if (!delCap.delete)
+      return {
+        ok: false,
+        rejection: {
+          kind: "forbidden-op",
+          message: `Cannot delete ${deleteEntityType} "${memberLabel(beforeMember, entityType)}". Deletion is not allowed for this entity type.`,
+        },
+      };
+
+    if (delCap.delete === "empty-only" && entityType === "section") {
+      const sectionPath = findSectionPathForMember(ctx.root, manifestPath, id);
+      if (sectionPath && !isSectionEmpty(ctx.root, sectionPath))
         return {
           ok: false,
           rejection: {
-            kind: "forbidden-op",
-            message: `Cannot delete ${deleteEntityType} "${memberLabel(beforeMember, entityType)}". Deletion is not allowed for this entity type.`,
+            kind: "non-empty-section",
+            message: `Cannot delete section "${memberLabel(beforeMember, entityType)}" because it still contains lessons. Move or delete all lessons first.`,
           },
         };
-
-      if (delCap.delete === "empty-only" && entityType === "section") {
-        const sectionPath = findSectionPathForMember(
-          ctx.root,
-          manifestPath,
-          id
-        );
-        if (sectionPath && !isSectionEmpty(ctx.root, sectionPath))
-          return {
-            ok: false,
-            rejection: {
-              kind: "non-empty-section",
-              message: `Cannot delete section "${memberLabel(beforeMember, entityType)}" because it still contains lessons. Move or delete all lessons first.`,
-            },
-          };
-      }
-
-      ops.push({
-        type: "delete",
-        entityType: deleteEntityType,
-        target: memberLabel(beforeMember, entityType),
-        id,
-      });
     }
+
+    ops.push({
+      type: "delete",
+      entityType: deleteEntityType,
+      target: memberLabel(beforeMember, entityType),
+      id,
+    });
   }
 
-  const existingClipsCache: ExistingClip[] | null = null;
+  let existingClipsCache: ExistingClip[] | null = null;
   for (const member of after) {
     const id = member.id as string | null | undefined;
     if (id != null && id !== "") continue;
@@ -311,7 +309,7 @@ function classifyManifestOps(
           },
         };
 
-      const allClips = existingClipsCache ?? collectAllClips(ctx.root);
+      const allClips = (existingClipsCache ??= collectAllClips(ctx.root));
       const match = allClips.find(
         (c) =>
           c.videoFilename === videoFilename &&

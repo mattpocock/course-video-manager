@@ -185,6 +185,25 @@ describe("parse errors", () => {
   });
 });
 
+describe("file-not-found rejection", () => {
+  it("rejects writes to a path that no longer exists in the VFS", () => {
+    const ctx = buildCtx();
+    const fakePath = "/courses/my-course/sections/99-gone/section.json";
+    const messages = makeMessages([
+      {
+        content: '{"id":"x","slug":"gone","description":"","real":false}',
+        path: fakePath,
+        hash: computeContentHash(
+          '{"id":"x","slug":"gone","description":"","real":false}'
+        ),
+      },
+    ]);
+    const result = deriveDiff(writeInput(fakePath, "{}"), messages, ctx);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.rejection.kind).toBe("invalid-file");
+  });
+});
+
 describe("deriveDiff never throws for validation failures", () => {
   it("returns rejection for all validation paths, never throws", () => {
     const ctx = buildCtx();
