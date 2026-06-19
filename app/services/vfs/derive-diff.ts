@@ -1,6 +1,7 @@
 import { lookupPath, type VfsDirNode } from "./vfs-tree";
 import { vfsCat } from "./vfs-cat";
 import { applyEdits } from "@/features/article-writer/document-editing-engine";
+import { z } from "zod";
 import {
   CAPABILITY_MATRIX,
   MANIFEST_SCHEMAS,
@@ -596,7 +597,7 @@ export function deriveDiff(
         ok: false,
         rejection: {
           kind: "parse-error",
-          message: `Invalid manifest format for "${path}": ${parseResult.error.issues.map((e) => e.message).join("; ")}`,
+          message: `Invalid manifest format for "${path}":\n${z.prettifyError(parseResult.error)}`,
         },
       };
     return classifyManifestOps(

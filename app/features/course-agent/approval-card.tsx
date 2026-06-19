@@ -239,13 +239,25 @@ export function ApprovalCard({
 }
 
 export function InvalidEditLine({ message }: { message: string }) {
+  const newlineIdx = message.indexOf("\n");
+  const hasDetails = newlineIdx !== -1;
+  const summary = hasDetails ? message.slice(0, newlineIdx) : message;
+  const details = hasDetails ? message.slice(newlineIdx + 1) : null;
+
   return (
     <div className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-      <span>
-        Agent proposed an invalid edit — retrying.{" "}
-        <span className="italic">{message}</span>
-      </span>
+      <div className="min-w-0">
+        <span>
+          Agent proposed an invalid edit — retrying.{" "}
+          <span className="italic">{summary}</span>
+        </span>
+        {details && (
+          <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground/80">
+            {details}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }
