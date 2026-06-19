@@ -24,7 +24,6 @@ const fullCourse = makeCourseEntry({
         id: "s1",
         slug: "intro",
         description: "Intro section",
-        order: 1,
         real: true,
       },
       ghost: false,
@@ -41,7 +40,6 @@ const fullCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: "todo",
             fsStatus: "real",
-            order: 1,
           },
           ghost: false,
           videos: [
@@ -53,16 +51,15 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segmentsLeaf: [
+              segments: [
                 {
                   id: "seg1",
                   kind: "definition",
                   title: "Intro",
                   description: "",
-                  order: 0,
                 },
               ],
-              timelineLeaf: [
+              timelineItems: [
                 { type: "chapter" as const, id: "ch1", name: "Opening" },
                 {
                   type: "clip" as const,
@@ -87,7 +84,6 @@ const fullCourse = makeCourseEntry({
         id: "s2",
         slug: "planned",
         description: "",
-        order: 2,
         real: false,
       },
       ghost: true,
@@ -104,7 +100,6 @@ const fullCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: null,
             fsStatus: "ghost",
-            order: 1,
           },
           ghost: true,
           videos: [],
@@ -121,16 +116,20 @@ describe("vfsTree", () => {
     expect(result).toContain("courses/");
   });
 
-  it("prints a full course subtree with indentation", () => {
+  it("prints a full course subtree with segments/ and timeline/ dirs", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsTree(root, "/courses/my-course");
     const lines = result.split("\n");
     expect(lines[0]).toBe("my-course/");
     expect(lines).toContain("├── course.json");
     expect(result).toContain("sections/");
+    expect(result).toContain("_members.json");
     expect(result).toContain("01-intro/");
     expect(result).toContain("take-1/");
-    expect(result).toContain("timeline.json");
+    expect(result).toContain("segments/");
+    expect(result).toContain("timeline/");
+    expect(result).toContain("00-opening.chapter.json");
+    expect(result).toContain("01.clip.json");
   });
 
   it("tags ghost directories", () => {
@@ -171,7 +170,6 @@ describe("vfsTree", () => {
         id: `s${i}`,
         slug: `section-${i}`,
         description: "",
-        order: i,
         real: true,
       },
       ghost: false,
@@ -187,7 +185,6 @@ describe("vfsTree", () => {
           dependencies: [],
           authoringStatus: "todo" as const,
           fsStatus: "real" as const,
-          order: j,
         },
         ghost: false,
         videos: [],
@@ -201,7 +198,7 @@ describe("vfsTree", () => {
     expect(result).toContain("[output truncated");
   });
 
-  it("orders sections by their database order, not alphabetically", () => {
+  it("follows insertion order, not alphabetical", () => {
     const root = buildVfsTree([
       makeCourseEntry({
         sections: [
@@ -211,7 +208,6 @@ describe("vfsTree", () => {
               id: "s2",
               slug: "beta",
               description: "",
-              order: 2,
               real: true,
             },
             ghost: false,
@@ -223,7 +219,6 @@ describe("vfsTree", () => {
               id: "s1",
               slug: "alpha",
               description: "",
-              order: 1,
               real: true,
             },
             ghost: false,
@@ -234,14 +229,14 @@ describe("vfsTree", () => {
     ]);
     const result = vfsTree(root, "/courses/my-course/sections");
     const lines = result.split("\n");
-    const alphaIdx = lines.findIndex((l) => l.includes("01-alpha/"));
+    const membersIdx = lines.findIndex((l) => l.includes("_members.json"));
     const betaIdx = lines.findIndex((l) => l.includes("02-beta/"));
-    expect(alphaIdx).toBeLessThan(betaIdx);
+    const alphaIdx = lines.findIndex((l) => l.includes("01-alpha/"));
+    expect(membersIdx).toBeLessThan(betaIdx);
+    expect(betaIdx).toBeLessThan(alphaIdx);
   });
 
-  it("places a ghost section inline in its proper order, not at the end", () => {
-    // Ghost sections carry un-numbered paths, which would sort to the bottom
-    // alphabetically. They must instead appear in their `order` position.
+  it("places a ghost section inline at its manifest position", () => {
     const root = buildVfsTree([
       makeCourseEntry({
         sections: [
@@ -251,7 +246,6 @@ describe("vfsTree", () => {
               id: "s1",
               slug: "intro",
               description: "",
-              order: 1,
               real: true,
             },
             ghost: false,
@@ -263,7 +257,6 @@ describe("vfsTree", () => {
               id: "s2",
               slug: "planned",
               description: "",
-              order: 2,
               real: false,
             },
             ghost: true,
@@ -275,7 +268,6 @@ describe("vfsTree", () => {
               id: "s3",
               slug: "outro",
               description: "",
-              order: 3,
               real: true,
             },
             ghost: false,

@@ -24,7 +24,6 @@ const fullCourse = makeCourseEntry({
         id: "s1",
         slug: "intro",
         description: "Introduction to generics",
-        order: 1,
         real: true,
       },
       ghost: false,
@@ -41,7 +40,6 @@ const fullCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: "todo",
             fsStatus: "real",
-            order: 1,
           },
           ghost: false,
           videos: [
@@ -53,23 +51,21 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segmentsLeaf: [
+              segments: [
                 {
                   id: "seg1",
                   kind: "definition",
                   title: "Generics Intro",
                   description: "Opening definition of generics",
-                  order: 0,
                 },
                 {
                   id: "seg2",
                   kind: "walkthrough",
                   title: "Main walkthrough",
                   description: "Walk through examples",
-                  order: 1,
                 },
               ],
-              timelineLeaf: [
+              timelineItems: [
                 { type: "chapter" as const, id: "ch1", name: "Opening" },
                 {
                   type: "clip" as const,
@@ -114,7 +110,6 @@ const fullCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: "done",
             fsStatus: "real",
-            order: 2,
           },
           ghost: false,
           videos: [],
@@ -139,7 +134,6 @@ const secondCourse = makeCourseEntry({
         id: "s2",
         slug: "advanced",
         description: "Advanced topics",
-        order: 1,
         real: true,
       },
       ghost: false,
@@ -156,7 +150,6 @@ const secondCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: "done",
             fsStatus: "real",
-            order: 1,
           },
           ghost: false,
           videos: [],
@@ -165,6 +158,9 @@ const secondCourse = makeCourseEntry({
     },
   ],
 });
+
+const videoBase =
+  "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1";
 
 describe("vfsGrep", () => {
   describe("content mode", () => {
@@ -219,46 +215,69 @@ describe("vfsGrep", () => {
     it("matches video path/slug only (not originalFootagePath)", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "take-1", "/courses/my-course");
-      expect(result).toContain(
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/video.json [path]: take-1"
-      );
-      // originalFootagePath should NOT be searched
+      expect(result).toContain(`${videoBase}/video.json [path]: take-1`);
       const rawResult = vfsGrep(root, "raw\\.mp4", "/courses/my-course");
       expect(rawResult).not.toContain("video.json:originalFootagePath");
     });
 
-    it("matches segment title and description with array index locator", () => {
+    it("matches individual segment file title", () => {
       const root = buildVfsTree([fullCourse]);
-      const result = vfsGrep(root, "generics", "/courses/my-course");
-      const segBase =
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments.json";
-      expect(result).toContain(`${segBase}[0]: Generics Intro`);
-    });
-
-    it("matches segment description with array index locator", () => {
-      const root = buildVfsTree([fullCourse]);
-      const result = vfsGrep(root, "opening definition", "/courses/my-course");
-      const segBase =
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments.json";
-      expect(result).toContain(`${segBase}[0]: Opening definition of generics`);
-    });
-
-    it("matches timeline clip text with array index locator", () => {
-      const root = buildVfsTree([fullCourse]);
-      const result = vfsGrep(root, "reusable code", "/courses/my-course");
-      const tlBase =
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline.json";
+      const result = vfsGrep(root, "generics intro", "/courses/my-course");
       expect(result).toContain(
-        `${tlBase}[2]: Generics let you write reusable code`
+        `${videoBase}/segments/00-generics-intro.json:title: Generics Intro`
       );
     });
 
-    it("matches timeline chapter name with array index locator", () => {
+    it("matches segment description when title does not match", () => {
+      const root = buildVfsTree([fullCourse]);
+      const result = vfsGrep(
+        root,
+        "walk through examples",
+        "/courses/my-course"
+      );
+      expect(result).toContain(
+        `${videoBase}/segments/01-main-walkthrough.json:description: Walk through examples`
+      );
+    });
+
+    it("matches segments _members.json with [i] locator", () => {
+      const root = buildVfsTree([fullCourse]);
+      const result = vfsGrep(root, "generics intro", "/courses/my-course");
+      expect(result).toContain(
+        `${videoBase}/segments/_members.json[0]: Generics Intro`
+      );
+    });
+
+    it("matches individual clip file text", () => {
+      const root = buildVfsTree([fullCourse]);
+      const result = vfsGrep(root, "reusable code", "/courses/my-course");
+      expect(result).toContain(
+        `${videoBase}/timeline/02.clip.json:text: Generics let you write reusable code`
+      );
+    });
+
+    it("matches individual chapter file name", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "deep dive", "/courses/my-course");
-      const tlBase =
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline.json";
-      expect(result).toContain(`${tlBase}[3]: Generics Deep Dive`);
+      expect(result).toContain(
+        `${videoBase}/timeline/03-generics-deep-dive.chapter.json:name: Generics Deep Dive`
+      );
+    });
+
+    it("matches timeline _members.json with [i] locator", () => {
+      const root = buildVfsTree([fullCourse]);
+      const result = vfsGrep(root, "deep dive", "/courses/my-course");
+      expect(result).toContain(
+        `${videoBase}/timeline/_members.json[3]: Generics Deep Dive`
+      );
+    });
+
+    it("matches lesson _members.json title field", () => {
+      const root = buildVfsTree([fullCourse]);
+      const result = vfsGrep(root, "hello generics", "/courses/my-course");
+      expect(result).toContain(
+        "/courses/my-course/sections/01-intro/lessons/_members.json[0]: Hello Generics"
+      );
     });
 
     it("is case-insensitive (Postgres ~* semantics)", () => {
@@ -273,17 +292,14 @@ describe("vfsGrep", () => {
       expect(result).toContain("Hello Generics");
     });
 
-    it("reports first match per item only (one hit per array element)", () => {
+    it("reports title match only when title and description both match (segment file)", () => {
       const root = buildVfsTree([fullCourse]);
-      // "generics" appears in both title and description of seg1
-      // but should only produce one line for seg1
       const result = vfsGrep(root, "generics", "/courses/my-course");
-      const segBase =
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments.json";
-      const seg0Lines = result
+      const segFileLines = result
         .split("\n")
-        .filter((l) => l.startsWith(`${segBase}[0]`));
-      expect(seg0Lines).toHaveLength(1);
+        .filter((l) => l.includes("00-generics-intro.json"));
+      expect(segFileLines).toHaveLength(1);
+      expect(segFileLines[0]).toContain(":title:");
     });
 
     it("returns bash-style error for invalid regex", () => {
@@ -304,26 +320,30 @@ describe("vfsGrep", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "generics", "/courses/my-course", "files");
       const lines = result.split("\n").filter(Boolean);
-      // Should contain unique paths, no locators
       expect(lines).toContain(
         "/courses/my-course/sections/01-intro/section.json"
       );
       expect(lines).toContain(
         "/courses/my-course/sections/01-intro/lessons/01.01-hello/lesson.json"
       );
-      // No duplicate paths
       expect(new Set(lines).size).toBe(lines.length);
     });
 
-    it("includes timeline.json and segments.json when matched", () => {
+    it("includes individual segment and clip files when matched", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "generics", "/courses/my-course", "files");
+      expect(result).toContain(`${videoBase}/segments/00-generics-intro.json`);
+      expect(result).toContain(`${videoBase}/timeline/01.clip.json`);
       expect(result).toContain(
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline.json"
+        `${videoBase}/timeline/03-generics-deep-dive.chapter.json`
       );
-      expect(result).toContain(
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments.json"
-      );
+    });
+
+    it("includes _members.json when members match", () => {
+      const root = buildVfsTree([fullCourse]);
+      const result = vfsGrep(root, "generics", "/courses/my-course", "files");
+      expect(result).toContain(`${videoBase}/segments/_members.json`);
+      expect(result).toContain(`${videoBase}/timeline/_members.json`);
     });
   });
 
@@ -331,7 +351,6 @@ describe("vfsGrep", () => {
     it("defaults to current-course anchor (omitted path uses anchor prefix)", () => {
       const root = buildVfsTree([fullCourse, secondCourse]);
       const result = vfsGrep(root, "generics", "/courses/my-course");
-      // Should only match in my-course, not other-course
       expect(result).not.toContain("/courses/other-course");
       expect(result).toContain("/courses/my-course");
     });
@@ -339,23 +358,17 @@ describe("vfsGrep", () => {
     it("scopes to / for catalogue-wide search", () => {
       const root = buildVfsTree([fullCourse, secondCourse]);
       const result = vfsGrep(root, "generics", "/");
-      // Should match in both courses
       expect(result).toContain("/courses/my-course");
       expect(result).toContain("/courses/other-course");
     });
 
     it("scopes to a specific subtree within a course", () => {
       const root = buildVfsTree([fullCourse]);
-      const result = vfsGrep(
-        root,
-        "generics",
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1"
-      );
-      // Should only match within that video's files
+      const result = vfsGrep(root, "generics", videoBase);
       expect(result).not.toContain("section.json");
       expect(result).not.toContain("lesson.json");
-      expect(result).toContain("timeline.json");
-      expect(result).toContain("segments.json");
+      expect(result).toContain("segments/");
+      expect(result).toContain("timeline/");
     });
 
     it("returns error for non-existent scope path", () => {
@@ -384,20 +397,19 @@ describe("vfsGrep", () => {
 
     it("does not search clip videoFilename", () => {
       const root = buildVfsTree([fullCourse]);
-      // "raw.mp4" is only in videoFilename and originalFootagePath
       const result = vfsGrep(root, "raw\\.mp4", "/courses/my-course");
-      // Should not match clips (videoFilename excluded) or video.json (originalFootagePath excluded)
-      expect(result).not.toContain("timeline.json");
+      expect(result).not.toContain(".clip.json");
       expect(result).not.toContain("video.json:originalFootagePath");
     });
   });
 
   describe("locator round-trip", () => {
-    it("array index locator round-trips into cat .[i]", () => {
+    it("members [i] locator points to correct member", () => {
       const root = buildVfsTree([fullCourse]);
       const grepResult = vfsGrep(root, "reusable", "/courses/my-course");
-      // Should contain [2] locator for the clip at index 2
-      expect(grepResult).toContain("timeline.json[2]:");
+      expect(grepResult).toContain(
+        "timeline/_members.json[2]: Generics let you write reusable code"
+      );
     });
 
     it("object field locator on lesson.json", () => {

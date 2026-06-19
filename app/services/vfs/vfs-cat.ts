@@ -2,14 +2,6 @@ import { lookupPath, type VfsDirNode } from "./vfs-tree";
 
 type LeafData = Record<string, unknown> | unknown[];
 
-const isTimeline = (data: unknown[]): boolean =>
-  data.length > 0 &&
-  typeof data[0] === "object" &&
-  data[0] !== null &&
-  "type" in data[0] &&
-  ((data[0] as Record<string, unknown>).type === "chapter" ||
-    (data[0] as Record<string, unknown>).type === "clip");
-
 const INDEX_RE = /^\.\[(\d+)\]$/;
 const SLICE_RE = /^\.\[(\d+):(\d+)\]$/;
 const FIELD_RE = /^\.([a-zA-Z_]\w*)$/;
@@ -48,39 +40,16 @@ export const applyFilter = (
     return data.slice(i, j);
   }
 
-  if (filter === "names") {
-    if (!Array.isArray(data) || !isTimeline(data)) {
-      return "cat: names: only applies to timeline.json";
-    }
-    return data
-      .filter(
-        (item: unknown) =>
-          typeof item === "object" &&
-          item !== null &&
-          (item as Record<string, unknown>).type === "chapter"
-      )
-      .map((item: unknown) => (item as Record<string, string>).name);
-  }
-
-  if (filter === "text") {
-    if (!Array.isArray(data) || !isTimeline(data)) {
-      return "cat: text: only applies to timeline.json";
-    }
-    return data
-      .filter(
-        (item: unknown) =>
-          typeof item === "object" &&
-          item !== null &&
-          (item as Record<string, unknown>).type === "clip"
-      )
-      .map((item: unknown) => (item as Record<string, string>).text);
-  }
-
   if (filter === "count") {
     if (!Array.isArray(data)) {
       return "cat: count: not an array file";
     }
-    if (isTimeline(data)) {
+    if (
+      data.length > 0 &&
+      typeof data[0] === "object" &&
+      data[0] !== null &&
+      "type" in data[0]
+    ) {
       let chapters = 0;
       let clips = 0;
       for (const item of data) {
@@ -132,7 +101,7 @@ export const vfsCat = (
   const leafData = result.node.data;
 
   if (filter) {
-    const filtered = applyFilter(leafData, filter);
+    const filtered = applyFilter(leafData as LeafData, filter);
     if (typeof filtered === "string") {
       return filtered;
     }

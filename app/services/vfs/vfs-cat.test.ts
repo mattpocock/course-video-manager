@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { vfsCat, applyFilter } from "./vfs-cat";
 import { buildVfsTree, type CourseEntry } from "./vfs-tree";
-import type { TimelineLeaf, SegmentsLeaf } from "./vfs-schemas";
+import type { MembersLeaf } from "./vfs-schemas";
 
 const makeCourseEntry = (
   overrides: Partial<CourseEntry> = {}
@@ -25,7 +25,6 @@ const fullCourse = makeCourseEntry({
         id: "s1",
         slug: "intro",
         description: "Intro section",
-        order: 1,
         real: true,
       },
       ghost: false,
@@ -42,7 +41,6 @@ const fullCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: "todo",
             fsStatus: "real",
-            order: 1,
           },
           ghost: false,
           videos: [
@@ -54,23 +52,21 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segmentsLeaf: [
+              segments: [
                 {
                   id: "seg1",
                   kind: "definition",
                   title: "Intro",
                   description: "Opening definition",
-                  order: 0,
                 },
                 {
                   id: "seg2",
                   kind: "walkthrough",
                   title: "Main",
                   description: "Main walkthrough",
-                  order: 1,
                 },
               ],
-              timelineLeaf: [
+              timelineItems: [
                 { type: "chapter" as const, id: "ch1", name: "Opening" },
                 {
                   type: "clip" as const,
@@ -134,62 +130,84 @@ describe("vfsCat", () => {
     expect(result).toBe("cat: /: Is a directory");
   });
 
-  it("applies a filter when provided", () => {
+  it("reads timeline _members.json without transcript text", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsCat(
       root,
-      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline.json",
-      ".[0]"
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline/_members.json"
+    );
+    const parsed = JSON.parse(result);
+    expect(parsed).toEqual([
+      { id: "ch1", type: "chapter", label: "Opening" },
+      { id: "cl1", type: "clip", label: "Hello world" },
+      { id: "cl2", type: "clip", label: "Second clip" },
+      { id: "ch2", type: "chapter", label: "Closing" },
+    ]);
+    // No full transcript data
+    expect(result).not.toContain("sourceStartTime");
+    expect(result).not.toContain("videoFilename");
+  });
+
+  it("reads an individual clip leaf", () => {
+    const root = buildVfsTree([fullCourse]);
+    const result = vfsCat(
+      root,
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline/01.clip.json"
+    );
+    const parsed = JSON.parse(result);
+    expect(parsed.type).toBe("clip");
+    expect(parsed.text).toBe("Hello world");
+    expect(parsed.sourceStartTime).toBe(0);
+  });
+
+  it("reads an individual chapter leaf", () => {
+    const root = buildVfsTree([fullCourse]);
+    const result = vfsCat(
+      root,
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline/00-opening.chapter.json"
     );
     const parsed = JSON.parse(result);
     expect(parsed.type).toBe("chapter");
     expect(parsed.name).toBe("Opening");
   });
+
+  it("reads an individual segment leaf", () => {
+    const root = buildVfsTree([fullCourse]);
+    const result = vfsCat(
+      root,
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/00-intro.json"
+    );
+    const parsed = JSON.parse(result);
+    expect(parsed.kind).toBe("definition");
+    expect(parsed.title).toBe("Intro");
+    expect(parsed.description).toBe("Opening definition");
+    expect(parsed).not.toHaveProperty("order");
+  });
+
+  it("applies filter on timeline _members.json", () => {
+    const root = buildVfsTree([fullCourse]);
+    const result = vfsCat(
+      root,
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline/_members.json",
+      ".[0]"
+    );
+    const parsed = JSON.parse(result);
+    expect(parsed.type).toBe("chapter");
+    expect(parsed.label).toBe("Opening");
+  });
 });
 
 describe("applyFilter", () => {
-  const timeline: TimelineLeaf = [
-    { type: "chapter", id: "ch1", name: "Opening" },
-    {
-      type: "clip",
-      id: "cl1",
-      text: "Hello world",
-      sourceStartTime: 0,
-      sourceEndTime: 3,
-      videoFilename: "raw.mp4",
-      beatType: "none",
-      scene: null,
-      profile: null,
-    },
-    {
-      type: "clip",
-      id: "cl2",
-      text: "Second clip",
-      sourceStartTime: 3,
-      sourceEndTime: 6,
-      videoFilename: "raw.mp4",
-      beatType: "none",
-      scene: null,
-      profile: null,
-    },
-    { type: "chapter", id: "ch2", name: "Closing" },
+  const timelineMembers: MembersLeaf = [
+    { id: "ch1", type: "chapter", label: "Opening" },
+    { id: "cl1", type: "clip", label: "Hello world" },
+    { id: "cl2", type: "clip", label: "Second clip" },
+    { id: "ch2", type: "chapter", label: "Closing" },
   ];
 
-  const segments: SegmentsLeaf = [
-    {
-      id: "seg1",
-      kind: "definition",
-      title: "Intro",
-      description: "Opening definition",
-      order: 0,
-    },
-    {
-      id: "seg2",
-      kind: "walkthrough",
-      title: "Main",
-      description: "Main walkthrough",
-      order: 1,
-    },
+  const segmentMembers: MembersLeaf = [
+    { id: "seg1", kind: "definition", title: "Intro" },
+    { id: "seg2", kind: "walkthrough", title: "Main" },
   ];
 
   const courseLeaf = {
@@ -201,23 +219,27 @@ describe("applyFilter", () => {
 
   describe(".[i] filter", () => {
     it("returns item at array index", () => {
-      const result = applyFilter(timeline, ".[0]");
-      expect(result).toEqual({ type: "chapter", id: "ch1", name: "Opening" });
+      const result = applyFilter(timelineMembers, ".[0]");
+      expect(result).toEqual({
+        id: "ch1",
+        type: "chapter",
+        label: "Opening",
+      });
     });
 
     it("returns item at a later index", () => {
-      const result = applyFilter(timeline, ".[1]");
+      const result = applyFilter(timelineMembers, ".[1]");
       expect(result).toHaveProperty("type", "clip");
-      expect(result).toHaveProperty("text", "Hello world");
+      expect(result).toHaveProperty("label", "Hello world");
     });
 
     it("returns error for out-of-range index", () => {
-      const result = applyFilter(timeline, ".[99]");
+      const result = applyFilter(timelineMembers, ".[99]");
       expect(result).toBe("cat: .[99]: index out of range");
     });
 
     it("returns error for negative index", () => {
-      const result = applyFilter(timeline, ".[-1]");
+      const result = applyFilter(timelineMembers, ".[-1]");
       expect(result).toBe("cat: .[-1]: index out of range");
     });
 
@@ -229,18 +251,18 @@ describe("applyFilter", () => {
 
   describe(".[i:j] slice filter", () => {
     it("returns slice of array", () => {
-      const result = applyFilter(timeline, ".[0:2]");
+      const result = applyFilter(timelineMembers, ".[0:2]");
       expect(result).toHaveLength(2);
-      expect((result as any[])[0]).toHaveProperty("name", "Opening");
+      expect((result as any[])[0]).toHaveProperty("label", "Opening");
     });
 
-    it("returns slice to end when j is omitted-like", () => {
-      const result = applyFilter(timeline, ".[2:4]");
+    it("returns slice to end", () => {
+      const result = applyFilter(timelineMembers, ".[2:4]");
       expect(result).toHaveLength(2);
     });
 
     it("returns empty array for out-of-range slice", () => {
-      const result = applyFilter(timeline, ".[10:20]");
+      const result = applyFilter(timelineMembers, ".[10:20]");
       expect(result).toEqual([]);
     });
 
@@ -250,48 +272,14 @@ describe("applyFilter", () => {
     });
   });
 
-  describe("names filter", () => {
-    it("returns chapter names from timeline", () => {
-      const result = applyFilter(timeline, "names");
-      expect(result).toEqual(["Opening", "Closing"]);
-    });
-
-    it("returns error for non-timeline array", () => {
-      const result = applyFilter(segments, "names");
-      expect(result).toBe("cat: names: only applies to timeline.json");
-    });
-
-    it("returns error for object file", () => {
-      const result = applyFilter(courseLeaf, "names");
-      expect(result).toBe("cat: names: only applies to timeline.json");
-    });
-  });
-
-  describe("text filter", () => {
-    it("returns clip texts from timeline", () => {
-      const result = applyFilter(timeline, "text");
-      expect(result).toEqual(["Hello world", "Second clip"]);
-    });
-
-    it("returns error for non-timeline array", () => {
-      const result = applyFilter(segments, "text");
-      expect(result).toBe("cat: text: only applies to timeline.json");
-    });
-
-    it("returns error for object file", () => {
-      const result = applyFilter(courseLeaf, "text");
-      expect(result).toBe("cat: text: only applies to timeline.json");
-    });
-  });
-
   describe("count filter", () => {
-    it("returns count for segments array", () => {
-      const result = applyFilter(segments, "count");
+    it("returns item count for segment members", () => {
+      const result = applyFilter(segmentMembers, "count");
       expect(result).toEqual({ items: 2 });
     });
 
-    it("returns chapters/clips sub-counts for timeline", () => {
-      const result = applyFilter(timeline, "count");
+    it("returns chapters/clips sub-counts for timeline members", () => {
+      const result = applyFilter(timelineMembers, "count");
       expect(result).toEqual({ chapters: 2, clips: 2 });
     });
 
@@ -318,7 +306,7 @@ describe("applyFilter", () => {
     });
 
     it("returns error when applied to array file", () => {
-      const result = applyFilter(timeline, ".name");
+      const result = applyFilter(timelineMembers, ".name");
       expect(result).toBe("cat: .name: not an object file");
     });
   });
@@ -330,7 +318,7 @@ describe("applyFilter", () => {
     });
 
     it("returns error for filter-like but invalid syntax", () => {
-      const result = applyFilter(timeline, ".[abc]");
+      const result = applyFilter(timelineMembers, ".[abc]");
       expect(result).toBe("cat: bad filter: '.[abc]'");
     });
   });

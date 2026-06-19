@@ -24,7 +24,6 @@ const fullCourse = makeCourseEntry({
         id: "s1",
         slug: "intro",
         description: "Intro section",
-        order: 1,
         real: true,
       },
       ghost: false,
@@ -41,7 +40,6 @@ const fullCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: "todo",
             fsStatus: "real",
-            order: 1,
           },
           ghost: false,
           videos: [
@@ -53,19 +51,18 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segmentsLeaf: [
+              segments: [
                 {
                   id: "seg1",
                   kind: "definition",
                   title: "Intro",
                   description: "",
-                  order: 0,
                 },
               ],
-              timelineLeaf: [
-                { type: "chapter", id: "ch1", name: "Opening" },
+              timelineItems: [
+                { type: "chapter" as const, id: "ch1", name: "Opening" },
                 {
-                  type: "clip",
+                  type: "clip" as const,
                   id: "cl1",
                   text: "Hello world",
                   sourceStartTime: 0,
@@ -87,7 +84,6 @@ const fullCourse = makeCourseEntry({
         id: "s2",
         slug: "planned",
         description: "",
-        order: 2,
         real: false,
       },
       ghost: true,
@@ -104,7 +100,6 @@ const fullCourse = makeCourseEntry({
             dependencies: [],
             authoringStatus: null,
             fsStatus: "ghost",
-            order: 1,
           },
           ghost: true,
           videos: [],
@@ -140,21 +135,23 @@ describe("vfsLs", () => {
     expect(lines).toContain("sections/");
   });
 
-  it("lists sections with ghost tags", () => {
+  it("lists sections with _members.json first and ghost tags", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsLs(root, "/courses/my-course/sections");
     const lines = result.split("\n");
+    expect(lines[0]).toBe("_members.json");
     expect(lines).toContain("01-intro/");
     expect(lines).toContain("02-planned/   [ghost]");
   });
 
-  it("lists lessons with ghost tags", () => {
+  it("lists lessons with _members.json first and ghost tags", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsLs(
       root,
       "/courses/my-course/sections/02-planned/lessons"
     );
     const lines = result.split("\n");
+    expect(lines[0]).toBe("_members.json");
     expect(lines).toContain("02.01-future/   [ghost]");
   });
 
@@ -166,8 +163,31 @@ describe("vfsLs", () => {
     );
     const lines = result.split("\n");
     expect(lines).toContain("video.json");
-    expect(lines).toContain("segments.json");
-    expect(lines).toContain("timeline.json");
+    expect(lines).toContain("segments/");
+    expect(lines).toContain("timeline/");
+  });
+
+  it("lists individual files inside segments/ directory", () => {
+    const root = buildVfsTree([fullCourse]);
+    const result = vfsLs(
+      root,
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments"
+    );
+    const lines = result.split("\n");
+    expect(lines[0]).toBe("_members.json");
+    expect(lines).toContain("00-intro.json");
+  });
+
+  it("lists individual files inside timeline/ directory", () => {
+    const root = buildVfsTree([fullCourse]);
+    const result = vfsLs(
+      root,
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline"
+    );
+    const lines = result.split("\n");
+    expect(lines[0]).toBe("_members.json");
+    expect(lines).toContain("00-opening.chapter.json");
+    expect(lines).toContain("01.clip.json");
   });
 
   it("returns bash-style error for non-existent path", () => {
@@ -192,7 +212,7 @@ describe("vfsLs", () => {
     ).toBeUndefined();
   });
 
-  it("sorts entries alphabetically", () => {
+  it("follows insertion order, not alphabetical", () => {
     const root = buildVfsTree([
       makeCourseEntry({
         slug: "my-course",
@@ -203,7 +223,6 @@ describe("vfsLs", () => {
               id: "s2",
               slug: "beta",
               description: "",
-              order: 2,
               real: true,
             },
             ghost: false,
@@ -215,7 +234,6 @@ describe("vfsLs", () => {
               id: "s1",
               slug: "alpha",
               description: "",
-              order: 1,
               real: true,
             },
             ghost: false,
@@ -226,7 +244,8 @@ describe("vfsLs", () => {
     ]);
     const result = vfsLs(root, "/courses/my-course/sections");
     const lines = result.split("\n");
-    expect(lines[0]).toBe("01-alpha/");
+    expect(lines[0]).toBe("_members.json");
     expect(lines[1]).toBe("02-beta/");
+    expect(lines[2]).toBe("01-alpha/");
   });
 });

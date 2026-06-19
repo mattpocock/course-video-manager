@@ -16,7 +16,6 @@ export const SectionLeafSchema = z.object({
   id: z.string(),
   slug: z.string(),
   description: z.string(),
-  order: z.number(),
   real: z.boolean(),
 });
 export type SectionLeaf = z.infer<typeof SectionLeafSchema>;
@@ -31,7 +30,6 @@ export const LessonLeafSchema = z.object({
   dependencies: z.array(z.string()),
   authoringStatus: z.enum(["todo", "done"]).nullable(),
   fsStatus: z.enum(["real", "ghost"]),
-  order: z.number(),
 });
 export type LessonLeaf = z.infer<typeof LessonLeafSchema>;
 
@@ -43,23 +41,15 @@ export const VideoLeafSchema = z.object({
 });
 export type VideoLeaf = z.infer<typeof VideoLeafSchema>;
 
-export const SegmentItemSchema = z.object({
+export const SegmentLeafSchema = z.object({
   id: z.string(),
   kind: z.string(),
   title: z.string(),
   description: z.string(),
-  order: z.number(),
 });
-export const SegmentsLeafSchema = z.array(SegmentItemSchema);
-export type SegmentsLeaf = z.infer<typeof SegmentsLeafSchema>;
+export type SegmentLeaf = z.infer<typeof SegmentLeafSchema>;
 
-const TimelineChapterSchema = z.object({
-  type: z.literal("chapter"),
-  id: z.string(),
-  name: z.string(),
-});
-
-const TimelineClipSchema = z.object({
+export const ClipLeafSchema = z.object({
   type: z.literal("clip"),
   id: z.string(),
   text: z.string(),
@@ -70,10 +60,51 @@ const TimelineClipSchema = z.object({
   scene: z.string().nullable(),
   profile: z.string().nullable(),
 });
+export type ClipLeaf = z.infer<typeof ClipLeafSchema>;
 
-export const TimelineItemSchema = z.discriminatedUnion("type", [
-  TimelineChapterSchema,
-  TimelineClipSchema,
-]);
-export const TimelineLeafSchema = z.array(TimelineItemSchema);
-export type TimelineLeaf = z.infer<typeof TimelineLeafSchema>;
+export const ChapterLeafSchema = z.object({
+  type: z.literal("chapter"),
+  id: z.string(),
+  name: z.string(),
+});
+export type ChapterLeaf = z.infer<typeof ChapterLeafSchema>;
+
+export const SectionMemberSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+});
+export type SectionMember = z.infer<typeof SectionMemberSchema>;
+
+export const LessonMemberSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+});
+export type LessonMember = z.infer<typeof LessonMemberSchema>;
+
+export const VideoMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type VideoMember = z.infer<typeof VideoMemberSchema>;
+
+export const SegmentMemberSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  title: z.string(),
+});
+export type SegmentMember = z.infer<typeof SegmentMemberSchema>;
+
+export const TimelineMemberSchema = z.object({
+  id: z.string(),
+  type: z.enum(["clip", "chapter"]),
+  label: z.string(),
+});
+export type TimelineMember = z.infer<typeof TimelineMemberSchema>;
+
+export type MembersLeaf =
+  | SectionMember[]
+  | LessonMember[]
+  | VideoMember[]
+  | SegmentMember[]
+  | TimelineMember[];

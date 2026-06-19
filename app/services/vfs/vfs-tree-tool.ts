@@ -34,24 +34,13 @@ export const vfsTree = (
     if (truncated) return;
     if (depth !== undefined && currentDepth >= depth) return;
 
-    // Section/lesson directories carry an `order` derived from the database.
-    // When both siblings have one, order by it so ghost entries (which carry
-    // un-numbered paths) stay inline with real ones; otherwise fall back to
-    // alphabetical (e.g. course.json vs sections/).
-    const sorted = [...node.children.entries()].sort((a, b) => {
-      const ao = a[1].kind === "dir" ? a[1].order : undefined;
-      const bo = b[1].kind === "dir" ? b[1].order : undefined;
-      if (ao !== undefined && bo !== undefined && ao !== bo) {
-        return ao - bo;
-      }
-      return a[0].localeCompare(b[0]);
-    });
+    const entries = [...node.children.entries()];
 
-    for (let i = 0; i < sorted.length; i++) {
+    for (let i = 0; i < entries.length; i++) {
       if (truncated) return;
 
-      const [, child] = sorted[i]!;
-      const isLast = i === sorted.length - 1;
+      const [, child] = entries[i]!;
+      const isLast = i === entries.length - 1;
       const connector = isLast ? "└── " : "├── ";
       const nextPrefix = prefix + (isLast ? "    " : "│   ");
 

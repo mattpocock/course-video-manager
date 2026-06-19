@@ -14,9 +14,7 @@ export const vfsLs = (root: VfsDirNode, absolutePath: string): string => {
   const dir = result.node;
   const entries: string[] = [];
 
-  for (const [name, child] of [...dir.children.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0])
-  )) {
+  for (const [name, child] of dir.children) {
     if (child.kind === "dir") {
       const ghost = child.ghost ? "   [ghost]" : "";
       entries.push(`${name}/${ghost}`);

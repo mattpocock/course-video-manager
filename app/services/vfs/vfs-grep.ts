@@ -3,8 +3,6 @@ import type {
   CourseLeaf,
   LessonLeaf,
   SectionLeaf,
-  SegmentsLeaf,
-  TimelineLeaf,
   VideoLeaf,
 } from "./vfs-schemas";
 
@@ -59,10 +57,7 @@ const walkTree = (
   re: RegExp,
   hits: GrepHit[]
 ): void => {
-  const sorted = [...node.children.entries()].sort(([a], [b]) =>
-    a.localeCompare(b)
-  );
-  for (const [name, child] of sorted) {
+  for (const [name, child] of node.children) {
     const childPath = `${currentPath}/${name}`;
     if (child.kind === "dir") {
       walkTree(child, childPath, re, hits);
@@ -79,25 +74,22 @@ const collectFileHits = (
   re: RegExp,
   hits: GrepHit[]
 ): void => {
-  switch (fileName) {
-    case "course.json":
-      matchCourse(filePath, data as CourseLeaf, re, hits);
-      break;
-    case "section.json":
-      matchSection(filePath, data as SectionLeaf, re, hits);
-      break;
-    case "lesson.json":
-      matchLesson(filePath, data as LessonLeaf, re, hits);
-      break;
-    case "video.json":
-      matchVideo(filePath, data as VideoLeaf, re, hits);
-      break;
-    case "segments.json":
-      matchSegments(filePath, data as SegmentsLeaf, re, hits);
-      break;
-    case "timeline.json":
-      matchTimeline(filePath, data as TimelineLeaf, re, hits);
-      break;
+  if (fileName === "course.json") {
+    matchCourse(filePath, data as CourseLeaf, re, hits);
+  } else if (fileName === "section.json") {
+    matchSection(filePath, data as SectionLeaf, re, hits);
+  } else if (fileName === "lesson.json") {
+    matchLesson(filePath, data as LessonLeaf, re, hits);
+  } else if (fileName === "video.json") {
+    matchVideo(filePath, data as VideoLeaf, re, hits);
+  } else if (fileName === "_members.json") {
+    matchMembers(filePath, data as unknown[], re, hits);
+  } else if (fileName.endsWith(".clip.json")) {
+    matchClipFile(filePath, data as Record<string, unknown>, re, hits);
+  } else if (fileName.endsWith(".chapter.json")) {
+    matchChapterFile(filePath, data as Record<string, unknown>, re, hits);
+  } else {
+    matchSegmentFile(filePath, data as Record<string, unknown>, re, hits);
   }
 };
 
@@ -174,38 +166,62 @@ const matchVideo = (
   }
 };
 
-const matchSegments = (
+const matchMembers = (
   filePath: string,
-  leaf: SegmentsLeaf,
+  data: unknown[],
   re: RegExp,
   hits: GrepHit[]
 ): void => {
-  for (let i = 0; i < leaf.length; i++) {
-    const seg = leaf[i]!;
-    if (re.test(seg.title)) {
-      hits.push({ path: filePath, locator: `[${i}]`, text: seg.title });
-    } else if (re.test(seg.description)) {
-      hits.push({ path: filePath, locator: `[${i}]`, text: seg.description });
+  for (let i = 0; i < data.length; i++) {
+    const member = data[i] as Record<string, unknown>;
+    for (const [key, value] of Object.entries(member)) {
+      if (key === "id" || key === "type") continue;
+      if (typeof value === "string" && re.test(value)) {
+        hits.push({ path: filePath, locator: `[${i}]`, text: value });
+        break;
+      }
     }
   }
 };
 
-const matchTimeline = (
+const matchClipFile = (
   filePath: string,
-  leaf: TimelineLeaf,
+  data: Record<string, unknown>,
   re: RegExp,
   hits: GrepHit[]
 ): void => {
-  for (let i = 0; i < leaf.length; i++) {
-    const item = leaf[i]!;
-    if (item.type === "chapter") {
-      if (re.test(item.name)) {
-        hits.push({ path: filePath, locator: `[${i}]`, text: item.name });
-      }
-    } else {
-      if (re.test(item.text)) {
-        hits.push({ path: filePath, locator: `[${i}]`, text: item.text });
-      }
-    }
+  if (typeof data.text === "string" && re.test(data.text)) {
+    hits.push({ path: filePath, locator: ":text", text: data.text });
+  }
+};
+
+const matchChapterFile = (
+  filePath: string,
+  data: Record<string, unknown>,
+  re: RegExp,
+  hits: GrepHit[]
+): void => {
+  if (typeof data.name === "string" && re.test(data.name)) {
+    hits.push({ path: filePath, locator: ":name", text: data.name });
+  }
+};
+
+const matchSegmentFile = (
+  filePath: string,
+  data: Record<string, unknown>,
+  re: RegExp,
+  hits: GrepHit[]
+): void => {
+  if (typeof data.title === "string" && re.test(data.title)) {
+    hits.push({ path: filePath, locator: ":title", text: data.title });
+  } else if (
+    typeof data.description === "string" &&
+    re.test(data.description)
+  ) {
+    hits.push({
+      path: filePath,
+      locator: ":description",
+      text: data.description,
+    });
   }
 };

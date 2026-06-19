@@ -42,30 +42,40 @@ const SYSTEM_PROMPT = (
 /courses/<course>/
   course.json
   sections/
+    _members.json              # ordered list of section members
     <section>/
       section.json
       lessons/
+        _members.json          # ordered list of lesson members
         <lesson>/
           lesson.json
           videos/
+            _members.json      # ordered list of video members
             <video>/
               video.json
-              segments.json
-              timeline.json
+              segments/                     # only present when non-empty
+                _members.json               # ordered segment manifest
+                <NN>-<slug>.json            # individual segment leaf
+              timeline/                     # only present when non-empty
+                _members.json               # ordered timeline manifest (clips + chapters)
+                <NN>.clip.json              # individual clip leaf
+                <NN>-<slug>.chapter.json    # individual chapter leaf
 \`\`\`
+
+Every directory with children has a \`_members.json\` manifest: an ordered array of lightweight member objects (id + echo fields like slug/title/label). Use manifests for quick enumeration; read individual leaf files for full detail.
 
 ## Domain glossary
 These terms name what you see in the VFS — keep them distinct:
 - \`Ghost\` (\`[ghost]\` in listings, \`fsStatus: "ghost"\`, or section \`real: false\`): exists in planning but not yet recorded — nothing on disk. A ghost lesson is still a full workspace: it can own videos, segments, and a timeline. It is planned, not empty.
-- \`Segment\` (\`segments.json\`): one unit of the video's *plan*, written *before* recording. Segments are the *intended* structure. Each has a \`kind\` — the film-time job it does: ${SEGMENT_KIND_GLOSSARY}.
-- \`Chapter\` (a \`chapter\` item in \`timeline.json\`): a named divider in the *recorded* timeline that groups clips; maps 1:1 to a YouTube chapter. A chapter is not a segment — a segment is the plan, a chapter is what was actually shot.
-- \`Clip\` (a \`clip\` item in \`timeline.json\`): one span of recorded footage with its transcript \`text\`.
-- \`segments.json\` is the pre-recording plan; \`timeline.json\` is the recorded video (clips and chapters interleaved in play order). Two separate views: "what I planned to shoot" vs "what I shot".
+- \`Segment\` (\`segments/\`): one unit of the video's *plan*, written *before* recording. Segments are the *intended* structure. Each has a \`kind\` — the film-time job it does: ${SEGMENT_KIND_GLOSSARY}.
+- \`Chapter\` (a \`.chapter.json\` in \`timeline/\`): a named divider in the *recorded* timeline that groups clips; maps 1:1 to a YouTube chapter. A chapter is not a segment — a segment is the plan, a chapter is what was actually shot.
+- \`Clip\` (a \`.clip.json\` in \`timeline/\`): one span of recorded footage with its transcript \`text\`.
+- \`segments/\` is the pre-recording plan; \`timeline/\` is the recorded video (clips and chapters interleaved in play order). Two separate views: "what I planned to shoot" vs "what I shot".
 - \`authoringStatus\` (\`todo\`/\`done\`): how far a real lesson has progressed.
 
 ## Guidelines
 - Use \`ls\` to list a directory, \`tree\` for a recursive overview, \`cat\` to read a file, and \`grep\` to search
-- \`cat\` supports a \`filter\` argument for projecting large files: \`.[i]\` (single item), \`.[i:j]\` (slice), \`names\` (chapter names), \`text\` (clip texts), \`count\` (item/chapter/clip counts), \`.field\` (single field)
+- \`cat\` supports a \`filter\` argument for projecting array files (\`_members.json\`): \`.[i]\` (single item), \`.[i:j]\` (slice), \`count\` (item/chapter/clip counts), \`.field\` (single field on object files)
 - \`grep\` searches with case-insensitive regex. Omit \`path\` to search the current course; use \`/\` for all courses. Content mode reports locators that round-trip into \`cat path .[i]\`
 - Answer questions about the course by navigating the VFS
 - When you encounter an error (e.g. "No such file or directory"), adjust your path and try again
@@ -129,15 +139,13 @@ export const action = async (args: {
 
     const catTool = tool({
       description:
-        "Read a leaf file's JSON content. Supports an optional filter for projecting large files: `.[i]` (item at index), `.[i:j]` (slice), `names` (chapter names), `text` (clip texts), `count` (item counts), `.field` (single field).",
+        "Read a leaf file's JSON content. Supports an optional filter for projecting array files: `.[i]` (item at index), `.[i:j]` (slice), `count` (item counts), `.field` (single field from object files).",
       inputSchema: z.object({
         path: z.string().describe("The file path to read."),
         filter: z
           .string()
           .optional()
-          .describe(
-            "Projection filter: .[i], .[i:j], names, text, count, or .field"
-          ),
+          .describe("Projection filter: .[i], .[i:j], count, or .field"),
       }),
       execute: async ({ path, filter }) => {
         const absolute = normalizePath(path, anchor);

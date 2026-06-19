@@ -4,16 +4,17 @@ import {
   generateSectionLeaf,
   generateLessonLeaf,
   generateVideoLeaf,
-  generateSegmentsLeaf,
-  generateTimelineLeaf,
+  generateSortedSegments,
+  generateSortedTimelineItems,
 } from "./vfs-leaves";
 import {
   CourseLeafSchema,
   SectionLeafSchema,
   LessonLeafSchema,
   VideoLeafSchema,
-  SegmentsLeafSchema,
-  TimelineLeafSchema,
+  SegmentLeafSchema,
+  ClipLeafSchema,
+  ChapterLeafSchema,
 } from "./vfs-schemas";
 
 describe("generateCourseLeaf", () => {
@@ -45,7 +46,6 @@ describe("generateSectionLeaf", () => {
       id: "s1",
       path: "01-intro",
       description: "Introduction",
-      order: 1,
       lessons: [{ fsStatus: "real" }],
     });
     expect(SectionLeafSchema.parse(leaf)).toEqual(leaf);
@@ -56,7 +56,6 @@ describe("generateSectionLeaf", () => {
       id: "s1",
       path: "02-advanced-topics",
       description: "",
-      order: 2,
       lessons: [],
     });
     expect(leaf.slug).toBe("advanced-topics");
@@ -67,7 +66,6 @@ describe("generateSectionLeaf", () => {
       id: "s1",
       path: "my-section",
       description: "",
-      order: 1,
       lessons: [],
     });
     expect(leaf.slug).toBe("my-section");
@@ -78,7 +76,6 @@ describe("generateSectionLeaf", () => {
       id: "s1",
       path: "01-intro",
       description: "",
-      order: 1,
       lessons: [{ fsStatus: "ghost" }, { fsStatus: "real" }],
     });
     expect(leaf.real).toBe(true);
@@ -89,7 +86,6 @@ describe("generateSectionLeaf", () => {
       id: "s1",
       path: "01-intro",
       description: "",
-      order: 1,
       lessons: [{ fsStatus: "ghost" }],
     });
     expect(leaf.real).toBe(false);
@@ -100,10 +96,19 @@ describe("generateSectionLeaf", () => {
       id: "s1",
       path: "01-intro",
       description: "",
-      order: 1,
       lessons: [],
     });
     expect(leaf.real).toBe(false);
+  });
+
+  it("does not include an order field", () => {
+    const leaf = generateSectionLeaf({
+      id: "s1",
+      path: "01-intro",
+      description: "",
+      lessons: [],
+    });
+    expect(leaf).not.toHaveProperty("order");
   });
 });
 
@@ -119,7 +124,6 @@ describe("generateLessonLeaf", () => {
       dependencies: ["l0"],
       authoringStatus: "todo",
       fsStatus: "real",
-      order: 1,
     });
     expect(LessonLeafSchema.parse(leaf)).toEqual(leaf);
   });
@@ -135,7 +139,6 @@ describe("generateLessonLeaf", () => {
       dependencies: null,
       authoringStatus: "done",
       fsStatus: "real",
-      order: 5,
     });
     expect(leaf.slug).toBe("advanced-generics");
   });
@@ -151,7 +154,6 @@ describe("generateLessonLeaf", () => {
       dependencies: null,
       authoringStatus: null,
       fsStatus: "ghost",
-      order: 1,
     });
     expect(leaf.slug).toBe("my-lesson");
   });
@@ -167,7 +169,6 @@ describe("generateLessonLeaf", () => {
       dependencies: null,
       authoringStatus: "todo",
       fsStatus: "real",
-      order: 1,
     });
     expect(leaf.dependencies).toEqual([]);
   });
@@ -183,10 +184,24 @@ describe("generateLessonLeaf", () => {
       dependencies: null,
       authoringStatus: null,
       fsStatus: "ghost",
-      order: 1,
     });
     expect(leaf.authoringStatus).toBeNull();
     expect(leaf.fsStatus).toBe("ghost");
+  });
+
+  it("does not include an order field", () => {
+    const leaf = generateLessonLeaf({
+      id: "l1",
+      path: "01.01-test",
+      title: "",
+      description: "",
+      icon: null,
+      priority: 2,
+      dependencies: null,
+      authoringStatus: "todo",
+      fsStatus: "real",
+    });
+    expect(leaf).not.toHaveProperty("order");
   });
 });
 
@@ -236,9 +251,9 @@ describe("generateVideoLeaf", () => {
   });
 });
 
-describe("generateSegmentsLeaf", () => {
-  it("validates against SegmentsLeafSchema", () => {
-    const leaf = generateSegmentsLeaf([
+describe("generateSortedSegments", () => {
+  it("validates each item against SegmentLeafSchema", () => {
+    const items = generateSortedSegments([
       {
         id: "seg1",
         kind: "definition",
@@ -254,11 +269,13 @@ describe("generateSegmentsLeaf", () => {
         order: "a0",
       },
     ]);
-    expect(SegmentsLeafSchema.parse(leaf)).toEqual(leaf);
+    for (const item of items) {
+      expect(SegmentLeafSchema.parse(item)).toEqual(item);
+    }
   });
 
-  it("sorts segments by order and assigns positional index", () => {
-    const leaf = generateSegmentsLeaf([
+  it("sorts segments by order", () => {
+    const items = generateSortedSegments([
       {
         id: "seg1",
         kind: "definition",
@@ -274,19 +291,30 @@ describe("generateSegmentsLeaf", () => {
         order: "a0",
       },
     ]);
-    expect(leaf[0]!.title).toBe("First");
-    expect(leaf[0]!.order).toBe(0);
-    expect(leaf[1]!.title).toBe("Second");
-    expect(leaf[1]!.order).toBe(1);
+    expect(items[0]!.title).toBe("First");
+    expect(items[1]!.title).toBe("Second");
+  });
+
+  it("does not include order in output items", () => {
+    const items = generateSortedSegments([
+      {
+        id: "seg1",
+        kind: "definition",
+        title: "Intro",
+        description: "",
+        order: "a0",
+      },
+    ]);
+    expect(items[0]).not.toHaveProperty("order");
   });
 
   it("returns empty array for no segments", () => {
-    expect(generateSegmentsLeaf([])).toEqual([]);
+    expect(generateSortedSegments([])).toEqual([]);
   });
 });
 
-describe("generateTimelineLeaf", () => {
-  it("validates against TimelineLeafSchema", () => {
+describe("generateSortedTimelineItems", () => {
+  it("validates clips against ClipLeafSchema and chapters against ChapterLeafSchema", () => {
     const clips = [
       {
         id: "cl1",
@@ -304,8 +332,9 @@ describe("generateTimelineLeaf", () => {
     const chapters = [
       { id: "ch1", order: "a0", name: "Opening", archived: false },
     ];
-    const leaf = generateTimelineLeaf(clips, chapters);
-    expect(TimelineLeafSchema.parse(leaf)).toEqual(leaf);
+    const items = generateSortedTimelineItems(clips, chapters);
+    expect(ChapterLeafSchema.parse(items[0])).toEqual(items[0]);
+    expect(ClipLeafSchema.parse(items[1])).toEqual(items[1]);
   });
 
   it("interleaves clips and chapters in order", () => {
@@ -339,11 +368,11 @@ describe("generateTimelineLeaf", () => {
       { id: "ch1", order: "a0", name: "Intro", archived: false },
       { id: "ch2", order: "c0", name: "Demo", archived: false },
     ];
-    const leaf = generateTimelineLeaf(clips, chapters);
+    const items = generateSortedTimelineItems(clips, chapters);
 
-    expect(leaf).toHaveLength(4);
-    expect(leaf[0]).toEqual({ type: "chapter", id: "ch1", name: "Intro" });
-    expect(leaf[1]).toEqual({
+    expect(items).toHaveLength(4);
+    expect(items[0]).toEqual({ type: "chapter", id: "ch1", name: "Intro" });
+    expect(items[1]).toEqual({
       type: "clip",
       id: "cl1",
       text: "First clip",
@@ -354,8 +383,8 @@ describe("generateTimelineLeaf", () => {
       scene: null,
       profile: null,
     });
-    expect(leaf[2]).toEqual({ type: "chapter", id: "ch2", name: "Demo" });
-    expect(leaf[3]).toEqual({
+    expect(items[2]).toEqual({ type: "chapter", id: "ch2", name: "Demo" });
+    expect(items[3]).toEqual({
       type: "clip",
       id: "cl2",
       text: "Second clip",
@@ -386,9 +415,9 @@ describe("generateTimelineLeaf", () => {
     const chapters = [
       { id: "ch1", order: "b0", name: "Chapter", archived: false },
     ];
-    const leaf = generateTimelineLeaf(clips, chapters);
-    expect(leaf[0]).toHaveProperty("id", "cl1");
-    expect(leaf[1]).toHaveProperty("id", "ch1");
+    const items = generateSortedTimelineItems(clips, chapters);
+    expect(items[0]).toHaveProperty("id", "cl1");
+    expect(items[1]).toHaveProperty("id", "ch1");
   });
 
   it("excludes archived clips", () => {
@@ -418,9 +447,9 @@ describe("generateTimelineLeaf", () => {
         archived: true,
       },
     ];
-    const leaf = generateTimelineLeaf(clips, []);
-    expect(leaf).toHaveLength(1);
-    expect(leaf[0]).toHaveProperty("id", "cl1");
+    const items = generateSortedTimelineItems(clips, []);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveProperty("id", "cl1");
   });
 
   it("excludes archived chapters", () => {
@@ -428,12 +457,12 @@ describe("generateTimelineLeaf", () => {
       { id: "ch1", order: "a0", name: "Live", archived: false },
       { id: "ch2", order: "b0", name: "Dead", archived: true },
     ];
-    const leaf = generateTimelineLeaf([], chapters);
-    expect(leaf).toHaveLength(1);
-    expect(leaf[0]).toEqual({ type: "chapter", id: "ch1", name: "Live" });
+    const items = generateSortedTimelineItems([], chapters);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual({ type: "chapter", id: "ch1", name: "Live" });
   });
 
   it("returns empty array when no clips or chapters", () => {
-    expect(generateTimelineLeaf([], [])).toEqual([]);
+    expect(generateSortedTimelineItems([], [])).toEqual([]);
   });
 });

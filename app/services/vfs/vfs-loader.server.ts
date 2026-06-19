@@ -23,8 +23,8 @@ import {
   generateSectionLeaf,
   generateLessonLeaf,
   generateVideoLeaf,
-  generateSegmentsLeaf,
-  generateTimelineLeaf,
+  generateSortedSegments,
+  generateSortedTimelineItems,
 } from "./vfs-leaves";
 import { buildVfsTree, type CourseEntry } from "./vfs-tree";
 import { sectionHasRealLessons } from "@/services/section-path-service";
@@ -182,7 +182,6 @@ const courseToEntry = (course: {
         id: section.id,
         path: section.path,
         description: section.description,
-        order: section.order,
         lessons: section.lessons,
       }),
       ghost: !sectionHasRealLessons(section.lessons),
@@ -198,32 +197,23 @@ const courseToEntry = (course: {
           dependencies: lesson.dependencies,
           authoringStatus: lesson.authoringStatus,
           fsStatus: lesson.fsStatus,
-          order: lesson.order,
         }),
         ghost: lesson.fsStatus === "ghost",
-        videos: lesson.videos.map((video) => {
-          const liveClips = video.clips.filter((c) => !c.archived);
-          const liveChapters = video.chapters.filter((c) => !c.archived);
-          const hasTimeline = liveClips.length > 0 || liveChapters.length > 0;
-
-          return {
+        videos: lesson.videos.map((video) => ({
+          path: video.path,
+          videoLeaf: generateVideoLeaf({
+            id: video.id,
             path: video.path,
-            videoLeaf: generateVideoLeaf({
-              id: video.id,
-              path: video.path,
-              originalFootagePath: video.originalFootagePath,
-              clips: video.clips,
-              chapters: video.chapters,
-            }),
-            segmentsLeaf:
-              video.segments.length > 0
-                ? generateSegmentsLeaf(video.segments)
-                : null,
-            timelineLeaf: hasTimeline
-              ? generateTimelineLeaf(video.clips, video.chapters)
-              : null,
-          };
-        }),
+            originalFootagePath: video.originalFootagePath,
+            clips: video.clips,
+            chapters: video.chapters,
+          }),
+          segments: generateSortedSegments(video.segments),
+          timelineItems: generateSortedTimelineItems(
+            video.clips,
+            video.chapters
+          ),
+        })),
       })),
     })),
   };
