@@ -154,15 +154,32 @@ export function CourseAgentPanel({
     },
   });
 
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingThreadsRef = useRef<StoredThread[] | null>(null);
   useEffect(() => {
     setThreads((prev) => {
       const updated = prev.map((t) =>
         t.id === activeId ? { ...t, messages, updatedAt: Date.now() } : t
       );
-      saveThreads(courseId, updated);
+      pendingThreadsRef.current = updated;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        if (pendingThreadsRef.current) {
+          saveThreads(courseId, pendingThreadsRef.current);
+          pendingThreadsRef.current = null;
+        }
+      }, 500);
       return updated;
     });
   }, [messages, activeId, courseId]);
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (pendingThreadsRef.current) {
+        saveThreads(courseId, pendingThreadsRef.current);
+      }
+    };
+  }, [courseId]);
 
   const contextTokens = useMemo(() => {
     const assistantMsgs = messages.filter((m) => m.role === "assistant");
