@@ -65,3 +65,27 @@ export { vfsTree } from "./vfs-tree-tool";
 export { vfsCat, applyFilter } from "./vfs-cat";
 
 export { vfsGrep } from "./vfs-grep";
+
+export {
+  deriveDiff,
+  computeContentHash,
+  resolveFileType,
+  CAPABILITY_MATRIX,
+  type DiffInput,
+  type WriteInput,
+  type EditInput,
+  type DiffResult,
+  type DiffContext,
+  type DiffMessage,
+  type CatStamp,
+  type ArchivedEntity,
+  type Op,
+  type AddOp,
+  type DeleteOp,
+  type EditFieldOp,
+  type ReorderOp,
+  type Rejection,
+  type RejectionKind,
+  type EntityType,
+  type FileType,
+} from "./derive-diff";
