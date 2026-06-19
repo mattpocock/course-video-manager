@@ -16,6 +16,7 @@ import {
 import { AIMessage, AIMessageContent } from "components/ui/kibo-ui/ai/message";
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import {
+  AlertCircle,
   Archive,
   ArchiveRestore,
   Check,
@@ -112,6 +113,8 @@ export function CourseAgentPanel({
     sendMessage,
     stop,
     status,
+    error,
+    clearError,
     addToolApprovalResponse,
   } = useChat<CourseAgentUIMessage>({
     transport: new DefaultChatTransport({
@@ -485,6 +488,20 @@ export function CourseAgentPanel({
                         );
                       }
 
+                      if (writeTool.state === "output-error") {
+                        return (
+                          <div
+                            key={i}
+                            className="my-2 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                          >
+                            <AlertCircle className="size-3.5 shrink-0" />
+                            <span>
+                              {writeTool.errorText || "Tool execution failed."}
+                            </span>
+                          </div>
+                        );
+                      }
+
                       // input-streaming / input-available / approval-responded — nothing to render
                       return null;
                     }
@@ -492,6 +509,22 @@ export function CourseAgentPanel({
                     const vfs = asVfsToolPart(p);
                     if (!vfs) return null;
                     const pathArg = vfs.input?.path ?? vfs.input?.pattern ?? "";
+
+                    if (vfs.state === "output-error") {
+                      return (
+                        <div
+                          key={i}
+                          className="my-2 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                        >
+                          <AlertCircle className="size-3.5 shrink-0" />
+                          <span>
+                            {`${vfs.toolName} ${pathArg}`.trim()}:{" "}
+                            {vfs.errorText || "Tool execution failed."}
+                          </span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <CourseToolCall
                         key={i}
@@ -515,6 +548,22 @@ export function CourseAgentPanel({
         </AIConversationContent>
         <AIConversationScrollButton />
       </AIConversation>
+
+      {/* error banner */}
+      {error && (
+        <div className="flex items-center gap-2 border-t border-destructive/30 bg-destructive/10 px-3 py-2">
+          <AlertCircle className="size-4 shrink-0 text-destructive" />
+          <span className="min-w-0 flex-1 text-xs text-destructive">
+            {error.message || "Something went wrong."}
+          </span>
+          <button
+            onClick={clearError}
+            className="shrink-0 rounded p-0.5 text-destructive hover:bg-destructive/20"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* input */}
       <div className="border-t border-border p-3">

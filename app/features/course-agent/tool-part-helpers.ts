@@ -12,6 +12,7 @@ export type NormalizedVfsToolPart = {
   state: string;
   input: Record<string, string> | undefined;
   output: unknown;
+  errorText: string | undefined;
 };
 
 export function asVfsToolPart(
@@ -29,12 +30,14 @@ export function asVfsToolPart(
     state?: string;
     input?: Record<string, string>;
     output?: unknown;
+    errorText?: string;
   };
   return {
     toolName,
     state: p.state ?? "",
     input: p.input,
     output: p.output,
+    errorText: p.errorText,
   };
 }
 
@@ -46,6 +49,7 @@ export type NormalizedWriteToolPart = {
   state: string;
   input: Record<string, unknown> | undefined;
   output: unknown;
+  errorText: string | undefined;
   approval?: { id: string; approved?: boolean; reason?: string };
 };
 
@@ -68,6 +72,7 @@ export function asWriteToolPart(
     state?: string;
     input?: Record<string, unknown>;
     output?: unknown;
+    errorText?: string;
     approval?: { id: string; approved?: boolean; reason?: string };
   };
   if (!p.toolCallId) return null;
@@ -78,6 +83,7 @@ export function asWriteToolPart(
     state: p.state ?? "",
     input: p.input,
     output: p.output,
+    errorText: p.errorText,
     approval: p.approval,
   };
 }
