@@ -18,66 +18,38 @@ import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import {
   Archive,
   ArchiveRestore,
+  Check,
   ChevronDown,
   MessageSquarePlus,
   X,
+  XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { useRevalidator } from "react-router";
+import { DefaultChatTransport } from "ai";
 import { CourseToolCall } from "./tool-call";
 import { formatTokens, CONTEXT_WINDOW } from "./constants";
-
-type StoredThread = {
-  id: string;
-  updatedAt: number;
-  contextTokens: number;
-  messages: UIMessage[];
-  versionId?: string;
-};
-
-const THREADS_KEY = "course-agent-threads";
-const ARCHIVED_KEY = "course-agent-archived-threads";
-
-function loadThreads(courseId: string): StoredThread[] {
-  if (typeof localStorage === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(`${THREADS_KEY}:${courseId}`);
-    if (raw) return JSON.parse(raw) as StoredThread[];
-  } catch {
-    // ignore
-  }
-  return [];
-}
-
-function saveThreads(courseId: string, threads: StoredThread[]) {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(`${THREADS_KEY}:${courseId}`, JSON.stringify(threads));
-  } catch {
-    // ignore
-  }
-}
-
-function loadArchived(): string[] {
-  if (typeof localStorage === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(ARCHIVED_KEY);
-    if (raw) return JSON.parse(raw) as string[];
-  } catch {
-    // ignore
-  }
-  return [];
-}
-
-function saveArchived(ids: string[]) {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(ARCHIVED_KEY, JSON.stringify(ids));
-  } catch {
-    // ignore
-  }
-}
+import {
+  courseAgentSendAutomaticallyWhen,
+  type ProposedOps,
+  type WriteResult,
+  type CourseAgentUIMessage,
+} from "./types";
+import { ApprovalCard, InvalidEditLine } from "./approval-card";
+import { findAppliedToolCallIds } from "./revalidation-trigger";
+import {
+  type StoredThread,
+  loadThreads,
+  saveThreads,
+  loadArchived,
+  saveArchived,
+} from "./thread-storage";
+import {
+  asVfsToolPart,
+  asWriteToolPart,
+  extractUsageFromMessage,
+} from "./tool-part-helpers";
 
 function updatedLabel(ts: number): string {
   const label =
@@ -134,12 +106,20 @@ export function CourseAgentPanel({
 
   const threadVersionId = thread.versionId ?? versionId;
 
-  const { messages, setMessages, sendMessage, stop, status } = useChat({
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    stop,
+    status,
+    addToolApprovalResponse,
+  } = useChat<CourseAgentUIMessage>({
     transport: new DefaultChatTransport({
       api: `/api/courses/${courseId}/agent`,
       body: { versionId: threadVersionId },
     }),
-    messages: thread.messages,
+    messages: thread.messages as CourseAgentUIMessage[],
+    sendAutomaticallyWhen: courseAgentSendAutomaticallyWhen,
     onFinish({ message }) {
       const usage = extractUsageFromMessage(message);
       setThreads((prev) => {
@@ -157,6 +137,41 @@ export function CourseAgentPanel({
       });
     },
   });
+
+  // Revalidate the course route when a write/edit is successfully applied.
+  const revalidator = useRevalidator();
+  const appliedRef = useRef(new Set<string>());
+  useEffect(() => {
+    const current = findAppliedToolCallIds(messages);
+    let shouldRevalidate = false;
+    for (const id of current) {
+      if (!appliedRef.current.has(id)) {
+        shouldRevalidate = true;
+        appliedRef.current.add(id);
+      }
+    }
+    if (shouldRevalidate) {
+      revalidator.revalidate();
+    }
+  }, [messages, revalidator]);
+
+  // Build a lookup of proposed ops keyed by toolCallId, for the approval card.
+  const proposedOpsMap = useMemo(() => {
+    const map = new Map<string, ProposedOps>();
+    for (const msg of messages) {
+      for (const part of msg.parts) {
+        if (
+          (part as { type: string }).type === "data-proposed-ops" &&
+          (part as { id?: string }).id &&
+          (part as { data?: ProposedOps }).data
+        ) {
+          const dp = part as { id: string; data: ProposedOps };
+          map.set(dp.id, dp.data);
+        }
+      }
+    }
+    return map;
+  }, [messages]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingThreadsRef = useRef<StoredThread[] | null>(null);
@@ -394,6 +409,86 @@ export function CourseAgentPanel({
                         </AIResponse>
                       ) : null;
                     }
+
+                    // Data parts are rendered through their correlated tool part
+                    if ((p as { type: string }).type === "data-proposed-ops") {
+                      return null;
+                    }
+
+                    // Write/edit tool parts — approval cards, invalid-edit lines, and apply confirmations
+                    const writeTool = asWriteToolPart(p);
+                    if (writeTool) {
+                      const proposed = proposedOpsMap.get(writeTool.toolCallId);
+
+                      if (
+                        writeTool.state === "approval-requested" &&
+                        proposed
+                      ) {
+                        return (
+                          <div key={i} className="my-3">
+                            <ApprovalCard
+                              proposed={proposed}
+                              disabled={isStreaming}
+                              onApprove={() =>
+                                addToolApprovalResponse({
+                                  id: writeTool.approval!.id,
+                                  approved: true,
+                                })
+                              }
+                              onReject={() =>
+                                addToolApprovalResponse({
+                                  id: writeTool.approval!.id,
+                                  approved: false,
+                                  reason: "User rejected this edit.",
+                                })
+                              }
+                            />
+                          </div>
+                        );
+                      }
+
+                      if (writeTool.state === "output-available") {
+                        const result = writeTool.output as
+                          | WriteResult
+                          | undefined;
+                        if (result?.applied === false) {
+                          return (
+                            <div key={i} className="my-2">
+                              <InvalidEditLine
+                                message={result.rejection.message}
+                              />
+                            </div>
+                          );
+                        }
+                        if (result?.applied === true) {
+                          return (
+                            <div
+                              key={i}
+                              className="my-2 flex items-center gap-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+                            >
+                              <Check className="size-3.5 text-green-600" />
+                              <span>Edit applied successfully.</span>
+                            </div>
+                          );
+                        }
+                      }
+
+                      if (writeTool.state === "output-denied") {
+                        return (
+                          <div
+                            key={i}
+                            className="my-2 flex items-center gap-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+                          >
+                            <XCircle className="size-3.5" />
+                            <span>You rejected this edit.</span>
+                          </div>
+                        );
+                      }
+
+                      // input-streaming / input-available / approval-responded — nothing to render
+                      return null;
+                    }
+
                     const vfs = asVfsToolPart(p);
                     if (!vfs) return null;
                     const pathArg = vfs.input?.path ?? vfs.input?.pattern ?? "";
@@ -450,59 +545,4 @@ export function CourseAgentPanel({
       </div>
     </div>
   );
-}
-
-const VFS_TOOLS = ["ls", "tree", "cat", "grep"] as const;
-type VfsToolName = (typeof VFS_TOOLS)[number];
-
-function isVfsTool(name: string): name is VfsToolName {
-  return (VFS_TOOLS as readonly string[]).includes(name);
-}
-
-type NormalizedVfsToolPart = {
-  toolName: VfsToolName;
-  state: string;
-  input: Record<string, string> | undefined;
-  output: unknown;
-};
-
-// Static tools registered on the agent stream as typed parts (`tool-ls`, …);
-// dynamic tools arrive as `dynamic-tool` with a `toolName` field. Normalize both.
-function asVfsToolPart(
-  part: UIMessage["parts"][number]
-): NormalizedVfsToolPart | null {
-  let toolName: string | undefined;
-  if (part.type === "dynamic-tool") {
-    toolName = part.toolName;
-  } else if (part.type.startsWith("tool-")) {
-    toolName = part.type.slice("tool-".length);
-  }
-  if (!toolName || !isVfsTool(toolName)) return null;
-
-  const p = part as {
-    state?: string;
-    input?: Record<string, string>;
-    output?: unknown;
-  };
-  return {
-    toolName,
-    state: p.state ?? "",
-    input: p.input,
-    output: p.output,
-  };
-}
-
-function extractUsageFromMessage(
-  message: UIMessage
-): { inputTokens: number; outputTokens: number } | null {
-  const meta = message.metadata as
-    | { usage?: { inputTokens?: number; outputTokens?: number } }
-    | undefined;
-  if (meta?.usage?.inputTokens != null) {
-    return {
-      inputTokens: meta.usage.inputTokens,
-      outputTokens: meta.usage.outputTokens ?? 0,
-    };
-  }
-  return null;
 }
