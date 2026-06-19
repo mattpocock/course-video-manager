@@ -334,6 +334,9 @@ function classifyManifestOps(
         target: memberLabel(member, entityType),
         detail: {
           footageMatch: { videoFilename, sourceStartTime, sourceEndTime },
+          values: Object.fromEntries(
+            Object.entries(member).filter(([k]) => k !== "id")
+          ),
         },
       });
       continue;
@@ -376,6 +379,7 @@ function classifyManifestOps(
       sub: "unarchive",
       entityType: archivedEntity.entityType,
       target: memberLabel(member, entityType),
+      id: member.id as string,
       detail: { sourceParent: archivedEntity.parentLabel },
     });
     note = `Step 2 of 2: This re-adds "${memberLabel(member, entityType)}" (previously removed from "${archivedEntity.parentLabel}"). Rejecting will leave it archived.`;

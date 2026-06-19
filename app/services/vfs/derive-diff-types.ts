@@ -70,6 +70,7 @@ export type AddOp = {
   sub: "create" | "unarchive" | "copy";
   entityType: EntityType;
   target: string;
+  id?: string;
   detail: {
     sourceParent?: string;
     footageMatch?: {
