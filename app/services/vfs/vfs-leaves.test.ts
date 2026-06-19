@@ -311,6 +311,29 @@ describe("generateSortedSegments", () => {
   it("returns empty array for no segments", () => {
     expect(generateSortedSegments([])).toEqual([]);
   });
+
+  it("excludes archived segments", () => {
+    const items = generateSortedSegments([
+      {
+        id: "seg1",
+        kind: "definition",
+        title: "Live",
+        description: "",
+        order: "a0",
+        archived: false,
+      },
+      {
+        id: "seg2",
+        kind: "walkthrough",
+        title: "Dead",
+        description: "",
+        order: "b0",
+        archived: true,
+      },
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0]!.id).toBe("seg1");
+  });
 });
 
 describe("generateSortedTimelineItems", () => {

@@ -59,6 +59,7 @@ export type SegmentInput = {
   title: string;
   description: string;
   order: string;
+  archived?: boolean;
 };
 
 export type ClipInput = {
@@ -144,7 +145,8 @@ export const generateVideoLeaf = (video: VideoInput): VideoLeaf => {
 export const generateSortedSegments = (
   segments: ReadonlyArray<SegmentInput>
 ): SegmentLeaf[] => {
-  const sorted = sortByOrder(segments.map((s) => ({ ...s })));
+  const live = segments.filter((s) => !s.archived);
+  const sorted = sortByOrder(live.map((s) => ({ ...s })));
 
   return sorted.map((s) => ({
     id: s.id,

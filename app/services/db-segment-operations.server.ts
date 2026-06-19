@@ -11,7 +11,7 @@ import {
   DEFAULT_SEGMENT_KIND,
   type SegmentKind,
 } from "@/features/segments/segment-kinds";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
 
@@ -23,11 +23,11 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 };
 
 export const createSegmentOperations = (db: DrizzleDB) => {
-  /** Segments of a video, sorted by their fractional `order` key. */
+  /** Non-archived segments of a video, sorted by their fractional `order` key. */
   const listSegmentsByVideoId = (videoId: string) =>
     makeDbCall(() =>
       db.query.segments.findMany({
-        where: eq(segments.videoId, videoId),
+        where: and(eq(segments.videoId, videoId), eq(segments.archived, false)),
         orderBy: asc(segments.order),
       })
     );
@@ -132,9 +132,10 @@ export const createSegmentOperations = (db: DrizzleDB) => {
     return yield* requireSegment(id);
   });
 
-  /** Hard delete — Segments have no published footprint, so they are not archived. */
   const deleteSegment = Effect.fn("deleteSegment")(function* (id: string) {
-    yield* makeDbCall(() => db.delete(segments).where(eq(segments.id, id)));
+    yield* makeDbCall(() =>
+      db.update(segments).set({ archived: true }).where(eq(segments.id, id))
+    );
     return { success: true as const };
   });
 

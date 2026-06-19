@@ -292,6 +292,7 @@ export const segments = createTable("segment", {
   // publish skips it exactly as it skips the Segment plan itself.
   description: text("description").notNull().default(""),
   order: varcharCollateC("order").notNull(),
+  archived: boolean("archived").notNull().default(false),
   createdAt: timestamp("created_at", {
     mode: "date",
     withTimezone: true,

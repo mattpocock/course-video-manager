@@ -3,7 +3,8 @@ import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { SegmentOperationsService } from "@/services/db-segment-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
-import { videos } from "@/db/schema";
+import { segments, videos } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { compareOrderStrings } from "@/lib/sort-by-order";
 import {
   createTestDb,
@@ -259,7 +260,7 @@ describe("setSegmentKind", () => {
 });
 
 describe("deleteSegment", () => {
-  it.effect("hard-deletes the row (not archived)", () =>
+  it.effect("archives the segment instead of hard-deleting", () =>
     Effect.gen(function* () {
       yield* Effect.promise(() => makeVideo("video-1"));
       const segmentOps = yield* SegmentOperationsService;
@@ -267,8 +268,33 @@ describe("deleteSegment", () => {
 
       yield* segmentOps.deleteSegment(created.id);
 
+      // Archived segments are excluded from listing
       const remaining = yield* segmentOps.listSegmentsByVideoId("video-1");
       expect(remaining).toHaveLength(0);
+
+      // But the row still exists in the database
+      const row = yield* Effect.promise(() =>
+        testDb.query.segments.findFirst({
+          where: eq(segments.id, created.id),
+        })
+      );
+      expect(row).toBeDefined();
+      expect(row!.archived).toBe(true);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("excludes archived segments from listSegmentsByVideoId", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      const segmentOps = yield* SegmentOperationsService;
+      const a = yield* segmentOps.createSegment("video-1");
+      const b = yield* segmentOps.createSegment("video-1");
+
+      yield* segmentOps.deleteSegment(a.id);
+
+      const listed = yield* segmentOps.listSegmentsByVideoId("video-1");
+      expect(listed).toHaveLength(1);
+      expect(listed[0]!.id).toBe(b.id);
     }).pipe(Effect.provide(testLayer))
   );
 });

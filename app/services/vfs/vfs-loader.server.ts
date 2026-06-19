@@ -78,6 +78,7 @@ const loadCourseForVfs = (
                             orderBy: asc(chapters.order),
                           },
                           segments: {
+                            where: eq(segments.archived, false),
                             orderBy: asc(segments.order),
                           },
                         },
