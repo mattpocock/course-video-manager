@@ -85,7 +85,13 @@ export function asWriteToolPart(
 export function stringifyToolOutput(output: unknown): string {
   if (output == null) return "";
   if (typeof output === "string") return output;
-  if (typeof output === "object") return JSON.stringify(output, null, 2);
+  if (typeof output === "object") {
+    try {
+      return JSON.stringify(output, null, 2);
+    } catch {
+      return String(output);
+    }
+  }
   return String(output);
 }
 

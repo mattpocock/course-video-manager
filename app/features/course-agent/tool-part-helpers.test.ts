@@ -31,4 +31,10 @@ describe("stringifyToolOutput", () => {
   it("returns empty string for undefined", () => {
     expect(stringifyToolOutput(undefined)).toBe("");
   });
+
+  it("falls back to String() for circular references", () => {
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    expect(stringifyToolOutput(circular)).toBe("[object Object]");
+  });
 });
