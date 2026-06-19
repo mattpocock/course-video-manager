@@ -82,6 +82,31 @@ export function asWriteToolPart(
   };
 }
 
+const TERMINAL_STATES = new Set([
+  "output-available",
+  "output-error",
+  "output-denied",
+]);
+
+export function vfsToolIsStreaming(state: string): boolean {
+  return !TERMINAL_STATES.has(state);
+}
+
+const STREAMING_STATES = new Set(["input-streaming", "input-available"]);
+
+export function writeToolStreamingLabel(
+  toolName: "write" | "edit",
+  state: string
+): string | null {
+  if (STREAMING_STATES.has(state)) {
+    return toolName === "write" ? "Writing…" : "Editing…";
+  }
+  if (state === "approval-responded") {
+    return "Applying changes…";
+  }
+  return null;
+}
+
 export function extractUsageFromMessage(
   message: UIMessage
 ): { inputTokens: number; outputTokens: number } | null {
