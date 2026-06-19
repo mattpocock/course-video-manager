@@ -31,10 +31,11 @@ export function formatTranscript(messages: UIMessage[]): string {
           (write.input?.path as string | undefined) ??
           (write.input?.filePath as string | undefined) ??
           "";
+        const prefix = write.state === "output-denied" ? "Rejected" : "Tool";
         lines.push(
           pathArg
-            ? `[Tool: ${write.toolName} ${pathArg}]`
-            : `[Tool: ${write.toolName}]`
+            ? `[${prefix}: ${write.toolName} ${pathArg}]`
+            : `[${prefix}: ${write.toolName}]`
         );
         continue;
       }
