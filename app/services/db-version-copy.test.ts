@@ -428,12 +428,14 @@ describe("copyVersionStructure", () => {
         videoId: video!.id,
         kind: "definition",
         title: "Closures",
+        description: "Explain JS closures",
         order: "a0",
       },
       {
         videoId: video!.id,
         kind: "quest",
         title: "Build a cache",
+        description: "Build a memoization cache",
         order: "a1",
       },
     ]);
@@ -458,9 +460,23 @@ describe("copyVersionStructure", () => {
       orderBy: (s, { asc }) => asc(s.order),
     });
 
-    expect(copied.map((s) => ({ kind: s.kind, title: s.title }))).toEqual([
-      { kind: "definition", title: "Closures" },
-      { kind: "quest", title: "Build a cache" },
+    expect(
+      copied.map((s) => ({
+        kind: s.kind,
+        title: s.title,
+        description: s.description,
+      }))
+    ).toEqual([
+      {
+        kind: "definition",
+        title: "Closures",
+        description: "Explain JS closures",
+      },
+      {
+        kind: "quest",
+        title: "Build a cache",
+        description: "Build a memoization cache",
+      },
     ]);
   });
 
