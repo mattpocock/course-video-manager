@@ -24,7 +24,7 @@ export const ThinkingTrace = memo(function ThinkingTrace({
   isStreaming: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState<number | null>(null);
   const startRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -38,6 +38,7 @@ export const ThinkingTrace = memo(function ThinkingTrace({
 
     if (startRef.current === null) {
       startRef.current = Date.now();
+      setElapsed(0);
     }
 
     const interval = setInterval(() => {
@@ -50,9 +51,11 @@ export const ThinkingTrace = memo(function ThinkingTrace({
   }, [isStreaming]);
 
   const label =
-    isStreaming && elapsed === 0
-      ? "Thinking…"
-      : `Thought for ${formatThinkingDuration(elapsed)}`;
+    elapsed === null
+      ? "Thought"
+      : isStreaming && elapsed === 0
+        ? "Thinking…"
+        : `Thought for ${formatThinkingDuration(elapsed)}`;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="my-1">
