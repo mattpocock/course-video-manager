@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useRevalidator } from "react-router";
 import { DefaultChatTransport } from "ai";
+import { useMessageQueue } from "@/lib/use-message-queue";
 import { CourseToolCall } from "./tool-call";
 import { formatTokens, CONTEXT_WINDOW } from "./constants";
 import {
@@ -262,12 +263,24 @@ export function CourseAgentPanel({
     setMenuOpen(false);
   };
 
+  const handleSend = useCallback(
+    (text: string) => {
+      sendMessage({ role: "user", parts: [{ type: "text", text }] });
+    },
+    [sendMessage]
+  );
+
+  const { submit: queueSubmit, queuedMessages } = useMessageQueue(
+    status,
+    handleSend
+  );
+
   const send = useCallback(() => {
     const text = draft.trim();
     if (!text) return;
-    sendMessage({ role: "user", parts: [{ type: "text", text }] });
+    queueSubmit(text);
     setDraft("");
-  }, [draft, sendMessage]);
+  }, [draft, queueSubmit]);
 
   const isStreaming = status === "streaming" || status === "submitted";
 
@@ -555,6 +568,16 @@ export function CourseAgentPanel({
               </AIMessage>
             );
           })}
+          {queuedMessages.map((text, i) => (
+            <AIMessage from="user" key={`queued-${i}`}>
+              <AIMessageContent>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <LoaderIcon className="size-3 animate-spin shrink-0" />
+                  {text}
+                </span>
+              </AIMessageContent>
+            </AIMessage>
+          ))}
         </AIConversationContent>
         <AIConversationScrollButton />
       </AIConversation>
