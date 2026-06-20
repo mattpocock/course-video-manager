@@ -81,6 +81,31 @@ describe("courseAgentSendAutomaticallyWhen", () => {
     ).toBe(true);
   });
 
+  it("returns true when all tools have approval-responded", () => {
+    expect(
+      courseAgentSendAutomaticallyWhen({
+        messages: [
+          makeMsg("assistant", [
+            { type: "tool-write", state: "approval-responded" },
+          ]),
+        ],
+      })
+    ).toBe(true);
+  });
+
+  it("returns true with mixed approval-responded and output-available", () => {
+    expect(
+      courseAgentSendAutomaticallyWhen({
+        messages: [
+          makeMsg("assistant", [
+            { type: "tool-write", state: "approval-responded" },
+            { type: "tool-ls", state: "output-available" },
+          ]),
+        ],
+      })
+    ).toBe(true);
+  });
+
   it("returns false when a tool is still pending approval", () => {
     expect(
       courseAgentSendAutomaticallyWhen({

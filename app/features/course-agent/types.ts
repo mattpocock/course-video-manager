@@ -38,7 +38,8 @@ export function courseAgentSendAutomaticallyWhen({
     return (
       state === "output-available" ||
       state === "output-error" ||
-      state === "output-denied"
+      state === "output-denied" ||
+      state === "approval-responded"
     );
   });
 }
