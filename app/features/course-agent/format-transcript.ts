@@ -9,6 +9,11 @@ export function formatTranscript(messages: UIMessage[]): string {
     const lines: string[] = [];
 
     for (const part of msg.parts) {
+      if (part.type === "reasoning") {
+        lines.push("[Thinking]");
+        continue;
+      }
+
       if (part.type === "text" && part.text) {
         lines.push(part.text);
         continue;

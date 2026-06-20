@@ -182,4 +182,30 @@ describe("formatTranscript", () => {
       "Assistant:\n[Rejected: edit src/utils.ts]"
     );
   });
+
+  it("includes reasoning parts as bracketed Thinking labels", () => {
+    const msgs = [
+      makeMsg("assistant", [
+        { type: "reasoning", text: "Let me think about this carefully..." },
+        { type: "text", text: "Here is my answer." },
+      ]),
+    ];
+    expect(formatTranscript(msgs)).toBe(
+      "Assistant:\n[Thinking]\nHere is my answer."
+    );
+  });
+
+  it("handles multiple reasoning parts in a single message", () => {
+    const msgs = [
+      makeMsg("assistant", [
+        { type: "reasoning", text: "First thought" },
+        { type: "text", text: "First response." },
+        { type: "reasoning", text: "Second thought" },
+        { type: "text", text: "Second response." },
+      ]),
+    ];
+    expect(formatTranscript(msgs)).toBe(
+      "Assistant:\n[Thinking]\nFirst response.\n[Thinking]\nSecond response."
+    );
+  });
 });

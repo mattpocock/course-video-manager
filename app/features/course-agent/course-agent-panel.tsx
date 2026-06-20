@@ -57,6 +57,7 @@ import {
   vfsToolIsStreaming,
   writeToolStreamingLabel,
 } from "./tool-part-helpers";
+import { ThinkingTrace } from "./thinking-trace";
 
 function updatedLabel(ts: number): string {
   const label =
@@ -420,6 +421,21 @@ export function CourseAgentPanel({
               <AIMessage from="assistant" key={m.id}>
                 <div className="w-full">
                   {m.parts.map((p, i) => {
+                    if (p.type === "reasoning") {
+                      const rp = p as {
+                        type: "reasoning";
+                        text: string;
+                        state?: "streaming" | "done";
+                      };
+                      return (
+                        <ThinkingTrace
+                          key={i}
+                          text={rp.text}
+                          isStreaming={rp.state === "streaming"}
+                        />
+                      );
+                    }
+
                     if (p.type === "text") {
                       return p.text ? (
                         <AIResponse
