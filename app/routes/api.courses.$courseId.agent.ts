@@ -26,7 +26,7 @@ import {
 } from "ai";
 import { tool } from "ai";
 import type { ModelMessage } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { Console, Effect, Layer, Schema } from "effect";
 import {
   DrizzleService,
@@ -152,6 +152,8 @@ Where an entity sits in its parent \`_members.json\` *is* its order. To reorder,
 
 ### R7 — Read before write
 You **must** \`cat\` a file before you \`write\` or \`edit\` it. Writes to files you haven't read this conversation are rejected. If the file changed since you read it (stale hash), the write is also rejected — \`cat\` it again and retry.
+
+**Exception — creating a manifest that doesn't exist yet.** A video's \`segments/\` and \`timeline/\` directories are only projected once they have ≥1 member, so a video with no segments has no \`segments/_members.json\` to read. To create the first one, \`write\` the manifest path directly (e.g. \`.../<video>/segments/_members.json\`) with a one-entry array — no prior \`cat\` is needed, because there is nothing to read. The owning video must exist; writing a manifest under a non-existent parent fails with \`No such file or directory\` (a wrong-path error, **not** "unsupported" — re-check the path). Once the manifest exists, normal read-before-write applies for further edits.
 
 ### R3 — Atomic rejection
 If any single operation in a write falls outside the capability matrix, the **entire write** is rejected. You cannot mix legal and illegal edits in one write. Fix the illegal part and retry.
@@ -451,7 +453,11 @@ export const action = async (args: {
     );
 
     const agent = new Agent({
-      model: anthropic("claude-sonnet-4-5"),
+      model: openrouter("z-ai/glm-5.2", {
+        reasoning: {
+          effort: "high",
+        },
+      }),
       instructions: SYSTEM_PROMPT(anchor),
       tools: {
         ls: lsTool,

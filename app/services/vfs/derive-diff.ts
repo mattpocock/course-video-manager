@@ -1,5 +1,6 @@
 import { lookupPath, type VfsDirNode } from "./vfs-tree";
 import { vfsCat } from "./vfs-cat";
+import { resolveParentId } from "./agent-diff-executor-helpers";
 import { applyEdits } from "@/features/article-writer/document-editing-engine";
 import { z } from "zod";
 import {
@@ -519,25 +520,90 @@ export function deriveDiff(
     };
 
   const lastCat = scanForLastCat(messages, path);
+
+  const currentContent = vfsCat(ctx.root, path);
+  const fileMissing =
+    currentContent.startsWith("cat: ") &&
+    currentContent.includes("No such file");
+
+  // Create path — writing a manifest that doesn't exist yet.
+  //
+  // The projection always emits the `sections`, `lessons`, and `videos`
+  // manifests (even when empty), but omits `segments/` and `timeline/` until
+  // they have at least one member. So those are the only manifests that can be
+  // legitimately absent, and both are owned by a video. We treat such a write
+  // like `touch`: it succeeds when the owning entity exists, and otherwise
+  // fails with a bash-style "No such file or directory" (the parent is what's
+  // missing). Read-before-write/staleness do not apply — there is nothing to
+  // read. A concurrent create that makes the file appear is caught at execute
+  // time: `applyOrReject` re-derives against a fresh VFS, this branch no longer
+  // fires, and the existing-file guards below reject (stale/not-read) so the
+  // writer must re-cat and append rather than clobber.
+  if (fileMissing) {
+    const isCreatableManifest =
+      fileType.kind === "manifest" &&
+      (fileType.entityType === "segment" || fileType.entityType === "timeline");
+
+    const ownerExists =
+      isCreatableManifest && resolveParentId(ctx.root, path, "video") != null;
+
+    if (!isCreatableManifest || !ownerExists)
+      return {
+        ok: false,
+        rejection: {
+          kind: "invalid-file",
+          message: `Cannot write "${path}": No such file or directory.`,
+        },
+      };
+
+    if (!("content" in input))
+      return {
+        ok: false,
+        rejection: {
+          kind: "invalid-file",
+          message: `Cannot edit "${path}": No such file or directory. Use write to create it.`,
+        },
+      };
+
+    let createData: unknown;
+    try {
+      createData = JSON.parse(input.content);
+    } catch {
+      return {
+        ok: false,
+        rejection: {
+          kind: "parse-error",
+          message: `Failed to parse proposed content for "${path}". Ensure the content is valid JSON.`,
+        },
+      };
+    }
+
+    const schema = MANIFEST_SCHEMAS[fileType.entityType];
+    const parseResult = schema.safeParse(createData);
+    if (!parseResult.success)
+      return {
+        ok: false,
+        rejection: {
+          kind: "parse-error",
+          message: `Invalid manifest format for "${path}": ${parseResult.error.issues.map((e) => e.message).join("; ")}`,
+        },
+      };
+
+    return classifyManifestOps(
+      [],
+      parseResult.data as Array<Record<string, unknown>>,
+      fileType.entityType,
+      ctx,
+      path
+    );
+  }
+
   if (!lastCat)
     return {
       ok: false,
       rejection: {
         kind: "not-read",
         message: `You must read "${path}" with cat before writing to it.`,
-      },
-    };
-
-  const currentContent = vfsCat(ctx.root, path);
-  if (
-    currentContent.startsWith("cat: ") &&
-    currentContent.includes("No such file")
-  )
-    return {
-      ok: false,
-      rejection: {
-        kind: "invalid-file",
-        message: `Cannot write to "${path}": file does not exist.`,
       },
     };
 

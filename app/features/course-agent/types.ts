@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
 import type { Op } from "@/services/vfs/derive-diff-types";
 
 export type WriteResult =
@@ -24,6 +25,14 @@ export function courseAgentSendAutomaticallyWhen({
 }: {
   messages: UIMessage[];
 }): boolean {
+  // After the user approves a write/edit, the tool part is in the
+  // `approval-responded` state — the server still needs to run `execute` (which
+  // performs the DB write). The SDK's built-in helper fires the resubmit that
+  // carries the approval responses back to the server so `execute` runs.
+  // Without this, approvals silently no-op: the diff is never applied.
+  if (lastAssistantMessageIsCompleteWithApprovalResponses({ messages }))
+    return true;
+
   const lastMessage = messages[messages.length - 1];
   if (!lastMessage || lastMessage.role !== "assistant") return false;
 
