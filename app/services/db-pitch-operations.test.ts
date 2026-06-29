@@ -82,6 +82,21 @@ describe("listPitches", () => {
       expect(list).toEqual([]);
     }).pipe(Effect.provide(testLayer))
   );
+
+  it.effect("excludes pitches with empty titles", () =>
+    Effect.gen(function* () {
+      const pitchOps = yield* PitchOperationsService;
+
+      yield* pitchOps.createPitch();
+
+      const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "Has a title");
+
+      const list = yield* pitchOps.listPitches();
+      expect(list).toHaveLength(1);
+      expect(list[0]!.title).toBe("Has a title");
+    }).pipe(Effect.provide(testLayer))
+  );
 });
 
 describe("getPitch", () => {
@@ -179,12 +194,15 @@ describe("listPitches with filters", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const p1 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p1.id, "title", "P1");
       yield* pitchOps.updatePitchField(p1.id, "priority", 1);
 
       const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "P2");
       yield* pitchOps.updatePitchField(p2.id, "priority", 2);
 
       const p3 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p3.id, "title", "P3");
       yield* pitchOps.updatePitchField(p3.id, "priority", 3);
 
       const highOnly = yield* pitchOps.listPitches({ priority: [1] });
@@ -199,8 +217,10 @@ describe("listPitches with filters", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
-      yield* pitchOps.createPitch();
+      const p1 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p1.id, "title", "Active");
       const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "Archived");
       yield* pitchOps.updatePitchField(p2.id, "archived", true);
 
       const nonArchived = yield* pitchOps.listPitches({ archived: false });
@@ -240,9 +260,12 @@ describe("listPitches with filters", () => {
       Effect.gen(function* () {
         const pitchOps = yield* PitchOperationsService;
 
-        yield* pitchOps.createPitch();
-        yield* pitchOps.createPitch();
+        const p1 = yield* pitchOps.createPitch();
+        yield* pitchOps.updatePitchField(p1.id, "title", "A");
+        const p2 = yield* pitchOps.createPitch();
+        yield* pitchOps.updatePitchField(p2.id, "title", "B");
         const p3 = yield* pitchOps.createPitch();
+        yield* pitchOps.updatePitchField(p3.id, "title", "C");
         yield* pitchOps.updatePitchField(p3.id, "archived", true);
 
         const list = yield* pitchOps.listPitches();
@@ -254,8 +277,10 @@ describe("listPitches with filters", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
-      yield* pitchOps.createPitch();
-      yield* pitchOps.createPitch();
+      const p1 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p1.id, "title", "A");
+      const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "B");
 
       const list = yield* pitchOps.listPitches({ state: [] });
       expect(list).toHaveLength(2);
@@ -267,8 +292,10 @@ describe("listPitches with filters", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const p1 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p1.id, "title", "A");
       yield* pitchOps.updatePitchField(p1.id, "priority", 1);
       const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "B");
       yield* pitchOps.updatePitchField(p2.id, "priority", 3);
 
       const list = yield* pitchOps.listPitches({ priority: [] });
@@ -349,7 +376,8 @@ describe("listPitchesWithVideos", () => {
       Effect.gen(function* () {
         const pitchOps = yield* PitchOperationsService;
 
-        yield* pitchOps.createPitch();
+        const p = yield* pitchOps.createPitch();
+        yield* pitchOps.updatePitchField(p.id, "title", "No videos");
 
         const list = yield* pitchOps.listPitchesWithVideos();
         expect(list).toHaveLength(1);
@@ -364,6 +392,7 @@ describe("listPitchesWithVideos", () => {
         const pitchOps = yield* PitchOperationsService;
 
         const pitch = yield* pitchOps.createPitch();
+        yield* pitchOps.updatePitchField(pitch.id, "title", "With clips");
         yield* pitchOps.createVideoFromPitch(pitch.id);
 
         const list = yield* pitchOps.listPitchesWithVideos();
@@ -376,6 +405,7 @@ describe("listPitchesWithVideos", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "Has archived");
       const video1 = yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* Effect.promise(() =>
@@ -396,6 +426,7 @@ describe("listPitchesWithVideos", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "Multi video");
       yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* pitchOps.createVideoFromPitch(pitch.id);
       yield* pitchOps.createVideoFromPitch(pitch.id);
