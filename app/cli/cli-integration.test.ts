@@ -415,6 +415,55 @@ describe("output contract: NDJSON / single object / empty", () => {
 });
 
 // ===========================================================================
+// Uniform `name` on list output
+// ===========================================================================
+
+describe("uniform display name on every list", () => {
+  const nameOf = (stdout: string) =>
+    (ndjson(stdout) as { id: string; name: string | null }[]).map((r) => [
+      r.id,
+      r.name,
+    ]);
+
+  it("section list carries name mirroring path", async () => {
+    const { stdout, exitCode } = await run([
+      "section",
+      "list",
+      "--course",
+      s.courseAId,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(nameOf(stdout)).toContainEqual([s.draftSectionId, "01-intro"]);
+  });
+
+  it("lesson list carries name = title", async () => {
+    const { stdout, exitCode } = await run([
+      "lesson",
+      "list",
+      "--section",
+      s.draftSectionId,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(nameOf(stdout)).toContainEqual([s.lessonId, "Welcome"]);
+  });
+
+  it("video list carries name mirroring path", async () => {
+    const { stdout, exitCode } = await run(["video", "list"]);
+    expect(exitCode).toBe(0);
+    expect(nameOf(stdout)).toContainEqual([
+      s.standaloneActiveId,
+      "standalone-active.mp4",
+    ]);
+  });
+
+  it("pitch list carries name = title (the noun the report was about)", async () => {
+    const { stdout, exitCode } = await run(["pitch", "list"]);
+    expect(exitCode).toBe(0);
+    expect(nameOf(stdout)).toContainEqual([s.pitchActiveId, "Active pitch"]);
+  });
+});
+
+// ===========================================================================
 // Error -> exit code mapping
 // ===========================================================================
 

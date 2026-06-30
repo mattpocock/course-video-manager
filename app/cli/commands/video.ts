@@ -8,6 +8,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  withName,
 } from "@/cli/helpers";
 import {
   formatProseTranscript,
@@ -60,6 +61,8 @@ nothing and exits 0.
 
 Key fields:
   id         the stable video id (use with get/tree/transcript)
+  name       uniform display label every noun's 'list' carries (mirrors 'path'),
+             so you never have to guess the label field
   path       the video's name within its lesson (its display/file name)
   pitchId    set when a Pitch packages this standalone video; else null
   archived   soft-delete flag (always false here unless --archived)
@@ -205,7 +208,7 @@ const listCmd = Command.make("list", { archived }, ({ archived }) =>
     const videos = archived
       ? yield* svc.getArchivedStandaloneVideos()
       : yield* svc.getAllStandaloneVideos();
-    yield* emitNdjson(videos);
+    yield* emitNdjson(videos.map(withName));
   })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 

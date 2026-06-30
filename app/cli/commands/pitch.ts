@@ -4,7 +4,7 @@ import {
   PitchOperationsService,
   type PitchState,
 } from "@/services/db-pitch-operations.server";
-import { detail, emitGet, emitNdjson } from "@/cli/helpers";
+import { detail, emitGet, emitNdjson, withName } from "@/cli/helpers";
 
 // ---------------------------------------------------------------------------
 // Help text — domain-teaching prose (keep in sync with CONTEXT.md, "Pitches").
@@ -59,6 +59,8 @@ Output: NDJSON — one compact JSON object per line (nothing at all when empty).
 Each line is identity-rich and carries the derived Pitch State, so an agent can
 map title -> id and read state in a single call:
   - id          — pitch id (use with 'cvm pitch get').
+  - name        — uniform display label (mirrors title); every noun's 'list'
+                  carries 'name' so you never need to guess the label field.
   - title       — the pitch title (packaging headline).
   - state       — derived Pitch State: idle | scheduled | shipped (see below).
   - priority    — triage rank (integer; lower sorts first).
@@ -130,7 +132,7 @@ const listCmd = Command.make("list", { state: stateOption }, ({ state }) =>
     const rows = yield* svc.listPitches(
       stateFilter ? { state: [stateFilter] } : undefined
     );
-    yield* emitNdjson(rows);
+    yield* emitNdjson(rows.map(withName));
   })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 

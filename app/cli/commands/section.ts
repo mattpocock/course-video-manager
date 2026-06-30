@@ -8,6 +8,7 @@ import {
   emitObject,
   parseError,
   resolveVersionId,
+  withName,
 } from "@/cli/helpers";
 
 /**
@@ -66,7 +67,7 @@ EXAMPLES
   # Walk the structure, then drill into a lesson (flags come BEFORE the id):
   cvm section tree --depth all <sectionId> | jq '.children[].id'`;
 
-const LIST_HELP = `List ALL Sections of one Course Version (the complete set, never a UI-bounded subset), as NDJSON — one compact JSON object per line, ordered by 'order' ascending. Each line carries the section's identity (id, path, order, repoVersionId), so an agent can map a section name to its id in a single call. Lessons are NOT included — list goes one level deep; use 'section get <id>' or 'lesson list --section <id>' to drill in.
+const LIST_HELP = `List ALL Sections of one Course Version (the complete set, never a UI-bounded subset), as NDJSON — one compact JSON object per line, ordered by 'order' ascending. Each line carries the section's identity (id, name, path, order, repoVersionId), so an agent can map a section name to its id in a single call. 'name' is the uniform display label every noun's 'list' carries (for a section it mirrors 'path'), so you never have to guess the label field. Lessons are NOT included — list goes one level deep; use 'section get <id>' or 'lesson list --section <id>' to drill in.
 
 You MUST scope the read to a Version:
   --course-version <id>   pin a specific Course Version (Draft or Published).
@@ -143,7 +144,7 @@ const listCmd = Command.make(
       const svc = yield* ops;
       const repoVersionId = yield* resolveScopedVersion(version, course);
       const sections = yield* svc.getSectionsByRepoVersionId(repoVersionId);
-      yield* emitNdjson(sections);
+      yield* emitNdjson(sections.map(withName));
     })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 

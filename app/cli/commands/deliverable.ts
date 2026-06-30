@@ -1,7 +1,7 @@
 import { Args, Command } from "@effect/cli";
 import { Effect } from "effect";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { detail, emitGet, emitNdjson } from "@/cli/helpers";
+import { detail, emitGet, emitNdjson, withName } from "@/cli/helpers";
 
 // ---------------------------------------------------------------------------
 // Help text — domain-teaching prose (keep in sync with CONTEXT.md,
@@ -55,6 +55,8 @@ const LIST_HELP = `List the FULL set of active (non-archived) Deliverables.
 Output: NDJSON — one compact JSON object per line (nothing at all when empty).
 Each line is identity-rich so an agent can map title/date -> id in one call:
   - id          — Deliverable id (use with 'cvm deliverable get').
+  - name        — uniform display label (mirrors title); every noun's 'list'
+                  carries 'name' so you never need to guess the label field.
   - title       — the Deliverable's headline.
   - date        — the all-day date it is pinned to (YYYY-MM-DD).
   - status      — Deliverable Status: planned | done | cancelled (see below).
@@ -105,11 +107,11 @@ const shape = (row: {
   readonly deliverablesPitches: ReadonlyArray<{ pitchId: string }>;
 }) => {
   const { deliverablesCourses, deliverablesPitches, ...rest } = row;
-  return {
+  return withName({
     ...rest,
     courseIds: deliverablesCourses.map((c) => c.courseId),
     pitchIds: deliverablesPitches.map((p) => p.pitchId),
-  };
+  });
 };
 
 // ---------------------------------------------------------------------------

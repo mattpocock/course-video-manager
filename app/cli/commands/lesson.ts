@@ -9,6 +9,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  withName,
 } from "@/cli/helpers";
 
 /**
@@ -68,8 +69,11 @@ EXAMPLES
 const LIST_HELP = `List every ACTIVE lesson in a Section (the complete set, not a UI-bounded slice).
 
 Requires --section <id>. Output is NDJSON, one compact lesson object per line,
-ordered by the lesson's 'order'. Each line is identity-rich (id, title, path,
-sectionId) plus fsStatus / authoringStatus so an agent can map a name to an id
+ordered by the lesson's 'order'. Each line is identity-rich (id, name, title,
+path, sectionId) plus fsStatus / authoringStatus so an agent can map a name to an
+id. 'name' is the uniform display label every noun's 'list' carries (for a lesson
+it is the title, falling back to path when the title is empty), so you never have
+to guess the label field. An agent can map a name to an id
 and judge real-vs-ghost / todo-vs-done in one call. Archived lessons are never
 included. Empty section => no output, exit 0.
 
@@ -124,7 +128,7 @@ const listCmd = Command.make("list", { section }, ({ section }) =>
   Effect.gen(function* () {
     const svc = yield* LessonSectionOperationsService;
     const rows = yield* svc.getLessonsBySectionId(section);
-    yield* emitNdjson(rows);
+    yield* emitNdjson(rows.map(withName));
   })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
