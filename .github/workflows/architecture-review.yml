@@ -7,7 +7,37 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-backlog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: read
+    outputs:
+      proceed: ${{ steps.count.outputs.proceed }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Count open architecture-review issues
+        id: count
+        env:
+          LABEL: source:architecture-review
+        run: |
+          set -euo pipefail
+          # Only care whether the backlog is below 10, so a limit of 10 is enough
+          # to detect the threshold; the true count may be higher.
+          open=$(gh issue list --state open --label "$LABEL" --limit 10 --json number --jq 'length')
+          echo "Found $open open '$LABEL' issue(s) (counted up to 10)."
+          if [ "$open" -lt 10 ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "Backlog has 10+ open '$LABEL' issues — skipping this run." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   architecture-review:
+    needs: check-backlog
+    if: needs.check-backlog.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
