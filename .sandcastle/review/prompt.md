@@ -36,49 +36,27 @@ The following PR comments have been fetched by the workflow. They are tagged by 
 
 # REVIEW PROCESS
 
-## 1. Read the diff carefully
+## 1. Analyse with the `review` skill
 
-For anything that looks suspicious — fragile logic, unchecked assumptions, tricky conditions, implicit type coercions, missing guards — write a test that exercises it. Try to actually break it. If you can break it, fix it.
+Use the **`review` skill** (installed globally at `~/.claude/skills/review`) to produce the review. It analyses the diff along two axes — **Standards** and **Spec** — using parallel sub-agents. Its findings are the **single source of truth** for what's wrong with this branch: act only on what it reports, not on a separate ad-hoc pass of your own.
 
-## 2. Verify the change matches the spec
+Invoke it with everything it needs, so it does **not** run its own discovery and does **not** prompt or pause:
 
-The linked issue (above, in `<linked-issue>`) is the spec. Read it carefully and check:
+- **Fixed point:** `main`. The diff to review is `git diff main...HEAD`. Do not ask for a fixed point — it is `main`.
+- **Spec:** issue #{{ISSUE_NUMBER}} — already fetched above in `<linked-issue>`. Pass this as the spec. Do **not** look for `docs/agents/issue-tracker.md` and do **not** run `/setup-matt-pocock-skills`; the spec is provided. If the linked issue is a **PRD** (it has sub-issues), pull them with `gh api repos/$GH_REPO/issues/{{ISSUE_NUMBER}}/sub_issues` and treat each closed sub-issue as a sub-requirement; code for an _open_ sub-issue is a scope violation.
+- **Standards:** `.sandcastle/CODING_STANDARDS.md` is this repo's documented standard — feed it as the standards source. The skill's built-in smell baseline applies on top, but a documented repo standard always wins.
 
-- **Coverage:** does the diff actually do what the issue asked for? Walk through the issue's stated outcomes and find each one in the code. Note any stated outcome you can't locate.
-- **Scope:** does the diff do anything the issue didn't ask for? Unrequested refactors, drive-by changes, scope creep — flag them.
-- **Interpretation:** does the implementation interpret the spec sensibly? If a requirement was ambiguous, did it pick a reasonable reading? If you'd have implemented it differently in a way that better serves the stated goal, say so.
+The skill is read-only and produces a report; it does not edit code. That report — its Standards findings and its Spec findings — is your worklist for the steps below.
 
-If the linked issue is a **PRD** (it has sub-issues), treat the PRD body as the overall intent and each sub-issue as a sub-requirement. Pull the sub-issues with `gh api repos/$GH_REPO/issues/{{ISSUE_NUMBER}}/sub_issues` and verify every closed sub-issue is reflected in the diff. Open sub-issues should _not_ be implemented in this PR — if you see code for an open sub-issue, that's a scope violation.
+## 2. Act on the skill's findings
 
-Findings here go into the `summary` and (where line-anchored) the inline comments. Don't silently "fix" missing spec coverage by adding code yourself — call it out for the human reviewer to decide whether to fold it in or open a follow-up.
+Work through the skill's findings and resolve each one on this branch:
 
-## 3. Stress-test edge cases
+- For any **correctness/robustness** finding, write a test that exercises it and try to actually break it. If you can break it, fix it. Cover the edge cases the skill flagged (empty/zero/negative inputs, missing optional fields, null/undefined, off-by-one, races, regressions in adjacent code).
+- For any **quality/standards** finding, improve the code: reduce nesting, eliminate redundancy, improve names, consolidate related logic, drop comments that restate obvious code, avoid nested ternaries (prefer if/else or switch), choose clarity over brevity. Apply `.sandcastle/CODING_STANDARDS.md`.
+- For any **spec** finding (missing coverage, scope creep, misinterpretation), do **not** silently "fix" missing spec coverage by adding code yourself — call it out in the `summary` and (where line-anchored) the inline comments for the human reviewer to decide.
 
-- Empty arrays, empty strings, zero, negative numbers
-- Missing optional fields, null values, undefined properties
-- Rapid repeated calls, race conditions, state that changes mid-operation
-- Off-by-one errors in loops or slice/substring operations
-- Regressions in adjacent functionality
-
-Write tests for anything that isn't already covered.
-
-## 4. Improve code quality
-
-- Reduce nesting and unnecessary complexity
-- Eliminate redundant code and abstractions
-- Improve names
-- Consolidate related logic
-- Remove comments that describe obvious code
-- Avoid nested ternaries — prefer if/else chains or switch
-- Choose clarity over brevity
-
-## 5. Preserve functionality
-
-Never change what the code does — only how it does it. All original features, outputs, and behaviors must remain intact.
-
-## 6. Apply project standards
-
-Follow `.sandcastle/CODING_STANDARDS.md`.
+**Preserve functionality.** When improving code, never change what it does — only how it does it. All original features, outputs, and behaviours must remain intact.
 
 # RESPONDING TO HUMAN COMMENTS
 

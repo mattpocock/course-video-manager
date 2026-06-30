@@ -61,6 +61,14 @@ jobs:
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
+      # Install Matt's `review` skill globally (~/.claude/skills), always at
+      # latest — every run exercises the current version of the skill. Global
+      # (not project) install keeps it outside the git work tree so the review
+      # agent's commit step can never sweep it into the PR branch. Scoped to the
+      # claude-code agent so the step exits 0 (other agents reject -g installs).
+      - name: Install review skill
+        run: npx --yes skills@latest add mattpocock/skills -g -s review -a claude-code -y --copy
+
       - name: Configure git identity
         run: |
           git config user.name "claude-code[bot]"
