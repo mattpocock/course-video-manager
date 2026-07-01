@@ -12,6 +12,30 @@ import { Effect } from "effect";
 
 export type PitchState = "idle" | "scheduled" | "shipped";
 
+/** The mutable copy/ranking fields of a Pitch (all optional; partial writes). */
+export interface PitchFields {
+  title?: string;
+  description?: string;
+  contentPlan?: string;
+  youtubeTitle?: string;
+  youtubeThumbnailDescription?: string;
+  newsletterTitle?: string;
+  tweet?: string;
+  priority?: number;
+  effort?: number;
+}
+
+/** Drop undefined keys so a partial patch only touches the fields provided. */
+const prunePitchFields = (
+  fields: PitchFields
+): Record<string, string | number> => {
+  const set: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) set[key] = value;
+  }
+  return set;
+};
+
 export function derivePitchState(deliverableStatuses: string[]): PitchState {
   if (deliverableStatuses.length === 0) return "idle";
   const allTerminal = deliverableStatuses.every(
@@ -46,9 +70,13 @@ export const createPitchOperations = (db: Database) => {
     return and(...conditions);
   };
 
-  const createPitch = Effect.fn("createPitch")(function* () {
+  const createPitch = Effect.fn("createPitch")(function* (
+    fields: PitchFields = {}
+  ) {
+    // Insert the provided fields in ONE write (atomic): a titled pitch is born
+    // with its title, never as a titleless row patched afterwards.
     const results = yield* makeDbCall(() =>
-      db.insert(pitches).values({}).returning()
+      db.insert(pitches).values(prunePitchFields(fields)).returning()
     );
 
     const pitch = results[0];
@@ -246,6 +274,41 @@ export const createPitchOperations = (db: Database) => {
     return pitch;
   });
 
+  /**
+   * Patch a Pitch's copy/ranking fields in one write. Only the keys present in
+   * `fields` are updated (undefined keys are dropped), so this is a partial
+   * update — the caller passes exactly the fields it wants to change. Bumps
+   * updatedAt and returns the updated row; NotFoundError when the id is absent.
+   *
+   * Unlike updatePitchField (single, stringly-typed field), this is the typed
+   * multi-field updater used by the CLI's `pitch create` / `pitch update`.
+   */
+  const updatePitch = Effect.fn("updatePitch")(function* (
+    id: string,
+    fields: PitchFields
+  ) {
+    const set = prunePitchFields(fields);
+
+    const results = yield* makeDbCall(() =>
+      db
+        .update(pitches)
+        .set({ ...set, updatedAt: new Date() })
+        .where(eq(pitches.id, id))
+        .returning()
+    );
+
+    const pitch = results[0];
+
+    if (!pitch) {
+      return yield* new NotFoundError({
+        type: "updatePitch",
+        params: { id },
+      });
+    }
+
+    return pitch;
+  });
+
   const createVideoFromPitch = Effect.fn("createVideoFromPitch")(function* (
     pitchId: string
   ) {
@@ -300,6 +363,7 @@ export const createPitchOperations = (db: Database) => {
     getPitch,
     getPitchWithVideos,
     updatePitchField,
+    updatePitch,
     createVideoFromPitch,
     deletePitch,
   };

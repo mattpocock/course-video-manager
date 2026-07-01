@@ -1,8 +1,9 @@
 import { Args, Command, Options } from "@effect/cli";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { lessonSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { toSlug } from "@/services/lesson-path-service";
 import {
   detail,
   emitGet,
@@ -10,6 +11,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  rejectBothFlags,
   withName,
 } from "@/cli/helpers";
 
@@ -58,6 +60,8 @@ VERBS
   get <id...>           One or more lessons with their Section/Version/Repo
                         hierarchy. Variadic: many ids => NDJSON.
   tree <id> [--depth N] Skeleton tree lesson -> videos -> clips.
+  create --section <id> --title <t> [--before|--after <lessonId>]
+                        Create a GHOST lesson in a Section (WRITE).
   search <id> <query>   Substring search down this lesson's subtree
                         (--type lesson|video|segment).
 
@@ -120,6 +124,29 @@ Examples:
   cvm lesson tree les_abc
   cvm lesson tree --depth all les_abc
   cvm lesson tree --depth all les_abc | jq '.children[].children[].id'   # clip ids`;
+
+const CREATE_HELP = `Create a GHOST lesson inside a Section. Requires --section <id> and --title <t>.
+
+A ghost lesson is planned in the DB only (fsStatus="ghost") — it is NOT written
+to disk. It can still hold Videos, Segments and Clips; materializing it to a
+real on-disk lesson is a separate concern handled elsewhere (not by cvm). The
+lesson's 'path' (slug) is derived from the title.
+
+Flags:
+  --section <id>       (required) the Section to create the lesson in.
+  --title <text>       (required) the lesson title (also slugified into 'path').
+  --before <lessonId>  place immediately before that lesson (of --section).
+  --after  <lessonId>  place immediately after that lesson.
+                       (omit both to append to the end of the section.)
+
+--before/--after are mutually exclusive; an anchor that is not a lesson of
+--section is a not-found (exit 2). A title whose slug collides with an existing
+lesson in the section is invalid input (exit 3). Echoes the created lesson row
+as one pretty JSON object.
+
+Examples:
+  cvm lesson create --section sec_123 --title "Intro to Effect"
+  cvm lesson create --section sec_123 --title "Setup" --before les_abc`;
 
 // ---------------------------------------------------------------------------
 // list --section <id>
@@ -241,10 +268,105 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
 ).pipe(Command.withDescription(detail(TREE_HELP)));
 
 // ---------------------------------------------------------------------------
+// create --section <id> --title <t> [--before|--after <lessonId>]
+// ---------------------------------------------------------------------------
+
+const createSection = Options.text("section").pipe(
+  Options.withDescription("The Section id to create the lesson in (required).")
+);
+const createTitle = Options.text("title").pipe(
+  Options.withDescription("The lesson title (also slugified into its path).")
+);
+const beforeOption = Options.text("before").pipe(
+  Options.withDescription(
+    "Place immediately before this lesson id (mutually exclusive with --after)."
+  ),
+  Options.optional
+);
+const afterOption = Options.text("after").pipe(
+  Options.withDescription(
+    "Place immediately after this lesson id (mutually exclusive with --before)."
+  ),
+  Options.optional
+);
+
+const createCmd = Command.make(
+  "create",
+  {
+    section: createSection,
+    title: createTitle,
+    before: beforeOption,
+    after: afterOption,
+  },
+  ({ section, title, before, after }) =>
+    Effect.gen(function* () {
+      const b = Option.getOrUndefined(before);
+      const a = Option.getOrUndefined(after);
+      yield* rejectBothFlags({
+        a: b,
+        b: a,
+        flags: ["--before", "--after"],
+        entity: "lesson",
+      });
+
+      const svc = yield* LessonSectionOperationsService;
+
+      // Section must exist (clean exit 2 instead of an FK violation, exit 4).
+      yield* svc
+        .getSectionWithHierarchyById(section)
+        .pipe(
+          Effect.catchTag("NotFoundError", () => notFound("section", section))
+        );
+
+      const siblings = yield* svc.getLessonsBySectionId(section);
+      const maxOrder =
+        siblings.length > 0 ? Math.max(...siblings.map((l) => l.order)) : 0;
+      let insertOrder = maxOrder + 1;
+
+      // Resolve the --before/--after anchor into an insertion order, shifting
+      // the siblings at/after the insertion point up by one to make room
+      // (mirrors CourseWriteService.addGhostLesson).
+      const anchorId = b ?? a;
+      if (anchorId !== undefined) {
+        const adjIdx = siblings.findIndex((l) => l.id === anchorId);
+        if (adjIdx === -1) {
+          return yield* notFound("lesson", anchorId);
+        }
+        const idx = a !== undefined ? adjIdx + 1 : adjIdx;
+        yield* svc.batchUpdateLessonOrders(
+          siblings.slice(idx).map((l) => ({ id: l.id, order: l.order + 1 }))
+        );
+        insertOrder = siblings[idx] ? siblings[idx]!.order : maxOrder + 1;
+      }
+
+      const [lesson] = yield* svc
+        .createGhostLesson(section, {
+          title,
+          path: toSlug(title) || "untitled",
+          order: insertOrder,
+        })
+        .pipe(
+          // A slug collision with an existing lesson is invalid input (exit 3).
+          Effect.catchTag("LessonPathTakenError", (e) =>
+            parseError(e.message, "lesson")
+          )
+        );
+
+      yield* emitObject(lesson);
+    })
+).pipe(Command.withDescription(detail(CREATE_HELP)));
+
+// ---------------------------------------------------------------------------
 // lesson (parent)
 // ---------------------------------------------------------------------------
 
 export const lessonCommand = Command.make("lesson").pipe(
   Command.withDescription(detail(LESSON_HELP)),
-  Command.withSubcommands([listCmd, getCmd, treeCmd, lessonSearchCmd])
+  Command.withSubcommands([
+    listCmd,
+    getCmd,
+    treeCmd,
+    createCmd,
+    lessonSearchCmd,
+  ])
 );
