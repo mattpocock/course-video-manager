@@ -1,6 +1,8 @@
 import { Args, Command, Options } from "@effect/cli";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import {
   detail,
   emitGet,
@@ -8,6 +10,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  rejectBothFlags,
   withName,
 } from "@/cli/helpers";
 import {
@@ -45,6 +48,9 @@ Verbs:
   get <id...>          a Video plus its Clips and Chapters (variadic; NDJSON when >1 id)
   tree <id>            skeleton: video -> clips/chapters (id/kind/name/children)
   transcript <id>      the ordered text projection (Clips + Chapters as prose)
+  create --name <n>    create a Video (--lesson <id> | --pitch <id> | neither=standalone) (WRITE)
+  move <id>            re-home a Video to a lesson/pitch (--lesson | --pitch) (WRITE)
+  update --name <n> <id>  rename a Video (its 'name'/path) (WRITE)
 
 Worked example (find a video, then read it):
   cvm video list | jq -r '.id'                     # map name -> id
@@ -269,10 +275,227 @@ const transcriptCmd = Command.make(
 ).pipe(Command.withDescription(detail(TRANSCRIPT_HELP)));
 
 // ---------------------------------------------------------------------------
+// Write verbs: create / move / update
+// ---------------------------------------------------------------------------
+
+const CREATE_HELP = `Create a Video. Requires --name <n> (the video's name / path).
+
+Choose the parent with a flag (they are mutually exclusive):
+  --lesson <id>   create the video inside that Lesson.
+  --pitch <id>    create the video packaged by that Pitch (a Standalone video).
+  (neither)       create a free Standalone video (no lesson, no pitch).
+
+--name is ALWAYS required, including under --pitch. Passing both --lesson and
+--pitch is invalid input (exit 3). An unknown --lesson / --pitch id is a
+not-found (exit 2). A --name that collides with an existing video in the same
+lesson is invalid input (exit 3). Echoes the created video row.
+
+Examples:
+  cvm video create --name "Intro"
+  cvm video create --name "01-setup" --lesson les_abc
+  cvm video create --name "My Pitch Cut" --pitch pit_123`;
+
+const MOVE_HELP = `Re-home an existing Video to a Lesson or a Pitch. Requires EXACTLY ONE of
+--lesson <id> / --pitch <id> (passing both, or neither, is invalid input,
+exit 3).
+
+"move" enforces the single-parent invariant: moving to a lesson clears any pitch
+association, and moving to a pitch clears any lesson association — a Video always
+ends up with exactly one parent. An unknown video / lesson / pitch id is a
+not-found (exit 2). Moving into a lesson where the video's name is already taken
+is invalid input (exit 3). Flags must come BEFORE the <id>. Echoes the moved row.
+
+Examples:
+  cvm video move --lesson les_abc vid_123
+  cvm video move --pitch pit_123 vid_123`;
+
+const UPDATE_HELP = `Rename a Video by id — set its 'name' (the 'path' column). Requires --name <n>
+(an update with no --name is invalid input, exit 3).
+
+For lesson-bound videos the new name must be unique within the lesson (a
+collision is invalid input, exit 3). An unknown id is a not-found (exit 2).
+Flags must come BEFORE the <id>. Echoes the updated video row.
+
+Examples:
+  cvm video update --name "02-refactor" vid_123`;
+
+const nameOption = Options.text("name").pipe(
+  Options.withDescription("The Video's name (its 'path').")
+);
+const lessonOption = Options.text("lesson").pipe(
+  Options.withDescription(
+    "Parent Lesson id (mutually exclusive with --pitch)."
+  ),
+  Options.optional
+);
+const pitchOption = Options.text("pitch").pipe(
+  Options.withDescription(
+    "Parent Pitch id (mutually exclusive with --lesson)."
+  ),
+  Options.optional
+);
+
+/** Ensure a Lesson id exists (clean exit 2), else NotFound. */
+const requireLesson = (lessonId: string) =>
+  Effect.flatMap(LessonSectionOperationsService, (svc) =>
+    svc
+      .getLessonById(lessonId)
+      .pipe(
+        Effect.catchTag("NotFoundError", () => notFound("lesson", lessonId))
+      )
+  );
+
+/** Ensure a Pitch id exists (clean exit 2), else NotFound. */
+const requirePitch = (pitchId: string) =>
+  Effect.flatMap(PitchOperationsService, (svc) =>
+    svc
+      .getPitch(pitchId)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", pitchId)))
+  );
+
+const createCmd = Command.make(
+  "create",
+  { name: nameOption, lesson: lessonOption, pitch: pitchOption },
+  ({ name, lesson, pitch }) =>
+    Effect.gen(function* () {
+      if (name.trim() === "") {
+        return yield* parseError("--name must not be empty", "video");
+      }
+      const lessonId = Option.getOrUndefined(lesson);
+      const pitchId = Option.getOrUndefined(pitch);
+      yield* rejectBothFlags({
+        a: lessonId,
+        b: pitchId,
+        flags: ["--lesson", "--pitch"],
+        entity: "video",
+      });
+
+      const svc = yield* VideoOperationsService;
+
+      if (lessonId !== undefined) {
+        yield* requireLesson(lessonId);
+        const created = yield* svc
+          .createVideo(lessonId, { path: name, originalFootagePath: "" })
+          .pipe(
+            Effect.catchTag("VideoPathTakenError", (e) =>
+              parseError(e.message, "video")
+            )
+          );
+        return yield* emitObject(created);
+      }
+
+      if (pitchId !== undefined) {
+        yield* requirePitch(pitchId);
+        const created = yield* svc.createStandaloneVideo({ path: name });
+        const linked = yield* svc.linkVideoToPitch({
+          videoId: created.id,
+          pitchId,
+        });
+        return yield* emitObject(linked);
+      }
+
+      const created = yield* svc.createStandaloneVideo({ path: name });
+      yield* emitObject(created);
+    })
+).pipe(Command.withDescription(detail(CREATE_HELP)));
+
+const moveId = Args.text({ name: "id" });
+
+const moveCmd = Command.make(
+  "move",
+  { id: moveId, lesson: lessonOption, pitch: pitchOption },
+  ({ id, lesson, pitch }) =>
+    Effect.gen(function* () {
+      const lessonId = Option.getOrUndefined(lesson);
+      const pitchId = Option.getOrUndefined(pitch);
+      yield* rejectBothFlags({
+        a: lessonId,
+        b: pitchId,
+        flags: ["--lesson", "--pitch"],
+        entity: "video",
+      });
+      if (lessonId === undefined && pitchId === undefined) {
+        return yield* parseError(
+          "move needs one of --lesson / --pitch",
+          "video"
+        );
+      }
+
+      const svc = yield* VideoOperationsService;
+      // The video being moved must exist (clean exit 2).
+      yield* svc
+        .getVideoRowById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+
+      if (lessonId !== undefined) {
+        yield* requireLesson(lessonId);
+        const moved = yield* svc
+          .moveVideoToLesson({ videoId: id, lessonId })
+          .pipe(
+            Effect.catchTag("VideoPathTakenError", (e) =>
+              parseError(e.message, "video")
+            )
+          );
+        return yield* emitObject(moved);
+      }
+
+      yield* requirePitch(pitchId!);
+      const moved = yield* svc.linkVideoToPitch({
+        videoId: id,
+        pitchId: pitchId!,
+      });
+      yield* emitObject(moved);
+    })
+).pipe(Command.withDescription(detail(MOVE_HELP)));
+
+const updateId = Args.text({ name: "id" });
+const updateNameOption = Options.text("name").pipe(
+  Options.withDescription("The Video's new name (its 'path')."),
+  Options.optional
+);
+
+const updateCmd = Command.make(
+  "update",
+  { id: updateId, name: updateNameOption },
+  ({ id, name }) =>
+    Effect.gen(function* () {
+      const newName = Option.getOrUndefined(name);
+      if (newName === undefined || newName.trim() === "") {
+        return yield* parseError("update needs a non-empty --name", "video");
+      }
+
+      const svc = yield* VideoOperationsService;
+      // Existence guard first (clean exit 2).
+      yield* svc
+        .getVideoRowById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+
+      yield* svc
+        .updateVideoPath({ videoId: id, path: newName })
+        .pipe(
+          Effect.catchTag("VideoPathTakenError", (e) =>
+            parseError(e.message, "video")
+          )
+        );
+
+      const updated = yield* svc.getVideoRowById(id);
+      yield* emitObject(updated);
+    })
+).pipe(Command.withDescription(detail(UPDATE_HELP)));
+
+// ---------------------------------------------------------------------------
 // Noun command
 // ---------------------------------------------------------------------------
 
 export const videoCommand = Command.make("video").pipe(
   Command.withDescription(detail(VIDEO_HELP)),
-  Command.withSubcommands([listCmd, getCmd, treeCmd, transcriptCmd])
+  Command.withSubcommands([
+    listCmd,
+    getCmd,
+    treeCmd,
+    transcriptCmd,
+    createCmd,
+    moveCmd,
+    updateCmd,
+  ])
 );

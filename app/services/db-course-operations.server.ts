@@ -396,6 +396,7 @@ export const createCourseOperations = (db: Database) => {
     const result = yield* makeDbCall(() =>
       db.query.courses.findMany({
         where: eq(courses.archived, false),
+        orderBy: desc(courses.createdAt),
       })
     );
     return result;
@@ -418,6 +419,7 @@ export const createCourseOperations = (db: Database) => {
     const result = yield* makeDbCall(() =>
       db.query.courses.findMany({
         where: eq(courses.archived, true),
+        orderBy: desc(courses.createdAt),
       })
     );
     return result;
