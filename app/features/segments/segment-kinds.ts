@@ -1,4 +1,10 @@
-import { BookOpen, Eye, Footprints, Gamepad2, Map } from "lucide-react";
+import {
+  BookOpen,
+  CircleQuestionMark,
+  Eye,
+  Footprints,
+  Gamepad2,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -48,6 +54,6 @@ export const SEGMENT_KIND_ICONS: Record<SegmentKind, LucideIcon> = {
   definition: BookOpen,
   walkthrough: Footprints,
   playthrough: Gamepad2,
-  quest: Map,
+  quest: CircleQuestionMark,
   reaction: Eye,
 };
