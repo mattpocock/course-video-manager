@@ -12,6 +12,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  rejectBothFlags,
 } from "@/cli/helpers";
 import {
   HELP,
@@ -51,12 +52,13 @@ import {
  * Segments are PURELY an in-app authoring aid — neither the Segment plan nor a
  * Segment's free-text `description` is ever published (Publish skips them).
  *
- * WRITE SURFACE. `segment` is the FIRST write-capable noun in cvm: it exposes
+ * WRITE SURFACE. `segment` is one of cvm's write-capable nouns: it exposes
  * `add` / `update` / `delete` / `move` alongside `list`, because authoring a
  * Video's Segment plan is exactly the kind of low-stakes, never-published
- * planning work an agent should help draft. (Every OTHER noun stays read-only —
- * see `cvm --help`.) Writes hit the database immediately; there is no
- * confirmation prompt (this is an agent-facing tool) and no dry-run.
+ * planning work an agent should help draft. (`lesson`, `video` and `pitch` also
+ * carry write verbs now — see `cvm --help`.) Writes hit the database
+ * immediately; there is no confirmation prompt (this is an agent-facing tool)
+ * and no dry-run.
  *
  * Addressing: Segments have no stable public address. `list` requires
  * `--video <videoId>`; the write verbs address a single Segment by its `id`
@@ -220,12 +222,12 @@ const resolveBeforeSegmentId = (params: {
     const before = Option.getOrUndefined(params.before);
     const after = Option.getOrUndefined(params.after);
 
-    if (before !== undefined && after !== undefined) {
-      return yield* parseError(
-        "pass at most one of --before / --after",
-        "segment"
-      );
-    }
+    yield* rejectBothFlags({
+      a: before,
+      b: after,
+      flags: ["--before", "--after"],
+      entity: "segment",
+    });
     if (before === undefined && after === undefined) {
       return null;
     }
@@ -271,12 +273,12 @@ const resolveTargetVideoId = (params: {
     const video = Option.getOrUndefined(params.video);
     const pitch = Option.getOrUndefined(params.pitch);
 
-    if (video !== undefined && pitch !== undefined) {
-      return yield* parseError(
-        "pass at most one of --video / --pitch",
-        "segment"
-      );
-    }
+    yield* rejectBothFlags({
+      a: video,
+      b: pitch,
+      flags: ["--video", "--pitch"],
+      entity: "segment",
+    });
     if (video === undefined && pitch === undefined) {
       return yield* parseError(
         "segment add needs one of --video / --pitch",

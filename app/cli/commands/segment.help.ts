@@ -14,9 +14,10 @@ Deliberately distinct from a Chapter/Clip: a Segment is the INTENDED structure
 ("what I planned to shoot") and need not map to any recorded Chapter or Clip
 ("what I shot"). Segments are an in-app authoring aid and are NEVER published.
 
-segment is the FIRST write-capable noun in cvm: it has add/update/delete/move
-in addition to list (every other noun is read-only). Writes are immediate — no
-confirmation, no dry-run. archived == deleted (a deleted Segment is gone).
+segment is one of cvm's write-capable nouns: it has add/update/delete/move in
+addition to list (lesson, video and pitch also carry write verbs now — see
+'cvm --help'). Writes are immediate — no confirmation, no dry-run. archived ==
+deleted (a deleted Segment is gone).
 
 Segment kinds (the film-time job, from the Mise en Place glossary):
   definition   Explain a concept, term, or idea

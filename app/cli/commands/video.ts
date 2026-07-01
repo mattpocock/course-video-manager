@@ -10,6 +10,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  rejectBothFlags,
   withName,
 } from "@/cli/helpers";
 import {
@@ -357,14 +358,17 @@ const createCmd = Command.make(
   { name: nameOption, lesson: lessonOption, pitch: pitchOption },
   ({ name, lesson, pitch }) =>
     Effect.gen(function* () {
+      if (name.trim() === "") {
+        return yield* parseError("--name must not be empty", "video");
+      }
       const lessonId = Option.getOrUndefined(lesson);
       const pitchId = Option.getOrUndefined(pitch);
-      if (lessonId !== undefined && pitchId !== undefined) {
-        return yield* parseError(
-          "pass at most one of --lesson / --pitch",
-          "video"
-        );
-      }
+      yield* rejectBothFlags({
+        a: lessonId,
+        b: pitchId,
+        flags: ["--lesson", "--pitch"],
+        entity: "video",
+      });
 
       const svc = yield* VideoOperationsService;
 
@@ -404,12 +408,12 @@ const moveCmd = Command.make(
     Effect.gen(function* () {
       const lessonId = Option.getOrUndefined(lesson);
       const pitchId = Option.getOrUndefined(pitch);
-      if (lessonId !== undefined && pitchId !== undefined) {
-        return yield* parseError(
-          "pass exactly one of --lesson / --pitch",
-          "video"
-        );
-      }
+      yield* rejectBothFlags({
+        a: lessonId,
+        b: pitchId,
+        flags: ["--lesson", "--pitch"],
+        entity: "video",
+      });
       if (lessonId === undefined && pitchId === undefined) {
         return yield* parseError(
           "move needs one of --lesson / --pitch",
@@ -456,8 +460,8 @@ const updateCmd = Command.make(
   ({ id, name }) =>
     Effect.gen(function* () {
       const newName = Option.getOrUndefined(name);
-      if (newName === undefined) {
-        return yield* parseError("update needs --name", "video");
+      if (newName === undefined || newName.trim() === "") {
+        return yield* parseError("update needs a non-empty --name", "video");
       }
 
       const svc = yield* VideoOperationsService;

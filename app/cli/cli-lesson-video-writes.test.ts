@@ -256,6 +256,12 @@ describe("video create / move / update", () => {
     expect(exitCode).toBe(3);
   });
 
+  it("create with an empty --name => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run(["video", "create", "--name", "  "]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
   it("create with both --lesson and --pitch => invalid input, exit 3", async () => {
     const { exitCode, stdout } = await run([
       "video",
@@ -415,6 +421,18 @@ describe("video create / move / update", () => {
   it("update with no --name => invalid input, exit 3", async () => {
     const { exitCode } = await run(["video", "update", s.standaloneActiveId]);
     expect(exitCode).toBe(3);
+  });
+
+  it("update with an empty --name => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "video",
+      "update",
+      "--name",
+      "  ",
+      s.standaloneActiveId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
   });
 
   it("update an unknown video => NotFoundError(video), exit 2", async () => {

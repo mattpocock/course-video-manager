@@ -3,7 +3,13 @@ import { Effect, Option } from "effect";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import type { UnknownDBServiceError } from "@/services/db-service-errors";
 import { CliOutput } from "./output";
-import { NotFoundError, notFound, notFoundMany } from "./errors";
+import {
+  NotFoundError,
+  notFound,
+  notFoundMany,
+  parseError,
+  type ParseError,
+} from "./errors";
 
 /**
  * Shared verb helpers for every noun command. Command handlers should route ALL
@@ -74,6 +80,31 @@ export const withName = <T>(row: T): T & { name: string | null } => ({
   name: displayName(row),
   ...row,
 });
+
+// ---------------------------------------------------------------------------
+// Mutually-exclusive flag guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Fail with an invalid-input error (exit 3) when two mutually-exclusive flags
+ * are BOTH provided. Only the "both" shape is shared across the write verbs;
+ * each caller keeps its own "neither" handling (append / standalone / require
+ * exactly one all differ), so that stays at the call site.
+ */
+export const rejectBothFlags = (params: {
+  readonly a: unknown;
+  readonly b: unknown;
+  readonly flags: readonly [string, string];
+  readonly entity: string;
+}): Effect.Effect<void, ParseError> =>
+  params.a !== undefined && params.b !== undefined
+    ? Effect.fail(
+        parseError(
+          `pass at most one of ${params.flags[0]} / ${params.flags[1]}`,
+          params.entity
+        )
+      )
+    : Effect.void;
 
 // ---------------------------------------------------------------------------
 // Output emitters

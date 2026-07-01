@@ -3,6 +3,7 @@ import { Effect, Option } from "effect";
 import {
   PitchOperationsService,
   type PitchState,
+  type PitchFields,
 } from "@/services/db-pitch-operations.server";
 import {
   detail,
@@ -258,37 +259,25 @@ interface PitchFieldOpts {
   readonly effort: Option.Option<string>;
 }
 
-/** Collect the provided copy/ranking flags into a partial update object. */
-const collectPitchFields = (opts: PitchFieldOpts) => {
-  const fields: {
-    description?: string;
-    contentPlan?: string;
-    youtubeTitle?: string;
-    youtubeThumbnailDescription?: string;
-    newsletterTitle?: string;
-    tweet?: string;
-    priority?: number;
-    effort?: number;
-  } = {};
-  const set = <K extends keyof typeof fields>(
-    key: K,
-    value: (typeof fields)[K] | undefined
-  ) => {
-    if (value !== undefined) fields[key] = value;
-  };
-  set("description", Option.getOrUndefined(opts.description));
-  set("contentPlan", Option.getOrUndefined(opts.contentPlan));
-  set("youtubeTitle", Option.getOrUndefined(opts.youtubeTitle));
-  set(
-    "youtubeThumbnailDescription",
-    Option.getOrUndefined(opts.youtubeThumbnailDescription)
-  );
-  set("newsletterTitle", Option.getOrUndefined(opts.newsletterTitle));
-  set("tweet", Option.getOrUndefined(opts.tweet));
-  set("priority", Option.getOrUndefined(opts.priority));
+/**
+ * Collect the copy/ranking flags into a partial `PitchFields`. Values may be
+ * undefined (flag not passed); the service drops those before writing, so this
+ * does NOT pre-filter — undefined keys count as "leave untouched".
+ */
+const collectPitchFields = (opts: PitchFieldOpts): PitchFields => {
   const effort = Option.getOrUndefined(opts.effort);
-  set("effort", effort === undefined ? undefined : Number.parseInt(effort, 10));
-  return fields;
+  return {
+    description: Option.getOrUndefined(opts.description),
+    contentPlan: Option.getOrUndefined(opts.contentPlan),
+    youtubeTitle: Option.getOrUndefined(opts.youtubeTitle),
+    youtubeThumbnailDescription: Option.getOrUndefined(
+      opts.youtubeThumbnailDescription
+    ),
+    newsletterTitle: Option.getOrUndefined(opts.newsletterTitle),
+    tweet: Option.getOrUndefined(opts.tweet),
+    priority: Option.getOrUndefined(opts.priority),
+    effort: effort === undefined ? undefined : Number.parseInt(effort, 10),
+  };
 };
 
 const createTitleOption = Options.text("title").pipe(
@@ -300,13 +289,17 @@ const createCmd = Command.make(
   { title: createTitleOption, ...copyOptions },
   ({ title, ...rest }) =>
     Effect.gen(function* () {
+      // A pitch needs a non-empty title to appear in list/get, so reject blank.
+      if (title.trim() === "") {
+        return yield* parseError("--title must not be empty", "pitch");
+      }
       const svc = yield* PitchOperationsService;
-      const created = yield* svc.createPitch();
-      const updated = yield* svc.updatePitch(created.id, {
+      // One atomic insert carrying the title (never a titleless row + patch).
+      const created = yield* svc.createPitch({
         title,
         ...collectPitchFields(rest),
       });
-      yield* emitObject(updated);
+      yield* emitObject(created);
     })
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
@@ -322,13 +315,13 @@ const updateCmd = Command.make(
   ({ id, title, ...rest }) =>
     Effect.gen(function* () {
       const t = Option.getOrUndefined(title);
-      const fields = { ...collectPitchFields(rest) } as {
-        title?: string;
-        [k: string]: string | number | undefined;
-      };
-      if (t !== undefined) fields.title = t;
+      if (t !== undefined && t.trim() === "") {
+        return yield* parseError("--title must not be empty", "pitch");
+      }
+      // May carry undefined values (flags not passed); the service prunes them.
+      const fields: PitchFields = { title: t, ...collectPitchFields(rest) };
 
-      if (Object.keys(fields).length === 0) {
+      if (!Object.values(fields).some((v) => v !== undefined)) {
         return yield* parseError(
           "update needs at least one field flag (e.g. --title)",
           "pitch"

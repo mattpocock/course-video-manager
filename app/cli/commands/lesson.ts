@@ -11,6 +11,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  rejectBothFlags,
   withName,
 } from "@/cli/helpers";
 
@@ -301,12 +302,12 @@ const createCmd = Command.make(
     Effect.gen(function* () {
       const b = Option.getOrUndefined(before);
       const a = Option.getOrUndefined(after);
-      if (b !== undefined && a !== undefined) {
-        return yield* parseError(
-          "pass at most one of --before / --after",
-          "lesson"
-        );
-      }
+      yield* rejectBothFlags({
+        a: b,
+        b: a,
+        flags: ["--before", "--after"],
+        entity: "lesson",
+      });
 
       const svc = yield* LessonSectionOperationsService;
 

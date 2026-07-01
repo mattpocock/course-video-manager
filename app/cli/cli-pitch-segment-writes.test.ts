@@ -108,6 +108,17 @@ describe("pitch create / update", () => {
     expect(exitCode).toBe(3);
   });
 
+  it("create with an empty --title => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "pitch",
+      "create",
+      "--title",
+      "  ",
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
   it("update --title renames (patches only what is passed)", async () => {
     const updated = pobj(
       (await run(["pitch", "update", "--title", "Renamed", s.pitchActiveId]))
@@ -140,6 +151,18 @@ describe("pitch create / update", () => {
     const { exitCode, stdout } = await run([
       "pitch",
       "update",
+      s.pitchActiveId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("update with an empty --title => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "pitch",
+      "update",
+      "--title",
+      "  ",
       s.pitchActiveId,
     ]);
     expect(exitCode).toBe(3);

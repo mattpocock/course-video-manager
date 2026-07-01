@@ -12,6 +12,30 @@ import { Effect } from "effect";
 
 export type PitchState = "idle" | "scheduled" | "shipped";
 
+/** The mutable copy/ranking fields of a Pitch (all optional; partial writes). */
+export interface PitchFields {
+  title?: string;
+  description?: string;
+  contentPlan?: string;
+  youtubeTitle?: string;
+  youtubeThumbnailDescription?: string;
+  newsletterTitle?: string;
+  tweet?: string;
+  priority?: number;
+  effort?: number;
+}
+
+/** Drop undefined keys so a partial patch only touches the fields provided. */
+const prunePitchFields = (
+  fields: PitchFields
+): Record<string, string | number> => {
+  const set: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) set[key] = value;
+  }
+  return set;
+};
+
 export function derivePitchState(deliverableStatuses: string[]): PitchState {
   if (deliverableStatuses.length === 0) return "idle";
   const allTerminal = deliverableStatuses.every(
@@ -46,9 +70,13 @@ export const createPitchOperations = (db: Database) => {
     return and(...conditions);
   };
 
-  const createPitch = Effect.fn("createPitch")(function* () {
+  const createPitch = Effect.fn("createPitch")(function* (
+    fields: PitchFields = {}
+  ) {
+    // Insert the provided fields in ONE write (atomic): a titled pitch is born
+    // with its title, never as a titleless row patched afterwards.
     const results = yield* makeDbCall(() =>
-      db.insert(pitches).values({}).returning()
+      db.insert(pitches).values(prunePitchFields(fields)).returning()
     );
 
     const pitch = results[0];
@@ -257,22 +285,9 @@ export const createPitchOperations = (db: Database) => {
    */
   const updatePitch = Effect.fn("updatePitch")(function* (
     id: string,
-    fields: {
-      title?: string;
-      description?: string;
-      contentPlan?: string;
-      youtubeTitle?: string;
-      youtubeThumbnailDescription?: string;
-      newsletterTitle?: string;
-      tweet?: string;
-      priority?: number;
-      effort?: number;
-    }
+    fields: PitchFields
   ) {
-    const set: Record<string, string | number> = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (value !== undefined) set[key] = value;
-    }
+    const set = prunePitchFields(fields);
 
     const results = yield* makeDbCall(() =>
       db
