@@ -458,9 +458,15 @@ const moveCmd = Command.make(
         after,
         excludeId: id,
       });
-      const moved = yield* svc
-        .moveSegment(id, video, beforeSegmentId)
-        .pipe(Effect.catchTag("NotFoundError", () => notFound("segment", id)));
+      const moved = yield* svc.moveSegment(id, video, beforeSegmentId).pipe(
+        // moveSegment re-validates existence internally; surface WHICHEVER id it
+        // reports missing (the moved segment, or — defensively — a bad anchor)
+        // instead of always blaming the moved id. The anchor is pre-validated by
+        // resolveBeforeSegmentId above, so the anchor path is unreachable today.
+        Effect.catchTag("NotFoundError", (e) =>
+          notFound("segment", (e.params as { id?: string }).id ?? id)
+        )
+      );
       yield* emitObject(moved);
     })
 ).pipe(Command.withDescription(detail(MOVE_HELP)));
@@ -468,9 +474,15 @@ const moveCmd = Command.make(
 const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
   Effect.gen(function* () {
     const svc = yield* SegmentOperationsService;
-    const row = yield* requireActiveSegment(id);
+    yield* requireActiveSegment(id); // exists + active guard (exit 2 otherwise)
     yield* svc.deleteSegment(id);
-    yield* emitObject({ ...row, archived: true });
+    // Echo the ACTUAL archived row read back — not a synthesized { ...row,
+    // archived: true } — so the output stays honest if the archive path ever
+    // touches other columns.
+    const archived = yield* svc
+      .getSegmentById(id)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("segment", id)));
+    yield* emitObject(archived);
   })
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 

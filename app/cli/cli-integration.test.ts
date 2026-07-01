@@ -939,6 +939,20 @@ describe("segment writes (add / update / move / delete)", () => {
     expect(updated.description).toBe("d0"); // untouched
   });
 
+  it("update never repositions or changes the segment's video", async () => {
+    const a = await add(s.standaloneActiveId, "--title", "A");
+    const b = await add(s.standaloneActiveId, "--title", "B");
+    const updated = obj(
+      (await run(["segment", "update", "--title", "A2", a.id])).stdout
+    );
+    expect(updated.videoId).toBe(a.videoId); // same parent video
+    expect(updated.order).toBe(a.order); // same position key
+    expect((await list(s.standaloneActiveId)).map((r) => r.id)).toEqual([
+      a.id,
+      b.id,
+    ]); // plan order preserved
+  });
+
   it("update with no fields => invalid input, exit 3", async () => {
     const created = await add(s.standaloneActiveId);
     const { stdout, stderr, exitCode } = await run([
@@ -1064,6 +1078,27 @@ describe("segment writes (add / update / move / delete)", () => {
     );
     const dst = await list(target);
     expect(dst.map((r) => r.id)).toEqual([existing.id, seg.id]); // appended at end
+  });
+
+  it("move with both --before and --after => invalid input, exit 3", async () => {
+    const anchor = await add(s.standaloneActiveId, "--title", "Anchor");
+    const seg = await add(s.standaloneActiveId, "--title", "Movable");
+    const { stdout, stderr, exitCode } = await run([
+      "segment",
+      "move",
+      "--video",
+      s.standaloneActiveId,
+      "--before",
+      anchor.id,
+      "--after",
+      anchor.id,
+      seg.id,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
+      "ParseError"
+    );
   });
 
   it("move --before an id not in the target video => NotFoundError, exit 2", async () => {
