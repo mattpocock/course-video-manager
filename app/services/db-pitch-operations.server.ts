@@ -246,6 +246,54 @@ export const createPitchOperations = (db: Database) => {
     return pitch;
   });
 
+  /**
+   * Patch a Pitch's copy/ranking fields in one write. Only the keys present in
+   * `fields` are updated (undefined keys are dropped), so this is a partial
+   * update — the caller passes exactly the fields it wants to change. Bumps
+   * updatedAt and returns the updated row; NotFoundError when the id is absent.
+   *
+   * Unlike updatePitchField (single, stringly-typed field), this is the typed
+   * multi-field updater used by the CLI's `pitch create` / `pitch update`.
+   */
+  const updatePitch = Effect.fn("updatePitch")(function* (
+    id: string,
+    fields: {
+      title?: string;
+      description?: string;
+      contentPlan?: string;
+      youtubeTitle?: string;
+      youtubeThumbnailDescription?: string;
+      newsletterTitle?: string;
+      tweet?: string;
+      priority?: number;
+      effort?: number;
+    }
+  ) {
+    const set: Record<string, string | number> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) set[key] = value;
+    }
+
+    const results = yield* makeDbCall(() =>
+      db
+        .update(pitches)
+        .set({ ...set, updatedAt: new Date() })
+        .where(eq(pitches.id, id))
+        .returning()
+    );
+
+    const pitch = results[0];
+
+    if (!pitch) {
+      return yield* new NotFoundError({
+        type: "updatePitch",
+        params: { id },
+      });
+    }
+
+    return pitch;
+  });
+
   const createVideoFromPitch = Effect.fn("createVideoFromPitch")(function* (
     pitchId: string
   ) {
@@ -300,6 +348,7 @@ export const createPitchOperations = (db: Database) => {
     getPitch,
     getPitchWithVideos,
     updatePitchField,
+    updatePitch,
     createVideoFromPitch,
     deletePitch,
   };
