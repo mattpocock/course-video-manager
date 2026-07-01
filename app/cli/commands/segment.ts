@@ -1,11 +1,27 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { SegmentOperationsService } from "@/services/db-segment-operations.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import {
   SEGMENT_KINDS,
   DEFAULT_SEGMENT_KIND,
 } from "@/features/segments/segment-kinds";
-import { detail, emitNdjson, emitObject, notFound, parseError } from "@/cli/helpers";
+import {
+  detail,
+  emitNdjson,
+  emitObject,
+  notFound,
+  parseError,
+  rejectBothFlags,
+} from "@/cli/helpers";
+import {
+  HELP,
+  LIST_HELP,
+  ADD_HELP,
+  UPDATE_HELP,
+  MOVE_HELP,
+  DELETE_HELP,
+} from "./segment.help";
 
 /**
  * `segment` — the film-time planning units of a single Video.
@@ -36,12 +52,13 @@ import { detail, emitNdjson, emitObject, notFound, parseError } from "@/cli/help
  * Segments are PURELY an in-app authoring aid — neither the Segment plan nor a
  * Segment's free-text `description` is ever published (Publish skips them).
  *
- * WRITE SURFACE. `segment` is the FIRST write-capable noun in cvm: it exposes
+ * WRITE SURFACE. `segment` is one of cvm's write-capable nouns: it exposes
  * `add` / `update` / `delete` / `move` alongside `list`, because authoring a
  * Video's Segment plan is exactly the kind of low-stakes, never-published
- * planning work an agent should help draft. (Every OTHER noun stays read-only —
- * see `cvm --help`.) Writes hit the database immediately; there is no
- * confirmation prompt (this is an agent-facing tool) and no dry-run.
+ * planning work an agent should help draft. (`lesson`, `video` and `pitch` also
+ * carry write verbs now — see `cvm --help`.) Writes hit the database
+ * immediately; there is no confirmation prompt (this is an agent-facing tool)
+ * and no dry-run.
  *
  * Addressing: Segments have no stable public address. `list` requires
  * `--video <videoId>`; the write verbs address a single Segment by its `id`
@@ -109,138 +126,6 @@ import { detail, emitNdjson, emitObject, notFound, parseError } from "@/cli/help
  *   # Delete (archive) a segment:
  *   cvm segment delete seg_456
  */
-const HELP = `Segment — the film-time planning units of a single Video.
-
-A Segment is one unit of a Video's PLAN: an ordered, pre-recording sketch of
-"what this video does for the viewer", authored before the video is recorded.
-Segments belong to a Video (not the Lesson/Pitch); each Video carries its own
-plan and a Segment can be moved between Videos (its parent videoId is mutable).
-
-Deliberately distinct from a Chapter/Clip: a Segment is the INTENDED structure
-("what I planned to shoot") and need not map to any recorded Chapter or Clip
-("what I shot"). Segments are an in-app authoring aid and are NEVER published.
-
-segment is the FIRST write-capable noun in cvm: it has add/update/delete/move
-in addition to list (every other noun is read-only). Writes are immediate — no
-confirmation, no dry-run. archived == deleted (a deleted Segment is gone).
-
-Segment kinds (the film-time job, from the Mise en Place glossary):
-  definition   Explain a concept, term, or idea
-  walkthrough  Step through existing code or a process
-  playthrough  Build something live, start to finish
-  quest        Set the viewer a challenge to attempt
-  reaction     React to or review code or content
-
-Positioning (add & move): pick a place with an anchor, not an index —
-  --before <id>  before that segment | --after <id>  after it | (neither) end.
---before/--after are mutually exclusive; the CLI computes the fractional order.
-
-Output fields: id, videoId, kind, title, description (never published), order
-(fractional sort key), archived, createdAt.
-
-Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
-  list   --video <id>              A Video's full ordered plan (active only)
-  add    --video <id> [flags]      Create a Segment in a Video's plan
-  update [flags] <id>              Patch title/description/kind
-  move   --video <id> [flags] <id> Reorder, or move to another Video
-  delete <id>                      Archive (delete) a Segment
-
-Every write echoes the affected row as one pretty JSON object.
-
-Examples:
-  cvm segment list --video vid_123
-  cvm segment add --video vid_123 --kind quest --title "Try it"
-  cvm segment update --title "Setup" --kind walkthrough seg_456
-  cvm segment move --video vid_123 --after seg_789 seg_456
-  cvm segment delete seg_456`;
-
-const LIST_HELP = `List a Video's full, ordered Segment plan as NDJSON (one compact JSON object
-per line; empty plan prints nothing). Requires --video <videoId>.
-
-The list is the COMPLETE active plan, already sorted by 'order' ascending (plan
-order). Archived (deleted) Segments are always excluded — there is no flag to
-include them.
-
-Each line carries: id, videoId, kind (definition|walkthrough|playthrough|quest|
-reaction), title, description (in-app planning note; never published), order
-(fractional sort key), archived (always false), createdAt.
-
-Find a video id with 'cvm video list' or 'cvm video tree <id>'.
-
-Examples:
-  cvm segment list --video vid_123
-  cvm segment list --video vid_123 | jq -r '.title'
-  cvm segment list --video vid_123 | jq -r 'select(.kind=="walkthrough") | .id'`;
-
-const ADD_HELP = `Create a Segment in a Video's plan. Requires --video <videoId>.
-
-Flags:
-  --video <id>        (required) the Video to add the Segment to.
-  --kind <kind>       one of definition|walkthrough|playthrough|quest|reaction.
-                      Defaults to 'definition'.
-  --title <text>      short label (default "").
-  --description <text> free-text planning note (default ""; never published).
-  --before <id>       place immediately before that segment.
-  --after <id>        place immediately after that segment.
-                      (omit both --before/--after to append to the end.)
-
-Echoes the created Segment row (including its new id and computed order) as one
-pretty JSON object. --before/--after are mutually exclusive; an anchor that is
-not a segment of --video is a not-found (exit 2).
-
-Examples:
-  cvm segment add --video vid_123
-  cvm segment add --video vid_123 --kind quest --title "Try it" --description "..."
-  cvm segment add --video vid_123 --before seg_456`;
-
-const UPDATE_HELP = `Patch a single Segment's content by id. At least one of --title / --description
-/ --kind is required (an update with no fields is an invalid-input error, exit 3).
-
-update ONLY changes content — it never repositions the Segment or moves it
-between Videos (use 'move' for that). Only the flags you pass change; the rest
-are left untouched.
-
-Flags:
-  --title <text>       new short label.
-  --description <text> new planning note (never published).
-  --kind <kind>        definition|walkthrough|playthrough|quest|reaction.
-
-Echoes the updated Segment row. An unknown or already-deleted id is a not-found
-(exit 2). Flags must come BEFORE the <id> (a flag after it exits 3).
-
-Examples:
-  cvm segment update --title "Setup" seg_456
-  cvm segment update --kind walkthrough --description "Step through it" seg_456`;
-
-const MOVE_HELP = `Reposition a Segment within its plan, or move it into another Video. Requires
---video <targetVideoId> (pass the Segment's CURRENT video to reorder in place,
-or a DIFFERENT video to drag it across).
-
-Placement uses the same anchors as 'add':
-  --before <id>  place immediately before that segment (of --video).
-  --after  <id>  place immediately after it.
-  (neither)      append to the end of --video's plan.
-
---before/--after are mutually exclusive and must name a segment of --video;
-otherwise it is a not-found (exit 2). Echoes the moved Segment row with its new
-videoId and computed order. Flags must come BEFORE the <id> (a flag after it
-exits 3).
-
-Examples:
-  cvm segment move --video vid_123 --after seg_789 seg_456   # reorder in place
-  cvm segment move --video vid_123 --before seg_789 seg_456
-  cvm segment move --video vid_999 seg_456                   # to another video, end`;
-
-const DELETE_HELP = `Delete (archive) a single Segment by id. For Segments, archived == deleted: the
-Segment is removed from its plan and can never be listed or addressed again
-(there is no restore verb).
-
-Immediate — there is no confirmation prompt (this is an agent-facing tool).
-Echoes the now-archived row ({ ..., archived: true }). An unknown or
-already-deleted id is a not-found (exit 2).
-
-Example:
-  cvm segment delete seg_456`;
 
 // ---------------------------------------------------------------------------
 // Options / Args
@@ -254,6 +139,22 @@ const videoListOption = Options.text("video").pipe(
 
 const videoTargetOption = Options.text("video").pipe(
   Options.withDescription("The target Video id for the Segment (required).")
+);
+
+const videoAddOption = Options.text("video").pipe(
+  Options.withDescription(
+    "The target Video id (mutually exclusive with --pitch)."
+  ),
+  Options.optional
+);
+
+const pitchAddOption = Options.text("pitch").pipe(
+  Options.withDescription(
+    "Target a Pitch's video instead of --video: resolves the pitch's single " +
+      "video (auto-creating one if the pitch has none; error if it has more " +
+      "than one). Mutually exclusive with --video."
+  ),
+  Options.optional
 );
 
 const kindOption = Options.choice("kind", [...SEGMENT_KINDS]).pipe(
@@ -321,12 +222,12 @@ const resolveBeforeSegmentId = (params: {
     const before = Option.getOrUndefined(params.before);
     const after = Option.getOrUndefined(params.after);
 
-    if (before !== undefined && after !== undefined) {
-      return yield* parseError(
-        "pass at most one of --before / --after",
-        "segment"
-      );
-    }
+    yield* rejectBothFlags({
+      a: before,
+      b: after,
+      flags: ["--before", "--after"],
+      entity: "segment",
+    });
     if (before === undefined && after === undefined) {
       return null;
     }
@@ -348,6 +249,68 @@ const resolveBeforeSegmentId = (params: {
       return yield* notFound("segment", after!);
     }
     return rows[idx + 1]?.id ?? null;
+  });
+
+/**
+ * Resolve the target Video for a `segment add`, from EXACTLY ONE of --video /
+ * --pitch:
+ *   - neither / both  -> invalid input (exit 3).
+ *   - --video <id>    -> that id verbatim (existing behavior).
+ *   - --pitch <id>    -> the pitch's single active video, following the
+ *                        resolve-or-create policy:
+ *                          0 videos -> auto-create one (createVideoFromPitch,
+ *                                      named after the pitch) and use it.
+ *                          1 video  -> use it.
+ *                         >1 videos -> invalid input (exit 3): the pitch is
+ *                                      ambiguous; target the video with --video.
+ *     An unknown or archived (deleted) pitch id is a not-found (exit 2).
+ */
+const resolveTargetVideoId = (params: {
+  readonly video: Option.Option<string>;
+  readonly pitch: Option.Option<string>;
+}) =>
+  Effect.gen(function* () {
+    const video = Option.getOrUndefined(params.video);
+    const pitch = Option.getOrUndefined(params.pitch);
+
+    yield* rejectBothFlags({
+      a: video,
+      b: pitch,
+      flags: ["--video", "--pitch"],
+      entity: "segment",
+    });
+    if (video === undefined && pitch === undefined) {
+      return yield* parseError(
+        "segment add needs one of --video / --pitch",
+        "segment"
+      );
+    }
+    if (video !== undefined) {
+      return video;
+    }
+
+    const pitchSvc = yield* PitchOperationsService;
+    const row = yield* pitchSvc
+      .getPitchWithVideos(pitch!)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", pitch!)));
+    // Archived pitches are deleted-equivalent (never addressable).
+    if (row.archived) {
+      return yield* notFound("pitch", pitch!);
+    }
+
+    const videos = row.videos;
+    if (videos.length > 1) {
+      return yield* parseError(
+        `pitch ${pitch} has ${videos.length} videos — target one directly with --video <id>`,
+        "segment"
+      );
+    }
+    if (videos.length === 1) {
+      return videos[0]!.id;
+    }
+    // No video yet: create the pitch's backing video (named after the pitch).
+    const created = yield* pitchSvc.createVideoFromPitch(pitch!);
+    return created.id;
   });
 
 /**
@@ -382,23 +345,25 @@ const listCmd = Command.make("list", { video: videoListOption }, ({ video }) =>
 const addCmd = Command.make(
   "add",
   {
-    video: videoTargetOption,
+    video: videoAddOption,
+    pitch: pitchAddOption,
     kind: kindOption,
     title: titleOption,
     description: descriptionOption,
     before: beforeOption,
     after: afterOption,
   },
-  ({ video, kind, title, description, before, after }) =>
+  ({ video, pitch, kind, title, description, before, after }) =>
     Effect.gen(function* () {
+      const videoId = yield* resolveTargetVideoId({ video, pitch });
       const beforeSegmentId = yield* resolveBeforeSegmentId({
-        videoId: video,
+        videoId,
         before,
         after,
       });
       const svc = yield* SegmentOperationsService;
       const segment = yield* svc.createSegment(
-        video,
+        videoId,
         Option.getOrUndefined(kind) ?? DEFAULT_SEGMENT_KIND,
         beforeSegmentId,
         Option.getOrUndefined(title) ?? "",
