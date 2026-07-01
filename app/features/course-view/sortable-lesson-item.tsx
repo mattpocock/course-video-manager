@@ -12,7 +12,11 @@ import { PrioritySelector } from "@/components/priority-selector";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { LessonTitleEditor, useLessonTitleEditor } from "./lesson-title-editor";
+import {
+  LessonTitleEditor,
+  buildLessonNavigateTo,
+  useLessonTitleEditor,
+} from "./lesson-title-editor";
 import { LessonContextMenuContent } from "./lesson-context-menu";
 import { LessonSegmentTree } from "./lesson-segment-tree";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
@@ -387,11 +391,12 @@ export function SortableLessonItem({
                   onCancel={() => setEditingTitle(false)}
                   onSave={saveTitle}
                   onStartEditing={startEditingTitle}
-                  navigateTo={
-                    data.selectedCourse
-                      ? `/courses/${data.selectedCourse.id}/sections/${section.id}#${lesson.id}`
-                      : undefined
-                  }
+                  navigateTo={buildLessonNavigateTo({
+                    compact: !!compact,
+                    courseId: data.selectedCourse?.id,
+                    sectionId: section.id,
+                    lessonId: lesson.id,
+                  })}
                 />
                 {showGhostStyle && (
                   <span className="flex items-center text-muted-foreground/60 shrink-0">

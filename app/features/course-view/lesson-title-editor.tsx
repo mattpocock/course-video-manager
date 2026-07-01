@@ -6,6 +6,21 @@ import type { Lesson } from "./course-view-types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
+export function buildLessonNavigateTo({
+  compact,
+  courseId,
+  sectionId,
+  lessonId,
+}: {
+  compact: boolean;
+  courseId: string | undefined;
+  sectionId: string;
+  lessonId: string;
+}): string | undefined {
+  if (compact || !courseId) return undefined;
+  return `/courses/${courseId}/sections/${sectionId}#${lessonId}`;
+}
+
 export function useLessonTitleEditor({
   lesson,
   isGhost,
