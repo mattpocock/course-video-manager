@@ -1114,6 +1114,30 @@ describe("search", () => {
       expect(hit.snippet.endsWith("…")).toBe(true);
       expect(hit.snippet.length).toBeLessThan(long.length);
     });
+
+    it("locates a match whose query contains a run of whitespace", async () => {
+      // The match sits after a long pad; `matches`/ILIKE compare the raw text
+      // (two spaces), but the snippet is drawn from a whitespace-collapsed copy.
+      // The needle must be collapsed too, else the snippet falls back to a
+      // misleading prefix that omits the actual match.
+      const text = `${"pad ".repeat(30)}alpha  beta ${"tail ".repeat(30)}`;
+      await testDb.insert(schema.clips).values({
+        videoId: s.lessonVideoId,
+        videoFilename: "spaced.mp4",
+        sourceStartTime: 50,
+        sourceEndTime: 60,
+        order: "0007",
+        text,
+      });
+
+      const { stdout } = await run(["search", "alpha  beta"]);
+      const hit = (ndjson(stdout) as any[]).find(
+        (h) => h.kind === "video" && h.field === "transcript"
+      );
+      // Snippet is centred on the collapsed match, not the head of the text.
+      expect(hit.snippet).toContain("alpha beta");
+      expect(hit.snippet.startsWith("…")).toBe(true);
+    });
   });
 });
 

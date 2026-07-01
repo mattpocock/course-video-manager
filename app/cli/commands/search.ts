@@ -24,14 +24,9 @@ const APPLICABLE: Record<Scope, ReadonlyArray<SearchKind>> = {
   lesson: ["lesson", "video", "segment"],
 };
 
-const ALL_KINDS = new Set<SearchKind>([
-  "course",
-  "section",
-  "lesson",
-  "video",
-  "segment",
-  "pitch",
-]);
+// The top scope permits every kind, so it is the canonical kind list — derive
+// the validity set from it rather than maintaining a second copy.
+const ALL_KINDS = new Set<SearchKind>(APPLICABLE.top);
 
 const isKind = (t: string): t is SearchKind => ALL_KINDS.has(t as SearchKind);
 

@@ -217,13 +217,22 @@ export const createSearchOperations = (db: Database) => {
     const matches = (value: string | null | undefined): boolean =>
       typeof value === "string" && value.toLowerCase().includes(ql);
 
+    // `matches`/ILIKE compare the query against the RAW value, but the snippet
+    // is drawn from a whitespace-collapsed copy. Collapse the needle the same
+    // way so a query containing a run of whitespace still locates in `collapsed`
+    // (otherwise `indexOf` returns -1 and the snippet is a misleading prefix).
+    const needle = ql.replace(/\s+/g, " ").trim();
+
     /** Build an excerpt of ~SNIPPET_RADIUS chars either side of the match. */
     const snippet = (value: string): string => {
       const collapsed = value.replace(/\s+/g, " ").trim();
-      const idx = collapsed.toLowerCase().indexOf(ql);
+      const idx = collapsed.toLowerCase().indexOf(needle);
       if (idx === -1) return collapsed.slice(0, SNIPPET_RADIUS * 2);
       const start = Math.max(0, idx - SNIPPET_RADIUS);
-      const end = Math.min(collapsed.length, idx + ql.length + SNIPPET_RADIUS);
+      const end = Math.min(
+        collapsed.length,
+        idx + needle.length + SNIPPET_RADIUS
+      );
       let out = collapsed.slice(start, end);
       if (start > 0) out = `…${out}`;
       if (end < collapsed.length) out = `${out}…`;
@@ -249,25 +258,37 @@ export const createSearchOperations = (db: Database) => {
     let lessonRoot: LessonNode | null = null;
     let courseHeads: Array<{ head: CourseHead; sections: SectionNode[] }> = [];
 
+    // Whether any tree kind (everything but `pitch`) is in scope. A top-level
+    // `--type pitch` search wants no tree node, so the whole per-course tree
+    // load below can be skipped — pitches are queried separately at the end.
+    const wantsTree =
+      types.has("course") ||
+      types.has("section") ||
+      types.has("lesson") ||
+      types.has("video") ||
+      types.has("segment");
+
     if (root === null) {
-      const rows = yield* makeDbCall(() =>
-        db.query.courses.findMany({
-          where: eq(courses.archived, false),
-          columns: { id: true, name: true, slug: true },
-          with: {
-            versions: {
-              columns: { id: true },
-              orderBy: desc(courseVersions.createdAt),
-              limit: 1,
-              with: { sections: sectionWith },
+      if (wantsTree) {
+        const rows = yield* makeDbCall(() =>
+          db.query.courses.findMany({
+            where: eq(courses.archived, false),
+            columns: { id: true, name: true, slug: true },
+            with: {
+              versions: {
+                columns: { id: true },
+                orderBy: desc(courseVersions.createdAt),
+                limit: 1,
+                with: { sections: sectionWith },
+              },
             },
-          },
-        })
-      );
-      courseHeads = rows.map((c) => ({
-        head: { id: c.id, name: c.name, slug: c.slug },
-        sections: (c.versions[0]?.sections ?? []) as SectionNode[],
-      }));
+          })
+        );
+        courseHeads = rows.map((c) => ({
+          head: { id: c.id, name: c.name, slug: c.slug },
+          sections: (c.versions[0]?.sections ?? []) as SectionNode[],
+        }));
+      }
     } else if (root.kind === "course") {
       const c = yield* makeDbCall(() =>
         db.query.courses.findFirst({
