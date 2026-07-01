@@ -99,14 +99,9 @@ describe("includeSegments - xml format", () => {
       { ...baseOptions, includeSegments: true },
       {}
     );
-    const settingUpIdx = result.indexOf("Setting up a project");
-    const afterSettingUp = result.slice(settingUpIdx);
-    const nextSegmentOrVideoClose =
-      afterSettingUp.indexOf("<segment") !== -1
-        ? afterSettingUp.indexOf("<segment")
-        : afterSettingUp.indexOf("</video>");
-    const block = afterSettingUp.slice(0, nextSegmentOrVideoClose);
-    expect(block).not.toContain("<description>");
+    expect(result).toContain(
+      '<segment kind="walkthrough" title="Setting up a project" />'
+    );
   });
 
   it("escapes special characters in segment title and description", () => {
