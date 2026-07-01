@@ -1,5 +1,6 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
+import { sectionSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import {
   detail,
@@ -52,6 +53,8 @@ VERBS
   list   All sections of a Version (requires --course-version <id> or --course <id>).
   get    One or more sections by id (variadic), each with its active Lessons.
   tree   Skeleton of section -> lessons -> videos.
+  search <id> <query>  Substring search down this section's subtree
+                       (--type section|lesson|video|segment).
 
 EXAMPLES
   # All sections of a course's Draft Version, mapping name -> id:
@@ -260,5 +263,6 @@ export const sectionCommand = Command.make("section").pipe(
     listCmd,
     getCmd.pipe(Command.withDescription(detail(GET_HELP))),
     treeCmd,
+    sectionSearchCmd,
   ])
 );

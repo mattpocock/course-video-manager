@@ -1,5 +1,6 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect } from "effect";
+import { courseSearchCmd } from "./search";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
@@ -278,6 +279,8 @@ VERBS
   get <id...>          Course + section/lesson structure summary (variadic).
   tree <id>            Structure skeleton (--depth N|all, --course-version <id>).
   transcripts <id>     Video transcripts for the version, keyed by video id.
+  search <id> <query>  Case-insensitive substring search down this course's
+                       Draft subtree (--type course|section|lesson|video|segment).
 
 Typical workflow: 'cvm course list' to find an id, then 'cvm course tree <id>'
 to see the shape, then drill in with 'cvm course get <id>' or the per-noun
@@ -285,5 +288,11 @@ commands (section/lesson/video).`;
 
 export const courseCommand = Command.make("course").pipe(
   Command.withDescription(detail(COURSE_HELP)),
-  Command.withSubcommands([listCmd, getCmd, treeCmd, transcriptsCmd])
+  Command.withSubcommands([
+    listCmd,
+    getCmd,
+    treeCmd,
+    transcriptsCmd,
+    courseSearchCmd,
+  ])
 );

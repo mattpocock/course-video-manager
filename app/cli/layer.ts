@@ -8,6 +8,7 @@ import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { SegmentOperationsService } from "@/services/db-segment-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
+import { SearchOperationsService } from "@/services/db-search-operations.server";
 
 /**
  * READ-ONLY layer for the `cvm` CLI. Mirrors app/services/layer.server.ts but
@@ -28,6 +29,7 @@ import { DeliverableOperationsService } from "@/services/db-deliverable-operatio
  *   segment       -> SegmentOperationsService
  *   pitch         -> PitchOperationsService
  *   deliverable   -> DeliverableOperationsService
+ *   search        -> SearchOperationsService (cross-cutting: walks the tree)
  *
  * NOTE: CliOutput is NOT in this layer. It is provided per-run at the program
  * edge so tests can swap in a captured implementation (see ./output.ts and
@@ -41,7 +43,8 @@ export const cliLayer = Layer.mergeAll(
   ClipOperationsService.Default,
   SegmentOperationsService.Default,
   PitchOperationsService.Default,
-  DeliverableOperationsService.Default
+  DeliverableOperationsService.Default,
+  SearchOperationsService.Default
 ).pipe(Layer.provideMerge(DrizzleService.Default));
 
 /**

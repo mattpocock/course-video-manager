@@ -1,5 +1,6 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect } from "effect";
+import { lessonSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import {
@@ -56,6 +57,8 @@ VERBS
   get <id...>           One or more lessons with their Section/Version/Repo
                         hierarchy. Variadic: many ids => NDJSON.
   tree <id> [--depth N] Skeleton tree lesson -> videos -> clips.
+  search <id> <query>   Substring search down this lesson's subtree
+                        (--type lesson|video|segment).
 
 EXAMPLES
   cvm lesson list --section sec_123
@@ -239,5 +242,5 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
 
 export const lessonCommand = Command.make("lesson").pipe(
   Command.withDescription(detail(LESSON_HELP)),
-  Command.withSubcommands([listCmd, getCmd, treeCmd])
+  Command.withSubcommands([listCmd, getCmd, treeCmd, lessonSearchCmd])
 );
