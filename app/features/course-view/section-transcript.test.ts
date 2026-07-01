@@ -35,6 +35,7 @@ const baseOptions: TranscriptOptions = {
   includePriority: false,
   includeExerciseType: false,
   includeSectionDescription: false,
+  includeSegments: false,
 };
 
 describe("buildSectionTranscript", () => {

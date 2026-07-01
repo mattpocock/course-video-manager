@@ -1,4 +1,4 @@
-import type { Lesson, Section } from "./course-view-types";
+import type { Lesson, Section, Video } from "./course-view-types";
 import { filterLessons } from "./section-grid-utils";
 
 export type TranscriptFormat = "xml" | "markdown" | "json";
@@ -10,6 +10,7 @@ export type TranscriptOptions = {
   includePriority: boolean;
   includeExerciseType: boolean;
   includeSectionDescription: boolean;
+  includeSegments: boolean;
 };
 
 const defaultOptions: TranscriptOptions = {
@@ -19,6 +20,7 @@ const defaultOptions: TranscriptOptions = {
   includePriority: false,
   includeExerciseType: false,
   includeSectionDescription: false,
+  includeSegments: false,
 };
 
 export function buildCourseTranscript(
@@ -151,6 +153,9 @@ function buildSectionTranscriptXml(
     }
     for (const video of lesson.videos) {
       lines.push(`    <video title="${escapeAttr(video.path)}">`);
+      if (options.includeSegments) {
+        renderSegmentsXml(video, lines, "      ");
+      }
       if (options.includeTranscripts) {
         if (video.clipCount === 0) {
           lines.push("      (no clips)");
@@ -166,6 +171,30 @@ function buildSectionTranscriptXml(
   }
   lines.push("</section>");
   return lines.join("\n");
+}
+
+function renderSegmentsXml(video: Video, lines: string[], indent: string) {
+  for (const segment of video.segments) {
+    const attrs = `kind="${escapeAttr(segment.kind)}" title="${escapeAttr(segment.title)}"`;
+    if (segment.description) {
+      lines.push(`${indent}<segment ${attrs}>`);
+      lines.push(
+        `${indent}  <description>${escapeAttr(segment.description)}</description>`
+      );
+      lines.push(`${indent}</segment>`);
+    } else {
+      lines.push(`${indent}<segment ${attrs} />`);
+    }
+  }
+}
+
+function renderSegmentsMarkdown(video: Video, lines: string[]) {
+  for (const segment of video.segments) {
+    lines.push(`- [${segment.kind}] ${segment.title}`);
+    if (segment.description) {
+      lines.push(`  ${segment.description}`);
+    }
+  }
 }
 
 // --- Markdown format ---
@@ -255,6 +284,9 @@ function buildSectionTranscriptMarkdownInner(
     for (const video of lesson.videos) {
       lines.push("");
       lines.push(`**${video.path}:**`);
+      if (options.includeSegments) {
+        renderSegmentsMarkdown(video, lines);
+      }
       if (options.includeTranscripts) {
         if (video.clipCount === 0) {
           lines.push("(no clips)");
@@ -340,6 +372,18 @@ function buildSectionObject(
 
     lessonObj.videos = lesson.videos.map((video) => {
       const videoObj: Record<string, unknown> = { title: video.path };
+      if (options.includeSegments) {
+        videoObj.segments = video.segments.map((segment) => {
+          const segObj: Record<string, unknown> = {
+            kind: segment.kind,
+            title: segment.title,
+          };
+          if (segment.description) {
+            segObj.description = segment.description;
+          }
+          return segObj;
+        });
+      }
       if (options.includeTranscripts) {
         if (video.clipCount === 0) {
           videoObj.transcript = null;

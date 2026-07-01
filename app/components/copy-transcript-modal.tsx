@@ -69,6 +69,7 @@ export function CopyTranscriptModal(
     includePriority: false,
     includeExerciseType: false,
     includeSectionDescription: false,
+    includeSegments: false,
   });
 
   const resolvedTranscripts = use(props.videoTranscripts);
@@ -356,6 +357,25 @@ export function CopyTranscriptModal(
               </Label>
               <span className="text-xs text-muted-foreground">
                 Clip text content
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="include-segments"
+                checked={options.includeSegments}
+                onCheckedChange={(checked) =>
+                  setOptions((o) => ({
+                    ...o,
+                    includeSegments: checked === true,
+                  }))
+                }
+              />
+              <Label htmlFor="include-segments" className="cursor-pointer">
+                Segments
+              </Label>
+              <span className="text-xs text-muted-foreground">
+                Video planning segments (kind, title, description)
               </span>
             </div>
 
