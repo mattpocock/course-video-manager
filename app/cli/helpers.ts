@@ -45,6 +45,37 @@ export const detail = (text: string): HelpDoc.HelpDoc => {
 };
 
 // ---------------------------------------------------------------------------
+// Uniform display name
+// ---------------------------------------------------------------------------
+
+/**
+ * The single human-readable label of ANY row, regardless of noun.
+ *
+ * The CVM schema spells its label column differently per table — `name` on
+ * courses/versions, `title` on lessons/pitches/deliverables, `path` on
+ * sections/videos — so a flat `list` row exposes whichever raw column it
+ * happens to have and an agent that asks for `.name` gets nothing. `tree`
+ * already papers over this by synthesising a `name` per level; `displayName`
+ * is that same normalisation as a reusable function so flat `list` output can
+ * carry a uniform `name` too. Precedence mirrors the tree builders: a real
+ * `name`, else a non-empty `title`, else `path` (lesson: title-then-path).
+ *
+ * Returns null only when a row genuinely has no label-bearing field.
+ */
+export const displayName = (row: unknown): string | null => {
+  const r = (row ?? {}) as Record<string, unknown>;
+  const pick = (v: unknown): string | null =>
+    typeof v === "string" && v !== "" ? v : null;
+  return pick(r.name) ?? pick(r.title) ?? pick(r.path);
+};
+
+/** Spread `row` and prepend a normalised `name` (see {@link displayName}). */
+export const withName = <T>(row: T): T & { name: string | null } => ({
+  name: displayName(row),
+  ...row,
+});
+
+// ---------------------------------------------------------------------------
 // Output emitters
 // ---------------------------------------------------------------------------
 

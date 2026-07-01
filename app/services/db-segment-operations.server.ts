@@ -34,15 +34,17 @@ export const createSegmentOperations = (db: Database) => {
 
   /**
    * Create a Segment in the Video's plan, with the given `title` (default
-   * empty) and `kind` (defaulting to Definition). `beforeSegmentId` anchors the
-   * new Segment immediately before that one; `null`/absent appends to the end.
-   * Mirrors the fractional-key positioning of {@link moveSegment}.
+   * empty), `kind` (defaulting to Definition) and free-text `description`
+   * (default empty). `beforeSegmentId` anchors the new Segment immediately
+   * before that one; `null`/absent appends to the end. Mirrors the
+   * fractional-key positioning of {@link moveSegment}.
    */
   const createSegment = Effect.fn("createSegment")(function* (
     videoId: string,
     kind: SegmentKind = DEFAULT_SEGMENT_KIND,
     beforeSegmentId: string | null = null,
-    title: string = ""
+    title: string = "",
+    description: string = ""
   ) {
     const existing = yield* listSegmentsByVideoId(videoId);
 
@@ -72,6 +74,7 @@ export const createSegmentOperations = (db: Database) => {
           videoId,
           kind,
           title,
+          description,
           order: order!,
         })
         .returning()
@@ -187,6 +190,7 @@ export const createSegmentOperations = (db: Database) => {
 
   return {
     listSegmentsByVideoId,
+    getSegmentById: requireSegment,
     createSegment,
     renameSegment,
     setSegmentDescription,

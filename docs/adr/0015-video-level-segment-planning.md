@@ -22,3 +22,7 @@ A Segment is a new first-class entity with a mutable parent **Video** FK, a requ
 - `pitches.contentPlan` is retired (no longer written). Where non-empty it is shown read-only in the UI as a transitional reference, then dropped later.
 - Segments **hard-delete** rather than archive — a deliberate exception to this app's archive-everything norm, justified because a Segment has no published footprint, no changelog history, and nothing downstream depends on it.
 - The compact course view gains a text tree (lesson → videos → segments); the expanded view keeps its thumbnail grid and shows no segments. Segments are authored via the existing video context menu (five kind choices, each with a distinct icon) and renamed inline.
+
+## Divergence from implementation (soft-delete, not hard-delete)
+
+> **Flagged, not silently overridden** (per `docs/agents/domain.md`). The hard-delete decision above was **not** realised in code: `deleteSegment` in `app/services/db-segment-operations.server.ts` sets `archived: true`, and `listSegmentsByVideoId` filters on `archived: false`. In practice a deleted Segment is soft-deleted (archived) — it is filtered out of every read and can never be re-addressed, so it is functionally equivalent to a delete, but the row survives. The `cvm segment delete` help text and `CONTEXT.md` describe this implemented soft-delete behaviour. This ADR's "hard-delete" wording is therefore stale; resolving it (either changing the code to hard-delete, or amending this decision) is left as a follow-up.

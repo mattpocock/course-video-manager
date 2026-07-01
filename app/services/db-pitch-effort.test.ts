@@ -92,12 +92,15 @@ describe("effort field", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const p1 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p1.id, "title", "E1");
       yield* pitchOps.updatePitchField(p1.id, "effort", 1);
 
       const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "E2");
       yield* pitchOps.updatePitchField(p2.id, "effort", 2);
 
       const p3 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p3.id, "title", "E3");
       yield* pitchOps.updatePitchField(p3.id, "effort", 3);
 
       const lowOnly = yield* pitchOps.listPitches({ effort: [1] });
@@ -113,14 +116,17 @@ describe("effort field", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const p1 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p1.id, "title", "P1E1");
       yield* pitchOps.updatePitchField(p1.id, "priority", 1);
       yield* pitchOps.updatePitchField(p1.id, "effort", 1);
 
       const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "P1E3");
       yield* pitchOps.updatePitchField(p2.id, "priority", 1);
       yield* pitchOps.updatePitchField(p2.id, "effort", 3);
 
       const p3 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p3.id, "title", "P2E1");
       yield* pitchOps.updatePitchField(p3.id, "priority", 2);
       yield* pitchOps.updatePitchField(p3.id, "effort", 1);
 
@@ -138,8 +144,10 @@ describe("effort field", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const p1 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p1.id, "title", "A");
       yield* pitchOps.updatePitchField(p1.id, "effort", 1);
       const p2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p2.id, "title", "B");
       yield* pitchOps.updatePitchField(p2.id, "effort", 3);
 
       const list = yield* pitchOps.listPitches({ effort: [] });

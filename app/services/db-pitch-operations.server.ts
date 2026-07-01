@@ -7,7 +7,7 @@ import {
   NotFoundError,
   UnknownDBServiceError,
 } from "@/services/db-service-errors";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 
 export type PitchState = "idle" | "scheduled" | "shipped";
@@ -33,7 +33,10 @@ export const createPitchOperations = (db: Database) => {
     effort?: number[];
     archived?: boolean;
   }) => {
-    const conditions = [eq(pitches.archived, filters?.archived ?? false)];
+    const conditions = [
+      eq(pitches.archived, filters?.archived ?? false),
+      gt(pitches.title, ""),
+    ];
     if (filters?.priority && filters.priority.length > 0) {
       conditions.push(inArray(pitches.priority, filters.priority));
     }

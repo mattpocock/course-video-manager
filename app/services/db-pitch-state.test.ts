@@ -55,7 +55,8 @@ describe("state derivation via listPitches", () => {
   it.effect("pitch with no linked deliverable → idle", () =>
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
-      yield* pitchOps.createPitch();
+      const p = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(p.id, "title", "Idle pitch");
 
       const list = yield* pitchOps.listPitches();
       expect(list).toHaveLength(1);
@@ -67,6 +68,7 @@ describe("state derivation via listPitches", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "Scheduled pitch");
       const del = yield* Effect.promise(() =>
         seedDeliverable(testDb, { status: "planned" })
       );
@@ -83,6 +85,7 @@ describe("state derivation via listPitches", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "Shipped pitch");
       const del = yield* Effect.promise(() =>
         seedDeliverable(testDb, { status: "done" })
       );
@@ -99,6 +102,7 @@ describe("state derivation via listPitches", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "Mixed pitch");
       const d1 = yield* Effect.promise(() =>
         seedDeliverable(testDb, { status: "done" })
       );
@@ -121,6 +125,7 @@ describe("state derivation via listPitches", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "Cancelled pitch");
       const del = yield* Effect.promise(() =>
         seedDeliverable(testDb, { status: "cancelled" })
       );
@@ -137,6 +142,7 @@ describe("state derivation via listPitches", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "Archived pitch");
       yield* pitchOps.updatePitchField(pitch.id, "archived", true);
 
       const list = yield* pitchOps.listPitches();
@@ -184,7 +190,8 @@ describe("state derivation via listPitches", () => {
     Effect.gen(function* () {
       const pitchOps = yield* PitchOperationsService;
 
-      yield* pitchOps.createPitch();
+      const pIdle2 = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pIdle2.id, "title", "Idle");
 
       const pShipped = yield* pitchOps.createPitch();
       yield* pitchOps.updatePitchField(pShipped.id, "title", "Shipped");
@@ -233,6 +240,7 @@ describe("state derivation via listPitchesWithVideos", () => {
       const pitchOps = yield* PitchOperationsService;
 
       const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "With video");
       yield* pitchOps.createVideoFromPitch(pitch.id);
       const del = yield* Effect.promise(() =>
         seedDeliverable(testDb, { status: "planned" })
