@@ -13,6 +13,7 @@ import {
 import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { copyVideoImpl } from "@/services/db-video-operations.copy.server";
+import { createVideoWriteOps } from "@/services/db-video-operations.write.server";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -721,6 +722,7 @@ export const createVideoOperations = (
     updateVideoPath,
     copyVideo,
     updateVideoLesson,
+    ...createVideoWriteOps(db),
     updateVideoArchiveStatus,
     getNextVideoId,
     getPreviousVideoId,
