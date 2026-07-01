@@ -995,6 +995,32 @@ describe("search", () => {
       ]);
       expect(exitCode).toBe(2);
     });
+
+    it("archived section root => exit 2 NotFoundError", async () => {
+      const { stderr, exitCode } = await run([
+        "section",
+        "search",
+        s.archivedSectionId,
+        "x",
+      ]);
+      expect(exitCode).toBe(2);
+      const err = JSON.parse(stderr);
+      expect(err._tag).toBe("NotFoundError");
+      expect(err.entity).toBe("section");
+    });
+
+    it("archived lesson root => exit 2 NotFoundError", async () => {
+      const { stderr, exitCode } = await run([
+        "lesson",
+        "search",
+        s.archivedLessonId,
+        "x",
+      ]);
+      expect(exitCode).toBe(2);
+      const err = JSON.parse(stderr);
+      expect(err._tag).toBe("NotFoundError");
+      expect(err.entity).toBe("lesson");
+    });
   });
 
   describe("literal matching: SQL wildcards are escaped", () => {

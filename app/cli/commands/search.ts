@@ -150,26 +150,19 @@ export const searchCommand = Command.make(
   ({ query, type }) => runSearch("top", "", query, type)
 ).pipe(Command.withDescription(detail(TOP_HELP)));
 
-export const courseSearchCmd = Command.make(
-  "search",
-  { id: scopeId, query, type: typeOpt },
-  ({ id, query, type }) => runSearch("course", id, query, type)
-).pipe(
-  Command.withDescription(detail(scopedHelp("course", APPLICABLE.course)))
-);
+/**
+ * The three scoped `search` verbs (`cvm course|section|lesson search`) differ
+ * only by their scope literal — same args, same handler, same help shape — so
+ * one factory builds all three. Each is re-exported under the name the owning
+ * noun command imports.
+ */
+const makeScopedSearchCmd = (scope: "course" | "section" | "lesson") =>
+  Command.make(
+    "search",
+    { id: scopeId, query, type: typeOpt },
+    ({ id, query, type }) => runSearch(scope, id, query, type)
+  ).pipe(Command.withDescription(detail(scopedHelp(scope, APPLICABLE[scope]))));
 
-export const sectionSearchCmd = Command.make(
-  "search",
-  { id: scopeId, query, type: typeOpt },
-  ({ id, query, type }) => runSearch("section", id, query, type)
-).pipe(
-  Command.withDescription(detail(scopedHelp("section", APPLICABLE.section)))
-);
-
-export const lessonSearchCmd = Command.make(
-  "search",
-  { id: scopeId, query, type: typeOpt },
-  ({ id, query, type }) => runSearch("lesson", id, query, type)
-).pipe(
-  Command.withDescription(detail(scopedHelp("lesson", APPLICABLE.lesson)))
-);
+export const courseSearchCmd = makeScopedSearchCmd("course");
+export const sectionSearchCmd = makeScopedSearchCmd("section");
+export const lessonSearchCmd = makeScopedSearchCmd("lesson");

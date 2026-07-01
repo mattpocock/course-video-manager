@@ -117,6 +117,9 @@ export interface SearchParams {
 // Matching + snippet helpers (module-scoped, query-parameterised via closures)
 // ---------------------------------------------------------------------------
 
+/** A matched field name paired with a snippet excerpt drawn from its value. */
+type FieldMatch = { field: string; snippet: string };
+
 /** Chars that are wildcards inside a LIKE/ILIKE pattern; escaped to stay literal. */
 const escapeLike = (q: string): string => q.replace(/[\\%_]/g, (c) => `\\${c}`);
 
@@ -230,7 +233,7 @@ export const createSearchOperations = (db: Database) => {
     /** First matching field of an ordered [field, value] list, with snippet. */
     const firstMatch = (
       fields: ReadonlyArray<readonly [string, string]>
-    ): { field: string; snippet: string } | null => {
+    ): FieldMatch | null => {
       for (const [field, value] of fields) {
         if (matches(value)) return { field, snippet: snippet(value) };
       }
@@ -341,24 +344,26 @@ export const createSearchOperations = (db: Database) => {
     // -- Transcript matching (SQL): which in-scope videos have a matching clip
     //    or chapter, plus a snippet drawn from the first matching clip. --------
 
-    const collectVideoIds = (secs: SectionNode[], lone: LessonNode | null) => {
+    // Gather every in-scope video id across all three tree shapes we may have
+    // populated above: a scoped subtree (`sectionNodes`), a lone lesson root
+    // (`lessonRoot`), or the top-level per-course sections (`courseHeads`). Only
+    // one of these is non-empty for any given call; reading all three from the
+    // closure keeps the collector's inputs explicit rather than half-passed.
+    const collectVideoIds = (): string[] => {
       const ids: string[] = [];
-      for (const sec of secs)
+      for (const sec of sectionNodes)
         for (const les of sec.lessons)
           for (const v of les.videos) ids.push(v.id);
-      if (lone) for (const v of lone.videos) ids.push(v.id);
-      for (const { sections: secs2 } of courseHeads)
-        for (const sec of secs2)
+      if (lessonRoot) for (const v of lessonRoot.videos) ids.push(v.id);
+      for (const { sections: secs } of courseHeads)
+        for (const sec of secs)
           for (const les of sec.lessons)
             for (const v of les.videos) ids.push(v.id);
       return ids;
     };
 
-    const videoIds = collectVideoIds(sectionNodes, lessonRoot);
-    const transcriptMatch = new Map<
-      string,
-      { field: string; snippet: string }
-    >();
+    const videoIds = collectVideoIds();
+    const transcriptMatch = new Map<string, FieldMatch>();
 
     if (videoIds.length > 0 && types.has("video")) {
       const clipRows = yield* makeDbCall(() =>
