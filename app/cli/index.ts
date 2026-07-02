@@ -19,9 +19,9 @@ import { searchCommand } from "./commands/search";
 const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager project's domain data.
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
-'segment' (add/update/move/delete), 'lesson' (create), 'video' (create/move/
-update) and 'pitch' (create/update). Every other verb is read-only, and each
-verb's own --help is authoritative about whether it reads or writes.
+'segment' (add/update/move/delete), 'lesson' (create/update/move), 'video'
+(create/move/update) and 'pitch' (create/update). Every other verb is read-only,
+and each verb's own --help is authoritative about whether it reads or writes.
 
 DOMAIN MODEL
   A Course is the primary entity. Its structure is snapshotted into Course
@@ -60,7 +60,8 @@ WRITES
   any positional <id> (a flag after it exits 3). The write surface:
     segment add/update/move/delete   author a Video's Segment plan
                                      (add --pitch <id> targets a pitch's video)
-    lesson  create                   create a GHOST lesson in a Section
+    lesson  create/update/move       create a GHOST lesson, rename its title,
+                                     or reorder / re-home it (DB↔disk in sync)
     video   create/move/update       create a Video, re-home it to a lesson/
                                      pitch, or rename it (--name)
     pitch   create/update            create a Pitch (--title required) or patch

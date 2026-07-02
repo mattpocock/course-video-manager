@@ -9,6 +9,7 @@ import { SegmentOperationsService } from "@/services/db-segment-operations.serve
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
+import { CourseWriteService } from "@/services/course-write-service";
 import type { TestDb } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import { buildProgram } from "@/cli/main";
@@ -38,7 +39,8 @@ export const buildWriteLayer = (db: TestDb) =>
     SegmentOperationsService.Default,
     PitchOperationsService.Default,
     DeliverableOperationsService.Default,
-    SearchOperationsService.Default
+    SearchOperationsService.Default,
+    CourseWriteService.Default
   ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)));
 
 /** A run() bound to a specific captured-output layer. */

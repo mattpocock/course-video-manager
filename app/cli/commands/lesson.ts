@@ -2,7 +2,9 @@ import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { lessonSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { CourseWriteService } from "@/services/course-write-service";
 import { toSlug } from "@/services/lesson-path-service";
 import {
   detail,
@@ -14,6 +16,39 @@ import {
   rejectBothFlags,
   withName,
 } from "@/cli/helpers";
+
+/**
+ * Refuse a write that targets a PUBLISHED (frozen) version.
+ *
+ * A course's Draft is simply its latest version (newest `createdAt`); every
+ * older version is a frozen snapshot that Publish left behind, and mutating one
+ * would silently corrupt history. Structural writes (`create`, `update`,
+ * `move`) all gate on this so a stale id can never edit a snapshot. `repoId` +
+ * `versionId` come off any lesson/section hierarchy (`repoVersion.repoId`,
+ * `repoVersionId`). Rejection is invalid-input (exit 3), not not-found — the id
+ * resolves fine, it just isn't editable.
+ */
+const assertDraftVersion = (coords: { repoId: string; versionId: string }) =>
+  Effect.gen(function* () {
+    const versionOps = yield* VersionOperationsService;
+    const latest = yield* versionOps.getLatestCourseVersion(coords.repoId);
+    if (!latest || latest.id !== coords.versionId) {
+      return yield* parseError(
+        "cannot edit a published version — edits go to the Draft " +
+          "(the course's latest version)",
+        "lesson"
+      );
+    }
+  });
+
+/** Draft guard for a lesson resolved via `getLessonWithHierarchyById`. */
+const assertDraftLesson = (lesson: {
+  section: { repoVersionId: string; repoVersion: { repoId: string } };
+}) =>
+  assertDraftVersion({
+    repoId: lesson.section.repoVersion.repoId,
+    versionId: lesson.section.repoVersionId,
+  });
 
 /**
  * `lesson` — read Lessons, the leaf authoring unit of a Course.
@@ -62,8 +97,16 @@ VERBS
   tree <id> [--depth N] Skeleton tree lesson -> videos -> clips.
   create --section <id> --title <t> [--before|--after <lessonId>]
                         Create a GHOST lesson in a Section (WRITE).
+  update <id> --title <t>
+                        Rename a lesson's display title (WRITE; slug unchanged).
+  move <id> [--section <id>] [--before|--after <lessonId>]
+                        Reorder within a section, or re-home to another (WRITE).
   search <id> <query>   Substring search down this lesson's subtree
                         (--type lesson|video|segment).
+
+WRITES honour DB↔disk correctness: reordering or moving a REAL (on-disk) lesson
+renumbers folder prefixes and git-moves directories, so those verbs need the
+course repo checked out. Writes only ever target the Draft (latest) version.
 
 EXAMPLES
   cvm lesson list --section sec_123
@@ -147,6 +190,45 @@ as one pretty JSON object.
 Examples:
   cvm lesson create --section sec_123 --title "Intro to Effect"
   cvm lesson create --section sec_123 --title "Setup" --before les_abc`;
+
+const UPDATE_HELP = `Rename a lesson's display TITLE by id. Requires --title <t> (an update with an
+empty title is invalid input, exit 3).
+
+This changes the human-readable 'title' only — the lesson's 'path' (its slug and,
+for a real lesson, its on-disk folder name) is deliberately left untouched, so
+renaming never moves a URL or a directory. Editing a lesson in a published
+(frozen) version is refused (exit 3); edits go to the Draft.
+
+Echoes the updated lesson with its Section/Version/Repo hierarchy (as 'get').
+
+Examples:
+  cvm lesson update les_abc --title "A clearer title"`;
+
+const MOVE_HELP = `Reposition a lesson: reorder it within its Section, or re-home it to another.
+
+  cvm lesson move <id> [--section <id>] [--before|--after <lessonId>]
+
+  --section <id>       destination Section (omit to reorder within the lesson's
+                       current section).
+  --before <lessonId>  place immediately before that lesson.
+  --after  <lessonId>  place immediately after that lesson.
+                       (omit both anchors to append to the end of the section.)
+
+--before/--after are mutually exclusive. Within-section, the anchor must be a
+sibling; cross-section, it must live in the destination section — otherwise
+not-found (exit 2). Editing a published (frozen) version is refused (exit 3).
+
+CORRECTNESS: moving/reordering a REAL (on-disk) lesson renumbers folder prefixes
+and git-moves directories to keep the DB and repo in lockstep, so the course repo
+must be checked out. Ghost (planned) lessons are a pure DB update.
+
+Echoes the moved lesson with its Section/Version/Repo hierarchy (as 'get').
+
+Examples:
+  cvm lesson move les_abc --before les_def          # reorder within section
+  cvm lesson move les_abc --after les_def           # reorder within section
+  cvm lesson move les_abc --section sec_9            # append to another section
+  cvm lesson move les_abc --section sec_9 --before les_ghi`;
 
 // ---------------------------------------------------------------------------
 // list --section <id>
@@ -312,11 +394,17 @@ const createCmd = Command.make(
       const svc = yield* LessonSectionOperationsService;
 
       // Section must exist (clean exit 2 instead of an FK violation, exit 4).
-      yield* svc
+      const targetSection = yield* svc
         .getSectionWithHierarchyById(section)
         .pipe(
           Effect.catchTag("NotFoundError", () => notFound("section", section))
         );
+
+      // Writes only ever target the Draft — never a frozen published snapshot.
+      yield* assertDraftVersion({
+        repoId: targetSection.repoVersion.repoId,
+        versionId: targetSection.repoVersionId,
+      });
 
       const siblings = yield* svc.getLessonsBySectionId(section);
       const maxOrder =
@@ -357,6 +445,157 @@ const createCmd = Command.make(
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 // ---------------------------------------------------------------------------
+// update <id> --title <t>
+// ---------------------------------------------------------------------------
+
+const updateId = Args.text({ name: "id" });
+const updateTitle = Options.text("title").pipe(
+  Options.withDescription(
+    "The lesson's new display title (the slug/path is left unchanged)."
+  )
+);
+
+const updateCmd = Command.make(
+  "update",
+  { id: updateId, title: updateTitle },
+  ({ id, title }) =>
+    Effect.gen(function* () {
+      if (title.trim().length === 0) {
+        return yield* parseError("update needs a non-empty --title", "lesson");
+      }
+
+      const svc = yield* LessonSectionOperationsService;
+
+      // Resolve the lesson (with hierarchy for the Draft guard); archived and
+      // absent both read as not-found (exit 2), matching `get`.
+      const lesson = yield* svc
+        .getLessonWithHierarchyById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("lesson", id)));
+      if (lesson.archived) return yield* notFound("lesson", id);
+
+      yield* assertDraftLesson(lesson);
+
+      // Title-only patch: no path change, so the per-section slug guard never
+      // fires and no on-disk folder moves — a rename is a pure metadata write.
+      yield* svc.updateLesson(id, { title });
+
+      const updated = yield* svc.getLessonWithHierarchyById(id);
+      yield* emitObject(updated);
+    })
+).pipe(Command.withDescription(detail(UPDATE_HELP)));
+
+// ---------------------------------------------------------------------------
+// move <id> [--section <id>] [--before|--after <lessonId>]
+// ---------------------------------------------------------------------------
+
+const moveId = Args.text({ name: "id" });
+const moveSection = Options.text("section").pipe(
+  Options.withDescription(
+    "Destination Section id (omit to reorder within the current section)."
+  ),
+  Options.optional
+);
+const moveBefore = Options.text("before").pipe(
+  Options.withDescription(
+    "Place immediately before this lesson id (mutually exclusive with --after)."
+  ),
+  Options.optional
+);
+const moveAfter = Options.text("after").pipe(
+  Options.withDescription(
+    "Place immediately after this lesson id (mutually exclusive with --before)."
+  ),
+  Options.optional
+);
+
+const moveCmd = Command.make(
+  "move",
+  { id: moveId, section: moveSection, before: moveBefore, after: moveAfter },
+  ({ id, section, before, after }) =>
+    Effect.gen(function* () {
+      const b = Option.getOrUndefined(before);
+      const a = Option.getOrUndefined(after);
+      yield* rejectBothFlags({
+        a: b,
+        b: a,
+        flags: ["--before", "--after"],
+        entity: "lesson",
+      });
+      const anchorId = b ?? a;
+
+      const svc = yield* LessonSectionOperationsService;
+      const writes = yield* CourseWriteService;
+
+      // The lesson being moved must exist, be active, and live in the Draft.
+      const lesson = yield* svc
+        .getLessonWithHierarchyById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("lesson", id)));
+      if (lesson.archived) return yield* notFound("lesson", id);
+      yield* assertDraftLesson(lesson);
+
+      if (anchorId === id) {
+        return yield* parseError(
+          "a lesson cannot be moved relative to itself",
+          "lesson"
+        );
+      }
+
+      const currentSectionId = lesson.sectionId;
+      const targetSectionId = Option.getOrUndefined(section) ?? currentSectionId;
+
+      // A cross-section destination must exist AND belong to the same version —
+      // a lesson can only move among its own version's sections.
+      if (targetSectionId !== currentSectionId) {
+        const target = yield* svc
+          .getSectionWithHierarchyById(targetSectionId)
+          .pipe(
+            Effect.catchTag("NotFoundError", () =>
+              notFound("section", targetSectionId)
+            )
+          );
+        if (target.repoVersionId !== lesson.section.repoVersionId) {
+          return yield* notFound("section", targetSectionId);
+        }
+      }
+
+      if (targetSectionId === currentSectionId) {
+        // -- Same-section reorder. planLessonMove no-ops a same-section move, so
+        // reordering goes through reorderLessons with the full desired id list:
+        // drop the lesson, reinsert it at the anchor (append when no anchor).
+        const siblings = yield* svc.getLessonsBySectionId(currentSectionId);
+        const rest = siblings.filter((l) => l.id !== id);
+        let insertAt = rest.length;
+        if (anchorId !== undefined) {
+          const idx = rest.findIndex((l) => l.id === anchorId);
+          if (idx === -1) return yield* notFound("lesson", anchorId);
+          insertAt = a !== undefined ? idx + 1 : idx;
+        }
+        const newOrderIds = [
+          ...rest.slice(0, insertAt).map((l) => l.id),
+          id,
+          ...rest.slice(insertAt).map((l) => l.id),
+        ];
+        yield* writes.reorderLessons(currentSectionId, newOrderIds);
+      } else {
+        // -- Cross-section move. moveToSection anchors on a `beforeLessonId`;
+        // translate --after into "before the anchor's successor" (null = append).
+        const targetLessons = yield* svc.getLessonsBySectionId(targetSectionId);
+        let beforeLessonId: string | null = null;
+        if (anchorId !== undefined) {
+          const idx = targetLessons.findIndex((l) => l.id === anchorId);
+          if (idx === -1) return yield* notFound("lesson", anchorId);
+          beforeLessonId =
+            a !== undefined ? (targetLessons[idx + 1]?.id ?? null) : anchorId;
+        }
+        yield* writes.moveToSection(id, targetSectionId, beforeLessonId);
+      }
+
+      const moved = yield* svc.getLessonWithHierarchyById(id);
+      yield* emitObject(moved);
+    })
+).pipe(Command.withDescription(detail(MOVE_HELP)));
+
+// ---------------------------------------------------------------------------
 // lesson (parent)
 // ---------------------------------------------------------------------------
 
@@ -367,6 +606,8 @@ export const lessonCommand = Command.make("lesson").pipe(
     getCmd,
     treeCmd,
     createCmd,
+    updateCmd,
+    moveCmd,
     lessonSearchCmd,
   ])
 );

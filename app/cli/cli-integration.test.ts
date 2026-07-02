@@ -10,6 +10,7 @@ import { SegmentOperationsService } from "@/services/db-segment-operations.serve
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
+import { CourseWriteService } from "@/services/course-write-service";
 import {
   createTestDb,
   truncateAllTables,
@@ -42,6 +43,7 @@ let cliTestLayer: Layer.Layer<
   | PitchOperationsService
   | DeliverableOperationsService
   | SearchOperationsService
+  | CourseWriteService
 >;
 
 // Mirror app/cli/layer.ts `cliLayer`, which uses `provideMerge` so the runtime
@@ -58,7 +60,8 @@ const buildLayerFor = (db: TestDb) =>
     SegmentOperationsService.Default,
     PitchOperationsService.Default,
     DeliverableOperationsService.Default,
-    SearchOperationsService.Default
+    SearchOperationsService.Default,
+    CourseWriteService.Default
   ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as any)));
 
 interface RunResult {

@@ -9,17 +9,26 @@ import { SegmentOperationsService } from "@/services/db-segment-operations.serve
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
+import { CourseWriteService } from "@/services/course-write-service";
 
 /**
- * READ-ONLY layer for the `cvm` CLI. Mirrors app/services/layer.server.ts but
- * is DELIBERATELY narrowed to the read-operations services, provided over
- * DrizzleService.Default.
+ * Service layer for the `cvm` CLI. Mostly the read-operations services, provided
+ * over DrizzleService.Default.
  *
- * Write/publish services (CourseRepoWriteService, CoursePublishService,
- * CourseRepoParserService, CourseWriteService, ...) are intentionally OUT OF
- * SCOPE — the CLI is read-only by construction.
+ * WRITES. The CLI is read-mostly, but a handful of write verbs exist (lesson
+ * create/update/move, video create/move/update, pitch/segment authoring). Field
+ * edits with no on-disk coupling (a title, a link) go straight through the
+ * DB-operations services. Structural edits that MUST stay in sync with the
+ * course repo on disk — reordering or moving a REAL lesson renumbers folder
+ * prefixes and `git mv`s directories — route through CourseWriteService, the
+ * same disk-aware orchestrator the web app uses. Correctness (DB + disk in
+ * lockstep) is the rule for every write verb; the CLI does not get a DB-only
+ * shortcut that would silently diverge the two.
  *
- * The 8 services here cover all 10 nouns:
+ * Publish-only services (CoursePublishService, CourseRepoParserService, ...)
+ * remain out of scope.
+ *
+ * The read services cover all 10 nouns:
  *   course        -> CourseOperationsService
  *   version       -> VersionOperationsService
  *   section       -> LessonSectionOperationsService
@@ -44,7 +53,11 @@ export const cliLayer = Layer.mergeAll(
   SegmentOperationsService.Default,
   PitchOperationsService.Default,
   DeliverableOperationsService.Default,
-  SearchOperationsService.Default
+  SearchOperationsService.Default,
+  // Disk-aware write orchestrator for structural lesson edits (reorder / move).
+  // Its transitive deps (repo-write, sync-validation, NodeFileSystem) close
+  // under DrizzleService below; git/fs are only touched when a real lesson moves.
+  CourseWriteService.Default
 ).pipe(Layer.provideMerge(DrizzleService.Default));
 
 /**
