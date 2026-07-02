@@ -51,6 +51,10 @@ interface MoveSeed {
   draftVersionId: string;
   sectionAId: string;
   sectionBId: string;
+  /** An archived (deleted) section in the Draft version. */
+  archivedSectionId: string;
+  /** A section in the OLDER (frozen) version. */
+  oldSectionId: string;
   /** Section A ghost lessons, in seeded order. */
   a1: string;
   a2: string;
@@ -118,6 +122,16 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
   const a3 = await addGhost(db, sectionA!.id, "a-three", "A Three", 3);
   const b1 = await addGhost(db, sectionB!.id, "b-one", "B One", 1);
 
+  const [archivedSection] = await db
+    .insert(schema.sections)
+    .values({
+      repoVersionId: draftVersion!.id,
+      path: "03-gone",
+      order: 3,
+      archivedAt: new Date("2024-05-01T00:00:00Z"),
+    })
+    .returning();
+
   const [oldSection] = await db
     .insert(schema.sections)
     .values({ repoVersionId: oldVersion!.id, path: "01-old", order: 1 })
@@ -135,6 +149,8 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
     draftVersionId: draftVersion!.id,
     sectionAId: sectionA!.id,
     sectionBId: sectionB!.id,
+    archivedSectionId: archivedSection!.id,
+    oldSectionId: oldSection!.id,
     a1,
     a2,
     a3,
@@ -336,6 +352,31 @@ describe("lesson move (cross-section)", () => {
       s.a1,
     ]);
     expect(exitCode).toBe(2);
+  });
+
+  it("reports an archived destination section as not-found (exit 2)", async () => {
+    const { exitCode } = await run([
+      "lesson",
+      "move",
+      "--section",
+      s.archivedSectionId,
+      s.a1,
+    ]);
+    expect(exitCode).toBe(2);
+    // and the lesson must NOT have moved.
+    expect(await orderOf(s.sectionAId)).toEqual([s.a1, s.a2, s.a3]);
+  });
+
+  it("reports a destination section in another version as not-found (exit 2)", async () => {
+    const { exitCode } = await run([
+      "lesson",
+      "move",
+      "--section",
+      s.oldSectionId, // exists, but in the frozen older version
+      s.a1,
+    ]);
+    expect(exitCode).toBe(2);
+    expect(await orderOf(s.sectionAId)).toEqual([s.a1, s.a2, s.a3]);
   });
 
   it("refuses to move a lesson in a published version (exit 3)", async () => {

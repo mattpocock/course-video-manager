@@ -543,8 +543,12 @@ const moveCmd = Command.make(
       const currentSectionId = lesson.sectionId;
       const targetSectionId = Option.getOrUndefined(section) ?? currentSectionId;
 
-      // A cross-section destination must exist AND belong to the same version —
-      // a lesson can only move among its own version's sections.
+      // A cross-section destination must exist, be active, AND belong to the
+      // same version — a lesson can only move among its own version's sections.
+      // getSectionWithHierarchyById is unfiltered, but the move planner builds
+      // its model from the archived-filtered section set, so an archived target
+      // would otherwise slip past here and silently plan a no-op (false
+      // success). Reject it as not-found, like every other unaddressable id.
       if (targetSectionId !== currentSectionId) {
         const target = yield* svc
           .getSectionWithHierarchyById(targetSectionId)
@@ -553,7 +557,10 @@ const moveCmd = Command.make(
               notFound("section", targetSectionId)
             )
           );
-        if (target.repoVersionId !== lesson.section.repoVersionId) {
+        if (
+          target.archivedAt !== null ||
+          target.repoVersionId !== lesson.section.repoVersionId
+        ) {
           return yield* notFound("section", targetSectionId);
         }
       }
