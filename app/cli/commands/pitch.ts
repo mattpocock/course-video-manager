@@ -46,7 +46,7 @@ RANKING FIELDS
                overrides priority across bands.
 
 COPY FIELDS
-  title, description, contentPlan, youtubeTitle, youtubeThumbnailDescription,
+  title, description, youtubeTitle, youtubeThumbnailDescription,
   newsletterTitle, tweet — the packaging copy authored ahead of recording.
 
 VERBS
@@ -77,7 +77,7 @@ map title -> id and read state in a single call:
   - state       — derived Pitch State: idle | scheduled | shipped (see below).
   - priority    — triage rank (integer; lower sorts first).
   - effort      — 1 low | 2 medium | 3 high.
-  - description, contentPlan, youtubeTitle, youtubeThumbnailDescription,
+  - description, youtubeTitle, youtubeThumbnailDescription,
     newsletterTitle, tweet — the packaging copy.
   - archived    — always false here (archived pitches are filtered out).
   - createdAt, updatedAt.
@@ -112,7 +112,7 @@ deep relations:
                  * clips    — recorded-timeline Clips (active, ordered).
                  * segments — the video's planning Segments (active, ordered):
                               {id, kind, title, description, order, videoId}.
-The packaging copy fields (title, description, contentPlan, youtubeTitle,
+The packaging copy fields (title, description, youtubeTitle,
 youtubeThumbnailDescription, newsletterTitle, tweet) and ranking fields
 (priority, effort) are included on the pitch itself.
 
@@ -131,7 +131,6 @@ defaults ("" for copy; priority 2; effort 2). Echoes the created pitch row.
 Flags:
   --title <t>              (required) the pitch title / packaging headline.
   --description <t>        free-text description.
-  --content-plan <t>       the content plan.
   --youtube-title <t>      YouTube title copy.
   --youtube-thumbnail <t>  YouTube thumbnail concept (youtubeThumbnailDescription).
   --newsletter-title <t>   newsletter title copy.
@@ -148,7 +147,7 @@ const UPDATE_HELP = `Patch a Pitch's copy/ranking fields by id. At least one fie
 change; the rest are left untouched. Renaming is just --title.
 
 Flags (all optional; same meanings as 'pitch create'):
-  --title, --description, --content-plan, --youtube-title, --youtube-thumbnail,
+  --title, --description, --youtube-title, --youtube-thumbnail,
   --newsletter-title, --tweet, --priority <n>, --effort <1|2|3>.
 
 An unknown or archived (deleted) pitch id is a not-found (exit 2). Flags must
@@ -161,6 +160,19 @@ Examples:
 // ---------------------------------------------------------------------------
 // Verbs
 // ---------------------------------------------------------------------------
+
+/**
+ * Strip the retired `contentPlan` column from an emitted pitch row. Per
+ * ADR 0015 the field is no longer written and lives on only as a read-only
+ * transitional reference in the web UI; the CLI neither writes nor surfaces it,
+ * so every pitch we emit (list / get) drops it here.
+ */
+const stripContentPlan = <T extends { contentPlan?: unknown }>(
+  row: T
+): Omit<T, "contentPlan"> => {
+  const { contentPlan: _contentPlan, ...rest } = row;
+  return rest;
+};
 
 const stateOption = Options.choice("state", [
   "idle",
@@ -180,7 +192,7 @@ const listCmd = Command.make("list", { state: stateOption }, ({ state }) =>
     const rows = yield* svc.listPitches(
       stateFilter ? { state: [stateFilter] } : undefined
     );
-    yield* emitNdjson(rows.map(withName));
+    yield* emitNdjson(rows.map((row) => withName(stripContentPlan(row))));
   })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
@@ -198,7 +210,12 @@ const getCmd = Command.make("get", { ids }, ({ ids }) =>
           Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)),
           // Archived pitches are deleted-equivalent (ALWAYS hidden, no flag):
           // treat an archived row as absent so emitGet renders NotFound + exit 2.
-          Effect.map((pitch) => (pitch?.archived ? undefined : pitch))
+          // The retired contentPlan column is stripped from what we surface.
+          Effect.map((pitch) =>
+            pitch === undefined || pitch.archived
+              ? undefined
+              : stripContentPlan(pitch)
+          )
         )
       ),
   })
@@ -215,7 +232,6 @@ const optText = (name: string, description: string) =>
   );
 
 const descriptionOption = optText("description", "Free-text description.");
-const contentPlanOption = optText("content-plan", "The content plan.");
 const youtubeTitleOption = optText("youtube-title", "YouTube title copy.");
 const youtubeThumbnailOption = optText(
   "youtube-thumbnail",
@@ -239,7 +255,6 @@ const effortOption = Options.choice("effort", ["1", "2", "3"]).pipe(
 
 const copyOptions = {
   description: descriptionOption,
-  contentPlan: contentPlanOption,
   youtubeTitle: youtubeTitleOption,
   youtubeThumbnailDescription: youtubeThumbnailOption,
   newsletterTitle: newsletterTitleOption,
@@ -250,7 +265,6 @@ const copyOptions = {
 
 interface PitchFieldOpts {
   readonly description: Option.Option<string>;
-  readonly contentPlan: Option.Option<string>;
   readonly youtubeTitle: Option.Option<string>;
   readonly youtubeThumbnailDescription: Option.Option<string>;
   readonly newsletterTitle: Option.Option<string>;
@@ -268,7 +282,6 @@ const collectPitchFields = (opts: PitchFieldOpts): PitchFields => {
   const effort = Option.getOrUndefined(opts.effort);
   return {
     description: Option.getOrUndefined(opts.description),
-    contentPlan: Option.getOrUndefined(opts.contentPlan),
     youtubeTitle: Option.getOrUndefined(opts.youtubeTitle),
     youtubeThumbnailDescription: Option.getOrUndefined(
       opts.youtubeThumbnailDescription
@@ -299,7 +312,7 @@ const createCmd = Command.make(
         title,
         ...collectPitchFields(rest),
       });
-      yield* emitObject(created);
+      yield* emitObject(stripContentPlan(created));
     })
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
@@ -338,7 +351,7 @@ const updateCmd = Command.make(
       }
 
       const updated = yield* svc.updatePitch(id, fields);
-      yield* emitObject(updated);
+      yield* emitObject(stripContentPlan(updated));
     })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 

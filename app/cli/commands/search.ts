@@ -104,7 +104,7 @@ WHAT IS SEARCHED (archived records are never returned; Draft Version only)
   lesson    path, title, description
   video     path, and its TRANSCRIPT (clip text + chapter names)
   segment   title, description
-  pitch     title, description, contentPlan, youtubeTitle,
+  pitch     title, description, youtubeTitle,
             youtubeThumbnailDescription, newsletterTitle, tweet
 
 RESULTS (NDJSON — one compact hit per line; empty result prints nothing, exit 0)

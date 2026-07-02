@@ -554,7 +554,6 @@ export const createSearchOperations = (db: Database) => {
         const m = firstMatch([
           ["title", p.title],
           ["description", p.description],
-          ["contentPlan", p.contentPlan],
           ["youtubeTitle", p.youtubeTitle],
           ["youtubeThumbnailDescription", p.youtubeThumbnailDescription],
           ["newsletterTitle", p.newsletterTitle],

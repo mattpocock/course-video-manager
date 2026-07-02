@@ -39,7 +39,6 @@ describe("pitch create / update", () => {
     id: string;
     title: string;
     description: string;
-    contentPlan: string;
     youtubeTitle: string;
     youtubeThumbnailDescription: string;
     newsletterTitle: string;
@@ -76,8 +75,6 @@ describe("pitch create / update", () => {
           "Zod v4",
           "--description",
           "d",
-          "--content-plan",
-          "cp",
           "--youtube-title",
           "yt",
           "--youtube-thumbnail",
@@ -94,13 +91,36 @@ describe("pitch create / update", () => {
       ).stdout
     );
     expect(p.description).toBe("d");
-    expect(p.contentPlan).toBe("cp");
     expect(p.youtubeTitle).toBe("yt");
     expect(p.youtubeThumbnailDescription).toBe("thumb");
     expect(p.newsletterTitle).toBe("nl");
     expect(p.tweet).toBe("big news");
     expect(p.priority).toBe(1);
     expect(p.effort).toBe(3);
+  });
+
+  it("rejects the retired --content-plan flag (contentPlan is not writable)", async () => {
+    const { exitCode, stdout } = await run([
+      "pitch",
+      "create",
+      "--title",
+      "Legacy plan",
+      "--content-plan",
+      "cp",
+    ]);
+    expect(exitCode).not.toBe(0);
+    expect(stdout).toBe(""); // no pitch created
+  });
+
+  it("never emits the retired contentPlan field (create + get)", async () => {
+    const created = pobj(
+      (await run(["pitch", "create", "--title", "No plan"])).stdout
+    );
+    expect("contentPlan" in created).toBe(false);
+    const got = one<Record<string, unknown>>(
+      (await run(["pitch", "get", created.id])).stdout
+    );
+    expect("contentPlan" in got).toBe(false);
   });
 
   it("create with missing --title => invalid input, exit 3", async () => {
