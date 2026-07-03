@@ -82,12 +82,14 @@ import {
   ChevronDown,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ExternalLinkIcon,
   EyeIcon,
   Layers,
   Loader2Icon,
   Maximize2Icon,
   MinusIcon,
   PencilIcon,
+  PlusIcon,
   RefreshCwIcon,
   SendIcon,
   SettingsIcon,
@@ -387,10 +389,30 @@ type SourceView = {
   tokens: number;
 };
 
-type LinkItem = { id: string; url: string };
+/** Links carry a title + optional description (mirrors the real link model). */
+type LinkItem = { id: string; url: string; title: string; description?: string };
 
 const memorySource = CONTEXT_SOURCES.find((s) => s.key === "memory")!;
-const linksSource = CONTEXT_SOURCES.find((s) => s.key === "links")!;
+
+const INITIAL_LINKS: LinkItem[] = [
+  {
+    id: "links:0",
+    url: "https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html",
+    title: "TypeScript 4.9 release notes",
+    description: "Where `satisfies` shipped",
+  },
+  {
+    id: "links:1",
+    url: "https://github.com/microsoft/TypeScript/pull/46827",
+    title: "satisfies operator — PR #46827",
+    description: "The original implementation",
+  },
+  {
+    id: "links:2",
+    url: "https://www.totaltypescript.com/tips/satisfies",
+    title: "Total TypeScript: satisfies",
+  },
+];
 
 function useContextModel() {
   const [enabled, setEnabled] = useState<Set<string>>(
@@ -399,9 +421,7 @@ function useContextModel() {
   // Writer memory and links are *editable* here, not just toggleable, so they
   // live in state and override the static fixture text.
   const [memoryText, setMemoryText] = useState(() => memorySource.items[0]!.text);
-  const [links, setLinks] = useState<LinkItem[]>(() =>
-    linksSource.items.map((i) => ({ id: i.id, url: i.text }))
-  );
+  const [links, setLinks] = useState<LinkItem[]>(() => INITIAL_LINKS);
   const linkSeq = useRef(links.length);
 
   const toggleItem = useCallback((id: string) => {
@@ -435,13 +455,24 @@ function useContextModel() {
     []
   );
 
-  const addLink = useCallback((url: string) => {
-    const u = url.trim();
-    if (!u) return;
-    const id = `links:added-${linkSeq.current++}`;
-    setLinks((l) => [...l, { id, url: u }]);
-    setEnabled((e) => new Set(e).add(id));
-  }, []);
+  const addLink = useCallback(
+    (link: { url: string; title: string; description?: string }) => {
+      const url = link.url.trim();
+      if (!url) return;
+      const id = `links:added-${linkSeq.current++}`;
+      setLinks((l) => [
+        ...l,
+        {
+          id,
+          url,
+          title: link.title.trim() || url,
+          description: link.description?.trim() || undefined,
+        },
+      ]);
+      setEnabled((e) => new Set(e).add(id));
+    },
+    []
+  );
 
   const removeLink = useCallback((id: string) => {
     setLinks((l) => l.filter((x) => x.id !== id));
@@ -458,7 +489,11 @@ function useContextModel() {
       if (source.key === "memory")
         return [{ ...source.items[0]!, text: memoryText }];
       if (source.key === "links")
-        return links.map((l) => ({ id: l.id, label: l.url, text: l.url }));
+        return links.map((l) => ({
+          id: l.id,
+          label: l.title || l.url,
+          text: [l.title, l.url, l.description].filter(Boolean).join("\n"),
+        }));
       return source.items;
     },
     [memoryText, links]
@@ -500,6 +535,7 @@ function useContextModel() {
     totalTokens,
     memoryText,
     setMemory: setMemoryText,
+    links,
     addLink,
     removeLink,
   };
@@ -1427,41 +1463,8 @@ function ContextTabBody({
         />
       )}
 
-      {/* Links — editable (remove each, add new ones). */}
-      {s.source.key === "links" && (
-        <div className="space-y-1">
-          {s.items.map((i) => (
-            <div
-              key={i.id}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
-            >
-              <Checkbox
-                checked={i.on}
-                onCheckedChange={() => model.toggleItem(i.id)}
-              />
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-xs",
-                  !i.on && "opacity-50"
-                )}
-              >
-                {i.label}
-              </span>
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {fmtTok(i.tokens)}
-              </span>
-              <button
-                onClick={() => model.removeLink(i.id)}
-                className="text-muted-foreground hover:text-foreground"
-                title="Remove link"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          ))}
-          <AddLinkRow onAdd={model.addLink} />
-        </div>
-      )}
+      {/* Links — rich model (title + description), add via a form pane. */}
+      {s.source.key === "links" && <LinksTab model={model} view={s} />}
 
       {/* Repo files use the real <FileTree> picker (collapsible dirs, tri-state
           folders) rather than a flat list. */}
@@ -1526,25 +1529,191 @@ function ContextTabBody({
   );
 }
 
-/* Small add-a-link input used inside the Context view's Links source. */
-function AddLinkRow({ onAdd }: { onAdd: (url: string) => void }) {
-  const [url, setUrl] = useState("");
-  const add = () => {
-    onAdd(url);
-    setUrl("");
-  };
+const isValidUrl = (s: string) => {
+  try {
+    new URL(s);
+    return true;
+  } catch {
+    return false;
+  }
+};
+/** Cheap stand-in for the real /api/links/fetch-title endpoint. */
+const guessTitle = (s: string) => {
+  try {
+    const u = new URL(s);
+    const last = u.pathname.split("/").filter(Boolean).pop();
+    const host = u.hostname.replace(/^www\./, "");
+    return last ? `${host} — ${last.replace(/[-_]/g, " ")}` : host;
+  } catch {
+    return s;
+  }
+};
+
+/* Links source — rich rows (title + description + external link) plus an
+   "Add link" form pane with the typical URL / Title / Description inputs
+   (mirrors the real AddLinkModal, including title auto-fetch on paste). */
+function LinksTab({ model, view }: { model: ContextModel; view: SourceView }) {
+  const [adding, setAdding] = useState(false);
+  const meta = new Map(view.items.map((i) => [i.id, i]));
+
   return (
-    <div className="flex gap-2 pt-1">
-      <Input
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && add()}
-        placeholder="Add a link…"
-        className="h-7 text-xs"
-      />
-      <Button size="sm" className="h-7" onClick={add}>
-        Add
-      </Button>
+    <div className="space-y-1">
+      {model.links.map((l) => {
+        const vi = meta.get(l.id);
+        const on = vi?.on ?? false;
+        return (
+          <div
+            key={l.id}
+            className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+          >
+            <Checkbox
+              checked={on}
+              onCheckedChange={() => model.toggleItem(l.id)}
+              className="mt-0.5"
+            />
+            <a
+              href={l.url}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                "flex min-w-0 flex-1 items-start gap-2",
+                !on && "opacity-50"
+              )}
+            >
+              <ExternalLinkIcon className="mt-0.5 size-3 flex-none text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium">{l.title}</div>
+                {l.description && (
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {l.description}
+                  </div>
+                )}
+                <div className="truncate text-[10px] text-muted-foreground">
+                  {l.url}
+                </div>
+              </div>
+            </a>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {fmtTok(vi?.tokens ?? 0)}
+            </span>
+            <button
+              onClick={() => model.removeLink(l.id)}
+              className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+              title="Remove link"
+            >
+              <Trash2Icon className="size-3.5" />
+            </button>
+          </div>
+        );
+      })}
+
+      {adding ? (
+        <AddLinkForm
+          onCancel={() => setAdding(false)}
+          onAdd={(l) => {
+            model.addLink(l);
+            setAdding(false);
+          }}
+        />
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1 h-8"
+          onClick={() => setAdding(true)}
+        >
+          <PlusIcon className="mr-1 size-4" /> Add link
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/* The add-link form pane — URL (required), Title (required, auto-fetched from
+   the URL on paste/blur), Description (optional). */
+function AddLinkForm({
+  onCancel,
+  onAdd,
+}: {
+  onCancel: () => void;
+  onAdd: (l: { url: string; title: string; description?: string }) => void;
+}) {
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [fetching, setFetching] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const valid = isValidUrl(url) && title.trim().length > 0;
+
+  // Simulate the real title auto-fetch when a valid URL lands and title is empty.
+  const autofill = (candidate: string) => {
+    if (!isValidUrl(candidate) || title) return;
+    setFetching(true);
+    setTimeout(() => {
+      setTitle((t) => t || guessTitle(candidate));
+      setFetching(false);
+    }, 450);
+  };
+
+  return (
+    <div className="mt-1 space-y-3 rounded-lg border bg-muted/30 p-3">
+      <div className="text-xs font-semibold">Add link</div>
+      <div className="space-y-1">
+        <Label className="text-xs">URL</Label>
+        <Input
+          value={url}
+          autoFocus
+          onChange={(e) => setUrl(e.target.value)}
+          onBlur={() => {
+            setTouched(true);
+            autofill(url);
+          }}
+          onPaste={(e) => autofill(e.clipboardData.getData("text"))}
+          placeholder="https://example.com"
+          className="h-8"
+        />
+        {touched && url && !isValidUrl(url) && (
+          <p className="text-xs text-destructive">
+            Enter a valid URL (e.g. https://example.com)
+          </p>
+        )}
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Title</Label>
+        <div className="relative">
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="My Link"
+            className="h-8"
+          />
+          {fetching && (
+            <Loader2Icon className="absolute right-2 top-2 size-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Description (optional)</Label>
+        <Input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="A brief description of this link"
+          className="h-8"
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" className="h-8" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          className="h-8"
+          disabled={!valid}
+          onClick={() => onAdd({ url, title, description })}
+        >
+          Add link
+        </Button>
+      </div>
     </div>
   );
 }
