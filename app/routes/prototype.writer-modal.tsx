@@ -50,7 +50,19 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownMonacoEditor } from "@/components/markdown-monaco-editor";
+// The screenshot picker is a *document* citizen, not a chat message: the agent
+// writes a `<ChooseScreenshot clipIndex={n} alt="…" />` tag into the doc body,
+// and it renders inline in the document Preview. Reuse the real preprocessor +
+// pure mutation helpers so the prototype matches production exactly.
+import { preprocessChooseScreenshotMarkdown } from "@/features/article-writer/choose-screenshot-markdown";
+import {
+  removeChooseScreenshot,
+  replaceChooseScreenshotWithImage,
+  updateChooseScreenshotClipIndex,
+} from "@/features/article-writer/choose-screenshot-mutations";
 import { cn } from "@/lib/utils";
+import type { HTMLAttributes } from "react";
+import type { Options } from "react-markdown";
 import {
   AlertTriangleIcon,
   ArrowLeft,
@@ -236,27 +248,33 @@ const config = {
 } satisfies Config;
 // config.theme is "dark", not string — and it's still checked against Config
 \`\`\`
+
+<ChooseScreenshot clipIndex={4} alt="the satisfies config checked in the editor" />
 `;
 
 /**
- * A chat message. `kind` lets the assistant embed richer parts than plain text:
- *  - "tool"       → a tool-call card (writeDocument / editDocument)
- *  - "screenshot" → an inline ChooseScreenshot picker (capture a clip frame)
+ * A chat message. `kind: "tool"` renders a tool-call card (writeDocument /
+ * editDocument). Screenshots are NOT chat messages — see the doc-embedded
+ * `<ChooseScreenshot>` below.
  */
 type ChatMsg = {
   role: "assistant" | "user" | "tool";
   text: string;
-  kind?: "tool" | "screenshot";
+  kind?: "tool";
   streaming?: boolean;
 };
 
-/** Fixture clip frames the screenshot picker scrubs through. */
+/**
+ * Fixture "clips" the doc-embedded screenshot picker scrubs through — the
+ * analogue of `IndexedClip[]` in the real app. `clipIndex` in the doc tag is
+ * 1-based into this list; each clip spans `dur` seconds you can scrub within.
+ */
 const CLIP_FRAMES = [
-  { ts: 12, label: "00:12", hue: 210 },
-  { ts: 44, label: "00:44", hue: 265 },
-  { ts: 96, label: "01:36", hue: 150 },
-  { ts: 152, label: "02:32", hue: 25 },
-  { ts: 210, label: "03:30", hue: 340 },
+  { label: "The two bad options", dur: 7.5, hue: 210 },
+  { label: "Annotating widens the type", dur: 6.2, hue: 265 },
+  { label: "Enter satisfies", dur: 8.1, hue: 150 },
+  { label: "A real config example", dur: 5.4, hue: 25 },
+  { label: "Gotchas with unions", dur: 6.8, hue: 340 },
 ];
 
 const INITIAL_CHAT: ChatMsg[] = [
@@ -279,8 +297,7 @@ const INITIAL_CHAT: ChatMsg[] = [
   },
   {
     role: "assistant",
-    kind: "screenshot",
-    text: "Want a screenshot of the config example? Pick a frame and I'll drop it into the document.",
+    text: "I also dropped a **ChooseScreenshot** block into the document after the config example. Switch the document to **Preview** to scrub the clip and pick the frame — it becomes a real image on Apply.",
   },
 ];
 
@@ -495,7 +512,9 @@ function WriterModal({
   // The whole modal body swaps between these; the writer view is never
   // unmounted (so any background streaming survives the swap).
   const [view, setView] = useState<"writer" | "context" | "settings">("writer");
-  const [isEditing, setIsEditing] = useState(true);
+  // Default to Preview so the agent-generated <ChooseScreenshot> block in the
+  // document is visible on open (it only renders in Preview, like the real app).
+  const [isEditing, setIsEditing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const ctx = useContextModel();
   const streamRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -594,14 +613,49 @@ function WriterModal({
     setChat([]);
   }, [stopStream]);
 
-  // Screenshot capture drops a local image ref into the doc; the real upload to
-  // Cloudinary is deferred to Apply (below).
-  const captureScreenshot = useCallback((frameId: string, label: string) => {
-    setDoc(
-      (d) =>
-        `${d.replace(/\s*$/, "")}\n\n![Screenshot at ${label}](local:${frameId})\n`
-    );
-  }, []);
+  // The document Preview renders any `<ChooseScreenshot>` tag the agent wrote
+  // into the body as an inline, interactive picker — exactly how the real
+  // document panel injects it (extraComponents + the shared preprocessor). Its
+  // actions are pure string edits on the doc via the real mutation helpers:
+  //  • scrub + Capture → replace the tag with `![alt](local:…)` (Cloudinary on Apply)
+  //  • Prev / Next     → rewrite clipIndex in place
+  //  • Remove          → strip the tag
+  const docComponents = useMemo(
+    () => ({
+      choosescreenshot: ((
+        p: HTMLAttributes<HTMLElement> & Record<string, unknown>
+      ) => {
+        const clipIndex = parseInt(p.clipindex as string, 10);
+        const alt = (p.alt as string) ?? "";
+        return (
+          <DocScreenshotCard
+            clipIndex={clipIndex}
+            alt={alt}
+            isStreaming={status === "streaming"}
+            onClipIndexChange={(next) =>
+              setDoc((d) =>
+                updateChooseScreenshotClipIndex(d, clipIndex, next, alt)
+              )
+            }
+            onCapture={(ts) =>
+              setDoc((d) =>
+                replaceChooseScreenshotWithImage(
+                  d,
+                  clipIndex,
+                  alt,
+                  `local:clip${clipIndex}-${ts.toFixed(1)}`
+                )
+              )
+            }
+            onRemove={() =>
+              setDoc((d) => removeChooseScreenshot(d, clipIndex, alt))
+            }
+          />
+        );
+      }) as unknown,
+    }) as Options["components"],
+    [status]
+  );
 
   // Apply: if the doc still has local screenshot refs, "upload to Cloudinary"
   // first (rewrite local: → a hosted URL), then write back to the field.
@@ -712,12 +766,7 @@ function WriterModal({
 
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {chat.map((m, i) => (
-                <ChatBubble
-                  key={i}
-                  msg={m}
-                  isStreaming={busy}
-                  onCapture={captureScreenshot}
-                />
+                <ChatBubble key={i} msg={m} isStreaming={busy} />
               ))}
             </div>
             <div className="flex flex-none items-end gap-2 border-t p-3">
@@ -804,9 +853,16 @@ function WriterModal({
                   }
                 />
               ) : (
-                <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground h-full overflow-y-auto p-6">
+                <div
+                  className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground h-full overflow-y-auto p-6"
+                  style={{ scrollbarGutter: "stable" }}
+                >
                   <div className="mx-auto max-w-[75ch]">
-                    <AIResponse imageBasePath="prototype/the-satisfies-operator">
+                    <AIResponse
+                      imageBasePath="prototype/the-satisfies-operator"
+                      extraComponents={docComponents}
+                      preprocessMarkdown={preprocessChooseScreenshotMarkdown}
+                    >
                       {doc}
                     </AIResponse>
                   </div>
@@ -893,11 +949,9 @@ function WriterModal({
 function ChatBubble({
   msg,
   isStreaming,
-  onCapture,
 }: {
   msg: ChatMsg;
   isStreaming: boolean;
-  onCapture: (frameId: string, label: string) => void;
 }) {
   if (msg.role === "tool") {
     return (
@@ -924,73 +978,129 @@ function ChatBubble({
           <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-foreground/70 align-middle" />
         )}
       </div>
-      {msg.kind === "screenshot" && <ChooseScreenshotCard onCapture={onCapture} />}
     </div>
   );
 }
 
-/* Inline screenshot picker — scrub the clip's frames, capture one into the doc.
-   Stand-in for the real <choosescreenshot> component in write-chat.tsx. */
-function ChooseScreenshotCard({
+/* Doc-embedded screenshot picker — the analogue of the real <ChooseScreenshot>
+   from choose-screenshot.tsx. The agent writes a `<ChooseScreenshot clipIndex=…
+   alt=… />` tag into the document; in Preview it renders here, INLINE where the
+   tag sits in the body (not in chat). Scrub a frame + Capture to bake it into an
+   image; Prev/Next picks a different clip; the × removes the block. */
+function DocScreenshotCard({
+  clipIndex,
+  alt,
+  isStreaming,
+  onClipIndexChange,
   onCapture,
+  onRemove,
 }: {
-  onCapture: (frameId: string, label: string) => void;
+  clipIndex: number;
+  alt: string;
+  isStreaming: boolean;
+  onClipIndexChange: (next: number) => void;
+  onCapture: (timestamp: number) => void;
+  onRemove: () => void;
 }) {
-  const [idx, setIdx] = useState(2);
-  const [captured, setCaptured] = useState(false);
-  const frame = CLIP_FRAMES[idx]!;
+  const clip = CLIP_FRAMES[clipIndex - 1];
+  const [time, setTime] = useState(0);
+  // Reset the scrubber whenever the clip changes.
+  useEffect(() => setTime(0), [clipIndex]);
+
+  if (!clip) {
+    return (
+      <div className="my-4 flex items-center gap-2 rounded-lg border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
+        <AlertTriangleIcon className="size-4" />
+        Invalid clip index: {clipIndex}
+      </div>
+    );
+  }
+
+  const isFirst = clipIndex <= 1;
+  const isLast = clipIndex >= CLIP_FRAMES.length;
+
+  // While the agent is still streaming the doc, the real card shows a "waiting"
+  // placeholder rather than letting you capture mid-write.
+  if (isStreaming) {
+    return (
+      <div className="my-4 rounded-lg border bg-muted/50 p-4">
+        <p className="mb-2 text-xs text-muted-foreground">
+          Clip {clipIndex} — {alt}
+        </p>
+        <div className="flex aspect-video w-full items-center justify-center rounded-md bg-muted">
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2Icon className="size-4 animate-spin" />
+            Waiting for the response to finish…
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-2 w-[92%] rounded-lg border bg-background p-2">
+    <div className="relative my-4 rounded-lg border bg-muted/50 p-4">
+      <button
+        onClick={onRemove}
+        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+        title="Remove screenshot block"
+      >
+        <X className="size-4" />
+      </button>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Clip {clipIndex} of {CLIP_FRAMES.length} — {alt}
+      </p>
+      {/* Stand-in for the <video> frame (no real asset in the prototype). */}
       <div
-        className="flex h-28 items-end justify-between rounded-md p-2 text-[10px] font-medium text-white"
+        className="flex aspect-video w-full items-end justify-between rounded-md p-2 text-[11px] font-medium text-white"
         style={{
-          background: `linear-gradient(135deg, hsl(${frame.hue} 70% 45%), hsl(${(frame.hue + 40) % 360} 70% 35%))`,
+          background: `linear-gradient(135deg, hsl(${clip.hue} 70% 45%), hsl(${(clip.hue + 40) % 360} 70% 35%))`,
         }}
       >
-        <span className="rounded bg-black/40 px-1.5 py-0.5">
-          frame @ {frame.label}
+        <span className="rounded bg-black/40 px-1.5 py-0.5">{clip.label}</span>
+        <span className="rounded bg-black/40 px-1.5 py-0.5 tabular-nums">
+          {time.toFixed(1)}s
         </span>
-        <span className="rounded bg-black/40 px-1.5 py-0.5">
-          {idx + 1}/{CLIP_FRAMES.length}
+      </div>
+      {/* Scrub within the clip. */}
+      <div className="mt-2 flex items-center gap-2">
+        <span className="w-10 text-right font-mono text-[11px] text-muted-foreground">
+          {time.toFixed(1)}s
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={clip.dur}
+          step={0.1}
+          value={time}
+          onChange={(e) => setTime(parseFloat(e.target.value))}
+          className="h-1.5 flex-1 accent-primary"
+        />
+        <span className="w-10 font-mono text-[11px] text-muted-foreground">
+          {clip.dur.toFixed(1)}s
         </span>
       </div>
       <div className="mt-2 flex items-center gap-2">
         <Button
           variant="outline"
-          size="icon"
-          className="size-7"
-          onClick={() => setIdx((i) => Math.max(0, i - 1))}
-          disabled={idx === 0}
+          size="sm"
+          className="h-7"
+          disabled={isFirst}
+          onClick={() => onClipIndexChange(clipIndex - 1)}
         >
-          <ChevronLeftIcon className="size-4" />
+          <ChevronLeftIcon className="mr-1 size-3.5" /> Prev
         </Button>
         <Button
           variant="outline"
-          size="icon"
-          className="size-7"
-          onClick={() => setIdx((i) => Math.min(CLIP_FRAMES.length - 1, i + 1))}
-          disabled={idx === CLIP_FRAMES.length - 1}
-        >
-          <ChevronRightIcon className="size-4" />
-        </Button>
-        <div className="flex-1" />
-        <Button
           size="sm"
           className="h-7"
-          onClick={() => {
-            onCapture(`frame-${frame.ts}`, frame.label);
-            setCaptured(true);
-          }}
+          disabled={isLast}
+          onClick={() => onClipIndexChange(clipIndex + 1)}
         >
-          {captured ? (
-            <>
-              <CheckIcon className="mr-1 size-4" /> Inserted
-            </>
-          ) : (
-            <>
-              <CameraIcon className="mr-1 size-4" /> Capture into doc
-            </>
-          )}
+          Next <ChevronRightIcon className="ml-1 size-3.5" />
+        </Button>
+        <div className="flex-1" />
+        <Button size="sm" className="h-7" onClick={() => onCapture(time)}>
+          <CameraIcon className="mr-1 size-3.5" /> Capture
         </Button>
       </div>
     </div>
@@ -1031,7 +1141,11 @@ function InlineContextStrip({
         title="Open the full context panel"
       >
         <Layers className="size-3.5" /> Context
-        <span className={cn("font-mono", tone)}>
+        {/* Fixed-width token slot so the whole strip never reflows as counts
+            change — the root of the layout shift when toggling chips. */}
+        <span
+          className={cn("w-10 text-right font-mono tabular-nums", tone)}
+        >
           {fmtTok(model.totalTokens)}
         </span>
       </button>
@@ -1054,7 +1168,7 @@ function InlineContextStrip({
         >
           <CheckGlyph state={s.check} />
           <span>{s.source.label}</span>
-          <span className="font-mono text-muted-foreground">
+          <span className="w-9 text-right font-mono tabular-nums text-muted-foreground">
             {fmtTok(s.tokens)}
           </span>
         </button>
