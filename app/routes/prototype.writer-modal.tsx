@@ -1359,7 +1359,7 @@ function ContextView({
         </div>
         <div className="flex-1" />
         <span className={cn("font-mono text-sm", tone)}>
-          {fmtTok(model.totalTokens)} tok
+          {fmtTok(model.totalTokens)} tokens
         </span>
       </div>
 
@@ -1378,7 +1378,6 @@ function ContextView({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <CheckGlyph state={s.check} />
               {s.source.label}
               <span className="font-mono tabular-nums opacity-70">
                 {fmtTok(s.tokens)}
@@ -1437,7 +1436,7 @@ function ContextTabBody({
           </div>
         </div>
         <div className="text-right font-mono text-xs text-muted-foreground">
-          {fmtTok(s.tokens)} tok
+          {fmtTok(s.tokens)} tokens
         </div>
       </label>
 
