@@ -1297,8 +1297,14 @@ function FullCover({
   return (
     <div className="absolute inset-0 z-10 flex flex-col bg-background">
       <div className="flex h-11 flex-none items-center gap-2 border-b px-3">
-        <Button variant="ghost" size="sm" className="h-8" onClick={onBack}>
-          <ArrowLeft className="mr-1 size-4" /> Back
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          title="Back"
+          onClick={onBack}
+        >
+          <ArrowLeft className="size-4" />
         </Button>
         <div className="text-sm font-semibold">{title}</div>
         <div className="flex-1" />
@@ -1339,8 +1345,14 @@ function ContextView({
     <div className="absolute inset-0 z-10 flex flex-col bg-background">
       {/* Header */}
       <div className="flex h-11 flex-none items-center gap-2 border-b px-3">
-        <Button variant="ghost" size="sm" className="h-8" onClick={onBack}>
-          <ArrowLeft className="mr-1 size-4" /> Back
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          title="Back"
+          onClick={onBack}
+        >
+          <ArrowLeft className="size-4" />
         </Button>
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Layers className="size-4" /> Context
