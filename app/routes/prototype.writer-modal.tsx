@@ -19,14 +19,18 @@
  *   • Each chip is a real toggle with a checkbox. A source made of parts
  *     (transcript segments, chapters, repo files, links) can be **partially on**
  *     → the checkbox shows an indeterminate state.
- *   • The "Context" button opens a full-options panel where individual parts
- *     (each chapter, each file…) can be toggled.
+ *   • The "Context" button opens a full-options panel — a **tabbed** editor, one
+ *     tab per source (each chapter, each file, memory, links…) can be toggled.
  *   • Token counts read as `4.1K`.
- *   • The document pane matches the real writer: Edit ⇄ Preview and a lint
- *     "Fix (N)" button (mirrors `document-panel.tsx`).
+ *   • Fewer bars: the strip above the document carries the context chips *and*
+ *     the Edit ⇄ Preview toggle; everything else (mode, Regenerate, Clear, the
+ *     lint "Fix (N)" control, and writer Settings) is consolidated into the
+ *     bottom bar's left cluster, away from Cancel / Apply on the right.
  *   • Cancel reverts the conversation history to what it was before the modal
  *     opened; closing with unsaved changes asks for confirmation first.
- *   • Footer is just Cancel / Apply — no explanation blurb, no token count.
+ *   • The modal's open state and the active context tab live in the **URL search
+ *     params** (`?writer=1&view=context&tab=chapters`) — deep-linkable, and the
+ *     browser Back button steps out of a view.
  *
  * Still a prototype: NOT wired to the real writer engine / useChat / endpoints.
  * Chat + document + context sources are hand-authored fixtures. Once this shape is
@@ -35,10 +39,16 @@
  */
 
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -68,6 +78,7 @@ import {
   ArrowLeft,
   CameraIcon,
   CheckIcon,
+  ChevronDown,
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
@@ -84,6 +95,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 
 /* ================================================================== */
 /* Token estimate — the whole point: raw tokens ≈ ceil(bytes / 4).     */
@@ -301,8 +313,35 @@ const INITIAL_CHAT: ChatMsg[] = [
   },
 ];
 
-/** Field → mode (D6): one mode ⇒ static label, many ⇒ a real selector. */
-const MODES = ["article", "skill-building", "newsletter"];
+/**
+ * Field → mode (D6). The host injects the set of modes a given field is allowed
+ * to write in (part of the #1113 `context`/contract); the picker shows a FLAT
+ * list of just those. This catalog is only a label/description lookup — the
+ * allowed values come from the `modes` prop, not from here.
+ */
+const MODE_CATALOG: Record<string, { label: string; note: string }> = {
+  article: { label: "Article", note: "Educational content and explanations" },
+  "article-plan": {
+    label: "Article Plan",
+    note: "Plan structure with concise bullet points",
+  },
+  newsletter: {
+    label: "Newsletter",
+    note: "Friendly preview for the AI Hero audience",
+  },
+  "skill-building": {
+    label: "Skill Building Steps",
+    note: "Write steps for a skill-building problem",
+  },
+  "seo-description": {
+    label: "SEO Description",
+    note: "Generate an SEO description (max 160 chars)",
+  },
+};
+const modeLabel = (m: string) => MODE_CATALOG[m]?.label ?? m;
+
+/** The AI Hero Body field's contract: the only modes it may be written in. */
+const BODY_FIELD_MODES = ["article", "article-plan", "newsletter"];
 
 /* ================================================================== */
 /* Lint — a trimmed stand-in for use-lint.ts / lint-rules.ts.          */
@@ -484,9 +523,53 @@ function useContextModel() {
 
 type ContextModel = ReturnType<typeof useContextModel>;
 
+/* Mode picker — the write page's dropdown trigger (outline button + chevron,
+   items showing name + description), but a FLAT list of only the modes the
+   host's contract allows for this field. */
+function ModePicker({
+  modes,
+  mode,
+  onModeChange,
+}: {
+  modes: string[];
+  mode: string;
+  onModeChange: (m: string) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-w-[180px] justify-between"
+        >
+          {modeLabel(mode)}
+          <ChevronDown className="ml-2 size-4 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuRadioGroup value={mode} onValueChange={onModeChange}>
+          {modes.map((m) => (
+            <DropdownMenuRadioItem key={m} value={m}>
+              <div>
+                <div>{modeLabel(m)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {MODE_CATALOG[m]?.note}
+                </div>
+              </div>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /* ================================================================== */
 /* The field-bound writer modal.                                       */
 /* ================================================================== */
+
+type WriterView = "writer" | "context" | "settings";
 
 function WriterModal({
   open,
@@ -494,24 +577,38 @@ function WriterModal({
   initialDoc,
   initialChat,
   onApply,
+  modes,
+  view,
+  onView,
+  ctxTab,
+  onCtxTab,
 }: {
   open: boolean;
   onClose: () => void;
   initialDoc: string;
   initialChat: ChatMsg[];
   onApply: (doc: string, chat: ChatMsg[]) => void;
+  // The field's allowed modes — injected by the host per the #1113 contract.
+  modes: string[];
+  // The full-body view + active context tab are URL-backed (search params), so
+  // they live in the host and are passed down controlled.
+  view: WriterView;
+  onView: (v: WriterView) => void;
+  ctxTab: string;
+  onCtxTab: (k: string) => void;
 }) {
   const [doc, setDoc] = useState(initialDoc);
   const [chat, setChat] = useState<ChatMsg[]>(initialChat);
   const [draft, setDraft] = useState("");
-  const [mode, setMode] = useState(MODES[0]);
+  const [mode, setMode] = useState(modes[0] ?? "article");
   const [model, setModel] = useState("auto");
   const [banned, setBanned] = useState<string[]>(DEFAULT_BANNED);
   const [status, setStatus] = useState<"ready" | "streaming">("ready");
   const [applying, setApplying] = useState(false);
-  // The whole modal body swaps between these; the writer view is never
-  // unmounted (so any background streaming survives the swap).
-  const [view, setView] = useState<"writer" | "context" | "settings">("writer");
+  // The whole modal body swaps between context/settings and the writer; the
+  // writer view is never unmounted (so any background streaming survives the
+  // swap). `view` itself is controlled by the URL (see props).
+  //
   // Default to Preview so the agent-generated <ChooseScreenshot> block in the
   // document is visible on open (it only renders in Preview, like the real app).
   const [isEditing, setIsEditing] = useState(false);
@@ -566,7 +663,6 @@ function WriterModal({
       setDoc(initialDoc);
       setChat(initialChat);
       setConfirmDiscard(false);
-      setView("writer");
       setApplying(false);
     }
   }, [open, initialDoc, initialChat, stopStream]);
@@ -689,41 +785,22 @@ function WriterModal({
           requestClose();
         }}
       >
-        {/* Header */}
+        {/* Header — trimmed to identity + streaming state + close. Everything
+            operational moved to the bottom bar / context strip. */}
         <div className="flex h-13 flex-none items-center gap-3 border-b bg-muted/40 px-4 py-2">
-          <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Badge variant="secondary" className="font-mono text-[11px]">
-              writer
-            </Badge>
+          <DialogTitle className="text-sm font-semibold">
             AI Hero Body
           </DialogTitle>
 
-          {/* D6: one mode ⇒ static label; many ⇒ selector. */}
-          <Select value={mode} onValueChange={setMode}>
-            <SelectTrigger size="sm" className="w-[190px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MODES.map((m) => (
-                <SelectItem key={m} value={m} className="font-mono text-xs">
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {busy && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2Icon className="size-3.5 animate-spin" />
+              streaming…
+            </span>
+          )}
 
           <div className="flex-1" />
 
-          <Button
-            variant={view === "settings" ? "secondary" : "ghost"}
-            size="icon"
-            title="Settings"
-            onClick={() =>
-              setView((v) => (v === "settings" ? "writer" : "settings"))
-            }
-          >
-            <SettingsIcon className="size-4" />
-          </Button>
           <Button variant="ghost" size="icon" onClick={requestClose}>
             <X className="size-4" />
           </Button>
@@ -733,37 +810,6 @@ function WriterModal({
         <div className="relative flex min-h-0 flex-1">
           {/* Chat */}
           <div className="flex w-2/5 flex-col border-r">
-            {/* Chat toolbar — regenerate / clear (mirrors write-toolbar.tsx). */}
-            <div className="flex h-10 flex-none items-center gap-1 border-b px-2 text-xs text-muted-foreground">
-              {busy && (
-                <span className="flex items-center gap-1.5 pl-1">
-                  <Loader2Icon className="size-3.5 animate-spin" />
-                  streaming…
-                </span>
-              )}
-              <div className="flex-1" />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8"
-                disabled={busy || chat.length === 0}
-                onClick={regenerate}
-                title="Regenerate last response"
-              >
-                <RefreshCwIcon className="mr-1 size-4" /> Regenerate
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                disabled={chat.length === 0}
-                onClick={clearChat}
-                title="Clear chat"
-              >
-                <Trash2Icon className="size-4" />
-              </Button>
-            </div>
-
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {chat.map((m, i) => (
                 <ChatBubble key={i} msg={m} isStreaming={busy} />
@@ -800,64 +846,56 @@ function WriterModal({
 
           {/* Document */}
           <div className="flex flex-1 flex-col">
-            {/* Inline context strip — the locked design. */}
+            {/* The one bar above the document: just the context chips. */}
             <InlineContextStrip
               model={ctx}
-              onOpenPanel={() => setView("context")}
+              onOpenPanel={() => onView("context")}
             />
 
-            {/* Document toolbar — mirrors document-panel.tsx. */}
-            <div className="flex h-10 flex-none items-center gap-2 border-b px-3 text-xs text-muted-foreground">
-              <div className="flex-1" />
-              {lintTotal > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8"
-                  title={violations
-                    .map((v) => `${v.rule.name}: ${v.count}`)
-                    .join(" · ")}
-                  onClick={() => setDoc((d) => fixAll(d, banned))}
-                >
-                  <AlertTriangleIcon className="mr-1 size-4 text-orange-500" />
-                  Fix ({lintTotal})
-                </Button>
-              )}
+            {/* Edit ⇄ Preview floats over the top-right of the pane, mirroring
+                the field's own floating buttons on the host page. */}
+            <div className="relative min-h-0 flex-1 overflow-hidden">
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
-                className="h-8"
+                className="absolute right-3 top-2 z-10 h-7 shadow-sm"
                 onClick={() => setIsEditing((e) => !e)}
               >
                 {isEditing ? (
                   <>
-                    <EyeIcon className="mr-1 size-4" /> Preview
+                    <EyeIcon className="mr-1 size-3.5" /> Preview
                   </>
                 ) : (
                   <>
-                    <PencilIcon className="mr-1 size-4" /> Edit
+                    <PencilIcon className="mr-1 size-3.5" /> Edit
                   </>
                 )}
               </Button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-hidden">
+              {/* Edit and Preview share one identical scroll box (same size,
+                  same stable scrollbar gutter, same top padding) so toggling
+                  between them doesn't move or reflow anything. */}
               {isEditing ? (
-                <MarkdownMonacoEditor
-                  value={doc}
-                  onChange={setDoc}
-                  fallback={
-                    <div className="p-4 text-sm text-muted-foreground">
-                      Loading editor…
-                    </div>
-                  }
-                />
+                <div className="h-full overflow-hidden">
+                  <MarkdownMonacoEditor
+                    value={doc}
+                    onChange={setDoc}
+                    options={{
+                      padding: { top: 20, bottom: 20 },
+                      scrollBeyondLastLine: false,
+                    }}
+                    fallback={
+                      <div className="p-5 text-sm text-muted-foreground">
+                        Loading editor…
+                      </div>
+                    }
+                  />
+                </div>
               ) : (
                 <div
-                  className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground h-full overflow-y-auto p-6"
+                  className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground h-full overflow-y-auto px-6 py-5"
                   style={{ scrollbarGutter: "stable" }}
                 >
-                  <div className="mx-auto max-w-[75ch]">
+                  <div className="max-w-[75ch]">
                     <AIResponse
                       imageBasePath="prototype/the-satisfies-operator"
                       extraComponents={docComponents}
@@ -876,7 +914,12 @@ function WriterModal({
               covers render on top — so background streaming is never torn out of
               the DOM when you step into Context / Settings and back. */}
           {view === "context" && (
-            <ContextView model={ctx} onBack={() => setView("writer")} />
+            <ContextView
+              model={ctx}
+              activeKey={ctxTab}
+              onTab={onCtxTab}
+              onBack={() => onView("writer")}
+            />
           )}
           {view === "settings" && (
             <SettingsView
@@ -884,7 +927,7 @@ function WriterModal({
               onModelChange={setModel}
               banned={banned}
               onBannedChange={setBanned}
-              onBack={() => setView("writer")}
+              onBack={() => onView("writer")}
             />
           )}
 
@@ -924,9 +967,70 @@ function WriterModal({
           )}
         </div>
 
-        {/* Footer — Cancel / Apply. Apply uploads any captured screenshots to
-            Cloudinary before writing the field back. */}
-        <div className="flex h-14 flex-none items-center justify-end gap-3 border-t bg-muted/40 px-4">
+        {/* Footer — one bar for everything. Left cluster: mode + chat actions +
+            lint + writer settings. Right cluster: Cancel / Apply (Apply uploads
+            any captured screenshots to Cloudinary before writing the field
+            back). */}
+        <div className="flex h-14 flex-none items-center gap-1.5 border-t bg-muted/40 px-3">
+          <ModePicker modes={modes} mode={mode} onModeChange={setMode} />
+
+          <div className="mx-0.5 h-6 w-px bg-border" />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            disabled={busy || chat.length === 0}
+            onClick={regenerate}
+            title="Regenerate last response"
+          >
+            <RefreshCwIcon className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            disabled={chat.length === 0}
+            onClick={clearChat}
+            title="Clear chat"
+          >
+            <Trash2Icon className="size-4" />
+          </Button>
+
+          <div className="mx-0.5 h-6 w-px bg-border" />
+
+          {/* Lint display — the "Fix (N)" action, or a clean state. */}
+          {lintTotal > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              title={violations
+                .map((v) => `${v.rule.name}: ${v.count}`)
+                .join(" · ")}
+              onClick={() => setDoc((d) => fixAll(d, banned))}
+            >
+              <AlertTriangleIcon className="mr-1 size-4 text-orange-500" />
+              Fix ({lintTotal})
+            </Button>
+          ) : (
+            <span className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
+              <CheckIcon className="size-3.5 text-emerald-600" /> No lint issues
+            </span>
+          )}
+          {/* Lint settings (model + banned phrases). */}
+          <Button
+            variant={view === "settings" ? "secondary" : "ghost"}
+            size="icon"
+            className="size-8"
+            title="Writer settings"
+            onClick={() => onView(view === "settings" ? "writer" : "settings")}
+          >
+            <SettingsIcon className="size-4" />
+          </Button>
+
+          <div className="flex-1" />
+
           <Button variant="outline" onClick={requestClose} disabled={applying}>
             Cancel
           </Button>
@@ -1143,9 +1247,7 @@ function InlineContextStrip({
         <Layers className="size-3.5" /> Context
         {/* Fixed-width token slot so the whole strip never reflows as counts
             change — the root of the layout shift when toggling chips. */}
-        <span
-          className={cn("w-10 text-right font-mono tabular-nums", tone)}
-        >
+        <span className={cn("w-10 text-right font-mono tabular-nums", tone)}>
           {fmtTok(model.totalTokens)}
         </span>
       </button>
@@ -1214,134 +1316,202 @@ function FullCover({
   );
 }
 
-/* Full-body Context view — toggle whole sources or individual parts. */
+/* Full-body Context view — a tabbed editor, one tab per source. The active tab
+   is URL-backed (`?tab=…`). Each tab shows the source's parts to toggle / edit;
+   the tab button itself carries the source's tri-state + token count so the
+   whole context payload reads at a glance across the row. */
 function ContextView({
   model,
+  activeKey,
+  onTab,
   onBack,
 }: {
   model: ContextModel;
+  activeKey: string;
+  onTab: (k: string) => void;
   onBack: () => void;
 }) {
   const tone = tokenTone(model.totalTokens);
+  const active =
+    model.sources.find((s) => s.source.key === activeKey) ?? model.sources[0]!;
+
   return (
-    <FullCover
-      onBack={onBack}
-      title={
-        <span className="flex items-center gap-2">
+    <div className="absolute inset-0 z-10 flex flex-col bg-background">
+      {/* Header */}
+      <div className="flex h-11 flex-none items-center gap-2 border-b px-3">
+        <Button variant="ghost" size="sm" className="h-8" onClick={onBack}>
+          <ArrowLeft className="mr-1 size-4" /> Back
+        </Button>
+        <div className="flex items-center gap-2 text-sm font-semibold">
           <Layers className="size-4" /> Context
-        </span>
-      }
-      right={
+        </div>
+        <div className="flex-1" />
         <span className={cn("font-mono text-sm", tone)}>
           {fmtTok(model.totalTokens)} tok
         </span>
-      }
-      footer={
-        <>
-          <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code> (UTF-8). This
-          is the <code className="font-mono">context</code> payload the host
-          injects into the agent.
-        </>
-      }
-    >
-      {model.sources.map((s) => (
-        <div key={s.source.key} className="mb-1">
-          {/* Source header — tri-state; toggles the whole source. */}
-          <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted">
-            <Checkbox
-              checked={s.check}
-              onCheckedChange={() =>
-                model.toggleSource(
-                  s.items.map((i) => i.id),
-                  s.check === true
-                )
-              }
-            />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm leading-tight">{s.source.label}</div>
-              <div className="text-xs text-muted-foreground">
-                {s.source.note}
-              </div>
-            </div>
-            <div className="text-right font-mono text-xs text-muted-foreground">
-              {fmtTok(s.tokens)}
-            </div>
-          </label>
+      </div>
 
-          {/* Writer memory is editable, not just toggleable. */}
-          {s.source.key === "memory" && (
-            <div className="ml-6 mt-1">
-              <Textarea
-                value={model.memoryText}
-                onChange={(e) => model.setMemory(e.target.value)}
-                className="min-h-[120px] font-mono text-xs"
-              />
-            </div>
-          )}
+      {/* Tab row — one per source, with status glyph + token count. */}
+      <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted flex flex-none items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
+        {model.sources.map((s) => {
+          const on = s.source.key === active.source.key;
+          return (
+            <button
+              key={s.source.key}
+              onClick={() => onTab(s.source.key)}
+              className={cn(
+                "flex flex-none items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                on
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <CheckGlyph state={s.check} />
+              {s.source.label}
+              <span className="font-mono tabular-nums opacity-70">
+                {fmtTok(s.tokens)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-          {/* Links are editable — remove each, add new ones. */}
-          {s.source.key === "links" && (
-            <div className="ml-6 mt-1 space-y-1">
-              {s.items.map((i) => (
-                <div key={i.id} className="flex items-center gap-2">
-                  <Checkbox
-                    checked={i.on}
-                    onCheckedChange={() => model.toggleItem(i.id)}
-                  />
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-xs",
-                      !i.on && "opacity-50"
-                    )}
-                  >
-                    {i.label}
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {fmtTok(i.tokens)}
-                  </span>
-                  <button
-                    onClick={() => model.removeLink(i.id)}
-                    className="text-muted-foreground hover:text-foreground"
-                    title="Remove link"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-              ))}
-              <AddLinkRow onAdd={model.addLink} />
-            </div>
-          )}
-
-          {/* Other multi-part sources: plain per-part toggles. */}
-          {!s.atomic &&
-            s.source.key !== "links" &&
-            s.source.key !== "memory" && (
-              <div className="ml-4 border-l pl-2">
-                {s.items.map((i) => (
-                  <label
-                    key={i.id}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
-                      !i.on && "opacity-50"
-                    )}
-                  >
-                    <Checkbox
-                      checked={i.on}
-                      onCheckedChange={() => model.toggleItem(i.id)}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs">
-                      {i.label}
-                    </span>
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {fmtTok(i.tokens)}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
+      {/* Active tab body */}
+      <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl p-4">
+          <ContextTabBody model={model} view={active} />
         </div>
-      ))}
-    </FullCover>
+      </div>
+
+      {/* Footer note */}
+      <div className="flex-none border-t px-4 py-2 text-xs text-muted-foreground">
+        <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code> (UTF-8). This is
+        the <code className="font-mono">context</code> payload the host injects
+        into the agent.
+      </div>
+    </div>
+  );
+}
+
+/* The body of one Context tab — a master "include" toggle plus the source's
+   parts (editable memory, editable links, per-part toggles, or a read-only
+   preview for atomic sources). */
+function ContextTabBody({
+  model,
+  view,
+}: {
+  model: ContextModel;
+  view: SourceView;
+}) {
+  const s = view;
+  const toggleSource = () =>
+    model.toggleSource(
+      s.items.map((i) => i.id),
+      s.check === true
+    );
+
+  return (
+    <div className="space-y-3">
+      {/* Master enable row. */}
+      <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+        <Checkbox checked={s.check} onCheckedChange={toggleSource} />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm leading-tight">
+            {s.atomic ? "Include this source" : "Include all parts"}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {s.source.note}
+            {!s.atomic && ` · ${s.onCount}/${s.items.length} on`}
+          </div>
+        </div>
+        <div className="text-right font-mono text-xs text-muted-foreground">
+          {fmtTok(s.tokens)} tok
+        </div>
+      </label>
+
+      {/* Writer memory — editable. */}
+      {s.source.key === "memory" && (
+        <Textarea
+          value={model.memoryText}
+          onChange={(e) => model.setMemory(e.target.value)}
+          className="min-h-[220px] font-mono text-xs"
+        />
+      )}
+
+      {/* Links — editable (remove each, add new ones). */}
+      {s.source.key === "links" && (
+        <div className="space-y-1">
+          {s.items.map((i) => (
+            <div
+              key={i.id}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+            >
+              <Checkbox
+                checked={i.on}
+                onCheckedChange={() => model.toggleItem(i.id)}
+              />
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-xs",
+                  !i.on && "opacity-50"
+                )}
+              >
+                {i.label}
+              </span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {fmtTok(i.tokens)}
+              </span>
+              <button
+                onClick={() => model.removeLink(i.id)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Remove link"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))}
+          <AddLinkRow onAdd={model.addLink} />
+        </div>
+      )}
+
+      {/* Other multi-part sources: per-part toggles. */}
+      {!s.atomic && s.source.key !== "links" && s.source.key !== "memory" && (
+        <div className="space-y-0.5">
+          {s.items.map((i) => (
+            <label
+              key={i.id}
+              className={cn(
+                "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
+                !i.on && "opacity-50"
+              )}
+            >
+              <Checkbox
+                checked={i.on}
+                onCheckedChange={() => model.toggleItem(i.id)}
+                className="mt-0.5"
+              />
+              <span className="min-w-0 flex-1 text-xs">{i.label}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {fmtTok(i.tokens)}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Atomic, non-editable sources (course structure, full path): show the
+          injected text so the tab isn't empty. */}
+      {s.atomic &&
+        s.source.key !== "memory" &&
+        s.items.map((i) => (
+          <pre
+            key={i.id}
+            className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground"
+          >
+            {i.text}
+          </pre>
+        ))}
+    </div>
   );
 }
 
@@ -1539,7 +1709,54 @@ function BodyField({
 export default function PrototypeWriterModal() {
   const [body, setBody] = useState(INITIAL_BODY);
   const [chat, setChat] = useState<ChatMsg[]>(INITIAL_CHAT);
-  const [modalOpen, setModalOpen] = useState(false);
+
+  // Modal open state + active full-body view + active context tab all live in
+  // the URL search params, so the writer is deep-linkable and Back steps out.
+  const [sp, setSp] = useSearchParams();
+  const open = sp.get("writer") === "1";
+  const view = ((sp.get("view") as WriterView) || "writer") as WriterView;
+  const ctxTab = sp.get("tab") || CONTEXT_SOURCES[0]!.key;
+
+  const patch = useCallback(
+    (mut: (p: URLSearchParams) => void) =>
+      setSp(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          mut(next);
+          return next;
+        },
+        { replace: true }
+      ),
+    [setSp]
+  );
+  const openWriter = () =>
+    patch((p) => {
+      p.set("writer", "1");
+      p.delete("view");
+      p.delete("tab");
+    });
+  const closeWriter = () =>
+    patch((p) => {
+      p.delete("writer");
+      p.delete("view");
+      p.delete("tab");
+    });
+  const setView = (v: WriterView) =>
+    patch((p) => {
+      p.set("writer", "1");
+      if (v === "writer") {
+        p.delete("view");
+        p.delete("tab");
+      } else {
+        p.set("view", v);
+      }
+    });
+  const setCtxTab = (k: string) =>
+    patch((p) => {
+      p.set("writer", "1");
+      p.set("view", "context");
+      p.set("tab", k);
+    });
 
   return (
     <div className="h-screen overflow-y-auto bg-background">
@@ -1597,11 +1814,7 @@ export default function PrototypeWriterModal() {
             Preview / Open-in-writer buttons top-right. */}
         <div className="space-y-2">
           <Label>Body (Markdown)</Label>
-          <BodyField
-            value={body}
-            onChange={setBody}
-            onOpen={() => setModalOpen(true)}
-          />
+          <BodyField value={body} onChange={setBody} onOpen={openWriter} />
           <p className="text-xs text-muted-foreground">
             This becomes <code className="font-mono">video.body</code> and
             exports into <code className="font-mono">course.json</code>. Its
@@ -1619,14 +1832,19 @@ export default function PrototypeWriterModal() {
       </div>
 
       <WriterModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        open={open}
+        onClose={closeWriter}
         initialDoc={body}
         initialChat={chat}
+        modes={BODY_FIELD_MODES}
+        view={view}
+        onView={setView}
+        ctxTab={ctxTab}
+        onCtxTab={setCtxTab}
         onApply={(doc, nextChat) => {
           setBody(doc);
           setChat(nextChat);
-          setModalOpen(false);
+          closeWriter();
         }}
       />
     </div>
