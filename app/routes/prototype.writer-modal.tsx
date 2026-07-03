@@ -17,8 +17,8 @@
  * always on-screen. Refinements baked in here:
  *
  *   • Each chip is a real toggle with a checkbox. A source made of parts
- *     (transcript segments, chapters, repo files, links) can be **partially on**
- *     → the checkbox shows an indeterminate state.
+ *     (transcript chapters, repo files, links) can be **partially on** → the
+ *     checkbox shows an indeterminate state.
  *   • The "Context" button opens a full-options panel — a **tabbed** editor, one
  *     tab per source (each chapter, each file, memory, links…) can be toggled.
  *   • Token counts read as `4.1K`.
@@ -131,39 +131,26 @@ type ContextSource = {
   items: ContextItem[];
 };
 
-const seg = (key: string, n: number, make: (i: number) => [string, string]) =>
-  Array.from({ length: n }, (_, i) => {
-    const [label, text] = make(i);
-    return { id: `${key}:${i}`, label, text };
-  });
-
 const CONTEXT_SOURCES: ContextSource[] = [
   {
+    // Transcript and chapters are the same thing: `clips.text` split by
+    // chapter. The parts ARE the chapters — deselect a chapter to trim that
+    // slice of transcript out of what's sent (mirrors the real
+    // `enabledSections`).
     key: "transcript",
     label: "Transcript",
-    note: "clips.text, per segment",
-    items: seg("transcript", 6, (i) => [
-      `Segment ${i + 1}`,
-      `In this segment we look at the satisfies operator. ${"The problem it solves: annotating a variable widens the value to the declared type and you lose the literal information. ".repeat(
-        6 + i
-      )}`,
-    ]),
-  },
-  {
-    key: "chapters",
-    label: "Chapters",
-    note: "meta.json chapter markers",
+    note: "clips.text, split by chapter — deselect chapters to trim it",
     items: [
-      ["00:00 The two bad options", 1],
-      ["01:12 Annotating widens the type", 2],
-      ["02:40 No annotation = no validation", 2],
-      ["03:55 Enter satisfies", 3],
-      ["05:30 A real config example", 4],
-      ["07:10 Gotchas with unions", 2],
+      ["00:00 The two bad options", 5],
+      ["01:12 Annotating widens the type", 7],
+      ["02:40 No annotation, no validation", 6],
+      ["03:55 Enter satisfies", 8],
+      ["05:30 A real config example", 6],
+      ["07:10 Gotchas with unions", 4],
     ].map(([label, w], i) => ({
-      id: `chapters:${i}`,
+      id: `transcript:${i}`,
       label: label as string,
-      text: `${label} — ${"chapter body text describing what happens in this section of the video. ".repeat(
+      text: `${label}\n${"In this part of the video Matt walks through the idea in plain language, working from a concrete example on screen before drawing out the general rule. ".repeat(
         (w as number) * 3
       )}`,
     })),
