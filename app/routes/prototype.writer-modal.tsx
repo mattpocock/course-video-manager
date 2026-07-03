@@ -53,13 +53,14 @@ import { MarkdownMonacoEditor } from "@/components/markdown-monaco-editor";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangleIcon,
+  ArrowLeft,
   CheckIcon,
   EyeIcon,
-  FileText,
   Layers,
   MinusIcon,
   PencilIcon,
   SendIcon,
+  SettingsIcon,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -263,18 +264,17 @@ type LintRule = {
   fix: (doc: string) => string;
 };
 
-const LINT_RULES: LintRule[] = [
+/** Default banned phrases — editable in the Settings view (feeds the rule). */
+const DEFAULT_BANNED = ["simply", "just", "dive in", "unlock"];
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Rules that don't depend on user settings. */
+const STATIC_RULES: LintRule[] = [
   {
     id: "no-em-dash",
     name: "Em dashes",
     count: (d) => (d.match(/—/g) ?? []).length,
     fix: (d) => d.replace(/\s*—\s*/g, ", "),
-  },
-  {
-    id: "no-llm-phrase",
-    name: "LLM phrases",
-    count: (d) => (d.match(/\b(simply|just|dive in|unlock)\b/gi) ?? []).length,
-    fix: (d) => d.replace(/\b(simply|just|dive in|unlock)\s*/gi, ""),
   },
   {
     id: "no-leading-heading",
@@ -284,16 +284,33 @@ const LINT_RULES: LintRule[] = [
   },
 ];
 
-function lint(doc: string) {
-  const violations = LINT_RULES.map((r) => ({
-    rule: r,
-    count: r.count(doc),
-  })).filter((v) => v.count > 0);
+/** The banned-phrase rule is built from the Settings list, so the two connect. */
+function bannedRule(banned: string[]): LintRule | null {
+  const words = banned.map((s) => s.trim()).filter(Boolean);
+  if (words.length === 0) return null;
+  const body = words.map(escapeRe).join("|");
+  return {
+    id: "no-llm-phrase",
+    name: "Banned phrases",
+    count: (d) => (d.match(new RegExp(`\\b(${body})\\b`, "gi")) ?? []).length,
+    fix: (d) => d.replace(new RegExp(`\\b(${body})\\b\\s*`, "gi"), ""),
+  };
+}
+
+function rulesFor(banned: string[]): LintRule[] {
+  const b = bannedRule(banned);
+  return b ? [...STATIC_RULES, b] : STATIC_RULES;
+}
+
+function lint(doc: string, banned: string[]) {
+  const violations = rulesFor(banned)
+    .map((r) => ({ rule: r, count: r.count(doc) }))
+    .filter((v) => v.count > 0);
   const total = violations.reduce((a, v) => a + v.count, 0);
   return { violations, total };
 }
-function fixAll(doc: string) {
-  return LINT_RULES.reduce((d, r) => r.fix(d), doc);
+function fixAll(doc: string, banned: string[]) {
+  return rulesFor(banned).reduce((d, r) => r.fix(d), doc);
 }
 
 /* ================================================================== */
@@ -388,7 +405,11 @@ function WriterModal({
   const [chat, setChat] = useState<ChatMsg[]>(initialChat);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState(MODES[0]);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [model, setModel] = useState("auto");
+  const [banned, setBanned] = useState<string[]>(DEFAULT_BANNED);
+  // The whole modal body swaps between these; the writer view is never
+  // unmounted (so any background streaming survives the swap).
+  const [view, setView] = useState<"writer" | "context" | "settings">("writer");
   const [isEditing, setIsEditing] = useState(true);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const ctx = useContextModel();
@@ -400,7 +421,7 @@ function WriterModal({
       setDoc(initialDoc);
       setChat(initialChat);
       setConfirmDiscard(false);
-      setPanelOpen(false);
+      setView("writer");
     }
   }, [open, initialDoc, initialChat]);
 
@@ -427,7 +448,7 @@ function WriterModal({
     setDraft("");
   }, [draft]);
 
-  const { violations, total: lintTotal } = lint(doc);
+  const { violations, total: lintTotal } = lint(doc, banned);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && requestClose()}>
@@ -464,6 +485,16 @@ function WriterModal({
 
           <div className="flex-1" />
 
+          <Button
+            variant={view === "settings" ? "secondary" : "ghost"}
+            size="icon"
+            title="Settings"
+            onClick={() =>
+              setView((v) => (v === "settings" ? "writer" : "settings"))
+            }
+          >
+            <SettingsIcon className="size-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={requestClose}>
             <X className="size-4" />
           </Button>
@@ -500,19 +531,11 @@ function WriterModal({
             {/* Inline context strip — the locked design. */}
             <InlineContextStrip
               model={ctx}
-              onOpenPanel={() => setPanelOpen(true)}
+              onOpenPanel={() => setView("context")}
             />
 
             {/* Document toolbar — mirrors document-panel.tsx. */}
             <div className="flex h-10 flex-none items-center gap-2 border-b px-3 text-xs text-muted-foreground">
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  dirty ? "bg-amber-500" : "bg-emerald-500"
-                )}
-              />
-              <FileText className="size-3.5" />
-              document · working copy{dirty ? " (unsaved)" : ""}
               <div className="flex-1" />
               {lintTotal > 0 && (
                 <Button
@@ -522,7 +545,7 @@ function WriterModal({
                   title={violations
                     .map((v) => `${v.rule.name}: ${v.count}`)
                     .join(" · ")}
-                  onClick={() => setDoc((d) => fixAll(d))}
+                  onClick={() => setDoc((d) => fixAll(d, banned))}
                 >
                   <AlertTriangleIcon className="mr-1 size-4 text-orange-500" />
                   Fix ({lintTotal})
@@ -569,12 +592,22 @@ function WriterModal({
             </div>
           </div>
 
-          {/* Full-options context panel — toggle individual parts. */}
-          <ContextPanel
-            open={panelOpen}
-            model={ctx}
-            onClose={() => setPanelOpen(false)}
-          />
+          {/* "Extra stuff" replaces the whole modal body rather than floating
+              over it. The writer (chat + document) above stays mounted — these
+              covers render on top — so background streaming is never torn out of
+              the DOM when you step into Context / Settings and back. */}
+          {view === "context" && (
+            <ContextView model={ctx} onBack={() => setView("writer")} />
+          )}
+          {view === "settings" && (
+            <SettingsView
+              model={model}
+              onModelChange={setModel}
+              banned={banned}
+              onBannedChange={setBanned}
+              onBack={() => setView("writer")}
+            />
+          )}
 
           {/* Unsaved-changes confirm — in-modal overlay (no AlertDialog in
               this codebase, and nested Radix dialogs fight over focus). */}
@@ -711,93 +744,215 @@ function InlineContextStrip({
   );
 }
 
-/* Full-options panel — an in-modal sliding panel over the document, so it
-   sits alongside the chat instead of dimming the whole modal. */
-function ContextPanel({
-  open,
-  model,
-  onClose,
+/* A full-body cover with a Back header. Rendered on top of the still-mounted
+   writer so stepping into Context / Settings never unmounts it. */
+function FullCover({
+  title,
+  right,
+  onBack,
+  children,
+  footer,
 }: {
-  open: boolean;
+  title: React.ReactNode;
+  right?: React.ReactNode;
+  onBack: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col bg-background">
+      <div className="flex h-11 flex-none items-center gap-2 border-b px-3">
+        <Button variant="ghost" size="sm" className="h-8" onClick={onBack}>
+          <ArrowLeft className="mr-1 size-4" /> Back
+        </Button>
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="flex-1" />
+        {right}
+      </div>
+      <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl p-4">{children}</div>
+      </div>
+      {footer && (
+        <div className="flex-none border-t px-4 py-2 text-xs text-muted-foreground">
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Full-body Context view — toggle whole sources or individual parts. */
+function ContextView({
+  model,
+  onBack,
+}: {
   model: ContextModel;
-  onClose: () => void;
+  onBack: () => void;
 }) {
   const tone = tokenTone(model.totalTokens);
   return (
-    <aside
-      className={cn(
-        "absolute inset-y-0 right-0 z-10 flex w-[420px] flex-col border-l bg-background shadow-xl transition-transform duration-200",
-        open ? "translate-x-0" : "pointer-events-none translate-x-full"
-      )}
-    >
-      <div className="flex flex-none items-center gap-2 border-b px-4 py-3">
-        <Layers className="size-4" />
-        <div className="text-sm font-semibold">Context</div>
-        <span className={cn("ml-1 font-mono text-sm", tone)}>
+    <FullCover
+      onBack={onBack}
+      title={
+        <span className="flex items-center gap-2">
+          <Layers className="size-4" /> Context
+        </span>
+      }
+      right={
+        <span className={cn("font-mono text-sm", tone)}>
           {fmtTok(model.totalTokens)} tok
         </span>
-        <div className="flex-1" />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          onClick={onClose}
-        >
-          <X className="size-4" />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {model.sources.map((s) => (
-          <div key={s.source.key} className="mb-1">
-            {/* Source header — tri-state; toggles the whole source. */}
-            <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted">
-              <Checkbox
-                checked={s.check}
-                onCheckedChange={() => model.toggleSource(s.source)}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm leading-tight">{s.source.label}</div>
-                <div className="text-xs text-muted-foreground">
-                  {s.source.note}
-                </div>
+      }
+      footer={
+        <>
+          <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code> (UTF-8). This
+          is the <code className="font-mono">context</code> payload the host
+          injects into the agent.
+        </>
+      }
+    >
+      {model.sources.map((s) => (
+        <div key={s.source.key} className="mb-1">
+          {/* Source header — tri-state; toggles the whole source. */}
+          <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted">
+            <Checkbox
+              checked={s.check}
+              onCheckedChange={() => model.toggleSource(s.source)}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm leading-tight">{s.source.label}</div>
+              <div className="text-xs text-muted-foreground">
+                {s.source.note}
               </div>
-              <div className="text-right font-mono text-xs text-muted-foreground">
-                {fmtTok(s.tokens)}
-              </div>
-            </label>
-            {/* Parts — only worth showing when the source has more than one. */}
-            {!s.atomic && (
-              <div className="ml-4 border-l pl-2">
-                {s.items.map((i) => (
-                  <label
-                    key={i.id}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
-                      !i.on && "opacity-50"
-                    )}
-                  >
-                    <Checkbox
-                      checked={i.on}
-                      onCheckedChange={() => model.toggleItem(i.id)}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs">
-                      {i.label}
-                    </span>
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {fmtTok(i.tokens)}
-                    </span>
-                  </label>
-                ))}
-              </div>
+            </div>
+            <div className="text-right font-mono text-xs text-muted-foreground">
+              {fmtTok(s.tokens)}
+            </div>
+          </label>
+          {/* Parts — only worth showing when the source has more than one. */}
+          {!s.atomic && (
+            <div className="ml-4 border-l pl-2">
+              {s.items.map((i) => (
+                <label
+                  key={i.id}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
+                    !i.on && "opacity-50"
+                  )}
+                >
+                  <Checkbox
+                    checked={i.on}
+                    onCheckedChange={() => model.toggleItem(i.id)}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-xs">
+                    {i.label}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {fmtTok(i.tokens)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </FullCover>
+  );
+}
+
+/* Full-body Settings view — model + banned phrases (which feed the linter). */
+function SettingsView({
+  model,
+  onModelChange,
+  banned,
+  onBannedChange,
+  onBack,
+}: {
+  model: string;
+  onModelChange: (m: string) => void;
+  banned: string[];
+  onBannedChange: (b: string[]) => void;
+  onBack: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const addPhrase = () => {
+    const p = draft.trim();
+    if (p && !banned.includes(p)) onBannedChange([...banned, p]);
+    setDraft("");
+  };
+  return (
+    <FullCover
+      onBack={onBack}
+      title={
+        <span className="flex items-center gap-2">
+          <SettingsIcon className="size-4" /> Settings
+        </span>
+      }
+    >
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Label>Model</Label>
+          <Select value={model} onValueChange={onModelChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">
+                Auto — Haiku to generate, Sonnet to edit
+              </SelectItem>
+              <SelectItem value="claude-haiku-4-5">
+                Haiku 4.5 — fast and cost-effective
+              </SelectItem>
+              <SelectItem value="claude-sonnet-4-5">
+                Sonnet 4.5 — more capable and thorough
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Banned phrases</Label>
+          <p className="text-xs text-muted-foreground">
+            The linter flags these in the document. Editing them changes the{" "}
+            <b>Fix</b> count live.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {banned.map((p) => (
+              <span
+                key={p}
+                className="flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-xs"
+              >
+                {p}
+                <button
+                  onClick={() => onBannedChange(banned.filter((x) => x !== p))}
+                  className="text-muted-foreground hover:text-foreground"
+                  title={`Remove "${p}"`}
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
+            {banned.length === 0 && (
+              <span className="text-xs text-muted-foreground">
+                No banned phrases.
+              </span>
             )}
           </div>
-        ))}
+          <div className="flex gap-2 pt-1">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addPhrase()}
+              placeholder="Add a phrase…"
+              className="h-8"
+            />
+            <Button size="sm" className="h-8" onClick={addPhrase}>
+              Add
+            </Button>
+          </div>
+        </div>
       </div>
-      <div className="flex-none border-t px-4 py-2 text-xs text-muted-foreground">
-        <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code> (UTF-8). This is
-        the <code className="font-mono">context</code> payload the host injects.
-      </div>
-    </aside>
+    </FullCover>
   );
 }
 
