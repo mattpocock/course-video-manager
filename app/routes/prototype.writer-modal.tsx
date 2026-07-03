@@ -54,16 +54,24 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangleIcon,
   ArrowLeft,
+  CameraIcon,
   CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   EyeIcon,
   Layers,
+  Loader2Icon,
+  Maximize2Icon,
   MinusIcon,
   PencilIcon,
+  RefreshCwIcon,
   SendIcon,
   SettingsIcon,
+  SquareIcon,
+  Trash2Icon,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /* ================================================================== */
 /* Token estimate — the whole point: raw tokens ≈ ceil(bytes / 4).     */
@@ -230,7 +238,27 @@ const config = {
 \`\`\`
 `;
 
-type ChatMsg = { role: "assistant" | "user" | "tool"; text: string };
+/**
+ * A chat message. `kind` lets the assistant embed richer parts than plain text:
+ *  - "tool"       → a tool-call card (writeDocument / editDocument)
+ *  - "screenshot" → an inline ChooseScreenshot picker (capture a clip frame)
+ */
+type ChatMsg = {
+  role: "assistant" | "user" | "tool";
+  text: string;
+  kind?: "tool" | "screenshot";
+  streaming?: boolean;
+};
+
+/** Fixture clip frames the screenshot picker scrubs through. */
+const CLIP_FRAMES = [
+  { ts: 12, label: "00:12", hue: 210 },
+  { ts: 44, label: "00:44", hue: 265 },
+  { ts: 96, label: "01:36", hue: 150 },
+  { ts: 152, label: "02:32", hue: 25 },
+  { ts: 210, label: "03:30", hue: 340 },
+];
+
 const INITIAL_CHAT: ChatMsg[] = [
   {
     role: "assistant",
@@ -242,11 +270,17 @@ const INITIAL_CHAT: ChatMsg[] = [
   },
   {
     role: "tool",
+    kind: "tool",
     text: 'writeDocument(section: "intro") — streamed 412 chars into the document →',
   },
   {
     role: "assistant",
     text: "Done — drafted the intro and the “Enter satisfies” section into the document on the right. The widening example comes straight from chapter 3.",
+  },
+  {
+    role: "assistant",
+    kind: "screenshot",
+    text: "Want a screenshot of the config example? Pick a frame and I'll drop it into the document.",
   },
 ];
 
@@ -327,10 +361,22 @@ type SourceView = {
   tokens: number;
 };
 
+type LinkItem = { id: string; url: string };
+
+const memorySource = CONTEXT_SOURCES.find((s) => s.key === "memory")!;
+const linksSource = CONTEXT_SOURCES.find((s) => s.key === "links")!;
+
 function useContextModel() {
   const [enabled, setEnabled] = useState<Set<string>>(
     () => new Set(CONTEXT_SOURCES.flatMap((s) => s.items.map((i) => i.id)))
   );
+  // Writer memory and links are *editable* here, not just toggleable, so they
+  // live in state and override the static fixture text.
+  const [memoryText, setMemoryText] = useState(() => memorySource.items[0]!.text);
+  const [links, setLinks] = useState<LinkItem[]>(() =>
+    linksSource.items.map((i) => ({ id: i.id, url: i.text }))
+  );
+  const linkSeq = useRef(links.length);
 
   const toggleItem = useCallback((id: string) => {
     setEnabled((prev) => {
@@ -341,20 +387,48 @@ function useContextModel() {
     });
   }, []);
 
-  const toggleSource = useCallback((source: ContextSource) => {
+  const toggleSource = useCallback((ids: string[], allOn: boolean) => {
     setEnabled((prev) => {
       const next = new Set(prev);
-      const allOn = source.items.every((i) => next.has(i.id));
-      if (allOn) source.items.forEach((i) => next.delete(i.id));
-      else source.items.forEach((i) => next.add(i.id));
+      if (allOn) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
       return next;
     });
   }, []);
 
+  const addLink = useCallback((url: string) => {
+    const u = url.trim();
+    if (!u) return;
+    const id = `links:added-${linkSeq.current++}`;
+    setLinks((l) => [...l, { id, url: u }]);
+    setEnabled((e) => new Set(e).add(id));
+  }, []);
+
+  const removeLink = useCallback((id: string) => {
+    setLinks((l) => l.filter((x) => x.id !== id));
+    setEnabled((e) => {
+      const n = new Set(e);
+      n.delete(id);
+      return n;
+    });
+  }, []);
+
+  // The effective parts of a source — memory/links come from live state.
+  const itemsFor = useCallback(
+    (source: ContextSource): ContextItem[] => {
+      if (source.key === "memory")
+        return [{ ...source.items[0]!, text: memoryText }];
+      if (source.key === "links")
+        return links.map((l) => ({ id: l.id, label: l.url, text: l.url }));
+      return source.items;
+    },
+    [memoryText, links]
+  );
+
   const sources = useMemo<SourceView[]>(
     () =>
       CONTEXT_SOURCES.map((source) => {
-        const items = source.items.map((i) => ({
+        const items = itemsFor(source).map((i) => ({
           ...i,
           on: enabled.has(i.id),
           tokens: estimateTokens(i.text),
@@ -375,11 +449,20 @@ function useContextModel() {
           tokens: items.reduce((a, i) => (i.on ? a + i.tokens : a), 0),
         };
       }),
-    [enabled]
+    [enabled, itemsFor]
   );
 
   const totalTokens = sources.reduce((a, s) => a + s.tokens, 0);
-  return { sources, toggleItem, toggleSource, totalTokens };
+  return {
+    sources,
+    toggleItem,
+    toggleSource,
+    totalTokens,
+    memoryText,
+    setMemory: setMemoryText,
+    addLink,
+    removeLink,
+  };
 }
 
 type ContextModel = ReturnType<typeof useContextModel>;
@@ -407,23 +490,70 @@ function WriterModal({
   const [mode, setMode] = useState(MODES[0]);
   const [model, setModel] = useState("auto");
   const [banned, setBanned] = useState<string[]>(DEFAULT_BANNED);
+  const [status, setStatus] = useState<"ready" | "streaming">("ready");
+  const [applying, setApplying] = useState(false);
   // The whole modal body swaps between these; the writer view is never
   // unmounted (so any background streaming survives the swap).
   const [view, setView] = useState<"writer" | "context" | "settings">("writer");
   const [isEditing, setIsEditing] = useState(true);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const ctx = useContextModel();
+  const streamRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopStream = useCallback(() => {
+    if (streamRef.current) clearInterval(streamRef.current);
+    streamRef.current = null;
+    setChat((c) => c.map((m) => (m.streaming ? { ...m, streaming: false } : m)));
+    setStatus("ready");
+  }, []);
+
+  // Fake a streamed response: a tool-call card, then the assistant reply typed
+  // in word-by-word while a line lands in the document. Stop halts it midway.
+  const runStream = useCallback(
+    (reply: string, docLine: string) => {
+      if (streamRef.current) clearInterval(streamRef.current);
+      setStatus("streaming");
+      setChat((c) => [
+        ...c,
+        {
+          role: "tool",
+          kind: "tool",
+          text: 'writeDocument(section: "body") — streaming →',
+        },
+        { role: "assistant", text: "", streaming: true },
+      ]);
+      setDoc((d) => `${d.replace(/\s*$/, "")}\n\n${docLine}\n`);
+      const words = reply.split(" ");
+      let i = 0;
+      streamRef.current = setInterval(() => {
+        i++;
+        setChat((c) => {
+          const copy = c.slice();
+          const last = copy[copy.length - 1];
+          if (last) copy[copy.length - 1] = { ...last, text: words.slice(0, i).join(" ") };
+          return copy;
+        });
+        if (i >= words.length) stopStream();
+      }, 55);
+    },
+    [stopStream]
+  );
 
   // Reseed the working copies each time the field re-opens (D1/D5: field value
   // IS the doc; conversation history is restored to its pre-open state).
   useEffect(() => {
     if (open) {
+      stopStream();
       setDoc(initialDoc);
       setChat(initialChat);
       setConfirmDiscard(false);
       setView("writer");
+      setApplying(false);
     }
-  }, [open, initialDoc, initialChat]);
+  }, [open, initialDoc, initialChat, stopStream]);
+
+  // Never leave an interval running past unmount.
+  useEffect(() => () => stopStream(), [stopStream]);
 
   const dirty = doc !== initialDoc || chat.length !== initialChat.length;
 
@@ -436,19 +566,64 @@ function WriterModal({
 
   const send = useCallback(() => {
     const text = draft.trim();
-    if (!text) return;
-    setChat((c) => [
-      ...c,
-      { role: "user", text },
-      {
-        role: "assistant",
-        text: "Revised the document to match — see the working copy on the right.",
-      },
-    ]);
+    if (!text || status === "streaming") return;
+    setChat((c) => [...c, { role: "user", text }]);
     setDraft("");
-  }, [draft]);
+    runStream(
+      "Revised the document to match — tightened the intro and grounded the example in the transcript. See the working copy on the right.",
+      "> Revised per your note — intro tightened, example grounded in the transcript."
+    );
+  }, [draft, status, runStream]);
+
+  const regenerate = useCallback(() => {
+    if (status === "streaming") return;
+    // Drop the trailing assistant/tool turn and re-run.
+    setChat((c) => {
+      let end = c.length;
+      while (end > 0 && c[end - 1]!.role !== "user") end--;
+      return c.slice(0, end);
+    });
+    runStream(
+      "Regenerated — here's a fresh take on the same request, leading harder with the concrete problem.",
+      "> Regenerated draft — leads with the concrete problem before the mechanics."
+    );
+  }, [status, runStream]);
+
+  const clearChat = useCallback(() => {
+    stopStream();
+    setChat([]);
+  }, [stopStream]);
+
+  // Screenshot capture drops a local image ref into the doc; the real upload to
+  // Cloudinary is deferred to Apply (below).
+  const captureScreenshot = useCallback((frameId: string, label: string) => {
+    setDoc(
+      (d) =>
+        `${d.replace(/\s*$/, "")}\n\n![Screenshot at ${label}](local:${frameId})\n`
+    );
+  }, []);
+
+  // Apply: if the doc still has local screenshot refs, "upload to Cloudinary"
+  // first (rewrite local: → a hosted URL), then write back to the field.
+  const handleApply = useCallback(() => {
+    const hasLocal = /\]\(local:/.test(doc);
+    if (!hasLocal) {
+      onApply(doc, chat);
+      return;
+    }
+    setApplying(true);
+    setTimeout(() => {
+      const uploaded = doc.replace(
+        /\]\(local:[^)]+\)/g,
+        "](https://res.cloudinary.com/aihero/image/upload/v1/screenshot.png)"
+      );
+      setApplying(false);
+      onApply(uploaded, chat);
+    }, 900);
+  }, [doc, chat, onApply]);
 
   const { violations, total: lintTotal } = lint(doc, banned);
+  const busy = status === "streaming";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && requestClose()}>
@@ -504,9 +679,45 @@ function WriterModal({
         <div className="relative flex min-h-0 flex-1">
           {/* Chat */}
           <div className="flex w-2/5 flex-col border-r">
+            {/* Chat toolbar — regenerate / clear (mirrors write-toolbar.tsx). */}
+            <div className="flex h-10 flex-none items-center gap-1 border-b px-2 text-xs text-muted-foreground">
+              {busy && (
+                <span className="flex items-center gap-1.5 pl-1">
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                  streaming…
+                </span>
+              )}
+              <div className="flex-1" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                disabled={busy || chat.length === 0}
+                onClick={regenerate}
+                title="Regenerate last response"
+              >
+                <RefreshCwIcon className="mr-1 size-4" /> Regenerate
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                disabled={chat.length === 0}
+                onClick={clearChat}
+                title="Clear chat"
+              >
+                <Trash2Icon className="size-4" />
+              </Button>
+            </div>
+
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {chat.map((m, i) => (
-                <ChatBubble key={i} msg={m} />
+                <ChatBubble
+                  key={i}
+                  msg={m}
+                  isStreaming={busy}
+                  onCapture={captureScreenshot}
+                />
               ))}
             </div>
             <div className="flex flex-none items-end gap-2 border-t p-3">
@@ -520,9 +731,21 @@ function WriterModal({
                 placeholder="Ask the writer to revise the document…"
                 className="max-h-28 min-h-[42px] resize-none"
               />
-              <Button size="icon" className="flex-none" onClick={send}>
-                <SendIcon className="size-4" />
-              </Button>
+              {busy ? (
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="flex-none"
+                  onClick={stopStream}
+                  title="Stop"
+                >
+                  <SquareIcon className="size-4" />
+                </Button>
+              ) : (
+                <Button size="icon" className="flex-none" onClick={send}>
+                  <SendIcon className="size-4" />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -645,23 +868,42 @@ function WriterModal({
           )}
         </div>
 
-        {/* Footer — just Cancel / Apply. */}
+        {/* Footer — Cancel / Apply. Apply uploads any captured screenshots to
+            Cloudinary before writing the field back. */}
         <div className="flex h-14 flex-none items-center justify-end gap-3 border-t bg-muted/40 px-4">
-          <Button variant="outline" onClick={requestClose}>
+          <Button variant="outline" onClick={requestClose} disabled={applying}>
             Cancel
           </Button>
-          <Button onClick={() => onApply(doc, chat)}>Apply</Button>
+          <Button onClick={handleApply} disabled={applying}>
+            {applying ? (
+              <>
+                <Loader2Icon className="mr-1 size-4 animate-spin" />
+                Uploading images…
+              </>
+            ) : (
+              "Apply"
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-function ChatBubble({ msg }: { msg: ChatMsg }) {
+function ChatBubble({
+  msg,
+  isStreaming,
+  onCapture,
+}: {
+  msg: ChatMsg;
+  isStreaming: boolean;
+  onCapture: (frameId: string, label: string) => void;
+}) {
   if (msg.role === "tool") {
     return (
-      <div className="rounded-md border border-dashed px-3 py-2 font-mono text-xs text-muted-foreground">
-        ↳ tool: {msg.text}
+      <div className="flex items-center gap-2 rounded-md border border-dashed px-3 py-2 font-mono text-xs text-muted-foreground">
+        {isStreaming && <Loader2Icon className="size-3.5 animate-spin" />}
+        <span>↳ tool: {msg.text}</span>
       </div>
     );
   }
@@ -678,6 +920,78 @@ function ChatBubble({ msg }: { msg: ChatMsg }) {
         )}
       >
         {msg.text}
+        {msg.streaming && (
+          <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-foreground/70 align-middle" />
+        )}
+      </div>
+      {msg.kind === "screenshot" && <ChooseScreenshotCard onCapture={onCapture} />}
+    </div>
+  );
+}
+
+/* Inline screenshot picker — scrub the clip's frames, capture one into the doc.
+   Stand-in for the real <choosescreenshot> component in write-chat.tsx. */
+function ChooseScreenshotCard({
+  onCapture,
+}: {
+  onCapture: (frameId: string, label: string) => void;
+}) {
+  const [idx, setIdx] = useState(2);
+  const [captured, setCaptured] = useState(false);
+  const frame = CLIP_FRAMES[idx]!;
+  return (
+    <div className="mt-2 w-[92%] rounded-lg border bg-background p-2">
+      <div
+        className="flex h-28 items-end justify-between rounded-md p-2 text-[10px] font-medium text-white"
+        style={{
+          background: `linear-gradient(135deg, hsl(${frame.hue} 70% 45%), hsl(${(frame.hue + 40) % 360} 70% 35%))`,
+        }}
+      >
+        <span className="rounded bg-black/40 px-1.5 py-0.5">
+          frame @ {frame.label}
+        </span>
+        <span className="rounded bg-black/40 px-1.5 py-0.5">
+          {idx + 1}/{CLIP_FRAMES.length}
+        </span>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-7"
+          onClick={() => setIdx((i) => Math.max(0, i - 1))}
+          disabled={idx === 0}
+        >
+          <ChevronLeftIcon className="size-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-7"
+          onClick={() => setIdx((i) => Math.min(CLIP_FRAMES.length - 1, i + 1))}
+          disabled={idx === CLIP_FRAMES.length - 1}
+        >
+          <ChevronRightIcon className="size-4" />
+        </Button>
+        <div className="flex-1" />
+        <Button
+          size="sm"
+          className="h-7"
+          onClick={() => {
+            onCapture(`frame-${frame.ts}`, frame.label);
+            setCaptured(true);
+          }}
+        >
+          {captured ? (
+            <>
+              <CheckIcon className="mr-1 size-4" /> Inserted
+            </>
+          ) : (
+            <>
+              <CameraIcon className="mr-1 size-4" /> Capture into doc
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );
@@ -724,7 +1038,12 @@ function InlineContextStrip({
       {model.sources.map((s) => (
         <button
           key={s.source.key}
-          onClick={() => model.toggleSource(s.source)}
+          onClick={() =>
+            model.toggleSource(
+              s.items.map((i) => i.id),
+              s.check === true
+            )
+          }
           className={cn(
             "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors",
             s.check === false
@@ -817,7 +1136,12 @@ function ContextView({
           <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted">
             <Checkbox
               checked={s.check}
-              onCheckedChange={() => model.toggleSource(s.source)}
+              onCheckedChange={() =>
+                model.toggleSource(
+                  s.items.map((i) => i.id),
+                  s.check === true
+                )
+              }
             />
             <div className="min-w-0 flex-1">
               <div className="text-sm leading-tight">{s.source.label}</div>
@@ -829,34 +1153,104 @@ function ContextView({
               {fmtTok(s.tokens)}
             </div>
           </label>
-          {/* Parts — only worth showing when the source has more than one. */}
-          {!s.atomic && (
-            <div className="ml-4 border-l pl-2">
+
+          {/* Writer memory is editable, not just toggleable. */}
+          {s.source.key === "memory" && (
+            <div className="ml-6 mt-1">
+              <Textarea
+                value={model.memoryText}
+                onChange={(e) => model.setMemory(e.target.value)}
+                className="min-h-[120px] font-mono text-xs"
+              />
+            </div>
+          )}
+
+          {/* Links are editable — remove each, add new ones. */}
+          {s.source.key === "links" && (
+            <div className="ml-6 mt-1 space-y-1">
               {s.items.map((i) => (
-                <label
-                  key={i.id}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
-                    !i.on && "opacity-50"
-                  )}
-                >
+                <div key={i.id} className="flex items-center gap-2">
                   <Checkbox
                     checked={i.on}
                     onCheckedChange={() => model.toggleItem(i.id)}
                   />
-                  <span className="min-w-0 flex-1 truncate text-xs">
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-xs",
+                      !i.on && "opacity-50"
+                    )}
+                  >
                     {i.label}
                   </span>
                   <span className="font-mono text-[10px] text-muted-foreground">
                     {fmtTok(i.tokens)}
                   </span>
-                </label>
+                  <button
+                    onClick={() => model.removeLink(i.id)}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Remove link"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
               ))}
+              <AddLinkRow onAdd={model.addLink} />
             </div>
           )}
+
+          {/* Other multi-part sources: plain per-part toggles. */}
+          {!s.atomic &&
+            s.source.key !== "links" &&
+            s.source.key !== "memory" && (
+              <div className="ml-4 border-l pl-2">
+                {s.items.map((i) => (
+                  <label
+                    key={i.id}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
+                      !i.on && "opacity-50"
+                    )}
+                  >
+                    <Checkbox
+                      checked={i.on}
+                      onCheckedChange={() => model.toggleItem(i.id)}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs">
+                      {i.label}
+                    </span>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {fmtTok(i.tokens)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
         </div>
       ))}
     </FullCover>
+  );
+}
+
+/* Small add-a-link input used inside the Context view's Links source. */
+function AddLinkRow({ onAdd }: { onAdd: (url: string) => void }) {
+  const [url, setUrl] = useState("");
+  const add = () => {
+    onAdd(url);
+    setUrl("");
+  };
+  return (
+    <div className="flex gap-2 pt-1">
+      <Input
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && add()}
+        placeholder="Add a link…"
+        className="h-7 text-xs"
+      />
+      <Button size="sm" className="h-7" onClick={add}>
+        Add
+      </Button>
+    </div>
   );
 }
 
@@ -956,6 +1350,73 @@ function SettingsView({
   );
 }
 
+/* A long-form field that is itself an editable Monaco editor, with floating
+   Preview / Open-in-writer buttons — so you can read or tweak the value inline
+   without opening the full writer. */
+function BodyField({
+  value,
+  onChange,
+  onOpen,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onOpen: () => void;
+}) {
+  const [preview, setPreview] = useState(false);
+  return (
+    <div className="relative overflow-hidden rounded-md border bg-background">
+      <div className="absolute right-2 top-2 z-10 flex gap-1">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-7 shadow-sm"
+          onClick={() => setPreview((p) => !p)}
+        >
+          {preview ? (
+            <>
+              <PencilIcon className="mr-1 size-3.5" /> Edit
+            </>
+          ) : (
+            <>
+              <EyeIcon className="mr-1 size-3.5" /> Preview
+            </>
+          )}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-7 shadow-sm"
+          onClick={onOpen}
+        >
+          <Maximize2Icon className="mr-1 size-3.5" /> Open in writer
+        </Button>
+      </div>
+      <div className="h-[280px]">
+        {preview ? (
+          <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted h-full overflow-y-auto p-4">
+            <div className="max-w-[75ch]">
+              <AIResponse imageBasePath="prototype/the-satisfies-operator">
+                {value}
+              </AIResponse>
+            </div>
+          </div>
+        ) : (
+          <MarkdownMonacoEditor
+            value={value}
+            onChange={onChange}
+            options={{ padding: { top: 12 } }}
+            fallback={
+              <div className="p-4 text-sm text-muted-foreground">
+                Loading editor…
+              </div>
+            }
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ================================================================== */
 /* Host page — a faithful copy of the AI Hero form's field layout, so  */
 /* the modal is judged against the real page density.                  */
@@ -1018,24 +1479,15 @@ export default function PrototypeWriterModal() {
           />
         </div>
 
-        {/* The click-to-edit long-form field (the point). */}
+        {/* The long-form field — a real editable Monaco field with floating
+            Preview / Open-in-writer buttons top-right. */}
         <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            Body (Markdown)
-            <span className="text-xs font-normal text-primary">
-              · click to edit in the writer
-            </span>
-          </Label>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="group relative block min-h-[220px] w-full rounded-md border bg-background p-4 text-left font-mono text-sm hover:border-primary/40 hover:bg-muted/30"
-          >
-            <span className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded border bg-background px-2 py-1 text-xs font-sans text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-              <PencilIcon className="size-3.5" /> Edit in writer
-            </span>
-            <span className="whitespace-pre-wrap text-foreground">{body}</span>
-          </button>
+          <Label>Body (Markdown)</Label>
+          <BodyField
+            value={body}
+            onChange={setBody}
+            onOpen={() => setModalOpen(true)}
+          />
           <p className="text-xs text-muted-foreground">
             This becomes <code className="font-mono">video.body</code> and
             exports into <code className="font-mono">course.json</code>. Its
