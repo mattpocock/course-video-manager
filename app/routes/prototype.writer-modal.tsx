@@ -8,38 +8,39 @@
  *
  * The modal opens from a long-form Post field (here, the AI Hero **Body**). It
  * collapses the fullscreen writer's 3-pane workspace to 2 panes — chat + document
- * — and treats the field's value as the document (Apply writes back, Cancel
- * discards). Mirrors the seam from #1113: the host injects
- * `videoId / fieldId / modes / initialDocument / onApply / context / layout`.
+ * — and treats the field's value as the document. Mirrors the seam from #1113:
+ * the host injects `videoId / fieldId / modes / initialDocument / onApply /
+ * context / layout`.
  *
- * The live design question is the **context token counter** (Matt's ask: a raw
- * token number, bytes ÷ 4, so you can see how much the "extra stuff" costs):
+ * DESIGN LOCKED (Matt's call, 2026-07-03): the winning token-counter treatment is
+ * the **inline context strip** — sources shown as chips docked above the document,
+ * always on-screen. Refinements baked in here:
  *
- *   ?variant=A — Context drawer (Sheet): per-source breakdown + big total, opened
- *                from a Context button that always shows the running total.
- *   ?variant=B — Header budget meter: an always-visible token meter in the modal
- *                header; click for the per-source Popover breakdown.
- *   ?variant=C — Inline context strip: sources as chips docked above the document,
- *                always on-screen, no drawer.
+ *   • Each chip is a real toggle with a checkbox. A source made of parts
+ *     (transcript segments, chapters, repo files, links) can be **partially on**
+ *     → the checkbox shows an indeterminate state.
+ *   • The "Context" button opens a full-options panel where individual parts
+ *     (each chapter, each file…) can be toggled.
+ *   • Token counts read as `4.1K`.
+ *   • The document pane matches the real writer: Edit ⇄ Preview and a lint
+ *     "Fix (N)" button (mirrors `document-panel.tsx`).
+ *   • Cancel reverts the conversation history to what it was before the modal
+ *     opened; closing with unsaved changes asks for confirmation first.
+ *   • Footer is just Cancel / Apply — no explanation blurb, no token count.
  *
  * Still a prototype: NOT wired to the real writer engine / useChat / endpoints.
- * Chat + document are hand-authored fixtures; toggling context sources only
- * recomputes the token estimate. Once a token-counter treatment wins, fold it
- * into the real modal host built in #1114 (writable-field-component), then delete
- * this file + its losing variants.
+ * Chat + document + context sources are hand-authored fixtures. Once this shape is
+ * folded into the real modal host built in #1114 (writable-field-component),
+ * delete this file.
  */
 
+import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -51,17 +52,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { MarkdownMonacoEditor } from "@/components/markdown-monaco-editor";
 import { cn } from "@/lib/utils";
 import {
-  ChevronLeft,
-  ChevronRight,
+  AlertTriangleIcon,
+  CheckIcon,
+  EyeIcon,
   FileText,
-  GaugeIcon,
   Layers,
+  MinusIcon,
   PencilIcon,
   SendIcon,
-  SparklesIcon,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
 
 /* ================================================================== */
 /* Token estimate — the whole point: raw tokens ≈ ceil(bytes / 4).     */
@@ -71,117 +72,153 @@ const encoder = new TextEncoder();
 const byteLength = (s: string) => encoder.encode(s).length;
 /** Deliberately crude gauge of injected-context weight — not a real tokenizer. */
 const estimateTokens = (s: string) => Math.ceil(byteLength(s) / 4);
-const fmt = (n: number) => n.toLocaleString("en-US");
-const fmtBytes = (n: number) =>
-  n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`;
 
-/** Illustrative budget bands so the number has a felt sense of "a lot". */
-function tokenTone(total: number): { text: string; bar: string } {
-  if (total > 12000) return { text: "text-destructive", bar: "bg-destructive" };
-  if (total > 6000) return { text: "text-amber-600", bar: "bg-amber-500" };
-  return { text: "text-emerald-600", bar: "bg-emerald-500" };
+/** Compact token label, Matt's format: 812 → "812", 4123 → "4.1K". */
+const fmtTok = (n: number) =>
+  n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}K`;
+
+/** Illustrative budget bands so the total has a felt sense of "a lot". */
+function tokenTone(total: number): string {
+  if (total > 12000) return "text-destructive";
+  if (total > 6000) return "text-amber-600";
+  return "text-emerald-600";
 }
 
 /* ================================================================== */
-/* Fixtures — the injected `context: WriterContext` payload + document. */
+/* Fixtures — the injected `context` payload, modelled as sources made  */
+/* of individually-toggleable parts (so a source can be partially on).  */
 /* ================================================================== */
 
+type ContextItem = { id: string; label: string; text: string };
 type ContextSource = {
   key: string;
   label: string;
   note: string;
-  text: string;
+  /** Parts. A single-part source is atomic (no indeterminate state). */
+  items: ContextItem[];
 };
 
-const TRANSCRIPT =
-  `In this video we look at the satisfies operator, which shipped in TypeScript 4.9. `.repeat(
-    60
-  ) +
-  `The problem it solves: annotating a variable widens the value to the declared type and you lose the literal information; leaving the annotation off keeps the narrow inferred type but gives you no validation. satisfies gives you both — it checks the value against the type without changing the inferred type. `.repeat(
-    24
-  );
-const FILES =
-  `readme.md\nexercise.ts\nexercise.solution.ts\nexplainer.ts\n`.repeat(6) +
-  `const config = {\n  routes: { home: "/", about: "/about" },\n  theme: "dark",\n} satisfies Config;\n`.repeat(
-    10
-  );
-const LINKS =
-  `https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html\nhttps://github.com/microsoft/TypeScript/pull/46827\nhttps://www.totaltypescript.com/tips/satisfies\n`.repeat(
-    4
-  );
-const COURSE_STRUCTURE =
-  `Course: TypeScript Wizard\n  Section: Deriving Types\n    Lesson: The satisfies Operator [explainer, problem, solution]\n    Lesson: keyof and typeof\n    Lesson: Indexed Access Types\n  Section: Generics\n`.repeat(
-    8
-  );
-const CHAPTERS =
-  `00:00 The two bad options\n01:12 Annotating widens the type\n02:40 No annotation = no validation\n03:55 Enter satisfies\n05:30 A real config example\n07:10 Gotchas with unions\n`.repeat(
-    6
-  );
-const MEMORY =
-  `- Matt prefers examples before theory.\n- House style: no "simply" / "just".\n- AI Hero bodies open with the concrete problem, then mechanics, then a runnable example.\n- Keep paragraphs short; prefer code over prose where it is clearer.\n`.repeat(
-    4
-  );
-const FULL_PATH = `typescript-wizard/deriving-types/the-satisfies-operator/explainer/readme.md`;
+const seg = (key: string, n: number, make: (i: number) => [string, string]) =>
+  Array.from({ length: n }, (_, i) => {
+    const [label, text] = make(i);
+    return { id: `${key}:${i}`, label, text };
+  });
 
 const CONTEXT_SOURCES: ContextSource[] = [
   {
     key: "transcript",
     label: "Transcript",
-    note: "clips.text, all segments",
-    text: TRANSCRIPT,
-  },
-  {
-    key: "files",
-    label: "Repo files",
-    note: "readme + exercise/solution sources",
-    text: FILES,
-  },
-  {
-    key: "links",
-    label: "Links",
-    note: "reference URLs on the video",
-    text: LINKS,
-  },
-  {
-    key: "courseStructure",
-    label: "Course structure",
-    note: "sections / lessons tree",
-    text: COURSE_STRUCTURE,
+    note: "clips.text, per segment",
+    items: seg("transcript", 6, (i) => [
+      `Segment ${i + 1}`,
+      `In this segment we look at the satisfies operator. ${"The problem it solves: annotating a variable widens the value to the declared type and you lose the literal information. ".repeat(
+        6 + i
+      )}`,
+    ]),
   },
   {
     key: "chapters",
     label: "Chapters",
     note: "meta.json chapter markers",
-    text: CHAPTERS,
+    items: [
+      ["00:00 The two bad options", 1],
+      ["01:12 Annotating widens the type", 2],
+      ["02:40 No annotation = no validation", 2],
+      ["03:55 Enter satisfies", 3],
+      ["05:30 A real config example", 4],
+      ["07:10 Gotchas with unions", 2],
+    ].map(([label, w], i) => ({
+      id: `chapters:${i}`,
+      label: label as string,
+      text: `${label} — ${"chapter body text describing what happens in this section of the video. ".repeat(
+        (w as number) * 3
+      )}`,
+    })),
+  },
+  {
+    key: "files",
+    label: "Repo files",
+    note: "readme + exercise/solution sources",
+    items: [
+      ["explainer/readme.md", 8],
+      ["exercise.ts", 5],
+      ["exercise.solution.ts", 6],
+      ["explainer.ts", 4],
+    ].map(([label, w], i) => ({
+      id: `files:${i}`,
+      label: label as string,
+      text: `// ${label}\n${'const config = {\n  routes: { home: "/", about: "/about" },\n  theme: "dark",\n} satisfies Config;\n'.repeat(
+        w as number
+      )}`,
+    })),
+  },
+  {
+    key: "links",
+    label: "Links",
+    note: "reference URLs on the video",
+    items: [
+      "https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html",
+      "https://github.com/microsoft/TypeScript/pull/46827",
+      "https://www.totaltypescript.com/tips/satisfies",
+    ].map((url, i) => ({ id: `links:${i}`, label: url, text: url })),
+  },
+  {
+    key: "courseStructure",
+    label: "Course structure",
+    note: "sections / lessons tree",
+    items: [
+      {
+        id: "courseStructure:0",
+        label: "sections / lessons tree",
+        text: `Course: TypeScript Wizard\n  Section: Deriving Types\n    Lesson: The satisfies Operator [explainer, problem, solution]\n    Lesson: keyof and typeof\n    Lesson: Indexed Access Types\n  Section: Generics\n`.repeat(
+          8
+        ),
+      },
+    ],
   },
   {
     key: "memory",
     label: "Writer memory",
     note: "standing style preferences",
-    text: MEMORY,
+    items: [
+      {
+        id: "memory:0",
+        label: "standing style preferences",
+        text: `- Matt prefers examples before theory.\n- House style: no "simply" / "just".\n- AI Hero bodies open with the concrete problem, then mechanics, then a runnable example.\n- Keep paragraphs short; prefer code over prose where it is clearer.\n`.repeat(
+          4
+        ),
+      },
+    ],
   },
   {
     key: "fullPath",
     label: "Full path",
     note: "namespacing / source pointer",
-    text: FULL_PATH,
+    items: [
+      {
+        id: "fullPath:0",
+        label: "source pointer",
+        text: `typescript-wizard/deriving-types/the-satisfies-operator/explainer/readme.md`,
+      },
+    ],
   },
 ];
 
+/** An em dash + a leading heading are seeded so lint has something to catch. */
 const INITIAL_BODY = `## The two bad options
 
-Before \`satisfies\`, configuring a typed object forced a lose-lose choice.
+Before \`satisfies\`, configuring a typed object forced a lose-lose choice — you simply couldn't have both.
 
 Annotate it, and TypeScript **widens** every value to the declared type — you can
 no longer tell that \`theme\` was \`"dark"\` specifically.
 
-Leave the annotation off, and you keep the narrow inferred type — but nothing
+Leave the annotation off, and you keep the narrow inferred type, but nothing
 checks that the object actually matches \`Config\`.
 
 ## Enter satisfies
 
-\`satisfies\` validates the value against the type **without changing the inferred
-type**:
+\`satisfies\` validates the value against the type without changing the inferred
+type:
 
 \`\`\`ts
 const config = {
@@ -193,7 +230,7 @@ const config = {
 `;
 
 type ChatMsg = { role: "assistant" | "user" | "tool"; text: string };
-const CHAT: ChatMsg[] = [
+const INITIAL_CHAT: ChatMsg[] = [
   {
     role: "assistant",
     text: "I've got the transcript, chapters and course structure loaded. Want me to draft the AI Hero body from the transcript, or start from the current field value?",
@@ -208,7 +245,7 @@ const CHAT: ChatMsg[] = [
   },
   {
     role: "assistant",
-    text: "Done — drafted the intro and the “Enter satisfies” section into the document on the right. The widening example comes straight from chapter 3 of the transcript.",
+    text: "Done — drafted the intro and the “Enter satisfies” section into the document on the right. The widening example comes straight from chapter 3.",
   },
 ];
 
@@ -216,127 +253,191 @@ const CHAT: ChatMsg[] = [
 const MODES = ["article", "skill-building", "newsletter"];
 
 /* ================================================================== */
-/* Context token model — shared across all three presentations.        */
+/* Lint — a trimmed stand-in for use-lint.ts / lint-rules.ts.          */
 /* ================================================================== */
 
+type LintRule = {
+  id: string;
+  name: string;
+  count: (doc: string) => number;
+  fix: (doc: string) => string;
+};
+
+const LINT_RULES: LintRule[] = [
+  {
+    id: "no-em-dash",
+    name: "Em dashes",
+    count: (d) => (d.match(/—/g) ?? []).length,
+    fix: (d) => d.replace(/\s*—\s*/g, ", "),
+  },
+  {
+    id: "no-llm-phrase",
+    name: "LLM phrases",
+    count: (d) => (d.match(/\b(simply|just|dive in|unlock)\b/gi) ?? []).length,
+    fix: (d) => d.replace(/\b(simply|just|dive in|unlock)\s*/gi, ""),
+  },
+  {
+    id: "no-leading-heading",
+    name: "Leading heading",
+    count: (d) => (/^\s*#/.test(d) ? 1 : 0),
+    fix: (d) => d.replace(/^\s*#+\s.*(\r?\n)+/, ""),
+  },
+];
+
+function lint(doc: string) {
+  const violations = LINT_RULES.map((r) => ({
+    rule: r,
+    count: r.count(doc),
+  })).filter((v) => v.count > 0);
+  const total = violations.reduce((a, v) => a + v.count, 0);
+  return { violations, total };
+}
+function fixAll(doc: string) {
+  return LINT_RULES.reduce((d, r) => r.fix(d), doc);
+}
+
+/* ================================================================== */
+/* Context model — enabled parts live in a Set of item ids.            */
+/* ================================================================== */
+
+type SourceView = {
+  source: ContextSource;
+  items: (ContextItem & { on: boolean; tokens: number })[];
+  onCount: number;
+  /** true | false | "indeterminate" — feeds the checkbox directly. */
+  check: boolean | "indeterminate";
+  atomic: boolean;
+  tokens: number;
+};
+
 function useContextModel() {
-  const [enabled, setEnabled] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(CONTEXT_SOURCES.map((s) => [s.key, true]))
+  const [enabled, setEnabled] = useState<Set<string>>(
+    () => new Set(CONTEXT_SOURCES.flatMap((s) => s.items.map((i) => i.id)))
   );
-  const toggle = useCallback(
-    (key: string) => setEnabled((e) => ({ ...e, [key]: !e[key] })),
-    []
-  );
-  const rows = useMemo(
+
+  const toggleItem = useCallback((id: string) => {
+    setEnabled((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSource = useCallback((source: ContextSource) => {
+    setEnabled((prev) => {
+      const next = new Set(prev);
+      const allOn = source.items.every((i) => next.has(i.id));
+      if (allOn) source.items.forEach((i) => next.delete(i.id));
+      else source.items.forEach((i) => next.add(i.id));
+      return next;
+    });
+  }, []);
+
+  const sources = useMemo<SourceView[]>(
     () =>
-      CONTEXT_SOURCES.map((s) => ({
-        ...s,
-        on: enabled[s.key],
-        tokens: estimateTokens(s.text),
-        bytes: byteLength(s.text),
-      })),
+      CONTEXT_SOURCES.map((source) => {
+        const items = source.items.map((i) => ({
+          ...i,
+          on: enabled.has(i.id),
+          tokens: estimateTokens(i.text),
+        }));
+        const onCount = items.filter((i) => i.on).length;
+        const check: boolean | "indeterminate" =
+          onCount === 0
+            ? false
+            : onCount === items.length
+              ? true
+              : "indeterminate";
+        return {
+          source,
+          items,
+          onCount,
+          check,
+          atomic: items.length === 1,
+          tokens: items.reduce((a, i) => (i.on ? a + i.tokens : a), 0),
+        };
+      }),
     [enabled]
   );
-  const totalTokens = rows.reduce((a, r) => (r.on ? a + r.tokens : a), 0);
-  const totalBytes = rows.reduce((a, r) => (r.on ? a + r.bytes : a), 0);
-  const maxTokens = Math.max(1, ...rows.map((r) => r.tokens));
-  return { rows, toggle, totalTokens, totalBytes, maxTokens };
+
+  const totalTokens = sources.reduce((a, s) => a + s.tokens, 0);
+  return { sources, toggleItem, toggleSource, totalTokens };
 }
 
 type ContextModel = ReturnType<typeof useContextModel>;
-
-/* The per-source list, reused by the drawer / popover / inline strip. */
-function ContextBreakdown({ model }: { model: ContextModel }) {
-  return (
-    <div className="flex flex-col">
-      {model.rows.map((r) => (
-        <label
-          key={r.key}
-          className={cn(
-            "flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted cursor-pointer",
-            !r.on && "opacity-45"
-          )}
-        >
-          <Checkbox
-            checked={r.on}
-            onCheckedChange={() => model.toggle(r.key)}
-          />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm leading-tight">{r.label}</div>
-            <div className="text-xs text-muted-foreground">{r.note}</div>
-            <div
-              className="mt-1 h-1 rounded-full bg-primary/50"
-              style={{
-                width: `${Math.round((r.tokens / model.maxTokens) * 100)}%`,
-              }}
-            />
-          </div>
-          <div className="text-right font-mono text-xs">
-            <div>{fmt(r.tokens)}</div>
-            <div className="text-[10px] text-muted-foreground">
-              {fmtBytes(r.bytes)}
-            </div>
-          </div>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function ContextTotalCard({ model }: { model: ContextModel }) {
-  const tone = tokenTone(model.totalTokens);
-  return (
-    <div className="flex items-baseline justify-between rounded-lg border bg-muted/40 px-4 py-3">
-      <div>
-        <div className={cn("font-mono text-2xl font-semibold", tone.text)}>
-          {fmt(model.totalTokens)}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          tokens injected (bytes ÷ 4)
-        </div>
-      </div>
-      <div className="text-right">
-        <div className="font-mono text-sm">{fmtBytes(model.totalBytes)}</div>
-        <div className="text-xs text-muted-foreground">raw bytes</div>
-      </div>
-    </div>
-  );
-}
 
 /* ================================================================== */
 /* The field-bound writer modal.                                       */
 /* ================================================================== */
 
 function WriterModal({
-  variant,
   open,
-  onOpenChange,
-  initialValue,
+  onClose,
+  initialDoc,
+  initialChat,
   onApply,
 }: {
-  variant: string;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  initialValue: string;
-  onApply: (value: string) => void;
+  onClose: () => void;
+  initialDoc: string;
+  initialChat: ChatMsg[];
+  onApply: (doc: string, chat: ChatMsg[]) => void;
 }) {
-  const [doc, setDoc] = useState(initialValue);
+  const [doc, setDoc] = useState(initialDoc);
+  const [chat, setChat] = useState<ChatMsg[]>(initialChat);
+  const [draft, setDraft] = useState("");
   const [mode, setMode] = useState(MODES[0]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const ctx = useContextModel();
-  const tone = tokenTone(ctx.totalTokens);
-  const docTokens = estimateTokens(doc);
 
-  // Reseed the working copy whenever the field re-opens (D1/D5: field value IS the doc).
+  // Reseed the working copies each time the field re-opens (D1/D5: field value
+  // IS the doc; conversation history is restored to its pre-open state).
   useEffect(() => {
-    if (open) setDoc(initialValue);
-  }, [open, initialValue]);
+    if (open) {
+      setDoc(initialDoc);
+      setChat(initialChat);
+      setConfirmDiscard(false);
+      setPanelOpen(false);
+    }
+  }, [open, initialDoc, initialChat]);
+
+  const dirty = doc !== initialDoc || chat.length !== initialChat.length;
+
+  // Cancel/close: revert (host state is untouched, so simply dropping the
+  // working copies restores the prior conversation) — confirm first if dirty.
+  const requestClose = useCallback(() => {
+    if (dirty) setConfirmDiscard(true);
+    else onClose();
+  }, [dirty, onClose]);
+
+  const send = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    setChat((c) => [
+      ...c,
+      { role: "user", text },
+      {
+        role: "assistant",
+        text: "Revised the document to match — see the working copy on the right.",
+      },
+    ]);
+    setDraft("");
+  }, [draft]);
+
+  const { violations, total: lintTotal } = lint(doc);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => !o && requestClose()}>
       <DialogContent
         showCloseButton={false}
         className="flex h-[82vh] max-h-[780px] w-[94vw] max-w-[1120px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1120px]"
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          requestClose();
+        }}
       >
         {/* Header */}
         <div className="flex h-13 flex-none items-center gap-3 border-b bg-muted/40 px-4 py-2">
@@ -363,29 +464,8 @@ function WriterModal({
 
           <div className="flex-1" />
 
-          {/* --- Variant A: Context button carrying the running total --- */}
-          {variant === "A" && (
-            <Button
-              variant={drawerOpen ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setDrawerOpen((o) => !o)}
-            >
-              <Layers className="size-4" />
-              Context
-              <Badge
-                variant="outline"
-                className={cn("ml-1 font-mono", tone.text)}
-              >
-                ~{fmt(ctx.totalTokens)} tok
-              </Badge>
-            </Button>
-          )}
-
-          {/* --- Variant B: always-on header budget meter (+ popover) --- */}
-          {variant === "B" && <HeaderMeter model={ctx} />}
-
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-            Close
+          <Button variant="ghost" size="icon" onClick={requestClose}>
+            <X className="size-4" />
           </Button>
         </div>
 
@@ -394,17 +474,22 @@ function WriterModal({
           {/* Chat */}
           <div className="flex w-2/5 flex-col border-r">
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
-              {CHAT.map((m, i) => (
+              {chat.map((m, i) => (
                 <ChatBubble key={i} msg={m} />
               ))}
             </div>
             <div className="flex flex-none items-end gap-2 border-t p-3">
               <Textarea
                 rows={1}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
+                }}
                 placeholder="Ask the writer to revise the document…"
                 className="max-h-28 min-h-[42px] resize-none"
               />
-              <Button size="icon" className="flex-none">
+              <Button size="icon" className="flex-none" onClick={send}>
                 <SendIcon className="size-4" />
               </Button>
             </div>
@@ -412,82 +497,127 @@ function WriterModal({
 
           {/* Document */}
           <div className="flex flex-1 flex-col">
-            {/* Variant C: inline context strip docked above the document */}
-            {variant === "C" && <InlineContextStrip model={ctx} />}
+            {/* Inline context strip — the locked design. */}
+            <InlineContextStrip
+              model={ctx}
+              onOpenPanel={() => setPanelOpen(true)}
+            />
 
-            <div className="flex h-8 flex-none items-center gap-2 border-b px-3 text-xs text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              <FileText className="size-3.5" />
-              document · working copy (unsaved)
-              <span className="ml-auto font-mono">{fmt(docTokens)} tok</span>
-            </div>
-            <div className="min-h-0 flex-1">
-              <MarkdownMonacoEditor
-                value={doc}
-                onChange={setDoc}
-                fallback={
-                  <div className="p-4 text-sm text-muted-foreground">
-                    Loading editor…
-                  </div>
-                }
+            {/* Document toolbar — mirrors document-panel.tsx. */}
+            <div className="flex h-10 flex-none items-center gap-2 border-b px-3 text-xs text-muted-foreground">
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  dirty ? "bg-amber-500" : "bg-emerald-500"
+                )}
               />
+              <FileText className="size-3.5" />
+              document · working copy{dirty ? " (unsaved)" : ""}
+              <div className="flex-1" />
+              {lintTotal > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  title={violations
+                    .map((v) => `${v.rule.name}: ${v.count}`)
+                    .join(" · ")}
+                  onClick={() => setDoc((d) => fixAll(d))}
+                >
+                  <AlertTriangleIcon className="mr-1 size-4 text-orange-500" />
+                  Fix ({lintTotal})
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => setIsEditing((e) => !e)}
+              >
+                {isEditing ? (
+                  <>
+                    <EyeIcon className="mr-1 size-4" /> Preview
+                  </>
+                ) : (
+                  <>
+                    <PencilIcon className="mr-1 size-4" /> Edit
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {isEditing ? (
+                <MarkdownMonacoEditor
+                  value={doc}
+                  onChange={setDoc}
+                  fallback={
+                    <div className="p-4 text-sm text-muted-foreground">
+                      Loading editor…
+                    </div>
+                  }
+                />
+              ) : (
+                <div className="h-full overflow-y-auto p-6">
+                  <div className="mx-auto max-w-[75ch]">
+                    <AIResponse imageBasePath="prototype/the-satisfies-operator">
+                      {doc}
+                    </AIResponse>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Variant A: Context drawer — an in-modal sliding panel (not a
-              Sheet, so it sits alongside the document instead of dimming it). */}
-          {variant === "A" && (
-            <aside
-              className={cn(
-                "absolute inset-y-0 right-0 z-10 flex w-[380px] flex-col border-l bg-muted/40 shadow-xl transition-transform duration-200",
-                drawerOpen
-                  ? "translate-x-0"
-                  : "pointer-events-none translate-x-full"
-              )}
-            >
-              <div className="flex-none border-b px-4 py-3">
-                <div className="text-sm font-semibold">Injected context</div>
-                <p className="text-xs text-muted-foreground">
-                  Everything the host passes into the agent — the “extra stuff”
-                  behind the modal.
+          {/* Full-options context panel — toggle individual parts. */}
+          <ContextPanel
+            open={panelOpen}
+            model={ctx}
+            onClose={() => setPanelOpen(false)}
+          />
+
+          {/* Unsaved-changes confirm — in-modal overlay (no AlertDialog in
+              this codebase, and nested Radix dialogs fight over focus). */}
+          {confirmDiscard && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+              <div className="w-[380px] rounded-lg border bg-background p-5 shadow-xl">
+                <div className="text-sm font-semibold">
+                  Discard unsaved changes?
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  The document and this conversation will revert to how they
+                  were before you opened the writer.
                 </p>
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmDiscard(false)}
+                  >
+                    Keep editing
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setConfirmDiscard(false);
+                      onClose();
+                    }}
+                  >
+                    Discard
+                  </Button>
+                </div>
               </div>
-              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-                <ContextTotalCard model={ctx} />
-                <ContextBreakdown model={ctx} />
-                <p className="text-xs text-muted-foreground">
-                  Estimate:{" "}
-                  <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code>{" "}
-                  (UTF-8). Toggle a source to see its cost. This is the{" "}
-                  <code className="font-mono">context: WriterContext</code>{" "}
-                  payload.
-                </p>
-              </div>
-            </aside>
+            </div>
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer — just Cancel / Apply. */}
         <div className="flex h-14 flex-none items-center justify-end gap-3 border-t bg-muted/40 px-4">
-          <span className="mr-auto text-xs text-muted-foreground">
-            Working copy — <b>Apply</b> writes back to the field · <b>Cancel</b>{" "}
-            discards ·{" "}
-            <span className={cn("font-mono", tone.text)}>
-              ~{fmt(ctx.totalTokens)}
-            </span>{" "}
-            context tok
-          </span>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={requestClose}>
             Cancel
           </Button>
-          <Button
-            onClick={() => {
-              onApply(doc);
-              onOpenChange(false);
-            }}
-          >
-            Apply
-          </Button>
+          <Button onClick={() => onApply(doc, chat)}>Apply</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -520,68 +650,154 @@ function ChatBubble({ msg }: { msg: ChatMsg }) {
   );
 }
 
-/* Variant B — always-visible header meter with a popover breakdown. */
-function HeaderMeter({ model }: { model: ContextModel }) {
-  const tone = tokenTone(model.totalTokens);
-  const pct = Math.min(100, Math.round((model.totalTokens / 16000) * 100));
+/* A checkbox glyph, drawn (not interactive) so it can live inside a <button>. */
+function CheckGlyph({ state }: { state: boolean | "indeterminate" }) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 rounded-md border px-3 py-1.5 hover:bg-muted">
-          <GaugeIcon className={cn("size-4", tone.text)} />
-          <span className={cn("font-mono text-sm", tone.text)}>
-            {fmt(model.totalTokens)}
-          </span>
-          <span className="text-xs text-muted-foreground">ctx tok</span>
-          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-            <span
-              className={cn("block h-full", tone.bar)}
-              style={{ width: `${pct}%` }}
-            />
-          </span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-[340px]">
-        <div className="mb-2 text-sm font-medium">Injected context</div>
-        <ContextTotalCard model={model} />
-        <div className="mt-2">
-          <ContextBreakdown model={model} />
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code> (UTF-8)
-        </p>
-      </PopoverContent>
-    </Popover>
+    <span
+      className={cn(
+        "flex size-3.5 flex-none items-center justify-center rounded-[4px] border",
+        state === false
+          ? "border-muted-foreground/50"
+          : "border-primary bg-primary text-primary-foreground"
+      )}
+    >
+      {state === true && <CheckIcon className="size-3" />}
+      {state === "indeterminate" && <MinusIcon className="size-3" />}
+    </span>
   );
 }
 
-/* Variant C — inline context strip docked above the document. */
-function InlineContextStrip({ model }: { model: ContextModel }) {
+/* The locked design — sources as checkbox chips docked above the document. */
+function InlineContextStrip({
+  model,
+  onOpenPanel,
+}: {
+  model: ContextModel;
+  onOpenPanel: () => void;
+}) {
   const tone = tokenTone(model.totalTokens);
   return (
     <div className="flex flex-none flex-wrap items-center gap-1.5 border-b bg-muted/30 px-3 py-2">
-      <span className="mr-1 flex items-center gap-1.5 text-xs font-medium">
+      <button
+        onClick={onOpenPanel}
+        className="mr-1 flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs font-medium hover:bg-muted"
+        title="Open the full context panel"
+      >
         <Layers className="size-3.5" /> Context
-        <span className={cn("font-mono", tone.text)}>
-          ~{fmt(model.totalTokens)} tok
+        <span className={cn("font-mono", tone)}>
+          {fmtTok(model.totalTokens)}
         </span>
-      </span>
-      {model.rows.map((r) => (
+      </button>
+      {model.sources.map((s) => (
         <button
-          key={r.key}
-          onClick={() => model.toggle(r.key)}
+          key={s.source.key}
+          onClick={() => model.toggleSource(s.source)}
           className={cn(
-            "rounded-full border px-2 py-0.5 font-mono text-[11px] transition-colors",
-            r.on
-              ? "bg-background hover:bg-muted"
-              : "bg-transparent text-muted-foreground line-through opacity-60"
+            "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+            s.check === false
+              ? "bg-transparent text-muted-foreground opacity-70"
+              : "bg-background hover:bg-muted"
           )}
-          title={`${r.note} · ${fmtBytes(r.bytes)}`}
+          title={`${s.source.note} · ${s.onCount}/${s.items.length} on`}
         >
-          {r.label} {fmt(r.tokens)}
+          <CheckGlyph state={s.check} />
+          <span>{s.source.label}</span>
+          <span className="font-mono text-muted-foreground">
+            {fmtTok(s.tokens)}
+          </span>
         </button>
       ))}
     </div>
+  );
+}
+
+/* Full-options panel — an in-modal sliding panel over the document, so it
+   sits alongside the chat instead of dimming the whole modal. */
+function ContextPanel({
+  open,
+  model,
+  onClose,
+}: {
+  open: boolean;
+  model: ContextModel;
+  onClose: () => void;
+}) {
+  const tone = tokenTone(model.totalTokens);
+  return (
+    <aside
+      className={cn(
+        "absolute inset-y-0 right-0 z-10 flex w-[420px] flex-col border-l bg-background shadow-xl transition-transform duration-200",
+        open ? "translate-x-0" : "pointer-events-none translate-x-full"
+      )}
+    >
+      <div className="flex flex-none items-center gap-2 border-b px-4 py-3">
+        <Layers className="size-4" />
+        <div className="text-sm font-semibold">Context</div>
+        <span className={cn("ml-1 font-mono text-sm", tone)}>
+          {fmtTok(model.totalTokens)} tok
+        </span>
+        <div className="flex-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={onClose}
+        >
+          <X className="size-4" />
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {model.sources.map((s) => (
+          <div key={s.source.key} className="mb-1">
+            {/* Source header — tri-state; toggles the whole source. */}
+            <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted">
+              <Checkbox
+                checked={s.check}
+                onCheckedChange={() => model.toggleSource(s.source)}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm leading-tight">{s.source.label}</div>
+                <div className="text-xs text-muted-foreground">
+                  {s.source.note}
+                </div>
+              </div>
+              <div className="text-right font-mono text-xs text-muted-foreground">
+                {fmtTok(s.tokens)}
+              </div>
+            </label>
+            {/* Parts — only worth showing when the source has more than one. */}
+            {!s.atomic && (
+              <div className="ml-4 border-l pl-2">
+                {s.items.map((i) => (
+                  <label
+                    key={i.id}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
+                      !i.on && "opacity-50"
+                    )}
+                  >
+                    <Checkbox
+                      checked={i.on}
+                      onCheckedChange={() => model.toggleItem(i.id)}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs">
+                      {i.label}
+                    </span>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {fmtTok(i.tokens)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex-none border-t px-4 py-2 text-xs text-muted-foreground">
+        <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code> (UTF-8). This is
+        the <code className="font-mono">context</code> payload the host injects.
+      </div>
+    </aside>
   );
 }
 
@@ -590,52 +806,10 @@ function InlineContextStrip({ model }: { model: ContextModel }) {
 /* the modal is judged against the real page density.                  */
 /* ================================================================== */
 
-const VARIANTS = ["A", "B", "C"] as const;
-const VARIANT_NAMES: Record<string, string> = {
-  A: "Context drawer",
-  B: "Header meter",
-  C: "Inline strip",
-};
-
 export default function PrototypeWriterModal() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const variant = (searchParams.get("variant") ?? "A").toUpperCase();
-
   const [body, setBody] = useState(INITIAL_BODY);
+  const [chat, setChat] = useState<ChatMsg[]>(INITIAL_CHAT);
   const [modalOpen, setModalOpen] = useState(false);
-
-  const setVariant = useCallback(
-    (v: string) => {
-      const next = new URLSearchParams(searchParams);
-      next.set("variant", v);
-      setSearchParams(next, { replace: true });
-    },
-    [searchParams, setSearchParams]
-  );
-
-  // ← / → cycle variants (ignore when typing / in the editor).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      const el = document.activeElement;
-      if (
-        el instanceof HTMLInputElement ||
-        el instanceof HTMLTextAreaElement ||
-        (el as HTMLElement)?.isContentEditable ||
-        el?.closest(".monaco-editor")
-      )
-        return;
-      const i = VARIANTS.indexOf(variant as (typeof VARIANTS)[number]);
-      const j =
-        i < 0
-          ? 0
-          : (i + (e.key === "ArrowRight" ? 1 : VARIANTS.length - 1)) %
-            VARIANTS.length;
-      setVariant(VARIANTS[j]!);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [variant, setVariant]);
 
   return (
     <div className="h-screen overflow-y-auto bg-background">
@@ -724,48 +898,16 @@ export default function PrototypeWriterModal() {
       </div>
 
       <WriterModal
-        variant={variant}
         open={modalOpen}
-        onOpenChange={setModalOpen}
-        initialValue={body}
-        onApply={setBody}
+        onClose={() => setModalOpen(false)}
+        initialDoc={body}
+        initialChat={chat}
+        onApply={(doc, nextChat) => {
+          setBody(doc);
+          setChat(nextChat);
+          setModalOpen(false);
+        }}
       />
-
-      {/* Floating variant switcher (prototype only). */}
-      <div className="fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-1 rounded-full border bg-background/95 px-2 py-1.5 shadow-lg backdrop-blur">
-        <SparklesIcon className="mx-1 size-3.5 text-muted-foreground" />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          onClick={() => {
-            const i = Math.max(
-              0,
-              VARIANTS.indexOf(variant as (typeof VARIANTS)[number])
-            );
-            setVariant(VARIANTS[(i + VARIANTS.length - 1) % VARIANTS.length]!);
-          }}
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
-        <span className="min-w-[150px] text-center text-xs font-medium">
-          {variant} — {VARIANT_NAMES[variant] ?? "?"}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          onClick={() => {
-            const i = Math.max(
-              0,
-              VARIANTS.indexOf(variant as (typeof VARIANTS)[number])
-            );
-            setVariant(VARIANTS[(i + 1) % VARIANTS.length]!);
-          }}
-        >
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
     </div>
   );
 }
