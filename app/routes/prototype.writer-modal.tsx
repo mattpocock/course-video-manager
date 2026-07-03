@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownMonacoEditor } from "@/components/markdown-monaco-editor";
+import { FileTree } from "@/components/FileTree";
 // The screenshot picker is a *document* citizen, not a chat message: the agent
 // writes a `<ChooseScreenshot clipIndex={n} alt="…" />` tag into the doc body,
 // and it renders inline in the document Preview. Reuse the real preprocessor +
@@ -110,13 +111,6 @@ const estimateTokens = (s: string) => Math.ceil(byteLength(s) / 4);
 const fmtTok = (n: number) =>
   n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}K`;
 
-/** Illustrative budget bands so the total has a felt sense of "a lot". */
-function tokenTone(total: number): string {
-  if (total > 12000) return "text-destructive";
-  if (total > 6000) return "text-amber-600";
-  return "text-emerald-600";
-}
-
 /* ================================================================== */
 /* Fixtures — the injected `context` payload, modelled as sources made  */
 /* of individually-toggleable parts (so a source can be partially on).  */
@@ -159,15 +153,16 @@ const CONTEXT_SOURCES: ContextSource[] = [
     key: "files",
     label: "Repo files",
     note: "readme + exercise/solution sources",
+    // ids ARE the file paths so they feed straight into <FileTree>.
     items: [
-      ["explainer/readme.md", 8],
-      ["exercise.ts", 5],
-      ["exercise.solution.ts", 6],
-      ["explainer.ts", 4],
-    ].map(([label, w], i) => ({
-      id: `files:${i}`,
-      label: label as string,
-      text: `// ${label}\n${'const config = {\n  routes: { home: "/", about: "/about" },\n  theme: "dark",\n} satisfies Config;\n'.repeat(
+      ["the-satisfies-operator/explainer/readme.md", 8],
+      ["the-satisfies-operator/explainer/explainer.ts", 4],
+      ["the-satisfies-operator/problem/exercise.ts", 5],
+      ["the-satisfies-operator/solution/exercise.solution.ts", 6],
+    ].map(([path, w]) => ({
+      id: path as string,
+      label: path as string,
+      text: `// ${path}\n${'const config = {\n  routes: { home: "/", about: "/about" },\n  theme: "dark",\n} satisfies Config;\n'.repeat(
         w as number
       )}`,
     })),
@@ -198,7 +193,7 @@ const CONTEXT_SOURCES: ContextSource[] = [
   },
   {
     key: "memory",
-    label: "Writer memory",
+    label: "Course memory",
     note: "standing style preferences",
     items: [
       {
@@ -427,6 +422,19 @@ function useContextModel() {
     });
   }, []);
 
+  // Reconcile a source's enablement against an exact target set (what <FileTree>
+  // hands back via onEnabledFilesChange).
+  const setSourceEnabled = useCallback(
+    (ids: string[], nextOn: Set<string>) => {
+      setEnabled((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => (nextOn.has(id) ? next.add(id) : next.delete(id)));
+        return next;
+      });
+    },
+    []
+  );
+
   const addLink = useCallback((url: string) => {
     const u = url.trim();
     if (!u) return;
@@ -488,6 +496,7 @@ function useContextModel() {
     sources,
     toggleItem,
     toggleSource,
+    setSourceEnabled,
     totalTokens,
     memoryText,
     setMemory: setMemoryText,
@@ -945,7 +954,9 @@ function WriterModal({
         {/* Footer — one bar for everything. Left cluster: mode + chat actions +
             lint + writer settings. Right cluster: Cancel / Apply (Apply uploads
             any captured screenshots to Cloudinary before writing the field
-            back). */}
+            back). Hidden entirely on the Context / Settings pages — they are
+            self-contained, with their own Back. */}
+        {view === "writer" && (
         <div className="flex h-14 flex-none items-center gap-1.5 border-t bg-muted/40 px-3">
           <ModePicker modes={modes} mode={mode} onModeChange={setMode} />
 
@@ -1020,6 +1031,7 @@ function WriterModal({
             )}
           </Button>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -1211,7 +1223,6 @@ function InlineContextStrip({
   model: ContextModel;
   onOpenPanel: () => void;
 }) {
-  const tone = tokenTone(model.totalTokens);
   return (
     <div className="flex flex-none flex-wrap items-center gap-1.5 border-b bg-muted/30 px-3 py-2">
       <button
@@ -1222,7 +1233,7 @@ function InlineContextStrip({
         <Layers className="size-3.5" /> Context
         {/* Fixed-width token slot so the whole strip never reflows as counts
             change — the root of the layout shift when toggling chips. */}
-        <span className={cn("w-10 text-right font-mono tabular-nums", tone)}>
+        <span className="w-10 text-right font-mono tabular-nums text-muted-foreground">
           {fmtTok(model.totalTokens)}
         </span>
       </button>
@@ -1312,7 +1323,6 @@ function ContextView({
   onTab: (k: string) => void;
   onBack: () => void;
 }) {
-  const tone = tokenTone(model.totalTokens);
   const active =
     model.sources.find((s) => s.source.key === activeKey) ?? model.sources[0]!;
 
@@ -1331,11 +1341,11 @@ function ContextView({
         </Button>
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Layers className="size-4" /> Context
+          <span className="font-mono text-xs font-normal text-muted-foreground">
+            {fmtTok(model.totalTokens)} tokens
+          </span>
         </div>
         <div className="flex-1" />
-        <span className={cn("font-mono text-sm", tone)}>
-          {fmtTok(model.totalTokens)} tokens
-        </span>
       </div>
 
       {/* Tab row — one per source, with status glyph + token count. */}
@@ -1367,13 +1377,6 @@ function ContextView({
         <div className="mx-auto max-w-2xl p-4">
           <ContextTabBody model={model} view={active} />
         </div>
-      </div>
-
-      {/* Footer note */}
-      <div className="flex-none border-t px-4 py-2 text-xs text-muted-foreground">
-        <code className="font-mono">tokens ≈ ⌈bytes / 4⌉</code> (UTF-8). This is
-        the <code className="font-mono">context</code> payload the host injects
-        into the agent.
       </div>
     </div>
   );
@@ -1460,30 +1463,52 @@ function ContextTabBody({
         </div>
       )}
 
-      {/* Other multi-part sources: per-part toggles. */}
-      {!s.atomic && s.source.key !== "links" && s.source.key !== "memory" && (
-        <div className="space-y-0.5">
-          {s.items.map((i) => (
-            <label
-              key={i.id}
-              className={cn(
-                "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
-                !i.on && "opacity-50"
-              )}
-            >
-              <Checkbox
-                checked={i.on}
-                onCheckedChange={() => model.toggleItem(i.id)}
-                className="mt-0.5"
-              />
-              <span className="min-w-0 flex-1 text-xs">{i.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {fmtTok(i.tokens)}
-              </span>
-            </label>
-          ))}
-        </div>
+      {/* Repo files use the real <FileTree> picker (collapsible dirs, tri-state
+          folders) rather than a flat list. */}
+      {s.source.key === "files" && (
+        <FileTree
+          files={s.items.map((i) => ({
+            path: i.id,
+            size: byteLength(i.text),
+            defaultEnabled: true,
+          }))}
+          enabledFiles={new Set(s.items.filter((i) => i.on).map((i) => i.id))}
+          onEnabledFilesChange={(next) =>
+            model.setSourceEnabled(
+              s.items.map((i) => i.id),
+              next
+            )
+          }
+        />
       )}
+
+      {/* Other multi-part sources (transcript chapters): per-part toggles. */}
+      {!s.atomic &&
+        s.source.key !== "links" &&
+        s.source.key !== "memory" &&
+        s.source.key !== "files" && (
+          <div className="space-y-0.5">
+            {s.items.map((i) => (
+              <label
+                key={i.id}
+                className={cn(
+                  "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted",
+                  !i.on && "opacity-50"
+                )}
+              >
+                <Checkbox
+                  checked={i.on}
+                  onCheckedChange={() => model.toggleItem(i.id)}
+                  className="mt-0.5"
+                />
+                <span className="min-w-0 flex-1 text-xs">{i.label}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {fmtTok(i.tokens)}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
 
       {/* Atomic, non-editable sources (course structure, full path): show the
           injected text so the tab isn't empty. */}
