@@ -223,18 +223,6 @@ const CONTEXT_SOURCES: ContextSource[] = [
       },
     ],
   },
-  {
-    key: "fullPath",
-    label: "Full path",
-    note: "namespacing / source pointer",
-    items: [
-      {
-        id: "fullPath:0",
-        label: "source pointer",
-        text: `typescript-wizard/deriving-types/the-satisfies-operator/explainer/readme.md`,
-      },
-    ],
-  },
 ];
 
 /** An em dash + a leading heading are seeded so lint has something to catch. */
