@@ -558,7 +558,7 @@ function WriterModal({
                   }
                 />
               ) : (
-                <div className="h-full overflow-y-auto p-6">
+                <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground h-full overflow-y-auto p-6">
                   <div className="mx-auto max-w-[75ch]">
                     <AIResponse imageBasePath="prototype/the-satisfies-operator">
                       {doc}
