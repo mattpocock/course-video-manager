@@ -9,7 +9,10 @@ import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
 import { buildTranscript } from "@/lib/transcript-builder";
 import { Array as EffectArray, Effect } from "effect";
-import type { Route } from "./+types/_app.videos.$videoId.write";
+type WriteRouteComponentProps = {
+  params: { videoId: string };
+  loaderData: any;
+};
 import path from "path";
 import { FileSystem } from "@effect/platform";
 import {
@@ -259,7 +262,7 @@ function WritePageWithDeferredFiles({
   loaderData,
 }: {
   videoId: string;
-  loaderData: Omit<Route.ComponentProps["loaderData"], "filesPromise"> & {
+  loaderData: Record<string, unknown> & {
     filesPromise: Promise<FileMetadata[]>;
   };
 }) {
@@ -278,10 +281,12 @@ function WritePageWithDeferredFiles({
     };
   }, [filesPromise]);
 
-  return <WritePage videoId={videoId} loaderData={{ ...restData, files }} />;
+  return (
+    <WritePage videoId={videoId} loaderData={{ ...restData, files } as any} />
+  );
 }
 
-export function InnerComponent(props: Route.ComponentProps) {
+export function InnerComponent(props: WriteRouteComponentProps) {
   const { videoId } = props.params;
   return (
     <WritePageWithDeferredFiles
@@ -291,6 +296,6 @@ export function InnerComponent(props: Route.ComponentProps) {
   );
 }
 
-export default function Component(props: Route.ComponentProps) {
+export default function Component(props: WriteRouteComponentProps) {
   return <InnerComponent {...props} key={props.params.videoId} />;
 }

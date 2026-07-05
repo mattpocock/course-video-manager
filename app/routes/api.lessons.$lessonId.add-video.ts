@@ -2,7 +2,6 @@ import { Effect, Schema } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { makeAction } from "@/services/route-action.server";
-import { redirect } from "react-router";
 import type { Route } from "./+types/api.lessons.$lessonId.add-video";
 
 const addVideoSchema = Schema.Struct({
@@ -26,14 +25,6 @@ export const action = async (args: Route.ActionArgs) => {
           originalFootagePath: "",
         });
 
-        // The article-writer "add video to next lesson" flow explicitly opts
-        // into navigating to the write page. Every other caller (e.g. the
-        // course-view Add Video modal) stays put — the new video shows up via
-        // loader revalidation, with no redirect into the editor.
-        const url = new URL(args.request.url);
-        if (url.searchParams.get("redirectTo") === "write") {
-          return redirect(`/videos/${video.id}/write`);
-        }
         return { videoId: video.id };
       }),
   })(args);

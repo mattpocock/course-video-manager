@@ -17,7 +17,6 @@ import {
   ChevronRightIcon,
   Plus,
   VideoIcon,
-  PenIcon,
   SendIcon,
   YoutubeIcon,
   NewspaperIcon,
@@ -83,7 +82,6 @@ export const loader = makeLoader({
 
 type Tab =
   | "edit"
-  | "write"
   | "lesson"
   | "post"
   | "social"
@@ -92,13 +90,12 @@ type Tab =
   | "newsletter";
 
 const topTabsDef: {
-  id: "edit" | "write" | "post";
+  id: "edit" | "post";
   label: string;
   path: string | ((lessonId: string | null) => string);
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
   { id: "edit", label: "Video", path: "edit", icon: VideoIcon },
-  { id: "write", label: "Write", path: "write", icon: PenIcon },
   {
     id: "post",
     label: "Post",
@@ -176,21 +173,19 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
   );
 
   // Determine active tab from current path
-  const activeTab: Tab = location.pathname.endsWith("/write")
-    ? "write"
-    : location.pathname.endsWith("/lesson")
-      ? "lesson"
-      : location.pathname.endsWith("/post")
-        ? "post"
-        : location.pathname.endsWith("/social")
-          ? "social"
-          : location.pathname.endsWith("/ai-hero")
-            ? "ai-hero"
-            : location.pathname.endsWith("/skills-changelog")
-              ? "skills-changelog"
-              : location.pathname.endsWith("/newsletter")
-                ? "newsletter"
-                : "edit";
+  const activeTab: Tab = location.pathname.endsWith("/lesson")
+    ? "lesson"
+    : location.pathname.endsWith("/post")
+      ? "post"
+      : location.pathname.endsWith("/social")
+        ? "social"
+        : location.pathname.endsWith("/ai-hero")
+          ? "ai-hero"
+          : location.pathname.endsWith("/skills-changelog")
+            ? "skills-changelog"
+            : location.pathname.endsWith("/newsletter")
+              ? "newsletter"
+              : "edit";
 
   // Build back button URL
   const backButtonUrl = pitchId
