@@ -93,6 +93,9 @@ export const sections = createTable(
     previousVersionSectionId: varchar("previous_version_section_id", {
       length: 255,
     }),
+    lineageId: varchar("lineage_id", { length: 255 })
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     path: text("path").notNull(),
     description: text("description").notNull().default(""),
     archivedAt: timestamp("archived_at", {
@@ -127,6 +130,9 @@ export const lessons = createTable(
     previousVersionLessonId: varchar("previous_version_lesson_id", {
       length: 255,
     }),
+    lineageId: varchar("lineage_id", { length: 255 })
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     path: text("path").notNull(),
     title: text("title").notNull().default(""),
     fsStatus: text("fs_status").notNull().default("real"),
@@ -202,8 +208,13 @@ export const videos = createTable(
     pitchId: varchar("pitch_id", { length: 255 }).references(() => pitches.id, {
       onDelete: "set null",
     }),
+    lineageId: varchar("lineage_id", { length: 255 })
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     path: text("path").notNull(),
     originalFootagePath: text("original_footage_path").notNull(),
+    body: text("body"),
+    description: text("video_description"),
     archived: boolean("archived").notNull().default(false),
     createdAt: timestamp("created_at", {
       mode: "date",
