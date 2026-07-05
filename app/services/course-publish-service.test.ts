@@ -485,6 +485,117 @@ describe("CoursePublishService", () => {
     });
   });
 
+  describe("validatePublishability — course-view lints", () => {
+    it("returns courseViewLintCount > 0 when missingOpeningChapter warning exists", async () => {
+      const { version, run } = await setup();
+
+      const result = await run(
+        Effect.gen(function* () {
+          const svc = yield* CoursePublishService;
+          return yield* svc.validatePublishability(version.id);
+        })
+      );
+
+      expect(result.courseViewLintCount).toBeGreaterThan(0);
+    });
+
+    it("returns courseViewLintCount including lesson warnings for invalid video-role combos", async () => {
+      await truncateAllTables(testDb);
+
+      const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
+      const dbLayer = Layer.mergeAll(
+        CourseOperationsService.Default,
+        VideoOperationsService.Default,
+        VersionOperationsService.Default,
+        LessonSectionOperationsService.Default
+      ).pipe(Layer.provide(drizzleLayer));
+
+      const course = await Effect.gen(function* () {
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.createCourse({
+          filePath: "/tmp/test-course-lint",
+          name: "lint-test-course",
+        });
+      }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+      const version = await Effect.gen(function* () {
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.createCourseVersion({
+          repoId: course.id,
+          name: "v1",
+        });
+      }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+      const section = await Effect.gen(function* () {
+        const lsOps = yield* LessonSectionOperationsService;
+        const sections = yield* lsOps.createSections({
+          repoVersionId: version.id,
+          sections: [{ sectionPathWithNumber: "01-intro", sectionNumber: 1 }],
+        });
+        return sections[0]!;
+      }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+      const lesson = await Effect.gen(function* () {
+        const lsOps = yield* LessonSectionOperationsService;
+        const lessons = yield* lsOps.createLessons(section.id, [
+          { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
+        ]);
+        return lessons[0]!;
+      }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+      // Create a "Solution" video without a "Problem" — invalid combo
+      await Effect.gen(function* () {
+        const videoOps = yield* VideoOperationsService;
+        yield* videoOps.createVideo(lesson.id, {
+          path: "Solution",
+          originalFootagePath: "/tmp/footage.mp4",
+        });
+      }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+      finishedVideosDir = fs.mkdtempSync(
+        path.join(tmpdir(), "publish-test-lint-")
+      );
+
+      const mockVideoProcessing = Layer.succeed(VideoProcessingService, {
+        exportVideoClips: () => Effect.succeed(""),
+      } as any);
+
+      const configLayer = Layer.setConfigProvider(
+        ConfigProvider.fromMap(
+          new Map([["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir]])
+        )
+      );
+
+      const coreTestLayer = Layer.mergeAll(
+        CourseOperationsService.Default,
+        VideoOperationsService.Default,
+        VersionOperationsService.Default,
+        mockVideoProcessing,
+        NodeContext.layer
+      ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
+
+      const testLayer = Layer.merge(
+        coreTestLayer,
+        CoursePublishService.Default.pipe(Layer.provide(coreTestLayer))
+      );
+
+      const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
+        Effect.runPromise(
+          effect.pipe(Effect.provide(testLayer) as any)
+        ) as Promise<A>;
+
+      const result = await run(
+        Effect.gen(function* () {
+          const svc = yield* CoursePublishService;
+          return yield* svc.validatePublishability(version.id);
+        })
+      );
+
+      // Solution without Problem = solutionWithoutProblem lesson warning
+      expect(result.courseViewLintCount).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe("publish", () => {
     it("fails with PublishValidationError when videos are unexported", async () => {
       const { course, video, run } = await setup();

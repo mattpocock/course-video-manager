@@ -7,6 +7,7 @@ import {
   loadLessonFsMaps,
   toSlimVideo,
 } from "@/services/course-loader-fs";
+import { computeLessonWarnings } from "@/services/lesson-warnings";
 import type { ExportClip } from "@/services/export-hash";
 import { getGitStatusAsync } from "@/services/git-status-service.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -90,6 +91,7 @@ export function courseViewEffect(input: {
                   return {
                     ...lessonRest,
                     videos: videos.map(toSlimVideo),
+                    lessonWarnings: computeLessonWarnings({ videos }),
                   };
                 }),
               };

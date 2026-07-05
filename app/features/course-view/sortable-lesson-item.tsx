@@ -25,9 +25,34 @@ import {
 } from "./course-view-types";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Code, Ghost, GripVertical, MessageCircle, Play } from "lucide-react";
+import {
+  AlertTriangle,
+  Code,
+  Ghost,
+  GripVertical,
+  MessageCircle,
+  Play,
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { LessonWarning } from "@/services/lesson-warnings";
 
 import { useLessonDependencyDrag } from "./use-lesson-dependency-drag";
+
+const WARNING_LABELS: Record<LessonWarning["kind"], string> = {
+  solutionWithoutProblem: "Solution without a Problem video",
+  explainerBesideProblem: "Explainer beside a Problem video",
+  duplicateRoles: "Duplicate video roles",
+  tooManyVideos: "Too many videos on this lesson",
+};
+
+function lessonWarningLabel(warnings: LessonWarning[]): string {
+  return warnings.map((w) => WARNING_LABELS[w.kind]).join("; ");
+}
 import { Suspense, use, useCallback, useRef, useState } from "react";
 import { useNavigate, useFetcher } from "react-router";
 
@@ -428,6 +453,22 @@ export function SortableLessonItem({
                     todo
                   </button>
                 )}
+                {!isReadOnly &&
+                  lesson.lessonWarnings &&
+                  lesson.lessonWarnings.length > 0 && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center rounded-sm bg-amber-500/15 p-0.5 text-amber-600 dark:text-amber-400 shrink-0">
+                            <AlertTriangle className="w-3 h-3" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {lessonWarningLabel(lesson.lessonWarnings)}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
               </div>
               {!compact && (
                 <div className="ml-5">

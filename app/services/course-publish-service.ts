@@ -27,11 +27,13 @@ import {
   formatProseTranscript,
   toTranscriptItems,
 } from "@/lib/transcript-builder";
+import { computeCourseViewLintCount } from "./lesson-warnings";
 
 export class PublishValidationError extends Data.TaggedError(
   "PublishValidationError"
 )<{
   unexportedVideoIds: string[];
+  courseViewLintCount?: number;
 }> {}
 
 /** Minimal video shape needed by resolveExportPath / isExported */
@@ -291,7 +293,10 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             }
           }
 
-          return { unexportedVideoIds };
+          const courseViewLintCount = computeCourseViewLintCount(
+            version.sections
+          );
+          return { unexportedVideoIds, courseViewLintCount };
         }
       );
 
@@ -592,11 +597,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           return yield* Effect.die(new Error("No version found for course"));
         }
 
-        const { unexportedVideoIds } = yield* validatePublishability(
-          latestVersion.id
-        );
-        if (unexportedVideoIds.length > 0) {
-          return yield* new PublishValidationError({ unexportedVideoIds });
+        const { unexportedVideoIds, courseViewLintCount } =
+          yield* validatePublishability(latestVersion.id);
+        if (unexportedVideoIds.length > 0 || courseViewLintCount > 0) {
+          return yield* new PublishValidationError({
+            unexportedVideoIds,
+            courseViewLintCount,
+          });
         }
 
         onProgress?.("uploading");

@@ -11,7 +11,13 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
-import { ArrowLeft, Download, AlertCircle, ChevronRight } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  AlertCircle,
+  AlertTriangle,
+  ChevronRight,
+} from "lucide-react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -49,8 +55,8 @@ export const loader = makeLoader({
       // Get previous published version name (allVersions is sorted newest first)
       const previousVersion = allVersions.length > 1 ? allVersions[1] : null;
 
-      // Get unexported videos
-      const { unexportedVideoIds } =
+      // Get unexported videos and course-view lint count
+      const { unexportedVideoIds, courseViewLintCount } =
         yield* publishService.validatePublishability(latestVersion.id);
 
       const { sections: _, ...latestVersionMeta } = latestVersion;
@@ -60,6 +66,7 @@ export const loader = makeLoader({
         previousVersionName: previousVersion?.name ?? null,
         changelog,
         unexportedVideoCount: unexportedVideoIds.length,
+        courseViewLintCount,
       };
     }),
 });
@@ -71,6 +78,7 @@ export default function Component(props: Route.ComponentProps) {
     previousVersionName,
     changelog,
     unexportedVideoCount,
+    courseViewLintCount,
   } = props.loaderData;
   const navigate = useNavigate();
   const revalidator = useRevalidator();
@@ -102,9 +110,11 @@ export default function Component(props: Route.ComponentProps) {
   }, [hasActiveExport, revalidator]);
 
   const hasUnexportedVideos = unexportedVideoCount > 0;
+  const hasCourseViewLints = courseViewLintCount > 0;
   const canPublish =
     name.trim().length > 0 &&
     !hasUnexportedVideos &&
+    !hasCourseViewLints &&
     !publishStarted &&
     !isOperationInProgress;
 
@@ -183,6 +193,20 @@ export default function Component(props: Route.ComponentProps) {
                 <Download className="w-3 h-3 mr-1" />
                 {hasActiveExport ? "Exporting..." : "Export All"}
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Course-view Lints */}
+        {hasCourseViewLints && (
+          <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-medium text-amber-500">
+                {courseViewLintCount} course warning
+                {courseViewLintCount !== 1 ? "s" : ""} — fix in the course view
+                before publishing
+              </span>
             </div>
           </div>
         )}

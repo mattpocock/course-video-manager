@@ -205,6 +205,10 @@ export const createVersionOperations = (db: Database) => {
                         orderBy: asc(clips.order),
                         where: eq(clips.archived, false),
                       },
+                      chapters: {
+                        orderBy: asc(chapters.order),
+                        where: eq(chapters.archived, false),
+                      },
                     },
                   },
                 },
