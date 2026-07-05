@@ -7,6 +7,7 @@ import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.se
 import {
   toTranscriptItems,
   formatProseTranscript,
+  buildTranscript,
 } from "@/lib/transcript-builder";
 import { sortByOrder } from "@/lib/sort-by-order";
 import {
@@ -261,3 +262,100 @@ function loadCourseStructure(
     } satisfies CourseStructure;
   });
 }
+
+export interface WriterContextData {
+  transcript: string;
+  transcriptWordCount: number;
+  indexedClips: Array<{
+    index: number;
+    sourceStartTime: number;
+    sourceEndTime: number;
+    videoFilename: string;
+    text: string | null;
+  }>;
+  memory: string;
+  repoId: string | null;
+  fullPath: string;
+  files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
+  chapters: SectionWithWordCount[];
+  isStandalone: boolean;
+  courseStructure: CourseStructure | null;
+  links: Array<{
+    id: string;
+    title: string;
+    url: string;
+    description: string | null;
+    createdAt: Date;
+  }>;
+}
+
+export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
+  videoId: string
+) {
+  const videoOps = yield* VideoOperationsService;
+  const courseOps = yield* CourseOperationsService;
+  const linkAuthOps = yield* LinkAuthOperationsService;
+  const fs = yield* FileSystem.FileSystem;
+
+  const [video, globalLinks] = yield* Effect.all(
+    [videoOps.getVideoWithClipsById(videoId), linkAuthOps.getLinks()],
+    { concurrency: "unbounded" }
+  );
+
+  const { indexedClips, transcript, wordCount, sections } = buildTranscript(
+    video.clips,
+    video.chapters
+  );
+
+  const lesson = video.lesson;
+
+  if (!lesson) {
+    const standaloneFiles = yield* loadStandaloneFiles(fs, videoId);
+    return {
+      transcript,
+      transcriptWordCount: wordCount,
+      indexedClips,
+      memory: "",
+      repoId: null,
+      fullPath: path.resolve(getStandaloneVideoFilePath(videoId)),
+      files: standaloneFiles,
+      chapters: sections,
+      isStandalone: true,
+      courseStructure: null,
+      links: globalLinks,
+    } satisfies WriterContextData;
+  }
+
+  const repo = lesson.section.repoVersion.repo;
+  const section = lesson.section;
+  const lessonPath = path.join(repo.filePath!, section.path, lesson.path);
+
+  const [lessonFiles, courseStructure, repoWithSections] = yield* Effect.all(
+    [
+      loadLessonFiles(fs, lessonPath),
+      loadCourseStructure(
+        courseOps,
+        section.repoVersion.repoId,
+        section.repoVersion.id,
+        section.path,
+        lesson.path
+      ),
+      courseOps.getCourseStructureById(section.repoVersion.repoId),
+    ],
+    { concurrency: "unbounded" }
+  );
+
+  return {
+    transcript,
+    transcriptWordCount: wordCount,
+    indexedClips,
+    memory: repoWithSections?.memory ?? "",
+    repoId: section.repoVersion.repoId,
+    fullPath: lessonPath,
+    files: lessonFiles,
+    chapters: sections,
+    isStandalone: false,
+    courseStructure,
+    links: globalLinks,
+  } satisfies WriterContextData;
+});
