@@ -76,7 +76,7 @@ const Video = (props: { src: string }) => {
     if (ref.current) {
       ref.current.playbackRate = 1;
     }
-  }, [props.src, ref.current]);
+  }, [props.src]);
 
   return <video src={props.src} className="w-full" controls ref={ref} />;
 };

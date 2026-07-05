@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { computeLessonWarnings, deriveVideoRole } from "./lesson-warnings";
+import {
+  computeLessonWarnings,
+  computeCourseViewLintCount,
+  deriveVideoRole,
+} from "./lesson-warnings";
 
 describe("deriveVideoRole", () => {
   it("returns explainer for 'Explainer'", () => {
@@ -100,5 +104,101 @@ describe("computeLessonWarnings", () => {
     expect(
       computeLessonWarnings({ videos: [{ path: "Explainer 2" }] })
     ).toEqual([]);
+  });
+});
+
+describe("computeCourseViewLintCount", () => {
+  const makeVideo = (
+    path: string,
+    clips: { order: string; archived: boolean }[] = [],
+    chapters: { order: string; archived: boolean }[] = []
+  ) => ({ path, clips, chapters });
+
+  it("returns 0 for empty sections", () => {
+    expect(computeCourseViewLintCount([])).toBe(0);
+  });
+
+  it("returns 0 for a valid explainer lesson with chapters", () => {
+    const sections = [
+      {
+        lessons: [
+          {
+            fsStatus: "real",
+            videos: [
+              makeVideo(
+                "Explainer",
+                [{ order: "a1", archived: false }],
+                [{ order: "a0", archived: false }]
+              ),
+            ],
+          },
+        ],
+      },
+    ];
+    expect(computeCourseViewLintCount(sections)).toBe(0);
+  });
+
+  it("counts lesson warnings for invalid role combos", () => {
+    const sections = [
+      {
+        lessons: [
+          {
+            fsStatus: "real",
+            videos: [makeVideo("Solution")],
+          },
+        ],
+      },
+    ];
+    expect(computeCourseViewLintCount(sections)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("counts video warnings for missing opening chapter", () => {
+    const sections = [
+      {
+        lessons: [
+          {
+            fsStatus: "real",
+            videos: [
+              makeVideo("Explainer", [{ order: "a0", archived: false }], []),
+            ],
+          },
+        ],
+      },
+    ];
+    expect(computeCourseViewLintCount(sections)).toBe(1);
+  });
+
+  it("skips ghost lessons entirely", () => {
+    const sections = [
+      {
+        lessons: [
+          {
+            fsStatus: "ghost",
+            videos: [makeVideo("Solution")],
+          },
+        ],
+      },
+    ];
+    expect(computeCourseViewLintCount(sections)).toBe(0);
+  });
+
+  it("sums warnings across multiple lessons and videos", () => {
+    const sections = [
+      {
+        lessons: [
+          {
+            fsStatus: "real",
+            videos: [makeVideo("Solution")],
+          },
+          {
+            fsStatus: "real",
+            videos: [
+              makeVideo("Explainer", [{ order: "a0", archived: false }], []),
+            ],
+          },
+        ],
+      },
+    ];
+    expect(computeCourseViewLintCount(sections)).toBeGreaterThanOrEqual(2);
   });
 });
