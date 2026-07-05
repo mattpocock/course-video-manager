@@ -1,6 +1,7 @@
 import { Data, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
+import { toTranscriptItems } from "@/lib/transcript-builder";
 
 export const TODO_MARKER_BODY = `# TODO
 
@@ -221,3 +222,50 @@ export const buildChapters = (
 
   return kept;
 };
+
+type PrecomputeVideo = {
+  id: string;
+  body: string | null;
+  clips: Array<{
+    order: string;
+    sourceStartTime: number;
+    sourceEndTime: number;
+    text: string;
+  }>;
+  chapters: Array<{ order: string; name: string }>;
+};
+
+type PrecomputeSection = {
+  path: string;
+  lessons: Array<{
+    path: string;
+    authoringStatus: string | null;
+    videos: PrecomputeVideo[];
+  }>;
+};
+
+export function precomputeVideoMaps(sections: PrecomputeSection[]) {
+  const transcriptItemsMap = new Map<
+    string,
+    ReturnType<typeof toTranscriptItems>
+  >();
+  const chaptersMap = new Map<string, ReturnType<typeof buildChapters>>();
+  const bodyMap = new Map<string, string>();
+  const lessonTodoSet = new Set<string>();
+  for (const section of sections) {
+    for (const lesson of section.lessons) {
+      if (lesson.authoringStatus === "todo") {
+        lessonTodoSet.add(`${section.path}/${lesson.path}`);
+      }
+      for (const video of lesson.videos) {
+        transcriptItemsMap.set(
+          video.id,
+          toTranscriptItems(video.clips, video.chapters)
+        );
+        chaptersMap.set(video.id, buildChapters(video.clips, video.chapters));
+        if (video.body) bodyMap.set(video.id, video.body);
+      }
+    }
+  }
+  return { transcriptItemsMap, chaptersMap, bodyMap, lessonTodoSet };
+}

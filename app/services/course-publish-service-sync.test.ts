@@ -21,9 +21,10 @@ import {
   resolveExportPath,
   type ExportClip,
 } from "@/services/export-hash";
-import { clips as clipsTable } from "@/db/schema";
+import { clips as clipsTable, videos as videosTable } from "@/db/schema";
 import { CourseRepoParserService } from "@/services/course-repo-parser";
 import { fromPartial } from "@total-typescript/shoehorn";
+import { eq } from "drizzle-orm";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
@@ -119,7 +120,7 @@ const setupSync = async () => {
   const video2 = await Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     return yield* videoOps.createVideo(lesson2.id, {
-      path: "Solution",
+      path: "Explainer",
       originalFootagePath: "/tmp/footage2.mp4",
     });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -435,9 +436,147 @@ describe("CoursePublishService.syncToDropbox", () => {
           "test-course",
           "01-intro",
           "01.02-setup",
-          "Solution.mp4"
+          "Explainer.mp4"
         )
       )
     ).toBe(true);
+  });
+
+  it("emits course.json at the course root", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    const courseJsonPath = path.join(dropboxDir, "test-course", "course.json");
+    expect(fs.existsSync(courseJsonPath)).toBe(true);
+
+    const doc = JSON.parse(fs.readFileSync(courseJsonPath, "utf-8"));
+    expect(doc.schemaVersion).toBe(1);
+    expect(doc.courseId).toBe(course.id);
+    expect(doc.courseName).toBe("test-course");
+    expect(doc.sections).toHaveLength(1);
+    expect(doc.sections[0].lessons).toHaveLength(2);
+  });
+
+  it("course.json uses lineageId as correlation id", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    const doc = JSON.parse(
+      fs.readFileSync(
+        path.join(dropboxDir, "test-course", "course.json"),
+        "utf-8"
+      )
+    );
+    const lesson = doc.sections[0].lessons[0];
+    expect(lesson.id).toBeDefined();
+    expect(lesson.id).not.toBe("");
+    expect(lesson.explainer?.id ?? lesson.problem?.id).toBeDefined();
+  });
+
+  it("course.json includes per-video hash", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    const doc = JSON.parse(
+      fs.readFileSync(
+        path.join(dropboxDir, "test-course", "course.json"),
+        "utf-8"
+      )
+    );
+    const lesson = doc.sections[0].lessons[0];
+    const video = lesson.problem ?? lesson.explainer;
+    expect(video.hash).not.toBeNull();
+    expect(typeof video.hash).toBe("string");
+  });
+
+  it("writes <video>.body.md sidecar from video.body", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await testDb
+      .update(videosTable)
+      .set({ body: "# Lesson Body\n\nSome content here." })
+      .where(eq(videosTable.path, "Problem"));
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    const bodyPath = path.join(
+      dropboxDir,
+      "test-course",
+      "01-intro",
+      "01.01-welcome",
+      "Problem.body.md"
+    );
+    expect(fs.existsSync(bodyPath)).toBe(true);
+    expect(fs.readFileSync(bodyPath, "utf-8")).toBe(
+      "# Lesson Body\n\nSome content here."
+    );
+  });
+
+  it("does not write body.md when video.body is null", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    const bodyPath = path.join(
+      dropboxDir,
+      "test-course",
+      "01-intro",
+      "01.01-welcome",
+      "Problem.body.md"
+    );
+    expect(fs.existsSync(bodyPath)).toBe(false);
+  });
+
+  it("body.md coexists with source readme.md (additive export)", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await testDb
+      .update(videosTable)
+      .set({ body: "# New Body" })
+      .where(eq(videosTable.path, "Problem"));
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    const lessonDir = path.join(
+      dropboxDir,
+      "test-course",
+      "01-intro",
+      "01.01-welcome"
+    );
+    expect(fs.existsSync(path.join(lessonDir, "Problem.body.md"))).toBe(true);
+    expect(fs.existsSync(path.join(lessonDir, "index.ts"))).toBe(true);
   });
 });
