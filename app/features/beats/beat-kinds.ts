@@ -23,7 +23,7 @@ export const BEAT_KINDS = [
 /**
  * A Beat's `kind` — the film-time job it does, drawn from the Mise en Place
  * glossary. See `Beat` in CONTEXT.md and
- * docs/adr/0015-video-level-beat-planning.md.
+ * docs/adr/0015-video-level-segment-planning.md.
  */
 export type BeatKind = (typeof BEAT_KINDS)[number];
 
