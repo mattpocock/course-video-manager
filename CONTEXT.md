@@ -49,11 +49,11 @@ _Avoid_: Version number, Build version
 **Ghost Lesson**:
 A lesson that exists in the database but not yet on the file system (`fsStatus = "ghost"`).
 A Ghost Lesson is a full planning and recording workspace: it can hold **Videos**
-(and their **Segments** and **Clips**) exactly as a real lesson can. These are
+(and their **Beats** and **Clips**) exactly as a real lesson can. These are
 DB-only planning structures — recording into them touches no filesystem, and they
 are never written to disk until the lesson is **Materialized** (Publish skips
 ghosts). **Dematerializing** a real lesson back to a ghost deletes only its on-disk
-directory; its Videos, Segments, and Clips are preserved.
+directory; its Videos, Beats, and Clips are preserved.
 _Avoid_: Planned lesson, Draft lesson
 
 **Ghost Section**:
@@ -122,16 +122,16 @@ _Avoid_: Clip text (only covers Clips), Joined clips, Caption (reserved for the 
 
 ### Video planning
 
-**Segment**:
-A single film-time planning unit of a **Video**, classified by its **job** — what it does for the viewer. A Video's plan is an ordered sequence of Segments, authored _before_ the video is recorded; planning a video means choosing "one of these, then one of these". A first-class entity that belongs to a **Video** (not the **Lesson** or **Pitch**), so each Video carries its own plan and duplicating a Video copies its Segments. A Segment can be **moved between Videos** by dragging it from one video's plan into another's (reassigning its parent), but Videos themselves are not reordered — they sort alphabetically by name. Deliberately **distinct from a Chapter**: a Chapter is a recorded-timeline grouping that maps 1:1 to YouTube and groups **Clips**; a Segment is the _intended_ structure and need not correspond to any Chapter or Clip. The two are separate views — "what I planned to shoot" vs "what I shot". Five kinds, drawn from the Mise en Place glossary: **Definition**, **Walkthrough**, **Playthrough**, **Quest**, **Reaction**.
-_Avoid_: Chapter (the recorded YouTube grouping), Beat (a narrative-unit synonym; the clip field formerly `beatType` is now **Pause**), Section (course Section), Block, Unit
+**Beat**:
+A single film-time planning unit of a **Video**, classified by its **job** — what it does for the viewer. We lean into the screenwriting sense of a _beat_: a narrative unit of story/action. A Video's plan is an ordered sequence of Beats, authored _before_ the video is recorded; planning a video means choosing "one of these, then one of these". A first-class entity that belongs to a **Video** (not the **Lesson** or **Pitch**), so each Video carries its own plan and duplicating a Video copies its Beats. A Beat can be **moved between Videos** by dragging it from one video's plan into another's (reassigning its parent), but Videos themselves are not reordered — they sort alphabetically by name. Deliberately **distinct from a Chapter**: a Chapter is a recorded-timeline grouping that maps 1:1 to YouTube and groups **Clips**; a Beat is the _intended_ structure and need not correspond to any Chapter or Clip. The two are separate views — "what I planned to shoot" vs "what I shot". Five kinds, drawn from the Mise en Place glossary: **Definition**, **Walkthrough**, **Playthrough**, **Quest**, **Reaction**.
+_Avoid_: Chapter (the recorded YouTube grouping), Segment (now only the transcript/silence homonym), Section (course Section), Block, Unit
 
-**Segment Description**:
-A free-text planning note on a **Segment** — "what I'm actually going to do or say here" — distinct from its short **title**. Plain text, edited inline (auto-growing textarea). A purely in-app authoring aid: like the Segment itself, it is never published (Publish skips it). Surfaced and editable on the **Section Workbench** and on the editor's **Segments tab** (the current video's plan, read while recording); deliberately **hidden on the course view**, which is already information-dense.
+**Beat Description**:
+A free-text planning note on a **Beat** — "what I'm actually going to do or say here" — distinct from its short **title**. Plain text, edited inline (auto-growing textarea). A purely in-app authoring aid: like the Beat itself, it is never published (Publish skips it). Surfaced and editable on the **Section Workbench** and on the editor's **Beats tab** (the current video's plan, read while recording); deliberately **hidden on the course view**, which is already information-dense.
 _Avoid_: Notes, Summary, Body, Caption
 
 **Section Workbench**:
-A drill-down authoring surface for a single **Section**, reached by clicking a **Section**'s header (lands at the top) or a **Lesson**'s title (deep-links to that lesson) in the course view. Routed at `/courses/:courseId/sections/:sectionId`. A reskin and expansion of the compact course view, scoped to one section and expanded by default, so it has the room the course view lacks: it shows each Lesson's **Videos** and their **Segments** with **Segment Descriptions** inline-editable. Its added value is the segment/description layer — structural editing (lesson/video drag-drop, context menus) is inherited from the reused course-view components rather than re-added or stripped out. Works for **Ghost Sections** and **Ghost Lessons** (planning a section before any of it is real is its primary use). Sibling sections are not shown — navigation back to them goes through the course view.
+A drill-down authoring surface for a single **Section**, reached by clicking a **Section**'s header (lands at the top) or a **Lesson**'s title (deep-links to that lesson) in the course view. Routed at `/courses/:courseId/sections/:sectionId`. A reskin and expansion of the compact course view, scoped to one section and expanded by default, so it has the room the course view lacks: it shows each Lesson's **Videos** and their **Beats** with **Beat Descriptions** inline-editable. Its added value is the beat/description layer — structural editing (lesson/video drag-drop, context menus) is inherited from the reused course-view components rather than re-added or stripped out. Works for **Ghost Sections** and **Ghost Lessons** (planning a section before any of it is real is its primary use). Sibling sections are not shown — navigation back to them goes through the course view.
 _Avoid_: Section page, Lesson page (the workbench is section-altitude; there is no lesson-altitude page), Section editor
 
 ### Video warnings

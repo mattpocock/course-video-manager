@@ -1,8 +1,11 @@
 ---
 status: accepted
+naming-superseded-by: 0017-adopt-beat-as-planning-unit-name
 ---
 
 # Segments are a video-level planning structure, separate from Chapters
+
+> **Naming note:** The entity this ADR introduced as "Segment" has been renamed to **Beat** — see [ADR 0017](0017-adopt-beat-as-planning-unit-name.md). The **structural decisions** below (video-level ownership, separation from Chapters, soft-delete divergence) remain in force; only the name has changed.
 
 We want to plan the content of lessons and pitches _inside_ the app, replacing the scratch-markdown files and the free-text pitch plan. The chosen model is the **Segment**: a film-time planning unit classified by its job, drawn from the Mise en Place glossary's five kinds — **Definition**, **Walkthrough**, **Playthrough**, **Quest**, **Reaction**. A Video's plan is an ordered sequence of Segments. See `Segment` in `CONTEXT.md`.
 
