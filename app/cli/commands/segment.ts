@@ -14,6 +14,7 @@ import {
   parseError,
   rejectBothFlags,
 } from "@/cli/helpers";
+import { withBackupCoordination } from "@/cli/backup-coordinator";
 import {
   HELP,
   LIST_HELP,
@@ -354,23 +355,25 @@ const addCmd = Command.make(
     after: afterOption,
   },
   ({ video, pitch, kind, title, description, before, after }) =>
-    Effect.gen(function* () {
-      const videoId = yield* resolveTargetVideoId({ video, pitch });
-      const beforeSegmentId = yield* resolveBeforeSegmentId({
-        videoId,
-        before,
-        after,
-      });
-      const svc = yield* SegmentOperationsService;
-      const segment = yield* svc.createSegment(
-        videoId,
-        Option.getOrUndefined(kind) ?? DEFAULT_SEGMENT_KIND,
-        beforeSegmentId,
-        Option.getOrUndefined(title) ?? "",
-        Option.getOrUndefined(description) ?? ""
-      );
-      yield* emitObject(segment);
-    })
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const videoId = yield* resolveTargetVideoId({ video, pitch });
+        const beforeSegmentId = yield* resolveBeforeSegmentId({
+          videoId,
+          before,
+          after,
+        });
+        const svc = yield* SegmentOperationsService;
+        const segment = yield* svc.createSegment(
+          videoId,
+          Option.getOrUndefined(kind) ?? DEFAULT_SEGMENT_KIND,
+          beforeSegmentId,
+          Option.getOrUndefined(title) ?? "",
+          Option.getOrUndefined(description) ?? ""
+        );
+        yield* emitObject(segment);
+      })
+    )
 ).pipe(Command.withDescription(detail(ADD_HELP)));
 
 const updateCmd = Command.make(
@@ -382,26 +385,27 @@ const updateCmd = Command.make(
     kind: kindOption,
   },
   ({ id, title, description, kind }) =>
-    Effect.gen(function* () {
-      const t = Option.getOrUndefined(title);
-      const d = Option.getOrUndefined(description);
-      const k = Option.getOrUndefined(kind);
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const t = Option.getOrUndefined(title);
+        const d = Option.getOrUndefined(description);
+        const k = Option.getOrUndefined(kind);
 
-      if (t === undefined && d === undefined && k === undefined) {
-        return yield* parseError(
-          "update needs at least one of --title / --description / --kind",
-          "segment"
-        );
-      }
+        if (t === undefined && d === undefined && k === undefined) {
+          return yield* parseError(
+            "update needs at least one of --title / --description / --kind",
+            "segment"
+          );
+        }
 
-      const svc = yield* SegmentOperationsService;
-      // Existence + active guard (archived == deleted == not addressable).
-      let row = yield* requireActiveSegment(id);
-      if (t !== undefined) row = yield* svc.renameSegment(id, t);
-      if (d !== undefined) row = yield* svc.setSegmentDescription(id, d);
-      if (k !== undefined) row = yield* svc.setSegmentKind(id, k);
-      yield* emitObject(row);
-    })
+        const svc = yield* SegmentOperationsService;
+        let row = yield* requireActiveSegment(id);
+        if (t !== undefined) row = yield* svc.renameSegment(id, t);
+        if (d !== undefined) row = yield* svc.setSegmentDescription(id, d);
+        if (k !== undefined) row = yield* svc.setSegmentKind(id, k);
+        yield* emitObject(row);
+      })
+    )
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 const moveCmd = Command.make(
@@ -413,42 +417,40 @@ const moveCmd = Command.make(
     after: afterOption,
   },
   ({ id, video, before, after }) =>
-    Effect.gen(function* () {
-      const svc = yield* SegmentOperationsService;
-      // The segment being moved must still exist (and be active).
-      yield* requireActiveSegment(id);
-      const beforeSegmentId = yield* resolveBeforeSegmentId({
-        videoId: video,
-        before,
-        after,
-        excludeId: id,
-      });
-      const moved = yield* svc.moveSegment(id, video, beforeSegmentId).pipe(
-        // moveSegment re-validates existence internally; surface WHICHEVER id it
-        // reports missing (the moved segment, or — defensively — a bad anchor)
-        // instead of always blaming the moved id. The anchor is pre-validated by
-        // resolveBeforeSegmentId above, so the anchor path is unreachable today.
-        Effect.catchTag("NotFoundError", (e) =>
-          notFound("segment", (e.params as { id?: string }).id ?? id)
-        )
-      );
-      yield* emitObject(moved);
-    })
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const svc = yield* SegmentOperationsService;
+        yield* requireActiveSegment(id);
+        const beforeSegmentId = yield* resolveBeforeSegmentId({
+          videoId: video,
+          before,
+          after,
+          excludeId: id,
+        });
+        const moved = yield* svc
+          .moveSegment(id, video, beforeSegmentId)
+          .pipe(
+            Effect.catchTag("NotFoundError", (e) =>
+              notFound("segment", (e.params as { id?: string }).id ?? id)
+            )
+          );
+        yield* emitObject(moved);
+      })
+    )
 ).pipe(Command.withDescription(detail(MOVE_HELP)));
 
 const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
-  Effect.gen(function* () {
-    const svc = yield* SegmentOperationsService;
-    yield* requireActiveSegment(id); // exists + active guard (exit 2 otherwise)
-    yield* svc.deleteSegment(id);
-    // Echo the ACTUAL archived row read back — not a synthesized { ...row,
-    // archived: true } — so the output stays honest if the archive path ever
-    // touches other columns.
-    const archived = yield* svc
-      .getSegmentById(id)
-      .pipe(Effect.catchTag("NotFoundError", () => notFound("segment", id)));
-    yield* emitObject(archived);
-  })
+  withBackupCoordination(
+    Effect.gen(function* () {
+      const svc = yield* SegmentOperationsService;
+      yield* requireActiveSegment(id);
+      yield* svc.deleteSegment(id);
+      const archived = yield* svc
+        .getSegmentById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("segment", id)));
+      yield* emitObject(archived);
+    })
+  )
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 
 export const segmentCommand = Command.make("segment").pipe(

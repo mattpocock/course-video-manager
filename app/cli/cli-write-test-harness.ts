@@ -10,6 +10,7 @@ import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
+import { BackupCoordinator } from "@/cli/backup-coordinator";
 import type { TestDb } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import { buildProgram } from "@/cli/main";
@@ -29,7 +30,15 @@ export interface RunResult {
   readonly exitCode: number;
 }
 
-export const buildWriteLayer = (db: TestDb) =>
+const healthyCoordinatorLayer = Layer.succeed(BackupCoordinator, {
+  ensureServerHealthy: Effect.void,
+  requestDump: Effect.void,
+} as unknown as BackupCoordinator);
+
+export const buildWriteLayer = (
+  db: TestDb,
+  coordinatorLayer?: Layer.Layer<BackupCoordinator>
+) =>
   Layer.mergeAll(
     CourseOperationsService.Default,
     VersionOperationsService.Default,
@@ -40,7 +49,8 @@ export const buildWriteLayer = (db: TestDb) =>
     PitchOperationsService.Default,
     DeliverableOperationsService.Default,
     SearchOperationsService.Default,
-    CourseWriteService.Default
+    CourseWriteService.Default,
+    coordinatorLayer ?? healthyCoordinatorLayer
   ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)));
 
 /** A run() bound to a specific captured-output layer. */

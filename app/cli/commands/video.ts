@@ -13,6 +13,7 @@ import {
   rejectBothFlags,
   withName,
 } from "@/cli/helpers";
+import { withBackupCoordination } from "@/cli/backup-coordinator";
 import {
   formatProseTranscript,
   toTranscriptItems,
@@ -357,46 +358,48 @@ const createCmd = Command.make(
   "create",
   { name: nameOption, lesson: lessonOption, pitch: pitchOption },
   ({ name, lesson, pitch }) =>
-    Effect.gen(function* () {
-      if (name.trim() === "") {
-        return yield* parseError("--name must not be empty", "video");
-      }
-      const lessonId = Option.getOrUndefined(lesson);
-      const pitchId = Option.getOrUndefined(pitch);
-      yield* rejectBothFlags({
-        a: lessonId,
-        b: pitchId,
-        flags: ["--lesson", "--pitch"],
-        entity: "video",
-      });
-
-      const svc = yield* VideoOperationsService;
-
-      if (lessonId !== undefined) {
-        yield* requireLesson(lessonId);
-        const created = yield* svc
-          .createVideo(lessonId, { path: name, originalFootagePath: "" })
-          .pipe(
-            Effect.catchTag("VideoPathTakenError", (e) =>
-              parseError(e.message, "video")
-            )
-          );
-        return yield* emitObject(created);
-      }
-
-      if (pitchId !== undefined) {
-        yield* requirePitch(pitchId);
-        const created = yield* svc.createStandaloneVideo({ path: name });
-        const linked = yield* svc.linkVideoToPitch({
-          videoId: created.id,
-          pitchId,
+    withBackupCoordination(
+      Effect.gen(function* () {
+        if (name.trim() === "") {
+          return yield* parseError("--name must not be empty", "video");
+        }
+        const lessonId = Option.getOrUndefined(lesson);
+        const pitchId = Option.getOrUndefined(pitch);
+        yield* rejectBothFlags({
+          a: lessonId,
+          b: pitchId,
+          flags: ["--lesson", "--pitch"],
+          entity: "video",
         });
-        return yield* emitObject(linked);
-      }
 
-      const created = yield* svc.createStandaloneVideo({ path: name });
-      yield* emitObject(created);
-    })
+        const svc = yield* VideoOperationsService;
+
+        if (lessonId !== undefined) {
+          yield* requireLesson(lessonId);
+          const created = yield* svc
+            .createVideo(lessonId, { path: name, originalFootagePath: "" })
+            .pipe(
+              Effect.catchTag("VideoPathTakenError", (e) =>
+                parseError(e.message, "video")
+              )
+            );
+          return yield* emitObject(created);
+        }
+
+        if (pitchId !== undefined) {
+          yield* requirePitch(pitchId);
+          const created = yield* svc.createStandaloneVideo({ path: name });
+          const linked = yield* svc.linkVideoToPitch({
+            videoId: created.id,
+            pitchId,
+          });
+          return yield* emitObject(linked);
+        }
+
+        const created = yield* svc.createStandaloneVideo({ path: name });
+        yield* emitObject(created);
+      })
+    )
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 const moveId = Args.text({ name: "id" });
@@ -405,47 +408,48 @@ const moveCmd = Command.make(
   "move",
   { id: moveId, lesson: lessonOption, pitch: pitchOption },
   ({ id, lesson, pitch }) =>
-    Effect.gen(function* () {
-      const lessonId = Option.getOrUndefined(lesson);
-      const pitchId = Option.getOrUndefined(pitch);
-      yield* rejectBothFlags({
-        a: lessonId,
-        b: pitchId,
-        flags: ["--lesson", "--pitch"],
-        entity: "video",
-      });
-      if (lessonId === undefined && pitchId === undefined) {
-        return yield* parseError(
-          "move needs one of --lesson / --pitch",
-          "video"
-        );
-      }
-
-      const svc = yield* VideoOperationsService;
-      // The video being moved must exist (clean exit 2).
-      yield* svc
-        .getVideoRowById(id)
-        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
-
-      if (lessonId !== undefined) {
-        yield* requireLesson(lessonId);
-        const moved = yield* svc
-          .moveVideoToLesson({ videoId: id, lessonId })
-          .pipe(
-            Effect.catchTag("VideoPathTakenError", (e) =>
-              parseError(e.message, "video")
-            )
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const lessonId = Option.getOrUndefined(lesson);
+        const pitchId = Option.getOrUndefined(pitch);
+        yield* rejectBothFlags({
+          a: lessonId,
+          b: pitchId,
+          flags: ["--lesson", "--pitch"],
+          entity: "video",
+        });
+        if (lessonId === undefined && pitchId === undefined) {
+          return yield* parseError(
+            "move needs one of --lesson / --pitch",
+            "video"
           );
-        return yield* emitObject(moved);
-      }
+        }
 
-      yield* requirePitch(pitchId!);
-      const moved = yield* svc.linkVideoToPitch({
-        videoId: id,
-        pitchId: pitchId!,
-      });
-      yield* emitObject(moved);
-    })
+        const svc = yield* VideoOperationsService;
+        yield* svc
+          .getVideoRowById(id)
+          .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+
+        if (lessonId !== undefined) {
+          yield* requireLesson(lessonId);
+          const moved = yield* svc
+            .moveVideoToLesson({ videoId: id, lessonId })
+            .pipe(
+              Effect.catchTag("VideoPathTakenError", (e) =>
+                parseError(e.message, "video")
+              )
+            );
+          return yield* emitObject(moved);
+        }
+
+        yield* requirePitch(pitchId!);
+        const moved = yield* svc.linkVideoToPitch({
+          videoId: id,
+          pitchId: pitchId!,
+        });
+        yield* emitObject(moved);
+      })
+    )
 ).pipe(Command.withDescription(detail(MOVE_HELP)));
 
 const updateId = Args.text({ name: "id" });
@@ -458,29 +462,30 @@ const updateCmd = Command.make(
   "update",
   { id: updateId, name: updateNameOption },
   ({ id, name }) =>
-    Effect.gen(function* () {
-      const newName = Option.getOrUndefined(name);
-      if (newName === undefined || newName.trim() === "") {
-        return yield* parseError("update needs a non-empty --name", "video");
-      }
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const newName = Option.getOrUndefined(name);
+        if (newName === undefined || newName.trim() === "") {
+          return yield* parseError("update needs a non-empty --name", "video");
+        }
 
-      const svc = yield* VideoOperationsService;
-      // Existence guard first (clean exit 2).
-      yield* svc
-        .getVideoRowById(id)
-        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+        const svc = yield* VideoOperationsService;
+        yield* svc
+          .getVideoRowById(id)
+          .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
 
-      yield* svc
-        .updateVideoPath({ videoId: id, path: newName })
-        .pipe(
-          Effect.catchTag("VideoPathTakenError", (e) =>
-            parseError(e.message, "video")
-          )
-        );
+        yield* svc
+          .updateVideoPath({ videoId: id, path: newName })
+          .pipe(
+            Effect.catchTag("VideoPathTakenError", (e) =>
+              parseError(e.message, "video")
+            )
+          );
 
-      const updated = yield* svc.getVideoRowById(id);
-      yield* emitObject(updated);
-    })
+        const updated = yield* svc.getVideoRowById(id);
+        yield* emitObject(updated);
+      })
+    )
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 // ---------------------------------------------------------------------------

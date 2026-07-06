@@ -10,6 +10,7 @@ import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
+import { BackupCoordinator } from "@/cli/backup-coordinator";
 
 /**
  * Service layer for the `cvm` CLI. Mostly the read-operations services, provided
@@ -57,7 +58,8 @@ export const cliLayer = Layer.mergeAll(
   // Disk-aware write orchestrator for structural lesson edits (reorder / move).
   // Its transitive deps (repo-write, sync-validation, NodeFileSystem) close
   // under DrizzleService below; git/fs are only touched when a real lesson moves.
-  CourseWriteService.Default
+  CourseWriteService.Default,
+  BackupCoordinator.Default
 ).pipe(Layer.provideMerge(DrizzleService.Default));
 
 /**
