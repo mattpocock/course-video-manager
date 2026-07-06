@@ -288,7 +288,7 @@ export const chapters = createTable("chapter", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const segments = createTable("segment", {
+export const segments = createTable("beat", {
   id: varchar("id", { length: 255 })
     .notNull()
     .primaryKey()
