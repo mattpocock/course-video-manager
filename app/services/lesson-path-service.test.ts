@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   toSlug,
   buildLessonPath,
+  deriveLessonPath,
   parseLessonPath,
   computeRenumberingPlan,
   computeInsertionPlan,
@@ -68,6 +69,22 @@ describe("buildLessonPath", () => {
     expect(buildLessonPath(1, 1, "getting-started")).toBe(
       "01.01-getting-started"
     );
+  });
+});
+
+describe("deriveLessonPath", () => {
+  it("derives path from title and numbers", () => {
+    expect(deriveLessonPath("Getting Started", 1, 3)).toBe(
+      "01.03-getting-started"
+    );
+  });
+
+  it("falls back to 'untitled' for empty title", () => {
+    expect(deriveLessonPath("", 1, 1)).toBe("01.01-untitled");
+  });
+
+  it("falls back to 'untitled' for symbols-only title", () => {
+    expect(deriveLessonPath("!@#", 2, 5)).toBe("02.05-untitled");
   });
 });
 

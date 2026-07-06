@@ -35,6 +35,18 @@ export const buildLessonPath = (
   return `${section}.${lesson}-${slug}`;
 };
 
+export const deriveLessonPath = (
+  title: string,
+  sectionNumber: number,
+  lessonNumber: number
+): string => {
+  return buildLessonPath(
+    sectionNumber,
+    lessonNumber,
+    toSlug(title) || "untitled"
+  );
+};
+
 export type ParsedLessonPath = {
   sectionNumber: number | undefined;
   lessonNumber: number;

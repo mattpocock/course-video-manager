@@ -59,6 +59,13 @@ export const buildSectionPath = (
   return `${num}-${slug}`;
 };
 
+export const deriveSectionPath = (
+  title: string,
+  sectionNumber: number
+): string => {
+  return buildSectionPath(sectionNumber, toSlug(title) || "untitled");
+};
+
 /**
  * Parses a section directory name.
  *
