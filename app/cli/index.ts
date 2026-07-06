@@ -5,7 +5,7 @@ import { sectionCommand } from "./commands/section";
 import { lessonCommand } from "./commands/lesson";
 import { videoCommand } from "./commands/video";
 import { clipCommand } from "./commands/clip";
-import { segmentCommand } from "./commands/segment";
+import { beatCommand } from "./commands/beat";
 import { pitchCommand } from "./commands/pitch";
 import { deliverableCommand } from "./commands/deliverable";
 import { searchCommand } from "./commands/search";
@@ -19,7 +19,7 @@ import { searchCommand } from "./commands/search";
 const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager project's domain data.
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
-'segment' (add/update/move/delete), 'lesson' (create/update/move), 'video'
+'beat' (add/update/move/delete), 'lesson' (create/update/move), 'video'
 (create/move/update) and 'pitch' (create/update). Every other verb is read-only,
 and each verb's own --help is authoritative about whether it reads or writes.
 
@@ -29,7 +29,7 @@ DOMAIN MODEL
   Versions (frozen at Publish). Version-scoped reads default to the Draft.
   A Version contains Sections (directory-backed groupings), each containing
   Lessons. A Lesson contains Videos; a Video is an ordered sequence of Clips
-  (recorded timeline) and is planned as an ordered sequence of Segments
+  (recorded timeline) and is planned as an ordered sequence of Beats
   (intended structure, by job/kind). Pitches are course ideas with a derived
   Pitch State. Deliverables are calendar entries linking Courses and/or Pitches.
 
@@ -58,7 +58,7 @@ WRITES
   Write verbs hit the database immediately — no confirmation prompt, no dry-run —
   and each echoes the affected row as one pretty JSON object. Flags come BEFORE
   any positional <id> (a flag after it exits 3). The write surface:
-    segment add/update/move/delete   author a Video's Segment plan
+    beat    add/update/move/delete   author a Video's Beat plan
                                      (add --pitch <id> targets a pitch's video)
     lesson  create/update/move       create a GHOST lesson, rename its title,
                                      or reorder / re-home it (DB↔disk in sync)
@@ -69,7 +69,7 @@ WRITES
   See each noun's --help for the authoritative contract.
 
 NOUNS
-  course version section lesson video clip segment pitch deliverable
+  course version section lesson video clip beat pitch deliverable
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -91,7 +91,7 @@ export const rootCommand = Command.make("cvm").pipe(
     lessonCommand,
     videoCommand,
     clipCommand,
-    segmentCommand,
+    beatCommand,
     pitchCommand,
     deliverableCommand,
     searchCommand,

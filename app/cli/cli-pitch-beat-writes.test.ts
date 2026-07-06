@@ -15,7 +15,7 @@ import {
 } from "./cli-write-test-harness";
 
 // ===========================================================================
-// cvm WRITE verbs — pitch create/update + segment add --pitch
+// cvm WRITE verbs — pitch create/update + beat add --pitch
 // (Split from cli-integration.test.ts to stay under the per-file token budget.)
 // ===========================================================================
 
@@ -198,7 +198,7 @@ describe("pitch create / update", () => {
   });
 });
 
-describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
+describe("beat add --pitch (resolve-or-create the pitch's video)", () => {
   interface Seg {
     id: string;
     videoId: string;
@@ -207,11 +207,11 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
   }
   const sobj = (stdout: string): Seg => one<Seg>(stdout);
 
-  it("with 0 videos, auto-creates the pitch's video and adds the segment", async () => {
+  it("with 0 videos, auto-creates the pitch's video and adds the beat", async () => {
     const seg = sobj(
       (
         await run([
-          "segment",
+          "beat",
           "add",
           "--pitch",
           s.pitchActiveId,
@@ -224,7 +224,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
     );
     expect(seg.kind).toBe("quest");
     expect(seg.title).toBe("Try it");
-    // The pitch now has exactly one video, carrying that segment.
+    // The pitch now has exactly one video, carrying that beat.
     const pitch = one<{
       videos: Array<{ id: string; segments: Array<{ id: string }> }>;
     }>((await run(["pitch", "get", s.pitchActiveId])).stdout);
@@ -247,7 +247,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
       ).stdout
     );
     const seg = sobj(
-      (await run(["segment", "add", "--pitch", s.pitchActiveId])).stdout
+      (await run(["beat", "add", "--pitch", s.pitchActiveId])).stdout
     );
     expect(seg.videoId).toBe(v.id);
     const pitch = one<{ videos: unknown[] }>(
@@ -260,7 +260,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
     await run(["video", "create", "--name", "A", "--pitch", s.pitchActiveId]);
     await run(["video", "create", "--name", "B", "--pitch", s.pitchActiveId]);
     const { exitCode, stdout } = await run([
-      "segment",
+      "beat",
       "add",
       "--pitch",
       s.pitchActiveId,
@@ -271,7 +271,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
 
   it("both --video and --pitch => invalid input, exit 3", async () => {
     const { exitCode } = await run([
-      "segment",
+      "beat",
       "add",
       "--video",
       s.standaloneActiveId,
@@ -282,13 +282,13 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
   });
 
   it("neither --video nor --pitch => invalid input, exit 3", async () => {
-    const { exitCode } = await run(["segment", "add"]);
+    const { exitCode } = await run(["beat", "add"]);
     expect(exitCode).toBe(3);
   });
 
   it("unknown pitch => NotFoundError(pitch), exit 2", async () => {
     const { exitCode, stderr } = await run([
-      "segment",
+      "beat",
       "add",
       "--pitch",
       "pit_missing",
@@ -301,7 +301,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
 
   it("archived pitch => NotFoundError(pitch), exit 2", async () => {
     const { exitCode, stderr } = await run([
-      "segment",
+      "beat",
       "add",
       "--pitch",
       s.pitchArchivedId,
