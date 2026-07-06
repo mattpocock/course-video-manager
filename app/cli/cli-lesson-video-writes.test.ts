@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import {
   createTestDb,
@@ -197,6 +200,8 @@ describe("video create / move / update", () => {
     lessonId: string | null;
     pitchId: string | null;
     archived: boolean;
+    body: string | null;
+    description: string | null;
   }
   const vobj = (stdout: string): Video => one<Video>(stdout);
 
@@ -440,6 +445,128 @@ describe("video create / move / update", () => {
       "video",
       "update",
       "--name",
+      "x",
+      "vid_missing",
+    ]);
+    expect(exitCode).toBe(2);
+    expect((JSON.parse(stderr.trim()) as { entity: string }).entity).toBe(
+      "video"
+    );
+  });
+
+  it("update --description sets the SEO description, echoing the row", async () => {
+    const updated = vobj(
+      (
+        await run([
+          "video",
+          "update",
+          "--description",
+          "Learn to refactor a reducer",
+          s.standaloneActiveId,
+        ])
+      ).stdout
+    );
+    expect(updated.id).toBe(s.standaloneActiveId);
+    expect(updated.description).toBe("Learn to refactor a reducer");
+    // Leaves the name/path untouched.
+    expect(updated.path).toBe("standalone-active.mp4");
+  });
+
+  it("update --body sets the markdown body from inline text", async () => {
+    const updated = vobj(
+      (
+        await run([
+          "video",
+          "update",
+          "--body",
+          "# Intro\n\nWelcome",
+          s.standaloneActiveId,
+        ])
+      ).stdout
+    );
+    expect(updated.body).toBe("# Intro\n\nWelcome");
+  });
+
+  it("update patches name, body and description together", async () => {
+    const updated = vobj(
+      (
+        await run([
+          "video",
+          "update",
+          "--name",
+          "renamed.mp4",
+          "--body",
+          "body text",
+          "--description",
+          "seo text",
+          s.standaloneActiveId,
+        ])
+      ).stdout
+    );
+    expect(updated.path).toBe("renamed.mp4");
+    expect(updated.body).toBe("body text");
+    expect(updated.description).toBe("seo text");
+  });
+
+  it("update with no fields => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "video",
+      "update",
+      s.standaloneActiveId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("update with both --body and --body-file => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "video",
+      "update",
+      "--body",
+      "x",
+      "--body-file",
+      "/tmp/does-not-matter.md",
+      s.standaloneActiveId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("update --body-file reads the markdown body from a file", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cvm-body-"));
+    const file = join(dir, "notes.md");
+    writeFileSync(file, "# From file\n\nContents", "utf8");
+    const updated = vobj(
+      (
+        await run([
+          "video",
+          "update",
+          "--body-file",
+          file,
+          s.standaloneActiveId,
+        ])
+      ).stdout
+    );
+    expect(updated.body).toBe("# From file\n\nContents");
+  });
+
+  it("update --body-file with an unreadable path => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "video",
+      "update",
+      "--body-file",
+      "/no/such/file/anywhere.md",
+      s.standaloneActiveId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("update --description on an unknown video => NotFoundError(video), exit 2", async () => {
+    const { exitCode, stderr } = await run([
+      "video",
+      "update",
+      "--description",
       "x",
       "vid_missing",
     ]);
