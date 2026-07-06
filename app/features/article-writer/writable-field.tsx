@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -44,8 +44,18 @@ export function WritableField({
   const [searchParams, setSearchParams] = useSearchParams();
   const isOpen = searchParams.get("writer") === fieldId;
 
+  const view =
+    (searchParams.get("writerView") as
+      | "writer"
+      | "context"
+      | "settings"
+      | null) ?? "writer";
+  const ctxTab = searchParams.get("writerTab") ?? undefined;
+
   const workingValueRef = useRef(value);
   const snapshotMessagesRef = useRef<Map<string, unknown[]>>(new Map());
+  const [isDirty, setIsDirty] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   const setOpen = useCallback(
     (open: boolean) => {
@@ -67,8 +77,42 @@ export function WritableField({
     [setSearchParams, fieldId]
   );
 
+  const handleViewChange = useCallback(
+    (v: "writer" | "context" | "settings") => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (v === "writer") {
+            next.delete("writerView");
+          } else {
+            next.set("writerView", v);
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const handleCtxTabChange = useCallback(
+    (tab: string) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("writerTab", tab);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
   const handleOpen = useCallback(() => {
     workingValueRef.current = value;
+    setIsDirty(false);
+    setShowConfirmClose(false);
     const snap = new Map<string, unknown[]>();
     for (const m of resolvedModes) {
       snap.set(m, loadFieldMessages(videoId, fieldId, m));
@@ -79,6 +123,7 @@ export function WritableField({
 
   const handleApply = useCallback(() => {
     onApply(workingValueRef.current);
+    setIsDirty(false);
     setOpen(false);
   }, [onApply, setOpen]);
 
@@ -87,12 +132,26 @@ export function WritableField({
       saveFieldMessages(videoId, fieldId, m as Mode, msgs);
     }
     workingValueRef.current = value;
+    setIsDirty(false);
+    setShowConfirmClose(false);
     setOpen(false);
   }, [videoId, fieldId, value, setOpen]);
 
-  const handleDocumentChange = useCallback((doc: string) => {
-    workingValueRef.current = doc;
-  }, []);
+  const handleRequestClose = useCallback(() => {
+    if (isDirty) {
+      setShowConfirmClose(true);
+    } else {
+      handleCancel();
+    }
+  }, [isDirty, handleCancel]);
+
+  const handleDocumentChange = useCallback(
+    (doc: string) => {
+      workingValueRef.current = doc;
+      setIsDirty(doc !== value);
+    },
+    [value]
+  );
 
   return (
     <>
@@ -130,7 +189,7 @@ export function WritableField({
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {
-          if (!open) handleCancel();
+          if (!open) handleRequestClose();
         }}
       >
         <DialogContent
@@ -138,18 +197,10 @@ export function WritableField({
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">{resolvedLabel}</DialogTitle>
-          <div className="flex items-center justify-between px-4 py-2 border-b">
+          <div className="flex items-center px-4 py-2 border-b">
             <h2 className="text-sm font-semibold">{resolvedLabel}</h2>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleApply}>
-                Apply
-              </Button>
-            </div>
           </div>
-          <div className="flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden">
             {isOpen && (
               <WriterEngine
                 videoId={videoId}
@@ -159,7 +210,41 @@ export function WritableField({
                 layout="modal"
                 context={context}
                 onDocumentChange={handleDocumentChange}
+                view={view}
+                onViewChange={handleViewChange}
+                ctxTab={ctxTab}
+                onCtxTabChange={handleCtxTabChange}
+                onCancel={handleRequestClose}
+                onApply={handleApply}
               />
+            )}
+
+            {/* Unsaved-changes confirmation */}
+            {showConfirmClose && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                <div className="max-w-sm rounded-lg border bg-background p-6 shadow-lg">
+                  <h3 className="text-base font-semibold">Unsaved changes</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    You have unsaved edits. Discard them?
+                  </p>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowConfirmClose(false)}
+                    >
+                      Keep editing
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleCancel}
+                    >
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </DialogContent>

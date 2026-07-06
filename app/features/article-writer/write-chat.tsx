@@ -42,7 +42,7 @@ export interface WriteChatProps {
   mode: Mode;
   videoId: string;
   className?: string;
-  toolbarProps: WriteToolbarProps;
+  toolbarProps?: WriteToolbarProps;
   queuedMessages?: string[];
   documentRef?: React.RefObject<string | undefined>;
   updateDocument?: (content: string) => void;
@@ -282,7 +282,7 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
       </AIConversation>
       <div className="border-t p-4 bg-background">
         <div className="max-w-[75ch] mx-auto">
-          <WriteToolbar {...toolbarProps} />
+          {toolbarProps && <WriteToolbar {...toolbarProps} />}
           <AIInput
             onSubmit={(e) => {
               e.preventDefault();

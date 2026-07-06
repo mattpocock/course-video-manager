@@ -36,6 +36,18 @@ import {
   saveFieldMessages,
   saveFieldDocument,
 } from "./writer-engine-utils";
+import { useContextModel } from "./use-context-model";
+import { InlineContextStrip } from "./inline-context-strip";
+import { ContextView } from "./context-view";
+import { SettingsView } from "./settings-view";
+import { WriteModeDropdown } from "./write-mode-dropdown";
+import { Button } from "@/components/ui/button";
+import {
+  RefreshCwIcon,
+  Trash2Icon,
+  Settings2Icon,
+  AlertTriangleIcon,
+} from "lucide-react";
 
 export interface WriterContext {
   files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
@@ -67,6 +79,12 @@ export interface WriterEngineProps {
   layout: "fullscreen" | "modal";
   context: WriterContext;
   onDocumentChange?: (document: string) => void;
+  view?: "writer" | "context" | "settings";
+  onViewChange?: (view: "writer" | "context" | "settings") => void;
+  ctxTab?: string;
+  onCtxTabChange?: (tab: string) => void;
+  onCancel?: () => void;
+  onApply?: () => void;
 }
 
 export function WriterEngine({
@@ -77,16 +95,15 @@ export function WriterEngine({
   layout,
   context,
   onDocumentChange,
+  view = "writer",
+  onViewChange,
+  ctxTab,
+  onCtxTabChange,
+  onCancel,
+  onApply,
 }: WriterEngineProps) {
-  const {
-    files,
-    chapters,
-    indexedClips,
-    courseStructure,
-    memory: initialMemory,
-    fullPath,
-    isStandalone,
-  } = context;
+  const { chapters, indexedClips, courseStructure, fullPath, isStandalone } =
+    context;
 
   const { mode: constrainedMode } = constrainModes(
     modes,
@@ -95,16 +112,8 @@ export function WriterEngine({
   const [mode, setMode] = useState<Mode>(constrainedMode);
   const [model, setModel] = useState<Model>("claude-haiku-4-5");
 
-  const [enabledFiles] = useState<Set<string>>(
-    () => new Set(files.filter((f) => f.defaultEnabled).map((f) => f.path))
-  );
-  const [includeTranscript] = useState(true);
-  const [enabledSections] = useState<Set<string>>(
-    () => new Set(chapters.map((s) => s.id))
-  );
-  const [includeCourseStructure] = useState(false);
-  const [memory] = useState(initialMemory);
-  const [memoryEnabled] = useState(false);
+  const ctxModel = useContextModel(context);
+
   const [docCapturingKey, setDocCapturingKey] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -326,33 +335,44 @@ export function WriterEngine({
 
   const getBodyPayload = useCallback(() => {
     const transcriptEnabled =
-      chapters.length > 0 ? enabledSections.size > 0 : includeTranscript;
+      chapters.length > 0
+        ? ctxModel.enabledSections.size > 0
+        : ctxModel.includeTranscript;
     const base = {
-      enabledFiles: Array.from(enabledFiles),
+      enabledFiles: Array.from(ctxModel.enabledFiles),
       model,
       includeTranscript: transcriptEnabled,
-      enabledSections: Array.from(enabledSections),
+      enabledSections: Array.from(ctxModel.enabledSections),
       courseStructure:
-        includeCourseStructure && courseStructure ? courseStructure : undefined,
-      memory: memoryEnabled && memory ? memory : undefined,
+        ctxModel.includeCourseStructure && courseStructure
+          ? courseStructure
+          : undefined,
+      memory:
+        ctxModel.memoryEnabled && ctxModel.memoryText
+          ? ctxModel.memoryText
+          : undefined,
     };
     return isDocumentMode ? { ...base, document, mode } : { ...base, mode };
   }, [
     chapters.length,
-    enabledSections,
-    includeTranscript,
-    enabledFiles,
+    ctxModel.enabledSections,
+    ctxModel.includeTranscript,
+    ctxModel.enabledFiles,
     model,
-    includeCourseStructure,
+    ctxModel.includeCourseStructure,
     courseStructure,
-    memoryEnabled,
-    memory,
+    ctxModel.memoryEnabled,
+    ctxModel.memoryText,
     isDocumentMode,
     document,
     mode,
   ]);
 
-  const { phrases: bannedPhrases } = useBannedPhrases();
+  const {
+    phrases: bannedPhrases,
+    addPhrase: addBannedPhrase,
+    removePhrase: removeBannedPhrase,
+  } = useBannedPhrases();
 
   const lastAssistantMessageText = partsToText(
     messages
@@ -458,7 +478,7 @@ export function WriterEngine({
       indexedClips,
       mode,
       videoId,
-      toolbarProps,
+      toolbarProps: layout === "modal" ? undefined : toolbarProps,
       queuedMessages,
       documentRef: isDocumentMode ? documentRef : undefined,
       updateDocument: isDocumentMode ? updateDocument : undefined,
@@ -474,6 +494,7 @@ export function WriterEngine({
       indexedClips,
       mode,
       videoId,
+      layout,
       toolbarProps,
       queuedMessages,
       isDocumentMode,
@@ -483,20 +504,116 @@ export function WriterEngine({
   );
 
   if (layout === "modal") {
+    const lintCount = violations.reduce((sum, v) => sum + v.count, 0);
     return (
-      <div className="flex flex-1 overflow-hidden h-full">
-        <WriteChat {...chatProps} className="w-2/5 border-r" />
-        <div className="flex-1 flex flex-col">
-          <DocumentPanel
-            document={document}
-            fullPath={fullPath}
-            extraComponents={docExtraComponents}
-            preprocessMarkdown={docPreprocessMarkdown}
-            onDocumentChange={updateDocument}
-            violations={violations}
-            onFixLintViolations={handleFixLintViolations}
-          />
+      <div className="relative flex flex-1 flex-col overflow-hidden h-full">
+        {/* 2-pane body */}
+        <div className="flex flex-1 overflow-hidden">
+          <WriteChat {...chatProps} className="w-2/5 border-r" />
+          <div className="flex-1 flex flex-col">
+            <InlineContextStrip
+              sources={ctxModel.sources}
+              totalTokens={ctxModel.totalTokens}
+              onToggleSource={ctxModel.toggleSource}
+              onToggleItem={ctxModel.toggleItem}
+              onOpenPanel={() => onViewChange?.("context")}
+            />
+            <DocumentPanel
+              document={document}
+              fullPath={fullPath}
+              extraComponents={docExtraComponents}
+              preprocessMarkdown={docPreprocessMarkdown}
+              onDocumentChange={updateDocument}
+              violations={violations}
+              onFixLintViolations={handleFixLintViolations}
+            />
+          </div>
         </div>
+
+        {/* Context overlay */}
+        {view === "context" && (
+          <ContextView
+            sources={ctxModel.sources}
+            totalTokens={ctxModel.totalTokens}
+            activeKey={ctxTab ?? ctxModel.sources[0]?.key ?? "transcript"}
+            onTab={(tab) => onCtxTabChange?.(tab)}
+            onBack={() => onViewChange?.("writer")}
+            onToggleItem={ctxModel.toggleItem}
+            onToggleSource={ctxModel.toggleSource}
+            onSetSourceEnabled={ctxModel.setSourceEnabled}
+            memoryText={ctxModel.memoryText}
+            onMemoryChange={ctxModel.setMemoryText}
+            links={ctxModel.links}
+            onAddLink={() => {}}
+            onRemoveLink={() => {}}
+          />
+        )}
+
+        {/* Settings overlay */}
+        {view === "settings" && (
+          <SettingsView
+            model={model}
+            onModelChange={(m) => setModel(m as Model)}
+            banned={bannedPhrases.map((p) => p.readable)}
+            onAddPhrase={(s) => addBannedPhrase(s, s, false)}
+            onRemovePhrase={removeBannedPhrase}
+            onBack={() => onViewChange?.("writer")}
+          />
+        )}
+
+        {/* Bottom bar — hidden when overlays are open */}
+        {view === "writer" && (
+          <div className="flex flex-none items-center gap-2 border-t bg-background px-3 py-2">
+            <WriteModeDropdown mode={mode} onModeChange={handleModeChange} />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={handleRegenerate}
+              disabled={isGenerating || messages.length === 0}
+              title="Regenerate"
+            >
+              <RefreshCwIcon className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={handleClearChat}
+              disabled={isGenerating || messages.length === 0}
+              title="Clear chat"
+            >
+              <Trash2Icon className="size-4" />
+            </Button>
+            {lintCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={handleFixLintViolations}
+              >
+                <AlertTriangleIcon className="size-4 mr-1 text-orange-500" />
+                Fix ({lintCount})
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={() => onViewChange?.("settings")}
+              title="Settings"
+            >
+              <Settings2Icon className="size-4" />
+            </Button>
+            <div className="flex-1" />
+            <Button variant="ghost" size="sm" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={onApply}>
+              Apply
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
