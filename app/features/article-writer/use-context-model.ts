@@ -12,6 +12,7 @@ export interface ContextModel {
   // Toggle state
   enabledFiles: Set<string>;
   enabledSections: Set<string>;
+  enabledFields: Set<string>;
   includeTranscript: boolean;
   includeCourseStructure: boolean;
   memoryEnabled: boolean;
@@ -41,12 +42,22 @@ export interface ContextModel {
   }>;
 }
 
-export function useContextModel(context: WriterContext): ContextModel {
+export type PageField = { id: string; label: string; value: string };
+
+export function useContextModel(
+  context: WriterContext,
+  pageFields: PageField[] = []
+): ContextModel {
   // ── Toggle state ──────────────────────────────────────────────────────────
 
   const [enabledFiles, setEnabledFiles] = useState<Set<string>>(
     () =>
       new Set(context.files.filter((f) => f.defaultEnabled).map((f) => f.path))
+  );
+  // Page fields (other fields on the same page) default to OFF — they are
+  // opt-in extra context.
+  const [enabledFields, setEnabledFields] = useState<Set<string>>(
+    () => new Set()
   );
   const [enabledSections, setEnabledSections] = useState<Set<string>>(
     () => new Set(context.chapters.map((s) => s.id))
@@ -55,6 +66,11 @@ export function useContextModel(context: WriterContext): ContextModel {
   const [includeCourseStructure, setIncludeCourseStructure] = useState(false);
   const [memoryEnabled, setMemoryEnabled] = useState(false);
   const [memoryText, setMemoryText] = useState(context.memory);
+  // Links default to on; we track the *disabled* ids so links added after mount
+  // (via revalidation) are included by default.
+  const [disabledLinks, setDisabledLinks] = useState<Set<string>>(
+    () => new Set()
+  );
 
   // ── Build sources ─────────────────────────────────────────────────────────
 
@@ -139,24 +155,57 @@ export function useContextModel(context: WriterContext): ContextModel {
       });
     }
 
+    // 2b. Page fields (other fields on the same page)
+    if (pageFields.length > 0) {
+      const items = pageFields.map((f) => ({
+        id: f.id,
+        label: f.label,
+        text: f.value,
+        on: enabledFields.has(f.id),
+        tokens: estimateTokens(f.value),
+      }));
+      const onCount = items.filter((i) => i.on).length;
+      result.push({
+        key: "fields",
+        label: "Page fields",
+        note: "other fields on this page",
+        items,
+        onCount,
+        check:
+          onCount === 0
+            ? false
+            : onCount === items.length
+              ? true
+              : "indeterminate",
+        atomic: false,
+        tokens: items.filter((i) => i.on).reduce((sum, i) => sum + i.tokens, 0),
+      });
+    }
+
     // 3. Links
     if (context.links.length > 0) {
       const items = context.links.map((l) => ({
         id: l.id,
         label: l.title,
         text: l.url,
-        on: true as const,
+        on: !disabledLinks.has(l.id),
         tokens: estimateTokens(l.url),
       }));
+      const onCount = items.filter((i) => i.on).length;
       result.push({
         key: "links",
         label: "Links",
         note: "reference URLs on the video",
         items,
-        onCount: items.length,
-        check: true,
-        atomic: true,
-        tokens: items.reduce((sum, i) => sum + i.tokens, 0),
+        onCount,
+        check:
+          onCount === 0
+            ? false
+            : onCount === items.length
+              ? true
+              : "indeterminate",
+        atomic: false,
+        tokens: items.filter((i) => i.on).reduce((sum, i) => sum + i.tokens, 0),
       });
     }
 
@@ -219,6 +268,9 @@ export function useContextModel(context: WriterContext): ContextModel {
     memoryText,
     enabledSections,
     enabledFiles,
+    enabledFields,
+    pageFields,
+    disabledLinks,
     includeTranscript,
     includeCourseStructure,
     memoryEnabled,
@@ -264,6 +316,28 @@ export function useContextModel(context: WriterContext): ContextModel {
         return;
       }
 
+      // Page field items → toggle in enabledFields (default off)
+      if (pageFields.some((f) => f.id === itemId)) {
+        setEnabledFields((prev) => {
+          const next = new Set(prev);
+          if (next.has(itemId)) next.delete(itemId);
+          else next.add(itemId);
+          return next;
+        });
+        return;
+      }
+
+      // Link items → toggle in disabledLinks (default on)
+      if (context.links.some((l) => l.id === itemId)) {
+        setDisabledLinks((prev) => {
+          const next = new Set(prev);
+          if (next.has(itemId)) next.delete(itemId);
+          else next.add(itemId);
+          return next;
+        });
+        return;
+      }
+
       // Atomic sources
       if (itemId === "courseStructure") {
         setIncludeCourseStructure((prev) => !prev);
@@ -274,7 +348,7 @@ export function useContextModel(context: WriterContext): ContextModel {
         return;
       }
     },
-    [context.chapters, context.files]
+    [context.chapters, context.files, context.links, pageFields]
   );
 
   const toggleSource = useCallback(
@@ -304,16 +378,42 @@ export function useContextModel(context: WriterContext): ContextModel {
           }
           break;
         }
+        case "links": {
+          const allOn = context.links.every((l) => !disabledLinks.has(l.id));
+          if (allOn) {
+            setDisabledLinks(new Set(context.links.map((l) => l.id)));
+          } else {
+            setDisabledLinks(new Set());
+          }
+          break;
+        }
+        case "fields": {
+          const allOn = pageFields.every((f) => enabledFields.has(f.id));
+          if (allOn) {
+            setEnabledFields(new Set());
+          } else {
+            setEnabledFields(new Set(pageFields.map((f) => f.id)));
+          }
+          break;
+        }
         case "courseStructure":
           setIncludeCourseStructure((prev) => !prev);
           break;
         case "memory":
           setMemoryEnabled((prev) => !prev);
           break;
-        // Links are always on — no toggle
       }
     },
-    [context.chapters, context.files, enabledSections, enabledFiles]
+    [
+      context.chapters,
+      context.files,
+      context.links,
+      pageFields,
+      enabledSections,
+      enabledFiles,
+      enabledFields,
+      disabledLinks,
+    ]
   );
 
   const setSourceEnabled = useCallback(
@@ -345,6 +445,7 @@ export function useContextModel(context: WriterContext): ContextModel {
 
     enabledFiles,
     enabledSections,
+    enabledFields,
     includeTranscript,
     includeCourseStructure,
     memoryEnabled,

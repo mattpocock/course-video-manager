@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, ClipboardPaste, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +18,13 @@ export function FullCover({
   title,
   onBack,
   children,
+  widthClassName = "max-w-2xl",
 }: {
   title: React.ReactNode;
   onBack: () => void;
   children: React.ReactNode;
+  /** Max width of the centered content column. */
+  widthClassName?: string;
 }) {
   return (
     <div className="absolute inset-0 z-10 flex flex-col bg-background">
@@ -33,7 +36,7 @@ export function FullCover({
         <div className="flex-1" />
       </div>
       <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl p-4">{children}</div>
+        <div className={cn("mx-auto p-4", widthClassName)}>{children}</div>
       </div>
     </div>
   );
@@ -67,6 +70,8 @@ export interface ContextViewProps {
     description?: string;
   }) => void;
   onRemoveLink: (id: string) => void;
+  // Repo files
+  onAddFileFromClipboard?: () => void;
 }
 
 export function ContextView({
@@ -83,6 +88,7 @@ export function ContextView({
   links,
   onAddLink,
   onRemoveLink,
+  onAddFileFromClipboard,
 }: ContextViewProps) {
   const activeSource = sources.find((s) => s.key === activeKey);
 
@@ -97,9 +103,10 @@ export function ContextView({
         </span>
       }
       onBack={onBack}
+      widthClassName="max-w-4xl"
     >
       {/* Tab row */}
-      <div className="mb-4 flex gap-1 overflow-x-auto border-b">
+      <div className="mb-4 flex flex-wrap gap-1 border-b">
         {sources.map((source) => (
           <button
             key={source.key}
@@ -131,6 +138,7 @@ export function ContextView({
           links={links}
           onAddLink={onAddLink}
           onRemoveLink={onRemoveLink}
+          onAddFileFromClipboard={onAddFileFromClipboard}
         />
       )}
     </FullCover>
@@ -149,6 +157,7 @@ function TabBody({
   links,
   onAddLink,
   onRemoveLink,
+  onAddFileFromClipboard,
 }: {
   source: SourceView;
   onToggleItem: (itemId: string) => void;
@@ -159,6 +168,7 @@ function TabBody({
   links: ContextViewProps["links"];
   onAddLink: ContextViewProps["onAddLink"];
   onRemoveLink: ContextViewProps["onRemoveLink"];
+  onAddFileFromClipboard?: () => void;
 }) {
   switch (source.key) {
     case "transcript":
@@ -171,7 +181,11 @@ function TabBody({
       );
     case "files":
       return (
-        <FilesTab source={source} onSetSourceEnabled={onSetSourceEnabled} />
+        <FilesTab
+          source={source}
+          onSetSourceEnabled={onSetSourceEnabled}
+          onAddFileFromClipboard={onAddFileFromClipboard}
+        />
       );
     case "links":
       return (
@@ -182,6 +196,14 @@ function TabBody({
           onToggleSource={onToggleSource}
           onAddLink={onAddLink}
           onRemoveLink={onRemoveLink}
+        />
+      );
+    case "fields":
+      return (
+        <FieldsTab
+          source={source}
+          onToggleItem={onToggleItem}
+          onToggleSource={onToggleSource}
         />
       );
     case "courseStructure":
@@ -237,9 +259,11 @@ function TranscriptTab({
 function FilesTab({
   source,
   onSetSourceEnabled,
+  onAddFileFromClipboard,
 }: {
   source: SourceView;
   onSetSourceEnabled: (sourceKey: string, enabledIds: Set<string>) => void;
+  onAddFileFromClipboard?: () => void;
 }) {
   const files = source.items.map((item) => ({
     path: item.id,
@@ -253,6 +277,12 @@ function FilesTab({
 
   return (
     <div className="space-y-3">
+      {onAddFileFromClipboard && (
+        <Button variant="outline" size="sm" onClick={onAddFileFromClipboard}>
+          <ClipboardPaste className="mr-1.5 size-3.5" />
+          Add from clipboard
+        </Button>
+      )}
       <FileTree
         files={files}
         enabledFiles={enabledFiles}
@@ -420,6 +450,43 @@ function AddLinkForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+// ─── Page fields tab ────────────────────────────────────────────────────────
+
+function FieldsTab({
+  source,
+  onToggleItem,
+  onToggleSource,
+}: {
+  source: SourceView;
+  onToggleItem: (itemId: string) => void;
+  onToggleSource: (sourceKey: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <MasterToggle source={source} onToggleSource={onToggleSource} />
+      {source.items.map((item) => (
+        <div key={item.id} className="rounded-md border p-3">
+          <label className="flex cursor-pointer items-center gap-2">
+            <Checkbox
+              checked={item.on}
+              onCheckedChange={() => onToggleItem(item.id)}
+            />
+            <span className="flex-1 text-sm font-medium">{item.label}</span>
+            <span className="text-xs text-muted-foreground">
+              {fmtTok(item.tokens)}
+            </span>
+          </label>
+          {item.text && (
+            <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">
+              {item.text}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

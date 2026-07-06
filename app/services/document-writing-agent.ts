@@ -1,6 +1,7 @@
 import { generateArticlePrompt } from "@/prompts/generate-article";
 import { generateStepsToCompleteForSkillBuildingProblemPrompt } from "@/prompts/generate-steps-to-complete-for-skill-building-problem";
 import { generateNewsletterPrompt } from "@/prompts/generate-newsletter";
+import { generateSeoDescriptionPrompt } from "@/prompts/generate-seo-description";
 import type { GlobalLink } from "@/prompts/link-instructions";
 import {
   ToolLoopAgent as Agent,
@@ -18,7 +19,8 @@ import type {
 export type DocumentWritingAgentMode =
   | "article"
   | "skill-building"
-  | "newsletter";
+  | "newsletter"
+  | "seo-description-document";
 
 export const writeDocumentTool = tool({
   description:
@@ -73,6 +75,8 @@ export const createDocumentWritingAgent = (props: {
   links?: GlobalLink[];
   courseStructure?: string;
   memory?: string;
+  /** Other fields from the same page, offered as reference context. */
+  additionalContext?: Array<{ label: string; value: string }>;
 }) => {
   const links = props.links ?? [];
   const mode = props.mode ?? "article";
@@ -89,6 +93,14 @@ export const createDocumentWritingAgent = (props: {
         });
       case "newsletter":
         return generateNewsletterPrompt({
+          code: props.code,
+          transcript: props.transcript,
+          images: props.imageFiles.map((file) => file.path),
+          courseStructure: props.courseStructure,
+          links,
+        });
+      case "seo-description-document":
+        return generateSeoDescriptionPrompt({
           code: props.code,
           transcript: props.transcript,
           images: props.imageFiles.map((file) => file.path),
@@ -139,7 +151,18 @@ There is no document yet. You MUST use the \`writeDocument\` tool to create the 
 
 After calling writeDocument, you may add a brief conversational message explaining what you wrote.`;
 
-  const systemPrompt = basePrompt + documentInstructions;
+  const additionalContext = (props.additionalContext ?? []).filter((f) =>
+    f.value.trim()
+  );
+  const additionalContextSection =
+    additionalContext.length > 0
+      ? `\n\n## Related Fields\n\nThe following fields from the same lesson page are provided as reference. Use them to stay consistent, but do not simply copy them:\n\n${additionalContext
+          .map((f) => `<field label="${f.label}">\n${f.value}\n</field>`)
+          .join("\n\n")}`
+      : "";
+
+  const systemPrompt =
+    basePrompt + additionalContextSection + documentInstructions;
 
   const memorySection = props.memory
     ? `\n\n## Course Memory\n\nThe following is course-level context provided by the author. Use it to inform your response:\n\n<memory>\n${props.memory}\n</memory>`

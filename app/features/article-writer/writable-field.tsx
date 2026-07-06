@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { PencilIcon } from "lucide-react";
+import { MarkdownMonacoEditor } from "@/components/markdown-monaco-editor";
+import { cn } from "@/lib/utils";
+import { PencilIcon, EyeIcon, Maximize2Icon } from "lucide-react";
+import type { OnMount } from "@monaco-editor/react";
 import { WriterEngine, type WriterContext } from "./writer-engine";
 import type { Mode } from "./types";
 import type { WriterFieldId } from "./writer-engine-utils";
@@ -19,24 +23,37 @@ export interface WritableFieldProps {
   videoId: string;
   fieldId: WriterFieldId;
   value: string;
+  /** Persist an inline edit made directly in the field's Monaco editor. */
+  onChange?: (newValue: string) => void;
+  /** Persist the value applied from the fullscreen writer modal. */
   onApply: (newValue: string) => void;
   context: WriterContext;
   modes?: Mode[];
   label?: string;
   placeholder?: string;
   className?: string;
+  /** Height of the inline editor/preview box in pixels. */
+  height?: number;
+  /** When set, the modal's Repo Files tab shows an "add from clipboard" button. */
+  onAddFileFromClipboard?: () => void;
+  /** Other fields on the same page, offered as toggleable AI context. */
+  pageFields?: Array<{ id: string; label: string; value: string }>;
 }
 
 export function WritableField({
   videoId,
   fieldId,
   value,
+  onChange,
   onApply,
   context,
   modes,
   label,
   placeholder,
   className,
+  height = 280,
+  onAddFileFromClipboard,
+  pageFields,
 }: WritableFieldProps) {
   const resolvedModes = modes ?? FIELD_MODES[fieldId] ?? [];
   const resolvedLabel = label ?? FIELD_LABELS[fieldId] ?? fieldId;
@@ -56,6 +73,38 @@ export function WritableField({
   const snapshotMessagesRef = useRef<Map<string, unknown[]>>(new Map());
   const [isDirty, setIsDirty] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+
+  // Inline editor state: a local draft drives Monaco so persisting through the
+  // host (which round-trips the value back down) never yanks the cursor.
+  // Default to preview: the rendered markdown is a lightweight, stable first
+  // paint, so the heavyweight Monaco editor only loads once the user opts into
+  // editing — avoiding the load-time layout shift.
+  const [preview, setPreview] = useState(true);
+  const [draft, setDraft] = useState(value);
+  const isFocusedRef = useRef(false);
+
+  // Re-seed the draft from the canonical value only when the user isn't
+  // actively typing (e.g. after a modal Apply or an external revalidation).
+  useEffect(() => {
+    if (!isFocusedRef.current) setDraft(value);
+  }, [value]);
+
+  const handleInlineChange = useCallback(
+    (next: string) => {
+      setDraft(next);
+      onChange?.(next);
+    },
+    [onChange]
+  );
+
+  const handleEditorMount = useCallback<OnMount>((editor) => {
+    editor.onDidFocusEditorText(() => {
+      isFocusedRef.current = true;
+    });
+    editor.onDidBlurEditorText(() => {
+      isFocusedRef.current = false;
+    });
+  }, []);
 
   const setOpen = useCallback(
     (open: boolean) => {
@@ -121,11 +170,15 @@ export function WritableField({
     setOpen(true);
   }, [value, resolvedModes, videoId, fieldId, setOpen]);
 
-  const handleApply = useCallback(() => {
-    onApply(workingValueRef.current);
-    setIsDirty(false);
-    setOpen(false);
-  }, [onApply, setOpen]);
+  const handleApply = useCallback(
+    (finalValue: string) => {
+      onApply(finalValue);
+      workingValueRef.current = finalValue;
+      setIsDirty(false);
+      setOpen(false);
+    },
+    [onApply, setOpen]
+  );
 
   const handleCancel = useCallback(() => {
     for (const [m, msgs] of snapshotMessagesRef.current) {
@@ -156,32 +209,64 @@ export function WritableField({
   return (
     <>
       <div
-        className={`group relative cursor-pointer rounded-md border border-input bg-background hover:border-ring transition-colors ${className ?? ""}`}
-        onClick={handleOpen}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleOpen();
-          }
-        }}
+        className={cn(
+          "relative overflow-hidden rounded-md border bg-background",
+          className
+        )}
       >
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-          <span className="text-xs font-medium text-muted-foreground">
-            {resolvedLabel}
-          </span>
-          <PencilIcon className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute right-2 top-2 z-10 flex gap-1">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 shadow-sm"
+            onClick={() => setPreview((p) => !p)}
+          >
+            {preview ? (
+              <>
+                <PencilIcon className="mr-1 size-3.5" /> Edit
+              </>
+            ) : (
+              <>
+                <EyeIcon className="mr-1 size-3.5" /> Preview
+              </>
+            )}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 shadow-sm"
+            onClick={handleOpen}
+          >
+            <Maximize2Icon className="mr-1 size-3.5" /> Open in writer
+          </Button>
         </div>
-        <div className="px-3 py-2 min-h-[80px] max-h-[200px] overflow-hidden">
-          {value ? (
-            <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-6 font-mono">
-              {value}
-            </p>
+        <div style={{ height }}>
+          {preview ? (
+            <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted h-full overflow-y-auto p-4">
+              <div className="max-w-[75ch]">
+                {draft ? (
+                  <AIResponse imageBasePath={context.fullPath}>
+                    {draft}
+                  </AIResponse>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    {placeholder ?? "Nothing written yet."}
+                  </p>
+                )}
+              </div>
+            </div>
           ) : (
-            <p className="text-sm text-muted-foreground italic">
-              {placeholder ?? "Click to open writer..."}
-            </p>
+            <MarkdownMonacoEditor
+              value={draft}
+              onChange={handleInlineChange}
+              onMount={handleEditorMount}
+              options={{ padding: { top: 12, bottom: 12 } }}
+              fallback={
+                <div className="p-4 text-sm text-muted-foreground">
+                  Loading editor…
+                </div>
+              }
+            />
           )}
         </div>
       </div>
@@ -193,7 +278,7 @@ export function WritableField({
         }}
       >
         <DialogContent
-          className="max-w-[94vw] w-[94vw] h-[82vh] flex flex-col p-0 gap-0"
+          className="flex h-[96vh] w-[97vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">{resolvedLabel}</DialogTitle>
@@ -216,6 +301,8 @@ export function WritableField({
                 onCtxTabChange={handleCtxTabChange}
                 onCancel={handleRequestClose}
                 onApply={handleApply}
+                onAddFileFromClipboard={onAddFileFromClipboard}
+                pageFields={pageFields}
               />
             )}
 

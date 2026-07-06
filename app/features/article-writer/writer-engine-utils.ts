@@ -4,13 +4,15 @@ export type WriterFieldId =
   | "ai-hero-body"
   | "skills-changelog-body"
   | "newsletter-copy"
-  | "video-body";
+  | "video-body"
+  | "video-description";
 
 export const FIELD_MODES: Record<WriterFieldId, Mode[]> = {
   "ai-hero-body": ["article", "article-plan"],
   "skills-changelog-body": ["article", "article-plan"],
   "newsletter-copy": ["newsletter"],
   "video-body": ["article", "article-plan"],
+  "video-description": ["seo-description-document"],
 };
 
 export const FIELD_LABELS: Record<WriterFieldId, string> = {
@@ -18,6 +20,7 @@ export const FIELD_LABELS: Record<WriterFieldId, string> = {
   "skills-changelog-body": "Skills Changelog Body",
   "newsletter-copy": "Newsletter Copy",
   "video-body": "Lesson Body",
+  "video-description": "SEO Description",
 };
 
 export function getFieldMessagesStorageKey(

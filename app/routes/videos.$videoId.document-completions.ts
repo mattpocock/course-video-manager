@@ -32,7 +32,8 @@ const courseStructureSchema = Schema.Struct({
 const documentModeSchema = Schema.Union(
   Schema.Literal("article"),
   Schema.Literal("skill-building"),
-  Schema.Literal("newsletter")
+  Schema.Literal("newsletter"),
+  Schema.Literal("seo-description-document")
 );
 
 const chatSchema = Schema.Struct({
@@ -51,6 +52,10 @@ const chatSchema = Schema.Struct({
   }),
   courseStructure: Schema.optional(courseStructureSchema),
   memory: Schema.optional(Schema.String),
+  pageFields: Schema.optionalWith(
+    Schema.Array(Schema.Struct({ label: Schema.String, value: Schema.String })),
+    { default: () => [] }
+  ),
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -127,6 +132,7 @@ export const action = async (args: Route.ActionArgs) => {
       links,
       courseStructure: courseStructureText,
       memory: parsed.memory,
+      additionalContext: [...parsed.pageFields],
     });
 
     const result = yield* Effect.promise(async () => {

@@ -154,6 +154,7 @@ describe("FIELD_MODES", () => {
       "article-plan",
       "newsletter",
       "skill-building",
+      "seo-description-document",
     ];
     for (const fieldModes of Object.values(FIELD_MODES)) {
       for (const mode of fieldModes) {

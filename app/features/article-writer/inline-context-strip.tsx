@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Layers, CheckIcon, MinusIcon } from "lucide-react";
+import { Layers, CheckIcon, MinusIcon, ChevronRight } from "lucide-react";
 
 // ─── Token utilities ────────────────────────────────────────────────────────
 
@@ -76,13 +76,15 @@ export function InlineContextStrip({
     <div className="flex flex-none flex-wrap items-center gap-1.5 border-b bg-muted/30 px-3 py-2">
       <button
         onClick={onOpenPanel}
-        className="mr-1 flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs font-medium hover:bg-muted"
+        className="mr-1 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
         title="Open the full context panel"
       >
-        <Layers className="size-3.5" /> Context
-        <span className="w-10 text-right font-mono tabular-nums text-muted-foreground">
+        <Layers className="size-3.5" />
+        <span>Context</span>
+        <span className="font-mono tabular-nums normal-case">
           {fmtTok(totalTokens)}
         </span>
+        <ChevronRight className="size-3.5" />
       </button>
 
       {sources.map((s) => (

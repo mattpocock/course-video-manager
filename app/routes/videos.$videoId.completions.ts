@@ -19,6 +19,7 @@ const modeSchema = Schema.Union(
   Schema.Literal("style-guide-skill-building"),
   Schema.Literal("style-guide-project"),
   Schema.Literal("seo-description"),
+  Schema.Literal("seo-description-document"),
   Schema.Literal("youtube-title"),
   Schema.Literal("youtube-thumbnail"),
   Schema.Literal("youtube-description"),

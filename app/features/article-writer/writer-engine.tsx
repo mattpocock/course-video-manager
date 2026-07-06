@@ -12,6 +12,8 @@ import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HTMLAttributes } from "react";
 import type { Options } from "react-markdown";
+import { useFetcher } from "react-router";
+import { toast } from "sonner";
 
 import { WriteChat } from "./write-chat";
 import { DocumentPanel } from "./document-panel";
@@ -47,6 +49,7 @@ import {
   Trash2Icon,
   Settings2Icon,
   AlertTriangleIcon,
+  Loader2Icon,
 } from "lucide-react";
 
 export interface WriterContext {
@@ -84,7 +87,12 @@ export interface WriterEngineProps {
   ctxTab?: string;
   onCtxTabChange?: (tab: string) => void;
   onCancel?: () => void;
-  onApply?: () => void;
+  /** Receives the final (image-uploaded) document to persist. */
+  onApply?: (finalDocument: string) => void;
+  /** When set, the modal's Repo Files tab shows an "add from clipboard" button. */
+  onAddFileFromClipboard?: () => void;
+  /** Other fields on the same page, offered as toggleable AI context. */
+  pageFields?: Array<{ id: string; label: string; value: string }>;
 }
 
 export function WriterEngine({
@@ -101,6 +109,8 @@ export function WriterEngine({
   onCtxTabChange,
   onCancel,
   onApply,
+  onAddFileFromClipboard,
+  pageFields,
 }: WriterEngineProps) {
   const { chapters, indexedClips, courseStructure, fullPath, isStandalone } =
     context;
@@ -112,13 +122,16 @@ export function WriterEngine({
   const [mode, setMode] = useState<Mode>(constrainedMode);
   const [model, setModel] = useState<Model>("claude-haiku-4-5");
 
-  const ctxModel = useContextModel(context);
+  const ctxModel = useContextModel(context, pageFields);
 
   const [docCapturingKey, setDocCapturingKey] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   const isDocumentMode =
-    mode === "article" || mode === "skill-building" || mode === "newsletter";
+    mode === "article" ||
+    mode === "skill-building" ||
+    mode === "newsletter" ||
+    mode === "seo-description-document";
 
   const [initialMessages] = useState(
     () => loadFieldMessages(videoId, fieldId, mode) as DocumentAgentMessage[]
@@ -338,6 +351,9 @@ export function WriterEngine({
       chapters.length > 0
         ? ctxModel.enabledSections.size > 0
         : ctxModel.includeTranscript;
+    const enabledPageFields = (pageFields ?? [])
+      .filter((f) => ctxModel.enabledFields.has(f.id))
+      .map((f) => ({ label: f.label, value: f.value }));
     const base = {
       enabledFiles: Array.from(ctxModel.enabledFiles),
       model,
@@ -351,6 +367,7 @@ export function WriterEngine({
         ctxModel.memoryEnabled && ctxModel.memoryText
           ? ctxModel.memoryText
           : undefined,
+      pageFields: enabledPageFields,
     };
     return isDocumentMode ? { ...base, document, mode } : { ...base, mode };
   }, [
@@ -358,6 +375,8 @@ export function WriterEngine({
     ctxModel.enabledSections,
     ctxModel.includeTranscript,
     ctxModel.enabledFiles,
+    ctxModel.enabledFields,
+    pageFields,
     model,
     ctxModel.includeCourseStructure,
     courseStructure,
@@ -415,6 +434,68 @@ export function WriterEngine({
   const handleRegenerate = useCallback(() => {
     regenerate({ body: getBodyPayload() });
   }, [regenerate, getBodyPayload]);
+
+  // Links: add/remove hit the global link API; React Router auto-revalidates
+  // the route loader afterward, which refreshes context.links.
+  const addLinkFetcher = useFetcher();
+  const deleteLinkFetcher = useFetcher();
+
+  const handleAddLink = useCallback(
+    (link: { url: string; title: string; description?: string }) => {
+      addLinkFetcher.submit(
+        {
+          url: link.url,
+          title: link.title,
+          description: link.description ?? "",
+        },
+        { method: "post", action: "/api/links" }
+      );
+    },
+    [addLinkFetcher]
+  );
+
+  const handleRemoveLink = useCallback(
+    (id: string) => {
+      deleteLinkFetcher.submit(null, {
+        method: "post",
+        action: `/api/links/${id}/delete`,
+      });
+    },
+    [deleteLinkFetcher]
+  );
+
+  // Apply: upload any local images to Cloudinary (rewriting local paths and
+  // deleting the local files) before handing the final document to the host.
+  const [isApplying, setIsApplying] = useState(false);
+  const handleApply = useCallback(async () => {
+    const doc = documentRef.current ?? "";
+    let finalDoc = doc;
+    if (doc.trim()) {
+      setIsApplying(true);
+      try {
+        const res = await fetch(`/api/videos/${videoId}/upload-images`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: doc, deleteLocalFiles: true }),
+        });
+        if (!res.ok) {
+          throw new Error((await res.text()) || "Failed to upload images");
+        }
+        const { body: uploaded } = await res.json();
+        if (uploaded) {
+          finalDoc = uploaded;
+          if (uploaded !== doc) updateDocument(uploaded);
+        }
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to upload images"
+        );
+      } finally {
+        setIsApplying(false);
+      }
+    }
+    onApply?.(finalDoc);
+  }, [videoId, documentRef, updateDocument, onApply]);
 
   const toolbarProps: WriteToolbarProps = useMemo(
     () => ({
@@ -519,13 +600,12 @@ export function WriterEngine({
               onOpenPanel={() => onViewChange?.("context")}
             />
             <DocumentPanel
+              variant="modal"
               document={document}
               fullPath={fullPath}
               extraComponents={docExtraComponents}
               preprocessMarkdown={docPreprocessMarkdown}
               onDocumentChange={updateDocument}
-              violations={violations}
-              onFixLintViolations={handleFixLintViolations}
             />
           </div>
         </div>
@@ -544,8 +624,9 @@ export function WriterEngine({
             memoryText={ctxModel.memoryText}
             onMemoryChange={ctxModel.setMemoryText}
             links={ctxModel.links}
-            onAddLink={() => {}}
-            onRemoveLink={() => {}}
+            onAddLink={handleAddLink}
+            onRemoveLink={handleRemoveLink}
+            onAddFileFromClipboard={onAddFileFromClipboard}
           />
         )}
 
@@ -564,7 +645,11 @@ export function WriterEngine({
         {/* Bottom bar — hidden when overlays are open */}
         {view === "writer" && (
           <div className="flex flex-none items-center gap-2 border-t bg-background px-3 py-2">
-            <WriteModeDropdown mode={mode} onModeChange={handleModeChange} />
+            <WriteModeDropdown
+              mode={mode}
+              onModeChange={handleModeChange}
+              allowedModes={modes}
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -606,11 +691,27 @@ export function WriterEngine({
               <Settings2Icon className="size-4" />
             </Button>
             <div className="flex-1" />
-            <Button variant="ghost" size="sm" onClick={onCancel}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              disabled={isApplying}
+            >
               Cancel
             </Button>
-            <Button size="sm" onClick={onApply}>
-              Apply
+            <Button
+              size="sm"
+              onClick={handleApply}
+              disabled={isGenerating || isApplying}
+            >
+              {isApplying ? (
+                <>
+                  <Loader2Icon className="mr-1 size-4 animate-spin" />
+                  Uploading images…
+                </>
+              ) : (
+                "Apply"
+              )}
             </Button>
           </div>
         )}

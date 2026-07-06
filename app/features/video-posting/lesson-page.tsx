@@ -12,16 +12,18 @@ export function LessonPage({
   body,
   description,
   writerContext,
+  onAddFileFromClipboard,
 }: {
   videoId: string;
   body: string | null;
   description: string | null;
   writerContext: WriterContext | null;
+  onAddFileFromClipboard?: () => void;
 }) {
   const bodyFetcher = useFetcher();
   const descriptionFetcher = useFetcher();
 
-  const handleBodyApply = useCallback(
+  const persistBody = useCallback(
     (newValue: string) => {
       bodyFetcher.submit(
         { intent: "updateBody", body: newValue },
@@ -31,9 +33,8 @@ export function LessonPage({
     [bodyFetcher]
   );
 
-  const handleDescriptionChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newValue = e.target.value;
+  const persistDescription = useCallback(
+    (newValue: string) => {
       descriptionFetcher.submit(
         { intent: "updateDescription", description: newValue },
         { method: "post" }
@@ -61,35 +62,60 @@ export function LessonPage({
             videoId={videoId}
             fieldId="video-body"
             value={optimisticBody}
-            onApply={handleBodyApply}
+            onChange={persistBody}
+            onApply={persistBody}
             context={writerContext}
-            placeholder="Click to open writer..."
+            modes={["article", "skill-building"]}
+            placeholder="Write your lesson body in markdown..."
+            onAddFileFromClipboard={onAddFileFromClipboard}
+            pageFields={[
+              {
+                id: "seo-description",
+                label: "SEO Description",
+                value: optimisticDescription,
+              },
+            ]}
           />
         ) : (
           <Textarea
             value={optimisticBody}
-            onChange={(e) => {
-              bodyFetcher.submit(
-                { intent: "updateBody", body: e.target.value },
-                { method: "post" }
-              );
-            }}
+            onChange={(e) => persistBody(e.target.value)}
             placeholder="Write your lesson body in markdown..."
-            className="min-h-[300px] resize-y font-mono"
+            className="h-[280px] resize-y font-mono"
           />
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="video-description">SEO Description</Label>
-        <Textarea
-          id="video-description"
-          value={optimisticDescription}
-          onChange={handleDescriptionChange}
-          placeholder="Write a short SEO description for this lesson..."
-          className="min-h-[100px] resize-y"
-          rows={3}
-        />
+        <Label>SEO Description</Label>
+        {writerContext ? (
+          <WritableField
+            videoId={videoId}
+            fieldId="video-description"
+            value={optimisticDescription}
+            onChange={persistDescription}
+            onApply={persistDescription}
+            context={writerContext}
+            modes={["seo-description-document"]}
+            height={160}
+            placeholder="Write a short SEO description for this lesson..."
+            onAddFileFromClipboard={onAddFileFromClipboard}
+            pageFields={[
+              {
+                id: "body",
+                label: "Lesson Body",
+                value: optimisticBody,
+              },
+            ]}
+          />
+        ) : (
+          <Textarea
+            value={optimisticDescription}
+            onChange={(e) => persistDescription(e.target.value)}
+            placeholder="Write a short SEO description for this lesson..."
+            className="h-[160px] resize-y"
+          />
+        )}
       </div>
     </div>
   );
