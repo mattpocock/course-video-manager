@@ -8,8 +8,8 @@ import {
   UnknownDBServiceError,
 } from "@/services/db-service-errors";
 import {
-  DEFAULT_SEGMENT_KIND,
-  type SegmentKind,
+  DEFAULT_BEAT_KIND,
+  type BeatKind,
 } from "@/features/segments/segment-kinds";
 import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
@@ -41,7 +41,7 @@ export const createSegmentOperations = (db: Database) => {
    */
   const createSegment = Effect.fn("createSegment")(function* (
     videoId: string,
-    kind: SegmentKind = DEFAULT_SEGMENT_KIND,
+    kind: BeatKind = DEFAULT_BEAT_KIND,
     beforeSegmentId: string | null = null,
     title: string = "",
     description: string = ""
@@ -111,9 +111,9 @@ export const createSegmentOperations = (db: Database) => {
   });
 
   /**
-   * Set a Segment's free-text planning Description (default `""`). Purely an
-   * in-app authoring aid — never published. The Description rides on the segment
-   * row, so moving a Segment between Videos preserves it automatically.
+   * Set a Segment's free-text planning Beat Description (default `""`). Purely
+   * an in-app authoring aid — never published. The description rides on the
+   * segment row, so moving a Segment between Videos preserves it automatically.
    */
   const setSegmentDescription = Effect.fn("setSegmentDescription")(function* (
     id: string,
@@ -127,7 +127,7 @@ export const createSegmentOperations = (db: Database) => {
 
   const setSegmentKind = Effect.fn("setSegmentKind")(function* (
     id: string,
-    kind: SegmentKind
+    kind: BeatKind
   ) {
     yield* makeDbCall(() =>
       db.update(segments).set({ kind }).where(eq(segments.id, id))

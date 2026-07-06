@@ -8,11 +8,11 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 /**
- * All Segment kinds, in the order they're offered in menus. The single source
- * of truth: {@link SegmentKind}, the Effect schema literal, and every menu
- * derive from this tuple, so adding a kind is a one-line change.
+ * All Beat kinds, in the order they're offered in menus. The single source of
+ * truth: {@link BeatKind}, the Effect schema literal, and every menu derive
+ * from this tuple, so adding a kind is a one-line change.
  */
-export const SEGMENT_KINDS = [
+export const BEAT_KINDS = [
   "definition",
   "walkthrough",
   "playthrough",
@@ -21,20 +21,20 @@ export const SEGMENT_KINDS = [
 ] as const;
 
 /**
- * A Segment's `kind` — the film-time job it does, drawn from the Mise en Place
- * glossary. See `Segment` in CONTEXT.md and
+ * A Beat's `kind` — the film-time job it does, drawn from the Mise en Place
+ * glossary. See `Beat` in CONTEXT.md and
  * docs/adr/0015-video-level-segment-planning.md.
  */
-export type SegmentKind = (typeof SEGMENT_KINDS)[number];
+export type BeatKind = (typeof BEAT_KINDS)[number];
 
-/** New Segments default to Definition when a kind isn't otherwise specified. */
-export const DEFAULT_SEGMENT_KIND: SegmentKind = "definition";
+/** New Beats default to Definition when a kind isn't otherwise specified. */
+export const DEFAULT_BEAT_KIND: BeatKind = "definition";
 
 /**
  * One-line description of the job each kind does, shown alongside the label in
  * the "Add segment" menu so authors can pick the right kind at a glance.
  */
-export const SEGMENT_KIND_DESCRIPTIONS: Record<SegmentKind, string> = {
+export const BEAT_KIND_DESCRIPTIONS: Record<BeatKind, string> = {
   definition: "Explain a concept, term, or idea",
   walkthrough: "Step through existing code or a process",
   playthrough: "Build something live, start to finish",
@@ -42,7 +42,7 @@ export const SEGMENT_KIND_DESCRIPTIONS: Record<SegmentKind, string> = {
   reaction: "React to or review code or content",
 };
 
-export const SEGMENT_KIND_LABELS: Record<SegmentKind, string> = {
+export const BEAT_KIND_LABELS: Record<BeatKind, string> = {
   definition: "Definition",
   walkthrough: "Walkthrough",
   playthrough: "Playthrough",
@@ -50,7 +50,7 @@ export const SEGMENT_KIND_LABELS: Record<SegmentKind, string> = {
   reaction: "Reaction",
 };
 
-export const SEGMENT_KIND_ICONS: Record<SegmentKind, LucideIcon> = {
+export const BEAT_KIND_ICONS: Record<BeatKind, LucideIcon> = {
   definition: BookOpen,
   walkthrough: Footprints,
   playthrough: Gamepad2,

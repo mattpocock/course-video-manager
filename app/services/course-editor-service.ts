@@ -8,7 +8,7 @@
  * Covers 4 section events + 13 lesson events + segment events.
  */
 
-import type { SegmentKind } from "@/features/segments/segment-kinds";
+import type { BeatKind } from "@/features/segments/segment-kinds";
 
 // ============================================================================
 // Event Types
@@ -135,7 +135,7 @@ export type CourseEditorEvent =
   | {
       type: "create-segment";
       videoId: string;
-      kind: SegmentKind;
+      kind: BeatKind;
       /** Initial title for the new Segment. Absent/empty leaves it untitled. */
       title?: string;
       /**
@@ -157,7 +157,7 @@ export type CourseEditorEvent =
   | {
       type: "set-segment-kind";
       segmentId: string;
-      kind: SegmentKind;
+      kind: BeatKind;
     }
   | {
       type: "delete-segment";
@@ -289,7 +289,7 @@ export interface CourseEditorService {
   // Segment operations
   createSegment(
     videoId: string,
-    kind: SegmentKind,
+    kind: BeatKind,
     title?: string,
     beforeSegmentId?: string | null
   ): Promise<{ success: true; segmentId: string }>;
@@ -301,10 +301,7 @@ export interface CourseEditorService {
     description: string
   ): Promise<{ success: true }>;
 
-  setSegmentKind(
-    segmentId: string,
-    kind: SegmentKind
-  ): Promise<{ success: true }>;
+  setBeatKind(segmentId: string, kind: BeatKind): Promise<{ success: true }>;
 
   deleteSegment(segmentId: string): Promise<{ success: true }>;
 
@@ -534,7 +531,7 @@ export function createCourseEditorService(
       }) as Promise<{ success: true }>;
     },
 
-    async setSegmentKind(segmentId, kind) {
+    async setBeatKind(segmentId, kind) {
       return send({
         type: "set-segment-kind",
         segmentId,

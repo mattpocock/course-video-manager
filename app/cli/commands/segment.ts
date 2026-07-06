@@ -3,8 +3,8 @@ import { Effect, Option } from "effect";
 import { SegmentOperationsService } from "@/services/db-segment-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import {
-  SEGMENT_KINDS,
-  DEFAULT_SEGMENT_KIND,
+  BEAT_KINDS,
+  DEFAULT_BEAT_KIND,
 } from "@/features/segments/segment-kinds";
 import {
   detail,
@@ -157,7 +157,7 @@ const pitchAddOption = Options.text("pitch").pipe(
   Options.optional
 );
 
-const kindOption = Options.choice("kind", [...SEGMENT_KINDS]).pipe(
+const kindOption = Options.choice("kind", [...BEAT_KINDS]).pipe(
   Options.withDescription(
     "Segment kind: definition|walkthrough|playthrough|quest|reaction."
   ),
@@ -364,7 +364,7 @@ const addCmd = Command.make(
       const svc = yield* SegmentOperationsService;
       const segment = yield* svc.createSegment(
         videoId,
-        Option.getOrUndefined(kind) ?? DEFAULT_SEGMENT_KIND,
+        Option.getOrUndefined(kind) ?? DEFAULT_BEAT_KIND,
         beforeSegmentId,
         Option.getOrUndefined(title) ?? "",
         Option.getOrUndefined(description) ?? ""

@@ -14,8 +14,8 @@ import type { DiffContext, DiffInput } from "@/services/vfs";
 import { executeOps } from "@/services/vfs/agent-diff-executor";
 import { modelMessagesToDiffMessages } from "@/services/vfs/model-messages-adapter";
 import {
-  SEGMENT_KINDS,
-  SEGMENT_KIND_DESCRIPTIONS,
+  BEAT_KINDS,
+  BEAT_KIND_DESCRIPTIONS,
 } from "@/features/segments/segment-kinds";
 import {
   ToolLoopAgent as Agent,
@@ -40,8 +40,8 @@ const requestSchema = Schema.Struct({
   versionId: Schema.optional(Schema.String),
 });
 
-const SEGMENT_KIND_GLOSSARY = SEGMENT_KINDS.map(
-  (kind) => `\`${kind}\` (${SEGMENT_KIND_DESCRIPTIONS[kind].toLowerCase()})`
+const BEAT_KIND_GLOSSARY = BEAT_KINDS.map(
+  (kind) => `\`${kind}\` (${BEAT_KIND_DESCRIPTIONS[kind].toLowerCase()})`
 ).join(", ");
 
 const SYSTEM_PROMPT = (
@@ -95,7 +95,7 @@ Every parent with children has a \`_members.json\` manifest: an ordered array wh
 
 ## Domain glossary
 - \`Ghost\` (\`[ghost]\` in listings, \`fsStatus: "ghost"\`, or section \`real: false\`): exists in planning but not yet on disk. A ghost lesson is a full workspace — it can own videos, segments, and a timeline.
-- \`Segment\` (\`segments/\`): one unit of the video's *plan*, written *before* recording. Each has a \`kind\`: ${SEGMENT_KIND_GLOSSARY}.
+- \`Segment\` (\`segments/\`): one unit of the video's *plan*, written *before* recording. Each has a \`kind\`: ${BEAT_KIND_GLOSSARY}.
 - \`Chapter\` (\`.chapter.json\` in \`timeline/\`): a named divider in the *recorded* timeline; maps 1:1 to a YouTube chapter. Not the same as a segment.
 - \`Clip\` (\`.clip.json\` in \`timeline/\`): one span of recorded footage with its transcript \`text\`.
 - \`segments/\` = pre-recording plan; \`timeline/\` = recorded video (clips + chapters in play order). "What I planned to shoot" vs "what I shot."

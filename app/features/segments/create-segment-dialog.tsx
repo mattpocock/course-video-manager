@@ -21,11 +21,11 @@ import {
   type ReactNode,
 } from "react";
 import {
-  SEGMENT_KINDS,
-  SEGMENT_KIND_DESCRIPTIONS,
-  SEGMENT_KIND_ICONS,
-  SEGMENT_KIND_LABELS,
-  type SegmentKind,
+  BEAT_KINDS,
+  BEAT_KIND_DESCRIPTIONS,
+  BEAT_KIND_ICONS,
+  BEAT_KIND_LABELS,
+  type BeatKind,
 } from "./segment-kinds";
 
 /**
@@ -34,7 +34,7 @@ import {
  */
 type CreateSegmentIntent = {
   videoId: string;
-  kind: SegmentKind;
+  kind: BeatKind;
   beforeSegmentId: string | null;
 };
 
@@ -102,10 +102,10 @@ function CreateSegmentDialog({
 }: {
   intent: CreateSegmentIntent;
   onClose: () => void;
-  onConfirm: (title: string, kind: SegmentKind) => void;
+  onConfirm: (title: string, kind: BeatKind) => void;
 }) {
   const [title, setTitle] = useState("");
-  const [kind, setKind] = useState<SegmentKind>(intent.kind);
+  const [kind, setKind] = useState<BeatKind>(intent.kind);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // The dialog is opened from a context/dropdown menu, and Radix menus restore
@@ -142,7 +142,7 @@ function CreateSegmentDialog({
               id="segment-title"
               ref={inputRef}
               value={title}
-              placeholder={SEGMENT_KIND_LABELS[kind]}
+              placeholder={BEAT_KIND_LABELS[kind]}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -156,8 +156,8 @@ function CreateSegmentDialog({
           <div className="grid gap-2">
             <Label>Kind</Label>
             <div className="grid gap-1">
-              {SEGMENT_KINDS.map((k) => {
-                const Icon = SEGMENT_KIND_ICONS[k];
+              {BEAT_KINDS.map((k) => {
+                const Icon = BEAT_KIND_ICONS[k];
                 const selected = k === kind;
                 return (
                   <button
@@ -173,9 +173,9 @@ function CreateSegmentDialog({
                   >
                     <Icon className="w-4 h-4 mt-0.5 shrink-0" />
                     <div className="flex flex-col">
-                      <span>{SEGMENT_KIND_LABELS[k]}</span>
+                      <span>{BEAT_KIND_LABELS[k]}</span>
                       <span className="text-xs text-muted-foreground">
-                        {SEGMENT_KIND_DESCRIPTIONS[k]}
+                        {BEAT_KIND_DESCRIPTIONS[k]}
                       </span>
                     </div>
                   </button>

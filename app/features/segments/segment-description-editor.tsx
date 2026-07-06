@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { useLayoutEffect, useRef, useState } from "react";
 
 /**
- * Inline, auto-growing Segment Description editor — the single component used
+ * Inline, auto-growing Beat Description editor — the single component used
  * for the free-text planning note on both the Section Workbench and the
  * editor's Segments tab. Click the note to edit; Enter or blur commits, Escape
  * cancels (Shift+Enter inserts a newline so notes can span lines). When the
@@ -12,7 +12,7 @@ import { useLayoutEffect, useRef, useState } from "react";
  * course view, a capture in progress) render the plain text — or nothing when
  * empty — by passing `isReadOnly`.
  */
-export function SegmentDescriptionEditor({
+export function BeatDescriptionEditor({
   description,
   isReadOnly,
   onSave,

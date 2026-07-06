@@ -4,13 +4,13 @@
  */
 
 import { Schema } from "effect";
-import { SEGMENT_KINDS } from "@/features/segments/segment-kinds";
+import { BEAT_KINDS } from "@/features/segments/segment-kinds";
 
 const nonEmptyString = Schema.String.pipe(Schema.minLength(1));
 
 // Derived from the single source of truth so the schema can't drift from the
-// SegmentKind type / menus.
-const segmentKind = Schema.Literal(...SEGMENT_KINDS);
+// BeatKind type / menus.
+const beatKind = Schema.Literal(...BEAT_KINDS);
 
 export const CourseEditorEventSchema = Schema.Union(
   // --- Section events ---
@@ -124,7 +124,7 @@ export const CourseEditorEventSchema = Schema.Union(
   Schema.Struct({
     type: Schema.Literal("create-segment"),
     videoId: nonEmptyString,
-    kind: segmentKind,
+    kind: beatKind,
     title: Schema.optional(Schema.String),
     beforeSegmentId: Schema.optional(Schema.NullOr(nonEmptyString)),
   }),
@@ -141,7 +141,7 @@ export const CourseEditorEventSchema = Schema.Union(
   Schema.Struct({
     type: Schema.Literal("set-segment-kind"),
     segmentId: nonEmptyString,
-    kind: segmentKind,
+    kind: beatKind,
   }),
   Schema.Struct({
     type: Schema.Literal("delete-segment"),

@@ -7,27 +7,27 @@ import {
 } from "@/components/ui/context-menu";
 import { Plus, Trash2 } from "lucide-react";
 import {
-  SEGMENT_KINDS,
-  SEGMENT_KIND_DESCRIPTIONS,
-  SEGMENT_KIND_ICONS,
-  SEGMENT_KIND_LABELS,
-  type SegmentKind,
+  BEAT_KINDS,
+  BEAT_KIND_DESCRIPTIONS,
+  BEAT_KIND_ICONS,
+  BEAT_KIND_LABELS,
+  type BeatKind,
 } from "./segment-kinds";
 
 /**
- * Five context-menu items, one per Segment kind, each with its distinct icon.
+ * Five context-menu items, one per Beat kind, each with its distinct icon.
  * Used both to create a Segment of a kind (on a Video) and to reclassify one
  * (on a Segment).
  */
-export function SegmentKindMenuItems({
+export function BeatKindMenuItems({
   onSelect,
 }: {
-  onSelect: (kind: SegmentKind) => void;
+  onSelect: (kind: BeatKind) => void;
 }) {
   return (
     <>
-      {SEGMENT_KINDS.map((kind) => {
-        const Icon = SEGMENT_KIND_ICONS[kind];
+      {BEAT_KINDS.map((kind) => {
+        const Icon = BEAT_KIND_ICONS[kind];
         return (
           <ContextMenuItem
             key={kind}
@@ -36,9 +36,9 @@ export function SegmentKindMenuItems({
           >
             <Icon className="w-4 h-4 mt-0.5 shrink-0" />
             <div className="flex flex-col">
-              <span>{SEGMENT_KIND_LABELS[kind]}</span>
+              <span>{BEAT_KIND_LABELS[kind]}</span>
               <span className="text-xs text-muted-foreground">
-                {SEGMENT_KIND_DESCRIPTIONS[kind]}
+                {BEAT_KIND_DESCRIPTIONS[kind]}
               </span>
             </div>
           </ContextMenuItem>
@@ -52,7 +52,7 @@ export function SegmentKindMenuItems({
 export function AddSegmentSubMenu({
   onAdd,
 }: {
-  onAdd: (kind: SegmentKind) => void;
+  onAdd: (kind: BeatKind) => void;
 }) {
   return (
     <ContextMenuSub>
@@ -61,7 +61,7 @@ export function AddSegmentSubMenu({
         Add segment
       </ContextMenuSubTrigger>
       <ContextMenuSubContent>
-        <SegmentKindMenuItems onSelect={onAdd} />
+        <BeatKindMenuItems onSelect={onAdd} />
       </ContextMenuSubContent>
     </ContextMenuSub>
   );
@@ -74,9 +74,9 @@ export function SegmentContextMenuContent({
   onAddAfter,
   onDelete,
 }: {
-  onSetKind: (kind: SegmentKind) => void;
-  onAddBefore: (kind: SegmentKind) => void;
-  onAddAfter: (kind: SegmentKind) => void;
+  onSetKind: (kind: BeatKind) => void;
+  onAddBefore: (kind: BeatKind) => void;
+  onAddAfter: (kind: BeatKind) => void;
   onDelete: () => void;
 }) {
   return (
@@ -84,7 +84,7 @@ export function SegmentContextMenuContent({
       <ContextMenuSub>
         <ContextMenuSubTrigger>Change kind</ContextMenuSubTrigger>
         <ContextMenuSubContent>
-          <SegmentKindMenuItems onSelect={onSetKind} />
+          <BeatKindMenuItems onSelect={onSetKind} />
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSeparator />
@@ -94,7 +94,7 @@ export function SegmentContextMenuContent({
           Add segment before
         </ContextMenuSubTrigger>
         <ContextMenuSubContent>
-          <SegmentKindMenuItems onSelect={onAddBefore} />
+          <BeatKindMenuItems onSelect={onAddBefore} />
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSub>
@@ -103,7 +103,7 @@ export function SegmentContextMenuContent({
           Add segment after
         </ContextMenuSubTrigger>
         <ContextMenuSubContent>
-          <SegmentKindMenuItems onSelect={onAddAfter} />
+          <BeatKindMenuItems onSelect={onAddAfter} />
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSeparator />

@@ -21,19 +21,19 @@ import {
   useSegmentDropPreview,
 } from "./segment-dnd-context";
 import {
-  SEGMENT_KINDS,
-  SEGMENT_KIND_ICONS,
-  SEGMENT_KIND_LABELS,
-  type SegmentKind,
+  BEAT_KINDS,
+  BEAT_KIND_ICONS,
+  BEAT_KIND_LABELS,
+  type BeatKind,
 } from "./segment-kinds";
 import { SegmentContextMenuContent } from "./segment-menu-items";
-import { SegmentDescriptionEditor } from "./segment-description-editor";
-import { useShowSegmentDescriptions } from "./segment-descriptions-context";
+import { BeatDescriptionEditor } from "./segment-description-editor";
+import { useShowBeatDescriptions } from "./segment-descriptions-context";
 import { SegmentTitleEditor } from "./segment-title-editor";
 
 /**
  * The shape every surface's Segment rows agree on. A loosened `kind: string`
- * (rather than `SegmentKind`) so loader rows decode cleanly; it's narrowed at
+ * (rather than `BeatKind`) so loader rows decode cleanly; it's narrowed at
  * the icon/label lookup.
  */
 export type SegmentListSegment = {
@@ -72,15 +72,15 @@ export function SegmentList({
   submitEvent: (event: CourseEditorEvent) => void;
   isReadOnly: boolean;
   /**
-   * Show the inline Segment Description note under each row. The editor's
+   * Show the inline Beat Description note under each row. The editor's
    * Segments tab sets it directly; the Section Workbench turns it on for its
-   * whole subtree via {@link SegmentDescriptionsProvider}. Defaults to the
+   * whole subtree via {@link BeatDescriptionsProvider}. Defaults to the
    * ambient context (off on the dense course view, which hides the note).
    */
   showDescriptions?: boolean;
   className?: string;
 }) {
-  const ambientShowDescriptions = useShowSegmentDescriptions();
+  const ambientShowDescriptions = useShowBeatDescriptions();
   const showDescription = showDescriptions ?? ambientShowDescriptions;
   const segments = video.segments;
   const dropPreview = useSegmentDropPreview();
@@ -147,8 +147,8 @@ function AddSegmentButton({ videoId }: { videoId: string }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        {SEGMENT_KINDS.map((kind) => {
-          const Icon = SEGMENT_KIND_ICONS[kind];
+        {BEAT_KINDS.map((kind) => {
+          const Icon = BEAT_KIND_ICONS[kind];
           return (
             <DropdownMenuItem
               key={kind}
@@ -157,7 +157,7 @@ function AddSegmentButton({ videoId }: { videoId: string }) {
               }
             >
               <Icon className="w-4 h-4" />
-              {SEGMENT_KIND_LABELS[kind]}
+              {BEAT_KIND_LABELS[kind]}
             </DropdownMenuItem>
           );
         })}
@@ -179,8 +179,8 @@ function SegmentRow({
   showDescription: boolean;
   submitEvent: (event: CourseEditorEvent) => void;
 }) {
-  const kind = segment.kind as SegmentKind;
-  const Icon = SEGMENT_KIND_ICONS[kind];
+  const kind = segment.kind as BeatKind;
+  const Icon = BEAT_KIND_ICONS[kind];
   const requestCreateSegment = useRequestCreateSegment();
 
   const titleRow = (
@@ -188,7 +188,7 @@ function SegmentRow({
       {Icon && <Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
       <SegmentTitleEditor
         title={segment.title}
-        placeholder={SEGMENT_KIND_LABELS[kind]}
+        placeholder={BEAT_KIND_LABELS[kind]}
         isReadOnly={isReadOnly}
         onSave={(title) =>
           submitEvent({ type: "rename-segment", segmentId: segment.id, title })
@@ -199,7 +199,7 @@ function SegmentRow({
 
   // The free-text planning note, aligned under the title (clearing the icon).
   const description = showDescription ? (
-    <SegmentDescriptionEditor
+    <BeatDescriptionEditor
       description={segment.description}
       isReadOnly={isReadOnly}
       onSave={(description) =>
