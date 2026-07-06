@@ -28,7 +28,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         })
         .send(
           fromPartial({
@@ -60,7 +60,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         })
         .send(
           fromPartial({
@@ -106,7 +106,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
       tester.send({
         type: "recording-started",
         outputPath: "/tmp/recording.mkv",
-        pauseLength: "short",
+        silenceLength: "short",
       });
       const sessionId = tester.getState().sessions[0]!.id;
       const before = tester.getState();

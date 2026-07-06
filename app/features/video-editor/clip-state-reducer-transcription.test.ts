@@ -403,7 +403,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({

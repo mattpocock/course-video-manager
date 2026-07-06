@@ -12,7 +12,7 @@ import type { SessionPanelData } from "./video-editor-selectors";
 import type { videoStateReducer } from "./video-state-reducer";
 import type { OBSConnectionOuterState } from "./obs-connector";
 import type { FrontendSpeechDetectorState } from "./use-speech-detector";
-import type { PauseLength } from "@/silence-detection-constants";
+import type { SilenceLength } from "@/silence-detection-constants";
 import type { ClipComputedProps } from "./types";
 import type { ReferenceCandidate } from "./components/reference-panel";
 import type { FetcherWithComponents } from "react-router";
@@ -84,8 +84,8 @@ export type VideoEditorContextType = {
   obsConnectorState: OBSConnectionOuterState;
   liveMediaStream: MediaStream | null;
   speechDetectorState: FrontendSpeechDetectorState;
-  pauseLength: PauseLength;
-  setPauseLength: (pauseLength: PauseLength) => void;
+  silenceLength: SilenceLength;
+  setSilenceLength: (silenceLength: SilenceLength) => void;
   isRecordingActive: boolean;
   clipIdsBeingTranscribed: Set<FrontendId>;
 

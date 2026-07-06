@@ -32,7 +32,10 @@ import type { Route } from "./+types/_app.courses.$courseId.sections.$sectionId"
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { GenerateChaptersProvider } from "@/features/course-view/generate-chapters-context";
 import { SectionGrid } from "@/features/course-view/section-grid";
-import { ReadOnlyBanner } from "@/features/course-view/course-view-components";
+import {
+  ReadOnlyBanner,
+  RouteModals,
+} from "@/features/course-view/course-view-components";
 import { createSectionDragHandler } from "@/features/course-view/course-editor-helpers";
 import {
   courseEditorFetcherKeyForEvent,
@@ -296,6 +299,15 @@ export default function Component(props: Route.ComponentProps) {
           videoPath={videoPlayerState.videoPath}
           isOpen={videoPlayerState.isOpen}
           onClose={() => dispatch({ type: "close-video-player" })}
+        />
+
+        <RouteModals
+          currentCourse={currentCourse}
+          data={loaderData}
+          selectedCourseId={courseId}
+          viewState={viewState}
+          dispatch={dispatch}
+          navigate={navigate}
         />
 
         <DivergenceReportModal

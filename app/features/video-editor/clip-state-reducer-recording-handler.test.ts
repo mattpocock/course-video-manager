@@ -47,7 +47,7 @@ describe("recording session sub-handler", () => {
         {
           type: "recording-started",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         },
         exec
       );
@@ -67,7 +67,7 @@ describe("recording session sub-handler", () => {
         {
           type: "recording-started",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         },
         exec
       );
@@ -76,7 +76,7 @@ describe("recording session sub-handler", () => {
         expect.objectContaining({
           type: "start-session-polling",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         })
       );
       expect(exec).toHaveBeenCalledWith({ type: "scroll-to-insertion-point" });
@@ -91,7 +91,7 @@ describe("recording session sub-handler", () => {
         {
           type: "recording-started",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         },
         exec
       );
@@ -127,7 +127,7 @@ describe("recording session sub-handler", () => {
         {
           type: "recording-started",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         },
         exec
       );
@@ -169,7 +169,7 @@ describe("recording session sub-handler", () => {
         {
           type: "recording-started",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         },
         exec
       );
@@ -198,7 +198,7 @@ describe("recording session sub-handler", () => {
         {
           type: "recording-started",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         },
         exec
       );
@@ -235,7 +235,7 @@ describe("recording session sub-handler", () => {
         {
           type: "recording-started",
           outputPath: "/tmp/rec.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         },
         exec
       );

@@ -1,5 +1,5 @@
 import type { BeatType } from "@/services/video-processing-service";
-import { DEFAULT_PAUSE_LENGTH } from "@/silence-detection-constants";
+import { DEFAULT_SILENCE_LENGTH } from "@/silence-detection-constants";
 import { shouldSnapshot } from "@/lib/snapshot-rule";
 import type {
   ClipOnDatabase,
@@ -82,14 +82,14 @@ const handleRecordingStarted = (
     status: "recording",
     outputPath: action.outputPath,
     startedAt: Date.now(),
-    pauseLength: action.pauseLength,
+    silenceLength: action.silenceLength,
   };
 
   exec({
     type: "start-session-polling",
     sessionId: newSession.id,
     outputPath: action.outputPath,
-    pauseLength: action.pauseLength,
+    silenceLength: action.silenceLength,
   });
 
   exec({
@@ -187,7 +187,7 @@ const handleNewOptimisticClipDetected = (
       status: "recording",
       outputPath: "",
       startedAt: Date.now(),
-      pauseLength: DEFAULT_PAUSE_LENGTH,
+      silenceLength: DEFAULT_SILENCE_LENGTH,
     };
     sessions = [...sessions, activeSession];
   }

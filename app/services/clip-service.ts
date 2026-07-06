@@ -12,7 +12,7 @@
 
 import type { InferSelectModel } from "drizzle-orm";
 import type { clips, chapters, videos } from "@/db/schema";
-import type { PauseLength } from "@/silence-detection-constants";
+import type { SilenceLength } from "@/silence-detection-constants";
 // ============================================================================
 // Database Types
 // ============================================================================
@@ -239,7 +239,7 @@ export interface AppendFromObsInput {
   filePath?: string;
   insertionPoint: FrontendInsertionPoint;
   items: FrontendTimelineItem[];
-  pauseLength?: PauseLength;
+  silenceLength?: SilenceLength;
 }
 
 export interface UpdateClipInput {
@@ -315,7 +315,7 @@ interface InternalAppendFromObsInput {
   videoId: string;
   filePath?: string;
   insertionPoint: InsertionPoint;
-  pauseLength?: PauseLength;
+  silenceLength?: SilenceLength;
 }
 
 interface InternalCreateChapterAtInsertionPointInput {
@@ -473,7 +473,7 @@ export function createClipService(send: ClipServiceTransport): ClipService {
           videoId: input.videoId,
           filePath: input.filePath,
           insertionPoint: resolved,
-          pauseLength: input.pauseLength,
+          silenceLength: input.silenceLength,
         },
       }) as Promise<Clip[]>;
     },

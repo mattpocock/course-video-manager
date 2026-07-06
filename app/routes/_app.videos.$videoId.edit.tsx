@@ -14,7 +14,7 @@ import {
 } from "@/features/video-editor/clip-state-reducer";
 import type { BeatType } from "@/services/video-processing-service";
 import { useOBSConnector } from "@/features/video-editor/obs-connector";
-import { usePauseLength } from "@/features/video-editor/use-pause-length";
+import { useSilenceLength } from "@/features/video-editor/use-silence-length";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -329,9 +329,9 @@ export const ComponentInner = (props: Route.ComponentProps) => {
 
   clipStateRef.current = clipState;
 
-  const [pauseLength, setPauseLength] = usePauseLength();
-  const pauseLengthRef = useRef(pauseLength);
-  pauseLengthRef.current = pauseLength;
+  const [silenceLength, setSilenceLength] = useSilenceLength();
+  const silenceLengthRef = useRef(silenceLength);
+  silenceLengthRef.current = silenceLength;
 
   const obsConnector = useOBSConnector({
     onNewClipOptimisticallyAdded: ({ scene, profile, soundDetectionId }) => {
@@ -354,7 +354,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
         diagramFocused: isDiagramFocused(),
       });
     },
-    pauseLength,
+    silenceLength,
   });
 
   // Sync OBS recording state to clip-state-reducer sessions
@@ -371,7 +371,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           obsConnector.state.type === "obs-recording"
             ? obsConnector.state.latestOutputPath
             : "",
-        pauseLength: pauseLengthRef.current,
+        silenceLength: silenceLengthRef.current,
       });
     } else if (prevType === "obs-recording" && currType !== "obs-recording") {
       dispatch({ type: "recording-stopped" });
@@ -477,8 +477,8 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       videoId={props.loaderData.video.id}
       liveMediaStream={obsConnector.mediaStream}
       speechDetectorState={obsConnector.speechDetectorState}
-      pauseLength={pauseLength}
-      onPauseLengthChange={setPauseLength}
+      silenceLength={silenceLength}
+      onSilenceLengthChange={setSilenceLength}
       isRecordingActive={obsConnector.state.type === "obs-recording"}
       clipIdsBeingTranscribed={clipState.clipIdsBeingTranscribed}
       fsData={props.loaderData.fsData}
