@@ -5,7 +5,7 @@ import { VideoOperationsService } from "./db-video-operations.server";
 import { VersionOperationsService } from "./db-version-operations.server";
 import {
   VideoProcessingService,
-  type BeatType,
+  type PauseType,
 } from "./video-processing-service";
 import { CourseRepoParserService } from "./course-repo-parser";
 import {
@@ -155,7 +155,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
                 clip.sourceEndTime -
                 clip.sourceStartTime +
                 (isFinalClip ? FINAL_VIDEO_PADDING : 0),
-              beatType: (clip.beatType as BeatType) || "none",
+              pauseType: (clip.pauseType as PauseType) || "none",
             };
           }),
           onStageChange: onStage,

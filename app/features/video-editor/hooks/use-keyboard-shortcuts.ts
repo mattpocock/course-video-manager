@@ -13,7 +13,7 @@ import type { videoStateReducer } from "../video-state-reducer";
  * - l: Mark clip start
  * - k: Mark clip end
  * - Home/End: Navigate to first/last clip
- * - b/B: Toggle beat between clips
+ * - b/B: Toggle pause between clips
  * - F2: Rename selected section (handled in VideoEditor component)
  *
  * Ignores keyboard events when focus is on input fields, textareas,
@@ -68,7 +68,7 @@ export function useKeyboardShortcuts(
       } else if (e.key === "End") {
         dispatch({ type: "press-end" });
       } else if (e.key === "b" || e.key === "B") {
-        dispatch({ type: "beat-toggle-key-pressed" });
+        dispatch({ type: "pause-toggle-key-pressed" });
       }
     };
 

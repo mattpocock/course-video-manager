@@ -100,7 +100,7 @@ async function createFullCourseStructure() {
       sourceEndTime: 10,
       order: "a",
       text: "Hello world",
-      beatType: "intro",
+      pauseType: "intro",
     },
     {
       videoId: video!.id,
@@ -110,7 +110,7 @@ async function createFullCourseStructure() {
       order: "b",
       archived: true,
       text: "Archived clip",
-      beatType: "none",
+      pauseType: "none",
     },
   ]);
 
@@ -381,7 +381,7 @@ describe("duplicateCourse", () => {
     expect(clips).toHaveLength(1);
     expect(clips[0]!.text).toBe("Hello world");
     expect(clips[0]!.videoFilename).toBe("clip-01.mp4");
-    expect(clips[0]!.beatType).toBe("intro");
+    expect(clips[0]!.pauseType).toBe("intro");
   });
 
   it("copies chapters and excludes archived chapters", async () => {

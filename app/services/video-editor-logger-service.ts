@@ -36,13 +36,13 @@ export type LogEvent =
         id: string;
         scene?: string;
         profile?: string;
-        beatType?: string;
+        pauseType?: string;
       }[];
     }
   | {
-      type: "beat-updated";
+      type: "pause-updated";
       clipId: string;
-      beatType: string;
+      pauseType: string;
     }
   | {
       type: "clip-reordered";

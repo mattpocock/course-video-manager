@@ -109,12 +109,12 @@ export function createEditEffectHandlers(
       }
     },
     "update-clips": (_state, effect, dispatch) => {
-      // Transform tuple format [id, { scene, profile, beatType }] to UpdateClipInput
+      // Transform tuple format [id, { scene, profile, pauseType }] to UpdateClipInput
       const clipsInput = effect.clips.map(([id, data]) => ({
         id,
         scene: data.scene,
         profile: data.profile,
-        beatType: data.beatType,
+        pauseType: data.pauseType,
       }));
       clipService.updateClips(clipsInput).catch((error) => {
         dispatch({
@@ -125,15 +125,17 @@ export function createEditEffectHandlers(
         });
       });
     },
-    "update-beat": (_state, effect, dispatch) => {
-      clipService.updateBeat(effect.clipId, effect.beatType).catch((error) => {
-        dispatch({
-          type: "effect-failed",
-          effectType: "update-beat",
-          message:
-            error instanceof Error ? error.message : "Failed to update beat",
+    "update-pause": (_state, effect, dispatch) => {
+      clipService
+        .updatePause(effect.clipId, effect.pauseType)
+        .catch((error) => {
+          dispatch({
+            type: "effect-failed",
+            effectType: "update-pause",
+            message:
+              error instanceof Error ? error.message : "Failed to update pause",
+          });
         });
-      });
     },
     "reorder-clip": (_state, effect, dispatch) => {
       clipService
@@ -332,7 +334,7 @@ export function createEditEffectHandlers(
           text: effect.text,
           scene: effect.scene,
           profile: effect.profile,
-          beatType: effect.beatType,
+          pauseType: effect.pauseType,
         })
         .then((clip) => {
           dispatch({

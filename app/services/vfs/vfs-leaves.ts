@@ -69,7 +69,7 @@ export type ClipInput = {
   sourceStartTime: number;
   sourceEndTime: number;
   videoFilename: string;
-  beatType: string;
+  pauseType: string;
   scene: string | null;
   profile: string | null;
   archived: boolean;
@@ -195,7 +195,7 @@ export const generateSortedTimelineItems = (
       sourceStartTime: cl.sourceStartTime,
       sourceEndTime: cl.sourceEndTime,
       videoFilename: cl.videoFilename,
-      beatType: cl.beatType,
+      pauseType: cl.pauseType,
       scene: cl.scene,
       profile: cl.profile,
     };

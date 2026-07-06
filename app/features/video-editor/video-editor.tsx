@@ -108,8 +108,8 @@ export const VideoEditor = (props: {
   insertionPoint: FrontendInsertionPoint;
   onSetInsertionPoint: (mode: "after" | "before", clipId: FrontendId) => void;
   onDeleteLatestInsertedClip: () => void;
-  onToggleBeat: () => void;
-  onToggleBeatForClip: (clipId: FrontendId) => void;
+  onTogglePause: () => void;
+  onTogglePauseForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
@@ -158,7 +158,7 @@ export const VideoEditor = (props: {
     insertionPoint: props.insertionPoint,
     onClipsRemoved: props.onClipsRemoved,
     onClipsRetranscribe: props.onClipsRetranscribe,
-    onToggleBeatForClip: props.onToggleBeatForClip,
+    onTogglePauseForClip: props.onTogglePauseForClip,
     onMoveClip: props.onMoveClip,
     onAddChapter: props.onAddChapter,
     onUpdateChapter: props.onUpdateChapter,
@@ -228,7 +228,7 @@ export const VideoEditor = (props: {
   useWebSocket({
     dispatch,
     onDeleteLatestInsertedClip: props.onDeleteLatestInsertedClip,
-    onToggleBeat: props.onToggleBeat,
+    onTogglePause: props.onTogglePause,
     onClearAllArchived: props.onClearAllArchived,
     setChapterNamingModal,
     generateDefaultChapterName,
@@ -397,7 +397,7 @@ export const VideoEditor = (props: {
       // Callbacks
       onSetInsertionPoint: props.onSetInsertionPoint,
       onMoveClip: props.onMoveClip,
-      onToggleBeatForClip: props.onToggleBeatForClip,
+      onTogglePauseForClip: props.onTogglePauseForClip,
       onAddChapter: props.onAddChapter,
       onUpdateChapter: props.onUpdateChapter,
       onAddChapterAt: props.onAddChapterAt,
@@ -499,7 +499,7 @@ export const VideoEditor = (props: {
       props.clipIdsBeingTranscribed,
       props.onSetInsertionPoint,
       props.onMoveClip,
-      props.onToggleBeatForClip,
+      props.onTogglePauseForClip,
       props.onAddChapter,
       props.onUpdateChapter,
       props.onAddChapterAt,

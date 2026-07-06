@@ -92,7 +92,7 @@ export type VideoEditorContextType = {
   // Callbacks
   onSetInsertionPoint: (mode: "after" | "before", clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
-  onToggleBeatForClip: (clipId: FrontendId) => void;
+  onTogglePauseForClip: (clipId: FrontendId) => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
   onAddChapterAt: (

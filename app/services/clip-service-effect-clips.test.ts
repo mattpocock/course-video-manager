@@ -38,7 +38,7 @@ const effectClipDefaults = {
   text: "*white noise*",
   scene: "white noise",
   profile: "main-camera",
-  beatType: "none",
+  pauseType: "none",
 };
 
 describe("ClipService", () => {
@@ -120,7 +120,7 @@ describe("ClipService", () => {
         text: "*white noise*",
         scene: "white noise",
         profile: "main-camera",
-        beatType: "none",
+        pauseType: "none",
         archived: false,
         transcribedAt: expect.any(Date),
       });

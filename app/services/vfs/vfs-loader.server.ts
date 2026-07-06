@@ -143,7 +143,7 @@ const courseToEntry = (course: {
             sourceStartTime: number;
             sourceEndTime: number;
             videoFilename: string;
-            beatType: string;
+            pauseType: string;
             scene: string | null;
             profile: string | null;
             archived: boolean;

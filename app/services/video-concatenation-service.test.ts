@@ -37,7 +37,7 @@ const createVideoWithClips = (
     startTime: number;
     endTime: number;
     text?: string;
-    beatType?: string;
+    pauseType?: string;
   }>,
   sectionSpecs?: Array<{ name: string; afterClipIndex: number }>
 ) =>
@@ -57,13 +57,13 @@ const createVideoWithClips = (
       })),
     });
 
-    // Update text and beatType if provided
+    // Update text and pauseType if provided
     for (let i = 0; i < clipSpecs.length; i++) {
       const spec = clipSpecs[i]!;
-      if (spec.text || spec.beatType) {
+      if (spec.text || spec.pauseType) {
         yield* clipOps.updateClip(createdClips[i]!.id, {
           ...(spec.text ? { text: spec.text } : {}),
-          ...(spec.beatType ? { beatType: spec.beatType } : {}),
+          ...(spec.pauseType ? { pauseType: spec.pauseType } : {}),
         });
       }
     }
@@ -165,7 +165,7 @@ describe("concatenateVideos", () => {
   );
 
   it.effect(
-    "preserves clip metadata (videoFilename, timestamps, text, beatType)",
+    "preserves clip metadata (videoFilename, timestamps, text, pauseType)",
     () =>
       Effect.gen(function* () {
         const video1 = yield* createVideoWithClips("Source", [
@@ -174,7 +174,7 @@ describe("concatenateVideos", () => {
             startTime: 5.5,
             endTime: 12.3,
             text: "Hello world",
-            beatType: "long",
+            pauseType: "long",
           },
         ]);
 
@@ -192,7 +192,7 @@ describe("concatenateVideos", () => {
         expect(clip.sourceStartTime).toBe(5.5);
         expect(clip.sourceEndTime).toBe(12.3);
         expect(clip.text).toBe("Hello world");
-        expect(clip.beatType).toBe("long");
+        expect(clip.pauseType).toBe("long");
         // New clip should have a different ID than the source
         expect(clip.id).not.toBe(video1.id);
       }).pipe(Effect.provide(testLayer))

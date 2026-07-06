@@ -134,7 +134,7 @@ Notes:
 - All deletes are **soft** (archive). The entity is not destroyed.
 - Section delete is rejected if the section still has non-archived lessons.
 - Clip add is **copy-only**: you must set \`videoFilename\`, \`sourceStartTime\`, and \`sourceEndTime\` to exactly match an existing non-archived clip's footage. You cannot invent new footage.
-- Clip \`scene\`, \`profile\`, \`beatType\` are **not editable**.
+- Clip \`scene\`, \`profile\`, \`pauseType\` are **not editable**.
 - Video \`originalFootagePath\` and \`warnings\` are **not editable**.
 - Course fields (\`memory\`, version block) are **not editable**.
 - Lesson \`fsStatus\` edits trigger materialize/dematerialize (filesystem operations). Materializing under a ghost course is **blocked** — the course must be materialized manually first.

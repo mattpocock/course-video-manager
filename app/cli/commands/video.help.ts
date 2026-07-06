@@ -85,7 +85,7 @@ Output:
 Selected fields:
   id, path, lessonId, pitchId, archived
   clips[]    { id, order, text, videoFilename, sourceStartTime, sourceEndTime,
-               transcribedAt, beatType, ... } — order is a fractional index
+               transcribedAt, pauseType, ... } — order is a fractional index
   chapters[] { id, order, name } — named YouTube-style dividers
 
 Examples:

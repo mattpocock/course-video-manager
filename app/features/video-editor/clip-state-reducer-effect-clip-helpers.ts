@@ -12,7 +12,7 @@ import { createFrontendId } from "./clip-state-reducer.types";
 export const WHITE_NOISE_DEFAULTS = {
   text: "*white noise*",
   scene: "white noise",
-  beatType: "none" as const,
+  pauseType: "none" as const,
   sourceStartTime: 0,
   sourceEndTime: 0.5,
 };
@@ -57,7 +57,7 @@ export const handleAddEffectClipAt = (
     text: WHITE_NOISE_DEFAULTS.text,
     scene: WHITE_NOISE_DEFAULTS.scene,
     profile,
-    beatType: WHITE_NOISE_DEFAULTS.beatType,
+    pauseType: WHITE_NOISE_DEFAULTS.pauseType,
     insertionOrder: state.insertionOrder + 1,
   };
 
@@ -97,7 +97,7 @@ export const handleAddEffectClipAt = (
       text: WHITE_NOISE_DEFAULTS.text,
       scene: WHITE_NOISE_DEFAULTS.scene,
       profile,
-      beatType: WHITE_NOISE_DEFAULTS.beatType,
+      pauseType: WHITE_NOISE_DEFAULTS.pauseType,
     });
   }
 

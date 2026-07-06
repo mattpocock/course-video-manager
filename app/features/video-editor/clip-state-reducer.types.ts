@@ -1,5 +1,5 @@
 import type { DB } from "@/db/schema";
-import type { BeatType } from "@/services/video-processing-service";
+import type { PauseType } from "@/services/video-processing-service";
 import type { SilenceLength } from "@/silence-detection-constants";
 import type { Brand } from "./utils";
 
@@ -33,7 +33,7 @@ export type ClipOnDatabase = {
   scene: string | null;
   profile: string | null;
   insertionOrder: number | null;
-  beatType: BeatType;
+  pauseType: PauseType;
   diagramSnapshotId: string | null;
   diagramName: string | null;
   /**
@@ -66,7 +66,7 @@ export type ClipOptimisticallyAdded = {
    * the clip will be archived. Allows the user to delete the clip before it's transcribed.
    */
   shouldArchive?: boolean;
-  beatType: BeatType;
+  pauseType: PauseType;
   /**
    * Unique ID for the sound detection that triggered this clip.
    * Used for deduplication - prevents duplicate clips from React StrictMode double-firing.
@@ -108,7 +108,7 @@ export type ClipEffectOptimisticallyAdded = {
   text: string;
   scene: string;
   profile: string;
-  beatType: BeatType;
+  pauseType: PauseType;
   insertionOrder: number;
 };
 
@@ -228,10 +228,10 @@ export type ClipReducerAction =
       type: "delete-latest-inserted-clip";
     }
   | {
-      type: "toggle-beat-at-insertion-point";
+      type: "toggle-pause-at-insertion-point";
     }
   | {
-      type: "toggle-beat-for-clip";
+      type: "toggle-pause-for-clip";
       clipId: FrontendId;
     }
   | {
@@ -323,13 +323,13 @@ export type ClipReducerEffect =
       type: "update-clips";
       clips: [
         DatabaseId,
-        { scene: string; profile: string; beatType: BeatType },
+        { scene: string; profile: string; pauseType: PauseType },
       ][];
     }
   | {
-      type: "update-beat";
+      type: "update-pause";
       clipId: DatabaseId;
-      beatType: BeatType;
+      pauseType: PauseType;
     }
   | {
       type: "reorder-clip";
@@ -376,7 +376,7 @@ export type ClipReducerEffect =
       text: string;
       scene: string;
       profile: string;
-      beatType: string;
+      pauseType: string;
     }
   | {
       type: "start-session-timeout";

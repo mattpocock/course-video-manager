@@ -326,7 +326,7 @@ describe("ClipService", () => {
   });
 
   describe("updateClips", () => {
-    it("updates scene, profile, and beatType for a clip", async () => {
+    it("updates scene, profile, and pauseType for a clip", async () => {
       const video = await clipService.createVideo("test-video.mp4");
 
       const [clip] = await clipService.appendClips({
@@ -341,7 +341,7 @@ describe("ClipService", () => {
           id: clip!.id,
           scene: "intro",
           profile: "default",
-          beatType: "start",
+          pauseType: "start",
         },
       ]);
 
@@ -352,13 +352,13 @@ describe("ClipService", () => {
       if (timelineItem.type === "clip") {
         expect(timelineItem.data.scene).toBe("intro");
         expect(timelineItem.data.profile).toBe("default");
-        expect(timelineItem.data.beatType).toBe("start");
+        expect(timelineItem.data.pauseType).toBe("start");
       }
     });
   });
 
-  describe("updateBeat", () => {
-    it("updates beat type for a single clip", async () => {
+  describe("updatePause", () => {
+    it("updates pause type for a single clip", async () => {
       const video = await clipService.createVideo("test-video.mp4");
 
       const [clip] = await clipService.appendClips({
@@ -368,14 +368,14 @@ describe("ClipService", () => {
         clips: [{ inputVideo: "test.mp4", startTime: 0, endTime: 10 }],
       });
 
-      await clipService.updateBeat(clip!.id, "transition");
+      await clipService.updatePause(clip!.id, "transition");
 
       const timeline = await clipService.getTimeline(video.id);
       const timelineItem = timeline[0]!;
 
       expect(timelineItem.type).toBe("clip");
       if (timelineItem.type === "clip") {
-        expect(timelineItem.data.beatType).toBe("transition");
+        expect(timelineItem.data.pauseType).toBe("transition");
       }
     });
   });

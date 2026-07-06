@@ -8,7 +8,7 @@ import type { ChapterNamingModal } from "../types";
  * Connects to localhost:5172 and handles messages from the Stream Deck:
  * - delete-last-clip: Triggers deletion of the most recently inserted clip
  * - toggle-last-frame-of-video: Toggles the last frame setting for clips
- * - toggle-beat: Toggles beat/pause between clips
+ * - toggle-pause: Toggles pause between clips
  * - add-chapter: Opens modal to create a new chapter
  *
  * The socket is automatically closed when the component unmounts.
@@ -16,7 +16,7 @@ import type { ChapterNamingModal } from "../types";
 export function useWebSocket(params: {
   dispatch: (action: { type: "toggle-last-frame-of-video" }) => void;
   onDeleteLatestInsertedClip: () => void;
-  onToggleBeat: () => void;
+  onTogglePause: () => void;
   onClearAllArchived: () => void;
   setChapterNamingModal: (modal: ChapterNamingModal) => void;
   generateDefaultChapterName: () => string;
@@ -31,8 +31,8 @@ export function useWebSocket(params: {
         params.onDeleteLatestInsertedClip();
       } else if (data.type === "toggle-last-frame-of-video") {
         params.dispatch({ type: "toggle-last-frame-of-video" });
-      } else if (data.type === "toggle-beat") {
-        params.onToggleBeat();
+      } else if (data.type === "toggle-pause") {
+        params.onTogglePause();
       } else if (data.type === "add-chapter") {
         params.setChapterNamingModal({
           mode: "create",
@@ -48,7 +48,7 @@ export function useWebSocket(params: {
   }, [
     params.dispatch,
     params.onDeleteLatestInsertedClip,
-    params.onToggleBeat,
+    params.onTogglePause,
     params.onClearAllArchived,
     params.setChapterNamingModal,
     params.generateDefaultChapterName,

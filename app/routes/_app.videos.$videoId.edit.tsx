@@ -12,7 +12,7 @@ import {
   clipStateReducer,
   createFrontendId,
 } from "@/features/video-editor/clip-state-reducer";
-import type { BeatType } from "@/services/video-processing-service";
+import type { PauseType } from "@/services/video-processing-service";
 import { useOBSConnector } from "@/features/video-editor/obs-connector";
 import { useSilenceLength } from "@/features/video-editor/use-silence-length";
 import { VideoEditor } from "@/features/video-editor/video-editor";
@@ -280,7 +280,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           frontendId: createFrontendId(),
           databaseId: clip.id as DatabaseId,
           insertionOrder: null,
-          beatType: clip.beatType as BeatType,
+          pauseType: clip.pauseType as PauseType,
           diagramSnapshotId: clip.diagramSnapshotId ?? null,
           diagramName: clip.diagramSnapshot?.diagram?.name ?? null,
         } satisfies ClipOnDatabase;
@@ -436,11 +436,11 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       onDeleteLatestInsertedClip={() => {
         dispatch({ type: "delete-latest-inserted-clip" });
       }}
-      onToggleBeat={() => {
-        dispatch({ type: "toggle-beat-at-insertion-point" });
+      onTogglePause={() => {
+        dispatch({ type: "toggle-pause-at-insertion-point" });
       }}
-      onToggleBeatForClip={(clipId) => {
-        dispatch({ type: "toggle-beat-for-clip", clipId });
+      onTogglePauseForClip={(clipId) => {
+        dispatch({ type: "toggle-pause-for-clip", clipId });
       }}
       onMoveClip={(clipId, direction) => {
         dispatch({ type: "move-clip", clipId, direction });

@@ -56,7 +56,7 @@ export const ClipLeafSchema = z.object({
   sourceStartTime: z.number(),
   sourceEndTime: z.number(),
   videoFilename: z.string(),
-  beatType: z.string(),
+  pauseType: z.string(),
   scene: z.string().nullable(),
   profile: z.string().nullable(),
 });

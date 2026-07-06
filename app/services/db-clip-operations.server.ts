@@ -56,7 +56,7 @@ export const createClipOperations = (db: Database) => {
       scene?: string;
       profile?: string;
       transcribedAt?: Date;
-      beatType?: string;
+      pauseType?: string;
     }
   ) {
     const [clip] = yield* makeDbCall(() =>

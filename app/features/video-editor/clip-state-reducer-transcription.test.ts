@@ -162,7 +162,7 @@ describe("clipStateReducer", () => {
       expect(reportEffect2).toHaveBeenCalledWith({
         type: "update-clips",
         clips: [
-          ["1", { scene: "Camera", profile: "Landscape", beatType: "none" }],
+          ["1", { scene: "Camera", profile: "Landscape", pauseType: "none" }],
         ],
       });
 
@@ -185,7 +185,7 @@ describe("clipStateReducer", () => {
       expect(reportEffect3).toHaveBeenCalledWith({
         type: "update-clips",
         clips: [
-          ["2", { scene: "No Face", profile: "Portrait", beatType: "none" }],
+          ["2", { scene: "No Face", profile: "Portrait", pauseType: "none" }],
         ],
       });
 
@@ -310,7 +310,7 @@ describe("clipStateReducer", () => {
       });
     });
 
-    it("Archived optimistic clips transfer scene/profile/beatType to the resulting ClipOnDatabase", () => {
+    it("Archived optimistic clips transfer scene/profile/pauseType to the resulting ClipOnDatabase", () => {
       const mockExec1 = createMockExec();
       const stateWithOneOptimisticClip = clipStateReducer(
         createInitialState(),
@@ -349,7 +349,7 @@ describe("clipStateReducer", () => {
         type: "on-database",
         scene: "Camera",
         profile: "TikTok",
-        beatType: "none",
+        pauseType: "none",
         shouldArchive: true,
       });
 
@@ -357,7 +357,7 @@ describe("clipStateReducer", () => {
       expect(reportEffect).toHaveBeenCalledWith({
         type: "update-clips",
         clips: [
-          ["456", { scene: "Camera", profile: "TikTok", beatType: "none" }],
+          ["456", { scene: "Camera", profile: "TikTok", pauseType: "none" }],
         ],
       });
     });

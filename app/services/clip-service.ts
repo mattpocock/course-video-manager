@@ -246,7 +246,7 @@ export interface UpdateClipInput {
   id: string;
   scene: string;
   profile: string;
-  beatType: string;
+  pauseType: string;
 }
 
 export interface CreateChapterAtInsertionPointInput {
@@ -275,7 +275,7 @@ export interface CreateEffectClipAtPositionInput {
   text: string;
   scene: string;
   profile: string;
-  beatType: string;
+  pauseType: string;
 }
 
 export interface RegenerateChaptersInput {
@@ -345,7 +345,7 @@ export interface ClipService {
   archiveClips(clipIds: string[]): Promise<void>;
   unarchiveClips(clipIds: string[]): Promise<void>;
   updateClips(clips: UpdateClipInput[]): Promise<void>;
-  updateBeat(clipId: string, beatType: string): Promise<void>;
+  updatePause(clipId: string, pauseType: string): Promise<void>;
   reorderClip(clipId: string, direction: ReorderDirection): Promise<void>;
 
   // Chapter operations
@@ -391,7 +391,7 @@ export type ClipServiceEvent =
   | { type: "archive-clips"; clipIds: readonly string[] }
   | { type: "unarchive-clips"; clipIds: readonly string[] }
   | { type: "update-clips"; clips: readonly UpdateClipInput[] }
-  | { type: "update-beat"; clipId: string; beatType: string }
+  | { type: "update-pause"; clipId: string; pauseType: string }
   | { type: "reorder-clip"; clipId: string; direction: ReorderDirection }
   | {
       type: "create-chapter-at-insertion-point";
@@ -490,8 +490,8 @@ export function createClipService(send: ClipServiceTransport): ClipService {
       await send({ type: "update-clips", clips });
     },
 
-    async updateBeat(clipId, beatType) {
-      await send({ type: "update-beat", clipId, beatType });
+    async updatePause(clipId, pauseType) {
+      await send({ type: "update-pause", clipId, pauseType });
     },
 
     async reorderClip(clipId, direction) {

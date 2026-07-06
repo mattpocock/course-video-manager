@@ -132,7 +132,7 @@ const setupSync = async () => {
       sourceEndTime: 10,
       order: "a0",
       text: "Hello world",
-      beatType: "none" as const,
+      pauseType: "none" as const,
     },
     {
       videoFilename: "recording.mp4",
@@ -140,7 +140,7 @@ const setupSync = async () => {
       sourceEndTime: 25,
       order: "a1",
       text: "Welcome to the course",
-      beatType: "none" as const,
+      pauseType: "none" as const,
     },
   ];
 

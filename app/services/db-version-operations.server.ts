@@ -452,7 +452,7 @@ export const createVersionOperations = (db: Database) => {
                     transcribedAt: clip.transcribedAt,
                     scene: clip.scene,
                     profile: clip.profile,
-                    beatType: clip.beatType,
+                    pauseType: clip.pauseType,
                   }))
                 )
               );

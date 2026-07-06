@@ -33,7 +33,7 @@ const createClipOnDatabase = (
   scene: "main",
   profile: "main-camera",
   insertionOrder: 1,
-  beatType: "none",
+  pauseType: "none",
   diagramSnapshotId: null,
   diagramName: null,
   ...overrides,
