@@ -45,6 +45,7 @@ describe("generateSectionLeaf", () => {
     const leaf = generateSectionLeaf({
       id: "s1",
       path: "01-intro",
+      title: "Introduction",
       description: "Introduction",
       lessons: [{ fsStatus: "real" }],
     });
@@ -55,6 +56,7 @@ describe("generateSectionLeaf", () => {
     const leaf = generateSectionLeaf({
       id: "s1",
       path: "02-advanced-topics",
+      title: "Advanced Topics",
       description: "",
       lessons: [],
     });
@@ -65,6 +67,7 @@ describe("generateSectionLeaf", () => {
     const leaf = generateSectionLeaf({
       id: "s1",
       path: "my-section",
+      title: "My Section",
       description: "",
       lessons: [],
     });
@@ -75,6 +78,7 @@ describe("generateSectionLeaf", () => {
     const leaf = generateSectionLeaf({
       id: "s1",
       path: "01-intro",
+      title: "Intro",
       description: "",
       lessons: [{ fsStatus: "ghost" }, { fsStatus: "real" }],
     });
@@ -85,6 +89,7 @@ describe("generateSectionLeaf", () => {
     const leaf = generateSectionLeaf({
       id: "s1",
       path: "01-intro",
+      title: "Intro",
       description: "",
       lessons: [{ fsStatus: "ghost" }],
     });
@@ -95,6 +100,7 @@ describe("generateSectionLeaf", () => {
     const leaf = generateSectionLeaf({
       id: "s1",
       path: "01-intro",
+      title: "Intro",
       description: "",
       lessons: [],
     });
@@ -105,10 +111,22 @@ describe("generateSectionLeaf", () => {
     const leaf = generateSectionLeaf({
       id: "s1",
       path: "01-intro",
+      title: "Intro",
       description: "",
       lessons: [],
     });
     expect(leaf).not.toHaveProperty("order");
+  });
+
+  it("includes title in leaf", () => {
+    const leaf = generateSectionLeaf({
+      id: "s1",
+      path: "01-intro",
+      title: "Introduction",
+      description: "",
+      lessons: [{ fsStatus: "real" }],
+    });
+    expect(leaf.title).toBe("Introduction");
   });
 });
 

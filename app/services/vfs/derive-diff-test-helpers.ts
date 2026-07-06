@@ -29,6 +29,7 @@ export const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Intro section",
         real: true,
@@ -122,6 +123,7 @@ export const fullCourse = makeCourseEntry({
       path: "02-empty",
       sectionLeaf: {
         id: "s2",
+        title: "Empty",
         slug: "empty",
         description: "Empty section",
         real: false,

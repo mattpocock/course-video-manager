@@ -22,6 +22,7 @@ const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Introduction to generics",
         real: true,
@@ -132,6 +133,7 @@ const secondCourse = makeCourseEntry({
       path: "01-advanced",
       sectionLeaf: {
         id: "s2",
+        title: "Advanced",
         slug: "advanced",
         description: "Advanced topics",
         real: true,

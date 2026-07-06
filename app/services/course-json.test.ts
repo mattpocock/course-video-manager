@@ -39,6 +39,7 @@ const makeSection = (
   }
 ) => ({
   lineageId: `section-lineage-${overrides.path}`,
+  title: overrides.title ?? overrides.path,
   description: "",
   ...overrides,
 });
@@ -70,9 +71,9 @@ const CLIPS = [
 ];
 
 describe("buildCourseJson", () => {
-  it("emits schemaVersion 1", async () => {
+  it("emits schemaVersion 2", async () => {
     const result = await run(makeInput([]));
-    expect(result.schemaVersion).toBe(1);
+    expect(result.schemaVersion).toBe(2);
   });
 
   it("uses course id and name at the top level", async () => {
@@ -538,6 +539,47 @@ describe("buildCourseJson", () => {
     );
 
     expect(result.sections[0]!.description).toBe("Introduction section");
+  });
+
+  // ── Section title passthrough ──────────────────────────────────────
+
+  it("includes faithful section title", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          title: "Introduction",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ path: "Explainer" })],
+            }),
+          ],
+        }),
+      ])
+    );
+
+    expect(result.sections[0]!.title).toBe("Introduction");
+  });
+
+  it("emits title on every section", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          title: "Introduction",
+          lessons: [],
+        }),
+        makeSection({
+          path: "02-advanced",
+          title: "Advanced Topics",
+          lessons: [],
+        }),
+      ])
+    );
+
+    expect(result.sections[0]!.title).toBe("Introduction");
+    expect(result.sections[1]!.title).toBe("Advanced Topics");
   });
 
   // ── Multiple sections and lessons ──────────────────────────────────

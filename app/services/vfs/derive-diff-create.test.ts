@@ -13,7 +13,13 @@ const emptyVideoCourse = makeCourseEntry({
   sections: [
     {
       path: "01-intro",
-      sectionLeaf: { id: "s1", slug: "intro", description: "", real: true },
+      sectionLeaf: {
+        id: "s1",
+        title: "Intro",
+        slug: "intro",
+        description: "",
+        real: true,
+      },
       ghost: false,
       lessons: [
         {
@@ -168,7 +174,13 @@ describe("manifest create — concurrency: appears between propose and apply", (
       sections: [
         {
           path: "01-intro",
-          sectionLeaf: { id: "s1", slug: "intro", description: "", real: true },
+          sectionLeaf: {
+            id: "s1",
+            title: "Intro",
+            slug: "intro",
+            description: "",
+            real: true,
+          },
           ghost: false,
           lessons: [
             {

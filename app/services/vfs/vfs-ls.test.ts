@@ -22,6 +22,7 @@ const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Intro section",
         real: true,
@@ -82,6 +83,7 @@ const fullCourse = makeCourseEntry({
       path: "02-planned",
       sectionLeaf: {
         id: "s2",
+        title: "Planned",
         slug: "planned",
         description: "",
         real: false,
@@ -221,6 +223,7 @@ describe("vfsLs", () => {
             path: "02-beta",
             sectionLeaf: {
               id: "s2",
+              title: "Beta",
               slug: "beta",
               description: "",
               real: true,
@@ -232,6 +235,7 @@ describe("vfsLs", () => {
             path: "01-alpha",
             sectionLeaf: {
               id: "s1",
+              title: "Alpha",
               slug: "alpha",
               description: "",
               real: true,

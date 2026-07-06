@@ -36,79 +36,65 @@ export const LESSON_ID = "les-1";
 export const VIDEO_ID = "vid-1";
 
 export async function seedGhostCourse(testDb: TestDb) {
-  await testDb
-    .insert(courses)
-    .values({
-      id: COURSE_ID,
-      name: "Test Course",
-      slug: "test-course",
-      filePath: null,
-    });
+  await testDb.insert(courses).values({
+    id: COURSE_ID,
+    name: "Test Course",
+    slug: "test-course",
+    filePath: null,
+  });
   await testDb
     .insert(courseVersions)
     .values({ id: VERSION_ID, repoId: COURSE_ID, name: "v1" });
-  await testDb
-    .insert(sections)
-    .values({
-      id: SECTION_ID,
-      repoVersionId: VERSION_ID,
-      path: "basics",
-      order: 0,
-    });
-  await testDb
-    .insert(lessons)
-    .values({
-      id: LESSON_ID,
-      sectionId: SECTION_ID,
-      path: "intro",
-      title: "Introduction",
-      fsStatus: "ghost",
-      order: 0,
-    });
+  await testDb.insert(sections).values({
+    id: SECTION_ID,
+    repoVersionId: VERSION_ID,
+    path: "basics",
+    order: 0,
+  });
+  await testDb.insert(lessons).values({
+    id: LESSON_ID,
+    sectionId: SECTION_ID,
+    path: "intro",
+    title: "Introduction",
+    fsStatus: "ghost",
+    order: 0,
+  });
 }
 
 export async function seedRealCourse(testDb: TestDb) {
-  await testDb
-    .insert(courses)
-    .values({
-      id: COURSE_ID,
-      name: "Test Course",
-      slug: "test-course",
-      filePath: "/repo/test-course",
-    });
+  await testDb.insert(courses).values({
+    id: COURSE_ID,
+    name: "Test Course",
+    slug: "test-course",
+    filePath: "/repo/test-course",
+  });
   await testDb
     .insert(courseVersions)
     .values({ id: VERSION_ID, repoId: COURSE_ID, name: "v1" });
-  await testDb
-    .insert(sections)
-    .values({
-      id: SECTION_ID,
-      repoVersionId: VERSION_ID,
-      path: "basics",
-      order: 0,
-    });
-  await testDb
-    .insert(lessons)
-    .values({
-      id: LESSON_ID,
-      sectionId: SECTION_ID,
-      path: "intro",
-      title: "Introduction",
-      fsStatus: "ghost",
-      order: 0,
-    });
+  await testDb.insert(sections).values({
+    id: SECTION_ID,
+    repoVersionId: VERSION_ID,
+    path: "basics",
+    order: 0,
+  });
+  await testDb.insert(lessons).values({
+    id: LESSON_ID,
+    sectionId: SECTION_ID,
+    path: "intro",
+    title: "Introduction",
+    fsStatus: "ghost",
+    order: 0,
+  });
 }
 
 export async function seedVideoWithClips(testDb: TestDb) {
   await seedGhostCourse(testDb);
-  await testDb
-    .insert(videos)
-    .values({
-      id: VIDEO_ID,
-      lessonId: LESSON_ID,
-      path: "vid-01",
-      originalFootagePath: "/footage/01",
-    });
+  await testDb.insert(videos).values({
+    id: VIDEO_ID,
+    lessonId: LESSON_ID,
+    path: "vid-01",
+    originalFootagePath: "/footage/01",
+  });
   await testDb.insert(clips).values([
     {
       id: "clip-a",
@@ -129,26 +115,22 @@ export async function seedVideoWithClips(testDb: TestDb) {
       text: "World",
     },
   ]);
-  await testDb
-    .insert(chapters)
-    .values({
-      id: "chap-1",
-      videoId: VIDEO_ID,
-      name: "Chapter One",
-      order: "a0V",
-    });
+  await testDb.insert(chapters).values({
+    id: "chap-1",
+    videoId: VIDEO_ID,
+    name: "Chapter One",
+    order: "a0V",
+  });
 }
 
 export async function seedVideoWithSegments(testDb: TestDb) {
   await seedGhostCourse(testDb);
-  await testDb
-    .insert(videos)
-    .values({
-      id: VIDEO_ID,
-      lessonId: LESSON_ID,
-      path: "vid-01",
-      originalFootagePath: "/footage/01",
-    });
+  await testDb.insert(videos).values({
+    id: VIDEO_ID,
+    lessonId: LESSON_ID,
+    path: "vid-01",
+    originalFootagePath: "/footage/01",
+  });
   await testDb.insert(segments).values([
     {
       id: "seg-1",
@@ -234,6 +216,7 @@ export async function buildVfsFromDb(
       sectionLeaf: generateSectionLeaf({
         id: section.id,
         path: section.path,
+        title: section.title,
         description: section.description,
         lessons: section.lessons,
       }),

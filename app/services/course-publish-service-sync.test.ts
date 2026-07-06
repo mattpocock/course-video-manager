@@ -456,7 +456,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     expect(fs.existsSync(courseJsonPath)).toBe(true);
 
     const doc = JSON.parse(fs.readFileSync(courseJsonPath, "utf-8"));
-    expect(doc.schemaVersion).toBe(1);
+    expect(doc.schemaVersion).toBe(2);
     expect(doc.courseId).toBe(course.id);
     expect(doc.courseName).toBe("test-course");
     expect(doc.sections).toHaveLength(1);

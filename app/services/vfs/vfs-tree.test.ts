@@ -67,6 +67,7 @@ describe("buildVfsTree", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -83,7 +84,9 @@ describe("buildVfsTree", () => {
     );
     expect(result.type).toBe("file");
     if (result.type === "file") {
-      expect(result.node.data).toEqual([{ id: "s1", slug: "intro" }]);
+      expect(result.node.data).toEqual([
+        { id: "s1", slug: "intro", title: "Intro" },
+      ]);
     }
   });
 
@@ -95,6 +98,7 @@ describe("buildVfsTree", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -142,6 +146,7 @@ describe("buildVfsTree", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -199,6 +204,7 @@ describe("buildVfsTree", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -294,6 +300,7 @@ describe("buildVfsTree", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -370,6 +377,7 @@ describe("ghost handling", () => {
             path: "01-planned",
             sectionLeaf: {
               id: "s1",
+              title: "Planned",
               slug: "planned",
               description: "",
               real: false,
@@ -395,6 +403,7 @@ describe("ghost handling", () => {
             path: "01-planned",
             sectionLeaf: {
               id: "s1",
+              title: "Planned",
               slug: "planned",
               description: "",
               real: false,
@@ -422,6 +431,7 @@ describe("ghost handling", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: false,
@@ -477,6 +487,7 @@ describe("ghost handling", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: false,
@@ -524,6 +535,7 @@ describe("video without timeline (ghost lesson's video)", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -582,6 +594,7 @@ describe("insertion order", () => {
             path: "02-beta",
             sectionLeaf: {
               id: "s2",
+              title: "Beta",
               slug: "beta",
               description: "",
               real: true,
@@ -593,6 +606,7 @@ describe("insertion order", () => {
             path: "01-alpha",
             sectionLeaf: {
               id: "s1",
+              title: "Alpha",
               slug: "alpha",
               description: "",
               real: true,
@@ -620,6 +634,7 @@ describe("insertion order", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -631,6 +646,7 @@ describe("insertion order", () => {
             path: "planned",
             sectionLeaf: {
               id: "s2",
+              title: "Planned",
               slug: "planned",
               description: "",
               real: false,
@@ -642,6 +658,7 @@ describe("insertion order", () => {
             path: "03-outro",
             sectionLeaf: {
               id: "s3",
+              title: "Outro",
               slug: "outro",
               description: "",
               real: true,

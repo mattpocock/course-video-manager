@@ -22,6 +22,7 @@ const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Intro section",
         real: true,
@@ -82,6 +83,7 @@ const fullCourse = makeCourseEntry({
       path: "02-planned",
       sectionLeaf: {
         id: "s2",
+        title: "Planned",
         slug: "planned",
         description: "",
         real: false,
@@ -168,6 +170,7 @@ describe("vfsTree", () => {
       path: `section-${String(i).padStart(2, "0")}`,
       sectionLeaf: {
         id: `s${i}`,
+        title: `Section-${i}`,
         slug: `section-${i}`,
         description: "",
         real: true,
@@ -206,6 +209,7 @@ describe("vfsTree", () => {
             path: "02-beta",
             sectionLeaf: {
               id: "s2",
+              title: "Beta",
               slug: "beta",
               description: "",
               real: true,
@@ -217,6 +221,7 @@ describe("vfsTree", () => {
             path: "01-alpha",
             sectionLeaf: {
               id: "s1",
+              title: "Alpha",
               slug: "alpha",
               description: "",
               real: true,
@@ -244,6 +249,7 @@ describe("vfsTree", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -255,6 +261,7 @@ describe("vfsTree", () => {
             path: "planned",
             sectionLeaf: {
               id: "s2",
+              title: "Planned",
               slug: "planned",
               description: "",
               real: false,
@@ -266,6 +273,7 @@ describe("vfsTree", () => {
             path: "03-outro",
             sectionLeaf: {
               id: "s3",
+              title: "Outro",
               slug: "outro",
               description: "",
               real: true,

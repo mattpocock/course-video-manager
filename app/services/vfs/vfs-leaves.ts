@@ -29,6 +29,7 @@ export type VersionInput = {
 export type SectionInput = {
   id: string;
   path: string;
+  title: string;
   description: string;
   lessons: ReadonlyArray<{ fsStatus: string }>;
 };
@@ -102,6 +103,7 @@ export const generateSectionLeaf = (section: SectionInput): SectionLeaf => {
 
   return {
     id: section.id,
+    title: section.title,
     slug,
     description: section.description,
     real: sectionHasRealLessons(section.lessons),

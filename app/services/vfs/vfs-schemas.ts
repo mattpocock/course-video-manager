@@ -14,6 +14,7 @@ export type CourseLeaf = z.infer<typeof CourseLeafSchema>;
 
 export const SectionLeafSchema = z.object({
   id: z.string(),
+  title: z.string(),
   slug: z.string(),
   description: z.string(),
   real: z.boolean(),
@@ -72,6 +73,7 @@ export type ChapterLeaf = z.infer<typeof ChapterLeafSchema>;
 export const SectionMemberSchema = z.object({
   id: z.string(),
   slug: z.string(),
+  title: z.string(),
 });
 export type SectionMember = z.infer<typeof SectionMemberSchema>;
 

@@ -23,6 +23,7 @@ const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Intro section",
         real: true,

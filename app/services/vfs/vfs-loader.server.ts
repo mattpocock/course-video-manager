@@ -119,6 +119,7 @@ const courseToEntry = (course: {
     sections: Array<{
       id: string;
       path: string;
+      title: string;
       description: string;
       order: number;
       lessons: Array<{
@@ -184,6 +185,7 @@ const courseToEntry = (course: {
       sectionLeaf: generateSectionLeaf({
         id: section.id,
         path: section.path,
+        title: section.title,
         description: section.description,
         lessons: section.lessons,
       }),

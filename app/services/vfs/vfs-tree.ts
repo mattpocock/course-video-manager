@@ -111,6 +111,7 @@ export const buildVfsTree = (courses: CourseEntry[]): VfsDirNode => {
     const sectionMembers = course.sections.map((s) => ({
       id: s.sectionLeaf.id,
       slug: s.sectionLeaf.slug,
+      title: s.sectionLeaf.title,
     }));
     sectionsDir.children.set(
       "_members.json",

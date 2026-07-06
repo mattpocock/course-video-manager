@@ -97,6 +97,7 @@ export const sections = createTable(
       .notNull()
       .$defaultFn(() => crypto.randomUUID()),
     path: text("path").notNull(),
+    title: text("title").notNull().default(""),
     description: text("description").notNull().default(""),
     archivedAt: timestamp("archived_at", {
       mode: "date",

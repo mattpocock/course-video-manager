@@ -46,12 +46,13 @@ const CourseJsonLessonSchema = Schema.Union(
 const CourseJsonSectionSchema = Schema.Struct({
   id: Schema.String,
   path: Schema.String,
+  title: Schema.String,
   description: Schema.String,
   lessons: Schema.Array(CourseJsonLessonSchema),
 });
 
 export const CourseJsonDocumentSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  schemaVersion: Schema.Literal(2),
   courseId: Schema.String,
   courseName: Schema.String,
   sections: Schema.Array(CourseJsonSectionSchema),
@@ -105,6 +106,7 @@ type InputLesson = {
 type InputSection = {
   lineageId: string;
   path: string;
+  title: string;
   description: string;
   lessons: InputLesson[];
 };
@@ -204,13 +206,14 @@ export const buildCourseJson = (
       sections.push({
         id: section.lineageId,
         path: section.path,
+        title: section.title,
         description: section.description,
         lessons,
       });
     }
 
     return {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       courseId: input.courseId,
       courseName: input.courseName,
       sections,
