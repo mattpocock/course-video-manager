@@ -83,6 +83,9 @@ type LintLesson = {
   fsStatus: string | null;
   videos: Array<{
     path: string;
+    lessonId?: string | null;
+    body?: string | null;
+    description?: string | null;
     clips: Array<{ order: string; archived: boolean }>;
     chapters: Array<{ order: string; archived: boolean }>;
   }>;
@@ -100,6 +103,9 @@ export function computeCourseViewLintCount(
         count += computeVideoWarnings({
           clips: video.clips,
           chapters: video.chapters,
+          lessonId: video.lessonId,
+          body: video.body,
+          description: video.description,
         }).length;
       }
     }

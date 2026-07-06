@@ -7,6 +7,7 @@ import { Link, useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
 import { UnexportedDot } from "./export-status";
 import { VideoContextMenuItems } from "./video-context-menu";
+import { videoWarningLabel } from "./video-warning-labels";
 import {
   Tooltip,
   TooltipContent,
@@ -39,9 +40,8 @@ function VideoThumbnailItem({
 }) {
   const isReadOnly = !data.isLatestVersion;
   const totalDuration = video.totalDuration;
-  const showWarning =
-    !isReadOnly &&
-    video.warnings.some((w) => w.kind === "missingOpeningChapter");
+  const showWarning = !isReadOnly && video.warnings.length > 0;
+  const warningLabel = videoWarningLabel(video.warnings);
 
   return (
     <ContextMenu>
@@ -83,7 +83,7 @@ function VideoThumbnailItem({
                         <AlertTriangle className="w-3 h-3" />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>Missing opening section</TooltipContent>
+                    <TooltipContent>{warningLabel}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}

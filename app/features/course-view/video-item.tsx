@@ -22,6 +22,7 @@ import { Suspense } from "react";
 import { Link, useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
 import { useGenerateChaptersAction } from "./generate-chapters-context";
+import { videoWarningLabel } from "./video-warning-labels";
 import {
   PurgeExportMenuItem,
   VideoExportIcon,
@@ -54,9 +55,8 @@ export function VideoItem({
   const openGenerateChapters = useGenerateChaptersAction();
   const totalDuration = video.totalDuration;
   const isLatestVersion = data.isLatestVersion;
-  const showWarning =
-    isLatestVersion &&
-    video.warnings.some((w) => w.kind === "missingOpeningChapter");
+  const showWarning = isLatestVersion && video.warnings.length > 0;
+  const warningLabel = videoWarningLabel(video.warnings);
   const canGenerateChapters = isLatestVersion && video.clipCount > 0;
 
   return (
@@ -79,7 +79,7 @@ export function VideoItem({
             {showWarning && (
               <AlertTriangle
                 className="w-3 h-3 text-amber-500"
-                aria-label="Missing opening section — right-click to generate"
+                aria-label={warningLabel}
               />
             )}
             <span className="text-muted-foreground font-mono">
