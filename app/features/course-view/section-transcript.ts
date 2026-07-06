@@ -10,7 +10,7 @@ export type TranscriptOptions = {
   includePriority: boolean;
   includeExerciseType: boolean;
   includeSectionDescription: boolean;
-  includeSegments: boolean;
+  includeBeats: boolean;
 };
 
 const defaultOptions: TranscriptOptions = {
@@ -20,7 +20,7 @@ const defaultOptions: TranscriptOptions = {
   includePriority: false,
   includeExerciseType: false,
   includeSectionDescription: false,
-  includeSegments: false,
+  includeBeats: false,
 };
 
 export function buildCourseTranscript(
@@ -153,7 +153,7 @@ function buildSectionTranscriptXml(
     }
     for (const video of lesson.videos) {
       lines.push(`    <video title="${escapeAttr(video.path)}">`);
-      if (options.includeSegments) {
+      if (options.includeBeats) {
         renderBeatsXml(video, lines, "      ");
       }
       if (options.includeTranscripts) {
@@ -177,13 +177,13 @@ function renderBeatsXml(video: Video, lines: string[], indent: string) {
   for (const beat of video.beats) {
     const attrs = `kind="${escapeAttr(beat.kind)}" title="${escapeAttr(beat.title)}"`;
     if (beat.description) {
-      lines.push(`${indent}<segment ${attrs}>`);
+      lines.push(`${indent}<beat ${attrs}>`);
       lines.push(
         `${indent}  <description>${escapeAttr(beat.description)}</description>`
       );
-      lines.push(`${indent}</segment>`);
+      lines.push(`${indent}</beat>`);
     } else {
-      lines.push(`${indent}<segment ${attrs} />`);
+      lines.push(`${indent}<beat ${attrs} />`);
     }
   }
 }
@@ -284,7 +284,7 @@ function buildSectionTranscriptMarkdownInner(
     for (const video of lesson.videos) {
       lines.push("");
       lines.push(`**${video.path}:**`);
-      if (options.includeSegments) {
+      if (options.includeBeats) {
         renderBeatsMarkdown(video, lines);
       }
       if (options.includeTranscripts) {
@@ -372,8 +372,8 @@ function buildSectionObject(
 
     lessonObj.videos = lesson.videos.map((video) => {
       const videoObj: Record<string, unknown> = { title: video.path };
-      if (options.includeSegments) {
-        videoObj.segments = video.beats.map((beat) => {
+      if (options.includeBeats) {
+        videoObj.beats = video.beats.map((beat) => {
           const beatObj: Record<string, unknown> = {
             kind: beat.kind,
             title: beat.title,
