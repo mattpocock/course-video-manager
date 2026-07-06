@@ -3,9 +3,9 @@ import type { FFmpegCommandsService } from "./ffmpeg-commands";
 import {
   SILENCE_THRESHOLD_DB,
   MINIMUM_CLIP_LENGTH_SECONDS,
-  pauseLengthToSeconds,
-  DEFAULT_PAUSE_LENGTH,
-  type PauseLength,
+  silenceLengthToSeconds,
+  DEFAULT_SILENCE_LENGTH,
+  type SilenceLength,
 } from "@/silence-detection-constants";
 
 const AUTO_EDITED_START_PADDING = 0; // frames
@@ -101,15 +101,15 @@ export function getClipsOfSpeakingFromFFmpeg(
 export function findSilenceInVideo(
   ffmpeg: FFmpegCommandsService,
   inputVideo: string,
-  opts?: { startTime?: number; pauseLength?: PauseLength }
+  opts?: { startTime?: number; silenceLength?: SilenceLength }
 ) {
   return Effect.gen(function* () {
     const fps = yield* ffmpeg.getFPS(inputVideo);
 
     const rawOutput = yield* ffmpeg.detectSilence(inputVideo, {
       threshold: SILENCE_THRESHOLD_DB,
-      silenceDuration: pauseLengthToSeconds(
-        opts?.pauseLength ?? DEFAULT_PAUSE_LENGTH
+      silenceDuration: silenceLengthToSeconds(
+        opts?.silenceLength ?? DEFAULT_SILENCE_LENGTH
       ),
       startTime: opts?.startTime,
     });

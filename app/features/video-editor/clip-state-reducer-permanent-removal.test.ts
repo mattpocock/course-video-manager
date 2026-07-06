@@ -28,7 +28,7 @@ describe("clipStateReducer", () => {
       tester.send({
         type: "recording-started",
         outputPath: "/tmp/recording.mkv",
-        pauseLength: "short" as const,
+        silenceLength: "short" as const,
       });
 
       const sessionId = tester.getState().sessions[0]!.id;
@@ -76,7 +76,7 @@ describe("clipStateReducer", () => {
       tester.send({
         type: "recording-started",
         outputPath: "/tmp/recording.mkv",
-        pauseLength: "short" as const,
+        silenceLength: "short" as const,
       });
 
       const sessionId = tester.getState().sessions[0]!.id;
@@ -121,7 +121,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -159,7 +159,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -179,7 +179,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -211,7 +211,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -252,7 +252,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -280,7 +280,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -354,7 +354,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -373,7 +373,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording2.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -402,7 +402,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({
@@ -441,7 +441,7 @@ describe("clipStateReducer", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short" as const,
+          silenceLength: "short" as const,
         })
         .send(
           fromPartial({

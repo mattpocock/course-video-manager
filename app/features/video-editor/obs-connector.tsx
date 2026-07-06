@@ -6,7 +6,7 @@ import {
   useWatchForSilenceDetected,
   useWatchForSpeechDetected,
 } from "./use-speech-detector";
-import type { PauseLength } from "@/silence-detection-constants";
+import type { SilenceLength } from "@/silence-detection-constants";
 
 export type OBSNotRunningState = {
   type: "obs-not-running";
@@ -365,7 +365,7 @@ export const useOBSConnector = (props: {
     soundDetectionId: string;
   }) => void;
   onClipAudioWindowClosed: () => void;
-  pauseLength: PauseLength;
+  silenceLength: SilenceLength;
 }) => {
   const [websocket] = useState(() => new OBSWebSocket());
 
@@ -484,7 +484,7 @@ export const useOBSConnector = (props: {
   const speechDetectorState = useSpeechDetector({
     mediaStream,
     isRecording: state.type === "obs-recording",
-    pauseLength: props.pauseLength,
+    silenceLength: props.silenceLength,
   });
 
   useWatchForSpeechDetected({

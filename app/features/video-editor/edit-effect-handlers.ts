@@ -264,7 +264,7 @@ export function createEditEffectHandlers(
               filePath: effect.outputPath,
               insertionPoint,
               items,
-              pauseLength: effect.pauseLength,
+              silenceLength: effect.silenceLength,
             });
             if (clips.length > 0) {
               dispatch({

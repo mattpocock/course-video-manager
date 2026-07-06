@@ -44,7 +44,7 @@ import type {
 import { isClip } from "./clip-utils";
 import { type OBSConnectionOuterState } from "./obs-connector";
 import { type FrontendSpeechDetectorState } from "./use-speech-detector";
-import type { PauseLength } from "@/silence-detection-constants";
+import type { SilenceLength } from "@/silence-detection-constants";
 import {
   VideoEditorContext,
   type SuggestionState,
@@ -78,8 +78,8 @@ export const VideoEditor = (props: {
   videoId: string;
   liveMediaStream: MediaStream | null;
   speechDetectorState: FrontendSpeechDetectorState;
-  pauseLength: PauseLength;
-  onPauseLengthChange: (pauseLength: PauseLength) => void;
+  silenceLength: SilenceLength;
+  onSilenceLengthChange: (silenceLength: SilenceLength) => void;
   isRecordingActive: boolean;
   clipIdsBeingTranscribed: Set<FrontendId>;
   onClipsRemoved: (clipIds: FrontendId[]) => void;
@@ -389,8 +389,8 @@ export const VideoEditor = (props: {
       obsConnectorState: props.obsConnectorState,
       liveMediaStream: props.liveMediaStream,
       speechDetectorState: props.speechDetectorState,
-      pauseLength: props.pauseLength,
-      setPauseLength: props.onPauseLengthChange,
+      silenceLength: props.silenceLength,
+      setSilenceLength: props.onSilenceLengthChange,
       isRecordingActive: props.isRecordingActive,
       clipIdsBeingTranscribed: props.clipIdsBeingTranscribed,
 
@@ -493,8 +493,8 @@ export const VideoEditor = (props: {
       props.obsConnectorState,
       props.liveMediaStream,
       props.speechDetectorState,
-      props.pauseLength,
-      props.onPauseLengthChange,
+      props.silenceLength,
+      props.onSilenceLengthChange,
       props.isRecordingActive,
       props.clipIdsBeingTranscribed,
       props.onSetInsertionPoint,
