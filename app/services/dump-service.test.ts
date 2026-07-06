@@ -65,79 +65,49 @@ const testConfig = ConfigProvider.fromMap(
 const configLayer = Layer.setConfigProvider(testConfig);
 
 describe("DatabaseDumpService", () => {
-  it.effect("_buildCommand reflects configuration", () => {
-    let recorded: {
-      command: string;
-      args: ReadonlyArray<string>;
-      outputPath: string;
-    } | null = null;
+  it.effect(
+    "_runDump invokes the runner with the configured command shape",
+    () => {
+      let recorded: {
+        command: string;
+        args: ReadonlyArray<string>;
+        outputPath: string;
+      } | null = null;
 
-    const recordingRunner = Layer.succeed(PgDumpRunner, {
-      run: (
-        command: string,
-        args: ReadonlyArray<string>,
-        outputPath: string
-      ) => {
-        recorded = { command, args, outputPath };
-        return Effect.void;
-      },
-    } as unknown as PgDumpRunner);
+      const recordingRunner = Layer.succeed(PgDumpRunner, {
+        run: (
+          command: string,
+          args: ReadonlyArray<string>,
+          outputPath: string
+        ) => {
+          recorded = { command, args, outputPath };
+          return Effect.void;
+        },
+      } as unknown as PgDumpRunner);
 
-    const layer = DatabaseDumpService.Default.pipe(
-      Layer.provide(recordingRunner),
-      Layer.provide(configLayer)
-    );
+      const layer = DatabaseDumpService.Default.pipe(
+        Layer.provide(recordingRunner),
+        Layer.provide(configLayer)
+      );
 
-    return Effect.gen(function* () {
-      const svc = yield* DatabaseDumpService;
-      const cmd = svc._buildCommand();
+      return Effect.gen(function* () {
+        const svc = yield* DatabaseDumpService;
+        yield* svc._runDump();
 
-      expect(cmd.command).toBe("docker");
-      expect(cmd.args).toContain("test-postgres");
-      expect(cmd.args).toContain("postgresql://test@localhost:5432/testdb");
-      expect(cmd.args).toContain("--no-owner");
-      expect(cmd.args).toContain("--no-acl");
-      expect(cmd.args).toContain("--exclude-table-data=youtube_auth");
-      expect(cmd.args).toContain("--exclude-table-data=ai_hero_auth");
-      expect(cmd.outputPath).toBe("/test-backups/cvm.sql");
-
-      expect(recorded).toBeNull();
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("_runDump invokes the runner with the built command", () => {
-    let recorded: {
-      command: string;
-      args: ReadonlyArray<string>;
-      outputPath: string;
-    } | null = null;
-
-    const recordingRunner = Layer.succeed(PgDumpRunner, {
-      run: (
-        command: string,
-        args: ReadonlyArray<string>,
-        outputPath: string
-      ) => {
-        recorded = { command, args, outputPath };
-        return Effect.void;
-      },
-    } as unknown as PgDumpRunner);
-
-    const layer = DatabaseDumpService.Default.pipe(
-      Layer.provide(recordingRunner),
-      Layer.provide(configLayer)
-    );
-
-    return Effect.gen(function* () {
-      const svc = yield* DatabaseDumpService;
-      yield* svc._runDump();
-
-      expect(recorded).not.toBeNull();
-      expect(recorded!.command).toBe("docker");
-      expect(recorded!.args).toContain("test-postgres");
-      expect(recorded!.outputPath).toBe("/test-backups/cvm.sql");
-    }).pipe(Effect.provide(layer));
-  });
+        expect(recorded).not.toBeNull();
+        expect(recorded!.command).toBe("docker");
+        expect(recorded!.args).toContain("test-postgres");
+        expect(recorded!.args).toContain(
+          "postgresql://test@localhost:5432/testdb"
+        );
+        expect(recorded!.args).toContain("--no-owner");
+        expect(recorded!.args).toContain("--no-acl");
+        expect(recorded!.args).toContain("--exclude-table-data=youtube_auth");
+        expect(recorded!.args).toContain("--exclude-table-data=ai_hero_auth");
+        expect(recorded!.outputPath).toBe("/test-backups/cvm.sql");
+      }).pipe(Effect.provide(layer));
+    }
+  );
 
   it.effect("executor failure propagates from _runDump (not swallowed)", () => {
     const failingRunner = Layer.succeed(PgDumpRunner, {
@@ -167,6 +137,12 @@ describe("DatabaseDumpService", () => {
   it.effect(
     "uses default container name when PG_DUMP_CONTAINER is unset",
     () => {
+      let recorded: {
+        command: string;
+        args: ReadonlyArray<string>;
+        outputPath: string;
+      } | null = null;
+
       const configNoContainer = ConfigProvider.fromMap(
         new Map([
           ["DUMP_FILE_LOCATION", "/x.sql"],
@@ -174,27 +150,31 @@ describe("DatabaseDumpService", () => {
         ])
       );
 
-      const noopRunner = Layer.succeed(PgDumpRunner, {
-        run: () => Effect.void,
+      const recordingRunner = Layer.succeed(PgDumpRunner, {
+        run: (
+          command: string,
+          args: ReadonlyArray<string>,
+          outputPath: string
+        ) => {
+          recorded = { command, args, outputPath };
+          return Effect.void;
+        },
       } as unknown as PgDumpRunner);
 
       const layer = DatabaseDumpService.Default.pipe(
-        Layer.provide(noopRunner),
+        Layer.provide(recordingRunner),
         Layer.provide(Layer.setConfigProvider(configNoContainer))
       );
 
       return Effect.gen(function* () {
         const svc = yield* DatabaseDumpService;
-        const cmd = svc._buildCommand();
-        expect(cmd.args).toContain("ai-app-template-postgres");
+        yield* svc._runDump();
+        expect(recorded).not.toBeNull();
+        expect(recorded!.args).toContain("ai-app-template-postgres");
       }).pipe(Effect.provide(layer));
     }
   );
 });
-
-// ---------------------------------------------------------------------------
-// withDatabaseDump combinator
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Server endpoints — health-check + dump-trigger

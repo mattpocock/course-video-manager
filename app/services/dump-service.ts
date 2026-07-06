@@ -113,7 +113,6 @@ export class DatabaseDumpService extends Effect.Service<DatabaseDumpService>()(
 
       return {
         requestDump,
-        _buildCommand,
         _runDump,
       };
     }),
