@@ -385,7 +385,7 @@ export const createVideoOperations = (
     sourceVideoId: string;
     newPath: string;
     copyClips: boolean;
-    copySegments: boolean;
+    copyBeats: boolean;
   }) {
     return yield* copyVideoImpl(db, opts);
   });

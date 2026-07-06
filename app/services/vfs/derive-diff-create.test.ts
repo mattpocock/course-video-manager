@@ -6,8 +6,8 @@ import {
   writeInput,
 } from "./derive-diff-test-helpers";
 
-// A course whose single video has neither segments nor timeline items, so the
-// projection omits both `segments/_members.json` and `timeline/_members.json`.
+// A course whose single video has neither beats nor timeline items, so the
+// projection omits both `beats/_members.json` and `timeline/_members.json`.
 // This is the case the agent previously believed it could not handle.
 const emptyVideoCourse = makeCourseEntry({
   sections: [
@@ -39,7 +39,7 @@ const emptyVideoCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segments: [],
+              beats: [],
               timelineItems: [],
             },
           ],
@@ -50,12 +50,12 @@ const emptyVideoCourse = makeCourseEntry({
 });
 
 const SEGMENTS_PATH =
-  "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/_members.json";
+  "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/_members.json";
 const TIMELINE_PATH =
   "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline/_members.json";
 
-describe("manifest create — first segment of a segment-less video", () => {
-  it("creates the segments manifest without a prior cat (nothing to read)", () => {
+describe("manifest create — first beat of a beat-less video", () => {
+  it("creates the beats manifest without a prior cat (nothing to read)", () => {
     const ctx = buildCtx(emptyVideoCourse);
     const result = deriveDiff(
       writeInput(
@@ -70,7 +70,7 @@ describe("manifest create — first segment of a segment-less video", () => {
       expect(result.ops).toHaveLength(1);
       expect((result.ops[0] as AddOp).type).toBe("add");
       expect((result.ops[0] as AddOp).sub).toBe("create");
-      expect((result.ops[0] as AddOp).entityType).toBe("segment");
+      expect((result.ops[0] as AddOp).entityType).toBe("beat");
     }
   });
 
@@ -125,7 +125,7 @@ describe("manifest create — bash-style No such file or directory", () => {
   it("rejects a write whose owning video does not exist", () => {
     const ctx = buildCtx(emptyVideoCourse);
     const phantom =
-      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/ghost-video/segments/_members.json";
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/ghost-video/beats/_members.json";
     const result = deriveDiff(
       writeInput(
         phantom,
@@ -162,9 +162,9 @@ describe("manifest create — bash-style No such file or directory", () => {
 describe("manifest create — concurrency: appears between propose and apply", () => {
   it("falls back to read-before-write once the file exists", () => {
     // Simulate the apply-time re-derive after a concurrent writer created the
-    // manifest: the fresh VFS now HAS the segment, and the writer never cat-ed
+    // manifest: the fresh VFS now HAS the beat, and the writer never cat-ed
     // it (it didn't exist at propose time) → not-read, forcing a re-cat.
-    const withSegment = makeCourseEntry({
+    const withBeat = makeCourseEntry({
       sections: [
         {
           path: "01-intro",
@@ -194,7 +194,7 @@ describe("manifest create — concurrency: appears between propose and apply", (
                     originalFootagePath: "/raw.mp4",
                     warnings: [],
                   },
-                  segments: [
+                  beats: [
                     {
                       id: "seg1",
                       kind: "definition",
@@ -210,7 +210,7 @@ describe("manifest create — concurrency: appears between propose and apply", (
         },
       ],
     });
-    const ctx = buildCtx(withSegment);
+    const ctx = buildCtx(withBeat);
     const result = deriveDiff(
       writeInput(
         SEGMENTS_PATH,

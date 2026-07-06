@@ -78,8 +78,8 @@ export type VideoEditorContextType = {
   referenceCandidates: ReferenceCandidate[];
   referenceVideoId: string | null;
   setReferenceVideoId: (id: string | null) => void;
-  hasSegments: boolean;
-  onShowSegmentPanel: () => void;
+  hasBeats: boolean;
+  onShowBeatPanel: () => void;
   insertionPoint: FrontendInsertionPoint;
   obsConnectorState: OBSConnectionOuterState;
   liveMediaStream: MediaStream | null;

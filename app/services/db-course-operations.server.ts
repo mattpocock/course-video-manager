@@ -9,7 +9,7 @@ import {
   courseVersions,
   sections,
   lessons,
-  segments,
+  beats,
   videos,
 } from "@/db/schema";
 import {
@@ -286,7 +286,7 @@ export const createCourseOperations = (db: Database) => {
                               },
                               where: eq(chapters.archived, false),
                             },
-                            segments: {
+                            beats: {
                               columns: {
                                 id: true,
                                 kind: true,
@@ -295,8 +295,8 @@ export const createCourseOperations = (db: Database) => {
                                 order: true,
                                 videoId: true,
                               },
-                              orderBy: asc(segments.order),
-                              where: eq(segments.archived, false),
+                              orderBy: asc(beats.order),
+                              where: eq(beats.archived, false),
                             },
                           },
                         },

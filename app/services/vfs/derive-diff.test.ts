@@ -37,9 +37,9 @@ describe("resolveFileType", () => {
     ).toEqual({ kind: "manifest", entityType: "timeline" });
     expect(
       resolveFileType(
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/_members.json"
+        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/_members.json"
       )
-    ).toEqual({ kind: "manifest", entityType: "segment" });
+    ).toEqual({ kind: "manifest", entityType: "beat" });
   });
 
   it("resolves leaf file types", () => {
@@ -72,9 +72,9 @@ describe("resolveFileType", () => {
     ).toEqual({ kind: "leaf", entityType: "chapter" });
     expect(
       resolveFileType(
-        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/00-intro.json"
+        "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/00-intro.json"
       )
-    ).toEqual({ kind: "leaf", entityType: "segment" });
+    ).toEqual({ kind: "leaf", entityType: "beat" });
   });
 
   it("returns null for unrecognized paths", () => {

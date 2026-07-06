@@ -273,11 +273,11 @@ describe("manifest diff — videos", () => {
   });
 });
 
-describe("manifest diff — segments", () => {
+describe("manifest diff — beats", () => {
   const PATH =
-    "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/_members.json";
+    "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/_members.json";
 
-  it("detects segment add", () => {
+  it("detects beat add", () => {
     const ctx = buildCtx();
     const stamp = stampCat(ctx.root, PATH);
     const before = JSON.parse(stamp.content);
@@ -299,7 +299,7 @@ describe("manifest diff — segments", () => {
     }
   });
 
-  it("detects segment delete", () => {
+  it("detects beat delete", () => {
     const ctx = buildCtx();
     const stamp = stampCat(ctx.root, PATH);
     const before = JSON.parse(stamp.content);
@@ -313,7 +313,7 @@ describe("manifest diff — segments", () => {
       expect(result.ops.filter((o) => o.type === "delete")).toHaveLength(1);
   });
 
-  it("detects segment reorder", () => {
+  it("detects beat reorder", () => {
     const ctx = buildCtx();
     const stamp = stampCat(ctx.root, PATH);
     const before = JSON.parse(stamp.content);
@@ -592,12 +592,12 @@ describe("R6 — identity errors", () => {
 });
 
 describe("unarchive restrictions", () => {
-  it("rejects unarchive of a segment (only lessons/videos allowed)", () => {
+  it("rejects unarchive of a beat (only lessons/videos allowed)", () => {
     const archived = new Map<string, ArchivedEntity>([
-      ["seg-archived", { entityType: "segment", parentLabel: "Video: take-1" }],
+      ["seg-archived", { entityType: "beat", parentLabel: "Video: take-1" }],
     ]);
     const PATH =
-      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/_members.json";
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/_members.json";
     const ctx = buildCtx(fullCourse, archived);
     const stamp = stampCat(ctx.root, PATH);
     const before = JSON.parse(stamp.content);
@@ -607,7 +607,7 @@ describe("unarchive restrictions", () => {
         JSON.stringify(
           [
             ...before,
-            { id: "seg-archived", kind: "quest", title: "Archived Segment" },
+            { id: "seg-archived", kind: "quest", title: "Archived Beat" },
           ],
           null,
           2

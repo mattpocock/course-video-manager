@@ -1,38 +1,35 @@
 import { cn } from "@/lib/utils";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
-import { CreateSegmentDialogProvider } from "@/features/segments/create-segment-dialog";
-import { SegmentDndProvider } from "@/features/segments/segment-dnd-context";
-import {
-  SegmentList,
-  type SegmentListSegment,
-} from "@/features/segments/segment-list";
-import type { SegmentTab } from "../segment-tab";
+import { CreateBeatDialogProvider } from "@/features/beats/create-beat-dialog";
+import { BeatDndProvider } from "@/features/beats/beat-dnd-context";
+import { BeatList, type BeatListBeat } from "@/features/beats/beat-list";
+import type { BeatTab } from "../beat-tab";
 import { ReferencePanel, type ReferenceCandidate } from "./reference-panel";
 
 /**
  * The editor's middle 40ch slot as a tabbed container holding two mutually
- * exclusive panels that share the space: **Segments** (this video's own plan)
+ * exclusive panels that share the space: **Beats** (this video's own plan)
  * and **Reference** (the sibling-video reader). "Reference" stays reserved for
- * the sibling reader — the segment view is the Segment Panel, never a
+ * the sibling reader — the beat view is the Beat Panel, never a
  * "reference".
  *
- * Tabs are available iff their content exists: the Segments tab iff the video
- * has ≥1 segment, the Reference tab iff a reference video is selected. The
+ * Tabs are available iff their content exists: the Beats tab iff the video
+ * has ≥1 beat, the Reference tab iff a reference video is selected. The
  * caller renders this only when at least one tab exists; the tab strip always
  * shows so the UI stays structurally stable when the second tab appears.
  */
 export function EditorSidePanel(props: {
-  activeTab: SegmentTab;
-  hasSegments: boolean;
+  activeTab: BeatTab;
+  hasBeats: boolean;
   hasReference: boolean;
-  onTabChange: (tab: SegmentTab) => void;
+  onTabChange: (tab: BeatTab) => void;
 
-  // Segments tab
+  // Beats tab
   videoId: string;
-  segments: SegmentListSegment[];
+  beats: BeatListBeat[];
   /** Read-only while a capture is in progress (recording or settling). */
-  isSegmentsReadOnly: boolean;
-  onSegmentEvent: (event: CourseEditorEvent) => void;
+  isBeatsReadOnly: boolean;
+  onBeatEvent: (event: CourseEditorEvent) => void;
 
   // Reference tab
   referenceCandidates: ReferenceCandidate[];
@@ -52,12 +49,12 @@ export function EditorSidePanel(props: {
   return (
     <div className="border rounded-lg bg-muted/30 flex flex-col min-h-0 h-full">
       <div className="flex items-center gap-1 px-1.5 py-1 border-b bg-muted/50 shrink-0">
-        {props.hasSegments && (
+        {props.hasBeats && (
           <TabButton
-            active={props.activeTab === "segments"}
-            onClick={() => props.onTabChange("segments")}
+            active={props.activeTab === "beats"}
+            onClick={() => props.onTabChange("beats")}
           >
-            Segments
+            Beats
           </TabButton>
         )}
         {props.hasReference && (
@@ -70,33 +67,33 @@ export function EditorSidePanel(props: {
         )}
       </div>
 
-      {props.activeTab === "segments" ? (
+      {props.activeTab === "beats" ? (
         <div className="overflow-y-auto flex-1 px-3 py-2">
-          <CreateSegmentDialogProvider submitEvent={props.onSegmentEvent}>
-            <SegmentDndProvider
+          <CreateBeatDialogProvider submitEvent={props.onBeatEvent}>
+            <BeatDndProvider
               videos={[
                 {
                   id: props.videoId,
-                  segments: props.segments.map((s) => ({ id: s.id })),
+                  beats: props.beats.map((s) => ({ id: s.id })),
                 },
               ]}
               onMove={(drop) =>
-                props.onSegmentEvent({
-                  type: "move-segment",
-                  segmentId: drop.segmentId,
+                props.onBeatEvent({
+                  type: "move-beat",
+                  beatId: drop.beatId,
                   targetVideoId: drop.targetVideoId,
-                  beforeSegmentId: drop.beforeSegmentId,
+                  beforeBeatId: drop.beforeBeatId,
                 })
               }
             >
-              <SegmentList
-                video={{ id: props.videoId, segments: props.segments }}
-                submitEvent={props.onSegmentEvent}
-                isReadOnly={props.isSegmentsReadOnly}
+              <BeatList
+                video={{ id: props.videoId, beats: props.beats }}
+                submitEvent={props.onBeatEvent}
+                isReadOnly={props.isBeatsReadOnly}
                 showDescriptions
               />
-            </SegmentDndProvider>
-          </CreateSegmentDialogProvider>
+            </BeatDndProvider>
+          </CreateBeatDialogProvider>
         </div>
       ) : props.referenceVideoId ? (
         <ReferencePanel

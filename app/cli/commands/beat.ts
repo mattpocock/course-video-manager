@@ -1,11 +1,8 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { SegmentOperationsService } from "@/services/db-segment-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import {
-  BEAT_KINDS,
-  DEFAULT_BEAT_KIND,
-} from "@/features/segments/segment-kinds";
+import { BEAT_KINDS, DEFAULT_BEAT_KIND } from "@/features/beats/beat-kinds";
 import {
   detail,
   emitNdjson,
@@ -112,8 +109,8 @@ const resolveBeforeBeatId = (params: {
       return null;
     }
 
-    const svc = yield* SegmentOperationsService;
-    const rows = (yield* svc.listSegmentsByVideoId(params.videoId)).filter(
+    const svc = yield* BeatOperationsService;
+    const rows = (yield* svc.listBeatsByVideoId(params.videoId)).filter(
       (s) => s.id !== params.excludeId
     );
 
@@ -179,9 +176,9 @@ const resolveTargetVideoId = (params: {
 
 const requireActiveBeat = (id: string) =>
   Effect.gen(function* () {
-    const svc = yield* SegmentOperationsService;
+    const svc = yield* BeatOperationsService;
     const row = yield* svc
-      .getSegmentById(id)
+      .getBeatById(id)
       .pipe(Effect.catchTag("NotFoundError", () => notFound("beat", id)));
     if (row.archived) {
       return yield* notFound("beat", id);
@@ -195,8 +192,8 @@ const requireActiveBeat = (id: string) =>
 
 const listCmd = Command.make("list", { video: videoListOption }, ({ video }) =>
   Effect.gen(function* () {
-    const svc = yield* SegmentOperationsService;
-    const rows = yield* svc.listSegmentsByVideoId(video);
+    const svc = yield* BeatOperationsService;
+    const rows = yield* svc.listBeatsByVideoId(video);
     yield* emitNdjson(rows);
   })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
@@ -220,8 +217,8 @@ const addCmd = Command.make(
         before,
         after,
       });
-      const svc = yield* SegmentOperationsService;
-      const beat = yield* svc.createSegment(
+      const svc = yield* BeatOperationsService;
+      const beat = yield* svc.createBeat(
         videoId,
         Option.getOrUndefined(kind) ?? DEFAULT_BEAT_KIND,
         beforeBeatId,
@@ -253,11 +250,11 @@ const updateCmd = Command.make(
         );
       }
 
-      const svc = yield* SegmentOperationsService;
+      const svc = yield* BeatOperationsService;
       let row = yield* requireActiveBeat(id);
-      if (t !== undefined) row = yield* svc.renameSegment(id, t);
-      if (d !== undefined) row = yield* svc.setSegmentDescription(id, d);
-      if (k !== undefined) row = yield* svc.setSegmentKind(id, k);
+      if (t !== undefined) row = yield* svc.renameBeat(id, t);
+      if (d !== undefined) row = yield* svc.setBeatDescription(id, d);
+      if (k !== undefined) row = yield* svc.setBeatKind(id, k);
       yield* emitObject(row);
     })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
@@ -272,7 +269,7 @@ const moveCmd = Command.make(
   },
   ({ id, video, before, after }) =>
     Effect.gen(function* () {
-      const svc = yield* SegmentOperationsService;
+      const svc = yield* BeatOperationsService;
       yield* requireActiveBeat(id);
       const beforeBeatId = yield* resolveBeforeBeatId({
         videoId: video,
@@ -281,7 +278,7 @@ const moveCmd = Command.make(
         excludeId: id,
       });
       const moved = yield* svc
-        .moveSegment(id, video, beforeBeatId)
+        .moveBeat(id, video, beforeBeatId)
         .pipe(
           Effect.catchTag("NotFoundError", (e) =>
             notFound("beat", (e.params as { id?: string }).id ?? id)
@@ -293,11 +290,11 @@ const moveCmd = Command.make(
 
 const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
   Effect.gen(function* () {
-    const svc = yield* SegmentOperationsService;
+    const svc = yield* BeatOperationsService;
     yield* requireActiveBeat(id);
-    yield* svc.deleteSegment(id);
+    yield* svc.deleteBeat(id);
     const archived = yield* svc
-      .getSegmentById(id)
+      .getBeatById(id)
       .pipe(Effect.catchTag("NotFoundError", () => notFound("beat", id)));
     yield* emitObject(archived);
   })

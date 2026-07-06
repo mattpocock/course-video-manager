@@ -18,7 +18,7 @@ import { useSilenceLength } from "@/features/video-editor/use-silence-length";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { SegmentOperationsService } from "@/services/db-segment-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
@@ -163,13 +163,13 @@ export const loader = makeLoader({
     Effect.gen(function* () {
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
-      const segmentOps = yield* SegmentOperationsService;
+      const beatOps = yield* BeatOperationsService;
       const video = yield* videoOps.getVideoWithClipsById(videoId);
 
-      // This video's own Segment plan, shown (and edited, when idle) in the
-      // editor's Segment Panel. See docs/adr/0015-video-level-segment-planning.
-      const segmentRows = yield* segmentOps.listSegmentsByVideoId(videoId);
-      const segments = segmentRows.map((s) => ({
+      // This video's own Beat plan, shown (and edited, when idle) in the
+      // editor's Beat Panel. See docs/adr/0015-video-level-segment-planning.
+      const beatRows = yield* beatOps.listBeatsByVideoId(videoId);
+      const beats = beatRows.map((s) => ({
         id: s.id,
         videoId: s.videoId,
         kind: s.kind,
@@ -225,7 +225,7 @@ export const loader = makeLoader({
         whiteNoiseAssetPath,
         fsData,
         referenceCandidates,
-        segments,
+        beats,
       };
     }),
 });
@@ -484,7 +484,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       fsData={props.loaderData.fsData}
       videoCount={props.loaderData.videoCount}
       referenceCandidates={props.loaderData.referenceCandidates}
-      segments={props.loaderData.segments}
+      beats={props.loaderData.beats}
       onAddReferenceChapterAt={({
         videoId,
         targetItemId,

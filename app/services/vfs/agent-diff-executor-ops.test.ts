@@ -5,7 +5,7 @@ import {
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/pglite";
-import { lessons, videos, clips, chapters, segments } from "@/db/schema";
+import { lessons, videos, clips, chapters, beats } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import {
   LESSON_ID,
@@ -13,7 +13,7 @@ import {
   VIDEO_ID,
   seedGhostCourse,
   seedVideoWithClips,
-  seedVideoWithSegments,
+  seedVideoWithBeats,
   buildVfsFromDb,
   buildCtxFromDb,
   runExecutor,
@@ -86,7 +86,7 @@ describe("agent-diff-executor ops", () => {
       );
       expect(
         (await testDb.query.sections.findFirst({
-          where: eq(segments.id, SECTION_ID),
+          where: eq(beats.id, SECTION_ID),
         }))!.description
       ).toBe("New section desc");
     });
@@ -152,13 +152,13 @@ describe("agent-diff-executor ops", () => {
       ).toBe("Renamed Chapter");
     });
 
-    it("edits segment title and kind", async () => {
-      await seedVideoWithSegments(testDb);
+    it("edits beat title and kind", async () => {
+      await seedVideoWithBeats(testDb);
       const root = await buildVfsFromDb(testDb);
       const ctx = buildCtxFromDb(
         testDb,
         null,
-        `/courses/test-course/sections/basics/lessons/intro/videos/vid-01/segments/seg-1.json`,
+        `/courses/test-course/sections/basics/lessons/intro/videos/vid-01/beats/seg-1.json`,
         root
       );
       await runExecutor(
@@ -166,16 +166,16 @@ describe("agent-diff-executor ops", () => {
         [
           {
             type: "edit",
-            entityType: "segment",
+            entityType: "beat",
             target: "seg-1",
             id: "seg-1",
             field: "title",
-            before: "Segment One",
-            after: "Renamed Segment",
+            before: "Beat One",
+            after: "Renamed Beat",
           },
           {
             type: "edit",
-            entityType: "segment",
+            entityType: "beat",
             target: "seg-1",
             id: "seg-1",
             field: "kind",
@@ -185,10 +185,10 @@ describe("agent-diff-executor ops", () => {
         ],
         ctx
       );
-      const seg = (await testDb.query.segments.findFirst({
-        where: eq(segments.id, "seg-1"),
+      const seg = (await testDb.query.beats.findFirst({
+        where: eq(beats.id, "seg-1"),
       }))!;
-      expect(seg.title).toBe("Renamed Segment");
+      expect(seg.title).toBe("Renamed Beat");
       expect(seg.kind).toBe("demo");
     });
   });
@@ -196,14 +196,12 @@ describe("agent-diff-executor ops", () => {
   describe("delete ops (soft-delete)", () => {
     it("soft-deletes a lesson without cascading to children", async () => {
       await seedGhostCourse(testDb);
-      await testDb
-        .insert(videos)
-        .values({
-          id: VIDEO_ID,
-          lessonId: LESSON_ID,
-          path: "vid-01",
-          originalFootagePath: "/footage/01",
-        });
+      await testDb.insert(videos).values({
+        id: VIDEO_ID,
+        lessonId: LESSON_ID,
+        path: "vid-01",
+        originalFootagePath: "/footage/01",
+      });
       const root = await buildVfsFromDb(testDb);
       const ctx = buildCtxFromDb(
         testDb,
@@ -263,13 +261,13 @@ describe("agent-diff-executor ops", () => {
       ).toBe(true);
     });
 
-    it("soft-deletes a segment", async () => {
-      await seedVideoWithSegments(testDb);
+    it("soft-deletes a beat", async () => {
+      await seedVideoWithBeats(testDb);
       const root = await buildVfsFromDb(testDb);
       const ctx = buildCtxFromDb(
         testDb,
         null,
-        `/courses/test-course/sections/basics/lessons/intro/videos/vid-01/segments/_members.json`,
+        `/courses/test-course/sections/basics/lessons/intro/videos/vid-01/beats/_members.json`,
         root
       );
       await runExecutor(
@@ -277,7 +275,7 @@ describe("agent-diff-executor ops", () => {
         [
           {
             type: "delete",
-            entityType: "segment",
+            entityType: "beat",
             target: "seg-1",
             id: "seg-1",
           },
@@ -285,22 +283,20 @@ describe("agent-diff-executor ops", () => {
         ctx
       );
       expect(
-        (await testDb.query.segments.findFirst({
-          where: eq(segments.id, "seg-1"),
+        (await testDb.query.beats.findFirst({
+          where: eq(beats.id, "seg-1"),
         }))!.archived
       ).toBe(true);
     });
 
     it("soft-deletes a video", async () => {
       await seedGhostCourse(testDb);
-      await testDb
-        .insert(videos)
-        .values({
-          id: VIDEO_ID,
-          lessonId: LESSON_ID,
-          path: "vid-01",
-          originalFootagePath: "/footage/01",
-        });
+      await testDb.insert(videos).values({
+        id: VIDEO_ID,
+        lessonId: LESSON_ID,
+        path: "vid-01",
+        originalFootagePath: "/footage/01",
+      });
       const root = await buildVfsFromDb(testDb);
       const ctx = buildCtxFromDb(
         testDb,
@@ -402,16 +398,14 @@ describe("agent-diff-executor ops", () => {
   describe("reorder ops", () => {
     it("reorders lessons with sequential integers", async () => {
       await seedGhostCourse(testDb);
-      await testDb
-        .insert(lessons)
-        .values({
-          id: "les-2",
-          sectionId: SECTION_ID,
-          path: "second",
-          title: "Second Lesson",
-          fsStatus: "ghost",
-          order: 1,
-        });
+      await testDb.insert(lessons).values({
+        id: "les-2",
+        sectionId: SECTION_ID,
+        path: "second",
+        title: "Second Lesson",
+        fsStatus: "ghost",
+        order: 1,
+      });
       const root = await buildVfsFromDb(testDb);
       const ctx = buildCtxFromDb(
         testDb,
@@ -442,13 +436,13 @@ describe("agent-diff-executor ops", () => {
       expect(reordered[1]!.id).toBe(LESSON_ID);
     });
 
-    it("reorders segments with fractional keys", async () => {
-      await seedVideoWithSegments(testDb);
+    it("reorders beats with fractional keys", async () => {
+      await seedVideoWithBeats(testDb);
       const root = await buildVfsFromDb(testDb);
       const ctx = buildCtxFromDb(
         testDb,
         null,
-        `/courses/test-course/sections/basics/lessons/intro/videos/vid-01/segments/_members.json`,
+        `/courses/test-course/sections/basics/lessons/intro/videos/vid-01/beats/_members.json`,
         root
       );
       await runExecutor(
@@ -456,19 +450,19 @@ describe("agent-diff-executor ops", () => {
         [
           {
             type: "reorder",
-            entityType: "segment",
+            entityType: "beat",
             target: "_members.json",
             order: [
-              { id: "seg-2", label: "Segment Two", fromIndex: 1, toIndex: 0 },
-              { id: "seg-1", label: "Segment One", fromIndex: 0, toIndex: 1 },
+              { id: "seg-2", label: "Beat Two", fromIndex: 1, toIndex: 0 },
+              { id: "seg-1", label: "Beat One", fromIndex: 0, toIndex: 1 },
             ],
           },
         ],
         ctx
       );
-      const reordered = await testDb.query.segments.findMany({
-        where: eq(segments.videoId, VIDEO_ID),
-        orderBy: asc(segments.order),
+      const reordered = await testDb.query.beats.findMany({
+        where: eq(beats.videoId, VIDEO_ID),
+        orderBy: asc(beats.order),
       });
       expect(reordered[0]!.id).toBe("seg-2");
       expect(reordered[1]!.id).toBe("seg-1");

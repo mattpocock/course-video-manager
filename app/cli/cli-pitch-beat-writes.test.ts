@@ -226,11 +226,11 @@ describe("beat add --pitch (resolve-or-create the pitch's video)", () => {
     expect(seg.title).toBe("Try it");
     // The pitch now has exactly one video, carrying that beat.
     const pitch = one<{
-      videos: Array<{ id: string; segments: Array<{ id: string }> }>;
+      videos: Array<{ id: string; beats: Array<{ id: string }> }>;
     }>((await run(["pitch", "get", s.pitchActiveId])).stdout);
     expect(pitch.videos).toHaveLength(1);
     expect(pitch.videos[0]!.id).toBe(seg.videoId);
-    expect(pitch.videos[0]!.segments.map((x) => x.id)).toContain(seg.id);
+    expect(pitch.videos[0]!.beats.map((x) => x.id)).toContain(seg.id);
   });
 
   it("with exactly 1 video, adds to that video (no new video)", async () => {

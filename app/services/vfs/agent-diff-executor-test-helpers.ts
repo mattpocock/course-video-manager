@@ -13,7 +13,7 @@ import {
   generateSectionLeaf,
   generateLessonLeaf,
   generateVideoLeaf,
-  generateSortedSegments,
+  generateSortedBeats,
   generateSortedTimelineItems,
 } from "./vfs-leaves";
 import {
@@ -24,7 +24,7 @@ import {
   videos,
   clips,
   chapters,
-  segments,
+  beats,
 } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { DrizzleService } from "@/services/drizzle-service.server";
@@ -36,79 +36,65 @@ export const LESSON_ID = "les-1";
 export const VIDEO_ID = "vid-1";
 
 export async function seedGhostCourse(testDb: TestDb) {
-  await testDb
-    .insert(courses)
-    .values({
-      id: COURSE_ID,
-      name: "Test Course",
-      slug: "test-course",
-      filePath: null,
-    });
+  await testDb.insert(courses).values({
+    id: COURSE_ID,
+    name: "Test Course",
+    slug: "test-course",
+    filePath: null,
+  });
   await testDb
     .insert(courseVersions)
     .values({ id: VERSION_ID, repoId: COURSE_ID, name: "v1" });
-  await testDb
-    .insert(sections)
-    .values({
-      id: SECTION_ID,
-      repoVersionId: VERSION_ID,
-      path: "basics",
-      order: 0,
-    });
-  await testDb
-    .insert(lessons)
-    .values({
-      id: LESSON_ID,
-      sectionId: SECTION_ID,
-      path: "intro",
-      title: "Introduction",
-      fsStatus: "ghost",
-      order: 0,
-    });
+  await testDb.insert(sections).values({
+    id: SECTION_ID,
+    repoVersionId: VERSION_ID,
+    path: "basics",
+    order: 0,
+  });
+  await testDb.insert(lessons).values({
+    id: LESSON_ID,
+    sectionId: SECTION_ID,
+    path: "intro",
+    title: "Introduction",
+    fsStatus: "ghost",
+    order: 0,
+  });
 }
 
 export async function seedRealCourse(testDb: TestDb) {
-  await testDb
-    .insert(courses)
-    .values({
-      id: COURSE_ID,
-      name: "Test Course",
-      slug: "test-course",
-      filePath: "/repo/test-course",
-    });
+  await testDb.insert(courses).values({
+    id: COURSE_ID,
+    name: "Test Course",
+    slug: "test-course",
+    filePath: "/repo/test-course",
+  });
   await testDb
     .insert(courseVersions)
     .values({ id: VERSION_ID, repoId: COURSE_ID, name: "v1" });
-  await testDb
-    .insert(sections)
-    .values({
-      id: SECTION_ID,
-      repoVersionId: VERSION_ID,
-      path: "basics",
-      order: 0,
-    });
-  await testDb
-    .insert(lessons)
-    .values({
-      id: LESSON_ID,
-      sectionId: SECTION_ID,
-      path: "intro",
-      title: "Introduction",
-      fsStatus: "ghost",
-      order: 0,
-    });
+  await testDb.insert(sections).values({
+    id: SECTION_ID,
+    repoVersionId: VERSION_ID,
+    path: "basics",
+    order: 0,
+  });
+  await testDb.insert(lessons).values({
+    id: LESSON_ID,
+    sectionId: SECTION_ID,
+    path: "intro",
+    title: "Introduction",
+    fsStatus: "ghost",
+    order: 0,
+  });
 }
 
 export async function seedVideoWithClips(testDb: TestDb) {
   await seedGhostCourse(testDb);
-  await testDb
-    .insert(videos)
-    .values({
-      id: VIDEO_ID,
-      lessonId: LESSON_ID,
-      path: "vid-01",
-      originalFootagePath: "/footage/01",
-    });
+  await testDb.insert(videos).values({
+    id: VIDEO_ID,
+    lessonId: LESSON_ID,
+    path: "vid-01",
+    originalFootagePath: "/footage/01",
+  });
   await testDb.insert(clips).values([
     {
       id: "clip-a",
@@ -129,39 +115,35 @@ export async function seedVideoWithClips(testDb: TestDb) {
       text: "World",
     },
   ]);
-  await testDb
-    .insert(chapters)
-    .values({
-      id: "chap-1",
-      videoId: VIDEO_ID,
-      name: "Chapter One",
-      order: "a0V",
-    });
+  await testDb.insert(chapters).values({
+    id: "chap-1",
+    videoId: VIDEO_ID,
+    name: "Chapter One",
+    order: "a0V",
+  });
 }
 
-export async function seedVideoWithSegments(testDb: TestDb) {
+export async function seedVideoWithBeats(testDb: TestDb) {
   await seedGhostCourse(testDb);
-  await testDb
-    .insert(videos)
-    .values({
-      id: VIDEO_ID,
-      lessonId: LESSON_ID,
-      path: "vid-01",
-      originalFootagePath: "/footage/01",
-    });
-  await testDb.insert(segments).values([
+  await testDb.insert(videos).values({
+    id: VIDEO_ID,
+    lessonId: LESSON_ID,
+    path: "vid-01",
+    originalFootagePath: "/footage/01",
+  });
+  await testDb.insert(beats).values([
     {
       id: "seg-1",
       videoId: VIDEO_ID,
       kind: "definition",
-      title: "Segment One",
+      title: "Beat One",
       order: "a0",
     },
     {
       id: "seg-2",
       videoId: VIDEO_ID,
       kind: "demo",
-      title: "Segment Two",
+      title: "Beat Two",
       order: "a1",
     },
   ]);
@@ -205,9 +187,9 @@ export async function buildVfsFromDb(
                     with: {
                       clips: { orderBy: asc(clips.order) },
                       chapters: { orderBy: asc(chapters.order) },
-                      segments: {
-                        where: eq(segments.archived, false),
-                        orderBy: asc(segments.order),
+                      beats: {
+                        where: eq(beats.archived, false),
+                        orderBy: asc(beats.order),
                       },
                     },
                   },
@@ -261,7 +243,7 @@ export async function buildVfsFromDb(
             clips: video.clips,
             chapters: video.chapters,
           }),
-          segments: generateSortedSegments(video.segments),
+          beats: generateSortedBeats(video.beats),
           timelineItems: generateSortedTimelineItems(
             video.clips,
             video.chapters

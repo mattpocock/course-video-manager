@@ -52,7 +52,7 @@ COPY FIELDS
 VERBS
   list   — every active pitch (optionally filtered by --state). Identity-rich.
   get    — one or more pitches by id, deep (linked Standalone Videos + their
-           Clips and planning Segments).
+           Clips and planning Beats).
   create — create a Pitch (WRITE). --title required; other copy/ranking fields
            optional. (A pitch needs a title to appear in list/get.)
   update — patch a Pitch's copy/ranking fields (WRITE). Rename = --title.
@@ -110,7 +110,7 @@ Each pitch includes its derived 'state' (idle | scheduled | shipped) plus the
 deep relations:
   - videos   — the linked Standalone Videos (active only), each with:
                  * clips    — recorded-timeline Clips (active, ordered).
-                 * segments — the video's planning Segments (active, ordered):
+                 * beats — the video's planning Beats (active, ordered):
                               {id, kind, title, description, order, videoId}.
 The packaging copy fields (title, description, contentPlan, youtubeTitle,
 youtubeThumbnailDescription, newsletterTitle, tweet) and ranking fields

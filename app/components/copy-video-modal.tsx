@@ -17,7 +17,7 @@ export function CopyVideoModal(props: {
   videoId: string;
   videoPath: string;
   clipCount: number;
-  segmentCount: number;
+  beatCount: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCopy?: () => void;
@@ -25,20 +25,18 @@ export function CopyVideoModal(props: {
   const fetcher = useFetcher();
   const [options, setOptions] = useVideoCopyOptions();
   const copyClipsDisabled = props.clipCount === 0;
-  const copySegmentsDisabled = props.segmentCount === 0;
+  const copyBeatsDisabled = props.beatCount === 0;
 
   // Track checkbox state with refs so we can read them on submit without
   // needing controlled inputs (mirrors the uncontrolled pattern of the name input).
   // We show the stored preference but force false when the count is zero.
   const copyClipsChecked = copyClipsDisabled ? false : options.copyClips;
-  const copySegmentsChecked = copySegmentsDisabled
-    ? false
-    : options.copySegments;
+  const copyBeatsChecked = copyBeatsDisabled ? false : options.copyBeats;
 
   const copyClipsRef = useRef(copyClipsChecked);
   copyClipsRef.current = copyClipsChecked;
-  const copySegmentsRef = useRef(copySegmentsChecked);
-  copySegmentsRef.current = copySegmentsChecked;
+  const copyBeatsRef = useRef(copyBeatsChecked);
+  copyBeatsRef.current = copyBeatsChecked;
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -60,13 +58,13 @@ export function CopyVideoModal(props: {
             const newCopyClips = copyClipsDisabled
               ? options.copyClips
               : formData.get("copyClips") === "on";
-            const newCopySegments = copySegmentsDisabled
-              ? options.copySegments
-              : formData.get("copySegments") === "on";
+            const newCopyBeats = copyBeatsDisabled
+              ? options.copyBeats
+              : formData.get("copyBeats") === "on";
 
             setOptions({
               copyClips: newCopyClips,
-              copySegments: newCopySegments,
+              copyBeats: newCopyBeats,
             });
 
             await fetcher.submit(e.currentTarget);
@@ -105,16 +103,16 @@ export function CopyVideoModal(props: {
 
             <div className="flex items-center gap-2">
               <Checkbox
-                id="copy-segments"
-                name="copySegments"
-                defaultChecked={copySegmentsChecked}
-                disabled={copySegmentsDisabled}
+                id="copy-beats"
+                name="copyBeats"
+                defaultChecked={copyBeatsChecked}
+                disabled={copyBeatsDisabled}
               />
               <Label
-                htmlFor="copy-segments"
-                className={copySegmentsDisabled ? "text-muted-foreground" : ""}
+                htmlFor="copy-beats"
+                className={copyBeatsDisabled ? "text-muted-foreground" : ""}
               >
-                Copy segments ({props.segmentCount})
+                Copy beats ({props.beatCount})
               </Label>
             </div>
           </div>

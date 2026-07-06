@@ -160,10 +160,10 @@ describe("leaf diff — edit fields", () => {
       expect((result.ops[0] as EditFieldOp).entityType).toBe("chapter");
   });
 
-  it("detects segment field edits", () => {
+  it("detects beat field edits", () => {
     const ctx = buildCtx();
     const path =
-      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/00-intro.json";
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/00-intro.json";
     const stamp = stampCat(ctx.root, path);
     const before = JSON.parse(stamp.content);
     const result = deriveDiff(

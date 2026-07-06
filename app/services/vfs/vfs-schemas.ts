@@ -41,13 +41,13 @@ export const VideoLeafSchema = z.object({
 });
 export type VideoLeaf = z.infer<typeof VideoLeafSchema>;
 
-export const SegmentLeafSchema = z.object({
+export const BeatLeafSchema = z.object({
   id: z.string(),
   kind: z.string(),
   title: z.string(),
   description: z.string(),
 });
-export type SegmentLeaf = z.infer<typeof SegmentLeafSchema>;
+export type BeatLeaf = z.infer<typeof BeatLeafSchema>;
 
 export const ClipLeafSchema = z.object({
   type: z.literal("clip"),
@@ -88,12 +88,12 @@ export const VideoMemberSchema = z.object({
 });
 export type VideoMember = z.infer<typeof VideoMemberSchema>;
 
-export const SegmentMemberSchema = z.object({
+export const BeatMemberSchema = z.object({
   id: z.string(),
   kind: z.string(),
   title: z.string(),
 });
-export type SegmentMember = z.infer<typeof SegmentMemberSchema>;
+export type BeatMember = z.infer<typeof BeatMemberSchema>;
 
 export const TimelineMemberSchema = z.object({
   id: z.string(),
@@ -106,5 +106,5 @@ export type MembersLeaf =
   | SectionMember[]
   | LessonMember[]
   | VideoMember[]
-  | SegmentMember[]
+  | BeatMember[]
   | TimelineMember[];

@@ -322,8 +322,8 @@ describe("getCourseStructureById", () => {
   );
 });
 
-describe("getCourseWithSlimClipsById - archived segment filtering", () => {
-  it.effect("excludes archived segments from results", () =>
+describe("getCourseWithSlimClipsById - archived beat filtering", () => {
+  it.effect("excludes archived beats from results", () =>
     Effect.gen(function* () {
       const { courseId } = yield* Effect.promise(() => buildCourseWithVideos());
 
@@ -332,18 +332,18 @@ describe("getCourseWithSlimClipsById - archived segment filtering", () => {
       );
 
       yield* Effect.promise(() =>
-        testDb.insert(schema.segments).values([
+        testDb.insert(schema.beats).values([
           {
             videoId: videoRow!.id,
             kind: "definition",
-            title: "Active Segment",
+            title: "Active Beat",
             order: "a0",
             archived: false,
           },
           {
             videoId: videoRow!.id,
             kind: "quest",
-            title: "Archived Segment",
+            title: "Archived Beat",
             order: "a1",
             archived: true,
           },
@@ -354,8 +354,8 @@ describe("getCourseWithSlimClipsById - archived segment filtering", () => {
       const result = yield* courseOps.getCourseWithSlimClipsById(courseId);
 
       const video = result.versions[0]!.sections[0]!.lessons[0]!.videos[0]!;
-      expect(video.segments).toHaveLength(1);
-      expect(video.segments[0]!.title).toBe("Active Segment");
+      expect(video.beats).toHaveLength(1);
+      expect(video.beats[0]!.title).toBe("Active Beat");
     }).pipe(Effect.provide(testLayer))
   );
 });

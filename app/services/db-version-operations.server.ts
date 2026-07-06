@@ -9,7 +9,7 @@ import {
   courses,
   courseVersions,
   sections,
-  segments,
+  beats,
   thumbnails,
   videos,
 } from "@/db/schema";
@@ -358,9 +358,9 @@ export const createVersionOperations = (db: Database) => {
                       orderBy: asc(chapters.order),
                       where: eq(chapters.archived, false),
                     },
-                    segments: {
-                      orderBy: asc(segments.order),
-                      where: eq(segments.archived, false),
+                    beats: {
+                      orderBy: asc(beats.order),
+                      where: eq(beats.archived, false),
                     },
                     thumbnails: true,
                   },
@@ -471,15 +471,15 @@ export const createVersionOperations = (db: Database) => {
               );
             }
 
-            if (sourceVideo.segments.length > 0) {
+            if (sourceVideo.beats.length > 0) {
               yield* makeDbCall(() =>
-                db.insert(segments).values(
-                  sourceVideo.segments.map((segment) => ({
+                db.insert(beats).values(
+                  sourceVideo.beats.map((beat) => ({
                     videoId: newVideo.id,
-                    kind: segment.kind,
-                    title: segment.title,
-                    description: segment.description,
-                    order: segment.order,
+                    kind: beat.kind,
+                    title: beat.title,
+                    description: beat.description,
+                    order: beat.order,
                   }))
                 )
               );

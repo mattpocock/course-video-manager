@@ -4,7 +4,7 @@ import {
   generateSectionLeaf,
   generateLessonLeaf,
   generateVideoLeaf,
-  generateSortedSegments,
+  generateSortedBeats,
   generateSortedTimelineItems,
 } from "./vfs-leaves";
 import {
@@ -12,7 +12,7 @@ import {
   SectionLeafSchema,
   LessonLeafSchema,
   VideoLeafSchema,
-  SegmentLeafSchema,
+  BeatLeafSchema,
   ClipLeafSchema,
   ChapterLeafSchema,
 } from "./vfs-schemas";
@@ -251,9 +251,9 @@ describe("generateVideoLeaf", () => {
   });
 });
 
-describe("generateSortedSegments", () => {
-  it("validates each item against SegmentLeafSchema", () => {
-    const items = generateSortedSegments([
+describe("generateSortedBeats", () => {
+  it("validates each item against BeatLeafSchema", () => {
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",
@@ -270,12 +270,12 @@ describe("generateSortedSegments", () => {
       },
     ]);
     for (const item of items) {
-      expect(SegmentLeafSchema.parse(item)).toEqual(item);
+      expect(BeatLeafSchema.parse(item)).toEqual(item);
     }
   });
 
-  it("sorts segments by order", () => {
-    const items = generateSortedSegments([
+  it("sorts beats by order", () => {
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",
@@ -296,7 +296,7 @@ describe("generateSortedSegments", () => {
   });
 
   it("does not include order in output items", () => {
-    const items = generateSortedSegments([
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",
@@ -308,12 +308,12 @@ describe("generateSortedSegments", () => {
     expect(items[0]).not.toHaveProperty("order");
   });
 
-  it("returns empty array for no segments", () => {
-    expect(generateSortedSegments([])).toEqual([]);
+  it("returns empty array for no beats", () => {
+    expect(generateSortedBeats([])).toEqual([]);
   });
 
-  it("excludes archived segments", () => {
-    const items = generateSortedSegments([
+  it("excludes archived beats", () => {
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",

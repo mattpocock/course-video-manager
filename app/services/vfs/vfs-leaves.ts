@@ -10,7 +10,7 @@ import type {
   CourseLeaf,
   LessonLeaf,
   SectionLeaf,
-  SegmentLeaf,
+  BeatLeaf,
   VideoLeaf,
 } from "./vfs-schemas";
 
@@ -53,7 +53,7 @@ export type VideoInput = {
   chapters: ReadonlyArray<{ order: string; archived: boolean }>;
 };
 
-export type SegmentInput = {
+export type BeatInput = {
   id: string;
   kind: string;
   title: string;
@@ -142,10 +142,10 @@ export const generateVideoLeaf = (video: VideoInput): VideoLeaf => {
   };
 };
 
-export const generateSortedSegments = (
-  segments: ReadonlyArray<SegmentInput>
-): SegmentLeaf[] => {
-  const live = segments.filter((s) => !s.archived);
+export const generateSortedBeats = (
+  beats: ReadonlyArray<BeatInput>
+): BeatLeaf[] => {
+  const live = beats.filter((s) => !s.archived);
   const sorted = sortByOrder(live.map((s) => ({ ...s })));
 
   return sorted.map((s) => ({

@@ -171,7 +171,7 @@ describe("buildVfsTree", () => {
                       originalFootagePath: "/raw.mp4",
                       warnings: [],
                     },
-                    segments: [],
+                    beats: [],
                     timelineItems: [],
                   },
                 ],
@@ -191,7 +191,7 @@ describe("buildVfsTree", () => {
     }
   });
 
-  it("creates full hierarchy with segments/ and timeline/ directories", () => {
+  it("creates full hierarchy with beats/ and timeline/ directories", () => {
     const root = buildVfsTree([
       makeCourseEntry({
         sections: [
@@ -228,7 +228,7 @@ describe("buildVfsTree", () => {
                       originalFootagePath: "/raw.mp4",
                       warnings: [],
                     },
-                    segments: [
+                    beats: [
                       {
                         id: "seg1",
                         kind: "definition",
@@ -267,11 +267,11 @@ describe("buildVfsTree", () => {
       "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1";
 
     expect(lookupPath(root, `${videoBase}/video.json`).type).toBe("file");
-    expect(lookupPath(root, `${videoBase}/segments`).type).toBe("dir");
-    expect(lookupPath(root, `${videoBase}/segments/_members.json`).type).toBe(
+    expect(lookupPath(root, `${videoBase}/beats`).type).toBe("dir");
+    expect(lookupPath(root, `${videoBase}/beats/_members.json`).type).toBe(
       "file"
     );
-    expect(lookupPath(root, `${videoBase}/segments/00-intro.json`).type).toBe(
+    expect(lookupPath(root, `${videoBase}/beats/00-intro.json`).type).toBe(
       "file"
     );
     expect(lookupPath(root, `${videoBase}/timeline`).type).toBe("dir");
@@ -323,7 +323,7 @@ describe("buildVfsTree", () => {
                       originalFootagePath: "/raw.mp4",
                       warnings: [],
                     },
-                    segments: [],
+                    beats: [],
                     timelineItems: [
                       { type: "chapter", id: "ch1", name: "Opening" },
                       {
@@ -516,7 +516,7 @@ describe("ghost handling", () => {
 });
 
 describe("video without timeline (ghost lesson's video)", () => {
-  it("omits timeline/ and segments/ dirs when empty", () => {
+  it("omits timeline/ and beats/ dirs when empty", () => {
     const root = buildVfsTree([
       makeCourseEntry({
         sections: [
@@ -553,7 +553,7 @@ describe("video without timeline (ghost lesson's video)", () => {
                       originalFootagePath: "/raw.mp4",
                       warnings: [],
                     },
-                    segments: [],
+                    beats: [],
                     timelineItems: [],
                   },
                 ],
@@ -568,7 +568,7 @@ describe("video without timeline (ghost lesson's video)", () => {
       "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1";
 
     expect(lookupPath(root, `${videoBase}/timeline`).type).toBe("not-found");
-    expect(lookupPath(root, `${videoBase}/segments`).type).toBe("not-found");
+    expect(lookupPath(root, `${videoBase}/beats`).type).toBe("not-found");
     expect(lookupPath(root, `${videoBase}/video.json`).type).toBe("file");
   });
 });

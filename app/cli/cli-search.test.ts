@@ -86,11 +86,11 @@ describe("search", () => {
     expect(hits[1].id).toBe(s.lessonVideoId);
   });
 
-  it("matches an active segment but excludes archived segments", async () => {
+  it("matches an active beat but excludes archived beats", async () => {
     const { stdout } = await run(["search", "beat"]);
     const hits = ndjson(stdout) as any[];
     expect(hits).toHaveLength(1);
-    expect(hits[0]).toMatchObject({ kind: "segment", title: "Active beat" });
+    expect(hits[0]).toMatchObject({ kind: "beat", title: "Active beat" });
   });
 
   it("matches an active pitch (top-level only) and excludes archived pitches", async () => {

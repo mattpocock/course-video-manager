@@ -4,12 +4,12 @@ const STORAGE_KEY = "video-copy:options";
 
 export interface VideoCopyOptions {
   copyClips: boolean;
-  copySegments: boolean;
+  copyBeats: boolean;
 }
 
 const DEFAULT_OPTIONS: VideoCopyOptions = {
   copyClips: true,
-  copySegments: true,
+  copyBeats: true,
 };
 
 const readStoredOptions = (): VideoCopyOptions => {
@@ -20,7 +20,7 @@ const readStoredOptions = (): VideoCopyOptions => {
       const parsed = JSON.parse(raw) as Partial<VideoCopyOptions>;
       return {
         copyClips: parsed.copyClips ?? true,
-        copySegments: parsed.copySegments ?? true,
+        copyBeats: parsed.copyBeats ?? true,
       };
     }
   } catch {

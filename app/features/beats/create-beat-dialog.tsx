@@ -26,81 +26,81 @@ import {
   BEAT_KIND_ICONS,
   BEAT_KIND_LABELS,
   type BeatKind,
-} from "./segment-kinds";
+} from "./beat-kinds";
 
 /**
- * Where a new Segment should land. The kind chosen from the "Add segment" menu
+ * Where a new Beat should land. The kind chosen from the "Add beat" menu
  * seeds the dialog, but the user can change it there before confirming.
  */
-type CreateSegmentIntent = {
+type CreateBeatIntent = {
   videoId: string;
   kind: BeatKind;
-  beforeSegmentId: string | null;
+  beforeBeatId: string | null;
 };
 
-const RequestCreateSegmentContext = createContext<
-  (intent: CreateSegmentIntent) => void
+const RequestCreateBeatContext = createContext<
+  (intent: CreateBeatIntent) => void
 >(() => {});
 
 /**
- * Open the "new Segment" dialog seeded with a kind and insertion anchor. The
+ * Open the "new Beat" dialog seeded with a kind and insertion anchor. The
  * caller still picks the kind from its menu; the dialog lets the user name the
- * Segment (and reconsider the kind) before it's created. No-op without a
- * surrounding {@link CreateSegmentDialogProvider}.
+ * Beat (and reconsider the kind) before it's created. No-op without a
+ * surrounding {@link CreateBeatDialogProvider}.
  */
-export function useRequestCreateSegment() {
-  return useContext(RequestCreateSegmentContext);
+export function useRequestCreateBeat() {
+  return useContext(RequestCreateBeatContext);
 }
 
 /**
- * Hosts the single create-Segment dialog for a surface and exposes
- * {@link useRequestCreateSegment} to open it. On confirm it emits a
- * `create-segment` event carrying the typed title, chosen kind, and anchor.
+ * Hosts the single create-Beat dialog for a surface and exposes
+ * {@link useRequestCreateBeat} to open it. On confirm it emits a
+ * `create-beat` event carrying the typed title, chosen kind, and anchor.
  */
-export function CreateSegmentDialogProvider({
+export function CreateBeatDialogProvider({
   submitEvent,
   children,
 }: {
   submitEvent: (event: CourseEditorEvent) => void;
   children: ReactNode;
 }) {
-  const [intent, setIntent] = useState<CreateSegmentIntent | null>(null);
+  const [intent, setIntent] = useState<CreateBeatIntent | null>(null);
 
-  const request = useCallback((next: CreateSegmentIntent) => {
+  const request = useCallback((next: CreateBeatIntent) => {
     setIntent(next);
   }, []);
 
   return (
-    <RequestCreateSegmentContext.Provider value={request}>
+    <RequestCreateBeatContext.Provider value={request}>
       {children}
       {intent && (
-        <CreateSegmentDialog
+        <CreateBeatDialog
           // Remount per request so the form resets to the seeded kind/empty title.
-          key={`${intent.videoId}:${intent.beforeSegmentId}:${intent.kind}`}
+          key={`${intent.videoId}:${intent.beforeBeatId}:${intent.kind}`}
           intent={intent}
           onClose={() => setIntent(null)}
           onConfirm={(title, kind) => {
             submitEvent({
-              type: "create-segment",
+              type: "create-beat",
               videoId: intent.videoId,
               kind,
               title,
-              beforeSegmentId: intent.beforeSegmentId,
+              beforeBeatId: intent.beforeBeatId,
             });
             setIntent(null);
           }}
         />
       )}
-    </RequestCreateSegmentContext.Provider>
+    </RequestCreateBeatContext.Provider>
   );
 }
 
-function CreateSegmentDialog({
+function CreateBeatDialog({
   intent,
   onClose,
   onConfirm,
 }: {
-  intent: CreateSegmentIntent;
+  intent: CreateBeatIntent;
   onClose: () => void;
   onConfirm: (title: string, kind: BeatKind) => void;
 }) {
@@ -129,17 +129,17 @@ function CreateSegmentDialog({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>New segment</DialogTitle>
+          <DialogTitle>New beat</DialogTitle>
           <DialogDescription>
-            Name the segment and pick its kind.
+            Name the beat and pick its kind.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="segment-title">Name</Label>
+            <Label htmlFor="beat-title">Name</Label>
             <Input
-              id="segment-title"
+              id="beat-title"
               ref={inputRef}
               value={title}
               placeholder={BEAT_KIND_LABELS[kind]}
@@ -189,7 +189,7 @@ function CreateSegmentDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={confirm}>Create segment</Button>
+          <Button onClick={confirm}>Create beat</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

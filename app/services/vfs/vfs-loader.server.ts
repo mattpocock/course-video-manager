@@ -5,7 +5,7 @@ import {
   courseVersions,
   sections,
   lessons,
-  segments,
+  beats,
   videos,
 } from "@/db/schema";
 import {
@@ -24,7 +24,7 @@ import {
   generateSectionLeaf,
   generateLessonLeaf,
   generateVideoLeaf,
-  generateSortedSegments,
+  generateSortedBeats,
   generateSortedTimelineItems,
 } from "./vfs-leaves";
 import { buildVfsTree, type CourseEntry } from "./vfs-tree";
@@ -79,9 +79,9 @@ const loadCourseForVfs = (
                           chapters: {
                             orderBy: asc(chapters.order),
                           },
-                          segments: {
-                            where: eq(segments.archived, false),
-                            orderBy: asc(segments.order),
+                          beats: {
+                            where: eq(beats.archived, false),
+                            orderBy: asc(beats.order),
                           },
                         },
                       },
@@ -154,7 +154,7 @@ const courseToEntry = (course: {
             name: string;
             archived: boolean;
           }>;
-          segments: Array<{
+          beats: Array<{
             id: string;
             kind: string;
             title: string;
@@ -211,7 +211,7 @@ const courseToEntry = (course: {
             clips: video.clips,
             chapters: video.chapters,
           }),
-          segments: generateSortedSegments(video.segments),
+          beats: generateSortedBeats(video.beats),
           timelineItems: generateSortedTimelineItems(
             video.clips,
             video.chapters

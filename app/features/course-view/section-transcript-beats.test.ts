@@ -37,11 +37,11 @@ const baseOptions: TranscriptOptions = {
   includeSegments: false,
 };
 
-const videoWithSegments = {
+const videoWithBeats = {
   id: "v1",
   path: "video-001",
   clipCount: 0,
-  segments: [
+  beats: [
     {
       id: "s1",
       kind: "definition",
@@ -63,7 +63,7 @@ const videoWithSegments = {
 
 describe("includeSegments - xml format", () => {
   it("does not include segments by default", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -75,7 +75,7 @@ describe("includeSegments - xml format", () => {
   });
 
   it("includes segments in xml when includeSegments is true", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -92,7 +92,7 @@ describe("includeSegments - xml format", () => {
   });
 
   it("omits description element when segment description is empty", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -111,7 +111,7 @@ describe("includeSegments - xml format", () => {
           id: "v1",
           path: "video-001",
           clipCount: 0,
-          segments: [
+          beats: [
             {
               id: "s1",
               kind: "definition",
@@ -138,7 +138,7 @@ describe("includeSegments - xml format", () => {
 
   it("includes segments in course transcript xml", () => {
     const section = makeSection({
-      lessons: [makeLesson({ videos: [videoWithSegments] })],
+      lessons: [makeLesson({ videos: [videoWithBeats] })],
     });
     const result = buildCourseTranscript(
       "my-course",
@@ -154,7 +154,7 @@ describe("includeSegments - xml format", () => {
   it("shows no segments when video has empty segments array", () => {
     const lesson = makeLesson({
       videos: [
-        { id: "v1", path: "video-001", clipCount: 0, segments: [] } as never,
+        { id: "v1", path: "video-001", clipCount: 0, beats: [] } as never,
       ],
     });
     const result = buildSectionTranscript(
@@ -169,7 +169,7 @@ describe("includeSegments - xml format", () => {
 
 describe("includeSegments - markdown format", () => {
   it("does not include segments in markdown by default", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -183,7 +183,7 @@ describe("includeSegments - markdown format", () => {
   });
 
   it("includes segments in markdown when enabled", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -200,7 +200,7 @@ describe("includeSegments - markdown format", () => {
   });
 
   it("omits description line when segment description is empty", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -220,7 +220,7 @@ describe("includeSegments - markdown format", () => {
 
 describe("includeSegments - json format", () => {
   it("does not include segments in json by default", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -234,7 +234,7 @@ describe("includeSegments - json format", () => {
   });
 
   it("includes segments in json when enabled", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -259,7 +259,7 @@ describe("includeSegments - json format", () => {
 
   it("includes segments in course json when enabled", () => {
     const section = makeSection({
-      lessons: [makeLesson({ videos: [videoWithSegments] })],
+      lessons: [makeLesson({ videos: [videoWithBeats] })],
     });
     const result = buildCourseTranscript(
       "my-course",
@@ -277,7 +277,7 @@ describe("includeSegments - json format", () => {
   it("empty segments array produces empty array in json", () => {
     const lesson = makeLesson({
       videos: [
-        { id: "v1", path: "video-001", clipCount: 0, segments: [] } as never,
+        { id: "v1", path: "video-001", clipCount: 0, beats: [] } as never,
       ],
     });
     const result = buildSectionTranscript(

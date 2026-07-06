@@ -23,7 +23,7 @@ export const BEAT_KINDS = [
 /**
  * A Beat's `kind` — the film-time job it does, drawn from the Mise en Place
  * glossary. See `Beat` in CONTEXT.md and
- * docs/adr/0015-video-level-segment-planning.md.
+ * docs/adr/0015-video-level-beat-planning.md.
  */
 export type BeatKind = (typeof BEAT_KINDS)[number];
 
@@ -32,7 +32,7 @@ export const DEFAULT_BEAT_KIND: BeatKind = "definition";
 
 /**
  * One-line description of the job each kind does, shown alongside the label in
- * the "Add segment" menu so authors can pick the right kind at a glance.
+ * the "Add beat" menu so authors can pick the right kind at a glance.
  */
 export const BEAT_KIND_DESCRIPTIONS: Record<BeatKind, string> = {
   definition: "Explain a concept, term, or idea",

@@ -7,14 +7,14 @@ const copyVideoSchema = Schema.Struct({
     Schema.minLength(1, { message: () => "Video name cannot be empty" })
   ),
   copyClips: Schema.optional(Schema.String),
-  copySegments: Schema.optional(Schema.String),
+  copyBeats: Schema.optional(Schema.String),
 });
 
 export const action = makeAction({
   input: "formData",
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
-      const { name, copyClips, copySegments } =
+      const { name, copyClips, copyBeats } =
         yield* Schema.decodeUnknown(copyVideoSchema)(payload);
 
       const videoOps = yield* VideoOperationsService;
@@ -23,7 +23,7 @@ export const action = makeAction({
         sourceVideoId: params.videoId!,
         newPath: name.trim(),
         copyClips: copyClips === "on",
-        copySegments: copySegments === "on",
+        copyBeats: copyBeats === "on",
       });
 
       return { success: true, newVideoId };

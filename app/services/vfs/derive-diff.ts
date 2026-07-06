@@ -88,7 +88,7 @@ function memberLabel(
     return (member.name as string) || (member.id as string) || "unknown";
   if (entityType === "timeline")
     return (member.label as string) || (member.id as string) || "unknown";
-  if (entityType === "segment")
+  if (entityType === "beat")
     return (member.title as string) || (member.id as string) || "unknown";
   return (member.id as string) || "unknown";
 }
@@ -529,7 +529,7 @@ export function deriveDiff(
   // Create path — writing a manifest that doesn't exist yet.
   //
   // The projection always emits the `sections`, `lessons`, and `videos`
-  // manifests (even when empty), but omits `segments/` and `timeline/` until
+  // manifests (even when empty), but omits `beats/` and `timeline/` until
   // they have at least one member. So those are the only manifests that can be
   // legitimately absent, and both are owned by a video. We treat such a write
   // like `touch`: it succeeds when the owning entity exists, and otherwise
@@ -542,7 +542,7 @@ export function deriveDiff(
   if (fileMissing) {
     const isCreatableManifest =
       fileType.kind === "manifest" &&
-      (fileType.entityType === "segment" || fileType.entityType === "timeline");
+      (fileType.entityType === "beat" || fileType.entityType === "timeline");
 
     const ownerExists =
       isCreatableManifest && resolveParentId(ctx.root, path, "video") != null;

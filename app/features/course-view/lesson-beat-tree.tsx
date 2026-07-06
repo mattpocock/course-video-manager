@@ -3,13 +3,13 @@ import { cn } from "@/lib/utils";
 import { Link, type useNavigate, type useFetcher } from "react-router";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
-import { SegmentList } from "@/features/segments/segment-list";
+import { BeatList } from "@/features/beats/beat-list";
 import { VideoContextMenuItems } from "./video-context-menu";
 import type { LoaderData, Lesson, Section, Video } from "./course-view-types";
 
 /**
  * Compact-view text tree under a lesson: lesson → videos (sorted by name) →
- * ordered Segments. Always fully expanded (no collapsibility in V1). See
+ * ordered Beats. Always fully expanded (no collapsibility in V1). See
  * docs/adr/0015-video-level-segment-planning.md.
  */
 /**
@@ -27,7 +27,7 @@ type VideoMenuProps = {
   submitDeleteVideo: (videoId: string) => void;
 };
 
-export function LessonSegmentTree({
+export function LessonBeatTree({
   lesson,
   isReadOnly,
   submitEvent,
@@ -43,21 +43,21 @@ export function LessonSegmentTree({
 
   if (videos.length === 0) return null;
 
-  // Drag-and-drop is wired by a single SegmentDndProvider hoisted to the whole
-  // compact grid (see SectionGrid), so a Segment can be dragged to any Video,
+  // Drag-and-drop is wired by a single BeatDndProvider hoisted to the whole
+  // compact grid (see SectionGrid), so a Beat can be dragged to any Video,
   // not just the ones inside this lesson. Here we only render the tree.
   return (
     <div
       className={cn(
         "mt-1 space-y-1",
-        // Indent the video/segment text to start at the lesson title, so it
+        // Indent the video/beat text to start at the lesson title, so it
         // clears the icon-to-icon dependency spine. The editable row carries an
         // extra drag grip ahead of the icon, so it needs more leading.
         isReadOnly ? "ml-9" : "ml-[3.625rem]"
       )}
     >
       {videos.map((video) => (
-        <VideoSegmentNode
+        <VideoBeatNode
           key={video.id}
           video={video}
           lesson={lesson}
@@ -70,7 +70,7 @@ export function LessonSegmentTree({
   );
 }
 
-function VideoSegmentNode({
+function VideoBeatNode({
   video,
   lesson,
   isReadOnly,
@@ -101,8 +101,8 @@ function VideoSegmentNode({
           {...videoMenuProps}
         />
       </ContextMenu>
-      <SegmentList
-        video={{ id: video.id, segments: video.segments ?? [] }}
+      <BeatList
+        video={{ id: video.id, beats: video.beats ?? [] }}
         submitEvent={submitEvent}
         isReadOnly={isReadOnly}
         className="mt-0.5"

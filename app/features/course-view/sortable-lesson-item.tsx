@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { LessonTitleEditor, useLessonTitleEditor } from "./lesson-title-editor";
 import { LessonContextMenuContent } from "./lesson-context-menu";
-import { LessonSegmentTree } from "./lesson-segment-tree";
+import { LessonBeatTree } from "./lesson-beat-tree";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { VideoThumbnailGrid } from "./video-thumbnail-grid";
@@ -573,7 +573,7 @@ export function SortableLessonItem({
           </div>
         )}
         {compact && (
-          <LessonSegmentTree
+          <LessonBeatTree
             lesson={lesson}
             isReadOnly={isReadOnly}
             submitEvent={submitEvent}

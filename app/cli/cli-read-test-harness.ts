@@ -5,7 +5,7 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { SegmentOperationsService } from "@/services/db-segment-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
@@ -28,7 +28,7 @@ export type ReadLayer = Layer.Layer<
   | LessonSectionOperationsService
   | VideoOperationsService
   | ClipOperationsService
-  | SegmentOperationsService
+  | BeatOperationsService
   | PitchOperationsService
   | DeliverableOperationsService
   | SearchOperationsService
@@ -42,7 +42,7 @@ export const buildReadLayer = (db: TestDb): ReadLayer =>
     LessonSectionOperationsService.Default,
     VideoOperationsService.Default,
     ClipOperationsService.Default,
-    SegmentOperationsService.Default,
+    BeatOperationsService.Default,
     PitchOperationsService.Default,
     DeliverableOperationsService.Default,
     SearchOperationsService.Default,
@@ -223,7 +223,7 @@ export const seedRead = async (db: TestDb): Promise<ReadSeed> => {
     })
     .returning();
 
-  await db.insert(schema.segments).values([
+  await db.insert(schema.beats).values([
     {
       videoId: lessonVideo!.id,
       kind: "definition",

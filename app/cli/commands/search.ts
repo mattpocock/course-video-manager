@@ -18,10 +18,10 @@ import { detail, emitNdjson, notFound, parseError } from "@/cli/helpers";
 type Scope = "top" | "course" | "section" | "lesson";
 
 const APPLICABLE: Record<Scope, ReadonlyArray<SearchKind>> = {
-  top: ["course", "section", "lesson", "video", "segment", "pitch"],
-  course: ["course", "section", "lesson", "video", "segment"],
-  section: ["section", "lesson", "video", "segment"],
-  lesson: ["lesson", "video", "segment"],
+  top: ["course", "section", "lesson", "video", "beat", "pitch"],
+  course: ["course", "section", "lesson", "video", "beat"],
+  section: ["section", "lesson", "video", "beat"],
+  lesson: ["lesson", "video", "beat"],
 };
 
 // The top scope permits every kind, so it is the canonical kind list — derive
@@ -103,7 +103,7 @@ WHAT IS SEARCHED (archived records are never returned; Draft Version only)
   section   path, description
   lesson    path, title, description
   video     path, and its TRANSCRIPT (clip text + chapter names)
-  segment   title, description
+  beat      title, description
   pitch     title, description, contentPlan, youtubeTitle,
             youtubeThumbnailDescription, newsletterTitle, tweet
 
@@ -112,14 +112,14 @@ RESULTS (NDJSON — one compact hit per line; empty result prints nothing, exit 
   field, snippet }. 'field' is the matched field (path beats transcript for a
   video); 'snippet' is an excerpt around the match (the whole value for short
   fields). One hit per entity. Hits stream in depth-first tree order (course ->
-  sections -> lessons -> videos -> segments), courses in 'course list' order,
+  sections -> lessons -> videos -> beats), courses in 'course list' order,
   pitches last. Use 'cvm <noun> get <id>' for the full record.
 
 --type (repeatable) narrows result kinds; default is every kind above.
 
 EXAMPLES
   cvm search "infer keyword"
-  cvm search --type video --type segment "generics"
+  cvm search --type video --type beat "generics"
   cvm search "typescript" | jq 'select(.kind == "pitch")'`;
 
 const scopedHelp = (noun: Scope, kinds: ReadonlyArray<SearchKind>) =>

@@ -7,7 +7,7 @@ import type {
   LoaderData,
   Lesson,
   Section,
-  Segment,
+  Beat,
   Video,
 } from "./course-view-types";
 
@@ -67,14 +67,14 @@ function entityIdForEvent(event: CourseEditorEvent): string {
     case "create-on-disk":
     case "set-lesson-authoring-status":
       return event.lessonId;
-    case "create-segment":
+    case "create-beat":
       return event.videoId;
-    case "rename-segment":
-    case "update-segment-description":
-    case "set-segment-kind":
-    case "delete-segment":
-    case "move-segment":
-      return event.segmentId;
+    case "rename-beat":
+    case "update-beat-description":
+    case "set-beat-kind":
+    case "delete-beat":
+    case "move-beat":
+      return event.beatId;
   }
 }
 
@@ -133,22 +133,22 @@ export function applyOptimisticEvent(
       return applyMoveLessonToSection(loaderData, event);
     case "move-lessons-to-section":
       return applyMoveLessonsToSection(loaderData, event);
-    case "rename-segment":
-      return withPatchedSegment(loaderData, event.segmentId, () => ({
+    case "rename-beat":
+      return withPatchedBeat(loaderData, event.beatId, () => ({
         title: event.title,
       }));
-    case "update-segment-description":
-      return withPatchedSegment(loaderData, event.segmentId, () => ({
+    case "update-beat-description":
+      return withPatchedBeat(loaderData, event.beatId, () => ({
         description: event.description,
       }));
-    case "set-segment-kind":
-      return withPatchedSegment(loaderData, event.segmentId, () => ({
+    case "set-beat-kind":
+      return withPatchedBeat(loaderData, event.beatId, () => ({
         kind: event.kind,
       }));
-    case "delete-segment":
-      return applyDeleteSegment(loaderData, event.segmentId);
-    case "move-segment":
-      return applyMoveSegment(loaderData, event);
+    case "delete-beat":
+      return applyDeleteBeat(loaderData, event.beatId);
+    case "move-beat":
+      return applyMoveBeat(loaderData, event);
     default:
       return loaderData;
   }
@@ -523,91 +523,88 @@ function withPatchedLesson(
 }
 
 /**
- * Patch a single Segment in place, walking sections → lessons → videos →
- * segments and rebuilding only the branches that change (reference equality is
+ * Patch a single Beat in place, walking sections → lessons → videos →
+ * beats and rebuilding only the branches that change (reference equality is
  * preserved for everything else, like the lesson/section helpers).
  */
-function withPatchedSegment(
+function withPatchedBeat(
   loaderData: LoaderData,
-  segmentId: string,
-  patchFn: (segment: Segment) => Partial<Segment>
+  beatId: string,
+  patchFn: (beat: Beat) => Partial<Beat>
 ): LoaderData {
-  return withMappedVideoSegments(loaderData, (video) => {
-    const idx = video.segments.findIndex((s) => s.id === segmentId);
+  return withMappedVideoBeats(loaderData, (video) => {
+    const idx = video.beats.findIndex((s) => s.id === beatId);
     if (idx === -1) return null;
-    const segments = video.segments.map((s) =>
-      s.id === segmentId ? { ...s, ...patchFn(s) } : s
+    const beats = video.beats.map((s) =>
+      s.id === beatId ? { ...s, ...patchFn(s) } : s
     );
-    return { ...video, segments };
+    return { ...video, beats };
   });
 }
 
-function applyDeleteSegment(
-  loaderData: LoaderData,
-  segmentId: string
-): LoaderData {
-  return withMappedVideoSegments(loaderData, (video) => {
-    if (!video.segments.some((s) => s.id === segmentId)) return null;
+function applyDeleteBeat(loaderData: LoaderData, beatId: string): LoaderData {
+  return withMappedVideoBeats(loaderData, (video) => {
+    if (!video.beats.some((s) => s.id === beatId)) return null;
     return {
       ...video,
-      segments: video.segments.filter((s) => s.id !== segmentId),
+      beats: video.beats.filter((s) => s.id !== beatId),
     };
   });
 }
 
 /**
- * Move a Segment within or across Videos: drop it from its source Video and
- * splice it into the target before `beforeSegmentId` (or append). Display order
+ * Move a Beat within or across Videos: drop it from its source Video and
+ * splice it into the target before `beforeBeatId` (or append). Display order
  * is array order; the server recomputes the fractional key on revalidation.
  */
 /**
  * Unlike `reorder-lessons` (which carries the full ordered id list, per ADR
- * 0002), a segment move carries a single `beforeSegmentId` anchor — deliberately
+ * 0002), a beat move carries a single `beforeBeatId` anchor — deliberately
  * mirroring the cross-parent lesson move (ADR 0011/0013) since a move can
- * reassign the segment to a different Video. The applier splices the moved
- * segment in front of that anchor (or appends when null).
+ * reassign the beat to a different Video. The applier splices the moved
+ * beat in front of that anchor (or appends when null).
  */
-function applyMoveSegment(
+function applyMoveBeat(
   loaderData: LoaderData,
-  event: Extract<CourseEditorEvent, { type: "move-segment" }>
+  event: Extract<CourseEditorEvent, { type: "move-beat" }>
 ): LoaderData {
   const course = loaderData.selectedCourse;
   if (!course) return loaderData;
 
-  const { segmentId, targetVideoId } = event;
-  const beforeSegmentId = event.beforeSegmentId ?? null;
+  const { beatId, targetVideoId } = event;
+  const beforeBeatId = event.beforeBeatId ?? null;
 
-  // Find the segment being moved across all videos.
-  let moved: Segment | undefined;
+  // Find the beat being moved across all videos.
+  let moved: Beat | undefined;
   for (const section of course.sections) {
     for (const lesson of section.lessons) {
       for (const video of lesson.videos) {
-        const found = video.segments.find((s) => s.id === segmentId);
+        const found = video.beats.find((s) => s.id === beatId);
         if (found) moved = found;
       }
     }
   }
   if (!moved) return loaderData;
 
-  const movedInTarget: Segment = { ...moved, videoId: targetVideoId };
+  const movedInTarget: Beat = { ...moved, videoId: targetVideoId };
 
   const remapVideo = (video: Video): Video => {
-    const isSource = video.segments.some((s) => s.id === segmentId);
+    const isSource = video.beats.some((s) => s.id === beatId);
     const isTarget = video.id === targetVideoId;
     if (!isSource && !isTarget) return video;
 
-    let segments = video.segments.filter((s) => s.id !== segmentId);
+    let beats = video.beats.filter((s) => s.id !== beatId);
     if (isTarget) {
       const idx =
-        beforeSegmentId !== null
-          ? segments.findIndex((s) => s.id === beforeSegmentId)
+        beforeBeatId !== null
+          ? beats.findIndex((s) => s.id === beforeBeatId)
           : -1;
-      segments =
+      beats =
         idx === -1
-          ? [...segments, movedInTarget]
-          : [...segments.slice(0, idx), movedInTarget, ...segments.slice(idx)];
+          ? [...beats, movedInTarget]
+          : [...beats.slice(0, idx), movedInTarget, ...beats.slice(idx)];
     }
-    return { ...video, segments };
+    return { ...video, beats };
   };
 
   let changed = false;
@@ -642,7 +639,7 @@ function applyMoveSegment(
  * and rebuild just that branch. Returns `loaderData` unchanged if no video is
  * touched, so unrelated sections keep their reference.
  */
-function withMappedVideoSegments(
+function withMappedVideoBeats(
   loaderData: LoaderData,
   mapVideo: (video: Video) => Video | null
 ): LoaderData {

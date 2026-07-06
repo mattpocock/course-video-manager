@@ -5,7 +5,7 @@ import type {
   LessonLeaf,
   MembersLeaf,
   SectionLeaf,
-  SegmentLeaf,
+  BeatLeaf,
   VideoLeaf,
 } from "./vfs-schemas";
 
@@ -17,7 +17,7 @@ export type VfsLeafNode = {
     | SectionLeaf
     | LessonLeaf
     | VideoLeaf
-    | SegmentLeaf
+    | BeatLeaf
     | ClipLeaf
     | ChapterLeaf
     | MembersLeaf;
@@ -87,7 +87,7 @@ export type LessonEntry = {
 export type VideoEntry = {
   path: string;
   videoLeaf: VideoLeaf;
-  segments: SegmentLeaf[];
+  beats: BeatLeaf[];
   timelineItems: Array<ClipLeaf | ChapterLeaf>;
 };
 
@@ -169,24 +169,24 @@ export const buildVfsTree = (courses: CourseEntry[]): VfsDirNode => {
             mkFile("video.json", video.videoLeaf)
           );
 
-          if (video.segments.length > 0) {
-            const segmentsDir = mkDir("segments");
-            videoDir.children.set("segments", segmentsDir);
+          if (video.beats.length > 0) {
+            const beatsDir = mkDir("beats");
+            videoDir.children.set("beats", beatsDir);
 
-            const segmentMembers = video.segments.map((s) => ({
+            const beatMembers = video.beats.map((s) => ({
               id: s.id,
               kind: s.kind,
               title: s.title,
             }));
-            segmentsDir.children.set(
+            beatsDir.children.set(
               "_members.json",
-              mkFile("_members.json", segmentMembers as MembersLeaf)
+              mkFile("_members.json", beatMembers as MembersLeaf)
             );
 
-            for (let i = 0; i < video.segments.length; i++) {
-              const seg = video.segments[i]!;
+            for (let i = 0; i < video.beats.length; i++) {
+              const seg = video.beats[i]!;
               const name = `${pad(i)}-${toSlug(seg.title)}.json`;
-              segmentsDir.children.set(name, mkFile(name, seg));
+              beatsDir.children.set(name, mkFile(name, seg));
             }
           }
 

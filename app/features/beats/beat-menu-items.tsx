@@ -12,12 +12,12 @@ import {
   BEAT_KIND_ICONS,
   BEAT_KIND_LABELS,
   type BeatKind,
-} from "./segment-kinds";
+} from "./beat-kinds";
 
 /**
  * Five context-menu items, one per Beat kind, each with its distinct icon.
- * Used both to create a Segment of a kind (on a Video) and to reclassify one
- * (on a Segment).
+ * Used both to create a Beat of a kind (on a Video) and to reclassify one
+ * (on a Beat).
  */
 export function BeatKindMenuItems({
   onSelect,
@@ -48,17 +48,13 @@ export function BeatKindMenuItems({
   );
 }
 
-/** "Add segment ▸ <kind>" submenu for a Video's context menu. */
-export function AddSegmentSubMenu({
-  onAdd,
-}: {
-  onAdd: (kind: BeatKind) => void;
-}) {
+/** "Add beat ▸ <kind>" submenu for a Video's context menu. */
+export function AddBeatSubMenu({ onAdd }: { onAdd: (kind: BeatKind) => void }) {
   return (
     <ContextMenuSub>
       <ContextMenuSubTrigger>
         <Plus className="w-4 h-4" />
-        Add segment
+        Add beat
       </ContextMenuSubTrigger>
       <ContextMenuSubContent>
         <BeatKindMenuItems onSelect={onAdd} />
@@ -67,8 +63,8 @@ export function AddSegmentSubMenu({
   );
 }
 
-/** A Segment's own context menu: change kind, add a neighbour (before/after) + delete. */
-export function SegmentContextMenuContent({
+/** A Beat's own context menu: change kind, add a neighbour (before/after) + delete. */
+export function BeatContextMenuContent({
   onSetKind,
   onAddBefore,
   onAddAfter,
@@ -91,7 +87,7 @@ export function SegmentContextMenuContent({
       <ContextMenuSub>
         <ContextMenuSubTrigger>
           <Plus className="w-4 h-4" />
-          Add segment before
+          Add beat before
         </ContextMenuSubTrigger>
         <ContextMenuSubContent>
           <BeatKindMenuItems onSelect={onAddBefore} />
@@ -100,7 +96,7 @@ export function SegmentContextMenuContent({
       <ContextMenuSub>
         <ContextMenuSubTrigger>
           <Plus className="w-4 h-4" />
-          Add segment after
+          Add beat after
         </ContextMenuSubTrigger>
         <ContextMenuSubContent>
           <BeatKindMenuItems onSelect={onAddAfter} />

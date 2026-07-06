@@ -22,7 +22,7 @@ import { VersionOperationsService } from "./db-version-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { DiagramOperationsService } from "./db-diagram-operations.server";
 import { PitchOperationsService } from "./db-pitch-operations.server";
-import { SegmentOperationsService } from "./db-segment-operations.server";
+import { BeatOperationsService } from "./db-beat-operations.server";
 import { DeliverableOperationsService } from "./db-deliverable-operations.server";
 import { ThumbnailOperationsService } from "./db-thumbnail-operations.server";
 import { LinkAuthOperationsService } from "./db-link-auth-operations.server";
@@ -39,7 +39,7 @@ const coreLayer = Layer.mergeAll(
   LessonSectionOperationsService.Default,
   DiagramOperationsService.Default,
   PitchOperationsService.Default,
-  SegmentOperationsService.Default,
+  BeatOperationsService.Default,
   DeliverableOperationsService.Default,
   ThumbnailOperationsService.Default,
   LinkAuthOperationsService.Default,

@@ -154,7 +154,7 @@ function buildSectionTranscriptXml(
     for (const video of lesson.videos) {
       lines.push(`    <video title="${escapeAttr(video.path)}">`);
       if (options.includeSegments) {
-        renderSegmentsXml(video, lines, "      ");
+        renderBeatsXml(video, lines, "      ");
       }
       if (options.includeTranscripts) {
         if (video.clipCount === 0) {
@@ -173,13 +173,13 @@ function buildSectionTranscriptXml(
   return lines.join("\n");
 }
 
-function renderSegmentsXml(video: Video, lines: string[], indent: string) {
-  for (const segment of video.segments) {
-    const attrs = `kind="${escapeAttr(segment.kind)}" title="${escapeAttr(segment.title)}"`;
-    if (segment.description) {
+function renderBeatsXml(video: Video, lines: string[], indent: string) {
+  for (const beat of video.beats) {
+    const attrs = `kind="${escapeAttr(beat.kind)}" title="${escapeAttr(beat.title)}"`;
+    if (beat.description) {
       lines.push(`${indent}<segment ${attrs}>`);
       lines.push(
-        `${indent}  <description>${escapeAttr(segment.description)}</description>`
+        `${indent}  <description>${escapeAttr(beat.description)}</description>`
       );
       lines.push(`${indent}</segment>`);
     } else {
@@ -188,11 +188,11 @@ function renderSegmentsXml(video: Video, lines: string[], indent: string) {
   }
 }
 
-function renderSegmentsMarkdown(video: Video, lines: string[]) {
-  for (const segment of video.segments) {
-    lines.push(`- [${segment.kind}] ${segment.title}`);
-    if (segment.description) {
-      lines.push(`  ${segment.description}`);
+function renderBeatsMarkdown(video: Video, lines: string[]) {
+  for (const beat of video.beats) {
+    lines.push(`- [${beat.kind}] ${beat.title}`);
+    if (beat.description) {
+      lines.push(`  ${beat.description}`);
     }
   }
 }
@@ -285,7 +285,7 @@ function buildSectionTranscriptMarkdownInner(
       lines.push("");
       lines.push(`**${video.path}:**`);
       if (options.includeSegments) {
-        renderSegmentsMarkdown(video, lines);
+        renderBeatsMarkdown(video, lines);
       }
       if (options.includeTranscripts) {
         if (video.clipCount === 0) {
@@ -373,15 +373,15 @@ function buildSectionObject(
     lessonObj.videos = lesson.videos.map((video) => {
       const videoObj: Record<string, unknown> = { title: video.path };
       if (options.includeSegments) {
-        videoObj.segments = video.segments.map((segment) => {
-          const segObj: Record<string, unknown> = {
-            kind: segment.kind,
-            title: segment.title,
+        videoObj.segments = video.beats.map((beat) => {
+          const beatObj: Record<string, unknown> = {
+            kind: beat.kind,
+            title: beat.title,
           };
-          if (segment.description) {
-            segObj.description = segment.description;
+          if (beat.description) {
+            beatObj.description = beat.description;
           }
-          return segObj;
+          return beatObj;
         });
       }
       if (options.includeTranscripts) {
