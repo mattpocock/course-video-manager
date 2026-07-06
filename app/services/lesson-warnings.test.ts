@@ -88,7 +88,7 @@ describe("computeLessonWarnings", () => {
       videos: [
         { path: "Problem" },
         { path: "Solution" },
-        { path: "Solution 2" },
+        { path: "Explainer" },
       ],
     });
     expect(warnings).toEqual([{ kind: "tooManyVideos" }]);
@@ -99,11 +99,37 @@ describe("computeLessonWarnings", () => {
     expect(computeLessonWarnings({ videos: [{ path: "Intro" }] })).toEqual([]);
   });
 
-  // Explainer with numbered variant
-  it("returns no warnings for 'Explainer 2' alone", () => {
+  // A lesson holds one video per role, so numbered role names are always wrong.
+  it("flags 'Explainer 2' alone as a numbered role name", () => {
     expect(
       computeLessonWarnings({ videos: [{ path: "Explainer 2" }] })
-    ).toEqual([]);
+    ).toEqual([{ kind: "numberedRoleName" }]);
+  });
+
+  it("flags 'Explainer 1' as a numbered role name (canonical is 'Explainer')", () => {
+    expect(
+      computeLessonWarnings({ videos: [{ path: "Explainer 1" }] })
+    ).toContainEqual({ kind: "numberedRoleName" });
+  });
+
+  it("does not flag the bare role name 'Explainer'", () => {
+    expect(computeLessonWarnings({ videos: [{ path: "Explainer" }] })).toEqual(
+      []
+    );
+  });
+
+  it("does not flag a numbered non-role name", () => {
+    expect(
+      computeLessonWarnings({ videos: [{ path: "Intro 2" }] })
+    ).not.toContainEqual({ kind: "numberedRoleName" });
+  });
+
+  it("flags both numbered role name and duplicate roles for 'Explainer 1' + 'Explainer 2'", () => {
+    const result = computeLessonWarnings({
+      videos: [{ path: "Explainer 1" }, { path: "Explainer 2" }],
+    });
+    expect(result).toContainEqual({ kind: "numberedRoleName" });
+    expect(result).toContainEqual({ kind: "duplicateRoles" });
   });
 });
 

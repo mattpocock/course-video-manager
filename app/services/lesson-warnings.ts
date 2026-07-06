@@ -4,6 +4,7 @@ export type LessonWarningKind =
   | "solutionWithoutProblem"
   | "explainerBesideProblem"
   | "duplicateRoles"
+  | "numberedRoleName"
   | "tooManyVideos";
 
 export type LessonWarning = { kind: LessonWarningKind };
@@ -21,6 +22,16 @@ export function deriveVideoRole(videoPath: string): VideoRole {
   return "unknown";
 }
 
+/**
+ * Whether a recognized role name carries a numeric suffix ("Explainer 2").
+ * A lesson holds exactly one video per role, so the canonical name is the bare
+ * role ("Explainer") — any number is a mistake, whether or not siblings exist.
+ */
+export function hasNumberedRoleName(videoPath: string): boolean {
+  if (deriveVideoRole(videoPath) === "unknown") return false;
+  return /\s\d+\s*$/.test(videoPath);
+}
+
 export const computeLessonWarnings = (input: {
   videos: VideoInput[];
 }): LessonWarning[] => {
@@ -29,6 +40,13 @@ export const computeLessonWarnings = (input: {
 
   const warnings: LessonWarning[] = [];
   const roles = videos.map((v) => deriveVideoRole(v.path));
+
+  // A lesson holds exactly one video per role, so a role name should never be
+  // numbered ("Explainer 2"). The number itself is the error — it implies a
+  // second video of that role, which the lesson model can't hold.
+  if (videos.some((v) => hasNumberedRoleName(v.path))) {
+    warnings.push({ kind: "numberedRoleName" });
+  }
 
   if (videos.length > 2) {
     warnings.push({ kind: "tooManyVideos" });
