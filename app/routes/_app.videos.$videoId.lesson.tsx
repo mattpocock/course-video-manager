@@ -11,7 +11,7 @@ import { runtimeLive } from "@/services/layer.server";
 import { makeLoader, makeAction } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
-import { useFetcher } from "react-router";
+import { redirect, useFetcher } from "react-router";
 import type { WriterContextData } from "@/services/video-posting-context.server";
 import { VideoContextPanel } from "@/components/video-context-panel";
 import { FilePreviewModal } from "@/components/file-preview-modal";
@@ -29,6 +29,9 @@ export const loader = makeLoader({
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
       const video = yield* videoOps.getVideoWithLessonById(videoId);
+      if (!video.lesson) {
+        return yield* Effect.die(redirect(`/videos/${videoId}/edit`));
+      }
       const ctx = yield* loadVideoPostingContext(videoId);
       const writerContextPromise: Promise<WriterContextData> =
         runtimeLive.runPromise(loadWriterContext(videoId));
