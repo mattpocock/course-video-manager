@@ -52,7 +52,7 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segments: [
+              beats: [
                 {
                   id: "seg1",
                   kind: "definition",
@@ -69,7 +69,7 @@ const fullCourse = makeCourseEntry({
                   sourceStartTime: 0,
                   sourceEndTime: 3,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -118,7 +118,7 @@ describe("vfsTree", () => {
     expect(result).toContain("courses/");
   });
 
-  it("prints a full course subtree with segments/ and timeline/ dirs", () => {
+  it("prints a full course subtree with beats/ and timeline/ dirs", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsTree(root, "/courses/my-course");
     const lines = result.split("\n");
@@ -128,7 +128,7 @@ describe("vfsTree", () => {
     expect(result).toContain("_members.json");
     expect(result).toContain("01-intro/");
     expect(result).toContain("take-1/");
-    expect(result).toContain("segments/");
+    expect(result).toContain("beats/");
     expect(result).toContain("timeline/");
     expect(result).toContain("00-opening.chapter.json");
     expect(result).toContain("01.clip.json");

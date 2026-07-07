@@ -34,14 +34,14 @@ const baseOptions: TranscriptOptions = {
   includePriority: false,
   includeExerciseType: false,
   includeSectionDescription: false,
-  includeSegments: false,
+  includeBeats: false,
 };
 
-const videoWithSegments = {
+const videoWithBeats = {
   id: "v1",
   path: "video-001",
   clipCount: 0,
-  segments: [
+  beats: [
     {
       id: "s1",
       kind: "definition",
@@ -61,57 +61,57 @@ const videoWithSegments = {
   ],
 } as never;
 
-describe("includeSegments - xml format", () => {
-  it("does not include segments by default", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+describe("includeBeats - xml format", () => {
+  it("does not include beats by default", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
       { ...baseOptions },
       {}
     );
-    expect(result).not.toContain("<segment");
+    expect(result).not.toContain("<beat");
     expect(result).not.toContain("What is TypeScript?");
   });
 
-  it("includes segments in xml when includeSegments is true", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+  it("includes beats in xml when includeBeats is true", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {}
     );
     expect(result).toContain(
-      '<segment kind="definition" title="What is TypeScript?">'
+      '<beat kind="definition" title="What is TypeScript?">'
     );
     expect(result).toContain("<description>Explain TS basics</description>");
     expect(result).toContain(
-      '<segment kind="walkthrough" title="Setting up a project"'
+      '<beat kind="walkthrough" title="Setting up a project"'
     );
   });
 
-  it("omits description element when segment description is empty", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+  it("omits description element when beat description is empty", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {}
     );
     expect(result).toContain(
-      '<segment kind="walkthrough" title="Setting up a project" />'
+      '<beat kind="walkthrough" title="Setting up a project" />'
     );
   });
 
-  it("escapes special characters in segment title and description", () => {
+  it("escapes special characters in beat title and description", () => {
     const lesson = makeLesson({
       videos: [
         {
           id: "v1",
           path: "video-001",
           clipCount: 0,
-          segments: [
+          beats: [
             {
               id: "s1",
               kind: "definition",
@@ -127,7 +127,7 @@ describe("includeSegments - xml format", () => {
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {}
     );
     expect(result).toContain('title="Types &amp; &quot;Generics&quot;"');
@@ -136,40 +136,40 @@ describe("includeSegments - xml format", () => {
     );
   });
 
-  it("includes segments in course transcript xml", () => {
+  it("includes beats in course transcript xml", () => {
     const section = makeSection({
-      lessons: [makeLesson({ videos: [videoWithSegments] })],
+      lessons: [makeLesson({ videos: [videoWithBeats] })],
     });
     const result = buildCourseTranscript(
       "my-course",
       [section],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {}
     );
     expect(result).toContain(
-      '<segment kind="definition" title="What is TypeScript?">'
+      '<beat kind="definition" title="What is TypeScript?">'
     );
   });
 
-  it("shows no segments when video has empty segments array", () => {
+  it("shows no beats when video has empty beats array", () => {
     const lesson = makeLesson({
       videos: [
-        { id: "v1", path: "video-001", clipCount: 0, segments: [] } as never,
+        { id: "v1", path: "video-001", clipCount: 0, beats: [] } as never,
       ],
     });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {}
     );
-    expect(result).not.toContain("<segment");
+    expect(result).not.toContain("<beat");
   });
 });
 
-describe("includeSegments - markdown format", () => {
-  it("does not include segments in markdown by default", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+describe("includeBeats - markdown format", () => {
+  it("does not include beats in markdown by default", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -182,12 +182,12 @@ describe("includeSegments - markdown format", () => {
     expect(result).not.toContain("definition");
   });
 
-  it("includes segments in markdown when enabled", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+  it("includes beats in markdown when enabled", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {},
       undefined,
       "markdown"
@@ -199,12 +199,12 @@ describe("includeSegments - markdown format", () => {
     expect(result).toContain("walkthrough");
   });
 
-  it("omits description line when segment description is empty", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+  it("omits description line when beat description is empty", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {},
       undefined,
       "markdown"
@@ -218,9 +218,9 @@ describe("includeSegments - markdown format", () => {
   });
 });
 
-describe("includeSegments - json format", () => {
-  it("does not include segments in json by default", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+describe("includeBeats - json format", () => {
+  it("does not include beats in json by default", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
@@ -230,65 +230,65 @@ describe("includeSegments - json format", () => {
       "json"
     );
     const parsed = JSON.parse(result);
-    expect(parsed.lessons[0].videos[0].segments).toBeUndefined();
+    expect(parsed.lessons[0].videos[0].beats).toBeUndefined();
   });
 
-  it("includes segments in json when enabled", () => {
-    const lesson = makeLesson({ videos: [videoWithSegments] });
+  it("includes beats in json when enabled", () => {
+    const lesson = makeLesson({ videos: [videoWithBeats] });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {},
       undefined,
       "json"
     );
     const parsed = JSON.parse(result);
-    const segments = parsed.lessons[0].videos[0].segments;
-    expect(segments).toHaveLength(2);
-    expect(segments[0]).toEqual({
+    const beats = parsed.lessons[0].videos[0].beats;
+    expect(beats).toHaveLength(2);
+    expect(beats[0]).toEqual({
       kind: "definition",
       title: "What is TypeScript?",
       description: "Explain TS basics",
     });
-    expect(segments[1]).toEqual({
+    expect(beats[1]).toEqual({
       kind: "walkthrough",
       title: "Setting up a project",
     });
   });
 
-  it("includes segments in course json when enabled", () => {
+  it("includes beats in course json when enabled", () => {
     const section = makeSection({
-      lessons: [makeLesson({ videos: [videoWithSegments] })],
+      lessons: [makeLesson({ videos: [videoWithBeats] })],
     });
     const result = buildCourseTranscript(
       "my-course",
       [section],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {},
       "json"
     );
     const parsed = JSON.parse(result);
-    const segments = parsed.sections[0].lessons[0].videos[0].segments;
-    expect(segments).toHaveLength(2);
-    expect(segments[0].kind).toBe("definition");
+    const beats = parsed.sections[0].lessons[0].videos[0].beats;
+    expect(beats).toHaveLength(2);
+    expect(beats[0].kind).toBe("definition");
   });
 
-  it("empty segments array produces empty array in json", () => {
+  it("empty beats array produces empty array in json", () => {
     const lesson = makeLesson({
       videos: [
-        { id: "v1", path: "video-001", clipCount: 0, segments: [] } as never,
+        { id: "v1", path: "video-001", clipCount: 0, beats: [] } as never,
       ],
     });
     const result = buildSectionTranscript(
       "01-basics",
       [lesson],
-      { ...baseOptions, includeSegments: true },
+      { ...baseOptions, includeBeats: true },
       {},
       undefined,
       "json"
     );
     const parsed = JSON.parse(result);
-    expect(parsed.lessons[0].videos[0].segments).toEqual([]);
+    expect(parsed.lessons[0].videos[0].beats).toEqual([]);
   });
 });

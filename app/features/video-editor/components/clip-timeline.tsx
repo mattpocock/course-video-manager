@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BeatIndicator } from "./timeline-indicators";
+import { PauseIndicator } from "./timeline-indicators";
 import { ClipItem } from "./clip-item";
 import { ChapterItem } from "./chapter-item";
 import { PreRecordingChecklist } from "./pre-recording-checklist";
@@ -229,7 +229,7 @@ export const ClipTimeline = () => {
                         );
                       }}
                     />
-                    {clip.beatType === "long" && <BeatIndicator />}
+                    {clip.pauseType === "long" && <PauseIndicator />}
                     {((insertionPoint.type === "after-clip" &&
                       insertionPoint.frontendClipId === clip.frontendId) ||
                       visualAnchorId === clip.frontendId) && (

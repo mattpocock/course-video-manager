@@ -175,13 +175,13 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.setReferenceVideoId
   );
-  const hasSegments = useContextSelector(
+  const hasBeats = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.hasSegments
+    (ctx) => ctx.hasBeats
   );
-  const onShowSegmentPanel = useContextSelector(
+  const onShowBeatPanel = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onShowSegmentPanel
+    (ctx) => ctx.onShowBeatPanel
   );
   const onOpenGenerateChaptersModal = useContextSelector(
     VideoEditorContext,
@@ -494,8 +494,8 @@ export const VideoPlayerPanel = () => {
               referenceCandidates={referenceCandidates}
               referenceVideoId={referenceVideoId}
               setReferenceVideoId={setReferenceVideoId}
-              hasSegments={hasSegments}
-              onShowSegmentPanel={onShowSegmentPanel}
+              hasBeats={hasBeats}
+              onShowBeatPanel={onShowBeatPanel}
               onGenerateChaptersClick={onOpenGenerateChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
             />

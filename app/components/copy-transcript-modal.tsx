@@ -69,7 +69,7 @@ export function CopyTranscriptModal(
     includePriority: false,
     includeExerciseType: false,
     includeSectionDescription: false,
-    includeSegments: false,
+    includeBeats: false,
   });
 
   const resolvedTranscripts = use(props.videoTranscripts);
@@ -362,20 +362,20 @@ export function CopyTranscriptModal(
 
             <div className="flex items-center gap-2">
               <Checkbox
-                id="include-segments"
-                checked={options.includeSegments}
+                id="include-beats"
+                checked={options.includeBeats}
                 onCheckedChange={(checked) =>
                   setOptions((o) => ({
                     ...o,
-                    includeSegments: checked === true,
+                    includeBeats: checked === true,
                   }))
                 }
               />
-              <Label htmlFor="include-segments" className="cursor-pointer">
-                Segments
+              <Label htmlFor="include-beats" className="cursor-pointer">
+                Beats
               </Label>
               <span className="text-xs text-muted-foreground">
-                Video planning segments (kind, title, description)
+                Video planning beats (kind, title, description)
               </span>
             </div>
 

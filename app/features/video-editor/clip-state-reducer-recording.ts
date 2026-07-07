@@ -1,4 +1,4 @@
-import type { BeatType } from "@/services/video-processing-service";
+import type { PauseType } from "@/services/video-processing-service";
 import { DEFAULT_SILENCE_LENGTH } from "@/silence-detection-constants";
 import { shouldSnapshot } from "@/lib/snapshot-rule";
 import type {
@@ -199,7 +199,7 @@ const handleNewOptimisticClipDetected = (
     scene: action.scene,
     profile: action.profile,
     insertionOrder: state.insertionOrder + 1,
-    beatType: "none",
+    pauseType: "none",
     soundDetectionId: action.soundDetectionId,
     sessionId: activeSession.id,
   };
@@ -279,7 +279,7 @@ const handleNewDatabaseClips = (
   const snapshotsToCreate: PendingSnapshotEffect[] = [];
   const clipsToUpdateScene = new Map<
     DatabaseId,
-    { scene: string; profile: string; beatType: BeatType }
+    { scene: string; profile: string; pauseType: PauseType }
   >();
 
   let newInsertionPoint: FrontendInsertionPoint = state.insertionPoint;
@@ -328,7 +328,7 @@ const handleNewDatabaseClips = (
           scene: frontendClip.scene,
           profile: frontendClip.profile,
           insertionOrder: frontendClip.insertionOrder,
-          beatType: frontendClip.beatType,
+          pauseType: frontendClip.pauseType,
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
           shouldArchive: true,
@@ -339,7 +339,7 @@ const handleNewDatabaseClips = (
         clipsToUpdateScene.set(databaseClip.id, {
           scene: frontendClip.scene,
           profile: frontendClip.profile,
-          beatType: frontendClip.beatType,
+          pauseType: frontendClip.pauseType,
         });
         frontendClipIdsToTranscribe.add(frontendClip.frontendId);
         databaseClipIdsToTranscribe.add(databaseClip.id);
@@ -352,7 +352,7 @@ const handleNewDatabaseClips = (
           scene: frontendClip.scene,
           profile: frontendClip.profile,
           insertionOrder: frontendClip.insertionOrder,
-          beatType: frontendClip.beatType,
+          pauseType: frontendClip.pauseType,
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
         };
@@ -360,7 +360,7 @@ const handleNewDatabaseClips = (
         clipsToUpdateScene.set(databaseClip.id, {
           scene: frontendClip.scene,
           profile: frontendClip.profile,
-          beatType: frontendClip.beatType,
+          pauseType: frontendClip.pauseType,
         });
         frontendClipIdsToTranscribe.add(frontendClip.frontendId);
         databaseClipIdsToTranscribe.add(databaseClip.id);
@@ -374,7 +374,7 @@ const handleNewDatabaseClips = (
         frontendId: newFrontendId,
         databaseId: databaseClip.id,
         insertionOrder: state.insertionOrder + 1,
-        beatType: databaseClip.beatType as BeatType,
+        pauseType: databaseClip.pauseType as PauseType,
         diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
         diagramName: null,
       };

@@ -2,12 +2,12 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 /**
- * Inline-editable Segment title. Click the title to edit; Enter or blur saves,
+ * Inline-editable Beat title. Click the title to edit; Enter or blur saves,
  * Escape cancels. Mirrors the lesson/section inline-edit pattern. When the
  * title is empty it shows the supplied `placeholder` (the kind label) in
  * italics.
  */
-export function SegmentTitleEditor({
+export function BeatTitleEditor({
   title,
   placeholder,
   isReadOnly,

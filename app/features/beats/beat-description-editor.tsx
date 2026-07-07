@@ -2,17 +2,17 @@ import { cn } from "@/lib/utils";
 import { useLayoutEffect, useRef, useState } from "react";
 
 /**
- * Inline, auto-growing Segment Description editor — the single component used
+ * Inline, auto-growing Beat Description editor — the single component used
  * for the free-text planning note on both the Section Workbench and the
- * editor's Segments tab. Click the note to edit; Enter or blur commits, Escape
+ * editor's Beats tab. Click the note to edit; Enter or blur commits, Escape
  * cancels (Shift+Enter inserts a newline so notes can span lines). When the
  * description is empty it shows a muted "+ Add note" affordance instead.
  *
- * Mirrors {@link SegmentTitleEditor}, but multi-line. Read-only surfaces (the
+ * Mirrors {@link BeatTitleEditor}, but multi-line. Read-only surfaces (the
  * course view, a capture in progress) render the plain text — or nothing when
  * empty — by passing `isReadOnly`.
  */
-export function SegmentDescriptionEditor({
+export function BeatDescriptionEditor({
   description,
   isReadOnly,
   onSave,

@@ -4,7 +4,7 @@ import {
   generateSectionLeaf,
   generateLessonLeaf,
   generateVideoLeaf,
-  generateSortedSegments,
+  generateSortedBeats,
   generateSortedTimelineItems,
 } from "./vfs-leaves";
 import {
@@ -12,7 +12,7 @@ import {
   SectionLeafSchema,
   LessonLeafSchema,
   VideoLeafSchema,
-  SegmentLeafSchema,
+  BeatLeafSchema,
   ClipLeafSchema,
   ChapterLeafSchema,
 } from "./vfs-schemas";
@@ -269,9 +269,9 @@ describe("generateVideoLeaf", () => {
   });
 });
 
-describe("generateSortedSegments", () => {
-  it("validates each item against SegmentLeafSchema", () => {
-    const items = generateSortedSegments([
+describe("generateSortedBeats", () => {
+  it("validates each item against BeatLeafSchema", () => {
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",
@@ -288,12 +288,12 @@ describe("generateSortedSegments", () => {
       },
     ]);
     for (const item of items) {
-      expect(SegmentLeafSchema.parse(item)).toEqual(item);
+      expect(BeatLeafSchema.parse(item)).toEqual(item);
     }
   });
 
-  it("sorts segments by order", () => {
-    const items = generateSortedSegments([
+  it("sorts beats by order", () => {
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",
@@ -314,7 +314,7 @@ describe("generateSortedSegments", () => {
   });
 
   it("does not include order in output items", () => {
-    const items = generateSortedSegments([
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",
@@ -326,12 +326,12 @@ describe("generateSortedSegments", () => {
     expect(items[0]).not.toHaveProperty("order");
   });
 
-  it("returns empty array for no segments", () => {
-    expect(generateSortedSegments([])).toEqual([]);
+  it("returns empty array for no beats", () => {
+    expect(generateSortedBeats([])).toEqual([]);
   });
 
-  it("excludes archived segments", () => {
-    const items = generateSortedSegments([
+  it("excludes archived beats", () => {
+    const items = generateSortedBeats([
       {
         id: "seg1",
         kind: "definition",
@@ -364,7 +364,7 @@ describe("generateSortedTimelineItems", () => {
         sourceStartTime: 0,
         sourceEndTime: 5.5,
         videoFilename: "raw.mp4",
-        beatType: "none",
+        pauseType: "none",
         scene: null,
         profile: null,
         archived: false,
@@ -387,7 +387,7 @@ describe("generateSortedTimelineItems", () => {
         sourceStartTime: 0,
         sourceEndTime: 3,
         videoFilename: "raw.mp4",
-        beatType: "none",
+        pauseType: "none",
         scene: null,
         profile: null,
         archived: false,
@@ -399,7 +399,7 @@ describe("generateSortedTimelineItems", () => {
         sourceStartTime: 3,
         sourceEndTime: 6,
         videoFilename: "raw.mp4",
-        beatType: "none",
+        pauseType: "none",
         scene: "screencast",
         profile: "wide",
         archived: false,
@@ -420,7 +420,7 @@ describe("generateSortedTimelineItems", () => {
       sourceStartTime: 0,
       sourceEndTime: 3,
       videoFilename: "raw.mp4",
-      beatType: "none",
+      pauseType: "none",
       scene: null,
       profile: null,
     });
@@ -432,7 +432,7 @@ describe("generateSortedTimelineItems", () => {
       sourceStartTime: 3,
       sourceEndTime: 6,
       videoFilename: "raw.mp4",
-      beatType: "none",
+      pauseType: "none",
       scene: "screencast",
       profile: "wide",
     });
@@ -447,7 +447,7 @@ describe("generateSortedTimelineItems", () => {
         sourceStartTime: 0,
         sourceEndTime: 1,
         videoFilename: "raw.mp4",
-        beatType: "none",
+        pauseType: "none",
         scene: null,
         profile: null,
         archived: false,
@@ -470,7 +470,7 @@ describe("generateSortedTimelineItems", () => {
         sourceStartTime: 0,
         sourceEndTime: 1,
         videoFilename: "raw.mp4",
-        beatType: "none",
+        pauseType: "none",
         scene: null,
         profile: null,
         archived: false,
@@ -482,7 +482,7 @@ describe("generateSortedTimelineItems", () => {
         sourceStartTime: 1,
         sourceEndTime: 2,
         videoFilename: "raw.mp4",
-        beatType: "none",
+        pauseType: "none",
         scene: null,
         profile: null,
         archived: true,

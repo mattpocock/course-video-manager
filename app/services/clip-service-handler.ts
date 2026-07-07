@@ -186,7 +186,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
               .set({
                 scene: clip.scene,
                 profile: clip.profile,
-                beatType: clip.beatType,
+                pauseType: clip.pauseType,
               })
               .where(eq(clips.id, clip.id))
           );
@@ -206,7 +206,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
                 id: c.id,
                 scene: c.scene,
                 profile: c.profile,
-                beatType: c.beatType,
+                pauseType: c.pauseType,
               })),
             });
           }
@@ -214,11 +214,11 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
         return;
       }
 
-      case "update-beat": {
+      case "update-pause": {
         yield* Effect.promise(() =>
           db
             .update(clips)
-            .set({ beatType: event.beatType })
+            .set({ pauseType: event.pauseType })
             .where(eq(clips.id, event.clipId))
         );
 
@@ -230,9 +230,9 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
         if (clip) {
           yield* touchVideoUpdatedAt(db, clip.videoId);
           logger.log(clip.videoId, {
-            type: "beat-updated",
+            type: "pause-updated",
             clipId: event.clipId,
-            beatType: event.beatType,
+            pauseType: event.pauseType,
           });
         }
         return;
@@ -549,7 +549,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
           text,
           scene,
           profile,
-          beatType,
+          pauseType,
         } = event.input;
         const allItems = yield* getOrderedItems(db, videoId);
 
@@ -589,7 +589,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
               text,
               scene,
               profile,
-              beatType,
+              pauseType,
               order: order!,
               archived: false,
               transcribedAt: new Date(),

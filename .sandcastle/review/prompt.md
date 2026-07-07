@@ -16,7 +16,11 @@ Read `CONTEXT.md`, `.sandcastle/CODING_STANDARDS.md`, and any relevant ADRs unde
 
 <diff-to-main>
 
-!`git diff main..HEAD`
+This is a **summary** of the diff — changed files with added/removed line counts, not the full patch:
+
+!`git diff main..HEAD --stat`
+
+The full patch is deliberately omitted here because it can be very long. Go deeper on the files that matter: run `git diff main..HEAD -- <path>` on the changed files above to read the actual changes before reviewing.
 
 </diff-to-main>
 

@@ -100,7 +100,7 @@ async function createFullCourseStructure() {
       sourceEndTime: 10,
       order: "a",
       text: "Hello world",
-      beatType: "intro",
+      pauseType: "intro",
     },
     {
       videoId: video!.id,
@@ -110,7 +110,7 @@ async function createFullCourseStructure() {
       order: "b",
       archived: true,
       text: "Archived clip",
-      beatType: "none",
+      pauseType: "none",
     },
   ]);
 
@@ -129,19 +129,19 @@ async function createFullCourseStructure() {
     },
   ]);
 
-  // Segments: one active, one archived
-  await testDb.insert(schema.segments).values([
+  // Beats: one active, one archived
+  await testDb.insert(schema.beats).values([
     {
       videoId: video!.id,
       kind: "definition",
-      title: "Active Segment",
+      title: "Active Beat",
       order: "a",
       archived: false,
     },
     {
       videoId: video!.id,
       kind: "quest",
-      title: "Archived Segment",
+      title: "Archived Beat",
       order: "b",
       archived: true,
     },
@@ -381,7 +381,7 @@ describe("duplicateCourse", () => {
     expect(clips).toHaveLength(1);
     expect(clips[0]!.text).toBe("Hello world");
     expect(clips[0]!.videoFilename).toBe("clip-01.mp4");
-    expect(clips[0]!.beatType).toBe("intro");
+    expect(clips[0]!.pauseType).toBe("intro");
   });
 
   it("copies chapters and excludes archived chapters", async () => {
@@ -642,7 +642,7 @@ describe("duplicateCourse", () => {
     expect(newSections[0]!.path).toBe("01-new-section");
   });
 
-  it("copies segments and excludes archived segments", async () => {
+  it("copies beats and excludes archived beats", async () => {
     const { course } = await createFullCourseStructure();
 
     const result = await run(
@@ -663,7 +663,7 @@ describe("duplicateCourse", () => {
           with: {
             videos: {
               with: {
-                segments: {
+                beats: {
                   orderBy: (s, { asc }) => asc(s.order),
                 },
               },
@@ -673,9 +673,9 @@ describe("duplicateCourse", () => {
       },
     });
 
-    const segments = newSections[0]!.lessons[0]!.videos[0]!.segments;
-    expect(segments).toHaveLength(1);
-    expect(segments[0]!.title).toBe("Active Segment");
-    expect(segments[0]!.kind).toBe("definition");
+    const beats = newSections[0]!.lessons[0]!.videos[0]!.beats;
+    expect(beats).toHaveLength(1);
+    expect(beats[0]!.title).toBe("Active Beat");
+    expect(beats[0]!.kind).toBe("definition");
   });
 });

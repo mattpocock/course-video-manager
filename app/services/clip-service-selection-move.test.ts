@@ -207,7 +207,7 @@ describe("ClipService", () => {
           id: clip!.id,
           scene: "moved-scene",
           profile: "moved-profile",
-          beatType: "moved-beat",
+          pauseType: "moved-beat",
         },
       ]);
 
@@ -229,7 +229,7 @@ describe("ClipService", () => {
         sourceEndTime: 15,
         scene: "moved-scene",
         profile: "moved-profile",
-        beatType: "moved-beat",
+        pauseType: "moved-beat",
       });
 
       // Source should be empty (clip was archived)

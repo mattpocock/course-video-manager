@@ -57,7 +57,7 @@ const UpdateClipInputSchema = Schema.Struct({
   id: Schema.String,
   scene: Schema.String,
   profile: Schema.String,
-  beatType: Schema.String,
+  pauseType: Schema.String,
 });
 
 const CreateChapterAtInsertionPointInputSchema = Schema.Struct({
@@ -85,7 +85,7 @@ const CreateEffectClipAtPositionInputSchema = Schema.Struct({
   text: Schema.String,
   scene: Schema.String,
   profile: Schema.String,
-  beatType: Schema.String,
+  pauseType: Schema.String,
 });
 
 const CreateVideoFromSelectionModeSchema = Schema.Union(
@@ -145,9 +145,9 @@ export const ClipServiceEventSchema = Schema.Union(
     clips: Schema.Array(UpdateClipInputSchema),
   }),
   Schema.Struct({
-    type: Schema.Literal("update-beat"),
+    type: Schema.Literal("update-pause"),
     clipId: Schema.String,
-    beatType: Schema.String,
+    pauseType: Schema.String,
   }),
   Schema.Struct({
     type: Schema.Literal("reorder-clip"),

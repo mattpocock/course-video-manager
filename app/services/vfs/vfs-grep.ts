@@ -89,7 +89,7 @@ const collectFileHits = (
   } else if (fileName.endsWith(".chapter.json")) {
     matchChapterFile(filePath, data as Record<string, unknown>, re, hits);
   } else {
-    matchSegmentFile(filePath, data as Record<string, unknown>, re, hits);
+    matchBeatFile(filePath, data as Record<string, unknown>, re, hits);
   }
 };
 
@@ -206,7 +206,7 @@ const matchChapterFile = (
   }
 };
 
-const matchSegmentFile = (
+const matchBeatFile = (
   filePath: string,
   data: Record<string, unknown>,
   re: RegExp,

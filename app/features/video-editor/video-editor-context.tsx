@@ -78,8 +78,8 @@ export type VideoEditorContextType = {
   referenceCandidates: ReferenceCandidate[];
   referenceVideoId: string | null;
   setReferenceVideoId: (id: string | null) => void;
-  hasSegments: boolean;
-  onShowSegmentPanel: () => void;
+  hasBeats: boolean;
+  onShowBeatPanel: () => void;
   insertionPoint: FrontendInsertionPoint;
   obsConnectorState: OBSConnectionOuterState;
   liveMediaStream: MediaStream | null;
@@ -92,7 +92,7 @@ export type VideoEditorContextType = {
   // Callbacks
   onSetInsertionPoint: (mode: "after" | "before", clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
-  onToggleBeatForClip: (clipId: FrontendId) => void;
+  onTogglePauseForClip: (clipId: FrontendId) => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
   onAddChapterAt: (

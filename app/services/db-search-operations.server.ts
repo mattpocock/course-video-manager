@@ -10,7 +10,7 @@ import {
   lessons,
   pitches,
   sections,
-  segments,
+  beats,
   videos,
 } from "@/db/schema";
 import { UnknownDBServiceError } from "@/services/db-service-errors";
@@ -33,7 +33,7 @@ export type SearchKind =
   | "section"
   | "lesson"
   | "video"
-  | "segment"
+  | "beat"
   | "pitch";
 
 /**
@@ -79,7 +79,7 @@ export type SearchHit =
       snippet: string;
     }
   | {
-      kind: "segment";
+      kind: "beat";
       id: string;
       courseId: string;
       videoId: string;
@@ -129,7 +129,7 @@ const SNIPPET_RADIUS = 60;
 // In-memory tree node shapes (only the columns search needs)
 // ---------------------------------------------------------------------------
 
-type SegmentNode = {
+type BeatNode = {
   id: string;
   title: string;
   description: string;
@@ -139,7 +139,7 @@ type VideoNode = {
   id: string;
   path: string;
   lessonId: string;
-  segments: SegmentNode[];
+  beats: BeatNode[];
 };
 type LessonNode = {
   id: string;
@@ -180,7 +180,7 @@ const sectionWith = {
           where: eq(videos.archived, false),
           orderBy: asc(videos.path),
           with: {
-            segments: {
+            beats: {
               columns: {
                 id: true,
                 title: true,
@@ -188,8 +188,8 @@ const sectionWith = {
                 order: true,
                 videoId: true,
               },
-              where: eq(segments.archived, false),
-              orderBy: asc(segments.order),
+              where: eq(beats.archived, false),
+              orderBy: asc(beats.order),
             },
           },
         },
@@ -203,7 +203,7 @@ export const createSearchOperations = (db: Database) => {
    * Search the entity tree for a literal, case-insensitive substring.
    *
    * Returns hits in depth-first Draft-tree order (course -> sections -> lessons
-   * -> videos -> segments), courses in `course list` order, pitches last. One
+   * -> videos -> beats), courses in `course list` order, pitches last. One
    * hit per entity (first matching field wins, path before transcript). When a
    * scoped `root` id is missing or archived, returns `null` so the CLI can own
    * not-found detection.
@@ -266,7 +266,7 @@ export const createSearchOperations = (db: Database) => {
       types.has("section") ||
       types.has("lesson") ||
       types.has("video") ||
-      types.has("segment");
+      types.has("beat");
 
     if (root === null) {
       if (wantsTree) {
@@ -451,15 +451,15 @@ export const createSearchOperations = (db: Database) => {
             snippet: m.snippet,
           });
       }
-      if (want("segment")) {
-        for (const seg of v.segments) {
+      if (want("beat")) {
+        for (const seg of v.beats) {
           const m = firstMatch([
             ["title", seg.title],
             ["description", seg.description],
           ]);
           if (m)
             hits.push({
-              kind: "segment",
+              kind: "beat",
               id: seg.id,
               courseId: cid,
               videoId: seg.videoId,

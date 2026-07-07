@@ -14,6 +14,7 @@ import {
   parseError,
   withName,
 } from "@/cli/helpers";
+import { withBackupCoordination } from "@/cli/backup-coordinator";
 
 // ---------------------------------------------------------------------------
 // Help text — domain-teaching prose (keep in sync with CONTEXT.md, "Pitches").
@@ -46,13 +47,16 @@ RANKING FIELDS
                overrides priority across bands.
 
 COPY FIELDS
-  title, description, contentPlan, youtubeTitle, youtubeThumbnailDescription,
+  title, description, youtubeTitle, youtubeThumbnailDescription,
   newsletterTitle, tweet — the packaging copy authored ahead of recording.
+  contentPlan is retired (deprecated, ADR 0015): still surfaced in list/get
+  output as a read-only transitional reference, but no longer writable via
+  create/update.
 
 VERBS
   list   — every active pitch (optionally filtered by --state). Identity-rich.
   get    — one or more pitches by id, deep (linked Standalone Videos + their
-           Clips and planning Segments).
+           Clips and planning Beats).
   create — create a Pitch (WRITE). --title required; other copy/ranking fields
            optional. (A pitch needs a title to appear in list/get.)
   update — patch a Pitch's copy/ranking fields (WRITE). Rename = --title.
@@ -110,7 +114,7 @@ Each pitch includes its derived 'state' (idle | scheduled | shipped) plus the
 deep relations:
   - videos   — the linked Standalone Videos (active only), each with:
                  * clips    — recorded-timeline Clips (active, ordered).
-                 * segments — the video's planning Segments (active, ordered):
+                 * beats — the video's planning Beats (active, ordered):
                               {id, kind, title, description, order, videoId}.
 The packaging copy fields (title, description, contentPlan, youtubeTitle,
 youtubeThumbnailDescription, newsletterTitle, tweet) and ranking fields
@@ -131,7 +135,6 @@ defaults ("" for copy; priority 2; effort 2). Echoes the created pitch row.
 Flags:
   --title <t>              (required) the pitch title / packaging headline.
   --description <t>        free-text description.
-  --content-plan <t>       the content plan.
   --youtube-title <t>      YouTube title copy.
   --youtube-thumbnail <t>  YouTube thumbnail concept (youtubeThumbnailDescription).
   --newsletter-title <t>   newsletter title copy.
@@ -148,7 +151,7 @@ const UPDATE_HELP = `Patch a Pitch's copy/ranking fields by id. At least one fie
 change; the rest are left untouched. Renaming is just --title.
 
 Flags (all optional; same meanings as 'pitch create'):
-  --title, --description, --content-plan, --youtube-title, --youtube-thumbnail,
+  --title, --description, --youtube-title, --youtube-thumbnail,
   --newsletter-title, --tweet, --priority <n>, --effort <1|2|3>.
 
 An unknown or archived (deleted) pitch id is a not-found (exit 2). Flags must
@@ -215,7 +218,6 @@ const optText = (name: string, description: string) =>
   );
 
 const descriptionOption = optText("description", "Free-text description.");
-const contentPlanOption = optText("content-plan", "The content plan.");
 const youtubeTitleOption = optText("youtube-title", "YouTube title copy.");
 const youtubeThumbnailOption = optText(
   "youtube-thumbnail",
@@ -239,7 +241,6 @@ const effortOption = Options.choice("effort", ["1", "2", "3"]).pipe(
 
 const copyOptions = {
   description: descriptionOption,
-  contentPlan: contentPlanOption,
   youtubeTitle: youtubeTitleOption,
   youtubeThumbnailDescription: youtubeThumbnailOption,
   newsletterTitle: newsletterTitleOption,
@@ -250,7 +251,6 @@ const copyOptions = {
 
 interface PitchFieldOpts {
   readonly description: Option.Option<string>;
-  readonly contentPlan: Option.Option<string>;
   readonly youtubeTitle: Option.Option<string>;
   readonly youtubeThumbnailDescription: Option.Option<string>;
   readonly newsletterTitle: Option.Option<string>;
@@ -268,7 +268,6 @@ const collectPitchFields = (opts: PitchFieldOpts): PitchFields => {
   const effort = Option.getOrUndefined(opts.effort);
   return {
     description: Option.getOrUndefined(opts.description),
-    contentPlan: Option.getOrUndefined(opts.contentPlan),
     youtubeTitle: Option.getOrUndefined(opts.youtubeTitle),
     youtubeThumbnailDescription: Option.getOrUndefined(
       opts.youtubeThumbnailDescription
@@ -288,19 +287,21 @@ const createCmd = Command.make(
   "create",
   { title: createTitleOption, ...copyOptions },
   ({ title, ...rest }) =>
-    Effect.gen(function* () {
-      // A pitch needs a non-empty title to appear in list/get, so reject blank.
-      if (title.trim() === "") {
-        return yield* parseError("--title must not be empty", "pitch");
-      }
-      const svc = yield* PitchOperationsService;
-      // One atomic insert carrying the title (never a titleless row + patch).
-      const created = yield* svc.createPitch({
-        title,
-        ...collectPitchFields(rest),
-      });
-      yield* emitObject(created);
-    })
+    withBackupCoordination(
+      Effect.gen(function* () {
+        // A pitch needs a non-empty title to appear in list/get, so reject blank.
+        if (title.trim() === "") {
+          return yield* parseError("--title must not be empty", "pitch");
+        }
+        const svc = yield* PitchOperationsService;
+        // One atomic insert carrying the title (never a titleless row + patch).
+        const created = yield* svc.createPitch({
+          title,
+          ...collectPitchFields(rest),
+        });
+        yield* emitObject(created);
+      })
+    )
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 const updateTitleOption = Options.text("title").pipe(
@@ -313,33 +314,35 @@ const updateCmd = Command.make(
   "update",
   { id: idArg, title: updateTitleOption, ...copyOptions },
   ({ id, title, ...rest }) =>
-    Effect.gen(function* () {
-      const t = Option.getOrUndefined(title);
-      if (t !== undefined && t.trim() === "") {
-        return yield* parseError("--title must not be empty", "pitch");
-      }
-      // May carry undefined values (flags not passed); the service prunes them.
-      const fields: PitchFields = { title: t, ...collectPitchFields(rest) };
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const t = Option.getOrUndefined(title);
+        if (t !== undefined && t.trim() === "") {
+          return yield* parseError("--title must not be empty", "pitch");
+        }
+        // May carry undefined values (flags not passed); the service prunes them.
+        const fields: PitchFields = { title: t, ...collectPitchFields(rest) };
 
-      if (!Object.values(fields).some((v) => v !== undefined)) {
-        return yield* parseError(
-          "update needs at least one field flag (e.g. --title)",
-          "pitch"
-        );
-      }
+        if (!Object.values(fields).some((v) => v !== undefined)) {
+          return yield* parseError(
+            "update needs at least one field flag (e.g. --title)",
+            "pitch"
+          );
+        }
 
-      const svc = yield* PitchOperationsService;
-      // Existence + active guard (archived == deleted == not addressable).
-      const existing = yield* svc
-        .getPitch(id)
-        .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", id)));
-      if (existing.archived) {
-        return yield* notFound("pitch", id);
-      }
+        const svc = yield* PitchOperationsService;
+        // Existence + active guard (archived == deleted == not addressable).
+        const existing = yield* svc
+          .getPitch(id)
+          .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", id)));
+        if (existing.archived) {
+          return yield* notFound("pitch", id);
+        }
 
-      const updated = yield* svc.updatePitch(id, fields);
-      yield* emitObject(updated);
-    })
+        const updated = yield* svc.updatePitch(id, fields);
+        yield* emitObject(updated);
+      })
+    )
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 // ---------------------------------------------------------------------------

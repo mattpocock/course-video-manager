@@ -6,12 +6,12 @@ import { ClipTimeline } from "./components/clip-timeline";
 import { ErrorOverlay } from "./components/error-overlay";
 import { type ReferenceCandidate } from "./components/reference-panel";
 import { EditorSidePanel } from "./components/editor-side-panel";
-import { useSegmentTab } from "./hooks/use-segment-tab";
+import { useBeatTab } from "./hooks/use-beat-tab";
 import { useVideoEditor } from "./hooks/use-video-editor";
-import { resolveSegmentTab } from "./segment-tab";
+import { resolveBeatTab } from "./beat-tab";
 import { courseEditorFetcherKeyForEvent } from "@/features/course-view/optimistic-applier";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
-import type { SegmentListSegment } from "@/features/segments/segment-list";
+import type { BeatListBeat } from "@/features/beats/beat-list";
 import { useGenerateChaptersModal } from "./hooks/use-generate-chapters-modal";
 import {
   useDiagramPin,
@@ -90,7 +90,7 @@ export const VideoEditor = (props: {
     files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
   }>;
   videoCount: number;
-  segments: SegmentListSegment[];
+  beats: BeatListBeat[];
   referenceCandidates: ReferenceCandidate[];
   onAddReferenceChapterAt: (input: {
     videoId: string;
@@ -108,8 +108,8 @@ export const VideoEditor = (props: {
   insertionPoint: FrontendInsertionPoint;
   onSetInsertionPoint: (mode: "after" | "before", clipId: FrontendId) => void;
   onDeleteLatestInsertedClip: () => void;
-  onToggleBeat: () => void;
-  onToggleBeatForClip: (clipId: FrontendId) => void;
+  onTogglePause: () => void;
+  onTogglePauseForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
@@ -158,7 +158,7 @@ export const VideoEditor = (props: {
     insertionPoint: props.insertionPoint,
     onClipsRemoved: props.onClipsRemoved,
     onClipsRetranscribe: props.onClipsRetranscribe,
-    onToggleBeatForClip: props.onToggleBeatForClip,
+    onTogglePauseForClip: props.onTogglePauseForClip,
     onMoveClip: props.onMoveClip,
     onAddChapter: props.onAddChapter,
     onUpdateChapter: props.onUpdateChapter,
@@ -228,7 +228,7 @@ export const VideoEditor = (props: {
   useWebSocket({
     dispatch,
     onDeleteLatestInsertedClip: props.onDeleteLatestInsertedClip,
-    onToggleBeat: props.onToggleBeat,
+    onTogglePause: props.onTogglePause,
     onClearAllArchived: props.onClearAllArchived,
     setChapterNamingModal,
     generateDefaultChapterName,
@@ -293,25 +293,23 @@ export const VideoEditor = (props: {
     props.videoId
   );
 
-  const [persistedSegmentTab, setPersistedSegmentTab] = useSegmentTab(
-    props.videoId
-  );
+  const [persistedBeatTab, setPersistedBeatTab] = useBeatTab(props.videoId);
 
   // Adding a reference auto-switches the persisted tab to Reference so the
   // newly-added reader surfaces; removing (next === null) leaves the tab alone.
   const handleSetReferenceVideoId = useCallback(
     (next: string | null) => {
       setReferenceVideoId(next);
-      if (next) setPersistedSegmentTab("reference");
+      if (next) setPersistedBeatTab("reference");
     },
-    [setReferenceVideoId, setPersistedSegmentTab]
+    [setReferenceVideoId, setPersistedBeatTab]
   );
 
-  // Segment edits submit to /api/course-editor with a stable per-entity
+  // Beat edits submit to /api/course-editor with a stable per-entity
   // fetcher key and navigate:false — exactly like the pitch page. Plain loader
   // revalidation handles the refresh; no editor-specific optimistic applier.
   const submit = useSubmit();
-  const submitSegmentEvent = useCallback(
+  const submitBeatEvent = useCallback(
     (event: CourseEditorEvent) => {
       submit(event, {
         method: "post",
@@ -324,7 +322,7 @@ export const VideoEditor = (props: {
     [submit]
   );
 
-  // The Segment Panel is read-only the instant a capture starts and through
+  // The Beat Panel is read-only the instant a capture starts and through
   // the post-recording settling window (recording, polling, or unresolved
   // optimistic clips) — see isCaptureInProgress.
   const captureInProgress = isCaptureInProgress(
@@ -333,9 +331,9 @@ export const VideoEditor = (props: {
     props.sessions
   );
 
-  const onShowSegmentPanel = useCallback(
-    () => setPersistedSegmentTab("segments"),
-    [setPersistedSegmentTab]
+  const onShowBeatPanel = useCallback(
+    () => setPersistedBeatTab("beats"),
+    [setPersistedBeatTab]
   );
 
   // Build context value with all state and callbacks
@@ -383,8 +381,8 @@ export const VideoEditor = (props: {
       referenceCandidates: props.referenceCandidates,
       referenceVideoId,
       setReferenceVideoId: handleSetReferenceVideoId,
-      hasSegments: props.segments.length > 0,
-      onShowSegmentPanel,
+      hasBeats: props.beats.length > 0,
+      onShowBeatPanel,
       insertionPoint: props.insertionPoint,
       obsConnectorState: props.obsConnectorState,
       liveMediaStream: props.liveMediaStream,
@@ -397,7 +395,7 @@ export const VideoEditor = (props: {
       // Callbacks
       onSetInsertionPoint: props.onSetInsertionPoint,
       onMoveClip: props.onMoveClip,
-      onToggleBeatForClip: props.onToggleBeatForClip,
+      onTogglePauseForClip: props.onTogglePauseForClip,
       onAddChapter: props.onAddChapter,
       onUpdateChapter: props.onUpdateChapter,
       onAddChapterAt: props.onAddChapterAt,
@@ -487,8 +485,8 @@ export const VideoEditor = (props: {
       props.referenceCandidates,
       referenceVideoId,
       handleSetReferenceVideoId,
-      props.segments,
-      onShowSegmentPanel,
+      props.beats,
+      onShowBeatPanel,
       props.insertionPoint,
       props.obsConnectorState,
       props.liveMediaStream,
@@ -499,7 +497,7 @@ export const VideoEditor = (props: {
       props.clipIdsBeingTranscribed,
       props.onSetInsertionPoint,
       props.onMoveClip,
-      props.onToggleBeatForClip,
+      props.onTogglePauseForClip,
       props.onAddChapter,
       props.onUpdateChapter,
       props.onAddChapterAt,
@@ -543,10 +541,10 @@ export const VideoEditor = (props: {
       : null;
 
   const hasReference = activeReference !== null;
-  const hasSegments = props.segments.length > 0;
-  const activeTab = resolveSegmentTab({
-    persistedTab: persistedSegmentTab,
-    hasSegments,
+  const hasBeats = props.beats.length > 0;
+  const activeTab = resolveBeatTab({
+    persistedTab: persistedBeatTab,
+    hasBeats,
     hasReference,
   });
 
@@ -591,13 +589,13 @@ export const VideoEditor = (props: {
         <div className="order-3 lg:order-2 lg:w-[40ch] shrink-0 h-full min-h-0">
           <EditorSidePanel
             activeTab={activeTab}
-            hasSegments={hasSegments}
+            hasBeats={hasBeats}
             hasReference={hasReference}
-            onTabChange={setPersistedSegmentTab}
+            onTabChange={setPersistedBeatTab}
             videoId={props.videoId}
-            segments={props.segments}
-            isSegmentsReadOnly={captureInProgress}
-            onSegmentEvent={submitSegmentEvent}
+            beats={props.beats}
+            isBeatsReadOnly={captureInProgress}
+            onBeatEvent={submitBeatEvent}
             referenceCandidates={props.referenceCandidates}
             referenceVideoId={activeReference}
             onRemoveReference={() => handleSetReferenceVideoId(null)}

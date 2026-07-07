@@ -22,10 +22,10 @@ export const InsertionPointIndicator = () => {
 };
 
 /**
- * Visual indicator showing a beat/pause between clips.
+ * Visual indicator showing a held pause between clips.
  * Displays three gray dots in a row.
  */
-export const BeatIndicator = () => {
+export const PauseIndicator = () => {
   return (
     <div className="flex items-center justify-center gap-1 pt-5 pb-1">
       <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />

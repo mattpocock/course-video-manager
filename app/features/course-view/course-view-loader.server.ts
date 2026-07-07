@@ -15,7 +15,7 @@ import { runtimeLive } from "@/services/layer.server";
 /**
  * The shared course-view loader Effect, used by both the full course page and
  * the Section Workbench. Resolves the selected version, builds the slim
- * section→lesson→video→segment tree (Segment Descriptions included), and kicks
+ * section→lesson→video→beat tree (Beat Descriptions included), and kicks
  * off the deferred filesystem/git/transcript work. Sections ending in
  * `ARCHIVE` are dropped here so every consumer agrees on the visible set.
  *

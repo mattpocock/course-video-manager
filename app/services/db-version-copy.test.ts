@@ -386,7 +386,7 @@ describe("copyVersionStructure", () => {
     expect(newSections[0]!.lessons[1]!.fsStatus).toBe("ghost");
   });
 
-  it("copies a video's segments, preserving kind/title/order", async () => {
+  it("copies a video's beats, preserving kind/title/order", async () => {
     const [course] = await testDb
       .insert(schema.courses)
       .values({ name: "Test Course", filePath: "/tmp/test" })
@@ -423,7 +423,7 @@ describe("copyVersionStructure", () => {
       })
       .returning();
 
-    await testDb.insert(schema.segments).values([
+    await testDb.insert(schema.beats).values([
       {
         videoId: video!.id,
         kind: "definition",
@@ -455,7 +455,7 @@ describe("copyVersionStructure", () => {
       (m) => m.sourceVideoId === video!.id
     )!.newVideoId;
 
-    const copied = await testDb.query.segments.findMany({
+    const copied = await testDb.query.beats.findMany({
       where: (s, { eq }) => eq(s.videoId, newVideoId),
       orderBy: (s, { asc }) => asc(s.order),
     });
@@ -480,7 +480,7 @@ describe("copyVersionStructure", () => {
     ]);
   });
 
-  it("excludes archived segments when copying a video", async () => {
+  it("excludes archived beats when copying a video", async () => {
     const [course] = await testDb
       .insert(schema.courses)
       .values({ name: "Test Course", filePath: "/tmp/test" })
@@ -517,7 +517,7 @@ describe("copyVersionStructure", () => {
       })
       .returning();
 
-    await testDb.insert(schema.segments).values([
+    await testDb.insert(schema.beats).values([
       {
         videoId: video!.id,
         kind: "definition",
@@ -549,7 +549,7 @@ describe("copyVersionStructure", () => {
       (m) => m.sourceVideoId === video!.id
     )!.newVideoId;
 
-    const copied = await testDb.query.segments.findMany({
+    const copied = await testDb.query.beats.findMany({
       where: (s, { eq }) => eq(s.videoId, newVideoId),
       orderBy: (s, { asc }) => asc(s.order),
     });

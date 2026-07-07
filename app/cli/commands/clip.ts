@@ -23,7 +23,7 @@ import {
  *   A Clip's `text` is the spoken transcription, populated from its audio
  *   (Transcription) and timestamped by `transcribedAt`. An "Effect Clip" is a
  *   special clip for non-speech content (white noise, transitions) inserted by
- *   hand; `beatType` carries that classification (default "none").
+ *   hand. `pauseType` is the held pause after the clip ("none" or "long").
  *
  *   Clips are CHILDREN of a Video, addressed only by id. There is no version
  *   scoping here — clips belong to the live recorded timeline of one Video.
@@ -40,7 +40,7 @@ import {
  *   text             spoken transcription of the clip (the Transcript unit)
  *   transcribedAt    when `text` was last produced (null = not transcribed)
  *   scene / profile  optional capture metadata
- *   beatType         clip classification; "none" for an ordinary clip
+ *   pauseType         held pause after clip; "none" or "long"
  *   diagramSnapshotId pinned DiagramSnapshot filmed against this clip, if any
  *   archived         always false in CLI output (archived rows are hidden)
  *   createdAt        row creation timestamp

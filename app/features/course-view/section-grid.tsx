@@ -4,8 +4,8 @@ import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { SectionCard } from "./section-card";
 import { DependencyDragProvider } from "./dependency-drag-context";
-import { SegmentDndProvider } from "@/features/segments/segment-dnd-context";
-import { CreateSegmentDialogProvider } from "@/features/segments/create-segment-dialog";
+import { BeatDndProvider } from "@/features/beats/beat-dnd-context";
+import { CreateBeatDialogProvider } from "@/features/beats/create-beat-dialog";
 import { type LoaderData } from "./course-view-types";
 
 import {
@@ -22,37 +22,37 @@ import { useNavigate, useFetcher } from "react-router";
 import { useLessonSelectionClear } from "./use-lesson-selection-clear";
 
 /**
- * Wraps the compact grid in a single Segment drag-and-drop context spanning
- * every Video, so a Segment can be dropped onto any Video regardless of its
+ * Wraps the compact grid in a single Beat drag-and-drop context spanning
+ * every Video, so a Beat can be dropped onto any Video regardless of its
  * lesson or section. Renders children bare when disabled (expanded/read-only),
- * where Segments aren't draggable.
+ * where Beats aren't draggable.
  */
-function MaybeSegmentDnd({
+function MaybeBeatDnd({
   enabled,
   videos,
   submitEvent,
   children,
 }: {
   enabled: boolean;
-  videos: { id: string; segments: { id: string }[] }[];
+  videos: { id: string; beats: { id: string }[] }[];
   submitEvent: (event: CourseEditorEvent) => void;
   children: ReactNode;
 }) {
   if (!enabled) return <>{children}</>;
   return (
-    <SegmentDndProvider
+    <BeatDndProvider
       videos={videos}
       onMove={(drop) =>
         submitEvent({
-          type: "move-segment",
-          segmentId: drop.segmentId,
+          type: "move-beat",
+          beatId: drop.beatId,
           targetVideoId: drop.targetVideoId,
-          beforeSegmentId: drop.beforeSegmentId,
+          beforeBeatId: drop.beforeBeatId,
         })
       }
     >
       {children}
-    </SegmentDndProvider>
+    </BeatDndProvider>
   );
 }
 
@@ -144,16 +144,16 @@ export function SectionGrid({
     [displaySections]
   );
 
-  // Every Video across the course, so one hoisted SegmentDndProvider can resolve
+  // Every Video across the course, so one hoisted BeatDndProvider can resolve
   // a drag onto any Video — including one in a different lesson or section. A
-  // per-lesson provider would trap segments inside their own lesson.
+  // per-lesson provider would trap beats inside their own lesson.
   const allVideosForDnd = useMemo(
     () =>
       displaySections.flatMap((section) =>
         section.lessons.flatMap((lesson) =>
           lesson.videos.map((video) => ({
             id: video.id,
-            segments: video.segments ?? [],
+            beats: video.beats ?? [],
           }))
         )
       ),
@@ -238,8 +238,8 @@ export function SectionGrid({
         onDragCancel={onDragCancel}
       >
         <SortableContext items={allSectionIds} strategy={rectSortingStrategy}>
-          <CreateSegmentDialogProvider submitEvent={submitEvent}>
-            <MaybeSegmentDnd
+          <CreateBeatDialogProvider submitEvent={submitEvent}>
+            <MaybeBeatDnd
               enabled={viewMode === "compact" && !isReadOnly}
               videos={allVideosForDnd}
               submitEvent={submitEvent}
@@ -297,8 +297,8 @@ export function SectionGrid({
                   />
                 ))}
               </div>
-            </MaybeSegmentDnd>
-          </CreateSegmentDialogProvider>
+            </MaybeBeatDnd>
+          </CreateBeatDialogProvider>
         </SortableContext>
         <DragOverlay>
           {activeLesson ? (

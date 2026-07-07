@@ -39,13 +39,7 @@ import { useSearchParams } from "react-router";
 /* Domain — the derived op-list (#4). This is the contract #6 renders. */
 /* ================================================================== */
 
-type EntityKind =
-  | "section"
-  | "lesson"
-  | "video"
-  | "segment"
-  | "chapter"
-  | "clip";
+type EntityKind = "section" | "lesson" | "video" | "beat" | "chapter" | "clip";
 
 type Op =
   // EditField — one op per changed scalar field (R4-checked upstream)

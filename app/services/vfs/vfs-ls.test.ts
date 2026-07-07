@@ -52,7 +52,7 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segments: [
+              beats: [
                 {
                   id: "seg1",
                   kind: "definition",
@@ -69,7 +69,7 @@ const fullCourse = makeCourseEntry({
                   sourceStartTime: 0,
                   sourceEndTime: 3,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -165,15 +165,15 @@ describe("vfsLs", () => {
     );
     const lines = result.split("\n");
     expect(lines).toContain("video.json");
-    expect(lines).toContain("segments/");
+    expect(lines).toContain("beats/");
     expect(lines).toContain("timeline/");
   });
 
-  it("lists individual files inside segments/ directory", () => {
+  it("lists individual files inside beats/ directory", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsLs(
       root,
-      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments"
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats"
     );
     const lines = result.split("\n");
     expect(lines[0]).toBe("_members.json");

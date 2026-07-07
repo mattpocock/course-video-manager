@@ -251,7 +251,7 @@ describe("ClipService", () => {
           id: clip!.id,
           scene: "intro-scene",
           profile: "main-camera",
-          beatType: "hook",
+          pauseType: "hook",
         },
       ]);
 
@@ -273,7 +273,7 @@ describe("ClipService", () => {
         sourceEndTime: 15,
         scene: "intro-scene",
         profile: "main-camera",
-        beatType: "hook",
+        pauseType: "hook",
       });
       // Copied clip should have a NEW id
       expect(copiedClip!.id).not.toBe(clip!.id);

@@ -116,7 +116,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@typescript/native-preview": "^7.0.0-dev.20260304.1",
-    "drizzle-kit": "^0.31.4",
+    "drizzle-kit": "^0.31.10",
     "evalite": "^1.0.0-beta.16",
     "husky": "^9.1.7",
     "lint-staged": "^15.3.0",

@@ -379,7 +379,7 @@ export function RouteModals({
       videoId: string;
       videoPath: string;
       clipCount: number;
-      segmentCount: number;
+      beatCount: number;
     } | null;
     priorityFilter: number[];
     iconFilter: string[];
@@ -542,7 +542,7 @@ export function RouteModals({
           videoId={viewState.copyVideoState.videoId}
           videoPath={viewState.copyVideoState.videoPath}
           clipCount={viewState.copyVideoState.clipCount}
-          segmentCount={viewState.copyVideoState.segmentCount}
+          beatCount={viewState.copyVideoState.beatCount}
           open={true}
           onOpenChange={(open) => {
             if (!open) dispatch({ type: "close-copy-video" });

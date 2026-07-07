@@ -166,7 +166,7 @@ export function VideoItem({
               videoId: video.id,
               videoPath: video.path,
               clipCount: video.clipCount,
-              segmentCount: video.segments.length,
+              beatCount: video.beats.length,
             });
           }}
         >

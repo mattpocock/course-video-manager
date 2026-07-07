@@ -18,56 +18,55 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import {
-  computeSegmentDrop,
-  segmentContainerId,
-  type SegmentDndVideo,
-  type SegmentDrop,
-} from "./segment-dnd";
+  computeBeatDrop,
+  beatContainerId,
+  type BeatDndVideo,
+  type BeatDrop,
+} from "./beat-dnd";
 
 /**
- * The live drop target during a Segment drag, broadcast so each Video's list
+ * The live drop target during a Beat drag, broadcast so each Video's list
  * can draw an insertion line at the landing spot. `null` when nothing is being
  * dragged, or for a same-Video reorder (dnd-kit's sortable already shifts the
  * siblings to preview that, so a line would double up).
  */
-type SegmentDropPreview = {
+type BeatDropPreview = {
   targetVideoId: string;
-  beforeSegmentId: string | null;
+  beforeBeatId: string | null;
 } | null;
 
-const SegmentDropContext = createContext<SegmentDropPreview>(null);
+const BeatDropContext = createContext<BeatDropPreview>(null);
 
-function samePreview(a: SegmentDropPreview, b: SegmentDropPreview): boolean {
+function samePreview(a: BeatDropPreview, b: BeatDropPreview): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
   return (
-    a.targetVideoId === b.targetVideoId &&
-    a.beforeSegmentId === b.beforeSegmentId
+    a.targetVideoId === b.targetVideoId && a.beforeBeatId === b.beforeBeatId
   );
 }
 
 /** The current cross-Video drop preview, or `null`. Safe to call with no provider. */
-export function useSegmentDropPreview(): SegmentDropPreview {
-  return useContext(SegmentDropContext);
+export function useBeatDropPreview(): BeatDropPreview {
+  return useContext(BeatDropContext);
 }
 
-/** Insertion indicator showing where a dragged Segment will land. */
-export function SegmentDropLine() {
+/** Insertion indicator showing where a dragged Beat will land. */
+export function BeatDropLine() {
   return <div className="h-0.5 my-0.5 rounded-full bg-primary" />;
 }
 
 /**
- * One DndContext spanning a set of Videos, so Segments can be dragged to
+ * One DndContext spanning a set of Videos, so Beats can be dragged to
  * reorder within a Video or moved into a sibling Video. Resolves each drop to a
- * {@link SegmentDrop} and hands it to `onMove`.
+ * {@link BeatDrop} and hands it to `onMove`.
  */
-export function SegmentDndProvider({
+export function BeatDndProvider({
   videos,
   onMove,
   children,
 }: {
-  videos: SegmentDndVideo[];
-  onMove: (drop: SegmentDrop) => void;
+  videos: BeatDndVideo[];
+  onMove: (drop: BeatDrop) => void;
   children: ReactNode;
 }) {
   // A small distance constraint so clicking the title/handle still fires clicks.
@@ -75,36 +74,36 @@ export function SegmentDndProvider({
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
 
-  const [preview, setPreview] = useState<SegmentDropPreview>(null);
+  const [preview, setPreview] = useState<BeatDropPreview>(null);
 
-  const videoIdOfSegment = (segmentId: string) =>
-    videos.find((v) => v.segments.some((s) => s.id === segmentId))?.id ?? null;
+  const videoIdOfBeat = (beatId: string) =>
+    videos.find((v) => v.beats.some((s) => s.id === beatId))?.id ?? null;
 
   const handleDragOver = (event: DragOverEvent) => {
     const activeId = String(event.active.id);
-    const drop = computeSegmentDrop({
+    const drop = computeBeatDrop({
       activeId,
       overId: event.over ? String(event.over.id) : null,
       videos,
     });
     // Only preview cross-Video moves; within a Video the sortable already shifts
     // its siblings to show the gap.
-    const next: SegmentDropPreview =
-      drop && drop.targetVideoId !== videoIdOfSegment(activeId)
+    const next: BeatDropPreview =
+      drop && drop.targetVideoId !== videoIdOfBeat(activeId)
         ? {
             targetVideoId: drop.targetVideoId,
-            beforeSegmentId: drop.beforeSegmentId,
+            beforeBeatId: drop.beforeBeatId,
           }
         : null;
     // onDragOver fires on every pointer move, but the landing spot rarely
     // changes. Keep the previous reference when it hasn't, so React bails out
-    // instead of re-rendering every Video's segment list on each move.
+    // instead of re-rendering every Video's beat list on each move.
     setPreview((prev) => (samePreview(prev, next) ? prev : next));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setPreview(null);
-    const drop = computeSegmentDrop({
+    const drop = computeBeatDrop({
       activeId: String(event.active.id),
       overId: event.over ? String(event.over.id) : null,
       videos,
@@ -120,34 +119,34 @@ export function SegmentDndProvider({
       onDragEnd={handleDragEnd}
       onDragCancel={() => setPreview(null)}
     >
-      <SegmentDropContext.Provider value={preview}>
+      <BeatDropContext.Provider value={preview}>
         {children}
-      </SegmentDropContext.Provider>
+      </BeatDropContext.Provider>
     </DndContext>
   );
 }
 
 /**
- * A Video's Segment list: a droppable container (so an empty Video and the
+ * A Video's Beat list: a droppable container (so an empty Video and the
  * end-of-list are valid drop targets) wrapping a vertical SortableContext.
  */
-export function SegmentSortableList({
+export function BeatSortableList({
   videoId,
-  segmentIds,
+  beatIds,
   className,
   children,
 }: {
   videoId: string;
-  segmentIds: string[];
+  beatIds: string[];
   className?: string;
   children: ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({
-    id: segmentContainerId(videoId),
+    id: beatContainerId(videoId),
   });
 
   return (
-    <SortableContext items={segmentIds} strategy={verticalListSortingStrategy}>
+    <SortableContext items={beatIds} strategy={verticalListSortingStrategy}>
       <div
         ref={setNodeRef}
         className={cn(className, isOver && "bg-primary/5 rounded")}
@@ -158,8 +157,8 @@ export function SegmentSortableList({
   );
 }
 
-/** A draggable Segment row with a grip handle; `children` is the row content. */
-export function SortableSegment({
+/** A draggable Beat row with a grip handle; `children` is the row content. */
+export function SortableBeat({
   id,
   children,
 }: {
@@ -174,7 +173,7 @@ export function SortableSegment({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id, data: { type: "segment" } });
+  } = useSortable({ id, data: { type: "beat" } });
 
   const style = {
     transform: CSS.Transform.toString(transform),

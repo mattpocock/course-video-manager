@@ -55,7 +55,7 @@ VERBS
   get    One or more sections by id (variadic), each with its active Lessons.
   tree   Skeleton of section -> lessons -> videos.
   search <id> <query>  Substring search down this section's subtree
-                       (--type section|lesson|video|segment).
+                       (--type section|lesson|video|beat).
 
 EXAMPLES
   # All sections of a course's Draft Version, mapping name -> id:

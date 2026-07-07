@@ -408,7 +408,7 @@ export const handleCreateVideoFromSelection = Effect.fn(
           transcribedAt: item.transcribedAt,
           scene: item.scene,
           profile: item.profile,
-          beatType: item.beatType,
+          pauseType: item.pauseType,
         })
       );
     } else {

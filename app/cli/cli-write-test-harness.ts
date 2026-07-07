@@ -5,11 +5,12 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { SegmentOperationsService } from "@/services/db-segment-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
+import { BackupCoordinator } from "@/cli/backup-coordinator";
 import type { TestDb } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import { buildProgram } from "@/cli/main";
@@ -29,18 +30,27 @@ export interface RunResult {
   readonly exitCode: number;
 }
 
-export const buildWriteLayer = (db: TestDb) =>
+const healthyCoordinatorLayer = Layer.succeed(BackupCoordinator, {
+  ensureServerHealthy: Effect.void,
+  requestDump: Effect.void,
+} as unknown as BackupCoordinator);
+
+export const buildWriteLayer = (
+  db: TestDb,
+  coordinatorLayer?: Layer.Layer<BackupCoordinator>
+) =>
   Layer.mergeAll(
     CourseOperationsService.Default,
     VersionOperationsService.Default,
     LessonSectionOperationsService.Default,
     VideoOperationsService.Default,
     ClipOperationsService.Default,
-    SegmentOperationsService.Default,
+    BeatOperationsService.Default,
     PitchOperationsService.Default,
     DeliverableOperationsService.Default,
     SearchOperationsService.Default,
-    CourseWriteService.Default
+    CourseWriteService.Default,
+    coordinatorLayer ?? healthyCoordinatorLayer
   ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)));
 
 /** A run() bound to a specific captured-output layer. */

@@ -3,7 +3,7 @@ import { FileSystem } from "@effect/platform";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
   VideoProcessingService,
-  type BeatType,
+  type PauseType,
 } from "@/services/video-processing-service";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import path from "node:path";
@@ -32,7 +32,7 @@ export const batchExportProgram = (
         videoFilename: string;
         sourceStartTime: number;
         sourceEndTime: number;
-        beatType: string;
+        pauseType: string;
       }>;
     }> = [];
 
@@ -90,7 +90,7 @@ export const batchExportProgram = (
                   clip.sourceEndTime -
                   clip.sourceStartTime +
                   (isFinalClip ? FINAL_VIDEO_PADDING : 0),
-                beatType: clip.beatType as BeatType,
+                pauseType: clip.pauseType as PauseType,
               };
             }),
             onStageChange: (stage) => {

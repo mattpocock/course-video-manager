@@ -15,7 +15,7 @@ import {
 } from "./cli-write-test-harness";
 
 // ===========================================================================
-// cvm WRITE verbs — pitch create/update + segment add --pitch
+// cvm WRITE verbs — pitch create/update + beat add --pitch
 // (Split from cli-integration.test.ts to stay under the per-file token budget.)
 // ===========================================================================
 
@@ -76,8 +76,6 @@ describe("pitch create / update", () => {
           "Zod v4",
           "--description",
           "d",
-          "--content-plan",
-          "cp",
           "--youtube-title",
           "yt",
           "--youtube-thumbnail",
@@ -94,7 +92,6 @@ describe("pitch create / update", () => {
       ).stdout
     );
     expect(p.description).toBe("d");
-    expect(p.contentPlan).toBe("cp");
     expect(p.youtubeTitle).toBe("yt");
     expect(p.youtubeThumbnailDescription).toBe("thumb");
     expect(p.newsletterTitle).toBe("nl");
@@ -117,6 +114,38 @@ describe("pitch create / update", () => {
     ]);
     expect(exitCode).toBe(3);
     expect(stdout).toBe("");
+  });
+
+  // contentPlan is retired (ADR 0015): the CLI must NOT expose it as a writable
+  // flag on create/update, but it stays readable in get output.
+  it("create rejects the retired --content-plan flag => exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "pitch",
+      "create",
+      "--title",
+      "No plan writes",
+      "--content-plan",
+      "cp",
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("update rejects the retired --content-plan flag => exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "pitch",
+      "update",
+      "--content-plan",
+      "cp",
+      s.pitchActiveId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("contentPlan stays readable in get output (read-only, not stripped)", async () => {
+    const p = one<Pitch>((await run(["pitch", "get", s.pitchActiveId])).stdout);
+    expect(p).toHaveProperty("contentPlan");
   });
 
   it("update --title renames (patches only what is passed)", async () => {
@@ -198,7 +227,7 @@ describe("pitch create / update", () => {
   });
 });
 
-describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
+describe("beat add --pitch (resolve-or-create the pitch's video)", () => {
   interface Seg {
     id: string;
     videoId: string;
@@ -207,11 +236,11 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
   }
   const sobj = (stdout: string): Seg => one<Seg>(stdout);
 
-  it("with 0 videos, auto-creates the pitch's video and adds the segment", async () => {
+  it("with 0 videos, auto-creates the pitch's video and adds the beat", async () => {
     const seg = sobj(
       (
         await run([
-          "segment",
+          "beat",
           "add",
           "--pitch",
           s.pitchActiveId,
@@ -224,13 +253,13 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
     );
     expect(seg.kind).toBe("quest");
     expect(seg.title).toBe("Try it");
-    // The pitch now has exactly one video, carrying that segment.
+    // The pitch now has exactly one video, carrying that beat.
     const pitch = one<{
-      videos: Array<{ id: string; segments: Array<{ id: string }> }>;
+      videos: Array<{ id: string; beats: Array<{ id: string }> }>;
     }>((await run(["pitch", "get", s.pitchActiveId])).stdout);
     expect(pitch.videos).toHaveLength(1);
     expect(pitch.videos[0]!.id).toBe(seg.videoId);
-    expect(pitch.videos[0]!.segments.map((x) => x.id)).toContain(seg.id);
+    expect(pitch.videos[0]!.beats.map((x) => x.id)).toContain(seg.id);
   });
 
   it("with exactly 1 video, adds to that video (no new video)", async () => {
@@ -247,7 +276,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
       ).stdout
     );
     const seg = sobj(
-      (await run(["segment", "add", "--pitch", s.pitchActiveId])).stdout
+      (await run(["beat", "add", "--pitch", s.pitchActiveId])).stdout
     );
     expect(seg.videoId).toBe(v.id);
     const pitch = one<{ videos: unknown[] }>(
@@ -260,7 +289,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
     await run(["video", "create", "--name", "A", "--pitch", s.pitchActiveId]);
     await run(["video", "create", "--name", "B", "--pitch", s.pitchActiveId]);
     const { exitCode, stdout } = await run([
-      "segment",
+      "beat",
       "add",
       "--pitch",
       s.pitchActiveId,
@@ -271,7 +300,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
 
   it("both --video and --pitch => invalid input, exit 3", async () => {
     const { exitCode } = await run([
-      "segment",
+      "beat",
       "add",
       "--video",
       s.standaloneActiveId,
@@ -282,13 +311,13 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
   });
 
   it("neither --video nor --pitch => invalid input, exit 3", async () => {
-    const { exitCode } = await run(["segment", "add"]);
+    const { exitCode } = await run(["beat", "add"]);
     expect(exitCode).toBe(3);
   });
 
   it("unknown pitch => NotFoundError(pitch), exit 2", async () => {
     const { exitCode, stderr } = await run([
-      "segment",
+      "beat",
       "add",
       "--pitch",
       "pit_missing",
@@ -301,7 +330,7 @@ describe("segment add --pitch (resolve-or-create the pitch's video)", () => {
 
   it("archived pitch => NotFoundError(pitch), exit 2", async () => {
     const { exitCode, stderr } = await run([
-      "segment",
+      "beat",
       "add",
       "--pitch",
       s.pitchArchivedId,

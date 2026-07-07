@@ -280,7 +280,7 @@ VERBS
   tree <id>            Structure skeleton (--depth N|all, --course-version <id>).
   transcripts <id>     Video transcripts for the version, keyed by video id.
   search <id> <query>  Case-insensitive substring search down this course's
-                       Draft subtree (--type course|section|lesson|video|segment).
+                       Draft subtree (--type course|section|lesson|video|beat).
 
 Typical workflow: 'cvm course list' to find an id, then 'cvm course tree <id>'
 to see the shape, then drill in with 'cvm course get <id>' or the per-noun

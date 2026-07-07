@@ -81,10 +81,10 @@ export const ActionsDropdown = (props: {
   referenceVideoId: string | null;
   /** Set or clear the Reference Video */
   setReferenceVideoId: (id: string | null) => void;
-  /** Whether this video has a segment plan (enables "Show segment plan") */
-  hasSegments: boolean;
-  /** Activate the Segment Panel (the Segments tab) in the side panel */
-  onShowSegmentPanel: () => void;
+  /** Whether this video has a beat plan (enables "Show beat plan") */
+  hasBeats: boolean;
+  /** Activate the Beat Panel (the Beats tab) in the side panel */
+  onShowBeatPanel: () => void;
   /** Open the AI-driven Chapter generation modal */
   onGenerateChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
@@ -171,13 +171,13 @@ export const ActionsDropdown = (props: {
           </DropdownMenuSub>
         ) : null}
 
-        {props.hasSegments && (
-          <DropdownMenuItem onSelect={props.onShowSegmentPanel}>
+        {props.hasBeats && (
+          <DropdownMenuItem onSelect={props.onShowBeatPanel}>
             <ListTree className="w-4 h-4 mr-2" />
             <div className="flex flex-col">
-              <span className="font-medium">Show segment plan</span>
+              <span className="font-medium">Show beat plan</span>
               <span className="text-xs text-muted-foreground">
-                Open this video's Segment Panel
+                Open this video's Beat Panel
               </span>
             </div>
           </DropdownMenuItem>

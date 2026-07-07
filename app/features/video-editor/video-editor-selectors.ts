@@ -388,7 +388,7 @@ export const getShowCenterLine = (
 /**
  * Is a capture in progress — recording *or* still settling afterwards?
  *
- * The Segment Panel is editable only when fully idle and every clip is
+ * The Beat Panel is editable only when fully idle and every clip is
  * resolved; this selector drives its read-only gate so the freeze covers the
  * whole capture, not just while OBS reports "recording". Returns `true` when
  * **any** of:

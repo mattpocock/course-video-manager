@@ -128,7 +128,7 @@ const setup = async () => {
       sourceEndTime: 10,
       order: "a0",
       text: "Hello world",
-      beatType: "none",
+      pauseType: "none",
     },
     {
       videoId: video.id,
@@ -137,7 +137,7 @@ const setup = async () => {
       sourceEndTime: 25,
       order: "a1",
       text: "Welcome to the course",
-      beatType: "none",
+      pauseType: "none",
     },
   ]);
 

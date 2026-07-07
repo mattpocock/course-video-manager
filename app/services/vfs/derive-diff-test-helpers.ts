@@ -59,7 +59,7 @@ export const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segments: [
+              beats: [
                 {
                   id: "seg1",
                   kind: "definition",
@@ -82,7 +82,7 @@ export const fullCourse = makeCourseEntry({
                   sourceStartTime: 0,
                   sourceEndTime: 3,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -93,7 +93,7 @@ export const fullCourse = makeCourseEntry({
                   sourceStartTime: 5,
                   sourceEndTime: 8,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },

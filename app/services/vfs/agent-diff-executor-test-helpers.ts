@@ -13,7 +13,7 @@ import {
   generateSectionLeaf,
   generateLessonLeaf,
   generateVideoLeaf,
-  generateSortedSegments,
+  generateSortedBeats,
   generateSortedTimelineItems,
 } from "./vfs-leaves";
 import {
@@ -24,7 +24,7 @@ import {
   videos,
   clips,
   chapters,
-  segments,
+  beats,
 } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { DrizzleService } from "@/services/drizzle-service.server";
@@ -123,7 +123,7 @@ export async function seedVideoWithClips(testDb: TestDb) {
   });
 }
 
-export async function seedVideoWithSegments(testDb: TestDb) {
+export async function seedVideoWithBeats(testDb: TestDb) {
   await seedGhostCourse(testDb);
   await testDb.insert(videos).values({
     id: VIDEO_ID,
@@ -131,19 +131,19 @@ export async function seedVideoWithSegments(testDb: TestDb) {
     path: "vid-01",
     originalFootagePath: "/footage/01",
   });
-  await testDb.insert(segments).values([
+  await testDb.insert(beats).values([
     {
       id: "seg-1",
       videoId: VIDEO_ID,
       kind: "definition",
-      title: "Segment One",
+      title: "Beat One",
       order: "a0",
     },
     {
       id: "seg-2",
       videoId: VIDEO_ID,
       kind: "demo",
-      title: "Segment Two",
+      title: "Beat Two",
       order: "a1",
     },
   ]);
@@ -187,9 +187,9 @@ export async function buildVfsFromDb(
                     with: {
                       clips: { orderBy: asc(clips.order) },
                       chapters: { orderBy: asc(chapters.order) },
-                      segments: {
-                        where: eq(segments.archived, false),
-                        orderBy: asc(segments.order),
+                      beats: {
+                        where: eq(beats.archived, false),
+                        orderBy: asc(beats.order),
                       },
                     },
                   },
@@ -244,7 +244,7 @@ export async function buildVfsFromDb(
             clips: video.clips,
             chapters: video.chapters,
           }),
-          segments: generateSortedSegments(video.segments),
+          beats: generateSortedBeats(video.beats),
           timelineItems: generateSortedTimelineItems(
             video.clips,
             video.chapters
