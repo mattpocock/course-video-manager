@@ -323,7 +323,47 @@ describe("attachDerivedPaths", () => {
     expect(result[0]!.lessons[0]!.path).toBe("01.01-hello");
   });
 
-  it("does not attach .path to ghost sections or ghost lessons", () => {
+  it("falls back to stored path for ghost sections and ghost lessons", () => {
+    const sections = [
+      {
+        id: "s-real",
+        order: 1,
+        title: "Real",
+        path: "01-real",
+        lessons: [
+          {
+            id: "l1",
+            order: 1,
+            title: "Lesson",
+            path: "01.01-lesson",
+            fsStatus: "real" as const,
+          },
+        ],
+      },
+      {
+        id: "s-ghost",
+        order: 2,
+        title: "Ghost",
+        path: "ghost-stored-path",
+        lessons: [
+          {
+            id: "l-ghost",
+            order: 1,
+            title: "Nope",
+            path: "ghost-lesson-stored-path",
+            fsStatus: "ghost" as const,
+          },
+        ],
+      },
+    ];
+    const result = attachDerivedPaths(sections);
+    expect(result[0]!.path).toBe("01-real");
+    expect(result[0]!.lessons[0]!.path).toBe("01.01-lesson");
+    expect(result[1]!.path).toBe("ghost-stored-path");
+    expect(result[1]!.lessons[0]!.path).toBe("ghost-lesson-stored-path");
+  });
+
+  it("falls back to title for ghosts when no stored path exists", () => {
     const sections = [
       {
         id: "s-real",
@@ -336,22 +376,20 @@ describe("attachDerivedPaths", () => {
       {
         id: "s-ghost",
         order: 2,
-        title: "Ghost",
+        title: "Ghost Section Title",
         lessons: [
           {
             id: "l-ghost",
             order: 1,
-            title: "Nope",
+            title: "Ghost Lesson Title",
             fsStatus: "ghost" as const,
           },
         ],
       },
     ];
     const result = attachDerivedPaths(sections);
-    expect(result[0]!.path).toBe("01-real");
-    expect(result[0]!.lessons[0]!.path).toBe("01.01-lesson");
-    expect(result[1]!.path).toBeUndefined();
-    expect(result[1]!.lessons[0]!.path).toBeUndefined();
+    expect(result[1]!.path).toBe("Ghost Section Title");
+    expect(result[1]!.lessons[0]!.path).toBe("Ghost Lesson Title");
   });
 
   it("preserves all original fields", () => {

@@ -65,10 +65,20 @@ export const projectVersionPaths = (
   return paths;
 };
 
-type SectionWithPath<S extends ProjectableSection> = S & {
-  path: DerivedPath | undefined;
-  lessons: Array<S["lessons"][number] & { path: DerivedPath | undefined }>;
+type LessonWithPath<L extends ProjectableLesson> = Omit<L, "path"> & {
+  path: DerivedPath;
 };
+
+type SectionWithPath<S extends ProjectableSection> = Omit<
+  S,
+  "path" | "lessons"
+> & {
+  path: DerivedPath;
+  lessons: LessonWithPath<S["lessons"][number]>[];
+};
+
+const ghostFallback = (entity: { title: string }): DerivedPath =>
+  (entity as { path?: string }).path ?? entity.title;
 
 export const attachDerivedPaths = <S extends ProjectableSection>(
   sections: readonly S[]
@@ -77,10 +87,10 @@ export const attachDerivedPaths = <S extends ProjectableSection>(
 
   return sections.map((section) => ({
     ...section,
-    path: paths.get(section.id),
+    path: paths.get(section.id) ?? ghostFallback(section),
     lessons: section.lessons.map((lesson) => ({
       ...lesson,
-      path: paths.get(lesson.id),
+      path: paths.get(lesson.id) ?? ghostFallback(lesson),
     })),
   })) as SectionWithPath<S>[];
 };

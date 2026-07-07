@@ -29,7 +29,7 @@ import {
 } from "./vfs-leaves";
 import { buildVfsTree, type CourseEntry } from "./vfs-tree";
 import { sectionHasRealLessons } from "@/services/section-path-service";
-import { projectVersionPaths } from "@/services/path-projection";
+import { attachDerivedPaths } from "@/services/path-projection";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -119,13 +119,11 @@ const courseToEntry = (course: {
     description: string;
     sections: Array<{
       id: string;
-      path: string;
       title: string;
       description: string;
       order: number;
       lessons: Array<{
         id: string;
-        path: string;
         title: string;
         description: string;
         icon: string | null;
@@ -171,15 +169,7 @@ const courseToEntry = (course: {
   const version = course.versions[0];
   if (!version) return null;
 
-  // Compute-on-read: real sections/lessons get their derived folder name from
-  // (title, rank). Ghosts have no derived path and no real folder; the VFS
-  // lists them under their stored placeholder name, which stays stable across
-  // title edits (the VFS is navigated by path and a ghost edit is not a rename).
-  const derivedPaths = projectVersionPaths(version.sections);
-  const sectionDir = (s: { id: string; path: string }) =>
-    derivedPaths.get(s.id) ?? s.path;
-  const lessonDir = (l: { id: string; path: string }) =>
-    derivedPaths.get(l.id) ?? l.path;
+  const sectionsWithPaths = attachDerivedPaths(version.sections);
 
   return {
     slug: course.slug ?? course.id,
@@ -191,21 +181,21 @@ const courseToEntry = (course: {
         description: version.description ?? "",
       }
     ),
-    sections: version.sections.map((section) => ({
-      path: sectionDir(section),
+    sections: sectionsWithPaths.map((section) => ({
+      path: section.path,
       sectionLeaf: generateSectionLeaf({
         id: section.id,
-        path: sectionDir(section),
+        path: section.path,
         title: section.title,
         description: section.description,
         lessons: section.lessons,
       }),
       ghost: !sectionHasRealLessons(section.lessons),
       lessons: section.lessons.map((lesson) => ({
-        path: lessonDir(lesson),
+        path: lesson.path,
         lessonLeaf: generateLessonLeaf({
           id: lesson.id,
-          path: lessonDir(lesson),
+          path: lesson.path,
           title: lesson.title,
           description: lesson.description,
           icon: lesson.icon,
