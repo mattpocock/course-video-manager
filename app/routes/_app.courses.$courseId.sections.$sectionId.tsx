@@ -49,7 +49,7 @@ export const meta: Route.MetaFunction = ({ data }) => {
   const section = data?.selectedCourse?.sections[0];
   const courseName = data?.selectedCourse?.name;
   if (section && courseName) {
-    return [{ title: `CVM - ${courseName} - ${section.path}` }];
+    return [{ title: `CVM - ${courseName} - ${section.title}` }];
   }
   return [{ title: "CVM" }];
 };
@@ -226,7 +226,7 @@ export default function Component(props: Route.ComponentProps) {
                   {currentCourse.name}
                 </Link>
 
-                <h1 className="text-2xl font-bold mb-4">{section.path}</h1>
+                <h1 className="text-2xl font-bold mb-4">{section.title}</h1>
 
                 {loaderData.selectedVersion && !loaderData.isLatestVersion && (
                   <div className="mb-4">

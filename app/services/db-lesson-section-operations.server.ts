@@ -314,6 +314,15 @@ export const createLessonSectionOperations = (db: Database) => {
     );
   });
 
+  const updateSectionTitle = Effect.fn("updateSectionTitle")(function* (
+    sectionId: string,
+    title: string
+  ) {
+    return yield* makeDbCall(() =>
+      db.update(sections).set({ title }).where(eq(sections.id, sectionId))
+    );
+  });
+
   const updateSectionDescription = Effect.fn("updateSectionDescription")(
     function* (sectionId: string, description: string) {
       return yield* makeDbCall(() =>
@@ -448,6 +457,7 @@ export const createLessonSectionOperations = (db: Database) => {
     archiveSection,
     updateSectionOrder,
     updateSectionPath,
+    updateSectionTitle,
     updateSectionDescription,
     getSectionsByIds,
     getSectionsByRepoVersionId,

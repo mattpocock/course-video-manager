@@ -45,18 +45,19 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-section-name": {
+        const newTitle = event.title.trim() || "untitled";
         const lessons = yield* lessonSectionOps.getLessonsBySectionId(
           event.sectionId
         );
         if (sectionHasRealLessons(lessons)) {
-          // Real (materialized) section: rename on disk with slug conversion
-          const newSlug = toSlug(event.title.trim()) || "untitled";
-          return yield* service.renameSection(event.sectionId, newSlug);
+          const newSlug = toSlug(newTitle) || "untitled";
+          const result = yield* service.renameSection(event.sectionId, newSlug);
+          yield* lessonSectionOps.updateSectionTitle(event.sectionId, newTitle);
+          return result;
         }
-        // Ghost section: just update the DB path with the raw title
-        const newPath = event.title.trim() || "untitled";
-        yield* lessonSectionOps.updateSectionPath(event.sectionId, newPath);
-        return { success: true, path: newPath };
+        yield* lessonSectionOps.updateSectionPath(event.sectionId, newTitle);
+        yield* lessonSectionOps.updateSectionTitle(event.sectionId, newTitle);
+        return { success: true, path: newTitle };
       }
 
       case "update-section-description": {
@@ -96,14 +97,11 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-lesson-title": {
-        const lesson = yield* lessonSectionOps.getLessonWithHierarchyById(
-          event.lessonId
-        );
-        const slug = toSlug(event.title) || "untitled";
+        const newTitle = event.title.trim();
+        const newSlug = toSlug(newTitle) || "untitled";
+        yield* service.renameLesson(event.lessonId, newSlug);
         yield* lessonSectionOps.updateLesson(event.lessonId, {
-          title: event.title.trim(),
-          path: slug,
-          sectionId: lesson.sectionId,
+          title: newTitle,
         });
         return { success: true };
       }

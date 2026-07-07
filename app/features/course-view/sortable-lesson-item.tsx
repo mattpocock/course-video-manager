@@ -228,8 +228,7 @@ export function SortableLessonItem({
     setEditingTitle,
     saveTitle,
     startEditingTitle,
-    pathPrefix,
-  } = useLessonTitleEditor({ lesson, isGhost, submitEvent });
+  } = useLessonTitleEditor({ lesson, submitEvent });
 
   const currentIcon = (lesson.icon ?? "watch") as
     | "watch"
@@ -404,12 +403,10 @@ export function SortableLessonItem({
                 </button>
                 <LessonTitleEditor
                   lesson={lesson}
-                  isGhost={isGhost}
                   isReadOnly={isReadOnly}
                   showGhostStyle={showGhostStyle}
                   editingTitle={editingTitle}
                   titleValue={titleValue}
-                  pathPrefix={pathPrefix}
                   onTitleValueChange={setTitleValue}
                   onCancel={() => setEditingTitle(false)}
                   onSave={saveTitle}
