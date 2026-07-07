@@ -47,7 +47,7 @@ async function createFullCourseStructure() {
     .insert(schema.sections)
     .values({
       repoVersionId: version!.id,
-      path: "01-intro",
+      title: "01-intro",
       order: 1,
       description: "Introduction section",
     })
@@ -55,7 +55,7 @@ async function createFullCourseStructure() {
 
   await testDb.insert(schema.sections).values({
     repoVersionId: version!.id,
-    path: "02-archived",
+    title: "02-archived",
     order: 2,
     archivedAt: new Date(),
   });
@@ -245,7 +245,7 @@ describe("duplicateCourse", () => {
 
     // Only non-archived section copied
     expect(newSections).toHaveLength(1);
-    expect(newSections[0]!.path).toBe("01-intro");
+    expect(newSections[0]!.title).toBe("01-intro");
     expect(newSections[0]!.description).toBe("Introduction section");
     expect(newSections[0]!.order).toBe(1);
     expect(newSections[0]!.previousVersionSectionId).toBeNull();
@@ -302,7 +302,7 @@ describe("duplicateCourse", () => {
     });
 
     expect(newSections).toHaveLength(1);
-    expect(newSections[0]!.path).toBe("01-intro");
+    expect(newSections[0]!.title).toBe("01-intro");
   });
 
   it("copies videos and excludes archived videos", async () => {
@@ -456,9 +456,9 @@ describe("duplicateCourse", () => {
 
     // Create sections in reverse order values to verify ordering
     await testDb.insert(schema.sections).values([
-      { repoVersionId: version!.id, path: "01-first", order: 1 },
-      { repoVersionId: version!.id, path: "02-second", order: 2 },
-      { repoVersionId: version!.id, path: "03-third", order: 3 },
+      { repoVersionId: version!.id, title: "01-first", order: 1 },
+      { repoVersionId: version!.id, title: "02-second", order: 2 },
+      { repoVersionId: version!.id, title: "03-third", order: 3 },
     ]);
 
     const result = await run(
@@ -477,11 +477,11 @@ describe("duplicateCourse", () => {
     });
 
     expect(newSections).toHaveLength(3);
-    expect(newSections[0]!.path).toBe("01-first");
+    expect(newSections[0]!.title).toBe("01-first");
     expect(newSections[0]!.order).toBe(1);
-    expect(newSections[1]!.path).toBe("02-second");
+    expect(newSections[1]!.title).toBe("02-second");
     expect(newSections[1]!.order).toBe(2);
-    expect(newSections[2]!.path).toBe("03-third");
+    expect(newSections[2]!.title).toBe("03-third");
     expect(newSections[2]!.order).toBe(3);
   });
 
@@ -531,7 +531,7 @@ describe("duplicateCourse", () => {
 
     await testDb.insert(schema.sections).values({
       repoVersionId: version!.id,
-      path: "01-empty",
+      title: "01-empty",
       order: 1,
     });
 
@@ -551,7 +551,7 @@ describe("duplicateCourse", () => {
     });
 
     expect(newSections).toHaveLength(1);
-    expect(newSections[0]!.path).toBe("01-empty");
+    expect(newSections[0]!.title).toBe("01-empty");
     expect(newSections[0]!.lessons).toHaveLength(0);
   });
 
@@ -591,7 +591,7 @@ describe("duplicateCourse", () => {
 
     await testDb.insert(schema.sections).values({
       repoVersionId: oldVersion!.id,
-      path: "01-old-section",
+      title: "01-old-section",
       order: 1,
     });
 
@@ -602,7 +602,7 @@ describe("duplicateCourse", () => {
 
     await testDb.insert(schema.sections).values({
       repoVersionId: newVersion!.id,
-      path: "01-new-section",
+      title: "01-new-section",
       order: 1,
     });
 
@@ -621,7 +621,7 @@ describe("duplicateCourse", () => {
     });
 
     expect(newSections).toHaveLength(1);
-    expect(newSections[0]!.path).toBe("01-new-section");
+    expect(newSections[0]!.title).toBe("01-new-section");
   });
 
   it("copies beats and excludes archived beats", async () => {

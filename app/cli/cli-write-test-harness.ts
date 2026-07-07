@@ -104,7 +104,7 @@ export const seedWrite = async (db: TestDb): Promise<WriteSeed> => {
     .returning();
   const [draftSection] = await db
     .insert(schema.sections)
-    .values({ repoVersionId: draftVersion!.id, path: "01-intro", order: 1 })
+    .values({ repoVersionId: draftVersion!.id, title: "01-intro", order: 1 })
     .returning();
   const [lesson] = await db
     .insert(schema.lessons)

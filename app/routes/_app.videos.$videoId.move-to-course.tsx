@@ -194,7 +194,7 @@ export default function Component(props: Route.ComponentProps) {
                 <SelectContent>
                   {sections.map((section) => (
                     <SelectItem key={section.id} value={section.id}>
-                      {section.path}
+                      {section.title}
                     </SelectItem>
                   ))}
                 </SelectContent>

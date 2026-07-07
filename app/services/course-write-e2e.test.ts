@@ -168,7 +168,7 @@ describe("CourseWriteService (DB-only)", () => {
 
       expect(result.success).toBe(true);
       const section = await getSection(result.sectionId);
-      expect(section.path).toBe("Before We Start");
+      expect(section.title).toBe("Before We Start");
     });
   });
 

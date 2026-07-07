@@ -13,7 +13,7 @@ export function SectionTitleRow({
   submitEvent,
   navigateTo,
 }: {
-  section: { id: string; path: string };
+  section: { id: string; title: string };
   isReadOnly: boolean;
   editSectionId: string | null;
   dispatch: (action: courseViewReducer.Action) => void;
@@ -29,7 +29,7 @@ export function SectionTitleRow({
     startEditingTitle,
   } = useSectionTitleEditor({
     sectionId: section.id,
-    sectionPath: section.path,
+    sectionTitle: section.title,
     dispatch,
     submitEvent,
     editSectionId,
@@ -37,7 +37,7 @@ export function SectionTitleRow({
 
   return (
     <SectionTitleEditor
-      sectionPath={section.path}
+      sectionTitle={section.title}
       isReadOnly={isReadOnly}
       editingTitle={editingTitle}
       titleValue={titleValue}

@@ -145,10 +145,10 @@ export const loader = makeLoader({
       const courseStructure = matchingVersion
         ? {
             repoName: repoWithSections!.name,
-            currentSectionPath: section.path,
+            currentSectionPath: section.title,
             currentLessonPath: lesson.path,
             sections: matchingVersion.sections.map((s) => ({
-              path: s.path,
+              path: s.title,
               lessons: s.lessons
                 .filter((l) => l.fsStatus === "real")
                 .map((l) => ({
@@ -167,7 +167,7 @@ export const loader = makeLoader({
         videoPath: video.path,
         videoExists,
         lessonPath: lesson.path,
-        sectionPath: section.path,
+        sectionPath: section.title,
         repoId: section.repoVersion.repoId,
         lessonId: lesson.id,
         fullPath: path.resolve(getVideoFilePath(video.lineageId)),

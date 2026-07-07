@@ -151,7 +151,7 @@ type LessonNode = {
 };
 type SectionNode = {
   id: string;
-  path: string;
+  title: string;
   description: string;
   lessons: LessonNode[];
 };
@@ -159,7 +159,7 @@ type CourseHead = { id: string; name: string; slug: string | null };
 
 // Nested `with` selection shared by every tree loader (section subtree down).
 const sectionWith = {
-  columns: { id: true, path: true, description: true, order: true },
+  columns: { id: true, title: true, description: true, order: true },
   where: isNull(sections.archivedAt),
   orderBy: asc(sections.order),
   with: {
@@ -312,7 +312,7 @@ export const createSearchOperations = (db: Database) => {
       const sec = yield* makeDbCall(() =>
         db.query.sections.findFirst({
           where: and(eq(sections.id, root.id), isNull(sections.archivedAt)),
-          columns: { id: true, path: true, description: true, order: true },
+          columns: { id: true, title: true, description: true, order: true },
           with: {
             repoVersion: { columns: { repoId: true } },
             lessons: sectionWith.with.lessons,
@@ -324,7 +324,7 @@ export const createSearchOperations = (db: Database) => {
       sectionNodes = [
         {
           id: sec.id,
-          path: sec.path,
+          title: sec.title,
           description: sec.description,
           lessons: sec.lessons as LessonNode[],
         },
@@ -495,7 +495,7 @@ export const createSearchOperations = (db: Database) => {
     const emitSection = (sec: SectionNode, cid: string) => {
       if (want("section")) {
         const m = firstMatch([
-          ["path", sec.path],
+          ["title", sec.title],
           ["description", sec.description],
         ]);
         if (m)
@@ -503,7 +503,7 @@ export const createSearchOperations = (db: Database) => {
             kind: "section",
             id: sec.id,
             courseId: cid,
-            path: sec.path,
+            path: sec.title,
             field: m.field,
             snippet: m.snippet,
           });

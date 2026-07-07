@@ -61,7 +61,7 @@ export const loader = makeLoader({
         videoId,
         videoPath: video.path,
         lessonPath: lesson.path,
-        sectionPath: lesson.section.path,
+        sectionPath: lesson.section.title,
         repoId: lesson.section.repoVersion.repoId,
         lessonId: lesson.id,
         pitchId: video.pitchId,

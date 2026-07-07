@@ -75,7 +75,7 @@ describe("CourseEditorService — lessons", () => {
         .insert(schema.sections)
         .values({
           repoVersionId: version.id,
-          path: "01-introduction",
+          title: "01-introduction",
           order: 0,
         })
         .returning();
@@ -101,7 +101,7 @@ describe("CourseEditorService — lessons", () => {
         .insert(schema.sections)
         .values({
           repoVersionId: version.id,
-          path: "01-introduction",
+          title: "01-introduction",
           order: 0,
         })
         .returning();
@@ -404,7 +404,7 @@ describe("CourseEditorService — lessons", () => {
         .insert(schema.sections)
         .values({
           repoVersionId: version.id,
-          path: "01-introduction",
+          title: "01-introduction",
           order: 0,
         })
         .returning();

@@ -24,7 +24,7 @@ export function SectionContextMenuItems({
   dispatch,
   submitEvent,
 }: {
-  section: { id: string; path: string; description?: string | null };
+  section: { id: string; title: string; description?: string | null };
   lessons: Lesson[];
   allSectionIds: string[];
   isReadOnly: boolean;
@@ -64,7 +64,7 @@ export function SectionContextMenuItems({
           onSelect={() =>
             dispatch({
               type: "open-copy-section-transcript",
-              sectionPath: section.path,
+              sectionTitle: section.title,
               sectionDescription: section.description ?? undefined,
               lessons,
             })

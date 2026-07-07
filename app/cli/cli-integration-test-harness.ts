@@ -56,12 +56,12 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
 
   const [oldSection] = await db
     .insert(schema.sections)
-    .values({ repoVersionId: publishedVersion!.id, path: "00-old", order: 1 })
+    .values({ repoVersionId: publishedVersion!.id, title: "00-old", order: 1 })
     .returning();
 
   const [draftSection] = await db
     .insert(schema.sections)
-    .values({ repoVersionId: draftVersion!.id, path: "01-intro", order: 1 })
+    .values({ repoVersionId: draftVersion!.id, title: "01-intro", order: 1 })
     .returning();
 
   const [lesson] = await db
@@ -142,7 +142,7 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
     .insert(schema.sections)
     .values({
       repoVersionId: draftVersion!.id,
-      path: "99-deleted",
+      title: "99-deleted",
       order: 99,
       archivedAt: new Date("2024-02-01T00:00:00Z"),
     })

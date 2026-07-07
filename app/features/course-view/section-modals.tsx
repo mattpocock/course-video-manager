@@ -5,7 +5,7 @@ import type { CourseEditorEvent } from "@/services/course-editor-service";
 
 export function SectionModals({
   sectionId,
-  sectionPath,
+  sectionTitle,
   lessonCount,
   addGhostLessonSectionId,
   insertAdjacentLessonId,
@@ -15,7 +15,7 @@ export function SectionModals({
   submitEvent,
 }: {
   sectionId: string;
-  sectionPath: string;
+  sectionTitle: string;
   lessonCount: number;
   addGhostLessonSectionId: string | null;
   insertAdjacentLessonId: string | null;
@@ -53,7 +53,7 @@ export function SectionModals({
       />
       <ArchiveSectionModal
         sectionId={sectionId}
-        sectionTitle={sectionPath}
+        sectionTitle={sectionTitle}
         lessonCount={lessonCount}
         open={archiveSectionId === sectionId}
         onOpenChange={(open) => {

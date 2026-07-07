@@ -9,14 +9,14 @@ import { sql } from "drizzle-orm";
 import type { TestDb } from "@/test-utils/pglite";
 
 export async function dropUniqueIndexes(testDb: TestDb) {
-  await testDb.execute(sql`DROP INDEX IF EXISTS "section_version_path_uniq"`);
+  await testDb.execute(sql`DROP INDEX IF EXISTS "section_version_order_uniq"`);
   await testDb.execute(sql`DROP INDEX IF EXISTS "lesson_section_path_uniq"`);
   await testDb.execute(sql`DROP INDEX IF EXISTS "video_lesson_path_uniq"`);
 }
 
 export async function recreateUniqueIndexes(testDb: TestDb) {
   await testDb.execute(
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS "section_version_path_uniq" ON "course-video-manager_section" ("course_version_id", "path") WHERE "archived_at" IS NULL`
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "section_version_order_uniq" ON "course-video-manager_section" ("course_version_id", "order") WHERE "archived_at" IS NULL`
   );
   await testDb.execute(
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "lesson_section_path_uniq" ON "course-video-manager_lesson" ("section_id", "path") WHERE NOT "archived"`
@@ -41,11 +41,10 @@ export async function createCourseAndVersion(testDb: TestDb) {
 export async function createSection(
   testDb: TestDb,
   versionId: string,
-  path: string,
+  title: string,
   order: number,
   opts?: {
     id?: string;
-    title?: string;
     createdAt?: Date;
     archivedAt?: Date | null;
   }
@@ -55,9 +54,8 @@ export async function createSection(
     .values({
       ...(opts?.id ? { id: opts.id } : {}),
       repoVersionId: versionId,
-      path,
+      title,
       order,
-      ...(opts?.title !== undefined ? { title: opts.title } : {}),
       ...(opts?.createdAt ? { createdAt: opts.createdAt } : {}),
       ...(opts?.archivedAt !== undefined
         ? { archivedAt: opts.archivedAt }

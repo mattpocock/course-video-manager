@@ -41,7 +41,7 @@ describe("lineageId copy-forward", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     const result = await run(
@@ -77,7 +77,7 @@ describe("lineageId copy-forward", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     const [lesson] = await testDb
@@ -125,7 +125,7 @@ describe("lineageId copy-forward", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     const [lesson] = await testDb
@@ -185,12 +185,12 @@ describe("lineageId copy-forward", () => {
 
     const [s1] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     const [s2] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "02-advanced", order: 2 })
+      .values({ repoVersionId: version!.id, title: "02-advanced", order: 2 })
       .returning();
 
     expect(s1!.lineageId).toBeTruthy();
@@ -211,7 +211,7 @@ describe("lineageId copy-forward", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: v1!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: v1!.id, title: "01-intro", order: 1 })
       .returning();
 
     const originalLineageId = section!.lineageId;

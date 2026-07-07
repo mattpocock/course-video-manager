@@ -424,18 +424,18 @@ describe("version resolution defaults to Draft", () => {
   it("section list --course resolves the DRAFT version", async () => {
     const rows = ndjson(
       (await run(["section", "list", "--course", s.courseAId])).stdout
-    ) as { id: string; path: string }[];
+    ) as { id: string; title: string }[];
     expect(rows.map((r) => r.id)).toEqual([s.draftSectionId]);
-    expect(rows[0]!.path).toBe("01-intro");
+    expect(rows[0]!.title).toBe("01-intro");
   });
 
   it("section list --course-version pins the published snapshot", async () => {
     const rows = ndjson(
       (await run(["section", "list", "--course-version", s.publishedVersionId]))
         .stdout
-    ) as { id: string; path: string }[];
+    ) as { id: string; title: string }[];
     expect(rows.map((r) => r.id)).toEqual([s.oldSectionId]);
-    expect(rows[0]!.path).toBe("00-old");
+    expect(rows[0]!.title).toBe("00-old");
   });
 });
 

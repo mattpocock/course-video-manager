@@ -45,7 +45,7 @@ describe("CourseEditorService — sections", () => {
       const sections = await getSections(version.id);
       expect(sections).toHaveLength(1);
       expect(sections[0]).toMatchObject({
-        path: "Introduction",
+        title: "Introduction",
         order: 1,
         repoVersionId: version.id,
       });
@@ -59,7 +59,7 @@ describe("CourseEditorService — sections", () => {
 
       const sections = await getSections(version.id);
       expect(sections).toHaveLength(3);
-      expect(sections.map((s) => s.path)).toEqual([
+      expect(sections.map((s) => s.title)).toEqual([
         "Section A",
         "Section B",
         "Section C",
@@ -78,7 +78,7 @@ describe("CourseEditorService — sections", () => {
       });
 
       const sections = await getSections(version.id);
-      expect(sections.map((s) => s.path)).toEqual(["Beta", "Alpha", "Gamma"]);
+      expect(sections.map((s) => s.title)).toEqual(["Beta", "Alpha", "Gamma"]);
     });
 
     it("inserts a section after an existing section", async () => {
@@ -92,7 +92,7 @@ describe("CourseEditorService — sections", () => {
       });
 
       const sections = await getSections(version.id);
-      expect(sections.map((s) => s.path)).toEqual(["Alpha", "Beta", "Gamma"]);
+      expect(sections.map((s) => s.title)).toEqual(["Alpha", "Beta", "Gamma"]);
     });
 
     it("inserts after the last section appends to the end", async () => {
@@ -106,7 +106,7 @@ describe("CourseEditorService — sections", () => {
       });
 
       const sections = await getSections(version.id);
-      expect(sections.map((s) => s.path)).toEqual(["Alpha", "Beta", "Gamma"]);
+      expect(sections.map((s) => s.title)).toEqual(["Alpha", "Beta", "Gamma"]);
     });
 
     it("inserts before the first section and shifts all orders", async () => {
@@ -121,7 +121,7 @@ describe("CourseEditorService — sections", () => {
       });
 
       const sections = await getSections(version.id);
-      expect(sections.map((s) => s.path)).toEqual(["Alpha", "Beta", "Gamma"]);
+      expect(sections.map((s) => s.title)).toEqual(["Alpha", "Beta", "Gamma"]);
       expect(sections.every((s, i) => s.order === i + 1)).toBe(true);
     });
   });
@@ -142,14 +142,14 @@ describe("CourseEditorService — sections", () => {
       );
       expect(result).toMatchObject({
         success: true,
-        path: "getting-started",
+        title: "getting-started",
       });
 
       const sections = await getSections(version.id);
-      expect(sections[0]!.path).toBe("getting-started");
+      expect(sections[0]!.title).toBe("getting-started");
     });
 
-    it("renames a ghost section by setting path to the slug", async () => {
+    it("renames a ghost section by setting title to the slug", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -163,14 +163,14 @@ describe("CourseEditorService — sections", () => {
       );
       expect(result).toMatchObject({
         success: true,
-        path: "getting-started",
+        title: "getting-started",
       });
 
       const sections = await getSections(version.id);
-      expect(sections[0]!.path).toBe("getting-started");
+      expect(sections[0]!.title).toBe("getting-started");
     });
 
-    it("returns early when slug matches the current path", async () => {
+    it("returns early when slug matches the current title", async () => {
       const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
@@ -180,7 +180,7 @@ describe("CourseEditorService — sections", () => {
       );
 
       const result = await svc().updateSectionName(section.id, "Introduction");
-      expect(result).toMatchObject({ success: true, path: "introduction" });
+      expect(result).toMatchObject({ success: true, title: "introduction" });
     });
   });
 
@@ -314,7 +314,7 @@ describe("CourseEditorService — sections", () => {
       await svc().reorderSections([r3.sectionId, r2.sectionId, r1.sectionId]);
 
       const sections = await getSections(version.id);
-      expect(sections.map((s) => s.path)).toEqual(["Gamma", "Beta", "Alpha"]);
+      expect(sections.map((s) => s.title)).toEqual(["Gamma", "Beta", "Alpha"]);
       expect(sections.map((s) => s.order)).toEqual([0, 1, 2]);
     });
 

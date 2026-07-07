@@ -5,7 +5,7 @@ describe("buildSectionRenameEvent", () => {
   it("1. capitalizes and returns event when title changes", () => {
     const result = buildSectionRenameEvent({
       value: "new section title",
-      sectionPath: "Old Title",
+      sectionTitle: "Old Title",
       sectionId: "abc",
     });
     expect(result).toEqual({
@@ -18,17 +18,17 @@ describe("buildSectionRenameEvent", () => {
   it("2. returns null when capitalized value equals current path (no-op)", () => {
     const result = buildSectionRenameEvent({
       value: "before we start",
-      sectionPath: "Before We Start",
+      sectionTitle: "Before We Start",
       sectionId: "abc",
     });
-    // capitalizeTitle("before we start") === "Before We Start" === sectionPath
+    // capitalizeTitle("before we start") === "Before We Start" === sectionTitle
     expect(result).toBeNull();
   });
 
   it("3. returns null for empty input", () => {
     const result = buildSectionRenameEvent({
       value: "   ",
-      sectionPath: "Old Title",
+      sectionTitle: "Old Title",
       sectionId: "abc",
     });
     expect(result).toBeNull();
@@ -37,7 +37,7 @@ describe("buildSectionRenameEvent", () => {
   it("4. returns event when title differs from current path", () => {
     const result = buildSectionRenameEvent({
       value: "new title",
-      sectionPath: "Old Title",
+      sectionTitle: "Old Title",
       sectionId: "section-1",
     });
     expect(result).toEqual({

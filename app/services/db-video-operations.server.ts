@@ -602,7 +602,7 @@ export const createVideoOperations = (
                 return {
                   lessonId: nextLesson.id,
                   lessonPath: nextLesson.path,
-                  sectionPath: section.path,
+                  sectionPath: section.title,
                 };
               }
             }
@@ -619,7 +619,7 @@ export const createVideoOperations = (
                   return {
                     lessonId: nextLesson.id,
                     lessonPath: nextLesson.path,
-                    sectionPath: nextSection.path,
+                    sectionPath: nextSection.title,
                   };
                 }
               }

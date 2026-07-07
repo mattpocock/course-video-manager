@@ -196,7 +196,7 @@ export const createCourseOperations = (db: Database) => {
               sections: {
                 where: isNull(sections.archivedAt),
                 orderBy: asc(sections.order),
-                columns: { id: true, path: true, title: true, order: true },
+                columns: { id: true, title: true, order: true },
                 with: {
                   lessons: {
                     orderBy: asc(lessons.order),

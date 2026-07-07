@@ -117,7 +117,6 @@ export async function createSectionWithLessons(
     .insert(schema.sections)
     .values({
       repoVersionId,
-      path: sectionPath,
       title: sectionPath.replace(/^\d+-/, ""),
       order: sectionOrder,
     })

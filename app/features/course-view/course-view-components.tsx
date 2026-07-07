@@ -304,7 +304,7 @@ export function RouteModals({
     isCopyTranscriptModalOpen: boolean;
     isDuplicateCourseModalOpen: boolean;
     copySectionTranscriptState: {
-      sectionPath: string;
+      sectionTitle: string;
       sectionDescription: string | undefined;
       lessons: import("./course-view-types").Lesson[];
     } | null;
@@ -409,7 +409,7 @@ export function RouteModals({
         {viewState.copySectionTranscriptState && (
           <CopyTranscriptModal
             mode="section"
-            sectionPath={viewState.copySectionTranscriptState.sectionPath}
+            sectionPath={viewState.copySectionTranscriptState.sectionTitle}
             sectionDescription={
               viewState.copySectionTranscriptState.sectionDescription
             }

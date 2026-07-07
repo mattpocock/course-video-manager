@@ -277,7 +277,7 @@ export function SectionCard({
           </ContextMenu>
           <SectionModals
             sectionId={section.id}
-            sectionPath={section.path}
+            sectionTitle={section.title}
             lessonCount={lessons.length}
             addGhostLessonSectionId={addGhostLessonSectionId}
             insertAdjacentLessonId={insertAdjacentLessonId}

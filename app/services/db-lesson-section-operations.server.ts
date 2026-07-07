@@ -155,9 +155,6 @@ export const createLessonSectionOperations = (db: Database) => {
         .values(
           newSections.map((section) => ({
             repoVersionId,
-            path: section.sectionPathWithNumber,
-            // Title is the source of truth for the derived path; seed it from
-            // the created folder name so the projection reproduces it on read.
             title: titleFromSectionPathWithNumber(
               section.sectionPathWithNumber
             ),
@@ -305,12 +302,12 @@ export const createLessonSectionOperations = (db: Database) => {
     );
   });
 
-  const updateSectionPath = Effect.fn("updateSectionPath")(function* (
+  const updateSectionTitle = Effect.fn("updateSectionTitle")(function* (
     sectionId: string,
-    path: string
+    title: string
   ) {
     return yield* makeDbCall(() =>
-      db.update(sections).set({ path }).where(eq(sections.id, sectionId))
+      db.update(sections).set({ title }).where(eq(sections.id, sectionId))
     );
   });
 
@@ -412,12 +409,24 @@ export const createLessonSectionOperations = (db: Database) => {
    * Updates the order of multiple sections in a single SQL query using a
    * CASE WHEN expression. Equivalent to batchUpdateLessonOrders but for
    * sections.
+   *
+   * Two-phase update: the unique index on (repoVersionId, order) is checked
+   * per-row in PGlite, so shifting orders through each other in one statement
+   * would violate the constraint. Moving all affected rows to negative
+   * temporaries first avoids the collision.
    */
   const batchUpdateSectionOrders = Effect.fn("batchUpdateSectionOrders")(
     function* (updates: { id: string; order: number }[]) {
       if (updates.length === 0) return;
       const ids = updates.map((u) => u.id);
-      // Cast to float8 to match the doublePrecision column type.
+
+      yield* makeDbCall(() =>
+        db
+          .update(sections)
+          .set({ order: sql`-1 * ${sections.order} - 1` })
+          .where(inArray(sections.id, ids))
+      );
+
       const orderExpr = sql`case ${sql.join(
         updates.map(
           ({ id, order }) =>
@@ -447,7 +456,7 @@ export const createLessonSectionOperations = (db: Database) => {
     deleteSection,
     archiveSection,
     updateSectionOrder,
-    updateSectionPath,
+    updateSectionTitle,
     updateSectionDescription,
     getSectionsByIds,
     getSectionsByRepoVersionId,

@@ -95,7 +95,6 @@ export const sections = createTable(
     lineageId: varchar("lineage_id", { length: 255 })
       .notNull()
       .$defaultFn(() => crypto.randomUUID()),
-    path: text("path").notNull(),
     title: text("title").notNull().default(""),
     description: text("description").notNull().default(""),
     archivedAt: timestamp("archived_at", {
@@ -111,8 +110,8 @@ export const sections = createTable(
     order: doublePrecision("order").notNull(),
   },
   (table) => [
-    uniqueIndex("section_version_path_uniq")
-      .on(table.repoVersionId, table.path)
+    uniqueIndex("section_version_order_uniq")
+      .on(table.repoVersionId, table.order)
       .where(sql`${table.archivedAt} IS NULL`),
   ]
 );

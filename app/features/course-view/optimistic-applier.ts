@@ -113,6 +113,7 @@ export function applyOptimisticEvent(
       }));
     case "update-section-name":
       return withPatchedSection(loaderData, event.sectionId, (section) => ({
+        title: event.title,
         path: replaceSlug(section.path, event.title),
       }));
     case "update-section-description":

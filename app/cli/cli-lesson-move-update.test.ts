@@ -108,11 +108,11 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
 
   const [sectionA] = await db
     .insert(schema.sections)
-    .values({ repoVersionId: draftVersion!.id, path: "01-alpha", order: 1 })
+    .values({ repoVersionId: draftVersion!.id, title: "01-alpha", order: 1 })
     .returning();
   const [sectionB] = await db
     .insert(schema.sections)
-    .values({ repoVersionId: draftVersion!.id, path: "02-beta", order: 2 })
+    .values({ repoVersionId: draftVersion!.id, title: "02-beta", order: 2 })
     .returning();
 
   const a1 = await addGhost(db, sectionA!.id, "a-one", "A One", 1);
@@ -124,7 +124,7 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
     .insert(schema.sections)
     .values({
       repoVersionId: draftVersion!.id,
-      path: "03-gone",
+      title: "03-gone",
       order: 3,
       archivedAt: new Date("2024-05-01T00:00:00Z"),
     })
@@ -132,7 +132,7 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
 
   const [oldSection] = await db
     .insert(schema.sections)
-    .values({ repoVersionId: oldVersion!.id, path: "01-old", order: 1 })
+    .values({ repoVersionId: oldVersion!.id, title: "01-old", order: 1 })
     .returning();
   const publishedLessonId = await addGhost(
     db,

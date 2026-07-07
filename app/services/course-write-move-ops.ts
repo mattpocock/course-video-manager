@@ -12,7 +12,6 @@ type DbSection = {
   id: string;
   title: string;
   order: number;
-  path: string;
   lessons: {
     id: string;
     title: string;
@@ -47,7 +46,7 @@ export function createMoveOps(db: LessonSectionOperationsService) {
       yield* db.updateLessonOrder(u.id, u.order);
     }
     for (const u of plan.sectionUpdates) {
-      yield* db.updateSectionPath(u.id, u.path);
+      yield* db.updateSectionTitle(u.id, u.path);
     }
 
     return { success: true } as const;

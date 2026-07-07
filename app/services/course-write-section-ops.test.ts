@@ -110,10 +110,10 @@ describe("CourseWriteService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.path).toBe("introduction");
+      expect(result.title).toBe("introduction");
 
       const updated = await getSection(section.id);
-      expect(updated.path).toBe("introduction");
+      expect(updated.title).toBe("introduction");
     });
 
     it("is a no-op when the new slug matches the current path", async () => {
@@ -129,10 +129,10 @@ describe("CourseWriteService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.path).toBe("01-intro");
+      expect(result.title).toBe("01-intro");
 
       const updated = await getSection(section.id);
-      expect(updated.path).toBe("01-intro");
+      expect(updated.title).toBe("01-intro");
     });
   });
 

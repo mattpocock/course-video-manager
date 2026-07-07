@@ -28,7 +28,7 @@ beforeEach(async () => {
 
 const buildCourseFixture = async (
   sections: Array<{
-    path: string;
+    title: string;
     order: number;
     lessons: Array<{
       path: string;
@@ -56,7 +56,7 @@ const buildCourseFixture = async (
       .insert(schema.sections)
       .values({
         repoVersionId: version!.id,
-        path: sectionDef.path,
+        title: sectionDef.title,
         order: sectionDef.order,
       })
       .returning();
@@ -134,7 +134,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -167,7 +167,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -204,7 +204,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
           const fixture = yield* Effect.promise(() =>
             buildCourseFixture([
               {
-                path: "section-01",
+                title: "section-01",
                 order: 1,
                 lessons: [
                   {
@@ -241,7 +241,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
           const fixture = yield* Effect.promise(() =>
             buildCourseFixture([
               {
-                path: "section-01",
+                title: "section-01",
                 order: 1,
                 lessons: [
                   {
@@ -276,7 +276,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -318,7 +318,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -330,7 +330,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               ],
             },
             {
-              path: "section-02",
+              title: "section-02",
               order: 2,
               lessons: [
                 {
@@ -365,7 +365,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -393,7 +393,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -421,7 +421,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -478,7 +478,7 @@ describe("getNextLessonWithoutVideo", () => {
       const fixture = yield* Effect.promise(() =>
         buildCourseFixture([
           {
-            path: "section-01",
+            title: "section-01",
             order: 1,
             lessons: [
               {
@@ -514,7 +514,7 @@ describe("getNextLessonWithoutVideo", () => {
       const fixture = yield* Effect.promise(() =>
         buildCourseFixture([
           {
-            path: "section-01",
+            title: "section-01",
             order: 1,
             lessons: [
               {
@@ -548,7 +548,7 @@ describe("getNextLessonWithoutVideo", () => {
       const fixture = yield* Effect.promise(() =>
         buildCourseFixture([
           {
-            path: "section-01",
+            title: "section-01",
             order: 1,
             lessons: [
               {
@@ -560,7 +560,7 @@ describe("getNextLessonWithoutVideo", () => {
             ],
           },
           {
-            path: "section-02",
+            title: "section-02",
             order: 2,
             lessons: [
               {
@@ -598,7 +598,7 @@ describe("getNextLessonWithoutVideo", () => {
         const fixture = yield* Effect.promise(() =>
           buildCourseFixture([
             {
-              path: "section-01",
+              title: "section-01",
               order: 1,
               lessons: [
                 {
@@ -626,7 +626,7 @@ describe("getNextLessonWithoutVideo", () => {
       const fixture = yield* Effect.promise(() =>
         buildCourseFixture([
           {
-            path: "section-01",
+            title: "section-01",
             order: 1,
             lessons: [
               {
@@ -667,7 +667,7 @@ describe("getNextLessonWithoutVideo", () => {
       const fixture = yield* Effect.promise(() =>
         buildCourseFixture([
           {
-            path: "section-01",
+            title: "section-01",
             order: 1,
             lessons: [
               {

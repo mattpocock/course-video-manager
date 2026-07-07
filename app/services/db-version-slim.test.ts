@@ -43,7 +43,6 @@ const buildFixture = () =>
         .insert(schema.sections)
         .values({
           repoVersionId: version!.id,
-          path: "01-intro",
           title: "intro",
           order: 1,
         })
@@ -117,7 +116,6 @@ describe("getCourseWithSectionsByVersionSlim", () => {
       yield* Effect.promise(() =>
         testDb.insert(schema.sections).values({
           repoVersionId: version.id,
-          path: "02-archived",
           title: "archived",
           order: 2,
           archivedAt: new Date(),
@@ -131,7 +129,7 @@ describe("getCourseWithSectionsByVersionSlim", () => {
       });
 
       expect(result.sections).toHaveLength(1);
-      expect(result.sections[0]!.path).toBe("01-intro");
+      expect(result.sections[0]!.title).toBe("intro");
     }).pipe(Effect.provide(testLayer))
   );
 

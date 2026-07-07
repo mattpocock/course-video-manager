@@ -7,15 +7,15 @@ import { Link } from "react-router";
 
 export function buildSectionRenameEvent({
   value,
-  sectionPath,
+  sectionTitle,
   sectionId,
 }: {
   value: string;
-  sectionPath: string;
+  sectionTitle: string;
   sectionId: string;
 }): CourseEditorEvent | null {
   const newTitle = capitalizeTitle(value.trim());
-  if (newTitle && newTitle !== sectionPath) {
+  if (newTitle && newTitle !== sectionTitle) {
     return {
       type: "update-section-name",
       sectionId,
@@ -27,13 +27,13 @@ export function buildSectionRenameEvent({
 
 export function useSectionTitleEditor({
   sectionId,
-  sectionPath,
+  sectionTitle,
   dispatch,
   submitEvent,
   editSectionId,
 }: {
   sectionId: string;
-  sectionPath: string;
+  sectionTitle: string;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
   editSectionId: string | null;
@@ -42,16 +42,16 @@ export function useSectionTitleEditor({
   const [titleValue, setTitleValue] = useState("");
 
   const startEditingTitle = useCallback(() => {
-    setTitleValue(sectionPath);
+    setTitleValue(sectionTitle);
     setEditingTitle(true);
-  }, [sectionPath]);
+  }, [sectionTitle]);
 
   useEffect(() => {
     if (editSectionId === sectionId && !editingTitle) {
-      setTitleValue(sectionPath);
+      setTitleValue(sectionTitle);
       setEditingTitle(true);
     }
-  }, [editSectionId, sectionId, editingTitle, sectionPath]);
+  }, [editSectionId, sectionId, editingTitle, sectionTitle]);
 
   const saveTitle = useCallback(
     (value: string) => {
@@ -59,14 +59,14 @@ export function useSectionTitleEditor({
       dispatch({ type: "set-edit-section-id", sectionId: null });
       const event = buildSectionRenameEvent({
         value,
-        sectionPath,
+        sectionTitle,
         sectionId,
       });
       if (event) {
         submitEvent(event);
       }
     },
-    [sectionId, sectionPath, dispatch, submitEvent]
+    [sectionId, sectionTitle, dispatch, submitEvent]
   );
 
   const cancelEditing = useCallback(() => {
@@ -85,7 +85,7 @@ export function useSectionTitleEditor({
 }
 
 export function SectionTitleEditor({
-  sectionPath,
+  sectionTitle,
   isReadOnly,
   editingTitle,
   titleValue,
@@ -95,7 +95,7 @@ export function SectionTitleEditor({
   onStartEditing,
   navigateTo,
 }: {
-  sectionPath: string;
+  sectionTitle: string;
   isReadOnly: boolean;
   editingTitle: boolean;
   titleValue: string;
@@ -153,7 +153,7 @@ export function SectionTitleEditor({
         className={cn(titleClass, "hover:underline")}
         onClick={(e) => e.stopPropagation()}
       >
-        {sectionPath}
+        {sectionTitle}
       </Link>
     );
   }
@@ -168,7 +168,7 @@ export function SectionTitleEditor({
         if (!isReadOnly) onStartEditing();
       }}
     >
-      {sectionPath}
+      {sectionTitle}
     </span>
   );
 }

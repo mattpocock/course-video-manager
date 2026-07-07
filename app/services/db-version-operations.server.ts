@@ -391,7 +391,7 @@ export const createVersionOperations = (db: Database) => {
               repoVersionId: newVersion.id,
               previousVersionSectionId: sourceSection.id,
               lineageId: sourceSection.lineageId,
-              path: sourceSection.path,
+              title: sourceSection.title,
               order: sourceSection.order,
               description: sourceSection.description,
             })

@@ -252,7 +252,7 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
     yield* emitObject({
       id: section.id,
       kind: "section" as const,
-      name: section.path,
+      name: section.title,
       children,
     });
   })

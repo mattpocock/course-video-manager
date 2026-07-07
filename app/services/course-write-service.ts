@@ -177,18 +177,17 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
 
       const renameSection = Effect.fn("renameSection")(function* (
         sectionId: string,
-        newSlug: string
+        newTitle: string
       ) {
         const section =
           yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
-        const newPath = newSlug;
 
-        if (section.path === newPath) {
-          return { success: true, path: section.path };
+        if (section.title === newTitle) {
+          return { success: true, title: section.title };
         }
 
-        yield* lessonSectionOps.updateSectionPath(sectionId, newPath);
-        return { success: true, path: newPath };
+        yield* lessonSectionOps.updateSectionTitle(sectionId, newTitle);
+        return { success: true, title: newTitle };
       });
 
       return {

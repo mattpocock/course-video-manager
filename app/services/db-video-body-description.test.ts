@@ -42,7 +42,7 @@ async function seedVideo() {
     .returning();
   const [section] = await testDb
     .insert(schema.sections)
-    .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+    .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
     .returning();
   const [lesson] = await testDb
     .insert(schema.lessons)

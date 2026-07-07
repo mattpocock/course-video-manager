@@ -328,7 +328,7 @@ describe("ClipService", () => {
       await testDb.insert(schema.sections).values({
         id: sectionId,
         repoVersionId,
-        path: "/test/section",
+        title: "test section",
         order: 0,
       });
 

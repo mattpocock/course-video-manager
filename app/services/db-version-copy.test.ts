@@ -41,7 +41,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     await testDb.insert(schema.lessons).values({
@@ -88,7 +88,7 @@ describe("copyVersionStructure", () => {
 
     await testDb.insert(schema.sections).values({
       repoVersionId: version!.id,
-      path: "01-intro",
+      title: "01-intro",
       order: 1,
       description: "This is a section description",
     });
@@ -125,10 +125,10 @@ describe("copyVersionStructure", () => {
 
     // One active section, one archived
     await testDb.insert(schema.sections).values([
-      { repoVersionId: version!.id, path: "01-active", order: 1 },
+      { repoVersionId: version!.id, title: "01-active", order: 1 },
       {
         repoVersionId: version!.id,
-        path: "02-archived",
+        title: "02-archived",
         order: 2,
         archivedAt: new Date(),
       },
@@ -150,7 +150,7 @@ describe("copyVersionStructure", () => {
     });
 
     expect(newSections).toHaveLength(1);
-    expect(newSections[0]!.path).toBe("01-active");
+    expect(newSections[0]!.title).toBe("01-active");
   });
 
   it("skips archived lessons when copying a version", async () => {
@@ -168,7 +168,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     await testDb.insert(schema.lessons).values([
@@ -225,7 +225,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     await testDb.insert(schema.lessons).values([
@@ -289,7 +289,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     await expect(
@@ -316,7 +316,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     await expect(
@@ -344,7 +344,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     await testDb.insert(schema.lessons).values([
@@ -398,7 +398,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     const [lesson] = await testDb
@@ -492,7 +492,7 @@ describe("copyVersionStructure", () => {
 
     const [section] = await testDb
       .insert(schema.sections)
-      .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
       .returning();
 
     const [lesson] = await testDb

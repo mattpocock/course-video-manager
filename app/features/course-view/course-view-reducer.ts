@@ -47,7 +47,7 @@ export namespace courseViewReducer {
     isCopyTranscriptModalOpen: boolean;
     isDuplicateCourseModalOpen: boolean;
     copySectionTranscriptState: {
-      sectionPath: string;
+      sectionTitle: string;
       sectionDescription: string | undefined;
       lessons: import("./course-view-types").Lesson[];
     } | null;
@@ -94,7 +94,7 @@ export namespace courseViewReducer {
     | { type: "set-duplicate-course-modal-open"; open: boolean }
     | {
         type: "open-copy-section-transcript";
-        sectionPath: string;
+        sectionTitle: string;
         sectionDescription?: string;
         lessons: import("./course-view-types").Lesson[];
       }
@@ -248,7 +248,7 @@ export const courseViewReducer: EffectReducer<
       return {
         ...state,
         copySectionTranscriptState: {
-          sectionPath: action.sectionPath,
+          sectionTitle: action.sectionTitle,
           sectionDescription: action.sectionDescription,
           lessons: action.lessons,
         },

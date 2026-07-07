@@ -144,7 +144,7 @@ export const makeDuplicateCourse = (db: Database) =>
           .values({
             repoVersionId: newVersion.id,
             previousVersionSectionId: null,
-            path: sourceSection.path,
+            title: sourceSection.title,
             order: sourceSection.order,
             description: sourceSection.description,
           })

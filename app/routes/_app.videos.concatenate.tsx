@@ -89,7 +89,7 @@ export const loader = makeLoader({
               id: v.id,
               path: v.path,
               duration: computeDuration(v.clips),
-              contextParts: [course.name, section.path, lesson.path],
+              contextParts: [course.name, section.title, lesson.path],
             }));
             if (lessonVideos.length > 0) {
               lessons.push({
@@ -99,7 +99,7 @@ export const loader = makeLoader({
             }
           }
           if (lessons.length > 0) {
-            sections.push({ sectionPath: section.path, lessons });
+            sections.push({ sectionPath: section.title, lessons });
           }
         }
         if (sections.length > 0) {

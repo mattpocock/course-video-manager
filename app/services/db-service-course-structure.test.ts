@@ -41,7 +41,6 @@ const buildCourseWithVideos = async () => {
     .insert(schema.sections)
     .values({
       repoVersionId: version!.id,
-      path: "01-intro",
       title: "intro",
       order: 1,
     })
@@ -123,13 +122,11 @@ describe("getCourseStructureById - archived section filtering", () => {
         testDb.insert(schema.sections).values([
           {
             repoVersionId: version!.id,
-            path: "01-active",
             title: "active",
             order: 1,
           },
           {
             repoVersionId: version!.id,
-            path: "02-archived",
             title: "archived",
             order: 2,
             archivedAt: new Date(),
@@ -142,7 +139,7 @@ describe("getCourseStructureById - archived section filtering", () => {
 
       const sections = result.versions[0]!.sections;
       expect(sections).toHaveLength(1);
-      expect(sections[0]!.path).toBe("01-active");
+      expect(sections[0]!.title).toBe("active");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -167,14 +164,12 @@ describe("getCourseStructureById - archived section filtering", () => {
         testDb.insert(schema.sections).values([
           {
             repoVersionId: version!.id,
-            path: "01-archived",
             title: "archived",
             order: 1,
             archivedAt: new Date(),
           },
           {
             repoVersionId: version!.id,
-            path: "02-archived",
             title: "archived",
             order: 2,
             archivedAt: new Date(),
@@ -209,7 +204,7 @@ describe("getCourseStructureById", () => {
 
       const section = version.sections[0]!;
       expect(section.id).toBe(sectionId);
-      expect(section.path).toBe("01-intro");
+      expect(section.title).toBe("intro");
       expect(section.lessons).toHaveLength(2);
 
       const realLesson = section.lessons.find((l) => l.id === lessonRealId)!;
@@ -287,7 +282,6 @@ describe("getCourseStructureById", () => {
       yield* Effect.promise(() =>
         testDb.insert(schema.sections).values({
           repoVersionId: version!.id,
-          path: "02-advanced",
           title: "advanced",
           order: 2,
         })
@@ -297,7 +291,6 @@ describe("getCourseStructureById", () => {
           .insert(schema.sections)
           .values({
             repoVersionId: version!.id,
-            path: "01-basics",
             title: "basics",
             order: 1,
           })
@@ -330,8 +323,8 @@ describe("getCourseStructureById", () => {
       const result = yield* courseOps.getCourseStructureById(course!.id);
 
       const sections = result.versions[0]!.sections;
-      expect(sections[0]!.path).toBe("01-basics");
-      expect(sections[1]!.path).toBe("02-advanced");
+      expect(sections[0]!.title).toBe("basics");
+      expect(sections[1]!.title).toBe("advanced");
 
       const lessons = sections[0]!.lessons;
       expect(lessons[0]!.path).toBe("01-first");

@@ -205,7 +205,7 @@ function loadCourseStructure(
         // Ghost sections derive no path; the posting UI only lists real ones.
         .filter((s) => s.lessons.some((l) => l.fsStatus === "real"))
         .map((s) => ({
-          path: s.path,
+          path: s.title,
           lessons: s.lessons
             .filter((l) => l.fsStatus === "real")
             .map((l) => ({
