@@ -10,7 +10,6 @@ export const action = makeAction({
   input: "formData",
   dump: false,
   errors: {
-    CourseRepoDoesNotExistError: 404,
     DoesNotExistOnDbError: 400,
     NotFoundError: 404,
   },

@@ -7,7 +7,6 @@ import {
   VideoProcessingService,
   type PauseType,
 } from "./video-processing-service";
-import { CourseRepoParserService } from "./course-repo-parser";
 import {
   computeExportHash,
   resolveExportPath as resolveExportPathPure,
@@ -15,15 +14,10 @@ import {
 } from "./export-hash";
 import { garbageCollect } from "./export-hash.server";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
-import { generateChangelog } from "./changelog-service";
 import {
-  ALLOWED_FILE_EXTENSIONS_FROM_REPO,
   DoesNotExistOnDbError,
-  precomputeVideoMaps,
   resolveSectionsWithVideos,
-  TODO_MARKER_BODY,
 } from "./publish-to-dropbox";
-import { formatProseTranscript } from "@/lib/transcript-builder";
 import { computeCourseViewLintCount } from "./lesson-warnings";
 import { buildCourseJson } from "./course-json";
 
@@ -294,7 +288,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
       const syncToDropbox = Effect.fn("syncToDropbox")(function* (
         courseId: string,
         onProgress?: (event: string, data: unknown) => void,
-        versionOverride?: { name: string; description: string }
+        _versionOverride?: { name: string; description: string }
       ) {
         const latestVersion =
           yield* versionOps.getLatestCourseVersion(courseId);
@@ -307,45 +301,12 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         const DROPBOX_PATH = yield* Config.string("DROPBOX_PATH");
-        const repoParser = yield* CourseRepoParserService;
 
         const repoWithSections =
           yield* versionOps.getCourseWithSectionsByVersion({
             repoId: courseId,
             versionId: latestVersion.id,
           });
-
-        const sectionsOnFileSystem = yield* repoParser.parseRepo(
-          repoWithSections.filePath!
-        );
-
-        for (const sectionOnFileSystem of sectionsOnFileSystem) {
-          const sectionInDb = repoWithSections.sections.find(
-            (s) => s.path === sectionOnFileSystem.sectionPathWithNumber
-          );
-
-          if (!sectionInDb) {
-            return yield* new DoesNotExistOnDbError({
-              type: "section",
-              path: sectionOnFileSystem.sectionPathWithNumber,
-              message: `Section ${sectionOnFileSystem.sectionPathWithNumber} does not exist on the database`,
-            });
-          }
-
-          for (const lesson of sectionOnFileSystem.lessons) {
-            const lessonInDb = sectionInDb.lessons.find(
-              (l) => l.path === lesson.lessonPathWithNumber
-            );
-
-            if (!lessonInDb) {
-              return yield* new DoesNotExistOnDbError({
-                type: "lesson",
-                path: lesson.lessonPathWithNumber,
-                message: `Lesson ${lesson.lessonPathWithNumber} does not exist on the database`,
-              });
-            }
-          }
-        }
 
         const videoPathOverrides = new Map<string, string>();
         for (const section of repoWithSections.sections) {
@@ -369,7 +330,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         const { sections, missingVideos } = yield* resolveSectionsWithVideos({
-          sectionsOnFileSystem,
           sectionsInDb: repoWithSections.sections,
           finishedVideosDirectory: FINISHED_VIDEOS_DIRECTORY,
           videoPathOverrides,
@@ -409,13 +369,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           }
         );
 
-        const {
-          transcriptItemsMap: videoTranscriptItemsMap,
-          chaptersMap: videoChaptersMap,
-          bodyMap: videoBodyMap,
-          lessonTodoSet,
-        } = precomputeVideoMaps(repoWithSections.sections);
-
         for (const section of sections) {
           const dropboxSectionDir = path.join(dropboxCourseDir, section.path);
 
@@ -425,80 +378,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
               recursive: true,
             });
 
-            if (lessonTodoSet.has(`${section.path}/${lesson.path}`)) {
-              const todoMarkerPath = path.join(dropboxLessonDir, "TODO.md");
-              yield* effectFs.writeFileString(todoMarkerPath, TODO_MARKER_BODY);
-              filesSupposedToBeInDropbox.add(todoMarkerPath);
-            }
-
             for (const video of lesson.videos) {
               const extName = path.extname(video.absolutePath);
               yield* copyFileToDropbox({
                 fromPath: video.absolutePath,
                 toPath: path.join(dropboxLessonDir, `${video.name}${extName}`),
-              });
-
-              const chapters = videoChaptersMap.get(video.id);
-              if (chapters) {
-                const metaPath = path.join(
-                  dropboxLessonDir,
-                  `${video.name}.meta.json`
-                );
-                yield* effectFs.writeFileString(
-                  metaPath,
-                  JSON.stringify({ chapters }, null, 2)
-                );
-                filesSupposedToBeInDropbox.add(metaPath);
-              }
-
-              const transcriptItems = videoTranscriptItemsMap.get(video.id);
-              if (transcriptItems && transcriptItems.length > 0) {
-                const transcript = formatProseTranscript(transcriptItems);
-                if (transcript) {
-                  const transcriptPath = path.join(
-                    dropboxLessonDir,
-                    `${video.name}.transcript.md`
-                  );
-                  yield* effectFs.writeFileString(transcriptPath, transcript);
-                  filesSupposedToBeInDropbox.add(transcriptPath);
-                }
-              }
-
-              const videoBody = videoBodyMap.get(video.id);
-              if (videoBody) {
-                const bodyPath = path.join(
-                  dropboxLessonDir,
-                  `${video.name}.body.md`
-                );
-                yield* effectFs.writeFileString(bodyPath, videoBody);
-                filesSupposedToBeInDropbox.add(bodyPath);
-              }
-            }
-
-            const lessonDir = path.join(
-              repoWithSections.filePath!,
-              section.path,
-              lesson.path
-            );
-
-            const dirExists = yield* effectFs.exists(lessonDir);
-            if (dirExists) {
-              const files = yield* effectFs
-                .readDirectory(lessonDir, { recursive: true })
-                .pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
-              const sourceFiles = files
-                .filter(
-                  (file) =>
-                    ALLOWED_FILE_EXTENSIONS_FROM_REPO.includes(
-                      path.extname(file)
-                    ) && !file.includes("node_modules")
-                )
-                .map((file) => ({
-                  fromPath: path.join(lessonDir, file),
-                  toPath: path.join(dropboxLessonDir, file),
-                }));
-              yield* Effect.forEach(sourceFiles, copyFileToDropbox, {
-                concurrency: "unbounded",
               });
             }
 
@@ -511,48 +395,37 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           }
         }
 
-        const dropboxExists = yield* effectFs.exists(dropboxCourseDir);
-        if (dropboxExists) {
-          const allFiles = yield* effectFs
-            .readDirectory(dropboxCourseDir, { recursive: true })
-            .pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
-          const filesToDelete = allFiles
-            .filter((file) =>
-              ALLOWED_FILE_EXTENSIONS_FROM_REPO.includes(path.extname(file))
-            )
-            .map((file) => path.join(dropboxCourseDir, file))
-            .filter((file) => !filesSupposedToBeInDropbox.has(file));
-          yield* Effect.forEach(filesToDelete, (file) => effectFs.remove(file));
-        }
-
         const courseJsonDoc = yield* buildCourseJson({
           courseId,
           courseName: repoWithSections.name,
           sections: repoWithSections.sections,
         });
         const courseJsonPath = path.join(dropboxCourseDir, "course.json");
+        yield* effectFs.makeDirectory(dropboxCourseDir, { recursive: true });
         yield* effectFs.writeFileString(
           courseJsonPath,
           JSON.stringify(courseJsonDoc, null, 2)
         );
         filesSupposedToBeInDropbox.add(courseJsonPath);
 
-        const allVersions =
-          yield* versionOps.getAllVersionsWithStructure(courseId);
-        const changelogVersions = versionOverride
-          ? allVersions.map((v) =>
-              v.id === latestVersion.id
-                ? {
-                    ...v,
-                    name: versionOverride.name,
-                    description: versionOverride.description,
-                  }
-                : v
-            )
-          : allVersions;
-        const changelogContent = generateChangelog(changelogVersions);
-        const changelogPath = path.join(dropboxCourseDir, "changelog.md");
-        yield* effectFs.writeFileString(changelogPath, changelogContent);
+        const dropboxExists = yield* effectFs.exists(dropboxCourseDir);
+        if (dropboxExists) {
+          const allFiles = yield* effectFs
+            .readDirectory(dropboxCourseDir, { recursive: true })
+            .pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
+          const filesToDelete = allFiles
+            .map((file) => path.join(dropboxCourseDir, file))
+            .filter((file) => !filesSupposedToBeInDropbox.has(file));
+
+          for (const file of filesToDelete) {
+            const isDir = yield* effectFs
+              .stat(file)
+              .pipe(Effect.map((s) => s.type === "Directory"));
+            if (!isDir) {
+              yield* effectFs.remove(file);
+            }
+          }
+        }
 
         yield* Command.make(
           "find",

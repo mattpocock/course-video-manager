@@ -12,7 +12,6 @@ const CourseJsonChapter = Schema.Struct({
 
 const CourseJsonVideo = Schema.Struct({
   id: Schema.String,
-  path: Schema.String,
   body: Schema.NullOr(Schema.String),
   description: Schema.NullOr(Schema.String),
   hash: Schema.NullOr(Schema.String),
@@ -22,7 +21,6 @@ const CourseJsonVideo = Schema.Struct({
 const ExplainerLessonSchema = Schema.Struct({
   type: Schema.Literal("explainer"),
   id: Schema.String,
-  path: Schema.String,
   title: Schema.String,
   description: Schema.String,
   explainer: CourseJsonVideo,
@@ -31,7 +29,6 @@ const ExplainerLessonSchema = Schema.Struct({
 const ProblemLessonSchema = Schema.Struct({
   type: Schema.Literal("problem"),
   id: Schema.String,
-  path: Schema.String,
   title: Schema.String,
   description: Schema.String,
   problem: CourseJsonVideo,
@@ -45,7 +42,6 @@ const CourseJsonLessonSchema = Schema.Union(
 
 const CourseJsonSectionSchema = Schema.Struct({
   id: Schema.String,
-  path: Schema.String,
   title: Schema.String,
   description: Schema.String,
   lessons: Schema.Array(CourseJsonLessonSchema),
@@ -128,7 +124,6 @@ function toVideoEntry(video: InputVideo): typeof CourseJsonVideo.Type {
   }));
   return {
     id: video.lineageId,
-    path: video.path,
     body: video.body,
     description: video.description,
     hash: computeExportHash(exportClips),
@@ -179,7 +174,6 @@ export const buildCourseJson = (
             lessons.push({
               type: "problem",
               id: lesson.lineageId,
-              path: lesson.path,
               title: lesson.title,
               description: lesson.description,
               problem: toVideoEntry(problem.video),
@@ -189,7 +183,6 @@ export const buildCourseJson = (
             lessons.push({
               type: "problem",
               id: lesson.lineageId,
-              path: lesson.path,
               title: lesson.title,
               description: lesson.description,
               problem: toVideoEntry(problem.video),
@@ -200,7 +193,6 @@ export const buildCourseJson = (
           lessons.push({
             type: "explainer",
             id: lesson.lineageId,
-            path: lesson.path,
             title: lesson.title,
             description: lesson.description,
             explainer: toVideoEntry(video),
@@ -210,7 +202,6 @@ export const buildCourseJson = (
 
       sections.push({
         id: section.lineageId,
-        path: section.path,
         title: section.title,
         description: section.description,
         lessons,

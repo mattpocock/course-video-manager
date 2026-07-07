@@ -6,14 +6,10 @@ import { FileSystem } from "@effect/platform";
 const FINISHED_VIDEOS_DIR = "/videos";
 
 const run = (opts: {
-  sectionsOnFileSystem: Parameters<
-    typeof resolveSectionsWithVideos
-  >[0]["sectionsOnFileSystem"];
   sectionsInDb: Parameters<typeof resolveSectionsWithVideos>[0]["sectionsInDb"];
   existingFiles: string[];
 }) =>
   resolveSectionsWithVideos({
-    sectionsOnFileSystem: opts.sectionsOnFileSystem,
     sectionsInDb: opts.sectionsInDb,
     finishedVideosDirectory: FINISHED_VIDEOS_DIR,
   }).pipe(
@@ -29,12 +25,6 @@ const run = (opts: {
 describe("resolveSectionsWithVideos", () => {
   it("should resolve all videos when all exist locally", async () => {
     const result = await run({
-      sectionsOnFileSystem: [
-        {
-          sectionPathWithNumber: "001-intro",
-          lessons: [{ lessonPathWithNumber: "001-getting-started" }],
-        },
-      ],
       sectionsInDb: [
         {
           id: "section-1",
@@ -75,12 +65,6 @@ describe("resolveSectionsWithVideos", () => {
 
   it("should collect missing videos instead of failing", async () => {
     const result = await run({
-      sectionsOnFileSystem: [
-        {
-          sectionPathWithNumber: "001-intro",
-          lessons: [{ lessonPathWithNumber: "001-getting-started" }],
-        },
-      ],
       sectionsInDb: [
         {
           id: "section-1",
@@ -119,12 +103,6 @@ describe("resolveSectionsWithVideos", () => {
 
   it("should report all videos as missing when none exist locally", async () => {
     const result = await run({
-      sectionsOnFileSystem: [
-        {
-          sectionPathWithNumber: "001-intro",
-          lessons: [{ lessonPathWithNumber: "001-getting-started" }],
-        },
-      ],
       sectionsInDb: [
         {
           id: "section-1",
@@ -150,12 +128,6 @@ describe("resolveSectionsWithVideos", () => {
 
   it("should still include lessons with no videos in the structure", async () => {
     const result = await run({
-      sectionsOnFileSystem: [
-        {
-          sectionPathWithNumber: "001-intro",
-          lessons: [{ lessonPathWithNumber: "001-getting-started" }],
-        },
-      ],
       sectionsInDb: [
         {
           id: "section-1",
@@ -190,16 +162,6 @@ describe("resolveSectionsWithVideos", () => {
 
   it("should handle multiple sections with mixed video availability", async () => {
     const result = await run({
-      sectionsOnFileSystem: [
-        {
-          sectionPathWithNumber: "001-intro",
-          lessons: [{ lessonPathWithNumber: "001-basics" }],
-        },
-        {
-          sectionPathWithNumber: "002-advanced",
-          lessons: [{ lessonPathWithNumber: "001-deep-dive" }],
-        },
-      ],
       sectionsInDb: [
         {
           id: "section-1",

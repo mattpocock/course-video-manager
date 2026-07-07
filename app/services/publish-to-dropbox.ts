@@ -1,26 +1,6 @@
 import { Data, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
-import { toTranscriptItems } from "@/lib/transcript-builder";
-
-export const TODO_MARKER_BODY = `# TODO
-
-This lesson is marked **TODO** on the authoring side — it is intentionally incomplete in this version.
-
-- If a stub for this lesson does **not** yet exist on the course platform, create one.
-- If a stub **does** exist, leave it as-is. Do not edit it while this marker is present.
-
-The marker will be removed automatically once the lesson is marked **Ready** in a future published version (see the \`Marked Ready\` section of \`changelog.md\`).
-`;
-
-export const ALLOWED_FILE_EXTENSIONS_FROM_REPO = [
-  ".ts",
-  ".tsx",
-  ".json",
-  ".txt",
-  ".md",
-  ".mp4",
-];
 
 export class DoesNotExistOnDbError extends Data.TaggedError(
   "DoesNotExistOnDbError"
@@ -45,13 +25,6 @@ type DbLesson = {
 type DbVideo = {
   id: string;
   path: string;
-};
-
-type FileSystemSection = {
-  sectionPathWithNumber: string;
-  lessons: {
-    lessonPathWithNumber: string;
-  }[];
 };
 
 export type ResolvedVideo = {
@@ -83,13 +56,7 @@ export type ResolveResult = {
   missingVideos: MissingVideo[];
 };
 
-/**
- * Resolves sections from the DB and file system, checking which videos
- * exist locally. Videos that don't exist are collected in `missingVideos`
- * instead of causing a failure.
- */
 export const resolveSectionsWithVideos = (opts: {
-  sectionsOnFileSystem: FileSystemSection[];
   sectionsInDb: DbSection[];
   finishedVideosDirectory: string;
   videoPathOverrides?: Map<string, string>;
@@ -99,26 +66,10 @@ export const resolveSectionsWithVideos = (opts: {
     const sections: ResolvedSection[] = [];
     const missingVideos: MissingVideo[] = [];
 
-    for (const sectionOnFileSystem of opts.sectionsOnFileSystem) {
-      const sectionInDb = opts.sectionsInDb.find(
-        (s) => s.path === sectionOnFileSystem.sectionPathWithNumber
-      );
-
-      if (!sectionInDb) {
-        continue;
-      }
-
+    for (const sectionInDb of opts.sectionsInDb) {
       const lessons: ResolvedLesson[] = [];
 
-      for (const lesson of sectionOnFileSystem.lessons) {
-        const lessonInDb = sectionInDb.lessons.find(
-          (l) => l.path === lesson.lessonPathWithNumber
-        );
-
-        if (!lessonInDb) {
-          continue;
-        }
-
+      for (const lessonInDb of sectionInDb.lessons) {
         const videos: ResolvedVideo[] = [];
 
         for (const video of lessonInDb.videos) {
@@ -136,7 +87,7 @@ export const resolveSectionsWithVideos = (opts: {
             missingVideos.push({
               videoId: video.id,
               videoPath: video.path,
-              lessonPath: lesson.lessonPathWithNumber,
+              lessonPath: lessonInDb.path,
             });
           }
         }
@@ -222,50 +173,3 @@ export const buildChapters = (
 
   return kept;
 };
-
-type PrecomputeVideo = {
-  id: string;
-  body: string | null;
-  clips: Array<{
-    order: string;
-    sourceStartTime: number;
-    sourceEndTime: number;
-    text: string;
-  }>;
-  chapters: Array<{ order: string; name: string }>;
-};
-
-type PrecomputeSection = {
-  path: string;
-  lessons: Array<{
-    path: string;
-    authoringStatus: string | null;
-    videos: PrecomputeVideo[];
-  }>;
-};
-
-export function precomputeVideoMaps(sections: PrecomputeSection[]) {
-  const transcriptItemsMap = new Map<
-    string,
-    ReturnType<typeof toTranscriptItems>
-  >();
-  const chaptersMap = new Map<string, ReturnType<typeof buildChapters>>();
-  const bodyMap = new Map<string, string>();
-  const lessonTodoSet = new Set<string>();
-  for (const section of sections) {
-    for (const lesson of section.lessons) {
-      if (lesson.authoringStatus === "todo") {
-        lessonTodoSet.add(`${section.path}/${lesson.path}`);
-      }
-      for (const video of lesson.videos) {
-        transcriptItemsMap.set(
-          video.id,
-          toTranscriptItems(video.clips, video.chapters)
-        );
-        chaptersMap.set(video.id, buildChapters(video.clips, video.chapters));
-        if (video.body) bodyMap.set(video.id, video.body);
-      }
-    }
-  }
-  return { transcriptItemsMap, chaptersMap, bodyMap, lessonTodoSet };
-}

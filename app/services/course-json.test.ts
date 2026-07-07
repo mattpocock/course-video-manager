@@ -164,17 +164,19 @@ describe("buildCourseJson", () => {
     const lesson = result.sections[0]!.lessons[0]!;
     expect(lesson).toMatchObject({
       type: "explainer",
-      path: "01.01-welcome",
       title: "Welcome",
       description: "A welcome lesson",
       explainer: {
-        path: "Explainer",
         body: "# Hello",
         description: "SEO text",
         hash: null,
         chapters: [],
       },
     });
+    expect(lesson).not.toHaveProperty("path");
+    if (lesson.type === "explainer") {
+      expect(lesson.explainer).not.toHaveProperty("path");
+    }
   });
 
   // ── Problem-only lesson ────────────────────────────────────────────
@@ -196,8 +198,9 @@ describe("buildCourseJson", () => {
 
     const lesson = result.sections[0]!.lessons[0]!;
     expect(lesson.type).toBe("problem");
+    expect(lesson).not.toHaveProperty("path");
     if (lesson.type === "problem") {
-      expect(lesson.problem.path).toBe("Problem");
+      expect(lesson.problem).not.toHaveProperty("path");
       expect(lesson.solution).toBeUndefined();
     }
   });
@@ -250,8 +253,9 @@ describe("buildCourseJson", () => {
 
     const lesson = result.sections[0]!.lessons[0]!;
     expect(lesson.type).toBe("explainer");
+    expect(lesson).not.toHaveProperty("path");
     if (lesson.type === "explainer") {
-      expect(lesson.explainer.path).toBe("Intro");
+      expect(lesson.explainer).not.toHaveProperty("path");
     }
   });
 
@@ -560,6 +564,7 @@ describe("buildCourseJson", () => {
     );
 
     expect(result.sections[0]!.title).toBe("Introduction");
+    expect(result.sections[0]).not.toHaveProperty("path");
   });
 
   it("emits title on every section", async () => {

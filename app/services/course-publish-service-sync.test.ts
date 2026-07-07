@@ -22,7 +22,6 @@ import {
   type ExportClip,
 } from "@/services/export-hash";
 import { clips as clipsTable, videos as videosTable } from "@/db/schema";
-import { CourseRepoParserService } from "@/services/course-repo-parser";
 import { fromPartial } from "@total-typescript/shoehorn";
 import { eq } from "drizzle-orm";
 
@@ -39,7 +38,6 @@ const setupSync = async () => {
 
   finishedVideosDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-videos-"));
   const dropboxDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-dropbox-"));
-  const courseRepoDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-repo-"));
 
   const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
   const dbLayer = Layer.mergeAll(
@@ -68,7 +66,7 @@ const setupSync = async () => {
   const course = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
     return yield* courseOps.createCourse({
-      filePath: courseRepoDir,
+      filePath: "/unused",
       name: "test-course",
     });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -164,37 +162,6 @@ const setupSync = async () => {
     "video-content"
   );
 
-  // Create course repo structure on disk
-  const lesson1Dir = path.join(courseRepoDir, "01-intro", "01.01-welcome");
-  const lesson2Dir = path.join(courseRepoDir, "01-intro", "01.02-setup");
-  fs.mkdirSync(lesson1Dir, { recursive: true });
-  fs.mkdirSync(lesson2Dir, { recursive: true });
-  fs.writeFileSync(
-    path.join(lesson1Dir, "index.ts"),
-    "export const hello = 'world';"
-  );
-  fs.writeFileSync(
-    path.join(lesson2Dir, "setup.tsx"),
-    "export default function Setup() {}"
-  );
-
-  const mockRepoParser = Layer.succeed(
-    CourseRepoParserService,
-    fromPartial({
-      parseRepo: () =>
-        Effect.succeed([
-          {
-            sectionPathWithNumber: "01-intro",
-            sectionNumber: 1,
-            lessons: [
-              { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
-              { lessonPathWithNumber: "01.02-setup", lessonNumber: 2 },
-            ],
-          },
-        ]),
-    })
-  );
-
   const configLayer = Layer.setConfigProvider(
     ConfigProvider.fromMap(
       new Map([
@@ -209,7 +176,6 @@ const setupSync = async () => {
     VideoOperationsService.Default,
     VersionOperationsService.Default,
     mockVideoProcessing,
-    mockRepoParser,
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
 
@@ -223,7 +189,7 @@ const setupSync = async () => {
       effect.pipe(Effect.provide(testLayer) as any)
     ) as Promise<A>;
 
-  return { course, dropboxDir, run };
+  return { course, video1, video2, dropboxDir, run };
 };
 
 describe("CoursePublishService.syncToDropbox", () => {
@@ -250,104 +216,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     ).toBe(true);
   });
 
-  it("writes transcript files", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    const transcriptPath = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.01-welcome",
-      "Problem.transcript.md"
-    );
-    expect(fs.existsSync(transcriptPath)).toBe(true);
-    expect(fs.readFileSync(transcriptPath, "utf-8")).toContain("Hello world");
-  });
-
-  it("writes TODO markers for todo-status lessons only", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    const todoPath = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.02-setup",
-      "TODO.md"
-    );
-    expect(fs.existsSync(todoPath)).toBe(true);
-    expect(fs.readFileSync(todoPath, "utf-8")).toContain("TODO");
-
-    const noTodoPath = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.01-welcome",
-      "TODO.md"
-    );
-    expect(fs.existsSync(noTodoPath)).toBe(false);
-  });
-
-  it("copies source files from course repo", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    const sourceFile = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.01-welcome",
-      "index.ts"
-    );
-    expect(fs.existsSync(sourceFile)).toBe(true);
-    expect(fs.readFileSync(sourceFile, "utf-8")).toBe(
-      "export const hello = 'world';"
-    );
-  });
-
-  it("deletes stale files from dropbox", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    const staleDir = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.01-welcome"
-    );
-    fs.mkdirSync(staleDir, { recursive: true });
-    const stalePath = path.join(staleDir, "old-file.ts");
-    fs.writeFileSync(stalePath, "stale content");
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    expect(fs.existsSync(stalePath)).toBe(false);
-  });
-
-  it("generates changelog.md", async () => {
+  it("copies videos for all lessons", async () => {
     const { course, dropboxDir, run } = await setupSync();
 
     await run(
@@ -358,28 +227,108 @@ describe("CoursePublishService.syncToDropbox", () => {
     );
 
     expect(
-      fs.existsSync(path.join(dropboxDir, "test-course", "changelog.md"))
+      fs.existsSync(
+        path.join(
+          dropboxDir,
+          "test-course",
+          "01-intro",
+          "01.02-setup",
+          "Explainer.mp4"
+        )
+      )
     ).toBe(true);
   });
 
-  it("patches changelog with versionOverride", async () => {
+  it("writes only .mp4 and course.json — no sidecars", async () => {
     const { course, dropboxDir, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, undefined, {
-          name: "v1.0",
-          description: "First release",
-        });
+        yield* svc.syncToDropbox(course.id);
       })
     );
 
-    const content = fs.readFileSync(
-      path.join(dropboxDir, "test-course", "changelog.md"),
-      "utf-8"
+    const courseDir = path.join(dropboxDir, "test-course");
+    const allFiles = getAllFilesRecursive(courseDir);
+    const relFiles = allFiles.map((f) => path.relative(courseDir, f)).sort();
+
+    expect(relFiles).toEqual([
+      "01-intro/01.01-welcome/Problem.mp4",
+      "01-intro/01.02-setup/Explainer.mp4",
+      "course.json",
+    ]);
+  });
+
+  it("does not write .transcript.md, .body.md, .meta.json, TODO.md, or changelog.md", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await testDb
+      .update(videosTable)
+      .set({ body: "# Lesson Body\n\nSome content here." })
+      .where(eq(videosTable.path, "Problem"));
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
     );
-    expect(content).toContain("v1.0");
+
+    const courseDir = path.join(dropboxDir, "test-course");
+    const allFiles = getAllFilesRecursive(courseDir);
+    const extensions = allFiles.map((f) => path.basename(f));
+
+    expect(extensions).not.toContain("Problem.transcript.md");
+    expect(extensions).not.toContain("Problem.body.md");
+    expect(extensions).not.toContain("Problem.meta.json");
+    expect(extensions).not.toContain("TODO.md");
+    expect(extensions).not.toContain("changelog.md");
+  });
+
+  it("deletes stale files from dropbox including old sidecars", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    const staleDir = path.join(
+      dropboxDir,
+      "test-course",
+      "01-intro",
+      "01.01-welcome"
+    );
+    fs.mkdirSync(staleDir, { recursive: true });
+    fs.writeFileSync(path.join(staleDir, "old-file.ts"), "stale content");
+    fs.writeFileSync(
+      path.join(staleDir, "Problem.transcript.md"),
+      "old transcript"
+    );
+    fs.writeFileSync(path.join(staleDir, "Problem.body.md"), "old body");
+    fs.writeFileSync(
+      path.join(staleDir, "Problem.meta.json"),
+      '{"chapters": []}'
+    );
+    fs.writeFileSync(path.join(staleDir, "TODO.md"), "old todo");
+    fs.writeFileSync(
+      path.join(dropboxDir, "test-course", "changelog.md"),
+      "old changelog"
+    );
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    expect(fs.existsSync(path.join(staleDir, "old-file.ts"))).toBe(false);
+    expect(fs.existsSync(path.join(staleDir, "Problem.transcript.md"))).toBe(
+      false
+    );
+    expect(fs.existsSync(path.join(staleDir, "Problem.body.md"))).toBe(false);
+    expect(fs.existsSync(path.join(staleDir, "Problem.meta.json"))).toBe(false);
+    expect(fs.existsSync(path.join(staleDir, "TODO.md"))).toBe(false);
+    expect(
+      fs.existsSync(path.join(dropboxDir, "test-course", "changelog.md"))
+    ).toBe(false);
   });
 
   it("emits per-lesson progress events", async () => {
@@ -419,29 +368,6 @@ describe("CoursePublishService.syncToDropbox", () => {
     expect(result.missingVideos.length).toBeGreaterThan(0);
   });
 
-  it("copies videos for all lessons with semaphore concurrency", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    expect(
-      fs.existsSync(
-        path.join(
-          dropboxDir,
-          "test-course",
-          "01-intro",
-          "01.02-setup",
-          "Explainer.mp4"
-        )
-      )
-    ).toBe(true);
-  });
-
   it("emits course.json at the course root", async () => {
     const { course, dropboxDir, run } = await setupSync();
 
@@ -461,6 +387,29 @@ describe("CoursePublishService.syncToDropbox", () => {
     expect(doc.courseName).toBe("test-course");
     expect(doc.sections).toHaveLength(1);
     expect(doc.sections[0].lessons).toHaveLength(2);
+  });
+
+  it("course.json contains no path field", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id);
+      })
+    );
+
+    const doc = JSON.parse(
+      fs.readFileSync(
+        path.join(dropboxDir, "test-course", "course.json"),
+        "utf-8"
+      )
+    );
+    expect(doc.sections[0]).not.toHaveProperty("path");
+    const lesson = doc.sections[0].lessons[0];
+    expect(lesson).not.toHaveProperty("path");
+    const video = lesson.problem ?? lesson.explainer;
+    expect(video).not.toHaveProperty("path");
   });
 
   it("course.json uses lineageId as correlation id", async () => {
@@ -506,77 +455,18 @@ describe("CoursePublishService.syncToDropbox", () => {
     expect(video.hash).not.toBeNull();
     expect(typeof video.hash).toBe("string");
   });
-
-  it("writes <video>.body.md sidecar from video.body", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    await testDb
-      .update(videosTable)
-      .set({ body: "# Lesson Body\n\nSome content here." })
-      .where(eq(videosTable.path, "Problem"));
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    const bodyPath = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.01-welcome",
-      "Problem.body.md"
-    );
-    expect(fs.existsSync(bodyPath)).toBe(true);
-    expect(fs.readFileSync(bodyPath, "utf-8")).toBe(
-      "# Lesson Body\n\nSome content here."
-    );
-  });
-
-  it("does not write body.md when video.body is null", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    const bodyPath = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.01-welcome",
-      "Problem.body.md"
-    );
-    expect(fs.existsSync(bodyPath)).toBe(false);
-  });
-
-  it("body.md coexists with source readme.md (additive export)", async () => {
-    const { course, dropboxDir, run } = await setupSync();
-
-    await testDb
-      .update(videosTable)
-      .set({ body: "# New Body" })
-      .where(eq(videosTable.path, "Problem"));
-
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
-      })
-    );
-
-    const lessonDir = path.join(
-      dropboxDir,
-      "test-course",
-      "01-intro",
-      "01.01-welcome"
-    );
-    expect(fs.existsSync(path.join(lessonDir, "Problem.body.md"))).toBe(true);
-    expect(fs.existsSync(path.join(lessonDir, "index.ts"))).toBe(true);
-  });
 });
+
+function getAllFilesRecursive(dir: string): string[] {
+  const results: string[] = [];
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...getAllFilesRecursive(fullPath));
+    } else {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
