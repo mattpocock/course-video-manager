@@ -32,7 +32,7 @@ describe("courseViewReducer", () => {
       expect(state.videoPlayerState).toEqual({
         isOpen: false,
         videoId: "",
-        videoPath: "",
+        videoTitle: "",
       });
     });
 
@@ -177,13 +177,13 @@ describe("courseViewReducer", () => {
         .send({
           type: "open-video-player",
           videoId: "vid-1",
-          videoPath: "section/lesson/video.mp4",
+          videoTitle: "section/lesson/video.mp4",
         })
         .getState();
       expect(state.videoPlayerState).toEqual({
         isOpen: true,
         videoId: "vid-1",
-        videoPath: "section/lesson/video.mp4",
+        videoTitle: "section/lesson/video.mp4",
       });
     });
 
@@ -192,14 +192,14 @@ describe("courseViewReducer", () => {
         .send({
           type: "open-video-player",
           videoId: "vid-1",
-          videoPath: "section/lesson/video.mp4",
+          videoTitle: "section/lesson/video.mp4",
         })
         .send({ type: "close-video-player" })
         .getState();
       expect(state.videoPlayerState).toEqual({
         isOpen: false,
         videoId: "",
-        videoPath: "",
+        videoTitle: "",
       });
     });
   });
@@ -210,13 +210,13 @@ describe("courseViewReducer", () => {
         .send({
           type: "open-move-video",
           videoId: "vid-1",
-          videoPath: "video.mp4",
+          videoTitle: "video.mp4",
           currentLessonId: "lesson-1",
         })
         .getState();
       expect(state.moveVideoState).toEqual({
         videoId: "vid-1",
-        videoPath: "video.mp4",
+        videoTitle: "video.mp4",
         currentLessonId: "lesson-1",
       });
     });
@@ -226,7 +226,7 @@ describe("courseViewReducer", () => {
         .send({
           type: "open-move-video",
           videoId: "vid-1",
-          videoPath: "video.mp4",
+          videoTitle: "video.mp4",
           currentLessonId: "lesson-1",
         })
         .send({ type: "close-move-video" })
@@ -272,12 +272,12 @@ describe("courseViewReducer", () => {
         .send({
           type: "open-rename-video",
           videoId: "vid-1",
-          videoPath: "video.mp4",
+          videoTitle: "video.mp4",
         })
         .getState();
       expect(state.renameVideoState).toEqual({
         videoId: "vid-1",
-        videoPath: "video.mp4",
+        videoTitle: "video.mp4",
       });
     });
 
@@ -286,7 +286,7 @@ describe("courseViewReducer", () => {
         .send({
           type: "open-rename-video",
           videoId: "vid-1",
-          videoPath: "video.mp4",
+          videoTitle: "video.mp4",
         })
         .send({ type: "close-rename-video" })
         .getState();
@@ -473,7 +473,7 @@ describe("courseViewReducer", () => {
         .send({
           type: "open-video-player",
           videoId: "vid-1",
-          videoPath: "path",
+          videoTitle: "path",
         })
         .getState();
       expect(state.isAddCourseModalOpen).toBe(true);

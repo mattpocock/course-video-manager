@@ -156,7 +156,7 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
             const vNode: Record<string, unknown> = {
               id: video.id,
               kind: "video",
-              path: video.path,
+              title: video.title,
             };
             if (maxDepth >= 2) {
               const full = yield* videoSvc.getVideoWithClipsById(video.id);

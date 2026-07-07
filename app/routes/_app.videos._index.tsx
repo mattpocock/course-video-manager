@@ -71,11 +71,11 @@ export default function Component(props: Route.ComponentProps) {
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<{
     id: string;
-    path: string;
+    title: string;
   } | null>(null);
   const [videoToRename, setVideoToRename] = useState<{
     id: string;
-    path: string;
+    title: string;
   } | null>(null);
   const navigate = useNavigate();
   const archiveVideoFetcher = useFetcher();
@@ -111,7 +111,7 @@ export default function Component(props: Route.ComponentProps) {
           {videoToDelete && (
             <DeleteVideoModal
               videoId={videoToDelete.id}
-              videoPath={videoToDelete.path}
+              videoTitle={videoToDelete.title}
               open={true}
               onOpenChange={(open) => {
                 if (!open) setVideoToDelete(null);
@@ -122,7 +122,7 @@ export default function Component(props: Route.ComponentProps) {
           {videoToRename && (
             <RenameVideoModal
               videoId={videoToRename.id}
-              currentName={videoToRename.path}
+              currentName={videoToRename.title}
               open={true}
               onOpenChange={(open) => {
                 if (!open) setVideoToRename(null);
@@ -160,7 +160,7 @@ export default function Component(props: Route.ComponentProps) {
                           ) : (
                             <VideoOffIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
                           )}
-                          <span className="font-medium">{video.path}</span>
+                          <span className="font-medium">{video.title}</span>
                         </div>
                         <span className="text-sm text-muted-foreground">
                           {formatSecondsToTimeCode(totalDuration)}
@@ -170,7 +170,10 @@ export default function Component(props: Route.ComponentProps) {
                     <ContextMenuContent>
                       <ContextMenuItem
                         onSelect={() => {
-                          setVideoToRename({ id: video.id, path: video.path });
+                          setVideoToRename({
+                            id: video.id,
+                            title: video.title,
+                          });
                         }}
                       >
                         <PencilIcon className="w-4 h-4" />
@@ -178,7 +181,7 @@ export default function Component(props: Route.ComponentProps) {
                       </ContextMenuItem>
                       <ContextMenuItem
                         onSelect={() => {
-                          startExportUpload(video.id, video.path);
+                          startExportUpload(video.id, video.title);
                         }}
                       >
                         <Download className="w-4 h-4" />
@@ -248,7 +251,10 @@ export default function Component(props: Route.ComponentProps) {
                       <ContextMenuItem
                         variant="destructive"
                         onSelect={() => {
-                          setVideoToDelete({ id: video.id, path: video.path });
+                          setVideoToDelete({
+                            id: video.id,
+                            title: video.title,
+                          });
                         }}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -286,7 +292,7 @@ export default function Component(props: Route.ComponentProps) {
                             ) : (
                               <VideoOffIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
                             )}
-                            <span className="font-medium">{video.path}</span>
+                            <span className="font-medium">{video.title}</span>
                           </div>
                           <span className="text-sm text-muted-foreground">
                             {formatSecondsToTimeCode(totalDuration)}
@@ -298,7 +304,7 @@ export default function Component(props: Route.ComponentProps) {
                           onSelect={() => {
                             setVideoToRename({
                               id: video.id,
-                              path: video.path,
+                              title: video.title,
                             });
                           }}
                         >
@@ -307,7 +313,7 @@ export default function Component(props: Route.ComponentProps) {
                         </ContextMenuItem>
                         <ContextMenuItem
                           onSelect={() => {
-                            startExportUpload(video.id, video.path);
+                            startExportUpload(video.id, video.title);
                           }}
                         >
                           <Download className="w-4 h-4" />
@@ -371,7 +377,7 @@ export default function Component(props: Route.ComponentProps) {
                           onSelect={() => {
                             setVideoToDelete({
                               id: video.id,
-                              path: video.path,
+                              title: video.title,
                             });
                           }}
                         >

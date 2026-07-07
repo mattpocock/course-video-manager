@@ -4,7 +4,7 @@ import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
 const createVideoSchema = Schema.Struct({
-  path: Schema.String,
+  title: Schema.String,
 });
 
 export const action = makeAction({
@@ -16,7 +16,7 @@ export const action = makeAction({
       const videoOps = yield* VideoOperationsService;
 
       const video = yield* videoOps.createStandaloneVideo({
-        path: result.path,
+        title: result.title,
       });
 
       return data({ id: video.id });

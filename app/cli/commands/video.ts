@@ -53,7 +53,7 @@ interface TreeNode {
 const buildVideoTree = (
   video: {
     id: string;
-    path: string;
+    title: string;
     clips: ReadonlyArray<{ id: string; order: string; text: string }>;
     chapters: ReadonlyArray<{ id: string; order: string; name: string }>;
   },
@@ -72,7 +72,7 @@ const buildVideoTree = (
     .sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
     .map((x) => x.node);
 
-  const node: TreeNode = { id: video.id, kind: "video", name: video.path };
+  const node: TreeNode = { id: video.id, kind: "video", name: video.title };
   // Clips/Chapters are leaves; only the first level of children exists.
   if (depth >= 1) {
     return { ...node, children };
@@ -143,7 +143,7 @@ const transcriptCmd = Command.make(
       const wordCount = transcript ? transcript.split(/\s+/).length : 0;
       yield* emitObject({
         id: video.id,
-        path: video.path,
+        title: video.title,
         lessonId: video.lessonId,
         transcript,
         wordCount,
@@ -157,7 +157,7 @@ const transcriptCmd = Command.make(
 // ---------------------------------------------------------------------------
 
 const nameOption = Options.text("name").pipe(
-  Options.withDescription("The Video's name (its 'path').")
+  Options.withDescription("The Video's name (its 'title').")
 );
 const lessonOption = Options.text("lesson").pipe(
   Options.withDescription(
@@ -213,9 +213,9 @@ const createCmd = Command.make(
         if (lessonId !== undefined) {
           yield* requireLesson(lessonId);
           const created = yield* svc
-            .createVideo(lessonId, { path: name, originalFootagePath: "" })
+            .createVideo(lessonId, { title: name, originalFootagePath: "" })
             .pipe(
-              Effect.catchTag("VideoPathTakenError", (e) =>
+              Effect.catchTag("VideoTitleTakenError", (e) =>
                 parseError(e.message, "video")
               )
             );
@@ -224,7 +224,7 @@ const createCmd = Command.make(
 
         if (pitchId !== undefined) {
           yield* requirePitch(pitchId);
-          const created = yield* svc.createStandaloneVideo({ path: name });
+          const created = yield* svc.createStandaloneVideo({ title: name });
           const linked = yield* svc.linkVideoToPitch({
             videoId: created.id,
             pitchId,
@@ -232,7 +232,7 @@ const createCmd = Command.make(
           return yield* emitObject(linked);
         }
 
-        const created = yield* svc.createStandaloneVideo({ path: name });
+        const created = yield* svc.createStandaloneVideo({ title: name });
         yield* emitObject(created);
       })
     )
@@ -271,7 +271,7 @@ const moveCmd = Command.make(
           const moved = yield* svc
             .moveVideoToLesson({ videoId: id, lessonId })
             .pipe(
-              Effect.catchTag("VideoPathTakenError", (e) =>
+              Effect.catchTag("VideoTitleTakenError", (e) =>
                 parseError(e.message, "video")
               )
             );
@@ -290,7 +290,7 @@ const moveCmd = Command.make(
 
 const updateId = Args.text({ name: "id" });
 const updateNameOption = Options.text("name").pipe(
-  Options.withDescription("The Video's new name (its 'path')."),
+  Options.withDescription("The Video's new name (its 'title')."),
   Options.optional
 );
 const updateBodyOption = Options.text("body").pipe(
@@ -382,9 +382,9 @@ const updateCmd = Command.make(
 
         if (newName !== undefined) {
           yield* svc
-            .updateVideoPath({ videoId: id, path: newName })
+            .updateVideoTitle({ videoId: id, title: newName })
             .pipe(
-              Effect.catchTag("VideoPathTakenError", (e) =>
+              Effect.catchTag("VideoTitleTakenError", (e) =>
                 parseError(e.message, "video")
               )
             );

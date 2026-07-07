@@ -360,7 +360,7 @@ export const handleCreateVideoFromSelection = Effect.fn(
     db
       .insert(videos)
       .values({
-        path: title,
+        title,
         originalFootagePath: title,
         lessonId: sourceVideo.lessonId,
       })

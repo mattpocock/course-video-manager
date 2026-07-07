@@ -78,11 +78,11 @@ describe("search", () => {
     });
   });
 
-  it("path beats transcript for a video's field label", async () => {
+  it("title beats transcript for a video's field label", async () => {
     const { stdout } = await run(["search", "intro"]);
     const hits = ndjson(stdout) as any[];
     const video = hits.find((h) => h.kind === "video");
-    expect(video).toMatchObject({ id: s.lessonVideoId, field: "path" });
+    expect(video).toMatchObject({ id: s.lessonVideoId, field: "title" });
   });
 
   it("streams hits in depth-first tree order, one per entity", async () => {

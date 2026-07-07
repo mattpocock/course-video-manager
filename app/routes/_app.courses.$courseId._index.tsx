@@ -461,7 +461,7 @@ export default function Component(props: Route.ComponentProps) {
 
           <VideoModal
             videoId={videoPlayerState.videoId}
-            videoPath={videoPlayerState.videoPath}
+            videoTitle={videoPlayerState.videoTitle}
             isOpen={videoPlayerState.isOpen}
             onClose={() => {
               dispatch({ type: "close-video-player" });

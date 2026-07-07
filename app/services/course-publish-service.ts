@@ -204,7 +204,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
               if (!(yield* effectFs.exists(filePath))) {
                 unexportedVideos.push({
                   id: video.id,
-                  title: `${section.path}/${lesson.path}/${video.path}`,
+                  title: `${section.path}/${lesson.path}/${video.title}`,
                 });
               }
             }

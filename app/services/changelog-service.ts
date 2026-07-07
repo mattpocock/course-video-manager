@@ -17,7 +17,7 @@ function formatPathHumanReadable(path: string): string {
 type SectionChanges = {
   newLessons: Array<{
     lessonPath: string;
-    videoPaths: string[];
+    videoTitles: string[];
     authoringStatus: "todo" | "done" | null;
   }>;
   renamedLessons: Array<{ oldPath: string; newPath: string }>;
@@ -27,7 +27,7 @@ type SectionChanges = {
   }>;
   markedReady: Array<{ lessonPath: string }>;
   markedTodo: Array<{ lessonPath: string }>;
-  deletedLessons: Array<{ lessonPath: string; videoPaths: string[] }>;
+  deletedLessons: Array<{ lessonPath: string; videoTitles: string[] }>;
   sectionRenamed?: { oldPath: string; newPath: string };
 };
 
@@ -59,7 +59,7 @@ function organizeChangesBySection(
   for (const lesson of changes.newLessons) {
     getSection(lesson.sectionPath).newLessons.push({
       lessonPath: lesson.lessonPath,
-      videoPaths: lesson.videoPaths,
+      videoTitles: lesson.videoTitles,
       authoringStatus: lesson.authoringStatus,
     });
   }
@@ -95,7 +95,7 @@ function organizeChangesBySection(
       oldToNewSectionPath.get(lesson.sectionPath) ?? lesson.sectionPath;
     getSection(effectiveSectionPath).deletedLessons.push({
       lessonPath: lesson.lessonPath,
-      videoPaths: lesson.videoPaths,
+      videoTitles: lesson.videoTitles,
     });
   }
 
@@ -138,7 +138,7 @@ function renderVideoChanges(
 ): void {
   for (const videoChange of videoChanges) {
     if (videoChange.type === "updated") {
-      lines.push(`  - ${formatCodePath(videoChange.videoPath)} — updated`);
+      lines.push(`  - ${formatCodePath(videoChange.videoTitle)} — updated`);
       const diff = diffClips(videoChange.oldClips, videoChange.newClips);
       const diffOutput = formatDiffWithContext(diff);
       if (diffOutput.length > 0) {
@@ -155,9 +155,9 @@ function renderVideoChanges(
         lines.push("    </details>");
       }
     } else if (videoChange.type === "new") {
-      lines.push(`  - ${formatCodePath(videoChange.videoPath)} — new video`);
+      lines.push(`  - ${formatCodePath(videoChange.videoTitle)} — new video`);
     } else if (videoChange.type === "deleted") {
-      lines.push(`  - ${formatCodePath(videoChange.videoPath)} — deleted`);
+      lines.push(`  - ${formatCodePath(videoChange.videoTitle)} — deleted`);
     }
   }
 }
@@ -272,8 +272,8 @@ export function generateChangelog(versions: VersionWithStructure[]): string {
         for (const lesson of sectionChange.newLessons) {
           const suffix = lesson.authoringStatus === "todo" ? " (TODO)" : "";
           lines.push(`- ${formatCodePath(lesson.lessonPath)}${suffix}`);
-          for (const videoPath of lesson.videoPaths) {
-            lines.push(`  - ${formatCodePath(videoPath)}`);
+          for (const videoTitle of lesson.videoTitles) {
+            lines.push(`  - ${formatCodePath(videoTitle)}`);
           }
         }
         lines.push("");
@@ -323,8 +323,8 @@ export function generateChangelog(versions: VersionWithStructure[]): string {
         lines.push("");
         for (const lesson of sectionChange.deletedLessons) {
           lines.push(`- ${formatCodePath(lesson.lessonPath)}`);
-          for (const videoPath of lesson.videoPaths) {
-            lines.push(`  - ${formatCodePath(videoPath)}`);
+          for (const videoTitle of lesson.videoTitles) {
+            lines.push(`  - ${formatCodePath(videoTitle)}`);
           }
         }
         lines.push("");

@@ -14,7 +14,7 @@ import {
 describe("applyOptimisticDeleteVideo", () => {
   it("removes the matching video from a lesson", () => {
     const video1 = makeVideo({ id: "video-1" });
-    const video2 = makeVideo({ id: "video-2", path: "video-02.mp4" });
+    const video2 = makeVideo({ id: "video-2", title: "video-02.mp4" });
     const lesson = makeLesson({ videos: [video1, video2] });
     const loaderData = makeLoaderData([makeSection({}, [lesson])]);
 
@@ -109,9 +109,9 @@ describe("applyOptimisticDeleteVideo", () => {
     const lesson = makeLesson({
       id: "lesson-1",
       videos: [
-        makeVideo({ id: "v1", path: "v1.mp4" }),
-        makeVideo({ id: "v2", path: "v2.mp4" }),
-        makeVideo({ id: "v3", path: "v3.mp4" }),
+        makeVideo({ id: "v1", title: "v1.mp4" }),
+        makeVideo({ id: "v2", title: "v2.mp4" }),
+        makeVideo({ id: "v3", title: "v3.mp4" }),
       ],
     });
     const loaderData = makeLoaderData([makeSection({}, [lesson])]);

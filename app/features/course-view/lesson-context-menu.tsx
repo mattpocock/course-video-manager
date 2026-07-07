@@ -53,7 +53,7 @@ export function LessonContextMenuContent({
               onSelect={() => navigate(`/videos/${video.id}/edit`)}
             >
               <FileVideo className="w-4 h-4" />
-              {video.path}
+              {video.title}
             </ContextMenuItem>
           ))}
           {!isReadOnly && <ContextMenuSeparator />}

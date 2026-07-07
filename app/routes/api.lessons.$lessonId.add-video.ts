@@ -5,13 +5,13 @@ import { makeAction } from "@/services/route-action.server";
 import type { Route } from "./+types/api.lessons.$lessonId.add-video";
 
 const addVideoSchema = Schema.Struct({
-  path: Schema.String,
+  title: Schema.String,
 });
 
 export const action = async (args: Route.ActionArgs) => {
   return makeAction({
     input: "formData",
-    errors: { NotFoundError: 404, VideoPathTakenError: 409 },
+    errors: { NotFoundError: 404, VideoTitleTakenError: 409 },
     effect: ({ params, payload }) =>
       Effect.gen(function* () {
         const result = yield* Schema.decodeUnknown(addVideoSchema)(payload);
@@ -21,7 +21,7 @@ export const action = async (args: Route.ActionArgs) => {
         yield* lessonSectionOps.getLessonById(params.lessonId!);
 
         const video = yield* videoOps.createVideo(params.lessonId!, {
-          path: result.path,
+          title: result.title,
           originalFootagePath: "",
         });
 

@@ -18,7 +18,7 @@ import type { SectionWithWordCount } from "@/features/article-writer/types";
 import type { CourseStructure } from "@/components/video-context-panel";
 
 export interface VideoPostingContext {
-  videoPath: string;
+  videoTitle: string;
   pitchId: string | null;
   transcriptWordCount: number;
   chapters: SectionWithWordCount[];
@@ -61,7 +61,7 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
 
     if (!lesson) {
       return {
-        videoPath: video.path,
+        videoTitle: video.title,
         pitchId: video.pitchId ?? null,
         transcriptWordCount,
         chapters: sectionsWithWordCount,
@@ -86,7 +86,7 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
     );
 
     return {
-      videoPath: video.path,
+      videoTitle: video.title,
       pitchId: video.pitchId ?? null,
       transcriptWordCount,
       chapters: sectionsWithWordCount,

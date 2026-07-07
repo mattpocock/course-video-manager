@@ -11,7 +11,7 @@ import { useFetcher } from "react-router";
 
 export function DeleteVideoModal(props: {
   videoId: string;
-  videoPath: string;
+  videoTitle: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -26,7 +26,7 @@ export function DeleteVideoModal(props: {
             Delete Video
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "{props.videoPath}"? The video and
+            Are you sure you want to delete "{props.videoTitle}"? The video and
             its clips will be archived and can be recovered later.
           </DialogDescription>
         </DialogHeader>

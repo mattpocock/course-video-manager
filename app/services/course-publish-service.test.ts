@@ -113,7 +113,7 @@ const setup = async () => {
   const video = await Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     return yield* videoOps.createVideo(lesson.id, {
-      path: "Problem",
+      title: "Problem",
       originalFootagePath: "/tmp/footage.mp4",
     });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -545,7 +545,7 @@ describe("CoursePublishService", () => {
       await Effect.gen(function* () {
         const videoOps = yield* VideoOperationsService;
         yield* videoOps.createVideo(lesson.id, {
-          path: "Solution",
+          title: "Solution",
           originalFootagePath: "/tmp/footage.mp4",
         });
       }).pipe(Effect.provide(dbLayer), Effect.runPromise);

@@ -105,7 +105,7 @@ export const createCourseOperations = (db: Database) => {
                       where: eq(lessons.archived, false),
                       with: {
                         videos: {
-                          orderBy: asc(videos.path),
+                          orderBy: asc(videos.title),
                           where: eq(videos.archived, false),
                           with: {
                             clips: {
@@ -156,8 +156,8 @@ export const createCourseOperations = (db: Database) => {
                       where: eq(lessons.archived, false),
                       with: {
                         videos: {
-                          columns: { id: true, path: true },
-                          orderBy: asc(videos.path),
+                          columns: { id: true, title: true },
+                          orderBy: asc(videos.title),
                           where: eq(videos.archived, false),
                         },
                       },
@@ -251,7 +251,7 @@ export const createCourseOperations = (db: Database) => {
                       where: eq(lessons.archived, false),
                       with: {
                         videos: {
-                          orderBy: asc(videos.path),
+                          orderBy: asc(videos.title),
                           where: eq(videos.archived, false),
                           with: {
                             clips: {

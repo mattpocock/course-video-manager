@@ -54,9 +54,9 @@ export class LessonPathTakenError extends Data.TaggedError(
   message: string;
 }> {}
 
-export class VideoPathTakenError extends Data.TaggedError(
-  "VideoPathTakenError"
+export class VideoTitleTakenError extends Data.TaggedError(
+  "VideoTitleTakenError"
 )<{
-  path: string;
+  title: string;
   message: string;
 }> {}

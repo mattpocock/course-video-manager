@@ -236,7 +236,7 @@ export function computeTodoCount(
         const matchesTitle = lesson.title?.toLowerCase().includes(q);
         const matchesDesc = lesson.description?.toLowerCase().includes(q);
         const matchesVideo = lesson.videos.some((v) =>
-          v.path.toLowerCase().includes(q)
+          v.title.toLowerCase().includes(q)
         );
         if (!matchesPath && !matchesTitle && !matchesDesc && !matchesVideo)
           continue;

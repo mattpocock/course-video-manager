@@ -126,7 +126,7 @@ describe("listSnapshotsWithClips", () => {
       yield* diagramOps.updateDiagramHead(diagram.id, scene1);
 
       const video = yield* videoOps.createStandaloneVideo({
-        path: "test-video.mp4",
+        title: "test-video.mp4",
       });
       const clips = yield* clipOps.appendClips({
         videoId: video.id,
@@ -170,7 +170,7 @@ describe("listSnapshotsWithClips", () => {
       yield* diagramOps.updateDiagramHead(diagram.id, scene1);
 
       const video = yield* videoOps.createStandaloneVideo({
-        path: "test-video.mp4",
+        title: "test-video.mp4",
       });
       const clips = yield* clipOps.appendClips({
         videoId: video.id,
@@ -339,7 +339,7 @@ describe("updateClipDiagramPin", () => {
     const videoOps = yield* VideoOperationsService;
     const clipOps = yield* ClipOperationsService;
     const video = yield* videoOps.createStandaloneVideo({
-      path: "test-video.mp4",
+      title: "test-video.mp4",
     });
     const clips = yield* clipOps.appendClips({
       videoId: video.id,
@@ -447,7 +447,7 @@ describe("createSnapshotForClip", () => {
     const videoOps = yield* VideoOperationsService;
     const clipOps = yield* ClipOperationsService;
     const video = yield* videoOps.createStandaloneVideo({
-      path: "test-video.mp4",
+      title: "test-video.mp4",
     });
     const clips = yield* clipOps.appendClips({
       videoId: video.id,

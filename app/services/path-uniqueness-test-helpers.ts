@@ -11,7 +11,7 @@ import type { TestDb } from "@/test-utils/pglite";
 export async function dropUniqueIndexes(testDb: TestDb) {
   await testDb.execute(sql`DROP INDEX IF EXISTS "section_version_order_uniq"`);
   await testDb.execute(sql`DROP INDEX IF EXISTS "lesson_section_order_uniq"`);
-  await testDb.execute(sql`DROP INDEX IF EXISTS "video_lesson_path_uniq"`);
+  await testDb.execute(sql`DROP INDEX IF EXISTS "video_lesson_title_uniq"`);
 }
 
 export async function recreateUniqueIndexes(testDb: TestDb) {
@@ -22,7 +22,7 @@ export async function recreateUniqueIndexes(testDb: TestDb) {
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "lesson_section_order_uniq" ON "course-video-manager_lesson" ("section_id", "order") WHERE NOT "archived"`
   );
   await testDb.execute(
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS "video_lesson_path_uniq" ON "course-video-manager_video" ("lesson_id", "path") WHERE NOT "archived"`
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "video_lesson_title_uniq" ON "course-video-manager_video" ("lesson_id", "title") WHERE NOT "archived"`
   );
 }
 
@@ -98,7 +98,7 @@ export async function createLesson(
 export async function createVideo(
   testDb: TestDb,
   lessonId: string,
-  path: string,
+  title: string,
   opts?: { id?: string; createdAt?: Date; archived?: boolean }
 ) {
   const [video] = await testDb
@@ -106,7 +106,7 @@ export async function createVideo(
     .values({
       ...(opts?.id ? { id: opts.id } : {}),
       lessonId,
-      path,
+      title,
       originalFootagePath: "",
       archived: opts?.archived ?? false,
       ...(opts?.createdAt ? { createdAt: opts.createdAt } : {}),

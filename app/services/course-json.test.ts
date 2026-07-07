@@ -7,10 +7,10 @@ const makeVideo = (
   overrides: Partial<
     BuildCourseJsonInput["sections"][0]["lessons"][0]["videos"][0]
   > & {
-    path: string;
+    title: string;
   }
 ) => ({
-  lineageId: `vid-lineage-${overrides.path}`,
+  lineageId: `vid-lineage-${overrides.title}`,
   body: null,
   description: null,
   archived: false,
@@ -106,7 +106,7 @@ describe("buildCourseJson", () => {
             makeLesson({
               path: "01.01-welcome",
               lineageId: "lesson-abc",
-              videos: [makeVideo({ path: "Explainer" })],
+              videos: [makeVideo({ title: "Explainer" })],
             }),
           ],
         }),
@@ -123,7 +123,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ path: "Explainer", lineageId: "vid-abc" })],
+              videos: [makeVideo({ title: "Explainer", lineageId: "vid-abc" })],
             }),
           ],
         }),
@@ -150,7 +150,7 @@ describe("buildCourseJson", () => {
               description: "A welcome lesson",
               videos: [
                 makeVideo({
-                  path: "Explainer",
+                  title: "Explainer",
                   body: "# Hello",
                   description: "SEO text",
                 }),
@@ -189,7 +189,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-exercise",
-              videos: [makeVideo({ path: "Problem" })],
+              videos: [makeVideo({ title: "Problem" })],
             }),
           ],
         }),
@@ -216,8 +216,8 @@ describe("buildCourseJson", () => {
             makeLesson({
               path: "01.01-exercise",
               videos: [
-                makeVideo({ path: "Problem", lineageId: "prob-1" }),
-                makeVideo({ path: "Solution", lineageId: "sol-1" }),
+                makeVideo({ title: "Problem", lineageId: "prob-1" }),
+                makeVideo({ title: "Solution", lineageId: "sol-1" }),
               ],
             }),
           ],
@@ -244,7 +244,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-intro",
-              videos: [makeVideo({ path: "Intro" })],
+              videos: [makeVideo({ title: "Intro" })],
             }),
           ],
         }),
@@ -269,7 +269,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ path: "Explainer", clips: CLIPS })],
+              videos: [makeVideo({ title: "Explainer", clips: CLIPS })],
             }),
           ],
         }),
@@ -291,7 +291,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ path: "Explainer", clips: [] })],
+              videos: [makeVideo({ title: "Explainer", clips: [] })],
             }),
           ],
         }),
@@ -316,7 +316,7 @@ describe("buildCourseJson", () => {
               path: "01.01-welcome",
               videos: [
                 makeVideo({
-                  path: "Explainer",
+                  title: "Explainer",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -357,7 +357,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ path: "Explainer", clips: CLIPS })],
+              videos: [makeVideo({ title: "Explainer", clips: CLIPS })],
             }),
           ],
         }),
@@ -381,7 +381,7 @@ describe("buildCourseJson", () => {
             makeLesson({
               path: "01.01-welcome",
               fsStatus: "ghost",
-              videos: [makeVideo({ path: "Explainer" })],
+              videos: [makeVideo({ title: "Explainer" })],
             }),
           ],
         }),
@@ -402,8 +402,8 @@ describe("buildCourseJson", () => {
             makeLesson({
               path: "01.01-welcome",
               videos: [
-                makeVideo({ path: "Explainer", archived: true }),
-                makeVideo({ path: "Problem" }),
+                makeVideo({ title: "Explainer", archived: true }),
+                makeVideo({ title: "Problem" }),
               ],
             }),
           ],
@@ -423,7 +423,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ path: "Explainer", archived: true })],
+              videos: [makeVideo({ title: "Explainer", archived: true })],
             }),
           ],
         }),
@@ -444,7 +444,7 @@ describe("buildCourseJson", () => {
             lessons: [
               makeLesson({
                 path: "01.01-exercise",
-                videos: [makeVideo({ path: "Solution" })],
+                videos: [makeVideo({ title: "Solution" })],
               }),
             ],
           }),
@@ -455,7 +455,7 @@ describe("buildCourseJson", () => {
       _tag: "InvalidLessonRoleComboError",
       sectionPath: "01-intro",
       lessonPath: "01.01-exercise",
-      videoPaths: ["Solution"],
+      videoTitles: ["Solution"],
     });
   });
 
@@ -469,8 +469,8 @@ describe("buildCourseJson", () => {
               makeLesson({
                 path: "01.01-exercise",
                 videos: [
-                  makeVideo({ path: "Explainer" }),
-                  makeVideo({ path: "Problem" }),
+                  makeVideo({ title: "Explainer" }),
+                  makeVideo({ title: "Problem" }),
                 ],
               }),
             ],
@@ -494,8 +494,8 @@ describe("buildCourseJson", () => {
               makeLesson({
                 path: "01.01-exercise",
                 videos: [
-                  makeVideo({ path: "Problem" }),
-                  makeVideo({ path: "Problem" }),
+                  makeVideo({ title: "Problem" }),
+                  makeVideo({ title: "Problem" }),
                 ],
               }),
             ],
@@ -516,9 +516,9 @@ describe("buildCourseJson", () => {
               makeLesson({
                 path: "01.01-exercise",
                 videos: [
-                  makeVideo({ path: "Problem" }),
-                  makeVideo({ path: "Solution" }),
-                  makeVideo({ path: "Solution 2" }),
+                  makeVideo({ title: "Problem" }),
+                  makeVideo({ title: "Solution" }),
+                  makeVideo({ title: "Solution 2" }),
                 ],
               }),
             ],
@@ -556,7 +556,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ path: "Explainer" })],
+              videos: [makeVideo({ title: "Explainer" })],
             }),
           ],
         }),
@@ -597,7 +597,7 @@ describe("buildCourseJson", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ path: "Explainer" })],
+              videos: [makeVideo({ title: "Explainer" })],
             }),
           ],
         }),
@@ -607,13 +607,13 @@ describe("buildCourseJson", () => {
             makeLesson({
               path: "02.01-exercise",
               videos: [
-                makeVideo({ path: "Problem" }),
-                makeVideo({ path: "Solution" }),
+                makeVideo({ title: "Problem" }),
+                makeVideo({ title: "Solution" }),
               ],
             }),
             makeLesson({
               path: "02.02-exercise",
-              videos: [makeVideo({ path: "Problem" })],
+              videos: [makeVideo({ title: "Problem" })],
             }),
           ],
         }),
@@ -640,7 +640,7 @@ describe("buildCourseJson", () => {
               path: "01.01-welcome",
               videos: [
                 makeVideo({
-                  path: "Explainer",
+                  title: "Explainer",
                   body: null,
                   description: null,
                 }),

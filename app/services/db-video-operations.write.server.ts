@@ -3,7 +3,7 @@ import { videos } from "@/db/schema";
 import {
   NotFoundError,
   UnknownDBServiceError,
-  VideoPathTakenError,
+  VideoTitleTakenError,
 } from "@/services/db-service-errors";
 import { and, eq, ne } from "drizzle-orm";
 import { Effect } from "effect";
@@ -71,8 +71,8 @@ export const createVideoWriteOps = (db: Database) => {
 
   /**
    * Move a Video into a Lesson, enforcing the single-parent invariant: setting a
-   * lesson parent also clears any pitch parent. Re-checks the (lessonId, path)
-   * uniqueness guard (VideoPathTakenError) before mutating — unlike
+   * lesson parent also clears any pitch parent. Re-checks the (lessonId, title)
+   * uniqueness guard (VideoTitleTakenError) before mutating — unlike
    * updateVideoLesson, which does not. Returns the updated row; NotFoundError
    * when the video id is absent.
    */
@@ -83,7 +83,7 @@ export const createVideoWriteOps = (db: Database) => {
     const current = yield* makeDbCall(() =>
       db.query.videos.findFirst({
         where: eq(videos.id, opts.videoId),
-        columns: { path: true },
+        columns: { title: true },
       })
     );
 
@@ -94,12 +94,12 @@ export const createVideoWriteOps = (db: Database) => {
       });
     }
 
-    // (lessonId, path) must be free among the target lesson's active videos.
+    // (lessonId, title) must be free among the target lesson's active videos.
     const clash = yield* makeDbCall(() =>
       db.query.videos.findFirst({
         where: and(
           eq(videos.lessonId, opts.lessonId),
-          eq(videos.path, current.path),
+          eq(videos.title, current.title),
           eq(videos.archived, false),
           ne(videos.id, opts.videoId)
         ),
@@ -108,9 +108,9 @@ export const createVideoWriteOps = (db: Database) => {
     );
 
     if (clash) {
-      return yield* new VideoPathTakenError({
-        path: current.path,
-        message: `Video name "${current.path}" is already taken in this lesson`,
+      return yield* new VideoTitleTakenError({
+        title: current.title,
+        message: `Video name "${current.title}" is already taken in this lesson`,
       });
     }
 

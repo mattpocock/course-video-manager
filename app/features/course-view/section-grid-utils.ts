@@ -31,7 +31,7 @@ export function filterLessons(
       if (lesson.path.toLowerCase().includes(q)) return true;
       if (lesson.title?.toLowerCase().includes(q)) return true;
       if (lesson.description?.toLowerCase().includes(q)) return true;
-      return lesson.videos.some((v) => v.path.toLowerCase().includes(q));
+      return lesson.videos.some((v) => v.title.toLowerCase().includes(q));
     })();
     return (
       passesPriorityFilter &&

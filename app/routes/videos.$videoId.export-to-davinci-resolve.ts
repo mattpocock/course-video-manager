@@ -19,10 +19,10 @@ export const action = async (args: Route.ActionArgs) => {
     });
 
     const videoName = video.lesson
-      ? [yield* versionOps.resolveLessonDir(video.lesson.id), video.path].join(
+      ? [yield* versionOps.resolveLessonDir(video.lesson.id), video.title].join(
           " - "
         )
-      : video.path;
+      : video.title;
 
     const clips = video.clips;
 

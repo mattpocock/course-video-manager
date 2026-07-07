@@ -62,7 +62,7 @@ const createStandaloneVideoWithClips = (
   Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     const clipOps = yield* ClipOperationsService;
-    const video = yield* videoOps.createStandaloneVideo({ path: name });
+    const video = yield* videoOps.createStandaloneVideo({ title: name });
 
     const createdClips = yield* clipOps.appendClips({
       videoId: video.id,
@@ -130,7 +130,7 @@ const createLessonVideo = (setupFiles?: (lessonDir: string) => void) =>
       { lessonPathWithNumber: lessonPath, lessonNumber: 1 },
     ]);
     const video = yield* videoOps.createVideo(lesson!.id, {
-      path: "test-video",
+      title: "test-video",
       originalFootagePath: "/footage",
     });
 
@@ -332,7 +332,7 @@ describe("loadVideoPostingContext", () => {
       Effect.gen(function* () {
         const videoOps = yield* VideoOperationsService;
         const video = yield* videoOps.createStandaloneVideo({
-          path: "empty-video",
+          title: "empty-video",
         });
 
         setupVideoDir(video.lineageId);

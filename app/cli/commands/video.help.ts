@@ -50,9 +50,9 @@ nothing and exits 0.
 
 Key fields:
   id         the stable video id (use with get/tree/transcript)
-  name       uniform display label every noun's 'list' carries (mirrors 'path'),
+  name       uniform display label every noun's 'list' carries (mirrors 'title'),
              so you never have to guess the label field
-  path       the video's name within its lesson (its display/file name)
+  title      the video's name within its lesson (its display/file name)
   pitchId    set when a Pitch packages this standalone video; else null
   archived   soft-delete flag (always false here unless --archived)
   clips[]    the video's clips in timeline order (order, text, source times)
@@ -65,7 +65,7 @@ Flags:
 Examples:
   cvm video list
   cvm video list --archived
-  cvm video list | jq -r '"\\(.id)\\t\\(.path)"'`;
+  cvm video list | jq -r '"\\(.id)\\t\\(.title)"'`;
 
 export const GET_HELP = `Get one or more Videos by id (variadic), each with its immediate children.
 
@@ -83,7 +83,7 @@ Output:
                                 (stdout stays pure data)
 
 Selected fields:
-  id, path, lessonId, pitchId, archived
+  id, title, lessonId, pitchId, archived
   clips[]    { id, order, text, videoFilename, sourceStartTime, sourceEndTime,
                transcribedAt, pauseType, ... } — order is a fractional index
   chapters[] { id, order, name } — named YouTube-style dividers
@@ -126,7 +126,7 @@ Accepts a SINGLE video id (standalone or lesson-bound). Missing id ->
 NotFoundError on stderr, exit 2.
 
 Output is one JSON object:
-  { id, path, lessonId, transcript, wordCount, items }
+  { id, title, lessonId, transcript, wordCount, items }
 where 'transcript' is the rendered prose string and 'items' is the structured
 sequence of { type:"section", name } / { type:"clip", text } entries.
 
@@ -135,7 +135,7 @@ Examples:
   cvm video transcript <id> | jq -r '.transcript'
   cvm video transcript <id> | jq '.wordCount'`;
 
-export const CREATE_HELP = `Create a Video. Requires --name <n> (the video's name / path).
+export const CREATE_HELP = `Create a Video. Requires --name <n> (the video's name / title).
 
 Choose the parent with a flag (they are mutually exclusive):
   --lesson <id>   create the video inside that Lesson.
@@ -172,7 +172,7 @@ of --name / --body / --body-file / --description is required (an update with non
 is invalid input, exit 3).
 
 Fields:
-  --name <n>          the Video's 'name' (its 'path' column). For lesson-bound
+  --name <n>          the Video's 'name' (its 'title' column). For lesson-bound
                       videos the new name must be unique within the lesson (a
                       collision is invalid input, exit 3). Must be non-empty.
   --body <md>         the Video's markdown BODY (the 'body' column) as inline

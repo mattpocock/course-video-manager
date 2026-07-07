@@ -26,7 +26,7 @@ export const action = makeAction({
             if (unexportedVideoIds.includes(video.id)) {
               unexportedVideos.push({
                 id: video.id,
-                title: `${section.path}/${lesson.path}/${video.path}`,
+                title: `${section.path}/${lesson.path}/${video.title}`,
               });
             }
           }

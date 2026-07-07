@@ -403,7 +403,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       sessions={clipState.sessions}
       repoId={props.loaderData.video.lesson?.section.repoVersion.repo.id}
       lessonId={props.loaderData.video.lesson?.id}
-      videoPath={props.loaderData.video.path}
+      videoTitle={props.loaderData.video.title}
       lessonPath={props.loaderData.video.lesson?.title}
       repoName={props.loaderData.video.lesson?.section.repoVersion.repo.name}
       videoId={props.loaderData.video.id}

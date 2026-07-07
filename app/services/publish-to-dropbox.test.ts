@@ -33,7 +33,7 @@ describe("resolveSectionsWithVideos", () => {
             {
               id: "lesson-1",
               path: "001-getting-started",
-              videos: [{ id: "video-1", path: "getting-started" }],
+              videos: [{ id: "video-1", title: "getting-started" }],
             },
           ],
         },
@@ -74,8 +74,8 @@ describe("resolveSectionsWithVideos", () => {
               id: "lesson-1",
               path: "001-getting-started",
               videos: [
-                { id: "video-1", path: "getting-started" },
-                { id: "video-2", path: "next-steps" },
+                { id: "video-1", title: "getting-started" },
+                { id: "video-2", title: "next-steps" },
               ],
             },
           ],
@@ -87,7 +87,7 @@ describe("resolveSectionsWithVideos", () => {
     expect(result.missingVideos).toEqual([
       {
         videoId: "video-2",
-        videoPath: "next-steps",
+        videoTitle: "next-steps",
         lessonPath: "001-getting-started",
       },
     ]);
@@ -112,8 +112,8 @@ describe("resolveSectionsWithVideos", () => {
               id: "lesson-1",
               path: "001-getting-started",
               videos: [
-                { id: "video-1", path: "getting-started" },
-                { id: "video-2", path: "next-steps" },
+                { id: "video-1", title: "getting-started" },
+                { id: "video-2", title: "next-steps" },
               ],
             },
           ],
@@ -170,7 +170,7 @@ describe("resolveSectionsWithVideos", () => {
             {
               id: "lesson-1",
               path: "001-basics",
-              videos: [{ id: "video-1", path: "basics" }],
+              videos: [{ id: "video-1", title: "basics" }],
             },
           ],
         },
@@ -181,7 +181,7 @@ describe("resolveSectionsWithVideos", () => {
             {
               id: "lesson-2",
               path: "001-deep-dive",
-              videos: [{ id: "video-2", path: "deep-dive" }],
+              videos: [{ id: "video-2", title: "deep-dive" }],
             },
           ],
         },
@@ -194,7 +194,7 @@ describe("resolveSectionsWithVideos", () => {
     expect(result.missingVideos).toEqual([
       {
         videoId: "video-2",
-        videoPath: "deep-dive",
+        videoTitle: "deep-dive",
         lessonPath: "001-deep-dive",
       },
     ]);

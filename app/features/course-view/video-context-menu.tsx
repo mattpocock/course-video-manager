@@ -63,7 +63,7 @@ export function VideoContextMenuItems({
           dispatch({
             type: "open-video-player",
             videoId: video.id,
-            videoPath: `${section.title}/${lesson.path}/${video.path}`,
+            videoTitle: `${section.title}/${lesson.path}/${video.title}`,
           });
         }}
       >
@@ -74,7 +74,7 @@ export function VideoContextMenuItems({
         onSelect={() => {
           startExportUpload(
             video.id,
-            `${section.title}/${lesson.path}/${video.path}`
+            `${section.title}/${lesson.path}/${video.title}`
           );
         }}
       >
@@ -94,7 +94,7 @@ export function VideoContextMenuItems({
           onSelect={() => {
             openGenerateChapters({
               videoId: video.id,
-              videoLabel: `${section.title}/${lesson.path}/${video.path}`,
+              videoLabel: `${section.title}/${lesson.path}/${video.title}`,
             });
           }}
         >
@@ -132,7 +132,7 @@ export function VideoContextMenuItems({
               dispatch({
                 type: "open-rename-video",
                 videoId: video.id,
-                videoPath: video.path,
+                videoTitle: video.title,
               });
             }}
           >
@@ -144,7 +144,7 @@ export function VideoContextMenuItems({
               dispatch({
                 type: "open-copy-video",
                 videoId: video.id,
-                videoPath: video.path,
+                videoTitle: video.title,
                 clipCount: video.clipCount,
                 beatCount: video.beats.length,
               });
@@ -158,7 +158,7 @@ export function VideoContextMenuItems({
               dispatch({
                 type: "open-move-video",
                 videoId: video.id,
-                videoPath: video.path,
+                videoTitle: video.title,
                 currentLessonId: lesson.id,
               });
             }}

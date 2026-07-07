@@ -9,12 +9,12 @@ export type LessonWarningKind =
 
 export type LessonWarning = { kind: LessonWarningKind };
 
-type VideoInput = { path: string };
+type VideoInput = { title: string };
 
 export type VideoRole = "explainer" | "problem" | "solution" | "unknown";
 
-export function deriveVideoRole(videoPath: string): VideoRole {
-  const lower = videoPath.toLowerCase();
+export function deriveVideoRole(videoTitle: string): VideoRole {
+  const lower = videoTitle.toLowerCase();
   if (lower === "explainer" || lower.startsWith("explainer "))
     return "explainer";
   if (lower === "problem" || lower.startsWith("problem ")) return "problem";
@@ -27,9 +27,9 @@ export function deriveVideoRole(videoPath: string): VideoRole {
  * A lesson holds exactly one video per role, so the canonical name is the bare
  * role ("Explainer") — any number is a mistake, whether or not siblings exist.
  */
-export function hasNumberedRoleName(videoPath: string): boolean {
-  if (deriveVideoRole(videoPath) === "unknown") return false;
-  return /\s\d+\s*$/.test(videoPath);
+export function hasNumberedRoleName(videoTitle: string): boolean {
+  if (deriveVideoRole(videoTitle) === "unknown") return false;
+  return /\s\d+\s*$/.test(videoTitle);
 }
 
 export const computeLessonWarnings = (input: {
@@ -39,12 +39,12 @@ export const computeLessonWarnings = (input: {
   if (videos.length === 0) return [];
 
   const warnings: LessonWarning[] = [];
-  const roles = videos.map((v) => deriveVideoRole(v.path));
+  const roles = videos.map((v) => deriveVideoRole(v.title));
 
   // A lesson holds exactly one video per role, so a role name should never be
   // numbered ("Explainer 2"). The number itself is the error — it implies a
   // second video of that role, which the lesson model can't hold.
-  if (videos.some((v) => hasNumberedRoleName(v.path))) {
+  if (videos.some((v) => hasNumberedRoleName(v.title))) {
     warnings.push({ kind: "numberedRoleName" });
   }
 
@@ -82,7 +82,7 @@ export const computeLessonWarnings = (input: {
 type LintLesson = {
   fsStatus: string | null;
   videos: Array<{
-    path: string;
+    title: string;
     lessonId?: string | null;
     body?: string | null;
     description?: string | null;

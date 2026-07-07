@@ -21,7 +21,7 @@ export const action = makeAction({
 
       const newVideoId = yield* videoOps.copyVideo({
         sourceVideoId: params.videoId!,
-        newPath: name.trim(),
+        newTitle: name.trim(),
         copyClips: copyClips === "on",
         copyBeats: copyBeats === "on",
       });

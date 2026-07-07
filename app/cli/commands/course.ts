@@ -200,7 +200,7 @@ const treeCmd = Command.make(
             section.lessons.map((lesson) =>
               node(lesson.id, "lesson", lesson.path, maxDepth - 2, () =>
                 lesson.videos.map((video) =>
-                  node(video.id, "video", video.path, maxDepth - 3, () =>
+                  node(video.id, "video", video.title, maxDepth - 3, () =>
                     video.clips.map((clip) =>
                       node(
                         clip.id,

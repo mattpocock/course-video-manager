@@ -406,7 +406,7 @@ describe("copyVersionStructure", () => {
       .insert(schema.videos)
       .values({
         lessonId: lesson!.id,
-        path: "01-intro/01-lesson/video.mp4",
+        title: "01-intro/01-lesson/video.mp4",
         originalFootagePath: "/footage/v1",
       })
       .returning();
@@ -499,7 +499,7 @@ describe("copyVersionStructure", () => {
       .insert(schema.videos)
       .values({
         lessonId: lesson!.id,
-        path: "01-intro/01-lesson/video.mp4",
+        title: "01-intro/01-lesson/video.mp4",
         originalFootagePath: "/footage/v1",
       })
       .returning();

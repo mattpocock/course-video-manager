@@ -15,7 +15,7 @@ import { useFetcher } from "react-router";
 
 export function CopyVideoModal(props: {
   videoId: string;
-  videoPath: string;
+  videoTitle: string;
   clipCount: number;
   beatCount: number;
   open: boolean;
@@ -80,7 +80,7 @@ export function CopyVideoModal(props: {
             <Input
               id="copy-video-name"
               name="name"
-              defaultValue={`${props.videoPath} (copy)`}
+              defaultValue={`${props.videoTitle} (copy)`}
               required
             />
           </div>

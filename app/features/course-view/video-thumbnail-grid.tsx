@@ -54,7 +54,7 @@ function VideoThumbnailItem({
             {video.firstClipId ? (
               <img
                 src={`/clips/${video.firstClipId}/first-frame`}
-                alt={video.path}
+                alt={video.title}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -73,7 +73,7 @@ function VideoThumbnailItem({
           <div className="py-1 px-6 flex flex-col items-center text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <span className="text-xs truncate text-foreground transition-colors">
-                {video.path}
+                {video.title}
               </span>
               {showWarning && (
                 <TooltipProvider>

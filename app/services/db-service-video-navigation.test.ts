@@ -34,7 +34,7 @@ const buildCourseFixture = async (
       title: string;
       order: number;
       fsStatus?: string;
-      videos: Array<{ path: string; archived?: boolean }>;
+      videos: Array<{ title: string; archived?: boolean }>;
     }>;
   }>
 ) => {
@@ -48,7 +48,7 @@ const buildCourseFixture = async (
     .values({ repoId: course!.id, name: "v1" })
     .returning();
 
-  const allVideos: Array<{ id: string; path: string; lessonId: string }> = [];
+  const allVideos: Array<{ id: string; title: string; lessonId: string }> = [];
 
   for (const sectionDef of sections) {
     const [section] = await testDb
@@ -78,15 +78,15 @@ const buildCourseFixture = async (
           .insert(schema.videos)
           .values({
             lessonId: lesson!.id,
-            path: videoDef.path,
-            originalFootagePath: videoDef.path,
+            title: videoDef.title,
+            originalFootagePath: videoDef.title,
             archived: videoDef.archived ?? false,
           })
           .returning();
 
         allVideos.push({
           id: video!.id,
-          path: video!.path,
+          title: video!.title,
           lessonId: lesson!.id,
         });
       }
@@ -102,7 +102,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
       Effect.gen(function* () {
         const vOps = yield* VideoOperationsService;
         const video = yield* vOps.createStandaloneVideo({
-          path: "standalone.mp4",
+          title: "standalone.mp4",
         });
         const fetched = yield* vOps.getVideoWithClipsById(video.id);
 
@@ -115,7 +115,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
       Effect.gen(function* () {
         const vOps = yield* VideoOperationsService;
         const video = yield* vOps.createStandaloneVideo({
-          path: "standalone.mp4",
+          title: "standalone.mp4",
         });
         const fetched = yield* vOps.getVideoWithClipsById(video.id);
 
@@ -126,7 +126,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
   });
 
   describe("same lesson navigation", () => {
-    it.effect("returns next video in same lesson sorted by path", () =>
+    it.effect("returns next video in same lesson sorted by title", () =>
       Effect.gen(function* () {
         const vOps = yield* VideoOperationsService;
         const fixture = yield* Effect.promise(() =>
@@ -139,9 +139,9 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                   title: "Lesson 1",
                   order: 1,
                   videos: [
-                    { path: "a.mp4" },
-                    { path: "b.mp4" },
-                    { path: "c.mp4" },
+                    { title: "a.mp4" },
+                    { title: "b.mp4" },
+                    { title: "c.mp4" },
                   ],
                 },
               ],
@@ -149,8 +149,8 @@ describe("getNextVideoId / getPreviousVideoId", () => {
           ])
         );
 
-        const videoB = fixture.videos.find((v) => v.path === "b.mp4")!;
-        const videoC = fixture.videos.find((v) => v.path === "c.mp4")!;
+        const videoB = fixture.videos.find((v) => v.title === "b.mp4")!;
+        const videoC = fixture.videos.find((v) => v.title === "c.mp4")!;
         const fetched = yield* vOps.getVideoWithClipsById(videoB.id);
 
         const nextId = yield* vOps.getNextVideoId(fetched);
@@ -158,7 +158,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
       }).pipe(Effect.provide(testLayer))
     );
 
-    it.effect("returns previous video in same lesson sorted by path", () =>
+    it.effect("returns previous video in same lesson sorted by title", () =>
       Effect.gen(function* () {
         const vOps = yield* VideoOperationsService;
         const fixture = yield* Effect.promise(() =>
@@ -171,9 +171,9 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                   title: "Lesson 1",
                   order: 1,
                   videos: [
-                    { path: "a.mp4" },
-                    { path: "b.mp4" },
-                    { path: "c.mp4" },
+                    { title: "a.mp4" },
+                    { title: "b.mp4" },
+                    { title: "c.mp4" },
                   ],
                 },
               ],
@@ -181,8 +181,8 @@ describe("getNextVideoId / getPreviousVideoId", () => {
           ])
         );
 
-        const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
-        const videoB = fixture.videos.find((v) => v.path === "b.mp4")!;
+        const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
+        const videoB = fixture.videos.find((v) => v.title === "b.mp4")!;
         const fetched = yield* vOps.getVideoWithClipsById(videoB.id);
 
         const prevId = yield* vOps.getPreviousVideoId(fetched);
@@ -206,20 +206,20 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                   {
                     title: "Lesson 1",
                     order: 1,
-                    videos: [{ path: "a.mp4" }],
+                    videos: [{ title: "a.mp4" }],
                   },
                   {
                     title: "Lesson 2",
                     order: 2,
-                    videos: [{ path: "b.mp4" }],
+                    videos: [{ title: "b.mp4" }],
                   },
                 ],
               },
             ])
           );
 
-          const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
-          const videoB = fixture.videos.find((v) => v.path === "b.mp4")!;
+          const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
+          const videoB = fixture.videos.find((v) => v.title === "b.mp4")!;
           const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
           const nextId = yield* vOps.getNextVideoId(fetched);
@@ -241,20 +241,20 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                   {
                     title: "Lesson 1",
                     order: 1,
-                    videos: [{ path: "a.mp4" }, { path: "b.mp4" }],
+                    videos: [{ title: "a.mp4" }, { title: "b.mp4" }],
                   },
                   {
                     title: "Lesson 2",
                     order: 2,
-                    videos: [{ path: "c.mp4" }],
+                    videos: [{ title: "c.mp4" }],
                   },
                 ],
               },
             ])
           );
 
-          const videoB = fixture.videos.find((v) => v.path === "b.mp4")!;
-          const videoC = fixture.videos.find((v) => v.path === "c.mp4")!;
+          const videoB = fixture.videos.find((v) => v.title === "b.mp4")!;
+          const videoC = fixture.videos.find((v) => v.title === "c.mp4")!;
           const fetched = yield* vOps.getVideoWithClipsById(videoC.id);
 
           const prevId = yield* vOps.getPreviousVideoId(fetched);
@@ -274,26 +274,26 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 {
                   title: "Lesson 1",
                   order: 1,
-                  videos: [{ path: "a.mp4" }],
+                  videos: [{ title: "a.mp4" }],
                 },
                 {
                   title: "Ghost Lesson",
                   order: 2,
                   fsStatus: "ghost",
-                  videos: [{ path: "ghost.mp4" }],
+                  videos: [{ title: "ghost.mp4" }],
                 },
                 {
                   title: "Lesson 3",
                   order: 3,
-                  videos: [{ path: "b.mp4" }],
+                  videos: [{ title: "b.mp4" }],
                 },
               ],
             },
           ])
         );
 
-        const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
-        const videoB = fixture.videos.find((v) => v.path === "b.mp4")!;
+        const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
+        const videoB = fixture.videos.find((v) => v.title === "b.mp4")!;
         const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
         const nextId = yield* vOps.getNextVideoId(fetched);
@@ -313,7 +313,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 {
                   title: "Lesson 1",
                   order: 1,
-                  videos: [{ path: "a.mp4" }],
+                  videos: [{ title: "a.mp4" }],
                 },
               ],
             },
@@ -324,15 +324,15 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 {
                   title: "Lesson 2",
                   order: 1,
-                  videos: [{ path: "b.mp4" }],
+                  videos: [{ title: "b.mp4" }],
                 },
               ],
             },
           ])
         );
 
-        const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
-        const videoB = fixture.videos.find((v) => v.path === "b.mp4")!;
+        const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
+        const videoB = fixture.videos.find((v) => v.title === "b.mp4")!;
 
         // Next from last video of section 1 → first video of section 2
         const fetchedA = yield* vOps.getVideoWithClipsById(videoA.id);
@@ -358,14 +358,14 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 {
                   title: "Lesson 1",
                   order: 1,
-                  videos: [{ path: "a.mp4" }],
+                  videos: [{ title: "a.mp4" }],
                 },
               ],
             },
           ])
         );
 
-        const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+        const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
         const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
         const nextId = yield* vOps.getNextVideoId(fetched);
@@ -385,14 +385,14 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 {
                   title: "Lesson 1",
                   order: 1,
-                  videos: [{ path: "a.mp4" }],
+                  videos: [{ title: "a.mp4" }],
                 },
               ],
             },
           ])
         );
 
-        const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+        const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
         const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
         const prevId = yield* vOps.getPreviousVideoId(fetched);
@@ -412,25 +412,25 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 {
                   title: "Lesson 1",
                   order: 1,
-                  videos: [{ path: "a.mp4" }],
+                  videos: [{ title: "a.mp4" }],
                 },
                 {
                   title: "Lesson 2 (all archived)",
                   order: 2,
-                  videos: [{ path: "b.mp4", archived: true }],
+                  videos: [{ title: "b.mp4", archived: true }],
                 },
                 {
                   title: "Lesson 3",
                   order: 3,
-                  videos: [{ path: "c.mp4" }],
+                  videos: [{ title: "c.mp4" }],
                 },
               ],
             },
           ])
         );
 
-        const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
-        const videoC = fixture.videos.find((v) => v.path === "c.mp4")!;
+        const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
+        const videoC = fixture.videos.find((v) => v.title === "c.mp4")!;
         const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
         const nextId = yield* vOps.getNextVideoId(fetched);
@@ -445,7 +445,7 @@ describe("getNextLessonWithoutVideo", () => {
     Effect.gen(function* () {
       const vOps = yield* VideoOperationsService;
       const video = yield* vOps.createStandaloneVideo({
-        path: "standalone.mp4",
+        title: "standalone.mp4",
       });
       const fetched = yield* vOps.getVideoWithClipsById(video.id);
 
@@ -466,7 +466,7 @@ describe("getNextLessonWithoutVideo", () => {
               {
                 title: "Lesson 1",
                 order: 1,
-                videos: [{ path: "a.mp4" }],
+                videos: [{ title: "a.mp4" }],
               },
               {
                 title: "Lesson 2 (empty)",
@@ -478,7 +478,7 @@ describe("getNextLessonWithoutVideo", () => {
         ])
       );
 
-      const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+      const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
       const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
@@ -500,19 +500,19 @@ describe("getNextLessonWithoutVideo", () => {
               {
                 title: "Lesson 1",
                 order: 1,
-                videos: [{ path: "a.mp4" }],
+                videos: [{ title: "a.mp4" }],
               },
               {
                 title: "Lesson 2",
                 order: 2,
-                videos: [{ path: "b.mp4" }],
+                videos: [{ title: "b.mp4" }],
               },
             ],
           },
         ])
       );
 
-      const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+      const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
       const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
@@ -532,7 +532,7 @@ describe("getNextLessonWithoutVideo", () => {
               {
                 title: "Lesson 1",
                 order: 1,
-                videos: [{ path: "a.mp4" }],
+                videos: [{ title: "a.mp4" }],
               },
             ],
           },
@@ -543,7 +543,7 @@ describe("getNextLessonWithoutVideo", () => {
               {
                 title: "Lesson 2",
                 order: 1,
-                videos: [{ path: "b.mp4" }],
+                videos: [{ title: "b.mp4" }],
               },
               {
                 title: "Lesson 3 (empty)",
@@ -555,7 +555,7 @@ describe("getNextLessonWithoutVideo", () => {
         ])
       );
 
-      const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+      const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
       const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
@@ -579,14 +579,14 @@ describe("getNextLessonWithoutVideo", () => {
                 {
                   title: "Lesson 1",
                   order: 1,
-                  videos: [{ path: "a.mp4" }],
+                  videos: [{ title: "a.mp4" }],
                 },
               ],
             },
           ])
         );
 
-        const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+        const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
         const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
         const result = yield* vOps.getNextLessonWithoutVideo(fetched);
@@ -606,12 +606,12 @@ describe("getNextLessonWithoutVideo", () => {
               {
                 title: "Lesson 1",
                 order: 1,
-                videos: [{ path: "a.mp4" }],
+                videos: [{ title: "a.mp4" }],
               },
               {
                 title: "Lesson 2",
                 order: 2,
-                videos: [{ path: "b.mp4" }],
+                videos: [{ title: "b.mp4" }],
               },
               {
                 title: "Lesson 3 (empty)",
@@ -623,7 +623,7 @@ describe("getNextLessonWithoutVideo", () => {
         ])
       );
 
-      const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+      const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
       const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
@@ -644,19 +644,19 @@ describe("getNextLessonWithoutVideo", () => {
               {
                 title: "Lesson 1",
                 order: 1,
-                videos: [{ path: "a.mp4" }],
+                videos: [{ title: "a.mp4" }],
               },
               {
                 title: "Lesson 2 (all archived)",
                 order: 2,
-                videos: [{ path: "b.mp4", archived: true }],
+                videos: [{ title: "b.mp4", archived: true }],
               },
             ],
           },
         ])
       );
 
-      const videoA = fixture.videos.find((v) => v.path === "a.mp4")!;
+      const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
       const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);

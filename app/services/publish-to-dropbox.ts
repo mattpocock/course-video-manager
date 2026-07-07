@@ -24,7 +24,7 @@ type DbLesson = {
 
 type DbVideo = {
   id: string;
-  path: string;
+  title: string;
 };
 
 export type ResolvedVideo = {
@@ -47,7 +47,7 @@ export type ResolvedSection = {
 
 export type MissingVideo = {
   videoId: string;
-  videoPath: string;
+  videoTitle: string;
   lessonPath: string;
 };
 
@@ -81,12 +81,12 @@ export const resolveSectionsWithVideos = (opts: {
             videos.push({
               id: video.id,
               absolutePath,
-              name: video.path,
+              name: video.title,
             });
           } else {
             missingVideos.push({
               videoId: video.id,
-              videoPath: video.path,
+              videoTitle: video.title,
               lessonPath: lessonInDb.path,
             });
           }

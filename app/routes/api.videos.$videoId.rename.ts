@@ -10,16 +10,16 @@ const renameVideoSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "formData",
-  errors: { VideoPathTakenError: 409 },
+  errors: { VideoTitleTakenError: 409 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
       const { name } = yield* Schema.decodeUnknown(renameVideoSchema)(payload);
 
       const videoOps = yield* VideoOperationsService;
 
-      yield* videoOps.updateVideoPath({
+      yield* videoOps.updateVideoTitle({
         videoId: params.videoId!,
-        path: name.trim(),
+        title: name.trim(),
       });
 
       return { success: true };

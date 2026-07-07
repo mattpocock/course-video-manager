@@ -120,13 +120,13 @@ export const seedWrite = async (db: TestDb): Promise<WriteSeed> => {
     .insert(schema.videos)
     .values({
       lessonId: lesson!.id,
-      path: "intro.mp4",
+      title: "intro.mp4",
       originalFootagePath: "footage.mp4",
     })
     .returning();
   const [standaloneActive] = await db
     .insert(schema.videos)
-    .values({ path: "standalone-active.mp4", originalFootagePath: "f.mp4" })
+    .values({ title: "standalone-active.mp4", originalFootagePath: "f.mp4" })
     .returning();
   const [pitchActive] = await db
     .insert(schema.pitches)

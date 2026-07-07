@@ -21,7 +21,7 @@ import { useFetcher } from "react-router";
 
 export function MoveVideoModal(props: {
   videoId: string;
-  videoPath: string;
+  videoTitle: string;
   currentLessonId: string;
   sections: {
     path: string;
@@ -50,7 +50,7 @@ export function MoveVideoModal(props: {
             Move Video
           </DialogTitle>
           <DialogDescription>
-            Move "{props.videoPath}" to a different lesson.
+            Move "{props.videoTitle}" to a different lesson.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

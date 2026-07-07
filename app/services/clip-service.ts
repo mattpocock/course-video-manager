@@ -334,7 +334,7 @@ interface InternalCreateChapterAtInsertionPointInput {
  */
 export interface ClipService {
   // Video fixture (primarily for tests)
-  createVideo(path: string): Promise<Video>;
+  createVideo(title: string): Promise<Video>;
 
   // Timeline
   getTimeline(videoId: string): Promise<TimelineItem[]>;
@@ -384,7 +384,7 @@ export interface ClipService {
  * This is an internal implementation detail - not exported to consumers.
  */
 export type ClipServiceEvent =
-  | { type: "create-video"; path: string }
+  | { type: "create-video"; title: string }
   | { type: "get-timeline"; videoId: string }
   | { type: "append-clips"; input: InternalAppendClipsInput }
   | { type: "append-from-obs"; input: InternalAppendFromObsInput }
@@ -445,8 +445,8 @@ export type ClipServiceTransport = (
  */
 export function createClipService(send: ClipServiceTransport): ClipService {
   return {
-    async createVideo(path) {
-      return send({ type: "create-video", path }) as Promise<Video>;
+    async createVideo(title) {
+      return send({ type: "create-video", title }) as Promise<Video>;
     },
 
     async getTimeline(videoId) {

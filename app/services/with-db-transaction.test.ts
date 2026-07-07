@@ -30,7 +30,7 @@ beforeEach(async () => {
 const makeVideo = async (id: string) => {
   await testDb.insert(videos).values({
     id,
-    path: `${id}.mp4`,
+    title: `${id}.mp4`,
     originalFootagePath: `/footage/${id}`,
   });
 };

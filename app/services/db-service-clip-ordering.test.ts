@@ -89,7 +89,7 @@ describe("reorderClip", () => {
 
     const video = await Effect.gen(function* () {
       const videoOps = yield* VideoOperationsService;
-      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
+      return yield* videoOps.createStandaloneVideo({ title: "test-video.mp4" });
     }).pipe(Effect.provide(testLayer), Effect.runPromise);
     videoId = video.id;
   });
@@ -206,7 +206,7 @@ describe("reorderChapter", () => {
 
     const video = await Effect.gen(function* () {
       const videoOps = yield* VideoOperationsService;
-      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
+      return yield* videoOps.createStandaloneVideo({ title: "test-video.mp4" });
     }).pipe(Effect.provide(testLayer), Effect.runPromise);
     videoId = video.id;
   });
@@ -348,7 +348,7 @@ describe("createChapterAtPosition", () => {
 
     const video = await Effect.gen(function* () {
       const videoOps = yield* VideoOperationsService;
-      return yield* videoOps.createStandaloneVideo({ path: "test-video.mp4" });
+      return yield* videoOps.createStandaloneVideo({ title: "test-video.mp4" });
     }).pipe(Effect.provide(testLayer), Effect.runPromise);
     videoId = video.id;
   });

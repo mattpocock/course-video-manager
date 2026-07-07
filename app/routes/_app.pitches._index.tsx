@@ -64,7 +64,7 @@ function parseEffortParam(raw: string | null): PitchEffort[] {
 
 interface PitchVideo {
   id: string;
-  path: string;
+  title: string;
   firstClipId: string | null;
   totalDuration: number;
 }
@@ -122,7 +122,7 @@ export const loader = async (args: Route.LoaderArgs) => {
           effort: p.effort,
           videos: p.videos.map((v) => ({
             id: v.id,
-            path: v.path,
+            title: v.title,
             firstClipId: v.clips[0]?.id ?? null,
             totalDuration: v.clips.reduce(
               (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),
@@ -457,7 +457,7 @@ function PitchRow({
                       {video.firstClipId ? (
                         <img
                           src={`/clips/${video.firstClipId}/first-frame`}
-                          alt={video.path}
+                          alt={video.title}
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
@@ -472,7 +472,7 @@ function PitchRow({
                     </div>
                     <div className="py-1 px-6 flex flex-col items-center text-muted-foreground">
                       <span className="text-xs truncate text-foreground transition-colors">
-                        {video.path || "Untitled"}
+                        {video.title || "Untitled"}
                       </span>
                       <span className="text-xs font-mono mt-0.5">
                         {formatSecondsToTimeCode(video.totalDuration)}

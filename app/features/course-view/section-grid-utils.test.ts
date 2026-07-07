@@ -39,7 +39,7 @@ describe("filterLessons", () => {
       makeLesson({
         authoringStatus: "todo",
         videos: [
-          { id: "v1", path: "v.mp4", clipCount: 5, totalDuration: 100 },
+          { id: "v1", title: "v.mp4", clipCount: 5, totalDuration: 100 },
         ] as Lesson["videos"],
       }),
     ];

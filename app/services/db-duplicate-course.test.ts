@@ -84,7 +84,7 @@ async function createFullCourseStructure() {
     .insert(schema.videos)
     .values({
       lessonId: lesson!.id,
-      path: "video-01.mp4",
+      title: "video-01.mp4",
       originalFootagePath: "/footage/raw-01.mp4",
     })
     .returning();
@@ -156,7 +156,7 @@ async function createFullCourseStructure() {
   // Archived video
   await testDb.insert(schema.videos).values({
     lessonId: lesson!.id,
-    path: "video-archived.mp4",
+    title: "video-archived.mp4",
     originalFootagePath: "/footage/archived.mp4",
     archived: true,
   });
@@ -331,7 +331,7 @@ describe("duplicateCourse", () => {
     const videos = newSections[0]!.lessons[0]!.videos;
     // Only non-archived video copied
     expect(videos).toHaveLength(1);
-    expect(videos[0]!.path).toBe("video-01.mp4");
+    expect(videos[0]!.title).toBe("video-01.mp4");
     expect(videos[0]!.originalFootagePath).toBe("/footage/raw-01.mp4");
   });
 

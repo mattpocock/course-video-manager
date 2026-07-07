@@ -113,7 +113,7 @@ export const makeDuplicateCourse = (db: Database) =>
             where: eq(lessons.archived, false),
             with: {
               videos: {
-                orderBy: asc(videos.path),
+                orderBy: asc(videos.title),
                 where: eq(videos.archived, false),
                 with: {
                   clips: {
@@ -180,7 +180,7 @@ export const makeDuplicateCourse = (db: Database) =>
               .insert(videos)
               .values({
                 lessonId: newLesson.id,
-                path: sourceVideo.path,
+                title: sourceVideo.title,
                 originalFootagePath: sourceVideo.originalFootagePath,
               })
               .returning()

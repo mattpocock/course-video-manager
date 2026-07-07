@@ -152,7 +152,7 @@ function buildSectionTranscriptXml(
       continue;
     }
     for (const video of lesson.videos) {
-      lines.push(`    <video title="${escapeAttr(video.path)}">`);
+      lines.push(`    <video title="${escapeAttr(video.title)}">`);
       if (options.includeBeats) {
         renderBeatsXml(video, lines, "      ");
       }
@@ -283,7 +283,7 @@ function buildSectionTranscriptMarkdownInner(
 
     for (const video of lesson.videos) {
       lines.push("");
-      lines.push(`**${video.path}:**`);
+      lines.push(`**${video.title}:**`);
       if (options.includeBeats) {
         renderBeatsMarkdown(video, lines);
       }
@@ -371,7 +371,7 @@ function buildSectionObject(
     }
 
     lessonObj.videos = lesson.videos.map((video) => {
-      const videoObj: Record<string, unknown> = { title: video.path };
+      const videoObj: Record<string, unknown> = { title: video.title };
       if (options.includeBeats) {
         videoObj.beats = video.beats.map((beat) => {
           const beatObj: Record<string, unknown> = {

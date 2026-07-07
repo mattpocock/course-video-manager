@@ -6,7 +6,7 @@ import { Command } from "@effect/platform";
 
 const editLatestObsVideoSchema = Schema.Struct({
   lessonId: Schema.String,
-  path: Schema.String,
+  title: Schema.String,
 });
 
 export const action = makeAction({
@@ -14,7 +14,7 @@ export const action = makeAction({
   errors: { NotFoundError: 404 },
   effect: ({ payload }) =>
     Effect.gen(function* () {
-      const { lessonId, path } = yield* Schema.decodeUnknown(
+      const { lessonId, title } = yield* Schema.decodeUnknown(
         editLatestObsVideoSchema
       )(payload);
 
@@ -24,7 +24,7 @@ export const action = makeAction({
       const lesson = yield* lessonSectionOps.getLessonById(lessonId);
 
       const video = yield* videoOps.createVideo(lesson.id, {
-        path,
+        title,
         originalFootagePath: "",
       });
 

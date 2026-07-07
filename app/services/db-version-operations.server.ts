@@ -108,7 +108,7 @@ export const createVersionOperations = (db: Database) => {
             where: eq(lessons.archived, false),
             with: {
               videos: {
-                orderBy: asc(videos.path),
+                orderBy: asc(videos.title),
                 with: {
                   clips: {
                     orderBy: asc(clips.order),
@@ -162,7 +162,7 @@ export const createVersionOperations = (db: Database) => {
             where: eq(lessons.archived, false),
             with: {
               videos: {
-                orderBy: asc(videos.path),
+                orderBy: asc(videos.title),
                 with: {
                   clips: {
                     columns: {
@@ -203,7 +203,7 @@ export const createVersionOperations = (db: Database) => {
                 where: eq(lessons.archived, false),
                 with: {
                   videos: {
-                    orderBy: asc(videos.path),
+                    orderBy: asc(videos.title),
                     with: {
                       clips: {
                         orderBy: asc(clips.order),
@@ -354,7 +354,7 @@ export const createVersionOperations = (db: Database) => {
               where: eq(lessons.archived, false),
               with: {
                 videos: {
-                  orderBy: asc(videos.path),
+                  orderBy: asc(videos.title),
                   where: eq(videos.archived, false),
                   with: {
                     clips: {
@@ -429,7 +429,7 @@ export const createVersionOperations = (db: Database) => {
                 .values({
                   lessonId: newLesson.id,
                   lineageId: sourceVideo.lineageId,
-                  path: sourceVideo.path,
+                  title: sourceVideo.title,
                   originalFootagePath: sourceVideo.originalFootagePath,
                   body: sourceVideo.body,
                   description: sourceVideo.description,
@@ -563,7 +563,7 @@ export const createVersionOperations = (db: Database) => {
                   where: eq(lessons.archived, false),
                   with: {
                     videos: {
-                      orderBy: asc(videos.path),
+                      orderBy: asc(videos.title),
                       with: {
                         clips: {
                           orderBy: asc(clips.order),
@@ -609,7 +609,7 @@ export const createVersionOperations = (db: Database) => {
                   authoringStatus: l.authoringStatus as "todo" | "done" | null,
                   videos: l.videos.map((v) => ({
                     id: v.id,
-                    path: v.path,
+                    title: v.title,
                     transcript: toTranscriptItems(v.clips, v.chapters),
                   })),
                 })),

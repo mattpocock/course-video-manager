@@ -247,7 +247,7 @@ export function SortableLessonItem({
                           <div className="flex items-center gap-1.5 min-w-0">
                             <FileVideo className="w-3 h-3 shrink-0 text-muted-foreground" />
                             <span className="truncate text-muted-foreground">
-                              {video.path}
+                              {video.title}
                             </span>
                           </div>
                           <span className="text-muted-foreground/70 font-mono ml-2 shrink-0">

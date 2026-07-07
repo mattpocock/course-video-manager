@@ -34,7 +34,7 @@ async function createBeat() {
     .insert(schema.videos)
     .values({
       lessonId: lessons[0]!.id,
-      path: "video.mp4",
+      title: "video.mp4",
       originalFootagePath: "/tmp/video.mp4",
     })
     .returning();

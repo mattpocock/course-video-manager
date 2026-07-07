@@ -135,7 +135,7 @@ export default function Component(props: Route.ComponentProps) {
                               return (
                                 <div key={video.id}>
                                   <p className="text-xs text-muted-foreground mb-1">
-                                    {video.path.split("/").pop()}
+                                    {video.title.split("/").pop()}
                                   </p>
                                   <ul className="pl-4 space-y-0.5">
                                     {uniqueVideoFilenames.map((filename, i) => (

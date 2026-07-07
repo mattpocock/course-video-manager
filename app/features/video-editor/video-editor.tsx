@@ -70,7 +70,7 @@ export const VideoEditor = (props: {
   obsConnectorState: OBSConnectionOuterState;
   items: TimelineItem[];
   sessions: RecordingSession[];
-  videoPath: string;
+  videoTitle: string;
   lessonPath?: string;
   repoName?: string;
   repoId?: string;
@@ -186,7 +186,7 @@ export const VideoEditor = (props: {
     modal: generateChaptersModal,
   } = useGenerateChaptersModal({
     mainVideoId: props.videoId,
-    mainVideoPath: props.videoPath,
+    mainVideoTitle: props.videoTitle,
     clips,
     referenceCandidates: props.referenceCandidates,
     onRegenerateChapters: props.onRegenerateChapters,
@@ -370,7 +370,7 @@ export const VideoEditor = (props: {
       allItems: props.items,
       sessions: props.sessions,
       sessionPanels,
-      videoPath: props.videoPath,
+      videoTitle: props.videoTitle,
       videoId: props.videoId,
       repoName: props.repoName,
       lessonPath: props.lessonPath,
@@ -474,7 +474,7 @@ export const VideoEditor = (props: {
       areAnyClipsDangerous,
       databaseClipToShowLastFrameOf,
       props.items,
-      props.videoPath,
+      props.videoTitle,
       props.videoId,
       props.repoName,
       props.lessonPath,
@@ -569,7 +569,7 @@ export const VideoEditor = (props: {
       </Suspense>
       <RenameVideoModal
         videoId={props.videoId}
-        currentName={props.videoPath}
+        currentName={props.videoTitle}
         open={isRenameVideoModalOpen}
         onOpenChange={setIsRenameVideoModalOpen}
       />

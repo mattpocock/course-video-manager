@@ -44,7 +44,7 @@ const createVideoWithClips = (
   Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     const clipOps = yield* ClipOperationsService;
-    const video = yield* videoOps.createStandaloneVideo({ path: name });
+    const video = yield* videoOps.createStandaloneVideo({ title: name });
 
     // Add all clips at the start
     const createdClips = yield* clipOps.appendClips({
@@ -130,7 +130,7 @@ describe("concatenateVideos", () => {
       // Verify it's a standalone video
       const videoOps = yield* VideoOperationsService;
       const newVideo = yield* videoOps.getVideoWithClipsById(result.id);
-      expect(newVideo.path).toBe("Combined Video");
+      expect(newVideo.title).toBe("Combined Video");
       expect(newVideo.lessonId).toBeNull();
 
       // Get all items sorted

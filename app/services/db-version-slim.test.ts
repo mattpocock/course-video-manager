@@ -65,7 +65,7 @@ const buildFixture = () =>
         .insert(schema.videos)
         .values({
           lessonId: lesson!.id,
-          path: "01-intro/01-lesson/video",
+          title: "01-intro/01-lesson/video",
           originalFootagePath: "footage.mp4",
         })
         .returning()

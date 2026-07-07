@@ -10,14 +10,14 @@ import { PREVIEW_AUDIO_BOOST_DB } from "@/features/video-editor/constants";
 
 interface VideoPlayerProps {
   videoId: string;
-  videoPath: string;
+  videoTitle: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
 export function VideoModal({
   videoId,
-  videoPath,
+  videoTitle,
   isOpen,
   onClose,
 }: VideoPlayerProps) {
@@ -40,7 +40,7 @@ export function VideoModal({
       <DialogContent className="w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>{videoPath}</span>
+            <span>{videoTitle}</span>
           </DialogTitle>
         </DialogHeader>
         <div className="relative">

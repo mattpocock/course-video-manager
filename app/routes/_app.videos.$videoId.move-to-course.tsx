@@ -145,7 +145,7 @@ export default function Component(props: Route.ComponentProps) {
 
           <div className="mb-6 p-4 border rounded-lg bg-muted/30">
             <p className="text-sm text-muted-foreground">Moving video:</p>
-            <p className="font-medium">{video.path}</p>
+            <p className="font-medium">{video.title}</p>
           </div>
 
           <Form method="post" className="space-y-6">

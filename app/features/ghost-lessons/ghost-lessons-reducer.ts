@@ -14,7 +14,7 @@ export interface Lesson {
   priority: LessonPriority;
   dependencies: string[];
   // Only present for real lessons
-  videos?: { id: string; path: string; durationSeconds: number }[];
+  videos?: { id: string; title: string; durationSeconds: number }[];
 }
 
 export interface Section {
@@ -42,8 +42,8 @@ export const INITIAL_SECTIONS: Section[] = [
         priority: 1,
         dependencies: [],
         videos: [
-          { id: "v1", path: "problem", durationSeconds: 142 },
-          { id: "v2", path: "solution", durationSeconds: 318 },
+          { id: "v1", title: "problem", durationSeconds: 142 },
+          { id: "v2", title: "solution", durationSeconds: 318 },
         ],
       },
       {
@@ -56,9 +56,9 @@ export const INITIAL_SECTIONS: Section[] = [
         priority: 1,
         dependencies: ["l1"],
         videos: [
-          { id: "v3", path: "problem", durationSeconds: 95 },
-          { id: "v4", path: "solution", durationSeconds: 247 },
-          { id: "v5", path: "explainer", durationSeconds: 186 },
+          { id: "v3", title: "problem", durationSeconds: 95 },
+          { id: "v4", title: "solution", durationSeconds: 247 },
+          { id: "v5", title: "explainer", durationSeconds: 186 },
         ],
       },
       {
@@ -99,8 +99,8 @@ export const INITIAL_SECTIONS: Section[] = [
         priority: 1,
         dependencies: ["l3"],
         videos: [
-          { id: "v6", path: "problem", durationSeconds: 78 },
-          { id: "v7", path: "solution", durationSeconds: 203 },
+          { id: "v6", title: "problem", durationSeconds: 78 },
+          { id: "v7", title: "solution", durationSeconds: 203 },
         ],
       },
       {

@@ -96,7 +96,7 @@ describe("ClipService", () => {
 
       expect(newVideo).toMatchObject({
         id: expect.any(String),
-        path: "New Video from Selection",
+        title: "New Video from Selection",
       });
 
       // New video should have the copied clip
@@ -342,7 +342,7 @@ describe("ClipService", () => {
       // Create video with lessonId
       await testDb.insert(schema.videos).values({
         id: "source-video-id",
-        path: "source-video.mp4",
+        title: "source-video.mp4",
         originalFootagePath: "",
         lessonId,
       });

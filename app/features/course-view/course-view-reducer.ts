@@ -4,12 +4,12 @@ export namespace courseViewReducer {
   export type VideoPlayerState = {
     isOpen: boolean;
     videoId: string;
-    videoPath: string;
+    videoTitle: string;
   };
 
   export type MoveVideoState = {
     videoId: string;
-    videoPath: string;
+    videoTitle: string;
     currentLessonId: string;
   } | null;
 
@@ -21,12 +21,12 @@ export namespace courseViewReducer {
 
   export type RenameVideoState = {
     videoId: string;
-    videoPath: string;
+    videoTitle: string;
   } | null;
 
   export type CopyVideoState = {
     videoId: string;
-    videoPath: string;
+    videoTitle: string;
     clipCount: number;
     beatCount: number;
   } | null;
@@ -122,14 +122,14 @@ export namespace courseViewReducer {
     | {
         type: "open-video-player";
         videoId: string;
-        videoPath: string;
+        videoTitle: string;
       }
     | { type: "close-video-player" }
     // Move video
     | {
         type: "open-move-video";
         videoId: string;
-        videoPath: string;
+        videoTitle: string;
         currentLessonId: string;
       }
     | { type: "close-move-video" }
@@ -148,13 +148,13 @@ export namespace courseViewReducer {
       }
     | { type: "close-move-lesson" }
     // Rename video
-    | { type: "open-rename-video"; videoId: string; videoPath: string }
+    | { type: "open-rename-video"; videoId: string; videoTitle: string }
     | { type: "close-rename-video" }
     // Copy video
     | {
         type: "open-copy-video";
         videoId: string;
-        videoPath: string;
+        videoTitle: string;
         clipCount: number;
         beatCount: number;
       }
@@ -203,7 +203,7 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     deleteLessonId: null,
     archiveSectionId: null,
     editDescriptionLessonId: null,
-    videoPlayerState: { isOpen: false, videoId: "", videoPath: "" },
+    videoPlayerState: { isOpen: false, videoId: "", videoTitle: "" },
     moveVideoState: null,
     moveLessonState: null,
     renameVideoState: null,
@@ -298,13 +298,13 @@ export const courseViewReducer: EffectReducer<
         videoPlayerState: {
           isOpen: true,
           videoId: action.videoId,
-          videoPath: action.videoPath,
+          videoTitle: action.videoTitle,
         },
       };
     case "close-video-player":
       return {
         ...state,
-        videoPlayerState: { isOpen: false, videoId: "", videoPath: "" },
+        videoPlayerState: { isOpen: false, videoId: "", videoTitle: "" },
       };
 
     // Move video
@@ -313,7 +313,7 @@ export const courseViewReducer: EffectReducer<
         ...state,
         moveVideoState: {
           videoId: action.videoId,
-          videoPath: action.videoPath,
+          videoTitle: action.videoTitle,
           currentLessonId: action.currentLessonId,
         },
       };
@@ -341,7 +341,7 @@ export const courseViewReducer: EffectReducer<
         ...state,
         renameVideoState: {
           videoId: action.videoId,
-          videoPath: action.videoPath,
+          videoTitle: action.videoTitle,
         },
       };
     case "close-rename-video":
@@ -353,7 +353,7 @@ export const courseViewReducer: EffectReducer<
         ...state,
         copyVideoState: {
           videoId: action.videoId,
-          videoPath: action.videoPath,
+          videoTitle: action.videoTitle,
           clipCount: action.clipCount,
           beatCount: action.beatCount,
         },

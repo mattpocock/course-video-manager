@@ -43,7 +43,7 @@ export const loader = makeLoader({
       if (!lesson) {
         return {
           videoId,
-          videoPath: video.path,
+          videoTitle: video.title,
           lessonPath: null,
           sectionPath: null,
           repoId: null,
@@ -59,7 +59,7 @@ export const loader = makeLoader({
 
       return {
         videoId,
-        videoPath: video.path,
+        videoTitle: video.title,
         lessonPath: lesson.title,
         sectionPath: lesson.section.title,
         repoId: lesson.section.repoVersion.repoId,
@@ -136,7 +136,7 @@ const isPostTab = (tab: Tab): boolean =>
 export default function VideoLayout({ loaderData }: Route.ComponentProps) {
   const {
     videoId,
-    videoPath,
+    videoTitle,
     lessonPath,
     sectionPath,
     repoId,
@@ -190,8 +190,8 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
 
   // Build breadcrumb text
   const breadcrumb = isStandalone
-    ? videoPath
-    : `${sectionPath}/${lessonPath}/${videoPath}`;
+    ? videoTitle
+    : `${sectionPath}/${lessonPath}/${videoTitle}`;
 
   return (
     <div className="h-screen flex flex-col">

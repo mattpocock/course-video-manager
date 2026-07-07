@@ -73,7 +73,7 @@ const buildCourseWithVideos = async () => {
     .insert(schema.videos)
     .values({
       lessonId: lessonReal!.id,
-      path: "video.mp4",
+      title: "video.mp4",
       originalFootagePath: "footage.mp4",
     })
     .returning();

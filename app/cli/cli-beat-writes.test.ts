@@ -49,10 +49,10 @@ describe("beat writes (add / update / move / delete)", () => {
     ndjson((await run(["beat", "list", "--video", videoId])).stdout) as Seg[];
   const add = async (videoId: string, ...args: string[]): Promise<Seg> =>
     obj((await run(["beat", "add", "--video", videoId, ...args])).stdout);
-  const freshVideo = async (path: string): Promise<string> => {
+  const freshVideo = async (title: string): Promise<string> => {
     const [v] = await testDb
       .insert(schema.videos)
-      .values({ path, originalFootagePath: "f.mp4" })
+      .values({ title, originalFootagePath: "f.mp4" })
       .returning();
     return v!.id;
   };

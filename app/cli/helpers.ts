@@ -58,13 +58,13 @@ export const detail = (text: string): HelpDoc.HelpDoc => {
  * The single human-readable label of ANY row, regardless of noun.
  *
  * The CVM schema spells its label column differently per table — `name` on
- * courses/versions, `title` on lessons/pitches/deliverables, `path` on
- * sections/videos — so a flat `list` row exposes whichever raw column it
+ * courses/versions, `title` on lessons/pitches/deliverables/videos, `path` on
+ * sections — so a flat `list` row exposes whichever raw column it
  * happens to have and an agent that asks for `.name` gets nothing. `tree`
  * already papers over this by synthesising a `name` per level; `displayName`
  * is that same normalisation as a reusable function so flat `list` output can
  * carry a uniform `name` too. Precedence mirrors the tree builders: a real
- * `name`, else a non-empty `title`, else `path` (lesson: title-then-path).
+ * `name`, else a non-empty `title`.
  *
  * Returns null only when a row genuinely has no label-bearing field.
  */

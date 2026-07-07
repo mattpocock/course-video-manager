@@ -5,10 +5,10 @@ type VersionWithStructure = Parameters<typeof generateChangelog>[0][number];
 type Video =
   VersionWithStructure["sections"][number]["lessons"][number]["videos"][number];
 
-function makeVideo(videoPath: string, clipTexts: string[] = []): Video {
+function makeVideo(videoTitle: string, clipTexts: string[] = []): Video {
   return {
-    id: `video-${videoPath}`,
-    path: videoPath,
+    id: `video-${videoTitle}`,
+    title: videoTitle,
     transcript: clipTexts.map((text) => ({ type: "clip", text })),
   };
 }

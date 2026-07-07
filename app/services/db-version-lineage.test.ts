@@ -142,7 +142,7 @@ describe("lineageId copy-forward", () => {
       .insert(schema.videos)
       .values({
         lessonId: lesson!.id,
-        path: "explainer",
+        title: "explainer",
         originalFootagePath: "/footage/v1",
       })
       .returning();

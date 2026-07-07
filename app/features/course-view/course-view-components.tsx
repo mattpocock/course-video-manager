@@ -310,16 +310,16 @@ export function RouteModals({
     } | null;
     moveVideoState: {
       videoId: string;
-      videoPath: string;
+      videoTitle: string;
       currentLessonId: string;
     } | null;
     renameVideoState: {
       videoId: string;
-      videoPath: string;
+      videoTitle: string;
     } | null;
     copyVideoState: {
       videoId: string;
-      videoPath: string;
+      videoTitle: string;
       clipCount: number;
       beatCount: number;
     } | null;
@@ -436,7 +436,7 @@ export function RouteModals({
       {viewState.moveVideoState && currentCourse && (
         <MoveVideoModal
           videoId={viewState.moveVideoState.videoId}
-          videoPath={viewState.moveVideoState.videoPath}
+          videoTitle={viewState.moveVideoState.videoTitle}
           currentLessonId={viewState.moveVideoState.currentLessonId}
           sections={currentCourse.sections}
           open={true}
@@ -452,7 +452,7 @@ export function RouteModals({
       {viewState.renameVideoState && (
         <RenameVideoModal
           videoId={viewState.renameVideoState.videoId}
-          currentName={viewState.renameVideoState.videoPath}
+          currentName={viewState.renameVideoState.videoTitle}
           open={true}
           onOpenChange={(open) => {
             if (!open) dispatch({ type: "close-rename-video" });
@@ -466,7 +466,7 @@ export function RouteModals({
       {viewState.copyVideoState && (
         <CopyVideoModal
           videoId={viewState.copyVideoState.videoId}
-          videoPath={viewState.copyVideoState.videoPath}
+          videoTitle={viewState.copyVideoState.videoTitle}
           clipCount={viewState.copyVideoState.clipCount}
           beatCount={viewState.copyVideoState.beatCount}
           open={true}

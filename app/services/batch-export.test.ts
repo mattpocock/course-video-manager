@@ -16,7 +16,7 @@ const makeVersion = (
       path: string;
       videos: Array<{
         id: string;
-        path: string;
+        title: string;
         clips: Array<{
           videoFilename: string;
           sourceStartTime: number;
@@ -109,7 +109,7 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-1",
-                  path: "getting-started",
+                  title: "getting-started",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -121,7 +121,7 @@ describe("batch export SSE endpoint", () => {
                 },
                 {
                   id: "video-2",
-                  path: "setup",
+                  title: "setup",
                   clips: [
                     {
                       videoFilename: "rec2.mp4",
@@ -163,7 +163,7 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-1",
-                  path: "vid",
+                  title: "vid",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -219,7 +219,7 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-1",
-                  path: "exported",
+                  title: "exported",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -231,7 +231,7 @@ describe("batch export SSE endpoint", () => {
                 },
                 {
                   id: "video-2",
-                  path: "not-exported",
+                  title: "not-exported",
                   clips: [
                     {
                       videoFilename: "rec2.mp4",
@@ -270,12 +270,12 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-1",
-                  path: "no-clips",
+                  title: "no-clips",
                   clips: [],
                 },
                 {
                   id: "video-2",
-                  path: "has-clips",
+                  title: "has-clips",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -314,7 +314,7 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-1",
-                  path: "vid",
+                  title: "vid",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -350,7 +350,7 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-1",
-                  path: "will-fail",
+                  title: "will-fail",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -362,7 +362,7 @@ describe("batch export SSE endpoint", () => {
                 },
                 {
                   id: "video-2",
-                  path: "will-succeed",
+                  title: "will-succeed",
                   clips: [
                     {
                       videoFilename: "rec2.mp4",
@@ -440,7 +440,7 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-1",
-                  path: "vid-1",
+                  title: "vid-1",
                   clips: [
                     {
                       videoFilename: "rec.mp4",
@@ -462,7 +462,7 @@ describe("batch export SSE endpoint", () => {
               videos: [
                 {
                   id: "video-2",
-                  path: "vid-2",
+                  title: "vid-2",
                   clips: [
                     {
                       videoFilename: "rec2.mp4",

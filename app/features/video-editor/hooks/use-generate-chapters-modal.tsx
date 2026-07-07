@@ -14,7 +14,7 @@ type ModalState = {
 
 export const useGenerateChaptersModal = (input: {
   mainVideoId: string;
-  mainVideoPath: string;
+  mainVideoTitle: string;
   clips: Clip[];
   referenceCandidates: ReferenceCandidate[];
   onRegenerateChapters: (
@@ -40,10 +40,10 @@ export const useGenerateChaptersModal = (input: {
       }));
     setState({
       videoId: input.mainVideoId,
-      label: input.mainVideoPath,
+      label: input.mainVideoTitle,
       clips: mainClips,
     });
-  }, [input.clips, input.mainVideoId, input.mainVideoPath]);
+  }, [input.clips, input.mainVideoId, input.mainVideoTitle]);
 
   const openForReference = useCallback(
     (refVideoId: string) => {
@@ -53,7 +53,7 @@ export const useGenerateChaptersModal = (input: {
       if (!candidate) return;
       setState({
         videoId: candidate.id,
-        label: candidate.path,
+        label: candidate.title,
         clips: candidate.clips.map((c) => ({ id: c.id, text: c.text })),
       });
     },

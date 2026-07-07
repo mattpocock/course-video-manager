@@ -28,8 +28,8 @@ function makeSection(
   return { id, path, previousVersionSectionId, lessons };
 }
 
-function makeVideo(path: string, transcript: Video["transcript"]): Video {
-  return { id: `video-${path}`, path, transcript };
+function makeVideo(title: string, transcript: Video["transcript"]): Video {
+  return { id: `video-${title}`, title, transcript };
 }
 
 describe("changelog Chapter changes", () => {

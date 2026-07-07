@@ -74,7 +74,7 @@ export type SearchHit =
       id: string;
       courseId: string;
       lessonId: string;
-      path: string;
+      title: string;
       field: string;
       snippet: string;
     }
@@ -137,7 +137,7 @@ type BeatNode = {
 };
 type VideoNode = {
   id: string;
-  path: string;
+  title: string;
   lessonId: string;
   beats: BeatNode[];
 };
@@ -174,9 +174,9 @@ const sectionWith = {
       orderBy: asc(lessons.order),
       with: {
         videos: {
-          columns: { id: true, path: true, lessonId: true },
+          columns: { id: true, title: true, lessonId: true },
           where: eq(videos.archived, false),
-          orderBy: asc(videos.path),
+          orderBy: asc(videos.title),
           with: {
             beats: {
               columns: {
@@ -433,8 +433,8 @@ export const createSearchOperations = (db: Database) => {
     const emitVideo = (v: VideoNode, cid: string) => {
       if (want("video")) {
         const m =
-          (matches(v.path)
-            ? { field: "path", snippet: snippet(v.path) }
+          (matches(v.title)
+            ? { field: "title", snippet: snippet(v.title) }
             : null) ?? transcriptMatch.get(v.id);
         if (m)
           hits.push({
@@ -442,7 +442,7 @@ export const createSearchOperations = (db: Database) => {
             id: v.id,
             courseId: cid,
             lessonId: v.lessonId,
-            path: v.path,
+            title: v.title,
             field: m.field,
             snippet: m.snippet,
           });

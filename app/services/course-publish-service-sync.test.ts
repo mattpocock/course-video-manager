@@ -109,7 +109,7 @@ const setupSync = async () => {
   const video1 = await Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     return yield* videoOps.createVideo(lesson1.id, {
-      path: "Problem",
+      title: "Problem",
       originalFootagePath: "/tmp/footage1.mp4",
     });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -117,7 +117,7 @@ const setupSync = async () => {
   const video2 = await Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     return yield* videoOps.createVideo(lesson2.id, {
-      path: "Explainer",
+      title: "Explainer",
       originalFootagePath: "/tmp/footage2.mp4",
     });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -265,7 +265,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await testDb
       .update(videosTable)
       .set({ body: "# Lesson Body\n\nSome content here." })
-      .where(eq(videosTable.path, "Problem"));
+      .where(eq(videosTable.title, "Problem"));
 
     await run(
       Effect.gen(function* () {

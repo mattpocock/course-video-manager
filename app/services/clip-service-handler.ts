@@ -58,7 +58,7 @@ export const handleClipServiceEvent = Effect.fn("handleClipServiceEvent")(
           db
             .insert(videos)
             .values({
-              path: event.path,
+              title: event.title,
               originalFootagePath: "",
               lessonId: null,
             })

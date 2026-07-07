@@ -17,7 +17,7 @@ export type VersionWithStructure = {
       authoringStatus: "todo" | "done" | null;
       videos: Array<{
         id: string;
-        path: string;
+        title: string;
         transcript: TranscriptItem[];
       }>;
     }>;
@@ -30,18 +30,18 @@ type VideoEntry = Lesson["videos"][number];
 export type VideoChange =
   | {
       type: "updated";
-      videoPath: string;
+      videoTitle: string;
       oldClips: string[];
       newClips: string[];
     }
-  | { type: "new"; videoPath: string }
-  | { type: "deleted"; videoPath: string };
+  | { type: "new"; videoTitle: string }
+  | { type: "deleted"; videoTitle: string };
 
 export type VersionChanges = {
   newLessons: Array<{
     sectionPath: string;
     lessonPath: string;
-    videoPaths: string[];
+    videoTitles: string[];
     authoringStatus: "todo" | "done" | null;
   }>;
   renamedSections: Array<{ oldPath: string; newPath: string }>;
@@ -61,7 +61,7 @@ export type VersionChanges = {
   deletedLessons: Array<{
     sectionPath: string;
     lessonPath: string;
-    videoPaths: string[];
+    videoTitles: string[];
   }>;
 };
 
@@ -73,13 +73,13 @@ function lessonHasContent(lesson: Lesson): boolean {
   return lesson.videos.some(videoHasClipContent);
 }
 
-type VideoData = { videoPath: string; diffArray: string[] };
+type VideoData = { videoTitle: string; diffArray: string[] };
 
 type LessonLookupEntry = {
   sectionPath: string;
   lessonPath: string;
   lesson: Lesson;
-  videosByPath: Map<string, VideoData>;
+  videosByTitle: Map<string, VideoData>;
 };
 
 function buildLessonLookup(
@@ -88,10 +88,10 @@ function buildLessonLookup(
   const lookup = new Map<string, LessonLookupEntry>();
   for (const section of version.sections) {
     for (const lesson of section.lessons) {
-      const videosByPath = new Map<string, VideoData>();
+      const videosByTitle = new Map<string, VideoData>();
       for (const video of lesson.videos) {
-        videosByPath.set(video.path, {
-          videoPath: video.path,
+        videosByTitle.set(video.title, {
+          videoTitle: video.title,
           diffArray: toDiffArray(video.transcript).map((line) => line.trim()),
         });
       }
@@ -99,7 +99,7 @@ function buildLessonLookup(
         sectionPath: section.path,
         lessonPath: lesson.path,
         lesson,
-        videosByPath,
+        videosByTitle,
       });
     }
   }
@@ -107,7 +107,7 @@ function buildLessonLookup(
 }
 
 function getVideosWithContent(lesson: Lesson): string[] {
-  return lesson.videos.filter(videoHasClipContent).map((v) => v.path);
+  return lesson.videos.filter(videoHasClipContent).map((v) => v.title);
 }
 
 function detectVideoChanges(
@@ -115,29 +115,29 @@ function detectVideoChanges(
   prevEntry: LessonLookupEntry
 ): VideoChange[] {
   const changes: VideoChange[] = [];
-  const currentVideosByPath = new Map<string, string[]>();
+  const currentVideosByTitle = new Map<string, string[]>();
   for (const video of currentLesson.videos) {
-    currentVideosByPath.set(
-      video.path,
+    currentVideosByTitle.set(
+      video.title,
       toDiffArray(video.transcript).map((line) => line.trim())
     );
   }
 
-  for (const [videoPath, currentItems] of currentVideosByPath) {
-    const prevVideo = prevEntry.videosByPath.get(videoPath);
+  for (const [videoTitle, currentItems] of currentVideosByTitle) {
+    const prevVideo = prevEntry.videosByTitle.get(videoTitle);
     if (!prevVideo || prevVideo.diffArray.length === 0) {
       if (currentItems.length > 0) {
-        changes.push({ type: "new", videoPath });
+        changes.push({ type: "new", videoTitle });
       }
     } else if (currentItems.length === 0) {
-      changes.push({ type: "deleted", videoPath });
+      changes.push({ type: "deleted", videoTitle });
     } else {
       const oldJoined = prevVideo.diffArray.join(" ");
       const newJoined = currentItems.join(" ");
       if (oldJoined !== newJoined) {
         changes.push({
           type: "updated",
-          videoPath,
+          videoTitle,
           oldClips: prevVideo.diffArray,
           newClips: currentItems,
         });
@@ -145,9 +145,12 @@ function detectVideoChanges(
     }
   }
 
-  for (const [videoPath, prevVideo] of prevEntry.videosByPath) {
-    if (!currentVideosByPath.has(videoPath) && prevVideo.diffArray.length > 0) {
-      changes.push({ type: "deleted", videoPath });
+  for (const [videoTitle, prevVideo] of prevEntry.videosByTitle) {
+    if (
+      !currentVideosByTitle.has(videoTitle) &&
+      prevVideo.diffArray.length > 0
+    ) {
+      changes.push({ type: "deleted", videoTitle });
     }
   }
 
@@ -220,7 +223,7 @@ export function detectChanges(
           changes.newLessons.push({
             sectionPath: section.path,
             lessonPath: lesson.path,
-            videoPaths: getVideosWithContent(lesson),
+            videoTitles: getVideosWithContent(lesson),
             authoringStatus: lesson.authoringStatus,
           });
         }
@@ -231,7 +234,7 @@ export function detectChanges(
             changes.newLessons.push({
               sectionPath: section.path,
               lessonPath: lesson.path,
-              videoPaths: getVideosWithContent(lesson),
+              videoTitles: getVideosWithContent(lesson),
               authoringStatus: lesson.authoringStatus,
             });
           }
@@ -272,14 +275,14 @@ export function detectChanges(
             changes.newLessons.push({
               sectionPath: section.path,
               lessonPath: lesson.path,
-              videoPaths: getVideosWithContent(lesson),
+              videoTitles: getVideosWithContent(lesson),
               authoringStatus: lesson.authoringStatus,
             });
           } else if (prevHadContent && !currentHasContent) {
             changes.deletedLessons.push({
               sectionPath: section.path,
               lessonPath: prevLesson.lessonPath,
-              videoPaths: [...prevLesson.videosByPath.entries()]
+              videoTitles: [...prevLesson.videosByTitle.entries()]
                 .filter(([, v]) => v.diffArray.length > 0)
                 .map(([p]) => p),
             });
@@ -332,7 +335,7 @@ export function detectChanges(
           changes.deletedLessons.push({
             sectionPath: prevSection.path,
             lessonPath: prevLesson.path,
-            videoPaths: getVideosWithContent(prevLesson),
+            videoTitles: getVideosWithContent(prevLesson),
           });
         }
       }

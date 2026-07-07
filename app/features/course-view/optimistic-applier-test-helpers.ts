@@ -13,7 +13,7 @@ export function makeVideo(
 ) {
   return {
     id: "video-1",
-    path: "video-01.mp4",
+    title: "video-01.mp4",
     totalDuration: 120,
     firstClipId: null,
     archived: false,

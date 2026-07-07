@@ -209,7 +209,7 @@ export const videos = createTable(
     lineageId: varchar("lineage_id", { length: 255 })
       .notNull()
       .$defaultFn(() => crypto.randomUUID()),
-    path: text("path").notNull(),
+    title: text("title").notNull(),
     originalFootagePath: text("original_footage_path").notNull(),
     body: text("body"),
     description: text("video_description"),
@@ -228,8 +228,8 @@ export const videos = createTable(
       .default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [
-    uniqueIndex("video_lesson_path_uniq")
-      .on(table.lessonId, table.path)
+    uniqueIndex("video_lesson_title_uniq")
+      .on(table.lessonId, table.title)
       .where(sql`NOT ${table.archived}`),
   ]
 );

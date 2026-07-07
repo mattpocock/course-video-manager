@@ -6,7 +6,7 @@ export interface TreeLine {
 
 export function buildQueueTreeLines(
   contextParts: string[] | undefined,
-  videoPath: string
+  videoTitle: string
 ): TreeLine[] {
   const parts = contextParts ?? [];
   const lines: TreeLine[] = parts.map((label, i) => ({
@@ -14,6 +14,6 @@ export function buildQueueTreeLines(
     level: i,
     isVideo: false,
   }));
-  lines.push({ label: videoPath, level: parts.length, isVideo: true });
+  lines.push({ label: videoTitle, level: parts.length, isVideo: true });
   return lines;
 }

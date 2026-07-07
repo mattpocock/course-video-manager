@@ -63,7 +63,7 @@ export type VideoEditorContextType = {
   allItems: TimelineItem[];
   sessions: RecordingSession[];
   sessionPanels: SessionPanelData[];
-  videoPath: string;
+  videoTitle: string;
   videoId: string;
   repoName?: string;
   lessonPath?: string;

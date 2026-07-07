@@ -57,10 +57,10 @@ const add = async (
 ): Promise<Seg> =>
   obj((await runFn(["segment", "add", "--video", videoId, ...args])).stdout);
 
-const freshVideo = async (db: TestDb, path: string): Promise<string> => {
+const freshVideo = async (db: TestDb, title: string): Promise<string> => {
   const [v] = await db
     .insert(schema.videos)
-    .values({ path, originalFootagePath: "f.mp4" })
+    .values({ title, originalFootagePath: "f.mp4" })
     .returning();
   return v!.id;
 };

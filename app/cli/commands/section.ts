@@ -93,7 +93,7 @@ const TREE_HELP = `Print a SKELETON tree of a Section's structure: section -> le
 
   kind "section"  -> name is the section path
   kind "lesson"   -> title is the lesson title (may be "")
-  kind "video"    -> name is the video path
+  kind "video"    -> name is the video title
 
 DEPTH
   --depth 1    (default) the section plus its direct children (lessons).
@@ -234,7 +234,7 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
                     .map((v) => ({
                       id: v.id,
                       kind: "video" as const,
-                      name: v.path,
+                      name: v.title,
                       children: [],
                     }));
                 }

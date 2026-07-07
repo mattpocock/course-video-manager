@@ -164,7 +164,7 @@ export const ActionsDropdown = (props: {
                   onSelect={() => props.setReferenceVideoId(c.id)}
                 >
                   <BookOpenIcon className="w-4 h-4 mr-2" />
-                  <span className="truncate">{c.path}</span>
+                  <span className="truncate">{c.title}</span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>

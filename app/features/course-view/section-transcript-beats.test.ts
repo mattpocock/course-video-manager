@@ -39,7 +39,7 @@ const baseOptions: TranscriptOptions = {
 
 const videoWithBeats = {
   id: "v1",
-  path: "video-001",
+  title: "video-001",
   clipCount: 0,
   beats: [
     {
@@ -109,7 +109,7 @@ describe("includeBeats - xml format", () => {
       videos: [
         {
           id: "v1",
-          path: "video-001",
+          title: "video-001",
           clipCount: 0,
           beats: [
             {
@@ -154,7 +154,7 @@ describe("includeBeats - xml format", () => {
   it("shows no beats when video has empty beats array", () => {
     const lesson = makeLesson({
       videos: [
-        { id: "v1", path: "video-001", clipCount: 0, beats: [] } as never,
+        { id: "v1", title: "video-001", clipCount: 0, beats: [] } as never,
       ],
     });
     const result = buildSectionTranscript(
@@ -277,7 +277,7 @@ describe("includeBeats - json format", () => {
   it("empty beats array produces empty array in json", () => {
     const lesson = makeLesson({
       videos: [
-        { id: "v1", path: "video-001", clipCount: 0, beats: [] } as never,
+        { id: "v1", title: "video-001", clipCount: 0, beats: [] } as never,
       ],
     });
     const result = buildSectionTranscript(

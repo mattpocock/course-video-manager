@@ -63,7 +63,7 @@ export class InvalidLessonRoleComboError extends Data.TaggedError(
 )<{
   sectionPath: string;
   lessonPath: string;
-  videoPaths: string[];
+  videoTitles: string[];
 }> {}
 
 // ── Input types ─────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ type InputChapter = {
 
 type InputVideo = {
   lineageId: string;
-  path: string;
+  title: string;
   body: string | null;
   description: string | null;
   archived: boolean;
@@ -156,13 +156,13 @@ export const buildCourseJson = (
           return yield* new InvalidLessonRoleComboError({
             sectionPath: section.path,
             lessonPath: lesson.path,
-            videoPaths: activeVideos.map((v) => v.path),
+            videoTitles: activeVideos.map((v) => v.title),
           });
         }
 
         const roleMap = activeVideos.map((v) => ({
           video: v,
-          role: deriveVideoRole(v.path),
+          role: deriveVideoRole(v.title),
         }));
 
         const problem = roleMap.find((r) => r.role === "problem");

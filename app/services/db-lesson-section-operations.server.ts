@@ -42,7 +42,7 @@ export const createLessonSectionOperations = (db: Database) => {
         where: eq(lessons.id, id),
         with: {
           videos: {
-            orderBy: asc(videos.path),
+            orderBy: asc(videos.title),
           },
         },
       })

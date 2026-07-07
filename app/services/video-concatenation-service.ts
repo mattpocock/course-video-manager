@@ -27,7 +27,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
     const videoOps = yield* VideoOperationsService;
 
     // Create the new standalone video
-    const newVideo = yield* videoOps.createStandaloneVideo({ path: name });
+    const newVideo = yield* videoOps.createStandaloneVideo({ title: name });
 
     // Track the running order position across all sources
     let prevOrder: string | null = null;
@@ -46,7 +46,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
         yield* makeDbCall(() =>
           db.insert(chapters).values({
             videoId: newVideo.id,
-            name: sourceVideo.path,
+            name: sourceVideo.title,
             order: prevOrder!,
             archived: false,
           })

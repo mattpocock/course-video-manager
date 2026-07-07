@@ -38,7 +38,7 @@ export function LessonBeatTree({
   submitEvent: (event: CourseEditorEvent) => void;
 } & VideoMenuProps) {
   const videos = [...lesson.videos].sort((a, b) =>
-    a.path.localeCompare(b.path)
+    a.title.localeCompare(b.title)
   );
 
   if (videos.length === 0) return null;
@@ -87,7 +87,7 @@ function VideoBeatNode({
       to={`/videos/${video.id}/edit`}
       className="block mb-1 text-muted-foreground truncate hover:text-foreground hover:underline"
     >
-      {video.path}
+      {video.title}
     </Link>
   );
 

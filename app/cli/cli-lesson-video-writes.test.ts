@@ -193,7 +193,7 @@ describe("lesson create (ghost)", () => {
 describe("video create / move / update", () => {
   interface Video {
     id: string;
-    path: string;
+    title: string;
     lessonId: string | null;
     pitchId: string | null;
     archived: boolean;
@@ -212,7 +212,7 @@ describe("video create / move / update", () => {
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     const v = vobj(stdout);
-    expect(v.path).toBe("New Standalone");
+    expect(v.title).toBe("New Standalone");
     expect(v.lessonId).toBeNull();
     expect(v.pitchId).toBeNull();
     expect(v.archived).toBe(false);
@@ -250,7 +250,7 @@ describe("video create / move / update", () => {
     );
     expect(v.pitchId).toBe(s.pitchActiveId);
     expect(v.lessonId).toBeNull();
-    expect(v.path).toBe("My Pitch Cut");
+    expect(v.title).toBe("My Pitch Cut");
   });
 
   it("create with missing --name => invalid input, exit 3", async () => {
@@ -310,7 +310,7 @@ describe("video create / move / update", () => {
   });
 
   it("create --lesson with a name already taken in the lesson => invalid input, exit 3", async () => {
-    // s.lessonVideoId already has path "intro.mp4" in the lesson.
+    // s.lessonVideoId already has title "intro.mp4" in the lesson.
     const { exitCode, stdout } = await run([
       "video",
       "create",
@@ -417,7 +417,7 @@ describe("video create / move / update", () => {
       ).stdout
     );
     expect(updated.id).toBe(s.standaloneActiveId);
-    expect(updated.path).toBe("renamed.mp4");
+    expect(updated.title).toBe("renamed.mp4");
   });
 
   it("update with no --name => invalid input, exit 3", async () => {
@@ -465,8 +465,8 @@ describe("video create / move / update", () => {
     );
     expect(updated.id).toBe(s.standaloneActiveId);
     expect(updated.description).toBe("Learn to refactor a reducer");
-    // Leaves the name/path untouched.
-    expect(updated.path).toBe("standalone-active.mp4");
+    // Leaves the name/title untouched.
+    expect(updated.title).toBe("standalone-active.mp4");
   });
 
   it("update --body sets the markdown body from inline text", async () => {
@@ -500,7 +500,7 @@ describe("video create / move / update", () => {
         ])
       ).stdout
     );
-    expect(updated.path).toBe("renamed.mp4");
+    expect(updated.title).toBe("renamed.mp4");
     expect(updated.body).toBe("body text");
     expect(updated.description).toBe("seo text");
   });

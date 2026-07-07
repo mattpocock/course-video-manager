@@ -34,7 +34,7 @@ export const meta: Route.MetaFunction = () => {
 
 interface VideoItem {
   id: string;
-  path: string;
+  title: string;
   duration: number;
   contextParts?: string[];
 }
@@ -87,7 +87,7 @@ export const loader = makeLoader({
           for (const lesson of section.lessons) {
             const lessonVideos: VideoItem[] = lesson.videos.map((v) => ({
               id: v.id,
-              path: v.path,
+              title: v.title,
               duration: computeDuration(v.clips),
               contextParts: [course.name, section.title, lesson.title],
             }));
@@ -110,7 +110,7 @@ export const loader = makeLoader({
       return {
         videos: videos.map((v) => ({
           id: v.id,
-          path: v.path,
+          title: v.title,
           duration: computeDuration(v.clips),
         })),
         courseSources,
@@ -121,7 +121,7 @@ export const loader = makeLoader({
 
 interface QueueItem {
   id: string;
-  path: string;
+  title: string;
   duration: number;
   contextParts?: string[];
 }
@@ -148,7 +148,7 @@ function SortableQueueItem({
     opacity: isDragging ? 0.5 : undefined,
   };
 
-  const treeLines = buildQueueTreeLines(item.contextParts, item.path);
+  const treeLines = buildQueueTreeLines(item.contextParts, item.title);
 
   return (
     <div
@@ -215,7 +215,7 @@ function VideoRow({
     <div className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <VideoIcon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-        <span className="text-sm break-all">{video.path}</span>
+        <span className="text-sm break-all">{video.title}</span>
         <span className="text-xs text-muted-foreground flex-shrink-0">
           {formatSecondsToTimeCode(video.duration)}
         </span>
@@ -347,7 +347,7 @@ export default function Component({ loaderData }: Route.ComponentProps) {
   }
 
   const [queue, setQueue] = useState<QueueItem[]>(initialQueue);
-  const [name, setName] = useState(initialQueue[0]?.path ?? "");
+  const [name, setName] = useState(initialQueue[0]?.title ?? "");
   const [isCreating, setIsCreating] = useState(false);
   const [selectedSource, setSelectedSource] = useState<string>("standalone");
 
@@ -373,7 +373,7 @@ export default function Component({ loaderData }: Route.ComponentProps) {
     (video: QueueItem) => {
       setQueue((prev) => [...prev, video]);
       if (queue.length === 0 && name === "") {
-        setName(video.path);
+        setName(video.title);
       }
     },
     [queue.length, name]

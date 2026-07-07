@@ -20,7 +20,7 @@ function makeLesson(
         ? [
             {
               id: `video-${path}`,
-              path: "Problem",
+              title: "Problem",
               transcript: clipTexts.map((text) => ({ type: "clip", text })),
             },
           ]
@@ -123,7 +123,7 @@ describe("ghost sections excluded from changelog", () => {
       {
         sectionPath: "01-intro",
         lessonPath: "01.02-setup",
-        videoPaths: ["Problem"],
+        videoTitles: ["Problem"],
       },
     ]);
   });

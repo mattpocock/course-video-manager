@@ -330,7 +330,7 @@ describe("deletePitch", () => {
       const [video] = yield* Effect.promise(() =>
         testDb
           .insert(schema.videos)
-          .values({ path: "test-vid", originalFootagePath: "" })
+          .values({ title: "test-vid", originalFootagePath: "" })
           .returning()
       );
 
@@ -525,7 +525,7 @@ describe("createVideoFromPitch", () => {
       expect(video.id).toEqual(expect.any(String));
       expect(video.pitchId).toBe(pitch.id);
       expect(video.lessonId).toBeNull();
-      expect(video.path).toBe("");
+      expect(video.title).toBe("");
       expect(video.originalFootagePath).toBe("");
     }).pipe(Effect.provide(testLayer))
   );

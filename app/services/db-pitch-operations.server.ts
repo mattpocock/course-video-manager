@@ -329,7 +329,7 @@ export const createPitchOperations = (db: Database) => {
       db
         .insert(videos)
         .values({
-          path: pitch.title,
+          title: pitch.title,
           originalFootagePath: "",
           lessonId: null,
           pitchId,

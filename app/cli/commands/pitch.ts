@@ -122,7 +122,7 @@ youtubeThumbnailDescription, newsletterTitle, tweet) and ranking fields
 
 EXAMPLES
   cvm pitch get <id>
-  cvm pitch get <id> | jq '{title, state, videos: [.videos[].path]}'
+  cvm pitch get <id> | jq '{title, state, videos: [.videos[].title]}'
   cvm pitch get <id-a> <id-b> > pitches.ndjson
   cvm pitch list --state idle | jq -r .id | xargs cvm pitch get`;
 

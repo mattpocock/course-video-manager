@@ -49,7 +49,7 @@ const loadCollapsed = (): Record<string, boolean> => {
 
 export type ReferenceCandidate = {
   id: string;
-  path: string;
+  title: string;
   clips: Array<{
     id: string;
     order: string;
@@ -191,7 +191,7 @@ export const ReferencePanel = (props: {
     <div className={cn("flex flex-col min-h-0", props.className)}>
       <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-medium truncate">{selected.path}</span>
+          <span className="text-xs font-medium truncate">{selected.title}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {(() => {

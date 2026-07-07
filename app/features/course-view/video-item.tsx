@@ -73,7 +73,9 @@ export function VideoItem({
                 hasExportedVideoMap={data.hasExportedVideoMap}
               />
             </Suspense>
-            <span className="truncate text-muted-foreground">{video.path}</span>
+            <span className="truncate text-muted-foreground">
+              {video.title}
+            </span>
           </div>
           <div className="flex items-center gap-2 ml-2 shrink-0">
             {showWarning && (
@@ -94,7 +96,7 @@ export function VideoItem({
             dispatch({
               type: "open-video-player",
               videoId: video.id,
-              videoPath: `${section.title}/${lesson.path}/${video.path}`,
+              videoTitle: `${section.title}/${lesson.path}/${video.title}`,
             });
           }}
         >
@@ -105,7 +107,7 @@ export function VideoItem({
           onSelect={() => {
             startExportUpload(
               video.id,
-              `${section.title}/${lesson.path}/${video.path}`
+              `${section.title}/${lesson.path}/${video.title}`
             );
           }}
         >
@@ -125,7 +127,7 @@ export function VideoItem({
             onSelect={() => {
               openGenerateChapters({
                 videoId: video.id,
-                videoLabel: `${section.title}/${lesson.path}/${video.path}`,
+                videoLabel: `${section.title}/${lesson.path}/${video.title}`,
               });
             }}
           >
@@ -152,7 +154,7 @@ export function VideoItem({
             dispatch({
               type: "open-rename-video",
               videoId: video.id,
-              videoPath: video.path,
+              videoTitle: video.title,
             });
           }}
         >
@@ -164,7 +166,7 @@ export function VideoItem({
             dispatch({
               type: "open-copy-video",
               videoId: video.id,
-              videoPath: video.path,
+              videoTitle: video.title,
               clipCount: video.clipCount,
               beatCount: video.beats.length,
             });
@@ -178,7 +180,7 @@ export function VideoItem({
             dispatch({
               type: "open-move-video",
               videoId: video.id,
-              videoPath: video.path,
+              videoTitle: video.title,
               currentLessonId: lesson.id,
             });
           }}

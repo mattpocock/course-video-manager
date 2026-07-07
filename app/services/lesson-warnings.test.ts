@@ -26,7 +26,7 @@ describe("deriveVideoRole", () => {
     expect(deriveVideoRole("Solution 2")).toBe("solution");
   });
 
-  it("returns unknown for unrecognized paths", () => {
+  it("returns unknown for unrecognized titles", () => {
     expect(deriveVideoRole("Intro")).toBe("unknown");
   });
 });
@@ -38,13 +38,13 @@ describe("computeLessonWarnings", () => {
 
   // Valid sets
   it("returns no warnings for {explainer}", () => {
-    expect(computeLessonWarnings({ videos: [{ path: "Explainer" }] })).toEqual(
+    expect(computeLessonWarnings({ videos: [{ title: "Explainer" }] })).toEqual(
       []
     );
   });
 
   it("returns no warnings for {problem}", () => {
-    expect(computeLessonWarnings({ videos: [{ path: "Problem" }] })).toEqual(
+    expect(computeLessonWarnings({ videos: [{ title: "Problem" }] })).toEqual(
       []
     );
   });
@@ -52,7 +52,7 @@ describe("computeLessonWarnings", () => {
   it("returns no warnings for {problem, solution}", () => {
     expect(
       computeLessonWarnings({
-        videos: [{ path: "Problem" }, { path: "Solution" }],
+        videos: [{ title: "Problem" }, { title: "Solution" }],
       })
     ).toEqual([]);
   });
@@ -60,7 +60,7 @@ describe("computeLessonWarnings", () => {
   // Invalid: solution without problem
   it("warns on solution without problem", () => {
     const warnings = computeLessonWarnings({
-      videos: [{ path: "Solution" }],
+      videos: [{ title: "Solution" }],
     });
     expect(warnings).toEqual([{ kind: "solutionWithoutProblem" }]);
   });
@@ -68,7 +68,7 @@ describe("computeLessonWarnings", () => {
   // Invalid: explainer beside problem
   it("warns on explainer beside problem", () => {
     const warnings = computeLessonWarnings({
-      videos: [{ path: "Explainer" }, { path: "Problem" }],
+      videos: [{ title: "Explainer" }, { title: "Problem" }],
     });
     expect(warnings).toEqual([{ kind: "explainerBesideProblem" }]);
   });
@@ -76,7 +76,7 @@ describe("computeLessonWarnings", () => {
   // Invalid: duplicate roles
   it("warns on duplicate roles", () => {
     const warnings = computeLessonWarnings({
-      videos: [{ path: "Problem" }, { path: "Problem" }],
+      videos: [{ title: "Problem" }, { title: "Problem" }],
     });
     const kinds = warnings.map((w) => w.kind);
     expect(kinds).toContain("duplicateRoles");
@@ -86,9 +86,9 @@ describe("computeLessonWarnings", () => {
   it("warns on 3+ videos", () => {
     const warnings = computeLessonWarnings({
       videos: [
-        { path: "Problem" },
-        { path: "Solution" },
-        { path: "Explainer" },
+        { title: "Problem" },
+        { title: "Solution" },
+        { title: "Explainer" },
       ],
     });
     expect(warnings).toEqual([{ kind: "tooManyVideos" }]);
@@ -96,37 +96,37 @@ describe("computeLessonWarnings", () => {
 
   // Unknown roles produce no warnings (single unknown video is fine)
   it("returns no warnings for a single unknown-role video", () => {
-    expect(computeLessonWarnings({ videos: [{ path: "Intro" }] })).toEqual([]);
+    expect(computeLessonWarnings({ videos: [{ title: "Intro" }] })).toEqual([]);
   });
 
   // A lesson holds one video per role, so numbered role names are always wrong.
   it("flags 'Explainer 2' alone as a numbered role name", () => {
     expect(
-      computeLessonWarnings({ videos: [{ path: "Explainer 2" }] })
+      computeLessonWarnings({ videos: [{ title: "Explainer 2" }] })
     ).toEqual([{ kind: "numberedRoleName" }]);
   });
 
   it("flags 'Explainer 1' as a numbered role name (canonical is 'Explainer')", () => {
     expect(
-      computeLessonWarnings({ videos: [{ path: "Explainer 1" }] })
+      computeLessonWarnings({ videos: [{ title: "Explainer 1" }] })
     ).toContainEqual({ kind: "numberedRoleName" });
   });
 
   it("does not flag the bare role name 'Explainer'", () => {
-    expect(computeLessonWarnings({ videos: [{ path: "Explainer" }] })).toEqual(
+    expect(computeLessonWarnings({ videos: [{ title: "Explainer" }] })).toEqual(
       []
     );
   });
 
   it("does not flag a numbered non-role name", () => {
     expect(
-      computeLessonWarnings({ videos: [{ path: "Intro 2" }] })
+      computeLessonWarnings({ videos: [{ title: "Intro 2" }] })
     ).not.toContainEqual({ kind: "numberedRoleName" });
   });
 
   it("flags both numbered role name and duplicate roles for 'Explainer 1' + 'Explainer 2'", () => {
     const result = computeLessonWarnings({
-      videos: [{ path: "Explainer 1" }, { path: "Explainer 2" }],
+      videos: [{ title: "Explainer 1" }, { title: "Explainer 2" }],
     });
     expect(result).toContainEqual({ kind: "numberedRoleName" });
     expect(result).toContainEqual({ kind: "duplicateRoles" });
@@ -135,10 +135,10 @@ describe("computeLessonWarnings", () => {
 
 describe("computeCourseViewLintCount", () => {
   const makeVideo = (
-    path: string,
+    title: string,
     clips: { order: string; archived: boolean }[] = [],
     chapters: { order: string; archived: boolean }[] = []
-  ) => ({ path, clips, chapters });
+  ) => ({ title, clips, chapters });
 
   it("returns 0 for empty sections", () => {
     expect(computeCourseViewLintCount([])).toBe(0);

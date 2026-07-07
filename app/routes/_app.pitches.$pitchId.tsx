@@ -50,7 +50,7 @@ export const meta: Route.MetaFunction = ({ data: loaderData }) => {
 
 interface PitchVideo {
   id: string;
-  path: string;
+  title: string;
   firstClipId: string | null;
   totalDuration: number;
   beats: {
@@ -84,7 +84,7 @@ export const loader = makeLoader({
 
       const videos: PitchVideo[] = pitchRaw.videos.map((v) => ({
         id: v.id,
-        path: v.path,
+        title: v.title,
         firstClipId: v.clips[0]?.id ?? null,
         totalDuration: v.clips.reduce(
           (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),
@@ -409,7 +409,7 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
                             {video.firstClipId ? (
                               <img
                                 src={`/clips/${video.firstClipId}/first-frame`}
-                                alt={video.path}
+                                alt={video.title}
                                 className="w-full h-full object-cover"
                                 loading="lazy"
                               />
@@ -424,7 +424,7 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
                           </div>
                           <div className="py-1 px-6 flex flex-col items-center text-muted-foreground">
                             <span className="text-xs truncate text-foreground transition-colors">
-                              {video.path || "Untitled"}
+                              {video.title || "Untitled"}
                             </span>
                             <span className="text-xs font-mono mt-0.5">
                               {formatSecondsToTimeCode(video.totalDuration)}

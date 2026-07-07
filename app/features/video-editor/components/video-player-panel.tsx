@@ -56,9 +56,9 @@ import {
  */
 export const VideoPlayerPanel = () => {
   // Use context selectors for all state
-  const videoPath = useContextSelector(
+  const videoTitle = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.videoPath
+    (ctx) => ctx.videoTitle
   );
   const totalDuration = useContextSelector(
     VideoEditorContext,
@@ -346,7 +346,7 @@ export const VideoPlayerPanel = () => {
         <div className="">
           <div className="mb-4">
             <h1 className="text-2xl font-bold mb-1 flex items-center">
-              {videoPath}
+              {videoTitle}
               {" (" + formatSecondsToTimeCode(totalDuration) + ")"}
               {areAnyClipsDangerous && (
                 <span className="text-orange-500 ml-4 text-base font-medium inline-flex items-center">
@@ -452,7 +452,7 @@ export const VideoPlayerPanel = () => {
             <ActionsDropdown
               allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
               allClipsHaveText={allClipsHaveText}
-              onExport={() => startExportUpload(videoId, videoPath)}
+              onExport={() => startExportUpload(videoId, videoTitle)}
               exportToDavinciResolveFetcher={exportToDavinciResolveFetcher}
               videoId={videoId}
               lessonId={lessonId}

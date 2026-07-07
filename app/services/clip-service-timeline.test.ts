@@ -77,7 +77,7 @@ describe("ClipService", () => {
 
       expect(video).toMatchObject({
         id: expect.any(String),
-        path: "test-video.mp4",
+        title: "test-video.mp4",
         lessonId: null,
       });
     });

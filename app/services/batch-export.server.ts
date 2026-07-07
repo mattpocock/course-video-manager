@@ -51,7 +51,7 @@ export const batchExportProgram = (
             if (!exists) {
               unexportedVideos.push({
                 id: video.id,
-                title: `${section.path}/${lesson.path}/${video.path}`,
+                title: `${section.path}/${lesson.path}/${video.title}`,
                 clips: video.clips,
               });
             }

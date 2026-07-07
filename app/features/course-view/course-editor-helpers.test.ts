@@ -430,7 +430,7 @@ describe("computeTodoCount", () => {
         makeLesson({
           authoringStatus: "todo",
           videos: [
-            { id: "v1", path: "v.mp4", clipCount: 5, totalDuration: 100 },
+            { id: "v1", title: "v.mp4", clipCount: 5, totalDuration: 100 },
           ] as Lesson["videos"],
         }),
       ]),
@@ -502,7 +502,7 @@ describe("computeTodoCount", () => {
 describe("computeCourseStats", () => {
   const video = {
     id: "v1",
-    path: "v.mp4",
+    title: "v.mp4",
     clipCount: 5,
     totalDuration: 120,
   } as Lesson["videos"][number];

@@ -83,7 +83,7 @@ export const loader = makeLoader({
         );
 
         return {
-          videoPath: video.path,
+          videoTitle: video.title,
           videoExists,
           lessonPath: null,
           sectionPath: null,
@@ -164,7 +164,7 @@ export const loader = makeLoader({
       );
 
       return {
-        videoPath: video.path,
+        videoTitle: video.title,
         videoExists,
         lessonPath: lesson.title,
         sectionPath: section.title,

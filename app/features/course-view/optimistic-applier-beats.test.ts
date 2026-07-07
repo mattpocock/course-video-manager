@@ -154,7 +154,7 @@ describe("move-beat", () => {
                 makeBeat({ id: "b", order: "a1" }),
               ],
             }),
-            makeVideo({ id: "v2", path: "v2.mp4", beats: [] }),
+            makeVideo({ id: "v2", title: "v2.mp4", beats: [] }),
           ],
         }),
       ]),

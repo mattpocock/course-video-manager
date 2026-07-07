@@ -86,7 +86,7 @@ on a specific id for those). Archived sections/lessons/clips are never shown.
   kind "version"  name = publish name ("" for the Draft)
   kind "section"  name = section path
   kind "lesson"   name = lesson title (falls back to its path)
-  kind "video"    name = video path
+  kind "video"    name = video title
 
 DEPTH
   --depth defaults to 1 (the version plus its direct children = sections).
@@ -212,10 +212,10 @@ const treeCmd = Command.make(
 
       // Build the skeleton lazily down to maxDepth. remaining = levels of
       // children still allowed below the current node (depth 1 => sections).
-      const buildVideo = (v: { id: string; path: string }): SkeletonNode => ({
+      const buildVideo = (v: { id: string; title: string }): SkeletonNode => ({
         id: v.id,
         kind: "video",
-        name: v.path,
+        name: v.title,
         children: [],
       });
 
@@ -226,7 +226,7 @@ const treeCmd = Command.make(
           title: string;
           videos: ReadonlyArray<{
             id: string;
-            path: string;
+            title: string;
             archived: boolean;
           }>;
         },
@@ -253,7 +253,7 @@ const treeCmd = Command.make(
             title: string;
             videos: ReadonlyArray<{
               id: string;
-              path: string;
+              title: string;
               archived: boolean;
             }>;
           }>;

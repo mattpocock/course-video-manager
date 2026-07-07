@@ -282,7 +282,7 @@ describe("buildSectionTranscript - markdown format", () => {
 
   it("22. includes video transcripts", () => {
     const lesson = makeLesson({
-      videos: [{ id: "v1", path: "video-001", clipCount: 3 } as never],
+      videos: [{ id: "v1", title: "video-001", clipCount: 3 } as never],
     });
     const result = buildSectionTranscript(
       "01-basics",
@@ -427,7 +427,7 @@ describe("buildSectionTranscript - json format", () => {
 
   it("30. includes video transcripts when option enabled", () => {
     const lesson = makeLesson({
-      videos: [{ id: "v1", path: "video-001", clipCount: 3 } as never],
+      videos: [{ id: "v1", title: "video-001", clipCount: 3 } as never],
     });
     const result = buildSectionTranscript(
       "01-basics",
