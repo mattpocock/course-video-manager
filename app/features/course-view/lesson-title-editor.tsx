@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { parseLessonPath, toSlug } from "@/services/lesson-path-service";
 import { capitalizeTitle } from "@/utils/capitalize-title";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import type { Lesson } from "./course-view-types";
@@ -8,18 +7,12 @@ import { Link } from "react-router";
 
 export function useLessonTitleEditor({
   lesson,
-  isGhost,
   submitEvent,
 }: {
   lesson: Lesson;
-  isGhost: boolean;
   submitEvent: (event: CourseEditorEvent) => void;
 }) {
-  const parsedPath = !isGhost ? parseLessonPath(lesson.path) : null;
-  const currentSlug = parsedPath?.slug ?? lesson.path;
-  const pathPrefix = parsedPath
-    ? lesson.path.slice(0, lesson.path.length - parsedPath.slug.length)
-    : "";
+  const currentTitle = lesson.title || lesson.path;
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
@@ -27,33 +20,22 @@ export function useLessonTitleEditor({
   const saveTitle = useCallback(
     (value: string) => {
       setEditingTitle(false);
-      if (isGhost) {
-        const newTitle = capitalizeTitle(value.trim());
-        if (newTitle && newTitle !== (lesson.title || lesson.path)) {
-          submitEvent({
-            type: "update-lesson-title",
-            lessonId: lesson.id,
-            title: newTitle,
-          });
-        }
-      } else {
-        const newSlug = toSlug(value);
-        if (newSlug && newSlug !== currentSlug) {
-          submitEvent({
-            type: "update-lesson-name",
-            lessonId: lesson.id,
-            newSlug,
-          });
-        }
+      const newTitle = capitalizeTitle(value.trim());
+      if (newTitle && newTitle !== currentTitle) {
+        submitEvent({
+          type: "update-lesson-title",
+          lessonId: lesson.id,
+          title: newTitle,
+        });
       }
     },
-    [isGhost, lesson, currentSlug, submitEvent]
+    [lesson, currentTitle, submitEvent]
   );
 
   const startEditingTitle = useCallback(() => {
-    setTitleValue(isGhost ? lesson.title || lesson.path : currentSlug);
+    setTitleValue(currentTitle);
     setEditingTitle(true);
-  }, [isGhost, lesson, currentSlug]);
+  }, [currentTitle]);
 
   return {
     editingTitle,
@@ -62,18 +44,14 @@ export function useLessonTitleEditor({
     setEditingTitle,
     saveTitle,
     startEditingTitle,
-    pathPrefix,
   };
 }
 
 export function LessonTitleEditor({
   lesson,
-  isGhost,
   isReadOnly,
-  showGhostStyle,
   editingTitle,
   titleValue,
-  pathPrefix,
   onTitleValueChange,
   onCancel,
   onSave,
@@ -81,27 +59,16 @@ export function LessonTitleEditor({
   navigateTo,
 }: {
   lesson: Lesson;
-  isGhost: boolean;
   isReadOnly: boolean;
-  showGhostStyle: boolean;
   editingTitle: boolean;
   titleValue: string;
-  pathPrefix: string;
   onTitleValueChange: (v: string) => void;
   onCancel: () => void;
   onSave: (v: string) => void;
   onStartEditing: () => void;
-  /**
-   * When set, the title's display state becomes a navigation link to the
-   * Section Workbench instead of a click-to-rename trigger. Renaming then
-   * happens only via the context-menu "Rename" (which still flips to the
-   * inline editor here). Editing always wins over the link.
-   */
   navigateTo?: string;
 }) {
-  const currentTitleDisplay = isGhost
-    ? lesson.title || lesson.path
-    : lesson.path;
+  const currentTitleDisplay = lesson.title || lesson.path;
 
   const handledRef = useRef(false);
 
@@ -117,11 +84,6 @@ export function LessonTitleEditor({
         className="flex items-center gap-1 min-w-0"
         onClick={(e) => e.stopPropagation()}
       >
-        {!isGhost && pathPrefix && (
-          <span className="text-sm font-mono text-muted-foreground shrink-0">
-            {pathPrefix}
-          </span>
-        )}
         <input
           className="text-sm font-normal bg-transparent border-b border-foreground outline-none min-w-0"
           size={Math.max(titleValue.length, 1)}
@@ -158,8 +120,7 @@ export function LessonTitleEditor({
         to={navigateTo}
         className={cn(
           "text-sm font-normal hover:underline",
-          !showGhostStyle && "text-foreground/90",
-          showGhostStyle && "text-muted-foreground/70 italic"
+          "text-foreground/90"
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -172,8 +133,7 @@ export function LessonTitleEditor({
     <span
       className={cn(
         "text-sm font-normal",
-        !showGhostStyle && "text-foreground/90",
-        showGhostStyle && "text-muted-foreground/70 italic",
+        "text-foreground/90",
         !isReadOnly && "cursor-pointer hover:underline"
       )}
       onClick={() => {

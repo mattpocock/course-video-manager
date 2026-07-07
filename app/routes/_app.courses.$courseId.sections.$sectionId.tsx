@@ -57,13 +57,6 @@ export const meta: Route.MetaFunction = ({ data }) => {
   return [{ title: "CVM" }];
 };
 
-/**
- * Section Workbench — a focused, single-Section reskin of the compact course
- * view. Reuses the very same {@link SectionGrid} (and the Section/Lesson/Beat
- * components beneath it) scoped to one Section, always in compact mode so the
- * Beat plan shows, with Beat Descriptions turned on for the whole subtree.
- * See docs/adr (Section Workbench) and the course view it links back to.
- */
 export const loader = async (args: Route.LoaderArgs) => {
   const url = new URL(args.request.url);
   const selectedVersionId = url.searchParams.get("versionId");
@@ -73,8 +66,6 @@ export const loader = async (args: Route.LoaderArgs) => {
       courseViewEffect({
         courseId: params.courseId!,
         selectedVersionId,
-        // The Beat plan only renders in compact mode; the Workbench always
-        // shows it, so the cookie's view mode is irrelevant here.
         viewMode: "compact",
       }).pipe(
         Effect.flatMap((result) => {
@@ -96,7 +87,6 @@ export const loader = async (args: Route.LoaderArgs) => {
   })(args);
 };
 
-// The Workbench shows its single Section expanded — never collapsed.
 const NO_COLLAPSED_SECTIONS = new Set<string>();
 const noopToggleSection = () => {};
 
@@ -140,16 +130,14 @@ export default function Component(props: Route.ComponentProps) {
     insertPosition,
     addVideoToLessonId,
     editSectionId,
-    convertToGhostLessonId,
     deleteLessonId,
-    createOnDiskLessonId,
     editDescriptionLessonId,
     archiveSectionId,
     lessonSelection,
     videoPlayerState,
     priorityFilter,
     iconFilter,
-    fsStatusFilter,
+    todoFilter,
     searchQuery,
   } = viewState;
 
@@ -187,9 +175,6 @@ export default function Component(props: Route.ComponentProps) {
     [submitEvent]
   );
 
-  // Deep link: scroll the linked lesson (anchor id = lesson id) into view once
-  // the Workbench has rendered. Browsers don't reliably honor the hash after a
-  // client-side navigation, so do it explicitly.
   const displaySections = currentCourse?.sections ?? [];
   const hash = location.hash;
   const scrolledHashRef = useRef<string | null>(null);
@@ -203,7 +188,6 @@ export default function Component(props: Route.ComponentProps) {
     }
   }, [hash, displaySections.length]);
 
-  // Prune any lesson selection that no longer exists in this section.
   const lessonSelectionRef = useRef(lessonSelection);
   lessonSelectionRef.current = lessonSelection;
   useEffect(() => {
@@ -241,23 +225,20 @@ export default function Component(props: Route.ComponentProps) {
                   <SectionGrid
                     currentCourse={currentCourse}
                     data={loaderData}
-                    isGhostCourse={!currentCourse.filePath}
                     viewMode="compact"
                     singleColumn
                     sensors={sensors}
                     handleSectionDragEnd={handleSectionDragEnd}
                     priorityFilter={priorityFilter}
                     iconFilter={iconFilter}
-                    fsStatusFilter={fsStatusFilter}
+                    todoFilter={todoFilter}
                     searchQuery={searchQuery}
                     addGhostLessonSectionId={addGhostLessonSectionId}
                     insertAdjacentLessonId={insertAdjacentLessonId}
                     insertPosition={insertPosition}
                     editSectionId={editSectionId}
                     addVideoToLessonId={addVideoToLessonId}
-                    convertToGhostLessonId={convertToGhostLessonId}
                     deleteLessonId={deleteLessonId}
-                    createOnDiskLessonId={createOnDiskLessonId}
                     editDescriptionLessonId={editDescriptionLessonId}
                     archiveSectionId={archiveSectionId}
                     collapsedSections={NO_COLLAPSED_SECTIONS}

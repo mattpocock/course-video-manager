@@ -211,7 +211,7 @@ export function buildLessonDropEvent(opts: {
   };
 }
 
-export function computeFsStatusCounts(
+export function computeTodoCount(
   sections: Section[],
   filters: {
     priorityFilter: number[];
@@ -220,7 +220,7 @@ export function computeFsStatusCounts(
   }
 ) {
   const { priorityFilter, iconFilter, searchQuery } = filters;
-  const counts = { ghost: 0, real: 0, todo: 0 };
+  let todo = 0;
   for (const section of sections) {
     for (const lesson of section.lessons) {
       const passesPriority =
@@ -242,27 +242,13 @@ export function computeFsStatusCounts(
           continue;
       }
 
-      const status = lesson.fsStatus ?? "real";
-      if (status === "ghost") {
-        counts.ghost++;
-      } else {
-        counts.real++;
-        if (lesson.authoringStatus === "todo") counts.todo++;
-      }
+      if (lesson.authoringStatus === "todo") todo++;
     }
   }
-  return counts;
+  return todo;
 }
 
-export function computeCourseStats(
-  sections: Section[],
-  filePath: string | null
-) {
-  const isGhostCourse = filePath === null;
-
-  const shouldCount = (lesson: Section["lessons"][number]) =>
-    isGhostCourse ? lesson.fsStatus === "ghost" : lesson.fsStatus !== "ghost";
-
+export function computeCourseStats(sections: Section[]) {
   let totalLessons = 0;
   let totalLessonsWithVideos = 0;
   let totalVideos = 0;
@@ -270,7 +256,6 @@ export function computeCourseStats(
 
   for (const section of sections) {
     for (const lesson of section.lessons) {
-      if (!shouldCount(lesson)) continue;
       totalLessons++;
       if (lesson.videos.length > 0) totalLessonsWithVideos++;
       totalVideos += lesson.videos.length;
@@ -299,8 +284,7 @@ export function computeFlatLessons(sections: Section[]) {
     section.lessons.map((lesson, lessonIdx) => ({
       id: lesson.id,
       number: `${sectionIdx + 1}.${lessonIdx + 1}`,
-      title:
-        lesson.fsStatus === "ghost" ? lesson.title || lesson.path : lesson.path,
+      title: lesson.title || lesson.path,
       sectionId: section.id,
       sectionTitle: section.path,
       sectionNumber: sectionIdx + 1,

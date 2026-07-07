@@ -21,12 +21,6 @@ import { useCallback, useMemo, type ReactNode } from "react";
 import { useNavigate, useFetcher } from "react-router";
 import { useLessonSelectionClear } from "./use-lesson-selection-clear";
 
-/**
- * Wraps the compact grid in a single Beat drag-and-drop context spanning
- * every Video, so a Beat can be dropped onto any Video regardless of its
- * lesson or section. Renders children bare when disabled (expanded/read-only),
- * where Beats aren't draggable.
- */
 function MaybeBeatDnd({
   enabled,
   videos,
@@ -63,7 +57,7 @@ export function SectionGrid({
   handleSectionDragEnd,
   priorityFilter,
   iconFilter,
-  fsStatusFilter,
+  todoFilter,
   searchQuery,
   viewMode,
   addGhostLessonSectionId,
@@ -71,9 +65,7 @@ export function SectionGrid({
   insertPosition,
   editSectionId,
   addVideoToLessonId,
-  convertToGhostLessonId,
   deleteLessonId,
-  createOnDiskLessonId,
   editDescriptionLessonId,
   archiveSectionId,
   collapsedSections,
@@ -86,18 +78,11 @@ export function SectionGrid({
   revealVideoFetcher,
   deleteVideoFileFetcher,
   submitDeleteVideo,
-  isGhostCourse,
   singleColumn = false,
 }: {
   currentCourse: NonNullable<LoaderData["selectedCourse"]>;
   data: LoaderData;
-  isGhostCourse: boolean;
   viewMode: "expanded" | "compact";
-  /**
-   * Render every Section full-width in one column instead of the multi-column
-   * grid. Used by the Section Workbench, which shows a single Section and wants
-   * the horizontal room the dense course view deliberately gives up.
-   */
   singleColumn?: boolean;
   sensors: ReturnType<typeof useSensors>;
   handleSectionDragEnd: (
@@ -114,16 +99,14 @@ export function SectionGrid({
   ) => (event: DragEndEvent) => void;
   priorityFilter: number[];
   iconFilter: string[];
-  fsStatusFilter: string | null;
+  todoFilter: boolean;
   searchQuery: string;
   addGhostLessonSectionId: string | null;
   insertAdjacentLessonId: string | null;
   insertPosition: "before" | "after" | null;
   editSectionId: string | null;
   addVideoToLessonId: string | null;
-  convertToGhostLessonId: string | null;
   deleteLessonId: string | null;
-  createOnDiskLessonId: string | null;
   editDescriptionLessonId: string | null;
   archiveSectionId: string | null;
   collapsedSections: Set<string>;
@@ -144,9 +127,6 @@ export function SectionGrid({
     [displaySections]
   );
 
-  // Every Video across the course, so one hoisted BeatDndProvider can resolve
-  // a drag onto any Video — including one in a different lesson or section. A
-  // per-lesson provider would trap beats inside their own lesson.
   const allVideosForDnd = useMemo(
     () =>
       displaySections.flatMap((section) =>
@@ -160,23 +140,18 @@ export function SectionGrid({
     [displaySections]
   );
 
-  // Build flat lessons list for dependency selector
   const allFlatLessons: DependencyLessonItem[] = displaySections.flatMap(
     (section, sectionIdx) =>
       section.lessons.map((lesson, lessonIdx) => ({
         id: lesson.id,
         number: `${sectionIdx + 1}.${lessonIdx + 1}`,
-        title:
-          lesson.fsStatus === "ghost"
-            ? lesson.title || lesson.path
-            : lesson.path,
+        title: lesson.title || lesson.path,
         sectionId: section.id,
         sectionTitle: section.path,
         sectionNumber: sectionIdx + 1,
       }))
   );
 
-  // Build dependency map for circular dependency detection
   const dependencyMap: Record<string, string[]> = {};
   for (const section of displaySections) {
     for (const lesson of section.lessons) {
@@ -201,9 +176,6 @@ export function SectionGrid({
     [submitEvent]
   );
 
-  // Lesson and section dragging share a single DndContext so a lesson can be
-  // dragged across sections. Within-section keeps dnd-kit's live reorder; a
-  // cross-section drag is drop-only and shows an insertion line at the anchor.
   const {
     dropIndicator,
     activeLesson,
@@ -263,7 +235,7 @@ export function SectionGrid({
                     data={data}
                     priorityFilter={priorityFilter}
                     iconFilter={iconFilter}
-                    fsStatusFilter={fsStatusFilter}
+                    todoFilter={todoFilter}
                     searchQuery={searchQuery}
                     viewMode={viewMode}
                     addGhostLessonSectionId={addGhostLessonSectionId}
@@ -271,9 +243,7 @@ export function SectionGrid({
                     insertPosition={insertPosition}
                     editSectionId={editSectionId}
                     addVideoToLessonId={addVideoToLessonId}
-                    convertToGhostLessonId={convertToGhostLessonId}
                     deleteLessonId={deleteLessonId}
-                    createOnDiskLessonId={createOnDiskLessonId}
                     editDescriptionLessonId={editDescriptionLessonId}
                     archiveSectionId={archiveSectionId}
                     collapsedSections={collapsedSections}
@@ -286,7 +256,6 @@ export function SectionGrid({
                     revealVideoFetcher={revealVideoFetcher}
                     deleteVideoFileFetcher={deleteVideoFileFetcher}
                     submitDeleteVideo={submitDeleteVideo}
-                    isGhostCourse={isGhostCourse}
                     isReadOnly={isReadOnly}
                     allSectionIds={allSectionIds}
                     allFlatLessons={allFlatLessons}
@@ -303,11 +272,7 @@ export function SectionGrid({
         <DragOverlay>
           {activeLesson ? (
             <div className="rounded-md border bg-card px-2 py-1 text-sm shadow-lg flex items-center gap-2">
-              <span>
-                {activeLesson.fsStatus === "ghost"
-                  ? activeLesson.title || activeLesson.path
-                  : activeLesson.path}
-              </span>
+              <span>{activeLesson.title || activeLesson.path}</span>
               {bulkDragIds && bulkDragIds.size > 1 && (
                 <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium min-w-5 h-5 px-1.5">
                   {bulkDragIds.size}

@@ -21,7 +21,6 @@ export function SectionContextMenuItems({
   lessons,
   allSectionIds,
   isReadOnly,
-  isGhostSection,
   dispatch,
   submitEvent,
 }: {
@@ -29,7 +28,6 @@ export function SectionContextMenuItems({
   lessons: Lesson[];
   allSectionIds: string[];
   isReadOnly: boolean;
-  isGhostSection: boolean;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
 }) {
@@ -136,7 +134,7 @@ export function SectionContextMenuItems({
           </ContextMenuItem>
         </>
       )}
-      {!isReadOnly && isGhostSection && (
+      {!isReadOnly && (
         <>
           <ContextMenuSeparator />
           <ContextMenuItem

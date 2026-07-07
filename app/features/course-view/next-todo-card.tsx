@@ -12,7 +12,7 @@ import { X } from "lucide-react";
 import { useNavigate, useFetcher } from "react-router";
 
 function isTodoLesson(lesson: Lesson): boolean {
-  return lesson.fsStatus === "real" && lesson.authoringStatus === "todo";
+  return lesson.authoringStatus === "todo";
 }
 
 export function NextTodoCard({
@@ -20,9 +20,7 @@ export function NextTodoCard({
   data,
   navigate,
   addVideoToLessonId,
-  convertToGhostLessonId,
   deleteLessonId,
-  createOnDiskLessonId,
   editDescriptionLessonId,
   dispatch,
   submitEvent,
@@ -39,9 +37,7 @@ export function NextTodoCard({
   data: LoaderData;
   navigate: ReturnType<typeof useNavigate>;
   addVideoToLessonId: string | null;
-  convertToGhostLessonId: string | null;
   deleteLessonId: string | null;
-  createOnDiskLessonId: string | null;
   editDescriptionLessonId: string | null;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
@@ -101,9 +97,7 @@ export function NextTodoCard({
                 data={data}
                 navigate={navigate}
                 addVideoToLessonId={addVideoToLessonId}
-                convertToGhostLessonId={convertToGhostLessonId}
                 deleteLessonId={deleteLessonId}
-                createOnDiskLessonId={createOnDiskLessonId}
                 editDescriptionLessonId={editDescriptionLessonId}
                 dispatch={dispatch}
                 submitEvent={submitEvent}

@@ -104,12 +104,10 @@ export function courseViewEffect(input: {
 
     const lessons = selectedCourse?.filePath
       ? selectedCourse.sections.flatMap((section) =>
-          section.lessons
-            .filter((lesson) => lesson.fsStatus !== "ghost")
-            .map((lesson) => ({
-              id: lesson.id,
-              fullPath: `${selectedCourse.filePath}/${section.path}/${lesson.path}`,
-            }))
+          section.lessons.map((lesson) => ({
+            id: lesson.id,
+            fullPath: `${selectedCourse.filePath}/${section.path}/${lesson.path}`,
+          }))
         )
       : [];
 

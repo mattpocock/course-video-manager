@@ -29,7 +29,7 @@ function makeLesson(overrides: Partial<Lesson> = {}): Lesson {
 const noFilters = {
   priorityFilter: [] as number[],
   iconFilter: [] as string[],
-  fsStatusFilter: null as string | null,
+  todoFilter: false,
   searchQuery: "",
 };
 
@@ -45,7 +45,7 @@ describe("filterLessons", () => {
     ];
     const { filteredLessons } = filterLessons(lessons, {
       ...noFilters,
-      fsStatusFilter: "todo",
+      todoFilter: true,
     });
     expect(filteredLessons).toHaveLength(1);
   });
@@ -54,7 +54,7 @@ describe("filterLessons", () => {
     const lessons = [makeLesson({ authoringStatus: "done" })];
     const { filteredLessons } = filterLessons(lessons, {
       ...noFilters,
-      fsStatusFilter: "todo",
+      todoFilter: true,
     });
     expect(filteredLessons).toHaveLength(0);
   });
@@ -63,7 +63,7 @@ describe("filterLessons", () => {
     const lessons = [makeLesson({ fsStatus: "ghost", authoringStatus: null })];
     const { filteredLessons } = filterLessons(lessons, {
       ...noFilters,
-      fsStatusFilter: "todo",
+      todoFilter: true,
     });
     expect(filteredLessons).toHaveLength(0);
   });
@@ -76,7 +76,7 @@ describe("filterLessons", () => {
     ];
     const { filteredLessons } = filterLessons(lessons, {
       ...noFilters,
-      fsStatusFilter: "todo",
+      todoFilter: true,
     });
     expect(filteredLessons).toHaveLength(3);
   });
@@ -88,14 +88,14 @@ describe("filterLessons", () => {
     ];
     const { filteredLessons } = filterLessons(lessons, {
       ...noFilters,
-      fsStatusFilter: "todo",
+      todoFilter: true,
       priorityFilter: [1],
     });
     expect(filteredLessons).toHaveLength(1);
     expect(filteredLessons[0]!.id).toBe("p1");
   });
 
-  it("treats null fsStatus as real for todo filter", () => {
+  it("todo filter includes lesson with authoringStatus=todo regardless of fsStatus", () => {
     const lessons = [
       makeLesson({
         fsStatus: null as unknown as string,
@@ -104,7 +104,7 @@ describe("filterLessons", () => {
     ];
     const { filteredLessons } = filterLessons(lessons, {
       ...noFilters,
-      fsStatusFilter: "todo",
+      todoFilter: true,
     });
     expect(filteredLessons).toHaveLength(1);
   });

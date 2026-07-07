@@ -1,6 +1,4 @@
 import { AddVideoModal } from "@/components/add-video-modal";
-import { ConvertToGhostModal } from "@/components/convert-to-ghost-modal";
-import { CreateOnDiskModal } from "./create-on-disk-modal";
 import { DeleteLessonModal } from "@/components/delete-lesson-modal";
 import { EditLessonDescriptionModal } from "@/components/edit-lesson-description-modal";
 import {
@@ -28,7 +26,6 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   AlertTriangle,
   Code,
-  Ghost,
   GripVertical,
   MessageCircle,
   Play,
@@ -58,29 +55,18 @@ function lessonWarningLabel(warnings: LessonWarning[]): string {
 import { Suspense, use, useCallback, useRef, useState } from "react";
 import { useNavigate, useFetcher } from "react-router";
 
-/**
- * Lesson modals whose props depend on the deferred `lessonFsMaps`. Kept in a
- * dedicated leaf so the `use()` call — and the suspense boundary around it —
- * sits here rather than at the top of the lesson item. The lesson row renders
- * immediately from synchronous data; only these (normally closed) modals wait
- * on the filesystem maps, so the list never flickers while they stream in.
- */
 function LessonFsModals({
   lesson,
-  isGhost,
   lessonFsMaps,
   addVideoToLessonId,
   deleteLessonId,
-  convertToGhostLessonId,
   dispatch,
   submitEvent,
 }: {
   lesson: Lesson;
-  isGhost: boolean;
   lessonFsMaps: LoaderData["lessonFsMaps"];
   addVideoToLessonId: string | null;
   deleteLessonId: string | null;
-  convertToGhostLessonId: string | null;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
 }) {
@@ -99,46 +85,24 @@ function LessonFsModals({
           });
         }}
       />
-      {!isGhost && (
-        <DeleteLessonModal
-          lessonId={lesson.id}
-          lessonTitle={lesson.path}
-          filesOnDisk={fsMaps.lessonHasFilesMap[lesson.id] ?? []}
-          open={deleteLessonId === lesson.id}
-          onOpenChange={(open) => {
-            dispatch({
-              type: "set-delete-lesson-id",
-              lessonId: open ? lesson.id : null,
-            });
-          }}
-          onDelete={() => {
-            submitEvent({
-              type: "delete-lesson",
-              lessonId: lesson.id,
-            });
-          }}
-        />
-      )}
-      {!isGhost && (
-        <ConvertToGhostModal
-          lessonId={lesson.id}
-          lessonTitle={lesson.path}
-          filesOnDisk={fsMaps.lessonHasFilesMap[lesson.id] ?? []}
-          open={convertToGhostLessonId === lesson.id}
-          onOpenChange={(open) => {
-            dispatch({
-              type: "set-convert-to-ghost-lesson-id",
-              lessonId: open ? lesson.id : null,
-            });
-          }}
-          onConvert={() => {
-            submitEvent({
-              type: "convert-to-ghost",
-              lessonId: lesson.id,
-            });
-          }}
-        />
-      )}
+      <DeleteLessonModal
+        lessonId={lesson.id}
+        lessonTitle={lesson.title || lesson.path}
+        filesOnDisk={fsMaps.lessonHasFilesMap[lesson.id] ?? []}
+        open={deleteLessonId === lesson.id}
+        onOpenChange={(open) => {
+          dispatch({
+            type: "set-delete-lesson-id",
+            lessonId: open ? lesson.id : null,
+          });
+        }}
+        onDelete={() => {
+          submitEvent({
+            type: "delete-lesson",
+            lessonId: lesson.id,
+          });
+        }}
+      />
     </>
   );
 }
@@ -150,9 +114,7 @@ export function SortableLessonItem({
   data,
   navigate,
   addVideoToLessonId,
-  convertToGhostLessonId,
   deleteLessonId,
-  createOnDiskLessonId,
   editDescriptionLessonId,
   dispatch,
   submitEvent,
@@ -164,7 +126,6 @@ export function SortableLessonItem({
   dependencyMap,
   allSections,
   hideAnchor,
-  isGhostCourse,
   compact,
   isSelected,
   isBulkDragPeer,
@@ -175,9 +136,7 @@ export function SortableLessonItem({
   data: LoaderData;
   navigate: ReturnType<typeof useNavigate>;
   addVideoToLessonId: string | null;
-  convertToGhostLessonId: string | null;
   deleteLessonId: string | null;
-  createOnDiskLessonId: string | null;
   editDescriptionLessonId: string | null;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
@@ -189,7 +148,6 @@ export function SortableLessonItem({
   dependencyMap: Record<string, string[]>;
   allSections: { id: string; path: string }[];
   hideAnchor?: boolean;
-  isGhostCourse?: boolean;
   compact?: boolean;
   isSelected?: boolean;
   isBulkDragPeer?: boolean;
@@ -213,8 +171,6 @@ export function SortableLessonItem({
   };
 
   const isReadOnly = !data.isLatestVersion;
-  const isGhost = lesson.fsStatus === "ghost";
-  const showGhostStyle = isGhost && !isGhostCourse;
 
   const currentDescription = lesson.description ?? "";
   const [editingDesc, setEditingDesc] = useState(false);
@@ -228,8 +184,7 @@ export function SortableLessonItem({
     setEditingTitle,
     saveTitle,
     startEditingTitle,
-    pathPrefix,
-  } = useLessonTitleEditor({ lesson, isGhost, submitEvent });
+  } = useLessonTitleEditor({ lesson, submitEvent });
 
   const currentIcon = (lesson.icon ?? "watch") as
     | "watch"
@@ -404,12 +359,9 @@ export function SortableLessonItem({
                 </button>
                 <LessonTitleEditor
                   lesson={lesson}
-                  isGhost={isGhost}
                   isReadOnly={isReadOnly}
-                  showGhostStyle={showGhostStyle}
                   editingTitle={editingTitle}
                   titleValue={titleValue}
-                  pathPrefix={pathPrefix}
                   onTitleValueChange={setTitleValue}
                   onCancel={() => setEditingTitle(false)}
                   onSave={saveTitle}
@@ -420,11 +372,6 @@ export function SortableLessonItem({
                       : undefined
                   }
                 />
-                {showGhostStyle && (
-                  <span className="flex items-center text-muted-foreground/60 shrink-0">
-                    <Ghost className="w-3 h-3" />
-                  </span>
-                )}
                 <PrioritySelector
                   priority={currentPriority}
                   onSelect={handlePrioritySelect}
@@ -440,7 +387,7 @@ export function SortableLessonItem({
                   lessonPriority={lessonPriority}
                   dependencyMap={dependencyMap}
                 />
-                {!isGhost && lesson.authoringStatus === "todo" && (
+                {lesson.authoringStatus === "todo" && (
                   <button
                     className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-foreground text-background hover:opacity-80 transition-opacity shrink-0"
                     onClick={(e) => {
@@ -527,9 +474,7 @@ export function SortableLessonItem({
           <LessonContextMenuContent
             lesson={lesson}
             section={section}
-            isGhost={isGhost}
             isReadOnly={isReadOnly}
-            isGhostCourse={isGhostCourse}
             compact={compact}
             navigate={navigate}
             allSections={allSections}
@@ -547,11 +492,9 @@ export function SortableLessonItem({
         <Suspense>
           <LessonFsModals
             lesson={lesson}
-            isGhost={isGhost}
             lessonFsMaps={data.lessonFsMaps}
             addVideoToLessonId={addVideoToLessonId}
             deleteLessonId={deleteLessonId}
-            convertToGhostLessonId={convertToGhostLessonId}
             dispatch={dispatch}
             submitEvent={submitEvent}
           />
@@ -587,23 +530,6 @@ export function SortableLessonItem({
             submitDeleteVideo={submitDeleteVideo}
           />
         )}
-        <CreateOnDiskModal
-          lessonId={lesson.id}
-          open={createOnDiskLessonId === lesson.id}
-          onOpenChange={(open) => {
-            dispatch({
-              type: "set-create-on-disk-lesson-id",
-              lessonId: open ? lesson.id : null,
-            });
-          }}
-          onCreateOnDisk={(repoPath) => {
-            submitEvent({
-              type: "create-on-disk",
-              lessonId: lesson.id,
-              repoPath,
-            });
-          }}
-        />
         <EditLessonDescriptionModal
           lessonTitle={lesson.title || lesson.path}
           currentDescription={currentDescription}

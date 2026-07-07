@@ -62,10 +62,8 @@ export namespace courseViewReducer {
     addVideoToLessonId: string | null;
     editLessonId: string | null;
     editSectionId: string | null;
-    convertToGhostLessonId: string | null;
     deleteLessonId: string | null;
     archiveSectionId: string | null;
-    createOnDiskLessonId: string | null;
     editDescriptionLessonId: string | null;
 
     // Complex object states
@@ -81,7 +79,7 @@ export namespace courseViewReducer {
     // Filter states
     priorityFilter: number[];
     iconFilter: string[];
-    fsStatusFilter: string | null;
+    todoFilter: boolean;
     searchQuery: string;
   };
 
@@ -119,10 +117,8 @@ export namespace courseViewReducer {
     | { type: "set-add-video-to-lesson-id"; lessonId: string | null }
     | { type: "set-edit-lesson-id"; lessonId: string | null }
     | { type: "set-edit-section-id"; sectionId: string | null }
-    | { type: "set-convert-to-ghost-lesson-id"; lessonId: string | null }
     | { type: "set-delete-lesson-id"; lessonId: string | null }
     | { type: "set-archive-section-id"; sectionId: string | null }
-    | { type: "set-create-on-disk-lesson-id"; lessonId: string | null }
     | { type: "set-edit-description-lesson-id"; lessonId: string | null }
     // Video player
     | {
@@ -181,7 +177,7 @@ export namespace courseViewReducer {
     // Filters
     | { type: "toggle-priority-filter"; priority: number }
     | { type: "toggle-icon-filter"; icon: string }
-    | { type: "toggle-fs-status-filter"; status: string }
+    | { type: "toggle-todo-filter" }
     | { type: "set-search-query"; query: string };
 
   export type Effect = never;
@@ -207,10 +203,8 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     addVideoToLessonId: null,
     editLessonId: null,
     editSectionId: null,
-    convertToGhostLessonId: null,
     deleteLessonId: null,
     archiveSectionId: null,
-    createOnDiskLessonId: null,
     editDescriptionLessonId: null,
     videoPlayerState: { isOpen: false, videoId: "", videoPath: "" },
     moveVideoState: null,
@@ -220,7 +214,7 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     lessonSelection: null,
     priorityFilter: [],
     iconFilter: [],
-    fsStatusFilter: null,
+    todoFilter: false,
     searchQuery: "",
   };
 }
@@ -295,14 +289,10 @@ export const courseViewReducer: EffectReducer<
       return { ...state, editLessonId: action.lessonId };
     case "set-edit-section-id":
       return { ...state, editSectionId: action.sectionId };
-    case "set-convert-to-ghost-lesson-id":
-      return { ...state, convertToGhostLessonId: action.lessonId };
     case "set-delete-lesson-id":
       return { ...state, deleteLessonId: action.lessonId };
     case "set-archive-section-id":
       return { ...state, archiveSectionId: action.sectionId };
-    case "set-create-on-disk-lesson-id":
-      return { ...state, createOnDiskLessonId: action.lessonId };
     case "set-edit-description-lesson-id":
       return { ...state, editDescriptionLessonId: action.lessonId };
 
@@ -446,12 +436,8 @@ export const courseViewReducer: EffectReducer<
           ? state.iconFilter.filter((i) => i !== action.icon)
           : [...state.iconFilter, action.icon],
       };
-    case "toggle-fs-status-filter":
-      return {
-        ...state,
-        fsStatusFilter:
-          state.fsStatusFilter === action.status ? null : action.status,
-      };
+    case "toggle-todo-filter":
+      return { ...state, todoFilter: !state.todoFilter };
     case "set-search-query":
       return { ...state, searchQuery: action.query };
   }

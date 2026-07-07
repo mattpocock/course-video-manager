@@ -123,8 +123,6 @@ export function applyOptimisticEvent(
       return applyDeleteLesson(loaderData, event);
     case "archive-section":
       return applyArchiveSection(loaderData, event);
-    case "convert-to-ghost":
-      return applyConvertToGhost(loaderData, event);
     case "reorder-sections":
       return applyReorderSections(loaderData, event);
     case "reorder-lessons":
@@ -206,36 +204,6 @@ function applyArchiveSection(
   return {
     ...loaderData,
     selectedCourse: { ...course, sections: filtered },
-  };
-}
-
-function applyConvertToGhost(
-  loaderData: LoaderData,
-  event: Extract<CourseEditorEvent, { type: "convert-to-ghost" }>
-): LoaderData {
-  const course = loaderData.selectedCourse;
-  if (!course) return loaderData;
-
-  let found = false;
-  const sections = course.sections.map((section) => {
-    if (found) return section;
-    let sectionChanged = false;
-    const lessons = section.lessons.map((lesson) => {
-      if (lesson.id === event.lessonId) {
-        found = true;
-        sectionChanged = true;
-        return { ...lesson, fsStatus: "ghost" as const };
-      }
-      return lesson;
-    });
-    return sectionChanged ? { ...section, lessons } : section;
-  });
-
-  if (!found) return loaderData;
-
-  return {
-    ...loaderData,
-    selectedCourse: { ...course, sections },
   };
 }
 

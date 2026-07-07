@@ -12,10 +12,8 @@ import type { Lesson, Section } from "./course-view-types";
 import type { useNavigate } from "react-router";
 import {
   ArrowRightLeft,
-  BookOpen,
   FileText,
   FileVideo,
-  Ghost,
   ListTodo,
   PencilIcon,
   Plus,
@@ -25,9 +23,7 @@ import {
 export function LessonContextMenuContent({
   lesson,
   section,
-  isGhost,
   isReadOnly,
-  isGhostCourse,
   compact,
   navigate,
   allSections,
@@ -38,9 +34,7 @@ export function LessonContextMenuContent({
 }: {
   lesson: Lesson;
   section: Section;
-  isGhost: boolean;
   isReadOnly: boolean;
-  isGhostCourse?: boolean;
   compact?: boolean;
   navigate: ReturnType<typeof useNavigate>;
   allSections: { id: string; path: string }[];
@@ -67,98 +61,42 @@ export function LessonContextMenuContent({
       )}
       {!isReadOnly && (
         <>
-          {isGhost ? (
+          <ContextMenuItem
+            onSelect={() =>
+              dispatch({
+                type: "set-add-video-to-lesson-id",
+                lessonId: lesson.id,
+              })
+            }
+          >
+            <Plus className="w-4 h-4" />
+            Add Video
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={startEditingTitle}>
+            <PencilIcon className="w-4 h-4" />
+            Rename
+          </ContextMenuItem>
+          {compact && (
+            <ContextMenuItem onSelect={startEditingDescription}>
+              <FileText className="w-4 h-4" />
+              Edit Description
+            </ContextMenuItem>
+          )}
+          {lesson.authoringStatus === "done" && (
             <>
-              <ContextMenuItem
-                onSelect={() =>
-                  dispatch({
-                    type: "set-add-video-to-lesson-id",
-                    lessonId: lesson.id,
-                  })
-                }
-              >
-                <Plus className="w-4 h-4" />
-                Add Video
-              </ContextMenuItem>
-              <ContextMenuItem
-                onSelect={() => {
-                  if (isGhostCourse) {
-                    dispatch({
-                      type: "set-create-on-disk-lesson-id",
-                      lessonId: lesson.id,
-                    });
-                  } else {
-                    submitEvent({
-                      type: "create-on-disk",
-                      lessonId: lesson.id,
-                    });
-                  }
-                }}
-              >
-                <BookOpen className="w-4 h-4" />
-                Create on Disk
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem onSelect={startEditingTitle}>
-                <PencilIcon className="w-4 h-4" />
-                Rename
-              </ContextMenuItem>
-              {compact && (
-                <ContextMenuItem onSelect={startEditingDescription}>
-                  <FileText className="w-4 h-4" />
-                  Edit Description
-                </ContextMenuItem>
-              )}
-            </>
-          ) : (
-            <>
-              <ContextMenuItem
-                onSelect={() =>
-                  dispatch({
-                    type: "set-add-video-to-lesson-id",
-                    lessonId: lesson.id,
-                  })
-                }
-              >
-                <Plus className="w-4 h-4" />
-                Add Video
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={startEditingTitle}>
-                <PencilIcon className="w-4 h-4" />
-                Rename
-              </ContextMenuItem>
-              {compact && (
-                <ContextMenuItem onSelect={startEditingDescription}>
-                  <FileText className="w-4 h-4" />
-                  Edit Description
-                </ContextMenuItem>
-              )}
               <ContextMenuSeparator />
               <ContextMenuItem
                 onSelect={() =>
-                  dispatch({
-                    type: "set-convert-to-ghost-lesson-id",
+                  submitEvent({
+                    type: "set-lesson-authoring-status",
                     lessonId: lesson.id,
+                    status: "todo",
                   })
                 }
               >
-                <Ghost className="w-4 h-4" />
-                Convert to Ghost
+                <ListTodo className="w-4 h-4" />
+                Mark as TODO
               </ContextMenuItem>
-              {lesson.authoringStatus === "done" && (
-                <ContextMenuItem
-                  onSelect={() =>
-                    submitEvent({
-                      type: "set-lesson-authoring-status",
-                      lessonId: lesson.id,
-                      status: "todo",
-                    })
-                  }
-                >
-                  <ListTodo className="w-4 h-4" />
-                  Mark as TODO
-                </ContextMenuItem>
-              )}
             </>
           )}
           <ContextMenuSeparator />
@@ -219,17 +157,10 @@ export function LessonContextMenuContent({
           <ContextMenuItem
             variant="destructive"
             onSelect={() => {
-              if (isGhost) {
-                submitEvent({
-                  type: "delete-lesson",
-                  lessonId: lesson.id,
-                });
-              } else {
-                dispatch({
-                  type: "set-delete-lesson-id",
-                  lessonId: lesson.id,
-                });
-              }
+              dispatch({
+                type: "set-delete-lesson-id",
+                lessonId: lesson.id,
+              });
             }}
           >
             <Trash2 className="w-4 h-4" />

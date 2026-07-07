@@ -23,7 +23,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { useLessonDrag } from "./use-lesson-drag";
-import { ChevronRight, Ghost, GripVertical } from "lucide-react";
+import { ChevronRight, GripVertical } from "lucide-react";
 import { Fragment } from "react";
 import type { useNavigate, useFetcher } from "react-router";
 
@@ -40,7 +40,7 @@ export function SectionCard({
   data,
   priorityFilter,
   iconFilter,
-  fsStatusFilter,
+  todoFilter,
   searchQuery,
   viewMode,
   addGhostLessonSectionId,
@@ -48,9 +48,7 @@ export function SectionCard({
   insertPosition,
   editSectionId,
   addVideoToLessonId,
-  convertToGhostLessonId,
   deleteLessonId,
-  createOnDiskLessonId,
   editDescriptionLessonId,
   archiveSectionId,
   collapsedSections,
@@ -63,7 +61,6 @@ export function SectionCard({
   revealVideoFetcher,
   deleteVideoFileFetcher,
   submitDeleteVideo,
-  isGhostCourse,
   isReadOnly,
   allSectionIds,
   allFlatLessons,
@@ -75,21 +72,18 @@ export function SectionCard({
   section: NonNullable<LoaderData["selectedCourse"]>["sections"][number];
   currentCourse: NonNullable<LoaderData["selectedCourse"]>;
   data: LoaderData;
-  isGhostCourse: boolean;
   isReadOnly: boolean;
   viewMode: "expanded" | "compact";
   priorityFilter: number[];
   iconFilter: string[];
-  fsStatusFilter: string | null;
+  todoFilter: boolean;
   searchQuery: string;
   addGhostLessonSectionId: string | null;
   insertAdjacentLessonId: string | null;
   insertPosition: "before" | "after" | null;
   editSectionId: string | null;
   addVideoToLessonId: string | null;
-  convertToGhostLessonId: string | null;
   deleteLessonId: string | null;
-  createOnDiskLessonId: string | null;
   editDescriptionLessonId: string | null;
   archiveSectionId: string | null;
   collapsedSections: Set<string>;
@@ -114,7 +108,7 @@ export function SectionCard({
   const { filteredLessons, hasActiveFilters } = filterLessons(lessons, {
     priorityFilter,
     iconFilter,
-    fsStatusFilter,
+    todoFilter,
     searchQuery,
   });
 
@@ -128,10 +122,6 @@ export function SectionCard({
     filteredLessons,
     viewMode === "compact" && !hasActiveFilters
   );
-
-  const isGhostSection =
-    lessons.length === 0 || lessons.every((l) => l.fsStatus === "ghost");
-  const showGhostSectionStyle = isGhostSection && !isGhostCourse;
 
   return (
     <SortableSectionItem
@@ -166,20 +156,15 @@ export function SectionCard({
                         )}
                         <SectionTitleRow
                           section={section}
-                          isGhostSection={isGhostSection}
-                          showGhostStyle={showGhostSectionStyle}
                           isReadOnly={isReadOnly}
                           editSectionId={editSectionId}
                           dispatch={dispatch}
                           submitEvent={submitEvent}
                           navigateTo={`/courses/${currentCourse.id}/sections/${section.id}`}
                         />
-                        {showGhostSectionStyle && (
-                          <Ghost className="w-3.5 h-3.5 text-muted-foreground/40" />
-                        )}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {!isGhostSection && viewMode === "expanded" && (
+                        {viewMode === "expanded" && (
                           <Badge variant="secondary" className="text-[10px]">
                             {formatSecondsToTimeCode(sectionDuration)}
                           </Badge>
@@ -228,9 +213,6 @@ export function SectionCard({
                           No matching lessons
                         </p>
                       )}
-                      {/* Contiguous Dependency Group runs: spacing
-                      separates blocks, the measured overlay
-                      draws the icon-to-icon dashed lines. */}
                       {runs.map((run) => (
                         <div
                           key={run.lessons[0]!.id}
@@ -250,9 +232,7 @@ export function SectionCard({
                                 navigate={navigate}
                                 allFlatLessons={allFlatLessons}
                                 addVideoToLessonId={addVideoToLessonId}
-                                convertToGhostLessonId={convertToGhostLessonId}
                                 deleteLessonId={deleteLessonId}
-                                createOnDiskLessonId={createOnDiskLessonId}
                                 editDescriptionLessonId={
                                   editDescriptionLessonId
                                 }
@@ -264,7 +244,6 @@ export function SectionCard({
                                 submitDeleteVideo={submitDeleteVideo}
                                 allSections={currentCourse.sections}
                                 dependencyMap={dependencyMap}
-                                isGhostCourse={isGhostCourse}
                                 compact={viewMode === "compact"}
                                 isSelected={
                                   lessonSelection?.sectionId === section.id &&
@@ -280,8 +259,6 @@ export function SectionCard({
                           ))}
                         </div>
                       ))}
-                      {/* Anchor at the end of the list (append, or
-                      dropping into an empty section). */}
                       {dropIndicator?.targetSectionId === section.id &&
                         dropIndicator.beforeLessonId === null && <DropLine />}
                     </SortableContext>
@@ -294,7 +271,6 @@ export function SectionCard({
               lessons={lessons}
               allSectionIds={allSectionIds}
               isReadOnly={isReadOnly}
-              isGhostSection={isGhostSection}
               dispatch={dispatch}
               submitEvent={submitEvent}
             />
@@ -307,7 +283,6 @@ export function SectionCard({
             insertAdjacentLessonId={insertAdjacentLessonId}
             insertPosition={insertPosition}
             archiveSectionId={archiveSectionId}
-            courseFilePath={currentCourse.filePath}
             dispatch={dispatch}
             submitEvent={submitEvent}
           />

@@ -22,8 +22,6 @@ import { filterLessons } from "@/features/course-view/section-grid-utils";
 import {
   ClipboardCopy,
   Code,
-  FileVideo,
-  Ghost,
   ListChecks,
   MessageCircle,
   Play,
@@ -34,10 +32,10 @@ import { toast } from "sonner";
 type FilterProps = {
   priorityFilter: number[];
   iconFilter: string[];
-  fsStatusFilter: string | null;
+  todoFilter: boolean;
   onTogglePriority: (priority: number) => void;
   onToggleIcon: (icon: string) => void;
-  onToggleFsStatus: (status: string) => void;
+  onToggleTodo: () => void;
 };
 
 type CourseMode = {
@@ -78,7 +76,7 @@ export function CopyTranscriptModal(
     const filters: TranscriptFilterOptions = {
       priorityFilter: props.priorityFilter,
       iconFilter: props.iconFilter,
-      fsStatusFilter: props.fsStatusFilter,
+      todoFilter: props.todoFilter,
       searchQuery: "",
     };
 
@@ -211,42 +209,18 @@ export function CopyTranscriptModal(
               })}
 
               <span className="text-muted-foreground mx-0.5">|</span>
-              {(["ghost", "real", "todo"] as const).map((status) => {
-                const isSelected = props.fsStatusFilter === status;
-                const showAsActive =
-                  props.fsStatusFilter === null || isSelected;
-                return (
-                  <button
-                    key={status}
-                    className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors flex items-center gap-1 ${
-                      showAsActive
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    } ${isSelected ? "ring-1 ring-current" : ""}`}
-                    onClick={() => props.onToggleFsStatus(status)}
-                    title={
-                      status === "ghost"
-                        ? "Ghost"
-                        : status === "real"
-                          ? "Real"
-                          : "Todo"
-                    }
-                  >
-                    {status === "ghost" ? (
-                      <Ghost className="w-3 h-3" />
-                    ) : status === "real" ? (
-                      <FileVideo className="w-3 h-3" />
-                    ) : (
-                      <ListChecks className="w-3 h-3" />
-                    )}
-                    {status === "ghost"
-                      ? "Ghost"
-                      : status === "real"
-                        ? "Real"
-                        : "Todo"}
-                  </button>
-                );
-              })}
+              <button
+                className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors flex items-center gap-1 ${
+                  props.todoFilter
+                    ? "bg-muted text-muted-foreground ring-1 ring-current"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                onClick={() => props.onToggleTodo()}
+                title="Todo"
+              >
+                <ListChecks className="w-3 h-3" />
+                Todo
+              </button>
             </div>
           </div>
 

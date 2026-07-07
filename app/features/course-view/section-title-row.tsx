@@ -7,8 +7,6 @@ import {
 
 export function SectionTitleRow({
   section,
-  isGhostSection,
-  showGhostStyle,
   isReadOnly,
   editSectionId,
   dispatch,
@@ -16,13 +14,10 @@ export function SectionTitleRow({
   navigateTo,
 }: {
   section: { id: string; path: string };
-  isGhostSection: boolean;
-  showGhostStyle: boolean;
   isReadOnly: boolean;
   editSectionId: string | null;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
-  /** When set, the header navigates to the Section Workbench (see editor). */
   navigateTo?: string;
 }) {
   const {
@@ -32,11 +27,9 @@ export function SectionTitleRow({
     saveTitle,
     cancelEditing,
     startEditingTitle,
-    pathPrefix,
   } = useSectionTitleEditor({
     sectionId: section.id,
     sectionPath: section.path,
-    isGhostSection,
     dispatch,
     submitEvent,
     editSectionId,
@@ -45,12 +38,9 @@ export function SectionTitleRow({
   return (
     <SectionTitleEditor
       sectionPath={section.path}
-      isGhostSection={isGhostSection}
-      showGhostStyle={showGhostStyle}
       isReadOnly={isReadOnly}
       editingTitle={editingTitle}
       titleValue={titleValue}
-      pathPrefix={pathPrefix}
       onTitleValueChange={setTitleValue}
       onCancel={cancelEditing}
       onSave={saveTitle}

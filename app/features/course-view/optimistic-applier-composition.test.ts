@@ -13,55 +13,6 @@ import {
 
 describe("applyOptimisticEvent – composition and edge cases", () => {
   describe("cross-event sequential composition", () => {
-    it("convert-to-ghost then delete-lesson on same lesson", () => {
-      const loaderData = makeLoaderData([
-        makeSection({}, [
-          makeLesson({ id: "lesson-1", fsStatus: "real" }),
-          makeLesson({ id: "lesson-2" }),
-        ]),
-      ]);
-
-      const ghost: CourseEditorEvent = {
-        type: "convert-to-ghost",
-        lessonId: "lesson-1",
-      };
-      const del: CourseEditorEvent = {
-        type: "delete-lesson",
-        lessonId: "lesson-1",
-      };
-
-      const afterGhost = applyOptimisticEvent(loaderData, ghost);
-      const result = applyOptimisticEvent(afterGhost, del);
-
-      expect(result.selectedCourse!.sections[0]!.lessons).toHaveLength(1);
-      expect(result.selectedCourse!.sections[0]!.lessons[0]!.id).toBe(
-        "lesson-2"
-      );
-    });
-
-    it("delete-lesson then convert-to-ghost on deleted lesson is a no-op", () => {
-      const loaderData = makeLoaderData([
-        makeSection({}, [
-          makeLesson({ id: "lesson-1", fsStatus: "real" }),
-          makeLesson({ id: "lesson-2", fsStatus: "real" }),
-        ]),
-      ]);
-
-      const del: CourseEditorEvent = {
-        type: "delete-lesson",
-        lessonId: "lesson-1",
-      };
-      const ghost: CourseEditorEvent = {
-        type: "convert-to-ghost",
-        lessonId: "lesson-1",
-      };
-
-      const afterDelete = applyOptimisticEvent(loaderData, del);
-      const result = applyOptimisticEvent(afterDelete, ghost);
-
-      expect(result).toBe(afterDelete);
-    });
-
     it("delete-lesson then archive-section on the emptied section", () => {
       const loaderData = makeLoaderData([
         makeSection({ id: "section-1" }, [makeLesson({ id: "lesson-1" })]),

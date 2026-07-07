@@ -14,8 +14,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Code,
-  FileVideo,
-  Ghost,
   List,
   ListChecks,
   MessageCircle,
@@ -40,10 +38,7 @@ export function StatsBar({
     totalVideos,
     totalDurationSeconds,
     percentageComplete,
-  } = computeCourseStats(
-    selectedCourse?.sections ?? [],
-    selectedCourse?.filePath ?? null
-  );
+  } = computeCourseStats(selectedCourse?.sections ?? []);
 
   const totalDurationFormatted = (() => {
     const hours = Math.floor(totalDurationSeconds / 3600);
@@ -75,8 +70,8 @@ export function StatsBar({
 export function FilterBar({
   priorityFilter,
   iconFilter,
-  fsStatusFilter,
-  fsStatusCounts,
+  todoFilter,
+  todoCount,
   searchQuery,
   viewMode,
   onToggleViewMode,
@@ -84,12 +79,11 @@ export function FilterBar({
   onToggleAllSections,
   sectionCount,
   dispatch,
-  isRealCourse,
 }: {
   priorityFilter: number[];
   iconFilter: string[];
-  fsStatusFilter: string | null;
-  fsStatusCounts: { ghost: number; real: number; todo: number };
+  todoFilter: boolean;
+  todoCount: number;
   searchQuery: string;
   viewMode: "expanded" | "compact";
   onToggleViewMode: () => void;
@@ -97,12 +91,11 @@ export function FilterBar({
   onToggleAllSections: () => void;
   sectionCount: number;
   dispatch: (action: courseViewReducer.Action) => void;
-  isRealCourse: boolean;
 }) {
   const hasActiveFilters =
     priorityFilter.length > 0 ||
     iconFilter.length > 0 ||
-    fsStatusFilter !== null ||
+    todoFilter ||
     searchQuery.length > 0;
 
   return (
@@ -195,49 +188,20 @@ export function FilterBar({
           );
         })}
 
-        {isRealCourse && (
-          <>
-            <span className="text-muted-foreground mx-0.5">|</span>
-            {(["ghost", "real", "todo"] as const).map((status) => {
-              const isSelected = fsStatusFilter === status;
-              const showAsActive = fsStatusFilter === null || isSelected;
-              return (
-                <button
-                  key={status}
-                  className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors flex items-center gap-1 ${
-                    showAsActive
-                      ? "bg-muted text-muted-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  } ${isSelected ? "ring-1 ring-current" : ""}`}
-                  onClick={() =>
-                    dispatch({ type: "toggle-fs-status-filter", status })
-                  }
-                  title={
-                    status === "ghost"
-                      ? "Ghost"
-                      : status === "real"
-                        ? "Real"
-                        : "Todo"
-                  }
-                >
-                  {status === "ghost" ? (
-                    <Ghost className="w-3 h-3" />
-                  ) : status === "real" ? (
-                    <FileVideo className="w-3 h-3" />
-                  ) : (
-                    <ListChecks className="w-3 h-3" />
-                  )}
-                  {status === "ghost"
-                    ? "Ghost"
-                    : status === "real"
-                      ? "Real"
-                      : "Todo"}
-                  <span className="opacity-60">{fsStatusCounts[status]}</span>
-                </button>
-              );
-            })}
-          </>
-        )}
+        <span className="text-muted-foreground mx-0.5">|</span>
+        <button
+          className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors flex items-center gap-1 ${
+            todoFilter
+              ? "bg-muted text-muted-foreground ring-1 ring-current"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => dispatch({ type: "toggle-todo-filter" })}
+          title="Todo"
+        >
+          <ListChecks className="w-3 h-3" />
+          Todo
+          <span className="opacity-60">{todoCount}</span>
+        </button>
 
         {hasActiveFilters && (
           <>
@@ -255,11 +219,8 @@ export function FilterBar({
                     dispatch({ type: "toggle-icon-filter", icon: i });
                   }
                 }
-                if (fsStatusFilter !== null) {
-                  dispatch({
-                    type: "toggle-fs-status-filter",
-                    status: fsStatusFilter,
-                  });
+                if (todoFilter) {
+                  dispatch({ type: "toggle-todo-filter" });
                 }
                 if (searchQuery) {
                   dispatch({ type: "set-search-query", query: "" });
@@ -366,7 +327,7 @@ export function RouteModals({
     } | null;
     priorityFilter: number[];
     iconFilter: string[];
-    fsStatusFilter: string | null;
+    todoFilter: boolean;
   };
   dispatch: (action: courseViewReducer.Action) => void;
   navigate: ReturnType<typeof useNavigate>;
@@ -448,16 +409,14 @@ export function RouteModals({
             }
             priorityFilter={viewState.priorityFilter}
             iconFilter={viewState.iconFilter}
-            fsStatusFilter={viewState.fsStatusFilter}
+            todoFilter={viewState.todoFilter}
             onTogglePriority={(priority) =>
               dispatch({ type: "toggle-priority-filter", priority })
             }
             onToggleIcon={(icon) =>
               dispatch({ type: "toggle-icon-filter", icon })
             }
-            onToggleFsStatus={(status) =>
-              dispatch({ type: "toggle-fs-status-filter", status })
-            }
+            onToggleTodo={() => dispatch({ type: "toggle-todo-filter" })}
           />
         )}
 
@@ -476,16 +435,14 @@ export function RouteModals({
             }}
             priorityFilter={viewState.priorityFilter}
             iconFilter={viewState.iconFilter}
-            fsStatusFilter={viewState.fsStatusFilter}
+            todoFilter={viewState.todoFilter}
             onTogglePriority={(priority) =>
               dispatch({ type: "toggle-priority-filter", priority })
             }
             onToggleIcon={(icon) =>
               dispatch({ type: "toggle-icon-filter", icon })
             }
-            onToggleFsStatus={(status) =>
-              dispatch({ type: "toggle-fs-status-filter", status })
-            }
+            onToggleTodo={() => dispatch({ type: "toggle-todo-filter" })}
           />
         )}
       </Suspense>

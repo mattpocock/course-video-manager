@@ -45,7 +45,7 @@ import {
 import { NextTodoCard } from "@/features/course-view/next-todo-card";
 import {
   createSectionDragHandler,
-  computeFsStatusCounts,
+  computeTodoCount,
   computeFlatLessons,
   computeDependencyMap,
 } from "@/features/course-view/course-editor-helpers";
@@ -156,16 +156,14 @@ export default function Component(props: Route.ComponentProps) {
     insertPosition,
     addVideoToLessonId,
     editSectionId,
-    convertToGhostLessonId,
     deleteLessonId,
-    createOnDiskLessonId,
     editDescriptionLessonId,
     archiveSectionId,
     lessonSelection,
     videoPlayerState,
     priorityFilter,
     iconFilter,
-    fsStatusFilter,
+    todoFilter,
     searchQuery,
   } = viewState;
 
@@ -241,9 +239,9 @@ export default function Component(props: Route.ComponentProps) {
     [displaySections]
   );
 
-  const fsStatusCounts = useMemo(
+  const todoCount = useMemo(
     () =>
-      computeFsStatusCounts(displaySections, {
+      computeTodoCount(displaySections, {
         priorityFilter,
         iconFilter,
         searchQuery,
@@ -327,9 +325,7 @@ export default function Component(props: Route.ComponentProps) {
                           data={loaderData}
                           navigate={navigate}
                           addVideoToLessonId={addVideoToLessonId}
-                          convertToGhostLessonId={convertToGhostLessonId}
                           deleteLessonId={deleteLessonId}
-                          createOnDiskLessonId={createOnDiskLessonId}
                           editDescriptionLessonId={editDescriptionLessonId}
                           dispatch={dispatch}
                           submitEvent={submitEvent}
@@ -352,8 +348,8 @@ export default function Component(props: Route.ComponentProps) {
                       <FilterBar
                         priorityFilter={priorityFilter}
                         iconFilter={iconFilter}
-                        fsStatusFilter={fsStatusFilter}
-                        fsStatusCounts={fsStatusCounts}
+                        todoFilter={todoFilter}
+                        todoCount={todoCount}
                         searchQuery={searchQuery}
                         viewMode={viewMode}
                         onToggleViewMode={() =>
@@ -365,29 +361,25 @@ export default function Component(props: Route.ComponentProps) {
                         onToggleAllSections={handleToggleAllSections}
                         sectionCount={sectionIds.length}
                         dispatch={dispatch}
-                        isRealCourse={currentCourse?.filePath != null}
                       />
                     </div>
 
                     <SectionGrid
                       currentCourse={currentCourse}
                       data={loaderData}
-                      isGhostCourse={!currentCourse?.filePath}
                       viewMode={viewMode}
                       sensors={sensors}
                       handleSectionDragEnd={handleSectionDragEnd}
                       priorityFilter={priorityFilter}
                       iconFilter={iconFilter}
-                      fsStatusFilter={fsStatusFilter}
+                      todoFilter={todoFilter}
                       searchQuery={searchQuery}
                       addGhostLessonSectionId={addGhostLessonSectionId}
                       insertAdjacentLessonId={insertAdjacentLessonId}
                       insertPosition={insertPosition}
                       editSectionId={editSectionId}
                       addVideoToLessonId={addVideoToLessonId}
-                      convertToGhostLessonId={convertToGhostLessonId}
                       deleteLessonId={deleteLessonId}
-                      createOnDiskLessonId={createOnDiskLessonId}
                       editDescriptionLessonId={editDescriptionLessonId}
                       archiveSectionId={archiveSectionId}
                       collapsedSections={collapsedSections}

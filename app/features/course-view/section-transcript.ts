@@ -406,7 +406,7 @@ function buildSectionObject(
 export type TranscriptFilterOptions = {
   priorityFilter: number[];
   iconFilter: string[];
-  fsStatusFilter: string | null;
+  todoFilter: boolean;
   searchQuery: string;
 };
 
