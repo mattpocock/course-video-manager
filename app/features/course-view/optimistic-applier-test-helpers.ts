@@ -91,7 +91,6 @@ export function makeLoaderData(sections = [makeSection()]): LoaderData {
       lessonHasFilesMap: {},
     }),
     videoTranscripts: Promise.resolve({}),
-    gitStatus: Promise.resolve(null),
     showMediaFilesList: false,
   } as unknown as LoaderData;
 }

@@ -1,8 +1,7 @@
 /**
- * Polling endpoint for filesystem and git status.
+ * Polling endpoint for filesystem status.
  *
- * Returns export maps, lesson filesystem maps, and git status
- * for the given course. Consumed by the useFsGitStatus hook.
+ * Returns export maps and lesson filesystem maps for the given course.
  */
 
 import {
@@ -10,7 +9,6 @@ import {
   loadLessonFsMaps,
 } from "@/services/course-loader-fs";
 import type { ExportClip } from "@/services/export-hash";
-import { getGitStatusAsync } from "@/services/git-status-service.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -34,7 +32,6 @@ export const loader = async (args: Route.LoaderArgs) => {
             { path: string; size: number }[]
           >,
         },
-        gitStatus: null,
       },
       { status: 200 }
     );
@@ -65,7 +62,6 @@ export const loader = async (args: Route.LoaderArgs) => {
             { path: string; size: number }[]
           >,
         },
-        gitStatus: null,
       };
     }
 
@@ -96,10 +92,6 @@ export const loader = async (args: Route.LoaderArgs) => {
 
     const lessonFsMaps = yield* loadLessonFsMaps({ lessons });
 
-    const gitStatus = course.filePath
-      ? yield* Effect.promise(() => getGitStatusAsync(course.filePath!))
-      : null;
-
-    return { hasExportedVideoMap, lessonFsMaps, gitStatus };
+    return { hasExportedVideoMap, lessonFsMaps };
   }).pipe(runtimeLive.runPromise);
 };

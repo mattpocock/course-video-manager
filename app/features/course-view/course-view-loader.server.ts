@@ -9,7 +9,6 @@ import {
 } from "@/services/course-loader-fs";
 import { computeLessonWarnings } from "@/services/lesson-warnings";
 import type { ExportClip } from "@/services/export-hash";
-import { getGitStatusAsync } from "@/services/git-status-service.server";
 import { runtimeLive } from "@/services/layer.server";
 
 /**
@@ -139,10 +138,6 @@ export function courseViewEffect(input: {
       selectedVersion.id === latestVersion.id
     );
 
-    const gitStatus = selectedCourse?.filePath
-      ? getGitStatusAsync(selectedCourse.filePath)
-      : Promise.resolve(null);
-
     return {
       courses,
       selectedCourse: slimCourse,
@@ -152,7 +147,6 @@ export function courseViewEffect(input: {
       hasExportedVideoMap,
       lessonFsMaps,
       videoTranscripts,
-      gitStatus,
       showMediaFilesList: featureFlags.isEnabled("ENABLE_MEDIA_FILES_LIST"),
       viewMode,
     };

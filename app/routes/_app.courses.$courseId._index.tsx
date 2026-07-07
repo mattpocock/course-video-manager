@@ -216,7 +216,6 @@ export default function Component(props: Route.ComponentProps) {
   const deleteVideoFileFetcher = useFetcher();
   const revealVideoFetcher = useFetcher();
   const archiveCourseFetcher = useFetcher();
-  const gitPushFetcher = useFetcher();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -299,7 +298,6 @@ export default function Component(props: Route.ComponentProps) {
                       data={loaderData}
                       dispatch={dispatch}
                       archiveCourseFetcher={archiveCourseFetcher}
-                      gitPushFetcher={gitPushFetcher}
                       handleBatchExport={handleBatchExport}
                     />
                     {courseWarningCount > 0 && (
@@ -318,10 +316,7 @@ export default function Component(props: Route.ComponentProps) {
                     !loaderData.isLatestVersion && <ReadOnlyBanner />}
 
                   <div className="mb-10">
-                    <StatsBar
-                      selectedCourse={currentCourse}
-                      gitStatus={loaderData.gitStatus}
-                    />
+                    <StatsBar selectedCourse={currentCourse} />
                   </div>
 
                   <>

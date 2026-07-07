@@ -18,29 +18,24 @@ import {
   Film,
   FileText,
   FileX,
-  GitBranch,
   PencilIcon,
   FolderPen,
   ClipboardCopy,
   Upload,
 } from "lucide-react";
-import { Suspense, use } from "react";
 import { Link, useFetcher } from "react-router";
-import { toast } from "sonner";
 
 export function ActionsDropdown({
   currentCourse,
   data,
   dispatch,
   archiveCourseFetcher,
-  gitPushFetcher,
   handleBatchExport,
 }: {
   currentCourse: NonNullable<LoaderData["selectedCourse"]>;
   data: LoaderData;
   dispatch: (action: courseViewReducer.Action) => void;
   archiveCourseFetcher: ReturnType<typeof useFetcher>;
-  gitPushFetcher: ReturnType<typeof useFetcher>;
   handleBatchExport: () => void;
 }) {
   return (
@@ -80,16 +75,6 @@ export function ActionsDropdown({
               </Link>
             </DropdownMenuItem>
           </>
-        )}
-
-        {currentCourse.filePath && (
-          <Suspense>
-            <GitPushMenuItem
-              courseId={currentCourse.id}
-              gitStatus={data.gitStatus}
-              gitPushFetcher={gitPushFetcher}
-            />
-          </Suspense>
         )}
 
         {currentCourse.filePath && <DropdownMenuSeparator />}
@@ -257,49 +242,5 @@ export function ActionsDropdown({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function GitPushMenuItem({
-  courseId,
-  gitStatus,
-  gitPushFetcher,
-}: {
-  courseId: string;
-  gitStatus: LoaderData["gitStatus"];
-  gitPushFetcher: ReturnType<typeof useFetcher>;
-}) {
-  const resolved = use(gitStatus);
-  if (!resolved || resolved.total === 0) return null;
-  return (
-    <DropdownMenuItem
-      disabled={gitPushFetcher.state === "submitting"}
-      onSelect={() => {
-        gitPushFetcher
-          .submit(
-            {},
-            {
-              method: "post",
-              action: `/api/courses/${courseId}/git-push`,
-            }
-          )
-          .then(() => {
-            toast.success("Changes pushed to git");
-          })
-          .catch((e) => {
-            console.error("Git push failed", e);
-            toast.error("Git push failed");
-          });
-      }}
-    >
-      <GitBranch className="w-4 h-4 mr-2" />
-      <div className="flex flex-col">
-        <span className="font-medium">Push</span>
-        <span className="text-xs text-muted-foreground">
-          Add, commit & push {resolved.total} change
-          {resolved.total !== 1 ? "s" : ""}
-        </span>
-      </div>
-    </DropdownMenuItem>
   );
 }

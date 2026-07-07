@@ -16,7 +16,6 @@ import {
   Code,
   FileVideo,
   Ghost,
-  GitBranch,
   List,
   ListChecks,
   MessageCircle,
@@ -25,17 +24,15 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { Suspense, use } from "react";
+import { Suspense } from "react";
 import { useNavigate } from "react-router";
 import { Input } from "@/components/ui/input";
 import type { LoaderData } from "./course-view-types";
 
 export function StatsBar({
   selectedCourse,
-  gitStatus,
 }: {
   selectedCourse: LoaderData["selectedCourse"];
-  gitStatus: LoaderData["gitStatus"];
 }) {
   const {
     totalLessonsWithVideos,
@@ -71,21 +68,7 @@ export function StatsBar({
           {totalDurationFormatted}
         </span>
       )}
-      <Suspense>
-        <GitStatusBadge gitStatus={gitStatus} />
-      </Suspense>
     </div>
-  );
-}
-
-function GitStatusBadge({ gitStatus }: { gitStatus: LoaderData["gitStatus"] }) {
-  const resolved = use(gitStatus);
-  if (!resolved || resolved.total === 0) return null;
-  return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 px-2 py-1 text-xs font-medium text-yellow-600">
-      <GitBranch className="w-3 h-3" />
-      {resolved.total} change{resolved.total !== 1 ? "s" : ""}
-    </span>
   );
 }
 
