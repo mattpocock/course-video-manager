@@ -425,9 +425,9 @@ type WorkingSection = {
 };
 
 /**
- * Pure mirror of `renumberSections` in course-write-service.helpers.ts: real
- * sections get sequential numbers, ghosts are skipped, and each renumbered
- * section's real lessons keep their own lessonNumber under the new prefix.
+ * Real sections get sequential numbers, ghosts are skipped, and each
+ * renumbered section's real lessons keep their own lessonNumber under the
+ * new prefix.
  */
 function renumberSectionsInModel(
   model: WorkingSection[],

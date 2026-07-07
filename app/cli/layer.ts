@@ -22,8 +22,7 @@ import { BackupCoordinator } from "@/cli/backup-coordinator";
  * Structural edits (reorder, move) route through CourseWriteService — pure
  * DB writes with no filesystem or git coupling.
  *
- * Publish-only services (CoursePublishService, CourseRepoParserService, ...)
- * remain out of scope.
+ * Publish-only services (CoursePublishService, ...) remain out of scope.
  *
  * The read services cover all 10 nouns:
  *   course        -> CourseOperationsService

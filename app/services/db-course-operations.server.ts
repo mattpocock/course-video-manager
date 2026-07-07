@@ -153,12 +153,6 @@ export const createCourseOperations = (db: Database) => {
         });
       }
 
-      // NOTE: intentionally NOT attaching derived paths here. This loader feeds
-      // the disk-reconciliation sites (course-repo-sync-validation and the
-      // sync-from-disk import in api.courses.update), which must track the
-      // current *on-disk* folder name. That name is kept in the stored `path`
-      // column by the write-side sync writes until Slice 4 wires the
-      // atomic-rename-from-title and Slice 5 drops the column.
       return course;
     }
   );

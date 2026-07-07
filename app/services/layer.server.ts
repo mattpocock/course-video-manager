@@ -1,7 +1,6 @@
 import { Layer, ManagedRuntime } from "effect";
 import { DrizzleService } from "./drizzle-service.server";
 import { DatabaseDumpService, PgDumpRunner } from "./dump-service";
-import { CourseRepoParserService } from "./course-repo-parser";
 import { NodeContext } from "@effect/platform-node";
 import { VideoProcessingService } from "./video-processing-service";
 import { BackgroundRemovalService } from "./background-removal-service";
@@ -41,7 +40,6 @@ const coreLayer = Layer.mergeAll(
   DeliverableOperationsService.Default,
   ThumbnailOperationsService.Default,
   LinkAuthOperationsService.Default,
-  CourseRepoParserService.Default,
   DatabaseDumpService.Default,
   VideoProcessingService.Default,
   BackgroundRemovalService.Default,

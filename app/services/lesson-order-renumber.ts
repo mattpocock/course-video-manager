@@ -1,20 +1,7 @@
 /**
- * Pure renumbering logic used by the filesystem resync (`api.courses.update`)
- * to keep `lesson.order` collision-free while respecting both disk truth and
- * interleaved ghost lessons.
- *
- * Background: resync re-derives each *real* lesson's `order` from the numeric
- * prefix of its on-disk path (its `lessonNumber`). Ghost lessons have no path
- * number, so they never participate in that pass — and a ghost that the user
- * dragged between two real lessons (which sits on a shifted integer slot) ends
- * up colliding with the real lesson whose slot resync re-claims. Because the
- * read queries order by `order` with no tie-breaker, the tied pair then
- * flickers between page loads.
- *
- * The fix is to renumber each section densely after resync. We sort by the
- * post-resync `order` (disk truth for reals), and break the freshly-created
- * real/ghost ties using the *pre-resync* order — which still encodes where the
- * ghost was relative to its neighbours — so the ghost lands back in its slot.
+ * Pure renumbering logic to keep `lesson.order` collision-free after bulk
+ * reordering. Renumbers each section densely (0..n-1) while preserving
+ * display order.
  */
 
 export interface LessonForRenumber {
