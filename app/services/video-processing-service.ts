@@ -8,9 +8,9 @@ import { homedir, tmpdir } from "os";
 import OpenAI from "openai";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { findSilenceInVideo } from "./silence-detection";
-import type { PauseLength } from "@/silence-detection-constants";
+import type { SilenceLength } from "@/silence-detection-constants";
 
-export type BeatType = "none" | "long";
+export type PauseType = "none" | "long";
 
 const TRANSCRIPTION_PERMITS = 20;
 const AUTO_EDITED_VIDEO_FINAL_END_PADDING = 0.5;
@@ -76,7 +76,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         function* (opts: {
           filePath: string | undefined;
           startTime: number | undefined;
-          pauseLength?: PauseLength;
+          silenceLength?: SilenceLength;
         }) {
           if (!opts.filePath) {
             // Without a file path, fall back to the most recent OBS recording.
@@ -114,13 +114,13 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
             const latestFile = filesWithStats[0]!.file;
             return yield* findSilenceInVideo(ffmpegCommands, latestFile, {
               startTime: opts.startTime,
-              pauseLength: opts.pauseLength,
+              silenceLength: opts.silenceLength,
             });
           }
 
           return yield* findSilenceInVideo(ffmpegCommands, opts.filePath, {
             startTime: opts.startTime,
-            pauseLength: opts.pauseLength,
+            silenceLength: opts.silenceLength,
           });
         }
       );
@@ -131,7 +131,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
           inputVideo: string;
           startTime: number;
           duration: number;
-          beatType: BeatType;
+          pauseType: PauseType;
         }[];
         shortsDirectoryOutputName: string | undefined;
         onStageChange?: (

@@ -22,6 +22,7 @@ const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Intro section",
         real: true,
@@ -51,7 +52,7 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segments: [
+              beats: [
                 {
                   id: "seg1",
                   kind: "definition",
@@ -68,7 +69,7 @@ const fullCourse = makeCourseEntry({
                   sourceStartTime: 0,
                   sourceEndTime: 3,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -82,6 +83,7 @@ const fullCourse = makeCourseEntry({
       path: "02-planned",
       sectionLeaf: {
         id: "s2",
+        title: "Planned",
         slug: "planned",
         description: "",
         real: false,
@@ -116,7 +118,7 @@ describe("vfsTree", () => {
     expect(result).toContain("courses/");
   });
 
-  it("prints a full course subtree with segments/ and timeline/ dirs", () => {
+  it("prints a full course subtree with beats/ and timeline/ dirs", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsTree(root, "/courses/my-course");
     const lines = result.split("\n");
@@ -126,7 +128,7 @@ describe("vfsTree", () => {
     expect(result).toContain("_members.json");
     expect(result).toContain("01-intro/");
     expect(result).toContain("take-1/");
-    expect(result).toContain("segments/");
+    expect(result).toContain("beats/");
     expect(result).toContain("timeline/");
     expect(result).toContain("00-opening.chapter.json");
     expect(result).toContain("01.clip.json");
@@ -168,6 +170,7 @@ describe("vfsTree", () => {
       path: `section-${String(i).padStart(2, "0")}`,
       sectionLeaf: {
         id: `s${i}`,
+        title: `Section-${i}`,
         slug: `section-${i}`,
         description: "",
         real: true,
@@ -206,6 +209,7 @@ describe("vfsTree", () => {
             path: "02-beta",
             sectionLeaf: {
               id: "s2",
+              title: "Beta",
               slug: "beta",
               description: "",
               real: true,
@@ -217,6 +221,7 @@ describe("vfsTree", () => {
             path: "01-alpha",
             sectionLeaf: {
               id: "s1",
+              title: "Alpha",
               slug: "alpha",
               description: "",
               real: true,
@@ -244,6 +249,7 @@ describe("vfsTree", () => {
             path: "01-intro",
             sectionLeaf: {
               id: "s1",
+              title: "Intro",
               slug: "intro",
               description: "",
               real: true,
@@ -255,6 +261,7 @@ describe("vfsTree", () => {
             path: "planned",
             sectionLeaf: {
               id: "s2",
+              title: "Planned",
               slug: "planned",
               description: "",
               real: false,
@@ -266,6 +273,7 @@ describe("vfsTree", () => {
             path: "03-outro",
             sectionLeaf: {
               id: "s3",
+              title: "Outro",
               slug: "outro",
               description: "",
               real: true,

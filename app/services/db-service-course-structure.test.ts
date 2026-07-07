@@ -39,7 +39,12 @@ const buildCourseWithVideos = async () => {
 
   const [section] = await testDb
     .insert(schema.sections)
-    .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+    .values({
+      repoVersionId: version!.id,
+      path: "01-intro",
+      title: "intro",
+      order: 1,
+    })
     .returning();
 
   const [lessonReal] = await testDb
@@ -117,10 +122,16 @@ describe("getCourseStructureById - archived section filtering", () => {
       // Insert one active and one archived section
       yield* Effect.promise(() =>
         testDb.insert(schema.sections).values([
-          { repoVersionId: version!.id, path: "01-active", order: 1 },
+          {
+            repoVersionId: version!.id,
+            path: "01-active",
+            title: "active",
+            order: 1,
+          },
           {
             repoVersionId: version!.id,
             path: "02-archived",
+            title: "archived",
             order: 2,
             archivedAt: new Date(),
           },
@@ -159,12 +170,14 @@ describe("getCourseStructureById - archived section filtering", () => {
           {
             repoVersionId: version!.id,
             path: "01-archived",
+            title: "archived",
             order: 1,
             archivedAt: new Date(),
           },
           {
             repoVersionId: version!.id,
             path: "02-archived",
+            title: "archived",
             order: 2,
             archivedAt: new Date(),
           },
@@ -275,14 +288,22 @@ describe("getCourseStructureById", () => {
 
       // Insert sections out of order
       yield* Effect.promise(() =>
-        testDb
-          .insert(schema.sections)
-          .values({ repoVersionId: version!.id, path: "02-advanced", order: 2 })
+        testDb.insert(schema.sections).values({
+          repoVersionId: version!.id,
+          path: "02-advanced",
+          title: "advanced",
+          order: 2,
+        })
       );
       const [sectionA] = yield* Effect.promise(() =>
         testDb
           .insert(schema.sections)
-          .values({ repoVersionId: version!.id, path: "01-basics", order: 1 })
+          .values({
+            repoVersionId: version!.id,
+            path: "01-basics",
+            title: "basics",
+            order: 1,
+          })
           .returning()
       );
 
@@ -322,8 +343,8 @@ describe("getCourseStructureById", () => {
   );
 });
 
-describe("getCourseWithSlimClipsById - archived segment filtering", () => {
-  it.effect("excludes archived segments from results", () =>
+describe("getCourseWithSlimClipsById - archived beat filtering", () => {
+  it.effect("excludes archived beats from results", () =>
     Effect.gen(function* () {
       const { courseId } = yield* Effect.promise(() => buildCourseWithVideos());
 
@@ -332,18 +353,18 @@ describe("getCourseWithSlimClipsById - archived segment filtering", () => {
       );
 
       yield* Effect.promise(() =>
-        testDb.insert(schema.segments).values([
+        testDb.insert(schema.beats).values([
           {
             videoId: videoRow!.id,
             kind: "definition",
-            title: "Active Segment",
+            title: "Active Beat",
             order: "a0",
             archived: false,
           },
           {
             videoId: videoRow!.id,
             kind: "quest",
-            title: "Archived Segment",
+            title: "Archived Beat",
             order: "a1",
             archived: true,
           },
@@ -354,8 +375,8 @@ describe("getCourseWithSlimClipsById - archived segment filtering", () => {
       const result = yield* courseOps.getCourseWithSlimClipsById(courseId);
 
       const video = result.versions[0]!.sections[0]!.lessons[0]!.videos[0]!;
-      expect(video.segments).toHaveLength(1);
-      expect(video.segments[0]!.title).toBe("Active Segment");
+      expect(video.beats).toHaveLength(1);
+      expect(video.beats[0]!.title).toBe("Active Beat");
     }).pipe(Effect.provide(testLayer))
   );
 });

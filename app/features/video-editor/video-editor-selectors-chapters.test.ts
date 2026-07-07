@@ -20,7 +20,7 @@ const makeClip = (
   scene: null,
   profile: null,
   insertionOrder: null,
-  beatType: "none",
+  pauseType: "none",
   diagramSnapshotId: null,
   diagramName: null,
   ...overrides,

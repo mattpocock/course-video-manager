@@ -23,6 +23,7 @@ const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Intro section",
         real: true,
@@ -52,7 +53,7 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segments: [
+              beats: [
                 {
                   id: "seg1",
                   kind: "definition",
@@ -75,7 +76,7 @@ const fullCourse = makeCourseEntry({
                   sourceStartTime: 0,
                   sourceEndTime: 3,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -86,7 +87,7 @@ const fullCourse = makeCourseEntry({
                   sourceStartTime: 3,
                   sourceEndTime: 6,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -171,11 +172,11 @@ describe("vfsCat", () => {
     expect(parsed.name).toBe("Opening");
   });
 
-  it("reads an individual segment leaf", () => {
+  it("reads an individual beat leaf", () => {
     const root = buildVfsTree([fullCourse]);
     const result = vfsCat(
       root,
-      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/00-intro.json"
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/00-intro.json"
     );
     const parsed = JSON.parse(result);
     expect(parsed.kind).toBe("definition");
@@ -205,7 +206,7 @@ describe("applyFilter", () => {
     { id: "ch2", type: "chapter", label: "Closing" },
   ];
 
-  const segmentMembers: MembersLeaf = [
+  const beatMembers: MembersLeaf = [
     { id: "seg1", kind: "definition", title: "Intro" },
     { id: "seg2", kind: "walkthrough", title: "Main" },
   ];
@@ -273,8 +274,8 @@ describe("applyFilter", () => {
   });
 
   describe("count filter", () => {
-    it("returns item count for segment members", () => {
-      const result = applyFilter(segmentMembers, "count");
+    it("returns item count for beat members", () => {
+      const result = applyFilter(beatMembers, "count");
       expect(result).toEqual({ items: 2 });
     });
 

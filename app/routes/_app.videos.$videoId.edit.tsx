@@ -12,13 +12,13 @@ import {
   clipStateReducer,
   createFrontendId,
 } from "@/features/video-editor/clip-state-reducer";
-import type { BeatType } from "@/services/video-processing-service";
+import type { PauseType } from "@/services/video-processing-service";
 import { useOBSConnector } from "@/features/video-editor/obs-connector";
-import { usePauseLength } from "@/features/video-editor/use-pause-length";
+import { useSilenceLength } from "@/features/video-editor/use-silence-length";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { SegmentOperationsService } from "@/services/db-segment-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
@@ -163,13 +163,13 @@ export const loader = makeLoader({
     Effect.gen(function* () {
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
-      const segmentOps = yield* SegmentOperationsService;
+      const beatOps = yield* BeatOperationsService;
       const video = yield* videoOps.getVideoWithClipsById(videoId);
 
-      // This video's own Segment plan, shown (and edited, when idle) in the
-      // editor's Segment Panel. See docs/adr/0015-video-level-segment-planning.
-      const segmentRows = yield* segmentOps.listSegmentsByVideoId(videoId);
-      const segments = segmentRows.map((s) => ({
+      // This video's own Beat plan, shown (and edited, when idle) in the
+      // editor's Beat Panel. See docs/adr/0015-video-level-segment-planning.
+      const beatRows = yield* beatOps.listBeatsByVideoId(videoId);
+      const beats = beatRows.map((s) => ({
         id: s.id,
         videoId: s.videoId,
         kind: s.kind,
@@ -225,7 +225,7 @@ export const loader = makeLoader({
         whiteNoiseAssetPath,
         fsData,
         referenceCandidates,
-        segments,
+        beats,
       };
     }),
 });
@@ -280,7 +280,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           frontendId: createFrontendId(),
           databaseId: clip.id as DatabaseId,
           insertionOrder: null,
-          beatType: clip.beatType as BeatType,
+          pauseType: clip.pauseType as PauseType,
           diagramSnapshotId: clip.diagramSnapshotId ?? null,
           diagramName: clip.diagramSnapshot?.diagram?.name ?? null,
         } satisfies ClipOnDatabase;
@@ -329,9 +329,9 @@ export const ComponentInner = (props: Route.ComponentProps) => {
 
   clipStateRef.current = clipState;
 
-  const [pauseLength, setPauseLength] = usePauseLength();
-  const pauseLengthRef = useRef(pauseLength);
-  pauseLengthRef.current = pauseLength;
+  const [silenceLength, setSilenceLength] = useSilenceLength();
+  const silenceLengthRef = useRef(silenceLength);
+  silenceLengthRef.current = silenceLength;
 
   const obsConnector = useOBSConnector({
     onNewClipOptimisticallyAdded: ({ scene, profile, soundDetectionId }) => {
@@ -354,7 +354,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
         diagramFocused: isDiagramFocused(),
       });
     },
-    pauseLength,
+    silenceLength,
   });
 
   // Sync OBS recording state to clip-state-reducer sessions
@@ -371,7 +371,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           obsConnector.state.type === "obs-recording"
             ? obsConnector.state.latestOutputPath
             : "",
-        pauseLength: pauseLengthRef.current,
+        silenceLength: silenceLengthRef.current,
       });
     } else if (prevType === "obs-recording" && currType !== "obs-recording") {
       dispatch({ type: "recording-stopped" });
@@ -436,11 +436,11 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       onDeleteLatestInsertedClip={() => {
         dispatch({ type: "delete-latest-inserted-clip" });
       }}
-      onToggleBeat={() => {
-        dispatch({ type: "toggle-beat-at-insertion-point" });
+      onTogglePause={() => {
+        dispatch({ type: "toggle-pause-at-insertion-point" });
       }}
-      onToggleBeatForClip={(clipId) => {
-        dispatch({ type: "toggle-beat-for-clip", clipId });
+      onTogglePauseForClip={(clipId) => {
+        dispatch({ type: "toggle-pause-for-clip", clipId });
       }}
       onMoveClip={(clipId, direction) => {
         dispatch({ type: "move-clip", clipId, direction });
@@ -477,14 +477,14 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       videoId={props.loaderData.video.id}
       liveMediaStream={obsConnector.mediaStream}
       speechDetectorState={obsConnector.speechDetectorState}
-      pauseLength={pauseLength}
-      onPauseLengthChange={setPauseLength}
+      silenceLength={silenceLength}
+      onSilenceLengthChange={setSilenceLength}
       isRecordingActive={obsConnector.state.type === "obs-recording"}
       clipIdsBeingTranscribed={clipState.clipIdsBeingTranscribed}
       fsData={props.loaderData.fsData}
       videoCount={props.loaderData.videoCount}
       referenceCandidates={props.loaderData.referenceCandidates}
-      segments={props.loaderData.segments}
+      beats={props.loaderData.beats}
       onAddReferenceChapterAt={({
         videoId,
         targetItemId,

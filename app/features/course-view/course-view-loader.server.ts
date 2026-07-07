@@ -7,6 +7,7 @@ import {
   loadLessonFsMaps,
   toSlimVideo,
 } from "@/services/course-loader-fs";
+import { computeLessonWarnings } from "@/services/lesson-warnings";
 import type { ExportClip } from "@/services/export-hash";
 import { getGitStatusAsync } from "@/services/git-status-service.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -14,7 +15,7 @@ import { runtimeLive } from "@/services/layer.server";
 /**
  * The shared course-view loader Effect, used by both the full course page and
  * the Section Workbench. Resolves the selected version, builds the slim
- * section→lesson→video→segment tree (Segment Descriptions included), and kicks
+ * section→lesson→video→beat tree (Beat Descriptions included), and kicks
  * off the deferred filesystem/git/transcript work. Sections ending in
  * `ARCHIVE` are dropped here so every consumer agrees on the visible set.
  *
@@ -66,7 +67,10 @@ export function courseViewEffect(input: {
           return {
             ...course,
             sections: allSections.filter((section) => {
-              return !section.path.endsWith("ARCHIVE");
+              // ARCHIVE sections are marked by a title ending in "ARCHIVE".
+              // Detected on the title (the source of truth) rather than the
+              // derived path, which is lowercased and absent for ghosts.
+              return !section.title.toUpperCase().endsWith("ARCHIVE");
             }),
           };
         })
@@ -90,6 +94,7 @@ export function courseViewEffect(input: {
                   return {
                     ...lessonRest,
                     videos: videos.map(toSlimVideo),
+                    lessonWarnings: computeLessonWarnings({ videos }),
                   };
                 }),
               };

@@ -619,6 +619,7 @@ describe("CourseEditorService — lessons", () => {
         .values({
           repoVersionId: version.id,
           path: "Introduction",
+          title: "Introduction",
           order: 0,
         })
         .returning();

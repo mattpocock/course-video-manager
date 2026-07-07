@@ -14,9 +14,9 @@ import type { DiffContext, DiffInput } from "@/services/vfs";
 import { executeOps } from "@/services/vfs/agent-diff-executor";
 import { modelMessagesToDiffMessages } from "@/services/vfs/model-messages-adapter";
 import {
-  SEGMENT_KINDS,
-  SEGMENT_KIND_DESCRIPTIONS,
-} from "@/features/segments/segment-kinds";
+  BEAT_KINDS,
+  BEAT_KIND_DESCRIPTIONS,
+} from "@/features/beats/beat-kinds";
 import {
   ToolLoopAgent as Agent,
   convertToModelMessages,
@@ -40,8 +40,8 @@ const requestSchema = Schema.Struct({
   versionId: Schema.optional(Schema.String),
 });
 
-const SEGMENT_KIND_GLOSSARY = SEGMENT_KINDS.map(
-  (kind) => `\`${kind}\` (${SEGMENT_KIND_DESCRIPTIONS[kind].toLowerCase()})`
+const BEAT_KIND_GLOSSARY = BEAT_KINDS.map(
+  (kind) => `\`${kind}\` (${BEAT_KIND_DESCRIPTIONS[kind].toLowerCase()})`
 ).join(", ");
 
 const SYSTEM_PROMPT = (
@@ -82,7 +82,7 @@ Every edit you propose is **human-approved**: the author sees a breakdown of exa
             _members.json      [{ id, name }]
             <video>/
               video.json
-              segments/                                    # present when non-empty
+              beats/                                       # present when non-empty
                 _members.json  [{ id, kind, title }]
                 <NN>-<slug>.json
               timeline/                                    # present when non-empty
@@ -94,11 +94,11 @@ Every edit you propose is **human-approved**: the author sees a breakdown of exa
 Every parent with children has a \`_members.json\` manifest: an ordered array whose **insertion position is the entity's order**. Use manifests for quick enumeration; read leaf files for full detail. The \`<NN>-\` filename prefix is derived from manifest position at projection time — never stored. Clips use \`.clip.json\`, chapters use \`.chapter.json\` to disambiguate inside \`timeline/\`.
 
 ## Domain glossary
-- \`Ghost\` (\`[ghost]\` in listings, \`fsStatus: "ghost"\`, or section \`real: false\`): exists in planning but not yet on disk. A ghost lesson is a full workspace — it can own videos, segments, and a timeline.
-- \`Segment\` (\`segments/\`): one unit of the video's *plan*, written *before* recording. Each has a \`kind\`: ${SEGMENT_KIND_GLOSSARY}.
-- \`Chapter\` (\`.chapter.json\` in \`timeline/\`): a named divider in the *recorded* timeline; maps 1:1 to a YouTube chapter. Not the same as a segment.
+- \`Ghost\` (\`[ghost]\` in listings, \`fsStatus: "ghost"\`, or section \`real: false\`): exists in planning but not yet on disk. A ghost lesson is a full workspace — it can own videos, beats, and a timeline.
+- \`Beat\` (\`beats/\`): one unit of the video's *plan*, written *before* recording. Each has a \`kind\`: ${BEAT_KIND_GLOSSARY}.
+- \`Chapter\` (\`.chapter.json\` in \`timeline/\`): a named divider in the *recorded* timeline; maps 1:1 to a YouTube chapter. Not the same as a beat.
 - \`Clip\` (\`.clip.json\` in \`timeline/\`): one span of recorded footage with its transcript \`text\`.
-- \`segments/\` = pre-recording plan; \`timeline/\` = recorded video (clips + chapters in play order). "What I planned to shoot" vs "what I shot."
+- \`beats/\` = pre-recording plan; \`timeline/\` = recorded video (clips + chapters in play order). "What I planned to shoot" vs "what I shot."
 - \`authoringStatus\` (\`todo\`/\`done\`): how far a real lesson has progressed.
 
 ## Editing — tools and when to use each
@@ -106,7 +106,7 @@ Every parent with children has a \`_members.json\` manifest: an ordered array wh
 Two write tools. Both require you to \`cat\` the file first.
 
 ### \`write\` — whole-file replacement
-Use for **small files**: \`_members.json\` manifests, \`section.json\`, \`lesson.json\`, \`video.json\`, individual segment/chapter leaves. You supply the complete new JSON content.
+Use for **small files**: \`_members.json\` manifests, \`section.json\`, \`lesson.json\`, \`video.json\`, individual beat/chapter leaves. You supply the complete new JSON content.
 
 ### \`edit\` — targeted patch
 Use for **large files** where rewriting everything would be wasteful (e.g. a clip leaf with long transcript text). You supply an array of edits:
@@ -126,7 +126,7 @@ What you can do to each entity type:
 | Section | ghost only | empty sections only | yes | description, slug |
 | Lesson | ghost only | yes | yes (+ move across sections) | title, slug, description, icon, priority, dependencies, authoringStatus, fsStatus |
 | Video | yes | yes | yes (manifest position) | name |
-| Segment | yes | yes | yes | kind, title, description |
+| Beat    | yes | yes | yes | kind, title, description |
 | Chapter | yes | yes | yes | name |
 | Clip | copy-only | yes | yes | text only |
 
@@ -134,7 +134,7 @@ Notes:
 - All deletes are **soft** (archive). The entity is not destroyed.
 - Section delete is rejected if the section still has non-archived lessons.
 - Clip add is **copy-only**: you must set \`videoFilename\`, \`sourceStartTime\`, and \`sourceEndTime\` to exactly match an existing non-archived clip's footage. You cannot invent new footage.
-- Clip \`scene\`, \`profile\`, \`beatType\` are **not editable**.
+- Clip \`scene\`, \`profile\`, \`pauseType\` are **not editable**.
 - Video \`originalFootagePath\` and \`warnings\` are **not editable**.
 - Course fields (\`memory\`, version block) are **not editable**.
 - Lesson \`fsStatus\` edits trigger materialize/dematerialize (filesystem operations). Materializing under a ghost course is **blocked** — the course must be materialized manually first.
@@ -153,7 +153,7 @@ Where an entity sits in its parent \`_members.json\` *is* its order. To reorder,
 ### R7 — Read before write
 You **must** \`cat\` a file before you \`write\` or \`edit\` it. Writes to files you haven't read this conversation are rejected. If the file changed since you read it (stale hash), the write is also rejected — \`cat\` it again and retry.
 
-**Exception — creating a manifest that doesn't exist yet.** A video's \`segments/\` and \`timeline/\` directories are only projected once they have ≥1 member, so a video with no segments has no \`segments/_members.json\` to read. To create the first one, \`write\` the manifest path directly (e.g. \`.../<video>/segments/_members.json\`) with a one-entry array — no prior \`cat\` is needed, because there is nothing to read. The owning video must exist; writing a manifest under a non-existent parent fails with \`No such file or directory\` (a wrong-path error, **not** "unsupported" — re-check the path). Once the manifest exists, normal read-before-write applies for further edits.
+**Exception — creating a manifest that doesn't exist yet.** A video's \`beats/\` and \`timeline/\` directories are only projected once they have ≥1 member, so a video with no beats has no \`beats/_members.json\` to read. To create the first one, \`write\` the manifest path directly (e.g. \`.../<video>/beats/_members.json\`) with a one-entry array — no prior \`cat\` is needed, because there is nothing to read. The owning video must exist; writing a manifest under a non-existent parent fails with \`No such file or directory\` (a wrong-path error, **not** "unsupported" — re-check the path). Once the manifest exists, normal read-before-write applies for further edits.
 
 ### R3 — Atomic rejection
 If any single operation in a write falls outside the capability matrix, the **entire write** is rejected. You cannot mix legal and illegal edits in one write. Fix the illegal part and retry.

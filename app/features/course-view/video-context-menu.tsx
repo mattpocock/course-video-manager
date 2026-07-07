@@ -19,12 +19,12 @@ import type { useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
 import { useGenerateChaptersAction } from "./generate-chapters-context";
 import { PurgeExportMenuItem } from "./export-status";
-import { AddSegmentSubMenu } from "@/features/segments/segment-menu-items";
-import { useRequestCreateSegment } from "@/features/segments/create-segment-dialog";
+import { AddBeatSubMenu } from "@/features/beats/beat-menu-items";
+import { useRequestCreateBeat } from "@/features/beats/create-beat-dialog";
 
 /**
  * The full set of video context-menu items, shared between the expanded
- * thumbnail grid and the compact segment tree so right-clicking a Video offers
+ * thumbnail grid and the compact beat tree so right-clicking a Video offers
  * the same actions in both views. Wrap in a `<ContextMenu>`/`<ContextMenuTrigger>`
  * at the call site.
  */
@@ -52,7 +52,7 @@ export function VideoContextMenuItems({
   submitDeleteVideo: (videoId: string) => void;
 }) {
   const openGenerateChapters = useGenerateChaptersAction();
-  const requestCreateSegment = useRequestCreateSegment();
+  const requestCreateBeat = useRequestCreateBeat();
   const isReadOnly = !data.isLatestVersion;
   const canGenerateChapters = !isReadOnly && video.clipCount > 0;
 
@@ -118,12 +118,12 @@ export function VideoContextMenuItems({
       </ContextMenuItem>
       {!isReadOnly && (
         <>
-          <AddSegmentSubMenu
+          <AddBeatSubMenu
             onAdd={(kind) =>
-              requestCreateSegment({
+              requestCreateBeat({
                 videoId: video.id,
                 kind,
-                beforeSegmentId: null,
+                beforeBeatId: null,
               })
             }
           />
@@ -146,7 +146,7 @@ export function VideoContextMenuItems({
                 videoId: video.id,
                 videoPath: video.path,
                 clipCount: video.clipCount,
-                segmentCount: video.segments.length,
+                beatCount: video.beats.length,
               });
             }}
           >

@@ -160,10 +160,10 @@ describe("leaf diff — edit fields", () => {
       expect((result.ops[0] as EditFieldOp).entityType).toBe("chapter");
   });
 
-  it("detects segment field edits", () => {
+  it("detects beat field edits", () => {
     const ctx = buildCtx();
     const path =
-      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/segments/00-intro.json";
+      "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/beats/00-intro.json";
     const stamp = stampCat(ctx.root, path);
     const before = JSON.parse(stamp.content);
     const result = deriveDiff(
@@ -252,7 +252,7 @@ describe("R3/R4 — forbidden field edits", () => {
     if (!result.ok) expect(result.rejection.message).toContain("scene");
   });
 
-  it("rejects editing clip beatType field", () => {
+  it("rejects editing clip pauseType field", () => {
     const ctx = buildCtx();
     const path =
       "/courses/my-course/sections/01-intro/lessons/01.01-hello/videos/take-1/timeline/01.clip.json";
@@ -261,13 +261,13 @@ describe("R3/R4 — forbidden field edits", () => {
     const result = deriveDiff(
       writeInput(
         path,
-        JSON.stringify({ ...before, beatType: "dramatic" }, null, 2)
+        JSON.stringify({ ...before, pauseType: "dramatic" }, null, 2)
       ),
       makeMessages([stamp]),
       ctx
     );
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.rejection.message).toContain("beatType");
+    if (!result.ok) expect(result.rejection.message).toContain("pauseType");
   });
 
   it("rejects editing clip profile field", () => {

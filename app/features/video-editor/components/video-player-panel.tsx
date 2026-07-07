@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { LiveMediaStream } from "./live-media-stream";
-import { PauseLengthToggle } from "./pause-length-toggle";
+import { SilenceLengthToggle } from "./silence-length-toggle";
 import { RecordingSignalIndicator } from "./timeline-indicators";
 import { TableOfContents } from "./table-of-contents";
 import {
@@ -175,13 +175,13 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.setReferenceVideoId
   );
-  const hasSegments = useContextSelector(
+  const hasBeats = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.hasSegments
+    (ctx) => ctx.hasBeats
   );
-  const onShowSegmentPanel = useContextSelector(
+  const onShowBeatPanel = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onShowSegmentPanel
+    (ctx) => ctx.onShowBeatPanel
   );
   const onOpenGenerateChaptersModal = useContextSelector(
     VideoEditorContext,
@@ -427,7 +427,7 @@ export const VideoPlayerPanel = () => {
 
           {isOBSActive && (
             <div className="mt-2 flex justify-center">
-              <PauseLengthToggle />
+              <SilenceLengthToggle />
             </div>
           )}
 
@@ -494,8 +494,8 @@ export const VideoPlayerPanel = () => {
               referenceCandidates={referenceCandidates}
               referenceVideoId={referenceVideoId}
               setReferenceVideoId={setReferenceVideoId}
-              hasSegments={hasSegments}
-              onShowSegmentPanel={onShowSegmentPanel}
+              hasBeats={hasBeats}
+              onShowBeatPanel={onShowBeatPanel}
               onGenerateChaptersClick={onOpenGenerateChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
             />

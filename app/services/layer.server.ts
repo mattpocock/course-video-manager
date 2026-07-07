@@ -1,6 +1,6 @@
 import { Layer, ManagedRuntime } from "effect";
 import { DrizzleService } from "./drizzle-service.server";
-import { DatabaseDumpService } from "./dump-service";
+import { DatabaseDumpService, PgDumpRunner } from "./dump-service";
 import { CourseRepoParserService } from "./course-repo-parser";
 import { NodeContext } from "@effect/platform-node";
 import { VideoProcessingService } from "./video-processing-service";
@@ -22,7 +22,7 @@ import { VersionOperationsService } from "./db-version-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { DiagramOperationsService } from "./db-diagram-operations.server";
 import { PitchOperationsService } from "./db-pitch-operations.server";
-import { SegmentOperationsService } from "./db-segment-operations.server";
+import { BeatOperationsService } from "./db-beat-operations.server";
 import { DeliverableOperationsService } from "./db-deliverable-operations.server";
 import { ThumbnailOperationsService } from "./db-thumbnail-operations.server";
 import { LinkAuthOperationsService } from "./db-link-auth-operations.server";
@@ -39,7 +39,7 @@ const coreLayer = Layer.mergeAll(
   LessonSectionOperationsService.Default,
   DiagramOperationsService.Default,
   PitchOperationsService.Default,
-  SegmentOperationsService.Default,
+  BeatOperationsService.Default,
   DeliverableOperationsService.Default,
   ThumbnailOperationsService.Default,
   LinkAuthOperationsService.Default,
@@ -57,7 +57,10 @@ const coreLayer = Layer.mergeAll(
   CourseRepoSyncValidationService.Default,
   FFmpegCommandsService.Default,
   NodeContext.layer
-).pipe(Layer.provideMerge(DrizzleService.Default));
+).pipe(
+  Layer.provide(PgDumpRunner.Default),
+  Layer.provideMerge(DrizzleService.Default)
+);
 
 const publishLayer = CoursePublishService.Default.pipe(
   Layer.provide(coreLayer)

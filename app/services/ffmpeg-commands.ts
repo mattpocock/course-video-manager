@@ -99,10 +99,10 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           inputVideo: string;
           startTime: number;
           duration: number;
-          beatType: "none" | "long";
+          pauseType: "none" | "long";
         }[]
       ) {
-        const LONG_BEAT_DURATION = 0.18;
+        const LONG_PAUSE_DURATION = 0.18;
 
         const outputDir = path.join(tmpdir(), "video-processing");
         yield* fs.makeDirectory(outputDir, { recursive: true });
@@ -118,8 +118,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         const inputArgs: string[] = [];
         for (const clip of clips) {
           const duration =
-            clip.beatType === "long"
-              ? clip.duration + LONG_BEAT_DURATION
+            clip.pauseType === "long"
+              ? clip.duration + LONG_PAUSE_DURATION
               : clip.duration;
           inputArgs.push(
             "-ss",

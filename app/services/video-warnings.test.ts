@@ -65,4 +65,67 @@ describe("computeVideoWarnings", () => {
       })
     ).toEqual([]);
   });
+
+  it("does not require body/description for a non-lesson video", () => {
+    expect(
+      computeVideoWarnings({
+        clips: [],
+        chapters: [],
+        body: null,
+        description: null,
+      })
+    ).toEqual([]);
+  });
+
+  it("flags a lesson video missing both body and description", () => {
+    expect(
+      computeVideoWarnings({
+        clips: [],
+        chapters: [],
+        lessonId: "lesson-1",
+        body: null,
+        description: "",
+      })
+    ).toEqual([{ kind: "missingBody" }, { kind: "missingDescription" }]);
+  });
+
+  it("flags only the missing body when the description is present", () => {
+    expect(
+      computeVideoWarnings({
+        clips: [],
+        chapters: [],
+        lessonId: "lesson-1",
+        body: "   ",
+        description: "A solid SEO description.",
+      })
+    ).toEqual([{ kind: "missingBody" }]);
+  });
+
+  it("returns no body/description warnings when both are present", () => {
+    expect(
+      computeVideoWarnings({
+        clips: [],
+        chapters: [],
+        lessonId: "lesson-1",
+        body: "The body.",
+        description: "The description.",
+      })
+    ).toEqual([]);
+  });
+
+  it("combines missingOpeningChapter with missing body/description", () => {
+    expect(
+      computeVideoWarnings({
+        clips: [{ order: "a1", archived: false }],
+        chapters: [],
+        lessonId: "lesson-1",
+        body: null,
+        description: null,
+      })
+    ).toEqual([
+      { kind: "missingOpeningChapter" },
+      { kind: "missingBody" },
+      { kind: "missingDescription" },
+    ]);
+  });
 });

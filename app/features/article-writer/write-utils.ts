@@ -20,6 +20,7 @@ export const modeToLabel: Record<Mode, string> = {
   "style-guide-skill-building": "Style Guide Pass - Skill Building",
   "style-guide-project": "Style Guide Pass - Project",
   "seo-description": "SEO Description",
+  "seo-description-document": "SEO Description",
   "youtube-title": "YouTube Title",
   "youtube-thumbnail": "YouTube Thumbnail",
   "youtube-description": "YouTube Description",

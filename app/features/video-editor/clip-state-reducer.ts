@@ -1,4 +1,4 @@
-import type { BeatType } from "@/services/video-processing-service";
+import type { PauseType } from "@/services/video-processing-service";
 import type { EffectReducer } from "use-effect-reducer";
 export * from "./clip-state-reducer.types";
 import type {
@@ -243,7 +243,7 @@ export const clipStateReducer: EffectReducer<
         insertionPoint: archiveResult.insertionPoint,
       };
     }
-    case "toggle-beat-at-insertion-point": {
+    case "toggle-pause-at-insertion-point": {
       // Find the clip at the insertion point (similar to delete-latest-inserted-clip)
       let clipToToggle: Clip | undefined;
 
@@ -271,7 +271,7 @@ export const clipStateReducer: EffectReducer<
           clipToToggle = item;
         }
       } else if (state.insertionPoint.type === "after-chapter") {
-        // Don't toggle beat for chapters
+        // Don't toggle pause for chapters
         return state;
       }
 
@@ -279,15 +279,15 @@ export const clipStateReducer: EffectReducer<
         return state;
       }
 
-      const newBeatType: BeatType =
-        clipToToggle.beatType === "none" ? "long" : "none";
+      const newPauseType: PauseType =
+        clipToToggle.pauseType === "none" ? "long" : "none";
 
       // If it's a database clip, fire an effect to update the DB
       if (clipToToggle.type === "on-database") {
         exec({
-          type: "update-beat",
+          type: "update-pause",
           clipId: clipToToggle.databaseId,
-          beatType: newBeatType,
+          pauseType: newPauseType,
         });
       }
 
@@ -296,12 +296,12 @@ export const clipStateReducer: EffectReducer<
         items: state.items.map((item) =>
           item.frontendId === clipToToggle!.frontendId &&
           (item.type === "on-database" || item.type === "optimistically-added")
-            ? { ...item, beatType: newBeatType }
+            ? { ...item, pauseType: newPauseType }
             : item
         ),
       };
     }
-    case "toggle-beat-for-clip": {
+    case "toggle-pause-for-clip": {
       const item = state.items.find((c) => c.frontendId === action.clipId);
 
       if (
@@ -312,15 +312,15 @@ export const clipStateReducer: EffectReducer<
       }
 
       const clipToToggle = item;
-      const newBeatType: BeatType =
-        clipToToggle.beatType === "none" ? "long" : "none";
+      const newPauseType: PauseType =
+        clipToToggle.pauseType === "none" ? "long" : "none";
 
       // If it's a database clip, fire an effect to update the DB
       if (clipToToggle.type === "on-database") {
         exec({
-          type: "update-beat",
+          type: "update-pause",
           clipId: clipToToggle.databaseId,
-          beatType: newBeatType,
+          pauseType: newPauseType,
         });
       }
 
@@ -329,7 +329,7 @@ export const clipStateReducer: EffectReducer<
         items: state.items.map((item) =>
           item.frontendId === action.clipId &&
           (item.type === "on-database" || item.type === "optimistically-added")
-            ? { ...item, beatType: newBeatType }
+            ? { ...item, pauseType: newPauseType }
             : item
         ),
       };
@@ -399,7 +399,7 @@ export const clipStateReducer: EffectReducer<
               scene: item.scene,
               profile: item.profile,
               insertionOrder: item.insertionOrder,
-              beatType: item.beatType,
+              pauseType: item.pauseType,
               diagramSnapshotId: null,
               diagramName: null,
             };

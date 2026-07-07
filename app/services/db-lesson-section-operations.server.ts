@@ -9,9 +9,11 @@ import {
   SectionPathTakenError,
   LessonPathTakenError,
 } from "@/services/db-service-errors";
-import { and, asc, eq, ne, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 import { statusForCreateLesson } from "./lesson-authoring-status";
+import { parseLessonPath } from "./lesson-path-service";
+import { parseSectionPath } from "./section-path-service";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -20,61 +22,20 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
+/**
+ * Recovers a title from a freshly-created section/lesson directory name so the
+ * title-driven path projection can reproduce that folder on read. A numbered
+ * path ("01-intro" / "01.03-hooks") yields its slug segment ("intro" /
+ * "hooks"); a raw name passed for a ghost ("My Section") is kept verbatim.
+ * Mirrors the section-title backfill for rows created after that ran.
+ */
+const titleFromSectionPathWithNumber = (pathWithNumber: string): string =>
+  parseSectionPath(pathWithNumber)?.slug ?? pathWithNumber;
+
+const titleFromLessonPathWithNumber = (pathWithNumber: string): string =>
+  parseLessonPath(pathWithNumber)?.slug ?? pathWithNumber;
+
 export const createLessonSectionOperations = (db: Database) => {
-  const assertSectionPathAvailable = Effect.fn("assertSectionPathAvailable")(
-    function* (repoVersionId: string, path: string, excludeSectionId?: string) {
-      const conditions = [
-        eq(sections.repoVersionId, repoVersionId),
-        eq(sections.path, path),
-        isNull(sections.archivedAt),
-      ];
-      if (excludeSectionId) {
-        conditions.push(ne(sections.id, excludeSectionId));
-      }
-
-      const existing = yield* makeDbCall(() =>
-        db.query.sections.findFirst({
-          where: and(...conditions),
-          columns: { id: true },
-        })
-      );
-
-      if (existing) {
-        return yield* new SectionPathTakenError({
-          path,
-          message: `Section name "${path}" is already taken in this version`,
-        });
-      }
-    }
-  );
-
-  const assertLessonPathAvailable = Effect.fn("assertLessonPathAvailable")(
-    function* (sectionId: string, path: string, excludeLessonId?: string) {
-      const conditions = [
-        eq(lessons.sectionId, sectionId),
-        eq(lessons.path, path),
-        eq(lessons.archived, false),
-      ];
-      if (excludeLessonId) {
-        conditions.push(ne(lessons.id, excludeLessonId));
-      }
-
-      const existing = yield* makeDbCall(() =>
-        db.query.lessons.findFirst({
-          where: and(...conditions),
-          columns: { id: true },
-        })
-      );
-
-      if (existing) {
-        return yield* new LessonPathTakenError({
-          path,
-          message: `Lesson name "${path}" is already taken in this section`,
-        });
-      }
-    }
-  );
-
   const getLessonById = Effect.fn("getLessonById")(function* (id: string) {
     const lesson = yield* makeDbCall(() =>
       db.query.lessons.findFirst({
@@ -186,10 +147,6 @@ export const createLessonSectionOperations = (db: Database) => {
         });
       }
       seen.add(section.sectionPathWithNumber);
-      yield* assertSectionPathAvailable(
-        repoVersionId,
-        section.sectionPathWithNumber
-      );
     }
 
     const sectionResult = yield* makeDbCall(() =>
@@ -199,6 +156,11 @@ export const createLessonSectionOperations = (db: Database) => {
           newSections.map((section) => ({
             repoVersionId,
             path: section.sectionPathWithNumber,
+            // Title is the source of truth for the derived path; seed it from
+            // the created folder name so the projection reproduces it on read.
+            title: titleFromSectionPathWithNumber(
+              section.sectionPathWithNumber
+            ),
             order: section.sectionNumber,
           }))
         )
@@ -224,7 +186,6 @@ export const createLessonSectionOperations = (db: Database) => {
         });
       }
       seen.add(lesson.lessonPathWithNumber);
-      yield* assertLessonPathAvailable(sectionId, lesson.lessonPathWithNumber);
     }
 
     const lessonResult = yield* makeDbCall(() =>
@@ -234,6 +195,8 @@ export const createLessonSectionOperations = (db: Database) => {
           newLessons.map((lesson) => ({
             sectionId,
             path: lesson.lessonPathWithNumber,
+            // Seed title from the folder name so the derived path reproduces it.
+            title: titleFromLessonPathWithNumber(lesson.lessonPathWithNumber),
             order: lesson.lessonNumber,
             authoringStatus: statusForCreateLesson("real"),
           }))
@@ -252,8 +215,6 @@ export const createLessonSectionOperations = (db: Database) => {
       order: number;
     }
   ) {
-    yield* assertLessonPathAvailable(sectionId, opts.path);
-
     const lessonResult = yield* makeDbCall(() =>
       db
         .insert(lessons)
@@ -285,24 +246,6 @@ export const createLessonSectionOperations = (db: Database) => {
       authoringStatus?: string | null;
     }
   ) {
-    if (lesson.path !== undefined) {
-      const existing = yield* makeDbCall(() =>
-        db.query.lessons.findFirst({
-          where: eq(lessons.id, lessonId),
-          columns: { sectionId: true, path: true },
-        })
-      );
-
-      if (existing && existing.path !== lesson.path) {
-        const targetSectionId = lesson.sectionId ?? existing.sectionId;
-        yield* assertLessonPathAvailable(
-          targetSectionId,
-          lesson.path,
-          lessonId
-        );
-      }
-    }
-
     const lessonResult = yield* makeDbCall(() =>
       db
         .update(lessons)
@@ -366,17 +309,6 @@ export const createLessonSectionOperations = (db: Database) => {
     sectionId: string,
     path: string
   ) {
-    const section = yield* makeDbCall(() =>
-      db.query.sections.findFirst({
-        where: eq(sections.id, sectionId),
-        columns: { repoVersionId: true, path: true },
-      })
-    );
-
-    if (section && section.path !== path) {
-      yield* assertSectionPathAvailable(section.repoVersionId, path, sectionId);
-    }
-
     return yield* makeDbCall(() =>
       db.update(sections).set({ path }).where(eq(sections.id, sectionId))
     );
@@ -503,8 +435,6 @@ export const createLessonSectionOperations = (db: Database) => {
   );
 
   return {
-    assertSectionPathAvailable,
-    assertLessonPathAvailable,
     getLessonById,
     getLessonsBySectionId,
     getLessonWithHierarchyById,

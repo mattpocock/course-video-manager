@@ -15,7 +15,7 @@ import type { CourseEditorService } from "./course-editor-service";
 import { DrizzleService } from "./drizzle-service.server";
 import { CourseOperationsService } from "./db-course-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
-import { SegmentOperationsService } from "./db-segment-operations.server";
+import { BeatOperationsService } from "./db-beat-operations.server";
 import { CourseWriteService } from "./course-write-service";
 import { CourseRepoWriteService } from "./course-repo-write-service";
 import { CourseRepoSyncValidationService } from "./course-repo-sync-validation";
@@ -41,7 +41,7 @@ export function setupEditorServiceTests() {
     const testDbFunctionsLayer = Layer.mergeAll(
       CourseOperationsService.Default,
       LessonSectionOperationsService.Default,
-      SegmentOperationsService.Default
+      BeatOperationsService.Default
     ).pipe(Layer.provide(testDrizzleLayer));
 
     const mockRepoWriteLayer = Layer.succeed(CourseRepoWriteService, {
@@ -151,6 +151,9 @@ export async function createSectionWithLessons(
     .values({
       repoVersionId,
       path: sectionPath,
+      // Title is the source of truth for the derived path; seed it from the
+      // folder name's slug so the projection reproduces `sectionPath` on read.
+      title: sectionPath.replace(/^\d+-/, ""),
       order: sectionOrder,
     })
     .returning();

@@ -30,7 +30,7 @@ const makeClipOnDatabase = (
   scene: null,
   profile: null,
   insertionOrder: null,
-  beatType: "none",
+  pauseType: "none",
   diagramSnapshotId: null,
   diagramName: null,
   ...overrides,
@@ -43,7 +43,7 @@ const makeOptimisticClip = (
   scene: "Camera",
   profile: "Default",
   insertionOrder: 0,
-  beatType: "none",
+  pauseType: "none",
   soundDetectionId: "sd-1",
   sessionId: sid("s1"),
   ...overrides,
@@ -56,7 +56,7 @@ const makeSession = (
   status: "recording",
   outputPath: "/tmp/test.mkv",
   startedAt: 0,
-  pauseLength: "short",
+  silenceLength: "short",
   ...overrides,
 });
 

@@ -8,7 +8,7 @@ export type EntityType =
   | "section"
   | "lesson"
   | "video"
-  | "segment"
+  | "beat"
   | "clip"
   | "chapter";
 
@@ -17,7 +17,7 @@ export type ManifestEntityType =
   | "lesson"
   | "video"
   | "timeline"
-  | "segment";
+  | "beat";
 
 type Capability = {
   add: boolean | "ghost" | "copy-only";
@@ -50,7 +50,7 @@ export const CAPABILITY_MATRIX: Record<EntityType, Capability> = {
     ],
   },
   video: { add: true, delete: true, reorder: true, editableFields: ["name"] },
-  segment: {
+  beat: {
     add: true,
     delete: true,
     reorder: true,
@@ -189,7 +189,7 @@ export const MANIFEST_SCHEMAS: Record<
       sourceEndTime: z.number().optional(),
     })
   ),
-  segment: z.array(
+  beat: z.array(
     z.object({
       id: z.string().nullish(),
       kind: z.string(),
@@ -217,8 +217,7 @@ export function resolveFileType(path: string): FileType | null {
       return { kind: "manifest", entityType: "video" };
     if (parentDir === "timeline")
       return { kind: "manifest", entityType: "timeline" };
-    if (parentDir === "segments")
-      return { kind: "manifest", entityType: "segment" };
+    if (parentDir === "beats") return { kind: "manifest", entityType: "beat" };
     return null;
   }
 
@@ -234,10 +233,10 @@ export function resolveFileType(path: string): FileType | null {
 
   if (
     parts.length >= 2 &&
-    parts[parts.length - 2] === "segments" &&
+    parts[parts.length - 2] === "beats" &&
     filename.endsWith(".json")
   ) {
-    return { kind: "leaf", entityType: "segment" };
+    return { kind: "leaf", entityType: "beat" };
   }
 
   return null;

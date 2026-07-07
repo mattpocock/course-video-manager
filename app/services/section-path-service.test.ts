@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSectionPath,
+  deriveSectionPath,
   parseSectionPath,
   computeSectionRenumberingPlan,
 } from "./section-path-service";
@@ -16,6 +17,20 @@ describe("buildSectionPath", () => {
 
   it("handles double-digit numbers", () => {
     expect(buildSectionPath(12, "deep-dive")).toBe("12-deep-dive");
+  });
+});
+
+describe("deriveSectionPath", () => {
+  it("derives path from title and section number", () => {
+    expect(deriveSectionPath("Introduction", 1)).toBe("01-introduction");
+  });
+
+  it("falls back to 'untitled' for empty title", () => {
+    expect(deriveSectionPath("", 2)).toBe("02-untitled");
+  });
+
+  it("falls back to 'untitled' for symbols-only title", () => {
+    expect(deriveSectionPath("!@#$", 1)).toBe("01-untitled");
   });
 });
 

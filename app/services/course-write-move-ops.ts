@@ -10,29 +10,41 @@ import {
 } from "./lesson-move-planner";
 import { CourseWriteError } from "./course-write-service.types";
 import type { CourseRepoSyncError } from "./course-repo-sync-validation";
+import { projectVersionPaths } from "./path-projection";
+import { toSlug } from "./lesson-path-service";
 
 type DbSection = {
   id: string;
+  title: string;
+  order: number;
   path: string;
   lessons: {
     id: string;
+    title: string;
     path: string;
     order: number;
     fsStatus: string | null;
   }[];
 };
 
-const toPlannerSections = (dbSections: DbSection[]) =>
-  dbSections.map((s) => ({
+/**
+ * Feed the pure move planner compute-on-read paths: real sections/lessons get
+ * their derived "NN(.MM)-slug" folder name from (title, rank); ghosts (no
+ * derived path) fall back to a title-derived name, never the stored column.
+ */
+const toPlannerSections = (dbSections: DbSection[]) => {
+  const derived = projectVersionPaths(dbSections);
+  return dbSections.map((s) => ({
     id: s.id,
-    path: s.path,
+    path: derived.get(s.id) ?? s.title,
     lessons: s.lessons.map((l) => ({
       id: l.id,
-      path: l.path,
+      path: derived.get(l.id) ?? (toSlug(l.title) || "untitled"),
       order: l.order,
       fsStatus: l.fsStatus,
     })),
   }));
+};
 
 /**
  * Lesson-move operations: a single cross-section move (`moveToSection`) and a

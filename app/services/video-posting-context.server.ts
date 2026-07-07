@@ -3,10 +3,12 @@ import { FileSystem } from "@effect/platform";
 import path from "path";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import {
   toTranscriptItems,
   formatProseTranscript,
+  buildTranscript,
 } from "@/lib/transcript-builder";
 import { sortByOrder } from "@/lib/sort-by-order";
 import {
@@ -39,6 +41,7 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
   function* (videoId: string) {
     const videoOps = yield* VideoOperationsService;
     const courseOps = yield* CourseOperationsService;
+    const versionOps = yield* VersionOperationsService;
     const linkAuthOps = yield* LinkAuthOperationsService;
     const fs = yield* FileSystem.FileSystem;
 
@@ -74,7 +77,12 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
 
     const repo = lesson.section.repoVersion.repo;
     const section = lesson.section;
-    const lessonPath = path.join(repo.filePath!, section.path, lesson.path);
+    // Partial-slice fs-join: resolve the lesson's folder on read from
+    // (title, rank) — "NN-section/NN.MM-lesson" — the caller owns repo.filePath.
+    const relLessonDir = yield* versionOps.resolveLessonDir(lesson.id);
+    const [currentSectionPath = "", currentLessonPath = ""] =
+      relLessonDir.split("/");
+    const lessonPath = path.join(repo.filePath!, relLessonDir);
 
     const [lessonFiles, courseStructure] = yield* Effect.all(
       [
@@ -83,8 +91,8 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
           courseOps,
           section.repoVersion.repoId,
           section.repoVersion.id,
-          section.path,
-          lesson.path
+          currentSectionPath,
+          currentLessonPath
         ),
       ],
       { concurrency: "unbounded" }
@@ -249,15 +257,120 @@ function loadCourseStructure(
       repoName: repoWithSections!.name,
       currentSectionPath,
       currentLessonPath,
-      sections: matchingVersion.sections.map((s) => ({
-        path: s.path,
-        lessons: s.lessons
-          .filter((l) => l.fsStatus === "real")
-          .map((l) => ({
-            path: l.path,
-            description: l.description || undefined,
-          })),
-      })),
+      sections: matchingVersion.sections
+        // Ghost sections derive no path; the posting UI only lists real ones.
+        .filter((s) => s.lessons.some((l) => l.fsStatus === "real"))
+        .map((s) => ({
+          path: s.path,
+          lessons: s.lessons
+            .filter((l) => l.fsStatus === "real")
+            .map((l) => ({
+              path: l.path,
+              description: l.description || undefined,
+            })),
+        })),
     } satisfies CourseStructure;
   });
 }
+
+export interface WriterContextData {
+  transcript: string;
+  transcriptWordCount: number;
+  indexedClips: Array<{
+    index: number;
+    sourceStartTime: number;
+    sourceEndTime: number;
+    videoFilename: string;
+    text: string | null;
+  }>;
+  memory: string;
+  repoId: string | null;
+  fullPath: string;
+  files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
+  chapters: SectionWithWordCount[];
+  isStandalone: boolean;
+  courseStructure: CourseStructure | null;
+  links: Array<{
+    id: string;
+    title: string;
+    url: string;
+    description: string | null;
+    createdAt: Date;
+  }>;
+}
+
+export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
+  videoId: string
+) {
+  const videoOps = yield* VideoOperationsService;
+  const courseOps = yield* CourseOperationsService;
+  const versionOps = yield* VersionOperationsService;
+  const linkAuthOps = yield* LinkAuthOperationsService;
+  const fs = yield* FileSystem.FileSystem;
+
+  const [video, globalLinks] = yield* Effect.all(
+    [videoOps.getVideoWithClipsById(videoId), linkAuthOps.getLinks()],
+    { concurrency: "unbounded" }
+  );
+
+  const { indexedClips, transcript, wordCount, sections } = buildTranscript(
+    video.clips,
+    video.chapters
+  );
+
+  const lesson = video.lesson;
+
+  if (!lesson) {
+    const standaloneFiles = yield* loadStandaloneFiles(fs, videoId);
+    return {
+      transcript,
+      transcriptWordCount: wordCount,
+      indexedClips,
+      memory: "",
+      repoId: null,
+      fullPath: path.resolve(getStandaloneVideoFilePath(videoId)),
+      files: standaloneFiles,
+      chapters: sections,
+      isStandalone: true,
+      courseStructure: null,
+      links: globalLinks,
+    } satisfies WriterContextData;
+  }
+
+  const repo = lesson.section.repoVersion.repo;
+  const section = lesson.section;
+  // Partial-slice fs-join: resolve the lesson's folder on read from (title, rank).
+  const relLessonDir = yield* versionOps.resolveLessonDir(lesson.id);
+  const [currentSectionPath = "", currentLessonPath = ""] =
+    relLessonDir.split("/");
+  const lessonPath = path.join(repo.filePath!, relLessonDir);
+
+  const [lessonFiles, courseStructure, repoWithSections] = yield* Effect.all(
+    [
+      loadLessonFiles(fs, lessonPath),
+      loadCourseStructure(
+        courseOps,
+        section.repoVersion.repoId,
+        section.repoVersion.id,
+        currentSectionPath,
+        currentLessonPath
+      ),
+      courseOps.getCourseStructureById(section.repoVersion.repoId),
+    ],
+    { concurrency: "unbounded" }
+  );
+
+  return {
+    transcript,
+    transcriptWordCount: wordCount,
+    indexedClips,
+    memory: repoWithSections?.memory ?? "",
+    repoId: section.repoVersion.repoId,
+    fullPath: lessonPath,
+    files: lessonFiles,
+    chapters: sections,
+    isStandalone: false,
+    courseStructure,
+    links: globalLinks,
+  } satisfies WriterContextData;
+});

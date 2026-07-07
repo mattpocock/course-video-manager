@@ -11,7 +11,6 @@ export const action = makeAction({
     NotFoundError: 404,
     CourseWriteError: 400,
     SectionPathTakenError: 409,
-    LessonPathTakenError: 409,
   },
   effect: ({ payload }) =>
     Effect.gen(function* () {

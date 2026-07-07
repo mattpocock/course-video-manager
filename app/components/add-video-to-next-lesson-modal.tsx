@@ -33,7 +33,7 @@ export function AddVideoToNextLessonModal(props: {
         </DialogHeader>
         <addVideoFetcher.Form
           method="post"
-          action={`/api/lessons/${props.lessonId}/add-video?redirectTo=write`}
+          action={`/api/lessons/${props.lessonId}/add-video`}
           className="space-y-4 py-4"
         >
           <input type="hidden" name="lessonId" value={props.lessonId} />

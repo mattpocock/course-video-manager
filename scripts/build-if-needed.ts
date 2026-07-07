@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -24,7 +24,13 @@ function computeHash(files: string[]): string {
   const top = createHash("sha256");
   for (const path of files) {
     const abs = join(ROOT, path);
-    if (!existsSync(abs)) continue;
+    let stat;
+    try {
+      stat = statSync(abs);
+    } catch {
+      continue;
+    }
+    if (!stat.isFile()) continue;
     const fileHash = createHash("sha256")
       .update(readFileSync(abs))
       .digest("hex");

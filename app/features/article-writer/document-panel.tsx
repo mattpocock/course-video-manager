@@ -58,6 +58,13 @@ export interface DocumentPanelProps {
   violations?: LintViolation[];
   onFixLintViolations?: () => void;
   sessionTimer?: React.ReactNode;
+  /**
+   * "full" renders the standalone-writer header toolbar (copy / readme /
+   * upload / lint / edit-preview). "modal" renders the field-writer layout:
+   * no header toolbar, a floating Edit/Preview toggle, and a shared scroll box
+   * so toggling never reflows. Copy and lint live in the modal's bottom bar.
+   */
+  variant?: "full" | "modal";
 }
 
 export const DocumentPanel = memo(function DocumentPanel({
@@ -81,6 +88,7 @@ export const DocumentPanel = memo(function DocumentPanel({
   violations,
   onFixLintViolations,
   sessionTimer,
+  variant = "full",
 }: DocumentPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const onDocumentChangeRef = useRef(onDocumentChange);
@@ -146,6 +154,74 @@ export const DocumentPanel = memo(function DocumentPanel({
       // Clipboard access denied or empty
     }
   }, [onDocumentChange]);
+
+  // Modal (field-writer) layout: no header toolbar. A floating Edit/Preview
+  // toggle sits over a shared scroll box; copy and lint fixes live in the
+  // modal's bottom bar, so they are intentionally absent here.
+  if (variant === "modal") {
+    return (
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="absolute right-3 top-2 z-10 h-7 shadow-sm"
+          onClick={handleToggleEditing}
+        >
+          {isEditing ? (
+            <>
+              <EyeIcon className="mr-1 size-3.5" /> Preview
+            </>
+          ) : (
+            <>
+              <PencilIcon className="mr-1 size-3.5" /> Edit
+            </>
+          )}
+        </Button>
+        {isEditing ? (
+          <div className="h-full overflow-hidden">
+            <MarkdownMonacoEditor
+              value={document ?? ""}
+              onChange={(value) => onDocumentChange?.(value)}
+              onSave={(value) => onDocumentChangeRef.current?.(value)}
+              editorRef={editorRef}
+              onMount={handleEditorMount}
+              options={{
+                padding: { top: 20, bottom: 20 },
+                scrollBeyondLastLine: false,
+              }}
+              fallback={
+                <div className="p-5 text-sm text-muted-foreground">
+                  Loading editor…
+                </div>
+              }
+            />
+          </div>
+        ) : (
+          <div
+            ref={previewRef}
+            className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground h-full overflow-y-auto px-6 py-5"
+            style={{ scrollbarGutter: "stable" }}
+          >
+            <div className="max-w-[75ch]">
+              {document ? (
+                <AIResponse
+                  imageBasePath={fullPath}
+                  extraComponents={extraComponents}
+                  preprocessMarkdown={preprocessMarkdown}
+                >
+                  {document}
+                </AIResponse>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No document yet. Send a message to generate one.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!document) {
     return (

@@ -167,7 +167,7 @@ export const PreloadableClipManager = (props: {
             return;
           }
 
-          if (clip.beatType === "long") {
+          if (clip.pauseType === "long") {
             setTimeout(() => {
               props.onClipFinished();
             }, BEAT_DURATION * 1000);

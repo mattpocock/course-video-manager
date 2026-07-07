@@ -22,6 +22,7 @@ const fullCourse = makeCourseEntry({
       path: "01-intro",
       sectionLeaf: {
         id: "s1",
+        title: "Intro",
         slug: "intro",
         description: "Introduction to generics",
         real: true,
@@ -51,7 +52,7 @@ const fullCourse = makeCourseEntry({
                 originalFootagePath: "/raw.mp4",
                 warnings: [],
               },
-              segments: [
+              beats: [
                 {
                   id: "seg1",
                   kind: "definition",
@@ -74,7 +75,7 @@ const fullCourse = makeCourseEntry({
                   sourceStartTime: 0,
                   sourceEndTime: 3,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -85,7 +86,7 @@ const fullCourse = makeCourseEntry({
                   sourceStartTime: 3,
                   sourceEndTime: 6,
                   videoFilename: "raw.mp4",
-                  beatType: "none",
+                  pauseType: "none",
                   scene: null,
                   profile: null,
                 },
@@ -132,6 +133,7 @@ const secondCourse = makeCourseEntry({
       path: "01-advanced",
       sectionLeaf: {
         id: "s2",
+        title: "Advanced",
         slug: "advanced",
         description: "Advanced topics",
         real: true,
@@ -220,15 +222,15 @@ describe("vfsGrep", () => {
       expect(rawResult).not.toContain("video.json:originalFootagePath");
     });
 
-    it("matches individual segment file title", () => {
+    it("matches individual beat file title", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "generics intro", "/courses/my-course");
       expect(result).toContain(
-        `${videoBase}/segments/00-generics-intro.json:title: Generics Intro`
+        `${videoBase}/beats/00-generics-intro.json:title: Generics Intro`
       );
     });
 
-    it("matches segment description when title does not match", () => {
+    it("matches beat description when title does not match", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(
         root,
@@ -236,15 +238,15 @@ describe("vfsGrep", () => {
         "/courses/my-course"
       );
       expect(result).toContain(
-        `${videoBase}/segments/01-main-walkthrough.json:description: Walk through examples`
+        `${videoBase}/beats/01-main-walkthrough.json:description: Walk through examples`
       );
     });
 
-    it("matches segments _members.json with [i] locator", () => {
+    it("matches beats _members.json with [i] locator", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "generics intro", "/courses/my-course");
       expect(result).toContain(
-        `${videoBase}/segments/_members.json[0]: Generics Intro`
+        `${videoBase}/beats/_members.json[0]: Generics Intro`
       );
     });
 
@@ -292,7 +294,7 @@ describe("vfsGrep", () => {
       expect(result).toContain("Hello Generics");
     });
 
-    it("reports title match only when title and description both match (segment file)", () => {
+    it("reports title match only when title and description both match (beat file)", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "generics", "/courses/my-course");
       const segFileLines = result
@@ -329,10 +331,10 @@ describe("vfsGrep", () => {
       expect(new Set(lines).size).toBe(lines.length);
     });
 
-    it("includes individual segment and clip files when matched", () => {
+    it("includes individual beat and clip files when matched", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "generics", "/courses/my-course", "files");
-      expect(result).toContain(`${videoBase}/segments/00-generics-intro.json`);
+      expect(result).toContain(`${videoBase}/beats/00-generics-intro.json`);
       expect(result).toContain(`${videoBase}/timeline/01.clip.json`);
       expect(result).toContain(
         `${videoBase}/timeline/03-generics-deep-dive.chapter.json`
@@ -342,7 +344,7 @@ describe("vfsGrep", () => {
     it("includes _members.json when members match", () => {
       const root = buildVfsTree([fullCourse]);
       const result = vfsGrep(root, "generics", "/courses/my-course", "files");
-      expect(result).toContain(`${videoBase}/segments/_members.json`);
+      expect(result).toContain(`${videoBase}/beats/_members.json`);
       expect(result).toContain(`${videoBase}/timeline/_members.json`);
     });
   });
@@ -367,7 +369,7 @@ describe("vfsGrep", () => {
       const result = vfsGrep(root, "generics", videoBase);
       expect(result).not.toContain("section.json");
       expect(result).not.toContain("lesson.json");
-      expect(result).toContain("segments/");
+      expect(result).toContain("beats/");
       expect(result).toContain("timeline/");
     });
 

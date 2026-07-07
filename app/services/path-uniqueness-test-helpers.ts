@@ -43,7 +43,12 @@ export async function createSection(
   versionId: string,
   path: string,
   order: number,
-  opts?: { id?: string; createdAt?: Date; archivedAt?: Date | null }
+  opts?: {
+    id?: string;
+    title?: string;
+    createdAt?: Date;
+    archivedAt?: Date | null;
+  }
 ) {
   const [section] = await testDb
     .insert(sections)
@@ -52,6 +57,7 @@ export async function createSection(
       repoVersionId: versionId,
       path,
       order,
+      ...(opts?.title !== undefined ? { title: opts.title } : {}),
       ...(opts?.createdAt ? { createdAt: opts.createdAt } : {}),
       ...(opts?.archivedAt !== undefined
         ? { archivedAt: opts.archivedAt }
@@ -71,8 +77,10 @@ export async function createLesson(
     createdAt?: Date;
     archived?: boolean;
     fsStatus?: string;
+    title?: string;
   }
 ) {
+  const fsStatus = opts?.fsStatus ?? "ghost";
   const [lesson] = await testDb
     .insert(lessons)
     .values({
@@ -80,8 +88,10 @@ export async function createLesson(
       sectionId,
       path,
       order,
+      ...(opts?.title !== undefined ? { title: opts.title } : {}),
       archived: opts?.archived ?? false,
-      fsStatus: opts?.fsStatus ?? "ghost",
+      fsStatus,
+      ...(fsStatus === "real" ? { authoringStatus: "todo" } : {}),
       ...(opts?.createdAt ? { createdAt: opts.createdAt } : {}),
     })
     .returning();

@@ -5,7 +5,7 @@
  * the repo's 5500-token pre-commit limit.
  */
 
-import { clips, chapters, videos, segments } from "@/db/schema";
+import { clips, chapters, videos, beats } from "@/db/schema";
 import {
   NotFoundError,
   UnknownDBServiceError,
@@ -27,11 +27,11 @@ export const copyVideoImpl = (
     sourceVideoId: string;
     newPath: string;
     copyClips: boolean;
-    copySegments: boolean;
+    copyBeats: boolean;
   }
 ): Effect.Effect<string, NotFoundError | UnknownDBServiceError> =>
   Effect.gen(function* () {
-    const { sourceVideoId, newPath, copyClips, copySegments } = opts;
+    const { sourceVideoId, newPath, copyClips, copyBeats } = opts;
 
     // Load source video outside the transaction so we can surface NotFoundError
     // before opening a transaction.
@@ -110,7 +110,7 @@ export const copyVideoImpl = (
                 transcribedAt: clip.transcribedAt,
                 scene: clip.scene,
                 profile: clip.profile,
-                beatType: clip.beatType,
+                pauseType: clip.pauseType,
                 diagramSnapshotId: clip.diagramSnapshotId,
               }))
             );
@@ -133,28 +133,28 @@ export const copyVideoImpl = (
           }
         }
 
-        if (copySegments) {
-          const sourceSegments = await tx.query.segments.findMany({
+        if (copyBeats) {
+          const sourceBeats = await tx.query.beats.findMany({
             where: and(
-              eq(segments.videoId, sourceVideoId),
-              eq(segments.archived, false)
+              eq(beats.videoId, sourceVideoId),
+              eq(beats.archived, false)
             ),
-            orderBy: asc(segments.order),
+            orderBy: asc(beats.order),
           });
 
-          if (sourceSegments.length > 0) {
-            const segmentOrders = generateNKeysBetween(
+          if (sourceBeats.length > 0) {
+            const beatOrders = generateNKeysBetween(
               null,
               null,
-              sourceSegments.length
+              sourceBeats.length
             );
-            await tx.insert(segments).values(
-              sourceSegments.map((segment, i) => ({
+            await tx.insert(beats).values(
+              sourceBeats.map((beat, i) => ({
                 videoId: newVideo.id,
-                kind: segment.kind,
-                title: segment.title,
-                description: segment.description,
-                order: segmentOrders[i]!,
+                kind: beat.kind,
+                title: beat.title,
+                description: beat.description,
+                order: beatOrders[i]!,
               }))
             );
           }

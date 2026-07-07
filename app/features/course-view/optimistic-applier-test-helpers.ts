@@ -20,11 +20,14 @@ export function makeVideo(
     createdAt: new Date(),
     lessonId: "lesson-1",
     pitchId: null,
+    lineageId: "lineage-video-1",
     originalFootagePath: "/footage/video-01",
+    body: null,
+    description: null,
     updatedAt: new Date(),
     clipCount: 0,
     warnings: [],
-    segments: [],
+    beats: [],
     ...overrides,
   };
 }

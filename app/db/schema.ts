@@ -93,7 +93,11 @@ export const sections = createTable(
     previousVersionSectionId: varchar("previous_version_section_id", {
       length: 255,
     }),
+    lineageId: varchar("lineage_id", { length: 255 })
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     path: text("path").notNull(),
+    title: text("title").notNull().default(""),
     description: text("description").notNull().default(""),
     archivedAt: timestamp("archived_at", {
       mode: "date",
@@ -127,6 +131,9 @@ export const lessons = createTable(
     previousVersionLessonId: varchar("previous_version_lesson_id", {
       length: 255,
     }),
+    lineageId: varchar("lineage_id", { length: 255 })
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     path: text("path").notNull(),
     title: text("title").notNull().default(""),
     fsStatus: text("fs_status").notNull().default("real"),
@@ -202,8 +209,13 @@ export const videos = createTable(
     pitchId: varchar("pitch_id", { length: 255 }).references(() => pitches.id, {
       onDelete: "set null",
     }),
+    lineageId: varchar("lineage_id", { length: 255 })
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     path: text("path").notNull(),
     originalFootagePath: text("original_footage_path").notNull(),
+    body: text("body"),
+    description: text("video_description"),
     archived: boolean("archived").notNull().default(false),
     createdAt: timestamp("created_at", {
       mode: "date",
@@ -251,7 +263,7 @@ export const clips = createTable("clip", {
   }),
   scene: varchar("scene", { length: 255 }),
   profile: varchar("profile", { length: 255 }),
-  beatType: varchar("beat_type", { length: 255 }).notNull().default("none"),
+  pauseType: varchar("pause_type", { length: 255 }).notNull().default("none"),
   diagramSnapshotId: varchar("diagram_snapshot_id", { length: 255 }).references(
     () => diagramSnapshots.id,
     { onDelete: "set null" }
@@ -277,19 +289,19 @@ export const chapters = createTable("chapter", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const segments = createTable("segment", {
+export const beats = createTable("beat", {
   id: varchar("id", { length: 255 })
     .notNull()
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  // Mutable on purpose: dragging a Segment into another Video reassigns this FK.
+  // Mutable on purpose: dragging a Beat into another Video reassigns this FK.
   videoId: varchar("video_id", { length: 255 })
     .references(() => videos.id, { onDelete: "cascade" })
     .notNull(),
   kind: text("kind").notNull().default("definition"),
   title: text("title").notNull().default(""),
   // In-app planning note ("what am I going to do/say here"). Never published —
-  // publish skips it exactly as it skips the Segment plan itself.
+  // publish skips it exactly as it skips the Beat plan itself.
   description: text("description").notNull().default(""),
   order: varcharCollateC("order").notNull(),
   archived: boolean("archived").notNull().default(false),
@@ -334,9 +346,9 @@ export const pitchesRelations = relations(pitches, ({ many }) => ({
   deliverablesPitches: many(deliverablesPitches),
 }));
 
-export const segmentsRelations = relations(segments, ({ one }) => ({
+export const beatsRelations = relations(beats, ({ one }) => ({
   video: one(videos, {
-    fields: [segments.videoId],
+    fields: [beats.videoId],
     references: [videos.id],
   }),
 }));
@@ -347,7 +359,7 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   clips: many(clips),
   chapters: many(chapters),
   thumbnails: many(thumbnails),
-  segments: many(segments),
+  beats: many(beats),
 }));
 
 export const lessonsRelations = relations(lessons, ({ one, many }) => ({

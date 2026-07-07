@@ -12,18 +12,18 @@ import { makeLoader } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import {
+  BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   Plus,
   VideoIcon,
-  PenIcon,
   SendIcon,
   YoutubeIcon,
   NewspaperIcon,
   MailIcon,
   HistoryIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import type { Route } from "./+types/_app.videos.$videoId";
 
@@ -82,30 +82,43 @@ export const loader = makeLoader({
 
 type Tab =
   | "edit"
-  | "write"
+  | "lesson"
   | "post"
   | "social"
   | "ai-hero"
   | "skills-changelog"
   | "newsletter";
 
-const topTabs: {
-  id: "edit" | "write" | "post";
+const topTabsDef: {
+  id: "edit" | "post";
   label: string;
-  path: string;
+  path: string | ((lessonId: string | null) => string);
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
   { id: "edit", label: "Video", path: "edit", icon: VideoIcon },
-  { id: "write", label: "Write", path: "write", icon: PenIcon },
-  { id: "post", label: "Post", path: "post", icon: SendIcon },
+  {
+    id: "post",
+    label: "Post",
+    path: (lessonId) => (lessonId ? "lesson" : "post"),
+    icon: SendIcon,
+  },
 ];
 
-const postSubTabs: {
+type PostSubTab = {
   id: Tab;
   label: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
-}[] = [
+};
+
+const lessonTab: PostSubTab = {
+  id: "lesson",
+  label: "Lesson",
+  path: "lesson",
+  icon: BookOpenIcon,
+};
+
+const commonPostSubTabs: PostSubTab[] = [
   { id: "post", label: "YouTube", path: "post", icon: YoutubeIcon },
   { id: "social", label: "X / LinkedIn", path: "social", icon: SendIcon },
   { id: "ai-hero", label: "AI Hero", path: "ai-hero", icon: NewspaperIcon },
@@ -119,6 +132,7 @@ const postSubTabs: {
 ];
 
 const isPostTab = (tab: Tab): boolean =>
+  tab === "lesson" ||
   tab === "post" ||
   tab === "social" ||
   tab === "ai-hero" ||
@@ -144,9 +158,23 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
   const location = useLocation();
   const [addVideoModalOpen, setAddVideoModalOpen] = useState(false);
 
+  const postSubTabs = useMemo(
+    () => (lessonId ? [lessonTab, ...commonPostSubTabs] : commonPostSubTabs),
+    [lessonId]
+  );
+
+  const topTabs = useMemo(
+    () =>
+      topTabsDef.map((t) => ({
+        ...t,
+        path: typeof t.path === "function" ? t.path(lessonId) : t.path,
+      })),
+    [lessonId]
+  );
+
   // Determine active tab from current path
-  const activeTab: Tab = location.pathname.endsWith("/write")
-    ? "write"
+  const activeTab: Tab = location.pathname.endsWith("/lesson")
+    ? "lesson"
     : location.pathname.endsWith("/post")
       ? "post"
       : location.pathname.endsWith("/social")

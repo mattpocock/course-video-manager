@@ -2,12 +2,17 @@
 
 export const handle = { fullscreen: true };
 
-import { loadVideoPostingContext } from "@/services/video-posting-context.server";
+import {
+  loadVideoPostingContext,
+  loadWriterContext,
+} from "@/services/video-posting-context.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
+import type { WriterContextData } from "@/services/video-posting-context.server";
 import { VideoContextPanel } from "@/components/video-context-panel";
 import { FilePreviewModal } from "@/components/file-preview-modal";
 import { AddLinkModal } from "@/components/add-link-modal";
@@ -19,6 +24,7 @@ import { LessonFilePasteModal } from "@/components/lesson-file-paste-modal";
 import { toast } from "sonner";
 import type { Route } from "./+types/_app.videos.$videoId.ai-hero";
 import { AiHeroPage } from "@/features/video-posting/ai-hero-page";
+import { useWriterContext } from "@/features/article-writer/use-writer-context";
 
 export const loader = makeLoader({
   effect: ({ params }) =>
@@ -30,7 +36,9 @@ export const loader = makeLoader({
         aiHeroAuth
           ? { connected: true, userId: aiHeroAuth.userId }
           : { connected: false };
-      return { ...ctx, aiHero };
+      const writerContextPromise: Promise<WriterContextData> =
+        runtimeLive.runPromise(loadWriterContext(params.videoId!));
+      return { ...ctx, aiHero, writerContextPromise };
     }),
 });
 
@@ -56,7 +64,10 @@ export default function AiHeroPostPage(props: Route.ComponentProps) {
     links,
     courseStructure,
     aiHero,
+    writerContextPromise,
   } = props.loaderData;
+
+  const writerContext = useWriterContext(writerContextPromise);
 
   // Context panel state
   const [enabledFiles, setEnabledFiles] = useState<Set<string>>(() => {
@@ -177,6 +188,7 @@ export default function AiHeroPostPage(props: Route.ComponentProps) {
             courseStructure={courseStructure}
             includeCourseStructure={includeCourseStructure}
             chapters={chapters}
+            writerContext={writerContext}
           />
         </div>
       </div>

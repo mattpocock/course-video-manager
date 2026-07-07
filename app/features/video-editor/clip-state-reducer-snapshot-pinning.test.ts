@@ -28,7 +28,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         })
         .send(
           fromPartial({
@@ -60,7 +60,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         .send({
           type: "recording-started",
           outputPath: "/tmp/recording.mkv",
-          pauseLength: "short",
+          silenceLength: "short",
         })
         .send(
           fromPartial({
@@ -106,7 +106,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
       tester.send({
         type: "recording-started",
         outputPath: "/tmp/recording.mkv",
-        pauseLength: "short",
+        silenceLength: "short",
       });
       const sessionId = tester.getState().sessions[0]!.id;
       const before = tester.getState();
@@ -133,7 +133,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         insertionOrder: 1,
         soundDetectionId: "sound-1",
         sessionId,
-        beatType: "none",
+        pauseType: "none",
         ...overrides,
       });
 
@@ -168,7 +168,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
             {
               id: "db-1",
               diagramSnapshotId: null,
-              beatType: "none",
+              pauseType: "none",
             },
           ],
         })
@@ -213,7 +213,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         fromPartial({
           type: "new-database-clips",
           outputPath: "/tmp/r.mkv",
-          clips: [{ id: "db-1", diagramSnapshotId: null, beatType: "none" }],
+          clips: [{ id: "db-1", diagramSnapshotId: null, pauseType: "none" }],
         })
       );
 
@@ -251,7 +251,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         fromPartial({
           type: "new-database-clips",
           outputPath: "/tmp/r.mkv",
-          clips: [{ id: "db-1", diagramSnapshotId: null, beatType: "none" }],
+          clips: [{ id: "db-1", diagramSnapshotId: null, pauseType: "none" }],
         })
       );
 
@@ -282,7 +282,7 @@ describe("clipStateReducer — diagram snapshot pinning", () => {
         fromPartial({
           type: "new-database-clips",
           outputPath: "/tmp/r.mkv",
-          clips: [{ id: "db-1", diagramSnapshotId: null, beatType: "none" }],
+          clips: [{ id: "db-1", diagramSnapshotId: null, pauseType: "none" }],
         })
       );
 

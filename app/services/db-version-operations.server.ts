@@ -9,7 +9,7 @@ import {
   courses,
   courseVersions,
   sections,
-  segments,
+  beats,
   thumbnails,
   videos,
 } from "@/db/schema";
@@ -22,6 +22,10 @@ import {
 import { asc, and, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { toTranscriptItems } from "@/lib/transcript-builder";
+import {
+  projectVersionPaths,
+  attachDerivedPaths,
+} from "@/services/path-projection";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -124,7 +128,7 @@ export const createVersionOperations = (db: Database) => {
 
     return {
       ...course,
-      sections: versionSections,
+      sections: attachDerivedPaths(versionSections),
     };
   });
 
@@ -178,7 +182,7 @@ export const createVersionOperations = (db: Database) => {
 
     return {
       ...course,
-      sections: versionSections,
+      sections: attachDerivedPaths(versionSections),
     };
   });
 
@@ -205,6 +209,10 @@ export const createVersionOperations = (db: Database) => {
                         orderBy: asc(clips.order),
                         where: eq(clips.archived, false),
                       },
+                      chapters: {
+                        orderBy: asc(chapters.order),
+                        where: eq(chapters.archived, false),
+                      },
                     },
                   },
                 },
@@ -222,7 +230,10 @@ export const createVersionOperations = (db: Database) => {
       });
     }
 
-    return version;
+    return {
+      ...version,
+      sections: attachDerivedPaths(version.sections),
+    };
   });
 
   const createCourseVersion = Effect.fn("createCourseVersion")(
@@ -354,9 +365,9 @@ export const createVersionOperations = (db: Database) => {
                       orderBy: asc(chapters.order),
                       where: eq(chapters.archived, false),
                     },
-                    segments: {
-                      orderBy: asc(segments.order),
-                      where: eq(segments.archived, false),
+                    beats: {
+                      orderBy: asc(beats.order),
+                      where: eq(beats.archived, false),
                     },
                     thumbnails: true,
                   },
@@ -379,6 +390,7 @@ export const createVersionOperations = (db: Database) => {
             .values({
               repoVersionId: newVersion.id,
               previousVersionSectionId: sourceSection.id,
+              lineageId: sourceSection.lineageId,
               path: sourceSection.path,
               order: sourceSection.order,
               description: sourceSection.description,
@@ -395,6 +407,7 @@ export const createVersionOperations = (db: Database) => {
               .values({
                 sectionId: newSection.id,
                 previousVersionLessonId: sourceLesson.id,
+                lineageId: sourceLesson.lineageId,
                 path: sourceLesson.path,
                 order: sourceLesson.order,
                 fsStatus: sourceLesson.fsStatus,
@@ -416,8 +429,11 @@ export const createVersionOperations = (db: Database) => {
                 .insert(videos)
                 .values({
                   lessonId: newLesson.id,
+                  lineageId: sourceVideo.lineageId,
                   path: sourceVideo.path,
                   originalFootagePath: sourceVideo.originalFootagePath,
+                  body: sourceVideo.body,
+                  description: sourceVideo.description,
                 })
                 .returning()
             );
@@ -443,7 +459,7 @@ export const createVersionOperations = (db: Database) => {
                     transcribedAt: clip.transcribedAt,
                     scene: clip.scene,
                     profile: clip.profile,
-                    beatType: clip.beatType,
+                    pauseType: clip.pauseType,
                   }))
                 )
               );
@@ -462,15 +478,15 @@ export const createVersionOperations = (db: Database) => {
               );
             }
 
-            if (sourceVideo.segments.length > 0) {
+            if (sourceVideo.beats.length > 0) {
               yield* makeDbCall(() =>
-                db.insert(segments).values(
-                  sourceVideo.segments.map((segment) => ({
+                db.insert(beats).values(
+                  sourceVideo.beats.map((beat) => ({
                     videoId: newVideo.id,
-                    kind: segment.kind,
-                    title: segment.title,
-                    description: segment.description,
-                    order: segment.order,
+                    kind: beat.kind,
+                    title: beat.title,
+                    description: beat.description,
+                    order: beat.order,
                   }))
                 )
               );
@@ -568,38 +584,143 @@ export const createVersionOperations = (db: Database) => {
         })
       );
 
-      return versions.map((version) => ({
-        id: version.id,
-        name: version.name,
-        description: version.description,
-        createdAt: version.createdAt,
-        sections: version.sections
-          .filter(
-            (s) =>
-              s.lessons.length === 0 ||
-              s.lessons.some((l) => l.fsStatus !== "ghost")
-          )
-          .map((s) => ({
-            id: s.id,
-            path: s.path,
-            previousVersionSectionId: s.previousVersionSectionId,
-            lessons: s.lessons
-              .filter((l) => l.fsStatus !== "ghost")
-              .map((l) => ({
-                id: l.id,
-                path: l.path,
-                previousVersionLessonId: l.previousVersionLessonId,
-                authoringStatus: l.authoringStatus as "todo" | "done" | null,
-                videos: l.videos.map((v) => ({
-                  id: v.id,
-                  path: v.path,
-                  transcript: toTranscriptItems(v.clips, v.chapters),
+      return versions.map((version) => {
+        const derivedPaths = projectVersionPaths(version.sections);
+        return {
+          id: version.id,
+          name: version.name,
+          description: version.description,
+          createdAt: version.createdAt,
+          sections: version.sections
+            .filter(
+              (s) =>
+                s.lessons.length === 0 ||
+                s.lessons.some((l) => l.fsStatus !== "ghost")
+            )
+            .map((s) => ({
+              id: s.id,
+              path: derivedPaths.get(s.id) ?? "",
+              previousVersionSectionId: s.previousVersionSectionId,
+              lessons: s.lessons
+                .filter((l) => l.fsStatus !== "ghost")
+                .map((l) => ({
+                  id: l.id,
+                  path: derivedPaths.get(l.id) ?? "",
+                  previousVersionLessonId: l.previousVersionLessonId,
+                  authoringStatus: l.authoringStatus as "todo" | "done" | null,
+                  videos: l.videos.map((v) => ({
+                    id: v.id,
+                    path: v.path,
+                    transcript: toTranscriptItems(v.clips, v.chapters),
+                  })),
                 })),
-              })),
-          })),
-      }));
+            })),
+        };
+      });
     }
   );
+
+  /**
+   * Loads a version's real-sibling tree (id/order/title/fsStatus only) so the
+   * pure per-version projection can derive folder names. Single query; used by
+   * the single-item resolvers below for partial-slice fs-join callers.
+   */
+  const loadVersionTreeForProjection = (repoVersionId: string) =>
+    makeDbCall(() =>
+      db.query.sections.findMany({
+        where: and(
+          eq(sections.repoVersionId, repoVersionId),
+          isNull(sections.archivedAt)
+        ),
+        orderBy: asc(sections.order),
+        columns: { id: true, order: true, title: true },
+        with: {
+          lessons: {
+            where: eq(lessons.archived, false),
+            orderBy: asc(lessons.order),
+            columns: { id: true, order: true, title: true, fsStatus: true },
+          },
+        },
+      })
+    );
+
+  /**
+   * Resolves a single lesson's on-disk directory relative to the repo root
+   * ("NN-section/NN.MM-lesson"), computed on read from (title, rank). For
+   * partial-slice fs-join callers that hold one lesson without its siblings.
+   * The caller keeps owning repo.filePath.
+   */
+  const resolveLessonDir = Effect.fn("resolveLessonDir")(function* (
+    lessonId: string
+  ) {
+    const lesson = yield* makeDbCall(() =>
+      db.query.lessons.findFirst({
+        where: eq(lessons.id, lessonId),
+        columns: { id: true },
+        with: { section: { columns: { id: true, repoVersionId: true } } },
+      })
+    );
+
+    if (!lesson) {
+      return yield* new NotFoundError({
+        type: "resolveLessonDir",
+        params: { lessonId },
+      });
+    }
+
+    const versionSections = yield* loadVersionTreeForProjection(
+      lesson.section.repoVersionId
+    );
+    const paths = projectVersionPaths(versionSections);
+    const sectionPath = paths.get(lesson.section.id);
+    const lessonPath = paths.get(lessonId);
+
+    if (!sectionPath || !lessonPath) {
+      return yield* new NotFoundError({
+        type: "resolveLessonDir",
+        params: { lessonId },
+      });
+    }
+
+    return `${sectionPath}/${lessonPath}`;
+  });
+
+  /**
+   * Resolves a single section's on-disk directory relative to the repo root
+   * ("NN-section"), computed on read from (title, rank).
+   */
+  const resolveSectionDir = Effect.fn("resolveSectionDir")(function* (
+    sectionId: string
+  ) {
+    const section = yield* makeDbCall(() =>
+      db.query.sections.findFirst({
+        where: eq(sections.id, sectionId),
+        columns: { id: true, repoVersionId: true },
+      })
+    );
+
+    if (!section) {
+      return yield* new NotFoundError({
+        type: "resolveSectionDir",
+        params: { sectionId },
+      });
+    }
+
+    const versionSections = yield* loadVersionTreeForProjection(
+      section.repoVersionId
+    );
+    const paths = projectVersionPaths(versionSections);
+    const sectionPath = paths.get(sectionId);
+
+    if (!sectionPath) {
+      return yield* new NotFoundError({
+        type: "resolveSectionDir",
+        params: { sectionId },
+      });
+    }
+
+    return sectionPath;
+  });
 
   return {
     getCourseVersions,
@@ -613,6 +734,8 @@ export const createVersionOperations = (db: Database) => {
     copyVersionStructure,
     getVideoIdsForVersion,
     getAllVersionsWithStructure,
+    resolveLessonDir,
+    resolveSectionDir,
   };
 };
 

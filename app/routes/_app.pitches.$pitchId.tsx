@@ -36,9 +36,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useFetcher, useSearchParams, useSubmit } from "react-router";
 import { courseEditorFetcherKeyForEvent } from "@/features/course-view/optimistic-applier";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
-import { SegmentDndProvider } from "@/features/segments/segment-dnd-context";
-import { CreateSegmentDialogProvider } from "@/features/segments/create-segment-dialog";
-import { SegmentList } from "@/features/segments/segment-list";
+import { BeatDndProvider } from "@/features/beats/beat-dnd-context";
+import { CreateBeatDialogProvider } from "@/features/beats/create-beat-dialog";
+import { BeatList } from "@/features/beats/beat-list";
 import { pitchBackLink } from "@/features/pitches/pitch-back-link";
 import { X_POST_CHARACTER_LIMIT } from "@/features/pitches/x-character-count";
 import type { Route } from "./+types/_app.pitches.$pitchId";
@@ -53,7 +53,7 @@ interface PitchVideo {
   path: string;
   firstClipId: string | null;
   totalDuration: number;
-  segments: {
+  beats: {
     id: string;
     videoId: string;
     kind: string;
@@ -90,7 +90,7 @@ export const loader = makeLoader({
           (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),
           0
         ),
-        segments: v.segments,
+        beats: v.beats,
       }));
 
       return {
@@ -383,18 +383,18 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
                 No videos yet. Click "Add video" below to create one.
               </p>
             ) : (
-              <CreateSegmentDialogProvider submitEvent={submitEvent}>
-                <SegmentDndProvider
+              <CreateBeatDialogProvider submitEvent={submitEvent}>
+                <BeatDndProvider
                   videos={videos.map((v) => ({
                     id: v.id,
-                    segments: v.segments,
+                    beats: v.beats,
                   }))}
                   onMove={(drop) =>
                     submitEvent({
-                      type: "move-segment",
-                      segmentId: drop.segmentId,
+                      type: "move-beat",
+                      beatId: drop.beatId,
                       targetVideoId: drop.targetVideoId,
-                      beforeSegmentId: drop.beforeSegmentId,
+                      beforeBeatId: drop.beforeBeatId,
                     })
                   }
                 >
@@ -432,7 +432,7 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
                           </div>
                         </Link>
                         <div className="pl-1">
-                          <SegmentList
+                          <BeatList
                             video={video}
                             submitEvent={submitEvent}
                             isReadOnly={false}
@@ -442,8 +442,8 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
                       </div>
                     ))}
                   </div>
-                </SegmentDndProvider>
-              </CreateSegmentDialogProvider>
+                </BeatDndProvider>
+              </CreateBeatDialogProvider>
             )}
             <div className="pt-2">
               <Button

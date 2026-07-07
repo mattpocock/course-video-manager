@@ -28,7 +28,7 @@ export namespace courseViewReducer {
     videoId: string;
     videoPath: string;
     clipCount: number;
-    segmentCount: number;
+    beatCount: number;
   } | null;
 
   export type LessonSelection = {
@@ -162,7 +162,7 @@ export namespace courseViewReducer {
         videoId: string;
         videoPath: string;
         clipCount: number;
-        segmentCount: number;
+        beatCount: number;
       }
     | { type: "close-copy-video" }
     // Lesson selection
@@ -370,7 +370,7 @@ export const courseViewReducer: EffectReducer<
           videoId: action.videoId,
           videoPath: action.videoPath,
           clipCount: action.clipCount,
-          segmentCount: action.segmentCount,
+          beatCount: action.beatCount,
         },
       };
     case "close-copy-video":

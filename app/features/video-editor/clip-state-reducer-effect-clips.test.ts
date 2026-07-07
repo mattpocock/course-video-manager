@@ -34,7 +34,7 @@ const createClipOnDatabase = (
   scene: "main",
   profile: "main-camera",
   insertionOrder: 1,
-  beatType: "none",
+  pauseType: "none",
   diagramSnapshotId: null,
   diagramName: null,
   ...overrides,
@@ -64,7 +64,7 @@ describe("clipStateReducer - effect clips", () => {
         type: "effect-clip-optimistically-added",
         text: "*white noise*",
         scene: "white noise",
-        beatType: "none",
+        pauseType: "none",
       });
     });
 
@@ -113,7 +113,7 @@ describe("clipStateReducer - effect clips", () => {
         type: "effect-clip-optimistically-added",
         text: WHITE_NOISE_DEFAULTS.text,
         scene: WHITE_NOISE_DEFAULTS.scene,
-        beatType: WHITE_NOISE_DEFAULTS.beatType,
+        pauseType: WHITE_NOISE_DEFAULTS.pauseType,
         sourceStartTime: WHITE_NOISE_DEFAULTS.sourceStartTime,
         sourceEndTime: WHITE_NOISE_DEFAULTS.sourceEndTime,
         profile: "screencast",
@@ -273,7 +273,7 @@ describe("clipStateReducer - effect clips", () => {
         databaseId: newDatabaseId,
         text: "*white noise*",
         scene: "white noise",
-        beatType: "none",
+        pauseType: "none",
       });
     });
   });

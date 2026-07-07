@@ -4,13 +4,13 @@
  */
 
 import { Schema } from "effect";
-import { SEGMENT_KINDS } from "@/features/segments/segment-kinds";
+import { BEAT_KINDS } from "@/features/beats/beat-kinds";
 
 const nonEmptyString = Schema.String.pipe(Schema.minLength(1));
 
 // Derived from the single source of truth so the schema can't drift from the
-// SegmentKind type / menus.
-const segmentKind = Schema.Literal(...SEGMENT_KINDS);
+// BeatKind type / menus.
+const beatKind = Schema.Literal(...BEAT_KINDS);
 
 export const CourseEditorEventSchema = Schema.Union(
   // --- Section events ---
@@ -120,37 +120,37 @@ export const CourseEditorEventSchema = Schema.Union(
     lessonId: nonEmptyString,
     status: Schema.Literal("todo", "done"),
   }),
-  // --- Segment events ---
+  // --- Beat events ---
   Schema.Struct({
-    type: Schema.Literal("create-segment"),
+    type: Schema.Literal("create-beat"),
     videoId: nonEmptyString,
-    kind: segmentKind,
+    kind: beatKind,
     title: Schema.optional(Schema.String),
-    beforeSegmentId: Schema.optional(Schema.NullOr(nonEmptyString)),
+    beforeBeatId: Schema.optional(Schema.NullOr(nonEmptyString)),
   }),
   Schema.Struct({
-    type: Schema.Literal("rename-segment"),
-    segmentId: nonEmptyString,
+    type: Schema.Literal("rename-beat"),
+    beatId: nonEmptyString,
     title: Schema.String,
   }),
   Schema.Struct({
-    type: Schema.Literal("update-segment-description"),
-    segmentId: nonEmptyString,
+    type: Schema.Literal("update-beat-description"),
+    beatId: nonEmptyString,
     description: Schema.String,
   }),
   Schema.Struct({
-    type: Schema.Literal("set-segment-kind"),
-    segmentId: nonEmptyString,
-    kind: segmentKind,
+    type: Schema.Literal("set-beat-kind"),
+    beatId: nonEmptyString,
+    kind: beatKind,
   }),
   Schema.Struct({
-    type: Schema.Literal("delete-segment"),
-    segmentId: nonEmptyString,
+    type: Schema.Literal("delete-beat"),
+    beatId: nonEmptyString,
   }),
   Schema.Struct({
-    type: Schema.Literal("move-segment"),
-    segmentId: nonEmptyString,
+    type: Schema.Literal("move-beat"),
+    beatId: nonEmptyString,
     targetVideoId: nonEmptyString,
-    beforeSegmentId: Schema.optional(Schema.NullOr(nonEmptyString)),
+    beforeBeatId: Schema.optional(Schema.NullOr(nonEmptyString)),
   })
 );

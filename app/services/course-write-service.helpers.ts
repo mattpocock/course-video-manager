@@ -12,6 +12,7 @@ import {
   sectionHasRealLessons,
   sectionSlugFromPath,
 } from "./section-path-service";
+import { projectVersionPaths } from "./path-projection";
 import { CourseWriteError } from "./course-write-service.types";
 
 /**
@@ -88,6 +89,14 @@ export function createSectionOps(
     // Only real sections (those with at least one real lesson) get sequential
     // numbers; ghost sections are skipped and don't reserve a number slot.
     // Real-ness is derived from lessons, never from the path prefix.
+    //
+    // NOTE: this function is the disk-reconciliation step invoked AFTER a
+    // caller (e.g. materializeGhost) has already flipped a section's real-ness,
+    // so a section's derived path already reflects its NEW rank while the
+    // on-disk directory still carries the OLD number. The stored `path` column
+    // is therefore the only record of the current on-disk folder name, so the
+    // git-mv source must be read from it here — the compute-on-read swap does
+    // not apply to this specific reconciliation read.
     let realNumber = 0;
     for (let i = 0; i < allSections.length; i++) {
       const section = allSections[i]!;
@@ -197,15 +206,23 @@ export function createSectionOps(
   ) {
     // Get all sections to compute renumbering plan
     const allSections = yield* db.getSectionsByIds(sectionIds);
-    const sectionsForReorder = allSections.map((s) => ({
-      id: s.id,
-      path: s.path,
-      hasRealLessons: sectionHasRealLessons(s.lessons),
-    }));
 
     // Get repo path from the first section's hierarchy
     const firstSection = yield* db.getSectionWithHierarchyById(sectionIds[0]!);
     const repoPath = firstSection.repoVersion.repo.filePath!;
+
+    // Derive current paths from the full version tree (folder names are
+    // computed on read, never read off the stored path column).
+    const versionTree = yield* db.getSectionsWithLessonsByRepoVersionId(
+      firstSection.repoVersionId
+    );
+    const derivedPaths = projectVersionPaths(versionTree);
+
+    const sectionsForReorder = allSections.map((s) => ({
+      id: s.id,
+      path: derivedPaths.get(s.id) ?? s.title,
+      hasRealLessons: sectionHasRealLessons(s.lessons),
+    }));
 
     // Compute which section directories need filesystem renames
     const sectionRenames = computeSectionRenumberingPlan(
@@ -258,7 +275,8 @@ export function createSectionOps(
         // Compute lesson renames: update the section number prefix
         const lessonRenames: Array<{ oldPath: string; newPath: string }> = [];
         for (const lesson of realLessons) {
-          const parsed = parseLessonPath(lesson.path);
+          const lPath = derivedPaths.get(lesson.id)!;
+          const parsed = parseLessonPath(lPath);
           if (!parsed) continue;
 
           const newLessonPath = buildLessonPath(
@@ -266,9 +284,9 @@ export function createSectionOps(
             parsed.lessonNumber,
             parsed.slug
           );
-          if (newLessonPath !== lesson.path) {
+          if (newLessonPath !== lPath) {
             lessonRenames.push({
-              oldPath: lesson.path,
+              oldPath: lPath,
               newPath: newLessonPath,
             });
           }
@@ -284,7 +302,8 @@ export function createSectionOps(
 
           // Update DB paths for renamed lessons
           for (const lesson of realLessons) {
-            const parsed = parseLessonPath(lesson.path);
+            const lPath = derivedPaths.get(lesson.id)!;
+            const parsed = parseLessonPath(lPath);
             if (!parsed) continue;
 
             const newLessonPath = buildLessonPath(
@@ -292,7 +311,7 @@ export function createSectionOps(
               parsed.lessonNumber,
               parsed.slug
             );
-            if (newLessonPath !== lesson.path) {
+            if (newLessonPath !== lPath) {
               yield* db.updateLesson(lesson.id, {
                 path: newLessonPath,
                 lessonNumber: parsed.lessonNumber,
@@ -322,17 +341,21 @@ export function createSectionOps(
     newSlug: string
   ) {
     const section = yield* db.getSectionWithHierarchyById(sectionId);
-    const parsed = parseSectionPath(section.path);
+    // git mv operates on the real folder, so the source name is the current
+    // on-disk name — tracked in the in-sync stored column (a disk-reconciliation
+    // site, like course-repo-sync-validation), not the derived path.
+    const currentPath = section.path;
+    const parsed = parseSectionPath(currentPath);
 
     if (!parsed) {
       return yield* new CourseWriteError({
         cause: null,
-        message: `Cannot parse section path: ${section.path}`,
+        message: `Cannot parse section path: ${currentPath}`,
       });
     }
 
     if (parsed.slug === newSlug) {
-      return { success: true, path: section.path };
+      return { success: true, path: currentPath };
     }
 
     const repoPath = section.repoVersion.repo.filePath!;
@@ -341,7 +364,7 @@ export function createSectionOps(
     // Rename section directory on disk
     yield* repoWrite.renameSections({
       repoPath,
-      renames: [{ oldPath: section.path, newPath }],
+      renames: [{ oldPath: currentPath, newPath }],
     });
 
     // Update DB section path

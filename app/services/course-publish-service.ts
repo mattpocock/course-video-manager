@@ -5,7 +5,7 @@ import { VideoOperationsService } from "./db-video-operations.server";
 import { VersionOperationsService } from "./db-version-operations.server";
 import {
   VideoProcessingService,
-  type BeatType,
+  type PauseType,
 } from "./video-processing-service";
 import { CourseRepoParserService } from "./course-repo-parser";
 import {
@@ -18,23 +18,22 @@ import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import { generateChangelog } from "./changelog-service";
 import {
   ALLOWED_FILE_EXTENSIONS_FROM_REPO,
-  buildChapters,
   DoesNotExistOnDbError,
+  precomputeVideoMaps,
   resolveSectionsWithVideos,
   TODO_MARKER_BODY,
 } from "./publish-to-dropbox";
-import {
-  formatProseTranscript,
-  toTranscriptItems,
-} from "@/lib/transcript-builder";
+import { formatProseTranscript } from "@/lib/transcript-builder";
+import { computeCourseViewLintCount } from "./lesson-warnings";
+import { buildCourseJson } from "./course-json";
 
 export class PublishValidationError extends Data.TaggedError(
   "PublishValidationError"
 )<{
   unexportedVideoIds: string[];
+  courseViewLintCount?: number;
 }> {}
 
-/** Minimal video shape needed by resolveExportPath / isExported */
 export type VideoForExport = {
   id: string;
   lesson?: {
@@ -50,7 +49,6 @@ export type VideoForExport = {
 
 const MAX_CONCURRENT_EXPORTS = 6;
 
-/** Extract ExportClip data from DB clip records */
 const toExportClips = (
   clips: Array<{
     videoFilename: string;
@@ -114,11 +112,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         return yield* effectFs.exists(exportPath);
       });
 
-      /**
-       * Core export logic without GC — used by both exportVideo and batchExport.
-       * Returns { targetPath, owner } on success. `owner` distinguishes course
-       * videos (GC-able by courseId) from standalone videos (no GC).
-       */
       const exportVideoCore = Effect.fn("exportVideoCore")(function* (
         videoId: string,
         onStage?: (stage: "concatenating-clips" | "normalizing-audio") => void
@@ -162,7 +155,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
                 clip.sourceEndTime -
                 clip.sourceStartTime +
                 (isFinalClip ? FINAL_VIDEO_PADDING : 0),
-              beatType: (clip.beatType as BeatType) || "none",
+              pauseType: (clip.pauseType as PauseType) || "none",
             };
           }),
           onStageChange: onStage,
@@ -291,7 +284,10 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             }
           }
 
-          return { unexportedVideoIds };
+          const courseViewLintCount = computeCourseViewLintCount(
+            version.sections
+          );
+          return { unexportedVideoIds, courseViewLintCount };
         }
       );
 
@@ -413,32 +409,12 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           }
         );
 
-        const videoTranscriptItemsMap = new Map<
-          string,
-          ReturnType<typeof toTranscriptItems>
-        >();
-        const videoChaptersMap = new Map<
-          string,
-          ReturnType<typeof buildChapters>
-        >();
-        const lessonTodoSet = new Set<string>();
-        for (const section of repoWithSections.sections) {
-          for (const lesson of section.lessons) {
-            if (lesson.authoringStatus === "todo") {
-              lessonTodoSet.add(`${section.path}/${lesson.path}`);
-            }
-            for (const video of lesson.videos) {
-              videoTranscriptItemsMap.set(
-                video.id,
-                toTranscriptItems(video.clips, video.chapters)
-              );
-              videoChaptersMap.set(
-                video.id,
-                buildChapters(video.clips, video.chapters)
-              );
-            }
-          }
-        }
+        const {
+          transcriptItemsMap: videoTranscriptItemsMap,
+          chaptersMap: videoChaptersMap,
+          bodyMap: videoBodyMap,
+          lessonTodoSet,
+        } = precomputeVideoMaps(repoWithSections.sections);
 
         for (const section of sections) {
           const dropboxSectionDir = path.join(dropboxCourseDir, section.path);
@@ -486,6 +462,16 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
                   yield* effectFs.writeFileString(transcriptPath, transcript);
                   filesSupposedToBeInDropbox.add(transcriptPath);
                 }
+              }
+
+              const videoBody = videoBodyMap.get(video.id);
+              if (videoBody) {
+                const bodyPath = path.join(
+                  dropboxLessonDir,
+                  `${video.name}.body.md`
+                );
+                yield* effectFs.writeFileString(bodyPath, videoBody);
+                filesSupposedToBeInDropbox.add(bodyPath);
               }
             }
 
@@ -538,6 +524,18 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             .filter((file) => !filesSupposedToBeInDropbox.has(file));
           yield* Effect.forEach(filesToDelete, (file) => effectFs.remove(file));
         }
+
+        const courseJsonDoc = yield* buildCourseJson({
+          courseId,
+          courseName: repoWithSections.name,
+          sections: repoWithSections.sections,
+        });
+        const courseJsonPath = path.join(dropboxCourseDir, "course.json");
+        yield* effectFs.writeFileString(
+          courseJsonPath,
+          JSON.stringify(courseJsonDoc, null, 2)
+        );
+        filesSupposedToBeInDropbox.add(courseJsonPath);
 
         const allVersions =
           yield* versionOps.getAllVersionsWithStructure(courseId);
@@ -592,11 +590,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           return yield* Effect.die(new Error("No version found for course"));
         }
 
-        const { unexportedVideoIds } = yield* validatePublishability(
-          latestVersion.id
-        );
-        if (unexportedVideoIds.length > 0) {
-          return yield* new PublishValidationError({ unexportedVideoIds });
+        const { unexportedVideoIds, courseViewLintCount } =
+          yield* validatePublishability(latestVersion.id);
+        if (unexportedVideoIds.length > 0 || courseViewLintCount > 0) {
+          return yield* new PublishValidationError({
+            unexportedVideoIds,
+            courseViewLintCount,
+          });
         }
 
         onProgress?.("uploading");

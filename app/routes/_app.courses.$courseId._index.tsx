@@ -144,6 +144,9 @@ export default function Component(props: Route.ComponentProps) {
     let count = 0;
     for (const section of displaySections) {
       for (const lesson of section.lessons) {
+        if (lesson.lessonWarnings && lesson.lessonWarnings.length > 0) {
+          count++;
+        }
         for (const video of lesson.videos) {
           if (video.warnings.some((w) => w.kind === "missingOpeningChapter")) {
             count++;

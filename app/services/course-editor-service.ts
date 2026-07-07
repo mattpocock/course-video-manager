@@ -5,10 +5,10 @@
  * ClipService pattern. Discriminated union events, transport abstraction,
  * HTTP transport for production, direct transport for tests.
  *
- * Covers 4 section events + 13 lesson events + segment events.
+ * Covers 4 section events + 13 lesson events + beat events.
  */
 
-import type { SegmentKind } from "@/features/segments/segment-kinds";
+import type { BeatKind } from "@/features/beats/beat-kinds";
 
 // ============================================================================
 // Event Types
@@ -131,47 +131,47 @@ export type CourseEditorEvent =
       lessonId: string;
       status: "todo" | "done";
     }
-  // --- Segment events ---
+  // --- Beat events ---
   | {
-      type: "create-segment";
+      type: "create-beat";
       videoId: string;
-      kind: SegmentKind;
-      /** Initial title for the new Segment. Absent/empty leaves it untitled. */
+      kind: BeatKind;
+      /** Initial title for the new Beat. Absent/empty leaves it untitled. */
       title?: string;
       /**
-       * Insertion anchor: place the new Segment immediately before this one in
+       * Insertion anchor: place the new Beat immediately before this one in
        * the Video's plan. `null`/absent appends to the end.
        */
-      beforeSegmentId?: string | null;
+      beforeBeatId?: string | null;
     }
   | {
-      type: "rename-segment";
-      segmentId: string;
+      type: "rename-beat";
+      beatId: string;
       title: string;
     }
   | {
-      type: "update-segment-description";
-      segmentId: string;
+      type: "update-beat-description";
+      beatId: string;
       description: string;
     }
   | {
-      type: "set-segment-kind";
-      segmentId: string;
-      kind: SegmentKind;
+      type: "set-beat-kind";
+      beatId: string;
+      kind: BeatKind;
     }
   | {
-      type: "delete-segment";
-      segmentId: string;
+      type: "delete-beat";
+      beatId: string;
     }
   | {
-      type: "move-segment";
-      segmentId: string;
+      type: "move-beat";
+      beatId: string;
       targetVideoId: string;
       /**
-       * Drop anchor: place the moved Segment immediately before this one in the
+       * Drop anchor: place the moved Beat immediately before this one in the
        * target Video. `null`/absent appends to the target's end.
        */
-      beforeSegmentId?: string | null;
+      beforeBeatId?: string | null;
     };
 
 // ============================================================================
@@ -286,32 +286,29 @@ export interface CourseEditorService {
     status: "todo" | "done"
   ): Promise<{ success: true }>;
 
-  // Segment operations
-  createSegment(
+  // Beat operations
+  createBeat(
     videoId: string,
-    kind: SegmentKind,
+    kind: BeatKind,
     title?: string,
-    beforeSegmentId?: string | null
-  ): Promise<{ success: true; segmentId: string }>;
+    beforeBeatId?: string | null
+  ): Promise<{ success: true; beatId: string }>;
 
-  renameSegment(segmentId: string, title: string): Promise<{ success: true }>;
+  renameBeat(beatId: string, title: string): Promise<{ success: true }>;
 
-  setSegmentDescription(
-    segmentId: string,
+  setBeatDescription(
+    beatId: string,
     description: string
   ): Promise<{ success: true }>;
 
-  setSegmentKind(
-    segmentId: string,
-    kind: SegmentKind
-  ): Promise<{ success: true }>;
+  setBeatKind(beatId: string, kind: BeatKind): Promise<{ success: true }>;
 
-  deleteSegment(segmentId: string): Promise<{ success: true }>;
+  deleteBeat(beatId: string): Promise<{ success: true }>;
 
-  moveSegment(
-    segmentId: string,
+  moveBeat(
+    beatId: string,
     targetVideoId: string,
-    beforeSegmentId?: string | null
+    beforeBeatId?: string | null
   ): Promise<{ success: true }>;
 }
 
@@ -507,54 +504,54 @@ export function createCourseEditorService(
       }) as Promise<{ success: true }>;
     },
 
-    // --- Segment operations ---
-    async createSegment(videoId, kind, title = "", beforeSegmentId = null) {
+    // --- Beat operations ---
+    async createBeat(videoId, kind, title = "", beforeBeatId = null) {
       return send({
-        type: "create-segment",
+        type: "create-beat",
         videoId,
         kind,
         title,
-        beforeSegmentId,
-      }) as Promise<{ success: true; segmentId: string }>;
+        beforeBeatId,
+      }) as Promise<{ success: true; beatId: string }>;
     },
 
-    async renameSegment(segmentId, title) {
+    async renameBeat(beatId, title) {
       return send({
-        type: "rename-segment",
-        segmentId,
+        type: "rename-beat",
+        beatId,
         title,
       }) as Promise<{ success: true }>;
     },
 
-    async setSegmentDescription(segmentId, description) {
+    async setBeatDescription(beatId, description) {
       return send({
-        type: "update-segment-description",
-        segmentId,
+        type: "update-beat-description",
+        beatId,
         description,
       }) as Promise<{ success: true }>;
     },
 
-    async setSegmentKind(segmentId, kind) {
+    async setBeatKind(beatId, kind) {
       return send({
-        type: "set-segment-kind",
-        segmentId,
+        type: "set-beat-kind",
+        beatId,
         kind,
       }) as Promise<{ success: true }>;
     },
 
-    async deleteSegment(segmentId) {
+    async deleteBeat(beatId) {
       return send({
-        type: "delete-segment",
-        segmentId,
+        type: "delete-beat",
+        beatId,
       }) as Promise<{ success: true }>;
     },
 
-    async moveSegment(segmentId, targetVideoId, beforeSegmentId = null) {
+    async moveBeat(beatId, targetVideoId, beforeBeatId = null) {
       return send({
-        type: "move-segment",
-        segmentId,
+        type: "move-beat",
+        beatId,
         targetVideoId,
-        beforeSegmentId,
+        beforeBeatId,
       }) as Promise<{ success: true }>;
     },
   };

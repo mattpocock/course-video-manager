@@ -14,6 +14,7 @@ import {
   parseError,
   withName,
 } from "@/cli/helpers";
+import { withBackupCoordination } from "@/cli/backup-coordinator";
 
 // ---------------------------------------------------------------------------
 // Help text — domain-teaching prose (keep in sync with CONTEXT.md, "Pitches").
@@ -48,11 +49,14 @@ RANKING FIELDS
 COPY FIELDS
   title, description, youtubeTitle, youtubeThumbnailDescription,
   newsletterTitle, tweet — the packaging copy authored ahead of recording.
+  contentPlan is retired (deprecated, ADR 0015): still surfaced in list/get
+  output as a read-only transitional reference, but no longer writable via
+  create/update.
 
 VERBS
   list   — every active pitch (optionally filtered by --state). Identity-rich.
   get    — one or more pitches by id, deep (linked Standalone Videos + their
-           Clips and planning Segments).
+           Clips and planning Beats).
   create — create a Pitch (WRITE). --title required; other copy/ranking fields
            optional. (A pitch needs a title to appear in list/get.)
   update — patch a Pitch's copy/ranking fields (WRITE). Rename = --title.
@@ -110,7 +114,7 @@ Each pitch includes its derived 'state' (idle | scheduled | shipped) plus the
 deep relations:
   - videos   — the linked Standalone Videos (active only), each with:
                  * clips    — recorded-timeline Clips (active, ordered).
-                 * segments — the video's planning Segments (active, ordered):
+                 * beats — the video's planning Beats (active, ordered):
                               {id, kind, title, description, order, videoId}.
 The packaging copy fields (title, description, youtubeTitle,
 youtubeThumbnailDescription, newsletterTitle, tweet) and ranking fields
@@ -301,19 +305,21 @@ const createCmd = Command.make(
   "create",
   { title: createTitleOption, ...copyOptions },
   ({ title, ...rest }) =>
-    Effect.gen(function* () {
-      // A pitch needs a non-empty title to appear in list/get, so reject blank.
-      if (title.trim() === "") {
-        return yield* parseError("--title must not be empty", "pitch");
-      }
-      const svc = yield* PitchOperationsService;
-      // One atomic insert carrying the title (never a titleless row + patch).
-      const created = yield* svc.createPitch({
-        title,
-        ...collectPitchFields(rest),
-      });
-      yield* emitObject(stripContentPlan(created));
-    })
+    withBackupCoordination(
+      Effect.gen(function* () {
+        // A pitch needs a non-empty title to appear in list/get, so reject blank.
+        if (title.trim() === "") {
+          return yield* parseError("--title must not be empty", "pitch");
+        }
+        const svc = yield* PitchOperationsService;
+        // One atomic insert carrying the title (never a titleless row + patch).
+        const created = yield* svc.createPitch({
+          title,
+          ...collectPitchFields(rest),
+        });
+        yield* emitObject(stripContentPlan(created));
+      })
+    )
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 const updateTitleOption = Options.text("title").pipe(
@@ -326,33 +332,35 @@ const updateCmd = Command.make(
   "update",
   { id: idArg, title: updateTitleOption, ...copyOptions },
   ({ id, title, ...rest }) =>
-    Effect.gen(function* () {
-      const t = Option.getOrUndefined(title);
-      if (t !== undefined && t.trim() === "") {
-        return yield* parseError("--title must not be empty", "pitch");
-      }
-      // May carry undefined values (flags not passed); the service prunes them.
-      const fields: PitchFields = { title: t, ...collectPitchFields(rest) };
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const t = Option.getOrUndefined(title);
+        if (t !== undefined && t.trim() === "") {
+          return yield* parseError("--title must not be empty", "pitch");
+        }
+        // May carry undefined values (flags not passed); the service prunes them.
+        const fields: PitchFields = { title: t, ...collectPitchFields(rest) };
 
-      if (!Object.values(fields).some((v) => v !== undefined)) {
-        return yield* parseError(
-          "update needs at least one field flag (e.g. --title)",
-          "pitch"
-        );
-      }
+        if (!Object.values(fields).some((v) => v !== undefined)) {
+          return yield* parseError(
+            "update needs at least one field flag (e.g. --title)",
+            "pitch"
+          );
+        }
 
-      const svc = yield* PitchOperationsService;
-      // Existence + active guard (archived == deleted == not addressable).
-      const existing = yield* svc
-        .getPitch(id)
-        .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", id)));
-      if (existing.archived) {
-        return yield* notFound("pitch", id);
-      }
+        const svc = yield* PitchOperationsService;
+        // Existence + active guard (archived == deleted == not addressable).
+        const existing = yield* svc
+          .getPitch(id)
+          .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", id)));
+        if (existing.archived) {
+          return yield* notFound("pitch", id);
+        }
 
-      const updated = yield* svc.updatePitch(id, fields);
-      yield* emitObject(stripContentPlan(updated));
-    })
+        const updated = yield* svc.updatePitch(id, fields);
+        yield* emitObject(stripContentPlan(updated));
+      })
+    )
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 // ---------------------------------------------------------------------------

@@ -132,5 +132,54 @@ export const createVideoWriteOps = (db: Database) => {
     return updated;
   });
 
-  return { getVideoRowById, linkVideoToPitch, moveVideoToLesson };
+  const updateVideoBody = Effect.fn("updateVideoBody")(function* (opts: {
+    videoId: string;
+    body: string | null;
+  }) {
+    const [updated] = yield* makeDbCall(() =>
+      db
+        .update(videos)
+        .set({ body: opts.body, updatedAt: new Date() })
+        .where(eq(videos.id, opts.videoId))
+        .returning()
+    );
+
+    if (!updated) {
+      return yield* new NotFoundError({
+        type: "updateVideoBody",
+        params: { videoId: opts.videoId },
+      });
+    }
+
+    return updated;
+  });
+
+  const updateVideoDescription = Effect.fn("updateVideoDescription")(
+    function* (opts: { videoId: string; description: string | null }) {
+      const [updated] = yield* makeDbCall(() =>
+        db
+          .update(videos)
+          .set({ description: opts.description, updatedAt: new Date() })
+          .where(eq(videos.id, opts.videoId))
+          .returning()
+      );
+
+      if (!updated) {
+        return yield* new NotFoundError({
+          type: "updateVideoDescription",
+          params: { videoId: opts.videoId },
+        });
+      }
+
+      return updated;
+    }
+  );
+
+  return {
+    getVideoRowById,
+    linkVideoToPitch,
+    moveVideoToLesson,
+    updateVideoBody,
+    updateVideoDescription,
+  };
 };

@@ -99,9 +99,9 @@ export const ClipItem = (props: ClipItemProps) => {
     VideoEditorContext,
     (ctx) => ctx.onMoveClip
   );
-  const onToggleBeatForClip = useContextSelector(
+  const onTogglePauseForClip = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onToggleBeatForClip
+    (ctx) => ctx.onTogglePauseForClip
   );
   const selectedClipsSet = useContextSelector(
     VideoEditorContext,
@@ -321,11 +321,11 @@ export const ClipItem = (props: ClipItemProps) => {
         <ContextMenuSeparator />
         <ContextMenuItem
           onSelect={() => {
-            onToggleBeatForClip(clip.frontendId);
+            onTogglePauseForClip(clip.frontendId);
           }}
         >
           <PauseIcon />
-          {clip.beatType === "long" ? "Remove Beat" : "Add Beat"}
+          {clip.pauseType === "long" ? "Remove Pause" : "Add Pause"}
         </ContextMenuItem>
         <ContextMenuItem
           disabled={clip.type !== "on-database"}

@@ -14,6 +14,7 @@ export type CourseLeaf = z.infer<typeof CourseLeafSchema>;
 
 export const SectionLeafSchema = z.object({
   id: z.string(),
+  title: z.string(),
   slug: z.string(),
   description: z.string(),
   real: z.boolean(),
@@ -41,13 +42,13 @@ export const VideoLeafSchema = z.object({
 });
 export type VideoLeaf = z.infer<typeof VideoLeafSchema>;
 
-export const SegmentLeafSchema = z.object({
+export const BeatLeafSchema = z.object({
   id: z.string(),
   kind: z.string(),
   title: z.string(),
   description: z.string(),
 });
-export type SegmentLeaf = z.infer<typeof SegmentLeafSchema>;
+export type BeatLeaf = z.infer<typeof BeatLeafSchema>;
 
 export const ClipLeafSchema = z.object({
   type: z.literal("clip"),
@@ -56,7 +57,7 @@ export const ClipLeafSchema = z.object({
   sourceStartTime: z.number(),
   sourceEndTime: z.number(),
   videoFilename: z.string(),
-  beatType: z.string(),
+  pauseType: z.string(),
   scene: z.string().nullable(),
   profile: z.string().nullable(),
 });
@@ -72,6 +73,7 @@ export type ChapterLeaf = z.infer<typeof ChapterLeafSchema>;
 export const SectionMemberSchema = z.object({
   id: z.string(),
   slug: z.string(),
+  title: z.string(),
 });
 export type SectionMember = z.infer<typeof SectionMemberSchema>;
 
@@ -88,12 +90,12 @@ export const VideoMemberSchema = z.object({
 });
 export type VideoMember = z.infer<typeof VideoMemberSchema>;
 
-export const SegmentMemberSchema = z.object({
+export const BeatMemberSchema = z.object({
   id: z.string(),
   kind: z.string(),
   title: z.string(),
 });
-export type SegmentMember = z.infer<typeof SegmentMemberSchema>;
+export type BeatMember = z.infer<typeof BeatMemberSchema>;
 
 export const TimelineMemberSchema = z.object({
   id: z.string(),
@@ -106,5 +108,5 @@ export type MembersLeaf =
   | SectionMember[]
   | LessonMember[]
   | VideoMember[]
-  | SegmentMember[]
+  | BeatMember[]
   | TimelineMember[];

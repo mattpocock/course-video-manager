@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import type { CourseStructure } from "@/components/video-context-panel";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
+import type { WriterContext } from "@/features/article-writer/writer-engine";
+import { WritableField } from "@/features/article-writer/writable-field";
 import {
   AiHeroConnectCard,
   AiHeroConnectionStatus,
@@ -65,6 +67,7 @@ export function AiHeroPage({
   courseStructure,
   includeCourseStructure,
   chapters,
+  writerContext,
 }: {
   videoId: string;
   aiHero: { connected: true; userId: string } | { connected: false };
@@ -74,6 +77,7 @@ export function AiHeroPage({
   courseStructure: CourseStructure | null;
   includeCourseStructure: boolean;
   chapters: SectionWithWordCount[];
+  writerContext: WriterContext | null;
 }) {
   // Title with localStorage persistence
   const [title, setTitle] = useState(() => {
@@ -391,13 +395,24 @@ export function AiHeroPage({
         {/* Body */}
         <div className="space-y-2">
           <Label htmlFor="ai-hero-body">Body (Markdown)</Label>
-          <Textarea
-            id="ai-hero-body"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Write your post body in markdown..."
-            className="min-h-[300px] resize-y font-mono"
-          />
+          {writerContext ? (
+            <WritableField
+              videoId={videoId}
+              fieldId="ai-hero-body"
+              value={body}
+              onApply={setBody}
+              context={writerContext}
+              placeholder="Click to open writer..."
+            />
+          ) : (
+            <Textarea
+              id="ai-hero-body"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Write your post body in markdown..."
+              className="min-h-[300px] resize-y font-mono"
+            />
+          )}
         </div>
 
         {/* Upload Images to Cloudinary — only shown when body has local image references */}

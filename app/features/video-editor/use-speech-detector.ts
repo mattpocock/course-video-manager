@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   SILENCE_THRESHOLD_DB,
   MINIMUM_CLIP_LENGTH_SECONDS,
-  pauseLengthToSeconds,
-  type PauseLength,
+  silenceLengthToSeconds,
+  type SilenceLength,
 } from "@/silence-detection-constants";
 
 export type SpeechDetectorState =
@@ -68,9 +68,9 @@ const resolveFrontendSpeechDetectorState = (
 export const useSpeechDetector = (opts: {
   mediaStream: MediaStream | null;
   isRecording: boolean;
-  pauseLength: PauseLength;
+  silenceLength: SilenceLength;
 }) => {
-  const longEnoughTimeInMs = pauseLengthToSeconds(opts.pauseLength) * 1000;
+  const longEnoughTimeInMs = silenceLengthToSeconds(opts.silenceLength) * 1000;
   const [state, setState] = useState<SpeechDetectorState>({
     type: "no-silence-detected",
     lastLongEnoughSilenceEndTime: null,

@@ -16,7 +16,7 @@ export const useVideoEditor = (props: {
   insertionPoint: FrontendInsertionPoint;
   onClipsRemoved: (clipIds: FrontendId[]) => void;
   onClipsRetranscribe: (clipIds: FrontendId[]) => void;
-  onToggleBeatForClip: (clipId: FrontendId) => void;
+  onTogglePauseForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
@@ -57,8 +57,8 @@ export const useVideoEditor = (props: {
       "retranscribe-clips": (_state, effect, _dispatch) => {
         props.onClipsRetranscribe(effect.clipIds);
       },
-      "toggle-beat-for-clip": (_state, effect, _dispatch) => {
-        props.onToggleBeatForClip(effect.clipId);
+      "toggle-pause-for-clip": (_state, effect, _dispatch) => {
+        props.onTogglePauseForClip(effect.clipId);
       },
       "move-clip": (_state, effect, _dispatch) => {
         props.onMoveClip(effect.clipId, effect.direction);

@@ -5,18 +5,19 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { SegmentOperationsService } from "@/services/db-segment-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
+import { BackupCoordinator } from "@/cli/backup-coordinator";
 
 /**
  * Service layer for the `cvm` CLI. Mostly the read-operations services, provided
  * over DrizzleService.Default.
  *
  * WRITES. The CLI is read-mostly, but a handful of write verbs exist (lesson
- * create/update/move, video create/move/update, pitch/segment authoring). Field
+ * create/update/move, video create/move/update, pitch/beat authoring). Field
  * edits with no on-disk coupling (a title, a link) go straight through the
  * DB-operations services. Structural edits that MUST stay in sync with the
  * course repo on disk — reordering or moving a REAL lesson renumbers folder
@@ -35,7 +36,7 @@ import { CourseWriteService } from "@/services/course-write-service";
  *   lesson        -> LessonSectionOperationsService
  *   video         -> VideoOperationsService
  *   clip          -> ClipOperationsService
- *   segment       -> SegmentOperationsService
+ *   beat          -> BeatOperationsService
  *   pitch         -> PitchOperationsService
  *   deliverable   -> DeliverableOperationsService
  *   search        -> SearchOperationsService (cross-cutting: walks the tree)
@@ -50,14 +51,15 @@ export const cliLayer = Layer.mergeAll(
   LessonSectionOperationsService.Default,
   VideoOperationsService.Default,
   ClipOperationsService.Default,
-  SegmentOperationsService.Default,
+  BeatOperationsService.Default,
   PitchOperationsService.Default,
   DeliverableOperationsService.Default,
   SearchOperationsService.Default,
   // Disk-aware write orchestrator for structural lesson edits (reorder / move).
   // Its transitive deps (repo-write, sync-validation, NodeFileSystem) close
   // under DrizzleService below; git/fs are only touched when a real lesson moves.
-  CourseWriteService.Default
+  CourseWriteService.Default,
+  BackupCoordinator.Default
 ).pipe(Layer.provideMerge(DrizzleService.Default));
 
 /**

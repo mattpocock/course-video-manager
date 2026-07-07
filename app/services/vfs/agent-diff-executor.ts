@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
-import { clips, chapters, segments, lessons, videos } from "@/db/schema";
+import { clips, chapters, beats, lessons, videos } from "@/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import type {
   Op,
@@ -18,7 +18,7 @@ import { UnknownDBServiceError } from "@/services/db-service-errors";
 import { withDbTransaction } from "@/services/with-db-transaction.server";
 import { createLessonSectionOperations } from "@/services/db-lesson-section-operations.server";
 import { createClipOperations } from "@/services/db-clip-operations.server";
-import { createSegmentOperations } from "@/services/db-segment-operations.server";
+import { createBeatOperations } from "@/services/db-beat-operations.server";
 import { createVideoOperations } from "@/services/db-video-operations.server";
 import { toSlug } from "@/services/lesson-path-service";
 import { buildVfsForCourse } from "./vfs-loader.server";
@@ -53,7 +53,7 @@ export type ExecutorRejection = {
 type TxServices = {
   lessonSectionOps: ReturnType<typeof createLessonSectionOperations>;
   clipOps: ReturnType<typeof createClipOperations>;
-  segmentOps: ReturnType<typeof createSegmentOperations>;
+  beatOps: ReturnType<typeof createBeatOperations>;
   videoOps: ReturnType<typeof createVideoOperations>;
   tx: Database;
 };
@@ -134,7 +134,7 @@ function buildTxServices(tx: Database): TxServices {
   return {
     lessonSectionOps: createLessonSectionOperations(tx),
     clipOps: createClipOperations(tx),
-    segmentOps: createSegmentOperations(tx),
+    beatOps: createBeatOperations(tx),
     videoOps: createVideoOperations(tx, {
       getCourseNavigationData: () => Effect.succeed(null as any),
     }),
@@ -235,10 +235,10 @@ function applyCreate(
         });
         break;
       }
-      case "segment": {
+      case "beat": {
         const videoId = resolveParentId(ctx.root, ctx.path, "video");
         if (!videoId) break;
-        yield* svc.segmentOps.createSegment(
+        yield* svc.beatOps.createBeat(
           videoId,
           ((op.detail.values?.kind as string) || "definition") as any,
           null,
@@ -342,8 +342,8 @@ function applyDelete(op: DeleteOp, svc: TxServices): Effect.Effect<void, any> {
       case "chapter":
         yield* svc.clipOps.archiveChapter(op.id);
         break;
-      case "segment":
-        yield* svc.segmentOps.deleteSegment(op.id);
+      case "beat":
+        yield* svc.beatOps.deleteBeat(op.id);
         break;
       default:
         break;
@@ -399,16 +399,13 @@ function applyEdit(op: EditFieldOp, svc: TxServices): Effect.Effect<void, any> {
         if (op.field === "name")
           yield* svc.clipOps.updateChapter(op.id, { name: op.after as string });
         break;
-      case "segment":
+      case "beat":
         if (op.field === "title")
-          yield* svc.segmentOps.renameSegment(op.id, op.after as string);
+          yield* svc.beatOps.renameBeat(op.id, op.after as string);
         else if (op.field === "description")
-          yield* svc.segmentOps.setSegmentDescription(
-            op.id,
-            op.after as string
-          );
+          yield* svc.beatOps.setBeatDescription(op.id, op.after as string);
         else if (op.field === "kind")
-          yield* svc.segmentOps.setSegmentKind(op.id, op.after as any);
+          yield* svc.beatOps.setBeatKind(op.id, op.after as any);
         break;
       default:
         break;
@@ -455,9 +452,9 @@ function applyReorder(
         if (h.length > 0) yield* batchUpdateOrder(svc.tx, "chapters", h, ho);
         break;
       }
-      case "segment": {
+      case "beat": {
         const keys = generateNKeysBetween(null, null, ids.length);
-        yield* batchUpdateOrder(svc.tx, "segments", ids, keys);
+        yield* batchUpdateOrder(svc.tx, "beats", ids, keys);
         break;
       }
       default:
@@ -468,13 +465,13 @@ function applyReorder(
 
 function batchUpdateOrder(
   tx: Database,
-  table: "clips" | "chapters" | "segments",
+  table: "clips" | "chapters" | "beats",
   ids: string[],
   orders: string[]
 ): Effect.Effect<void, UnknownDBServiceError> {
   if (ids.length === 0) return Effect.void;
   const tableRef =
-    table === "clips" ? clips : table === "chapters" ? chapters : segments;
+    table === "clips" ? clips : table === "chapters" ? chapters : beats;
   const orderExpr = sql`case ${sql.join(
     ids.map((id, i) => sql`when ${tableRef.id} = ${id} then ${orders[i]!}`),
     sql` `

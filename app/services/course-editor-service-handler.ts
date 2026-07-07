@@ -9,7 +9,7 @@
 import { Effect } from "effect";
 import { CourseWriteService } from "./course-write-service";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
-import { SegmentOperationsService } from "./db-segment-operations.server";
+import { BeatOperationsService } from "./db-beat-operations.server";
 import { toSlug } from "./lesson-path-service";
 import { sectionHasRealLessons } from "./section-path-service";
 import {
@@ -26,7 +26,7 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
   function* (event: CourseEditorEvent) {
     const service = yield* CourseWriteService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
-    const segmentOps = yield* SegmentOperationsService;
+    const beatOps = yield* BeatOperationsService;
 
     switch (event.type) {
       // --- Section events ---
@@ -182,45 +182,42 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
         return { success: true };
       }
 
-      // --- Segment events ---
-      case "create-segment": {
-        const segment = yield* segmentOps.createSegment(
+      // --- Beat events ---
+      case "create-beat": {
+        const beat = yield* beatOps.createBeat(
           event.videoId,
           event.kind,
-          event.beforeSegmentId ?? null,
+          event.beforeBeatId ?? null,
           event.title?.trim() ?? ""
         );
-        return { success: true, segmentId: segment.id };
+        return { success: true, beatId: beat.id };
       }
 
-      case "rename-segment": {
-        yield* segmentOps.renameSegment(event.segmentId, event.title.trim());
+      case "rename-beat": {
+        yield* beatOps.renameBeat(event.beatId, event.title.trim());
         return { success: true };
       }
 
-      case "update-segment-description": {
-        yield* segmentOps.setSegmentDescription(
-          event.segmentId,
-          event.description
-        );
+      case "update-beat-description": {
+        yield* beatOps.setBeatDescription(event.beatId, event.description);
         return { success: true };
       }
 
-      case "set-segment-kind": {
-        yield* segmentOps.setSegmentKind(event.segmentId, event.kind);
+      case "set-beat-kind": {
+        yield* beatOps.setBeatKind(event.beatId, event.kind);
         return { success: true };
       }
 
-      case "delete-segment": {
-        yield* segmentOps.deleteSegment(event.segmentId);
+      case "delete-beat": {
+        yield* beatOps.deleteBeat(event.beatId);
         return { success: true };
       }
 
-      case "move-segment": {
-        yield* segmentOps.moveSegment(
-          event.segmentId,
+      case "move-beat": {
+        yield* beatOps.moveBeat(
+          event.beatId,
           event.targetVideoId,
-          event.beforeSegmentId ?? null
+          event.beforeBeatId ?? null
         );
         return { success: true };
       }

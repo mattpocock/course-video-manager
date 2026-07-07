@@ -111,6 +111,9 @@ export function toSlimVideo<
       archived: boolean;
     }[];
     chapters: { order: string; archived: boolean }[];
+    lessonId?: string | null;
+    body?: string | null;
+    description?: string | null;
   },
 >(video: T) {
   const { clips, chapters, ...rest } = video;
@@ -122,6 +125,12 @@ export function toSlimVideo<
       0
     ),
     firstClipId: clips[0]?.id ?? null,
-    warnings: computeVideoWarnings({ clips, chapters }),
+    warnings: computeVideoWarnings({
+      clips,
+      chapters,
+      lessonId: video.lessonId,
+      body: video.body,
+      description: video.description,
+    }),
   };
 }
