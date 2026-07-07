@@ -127,7 +127,7 @@ describe("CourseEditorService — sections", () => {
   });
 
   describe("update-section-name", () => {
-    it("renames a real section (has a real lesson) on disk with slug conversion", async () => {
+    it("renames a section by setting path to the new slug", async () => {
       const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
@@ -142,14 +142,14 @@ describe("CourseEditorService — sections", () => {
       );
       expect(result).toMatchObject({
         success: true,
-        path: "01-getting-started",
+        path: "getting-started",
       });
 
       const sections = await getSections(version.id);
-      expect(sections[0]!.path).toBe("01-getting-started");
+      expect(sections[0]!.path).toBe("getting-started");
     });
 
-    it("renames a ghost section by updating path without slug conversion", async () => {
+    it("renames a ghost section by setting path to the slug", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -163,24 +163,24 @@ describe("CourseEditorService — sections", () => {
       );
       expect(result).toMatchObject({
         success: true,
-        path: "Getting Started",
+        path: "getting-started",
       });
 
       const sections = await getSections(version.id);
-      expect(sections[0]!.path).toBe("Getting Started");
+      expect(sections[0]!.path).toBe("getting-started");
     });
 
-    it("returns early when slug is unchanged", async () => {
+    it("returns early when slug matches the current path", async () => {
       const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
-        "01-introduction",
+        "introduction",
         1,
         [realLesson(1)]
       );
 
       const result = await svc().updateSectionName(section.id, "Introduction");
-      expect(result).toMatchObject({ success: true, path: "01-introduction" });
+      expect(result).toMatchObject({ success: true, path: "introduction" });
     });
   });
 
@@ -235,7 +235,7 @@ describe("CourseEditorService — sections", () => {
       expect(await db().query.lessons.findMany()).toHaveLength(2);
     });
 
-    it("rejects archiving a section with real lessons", async () => {
+    it("archives a section even when it has real lessons", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -252,12 +252,13 @@ describe("CourseEditorService — sections", () => {
         authoringStatus: "done",
       });
 
-      await expect(
-        svc().archiveSection(createResult.sectionId)
-      ).rejects.toThrow();
+      await svc().archiveSection(createResult.sectionId);
+
+      const sections = await getSections(version.id);
+      expect(sections).toHaveLength(0);
     });
 
-    it("rejects archiving a section with mixed ghost and real lessons", async () => {
+    it("archives a section with mixed ghost and real lessons", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -285,9 +286,10 @@ describe("CourseEditorService — sections", () => {
           },
         ]);
 
-      await expect(
-        svc().archiveSection(createResult.sectionId)
-      ).rejects.toThrow();
+      await svc().archiveSection(createResult.sectionId);
+
+      const sections = await getSections(version.id);
+      expect(sections).toHaveLength(0);
     });
 
     it("double-archiving the same section does not throw", async () => {
@@ -316,7 +318,7 @@ describe("CourseEditorService — sections", () => {
       expect(sections.map((s) => s.order)).toEqual([0, 1, 2]);
     });
 
-    it("reorders real sections and updates paths", async () => {
+    it("reorders real sections by updating order values only", async () => {
       const { version } = await createCourseWithVersion();
       const { section: s1 } = await createSectionWithLessons(
         version.id,
@@ -340,11 +342,7 @@ describe("CourseEditorService — sections", () => {
       await svc().reorderSections([s3.id, s1.id, s2.id]);
 
       const sections = await getSections(version.id);
-      expect(sections.map((s) => s.path)).toEqual([
-        "01-gamma",
-        "02-alpha",
-        "03-beta",
-      ]);
+      expect(sections.map((s) => s.title)).toEqual(["gamma", "alpha", "beta"]);
       expect(sections.map((s) => s.order)).toEqual([0, 1, 2]);
     });
   });

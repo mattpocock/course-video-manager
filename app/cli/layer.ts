@@ -18,13 +18,9 @@ import { BackupCoordinator } from "@/cli/backup-coordinator";
  *
  * WRITES. The CLI is read-mostly, but a handful of write verbs exist (lesson
  * create/update/move, video create/move/update, pitch/beat authoring). Field
- * edits with no on-disk coupling (a title, a link) go straight through the
- * DB-operations services. Structural edits that MUST stay in sync with the
- * course repo on disk — reordering or moving a REAL lesson renumbers folder
- * prefixes and `git mv`s directories — route through CourseWriteService, the
- * same disk-aware orchestrator the web app uses. Correctness (DB + disk in
- * lockstep) is the rule for every write verb; the CLI does not get a DB-only
- * shortcut that would silently diverge the two.
+ * edits (a title, a link) go straight through the DB-operations services.
+ * Structural edits (reorder, move) route through CourseWriteService — pure
+ * DB writes with no filesystem or git coupling.
  *
  * Publish-only services (CoursePublishService, CourseRepoParserService, ...)
  * remain out of scope.
@@ -55,9 +51,6 @@ export const cliLayer = Layer.mergeAll(
   PitchOperationsService.Default,
   DeliverableOperationsService.Default,
   SearchOperationsService.Default,
-  // Disk-aware write orchestrator for structural lesson edits (reorder / move).
-  // Its transitive deps (repo-write, sync-validation, NodeFileSystem) close
-  // under DrizzleService below; git/fs are only touched when a real lesson moves.
   CourseWriteService.Default,
   BackupCoordinator.Default
 ).pipe(Layer.provideMerge(DrizzleService.Default));

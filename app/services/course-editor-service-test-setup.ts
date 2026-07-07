@@ -4,7 +4,7 @@
  */
 
 import { beforeAll, beforeEach } from "vitest";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Layer, ManagedRuntime } from "effect";
 import {
   createTestDb,
   truncateAllTables,
@@ -17,9 +17,6 @@ import { CourseOperationsService } from "./db-course-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { BeatOperationsService } from "./db-beat-operations.server";
 import { CourseWriteService } from "./course-write-service";
-import { CourseRepoWriteService } from "./course-repo-write-service";
-import { CourseRepoSyncValidationService } from "./course-repo-sync-validation";
-import { NodeFileSystem } from "@effect/platform-node";
 import * as schema from "@/db/schema";
 
 export let testDb: TestDb;
@@ -44,37 +41,9 @@ export function setupEditorServiceTests() {
       BeatOperationsService.Default
     ).pipe(Layer.provide(testDrizzleLayer));
 
-    const mockRepoWriteLayer = Layer.succeed(CourseRepoWriteService, {
-      createLessonDirectory: Effect.fn(function* (_opts: any) {
-        return { lessonDirName: "mock", lessonNumber: 1 };
-      }),
-      addLesson: Effect.fn(function* (_opts: any) {
-        return { newLessonDirName: "mock" };
-      }),
-      renameLesson: Effect.fn(function* (_opts: any) {
-        return { newLessonDirName: "mock" };
-      }),
-      renameLessons: Effect.fn(function* (_opts: any) {}),
-      renameSections: Effect.fn(function* (_opts: any) {}),
-      deleteLesson: Effect.fn(function* (_opts: any) {}),
-      moveLessonToSection: Effect.fn(function* (_opts: any) {}),
-      sectionDirExists: Effect.fn(function* (_opts: any) {
-        return false;
-      }),
-      deleteSectionDir: Effect.fn(function* (_opts: any) {}),
-    } as any);
-
-    const mockSyncValidationLayer = Layer.succeed(
-      CourseRepoSyncValidationService,
-      { validate: () => Effect.void } as any
+    const testLayer = testDbFunctionsLayer.pipe(
+      Layer.provideMerge(testDrizzleLayer)
     );
-
-    const testLayer = Layer.mergeAll(
-      testDbFunctionsLayer,
-      mockRepoWriteLayer,
-      mockSyncValidationLayer,
-      NodeFileSystem.layer
-    ).pipe(Layer.provideMerge(testDrizzleLayer));
 
     const serviceLayer = (
       CourseWriteService as any
@@ -151,8 +120,6 @@ export async function createSectionWithLessons(
     .values({
       repoVersionId,
       path: sectionPath,
-      // Title is the source of truth for the derived path; seed it from the
-      // folder name's slug so the projection reproduces `sectionPath` on read.
       title: sectionPath.replace(/^\d+-/, ""),
       order: sectionOrder,
     })

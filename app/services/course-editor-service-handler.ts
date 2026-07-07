@@ -11,7 +11,6 @@ import { CourseWriteService } from "./course-write-service";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { BeatOperationsService } from "./db-beat-operations.server";
 import { toSlug } from "./lesson-path-service";
-import { sectionHasRealLessons } from "./section-path-service";
 import {
   createCourseEditorService,
   type CourseEditorEvent,
@@ -45,18 +44,8 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-section-name": {
-        const lessons = yield* lessonSectionOps.getLessonsBySectionId(
-          event.sectionId
-        );
-        if (sectionHasRealLessons(lessons)) {
-          // Real (materialized) section: rename on disk with slug conversion
-          const newSlug = toSlug(event.title.trim()) || "untitled";
-          return yield* service.renameSection(event.sectionId, newSlug);
-        }
-        // Ghost section: just update the DB path with the raw title
-        const newPath = event.title.trim() || "untitled";
-        yield* lessonSectionOps.updateSectionPath(event.sectionId, newPath);
-        return { success: true, path: newPath };
+        const newSlug = toSlug(event.title.trim()) || "untitled";
+        return yield* service.renameSection(event.sectionId, newSlug);
       }
 
       case "update-section-description": {

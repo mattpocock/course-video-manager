@@ -13,12 +13,10 @@ import {
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { CourseWriteService } from "@/services/course-write-service";
 import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
-import { toSlug } from "@/services/lesson-path-service";
-import { CourseRepoWriteService } from "@/services/course-repo-write-service";
-import { parseSectionPath } from "@/services/section-path-service";
 import { Console, Effect, Schema } from "effect";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -63,7 +61,7 @@ export const action = async (args: Route.ActionArgs) => {
   return Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
-    const repoWrite = yield* CourseRepoWriteService;
+    const writes = yield* CourseWriteService;
 
     const { sectionId, lessonId, newLessonName } =
       yield* Schema.decodeUnknown(moveToCourseSchema)(formDataObject);
@@ -72,39 +70,19 @@ export const action = async (args: Route.ActionArgs) => {
     let targetCourseId: string;
 
     if (lessonId && lessonId !== "new") {
-      // Use existing lesson
       const lesson =
         yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
       const section = lesson.section;
       targetLessonId = lesson.id;
       targetCourseId = section.repoVersion.repoId;
     } else {
-      // Create a new real lesson at end of section
       const section =
         yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
-      const repo = section.repoVersion.repo;
-      const parsed = parseSectionPath(section.path);
-      const sectionNumber = parsed?.sectionNumber ?? 1;
-      const slug = toSlug(newLessonName || "new-lesson") || "new-lesson";
+      const title = newLessonName || "New Lesson";
 
-      const { lessonDirName, lessonNumber } = yield* repoWrite.addLesson({
-        repoPath: repo.filePath!,
-        sectionPath: section.path,
-        sectionNumber,
-        slug,
-      });
+      const result = yield* writes.createRealLesson(sectionId, title);
 
-      const [newLesson] = yield* lessonSectionOps.createLessons(sectionId, [
-        { lessonPathWithNumber: lessonDirName, lessonNumber },
-      ]);
-
-      if (!newLesson) {
-        return yield* Effect.die(
-          data("Failed to create lesson", { status: 500 })
-        );
-      }
-
-      targetLessonId = newLesson.id;
+      targetLessonId = result.lessonId;
       targetCourseId = section.repoVersion.repoId;
     }
 

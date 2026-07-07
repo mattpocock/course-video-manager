@@ -10,9 +10,7 @@ import { FeatureFlagService } from "./feature-flag-service";
 import { OpenFolderService } from "./open-folder-service";
 import { CloudinaryService } from "./cloudinary-service";
 import { CloudinaryMarkdownService } from "./cloudinary-markdown-service";
-import { CourseRepoWriteService } from "./course-repo-write-service";
 import { CourseWriteService } from "./course-write-service";
-import { CourseRepoSyncValidationService } from "./course-repo-sync-validation";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { CoursePublishService } from "./course-publish-service";
 import { ClipOperationsService } from "./db-clip-operations.server";
@@ -52,9 +50,7 @@ const coreLayer = Layer.mergeAll(
   OpenFolderService.Default,
   CloudinaryService.Default,
   CloudinaryMarkdownLayer,
-  CourseRepoWriteService.Default,
   CourseWriteService.Default,
-  CourseRepoSyncValidationService.Default,
   FFmpegCommandsService.Default,
   NodeContext.layer
 ).pipe(

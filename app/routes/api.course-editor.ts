@@ -7,9 +7,7 @@ import { Effect, Schema } from "effect";
 export const action = makeAction({
   input: "json",
   errors: {
-    CourseRepoSyncError: 409,
     NotFoundError: 404,
-    CourseWriteError: 400,
     SectionPathTakenError: 409,
   },
   effect: ({ payload }) =>
