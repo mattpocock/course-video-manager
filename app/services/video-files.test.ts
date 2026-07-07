@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getStandaloneVideoFilePath, isUrl } from "./standalone-video-files";
+import { getVideoFilePath, isUrl } from "./video-files";
 
 describe("isUrl", () => {
   it("returns true for https URLs", () => {
@@ -18,29 +18,30 @@ describe("isUrl", () => {
   });
 });
 
-describe("getStandaloneVideoFilePath", () => {
-  it("returns directory path when no filename given", () => {
-    const result = getStandaloneVideoFilePath("video-123");
-    expect(result).toContain("video-123");
-    expect(result).not.toContain("undefined");
+describe("getVideoFilePath", () => {
+  it("returns directory path keyed by lineageId when no filename given", () => {
+    const result = getVideoFilePath("lineage-abc-123");
+    expect(result).toContain("video-files");
+    expect(result).toContain("lineage-abc-123");
+    expect(result).not.toContain("standalone");
   });
 
-  it("joins local filename with base directory", () => {
-    const result = getStandaloneVideoFilePath("video-123", "image.png");
-    expect(result).toContain("video-123");
+  it("joins local filename with lineageId directory", () => {
+    const result = getVideoFilePath("lineage-abc-123", "image.png");
+    expect(result).toContain("lineage-abc-123");
     expect(result).toContain("image.png");
   });
 
   it("returns URL as-is when filename is an https URL", () => {
     const url =
       "https://res.cloudinary.com/total-typescript/image/upload/v1772100428/ai-hero-images/alyzcymusoj0qby2wfhc.png";
-    const result = getStandaloneVideoFilePath("video-123", url);
+    const result = getVideoFilePath("lineage-abc-123", url);
     expect(result).toBe(url);
   });
 
   it("returns URL as-is when filename is an http URL", () => {
     const url = "http://example.com/image.png";
-    const result = getStandaloneVideoFilePath("video-123", url);
+    const result = getVideoFilePath("lineage-abc-123", url);
     expect(result).toBe(url);
   });
 });

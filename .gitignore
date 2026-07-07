@@ -19,4 +19,4 @@ plans-backup.json
 
 # Local diagram thumbnail store (fallback path when DIAGRAM_THUMBNAILS_DIR is unset)
 /diagram-thumbnails/
-standalone-video-files
+video-files

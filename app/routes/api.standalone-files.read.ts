@@ -3,7 +3,7 @@ import { FileSystem } from "@effect/platform";
 import type { Route } from "./+types/api.standalone-files.read";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { getVideoFilePath } from "@/services/video-files";
 import { data } from "react-router";
 
 const readFileSchema = Schema.Struct({
@@ -75,10 +75,7 @@ export const loader = async (args: Route.LoaderArgs) => {
           );
         }
 
-        const filePath = getStandaloneVideoFilePath(
-          parsed.videoId,
-          parsed.filename
-        );
+        const filePath = getVideoFilePath(video.lineageId, parsed.filename);
 
         const fileExists = yield* fs.exists(filePath);
         if (!fileExists) {

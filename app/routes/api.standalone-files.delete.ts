@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 import { FileSystem } from "@effect/platform";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeAction } from "@/services/route-action.server";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { getVideoFilePath } from "@/services/video-files";
 import { data } from "react-router";
 
 const deleteFileSchema = Schema.Struct({
@@ -29,10 +29,7 @@ export const action = makeAction({
         );
       }
 
-      const filePath = getStandaloneVideoFilePath(
-        parsed.videoId,
-        parsed.filename
-      );
+      const filePath = getVideoFilePath(video.lineageId, parsed.filename);
 
       const fileExists = yield* fs.exists(filePath);
       if (!fileExists) {

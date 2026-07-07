@@ -15,83 +15,34 @@ type WriteRouteComponentProps = {
 };
 import path from "path";
 import { FileSystem } from "@effect/platform";
-import {
-  ALWAYS_EXCLUDED_DIRECTORIES,
-  DEFAULT_CHECKED_EXTENSIONS,
-  DEFAULT_UNCHECKED_PATHS,
-} from "@/services/text-writing-agent";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { DEFAULT_CHECKED_EXTENSIONS } from "@/services/text-writing-agent";
+import { getVideoFilePath } from "@/services/video-files";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { WritePage } from "@/features/article-writer/write-page";
 import { useState, useEffect } from "react";
 
 type FileMetadata = { path: string; size: number; defaultEnabled: boolean };
 
-const loadWriteFiles = (
-  fsContext:
-    | { type: "standalone"; standaloneVideoDir: string; videoId: string }
-    | { type: "lesson"; lessonFullPath: string }
-) =>
+const loadWriteFiles = (lineageId: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const videoDir = getVideoFilePath(lineageId);
+    const dirExists = yield* fs.exists(videoDir);
+    if (!dirExists) return [];
 
-    if (fsContext.type === "standalone") {
-      const { standaloneVideoDir, videoId } = fsContext;
-      const dirExists = yield* fs.exists(standaloneVideoDir);
-      if (!dirExists) return [];
-
-      const filesInDirectory = yield* fs.readDirectory(standaloneVideoDir);
-      return yield* Effect.forEach(
-        filesInDirectory,
-        (filename) =>
-          Effect.gen(function* () {
-            const filePath = getStandaloneVideoFilePath(videoId, filename);
-            const stat = yield* fs.stat(filePath);
-            if (stat.type !== "File") return null;
-            const extension = path.extname(filename).slice(1);
-            return {
-              path: filename,
-              size: Number(stat.size),
-              defaultEnabled: DEFAULT_CHECKED_EXTENSIONS.includes(extension),
-            };
-          }),
-        { concurrency: "unbounded" }
-      ).pipe(Effect.map(EffectArray.filter((f) => f !== null)));
-    }
-
-    const { lessonFullPath } = fsContext;
-    const allFilesInDirectory = yield* fs
-      .readDirectory(lessonFullPath, { recursive: true })
-      .pipe(
-        Effect.map((files) =>
-          files.map((file) => path.join(lessonFullPath, file))
-        )
-      );
-
-    const filteredFiles = allFilesInDirectory.filter(
-      (filePath) =>
-        !ALWAYS_EXCLUDED_DIRECTORIES.some((excludedDir) =>
-          filePath.includes(excludedDir)
-        )
-    );
-
+    const filesInDirectory = yield* fs.readDirectory(videoDir);
     return yield* Effect.forEach(
-      filteredFiles,
-      (filePath) =>
+      filesInDirectory,
+      (filename) =>
         Effect.gen(function* () {
+          const filePath = getVideoFilePath(lineageId, filename);
           const stat = yield* fs.stat(filePath);
           if (stat.type !== "File") return null;
-          const relativePath = path.relative(lessonFullPath, filePath);
-          const extension = path.extname(filePath).slice(1);
-          const defaultEnabled =
-            DEFAULT_CHECKED_EXTENSIONS.includes(extension) &&
-            !DEFAULT_UNCHECKED_PATHS.some((uncheckedPath) =>
-              relativePath.toLowerCase().includes(uncheckedPath.toLowerCase())
-            );
+          const extension = path.extname(filename).slice(1);
           return {
-            path: relativePath,
+            path: filename,
             size: Number(stat.size),
-            defaultEnabled,
+            defaultEnabled: DEFAULT_CHECKED_EXTENSIONS.includes(extension),
           };
         }),
       { concurrency: "unbounded" }
@@ -128,9 +79,8 @@ export const loader = makeLoader({
           { concurrency: "unbounded" }
         );
 
-        const standaloneVideoDir = getStandaloneVideoFilePath(videoId);
         const filesPromise: Promise<FileMetadata[]> = runtimeLive.runPromise(
-          loadWriteFiles({ type: "standalone", standaloneVideoDir, videoId })
+          loadWriteFiles(video.lineageId)
         );
 
         return {
@@ -140,7 +90,7 @@ export const loader = makeLoader({
           sectionPath: null,
           repoId: null,
           lessonId: null,
-          fullPath: path.resolve(getStandaloneVideoFilePath(videoId)),
+          fullPath: path.resolve(getVideoFilePath(video.lineageId)),
           nextVideoId,
           previousVideoId,
           isStandalone: true,
@@ -169,13 +119,7 @@ export const loader = makeLoader({
         };
       }
 
-      const repo = lesson.section.repoVersion.repo;
       const section = lesson.section;
-      const lessonFullPath = path.join(
-        repo.filePath!,
-        section.path,
-        lesson.path
-      );
 
       const [
         [nextVideoId, previousVideoId],
@@ -223,7 +167,7 @@ export const loader = makeLoader({
         : null;
 
       const filesPromise: Promise<FileMetadata[]> = runtimeLive.runPromise(
-        loadWriteFiles({ type: "lesson", lessonFullPath })
+        loadWriteFiles(video.lineageId)
       );
 
       return {
@@ -233,7 +177,7 @@ export const loader = makeLoader({
         sectionPath: section.path,
         repoId: section.repoVersion.repoId,
         lessonId: lesson.id,
-        fullPath: lessonFullPath,
+        fullPath: path.resolve(getVideoFilePath(video.lineageId)),
         nextVideoId,
         previousVideoId,
         isStandalone: false,

@@ -2,7 +2,8 @@ import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { makeAction } from "@/services/route-action.server";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { getVideoFilePath } from "@/services/video-files";
 import { data } from "react-router";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
@@ -44,9 +45,11 @@ export const action = makeAction({
 
       const thumbnailId = params.thumbnailId!;
       const thumbnailOps = yield* ThumbnailOperationsService;
+      const videoOps = yield* VideoOperationsService;
       const fs = yield* FileSystem.FileSystem;
 
       const existing = yield* thumbnailOps.getThumbnailById(thumbnailId);
+      const video = yield* videoOps.getVideoDeepById(existing.videoId);
       const existingLayers = existing.layers as {
         backgroundPhoto?: { filePath?: string };
         diagram?: { filePath?: string } | null;
@@ -83,10 +86,7 @@ export const action = makeAction({
           };
         } else {
           const diagFilename = `thumbnail-${thumbnailId}-diagram.png`;
-          const diagFilePath = getStandaloneVideoFilePath(
-            existing.videoId,
-            diagFilename
-          );
+          const diagFilePath = getVideoFilePath(video.lineageId, diagFilename);
           yield* fs.writeFile(diagFilePath, diagBytes);
           diagramLayer = {
             filePath: diagFilePath,
@@ -116,8 +116,8 @@ export const action = makeAction({
           };
         } else {
           const cutoutFilename = `thumbnail-${thumbnailId}-cutout.png`;
-          const cutoutFilePath = getStandaloneVideoFilePath(
-            existing.videoId,
+          const cutoutFilePath = getVideoFilePath(
+            video.lineageId,
             cutoutFilename
           );
           yield* fs.writeFile(cutoutFilePath, cutoutBytes);

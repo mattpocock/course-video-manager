@@ -25,10 +25,9 @@ import {
 } from "ai";
 import { Array, Effect } from "effect";
 import { VideoOperationsService } from "./db-video-operations.server";
-import path from "node:path";
 import { FileSystem } from "@effect/platform";
 import { calculateYouTubeChapters, type YouTubeChaptersItem } from "./utils";
-import { getStandaloneVideoFilePath } from "./standalone-video-files";
+import { getVideoFilePath } from "./video-files";
 import type { TextWritingAgentMode } from "@/routes/videos.$videoId.completions";
 
 const NOT_A_FILE = Symbol("NOT_A_FILE");
@@ -265,51 +264,31 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
     let textFiles: { path: string; content: string }[] = [];
     let imageFiles: { path: string; content: Uint8Array<ArrayBufferLike> }[] =
       [];
-    let sectionPath: string | undefined;
-    let lessonPath: string | undefined;
+    const sectionPath = lesson ? lesson.section.path : undefined;
+    const lessonPath = lesson ? lesson.path : undefined;
 
-    if (lesson) {
-      const repo = lesson.section.repoVersion.repo;
-      const section = lesson.section;
-      sectionPath = section.path;
-      lessonPath = lesson.path;
+    const videoDir = getVideoFilePath(video.lineageId);
+    const dirExists = yield* fs.exists(videoDir);
 
-      const fullLessonPath = path.join(
-        repo.filePath!,
-        section.path,
-        lesson.path
-      );
+    if (dirExists) {
+      const filesInDirectory = yield* fs.readDirectory(videoDir);
 
-      const allFilesInDirectory = yield* fs
-        .readDirectory(fullLessonPath, {
-          recursive: true,
-        })
-        .pipe(
-          Effect.map((files) =>
-            files.map((file) => path.join(fullLessonPath, file))
-          )
-        );
-
-      const filteredFiles = allFilesInDirectory.filter((filePath) => {
-        const relativePath = path.relative(fullLessonPath, filePath);
+      const filteredFiles = filesInDirectory.filter((filename) => {
         return (
-          !ALWAYS_EXCLUDED_DIRECTORIES.some((excludedDir) =>
-            filePath.includes(excludedDir)
-          ) &&
-          (props.enabledFiles === undefined ||
-            props.enabledFiles.includes(relativePath))
+          props.enabledFiles === undefined ||
+          props.enabledFiles.includes(filename)
         );
       });
 
-      const allFiles = yield* Effect.forEach(filteredFiles, (filePath) => {
+      const allFiles = yield* Effect.forEach(filteredFiles, (filename) => {
         return Effect.gen(function* () {
+          const filePath = getVideoFilePath(video.lineageId, filename);
           const stat = yield* fs.stat(filePath);
 
           if (stat.type !== "File") {
             return NOT_A_FILE;
           }
 
-          const relativePath = path.relative(fullLessonPath, filePath);
           const imageExtensions = [
             ".png",
             ".jpg",
@@ -319,20 +298,22 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
             ".webp",
             ".bmp",
           ];
-          const isImage = imageExtensions.some((ext) => filePath.endsWith(ext));
+          const isImage = imageExtensions.some((ext) =>
+            filename.toLowerCase().endsWith(ext)
+          );
 
           if (isImage) {
             const fileContent = yield* fs.readFile(filePath);
             return {
               type: "image" as const,
-              path: relativePath,
+              path: filename,
               content: fileContent,
             };
           } else {
             const fileContent = yield* fs.readFileString(filePath);
             return {
               type: "text" as const,
-              filePath,
+              filePath: filename,
               fileContent,
             };
           }
@@ -352,79 +333,6 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
           path: f.path,
           content: f.content,
         }));
-    } else {
-      // For standalone videos, load standalone video files
-      const standaloneVideoDir = getStandaloneVideoFilePath(props.videoId);
-      const dirExists = yield* fs.exists(standaloneVideoDir);
-
-      if (dirExists) {
-        const filesInDirectory = yield* fs.readDirectory(standaloneVideoDir);
-
-        // Filter files based on enabledFiles
-        const filteredFiles = filesInDirectory.filter((filename) => {
-          return (
-            props.enabledFiles === undefined ||
-            props.enabledFiles.includes(filename)
-          );
-        });
-
-        const allFiles = yield* Effect.forEach(filteredFiles, (filename) => {
-          return Effect.gen(function* () {
-            const filePath = getStandaloneVideoFilePath(
-              props.videoId,
-              filename
-            );
-            const stat = yield* fs.stat(filePath);
-
-            if (stat.type !== "File") {
-              return NOT_A_FILE;
-            }
-
-            const imageExtensions = [
-              ".png",
-              ".jpg",
-              ".jpeg",
-              ".gif",
-              ".svg",
-              ".webp",
-              ".bmp",
-            ];
-            const isImage = imageExtensions.some((ext) =>
-              filename.toLowerCase().endsWith(ext)
-            );
-
-            if (isImage) {
-              const fileContent = yield* fs.readFile(filePath);
-              return {
-                type: "image" as const,
-                path: filename,
-                content: fileContent,
-              };
-            } else {
-              const fileContent = yield* fs.readFileString(filePath);
-              return {
-                type: "text" as const,
-                filePath: filename,
-                fileContent,
-              };
-            }
-          });
-        }).pipe(Effect.map(Array.filter((r) => r !== NOT_A_FILE)));
-
-        textFiles = allFiles
-          .filter((f) => f.type === "text")
-          .map((f) => ({
-            path: f.filePath,
-            content: f.fileContent,
-          }));
-
-        imageFiles = allFiles
-          .filter((f) => f.type === "image")
-          .map((f) => ({
-            path: f.path,
-            content: f.content,
-          }));
-      }
     }
 
     const includeTranscript = props.includeTranscript ?? true;

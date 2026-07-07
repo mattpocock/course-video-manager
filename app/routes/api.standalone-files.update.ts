@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeAction } from "@/services/route-action.server";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { getVideoFilePath } from "@/services/video-files";
 import { data } from "react-router";
 
 export const action = makeAction({
@@ -43,7 +43,7 @@ export const action = makeAction({
         );
       }
 
-      const filePath = getStandaloneVideoFilePath(videoId, filename);
+      const filePath = getVideoFilePath(video.lineageId, filename);
 
       const fileExists = yield* fs.exists(filePath);
       if (!fileExists) {

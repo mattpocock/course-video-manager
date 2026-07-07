@@ -30,16 +30,12 @@ import type { Route } from "./+types/_app.videos.$videoId.edit";
 
 export const handle = { fullscreen: true };
 import { useNavigate, useRevalidator } from "react-router";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { getVideoFilePath } from "@/services/video-files";
 import { Array as EffectArray } from "effect";
 import { sortByOrder } from "@/lib/sort-by-order";
 import { createHttpClipService } from "@/services/clip-service";
 import path from "node:path";
-import {
-  ALWAYS_EXCLUDED_DIRECTORIES,
-  DEFAULT_CHECKED_EXTENSIONS,
-  DEFAULT_UNCHECKED_PATHS,
-} from "@/services/text-writing-agent";
+import { DEFAULT_CHECKED_EXTENSIONS } from "@/services/text-writing-agent";
 
 export type FileMetadata = {
   path: string;
@@ -47,101 +43,37 @@ export type FileMetadata = {
   defaultEnabled: boolean;
 };
 
-// Deferred FS-heavy operations for the video editor
-const loadVideoEditorFsData = (opts: {
-  videoId: string;
-  lesson: {
-    path: string;
-    section: {
-      path: string;
-      repoVersion: { repo: { filePath: string | null } };
-    };
-  } | null;
-}) =>
+const loadVideoEditorFsData = (opts: { lineageId: string }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const { videoId, lesson } = opts;
-    const standaloneVideoDir = getStandaloneVideoFilePath(videoId);
+    const videoDir = getVideoFilePath(opts.lineageId);
 
     const [hasExplainerFolder, dirExists] = yield* Effect.all([
-      lesson
-        ? fs.exists(
-            `${lesson.section.repoVersion.repo.filePath}/${lesson.section.path}/${lesson.path}/explainer`
-          )
-        : Effect.succeed(false),
-      fs.exists(standaloneVideoDir),
+      fs.exists(path.join(videoDir, "explainer")),
+      fs.exists(videoDir),
     ]);
 
     let standaloneFiles: Array<{ path: string }> = [];
+    let files: FileMetadata[] = [];
 
     if (dirExists) {
-      const filesInDirectory = yield* fs.readDirectory(standaloneVideoDir);
+      const filesInDirectory = yield* fs.readDirectory(videoDir);
       standaloneFiles = yield* Effect.forEach(
         filesInDirectory,
         (filename) =>
           Effect.gen(function* () {
-            const filePath = getStandaloneVideoFilePath(videoId, filename);
+            const filePath = getVideoFilePath(opts.lineageId, filename);
             const stat = yield* fs.stat(filePath);
             return stat.type !== "File" ? null : { path: filename };
           }),
         { concurrency: "unbounded" }
       ).pipe(Effect.map(EffectArray.filter((f) => f !== null)));
-    }
 
-    let files: FileMetadata[] = [];
-
-    if (lesson && lesson.section.repoVersion.repo.filePath) {
-      const repo = lesson.section.repoVersion.repo;
-      const section = lesson.section;
-      const lessonPath = path.join(repo.filePath!, section.path, lesson.path);
-
-      // A Video can live under a Ghost Lesson (or a Ghost Course), which has no
-      // directory on disk. Treat a missing lesson directory as "no files"
-      // instead of letting readDirectory fail the whole loader.
-      const allFilesInDirectory = yield* fs
-        .readDirectory(lessonPath, { recursive: true })
-        .pipe(
-          Effect.catchAll(() => Effect.succeed([] as string[])),
-          Effect.map((filesResult) =>
-            filesResult.map((file) => path.join(lessonPath, file))
-          )
-        );
-
-      const filteredFiles = allFilesInDirectory.filter(
-        (filePath) =>
-          !ALWAYS_EXCLUDED_DIRECTORIES.some((excludedDir) =>
-            filePath.includes(excludedDir)
-          )
-      );
-
-      files = yield* Effect.forEach(
-        filteredFiles,
-        (filePath) =>
-          Effect.gen(function* () {
-            const stat = yield* fs.stat(filePath);
-            if (stat.type !== "File") return null;
-            const relativePath = path.relative(lessonPath, filePath);
-            const extension = path.extname(filePath).slice(1);
-            const defaultEnabled =
-              DEFAULT_CHECKED_EXTENSIONS.includes(extension) &&
-              !DEFAULT_UNCHECKED_PATHS.some((uncheckedPath) =>
-                relativePath.toLowerCase().includes(uncheckedPath.toLowerCase())
-              );
-            return {
-              path: relativePath,
-              size: Number(stat.size),
-              defaultEnabled,
-            };
-          }),
-        { concurrency: "unbounded" }
-      ).pipe(Effect.map(EffectArray.filter((f) => f !== null)));
-    } else if (dirExists) {
-      const filesInDirectory = yield* fs.readDirectory(standaloneVideoDir);
       files = yield* Effect.forEach(
         filesInDirectory,
         (filename) =>
           Effect.gen(function* () {
-            const filePath = getStandaloneVideoFilePath(videoId, filename);
+            const filePath = getVideoFilePath(opts.lineageId, filename);
             const stat = yield* fs.stat(filePath);
             if (stat.type !== "File") return null;
             const extension = path.extname(filename).slice(1);
@@ -214,7 +146,7 @@ export const loader = makeLoader({
       );
 
       const fsData = runtimeLive.runPromise(
-        loadVideoEditorFsData({ videoId, lesson })
+        loadVideoEditorFsData({ lineageId: video.lineageId })
       );
 
       return {

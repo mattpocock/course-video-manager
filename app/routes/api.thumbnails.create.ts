@@ -2,7 +2,8 @@ import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { makeAction } from "@/services/route-action.server";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { getVideoFilePath } from "@/services/video-files";
 import { data } from "react-router";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
@@ -45,14 +46,17 @@ export const action = makeAction({
       }
 
       const thumbnailOps = yield* ThumbnailOperationsService;
+      const videoOps = yield* VideoOperationsService;
       const fs = yield* FileSystem.FileSystem;
+
+      const video = yield* videoOps.getVideoDeepById(videoId);
 
       const compositeBytes = decodeDataUrl(imageDataUrl);
 
       const thumbnailId = crypto.randomUUID();
       const filename = `thumbnail-${thumbnailId}.png`;
-      const videoDir = getStandaloneVideoFilePath(videoId);
-      const filePath = getStandaloneVideoFilePath(videoId, filename);
+      const videoDir = getVideoFilePath(video.lineageId);
+      const filePath = getVideoFilePath(video.lineageId, filename);
 
       const dirExists = yield* fs.exists(videoDir);
       if (!dirExists) {
@@ -62,7 +66,7 @@ export const action = makeAction({
       yield* fs.writeFile(filePath, compositeBytes);
 
       const bgFilename = `thumbnail-${thumbnailId}-bg.png`;
-      const bgFilePath = getStandaloneVideoFilePath(videoId, bgFilename);
+      const bgFilePath = getVideoFilePath(video.lineageId, bgFilename);
       const bgBytes =
         typeof backgroundPhotoDataUrl === "string" &&
         backgroundPhotoDataUrl.startsWith("data:")
@@ -77,7 +81,7 @@ export const action = makeAction({
       ) {
         const diagBytes = decodeDataUrl(diagramDataUrl);
         const diagFilename = `thumbnail-${thumbnailId}-diagram.png`;
-        const diagFilePath = getStandaloneVideoFilePath(videoId, diagFilename);
+        const diagFilePath = getVideoFilePath(video.lineageId, diagFilename);
         yield* fs.writeFile(diagFilePath, diagBytes);
 
         diagramLayer = {
@@ -94,8 +98,8 @@ export const action = makeAction({
       ) {
         const cutoutBytes = decodeDataUrl(cutoutDataUrl);
         const cutoutFilename = `thumbnail-${thumbnailId}-cutout.png`;
-        const cutoutFilePath = getStandaloneVideoFilePath(
-          videoId,
+        const cutoutFilePath = getVideoFilePath(
+          video.lineageId,
           cutoutFilename
         );
         yield* fs.writeFile(cutoutFilePath, cutoutBytes);

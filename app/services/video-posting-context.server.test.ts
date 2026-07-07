@@ -146,10 +146,9 @@ const createLessonVideo = (setupFiles?: (lessonDir: string) => void) =>
     };
   });
 
-function setupStandaloneDir(videoId: string): string {
-  const baseDir =
-    process.env.STANDALONE_VIDEO_FILES_DIR || "./standalone-video-files";
-  const dir = path.join(baseDir, videoId);
+function setupVideoDir(lineageId: string): string {
+  const baseDir = process.env.VIDEO_FILES_DIR || "./video-files";
+  const dir = path.join(baseDir, lineageId);
   nodeFs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -164,7 +163,7 @@ describe("loadVideoPostingContext", () => {
           [{ name: "Introduction", afterClipIndex: 0 }]
         );
 
-        setupStandaloneDir(video.id);
+        setupVideoDir(video.lineageId);
 
         const ctx = yield* loadVideoPostingContext(video.id);
 
@@ -190,7 +189,7 @@ describe("loadVideoPostingContext", () => {
           ]
         );
 
-        setupStandaloneDir(video.id);
+        setupVideoDir(video.lineageId);
 
         const ctx = yield* loadVideoPostingContext(video.id);
 
@@ -212,7 +211,7 @@ describe("loadVideoPostingContext", () => {
           "text",
         ]);
 
-        const dir = setupStandaloneDir(video.id);
+        const dir = setupVideoDir(video.lineageId);
         nodeFs.writeFileSync(path.join(dir, "code.ts"), "const x = 1;");
         nodeFs.writeFileSync(path.join(dir, "image.png"), "fake-png-data");
         nodeFs.writeFileSync(path.join(dir, "notes.md"), "# Notes");
@@ -250,27 +249,21 @@ describe("loadVideoPostingContext", () => {
     );
   });
 
-  describe("lesson file metadata", () => {
+  describe("lesson video file metadata", () => {
     it.effect(
-      "returns lesson files with recursive reading and excluded directory filtering",
+      "returns files from lineageId-keyed dir for lesson-bound videos",
       () =>
         Effect.gen(function* () {
-          const { video } = yield* createLessonVideo((lessonDir) => {
-            nodeFs.writeFileSync(path.join(lessonDir, "index.ts"), "export {}");
-            nodeFs.writeFileSync(path.join(lessonDir, "readme.md"), "# Readme");
-            nodeFs.mkdirSync(path.join(lessonDir, "node_modules", "pkg"), {
-              recursive: true,
-            });
-            nodeFs.writeFileSync(
-              path.join(lessonDir, "node_modules", "pkg", "index.js"),
-              "{}"
-            );
-          });
+          const { video } = yield* createLessonVideo();
+
+          const dir = setupVideoDir(video.lineageId);
+          nodeFs.writeFileSync(path.join(dir, "index.ts"), "export {}");
+          nodeFs.writeFileSync(path.join(dir, "readme.md"), "# Readme");
 
           const ctx = yield* loadVideoPostingContext(video.id);
 
           expect(ctx.isStandalone).toBe(false);
-          expect(ctx.files.length).toBeGreaterThan(0);
+          expect(ctx.files.length).toBe(2);
 
           const tsFile = ctx.files.find((f) => f.path === "index.ts");
           expect(tsFile).toBeDefined();
@@ -278,12 +271,7 @@ describe("loadVideoPostingContext", () => {
 
           const readmeFile = ctx.files.find((f) => f.path === "readme.md");
           expect(readmeFile).toBeDefined();
-          expect(readmeFile!.defaultEnabled).toBe(false);
-
-          const nodeModulesFile = ctx.files.find((f) =>
-            f.path.includes("node_modules")
-          );
-          expect(nodeModulesFile).toBeUndefined();
+          expect(readmeFile!.defaultEnabled).toBe(true);
         }).pipe(Effect.provide(testLayer))
     );
   });
@@ -332,7 +320,7 @@ describe("loadVideoPostingContext", () => {
           "text",
         ]);
 
-        setupStandaloneDir(video.id);
+        setupVideoDir(video.lineageId);
 
         const ctx = yield* loadVideoPostingContext(video.id);
 
@@ -349,7 +337,7 @@ describe("loadVideoPostingContext", () => {
           path: "empty-video",
         });
 
-        setupStandaloneDir(video.id);
+        setupVideoDir(video.lineageId);
 
         const ctx = yield* loadVideoPostingContext(video.id);
 
@@ -366,7 +354,7 @@ describe("loadVideoPostingContext", () => {
           "text",
         ]);
 
-        setupStandaloneDir(video.id);
+        setupVideoDir(video.lineageId);
 
         const ctx = yield* loadVideoPostingContext(video.id);
 

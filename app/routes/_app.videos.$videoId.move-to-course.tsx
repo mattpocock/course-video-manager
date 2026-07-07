@@ -19,11 +19,8 @@ import { makeLoader } from "@/services/route-action.server";
 import { toSlug } from "@/services/lesson-path-service";
 import { CourseRepoWriteService } from "@/services/course-repo-write-service";
 import { parseSectionPath } from "@/services/section-path-service";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
-import { FileSystem } from "@effect/platform";
 import { Console, Effect, Schema } from "effect";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
-import path from "node:path";
 import { useState } from "react";
 import { data, redirect, Form, useNavigation } from "react-router";
 import type { Route } from "./+types/_app.videos.$videoId.move-to-course";
@@ -58,46 +55,6 @@ const moveToCourseSchema = Schema.Struct({
   newLessonName: Schema.optional(Schema.String),
 });
 
-/**
- * Returns a filename that does not conflict with existing files in destDir.
- * If filename already exists, appends " copy" before the extension,
- * then " copy 2", " copy 3", etc.
- */
-const resolveFilename = (
-  fs: FileSystem.FileSystem,
-  destDir: string,
-  filename: string
-): Effect.Effect<string, never> => {
-  return Effect.gen(function* () {
-    const destPath = path.join(destDir, filename);
-    const exists = yield* fs
-      .exists(destPath)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
-    if (!exists) return filename;
-
-    const ext = path.extname(filename);
-    const base = path.basename(filename, ext);
-
-    const copyCandidate = `${base} copy${ext}`;
-    const copyPath = path.join(destDir, copyCandidate);
-    const copyExists = yield* fs
-      .exists(copyPath)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
-    if (!copyExists) return copyCandidate;
-
-    let n = 2;
-    while (true) {
-      const candidate = `${base} copy ${n}${ext}`;
-      const candidatePath = path.join(destDir, candidate);
-      const candidateExists = yield* fs
-        .exists(candidatePath)
-        .pipe(Effect.catchAll(() => Effect.succeed(false)));
-      if (!candidateExists) return candidate;
-      n++;
-    }
-  });
-};
-
 export const action = async (args: Route.ActionArgs) => {
   const { videoId } = args.params;
   const formData = await args.request.formData();
@@ -106,7 +63,6 @@ export const action = async (args: Route.ActionArgs) => {
   return Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     const lessonSectionOps = yield* LessonSectionOperationsService;
-    const fs = yield* FileSystem.FileSystem;
     const repoWrite = yield* CourseRepoWriteService;
 
     const { sectionId, lessonId, newLessonName } =
@@ -114,17 +70,14 @@ export const action = async (args: Route.ActionArgs) => {
 
     let targetLessonId: string;
     let targetCourseId: string;
-    let lessonDirPath: string;
 
     if (lessonId && lessonId !== "new") {
       // Use existing lesson
       const lesson =
         yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
-      const repo = lesson.section.repoVersion.repo;
       const section = lesson.section;
       targetLessonId = lesson.id;
       targetCourseId = section.repoVersion.repoId;
-      lessonDirPath = path.join(repo.filePath!, section.path, lesson.path);
     } else {
       // Create a new real lesson at end of section
       const section =
@@ -153,49 +106,6 @@ export const action = async (args: Route.ActionArgs) => {
 
       targetLessonId = newLesson.id;
       targetCourseId = section.repoVersion.repoId;
-      lessonDirPath = path.join(repo.filePath!, section.path, lessonDirName);
-    }
-
-    // Merge files from standalone video dir into lesson dir
-    const sourceDir = getStandaloneVideoFilePath(videoId);
-    const sourceDirExists = yield* fs
-      .exists(sourceDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
-
-    if (sourceDirExists) {
-      const entries = yield* fs
-        .readDirectory(sourceDir)
-        .pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
-
-      if (entries.length > 0) {
-        // Ensure destination directory exists
-        yield* fs
-          .makeDirectory(lessonDirPath, { recursive: true })
-          .pipe(Effect.catchAll(() => Effect.succeed(undefined)));
-
-        for (const filename of entries) {
-          const srcPath = path.join(sourceDir, filename);
-          const stat = yield* fs
-            .stat(srcPath)
-            .pipe(Effect.catchAll(() => Effect.succeed(null)));
-
-          if (stat && stat.type === "File") {
-            const destFilename = yield* resolveFilename(
-              fs,
-              lessonDirPath,
-              filename
-            );
-            const destPath = path.join(lessonDirPath, destFilename);
-            const content = yield* fs.readFile(srcPath);
-            yield* fs.writeFile(destPath, content);
-          }
-        }
-      }
-
-      // Remove the original standalone video directory
-      yield* fs
-        .remove(sourceDir, { recursive: true })
-        .pipe(Effect.catchAll(() => Effect.succeed(undefined)));
     }
 
     // Update video's lessonId in the database

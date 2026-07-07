@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CloudinaryMarkdownService } from "@/services/cloudinary-markdown-service";
 import { makeAction } from "@/services/route-action.server";
-import { getStandaloneVideoFilePath } from "@/services/standalone-video-files";
+import { getVideoFilePath } from "@/services/video-files";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
 
@@ -31,14 +31,7 @@ export const action = makeAction({
 
       const video = yield* videoOps.getVideoDeepById(params.videoId!);
 
-      let baseDir: string;
-      if (!video.lesson) {
-        baseDir = path.resolve(getStandaloneVideoFilePath(params.videoId!));
-      } else {
-        const repo = video.lesson.section.repoVersion.repo;
-        const section = video.lesson.section;
-        baseDir = path.join(repo.filePath!, section.path, video.lesson.path);
-      }
+      const baseDir = path.resolve(getVideoFilePath(video.lineageId));
 
       const result = yield* cloudinaryMarkdown.uploadImagesInMarkdown(
         body,
