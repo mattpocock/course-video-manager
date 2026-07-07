@@ -12,7 +12,6 @@ import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { LoaderData } from "./course-view-types";
 import {
   Archive,
-  Bot,
   ChevronDown,
   Copy,
   Download,
@@ -36,7 +35,6 @@ export function ActionsDropdown({
   archiveCourseFetcher,
   gitPushFetcher,
   handleBatchExport,
-  onOpenAgentPanel,
 }: {
   currentCourse: NonNullable<LoaderData["selectedCourse"]>;
   data: LoaderData;
@@ -44,7 +42,6 @@ export function ActionsDropdown({
   archiveCourseFetcher: ReturnType<typeof useFetcher>;
   gitPushFetcher: ReturnType<typeof useFetcher>;
   handleBatchExport: () => void;
-  onOpenAgentPanel: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -98,15 +95,6 @@ export function ActionsDropdown({
         {currentCourse.filePath && <DropdownMenuSeparator />}
         <DropdownMenuLabel>Course</DropdownMenuLabel>
         <DropdownMenuGroup>
-          <DropdownMenuItem onSelect={() => onOpenAgentPanel()}>
-            <Bot className="w-4 h-4 mr-2" />
-            <div className="flex flex-col">
-              <span className="font-medium">Open Agent</span>
-              <span className="text-xs text-muted-foreground">
-                Explore the course filesystem with the agent
-              </span>
-            </div>
-          </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() =>
               dispatch({

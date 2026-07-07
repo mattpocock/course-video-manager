@@ -29,16 +29,7 @@ import {
 } from "react";
 import { useCollapsedSections } from "@/features/course-view/use-collapsed-sections";
 import { readCookie, useCookieState } from "@/hooks/use-cookie-state";
-import {
-  useFetcher,
-  useNavigate,
-  useSearchParams,
-  useSubmit,
-} from "react-router";
-import {
-  CourseAgentSidebar,
-  AgentEdgeTab,
-} from "@/features/course-agent/course-agent-sidebar";
+import { useFetcher, useNavigate, useSubmit } from "react-router";
 import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId._index";
 import { UploadContext } from "@/features/upload-manager/upload-context";
@@ -107,7 +98,6 @@ export const loader = async (args: Route.LoaderArgs) => {
 
 export default function Component(props: Route.ComponentProps) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const selectedCourseId = props.params.courseId;
   const loaderData = props.loaderData;
 
@@ -277,27 +267,8 @@ export default function Component(props: Route.ComponentProps) {
     dispatch({ type: "prune-lesson-selection", currentLessonIds });
   }, [displaySections, dispatch]);
 
-  const agentPanelOpen = searchParams.has("agentPanel");
-  const openAgentPanel = () =>
-    setSearchParams(
-      (prev) => {
-        prev.set("agentPanel", "true");
-        return prev;
-      },
-      { replace: true, preventScrollReset: true }
-    );
-  const closeAgentPanel = () =>
-    setSearchParams(
-      (prev) => {
-        prev.delete("agentPanel");
-        return prev;
-      },
-      { replace: true, preventScrollReset: true }
-    );
-
   return (
     <GenerateChaptersProvider>
-      {/* two-column shell: content reflows, agent sidebar takes the right */}
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-1 min-w-0 flex-col bg-background text-foreground">
           <div className="flex-1 overflow-y-auto">
@@ -330,7 +301,6 @@ export default function Component(props: Route.ComponentProps) {
                       archiveCourseFetcher={archiveCourseFetcher}
                       gitPushFetcher={gitPushFetcher}
                       handleBatchExport={handleBatchExport}
-                      onOpenAgentPanel={openAgentPanel}
                     />
                     {courseWarningCount > 0 && (
                       <span
@@ -525,16 +495,7 @@ export default function Component(props: Route.ComponentProps) {
             onClose={clearDivergenceReport}
           />
         </div>
-
-        {agentPanelOpen && (
-          <CourseAgentSidebar
-            courseId={selectedCourseId!}
-            versionId={searchParams.get("versionId") ?? undefined}
-            onClose={closeAgentPanel}
-          />
-        )}
       </div>
-      {!agentPanelOpen && <AgentEdgeTab onOpen={openAgentPanel} />}
     </GenerateChaptersProvider>
   );
 }
