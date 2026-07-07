@@ -75,17 +75,17 @@ describe("applyOptimisticEvent", () => {
   });
 
   describe("update-section-name", () => {
-    it("patches the title for the matching section", () => {
+    it("patches the path for the matching section", () => {
       const loaderData = makeLoaderData();
       const event: CourseEditorEvent = {
         type: "update-section-name",
         sectionId: "section-1",
-        title: "Basics",
+        title: "basics",
       };
 
       const result = applyOptimisticEvent(loaderData, event);
 
-      expect(result.selectedCourse!.sections[0]!.title).toBe("Basics");
+      expect(result.selectedCourse!.sections[0]!.path).toBe("01-basics");
     });
 
     it("returns loaderData unchanged when section is not found", () => {
@@ -93,7 +93,7 @@ describe("applyOptimisticEvent", () => {
       const event: CourseEditorEvent = {
         type: "update-section-name",
         sectionId: "nonexistent",
-        title: "Basics",
+        title: "basics",
       };
 
       const result = applyOptimisticEvent(loaderData, event);
@@ -101,11 +101,10 @@ describe("applyOptimisticEvent", () => {
       expect(result).toBe(loaderData);
     });
 
-    it("patches title for ghost section", () => {
+    it("handles ghost section path without numeric prefix", () => {
       const ghostSection = makeSection({
         id: "ghost-s",
         path: "My Ghost Section",
-        title: "My Ghost Section",
       });
       const loaderData = makeLoaderData([ghostSection]);
       const event: CourseEditorEvent = {
@@ -116,7 +115,21 @@ describe("applyOptimisticEvent", () => {
 
       const result = applyOptimisticEvent(loaderData, event);
 
-      expect(result.selectedCourse!.sections[0]!.title).toBe("Renamed Section");
+      expect(result.selectedCourse!.sections[0]!.path).toBe("Renamed Section");
+    });
+
+    it("handles section path with dotted prefix", () => {
+      const section = makeSection({ id: "section-1", path: "01.03-advanced" });
+      const loaderData = makeLoaderData([section]);
+      const event: CourseEditorEvent = {
+        type: "update-section-name",
+        sectionId: "section-1",
+        title: "expert",
+      };
+
+      const result = applyOptimisticEvent(loaderData, event);
+
+      expect(result.selectedCourse!.sections[0]!.path).toBe("01.03-expert");
     });
 
     it("does not mutate the original loaderData", () => {
@@ -124,15 +137,15 @@ describe("applyOptimisticEvent", () => {
       const event: CourseEditorEvent = {
         type: "update-section-name",
         sectionId: "section-1",
-        title: "Renamed",
+        title: "renamed",
       };
 
       const result = applyOptimisticEvent(loaderData, event);
 
       expect(result).not.toBe(loaderData);
       expect(result.selectedCourse).not.toBe(loaderData.selectedCourse);
-      expect(loaderData.selectedCourse!.sections[0]!.title).toBe(
-        "Fundamentals"
+      expect(loaderData.selectedCourse!.sections[0]!.path).toBe(
+        "01-fundamentals"
       );
     });
   });

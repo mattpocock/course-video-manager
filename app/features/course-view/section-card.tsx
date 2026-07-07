@@ -166,6 +166,7 @@ export function SectionCard({
                         )}
                         <SectionTitleRow
                           section={section}
+                          isGhostSection={isGhostSection}
                           showGhostStyle={showGhostSectionStyle}
                           isReadOnly={isReadOnly}
                           editSectionId={editSectionId}

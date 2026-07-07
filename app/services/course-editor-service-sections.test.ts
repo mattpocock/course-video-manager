@@ -127,7 +127,7 @@ describe("CourseEditorService — sections", () => {
   });
 
   describe("update-section-name", () => {
-    it("retitles a real section: updates title + path, git mv to derived name", async () => {
+    it("renames a real section (has a real lesson) on disk with slug conversion", async () => {
       const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
@@ -147,10 +147,9 @@ describe("CourseEditorService — sections", () => {
 
       const sections = await getSections(version.id);
       expect(sections[0]!.path).toBe("01-getting-started");
-      expect(sections[0]!.title).toBe("Getting Started");
     });
 
-    it("retitles a ghost section: updates both title and path columns", async () => {
+    it("renames a ghost section by updating path without slug conversion", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -169,10 +168,9 @@ describe("CourseEditorService — sections", () => {
 
       const sections = await getSections(version.id);
       expect(sections[0]!.path).toBe("Getting Started");
-      expect(sections[0]!.title).toBe("Getting Started");
     });
 
-    it("returns early when slug is unchanged but still updates title", async () => {
+    it("returns early when slug is unchanged", async () => {
       const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
@@ -183,9 +181,6 @@ describe("CourseEditorService — sections", () => {
 
       const result = await svc().updateSectionName(section.id, "Introduction");
       expect(result).toMatchObject({ success: true, path: "01-introduction" });
-
-      const sections = await getSections(version.id);
-      expect(sections[0]!.title).toBe("Introduction");
     });
   });
 

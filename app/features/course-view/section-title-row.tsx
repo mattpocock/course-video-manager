@@ -7,6 +7,7 @@ import {
 
 export function SectionTitleRow({
   section,
+  isGhostSection,
   showGhostStyle,
   isReadOnly,
   editSectionId,
@@ -14,7 +15,8 @@ export function SectionTitleRow({
   submitEvent,
   navigateTo,
 }: {
-  section: { id: string; title: string };
+  section: { id: string; path: string };
+  isGhostSection: boolean;
   showGhostStyle: boolean;
   isReadOnly: boolean;
   editSectionId: string | null;
@@ -30,9 +32,11 @@ export function SectionTitleRow({
     saveTitle,
     cancelEditing,
     startEditingTitle,
+    pathPrefix,
   } = useSectionTitleEditor({
     sectionId: section.id,
-    sectionTitle: section.title,
+    sectionPath: section.path,
+    isGhostSection,
     dispatch,
     submitEvent,
     editSectionId,
@@ -40,11 +44,13 @@ export function SectionTitleRow({
 
   return (
     <SectionTitleEditor
-      sectionTitle={section.title}
+      sectionPath={section.path}
+      isGhostSection={isGhostSection}
       showGhostStyle={showGhostStyle}
       isReadOnly={isReadOnly}
       editingTitle={editingTitle}
       titleValue={titleValue}
+      pathPrefix={pathPrefix}
       onTitleValueChange={setTitleValue}
       onCancel={cancelEditing}
       onSave={saveTitle}

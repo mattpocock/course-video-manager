@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { parseSectionPath } from "@/services/section-path-service";
+import { toSlug } from "@/services/lesson-path-service";
 import { capitalizeTitle } from "@/utils/capitalize-title";
 import type { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
@@ -11,51 +13,77 @@ import { Link } from "react-router";
  */
 export function buildSectionRenameEvent({
   value,
-  currentTitle,
+  isGhostSection,
+  sectionPath,
+  currentSlug,
   sectionId,
 }: {
   value: string;
-  currentTitle: string;
+  isGhostSection: boolean;
+  sectionPath: string;
+  currentSlug: string;
   sectionId: string;
 }): CourseEditorEvent | null {
-  const newTitle = capitalizeTitle(value.trim());
-  if (newTitle && newTitle !== currentTitle) {
-    return {
-      type: "update-section-name",
-      sectionId,
-      title: newTitle,
-    };
+  if (isGhostSection) {
+    const newTitle = capitalizeTitle(value.trim());
+    if (newTitle && newTitle !== sectionPath) {
+      return {
+        type: "update-section-name",
+        sectionId,
+        title: newTitle,
+      };
+    }
+  } else {
+    const newSlug = toSlug(value);
+    if (newSlug && newSlug !== currentSlug) {
+      return { type: "update-section-name", sectionId, title: newSlug };
+    }
   }
   return null;
 }
 
 export function useSectionTitleEditor({
   sectionId,
-  sectionTitle,
+  sectionPath,
+  isGhostSection,
   dispatch,
   submitEvent,
   editSectionId,
 }: {
   sectionId: string;
-  sectionTitle: string;
+  sectionPath: string;
+  isGhostSection: boolean;
   dispatch: (action: courseViewReducer.Action) => void;
   submitEvent: (event: CourseEditorEvent) => void;
   editSectionId: string | null;
 }) {
+  const parsedPath = !isGhostSection ? parseSectionPath(sectionPath) : null;
+  const currentSlug = parsedPath?.slug ?? sectionPath;
+  const pathPrefix = parsedPath
+    ? sectionPath.slice(0, sectionPath.length - parsedPath.slug.length)
+    : "";
+
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
 
   const startEditingTitle = useCallback(() => {
-    setTitleValue(sectionTitle);
+    setTitleValue(isGhostSection ? sectionPath : currentSlug);
     setEditingTitle(true);
-  }, [sectionTitle]);
+  }, [isGhostSection, sectionPath, currentSlug]);
 
   useEffect(() => {
     if (editSectionId === sectionId && !editingTitle) {
-      setTitleValue(sectionTitle);
+      setTitleValue(isGhostSection ? sectionPath : currentSlug);
       setEditingTitle(true);
     }
-  }, [editSectionId, sectionId, editingTitle, sectionTitle]);
+  }, [
+    editSectionId,
+    sectionId,
+    editingTitle,
+    isGhostSection,
+    sectionPath,
+    currentSlug,
+  ]);
 
   const saveTitle = useCallback(
     (value: string) => {
@@ -63,14 +91,16 @@ export function useSectionTitleEditor({
       dispatch({ type: "set-edit-section-id", sectionId: null });
       const event = buildSectionRenameEvent({
         value,
-        currentTitle: sectionTitle,
+        isGhostSection,
+        sectionPath,
+        currentSlug,
         sectionId,
       });
       if (event) {
         submitEvent(event);
       }
     },
-    [sectionId, sectionTitle, dispatch, submitEvent]
+    [isGhostSection, sectionId, sectionPath, currentSlug, dispatch, submitEvent]
   );
 
   const cancelEditing = useCallback(() => {
@@ -85,26 +115,31 @@ export function useSectionTitleEditor({
     saveTitle,
     cancelEditing,
     startEditingTitle,
+    pathPrefix,
   };
 }
 
 export function SectionTitleEditor({
-  sectionTitle,
+  sectionPath,
+  isGhostSection,
   showGhostStyle,
   isReadOnly,
   editingTitle,
   titleValue,
+  pathPrefix,
   onTitleValueChange,
   onCancel,
   onSave,
   onStartEditing,
   navigateTo,
 }: {
-  sectionTitle: string;
+  sectionPath: string;
+  isGhostSection: boolean;
   showGhostStyle: boolean;
   isReadOnly: boolean;
   editingTitle: boolean;
   titleValue: string;
+  pathPrefix: string;
   onTitleValueChange: (v: string) => void;
   onCancel: () => void;
   onSave: (v: string) => void;
@@ -126,6 +161,11 @@ export function SectionTitleEditor({
         className="flex items-center gap-1 flex-1 min-w-0"
         onClick={(e) => e.stopPropagation()}
       >
+        {!isGhostSection && pathPrefix && (
+          <span className="text-sm font-mono text-muted-foreground shrink-0">
+            {pathPrefix}
+          </span>
+        )}
         <input
           className={cn(
             "bg-transparent border-b border-foreground outline-none flex-1 min-w-0",
@@ -169,7 +209,7 @@ export function SectionTitleEditor({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {sectionTitle}
+        {sectionPath}
       </Link>
     );
   }
@@ -185,7 +225,7 @@ export function SectionTitleEditor({
         if (!isReadOnly) onStartEditing();
       }}
     >
-      {sectionTitle}
+      {sectionPath}
     </span>
   );
 }
