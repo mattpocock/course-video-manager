@@ -47,8 +47,11 @@ RANKING FIELDS
                overrides priority across bands.
 
 COPY FIELDS
-  title, description, contentPlan, youtubeTitle, youtubeThumbnailDescription,
+  title, description, youtubeTitle, youtubeThumbnailDescription,
   newsletterTitle, tweet — the packaging copy authored ahead of recording.
+  contentPlan is retired (deprecated, ADR 0015): still surfaced in list/get
+  output as a read-only transitional reference, but no longer writable via
+  create/update.
 
 VERBS
   list   — every active pitch (optionally filtered by --state). Identity-rich.
@@ -132,7 +135,6 @@ defaults ("" for copy; priority 2; effort 2). Echoes the created pitch row.
 Flags:
   --title <t>              (required) the pitch title / packaging headline.
   --description <t>        free-text description.
-  --content-plan <t>       the content plan.
   --youtube-title <t>      YouTube title copy.
   --youtube-thumbnail <t>  YouTube thumbnail concept (youtubeThumbnailDescription).
   --newsletter-title <t>   newsletter title copy.
@@ -149,7 +151,7 @@ const UPDATE_HELP = `Patch a Pitch's copy/ranking fields by id. At least one fie
 change; the rest are left untouched. Renaming is just --title.
 
 Flags (all optional; same meanings as 'pitch create'):
-  --title, --description, --content-plan, --youtube-title, --youtube-thumbnail,
+  --title, --description, --youtube-title, --youtube-thumbnail,
   --newsletter-title, --tweet, --priority <n>, --effort <1|2|3>.
 
 An unknown or archived (deleted) pitch id is a not-found (exit 2). Flags must
@@ -216,7 +218,6 @@ const optText = (name: string, description: string) =>
   );
 
 const descriptionOption = optText("description", "Free-text description.");
-const contentPlanOption = optText("content-plan", "The content plan.");
 const youtubeTitleOption = optText("youtube-title", "YouTube title copy.");
 const youtubeThumbnailOption = optText(
   "youtube-thumbnail",
@@ -240,7 +241,6 @@ const effortOption = Options.choice("effort", ["1", "2", "3"]).pipe(
 
 const copyOptions = {
   description: descriptionOption,
-  contentPlan: contentPlanOption,
   youtubeTitle: youtubeTitleOption,
   youtubeThumbnailDescription: youtubeThumbnailOption,
   newsletterTitle: newsletterTitleOption,
@@ -251,7 +251,6 @@ const copyOptions = {
 
 interface PitchFieldOpts {
   readonly description: Option.Option<string>;
-  readonly contentPlan: Option.Option<string>;
   readonly youtubeTitle: Option.Option<string>;
   readonly youtubeThumbnailDescription: Option.Option<string>;
   readonly newsletterTitle: Option.Option<string>;
@@ -269,7 +268,6 @@ const collectPitchFields = (opts: PitchFieldOpts): PitchFields => {
   const effort = Option.getOrUndefined(opts.effort);
   return {
     description: Option.getOrUndefined(opts.description),
-    contentPlan: Option.getOrUndefined(opts.contentPlan),
     youtubeTitle: Option.getOrUndefined(opts.youtubeTitle),
     youtubeThumbnailDescription: Option.getOrUndefined(
       opts.youtubeThumbnailDescription
