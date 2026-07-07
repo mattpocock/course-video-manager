@@ -14,6 +14,7 @@ import {
   parseError,
   withName,
 } from "@/cli/helpers";
+import { withBackupCoordination } from "@/cli/backup-coordinator";
 
 // ---------------------------------------------------------------------------
 // Help text — domain-teaching prose (keep in sync with CONTEXT.md, "Pitches").
@@ -288,19 +289,21 @@ const createCmd = Command.make(
   "create",
   { title: createTitleOption, ...copyOptions },
   ({ title, ...rest }) =>
-    Effect.gen(function* () {
-      // A pitch needs a non-empty title to appear in list/get, so reject blank.
-      if (title.trim() === "") {
-        return yield* parseError("--title must not be empty", "pitch");
-      }
-      const svc = yield* PitchOperationsService;
-      // One atomic insert carrying the title (never a titleless row + patch).
-      const created = yield* svc.createPitch({
-        title,
-        ...collectPitchFields(rest),
-      });
-      yield* emitObject(created);
-    })
+    withBackupCoordination(
+      Effect.gen(function* () {
+        // A pitch needs a non-empty title to appear in list/get, so reject blank.
+        if (title.trim() === "") {
+          return yield* parseError("--title must not be empty", "pitch");
+        }
+        const svc = yield* PitchOperationsService;
+        // One atomic insert carrying the title (never a titleless row + patch).
+        const created = yield* svc.createPitch({
+          title,
+          ...collectPitchFields(rest),
+        });
+        yield* emitObject(created);
+      })
+    )
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 const updateTitleOption = Options.text("title").pipe(
@@ -313,33 +316,35 @@ const updateCmd = Command.make(
   "update",
   { id: idArg, title: updateTitleOption, ...copyOptions },
   ({ id, title, ...rest }) =>
-    Effect.gen(function* () {
-      const t = Option.getOrUndefined(title);
-      if (t !== undefined && t.trim() === "") {
-        return yield* parseError("--title must not be empty", "pitch");
-      }
-      // May carry undefined values (flags not passed); the service prunes them.
-      const fields: PitchFields = { title: t, ...collectPitchFields(rest) };
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const t = Option.getOrUndefined(title);
+        if (t !== undefined && t.trim() === "") {
+          return yield* parseError("--title must not be empty", "pitch");
+        }
+        // May carry undefined values (flags not passed); the service prunes them.
+        const fields: PitchFields = { title: t, ...collectPitchFields(rest) };
 
-      if (!Object.values(fields).some((v) => v !== undefined)) {
-        return yield* parseError(
-          "update needs at least one field flag (e.g. --title)",
-          "pitch"
-        );
-      }
+        if (!Object.values(fields).some((v) => v !== undefined)) {
+          return yield* parseError(
+            "update needs at least one field flag (e.g. --title)",
+            "pitch"
+          );
+        }
 
-      const svc = yield* PitchOperationsService;
-      // Existence + active guard (archived == deleted == not addressable).
-      const existing = yield* svc
-        .getPitch(id)
-        .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", id)));
-      if (existing.archived) {
-        return yield* notFound("pitch", id);
-      }
+        const svc = yield* PitchOperationsService;
+        // Existence + active guard (archived == deleted == not addressable).
+        const existing = yield* svc
+          .getPitch(id)
+          .pipe(Effect.catchTag("NotFoundError", () => notFound("pitch", id)));
+        if (existing.archived) {
+          return yield* notFound("pitch", id);
+        }
 
-      const updated = yield* svc.updatePitch(id, fields);
-      yield* emitObject(updated);
-    })
+        const updated = yield* svc.updatePitch(id, fields);
+        yield* emitObject(updated);
+      })
+    )
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 // ---------------------------------------------------------------------------

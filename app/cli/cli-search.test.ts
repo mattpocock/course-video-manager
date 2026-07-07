@@ -6,13 +6,20 @@ import {
 } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import {
-  buildReadLayer,
-  makeReadRun,
+  buildWriteLayer,
+  makeRun,
   ndjson,
-  seedRead,
-  type ReadSeed,
   type RunResult,
-} from "./cli-read-test-harness";
+} from "./cli-write-test-harness";
+import {
+  seedIntegration,
+  type IntegrationSeed,
+} from "./cli-integration-test-harness";
+
+// ===========================================================================
+// cvm search — global and scoped substring search
+// (Split from cli-integration.test.ts to stay under the per-file token budget.)
+// ===========================================================================
 
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
@@ -20,13 +27,13 @@ let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  run = makeReadRun(buildReadLayer(testDb));
+  run = makeRun(buildWriteLayer(testDb));
 });
 
-let s: ReadSeed;
+let s: IntegrationSeed;
 beforeEach(async () => {
   await truncateAllTables(testDb);
-  s = await seedRead(testDb);
+  s = await seedIntegration(testDb);
 });
 
 describe("search", () => {
@@ -112,59 +119,154 @@ describe("search", () => {
     expect(stdout).toBe("");
   });
 
-  it("no match returns empty output and exit 0", async () => {
-    const { stdout, stderr, exitCode } = await run([
-      "search",
-      "zzz-never-matches",
+  it("--type narrows result kinds", async () => {
+    const only = await run(["search", "--type", "course", "alpha"]);
+    expect((ndjson(only.stdout) as any[]).map((h) => h.kind)).toEqual([
+      "course",
     ]);
+    const none = await run(["search", "--type", "video", "alpha"]);
+    expect(none.exitCode).toBe(0);
+    expect(none.stdout).toBe("");
+  });
+
+  it("empty / whitespace query => exit 3 ParseError", async () => {
+    for (const q of ["", "   "]) {
+      const { stderr, exitCode } = await run(["search", q]);
+      expect(exitCode).toBe(3);
+      expect(JSON.parse(stderr)._tag).toBe("ParseError");
+    }
+  });
+
+  it("unknown --type => exit 3 ParseError", async () => {
+    const { stderr, exitCode } = await run(["search", "--type", "bogus", "x"]);
+    expect(exitCode).toBe(3);
+    expect(JSON.parse(stderr)._tag).toBe("ParseError");
+  });
+
+  it("no matches => no output, exit 0", async () => {
+    const { stdout, stderr, exitCode } = await run(["search", "zzz-nomatch"]);
     expect(exitCode).toBe(0);
     expect(stdout).toBe("");
     expect(stderr).toBe("");
   });
 
-  it("matches a lesson by title", async () => {
-    const { stdout } = await run(["search", "Welcome"]);
-    const hits = ndjson(stdout) as any[];
-    expect(hits).toHaveLength(1);
-    expect(hits[0]).toMatchObject({
-      kind: "lesson",
-      id: s.lessonId,
+  describe("scoped: course / section / lesson", () => {
+    it("course search confines the walk to that course's subtree", async () => {
+      const { stdout } = await run(["course", "search", s.courseAId, "intro"]);
+      const hits = ndjson(stdout) as any[];
+      expect(hits.map((h) => h.kind)).toEqual(["section", "video"]);
+    });
+
+    it("section search includes the root section and its descendants", async () => {
+      const { stdout } = await run([
+        "section",
+        "search",
+        s.draftSectionId,
+        "intro",
+      ]);
+      const hits = ndjson(stdout) as any[];
+      expect(hits.map((h) => h.kind)).toEqual(["section", "video"]);
+    });
+
+    it("section search cannot reach the course above it", async () => {
+      const { stdout, exitCode } = await run([
+        "section",
+        "search",
+        s.draftSectionId,
+        "alpha",
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe("");
+    });
+
+    it("lesson search finds a transcript hit in its subtree", async () => {
+      const { stdout } = await run(["lesson", "search", s.lessonId, "hello"]);
+      const hits = ndjson(stdout) as any[];
+      expect(hits).toHaveLength(1);
+      expect(hits[0]).toMatchObject({ kind: "video", id: s.lessonVideoId });
+    });
+
+    it("rejects an out-of-scope --type (exit 3)", async () => {
+      const { stderr, exitCode } = await run([
+        "lesson",
+        "search",
+        "--type",
+        "section",
+        s.lessonId,
+        "x",
+      ]);
+      expect(exitCode).toBe(3);
+      expect(JSON.parse(stderr)._tag).toBe("ParseError");
+    });
+
+    it("rejects --type pitch under a course (exit 3)", async () => {
+      const { exitCode, stderr } = await run([
+        "course",
+        "search",
+        "--type",
+        "pitch",
+        s.courseAId,
+        "x",
+      ]);
+      expect(exitCode).toBe(3);
+      expect(JSON.parse(stderr)._tag).toBe("ParseError");
+    });
+
+    it("unknown scope id => exit 2 NotFoundError", async () => {
+      const { stderr, exitCode } = await run([
+        "course",
+        "search",
+        "does-not-exist",
+        "x",
+      ]);
+      expect(exitCode).toBe(2);
+      const err = JSON.parse(stderr);
+      expect(err._tag).toBe("NotFoundError");
+      expect(err.entity).toBe("course");
+    });
+
+    it("archived scope root => exit 2 NotFoundError", async () => {
+      const { exitCode } = await run([
+        "course",
+        "search",
+        s.courseBArchivedId,
+        "x",
+      ]);
+      expect(exitCode).toBe(2);
+    });
+
+    it("archived section root => exit 2 NotFoundError", async () => {
+      const { stderr, exitCode } = await run([
+        "section",
+        "search",
+        s.archivedSectionId,
+        "x",
+      ]);
+      expect(exitCode).toBe(2);
+      const err = JSON.parse(stderr);
+      expect(err._tag).toBe("NotFoundError");
+      expect(err.entity).toBe("section");
+    });
+
+    it("archived lesson root => exit 2 NotFoundError", async () => {
+      const { stderr, exitCode } = await run([
+        "lesson",
+        "search",
+        s.archivedLessonId,
+        "x",
+      ]);
+      expect(exitCode).toBe(2);
+      const err = JSON.parse(stderr);
+      expect(err._tag).toBe("NotFoundError");
+      expect(err.entity).toBe("lesson");
     });
   });
 
-  it("matches a section by path", async () => {
-    const { stdout } = await run(["search", "01-intro"]);
-    const hits = ndjson(stdout) as any[];
-    expect(hits.some((h) => h.kind === "section")).toBe(true);
-    expect(hits.find((h) => h.kind === "section")).toMatchObject({
-      id: s.draftSectionId,
-      field: "path",
-    });
-  });
-
-  it("--kind filters results to only that entity type", async () => {
-    const { stdout } = await run(["search", "--kind", "course", "alpha"]);
-    const hits = ndjson(stdout) as any[];
-    expect(hits.every((h) => h.kind === "course")).toBe(true);
-  });
-
-  it("--kind with an unrecognized type => exit 3 ParseError", async () => {
-    const { exitCode, stderr } = await run([
-      "search",
-      "--kind",
-      "bogus",
-      "alpha",
-    ]);
-    expect(exitCode).toBe(3);
-    const err = JSON.parse(stderr.trim()) as { _tag: string };
-    expect(err._tag).toBe("ParseError");
-  });
-
-  describe("LIKE / ILIKE edge cases", () => {
-    it("literal % and _ in the query are escaped (not treated as SQL wildcards)", async () => {
+  describe("literal matching: SQL wildcards are escaped", () => {
+    it("treats % and _ as literals in a transcript search", async () => {
       await testDb.insert(schema.clips).values({
         videoId: s.lessonVideoId,
-        videoFilename: "d.mp4",
+        videoFilename: "pct.mp4",
         sourceStartTime: 30,
         sourceEndTime: 40,
         order: "0005",

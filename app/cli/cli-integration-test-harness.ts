@@ -1,77 +1,7 @@
-import { Effect, Layer } from "effect";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { BeatOperationsService } from "@/services/db-beat-operations.server";
-import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { SearchOperationsService } from "@/services/db-search-operations.server";
-import { CourseWriteService } from "@/services/course-write-service";
-import { BackupCoordinator } from "@/cli/backup-coordinator";
-import type { TestDb } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
-import { buildProgram } from "@/cli/main";
-import { makeTestCliOutput } from "@/cli/output";
+import type { TestDb } from "@/test-utils/pglite";
 
-export interface RunResult {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly exitCode: number;
-}
-
-export type ReadLayer = Layer.Layer<
-  | DrizzleService
-  | CourseOperationsService
-  | VersionOperationsService
-  | LessonSectionOperationsService
-  | VideoOperationsService
-  | ClipOperationsService
-  | BeatOperationsService
-  | PitchOperationsService
-  | DeliverableOperationsService
-  | SearchOperationsService
-  | CourseWriteService
-  | BackupCoordinator
->;
-
-export const buildReadLayer = (db: TestDb): ReadLayer =>
-  Layer.mergeAll(
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default,
-    VideoOperationsService.Default,
-    ClipOperationsService.Default,
-    BeatOperationsService.Default,
-    PitchOperationsService.Default,
-    DeliverableOperationsService.Default,
-    SearchOperationsService.Default,
-    CourseWriteService.Default,
-    Layer.succeed(BackupCoordinator, {
-      ensureServerHealthy: Effect.void,
-      requestDump: Effect.void,
-    } as unknown as BackupCoordinator)
-  ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)));
-
-export const makeReadRun =
-  (layer: ReadLayer) =>
-  async (argv: ReadonlyArray<string>): Promise<RunResult> => {
-    const out = makeTestCliOutput();
-    const exitCode = await Effect.runPromise(
-      buildProgram(argv).pipe(Effect.provide(out.layer), Effect.provide(layer))
-    );
-    return { stdout: out.stdout(), stderr: out.stderr(), exitCode };
-  };
-
-export const ndjson = (stdout: string): unknown[] =>
-  stdout
-    .split("\n")
-    .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line));
-
-export interface ReadSeed {
+export interface IntegrationSeed {
   courseAId: string;
   courseBArchivedId: string;
   draftVersionId: string;
@@ -92,7 +22,7 @@ export interface ReadSeed {
   pitchArchivedId: string;
 }
 
-export const seedRead = async (db: TestDb): Promise<ReadSeed> => {
+export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
   const [courseA] = await db
     .insert(schema.courses)
     .values({ name: "Alpha", slug: "alpha", filePath: "/tmp/alpha" })

@@ -5,30 +5,29 @@ import {
   type TestDb,
 } from "@/test-utils/pglite";
 import {
-  buildReadLayer,
-  makeReadRun,
+  buildWriteLayer,
+  makeRun,
   ndjson,
-  seedRead,
-  type ReadLayer,
-  type ReadSeed,
   type RunResult,
-} from "./cli-read-test-harness";
+} from "./cli-write-test-harness";
+import {
+  seedIntegration,
+  type IntegrationSeed,
+} from "./cli-integration-test-harness";
 
 let testDb: TestDb;
-let cliTestLayer: ReadLayer;
-let run: (argv: ReadonlyArray<string>, layer?: ReadLayer) => Promise<RunResult>;
+let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  cliTestLayer = buildReadLayer(testDb);
-  run = (argv, layer = cliTestLayer) => makeReadRun(layer)(argv);
+  run = makeRun(buildWriteLayer(testDb));
 });
 
-let s: ReadSeed;
+let s: IntegrationSeed;
 beforeEach(async () => {
   await truncateAllTables(testDb);
-  s = await seedRead(testDb);
+  s = await seedIntegration(testDb);
 });
 
 // ===========================================================================
@@ -223,10 +222,8 @@ describe("error -> exit code mapping", () => {
   it("db/internal failure => exit 4 DatabaseError", async () => {
     const broken = await createTestDb();
     await broken.pglite.close();
-    const { stdout, stderr, exitCode } = await run(
-      ["course", "list"],
-      buildReadLayer(broken.testDb)
-    );
+    const brokenRun = makeRun(buildWriteLayer(broken.testDb));
+    const { stdout, stderr, exitCode } = await brokenRun(["course", "list"]);
     expect(exitCode).toBe(4);
     expect(stdout).toBe("");
     const err = JSON.parse(stderr.trim()) as { _tag: string };
