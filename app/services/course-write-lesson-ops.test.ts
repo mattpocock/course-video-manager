@@ -141,24 +141,6 @@ describe("CourseWriteService", () => {
     });
   });
 
-  describe("convertToGhost", () => {
-    it("is a no-op that returns success", async () => {
-      const { run, createSection, createLesson } = await setup();
-
-      const section = await createSection("01-intro", 1);
-      const lesson = await createLesson(section.id, "01.01-first", 1);
-
-      const result = await run(
-        Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.convertToGhost(lesson.id);
-        })
-      );
-
-      expect(result.success).toBe(true);
-    });
-  });
-
   describe("renameLesson", () => {
     it("updates the lesson path in the database", async () => {
       const { run, createSection, createLesson, getLesson } = await setup();

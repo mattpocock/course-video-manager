@@ -64,8 +64,6 @@ function entityIdForEvent(event: CourseEditorEvent): string {
     case "update-lesson-dependencies":
     case "delete-lesson":
     case "move-lesson-to-section":
-    case "convert-to-ghost":
-    case "create-on-disk":
     case "set-lesson-authoring-status":
       return event.lessonId;
     case "create-beat":

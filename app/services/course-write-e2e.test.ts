@@ -232,40 +232,4 @@ describe("CourseWriteService (DB-only)", () => {
       expect(archived.archivedAt).not.toBeNull();
     });
   });
-
-  describe("materializeGhost is a no-op", () => {
-    it("returns success without side effects", async () => {
-      const { run, createSection, createLesson } = await setup();
-
-      const section = await createSection("Intro", 1);
-      const lesson = await createLesson(section.id, "Lesson", 1);
-
-      const result = await run(
-        Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.materializeGhost(lesson.id);
-        })
-      );
-
-      expect(result.success).toBe(true);
-    });
-  });
-
-  describe("convertToGhost is a no-op", () => {
-    it("returns success without side effects", async () => {
-      const { run, createSection, createLesson } = await setup();
-
-      const section = await createSection("Intro", 1);
-      const lesson = await createLesson(section.id, "Lesson", 1);
-
-      const result = await run(
-        Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.convertToGhost(lesson.id);
-        })
-      );
-
-      expect(result.success).toBe(true);
-    });
-  });
 });

@@ -118,15 +118,6 @@ export type CourseEditorEvent =
       beforeLessonId?: string | null;
     }
   | {
-      type: "convert-to-ghost";
-      lessonId: string;
-    }
-  | {
-      type: "create-on-disk";
-      lessonId: string;
-      repoPath?: string;
-    }
-  | {
       type: "set-lesson-authoring-status";
       lessonId: string;
       status: "todo" | "done";
@@ -267,19 +258,6 @@ export interface CourseEditorService {
     targetSectionId: string,
     beforeLessonId?: string | null
   ): Promise<{ success: true }>;
-
-  convertToGhost(lessonId: string): Promise<{ success: true }>;
-
-  createOnDisk(
-    lessonId: string,
-    opts?: { repoPath?: string }
-  ): Promise<{
-    success: true;
-    path: string;
-    sectionId?: string;
-    sectionPath?: string;
-    courseFilePath?: string;
-  }>;
 
   setLessonAuthoringStatus(
     lessonId: string,
@@ -473,27 +451,6 @@ export function createCourseEditorService(
         targetSectionId,
         beforeLessonId,
       }) as Promise<{ success: true }>;
-    },
-
-    async convertToGhost(lessonId) {
-      return send({
-        type: "convert-to-ghost",
-        lessonId,
-      }) as Promise<{ success: true }>;
-    },
-
-    async createOnDisk(lessonId, opts) {
-      return send({
-        type: "create-on-disk",
-        lessonId,
-        ...(opts?.repoPath && { repoPath: opts.repoPath }),
-      }) as Promise<{
-        success: true;
-        path: string;
-        sectionId?: string;
-        sectionPath?: string;
-        courseFilePath?: string;
-      }>;
     },
 
     async setLessonAuthoringStatus(lessonId, status) {

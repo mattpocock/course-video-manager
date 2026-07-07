@@ -151,16 +151,6 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
         );
       }
 
-      case "convert-to-ghost": {
-        return yield* service.convertToGhost(event.lessonId);
-      }
-
-      case "create-on-disk": {
-        return yield* service.materializeGhost(event.lessonId, {
-          repoPath: event.repoPath,
-        });
-      }
-
       case "set-lesson-authoring-status": {
         yield* lessonSectionOps.getLessonWithHierarchyById(event.lessonId);
         yield* lessonSectionOps.updateLesson(event.lessonId, {

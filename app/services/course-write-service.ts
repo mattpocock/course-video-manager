@@ -103,34 +103,10 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         };
       });
 
-      const materializeGhost = Effect.fn("materializeGhost")(function* (
-        _lessonId: string,
-        _opts?: { repoPath?: string }
-      ) {
-        return { success: true, path: "" };
-      });
-
-      const materializeCourseWithLesson = Effect.fn(
-        "materializeCourseWithLesson"
-      )(function* (
-        sectionId: string,
-        title: string,
-        _filePath: string,
-        opts?: { adjacentLessonId?: string; position?: "before" | "after" }
-      ) {
-        return yield* createRealLesson(sectionId, title, opts);
-      });
-
       const deleteLesson = Effect.fn("deleteLesson")(function* (
         lessonId: string
       ) {
         yield* lessonSectionOps.deleteLesson(lessonId);
-        return { success: true };
-      });
-
-      const convertToGhost = Effect.fn("convertToGhost")(function* (
-        _lessonId: string
-      ) {
         return { success: true };
       });
 
@@ -189,16 +165,13 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
       });
 
       return {
-        materializeGhost,
         createRealLesson,
-        materializeCourseWithLesson,
         reorderLessons,
         reorderSections,
         renameSection,
         archiveSection,
         addGhostSection,
         addGhostLesson,
-        convertToGhost,
         deleteLesson,
         renameLesson,
         moveToSection,

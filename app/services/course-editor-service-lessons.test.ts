@@ -376,21 +376,6 @@ describe("CourseEditorService — lessons", () => {
     });
   });
 
-  describe("convert-to-ghost", () => {
-    it("is a no-op that returns success", async () => {
-      const { version } = await createCourseWithVersion();
-      const { lessons } = await createSectionWithLessons(
-        version.id,
-        "01-intro",
-        0,
-        [{ title: "Lesson", fsStatus: "real", order: 0 }]
-      );
-
-      const result = await svc().convertToGhost(lessons[0]!.id);
-      expect(result).toMatchObject({ success: true });
-    });
-  });
-
   describe("set-lesson-authoring-status", () => {
     it("marks a todo lesson as done", async () => {
       const { version } = await createCourseWithVersion();
@@ -466,29 +451,6 @@ describe("CourseEditorService — lessons", () => {
       expect((await getLessonById(lessons[0]!.id))!.authoringStatus).toBe(
         "todo"
       );
-    });
-  });
-
-  describe("create-on-disk", () => {
-    it("is a no-op that returns success", async () => {
-      const { version } = await createCourseWithVersion();
-      const { section } = await createSectionWithLessons(
-        version.id,
-        "01-introduction",
-        0,
-        [
-          {
-            title: "Existing",
-            fsStatus: "real",
-            order: 1,
-          },
-        ]
-      );
-
-      const l = await svc().addGhostLesson(section.id, "My Lesson");
-      const result = await svc().createOnDisk(l.lessonId);
-
-      expect(result).toMatchObject({ success: true });
     });
   });
 });

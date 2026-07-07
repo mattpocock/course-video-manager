@@ -287,8 +287,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
       const syncToDropbox = Effect.fn("syncToDropbox")(function* (
         courseId: string,
-        onProgress?: (event: string, data: unknown) => void,
-        _versionOverride?: { name: string; description: string }
+        onProgress?: (event: string, data: unknown) => void
       ) {
         const latestVersion =
           yield* versionOps.getLatestCourseVersion(courseId);
@@ -473,10 +472,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         onProgress?.("uploading");
-        yield* syncToDropbox(courseId, undefined, {
-          name: versionName,
-          description: versionDescription,
-        });
+        yield* syncToDropbox(courseId);
 
         onProgress?.("freezing");
         yield* versionOps.updateCourseVersion({
