@@ -124,13 +124,13 @@ describe("CourseWriteService", () => {
 
       const movedLesson = await getLesson(l2.id);
       expect(movedLesson.sectionId).toBe(section2.id);
-      expect(movedLesson.path).toBe("02.02-second");
+      expect(movedLesson.title).toBe("second");
 
       const updatedL3 = await getLesson(l3.id);
-      expect(updatedL3.path).toBe("01.02-third");
+      expect(updatedL3.title).toBe("third");
 
       const updatedL1 = await getLesson(l1.id);
-      expect(updatedL1.path).toBe("01.01-first");
+      expect(updatedL1.title).toBe("first");
     });
 
     it("moves the only lesson from a section", async () => {
@@ -176,13 +176,13 @@ describe("CourseWriteService", () => {
       const movedA = await getLesson(a.id);
       const movedC = await getLesson(c.id);
       expect(movedA.sectionId).toBe(section2.id);
-      expect(movedA.path).toBe("02.02-a");
+      expect(movedA.title).toBe("a");
       expect(movedC.sectionId).toBe(section2.id);
-      expect(movedC.path).toBe("02.03-c");
+      expect(movedC.title).toBe("c");
 
       const keptB = await getLesson(b.id);
       expect(keptB.sectionId).toBe(section1.id);
-      expect(keptB.path).toBe("01.01-b");
+      expect(keptB.title).toBe("b");
     });
 
     it("handles moving all lessons from a section", async () => {

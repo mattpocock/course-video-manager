@@ -1,7 +1,6 @@
 import { lessons } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { DrizzleDB } from "@/services/drizzle-service.server";
-import { parseLessonPath } from "./lesson-path-service";
 
 /**
  * One-off migration that populates `lesson.title` for real lessons whose title
@@ -12,21 +11,17 @@ import { parseLessonPath } from "./lesson-path-service";
  * its current folder. Ghost lessons already carry a first-class title from
  * creation and are left untouched.
  *
+ * With `lessons.path` removed from the schema, this backfill is a no-op: every
+ * lesson already has its title populated at creation time. The function is kept
+ * for historical compatibility but does nothing when no blank titles exist.
+ *
  * Pure `(db) => Promise<void>`, deterministic, run manually.
  */
-
-/** Title-cases a dash-case slug ("getting-started" → "Getting Started"). */
-const titleFromSlug = (slug: string): string =>
-  slug
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 
 export async function backfillRealLessonTitles(db: DrizzleDB) {
   const allLessons = await db
     .select({
       id: lessons.id,
-      path: lessons.path,
       title: lessons.title,
       fsStatus: lessons.fsStatus,
     })
@@ -35,28 +30,24 @@ export async function backfillRealLessonTitles(db: DrizzleDB) {
 
   for (const lesson of allLessons) {
     // Ghost lessons keep their raw human title; only real, title-less lessons
-    // need recovering from the numbered path.
+    // need a title. With `path` removed from the schema, there is no path to
+    // derive a title from — blank titles are an error condition.
     if (lesson.fsStatus === "ghost") continue;
     if (lesson.title !== "") continue;
 
-    const parsed = parseLessonPath(lesson.path);
-    const slug = parsed?.slug ?? lesson.path;
-    const title = titleFromSlug(slug);
-
-    await db.update(lessons).set({ title }).where(eq(lessons.id, lesson.id));
+    // No path column to derive from; leave blank titles untouched.
+    // assertNoBlankLessonTitles will flag these as errors.
   }
 }
 
 /**
- * Post-condition guard: no real lesson is left with a blank title whose derived
- * title (from its path slug) is non-empty. Guards the silent-miss hazard of the
- * `NOT NULL default ''` column.
+ * Post-condition guard: no real lesson is left with a blank title.
+ * Guards the silent-miss hazard of the `NOT NULL default ''` column.
  */
 export async function assertNoBlankLessonTitles(db: DrizzleDB) {
   const allLessons = await db
     .select({
       id: lessons.id,
-      path: lessons.path,
       title: lessons.title,
       fsStatus: lessons.fsStatus,
     })
@@ -67,17 +58,12 @@ export async function assertNoBlankLessonTitles(db: DrizzleDB) {
   for (const lesson of allLessons) {
     if (lesson.fsStatus === "ghost") continue;
     if (lesson.title !== "") continue;
-
-    const parsed = parseLessonPath(lesson.path);
-    const derivedTitle = titleFromSlug(parsed?.slug ?? lesson.path);
-    if (derivedTitle !== "") {
-      blanks.push(lesson.id);
-    }
+    blanks.push(lesson.id);
   }
 
   if (blanks.length > 0) {
     throw new Error(
-      `Post-condition failed: ${blanks.length} real lesson(s) have blank title but a non-empty derived title: ${blanks.join(", ")}`
+      `Post-condition failed: ${blanks.length} real lesson(s) have blank title: ${blanks.join(", ")}`
     );
   }
 }

@@ -19,7 +19,6 @@ import {
 // from the path prefix. These helpers build sections that are unambiguously
 // real or ghost under that rule.
 const realLesson = (order: number) => ({
-  path: `01.0${order}-lesson`,
   title: `Lesson ${order}`,
   fsStatus: "real",
   order,
@@ -213,14 +212,12 @@ describe("CourseEditorService — sections", () => {
         .values([
           {
             sectionId: createResult.sectionId,
-            path: "lesson-one",
             title: "Lesson One",
             fsStatus: "ghost",
             order: 1,
           },
           {
             sectionId: createResult.sectionId,
-            path: "lesson-two",
             title: "Lesson Two",
             fsStatus: "ghost",
             order: 2,
@@ -245,7 +242,6 @@ describe("CourseEditorService — sections", () => {
 
       await db().insert(schema.lessons).values({
         sectionId: createResult.sectionId,
-        path: "01.01-real-lesson",
         title: "Real Lesson",
         fsStatus: "real",
         order: 1,
@@ -271,14 +267,12 @@ describe("CourseEditorService — sections", () => {
         .values([
           {
             sectionId: createResult.sectionId,
-            path: "ghost-lesson",
             title: "Ghost Lesson",
             fsStatus: "ghost",
             order: 1,
           },
           {
             sectionId: createResult.sectionId,
-            path: "real-lesson",
             title: "Real Lesson",
             fsStatus: "real",
             order: 2,

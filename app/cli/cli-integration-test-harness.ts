@@ -68,7 +68,6 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
     .insert(schema.lessons)
     .values({
       sectionId: draftSection!.id,
-      path: "01-welcome",
       title: "Welcome",
       order: 1,
       fsStatus: "real",
@@ -129,7 +128,6 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
     .insert(schema.lessons)
     .values({
       sectionId: draftSection!.id,
-      path: "02-deleted",
       title: "Deleted lesson",
       order: 2,
       fsStatus: "real",

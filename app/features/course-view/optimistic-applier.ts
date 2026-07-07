@@ -3,6 +3,7 @@ import {
   planLessonMove,
   planLessonsMove,
 } from "@/services/lesson-move-planner";
+import { attachDerivedPaths } from "@/services/path-projection";
 import type {
   LoaderData,
   Lesson,
@@ -405,11 +406,9 @@ function applyMovePlanToLoader(
   );
   const movedSet = new Set(movedIds);
 
-  // Patch a lesson's path/order from the plan; section membership is encoded by
-  // which section array the lesson sits in, so it isn't patched here.
   const patch = (l: Lesson): Lesson => {
     const u = lessonUpdateById.get(l.id);
-    return u ? { ...l, path: u.path, order: u.order } : l;
+    return u ? { ...l, order: u.order } : l;
   };
 
   const allLessons = course.sections.flatMap((s) => s.lessons);
@@ -456,7 +455,7 @@ function applyMovePlanToLoader(
 
   return {
     ...loaderData,
-    selectedCourse: { ...course, sections },
+    selectedCourse: { ...course, sections: attachDerivedPaths(sections) },
   };
 }
 

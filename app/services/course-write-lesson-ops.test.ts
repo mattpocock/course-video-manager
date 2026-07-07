@@ -174,10 +174,10 @@ describe("CourseWriteService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.path).toBe("new-slug");
+      expect(result.title).toBe("new-slug");
 
       const updated = await getLesson(lesson.id);
-      expect(updated.path).toBe("new-slug");
+      expect(updated.title).toBe("new-slug");
     });
   });
 

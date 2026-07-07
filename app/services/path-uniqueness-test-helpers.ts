@@ -10,7 +10,7 @@ import type { TestDb } from "@/test-utils/pglite";
 
 export async function dropUniqueIndexes(testDb: TestDb) {
   await testDb.execute(sql`DROP INDEX IF EXISTS "section_version_order_uniq"`);
-  await testDb.execute(sql`DROP INDEX IF EXISTS "lesson_section_path_uniq"`);
+  await testDb.execute(sql`DROP INDEX IF EXISTS "lesson_section_order_uniq"`);
   await testDb.execute(sql`DROP INDEX IF EXISTS "video_lesson_path_uniq"`);
 }
 
@@ -19,7 +19,7 @@ export async function recreateUniqueIndexes(testDb: TestDb) {
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "section_version_order_uniq" ON "course-video-manager_section" ("course_version_id", "order") WHERE "archived_at" IS NULL`
   );
   await testDb.execute(
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS "lesson_section_path_uniq" ON "course-video-manager_lesson" ("section_id", "path") WHERE NOT "archived"`
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "lesson_section_order_uniq" ON "course-video-manager_lesson" ("section_id", "order") WHERE NOT "archived"`
   );
   await testDb.execute(
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "video_lesson_path_uniq" ON "course-video-manager_video" ("lesson_id", "path") WHERE NOT "archived"`
@@ -68,7 +68,7 @@ export async function createSection(
 export async function createLesson(
   testDb: TestDb,
   sectionId: string,
-  path: string,
+  title: string,
   order: number,
   opts?: {
     id?: string;
@@ -84,9 +84,8 @@ export async function createLesson(
     .values({
       ...(opts?.id ? { id: opts.id } : {}),
       sectionId,
-      path,
+      title: opts?.title ?? title,
       order,
-      ...(opts?.title !== undefined ? { title: opts.title } : {}),
       archived: opts?.archived ?? false,
       fsStatus,
       ...(fsStatus === "real" ? { authoringStatus: "todo" } : {}),

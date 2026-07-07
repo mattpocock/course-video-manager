@@ -36,14 +36,15 @@ afterEach(async () => {
 });
 
 describe("backfillRealLessonTitles", () => {
-  it("sets a real lesson title from its de-numbered path slug", async () => {
+  it("is a no-op — title is already populated at creation time", async () => {
     const { versionId } = await createCourseAndVersion(testDb);
-    const section = await createSection(testDb, versionId, "01-intro", 1, {
+    const section = await createSection(testDb, versionId, "intro", 1, {
       id: "s1",
     });
-    await createLesson(testDb, section.id, "01.03-getting-started", 3, {
+    await createLesson(testDb, section.id, "getting-started", 3, {
       id: "l1",
       fsStatus: "real",
+      title: "Getting Started",
     });
 
     await backfillRealLessonTitles(testDb as any);
@@ -57,10 +58,10 @@ describe("backfillRealLessonTitles", () => {
 
   it("does not overwrite an existing real lesson title", async () => {
     const { versionId } = await createCourseAndVersion(testDb);
-    const section = await createSection(testDb, versionId, "01-intro", 1, {
+    const section = await createSection(testDb, versionId, "intro", 1, {
       id: "s1",
     });
-    await createLesson(testDb, section.id, "01.01-hello", 1, {
+    await createLesson(testDb, section.id, "hello", 1, {
       id: "l1",
       fsStatus: "real",
       title: "Custom Title",
@@ -77,7 +78,7 @@ describe("backfillRealLessonTitles", () => {
 
   it("leaves ghost lessons untouched", async () => {
     const { versionId } = await createCourseAndVersion(testDb);
-    const section = await createSection(testDb, versionId, "01-intro", 1, {
+    const section = await createSection(testDb, versionId, "intro", 1, {
       id: "s1",
     });
     await createLesson(testDb, section.id, "planned-lesson", 1, {
@@ -95,17 +96,17 @@ describe("backfillRealLessonTitles", () => {
     expect(lesson!.title).toBe("Planned Lesson");
   });
 
-  it("assertNoBlankLessonTitles passes after backfill", async () => {
+  it("assertNoBlankLessonTitles passes when all titles populated", async () => {
     const { versionId } = await createCourseAndVersion(testDb);
-    const section = await createSection(testDb, versionId, "01-intro", 1, {
+    const section = await createSection(testDb, versionId, "intro", 1, {
       id: "s1",
     });
-    await createLesson(testDb, section.id, "01.01-hello", 1, {
+    await createLesson(testDb, section.id, "hello", 1, {
       id: "l1",
       fsStatus: "real",
+      title: "Hello",
     });
 
-    await backfillRealLessonTitles(testDb as any);
     await expect(
       assertNoBlankLessonTitles(testDb as any)
     ).resolves.toBeUndefined();

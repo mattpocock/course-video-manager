@@ -31,7 +31,6 @@ const buildCourseFixture = async (
     title: string;
     order: number;
     lessons: Array<{
-      path: string;
       title: string;
       order: number;
       fsStatus?: string;
@@ -67,7 +66,6 @@ const buildCourseFixture = async (
         .insert(schema.lessons)
         .values({
           sectionId: section!.id,
-          path: lessonDef.path,
           title: lessonDef.title,
           order: lessonDef.order,
           fsStatus,
@@ -138,7 +136,6 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [
@@ -171,7 +168,6 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [
@@ -208,13 +204,11 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 order: 1,
                 lessons: [
                   {
-                    path: "lesson-01",
                     title: "Lesson 1",
                     order: 1,
                     videos: [{ path: "a.mp4" }],
                   },
                   {
-                    path: "lesson-02",
                     title: "Lesson 2",
                     order: 2,
                     videos: [{ path: "b.mp4" }],
@@ -245,13 +239,11 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                 order: 1,
                 lessons: [
                   {
-                    path: "lesson-01",
                     title: "Lesson 1",
                     order: 1,
                     videos: [{ path: "a.mp4" }, { path: "b.mp4" }],
                   },
                   {
-                    path: "lesson-02",
                     title: "Lesson 2",
                     order: 2,
                     videos: [{ path: "c.mp4" }],
@@ -280,20 +272,17 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [{ path: "a.mp4" }],
                 },
                 {
-                  path: "lesson-02-ghost",
                   title: "Ghost Lesson",
                   order: 2,
                   fsStatus: "ghost",
                   videos: [{ path: "ghost.mp4" }],
                 },
                 {
-                  path: "lesson-03",
                   title: "Lesson 3",
                   order: 3,
                   videos: [{ path: "b.mp4" }],
@@ -322,7 +311,6 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [{ path: "a.mp4" }],
@@ -334,7 +322,6 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 2,
               lessons: [
                 {
-                  path: "lesson-02",
                   title: "Lesson 2",
                   order: 1,
                   videos: [{ path: "b.mp4" }],
@@ -369,7 +356,6 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [{ path: "a.mp4" }],
@@ -397,7 +383,6 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [{ path: "a.mp4" }],
@@ -425,19 +410,16 @@ describe("getNextVideoId / getPreviousVideoId", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [{ path: "a.mp4" }],
                 },
                 {
-                  path: "lesson-02",
                   title: "Lesson 2 (all archived)",
                   order: 2,
                   videos: [{ path: "b.mp4", archived: true }],
                 },
                 {
-                  path: "lesson-03",
                   title: "Lesson 3",
                   order: 3,
                   videos: [{ path: "c.mp4" }],
@@ -482,13 +464,11 @@ describe("getNextLessonWithoutVideo", () => {
             order: 1,
             lessons: [
               {
-                path: "lesson-01",
                 title: "Lesson 1",
                 order: 1,
                 videos: [{ path: "a.mp4" }],
               },
               {
-                path: "lesson-02",
                 title: "Lesson 2 (empty)",
                 order: 2,
                 videos: [],
@@ -503,7 +483,7 @@ describe("getNextLessonWithoutVideo", () => {
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
       expect(result).not.toBeNull();
-      expect(result!.lessonPath).toBe("lesson-02");
+      expect(result!.lessonTitle).toBe("Lesson 2 (empty)");
       expect(result!.sectionPath).toBe("section-01");
     }).pipe(Effect.provide(testLayer))
   );
@@ -518,13 +498,11 @@ describe("getNextLessonWithoutVideo", () => {
             order: 1,
             lessons: [
               {
-                path: "lesson-01",
                 title: "Lesson 1",
                 order: 1,
                 videos: [{ path: "a.mp4" }],
               },
               {
-                path: "lesson-02",
                 title: "Lesson 2",
                 order: 2,
                 videos: [{ path: "b.mp4" }],
@@ -552,7 +530,6 @@ describe("getNextLessonWithoutVideo", () => {
             order: 1,
             lessons: [
               {
-                path: "lesson-01",
                 title: "Lesson 1",
                 order: 1,
                 videos: [{ path: "a.mp4" }],
@@ -564,13 +541,11 @@ describe("getNextLessonWithoutVideo", () => {
             order: 2,
             lessons: [
               {
-                path: "lesson-02",
                 title: "Lesson 2",
                 order: 1,
                 videos: [{ path: "b.mp4" }],
               },
               {
-                path: "lesson-03",
                 title: "Lesson 3 (empty)",
                 order: 2,
                 videos: [],
@@ -585,7 +560,7 @@ describe("getNextLessonWithoutVideo", () => {
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
       expect(result).not.toBeNull();
-      expect(result!.lessonPath).toBe("lesson-03");
+      expect(result!.lessonTitle).toBe("Lesson 3 (empty)");
       expect(result!.sectionPath).toBe("section-02");
     }).pipe(Effect.provide(testLayer))
   );
@@ -602,7 +577,6 @@ describe("getNextLessonWithoutVideo", () => {
               order: 1,
               lessons: [
                 {
-                  path: "lesson-01",
                   title: "Lesson 1",
                   order: 1,
                   videos: [{ path: "a.mp4" }],
@@ -630,19 +604,16 @@ describe("getNextLessonWithoutVideo", () => {
             order: 1,
             lessons: [
               {
-                path: "lesson-01",
                 title: "Lesson 1",
                 order: 1,
                 videos: [{ path: "a.mp4" }],
               },
               {
-                path: "lesson-02",
                 title: "Lesson 2",
                 order: 2,
                 videos: [{ path: "b.mp4" }],
               },
               {
-                path: "lesson-03",
                 title: "Lesson 3 (empty)",
                 order: 3,
                 videos: [],
@@ -657,7 +628,7 @@ describe("getNextLessonWithoutVideo", () => {
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
       expect(result).not.toBeNull();
-      expect(result!.lessonPath).toBe("lesson-03");
+      expect(result!.lessonTitle).toBe("Lesson 3 (empty)");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -671,13 +642,11 @@ describe("getNextLessonWithoutVideo", () => {
             order: 1,
             lessons: [
               {
-                path: "lesson-01",
                 title: "Lesson 1",
                 order: 1,
                 videos: [{ path: "a.mp4" }],
               },
               {
-                path: "lesson-02",
                 title: "Lesson 2 (all archived)",
                 order: 2,
                 videos: [{ path: "b.mp4", archived: true }],
@@ -692,7 +661,7 @@ describe("getNextLessonWithoutVideo", () => {
 
       const result = yield* vOps.getNextLessonWithoutVideo(fetched);
       expect(result).not.toBeNull();
-      expect(result!.lessonPath).toBe("lesson-02");
+      expect(result!.lessonTitle).toBe("Lesson 2 (all archived)");
       expect(result!.sectionPath).toBe("section-01");
     }).pipe(Effect.provide(testLayer))
   );

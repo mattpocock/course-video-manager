@@ -84,14 +84,12 @@ const setup = async () => {
   const createGhostLesson = async (
     sectionId: string,
     title: string,
-    slug: string,
     order: number
   ) => {
     const lesson = await Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       return yield* lsOps.createGhostLesson(sectionId, {
         title,
-        path: slug,
         order,
       });
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
@@ -149,10 +147,10 @@ describe("CourseWriteService", () => {
         await setup();
 
       const section = await createSection("01-intro", 1);
-      const g1 = await createGhostLesson(section.id, "Alpha", "alpha", 0);
-      const g2 = await createGhostLesson(section.id, "Beta", "beta", 1);
-      const g3 = await createGhostLesson(section.id, "Gamma", "gamma", 2);
-      const g4 = await createGhostLesson(section.id, "Delta", "delta", 3);
+      const g1 = await createGhostLesson(section.id, "Alpha", 0);
+      const g2 = await createGhostLesson(section.id, "Beta", 1);
+      const g3 = await createGhostLesson(section.id, "Gamma", 2);
+      const g4 = await createGhostLesson(section.id, "Delta", 3);
 
       await run(
         Effect.gen(function* () {
@@ -184,7 +182,7 @@ describe("CourseWriteService", () => {
         await setup();
 
       const section = await createSection("01-intro", 1);
-      const g1 = await createGhostLesson(section.id, "Only", "only", 5);
+      const g1 = await createGhostLesson(section.id, "Only", 5);
 
       await run(
         Effect.gen(function* () {
@@ -204,8 +202,8 @@ describe("CourseWriteService", () => {
         await setup();
 
       const section = await createSection("01-intro", 1);
-      const g1 = await createGhostLesson(section.id, "First", "first", 0);
-      const g2 = await createGhostLesson(section.id, "Second", "second", 1);
+      const g1 = await createGhostLesson(section.id, "First", 0);
+      const g2 = await createGhostLesson(section.id, "Second", 1);
 
       const result = await run(
         Effect.gen(function* () {

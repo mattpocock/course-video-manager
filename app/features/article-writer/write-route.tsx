@@ -146,13 +146,13 @@ export const loader = makeLoader({
         ? {
             repoName: repoWithSections!.name,
             currentSectionPath: section.title,
-            currentLessonPath: lesson.path,
+            currentLessonPath: lesson.title,
             sections: matchingVersion.sections.map((s) => ({
               path: s.title,
               lessons: s.lessons
                 .filter((l) => l.fsStatus === "real")
                 .map((l) => ({
-                  path: l.path,
+                  path: l.title,
                   description: l.description || undefined,
                 })),
             })),
@@ -166,7 +166,7 @@ export const loader = makeLoader({
       return {
         videoPath: video.path,
         videoExists,
-        lessonPath: lesson.path,
+        lessonPath: lesson.title,
         sectionPath: section.title,
         repoId: section.repoVersion.repoId,
         lessonId: lesson.id,
@@ -183,7 +183,7 @@ export const loader = makeLoader({
         nextLessonWithoutVideo: nextLessonWithoutVideo
           ? {
               lessonId: nextLessonWithoutVideo.lessonId,
-              lessonPath: nextLessonWithoutVideo.lessonPath,
+              lessonPath: nextLessonWithoutVideo.lessonTitle,
               sectionPath: nextLessonWithoutVideo.sectionPath,
               hasExplainerFolder: false,
             }

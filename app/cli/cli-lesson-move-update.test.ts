@@ -38,7 +38,6 @@ interface Lesson {
   id: string;
   sectionId: string;
   title: string;
-  path: string;
   order: number;
   fsStatus: string;
   archived: boolean;
@@ -67,13 +66,12 @@ interface MoveSeed {
 const addGhost = async (
   db: TestDb,
   sectionId: string,
-  path: string,
   title: string,
   order: number
 ): Promise<string> => {
   const [row] = await db
     .insert(schema.lessons)
-    .values({ sectionId, path, title, order, fsStatus: "ghost" })
+    .values({ sectionId, title, order, fsStatus: "ghost" })
     .returning();
   return row!.id;
 };
@@ -115,10 +113,10 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
     .values({ repoVersionId: draftVersion!.id, title: "02-beta", order: 2 })
     .returning();
 
-  const a1 = await addGhost(db, sectionA!.id, "a-one", "A One", 1);
-  const a2 = await addGhost(db, sectionA!.id, "a-two", "A Two", 2);
-  const a3 = await addGhost(db, sectionA!.id, "a-three", "A Three", 3);
-  const b1 = await addGhost(db, sectionB!.id, "b-one", "B One", 1);
+  const a1 = await addGhost(db, sectionA!.id, "A One", 1);
+  const a2 = await addGhost(db, sectionA!.id, "A Two", 2);
+  const a3 = await addGhost(db, sectionA!.id, "A Three", 3);
+  const b1 = await addGhost(db, sectionB!.id, "B One", 1);
 
   const [archivedSection] = await db
     .insert(schema.sections)
@@ -134,13 +132,7 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
     .insert(schema.sections)
     .values({ repoVersionId: oldVersion!.id, title: "01-old", order: 1 })
     .returning();
-  const publishedLessonId = await addGhost(
-    db,
-    oldSection!.id,
-    "old-one",
-    "Old One",
-    1
-  );
+  const publishedLessonId = await addGhost(db, oldSection!.id, "Old One", 1);
 
   return {
     repoId: course!.id,
@@ -189,7 +181,6 @@ describe("lesson update --title", () => {
     expect(stdout).toMatch(/^\{\n/); // single pretty object
     const lesson = one<Lesson>(stdout);
     expect(lesson.title).toBe("A Much Better Title");
-    expect(lesson.path).toBe("a-one"); // slug is deliberately NOT re-derived
   });
 
   it("rejects an empty title as invalid input (exit 3)", async () => {

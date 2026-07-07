@@ -160,7 +160,6 @@ export const makeDuplicateCourse = (db: Database) =>
             .values({
               sectionId: newSection.id,
               previousVersionLessonId: null,
-              path: sourceLesson.path,
               order: sourceLesson.order,
               fsStatus: sourceLesson.fsStatus,
               title: sourceLesson.title,

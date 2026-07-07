@@ -76,7 +76,6 @@ const setup = async () => {
       const lsOps = yield* LessonSectionOperationsService;
       const created = yield* lsOps.createGhostLesson(sectionId, {
         title,
-        path: title.toLowerCase().replace(/\s+/g, "-"),
         order,
       });
       yield* lsOps.updateLesson(created[0]!.id, {
@@ -145,10 +144,10 @@ describe("CourseWriteService (DB-only)", () => {
           );
         })
       );
-      expect(renameResult.path).toBe("where-we-are-going");
+      expect(renameResult.title).toBe("where-we-are-going");
 
       const updatedLesson = await getLesson(addResult.lessonId);
-      expect(updatedLesson.path).toBe("where-we-are-going");
+      expect(updatedLesson.title).toBe("where-we-are-going");
     });
   });
 

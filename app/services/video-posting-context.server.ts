@@ -13,6 +13,7 @@ import {
 import { sortByOrder } from "@/lib/sort-by-order";
 import { DEFAULT_CHECKED_EXTENSIONS } from "@/services/text-writing-agent";
 import { getVideoFilePath } from "@/services/video-files";
+import { projectVersionPaths } from "@/services/path-projection";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
 import type { CourseStructure } from "@/components/video-context-panel";
 
@@ -197,19 +198,20 @@ function loadCourseStructure(
       return null;
     }
 
+    const derivedPaths = projectVersionPaths(matchingVersion.sections);
+
     return {
       repoName: repoWithSections!.name,
       currentSectionPath,
       currentLessonPath,
       sections: matchingVersion.sections
-        // Ghost sections derive no path; the posting UI only lists real ones.
         .filter((s) => s.lessons.some((l) => l.fsStatus === "real"))
         .map((s) => ({
-          path: s.title,
+          path: derivedPaths.get(s.id) ?? s.title,
           lessons: s.lessons
             .filter((l) => l.fsStatus === "real")
             .map((l) => ({
-              path: l.path,
+              path: derivedPaths.get(l.id) ?? l.title,
               description: l.description || undefined,
             })),
         })),

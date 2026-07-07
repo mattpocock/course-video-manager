@@ -404,7 +404,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       repoId={props.loaderData.video.lesson?.section.repoVersion.repo.id}
       lessonId={props.loaderData.video.lesson?.id}
       videoPath={props.loaderData.video.path}
-      lessonPath={props.loaderData.video.lesson?.path}
+      lessonPath={props.loaderData.video.lesson?.title}
       repoName={props.loaderData.video.lesson?.section.repoVersion.repo.name}
       videoId={props.loaderData.video.id}
       liveMediaStream={obsConnector.mediaStream}

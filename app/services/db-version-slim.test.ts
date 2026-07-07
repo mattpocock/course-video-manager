@@ -54,7 +54,6 @@ const buildFixture = () =>
         .insert(schema.lessons)
         .values({
           sectionId: section!.id,
-          path: "01-intro/01-lesson",
           order: 1,
           authoringStatus: "done",
         })

@@ -335,7 +335,6 @@ describe("ClipService", () => {
       await testDb.insert(schema.lessons).values({
         id: lessonId,
         sectionId,
-        path: "/test/lesson",
         order: 0,
         authoringStatus: "done",
       });

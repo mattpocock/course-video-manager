@@ -265,7 +265,7 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
     let imageFiles: { path: string; content: Uint8Array<ArrayBufferLike> }[] =
       [];
     const sectionPath = lesson ? lesson.section.title : undefined;
-    const lessonPath = lesson ? lesson.path : undefined;
+    const lessonPath = lesson ? lesson.title : undefined;
 
     const videoDir = getVideoFilePath(video.lineageId);
     const dirExists = yield* fs.exists(videoDir);

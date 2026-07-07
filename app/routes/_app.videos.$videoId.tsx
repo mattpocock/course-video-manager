@@ -60,7 +60,7 @@ export const loader = makeLoader({
       return {
         videoId,
         videoPath: video.path,
-        lessonPath: lesson.path,
+        lessonPath: lesson.title,
         sectionPath: lesson.section.title,
         repoId: lesson.section.repoVersion.repoId,
         lessonId: lesson.id,

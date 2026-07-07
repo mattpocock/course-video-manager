@@ -310,13 +310,17 @@ describe("applyOptimisticEvent — reorders", () => {
       // Both sections stay real (no materialize/dematerialize): a plain
       // cross-section move that still renumbers the moved lesson and the
       // source's remaining lessons. See docs/adr/0011-shared-lesson-move-planner.
-      const section1 = makeSection({ id: "s1", path: "01-intro" }, [
-        makeLesson({ id: "l1", path: "01.01-a", order: 0 }),
-        makeLesson({ id: "keep", path: "01.02-b", order: 1 }),
-      ]);
-      const section2 = makeSection({ id: "s2", path: "02-next" }, [
-        makeLesson({ id: "existing", path: "02.01-c", order: 0 }),
-      ]);
+      const section1 = makeSection(
+        { id: "s1", path: "01-intro", title: "intro" },
+        [
+          makeLesson({ id: "l1", path: "01.01-a", title: "a", order: 0 }),
+          makeLesson({ id: "keep", path: "01.02-b", title: "b", order: 1 }),
+        ]
+      );
+      const section2 = makeSection(
+        { id: "s2", path: "02-next", title: "next" },
+        [makeLesson({ id: "existing", path: "02.01-c", title: "c", order: 0 })]
+      );
       const loaderData = makeLoaderData([section1, section2]);
 
       const event: CourseEditorEvent = {
@@ -338,14 +342,20 @@ describe("applyOptimisticEvent — reorders", () => {
     });
 
     it("inserts before the drop anchor when beforeLessonId is set", () => {
-      const section1 = makeSection({ id: "s1", path: "01-intro" }, [
-        makeLesson({ id: "l1", path: "01.01-a", order: 0 }),
-        makeLesson({ id: "keep", path: "01.02-b", order: 1 }),
-      ]);
-      const section2 = makeSection({ id: "s2", path: "02-next" }, [
-        makeLesson({ id: "t1", path: "02.01-c", order: 0 }),
-        makeLesson({ id: "t2", path: "02.02-d", order: 1 }),
-      ]);
+      const section1 = makeSection(
+        { id: "s1", path: "01-intro", title: "intro" },
+        [
+          makeLesson({ id: "l1", path: "01.01-a", title: "a", order: 0 }),
+          makeLesson({ id: "keep", path: "01.02-b", title: "b", order: 1 }),
+        ]
+      );
+      const section2 = makeSection(
+        { id: "s2", path: "02-next", title: "next" },
+        [
+          makeLesson({ id: "t1", path: "02.01-c", title: "c", order: 0 }),
+          makeLesson({ id: "t2", path: "02.02-d", title: "d", order: 1 }),
+        ]
+      );
       const loaderData = makeLoaderData([section1, section2]);
 
       const event: CourseEditorEvent = {
@@ -394,19 +404,25 @@ describe("applyOptimisticEvent — reorders", () => {
       expect(result).toBe(loaderData);
     });
 
-    it("leaves sections outside the cascade untouched by reference", () => {
+    it("leaves sections outside the cascade structurally unchanged", () => {
       // A move that changes no section's realness must not renumber sections,
-      // so a truly unrelated section keeps its reference.
-      const section1 = makeSection({ id: "s1", path: "01-intro" }, [
-        makeLesson({ id: "l1", path: "01.01-a", order: 0 }),
-        makeLesson({ id: "keep", path: "01.02-b", order: 1 }),
-      ]);
-      const section2 = makeSection({ id: "s2", path: "02-next" }, [
-        makeLesson({ id: "existing", path: "02.01-c", order: 0 }),
-      ]);
-      const section3 = makeSection({ id: "s3", path: "03-other" }, [
-        makeLesson({ id: "l3", path: "03.01-d", order: 0 }),
-      ]);
+      // so a truly unrelated section keeps its structure (paths recomputed by
+      // attachDerivedPaths mean reference equality no longer holds).
+      const section1 = makeSection(
+        { id: "s1", path: "01-intro", title: "intro" },
+        [
+          makeLesson({ id: "l1", path: "01.01-a", title: "a", order: 0 }),
+          makeLesson({ id: "keep", path: "01.02-b", title: "b", order: 1 }),
+        ]
+      );
+      const section2 = makeSection(
+        { id: "s2", path: "02-next", title: "next" },
+        [makeLesson({ id: "existing", path: "02.01-c", title: "c", order: 0 })]
+      );
+      const section3 = makeSection(
+        { id: "s3", path: "03-other", title: "other" },
+        [makeLesson({ id: "l3", path: "03.01-d", title: "d", order: 0 })]
+      );
       const loaderData = makeLoaderData([section1, section2, section3]);
 
       const event: CourseEditorEvent = {
@@ -417,7 +433,7 @@ describe("applyOptimisticEvent — reorders", () => {
 
       const result = applyOptimisticEvent(loaderData, event);
 
-      expect(result.selectedCourse!.sections[2]).toBe(section3);
+      expect(result.selectedCourse!.sections[2]).toEqual(section3);
     });
 
     it("moves to an empty target section", () => {
@@ -459,14 +475,18 @@ describe("applyOptimisticEvent — reorders", () => {
 
   describe("move-lessons-to-section", () => {
     it("moves a whole multi-lesson selection into another section as a block", () => {
-      const section1 = makeSection({ id: "s1", path: "01-intro" }, [
-        makeLesson({ id: "a", path: "01.01-a", order: 0 }),
-        makeLesson({ id: "b", path: "01.02-b", order: 1 }),
-        makeLesson({ id: "c", path: "01.03-c", order: 2 }),
-      ]);
-      const section2 = makeSection({ id: "s2", path: "02-next" }, [
-        makeLesson({ id: "x", path: "02.01-x", order: 0 }),
-      ]);
+      const section1 = makeSection(
+        { id: "s1", path: "01-intro", title: "intro" },
+        [
+          makeLesson({ id: "a", path: "01.01-a", title: "a", order: 0 }),
+          makeLesson({ id: "b", path: "01.02-b", title: "b", order: 1 }),
+          makeLesson({ id: "c", path: "01.03-c", title: "c", order: 2 }),
+        ]
+      );
+      const section2 = makeSection(
+        { id: "s2", path: "02-next", title: "next" },
+        [makeLesson({ id: "x", path: "02.01-x", title: "x", order: 0 })]
+      );
       const loaderData = makeLoaderData([section1, section2]);
 
       const event: CourseEditorEvent = {
@@ -489,14 +509,20 @@ describe("applyOptimisticEvent — reorders", () => {
     });
 
     it("inserts the block before the drop anchor", () => {
-      const section1 = makeSection({ id: "s1", path: "01-intro" }, [
-        makeLesson({ id: "a", path: "01.01-a", order: 0 }),
-        makeLesson({ id: "b", path: "01.02-b", order: 1 }),
-      ]);
-      const section2 = makeSection({ id: "s2", path: "02-next" }, [
-        makeLesson({ id: "x", path: "02.01-x", order: 0 }),
-        makeLesson({ id: "y", path: "02.02-y", order: 1 }),
-      ]);
+      const section1 = makeSection(
+        { id: "s1", path: "01-intro", title: "intro" },
+        [
+          makeLesson({ id: "a", path: "01.01-a", title: "a", order: 0 }),
+          makeLesson({ id: "b", path: "01.02-b", title: "b", order: 1 }),
+        ]
+      );
+      const section2 = makeSection(
+        { id: "s2", path: "02-next", title: "next" },
+        [
+          makeLesson({ id: "x", path: "02.01-x", title: "x", order: 0 }),
+          makeLesson({ id: "y", path: "02.02-y", title: "y", order: 1 }),
+        ]
+      );
       const loaderData = makeLoaderData([section1, section2]);
 
       const event: CourseEditorEvent = {

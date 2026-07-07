@@ -601,7 +601,7 @@ export const createVideoOperations = (
               if (nextLesson.videos.length === 0) {
                 return {
                   lessonId: nextLesson.id,
-                  lessonPath: nextLesson.path,
+                  lessonTitle: nextLesson.title,
                   sectionPath: section.title,
                 };
               }
@@ -618,7 +618,7 @@ export const createVideoOperations = (
                 if (nextLesson.videos.length === 0) {
                   return {
                     lessonId: nextLesson.id,
-                    lessonPath: nextLesson.path,
+                    lessonTitle: nextLesson.title,
                     sectionPath: nextSection.title,
                   };
                 }

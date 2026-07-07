@@ -408,7 +408,6 @@ export const createVersionOperations = (db: Database) => {
                 sectionId: newSection.id,
                 previousVersionLessonId: sourceLesson.id,
                 lineageId: sourceLesson.lineageId,
-                path: sourceLesson.path,
                 order: sourceLesson.order,
                 fsStatus: sourceLesson.fsStatus,
                 title: sourceLesson.title,

@@ -37,7 +37,6 @@ describe("CourseEditorService — lessons", () => {
       expect(lessons).toHaveLength(1);
       expect(lessons[0]).toMatchObject({
         title: "My Lesson",
-        path: "my-lesson",
         fsStatus: "real",
       });
     });
@@ -129,10 +128,10 @@ describe("CourseEditorService — lessons", () => {
       const l = await svc().addGhostLesson(s.sectionId, "Old Name");
 
       const result = await svc().updateLessonName(l.lessonId, "new-name");
-      expect(result).toMatchObject({ success: true, path: "new-name" });
+      expect(result).toMatchObject({ success: true, title: "new-name" });
 
       const lesson = await getLessonById(l.lessonId);
-      expect(lesson!.path).toBe("new-name");
+      expect(lesson!.title).toBe("new-name");
     });
 
     it("returns early when slug is unchanged", async () => {
@@ -141,7 +140,7 @@ describe("CourseEditorService — lessons", () => {
       const l = await svc().addGhostLesson(s.sectionId, "My Lesson");
 
       const result = await svc().updateLessonName(l.lessonId, "my-lesson");
-      expect(result).toMatchObject({ success: true, path: "my-lesson" });
+      expect(result).toMatchObject({ success: true, title: "my-lesson" });
     });
   });
 
@@ -156,7 +155,6 @@ describe("CourseEditorService — lessons", () => {
 
       const lesson = await getLessonById(l.lessonId);
       expect(lesson!.title).toBe("New Title");
-      expect(lesson!.path).toBe("new-title");
     });
   });
 
@@ -237,9 +235,9 @@ describe("CourseEditorService — lessons", () => {
         "01-intro",
         0,
         [
-          { path: "01.01-first", title: "First", fsStatus: "real", order: 0 },
-          { path: "01.02-second", title: "Second", fsStatus: "real", order: 1 },
-          { path: "01.03-third", title: "Third", fsStatus: "real", order: 2 },
+          { title: "First", fsStatus: "real", order: 0 },
+          { title: "Second", fsStatus: "real", order: 1 },
+          { title: "Third", fsStatus: "real", order: 2 },
         ]
       );
 
@@ -279,9 +277,9 @@ describe("CourseEditorService — lessons", () => {
         "01-intro",
         0,
         [
-          { path: "01.01-alpha", title: "Alpha", fsStatus: "real", order: 0 },
-          { path: "01.02-beta", title: "Beta", fsStatus: "real", order: 1 },
-          { path: "01.03-gamma", title: "Gamma", fsStatus: "real", order: 2 },
+          { title: "Alpha", fsStatus: "real", order: 0 },
+          { title: "Beta", fsStatus: "real", order: 1 },
+          { title: "Gamma", fsStatus: "real", order: 2 },
         ]
       );
 
@@ -319,13 +317,11 @@ describe("CourseEditorService — lessons", () => {
         0,
         [
           {
-            path: "01.01-alpha",
             title: "Alpha",
             fsStatus: "real",
             order: 0,
           },
           {
-            path: "01.02-beta",
             title: "Beta",
             fsStatus: "real",
             order: 1,
@@ -354,13 +350,11 @@ describe("CourseEditorService — lessons", () => {
         0,
         [
           {
-            path: "01.01-alpha",
             title: "Alpha",
             fsStatus: "real",
             order: 0,
           },
           {
-            path: "01.02-beta",
             title: "Beta",
             fsStatus: "real",
             order: 1,
@@ -378,7 +372,7 @@ describe("CourseEditorService — lessons", () => {
 
       const sourceLessons = await getLessons(s1.id);
       const realLessons = sourceLessons.filter((l) => l.fsStatus === "real");
-      expect(realLessons[0]!.path).toBe("01.01-beta");
+      expect(realLessons[0]!.title).toBe("Beta");
     });
   });
 
@@ -389,7 +383,7 @@ describe("CourseEditorService — lessons", () => {
         version.id,
         "01-intro",
         0,
-        [{ path: "01.01-lesson", title: "Lesson", fsStatus: "real", order: 0 }]
+        [{ title: "Lesson", fsStatus: "real", order: 0 }]
       );
 
       const result = await svc().convertToGhost(lessons[0]!.id);
@@ -431,7 +425,6 @@ describe("CourseEditorService — lessons", () => {
         0,
         [
           {
-            path: "01.01-lesson",
             title: "Lesson",
             fsStatus: "real",
             order: 0,
@@ -457,7 +450,6 @@ describe("CourseEditorService — lessons", () => {
         0,
         [
           {
-            path: "01.01-lesson",
             title: "Lesson",
             fsStatus: "real",
             order: 0,
@@ -486,7 +478,6 @@ describe("CourseEditorService — lessons", () => {
         0,
         [
           {
-            path: "01.01-existing",
             title: "Existing",
             fsStatus: "real",
             order: 1,

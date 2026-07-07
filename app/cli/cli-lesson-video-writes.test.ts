@@ -42,7 +42,6 @@ describe("lesson create (ghost)", () => {
     id: string;
     sectionId: string;
     title: string;
-    path: string;
     order: number;
     fsStatus: string;
     authoringStatus: string | null;
@@ -64,7 +63,6 @@ describe("lesson create (ghost)", () => {
     const lesson = one<Lesson>(stdout);
     expect(lesson.sectionId).toBe(s.draftSectionId);
     expect(lesson.title).toBe("Intro to Effect");
-    expect(lesson.path).toBe("intro-to-effect"); // slugified
     expect(lesson.fsStatus).toBe("ghost");
     expect(lesson.authoringStatus).toBeNull(); // ghosts have no authoring status
     expect(lesson.archived).toBe(false);
@@ -171,10 +169,7 @@ describe("lesson create (ghost)", () => {
     );
   });
 
-  it("a slug that collides with an existing lesson => non-zero exit", async () => {
-    // The typed assert*PathAvailable guards were removed in the title-driven
-    // paths migration; the DB uniqueness index still rejects a colliding ghost
-    // path, so the command fails (non-zero) rather than the old typed exit 3.
+  it("duplicate titles are allowed (uniqueness is on order, not path)", async () => {
     await run([
       "lesson",
       "create",
@@ -191,7 +186,7 @@ describe("lesson create (ghost)", () => {
       "--title",
       "Duplicate",
     ]);
-    expect(exitCode).not.toBe(0);
+    expect(exitCode).toBe(0);
   });
 });
 

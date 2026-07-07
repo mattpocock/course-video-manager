@@ -84,7 +84,6 @@ describe("lineageId copy-forward", () => {
       .insert(schema.lessons)
       .values({
         sectionId: section!.id,
-        path: "01-lesson",
         order: 1,
         fsStatus: "real",
         title: "Lesson",
@@ -132,7 +131,6 @@ describe("lineageId copy-forward", () => {
       .insert(schema.lessons)
       .values({
         sectionId: section!.id,
-        path: "01-lesson",
         order: 1,
         fsStatus: "real",
         title: "Lesson",

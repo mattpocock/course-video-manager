@@ -28,7 +28,7 @@ async function createBeat() {
     version.id,
     "01-intro",
     0,
-    [{ path: "01.01-lesson", title: "Lesson 1", fsStatus: "real", order: 1 }]
+    [{ title: "Lesson 1", fsStatus: "real", order: 1 }]
   );
   const [video] = await db()
     .insert(schema.videos)

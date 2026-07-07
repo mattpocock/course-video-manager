@@ -74,12 +74,10 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           }
         }
 
-        const slug = toSlug(title) || "untitled";
         const [newLesson] = yield* lessonSectionOps.createGhostLesson(
           sectionId,
           {
             title,
-            path: slug,
             order: insertOrder,
           }
         );
@@ -141,9 +139,9 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         newSlug: string
       ) {
         yield* lessonSectionOps.updateLesson(lessonId, {
-          path: newSlug,
+          title: newSlug,
         });
-        return { success: true, path: newSlug };
+        return { success: true, title: newSlug };
       });
 
       const reorderLessons = Effect.fn("reorderLessons")(function* (

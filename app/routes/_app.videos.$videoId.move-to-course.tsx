@@ -216,7 +216,7 @@ export default function Component(props: Route.ComponentProps) {
                     .filter((l) => l.fsStatus !== "ghost")
                     .map((lesson) => (
                       <SelectItem key={lesson.id} value={lesson.id}>
-                        {lesson.path}
+                        {lesson.title}
                       </SelectItem>
                     ))}
                   <SelectItem value="new">+ Create new lesson</SelectItem>

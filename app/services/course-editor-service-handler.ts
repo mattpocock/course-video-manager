@@ -88,10 +88,8 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
         const lesson = yield* lessonSectionOps.getLessonWithHierarchyById(
           event.lessonId
         );
-        const slug = toSlug(event.title) || "untitled";
         yield* lessonSectionOps.updateLesson(event.lessonId, {
           title: event.title.trim(),
-          path: slug,
           sectionId: lesson.sectionId,
         });
         return { success: true };

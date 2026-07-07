@@ -191,7 +191,6 @@ export const createLessonSectionOperations = (db: Database) => {
         .values(
           newLessons.map((lesson) => ({
             sectionId,
-            path: lesson.lessonPathWithNumber,
             // Seed title from the folder name so the derived path reproduces it.
             title: titleFromLessonPathWithNumber(lesson.lessonPathWithNumber),
             order: lesson.lessonNumber,
@@ -208,7 +207,6 @@ export const createLessonSectionOperations = (db: Database) => {
     sectionId: string,
     opts: {
       title: string;
-      path: string;
       order: number;
     }
   ) {
@@ -218,7 +216,6 @@ export const createLessonSectionOperations = (db: Database) => {
         .values({
           sectionId,
           title: opts.title,
-          path: opts.path,
           order: opts.order,
           fsStatus: "ghost",
         })
@@ -231,7 +228,6 @@ export const createLessonSectionOperations = (db: Database) => {
   const updateLesson = Effect.fn("updateLesson")(function* (
     lessonId: string,
     lesson: {
-      path?: string;
       sectionId?: string;
       lessonNumber?: number;
       title?: string;
@@ -247,7 +243,6 @@ export const createLessonSectionOperations = (db: Database) => {
       db
         .update(lessons)
         .set({
-          path: lesson.path,
           sectionId: lesson.sectionId,
           order: lesson.lessonNumber,
           title: lesson.title,
@@ -387,8 +382,14 @@ export const createLessonSectionOperations = (db: Database) => {
     function* (updates: { id: string; order: number }[]) {
       if (updates.length === 0) return;
       const ids = updates.map((u) => u.id);
-      // Cast to float8 to match the doublePrecision column type — without the
-      // cast, Drizzle sends numeric params as text and Postgres rejects them.
+
+      yield* makeDbCall(() =>
+        db
+          .update(lessons)
+          .set({ order: sql`-1 * ${lessons.order} - 1` })
+          .where(inArray(lessons.id, ids))
+      );
+
       const orderExpr = sql`case ${sql.join(
         updates.map(
           ({ id, order }) =>

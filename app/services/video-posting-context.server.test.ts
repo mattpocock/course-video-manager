@@ -287,7 +287,6 @@ describe("loadVideoPostingContext", () => {
           const lsOps = yield* LessonSectionOperationsService;
           yield* lsOps.createGhostLesson(section.id, {
             title: "Ghost Lesson",
-            path: "002-ghost-lesson",
             order: 2,
           });
 

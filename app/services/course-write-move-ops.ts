@@ -15,7 +15,6 @@ type DbSection = {
   lessons: {
     id: string;
     title: string;
-    path: string;
     order: number;
     fsStatus: string | null;
   }[];
@@ -41,10 +40,16 @@ export function createMoveOps(db: LessonSectionOperationsService) {
   ) {
     if (plan.noop) return { success: true } as const;
 
-    for (const u of plan.lessonUpdates) {
-      yield* db.updateLesson(u.id, { sectionId: u.sectionId, path: u.path });
-      yield* db.updateLessonOrder(u.id, u.order);
+    for (let i = 0; i < plan.lessonUpdates.length; i++) {
+      const u = plan.lessonUpdates[i]!;
+      yield* db.updateLesson(u.id, {
+        sectionId: u.sectionId,
+        lessonNumber: -(i + 1) * 100000,
+      });
     }
+    yield* db.batchUpdateLessonOrders(
+      plan.lessonUpdates.map((u) => ({ id: u.id, order: u.order }))
+    );
     for (const u of plan.sectionUpdates) {
       yield* db.updateSectionTitle(u.id, u.path);
     }

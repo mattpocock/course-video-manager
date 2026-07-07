@@ -107,7 +107,6 @@ export async function createSectionWithLessons(
   sectionPath: string,
   sectionOrder: number,
   lessonDefs: {
-    path: string;
     title: string;
     fsStatus: string;
     order: number;
@@ -128,7 +127,6 @@ export async function createSectionWithLessons(
       .insert(schema.lessons)
       .values({
         sectionId: section!.id,
-        path: def.path,
         title: def.title,
         fsStatus: def.fsStatus,
         order: def.order,

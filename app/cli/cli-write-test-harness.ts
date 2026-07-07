@@ -110,7 +110,6 @@ export const seedWrite = async (db: TestDb): Promise<WriteSeed> => {
     .insert(schema.lessons)
     .values({
       sectionId: draftSection!.id,
-      path: "01-welcome",
       title: "Welcome",
       order: 1,
       fsStatus: "real",

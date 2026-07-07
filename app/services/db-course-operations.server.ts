@@ -203,7 +203,6 @@ export const createCourseOperations = (db: Database) => {
                     where: eq(lessons.archived, false),
                     columns: {
                       id: true,
-                      path: true,
                       title: true,
                       order: true,
                       description: true,

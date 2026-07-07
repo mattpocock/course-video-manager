@@ -143,7 +143,6 @@ type VideoNode = {
 };
 type LessonNode = {
   id: string;
-  path: string;
   title: string;
   description: string;
   sectionId: string;
@@ -166,7 +165,6 @@ const sectionWith = {
     lessons: {
       columns: {
         id: true,
-        path: true,
         title: true,
         description: true,
         order: true,
@@ -336,7 +334,6 @@ export const createSearchOperations = (db: Database) => {
           where: and(eq(lessons.id, root.id), eq(lessons.archived, false)),
           columns: {
             id: true,
-            path: true,
             title: true,
             description: true,
             sectionId: true,
@@ -354,7 +351,6 @@ export const createSearchOperations = (db: Database) => {
       courseId = les.section?.repoVersion?.repoId ?? "";
       lessonRoot = {
         id: les.id,
-        path: les.path,
         title: les.title,
         description: les.description,
         sectionId: les.sectionId,
@@ -474,7 +470,6 @@ export const createSearchOperations = (db: Database) => {
     const emitLesson = (les: LessonNode, cid: string) => {
       if (want("lesson")) {
         const m = firstMatch([
-          ["path", les.path],
           ["title", les.title],
           ["description", les.description],
         ]);
@@ -484,7 +479,7 @@ export const createSearchOperations = (db: Database) => {
             id: les.id,
             courseId: cid,
             sectionId: les.sectionId,
-            path: les.path,
+            path: les.title,
             field: m.field,
             snippet: m.snippet,
           });

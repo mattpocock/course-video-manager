@@ -5,7 +5,6 @@ import { LessonSectionOperationsService } from "@/services/db-lesson-section-ope
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
-import { toSlug } from "@/services/lesson-path-service";
 import {
   detail,
   emitGet,
@@ -146,7 +145,7 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
       id: lesson.id,
       kind: "lesson",
       title: lesson.title,
-      path: lesson.path,
+      path: lesson.title,
     };
 
     if (maxDepth >= 1) {
@@ -255,7 +254,6 @@ const createCmd = Command.make(
 
         const [lesson] = yield* svc.createGhostLesson(section, {
           title,
-          path: toSlug(title) || "untitled",
           order: insertOrder,
         });
 

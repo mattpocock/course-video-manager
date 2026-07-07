@@ -344,13 +344,11 @@ describe("attachDerivedPaths", () => {
         id: "s-ghost",
         order: 2,
         title: "Ghost",
-        path: "ghost-stored-path",
         lessons: [
           {
             id: "l-ghost",
             order: 1,
-            title: "Nope",
-            path: "ghost-lesson-stored-path",
+            title: "Ghost Lesson",
             fsStatus: "ghost" as const,
           },
         ],
@@ -359,8 +357,8 @@ describe("attachDerivedPaths", () => {
     const result = attachDerivedPaths(sections);
     expect(result[0]!.path).toBe("01-real");
     expect(result[0]!.lessons[0]!.path).toBe("01.01-lesson");
-    expect(result[1]!.path).toBe("ghost-stored-path");
-    expect(result[1]!.lessons[0]!.path).toBe("ghost-lesson-stored-path");
+    expect(result[1]!.path).toBe("Ghost");
+    expect(result[1]!.lessons[0]!.path).toBe("Ghost Lesson");
   });
 
   it("falls back to title for ghosts when no stored path exists", () => {

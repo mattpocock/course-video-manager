@@ -132,7 +132,6 @@ export const lessons = createTable(
     lineageId: varchar("lineage_id", { length: 255 })
       .notNull()
       .$defaultFn(() => crypto.randomUUID()),
-    path: text("path").notNull(),
     title: text("title").notNull().default(""),
     fsStatus: text("fs_status").notNull().default("real"),
     description: text("description").notNull().default(""),
@@ -154,8 +153,8 @@ export const lessons = createTable(
       "lesson_authoring_status_biconditional",
       sql`(${table.fsStatus} = 'real' AND ${table.authoringStatus} IS NOT NULL) OR (${table.fsStatus} != 'real' AND ${table.authoringStatus} IS NULL)`
     ),
-    uniqueIndex("lesson_section_path_uniq")
-      .on(table.sectionId, table.path)
+    uniqueIndex("lesson_section_order_uniq")
+      .on(table.sectionId, table.order)
       .where(sql`NOT ${table.archived}`),
   ]
 );

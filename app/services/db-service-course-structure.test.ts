@@ -50,7 +50,6 @@ const buildCourseWithVideos = async () => {
     .insert(schema.lessons)
     .values({
       sectionId: section!.id,
-      path: "01-welcome",
       title: "Welcome",
       order: 1,
       fsStatus: "real",
@@ -63,7 +62,6 @@ const buildCourseWithVideos = async () => {
     .insert(schema.lessons)
     .values({
       sectionId: section!.id,
-      path: "02-ghost",
       title: "Ghost Lesson",
       order: 2,
       fsStatus: "ghost",
@@ -208,7 +206,7 @@ describe("getCourseStructureById", () => {
       expect(section.lessons).toHaveLength(2);
 
       const realLesson = section.lessons.find((l) => l.id === lessonRealId)!;
-      expect(realLesson.path).toBe("01-welcome");
+      expect(realLesson.title).toBe("Welcome");
       expect(realLesson.description).toBe("A welcome lesson");
       expect(realLesson.fsStatus).toBe("real");
 
@@ -302,7 +300,6 @@ describe("getCourseStructureById", () => {
         testDb.insert(schema.lessons).values([
           {
             sectionId: sectionA!.id,
-            path: "02-second",
             title: "Second",
             order: 2,
             fsStatus: "real",
@@ -310,7 +307,6 @@ describe("getCourseStructureById", () => {
           },
           {
             sectionId: sectionA!.id,
-            path: "01-first",
             title: "First",
             order: 1,
             fsStatus: "real",
@@ -327,8 +323,8 @@ describe("getCourseStructureById", () => {
       expect(sections[1]!.title).toBe("advanced");
 
       const lessons = sections[0]!.lessons;
-      expect(lessons[0]!.path).toBe("01-first");
-      expect(lessons[1]!.path).toBe("02-second");
+      expect(lessons[0]!.title).toBe("First");
+      expect(lessons[1]!.title).toBe("Second");
     }).pipe(Effect.provide(testLayer))
   );
 });

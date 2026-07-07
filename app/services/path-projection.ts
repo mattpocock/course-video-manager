@@ -77,8 +77,7 @@ type SectionWithPath<S extends ProjectableSection> = Omit<
   lessons: LessonWithPath<S["lessons"][number]>[];
 };
 
-const ghostFallback = (entity: { title: string }): DerivedPath =>
-  (entity as { path?: string }).path ?? entity.title;
+const ghostFallback = (entity: { title: string }): DerivedPath => entity.title;
 
 export const attachDerivedPaths = <S extends ProjectableSection>(
   sections: readonly S[]

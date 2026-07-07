@@ -64,7 +64,6 @@ async function createFullCourseStructure() {
     .insert(schema.lessons)
     .values({
       sectionId: activeSection!.id,
-      path: "01-intro/01-lesson",
       order: 1,
       fsStatus: "real",
       title: "First Lesson",

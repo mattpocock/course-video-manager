@@ -89,11 +89,11 @@ export const loader = makeLoader({
               id: v.id,
               path: v.path,
               duration: computeDuration(v.clips),
-              contextParts: [course.name, section.title, lesson.path],
+              contextParts: [course.name, section.title, lesson.title],
             }));
             if (lessonVideos.length > 0) {
               lessons.push({
-                lessonPath: lesson.path,
+                lessonPath: lesson.title,
                 videos: lessonVideos,
               });
             }

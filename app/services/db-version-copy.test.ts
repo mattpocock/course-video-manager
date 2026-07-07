@@ -46,7 +46,6 @@ describe("copyVersionStructure", () => {
 
     await testDb.insert(schema.lessons).values({
       sectionId: section!.id,
-      path: "01-intro/01-lesson",
       order: 1,
       icon: "code",
       fsStatus: "real",
@@ -174,7 +173,6 @@ describe("copyVersionStructure", () => {
     await testDb.insert(schema.lessons).values([
       {
         sectionId: section!.id,
-        path: "01.01-active",
         order: 1,
         fsStatus: "real",
         title: "Active Lesson",
@@ -182,7 +180,6 @@ describe("copyVersionStructure", () => {
       },
       {
         sectionId: section!.id,
-        path: "01.02-archived",
         order: 2,
         fsStatus: "real",
         title: "Archived Lesson",
@@ -231,7 +228,6 @@ describe("copyVersionStructure", () => {
     await testDb.insert(schema.lessons).values([
       {
         sectionId: section!.id,
-        path: "01-lesson",
         order: 1,
         fsStatus: "real",
         title: "Todo Lesson",
@@ -239,7 +235,6 @@ describe("copyVersionStructure", () => {
       },
       {
         sectionId: section!.id,
-        path: "02-lesson",
         order: 2,
         fsStatus: "real",
         title: "Done Lesson",
@@ -247,7 +242,6 @@ describe("copyVersionStructure", () => {
       },
       {
         sectionId: section!.id,
-        path: "ghost-lesson",
         order: 3,
         fsStatus: "ghost",
         title: "Ghost Lesson",
@@ -295,7 +289,6 @@ describe("copyVersionStructure", () => {
     await expect(
       testDb.insert(schema.lessons).values({
         sectionId: section!.id,
-        path: "01-lesson",
         order: 1,
         fsStatus: "real",
         title: "Real without status",
@@ -322,7 +315,6 @@ describe("copyVersionStructure", () => {
     await expect(
       testDb.insert(schema.lessons).values({
         sectionId: section!.id,
-        path: "ghost-lesson",
         order: 1,
         fsStatus: "ghost",
         title: "Ghost with status",
@@ -350,7 +342,6 @@ describe("copyVersionStructure", () => {
     await testDb.insert(schema.lessons).values([
       {
         sectionId: section!.id,
-        path: "01-intro/01-lesson",
         order: 1,
         fsStatus: "real",
         title: "Real Lesson",
@@ -358,7 +349,6 @@ describe("copyVersionStructure", () => {
       },
       {
         sectionId: section!.id,
-        path: "01-intro/02-ghost",
         order: 2,
         fsStatus: "ghost",
         title: "Ghost Lesson",
@@ -405,7 +395,6 @@ describe("copyVersionStructure", () => {
       .insert(schema.lessons)
       .values({
         sectionId: section!.id,
-        path: "01-intro/01-lesson",
         order: 1,
         fsStatus: "real",
         title: "Lesson",
@@ -499,7 +488,6 @@ describe("copyVersionStructure", () => {
       .insert(schema.lessons)
       .values({
         sectionId: section!.id,
-        path: "01-intro/01-lesson",
         order: 1,
         fsStatus: "real",
         title: "Lesson",

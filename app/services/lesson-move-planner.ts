@@ -73,7 +73,6 @@ export type LessonMoveInput = {
 export type LessonUpdate = {
   id: string;
   sectionId: string;
-  path: string;
   order: number;
 };
 
@@ -178,7 +177,6 @@ export function planLessonMove(input: LessonMoveInput): LessonMovePlan {
         {
           id: lesson.id,
           sectionId: targetSectionId,
-          path: lesson.path,
           order: newOrder,
         },
       ],
@@ -391,8 +389,6 @@ function applyPlanToModel(
     plan.sectionUpdates.map((u) => [u.id, u.path])
   );
 
-  // Re-home every lesson under its (possibly updated) section, patching path /
-  // order from the plan.
   const placed: { lesson: PlannerLesson; sectionId: string }[] = [];
   for (const s of sections) {
     for (const l of s.lessons) {
@@ -400,7 +396,6 @@ function applyPlanToModel(
       placed.push({
         lesson: {
           ...l,
-          path: u ? u.path : l.path,
           order: u ? u.order : l.order,
         },
         sectionId: u ? u.sectionId : s.id,
@@ -505,13 +500,10 @@ function diffLessons(
   before: PlannerSection[],
   after: WorkingSection[]
 ): LessonUpdate[] {
-  const beforeById = new Map<
-    string,
-    { sectionId: string; path: string; order: number }
-  >();
+  const beforeById = new Map<string, { sectionId: string; order: number }>();
   for (const s of before) {
     for (const l of s.lessons) {
-      beforeById.set(l.id, { sectionId: s.id, path: l.path, order: l.order });
+      beforeById.set(l.id, { sectionId: s.id, order: l.order });
     }
   }
 
@@ -519,16 +511,10 @@ function diffLessons(
   for (const s of after) {
     for (const l of s.lessons) {
       const prev = beforeById.get(l.id);
-      if (
-        !prev ||
-        prev.sectionId !== s.id ||
-        prev.path !== l.path ||
-        prev.order !== l.order
-      ) {
+      if (!prev || prev.sectionId !== s.id || prev.order !== l.order) {
         updates.push({
           id: l.id,
           sectionId: s.id,
-          path: l.path,
           order: l.order,
         });
       }
