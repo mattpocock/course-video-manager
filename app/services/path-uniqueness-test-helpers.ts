@@ -77,6 +77,7 @@ export async function createLesson(
     createdAt?: Date;
     archived?: boolean;
     fsStatus?: string;
+    title?: string;
   }
 ) {
   const fsStatus = opts?.fsStatus ?? "ghost";
@@ -87,6 +88,7 @@ export async function createLesson(
       sectionId,
       path,
       order,
+      ...(opts?.title !== undefined ? { title: opts.title } : {}),
       archived: opts?.archived ?? false,
       fsStatus,
       ...(fsStatus === "real" ? { authoringStatus: "todo" } : {}),

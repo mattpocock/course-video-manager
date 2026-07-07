@@ -91,16 +91,6 @@ export const parseSectionPath = (
  * @param newOrderIds - Section IDs in the desired new order
  * @returns Array of renames where the path actually changed
  */
-/**
- * Converts a slug back to title case.
- * "before-we-start" → "Before We Start"
- */
-export const titleFromSlug = (slug: string): string =>
-  slug
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-
 export const computeSectionRenumberingPlan = (
   currentSections: SectionForReorder[],
   newOrderIds: readonly string[]

@@ -427,18 +427,11 @@ const createCmd = Command.make(
         insertOrder = siblings[idx] ? siblings[idx]!.order : maxOrder + 1;
       }
 
-      const [lesson] = yield* svc
-        .createGhostLesson(section, {
-          title,
-          path: toSlug(title) || "untitled",
-          order: insertOrder,
-        })
-        .pipe(
-          // A slug collision with an existing lesson is invalid input (exit 3).
-          Effect.catchTag("LessonPathTakenError", (e) =>
-            parseError(e.message, "lesson")
-          )
-        );
+      const [lesson] = yield* svc.createGhostLesson(section, {
+        title,
+        path: toSlug(title) || "untitled",
+        order: insertOrder,
+      });
 
       yield* emitObject(lesson);
     })
@@ -541,7 +534,8 @@ const moveCmd = Command.make(
       }
 
       const currentSectionId = lesson.sectionId;
-      const targetSectionId = Option.getOrUndefined(section) ?? currentSectionId;
+      const targetSectionId =
+        Option.getOrUndefined(section) ?? currentSectionId;
 
       // A cross-section destination must exist, be active, AND belong to the
       // same version — a lesson can only move among its own version's sections.

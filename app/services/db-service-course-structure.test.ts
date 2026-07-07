@@ -39,7 +39,12 @@ const buildCourseWithVideos = async () => {
 
   const [section] = await testDb
     .insert(schema.sections)
-    .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+    .values({
+      repoVersionId: version!.id,
+      path: "01-intro",
+      title: "intro",
+      order: 1,
+    })
     .returning();
 
   const [lessonReal] = await testDb
@@ -117,10 +122,16 @@ describe("getCourseStructureById - archived section filtering", () => {
       // Insert one active and one archived section
       yield* Effect.promise(() =>
         testDb.insert(schema.sections).values([
-          { repoVersionId: version!.id, path: "01-active", order: 1 },
+          {
+            repoVersionId: version!.id,
+            path: "01-active",
+            title: "active",
+            order: 1,
+          },
           {
             repoVersionId: version!.id,
             path: "02-archived",
+            title: "archived",
             order: 2,
             archivedAt: new Date(),
           },
@@ -159,12 +170,14 @@ describe("getCourseStructureById - archived section filtering", () => {
           {
             repoVersionId: version!.id,
             path: "01-archived",
+            title: "archived",
             order: 1,
             archivedAt: new Date(),
           },
           {
             repoVersionId: version!.id,
             path: "02-archived",
+            title: "archived",
             order: 2,
             archivedAt: new Date(),
           },
@@ -275,14 +288,22 @@ describe("getCourseStructureById", () => {
 
       // Insert sections out of order
       yield* Effect.promise(() =>
-        testDb
-          .insert(schema.sections)
-          .values({ repoVersionId: version!.id, path: "02-advanced", order: 2 })
+        testDb.insert(schema.sections).values({
+          repoVersionId: version!.id,
+          path: "02-advanced",
+          title: "advanced",
+          order: 2,
+        })
       );
       const [sectionA] = yield* Effect.promise(() =>
         testDb
           .insert(schema.sections)
-          .values({ repoVersionId: version!.id, path: "01-basics", order: 1 })
+          .values({
+            repoVersionId: version!.id,
+            path: "01-basics",
+            title: "basics",
+            order: 1,
+          })
           .returning()
       );
 

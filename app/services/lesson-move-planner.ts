@@ -30,8 +30,18 @@ import {
   parseSectionPath,
   sectionHasRealLessons,
   sectionSlugFromPath,
-  titleFromSlug,
 } from "./section-path-service";
+
+/**
+ * Title-cases a slug for the in-model path of a section that dematerialized
+ * mid-move ("advanced-topics" → "Advanced Topics"). Local to this pure planner;
+ * the shared lossy slug→title helper is deleted from the authoring model.
+ */
+const titleCaseFromSlug = (slug: string): string =>
+  slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 
 export type PlannerLesson = {
   id: string;
@@ -295,7 +305,7 @@ export function planLessonMove(input: LessonMoveInput): LessonMovePlan {
   let sourceDematerialized = false;
   if (sourceRealLessons.length === 0 && sourceParsed) {
     fsOps.push({ kind: "deleteSectionDir", sectionPath: sourceOldPath });
-    sourceSection.path = titleFromSlug(sourceParsed.slug);
+    sourceSection.path = titleCaseFromSlug(sourceParsed.slug);
     hasDir.delete(sourceSection.id);
     sourceDematerialized = true;
   }

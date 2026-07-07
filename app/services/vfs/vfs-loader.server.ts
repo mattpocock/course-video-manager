@@ -29,6 +29,7 @@ import {
 } from "./vfs-leaves";
 import { buildVfsTree, type CourseEntry } from "./vfs-tree";
 import { sectionHasRealLessons } from "@/services/section-path-service";
+import { projectVersionPaths } from "@/services/path-projection";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -170,6 +171,16 @@ const courseToEntry = (course: {
   const version = course.versions[0];
   if (!version) return null;
 
+  // Compute-on-read: real sections/lessons get their derived folder name from
+  // (title, rank). Ghosts have no derived path and no real folder; the VFS
+  // lists them under their stored placeholder name, which stays stable across
+  // title edits (the VFS is navigated by path and a ghost edit is not a rename).
+  const derivedPaths = projectVersionPaths(version.sections);
+  const sectionDir = (s: { id: string; path: string }) =>
+    derivedPaths.get(s.id) ?? s.path;
+  const lessonDir = (l: { id: string; path: string }) =>
+    derivedPaths.get(l.id) ?? l.path;
+
   return {
     slug: course.slug ?? course.id,
     courseLeaf: generateCourseLeaf(
@@ -181,20 +192,20 @@ const courseToEntry = (course: {
       }
     ),
     sections: version.sections.map((section) => ({
-      path: section.path,
+      path: sectionDir(section),
       sectionLeaf: generateSectionLeaf({
         id: section.id,
-        path: section.path,
+        path: sectionDir(section),
         title: section.title,
         description: section.description,
         lessons: section.lessons,
       }),
       ghost: !sectionHasRealLessons(section.lessons),
       lessons: section.lessons.map((lesson) => ({
-        path: lesson.path,
+        path: lessonDir(lesson),
         lessonLeaf: generateLessonLeaf({
           id: lesson.id,
-          path: lesson.path,
+          path: lessonDir(lesson),
           title: lesson.title,
           description: lesson.description,
           icon: lesson.icon,
@@ -263,7 +274,7 @@ export const loadArchivedEntities = (
       db
         .select({
           id: lessons.id,
-          sectionPath: sections.path,
+          sectionTitle: sections.title,
         })
         .from(lessons)
         .innerJoin(sections, eq(lessons.sectionId, sections.id))
@@ -278,7 +289,9 @@ export const loadArchivedEntities = (
     for (const row of archivedLessons) {
       map.set(row.id, {
         entityType: "lesson" as EntityType,
-        parentLabel: row.sectionPath,
+        // Parent label for an archived lesson: the section's title (the derived
+        // path is unavailable for an archived/ghost parent).
+        parentLabel: row.sectionTitle,
       });
     }
 

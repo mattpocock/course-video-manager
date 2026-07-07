@@ -67,7 +67,10 @@ export function courseViewEffect(input: {
           return {
             ...course,
             sections: allSections.filter((section) => {
-              return !section.path.endsWith("ARCHIVE");
+              // ARCHIVE sections are marked by a title ending in "ARCHIVE".
+              // Detected on the title (the source of truth) rather than the
+              // derived path, which is lowercased and absent for ghosts.
+              return !section.title.toUpperCase().endsWith("ARCHIVE");
             }),
           };
         })

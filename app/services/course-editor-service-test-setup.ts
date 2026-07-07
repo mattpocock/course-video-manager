@@ -151,6 +151,9 @@ export async function createSectionWithLessons(
     .values({
       repoVersionId,
       path: sectionPath,
+      // Title is the source of truth for the derived path; seed it from the
+      // folder name's slug so the projection reproduces `sectionPath` on read.
+      title: sectionPath.replace(/^\d+-/, ""),
       order: sectionOrder,
     })
     .returning();

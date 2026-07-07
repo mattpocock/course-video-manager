@@ -10,7 +10,8 @@ import {
   parseLessonPath,
   buildLessonPath,
 } from "./lesson-path-service";
-import { parseSectionPath, titleFromSlug } from "./section-path-service";
+import { parseSectionPath } from "./section-path-service";
+import { projectVersionPaths } from "./path-projection";
 import { createSectionOps } from "./course-write-service.helpers";
 import { createMoveOps } from "./course-write-move-ops";
 import { createMaterializeOps } from "./course-write-materialize-ops";
@@ -21,6 +22,12 @@ import { statusForConvertToGhost } from "./lesson-authoring-status";
 
 export { CourseWriteError } from "./course-write-service.types";
 export { CourseRepoSyncError } from "./course-repo-sync-validation";
+
+const titleCaseFromSlug = (slug: string): string =>
+  slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 
 export class CourseWriteService extends Effect.Service<CourseWriteService>()(
   "CourseWriteService",
@@ -137,7 +144,12 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
 
         if (lesson.fsStatus !== "ghost") {
           const repoPath = lesson.section.repoVersion.repo.filePath!;
-          const sectionPath = lesson.section.path;
+          const versionTree =
+            yield* lessonSectionOps.getSectionsWithLessonsByRepoVersionId(
+              lesson.section.repoVersionId
+            );
+          const derivedPaths = projectVersionPaths(versionTree);
+          const sectionPath = derivedPaths.get(lesson.sectionId)!;
           const parsed = parseSectionPath(sectionPath);
           const sectionNumber = parsed?.sectionNumber ?? 1;
 
@@ -146,7 +158,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           yield* repoWrite.deleteLesson({
             repoPath,
             sectionPath,
-            lessonDirName: lesson.path,
+            lessonDirName: derivedPaths.get(lessonId)!,
           });
 
           // Archive before renumbering so it's excluded from the sibling list
@@ -165,11 +177,12 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
               [];
             for (let i = 0; i < remainingReal.length; i++) {
               const l = remainingReal[i]!;
-              const p = parseLessonPath(l.path);
+              const lPath = derivedPaths.get(l.id)!;
+              const p = parseLessonPath(lPath);
               if (!p) continue;
               const newPath = buildLessonPath(sectionNumber, i + 1, p.slug);
-              if (newPath !== l.path) {
-                renames.push({ id: l.id, oldPath: l.path, newPath });
+              if (newPath !== lPath) {
+                renames.push({ id: l.id, oldPath: lPath, newPath });
               }
             }
 
@@ -197,7 +210,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             const sectionParsed = parseSectionPath(sectionPath);
             if (sectionParsed) {
               yield* repoWrite.deleteSectionDir({ repoPath, sectionPath });
-              const title = titleFromSlug(sectionParsed.slug);
+              const title = titleCaseFromSlug(sectionParsed.slug);
               yield* lessonSectionOps.updateSectionPath(
                 lesson.sectionId,
                 title
@@ -228,7 +241,12 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         }
 
         const repoPath = lesson.section.repoVersion.repo.filePath!;
-        const sectionPath = lesson.section.path;
+        const versionTree =
+          yield* lessonSectionOps.getSectionsWithLessonsByRepoVersionId(
+            lesson.section.repoVersionId
+          );
+        const derivedPaths = projectVersionPaths(versionTree);
+        const sectionPath = derivedPaths.get(lesson.sectionId)!;
         const parsed = parseSectionPath(sectionPath);
         const sectionNumber = parsed?.sectionNumber ?? 1;
 
@@ -238,7 +256,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         yield* repoWrite.deleteLesson({
           repoPath,
           sectionPath,
-          lessonDirName: lesson.path,
+          lessonDirName: derivedPaths.get(lessonId)!,
         });
 
         // Mark lesson as ghost in DB
@@ -260,11 +278,12 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
             [];
           for (let i = 0; i < remainingReal.length; i++) {
             const l = remainingReal[i]!;
-            const p = parseLessonPath(l.path);
+            const lPath = derivedPaths.get(l.id)!;
+            const p = parseLessonPath(lPath);
             if (!p) continue;
             const newPath = buildLessonPath(sectionNumber, i + 1, p.slug);
-            if (newPath !== l.path) {
-              renames.push({ id: l.id, oldPath: l.path, newPath });
+            if (newPath !== lPath) {
+              renames.push({ id: l.id, oldPath: lPath, newPath });
             }
           }
 
@@ -292,7 +311,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           const sectionParsed = parseSectionPath(sectionPath);
           if (sectionParsed) {
             yield* repoWrite.deleteSectionDir({ repoPath, sectionPath });
-            const title = titleFromSlug(sectionParsed.slug);
+            const title = titleCaseFromSlug(sectionParsed.slug);
             yield* lessonSectionOps.updateSectionPath(lesson.sectionId, title);
             yield* renumberSections(lesson.section.repoVersionId, repoPath);
           }
@@ -310,24 +329,33 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         const lesson =
           yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
 
-        const oldParsed = parseLessonPath(lesson.path);
+        const versionTree =
+          yield* lessonSectionOps.getSectionsWithLessonsByRepoVersionId(
+            lesson.section.repoVersionId
+          );
+        const derivedPaths = projectVersionPaths(versionTree);
+        const lessonPath =
+          derivedPaths.get(lessonId) ?? (toSlug(lesson.title) || "untitled");
+
+        const oldParsed = parseLessonPath(lessonPath);
 
         // Ghost lesson with unparseable path — just update the slug in DB
         if (!oldParsed) {
-          if (lesson.path === newSlug) {
-            return { success: true, path: lesson.path };
+          if (lessonPath === newSlug) {
+            return { success: true, path: lessonPath };
           }
           yield* lessonSectionOps.updateLesson(lessonId, { path: newSlug });
           return { success: true, path: newSlug };
         }
 
         if (oldParsed.slug === newSlug) {
-          return { success: true, path: lesson.path };
+          return { success: true, path: lessonPath };
         }
 
+        const sectionPath = derivedPaths.get(lesson.sectionId);
         const sectionNumber =
           oldParsed.sectionNumber ??
-          parseSectionPath(lesson.section.path)?.sectionNumber ??
+          parseSectionPath(sectionPath ?? "")?.sectionNumber ??
           1;
         const newPath = buildLessonPath(
           sectionNumber,
@@ -337,14 +365,13 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
 
         if (lesson.fsStatus !== "ghost") {
           const repoPath = lesson.section.repoVersion.repo.filePath!;
-          const sectionPath = lesson.section.path;
 
           yield* runValidation(repoPath);
 
           yield* repoWrite.renameLesson({
             repoPath,
-            sectionPath,
-            oldLessonDirName: lesson.path,
+            sectionPath: sectionPath!,
+            oldLessonDirName: lessonPath,
             newSlug,
           });
         }
@@ -367,7 +394,12 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         const section =
           yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
         const repoPath = section.repoVersion.repo.filePath!;
-        const sectionPath = section.path;
+        const versionTree =
+          yield* lessonSectionOps.getSectionsWithLessonsByRepoVersionId(
+            section.repoVersionId
+          );
+        const derivedPaths = projectVersionPaths(versionTree);
+        const sectionPath = derivedPaths.get(sectionId)!;
 
         const sectionLessons =
           yield* lessonSectionOps.getLessonsBySectionId(sectionId);
@@ -381,7 +413,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         );
         const lessonsForReorder = realLessons.map((l) => ({
           id: l.id,
-          path: l.path,
+          path: derivedPaths.get(l.id)!,
         }));
         const renames = computeRenumberingPlan(
           lessonsForReorder,

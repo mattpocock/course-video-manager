@@ -115,6 +115,8 @@ export const action = makeAction({
       const sectionPathToSectionId = new Map<string, string>();
 
       for (const section of courseWithSections.sections) {
+        // Ghost sections derive no path and have no on-disk folder to match.
+        if (!section.path) continue;
         sectionPathToSectionId.set(section.path, section.id);
       }
 

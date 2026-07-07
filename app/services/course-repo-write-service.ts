@@ -4,7 +4,17 @@ import { Data, Effect } from "effect";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { buildLessonPath, parseLessonPath } from "./lesson-path-service";
-import { titleFromSlug } from "./section-path-service";
+
+/**
+ * Title-cases a dash-case slug for a new lesson's readme stub heading when no
+ * explicit title is supplied. Local to this file — the shared lossy slug→title
+ * helper is deleted from the authoring model; callers pass the real title.
+ */
+const titleCaseFromSlug = (slug: string): string =>
+  slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 
 export class CourseRepoWriteError extends Data.TaggedError(
   "CourseRepoWriteError"
@@ -31,6 +41,8 @@ export class CourseRepoWriteService extends Effect.Service<CourseRepoWriteServic
           repoPath: string;
           sectionPath: string;
           lessonDirName: string;
+          /** Human title for the readme heading; falls back to the slug. */
+          title?: string;
         }) {
           const explainerDir = path.join(
             opts.repoPath,
@@ -41,11 +53,13 @@ export class CourseRepoWriteService extends Effect.Service<CourseRepoWriteServic
           const readmePath = path.join(explainerDir, "readme.md");
 
           const parsed = parseLessonPath(opts.lessonDirName);
-          const slug = parsed?.slug ?? opts.lessonDirName;
-          const title = titleFromSlug(slug);
+          const heading =
+            opts.title && opts.title.trim() !== ""
+              ? opts.title
+              : titleCaseFromSlug(parsed?.slug ?? opts.lessonDirName);
 
           yield* fs.makeDirectory(explainerDir, { recursive: true });
-          yield* fs.writeFileString(readmePath, `# ${title}\n`);
+          yield* fs.writeFileString(readmePath, `# ${heading}\n`);
 
           // Stage the new files so subsequent git operations (mv, rm) work
           const lessonFullPath = path.join(

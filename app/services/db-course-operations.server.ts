@@ -26,6 +26,7 @@ import {
   toTranscriptItems,
 } from "@/lib/transcript-builder";
 import { makeDuplicateCourse } from "@/services/db-course-duplicate.server";
+import { attachDerivedPaths } from "@/services/path-projection";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -152,6 +153,12 @@ export const createCourseOperations = (db: Database) => {
         });
       }
 
+      // NOTE: intentionally NOT attaching derived paths here. This loader feeds
+      // the disk-reconciliation sites (course-repo-sync-validation and the
+      // sync-from-disk import in api.courses.update), which must track the
+      // current *on-disk* folder name. That name is kept in the stored `path`
+      // column by the write-side sync writes until Slice 4 wires the
+      // atomic-rename-from-title and Slice 5 drops the column.
       return course;
     }
   );
@@ -215,7 +222,7 @@ export const createCourseOperations = (db: Database) => {
               sections: {
                 where: isNull(sections.archivedAt),
                 orderBy: asc(sections.order),
-                columns: { id: true, path: true },
+                columns: { id: true, path: true, title: true, order: true },
                 with: {
                   lessons: {
                     orderBy: asc(lessons.order),
@@ -223,6 +230,8 @@ export const createCourseOperations = (db: Database) => {
                     columns: {
                       id: true,
                       path: true,
+                      title: true,
+                      order: true,
                       description: true,
                       fsStatus: true,
                     },
@@ -242,6 +251,11 @@ export const createCourseOperations = (db: Database) => {
       });
     }
 
+    // NOTE: not attaching derived paths here. This structure loader feeds
+    // context/reconciliation consumers (video-posting course structure,
+    // move-to-course) that key off the current on-disk name held in the in-sync
+    // stored column. The single-item resolvers provide the derived "current"
+    // markers where those consumers need them.
     return course;
   });
 
@@ -319,7 +333,15 @@ export const createCourseOperations = (db: Database) => {
         });
       }
 
-      return course;
+      // Compute-on-read: attach the derived path at the boundary so every
+      // downstream reader sees it without touching the stored column.
+      return {
+        ...course,
+        versions: course.versions.map((version) => ({
+          ...version,
+          sections: attachDerivedPaths(version.sections),
+        })),
+      };
     }
   );
 

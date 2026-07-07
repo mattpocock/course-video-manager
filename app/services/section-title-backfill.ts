@@ -3,9 +3,20 @@ import { eq } from "drizzle-orm";
 import type { DrizzleDB } from "@/services/drizzle-service.server";
 import {
   sectionSlugFromPath,
-  titleFromSlug,
   sectionHasRealLessons,
 } from "./section-path-service";
+
+/**
+ * Title-cases a dash-case slug ("before-we-start" → "Before We Start"). Local
+ * to this one-off migration: the lossy slug→title round-trip is deleted from
+ * the authoring model, but the backfill legitimately recovers a title from the
+ * only record a legacy real section has — its numbered path.
+ */
+const titleFromSlug = (slug: string): string =>
+  slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 
 async function loadLessonsBySectionId(db: DrizzleDB) {
   const allLessons = await db

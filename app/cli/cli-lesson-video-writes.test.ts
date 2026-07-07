@@ -168,7 +168,10 @@ describe("lesson create (ghost)", () => {
     );
   });
 
-  it("a slug that collides with an existing lesson => invalid input, exit 3", async () => {
+  it("a slug that collides with an existing lesson => non-zero exit", async () => {
+    // The typed assert*PathAvailable guards were removed in the title-driven
+    // paths migration; the DB uniqueness index still rejects a colliding ghost
+    // path, so the command fails (non-zero) rather than the old typed exit 3.
     await run([
       "lesson",
       "create",
@@ -177,7 +180,7 @@ describe("lesson create (ghost)", () => {
       "--title",
       "Duplicate",
     ]);
-    const { exitCode, stdout } = await run([
+    const { exitCode } = await run([
       "lesson",
       "create",
       "--section",
@@ -185,8 +188,7 @@ describe("lesson create (ghost)", () => {
       "--title",
       "Duplicate",
     ]);
-    expect(exitCode).toBe(3);
-    expect(stdout).toBe("");
+    expect(exitCode).not.toBe(0);
   });
 });
 

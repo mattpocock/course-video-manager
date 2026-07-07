@@ -100,8 +100,8 @@ const createLessonVideo = (setupFiles?: (lessonDir: string) => void) =>
     const tempDir = nodeFs.mkdtempSync(
       path.join(tmpdir(), "posting-ctx-test-")
     );
-    const sectionPath = "001-intro";
-    const lessonPath = "001-getting-started";
+    const sectionPath = "01-intro";
+    const lessonPath = "01.01-getting-started";
     const lessonDir = path.join(tempDir, sectionPath, lessonPath);
     nodeFs.mkdirSync(lessonDir, { recursive: true });
     nodeFs.writeFileSync(path.join(lessonDir, ".gitkeep"), "");
@@ -308,15 +308,15 @@ describe("loadVideoPostingContext", () => {
 
           expect(ctx.courseStructure).not.toBeNull();
           expect(ctx.courseStructure!.repoName).toBe("test-course");
-          expect(ctx.courseStructure!.currentSectionPath).toBe("001-intro");
+          expect(ctx.courseStructure!.currentSectionPath).toBe("01-intro");
           expect(ctx.courseStructure!.currentLessonPath).toBe(
-            "001-getting-started"
+            "01.01-getting-started"
           );
           expect(ctx.courseStructure!.sections).toHaveLength(1);
 
           const sectionResult = ctx.courseStructure!.sections[0]!;
           const realLessons = sectionResult.lessons.filter(
-            (l) => l.path === "001-getting-started"
+            (l) => l.path === "01.01-getting-started"
           );
           expect(realLessons).toHaveLength(1);
           const ghostLessons = sectionResult.lessons.filter(

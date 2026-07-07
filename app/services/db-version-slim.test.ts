@@ -44,7 +44,12 @@ const buildFixture = () =>
     const [section] = yield* Effect.promise(() =>
       testDb
         .insert(schema.sections)
-        .values({ repoVersionId: version!.id, path: "01-intro", order: 1 })
+        .values({
+          repoVersionId: version!.id,
+          path: "01-intro",
+          title: "intro",
+          order: 1,
+        })
         .returning()
     );
 
@@ -116,6 +121,7 @@ describe("getCourseWithSectionsByVersionSlim", () => {
         testDb.insert(schema.sections).values({
           repoVersionId: version.id,
           path: "02-archived",
+          title: "archived",
           order: 2,
           archivedAt: new Date(),
         })
