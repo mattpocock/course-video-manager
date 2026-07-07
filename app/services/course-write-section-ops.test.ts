@@ -42,7 +42,6 @@ const setup = async () => {
   const repo = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
     return yield* courseOps.createCourse({
-      filePath: "/tmp/test-repo",
       name: "test-repo",
     });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);

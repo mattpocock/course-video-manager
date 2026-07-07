@@ -31,7 +31,7 @@ describe("copyVersionStructure", () => {
   it("preserves lesson icon (type) when copying a version", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test Course", filePath: "/tmp/test" })
+      .values({ name: "Test Course" })
       .returning();
 
     const [version] = await testDb
@@ -78,7 +78,7 @@ describe("copyVersionStructure", () => {
   it("preserves section description when copying a version", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test Course 2", filePath: "/tmp/test2" })
+      .values({ name: "Test Course 2" })
       .returning();
 
     const [version] = await testDb
@@ -115,7 +115,7 @@ describe("copyVersionStructure", () => {
   it("skips archived sections when copying a version", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Archive Copy Test", filePath: "/tmp/archive-copy" })
+      .values({ name: "Archive Copy Test" })
       .returning();
 
     const [version] = await testDb
@@ -158,7 +158,6 @@ describe("copyVersionStructure", () => {
       .insert(schema.courses)
       .values({
         name: "Archived Lesson Copy Test",
-        filePath: "/tmp/archived-lesson-copy",
       })
       .returning();
 
@@ -216,7 +215,7 @@ describe("copyVersionStructure", () => {
   it("preserves lesson authoringStatus when copying a version", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "AuthoringStatus Copy", filePath: "/tmp/authoring" })
+      .values({ name: "AuthoringStatus Copy" })
       .returning();
 
     const [version] = await testDb
@@ -280,7 +279,7 @@ describe("copyVersionStructure", () => {
   it("rejects a real lesson with null authoringStatus (constraint)", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Constraint Test", filePath: "/tmp/constraint" })
+      .values({ name: "Constraint Test" })
       .returning();
 
     const [version] = await testDb
@@ -307,7 +306,7 @@ describe("copyVersionStructure", () => {
   it("rejects a ghost lesson with non-null authoringStatus (constraint)", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Constraint Test 2", filePath: "/tmp/constraint2" })
+      .values({ name: "Constraint Test 2" })
       .returning();
 
     const [version] = await testDb
@@ -335,7 +334,7 @@ describe("copyVersionStructure", () => {
   it("preserves lesson fsStatus (ghost/real) when copying a version", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test Course 3", filePath: "/tmp/test3" })
+      .values({ name: "Test Course 3" })
       .returning();
 
     const [version] = await testDb
@@ -389,7 +388,7 @@ describe("copyVersionStructure", () => {
   it("copies a video's beats, preserving kind/title/order", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test Course", filePath: "/tmp/test" })
+      .values({ name: "Test Course" })
       .returning();
 
     const [version] = await testDb
@@ -483,7 +482,7 @@ describe("copyVersionStructure", () => {
   it("excludes archived beats when copying a video", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test Course", filePath: "/tmp/test" })
+      .values({ name: "Test Course" })
       .returning();
 
     const [version] = await testDb

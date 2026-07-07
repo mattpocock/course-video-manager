@@ -13,7 +13,6 @@ import {
   videos,
 } from "@/db/schema";
 import {
-  AmbiguousCourseUpdateError,
   CourseNameTakenError,
   NotFoundError,
   UnknownDBServiceError,
@@ -84,25 +83,6 @@ export const createCourseOperations = (db: Database) => {
       return yield* new NotFoundError({
         type: "getCourse",
         params: { id },
-      });
-    }
-
-    return course;
-  });
-
-  const getCourseByFilePath = Effect.fn("getCourseByFilePath")(function* (
-    filePath: string
-  ) {
-    const course = yield* makeDbCall(() =>
-      db.query.courses.findFirst({
-        where: eq(courses.filePath, filePath),
-      })
-    );
-
-    if (!course) {
-      return yield* new NotFoundError({
-        type: "getCourseByFilePath",
-        params: { filePath },
       });
     }
 
@@ -401,13 +381,6 @@ export const createCourseOperations = (db: Database) => {
     return transcripts;
   });
 
-  const getCourseWithSectionsByFilePath = Effect.fn(
-    "getCourseWithSectionsByFilePath"
-  )(function* (filePath: string) {
-    const course = yield* getCourseByFilePath(filePath);
-    return yield* getCourseWithSectionsById(course.id);
-  });
-
   const getCourses = Effect.fn("getCourses")(function* () {
     const result = yield* makeDbCall(() =>
       db.query.courses.findMany({
@@ -442,39 +415,12 @@ export const createCourseOperations = (db: Database) => {
   });
 
   const createCourse = Effect.fn("createCourse")(function* (input: {
-    filePath: string;
     name: string;
   }) {
     const slug = yield* assertSlugAvailable(input.name);
 
     const result = yield* makeDbCall(() =>
-      db
-        .insert(courses)
-        .values({ ...input, slug })
-        .returning()
-    );
-
-    const course = result[0];
-
-    if (!course) {
-      return yield* new UnknownDBServiceError({
-        cause: "No course was returned from the database",
-      });
-    }
-
-    return course;
-  });
-
-  const createGhostCourse = Effect.fn("createGhostCourse")(function* (input: {
-    name: string;
-  }) {
-    const slug = yield* assertSlugAvailable(input.name);
-
-    const result = yield* makeDbCall(() =>
-      db
-        .insert(courses)
-        .values({ name: input.name, filePath: null, slug })
-        .returning()
+      db.insert(courses).values({ name: input.name, slug }).returning()
     );
 
     const course = result[0];
@@ -558,57 +504,6 @@ export const createCourseOperations = (db: Database) => {
     }
   );
 
-  const updateCourseFilePath = Effect.fn("updateCourseFilePath")(
-    function* (opts: { repoId: string; filePath: string | null }) {
-      const { repoId, filePath } = opts;
-
-      const currentCourse = yield* makeDbCall(() =>
-        db.query.courses.findFirst({
-          where: eq(courses.id, repoId),
-        })
-      );
-
-      if (!currentCourse) {
-        return yield* new NotFoundError({
-          type: "updateCourseFilePath",
-          params: { repoId },
-        });
-      }
-
-      if (currentCourse.filePath) {
-        const coursesWithSamePath = yield* makeDbCall(() =>
-          db.query.courses.findMany({
-            where: eq(courses.filePath, currentCourse.filePath!),
-          })
-        );
-
-        if (coursesWithSamePath.length > 1) {
-          return yield* new AmbiguousCourseUpdateError({
-            filePath: currentCourse.filePath,
-            repoCount: coursesWithSamePath.length,
-          });
-        }
-      }
-
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(courses)
-          .set({ filePath })
-          .where(eq(courses.id, repoId))
-          .returning()
-      );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateCourseFilePath",
-          params: { repoId },
-        });
-      }
-
-      return updated;
-    }
-  );
-
   const deleteCourse = Effect.fn("deleteCourse")(function* (repoId: string) {
     yield* makeDbCall(() => db.delete(courses).where(eq(courses.id, repoId)));
   });
@@ -617,22 +512,18 @@ export const createCourseOperations = (db: Database) => {
 
   return {
     getCourseById,
-    getCourseByFilePath,
     getCourseWithSectionsById,
     getCourseStructureById,
     getCourseNavigationData,
     getCourseWithSlimClipsById,
     getVideoTranscripts,
-    getCourseWithSectionsByFilePath,
     getCourses,
     getTopActiveCourses,
     getArchivedCourses,
     createCourse,
-    createGhostCourse,
     updateCourseName,
     updateCourseMemory,
     updateCourseArchiveStatus,
-    updateCourseFilePath,
     deleteCourse,
     duplicateCourse,
   };

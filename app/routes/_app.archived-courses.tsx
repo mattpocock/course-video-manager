@@ -54,9 +54,6 @@ export default function ArchivedCourses(props: Route.ComponentProps) {
                   >
                     {course.name}
                   </Button>
-                  <p className="text-sm text-muted-foreground">
-                    {course.filePath}
-                  </p>
                 </div>
                 <Button
                   variant="outline"

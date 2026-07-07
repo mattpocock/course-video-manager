@@ -4,6 +4,7 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 import path from "path";
+import { getVideoFilePath } from "@/services/video-files";
 
 export const action = makeAction({
   input: "formData",
@@ -33,18 +34,8 @@ export const action = makeAction({
       const fs = yield* FileSystem.FileSystem;
 
       const video = yield* videoOps.getVideoWithClipsById(videoId);
-      if (video.lessonId === null) {
-        return yield* Effect.die(
-          data("Cannot add files to standalone videos via this endpoint", {
-            status: 400,
-          })
-        );
-      }
 
-      const lesson = video.lesson!;
-      const repo = lesson.section.repoVersion.repo;
-      const section = lesson.section;
-      const lessonPath = path.join(repo.filePath!, section.path, lesson.path);
+      const videoDir = getVideoFilePath(video.lineageId);
 
       let filename: string;
       let fileData: Uint8Array;
@@ -77,11 +68,16 @@ export const action = makeAction({
         fileData = new TextEncoder().encode(textContent);
       }
 
-      const filePath = path.join(lessonPath, filename);
+      const filePath = path.join(videoDir, filename);
 
       const fileExists = yield* fs.exists(filePath);
       if (fileExists) {
         return yield* Effect.die(data("File already exists", { status: 409 }));
+      }
+
+      const dirExists = yield* fs.exists(videoDir);
+      if (!dirExists) {
+        yield* fs.makeDirectory(videoDir, { recursive: true });
       }
 
       yield* fs.writeFile(filePath, fileData);

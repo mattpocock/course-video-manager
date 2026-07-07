@@ -6,8 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Trash2, AlertTriangle, Code, File } from "lucide-react";
-import { useFetcher } from "react-router";
+import { Trash2, AlertTriangle, File } from "lucide-react";
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -23,7 +22,6 @@ export function DeleteLessonModal(props: {
   onOpenChange: (open: boolean) => void;
   onDelete: () => void;
 }) {
-  const openRepoFetcher = useFetcher();
   const hasFiles = props.filesOnDisk.length > 0;
 
   return (
@@ -62,21 +60,6 @@ export function DeleteLessonModal(props: {
                         </li>
                       ))}
                   </ul>
-                </div>
-                <div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      openRepoFetcher.submit(null, {
-                        method: "post",
-                        action: `/api/lessons/${props.lessonId}/open-repo-parent`,
-                      });
-                    }}
-                  >
-                    <Code className="w-4 h-4" />
-                    Open in VS Code
-                  </Button>
                 </div>
               </div>
             </div>

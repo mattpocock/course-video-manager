@@ -25,13 +25,6 @@ export class CannotUpdatePublishedVersionError extends Data.TaggedError(
   versionId: string;
 }> {}
 
-export class AmbiguousCourseUpdateError extends Data.TaggedError(
-  "AmbiguousCourseUpdateError"
-)<{
-  filePath: string;
-  repoCount: number;
-}> {}
-
 export class CannotArchiveLessonVideoError extends Data.TaggedError(
   "CannotArchiveLessonVideoError"
 )<{

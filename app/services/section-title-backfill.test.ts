@@ -144,7 +144,7 @@ describe("backfillRealSectionTitles", () => {
 
     const [course2] = await testDb
       .insert(courses)
-      .values({ name: "Other", slug: "other", filePath: "/other" })
+      .values({ name: "Other", slug: "other" })
       .returning();
     const [v2] = await testDb
       .insert(courseVersions)

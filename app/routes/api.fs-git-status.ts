@@ -71,16 +71,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       s.lessons.flatMap((l) => l.videos)
     );
 
-    const lessons = course.filePath
-      ? allSections.flatMap((section) =>
-          section.lessons
-            .filter((lesson) => lesson.fsStatus !== "ghost")
-            .map((lesson) => ({
-              id: lesson.id,
-              fullPath: `${course.filePath}/${section.path}/${lesson.path}`,
-            }))
-        )
-      : [];
+    const lessons: { id: string; fullPath: string }[] = [];
 
     const hasExportedVideoMap = yield* loadExportStatusMap({
       courseId: course.id,

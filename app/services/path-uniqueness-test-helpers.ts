@@ -29,7 +29,7 @@ export async function recreateUniqueIndexes(testDb: TestDb) {
 export async function createCourseAndVersion(testDb: TestDb) {
   const [course] = await testDb
     .insert(courses)
-    .values({ name: "Test Course", slug: "test-course", filePath: "/test" })
+    .values({ name: "Test Course", slug: "test-course" })
     .returning();
   const [version] = await testDb
     .insert(courseVersions)

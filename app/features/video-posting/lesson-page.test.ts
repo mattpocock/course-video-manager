@@ -30,7 +30,7 @@ beforeEach(async () => {
 async function seedLessonVideo() {
   const [course] = await testDb
     .insert(schema.courses)
-    .values({ name: "Test Course", filePath: "/tmp/test" })
+    .values({ name: "Test Course" })
     .returning();
   const [version] = await testDb
     .insert(schema.courseVersions)

@@ -102,14 +102,7 @@ export function courseViewEffect(input: {
         })()
       : undefined;
 
-    const lessons = selectedCourse?.filePath
-      ? selectedCourse.sections.flatMap((section) =>
-          section.lessons.map((lesson) => ({
-            id: lesson.id,
-            fullPath: `${selectedCourse.filePath}/${section.path}/${lesson.path}`,
-          }))
-        )
-      : [];
+    const lessons: { id: string; fullPath: string }[] = [];
 
     const hasExportedVideoMap = selectedCourse
       ? runtimeLive.runPromise(

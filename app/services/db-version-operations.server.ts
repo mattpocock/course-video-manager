@@ -648,7 +648,7 @@ export const createVersionOperations = (db: Database) => {
    * Resolves a single lesson's on-disk directory relative to the repo root
    * ("NN-section/NN.MM-lesson"), computed on read from (title, rank). For
    * partial-slice fs-join callers that hold one lesson without its siblings.
-   * The caller keeps owning repo.filePath.
+   * The caller keeps owning the course identity.
    */
   const resolveLessonDir = Effect.fn("resolveLessonDir")(function* (
     lessonId: string

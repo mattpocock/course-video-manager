@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { OpenFolderService } from "@/services/open-folder-service";
 import { makeAction } from "@/services/route-action.server";
-import { data } from "react-router";
+import { getVideoFilePath } from "@/services/video-files";
 
 export const action = makeAction({
   dump: false,
@@ -13,16 +13,8 @@ export const action = makeAction({
       const openFolder = yield* OpenFolderService;
 
       const video = yield* videoOps.getVideoDeepById(params.videoId!);
-
-      if (!video.lesson) {
-        return data(
-          { error: "Video is not connected to a repo" },
-          { status: 400 }
-        );
-      }
-
-      const repo = video.lesson.section.repoVersion.repo;
-      yield* openFolder.openInVSCode(repo.filePath!);
+      const videoDir = getVideoFilePath(video.lineageId);
+      yield* openFolder.openInVSCode(videoDir);
 
       return { success: true };
     }),

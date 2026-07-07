@@ -64,7 +64,6 @@ describe("createCourse uniqueness guard", () => {
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       const course = yield* courseOps.createCourse({
-        filePath: "/some/path",
         name: "My Course",
       });
       expect(course.slug).toBe("my-course");
@@ -75,12 +74,11 @@ describe("createCourse uniqueness guard", () => {
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       yield* courseOps.createCourse({
-        filePath: "/path/a",
         name: "My Course",
       });
 
       const error = yield* courseOps
-        .createCourse({ filePath: "/path/b", name: "My Course" })
+        .createCourse({ name: "My Course" })
         .pipe(Effect.flip);
 
       expect(error._tag).toBe("CourseNameTakenError");
@@ -92,10 +90,10 @@ describe("createCourse uniqueness guard", () => {
     () =>
       Effect.gen(function* () {
         const courseOps = yield* CourseOperationsService;
-        yield* courseOps.createCourse({ filePath: "/path/a", name: "AB" });
+        yield* courseOps.createCourse({ name: "AB" });
 
         const error = yield* courseOps
-          .createCourse({ filePath: "/path/b", name: "A/B" })
+          .createCourse({ name: "A/B" })
           .pipe(Effect.flip);
 
         expect(error._tag).toBe("CourseNameTakenError");
@@ -106,7 +104,6 @@ describe("createCourse uniqueness guard", () => {
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       const first = yield* courseOps.createCourse({
-        filePath: "/path/a",
         name: "My Course",
       });
       yield* courseOps.updateCourseArchiveStatus({
@@ -115,7 +112,6 @@ describe("createCourse uniqueness guard", () => {
       });
 
       const second = yield* courseOps.createCourse({
-        filePath: "/path/b",
         name: "My Course",
       });
       expect(second.slug).toBe("my-course");
@@ -126,7 +122,7 @@ describe("createCourse uniqueness guard", () => {
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       const error = yield* courseOps
-        .createCourse({ filePath: "/path/a", name: "///" })
+        .createCourse({ name: "///" })
         .pipe(Effect.flip);
 
       expect(error._tag).toBe("CourseNameTakenError");
@@ -134,24 +130,24 @@ describe("createCourse uniqueness guard", () => {
   );
 });
 
-describe("createGhostCourse uniqueness guard", () => {
-  it.effect("sets slug on ghost course creation", () =>
+describe("createCourse uniqueness guard (no filePath)", () => {
+  it.effect("sets slug on course creation", () =>
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
-      const course = yield* courseOps.createGhostCourse({
+      const course = yield* courseOps.createCourse({
         name: "Ghost Course",
       });
       expect(course.slug).toBe("ghost-course");
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("rejects duplicate ghost course name", () =>
+  it.effect("rejects duplicate course name", () =>
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
-      yield* courseOps.createGhostCourse({ name: "Ghost Course" });
+      yield* courseOps.createCourse({ name: "Ghost Course" });
 
       const error = yield* courseOps
-        .createGhostCourse({ name: "Ghost Course" })
+        .createCourse({ name: "Ghost Course" })
         .pipe(Effect.flip);
 
       expect(error._tag).toBe("CourseNameTakenError");
@@ -164,7 +160,6 @@ describe("updateCourseName uniqueness guard", () => {
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       const course = yield* courseOps.createCourse({
-        filePath: "/path/a",
         name: "Original",
       });
 
@@ -179,9 +174,8 @@ describe("updateCourseName uniqueness guard", () => {
   it.effect("rejects rename to a taken slug", () =>
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
-      yield* courseOps.createCourse({ filePath: "/path/a", name: "Alpha" });
+      yield* courseOps.createCourse({ name: "Alpha" });
       const beta = yield* courseOps.createCourse({
-        filePath: "/path/b",
         name: "Beta",
       });
 
@@ -197,7 +191,6 @@ describe("updateCourseName uniqueness guard", () => {
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       const course = yield* courseOps.createCourse({
-        filePath: "/path/a",
         name: "Same Name",
       });
 
@@ -212,10 +205,9 @@ describe("updateCourseName uniqueness guard", () => {
 
 describe("backfillCourseSlugs", () => {
   it("sets slug for all courses", async () => {
-    await testDb.insert(courses).values([
-      { name: "Course A", filePath: "/a" },
-      { name: "Course B", filePath: "/b" },
-    ]);
+    await testDb
+      .insert(courses)
+      .values([{ name: "Course A" }, { name: "Course B" }]);
 
     await backfillCourseSlugs(testDb as any);
 
@@ -228,8 +220,8 @@ describe("backfillCourseSlugs", () => {
     const later = new Date(now.getTime() + 1000);
 
     await testDb.insert(courses).values([
-      { id: "first", name: "My Course", filePath: "/a", createdAt: now },
-      { id: "second", name: "My Course", filePath: "/b", createdAt: later },
+      { id: "first", name: "My Course", createdAt: now },
+      { id: "second", name: "My Course", createdAt: later },
     ]);
 
     await backfillCourseSlugs(testDb as any);
@@ -253,9 +245,9 @@ describe("backfillCourseSlugs", () => {
     const t3 = new Date("2024-01-03");
 
     await testDb.insert(courses).values([
-      { id: "a", name: "Foo", filePath: "/a", createdAt: t1 },
-      { id: "b", name: "Foo", filePath: "/b", createdAt: t2 },
-      { id: "c", name: "Foo", filePath: "/c", createdAt: t3 },
+      { id: "a", name: "Foo", createdAt: t1 },
+      { id: "b", name: "Foo", createdAt: t2 },
+      { id: "c", name: "Foo", createdAt: t3 },
     ]);
 
     await backfillCourseSlugs(testDb as any);
@@ -273,13 +265,11 @@ describe("backfillCourseSlugs", () => {
       {
         id: "a",
         name: "A B",
-        filePath: "/a",
         createdAt: new Date("2024-01-01"),
       },
       {
         id: "b",
         name: "A-B",
-        filePath: "/b",
         createdAt: new Date("2024-01-02"),
       },
     ]);
@@ -296,8 +286,8 @@ describe("backfillCourseSlugs", () => {
 
   it("does not rename archived courses even if slugs collide", async () => {
     await testDb.insert(courses).values([
-      { id: "active", name: "My Course", filePath: "/a", archived: false },
-      { id: "archived", name: "My Course", filePath: "/b", archived: true },
+      { id: "active", name: "My Course", archived: false },
+      { id: "archived", name: "My Course", archived: true },
     ]);
 
     await backfillCourseSlugs(testDb as any);
@@ -319,8 +309,8 @@ describe("backfillCourseSlugs", () => {
     const sameTime = new Date("2024-01-01");
 
     await testDb.insert(courses).values([
-      { id: "zzz", name: "Same", filePath: "/a", createdAt: sameTime },
-      { id: "aaa", name: "Same", filePath: "/b", createdAt: sameTime },
+      { id: "zzz", name: "Same", createdAt: sameTime },
+      { id: "aaa", name: "Same", createdAt: sameTime },
     ]);
 
     await backfillCourseSlugs(testDb as any);

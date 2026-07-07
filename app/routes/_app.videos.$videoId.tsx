@@ -9,7 +9,6 @@ import {
 import { cn } from "@/lib/utils";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
-import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import {
   BookOpenIcon,
@@ -32,7 +31,6 @@ export const loader = makeLoader({
     Effect.gen(function* () {
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
-      const fs = yield* FileSystem.FileSystem;
       const video = yield* videoOps.getVideoWithLessonById(videoId);
 
       const [nextVideoId, previousVideoId] = yield* Effect.all([
@@ -59,10 +57,6 @@ export const loader = makeLoader({
         };
       }
 
-      const hasExplainerFolder = yield* fs.exists(
-        `${lesson.section.repoVersion.repo.filePath}/${lesson.section.path}/${lesson.path}/explainer`
-      );
-
       return {
         videoId,
         videoPath: video.path,
@@ -75,7 +69,7 @@ export const loader = makeLoader({
         nextVideoId,
         previousVideoId,
         videoCount: lesson.videos.length,
-        hasExplainerFolder,
+        hasExplainerFolder: false,
       };
     }),
 });

@@ -17,7 +17,6 @@ describe("courseViewReducer", () => {
       expect(state.isVersionSelectorModalOpen).toBe(false);
       expect(state.isRenameCourseModalOpen).toBe(false);
       expect(state.isPurgeExportsModalOpen).toBe(false);
-      expect(state.isRewriteCoursePathModalOpen).toBe(false);
       expect(state.isAddStandaloneVideoModalOpen).toBe(false);
     });
 
@@ -94,13 +93,6 @@ describe("courseViewReducer", () => {
         .send({ type: "set-purge-exports-modal-open", open: true })
         .getState();
       expect(state.isPurgeExportsModalOpen).toBe(true);
-    });
-
-    it("15. set-rewrite-course-path-modal-open: toggles", () => {
-      const state = createTester()
-        .send({ type: "set-rewrite-course-path-modal-open", open: true })
-        .getState();
-      expect(state.isRewriteCoursePathModalOpen).toBe(true);
     });
 
     it("16. set-add-standalone-video-modal-open: toggles", () => {

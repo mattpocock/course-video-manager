@@ -32,7 +32,6 @@ beforeEach(async () => {
 const insertCourse = (opts: {
   name: string;
   slug: string;
-  filePath: string;
   createdAt: Date;
   archived?: boolean;
 }) =>
@@ -41,7 +40,6 @@ const insertCourse = (opts: {
     .values({
       name: opts.name,
       slug: opts.slug,
-      filePath: opts.filePath,
       createdAt: opts.createdAt,
       archived: opts.archived ?? false,
     })
@@ -55,7 +53,6 @@ describe("course list ordering", () => {
         insertCourse({
           name: "Middle",
           slug: "middle",
-          filePath: "/tmp/middle",
           createdAt: new Date("2020-01-01T00:00:00Z"),
         })
       );
@@ -63,7 +60,6 @@ describe("course list ordering", () => {
         insertCourse({
           name: "Newest",
           slug: "newest",
-          filePath: "/tmp/newest",
           createdAt: new Date("2030-01-01T00:00:00Z"),
         })
       );
@@ -71,7 +67,6 @@ describe("course list ordering", () => {
         insertCourse({
           name: "Oldest",
           slug: "oldest",
-          filePath: "/tmp/oldest",
           createdAt: new Date("2010-01-01T00:00:00Z"),
         })
       );
@@ -95,7 +90,6 @@ describe("course list ordering", () => {
           insertCourse({
             name: "Older archived",
             slug: "older-archived",
-            filePath: "/tmp/older-archived",
             createdAt: new Date("2010-01-01T00:00:00Z"),
             archived: true,
           })
@@ -104,7 +98,6 @@ describe("course list ordering", () => {
           insertCourse({
             name: "Newer archived",
             slug: "newer-archived",
-            filePath: "/tmp/newer-archived",
             createdAt: new Date("2030-01-01T00:00:00Z"),
             archived: true,
           })

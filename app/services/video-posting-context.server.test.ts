@@ -116,7 +116,6 @@ const createLessonVideo = (setupFiles?: (lessonDir: string) => void) =>
     const videoOps = yield* VideoOperationsService;
 
     const course = yield* courseOps.createCourse({
-      filePath: tempDir,
       name: "test-course",
     });
     const version = yield* versionOps.createCourseVersion({

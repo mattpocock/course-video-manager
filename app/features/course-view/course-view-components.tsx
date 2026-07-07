@@ -5,7 +5,6 @@ import { CopyVideoModal } from "@/components/copy-video-modal";
 import { MoveVideoModal } from "@/components/move-video-modal";
 import { RenameCourseModal } from "@/components/rename-course-modal";
 import { RenameVideoModal } from "@/components/rename-video-modal";
-import { RewriteCoursePathModal } from "@/components/rewrite-course-path-modal";
 import { VersionSelectorModal } from "@/components/version-selector-modal";
 import { computeCourseStats } from "@/features/course-view/course-editor-helpers";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
@@ -302,7 +301,6 @@ export function RouteModals({
     isRenameCourseModalOpen: boolean;
     isVersionSelectorModalOpen: boolean;
     isPurgeExportsModalOpen: boolean;
-    isRewriteCoursePathModalOpen: boolean;
     isCopyTranscriptModalOpen: boolean;
     isDuplicateCourseModalOpen: boolean;
     copySectionTranscriptState: {
@@ -349,7 +347,6 @@ export function RouteModals({
         <DuplicateCourseModal
           courseId={currentCourse.id}
           currentName={currentCourse.name}
-          currentFilePath={currentCourse.filePath}
           open={viewState.isDuplicateCourseModalOpen}
           onOpenChange={(open) =>
             dispatch({ type: "set-duplicate-course-modal-open", open })
@@ -381,17 +378,6 @@ export function RouteModals({
           open={viewState.isPurgeExportsModalOpen}
           onOpenChange={(open) =>
             dispatch({ type: "set-purge-exports-modal-open", open })
-          }
-        />
-      )}
-
-      {currentCourse && currentCourse.filePath && (
-        <RewriteCoursePathModal
-          courseId={currentCourse.id}
-          currentPath={currentCourse.filePath}
-          open={viewState.isRewriteCoursePathModalOpen}
-          onOpenChange={(open) =>
-            dispatch({ type: "set-rewrite-course-path-modal-open", open })
           }
         />
       )}

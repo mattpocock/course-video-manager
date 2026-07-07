@@ -28,10 +28,7 @@ beforeEach(async () => {
 const buildFixture = () =>
   Effect.gen(function* () {
     const [course] = yield* Effect.promise(() =>
-      testDb
-        .insert(schema.courses)
-        .values({ name: "Test Course", filePath: "/tmp/test" })
-        .returning()
+      testDb.insert(schema.courses).values({ name: "Test Course" }).returning()
     );
 
     const [version] = yield* Effect.promise(() =>

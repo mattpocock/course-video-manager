@@ -33,7 +33,6 @@ async function createFullCourseStructure() {
     .insert(schema.courses)
     .values({
       name: "Original Course",
-      filePath: "/tmp/original",
       memory: "Some course notes",
     })
     .returning();
@@ -173,7 +172,7 @@ async function createFullCourseStructure() {
 }
 
 describe("duplicateCourse", () => {
-  it("creates a new course with the provided name and filePath", async () => {
+  it("creates a new course with the provided name", async () => {
     const { course } = await createFullCourseStructure();
 
     const result = await run(
@@ -182,13 +181,11 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Duplicated Course",
-          filePath: "/tmp/duplicated",
         });
       })
     );
 
     expect(result.course.name).toBe("Duplicated Course");
-    expect(result.course.filePath).toBe("/tmp/duplicated");
   });
 
   it("copies the original course's memory field", async () => {
@@ -200,7 +197,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -217,7 +213,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -239,7 +234,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -266,7 +260,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -300,7 +293,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -322,7 +314,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -354,7 +345,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -393,7 +383,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -429,7 +418,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -458,7 +446,7 @@ describe("duplicateCourse", () => {
   it("preserves entity ordering across sections and lessons", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Order Test", filePath: "/tmp/order" })
+      .values({ name: "Order Test" })
       .returning();
 
     const [version] = await testDb
@@ -479,7 +467,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -506,7 +493,6 @@ describe("duplicateCourse", () => {
           return yield* courseOps.duplicateCourse({
             sourceCourseId: "non-existent-id",
             name: "Dup",
-            filePath: "/tmp/dup",
           });
         })
       )
@@ -516,7 +502,7 @@ describe("duplicateCourse", () => {
   it("fails with NotFoundError when source course has no versions", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "No Versions", filePath: "/tmp/no-versions" })
+      .values({ name: "No Versions" })
       .returning();
 
     await expect(
@@ -526,7 +512,6 @@ describe("duplicateCourse", () => {
           return yield* courseOps.duplicateCourse({
             sourceCourseId: course!.id,
             name: "Dup",
-            filePath: "/tmp/dup",
           });
         })
       )
@@ -536,7 +521,7 @@ describe("duplicateCourse", () => {
   it("handles course with sections but no lessons", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Empty Sections", filePath: "/tmp/empty" })
+      .values({ name: "Empty Sections" })
       .returning();
 
     const [version] = await testDb
@@ -556,7 +541,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -574,7 +558,7 @@ describe("duplicateCourse", () => {
   it("copies null memory field", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "No Memory", filePath: "/tmp/no-memory" })
+      .values({ name: "No Memory" })
       .returning();
 
     await testDb
@@ -587,7 +571,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -598,7 +581,7 @@ describe("duplicateCourse", () => {
   it("uses the latest version when multiple versions exist", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Multi Version", filePath: "/tmp/multi" })
+      .values({ name: "Multi Version" })
       .returning();
 
     const [oldVersion] = await testDb
@@ -629,7 +612,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course!.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );
@@ -651,7 +633,6 @@ describe("duplicateCourse", () => {
         return yield* courseOps.duplicateCourse({
           sourceCourseId: course.id,
           name: "Dup",
-          filePath: "/tmp/dup",
         });
       })
     );

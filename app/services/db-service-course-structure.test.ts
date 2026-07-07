@@ -29,7 +29,7 @@ beforeEach(async () => {
 const buildCourseWithVideos = async () => {
   const [course] = await testDb
     .insert(schema.courses)
-    .values({ name: "Test Course", filePath: "/tmp/test-repo" })
+    .values({ name: "Test Course" })
     .returning();
 
   const [version] = await testDb
@@ -108,7 +108,6 @@ describe("getCourseStructureById - archived section filtering", () => {
           .insert(schema.courses)
           .values({
             name: "Archive Test Course",
-            filePath: "/tmp/archive-test",
           })
           .returning()
       );
@@ -154,7 +153,6 @@ describe("getCourseStructureById - archived section filtering", () => {
           .insert(schema.courses)
           .values({
             name: "All Archived Course",
-            filePath: "/tmp/all-archived",
           })
           .returning()
       );
@@ -253,7 +251,6 @@ describe("getCourseStructureById", () => {
           .insert(schema.courses)
           .values({
             name: "Memory Course",
-            filePath: "/tmp/memory-repo",
             memory: "This is the AI context for the course",
           })
           .returning()
@@ -276,7 +273,7 @@ describe("getCourseStructureById", () => {
       const [course] = yield* Effect.promise(() =>
         testDb
           .insert(schema.courses)
-          .values({ name: "Ordered Course", filePath: "/tmp/ordered" })
+          .values({ name: "Ordered Course" })
           .returning()
       );
       const [version] = yield* Effect.promise(() =>

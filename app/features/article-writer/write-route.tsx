@@ -56,7 +56,6 @@ export const loader = makeLoader({
       const videoOps = yield* VideoOperationsService;
       const courseOps = yield* CourseOperationsService;
       const linkAuthOps = yield* LinkAuthOperationsService;
-      const fs = yield* FileSystem.FileSystem;
       const publishService = yield* CoursePublishService;
       const video = yield* videoOps.getVideoWithClipsById(videoId);
       const [globalLinks, videoExists] = yield* Effect.all(
@@ -140,12 +139,6 @@ export const loader = makeLoader({
         { concurrency: "unbounded" }
       );
 
-      let nextLessonHasExplainerFolder = false;
-      if (nextLessonWithoutVideo) {
-        const explainerPath = `${nextLessonWithoutVideo.repoFilePath}/${nextLessonWithoutVideo.sectionPath}/${nextLessonWithoutVideo.lessonPath}/explainer`;
-        nextLessonHasExplainerFolder = yield* fs.exists(explainerPath);
-      }
-
       const matchingVersion = repoWithSections?.versions.find(
         (v) => v.id === section.repoVersion.id
       );
@@ -192,7 +185,7 @@ export const loader = makeLoader({
               lessonId: nextLessonWithoutVideo.lessonId,
               lessonPath: nextLessonWithoutVideo.lessonPath,
               sectionPath: nextLessonWithoutVideo.sectionPath,
-              hasExplainerFolder: nextLessonHasExplainerFolder,
+              hasExplainerFolder: false,
             }
           : null,
         memory: repoWithSections?.memory ?? "",

@@ -4,6 +4,7 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 import path from "path";
+import { getVideoFilePath } from "@/services/video-files";
 
 const deleteFileSchema = Schema.Struct({
   videoId: Schema.String,
@@ -22,22 +23,11 @@ export const action = makeAction({
       const fs = yield* FileSystem.FileSystem;
 
       const video = yield* videoOps.getVideoDeepById(parsed.videoId);
-      if (video.lessonId === null) {
-        return yield* Effect.die(
-          data("Cannot delete lesson files from standalone videos", {
-            status: 400,
-          })
-        );
-      }
 
-      const lesson = video.lesson!;
-      const repo = lesson.section.repoVersion.repo;
-      const section = lesson.section;
-      const lessonPath = path.join(repo.filePath!, section.path, lesson.path);
+      const videoDir = getVideoFilePath(video.lineageId);
+      const filePath = path.resolve(videoDir, parsed.filename);
 
-      const filePath = path.resolve(lessonPath, parsed.filename);
-
-      if (!filePath.startsWith(lessonPath + path.sep)) {
+      if (!filePath.startsWith(path.resolve(videoDir) + path.sep)) {
         return yield* Effect.die(data("Invalid filename", { status: 400 }));
       }
 

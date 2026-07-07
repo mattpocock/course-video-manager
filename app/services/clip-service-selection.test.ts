@@ -316,7 +316,6 @@ describe("ClipService", () => {
       // Insert course, courseVersion, section, lesson directly
       await testDb.insert(schema.courses).values({
         id: crypto.randomUUID(),
-        filePath: "/test",
         name: "Test Course",
       });
 

@@ -25,14 +25,13 @@ export interface IntegrationSeed {
 export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
   const [courseA] = await db
     .insert(schema.courses)
-    .values({ name: "Alpha", slug: "alpha", filePath: "/tmp/alpha" })
+    .values({ name: "Alpha", slug: "alpha" })
     .returning();
   const [courseB] = await db
     .insert(schema.courses)
     .values({
       name: "Beta",
       slug: "beta",
-      filePath: "/tmp/beta",
       archived: true,
     })
     .returning();

@@ -44,7 +44,6 @@ describe("duplicateDeliverable", () => {
         const pitchOps = yield* PitchOperationsService;
 
         const course = yield* courseOps.createCourse({
-          filePath: "/tmp/test-course",
           name: "test-course",
         });
         const pitch = yield* pitchOps.createPitch();

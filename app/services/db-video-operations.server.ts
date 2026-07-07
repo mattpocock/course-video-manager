@@ -567,7 +567,7 @@ export const createVideoOperations = (
         id: string;
         section: {
           repoVersion: {
-            repo: { id: string; filePath: string | null };
+            repo: { id: string };
           };
         };
       } | null;
@@ -603,7 +603,6 @@ export const createVideoOperations = (
                   lessonId: nextLesson.id,
                   lessonPath: nextLesson.path,
                   sectionPath: section.path,
-                  repoFilePath: repo.filePath,
                 };
               }
             }
@@ -621,7 +620,6 @@ export const createVideoOperations = (
                     lessonId: nextLesson.id,
                     lessonPath: nextLesson.path,
                     sectionPath: nextSection.path,
-                    repoFilePath: repo.filePath,
                   };
                 }
               }

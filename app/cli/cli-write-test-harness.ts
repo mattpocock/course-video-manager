@@ -92,7 +92,7 @@ export interface WriteSeed {
 export const seedWrite = async (db: TestDb): Promise<WriteSeed> => {
   const [course] = await db
     .insert(schema.courses)
-    .values({ name: "Alpha", slug: "alpha", filePath: "/tmp/alpha" })
+    .values({ name: "Alpha", slug: "alpha" })
     .returning();
   const [draftVersion] = await db
     .insert(schema.courseVersions)

@@ -43,7 +43,6 @@ export const courses = createTable(
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    filePath: text("repo_path"),
     name: text("name").notNull(),
     slug: text("slug"),
     archived: boolean("archived").notNull().default(false),

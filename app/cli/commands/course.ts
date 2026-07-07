@@ -37,8 +37,6 @@ OUTPUT (NDJSON, one compact object per line — empty set prints nothing):
   id        Stable course id (use it with 'course get' / 'course tree').
   name      Human course name.
   slug      URL/identity slug derived from the name.
-  filePath  Path to the backing CourseRepo on disk, or null for a Ghost Course
-            (a DB-only planning course with no repo yet).
   archived  Whether the course is archived (abandoned/hidden), not deleted.
   memory    Free-text authoring notes carried on the course.
 
@@ -77,7 +75,7 @@ OUTPUT
              reported on STDERR and the command exits 2; STDOUT stays pure.
   Missing single id => NotFoundError on STDERR, exit 2.
 
-Fields: the course (id, name, slug, filePath, archived, memory),
+Fields: the course (id, name, slug, archived, memory),
 draftVersionId (the resolved Draft Version, or null if the course has none),
 and sections[] = { id, path, order, description } of that Draft Version.
 
@@ -266,13 +264,11 @@ const transcriptsCmd = Command.make("transcripts", { id }, ({ id }) =>
 // ---------------------------------------------------------------------------
 
 const COURSE_HELP = `Course — the primary domain entity: a structured collection of versions,
-sections, lessons, and videos, backed by a CourseRepo (a git repo on disk) and
-published as immutable snapshots.
+sections, lessons, and videos, published as immutable snapshots.
 
 A Course's structure is snapshotted into Course Versions: a single Draft Version
-(latest, mutable) plus zero or more Published Versions (frozen at Publish). A
-Course with no filePath is a Ghost Course — a DB-only planning space. Version-
-scoped reads (tree, transcripts) default to the Draft Version.
+(latest, mutable) plus zero or more Published Versions (frozen at Publish).
+Version-scoped reads (tree, transcripts) default to the Draft Version.
 
 VERBS
   list                 All courses (--archived to include archived).

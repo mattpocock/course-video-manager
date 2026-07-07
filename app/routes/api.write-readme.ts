@@ -4,6 +4,7 @@ import { CloudinaryMarkdownService } from "@/services/cloudinary-markdown-servic
 import { FileSystem } from "@effect/platform";
 import { Effect, Schema } from "effect";
 import path from "node:path";
+import { getVideoFilePath } from "@/services/video-files";
 
 const writeReadmeSchema = Schema.Struct({
   lessonId: Schema.String,
@@ -27,16 +28,20 @@ export const action = makeAction({
       const parsed = yield* Schema.decodeUnknown(writeReadmeSchema)(payload);
       const { lessonId, mode, targetFolder } = parsed;
 
-      const lesson =
-        yield* lessonSectionOps.getLessonWithHierarchyById(lessonId);
-      const lessonFullPath = path.join(
-        lesson.section.repoVersion.repo.filePath!,
-        lesson.section.path,
-        lesson.path
+      const lesson = yield* lessonSectionOps.getLessonById(lessonId);
+      if (lesson.videos.length === 0) {
+        return Response.json(
+          { success: false, error: "No videos found for lesson" },
+          { status: 400 }
+        );
+      }
+
+      const videoDir = path.resolve(
+        getVideoFilePath(lesson.videos[0]!.lineageId)
       );
 
       const uploadResult = yield* cloudinaryMarkdown
-        .uploadImagesInMarkdown(parsed.content, lessonFullPath)
+        .uploadImagesInMarkdown(parsed.content, videoDir)
         .pipe(
           Effect.catchAll(() =>
             Effect.succeed({
@@ -53,15 +58,15 @@ export const action = makeAction({
 
       let targetPath: string;
       if (targetFolder) {
-        const folderPath = path.join(lessonFullPath, targetFolder);
+        const folderPath = path.join(videoDir, targetFolder);
         const folderExists = yield* fs.exists(folderPath);
         if (!folderExists) {
           yield* fs.makeDirectory(folderPath, { recursive: true });
         }
         targetPath = path.join(folderPath, "readme.md");
       } else {
-        const explainerPath = path.join(lessonFullPath, "explainer");
-        const problemPath = path.join(lessonFullPath, "problem");
+        const explainerPath = path.join(videoDir, "explainer");
+        const problemPath = path.join(videoDir, "problem");
 
         const explainerExists = yield* fs.exists(explainerPath);
         const problemExists = yield* fs.exists(problemPath);

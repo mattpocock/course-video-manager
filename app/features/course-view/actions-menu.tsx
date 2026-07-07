@@ -19,7 +19,6 @@ import {
   FileText,
   FileX,
   PencilIcon,
-  FolderPen,
   ClipboardCopy,
   Upload,
 } from "lucide-react";
@@ -47,7 +46,7 @@ export function ActionsDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        {data.isLatestVersion && currentCourse.filePath && (
+        {data.isLatestVersion && (
           <>
             <DropdownMenuItem
               disabled={!data.selectedVersion}
@@ -77,7 +76,7 @@ export function ActionsDropdown({
           </>
         )}
 
-        {currentCourse.filePath && <DropdownMenuSeparator />}
+        <DropdownMenuSeparator />
         <DropdownMenuLabel>Course</DropdownMenuLabel>
         <DropdownMenuGroup>
           <DropdownMenuItem
@@ -96,24 +95,6 @@ export function ActionsDropdown({
               </span>
             </div>
           </DropdownMenuItem>
-          {currentCourse.filePath && (
-            <DropdownMenuItem
-              onSelect={() =>
-                dispatch({
-                  type: "set-rewrite-course-path-modal-open",
-                  open: true,
-                })
-              }
-            >
-              <FolderPen className="w-4 h-4 mr-2" />
-              <div className="flex flex-col">
-                <span className="font-medium">Rewrite Course Repo Path</span>
-                <span className="text-xs text-muted-foreground">
-                  Change course repo file path
-                </span>
-              </div>
-            </DropdownMenuItem>
-          )}
           {currentCourse.sections.some((s) => s.lessons.length > 0) && (
             <DropdownMenuItem
               onSelect={() =>
@@ -215,7 +196,7 @@ export function ActionsDropdown({
             </>
           )}
 
-        {data.selectedVersion && currentCourse.filePath && (
+        {data.selectedVersion && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Storage</DropdownMenuLabel>

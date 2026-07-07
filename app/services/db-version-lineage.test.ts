@@ -31,7 +31,7 @@ describe("lineageId copy-forward", () => {
   it("copies section lineageId forward unchanged on version clone", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test", filePath: "/tmp/test" })
+      .values({ name: "Test" })
       .returning();
 
     const [version] = await testDb
@@ -67,7 +67,7 @@ describe("lineageId copy-forward", () => {
   it("copies lesson lineageId forward unchanged on version clone", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test", filePath: "/tmp/test" })
+      .values({ name: "Test" })
       .returning();
 
     const [version] = await testDb
@@ -115,7 +115,7 @@ describe("lineageId copy-forward", () => {
   it("copies video lineageId forward unchanged on version clone", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test", filePath: "/tmp/test" })
+      .values({ name: "Test" })
       .returning();
 
     const [version] = await testDb
@@ -175,7 +175,7 @@ describe("lineageId copy-forward", () => {
   it("assigns fresh lineageId to genuinely new rows", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test", filePath: "/tmp/test" })
+      .values({ name: "Test" })
       .returning();
 
     const [version] = await testDb
@@ -201,7 +201,7 @@ describe("lineageId copy-forward", () => {
   it("preserves lineageId across two successive clones", async () => {
     const [course] = await testDb
       .insert(schema.courses)
-      .values({ name: "Test", filePath: "/tmp/test" })
+      .values({ name: "Test" })
       .returning();
 
     const [v1] = await testDb

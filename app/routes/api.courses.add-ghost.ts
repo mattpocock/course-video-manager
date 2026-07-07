@@ -18,7 +18,7 @@ export const action = makeAction({
       const courseOps = yield* CourseOperationsService;
       const versionOps = yield* VersionOperationsService;
 
-      const course = yield* courseOps.createGhostCourse({
+      const course = yield* courseOps.createCourse({
         name: result.name,
       });
 

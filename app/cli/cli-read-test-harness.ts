@@ -95,14 +95,13 @@ export interface ReadSeed {
 export const seedRead = async (db: TestDb): Promise<ReadSeed> => {
   const [courseA] = await db
     .insert(schema.courses)
-    .values({ name: "Alpha", slug: "alpha", filePath: "/tmp/alpha" })
+    .values({ name: "Alpha", slug: "alpha" })
     .returning();
   const [courseB] = await db
     .insert(schema.courses)
     .values({
       name: "Beta",
       slug: "beta",
-      filePath: "/tmp/beta",
       archived: true,
     })
     .returning();

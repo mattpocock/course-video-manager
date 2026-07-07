@@ -66,12 +66,10 @@ export function setupEditorServiceTests() {
 // Test helpers
 // ============================================================================
 
-export async function createCourseWithVersion(
-  filePath: string | null = "/tmp/test-repo"
-) {
+export async function createCourseWithVersion() {
   const [course] = await testDb
     .insert(schema.courses)
-    .values({ name: "Test Course", filePath })
+    .values({ name: "Test Course" })
     .returning();
 
   const [version] = await testDb

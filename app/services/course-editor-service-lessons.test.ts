@@ -70,7 +70,7 @@ describe("CourseEditorService — lessons", () => {
 
   describe("create-real-lesson", () => {
     it("creates a real lesson in a section with a parseable path", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const [section] = await db()
         .insert(schema.sections)
         .values({
@@ -96,7 +96,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("real lesson starts with authoringStatus 'todo'", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const [section] = await db()
         .insert(schema.sections)
         .values({
@@ -115,7 +115,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("creates a real lesson even when the course has no filePath", async () => {
-      const { version } = await createCourseWithVersion(null);
+      const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
       const result = await svc().createRealLesson(s.sectionId, "My Lesson");
       expect(result).toMatchObject({ success: true });
@@ -231,7 +231,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("soft-deletes a real lesson without renumbering siblings", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { section, lessons } = await createSectionWithLessons(
         version.id,
         "01-intro",
@@ -273,7 +273,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("reorders real lessons by updating order values only", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { section, lessons } = await createSectionWithLessons(
         version.id,
         "01-intro",
@@ -312,7 +312,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("moves a real lesson to an empty section and updates paths via planner", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { lessons } = await createSectionWithLessons(
         version.id,
         "01-basics",
@@ -347,7 +347,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("renumbers remaining source lessons after a move", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { section: s1, lessons } = await createSectionWithLessons(
         version.id,
         "01-basics",
@@ -384,7 +384,7 @@ describe("CourseEditorService — lessons", () => {
 
   describe("convert-to-ghost", () => {
     it("is a no-op that returns success", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { lessons } = await createSectionWithLessons(
         version.id,
         "01-intro",
@@ -399,7 +399,7 @@ describe("CourseEditorService — lessons", () => {
 
   describe("set-lesson-authoring-status", () => {
     it("marks a todo lesson as done", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const [section] = await db()
         .insert(schema.sections)
         .values({
@@ -424,7 +424,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("marks a done lesson back to todo", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { lessons } = await createSectionWithLessons(
         version.id,
         "01-intro",
@@ -450,7 +450,7 @@ describe("CourseEditorService — lessons", () => {
     });
 
     it("set-lesson-authoring-status round-trips between done and todo", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { lessons } = await createSectionWithLessons(
         version.id,
         "01-intro",
@@ -479,7 +479,7 @@ describe("CourseEditorService — lessons", () => {
 
   describe("create-on-disk", () => {
     it("is a no-op that returns success", async () => {
-      const { version } = await createCourseWithVersion("/tmp/test-repo");
+      const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
         "01-introduction",

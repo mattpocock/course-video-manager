@@ -43,7 +43,6 @@ export namespace courseViewReducer {
     isVersionSelectorModalOpen: boolean;
     isRenameCourseModalOpen: boolean;
     isPurgeExportsModalOpen: boolean;
-    isRewriteCoursePathModalOpen: boolean;
     isAddStandaloneVideoModalOpen: boolean;
     isCopyTranscriptModalOpen: boolean;
     isDuplicateCourseModalOpen: boolean;
@@ -90,7 +89,6 @@ export namespace courseViewReducer {
     | { type: "set-version-selector-modal-open"; open: boolean }
     | { type: "set-rename-course-modal-open"; open: boolean }
     | { type: "set-purge-exports-modal-open"; open: boolean }
-    | { type: "set-rewrite-course-path-modal-open"; open: boolean }
     | { type: "set-add-standalone-video-modal-open"; open: boolean }
     | { type: "set-copy-transcript-modal-open"; open: boolean }
     | { type: "set-duplicate-course-modal-open"; open: boolean }
@@ -190,7 +188,6 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     isVersionSelectorModalOpen: false,
     isRenameCourseModalOpen: false,
     isPurgeExportsModalOpen: false,
-    isRewriteCoursePathModalOpen: false,
     isAddStandaloneVideoModalOpen: false,
     isCopyTranscriptModalOpen: false,
     isDuplicateCourseModalOpen: false,
@@ -241,8 +238,6 @@ export const courseViewReducer: EffectReducer<
       return { ...state, isRenameCourseModalOpen: action.open };
     case "set-purge-exports-modal-open":
       return { ...state, isPurgeExportsModalOpen: action.open };
-    case "set-rewrite-course-path-modal-open":
-      return { ...state, isRewriteCoursePathModalOpen: action.open };
     case "set-add-standalone-video-modal-open":
       return { ...state, isAddStandaloneVideoModalOpen: action.open };
     case "set-copy-transcript-modal-open":

@@ -34,7 +34,6 @@ export const makeDuplicateCourse = (db: Database) =>
   Effect.fn("duplicateCourse")(function* (input: {
     sourceCourseId: string;
     name: string;
-    filePath: string;
   }) {
     // Fetch source course
     const sourceCourse = yield* makeDbCall(() =>
@@ -72,7 +71,6 @@ export const makeDuplicateCourse = (db: Database) =>
         .insert(courses)
         .values({
           name: input.name,
-          filePath: input.filePath,
           memory: sourceCourse.memory,
         })
         .returning()

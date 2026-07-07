@@ -16,11 +16,9 @@ import {
 // ===========================================================================
 // cvm WRITE verbs — lesson update (rename) + move (reorder / re-home)
 //
-// All fixtures use a GHOST course (no filePath) with GHOST lessons, so the move
-// planner emits zero filesystem ops and the disk-sync validation short-circuits
-// (repoPath === null). That exercises the full CLI → CourseWriteService wiring,
-// the planner, and the Draft guard as a pure DB path over PGlite. The on-disk
-// renumber / git-mv cascade for REAL lessons is covered by the service's own
+// All fixtures use a course with lessons. That exercises the full CLI →
+// CourseWriteService wiring, the planner, and the Draft guard as a pure DB path
+// over PGlite. The service's own
 // suites (lesson-move-planner, course-repo-write-*).
 //
 // CLI convention: options come BEFORE the positional <id> (a flag after the id
@@ -81,14 +79,14 @@ const addGhost = async (
 };
 
 /**
- * A ghost course (filePath null) with two sections of ghost lessons, plus an
- * older frozen version carrying one lesson (for the Draft-guard tests). The
- * draft is the NEWER version by createdAt.
+ * A course with two sections of lessons, plus an older frozen version carrying
+ * one lesson (for the Draft-guard tests). The draft is the NEWER version by
+ * createdAt.
  */
 const seedMove = async (db: TestDb): Promise<MoveSeed> => {
   const [course] = await db
     .insert(schema.courses)
-    .values({ name: "Beta", slug: "beta" }) // no filePath => ghost course
+    .values({ name: "Beta", slug: "beta" })
     .returning();
 
   const [oldVersion] = await db
@@ -236,13 +234,7 @@ describe("lesson update --title", () => {
 
 describe("lesson move (same-section reorder)", () => {
   it("--before puts the lesson immediately before the anchor", async () => {
-    const { exitCode } = await run([
-      "lesson",
-      "move",
-      "--before",
-      s.a1,
-      s.a3,
-    ]);
+    const { exitCode } = await run(["lesson", "move", "--before", s.a1, s.a3]);
     expect(exitCode).toBe(0);
     expect(await orderOf(s.sectionAId)).toEqual([s.a3, s.a1, s.a2]);
   });
@@ -260,13 +252,7 @@ describe("lesson move (same-section reorder)", () => {
   });
 
   it("rejects moving a lesson relative to itself (exit 3)", async () => {
-    const { exitCode } = await run([
-      "lesson",
-      "move",
-      "--before",
-      s.a1,
-      s.a1,
-    ]);
+    const { exitCode } = await run(["lesson", "move", "--before", s.a1, s.a1]);
     expect(exitCode).toBe(3);
   });
 

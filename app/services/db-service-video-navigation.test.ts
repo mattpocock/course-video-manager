@@ -41,7 +41,7 @@ const buildCourseFixture = async (
 ) => {
   const [course] = await testDb
     .insert(schema.courses)
-    .values({ name: "Test Course", filePath: "/tmp/test-repo" })
+    .values({ name: "Test Course" })
     .returning();
 
   const [version] = await testDb
@@ -505,7 +505,6 @@ describe("getNextLessonWithoutVideo", () => {
       expect(result).not.toBeNull();
       expect(result!.lessonPath).toBe("lesson-02");
       expect(result!.sectionPath).toBe("section-01");
-      expect(result!.repoFilePath).toBe("/tmp/test-repo");
     }).pipe(Effect.provide(testLayer))
   );
 
