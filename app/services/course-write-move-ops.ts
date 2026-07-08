@@ -16,7 +16,6 @@ type DbSection = {
     id: string;
     title: string;
     order: number;
-    fsStatus: string | null;
   }[];
 };
 
@@ -29,7 +28,6 @@ const toPlannerSections = (dbSections: DbSection[]) => {
       id: l.id,
       path: derived.get(l.id) ?? (toSlug(l.title) || "untitled"),
       order: l.order,
-      fsStatus: l.fsStatus,
     })),
   }));
 };

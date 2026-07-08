@@ -37,18 +37,17 @@ beforeEach(async () => {
   s = await seedWrite(testDb);
 });
 
-describe("lesson create (ghost)", () => {
+describe("lesson create", () => {
   interface Lesson {
     id: string;
     sectionId: string;
     title: string;
     order: number;
-    fsStatus: string;
     authoringStatus: string | null;
     archived: boolean;
   }
 
-  it("creates a ghost lesson appended to the section, echoing the row", async () => {
+  it("creates a lesson appended to the section, echoing the row", async () => {
     const { stdout, stderr, exitCode } = await run([
       "lesson",
       "create",
@@ -63,8 +62,7 @@ describe("lesson create (ghost)", () => {
     const lesson = one<Lesson>(stdout);
     expect(lesson.sectionId).toBe(s.draftSectionId);
     expect(lesson.title).toBe("Intro to Effect");
-    expect(lesson.fsStatus).toBe("ghost");
-    expect(lesson.authoringStatus).toBeNull(); // ghosts have no authoring status
+    expect(lesson.authoringStatus).toBe("todo");
     expect(lesson.archived).toBe(false);
     expect(lesson.order).toBeGreaterThan(1); // appended after the seed lesson
     const list = ndjson(

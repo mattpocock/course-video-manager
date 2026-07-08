@@ -17,7 +17,6 @@ function makeLesson(overrides: Partial<Lesson> = {}): Lesson {
     previousVersionLessonId: null,
     path: "lesson-path",
     title: null,
-    fsStatus: "real",
     description: null,
     icon: null,
     priority: 2,
@@ -37,7 +36,6 @@ function makeSection(
   return {
     id: "section-1",
     path: "section-path",
-    fsStatus: "real",
     order: "a0",
     lessons,
     ...overrides,
@@ -445,11 +443,10 @@ describe("computeTodoCount", () => {
     expect(computeTodoCount(sections, noFilters)).toBe(0);
   });
 
-  it("counts a ghost lesson with authoringStatus todo", () => {
+  it("counts a lesson with authoringStatus todo", () => {
     const sections = [
       makeSection([
         makeLesson({
-          fsStatus: "ghost",
           authoringStatus: "todo",
           videos: [],
         }),
@@ -462,7 +459,6 @@ describe("computeTodoCount", () => {
     const sections = [
       makeSection([
         makeLesson({
-          fsStatus: "ghost",
           authoringStatus: null,
           videos: [],
         }),
@@ -507,11 +503,11 @@ describe("computeCourseStats", () => {
     totalDuration: 120,
   } as Lesson["videos"][number];
 
-  it("counts all lessons regardless of fsStatus", () => {
+  it("counts all lessons", () => {
     const sections = [
       makeSection([
-        makeLesson({ id: "l1", fsStatus: "real", videos: [video] }),
-        makeLesson({ id: "l2", fsStatus: "ghost", videos: [] }),
+        makeLesson({ id: "l1", videos: [video] }),
+        makeLesson({ id: "l2", videos: [] }),
       ]),
     ];
     const stats = computeCourseStats(sections);

@@ -7,21 +7,19 @@ export async function assertNoBlankLessonTitles(db: DrizzleDB) {
     .select({
       id: lessons.id,
       title: lessons.title,
-      fsStatus: lessons.fsStatus,
     })
     .from(lessons)
     .where(eq(lessons.archived, false));
 
   const blanks: string[] = [];
   for (const lesson of allLessons) {
-    if (lesson.fsStatus === "ghost") continue;
     if (lesson.title !== "") continue;
     blanks.push(lesson.id);
   }
 
   if (blanks.length > 0) {
     throw new Error(
-      `Post-condition failed: ${blanks.length} real lesson(s) have blank title: ${blanks.join(", ")}`
+      `Post-condition failed: ${blanks.length} lesson(s) have blank title: ${blanks.join(", ")}`
     );
   }
 }

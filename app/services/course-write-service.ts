@@ -83,7 +83,6 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         );
 
         yield* lessonSectionOps.updateLesson(newLesson!.id, {
-          fsStatus: "real",
           authoringStatus: "todo",
         });
 

@@ -409,7 +409,6 @@ export const createVersionOperations = (db: Database) => {
                 previousVersionLessonId: sourceLesson.id,
                 lineageId: sourceLesson.lineageId,
                 order: sourceLesson.order,
-                fsStatus: sourceLesson.fsStatus,
                 title: sourceLesson.title,
                 description: sourceLesson.description,
                 icon: sourceLesson.icon,
@@ -590,39 +589,31 @@ export const createVersionOperations = (db: Database) => {
           name: version.name,
           description: version.description,
           createdAt: version.createdAt,
-          sections: version.sections
-            .filter(
-              (s) =>
-                s.lessons.length === 0 ||
-                s.lessons.some((l) => l.fsStatus !== "ghost")
-            )
-            .map((s) => ({
-              id: s.id,
-              path: derivedPaths.get(s.id) ?? "",
-              previousVersionSectionId: s.previousVersionSectionId,
-              lessons: s.lessons
-                .filter((l) => l.fsStatus !== "ghost")
-                .map((l) => ({
-                  id: l.id,
-                  path: derivedPaths.get(l.id) ?? "",
-                  previousVersionLessonId: l.previousVersionLessonId,
-                  authoringStatus: l.authoringStatus as "todo" | "done" | null,
-                  videos: l.videos.map((v) => ({
-                    id: v.id,
-                    title: v.title,
-                    transcript: toTranscriptItems(v.clips, v.chapters),
-                  })),
-                })),
+          sections: version.sections.map((s) => ({
+            id: s.id,
+            path: derivedPaths.get(s.id) ?? "",
+            previousVersionSectionId: s.previousVersionSectionId,
+            lessons: s.lessons.map((l) => ({
+              id: l.id,
+              path: derivedPaths.get(l.id) ?? "",
+              previousVersionLessonId: l.previousVersionLessonId,
+              authoringStatus: l.authoringStatus as "todo" | "done" | null,
+              videos: l.videos.map((v) => ({
+                id: v.id,
+                title: v.title,
+                transcript: toTranscriptItems(v.clips, v.chapters),
+              })),
             })),
+          })),
         };
       });
     }
   );
 
   /**
-   * Loads a version's real-sibling tree (id/order/title/fsStatus only) so the
-   * pure per-version projection can derive folder names. Single query; used by
-   * the single-item resolvers below for partial-slice fs-join callers.
+   * Loads a version's sibling tree (id/order/title only) so the pure
+   * per-version projection can derive folder names. Single query; used by
+   * the single-item resolvers below for partial-slice callers.
    */
   const loadVersionTreeForProjection = (repoVersionId: string) =>
     makeDbCall(() =>
@@ -637,7 +628,7 @@ export const createVersionOperations = (db: Database) => {
           lessons: {
             where: eq(lessons.archived, false),
             orderBy: asc(lessons.order),
-            columns: { id: true, order: true, title: true, fsStatus: true },
+            columns: { id: true, order: true, title: true },
           },
         },
       })

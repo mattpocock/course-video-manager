@@ -204,17 +204,13 @@ function loadCourseStructure(
       repoName: repoWithSections!.name,
       currentSectionPath,
       currentLessonPath,
-      sections: matchingVersion.sections
-        .filter((s) => s.lessons.some((l) => l.fsStatus === "real"))
-        .map((s) => ({
-          path: derivedPaths.get(s.id) ?? s.title,
-          lessons: s.lessons
-            .filter((l) => l.fsStatus === "real")
-            .map((l) => ({
-              path: derivedPaths.get(l.id) ?? l.title,
-              description: l.description || undefined,
-            })),
+      sections: matchingVersion.sections.map((s) => ({
+        path: derivedPaths.get(s.id) ?? s.title,
+        lessons: s.lessons.map((l) => ({
+          path: derivedPaths.get(l.id) ?? l.title,
+          description: l.description || undefined,
         })),
+      })),
     } satisfies CourseStructure;
   });
 }

@@ -49,7 +49,6 @@ async function seedVideo() {
     .values({
       sectionId: section!.id,
       order: 1,
-      fsStatus: "real",
       title: "Lesson",
       authoringStatus: "done",
     })

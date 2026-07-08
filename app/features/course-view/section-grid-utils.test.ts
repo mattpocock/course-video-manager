@@ -13,7 +13,6 @@ function makeLesson(overrides: Partial<Lesson> = {}): Lesson {
     previousVersionLessonId: null,
     path: "lesson-path",
     title: null,
-    fsStatus: "real",
     description: null,
     icon: null,
     priority: 2,
@@ -59,8 +58,8 @@ describe("filterLessons", () => {
     expect(filteredLessons).toHaveLength(0);
   });
 
-  it("todo filter excludes ghost lessons", () => {
-    const lessons = [makeLesson({ fsStatus: "ghost", authoringStatus: null })];
+  it("todo filter excludes lessons with null authoringStatus", () => {
+    const lessons = [makeLesson({ authoringStatus: null })];
     const { filteredLessons } = filterLessons(lessons, {
       ...noFilters,
       todoFilter: true,
@@ -95,10 +94,9 @@ describe("filterLessons", () => {
     expect(filteredLessons[0]!.id).toBe("p1");
   });
 
-  it("todo filter includes lesson with authoringStatus=todo regardless of fsStatus", () => {
+  it("todo filter includes lesson with authoringStatus=todo", () => {
     const lessons = [
       makeLesson({
-        fsStatus: null as unknown as string,
         authoringStatus: "todo",
       }),
     ];
@@ -113,7 +111,7 @@ describe("filterLessons", () => {
     const lessons = [
       makeLesson({ id: "l1", authoringStatus: "todo" }),
       makeLesson({ id: "l2", authoringStatus: "done" }),
-      makeLesson({ id: "l3", fsStatus: "ghost", authoringStatus: null }),
+      makeLesson({ id: "l3", authoringStatus: null }),
     ];
     const { filteredLessons, hasActiveFilters } = filterLessons(
       lessons,

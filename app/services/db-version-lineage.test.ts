@@ -85,7 +85,6 @@ describe("lineageId copy-forward", () => {
       .values({
         sectionId: section!.id,
         order: 1,
-        fsStatus: "real",
         title: "Lesson",
         authoringStatus: "done",
       })
@@ -132,7 +131,6 @@ describe("lineageId copy-forward", () => {
       .values({
         sectionId: section!.id,
         order: 1,
-        fsStatus: "real",
         title: "Lesson",
         authoringStatus: "done",
       })

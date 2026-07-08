@@ -70,7 +70,6 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
       sectionId: draftSection!.id,
       title: "Welcome",
       order: 1,
-      fsStatus: "real",
       authoringStatus: "done",
     })
     .returning();
@@ -130,7 +129,6 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
       sectionId: draftSection!.id,
       title: "Deleted lesson",
       order: 2,
-      fsStatus: "real",
       authoringStatus: "done",
       archived: true,
     })

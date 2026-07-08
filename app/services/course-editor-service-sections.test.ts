@@ -20,7 +20,6 @@ import {
 // real or ghost under that rule.
 const realLesson = (order: number) => ({
   title: `Lesson ${order}`,
-  fsStatus: "real",
   order,
 });
 
@@ -213,13 +212,11 @@ describe("CourseEditorService — sections", () => {
           {
             sectionId: createResult.sectionId,
             title: "Lesson One",
-            fsStatus: "ghost",
             order: 1,
           },
           {
             sectionId: createResult.sectionId,
             title: "Lesson Two",
-            fsStatus: "ghost",
             order: 2,
           },
         ]);
@@ -243,7 +240,6 @@ describe("CourseEditorService — sections", () => {
       await db().insert(schema.lessons).values({
         sectionId: createResult.sectionId,
         title: "Real Lesson",
-        fsStatus: "real",
         order: 1,
         authoringStatus: "done",
       });
@@ -268,13 +264,11 @@ describe("CourseEditorService — sections", () => {
           {
             sectionId: createResult.sectionId,
             title: "Ghost Lesson",
-            fsStatus: "ghost",
             order: 1,
           },
           {
             sectionId: createResult.sectionId,
             title: "Real Lesson",
-            fsStatus: "real",
             order: 2,
             authoringStatus: "done",
           },

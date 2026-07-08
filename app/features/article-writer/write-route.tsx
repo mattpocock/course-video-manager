@@ -149,12 +149,10 @@ export const loader = makeLoader({
             currentLessonPath: lesson.title,
             sections: matchingVersion.sections.map((s) => ({
               path: s.title,
-              lessons: s.lessons
-                .filter((l) => l.fsStatus === "real")
-                .map((l) => ({
-                  path: l.title,
-                  description: l.description || undefined,
-                })),
+              lessons: s.lessons.map((l) => ({
+                path: l.title,
+                description: l.description || undefined,
+              })),
             })),
           }
         : null;

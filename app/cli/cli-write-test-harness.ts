@@ -112,7 +112,6 @@ export const seedWrite = async (db: TestDb): Promise<WriteSeed> => {
       sectionId: draftSection!.id,
       title: "Welcome",
       order: 1,
-      fsStatus: "real",
       authoringStatus: "done",
     })
     .returning();

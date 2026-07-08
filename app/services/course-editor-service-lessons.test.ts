@@ -37,7 +37,6 @@ describe("CourseEditorService — lessons", () => {
       expect(lessons).toHaveLength(1);
       expect(lessons[0]).toMatchObject({
         title: "My Lesson",
-        fsStatus: "real",
       });
     });
 
@@ -91,7 +90,6 @@ describe("CourseEditorService — lessons", () => {
 
       const lessons = await getLessons(section!.id);
       expect(lessons).toHaveLength(1);
-      expect(lessons[0]!.fsStatus).toBe("real");
     });
 
     it("real lesson starts with authoringStatus 'todo'", async () => {
@@ -235,9 +233,9 @@ describe("CourseEditorService — lessons", () => {
         "01-intro",
         0,
         [
-          { title: "First", fsStatus: "real", order: 0 },
-          { title: "Second", fsStatus: "real", order: 1 },
-          { title: "Third", fsStatus: "real", order: 2 },
+          { title: "First", order: 0 },
+          { title: "Second", order: 1 },
+          { title: "Third", order: 2 },
         ]
       );
 
@@ -277,9 +275,9 @@ describe("CourseEditorService — lessons", () => {
         "01-intro",
         0,
         [
-          { title: "Alpha", fsStatus: "real", order: 0 },
-          { title: "Beta", fsStatus: "real", order: 1 },
-          { title: "Gamma", fsStatus: "real", order: 2 },
+          { title: "Alpha", order: 0 },
+          { title: "Beta", order: 1 },
+          { title: "Gamma", order: 2 },
         ]
       );
 
@@ -318,12 +316,10 @@ describe("CourseEditorService — lessons", () => {
         [
           {
             title: "Alpha",
-            fsStatus: "real",
             order: 0,
           },
           {
             title: "Beta",
-            fsStatus: "real",
             order: 1,
           },
         ]
@@ -351,12 +347,10 @@ describe("CourseEditorService — lessons", () => {
         [
           {
             title: "Alpha",
-            fsStatus: "real",
             order: 0,
           },
           {
             title: "Beta",
-            fsStatus: "real",
             order: 1,
           },
         ]
@@ -371,8 +365,7 @@ describe("CourseEditorService — lessons", () => {
       await svc().moveLessonToSection(lessons[0]!.id, s2.id);
 
       const sourceLessons = await getLessons(s1.id);
-      const realLessons = sourceLessons.filter((l) => l.fsStatus === "real");
-      expect(realLessons[0]!.title).toBe("Beta");
+      expect(sourceLessons[0]!.title).toBe("Beta");
     });
   });
 
@@ -411,7 +404,6 @@ describe("CourseEditorService — lessons", () => {
         [
           {
             title: "Lesson",
-            fsStatus: "real",
             order: 0,
           },
         ]
@@ -436,7 +428,6 @@ describe("CourseEditorService — lessons", () => {
         [
           {
             title: "Lesson",
-            fsStatus: "real",
             order: 0,
           },
         ]

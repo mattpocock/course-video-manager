@@ -161,7 +161,6 @@ export const makeDuplicateCourse = (db: Database) =>
               sectionId: newSection.id,
               previousVersionLessonId: null,
               order: sourceLesson.order,
-              fsStatus: sourceLesson.fsStatus,
               title: sourceLesson.title,
               description: sourceLesson.description,
               icon: sourceLesson.icon,

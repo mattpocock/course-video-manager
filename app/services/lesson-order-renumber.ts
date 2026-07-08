@@ -7,7 +7,6 @@
 export interface LessonForRenumber {
   id: string;
   order: number;
-  fsStatus: string;
 }
 
 /**

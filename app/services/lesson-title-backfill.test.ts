@@ -38,7 +38,6 @@ describe("assertNoBlankLessonTitles", () => {
     });
     await createLesson(testDb, section.id, "hello", 1, {
       id: "l1",
-      fsStatus: "real",
       title: "Hello",
     });
 

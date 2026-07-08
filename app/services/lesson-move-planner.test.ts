@@ -6,19 +6,11 @@ import {
   type PlannerSection,
 } from "./lesson-move-planner";
 
-/** Compact builder: real lesson. */
+/** Compact builder for a lesson. */
 const real = (id: string, path: string, order: number) => ({
   id,
   path,
   order,
-  fsStatus: "real" as const,
-});
-/** Compact builder: ghost lesson. */
-const ghost = (id: string, path: string, order: number) => ({
-  id,
-  path,
-  order,
-  fsStatus: "ghost" as const,
 });
 
 /** Maps lessonUpdates to a {id: {sectionId, order}} lookup. */
@@ -180,41 +172,6 @@ describe("planLessonMove", () => {
       });
       const updates = byId(plan.lessonUpdates);
       expect(updates.a!.order).toBeLessThan(5);
-    });
-  });
-
-  describe("ghost lesson", () => {
-    it("moves DB-only with no filesystem ops and no section changes", () => {
-      const sections: PlannerSection[] = [
-        {
-          id: "s1",
-          path: "01-intro",
-          lessons: [real("r", "01.01-r", 0), ghost("g", "ghost-lesson", 1)],
-        },
-        {
-          id: "s2",
-          path: "02-next",
-          lessons: [real("x", "02.01-x", 0)],
-        },
-      ];
-      const plan = planLessonMove({
-        sections,
-        lessonId: "g",
-        targetSectionId: "s2",
-        beforeLessonId: null,
-      });
-
-      expect(plan.fsOps).toEqual([]);
-      expect(plan.sectionUpdates).toEqual([]);
-      const updates = byId(plan.lessonUpdates);
-      expect(updates.g).toEqual({
-        id: "g",
-        sectionId: "s2",
-        order: 1,
-      });
-      // Real lessons untouched — a ghost leaving doesn't renumber anything.
-      expect(updates.r).toBeUndefined();
-      expect(updates.x).toBeUndefined();
     });
   });
 

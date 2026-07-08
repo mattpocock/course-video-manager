@@ -74,11 +74,9 @@ export async function createLesson(
     id?: string;
     createdAt?: Date;
     archived?: boolean;
-    fsStatus?: string;
     title?: string;
   }
 ) {
-  const fsStatus = opts?.fsStatus ?? "ghost";
   const [lesson] = await testDb
     .insert(lessons)
     .values({
@@ -87,8 +85,7 @@ export async function createLesson(
       title: opts?.title ?? title,
       order,
       archived: opts?.archived ?? false,
-      fsStatus,
-      ...(fsStatus === "real" ? { authoringStatus: "todo" } : {}),
+      authoringStatus: "todo",
       ...(opts?.createdAt ? { createdAt: opts.createdAt } : {}),
     })
     .returning();

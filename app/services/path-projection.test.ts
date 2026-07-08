@@ -140,22 +140,22 @@ describe("deriveLessonPath", () => {
 });
 
 describe("projectVersionPaths", () => {
-  it("derives paths for all real sections and lessons", () => {
+  it("derives paths for all sections and lessons", () => {
     const sections = [
       {
         id: "s1",
         order: 1,
         title: "Introduction",
         lessons: [
-          { id: "l1", order: 1, title: "Getting Started", fsStatus: "real" },
-          { id: "l2", order: 2, title: "Next Steps", fsStatus: "real" },
+          { id: "l1", order: 1, title: "Getting Started" },
+          { id: "l2", order: 2, title: "Next Steps" },
         ],
       },
       {
         id: "s2",
         order: 2,
         title: "Advanced",
-        lessons: [{ id: "l3", order: 1, title: "Deep Dive", fsStatus: "real" }],
+        lessons: [{ id: "l3", order: 1, title: "Deep Dive" }],
       },
     ];
     const paths = projectVersionPaths(sections);
@@ -177,8 +177,8 @@ describe("projectVersionPaths", () => {
         order: 1,
         title: "React",
         lessons: [
-          { id: "l1", order: 1, title: "React", fsStatus: "real" },
-          { id: "l2", order: 2, title: "React", fsStatus: "real" },
+          { id: "l1", order: 1, title: "React" },
+          { id: "l2", order: 2, title: "React" },
         ],
       },
     ];
@@ -186,60 +186,6 @@ describe("projectVersionPaths", () => {
     expect(paths.get("l1")).toBe("01.01-react");
     expect(paths.get("l2")).toBe("01.02-react");
     expect(paths.get("s1")).toBe("01-react");
-  });
-
-  it("ghost sections are excluded from ranking and derive no path", () => {
-    const sections = [
-      {
-        id: "s1",
-        order: 1,
-        title: "Real Section",
-        lessons: [
-          { id: "l1", order: 1, title: "Lesson One", fsStatus: "real" },
-        ],
-      },
-      {
-        id: "s-ghost",
-        order: 2,
-        title: "Ghost Section",
-        lessons: [
-          { id: "l-ghost", order: 1, title: "Ghost Lesson", fsStatus: "ghost" },
-        ],
-      },
-      {
-        id: "s2",
-        order: 3,
-        title: "Another Real",
-        lessons: [
-          { id: "l2", order: 1, title: "Lesson Two", fsStatus: "real" },
-        ],
-      },
-    ];
-    const paths = projectVersionPaths(sections);
-    expect(paths.has("s-ghost")).toBe(false);
-    expect(paths.has("l-ghost")).toBe(false);
-    // Real sections are numbered contiguously, skipping the ghost
-    expect(paths.get("s1")).toBe("01-real-section");
-    expect(paths.get("s2")).toBe("02-another-real");
-  });
-
-  it("ghost lessons are excluded from ranking within a real section", () => {
-    const sections = [
-      {
-        id: "s1",
-        order: 1,
-        title: "My Section",
-        lessons: [
-          { id: "l1", order: 1, title: "First", fsStatus: "real" },
-          { id: "l-ghost", order: 2, title: "Planned", fsStatus: "ghost" },
-          { id: "l2", order: 3, title: "Second", fsStatus: "real" },
-        ],
-      },
-    ];
-    const paths = projectVersionPaths(sections);
-    expect(paths.get("l1")).toBe("01.01-first");
-    expect(paths.get("l2")).toBe("01.02-second");
-    expect(paths.has("l-ghost")).toBe(false);
   });
 
   it("mid-list fractional insert renumbers correctly", () => {
@@ -250,15 +196,10 @@ describe("projectVersionPaths", () => {
         order: 1,
         title: "Section",
         lessons: [
-          { id: "l1", order: 1, title: "Alpha", fsStatus: "real" as const },
-          {
-            id: "l-new",
-            order: 1.5,
-            title: "Inserted",
-            fsStatus: "real" as const,
-          },
-          { id: "l2", order: 2, title: "Beta", fsStatus: "real" as const },
-          { id: "l3", order: 3, title: "Gamma", fsStatus: "real" as const },
+          { id: "l1", order: 1, title: "Alpha" },
+          { id: "l-new", order: 1.5, title: "Inserted" },
+          { id: "l2", order: 2, title: "Beta" },
+          { id: "l3", order: 3, title: "Gamma" },
         ],
       },
     ];
@@ -274,25 +215,7 @@ describe("projectVersionPaths", () => {
     expect(paths).toEqual(new Map());
   });
 
-  it("handles section with only ghost lessons (ghost section)", () => {
-    const sections = [
-      {
-        id: "s1",
-        order: 1,
-        title: "All Ghosts",
-        lessons: [
-          { id: "l1", order: 1, title: "Ghost One", fsStatus: "ghost" },
-          { id: "l2", order: 2, title: "Ghost Two", fsStatus: "ghost" },
-        ],
-      },
-    ];
-    const paths = projectVersionPaths(sections);
-    expect(paths.has("s1")).toBe(false);
-    expect(paths.has("l1")).toBe(false);
-    expect(paths.has("l2")).toBe(false);
-  });
-
-  it("handles section with no lessons (ghost section)", () => {
+  it("handles section with no lessons", () => {
     const sections = [
       {
         id: "s1",
@@ -307,87 +230,18 @@ describe("projectVersionPaths", () => {
 });
 
 describe("attachDerivedPaths", () => {
-  it("attaches .path to real sections and lessons", () => {
+  it("attaches .path to sections and lessons", () => {
     const sections = [
       {
         id: "s1",
         order: 1,
         title: "Intro",
-        lessons: [
-          { id: "l1", order: 1, title: "Hello", fsStatus: "real" as const },
-        ],
+        lessons: [{ id: "l1", order: 1, title: "Hello" }],
       },
     ];
     const result = attachDerivedPaths(sections);
     expect(result[0]!.path).toBe("01-intro");
     expect(result[0]!.lessons[0]!.path).toBe("01.01-hello");
-  });
-
-  it("falls back to stored path for ghost sections and ghost lessons", () => {
-    const sections = [
-      {
-        id: "s-real",
-        order: 1,
-        title: "Real",
-        path: "01-real",
-        lessons: [
-          {
-            id: "l1",
-            order: 1,
-            title: "Lesson",
-            path: "01.01-lesson",
-            fsStatus: "real" as const,
-          },
-        ],
-      },
-      {
-        id: "s-ghost",
-        order: 2,
-        title: "Ghost",
-        lessons: [
-          {
-            id: "l-ghost",
-            order: 1,
-            title: "Ghost Lesson",
-            fsStatus: "ghost" as const,
-          },
-        ],
-      },
-    ];
-    const result = attachDerivedPaths(sections);
-    expect(result[0]!.path).toBe("01-real");
-    expect(result[0]!.lessons[0]!.path).toBe("01.01-lesson");
-    expect(result[1]!.path).toBe("Ghost");
-    expect(result[1]!.lessons[0]!.path).toBe("Ghost Lesson");
-  });
-
-  it("falls back to title for ghosts when no stored path exists", () => {
-    const sections = [
-      {
-        id: "s-real",
-        order: 1,
-        title: "Real",
-        lessons: [
-          { id: "l1", order: 1, title: "Lesson", fsStatus: "real" as const },
-        ],
-      },
-      {
-        id: "s-ghost",
-        order: 2,
-        title: "Ghost Section Title",
-        lessons: [
-          {
-            id: "l-ghost",
-            order: 1,
-            title: "Ghost Lesson Title",
-            fsStatus: "ghost" as const,
-          },
-        ],
-      },
-    ];
-    const result = attachDerivedPaths(sections);
-    expect(result[1]!.path).toBe("Ghost Section Title");
-    expect(result[1]!.lessons[0]!.path).toBe("Ghost Lesson Title");
   });
 
   it("preserves all original fields", () => {
@@ -402,7 +256,6 @@ describe("attachDerivedPaths", () => {
             id: "l1",
             order: 1,
             title: "Lesson",
-            fsStatus: "real" as const,
             anotherField: 42,
           },
         ],
@@ -413,38 +266,25 @@ describe("attachDerivedPaths", () => {
     expect((result[0]!.lessons[0] as any).anotherField).toBe(42);
   });
 
-  it("uses section number from real section rank in lesson paths", () => {
+  it("uses section number from section rank in lesson paths", () => {
     const sections = [
       {
-        id: "s-ghost",
-        order: 1,
-        title: "Ghost",
-        lessons: [
-          { id: "l-g", order: 1, title: "X", fsStatus: "ghost" as const },
-        ],
-      },
-      {
         id: "s1",
-        order: 2,
-        title: "First Real",
-        lessons: [
-          { id: "l1", order: 1, title: "A", fsStatus: "real" as const },
-        ],
+        order: 1,
+        title: "First Section",
+        lessons: [{ id: "l1", order: 1, title: "A" }],
       },
       {
         id: "s2",
-        order: 3,
-        title: "Second Real",
-        lessons: [
-          { id: "l2", order: 1, title: "B", fsStatus: "real" as const },
-        ],
+        order: 2,
+        title: "Second Section",
+        lessons: [{ id: "l2", order: 1, title: "B" }],
       },
     ];
     const result = attachDerivedPaths(sections);
-    // s1 is rank 1 (ghost skipped), s2 is rank 2
-    expect(result[1]!.path).toBe("01-first-real");
-    expect(result[1]!.lessons[0]!.path).toBe("01.01-a");
-    expect(result[2]!.path).toBe("02-second-real");
-    expect(result[2]!.lessons[0]!.path).toBe("02.01-b");
+    expect(result[0]!.path).toBe("01-first-section");
+    expect(result[0]!.lessons[0]!.path).toBe("01.01-a");
+    expect(result[1]!.path).toBe("02-second-section");
+    expect(result[1]!.lessons[0]!.path).toBe("02.01-b");
   });
 });

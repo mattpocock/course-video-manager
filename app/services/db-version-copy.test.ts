@@ -48,7 +48,6 @@ describe("copyVersionStructure", () => {
       sectionId: section!.id,
       order: 1,
       icon: "code",
-      fsStatus: "real",
       title: "Test Lesson",
       authoringStatus: "done",
     });
@@ -174,14 +173,12 @@ describe("copyVersionStructure", () => {
       {
         sectionId: section!.id,
         order: 1,
-        fsStatus: "real",
         title: "Active Lesson",
         authoringStatus: "done",
       },
       {
         sectionId: section!.id,
         order: 2,
-        fsStatus: "real",
         title: "Archived Lesson",
         authoringStatus: "done",
         archived: true,
@@ -229,22 +226,20 @@ describe("copyVersionStructure", () => {
       {
         sectionId: section!.id,
         order: 1,
-        fsStatus: "real",
         title: "Todo Lesson",
         authoringStatus: "todo",
       },
       {
         sectionId: section!.id,
         order: 2,
-        fsStatus: "real",
         title: "Done Lesson",
         authoringStatus: "done",
       },
       {
         sectionId: section!.id,
         order: 3,
-        fsStatus: "ghost",
         title: "Ghost Lesson",
+        authoringStatus: "todo",
       },
     ]);
 
@@ -267,112 +262,7 @@ describe("copyVersionStructure", () => {
     expect(newSections[0]!.lessons).toHaveLength(3);
     expect(newSections[0]!.lessons[0]!.authoringStatus).toBe("todo");
     expect(newSections[0]!.lessons[1]!.authoringStatus).toBe("done");
-    expect(newSections[0]!.lessons[2]!.authoringStatus).toBeNull();
-  });
-
-  it("rejects a real lesson with null authoringStatus (constraint)", async () => {
-    const [course] = await testDb
-      .insert(schema.courses)
-      .values({ name: "Constraint Test" })
-      .returning();
-
-    const [version] = await testDb
-      .insert(schema.courseVersions)
-      .values({ repoId: course!.id, name: "v1" })
-      .returning();
-
-    const [section] = await testDb
-      .insert(schema.sections)
-      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
-      .returning();
-
-    await expect(
-      testDb.insert(schema.lessons).values({
-        sectionId: section!.id,
-        order: 1,
-        fsStatus: "real",
-        title: "Real without status",
-      })
-    ).rejects.toThrow();
-  });
-
-  it("rejects a ghost lesson with non-null authoringStatus (constraint)", async () => {
-    const [course] = await testDb
-      .insert(schema.courses)
-      .values({ name: "Constraint Test 2" })
-      .returning();
-
-    const [version] = await testDb
-      .insert(schema.courseVersions)
-      .values({ repoId: course!.id, name: "v1" })
-      .returning();
-
-    const [section] = await testDb
-      .insert(schema.sections)
-      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
-      .returning();
-
-    await expect(
-      testDb.insert(schema.lessons).values({
-        sectionId: section!.id,
-        order: 1,
-        fsStatus: "ghost",
-        title: "Ghost with status",
-        authoringStatus: "todo",
-      })
-    ).rejects.toThrow();
-  });
-
-  it("preserves lesson fsStatus (ghost/real) when copying a version", async () => {
-    const [course] = await testDb
-      .insert(schema.courses)
-      .values({ name: "Test Course 3" })
-      .returning();
-
-    const [version] = await testDb
-      .insert(schema.courseVersions)
-      .values({ repoId: course!.id, name: "v1" })
-      .returning();
-
-    const [section] = await testDb
-      .insert(schema.sections)
-      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
-      .returning();
-
-    await testDb.insert(schema.lessons).values([
-      {
-        sectionId: section!.id,
-        order: 1,
-        fsStatus: "real",
-        title: "Real Lesson",
-        authoringStatus: "done",
-      },
-      {
-        sectionId: section!.id,
-        order: 2,
-        fsStatus: "ghost",
-        title: "Ghost Lesson",
-      },
-    ]);
-
-    const result = await run(
-      Effect.gen(function* () {
-        const versionOps = yield* VersionOperationsService;
-        return yield* versionOps.copyVersionStructure({
-          sourceVersionId: version!.id,
-          repoId: course!.id,
-          newVersionName: "v2",
-        });
-      })
-    );
-
-    const newSections = await testDb.query.sections.findMany({
-      where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
-      with: { lessons: { orderBy: (l, { asc }) => asc(l.order) } },
-    });
-
-    expect(newSections[0]!.lessons[0]!.fsStatus).toBe("real");
-    expect(newSections[0]!.lessons[1]!.fsStatus).toBe("ghost");
+    expect(newSections[0]!.lessons[2]!.authoringStatus).toBe("todo");
   });
 
   it("copies a video's beats, preserving kind/title/order", async () => {
@@ -396,7 +286,6 @@ describe("copyVersionStructure", () => {
       .values({
         sectionId: section!.id,
         order: 1,
-        fsStatus: "real",
         title: "Lesson",
         authoringStatus: "done",
       })
@@ -489,7 +378,6 @@ describe("copyVersionStructure", () => {
       .values({
         sectionId: section!.id,
         order: 1,
-        fsStatus: "real",
         title: "Lesson",
         authoringStatus: "done",
       })

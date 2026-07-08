@@ -11,7 +11,7 @@ import {
 } from "@/services/db-service-errors";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
-import { statusForCreateLesson } from "./lesson-authoring-status";
+import type { AuthoringStatus } from "./lesson-authoring-status";
 import { parseLessonPath } from "./lesson-path-service";
 import { parseSectionPath } from "./section-path-service";
 
@@ -194,7 +194,7 @@ export const createLessonSectionOperations = (db: Database) => {
             // Seed title from the folder name so the derived path reproduces it.
             title: titleFromLessonPathWithNumber(lesson.lessonPathWithNumber),
             order: lesson.lessonNumber,
-            authoringStatus: statusForCreateLesson("real"),
+            authoringStatus: "todo" satisfies AuthoringStatus,
           }))
         )
         .returning()
@@ -217,7 +217,7 @@ export const createLessonSectionOperations = (db: Database) => {
           sectionId,
           title: opts.title,
           order: opts.order,
-          fsStatus: "ghost",
+          authoringStatus: "todo",
         })
         .returning()
     );
@@ -231,7 +231,6 @@ export const createLessonSectionOperations = (db: Database) => {
       sectionId?: string;
       lessonNumber?: number;
       title?: string;
-      fsStatus?: string;
       description?: string;
       dependencies?: string[];
       icon?: string | null;
@@ -246,7 +245,6 @@ export const createLessonSectionOperations = (db: Database) => {
           sectionId: lesson.sectionId,
           order: lesson.lessonNumber,
           title: lesson.title,
-          fsStatus: lesson.fsStatus,
           description: lesson.description,
           dependencies: lesson.dependencies,
           icon: lesson.icon,

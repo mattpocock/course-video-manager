@@ -276,40 +276,26 @@ describe("loadVideoPostingContext", () => {
   });
 
   describe("course structure", () => {
-    it.effect(
-      "resolves course structure with version matching and fsStatus filtering",
-      () =>
-        Effect.gen(function* () {
-          const { video, section } = yield* createLessonVideo((lessonDir) => {
-            nodeFs.writeFileSync(path.join(lessonDir, "index.ts"), "export {}");
-          });
+    it.effect("resolves course structure with version matching", () =>
+      Effect.gen(function* () {
+        const { video } = yield* createLessonVideo((lessonDir) => {
+          nodeFs.writeFileSync(path.join(lessonDir, "index.ts"), "export {}");
+        });
 
-          const lsOps = yield* LessonSectionOperationsService;
-          yield* lsOps.createGhostLesson(section.id, {
-            title: "Ghost Lesson",
-            order: 2,
-          });
+        const ctx = yield* loadVideoPostingContext(video.id);
 
-          const ctx = yield* loadVideoPostingContext(video.id);
+        expect(ctx.courseStructure).not.toBeNull();
+        expect(ctx.courseStructure!.repoName).toBe("test-course");
+        expect(ctx.courseStructure!.currentSectionPath).toBe("01-intro");
+        expect(ctx.courseStructure!.currentLessonPath).toBe(
+          "01.01-getting-started"
+        );
+        expect(ctx.courseStructure!.sections).toHaveLength(1);
 
-          expect(ctx.courseStructure).not.toBeNull();
-          expect(ctx.courseStructure!.repoName).toBe("test-course");
-          expect(ctx.courseStructure!.currentSectionPath).toBe("01-intro");
-          expect(ctx.courseStructure!.currentLessonPath).toBe(
-            "01.01-getting-started"
-          );
-          expect(ctx.courseStructure!.sections).toHaveLength(1);
-
-          const sectionResult = ctx.courseStructure!.sections[0]!;
-          const realLessons = sectionResult.lessons.filter(
-            (l) => l.path === "01.01-getting-started"
-          );
-          expect(realLessons).toHaveLength(1);
-          const ghostLessons = sectionResult.lessons.filter(
-            (l) => l.path === "002-ghost-lesson"
-          );
-          expect(ghostLessons).toHaveLength(0);
-        }).pipe(Effect.provide(testLayer))
+        const sectionResult = ctx.courseStructure!.sections[0]!;
+        expect(sectionResult.lessons).toHaveLength(1);
+        expect(sectionResult.lessons[0]!.path).toBe("01.01-getting-started");
+      }).pipe(Effect.provide(testLayer))
     );
 
     it.effect("returns null courseStructure for standalone videos", () =>

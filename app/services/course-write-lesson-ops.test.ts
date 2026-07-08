@@ -164,7 +164,7 @@ describe("CourseWriteService", () => {
   });
 
   describe("createRealLesson", () => {
-    it("creates a lesson with fsStatus real and correct slug", async () => {
+    it("creates a lesson with correct slug", async () => {
       const { run, createSection, getLesson } = await setup();
 
       const section = await createSection("01-intro", 1);
@@ -180,7 +180,6 @@ describe("CourseWriteService", () => {
       expect(result.path).toBe("my-first-lesson");
 
       const lesson = await getLesson(result.lessonId);
-      expect(lesson.fsStatus).toBe("real");
       expect(lesson.authoringStatus).toBe("todo");
       expect(lesson.title).toBe("My First Lesson");
     });
@@ -206,7 +205,6 @@ describe("CourseWriteService", () => {
       expect(result.success).toBe(true);
 
       const inserted = await getLesson(result.lessonId);
-      expect(inserted.fsStatus).toBe("real");
       expect(inserted.order).toBe(2);
 
       const updatedL2 = await getLesson(l2.id);

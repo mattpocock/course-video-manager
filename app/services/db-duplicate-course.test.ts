@@ -65,7 +65,6 @@ async function createFullCourseStructure() {
     .values({
       sectionId: activeSection!.id,
       order: 1,
-      fsStatus: "real",
       title: "First Lesson",
       icon: "code",
       priority: 3,
@@ -272,7 +271,6 @@ describe("duplicateCourse", () => {
     expect(lessons).toHaveLength(1);
     expect(lessons[0]!.title).toBe("First Lesson");
     expect(lessons[0]!.icon).toBe("code");
-    expect(lessons[0]!.fsStatus).toBe("real");
     expect(lessons[0]!.priority).toBe(3);
     expect(lessons[0]!.previousVersionLessonId).toBeNull();
   });

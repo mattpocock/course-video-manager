@@ -79,7 +79,6 @@ const setup = async () => {
         order,
       });
       yield* lsOps.updateLesson(created[0]!.id, {
-        fsStatus: "real",
         authoringStatus: "todo",
       });
       return created;
@@ -132,7 +131,6 @@ describe("CourseWriteService (DB-only)", () => {
       expect(addResult.success).toBe(true);
 
       const lesson = await getLesson(addResult.lessonId);
-      expect(lesson.fsStatus).toBe("real");
       expect(lesson.authoringStatus).toBe("todo");
 
       const renameResult = await run(
@@ -172,7 +170,7 @@ describe("CourseWriteService (DB-only)", () => {
   });
 
   describe("addGhostLesson creates a plain lesson row", () => {
-    it("creates with fsStatus real and authoringStatus todo", async () => {
+    it("creates with authoringStatus todo", async () => {
       const { run, createSection, getLesson } = await setup();
 
       const section = await createSection("Intro", 1);
@@ -186,7 +184,6 @@ describe("CourseWriteService (DB-only)", () => {
 
       expect(result.success).toBe(true);
       const lesson = await getLesson(result.lessonId);
-      expect(lesson.fsStatus).toBe("real");
       expect(lesson.authoringStatus).toBe("todo");
       expect(lesson.title).toBe("My Lesson");
     });
@@ -208,7 +205,6 @@ describe("CourseWriteService (DB-only)", () => {
       expect(result.success).toBe(true);
       expect(result.path).toBe("my-lesson");
       const lesson = await getLesson(result.lessonId);
-      expect(lesson.fsStatus).toBe("real");
       expect(lesson.authoringStatus).toBe("todo");
     });
   });

@@ -108,7 +108,6 @@ export async function createSectionWithLessons(
   sectionOrder: number,
   lessonDefs: {
     title: string;
-    fsStatus: string;
     order: number;
   }[]
 ) {
@@ -128,9 +127,8 @@ export async function createSectionWithLessons(
       .values({
         sectionId: section!.id,
         title: def.title,
-        fsStatus: def.fsStatus,
         order: def.order,
-        authoringStatus: def.fsStatus === "real" ? "done" : null,
+        authoringStatus: "done",
       })
       .returning();
     lessons.push(lesson!);

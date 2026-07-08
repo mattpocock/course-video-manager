@@ -33,7 +33,6 @@ const buildCourseFixture = async (
     lessons: Array<{
       title: string;
       order: number;
-      fsStatus?: string;
       videos: Array<{ title: string; archived?: boolean }>;
     }>;
   }>
@@ -61,15 +60,13 @@ const buildCourseFixture = async (
       .returning();
 
     for (const lessonDef of sectionDef.lessons) {
-      const fsStatus = lessonDef.fsStatus ?? "real";
       const [lesson] = await testDb
         .insert(schema.lessons)
         .values({
           sectionId: section!.id,
           title: lessonDef.title,
           order: lessonDef.order,
-          fsStatus,
-          authoringStatus: fsStatus === "real" ? "done" : null,
+          authoringStatus: "done",
         })
         .returning();
 
@@ -262,7 +259,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         }).pipe(Effect.provide(testLayer))
     );
 
-    it.effect("skips ghost lessons when navigating next", () =>
+    it.effect("navigates through all lessons regardless of origin", () =>
       Effect.gen(function* () {
         const vOps = yield* VideoOperationsService;
         const fixture = yield* Effect.promise(() =>
@@ -277,10 +274,9 @@ describe("getNextVideoId / getPreviousVideoId", () => {
                   videos: [{ title: "a.mp4" }],
                 },
                 {
-                  title: "Ghost Lesson",
+                  title: "Middle Lesson",
                   order: 2,
-                  fsStatus: "ghost",
-                  videos: [{ title: "ghost.mp4" }],
+                  videos: [{ title: "middle.mp4" }],
                 },
                 {
                   title: "Lesson 3",
@@ -293,11 +289,13 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         );
 
         const videoA = fixture.videos.find((v) => v.title === "a.mp4")!;
-        const videoB = fixture.videos.find((v) => v.title === "b.mp4")!;
+        const videoMiddle = fixture.videos.find(
+          (v) => v.title === "middle.mp4"
+        )!;
         const fetched = yield* vOps.getVideoWithClipsById(videoA.id);
 
         const nextId = yield* vOps.getNextVideoId(fetched);
-        expect(nextId).toBe(videoB.id);
+        expect(nextId).toBe(videoMiddle.id);
       }).pipe(Effect.provide(testLayer))
     );
 

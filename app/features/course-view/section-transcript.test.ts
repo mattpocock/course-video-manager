@@ -169,10 +169,7 @@ describe("filterSectionsForTranscript", () => {
   it("9. returns all sections/lessons when no filters active", () => {
     const sections = [
       makeSection({
-        lessons: [
-          makeLesson({ id: "l1", fsStatus: "real" as never }),
-          makeLesson({ id: "l2", fsStatus: "ghost" as never }),
-        ],
+        lessons: [makeLesson({ id: "l1" }), makeLesson({ id: "l2" })],
       }),
     ];
     const result = filterSectionsForTranscript(sections, noFilters);

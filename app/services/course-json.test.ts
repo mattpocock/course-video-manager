@@ -28,7 +28,6 @@ const makeLesson = (
   lineageId: `lesson-lineage-${overrides.path}`,
   title: overrides.path,
   description: "",
-  fsStatus: "real",
   ...overrides,
 });
 
@@ -368,27 +367,6 @@ describe("buildCourseJson", () => {
     if (lesson.type === "explainer") {
       expect(lesson.explainer.chapters).toEqual([]);
     }
-  });
-
-  // ── Ghost lessons skipped ──────────────────────────────────────────
-
-  it("skips ghost lessons", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              fsStatus: "ghost",
-              videos: [makeVideo({ title: "Explainer" })],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    expect(result.sections[0]!.lessons).toEqual([]);
   });
 
   // ── Archived videos filtered ───────────────────────────────────────

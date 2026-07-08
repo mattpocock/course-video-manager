@@ -2,7 +2,6 @@ import type { DatabaseId } from "@/features/video-editor/clip-state-reducer";
 import { relations, sql, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
-  check,
   customType,
   date,
   doublePrecision,
@@ -133,7 +132,6 @@ export const lessons = createTable(
       .notNull()
       .$defaultFn(() => crypto.randomUUID()),
     title: text("title").notNull().default(""),
-    fsStatus: text("fs_status").notNull().default("real"),
     description: text("description").notNull().default(""),
     icon: varchar("icon", { length: 255 }),
     priority: integer("priority").notNull().default(2),
@@ -149,10 +147,6 @@ export const lessons = createTable(
     archived: boolean("archived").notNull().default(false),
   },
   (table) => [
-    check(
-      "lesson_authoring_status_biconditional",
-      sql`(${table.fsStatus} = 'real' AND ${table.authoringStatus} IS NOT NULL) OR (${table.fsStatus} != 'real' AND ${table.authoringStatus} IS NULL)`
-    ),
     uniqueIndex("lesson_section_order_uniq")
       .on(table.sectionId, table.order)
       .where(sql`NOT ${table.archived}`),

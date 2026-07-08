@@ -191,7 +191,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
         for (const section of version.sections) {
           for (const lesson of section.lessons) {
-            if (lesson.fsStatus === "ghost") continue;
             for (const video of lesson.videos) {
               if (video.clips.length === 0) continue;
               const hash = computeExportHash(toExportClips(video.clips));
@@ -261,7 +260,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           const unexportedVideoIds: string[] = [];
           for (const section of version.sections) {
             for (const lesson of section.lessons) {
-              if (lesson.fsStatus === "ghost") continue;
               for (const video of lesson.videos) {
                 if (video.clips.length === 0) continue;
                 const hash = computeExportHash(toExportClips(video.clips));

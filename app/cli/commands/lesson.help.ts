@@ -12,17 +12,9 @@ WHAT IT IS
   there is no --course-version flag here — address the lesson you want by its id.
 
 KEY FIELDS
-  fsStatus         Filesystem presence. "real" = the lesson exists on disk (a
-                   materialized folder in the repo). "ghost" = planned in the DB
-                   only, not yet on disk. Ghosts can still hold Videos, Segments
-                   and Clips exactly like real lessons; Materializing a ghost
-                   creates its on-disk representation.
-  authoringStatus  Where a REAL lesson sits in the authoring workflow: "todo"
-                   (default for newly created / just-materialized lessons) or
-                   "done" (marked ready in the UI). Biconditional invariant with
-                   fsStatus: a real lesson ALWAYS has a status; a ghost lesson
-                   NEVER does (authoringStatus is null). Distinct from fsStatus
-                   and from a Pitch's Pitch State.
+  authoringStatus  Where a lesson sits in the authoring workflow: "todo"
+                   (default for newly created lessons) or "done" (marked ready
+                   in the UI).
   path             The lesson's slug/segment (often number-prefixed, e.g.
                    "01-intro"). Unique per section among non-archived lessons.
   title            Human-readable lesson title (may be empty for bare ghosts).
@@ -48,13 +40,11 @@ VERBS
   search <id> <query>   Substring search down this lesson's subtree
                         (--type lesson|video|segment).
 
-WRITES honour DB↔disk correctness: reordering or moving a REAL (on-disk) lesson
-renumbers folder prefixes and git-moves directories, so those verbs need the
-course repo checked out. Writes only ever target the Draft (latest) version.
+WRITES honour correctness: reordering or moving a lesson renumbers path prefixes.
+Writes only ever target the Draft (latest) version.
 
 EXAMPLES
   cvm lesson list --section sec_123
-  cvm lesson list --section sec_123 | jq 'select(.fsStatus=="ghost") | .id'
   cvm lesson get les_abc
   cvm lesson get les_abc les_def
   cvm lesson tree --depth all les_abc
@@ -64,16 +54,15 @@ export const LIST_HELP = `List every ACTIVE lesson in a Section (the complete se
 
 Requires --section <id>. Output is NDJSON, one compact lesson object per line,
 ordered by the lesson's 'order'. Each line is identity-rich (id, name, title,
-path, sectionId) plus fsStatus / authoringStatus so an agent can map a name to an
-id. 'name' is the uniform display label every noun's 'list' carries (for a lesson
-it is the title, falling back to path when the title is empty), so you never have
-to guess the label field. An agent can map a name to an id
-and judge real-vs-ghost / todo-vs-done in one call. Archived lessons are never
-included. Empty section => no output, exit 0.
+path, sectionId) plus authoringStatus so an agent can map a name to an id
+and judge todo-vs-done in one call. 'name' is the uniform display label every
+noun's 'list' carries (for a lesson it is the title, falling back to path when
+the title is empty), so you never have to guess the label field. Archived lessons
+are never included. Empty section => no output, exit 0.
 
 Example:
   cvm lesson list --section sec_123
-  cvm lesson list --section sec_123 | jq -c '{id, title, fsStatus, authoringStatus}'`;
+  cvm lesson list --section sec_123 | jq -c '{id, title, authoringStatus}'`;
 
 export const GET_HELP = `Fetch one or more Lessons by id, each with its parent hierarchy
 (Section -> Course Version -> Repo).
@@ -83,7 +72,7 @@ Multiple ids => NDJSON of the found lessons. A missing id renders a NotFoundErro
 on STDERR and exits 2 (for multiple ids, found lessons are still emitted to
 STDOUT first, then the missing ids are reported on STDERR). STDOUT stays pure.
 
-See fsStatus / authoringStatus field meanings in 'cvm lesson --help'.
+See authoringStatus field meaning in 'cvm lesson --help'.
 
 Examples:
   cvm lesson get les_abc
@@ -112,12 +101,9 @@ Examples:
   cvm lesson tree --depth all les_abc
   cvm lesson tree --depth all les_abc | jq '.children[].children[].id'   # clip ids`;
 
-export const CREATE_HELP = `Create a GHOST lesson inside a Section. Requires --section <id> and --title <t>.
+export const CREATE_HELP = `Create a lesson inside a Section. Requires --section <id> and --title <t>.
 
-A ghost lesson is planned in the DB only (fsStatus="ghost") — it is NOT written
-to disk. It can still hold Videos, Segments and Clips; materializing it to a
-real on-disk lesson is a separate concern handled elsewhere (not by cvm). The
-lesson's 'path' (slug) is derived from the title.
+The lesson's 'path' (slug) is derived from the title.
 
 Flags:
   --section <id>       (required) the Section to create the lesson in.
@@ -162,9 +148,8 @@ export const MOVE_HELP = `Reposition a lesson: reorder it within its Section, or
 sibling; cross-section, it must live in the destination section — otherwise
 not-found (exit 2). Editing a published (frozen) version is refused (exit 3).
 
-CORRECTNESS: moving/reordering a REAL (on-disk) lesson renumbers folder prefixes
-and git-moves directories to keep the DB and repo in lockstep, so the course repo
-must be checked out. Ghost (planned) lessons are a pure DB update.
+CORRECTNESS: moving/reordering a lesson renumbers path prefixes to keep derived
+paths correct.
 
 Echoes the moved lesson with its Section/Version/Repo hierarchy (as 'get').
 

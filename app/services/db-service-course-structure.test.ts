@@ -52,7 +52,6 @@ const buildCourseWithVideos = async () => {
       sectionId: section!.id,
       title: "Welcome",
       order: 1,
-      fsStatus: "real",
       description: "A welcome lesson",
       authoringStatus: "done",
     })
@@ -64,7 +63,7 @@ const buildCourseWithVideos = async () => {
       sectionId: section!.id,
       title: "Ghost Lesson",
       order: 2,
-      fsStatus: "ghost",
+      authoringStatus: "todo",
     })
     .returning();
 
@@ -186,7 +185,7 @@ describe("getCourseStructureById - archived section filtering", () => {
 describe("getCourseStructureById", () => {
   it.effect("returns course with versions, sections, and lessons", () =>
     Effect.gen(function* () {
-      const { courseId, versionId, sectionId, lessonRealId, lessonGhostId } =
+      const { courseId, versionId, sectionId, lessonRealId } =
         yield* Effect.promise(() => buildCourseWithVideos());
 
       const courseOps = yield* CourseOperationsService;
@@ -208,10 +207,6 @@ describe("getCourseStructureById", () => {
       const realLesson = section.lessons.find((l) => l.id === lessonRealId)!;
       expect(realLesson.title).toBe("Welcome");
       expect(realLesson.description).toBe("A welcome lesson");
-      expect(realLesson.fsStatus).toBe("real");
-
-      const ghostLesson = section.lessons.find((l) => l.id === lessonGhostId)!;
-      expect(ghostLesson.fsStatus).toBe("ghost");
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -302,14 +297,12 @@ describe("getCourseStructureById", () => {
             sectionId: sectionA!.id,
             title: "Second",
             order: 2,
-            fsStatus: "real",
             authoringStatus: "done",
           },
           {
             sectionId: sectionA!.id,
             title: "First",
             order: 1,
-            fsStatus: "real",
             authoringStatus: "done",
           },
         ])

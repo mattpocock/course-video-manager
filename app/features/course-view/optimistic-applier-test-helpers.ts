@@ -49,7 +49,6 @@ export function makeLesson(
     icon: "watch" as const,
     priority: 2,
     dependencies: [],
-    fsStatus: "real" as const,
     authoringStatus: "todo" as const,
     order: 0,
     videos: [],

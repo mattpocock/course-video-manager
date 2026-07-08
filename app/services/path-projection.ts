@@ -35,7 +35,6 @@ type ProjectableLesson = {
   id: string;
   order: number;
   title: string;
-  fsStatus: string | null;
 };
 
 export const projectVersionPaths = (
@@ -50,10 +49,9 @@ export const projectVersionPaths = (
     const sectionNumber = sectionRanks.get(section.id)!;
     paths.set(section.id, deriveSectionPath(section.title, sectionNumber));
 
-    const realLessons = section.lessons.filter((l) => l.fsStatus !== "ghost");
-    const lessonRanks = rankByOrder(realLessons);
+    const lessonRanks = rankByOrder(section.lessons);
 
-    for (const lesson of realLessons) {
+    for (const lesson of section.lessons) {
       const lessonNumber = lessonRanks.get(lesson.id)!;
       paths.set(
         lesson.id,

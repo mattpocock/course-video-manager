@@ -149,7 +149,6 @@ describe("computeCourseViewLintCount", () => {
       {
         lessons: [
           {
-            fsStatus: "real",
             videos: [
               makeVideo(
                 "Explainer",
@@ -169,7 +168,6 @@ describe("computeCourseViewLintCount", () => {
       {
         lessons: [
           {
-            fsStatus: "real",
             videos: [makeVideo("Solution")],
           },
         ],
@@ -183,7 +181,6 @@ describe("computeCourseViewLintCount", () => {
       {
         lessons: [
           {
-            fsStatus: "real",
             videos: [
               makeVideo("Explainer", [{ order: "a0", archived: false }], []),
             ],
@@ -194,30 +191,14 @@ describe("computeCourseViewLintCount", () => {
     expect(computeCourseViewLintCount(sections)).toBe(1);
   });
 
-  it("skips ghost lessons entirely", () => {
-    const sections = [
-      {
-        lessons: [
-          {
-            fsStatus: "ghost",
-            videos: [makeVideo("Solution")],
-          },
-        ],
-      },
-    ];
-    expect(computeCourseViewLintCount(sections)).toBe(0);
-  });
-
   it("sums warnings across multiple lessons and videos", () => {
     const sections = [
       {
         lessons: [
           {
-            fsStatus: "real",
             videos: [makeVideo("Solution")],
           },
           {
-            fsStatus: "real",
             videos: [
               makeVideo("Explainer", [{ order: "a0", archived: false }], []),
             ],

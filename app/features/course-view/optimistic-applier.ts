@@ -321,7 +321,6 @@ function toPlannerSections(course: NonNullable<LoaderData["selectedCourse"]>) {
       id: l.id,
       path: l.path,
       order: l.order,
-      fsStatus: l.fsStatus,
     })),
   }));
 }

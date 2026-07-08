@@ -481,17 +481,13 @@ export const createVideoOperations = (
 
     // Build a flat list of real lessons in order
     const allRealLessons = latestVersionSections.flatMap(
-      (s: (typeof latestVersionSections)[number]) =>
-        s.lessons.filter(
-          (l: (typeof s.lessons)[number]) => l.fsStatus === "real"
-        )
+      (s: (typeof latestVersionSections)[number]) => s.lessons
     );
 
     const currentIndex = allRealLessons.findIndex(
       (l: (typeof allRealLessons)[number]) => l.id === currentLesson.id
     );
 
-    // Find next real lesson with videos
     for (let i = currentIndex + 1; i < allRealLessons.length; i++) {
       const nextLesson = allRealLessons[i]!;
       const firstVideo = nextLesson.videos.sort(
@@ -534,12 +530,8 @@ export const createVideoOperations = (
       const courseNav = yield* getCourseNavigationData(repo.id);
       const latestVersionSections = courseNav.versions[0]?.sections ?? [];
 
-      // Build a flat list of real lessons in order
       const allRealLessons = latestVersionSections.flatMap(
-        (s: (typeof latestVersionSections)[number]) =>
-          s.lessons.filter(
-            (l: (typeof s.lessons)[number]) => l.fsStatus === "real"
-          )
+        (s: (typeof latestVersionSections)[number]) => s.lessons
       );
 
       const currentIndex = allRealLessons.findIndex(

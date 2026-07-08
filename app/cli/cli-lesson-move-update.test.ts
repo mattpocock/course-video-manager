@@ -39,7 +39,6 @@ interface Lesson {
   sectionId: string;
   title: string;
   order: number;
-  fsStatus: string;
   archived: boolean;
 }
 
@@ -71,7 +70,7 @@ const addGhost = async (
 ): Promise<string> => {
   const [row] = await db
     .insert(schema.lessons)
-    .values({ sectionId, title, order, fsStatus: "ghost" })
+    .values({ sectionId, title, order })
     .returning();
   return row!.id;
 };

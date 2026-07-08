@@ -253,7 +253,6 @@ describe("export-hash", () => {
                   {
                     id: "l1",
                     path: "lesson",
-                    fsStatus: "real",
                     videos: [
                       {
                         id: "vid1",

@@ -12,16 +12,9 @@ export type ParsedSectionPath = {
   slug: string;
 };
 
-/**
- * A section is "real" (materialized on disk) iff it contains at least one
- * real lesson. Real-ness is NEVER inferred from the path prefix: a ghost
- * section can carry a numbered path (e.g. left over after its last real
- * lesson moved out) yet have no directory on disk, and an empty numbered
- * path must not be mistaken for a materialized section.
- */
 export const sectionHasRealLessons = (
-  lessons: ReadonlyArray<{ fsStatus: string | null }>
-): boolean => lessons.some((lesson) => lesson.fsStatus !== "ghost");
+  lessons: ReadonlyArray<unknown>
+): boolean => lessons.length > 0;
 
 /**
  * Derives the slug for a section regardless of whether its path is already

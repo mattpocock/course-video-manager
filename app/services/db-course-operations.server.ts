@@ -206,7 +206,6 @@ export const createCourseOperations = (db: Database) => {
                       title: true,
                       order: true,
                       description: true,
-                      fsStatus: true,
                     },
                   },
                 },

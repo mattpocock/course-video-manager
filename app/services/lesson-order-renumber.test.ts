@@ -21,13 +21,13 @@ describe("computeDenseLessonOrders", () => {
     ]);
 
     const postResync: LessonForRenumber[] = [
-      { id: "r1", order: 1, fsStatus: "real" },
-      { id: "r2", order: 2, fsStatus: "real" },
-      { id: "r3", order: 3, fsStatus: "real" },
-      { id: "r4", order: 4, fsStatus: "real" },
-      { id: "r5", order: 5, fsStatus: "real" }, // collides with ghost
-      { id: "ghost", order: 5, fsStatus: "ghost" },
-      { id: "r6", order: 6, fsStatus: "real" },
+      { id: "r1", order: 1 },
+      { id: "r2", order: 2 },
+      { id: "r3", order: 3 },
+      { id: "r4", order: 4 },
+      { id: "r5", order: 5 }, // collides with ghost
+      { id: "ghost", order: 5 },
+      { id: "r6", order: 6 },
     ];
 
     const result = computeDenseLessonOrders(postResync, preResync);
@@ -56,13 +56,13 @@ describe("computeDenseLessonOrders", () => {
     ]);
 
     const postResync: LessonForRenumber[] = [
-      { id: "docRot", order: 0, fsStatus: "ghost" },
-      { id: "l1", order: 1, fsStatus: "real" },
-      { id: "l2", order: 2, fsStatus: "real" },
-      { id: "gA", order: 3, fsStatus: "ghost" }, // resync put l3 back to 3
-      { id: "l3", order: 3, fsStatus: "real" },
-      { id: "gB", order: 5, fsStatus: "ghost" },
-      { id: "l4", order: 4, fsStatus: "real" }, // resync put l4 back to 4
+      { id: "docRot", order: 0 },
+      { id: "l1", order: 1 },
+      { id: "l2", order: 2 },
+      { id: "gA", order: 3 }, // resync put l3 back to 3
+      { id: "l3", order: 3 },
+      { id: "gB", order: 5 },
+      { id: "l4", order: 4 }, // resync put l4 back to 4
     ];
 
     const result = computeDenseLessonOrders(postResync, preResync);
@@ -88,9 +88,9 @@ describe("computeDenseLessonOrders", () => {
       ["c", 2],
     ]);
     const lessons: LessonForRenumber[] = [
-      { id: "a", order: 0, fsStatus: "real" },
-      { id: "b", order: 1, fsStatus: "ghost" },
-      { id: "c", order: 2, fsStatus: "real" },
+      { id: "a", order: 0 },
+      { id: "b", order: 1 },
+      { id: "c", order: 2 },
     ];
     expect(computeDenseLessonOrders(lessons, pre)).toEqual([
       { id: "a", order: 0 },
@@ -106,9 +106,9 @@ describe("computeDenseLessonOrders", () => {
       ["c", 5],
     ]);
     const lessons: LessonForRenumber[] = [
-      { id: "a", order: 0, fsStatus: "real" },
-      { id: "b", order: 2, fsStatus: "real" },
-      { id: "c", order: 5, fsStatus: "real" },
+      { id: "a", order: 0 },
+      { id: "b", order: 2 },
+      { id: "c", order: 5 },
     ];
     expect(computeDenseLessonOrders(lessons, pre)).toEqual([
       { id: "a", order: 0 },
@@ -123,9 +123,9 @@ describe("computeDenseLessonOrders", () => {
       ["c", 1],
     ]);
     const lessons: LessonForRenumber[] = [
-      { id: "a", order: 0, fsStatus: "real" },
-      { id: "new", order: 1, fsStatus: "real" }, // added on disk between a and c
-      { id: "c", order: 2, fsStatus: "real" },
+      { id: "a", order: 0 },
+      { id: "new", order: 1 }, // added on disk between a and c
+      { id: "c", order: 2 },
     ];
     expect(computeDenseLessonOrders(lessons, pre)).toEqual([
       { id: "a", order: 0 },

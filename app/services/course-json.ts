@@ -95,7 +95,6 @@ type InputLesson = {
   path: string;
   title: string;
   description: string;
-  fsStatus: string;
   videos: InputVideo[];
 };
 
@@ -146,8 +145,6 @@ export const buildCourseJson = (
       const lessons: Array<typeof CourseJsonLessonSchema.Type> = [];
 
       for (const lesson of section.lessons) {
-        if (lesson.fsStatus === "ghost") continue;
-
         const activeVideos = lesson.videos.filter((v) => !v.archived);
         if (activeVideos.length === 0) continue;
 

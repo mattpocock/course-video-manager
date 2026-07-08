@@ -212,13 +212,11 @@ export default function Component(props: Route.ComponentProps) {
                   <SelectValue placeholder="Select a lesson..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {lessons
-                    .filter((l) => l.fsStatus !== "ghost")
-                    .map((lesson) => (
-                      <SelectItem key={lesson.id} value={lesson.id}>
-                        {lesson.title}
-                      </SelectItem>
-                    ))}
+                  {lessons.map((lesson) => (
+                    <SelectItem key={lesson.id} value={lesson.id}>
+                      {lesson.title}
+                    </SelectItem>
+                  ))}
                   <SelectItem value="new">+ Create new lesson</SelectItem>
                 </SelectContent>
               </Select>

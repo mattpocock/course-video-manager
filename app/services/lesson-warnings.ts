@@ -80,7 +80,6 @@ export const computeLessonWarnings = (input: {
 };
 
 type LintLesson = {
-  fsStatus: string | null;
   videos: Array<{
     title: string;
     lessonId?: string | null;
@@ -97,7 +96,6 @@ export function computeCourseViewLintCount(
   let count = 0;
   for (const section of sections) {
     for (const lesson of section.lessons) {
-      if (lesson.fsStatus === "ghost") continue;
       count += computeLessonWarnings({ videos: lesson.videos }).length;
       for (const video of lesson.videos) {
         count += computeVideoWarnings({
