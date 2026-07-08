@@ -21,7 +21,7 @@ import { useDocumentFlow } from "./use-document-flow";
 import { useLint } from "@/hooks/use-lint";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 import { useMessageQueue } from "./use-message-queue";
-import { partsToText } from "./write-utils";
+import { MODEL_STORAGE_KEY, partsToText } from "./write-utils";
 import {
   replaceChooseScreenshotWithImage,
   updateChooseScreenshotClipIndex,
@@ -120,7 +120,17 @@ export function WriterEngine({
     modes[0] ?? "article"
   );
   const [mode, setMode] = useState<Mode>(constrainedMode);
-  const [model, setModel] = useState<Model>("claude-haiku-4-5");
+  const [model, setModelState] = useState<Model>(() =>
+    typeof localStorage !== "undefined"
+      ? (localStorage.getItem(MODEL_STORAGE_KEY) as Model) || "auto"
+      : "auto"
+  );
+  const setModel = useCallback((m: Model) => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(MODEL_STORAGE_KEY, m);
+    }
+    setModelState(m);
+  }, []);
 
   const ctxModel = useContextModel(context, pageFields);
 

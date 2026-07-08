@@ -190,8 +190,8 @@ export function createInitialState({
 
   const model: Model =
     typeof localStorage !== "undefined"
-      ? (localStorage.getItem(MODEL_STORAGE_KEY) as Model) || "claude-haiku-4-5"
-      : "claude-haiku-4-5";
+      ? (localStorage.getItem(MODEL_STORAGE_KEY) as Model) || "auto"
+      : "auto";
 
   const enabledFiles =
     mode === "style-guide-skill-building"
