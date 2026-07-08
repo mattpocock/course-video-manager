@@ -16,7 +16,7 @@ Read `CONTEXT.md` and any relevant ADRs under `docs/adr/` if you need domain con
 
 <diff-to-main>
 
-!`git diff main..HEAD`
+!`git diff main..HEAD --stat`
 
 </diff-to-main>
 
