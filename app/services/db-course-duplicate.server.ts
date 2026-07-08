@@ -181,6 +181,8 @@ export const makeDuplicateCourse = (db: Database) =>
                 lessonId: newLesson.id,
                 title: sourceVideo.title,
                 originalFootagePath: sourceVideo.originalFootagePath,
+                body: sourceVideo.body,
+                description: sourceVideo.description,
               })
               .returning()
           );
@@ -202,6 +204,7 @@ export const makeDuplicateCourse = (db: Database) =>
                   scene: clip.scene,
                   profile: clip.profile,
                   pauseType: clip.pauseType,
+                  diagramSnapshotId: clip.diagramSnapshotId,
                 }))
               )
             );
