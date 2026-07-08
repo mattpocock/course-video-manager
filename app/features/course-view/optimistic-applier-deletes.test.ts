@@ -7,7 +7,7 @@ import {
   makeLoaderData,
 } from "./optimistic-applier-test-helpers";
 
-describe("applyOptimisticEvent – deletes and ghost toggle", () => {
+describe("applyOptimisticEvent – deletes", () => {
   describe("delete-lesson", () => {
     it("removes the lesson from its containing section", () => {
       const loaderData = makeLoaderData([

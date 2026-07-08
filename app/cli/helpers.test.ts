@@ -20,7 +20,7 @@ describe("displayName — the uniform label of any row", () => {
     );
   });
 
-  it("treats an empty title as absent and falls through to path (bare ghost lesson)", () => {
+  it("treats an empty title as absent and falls through to path (untitled lesson)", () => {
     expect(displayName({ title: "", path: "01-welcome" })).toBe("01-welcome");
   });
 

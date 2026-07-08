@@ -42,7 +42,7 @@ export const CourseEditorEventSchema = Schema.Union(
   }),
   // --- Lesson events ---
   Schema.Struct({
-    type: Schema.Literal("add-ghost-lesson"),
+    type: Schema.Literal("add-lesson"),
     sectionId: nonEmptyString,
     title: nonEmptyString,
     adjacentLessonId: Schema.optional(nonEmptyString),

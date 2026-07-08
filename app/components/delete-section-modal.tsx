@@ -29,7 +29,7 @@ export function DeleteSectionModal(props: {
             {props.lessonCount > 0 && (
               <>
                 {" "}
-                This will permanently delete {props.lessonCount} ghost{" "}
+                This will permanently delete {props.lessonCount}{" "}
                 {props.lessonCount === 1 ? "lesson" : "lessons"} in this
                 section.
               </>

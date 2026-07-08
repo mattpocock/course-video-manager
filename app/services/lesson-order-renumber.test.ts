@@ -5,17 +5,17 @@ import {
 } from "@/services/lesson-order-renumber";
 
 describe("computeDenseLessonOrders", () => {
-  it("resolves the resync real/ghost collision back to the ghost's slot", () => {
-    // Reproduces the 06-steering corruption. Before resync the ghost sat
+  it("resolves the resync order collision back to the dragged lesson's slot", () => {
+    // Reproduces the 06-steering corruption. Before resync the dragged lesson sat
     // between r4 and r5 on a shifted integer (r5/r6 had been bumped to 6/7);
     // resync then re-derived r5/r6 from their path numbers (5/6), dropping r5
-    // onto the ghost's slot of 5.
+    // onto the dragged lesson slot of 5.
     const preResync = new Map<string, number>([
       ["r1", 1],
       ["r2", 2],
       ["r3", 3],
       ["r4", 4],
-      ["ghost", 5],
+      ["dragged", 5],
       ["r5", 6],
       ["r6", 7],
     ]);
@@ -25,8 +25,8 @@ describe("computeDenseLessonOrders", () => {
       { id: "r2", order: 2 },
       { id: "r3", order: 3 },
       { id: "r4", order: 4 },
-      { id: "r5", order: 5 }, // collides with ghost
-      { id: "ghost", order: 5 },
+      { id: "r5", order: 5 }, // collides with dragged lesson
+      { id: "dragged", order: 5 },
       { id: "r6", order: 6 },
     ];
 
@@ -36,15 +36,15 @@ describe("computeDenseLessonOrders", () => {
     const orders = result.map((r) => r.order);
     expect(orders).toEqual([0, 1, 2, 3, 4, 5, 6]);
 
-    // Ghost preserved between r4 and r5, exactly where the user dragged it.
+    // Dragged lesson preserved between r4 and r5, exactly where the user dragged it.
     const byId = new Map(result.map((r) => [r.id, r.order]));
     expect(byId.get("r4")).toBe(3);
-    expect(byId.get("ghost")).toBe(4);
+    expect(byId.get("dragged")).toBe(4);
     expect(byId.get("r5")).toBe(5);
     expect(byId.get("r6")).toBe(6);
   });
 
-  it("handles two ghosts colliding with consecutive reals (10-docs shape)", () => {
+  it("handles two dragged lessons colliding with consecutive siblings (10-docs shape)", () => {
     const preResync = new Map<string, number>([
       ["docRot", 0],
       ["l1", 1],

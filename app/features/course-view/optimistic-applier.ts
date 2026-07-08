@@ -54,7 +54,7 @@ function entityIdForEvent(event: CourseEditorEvent): string {
       return event.sectionId;
     case "move-lessons-to-section":
       return event.targetSectionId;
-    case "add-ghost-lesson":
+    case "add-lesson":
     case "create-real-lesson":
       return event.sectionId;
     case "update-lesson-name":

@@ -85,7 +85,7 @@ describe("computeSectionRenumberingPlan", () => {
     slugs.map((slug, i) => ({
       id: `section-${i + 1}`,
       path: buildSectionPath(i + 1, slug),
-      hasRealLessons: true,
+      hasLessons: true,
     }));
 
   it("returns empty array for empty sections", () => {
@@ -181,13 +181,13 @@ describe("computeSectionRenumberingPlan", () => {
     expect(plan).toHaveLength(3);
   });
 
-  it("skips ghost sections even when their path is numbered", () => {
-    // A ghost section can carry a numbered path; real-ness is decided by
-    // hasRealLessons, not by whether the path parses.
+  it("skips empty sections even when their path is numbered", () => {
+    // An empty section can carry a numbered path; emptiness is decided by
+    // hasLessons, not by whether the path parses.
     const sections = [
-      { id: "section-1", path: "01-intro", hasRealLessons: true },
-      { id: "section-2", path: "02-concepts", hasRealLessons: false },
-      { id: "section-3", path: "03-advanced", hasRealLessons: true },
+      { id: "section-1", path: "01-intro", hasLessons: true },
+      { id: "section-2", path: "02-concepts", hasLessons: false },
+      { id: "section-3", path: "03-advanced", hasLessons: true },
     ];
     const plan = computeSectionRenumberingPlan(sections, [
       "section-3",
@@ -195,7 +195,7 @@ describe("computeSectionRenumberingPlan", () => {
       "section-1",
     ]);
 
-    // The ghost (section-2) must not be renumbered/renamed on disk.
+    // The empty section (section-2) must not be renumbered/renamed.
     expect(plan.find((r) => r.id === "section-2")).toBeUndefined();
     expect(plan.map((r) => r.id)).toEqual(["section-3", "section-1"]);
   });

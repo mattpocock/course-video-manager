@@ -252,7 +252,7 @@ const createCmd = Command.make(
           insertOrder = siblings[idx] ? siblings[idx]!.order : maxOrder + 1;
         }
 
-        const [lesson] = yield* svc.createGhostLesson(section, {
+        const [lesson] = yield* svc.createLesson(section, {
           title,
           order: insertOrder,
         });

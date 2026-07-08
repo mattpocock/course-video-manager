@@ -22,7 +22,7 @@ describe("courseViewReducer", () => {
 
     it("2. all ID-based selections are null initially", () => {
       const state = createTester().getState();
-      expect(state.addGhostLessonSectionId).toBeNull();
+      expect(state.addLessonSectionId).toBeNull();
       expect(state.addVideoToLessonId).toBeNull();
       expect(state.editLessonId).toBeNull();
     });
@@ -120,7 +120,7 @@ describe("courseViewReducer", () => {
           sectionId: "section-1",
         })
         .getState();
-      expect(state.addGhostLessonSectionId).toBe("section-1");
+      expect(state.addLessonSectionId).toBe("section-1");
     });
 
     it("19. set-add-lesson-section-id: clears with null", () => {
@@ -131,7 +131,7 @@ describe("courseViewReducer", () => {
         })
         .send({ type: "set-add-lesson-section-id", sectionId: null })
         .getState();
-      expect(state.addGhostLessonSectionId).toBeNull();
+      expect(state.addLessonSectionId).toBeNull();
     });
 
     it("20. set-add-video-to-lesson-id: sets the lesson ID", () => {

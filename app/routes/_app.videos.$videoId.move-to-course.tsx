@@ -80,7 +80,7 @@ export const action = async (args: Route.ActionArgs) => {
         yield* lessonSectionOps.getSectionWithHierarchyById(sectionId);
       const title = newLessonName || "New Lesson";
 
-      const result = yield* writes.createRealLesson(sectionId, title);
+      const result = yield* writes.createLesson(sectionId, title);
 
       targetLessonId = result.lessonId;
       targetCourseId = section.repoVersion.repoId;

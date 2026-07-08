@@ -1,12 +1,12 @@
 /**
  * Pure planner for moving a Lesson between Sections.
  *
- * Moving a real lesson is not an FK update — it renames the lesson's folder on
+ * Moving a lesson is not an FK update — it renames the lesson's folder on
  * disk, renumbers the source section's remaining lessons to close the gap,
- * materializes a ghost target section, dematerializes a source section emptied
+ * numbers a newly-non-empty target section, un-numbers a source section emptied
  * by the move, and renumbers every section's path prefix. The on-disk number
  * (`NN.MM-slug`) is positional and counts real lessons only, while the `order`
- * field orders ghost + real lessons together.
+ * field orders all lessons together.
  *
  * This module computes that entire cascade as pure data. The server (in
  * `course-write-service.ts`) runs the planner, executes `fsOps` against the
@@ -28,7 +28,7 @@ import {
 import {
   buildSectionPath,
   parseSectionPath,
-  sectionHasRealLessons,
+  sectionHasLessons,
   sectionSlugFromPath,
 } from "./section-path-service";
 
@@ -169,23 +169,23 @@ export function planLessonMove(input: LessonMoveInput): LessonMovePlan {
   const fsOps: FsOp[] = [];
   // Sections that currently have a directory on disk (real sections do).
   const hasDir = new Set(
-    model.filter((s) => sectionHasRealLessons(s.lessons)).map((s) => s.id)
+    model.filter((s) => sectionHasLessons(s.lessons)).map((s) => s.id)
   );
 
   const sourceOldPath = sourceSection.path;
   const sourceParsed = parseSectionPath(sourceOldPath);
   const sourceSectionNumber = sourceParsed?.sectionNumber ?? 1;
 
-  // Materialize a ghost target section: assign a provisional number from its
+  // Number a now-non-empty target section: assign a provisional number from its
   // position among real sections, create its directory. renumberSections below
   // corrects the number once source realness is recomputed.
-  const targetIsGhost = !sectionHasRealLessons(targetLessons);
-  let targetSectionMaterialized = false;
-  if (targetIsGhost) {
+  const targetWasEmpty = !sectionHasLessons(targetLessons);
+  let targetSectionNumbered = false;
+  if (targetWasEmpty) {
     const posIdx = model.findIndex((s) => s.id === targetSectionId);
     let realBefore = 0;
     for (let i = 0; i < posIdx; i++) {
-      if (sectionHasRealLessons(model[i]!.lessons)) realBefore++;
+      if (sectionHasLessons(model[i]!.lessons)) realBefore++;
     }
     const sectionNumber = realBefore + 1;
     targetSection.path = buildSectionPath(
@@ -194,7 +194,7 @@ export function planLessonMove(input: LessonMoveInput): LessonMovePlan {
     );
     fsOps.push({ kind: "makeSectionDir", sectionPath: targetSection.path });
     hasDir.add(targetSection.id);
-    targetSectionMaterialized = true;
+    targetSectionNumbered = true;
   }
   const targetSectionNumber =
     parseSectionPath(targetSection.path)?.sectionNumber ?? 1;
@@ -275,17 +275,17 @@ export function planLessonMove(input: LessonMoveInput): LessonMovePlan {
     }
   }
 
-  // If no real lessons remain in source, delete its dir and revert to ghost.
-  let sourceDematerialized = false;
+  // If no lessons remain in source, delete its dir and revert to unnumbered.
+  let sourceSectionUnnumbered = false;
   if (sourceRealLessons.length === 0 && sourceParsed) {
     fsOps.push({ kind: "deleteSectionDir", sectionPath: sourceOldPath });
     sourceSection.path = titleCaseFromSlug(sourceParsed.slug);
     hasDir.delete(sourceSection.id);
-    sourceDematerialized = true;
+    sourceSectionUnnumbered = true;
   }
 
   // Renumber all sections (and their lessons' prefixes) if realness changed.
-  if (targetSectionMaterialized || sourceDematerialized) {
+  if (targetSectionNumbered || sourceSectionUnnumbered) {
     renumberSectionsInModel(model, hasDir, fsOps);
   }
 
@@ -395,7 +395,7 @@ type WorkingSection = {
 };
 
 /**
- * Real sections get sequential numbers, ghosts are skipped, and each
+ * Non-empty sections get sequential numbers, empty ones are skipped, and each
  * renumbered section's real lessons keep their own lessonNumber under the
  * new prefix.
  */
@@ -413,7 +413,7 @@ function renumberSectionsInModel(
 
   let realNumber = 0;
   for (const section of model) {
-    if (!sectionHasRealLessons(section.lessons)) continue;
+    if (!sectionHasLessons(section.lessons)) continue;
     realNumber++;
     const newPath = buildSectionPath(
       realNumber,

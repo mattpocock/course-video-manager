@@ -137,7 +137,7 @@ export const buildCourseJson = (
     const sections: Array<typeof CourseJsonSectionSchema.Type> = [];
 
     for (const section of input.sections) {
-      // Ghost sections derive no path — skip them rather than emit a section
+      // Empty sections derive no path — skip them rather than emit a section
       // with an undefined path. (A real section with no active lessons still
       // has a derived path and is emitted with an empty lessons array.)
       if (!section.path) continue;

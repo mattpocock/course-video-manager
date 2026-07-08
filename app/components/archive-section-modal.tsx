@@ -29,7 +29,7 @@ export function ArchiveSectionModal(props: {
             {props.lessonCount > 0 && (
               <>
                 {" "}
-                This section has {props.lessonCount} ghost{" "}
+                This section has {props.lessonCount}{" "}
                 {props.lessonCount === 1 ? "lesson" : "lessons"} that will no
                 longer be visible.
               </>

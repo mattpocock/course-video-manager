@@ -17,7 +17,7 @@ KEY FIELDS
                    in the UI).
   path             The lesson's slug/segment (often number-prefixed, e.g.
                    "01-intro"). Unique per section among non-archived lessons.
-  title            Human-readable lesson title (may be empty for bare ghosts).
+  title            Human-readable lesson title (may be empty; untitled lesson).
   order            Sort position within the section (lower sorts first).
   priority         Authoring priority hint (integer, default 2).
   sectionId        Parent Section id.
@@ -32,13 +32,13 @@ VERBS
                         hierarchy. Variadic: many ids => NDJSON.
   tree <id> [--depth N] Skeleton tree lesson -> videos -> clips.
   create --section <id> --title <t> [--before|--after <lessonId>]
-                        Create a GHOST lesson in a Section (WRITE).
+                        Create a lesson in a Section (WRITE).
   update <id> --title <t>
                         Rename a lesson's display title (WRITE; slug unchanged).
   move <id> [--section <id>] [--before|--after <lessonId>]
                         Reorder within a section, or re-home to another (WRITE).
   search <id> <query>   Substring search down this lesson's subtree
-                        (--type lesson|video|segment).
+                        (--type lesson|video|beat).
 
 WRITES honour correctness: reordering or moving a lesson renumbers path prefixes.
 Writes only ever target the Draft (latest) version.
@@ -124,10 +124,9 @@ Examples:
 export const UPDATE_HELP = `Rename a lesson's display TITLE by id. Requires --title <t> (an update with an
 empty title is invalid input, exit 3).
 
-This changes the human-readable 'title' only — the lesson's 'path' (its slug and,
-for a real lesson, its on-disk folder name) is deliberately left untouched, so
-renaming never moves a URL or a directory. Editing a lesson in a published
-(frozen) version is refused (exit 3); edits go to the Draft.
+This changes the human-readable 'title' only — the lesson's 'path' (its slug) is
+deliberately left untouched, so renaming never moves a URL. Editing a lesson in a
+published (frozen) version is refused (exit 3); edits go to the Draft.
 
 Echoes the updated lesson with its Section/Version/Repo hierarchy (as 'get').
 

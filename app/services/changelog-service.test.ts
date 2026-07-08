@@ -81,25 +81,25 @@ function makeVersion(
 }
 
 describe("changelog-service", () => {
-  describe("ghost to real lesson transitions", () => {
-    it("detects a ghost-to-real transition as a new lesson", () => {
-      // Previous version: ghost lesson was filtered out, so it's not in the data
+  describe("lesson transitions via empty-section filtering", () => {
+    it("detects a lesson appearing (section gained a path) as new", () => {
+      // Previous version: the lesson was filtered out (empty section), so it's not in the data
       const prevVersion = makeVersion("v1", "v1.0", [
         makeSection("s1", "01-intro", [
           makeLesson("l1", "01.01-welcome", null, ["Hello"]),
         ]),
       ]);
 
-      // Current version: the lesson is now real, but references the ghost lesson ID
+      // Current version: the lesson is now present, but references the filtered-out lesson ID
       const currentVersion = makeVersion("v2", "v2.0", [
         makeSection(
           "s2",
           "01-intro",
           [
             makeLesson("l2", "01.01-welcome", "l1", ["Hello"]),
-            // Ghost became real - has previousVersionLessonId pointing to a ghost
+            // Now present - has previousVersionLessonId pointing to a lesson
             // that was filtered out of prevVersion
-            makeLesson("l3", "01.02-setup", "ghost-l1", ["Setup guide"]),
+            makeLesson("l3", "01.02-setup", "filtered-l1", ["Setup guide"]),
           ],
           "s1"
         ),
@@ -111,7 +111,7 @@ describe("changelog-service", () => {
       expect(changelog).toContain("01.02-setup");
     });
 
-    it("detects a real-to-ghost transition as a deleted lesson", () => {
+    it("detects a lesson disappearing (section lost its path) as deleted", () => {
       // Previous version: lesson was real
       const prevVersion = makeVersion("v1", "v1.0", [
         makeSection("s1", "01-intro", [
@@ -120,14 +120,14 @@ describe("changelog-service", () => {
         ]),
       ]);
 
-      // Current version: the lesson became ghost, so it's filtered out
+      // Current version: the lesson was filtered out, so it's filtered out
       const currentVersion = makeVersion("v2", "v2.0", [
         makeSection(
           "s2",
           "01-intro",
           [
             makeLesson("l3", "01.01-welcome", "l1", ["Hello"]),
-            // l2 is now ghost - filtered out, not present in the data
+            // l2 is now filtered out, not present in the data
           ],
           "s1"
         ),

@@ -220,16 +220,14 @@ describe("computeBulkReorderIds", () => {
     ).toEqual(["b", "a", "c", "d", "e"]);
   });
 
-  it("handles ghost IDs the same as real IDs", () => {
-    const mixed = [
-      { id: "real1" },
-      { id: "ghost1" },
-      { id: "real2" },
-      { id: "ghost2" },
-    ];
-    expect(
-      computeBulkReorderIds(mixed, new Set(["ghost1", "ghost2"]), "real1")
-    ).toEqual(["ghost1", "ghost2", "real1", "real2"]);
+  it("preserves order for any mix of IDs (no special-casing)", () => {
+    const mixed = [{ id: "l3" }, { id: "l1" }, { id: "l4" }, { id: "l2" }];
+    expect(computeBulkReorderIds(mixed, new Set(["l1", "l2"]), "l3")).toEqual([
+      "l1",
+      "l2",
+      "l3",
+      "l4",
+    ]);
   });
 
   it("returns null for a single selected lesson that stays in place", () => {

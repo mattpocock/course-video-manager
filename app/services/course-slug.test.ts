@@ -135,19 +135,19 @@ describe("createCourse uniqueness guard (no filePath)", () => {
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
       const course = yield* courseOps.createCourse({
-        name: "Ghost Course",
+        name: "Sample Course",
       });
-      expect(course.slug).toBe("ghost-course");
+      expect(course.slug).toBe("sample-course");
     }).pipe(Effect.provide(testLayer))
   );
 
   it.effect("rejects duplicate course name", () =>
     Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
-      yield* courseOps.createCourse({ name: "Ghost Course" });
+      yield* courseOps.createCourse({ name: "Sample Course" });
 
       const error = yield* courseOps
-        .createCourse({ name: "Ghost Course" })
+        .createCourse({ name: "Sample Course" })
         .pipe(Effect.flip);
 
       expect(error._tag).toBe("CourseNameTakenError");

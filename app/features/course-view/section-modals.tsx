@@ -1,4 +1,4 @@
-import { AddGhostLessonModal } from "@/components/add-ghost-lesson-modal";
+import { AddLessonModal } from "@/components/add-lesson-modal";
 import { ArchiveSectionModal } from "@/components/archive-section-modal";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
@@ -7,7 +7,7 @@ export function SectionModals({
   sectionId,
   sectionTitle,
   lessonCount,
-  addGhostLessonSectionId,
+  addLessonSectionId,
   insertAdjacentLessonId,
   insertPosition,
   archiveSectionId,
@@ -17,7 +17,7 @@ export function SectionModals({
   sectionId: string;
   sectionTitle: string;
   lessonCount: number;
-  addGhostLessonSectionId: string | null;
+  addLessonSectionId: string | null;
   insertAdjacentLessonId: string | null;
   insertPosition: "before" | "after" | null;
   archiveSectionId: string | null;
@@ -26,9 +26,9 @@ export function SectionModals({
 }) {
   return (
     <>
-      <AddGhostLessonModal
+      <AddLessonModal
         sectionId={sectionId}
-        open={addGhostLessonSectionId === sectionId}
+        open={addLessonSectionId === sectionId}
         onOpenChange={(open) => {
           dispatch({
             type: "set-add-lesson-section-id",
@@ -37,7 +37,7 @@ export function SectionModals({
         }}
         onAddLesson={({ title }) => {
           submitEvent({
-            type: "add-ghost-lesson",
+            type: "add-lesson",
             sectionId,
             title,
             ...(insertAdjacentLessonId

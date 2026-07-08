@@ -53,7 +53,7 @@ export namespace courseViewReducer {
     } | null;
 
     // ID-based selection states (null = closed)
-    addGhostLessonSectionId: string | null;
+    addLessonSectionId: string | null;
     insertAdjacentLessonId: string | null;
     insertPosition: "before" | "after" | null;
     insertAdjacentSectionId: string | null;
@@ -192,7 +192,7 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     isCopyTranscriptModalOpen: false,
     isDuplicateCourseModalOpen: false,
     copySectionTranscriptState: null,
-    addGhostLessonSectionId: null,
+    addLessonSectionId: null,
     insertAdjacentLessonId: null,
     insertPosition: null,
     insertAdjacentSectionId: null,
@@ -260,14 +260,14 @@ export const courseViewReducer: EffectReducer<
     case "set-add-lesson-section-id":
       return {
         ...state,
-        addGhostLessonSectionId: action.sectionId,
+        addLessonSectionId: action.sectionId,
         insertAdjacentLessonId: null,
         insertPosition: null,
       };
     case "set-insert-lesson":
       return {
         ...state,
-        addGhostLessonSectionId: action.sectionId,
+        addLessonSectionId: action.sectionId,
         insertAdjacentLessonId: action.adjacentLessonId,
         insertPosition: action.position,
       };

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 
-export function AddGhostLessonModal(props: {
+export function AddLessonModal(props: {
   sectionId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,9 +55,9 @@ export function AddGhostLessonModal(props: {
           }}
         >
           <div className="space-y-2">
-            <Label htmlFor="ghost-lesson-title">Title</Label>
+            <Label htmlFor="lesson-title">Title</Label>
             <Input
-              id="ghost-lesson-title"
+              id="lesson-title"
               name="title"
               placeholder="e.g. Understanding Generics"
               value={title}

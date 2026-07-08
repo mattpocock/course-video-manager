@@ -26,7 +26,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
  * Recovers a title from a freshly-created section/lesson directory name so the
  * title-driven path projection can reproduce that folder on read. A numbered
  * path ("01-intro" / "01.03-hooks") yields its slug segment ("intro" /
- * "hooks"); a raw name passed for a ghost ("My Section") is kept verbatim.
+ * "hooks"); a raw name ("My Section") is kept verbatim.
  * Mirrors the section-title backfill for rows created after that ran.
  */
 const titleFromSectionPathWithNumber = (pathWithNumber: string): string =>
@@ -203,7 +203,7 @@ export const createLessonSectionOperations = (db: Database) => {
     return lessonResult;
   });
 
-  const createGhostLesson = Effect.fn("createGhostLesson")(function* (
+  const createLesson = Effect.fn("createLesson")(function* (
     sectionId: string,
     opts: {
       title: string;
@@ -343,8 +343,8 @@ export const createLessonSectionOperations = (db: Database) => {
 
   /**
    * Like getSectionsByRepoVersionId, but each section carries its lessons.
-   * Used to determine section real-ness, which is derived from whether a
-   * section contains at least one real lesson — never from its path prefix.
+   * Used to determine whether a
+   * section contains at least one lesson — never from its path prefix.
    */
   const getSectionsWithLessonsByRepoVersionId = Effect.fn(
     "getSectionsWithLessonsByRepoVersionId"
@@ -373,8 +373,8 @@ export const createLessonSectionOperations = (db: Database) => {
   /**
    * Updates the order of multiple lessons in a single SQL query using a
    * CASE WHEN expression. Much faster than N sequential updateLessonOrder
-   * calls — critical for ghost courses where reordering has no filesystem ops
-   * and DB round trips are the only work being done.
+   * calls — critical when reordering many lessons, where DB round trips
+   * are the only work being done.
    */
   const batchUpdateLessonOrders = Effect.fn("batchUpdateLessonOrders")(
     function* (updates: { id: string; order: number }[]) {
@@ -449,7 +449,7 @@ export const createLessonSectionOperations = (db: Database) => {
     getSectionWithHierarchyById,
     createSections,
     createLessons,
-    createGhostLesson,
+    createLesson,
     updateLesson,
     deleteLesson,
     deleteSection,

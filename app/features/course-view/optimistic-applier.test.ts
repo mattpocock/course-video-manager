@@ -101,15 +101,15 @@ describe("applyOptimisticEvent", () => {
       expect(result).toBe(loaderData);
     });
 
-    it("handles ghost section path without numeric prefix", () => {
-      const ghostSection = makeSection({
-        id: "ghost-s",
-        path: "My Ghost Section",
+    it("handles a section path without numeric prefix", () => {
+      const sectionNoPrefix = makeSection({
+        id: "s-noprefix",
+        path: "My Section",
       });
-      const loaderData = makeLoaderData([ghostSection]);
+      const loaderData = makeLoaderData([sectionNoPrefix]);
       const event: CourseEditorEvent = {
         type: "update-section-name",
-        sectionId: "ghost-s",
+        sectionId: "s-noprefix",
         title: "Renamed Section",
       };
 
@@ -225,8 +225,8 @@ describe("applyOptimisticEvent", () => {
       );
     });
 
-    it("handles ghost lesson path without numeric prefix", () => {
-      const lesson = makeLesson({ id: "lesson-1", path: "My Ghost Lesson" });
+    it("handles a lesson path without numeric prefix", () => {
+      const lesson = makeLesson({ id: "lesson-1", path: "My Lesson" });
       const loaderData = makeLoaderData([makeSection({}, [lesson])]);
       const event: CourseEditorEvent = {
         type: "update-lesson-name",

@@ -29,7 +29,7 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
     switch (event.type) {
       // --- Section events ---
       case "create-section": {
-        return yield* service.addGhostSection(
+        return yield* service.addSection(
           event.repoVersionId,
           event.title,
           event.maxOrder,
@@ -65,15 +65,15 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       // --- Lesson events ---
-      case "add-ghost-lesson": {
-        return yield* service.addGhostLesson(event.sectionId, event.title, {
+      case "add-lesson": {
+        return yield* service.addLesson(event.sectionId, event.title, {
           adjacentLessonId: event.adjacentLessonId,
           position: event.position,
         });
       }
 
       case "create-real-lesson": {
-        return yield* service.createRealLesson(event.sectionId, event.title, {
+        return yield* service.createLesson(event.sectionId, event.title, {
           adjacentLessonId: event.adjacentLessonId,
           position: event.position,
         });

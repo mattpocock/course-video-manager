@@ -1,7 +1,4 @@
-import {
-  sectionHasRealLessons,
-  deriveSectionPath,
-} from "./section-path-service";
+import { sectionHasLessons, deriveSectionPath } from "./section-path-service";
 import { deriveLessonPath } from "./lesson-path-service";
 
 export { deriveLessonPath } from "./lesson-path-service";
@@ -42,10 +39,12 @@ export const projectVersionPaths = (
 ): Map<string, DerivedPath> => {
   const paths = new Map<string, DerivedPath>();
 
-  const realSections = sections.filter((s) => sectionHasRealLessons(s.lessons));
-  const sectionRanks = rankByOrder(realSections);
+  const sectionsWithLessons = sections.filter((s) =>
+    sectionHasLessons(s.lessons)
+  );
+  const sectionRanks = rankByOrder(sectionsWithLessons);
 
-  for (const section of realSections) {
+  for (const section of sectionsWithLessons) {
     const sectionNumber = sectionRanks.get(section.id)!;
     paths.set(section.id, deriveSectionPath(section.title, sectionNumber));
 
@@ -75,7 +74,7 @@ type SectionWithPath<S extends ProjectableSection> = Omit<
   lessons: LessonWithPath<S["lessons"][number]>[];
 };
 
-const ghostFallback = (entity: { title: string }): DerivedPath => entity.title;
+const titleFallback = (entity: { title: string }): DerivedPath => entity.title;
 
 export const attachDerivedPaths = <S extends ProjectableSection>(
   sections: readonly S[]
@@ -84,10 +83,10 @@ export const attachDerivedPaths = <S extends ProjectableSection>(
 
   return sections.map((section) => ({
     ...section,
-    path: paths.get(section.id) ?? ghostFallback(section),
+    path: paths.get(section.id) ?? titleFallback(section),
     lessons: section.lessons.map((lesson) => ({
       ...lesson,
-      path: paths.get(lesson.id) ?? ghostFallback(lesson),
+      path: paths.get(lesson.id) ?? titleFallback(lesson),
     })),
   })) as SectionWithPath<S>[];
 };

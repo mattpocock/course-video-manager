@@ -67,7 +67,7 @@ const setup = async () => {
     return sections[0]!;
   };
 
-  const createLesson = async (
+  const createLessonWithPath = async (
     sectionId: string,
     lessonPath: string,
     order: number
@@ -81,14 +81,14 @@ const setup = async () => {
     return lessons[0]!;
   };
 
-  const createGhostLesson = async (
+  const createLesson = async (
     sectionId: string,
     title: string,
     order: number
   ) => {
     const lesson = await Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
-      return yield* lsOps.createGhostLesson(sectionId, {
+      return yield* lsOps.createLesson(sectionId, {
         title,
         order,
       });
@@ -105,8 +105,8 @@ const setup = async () => {
   return {
     run,
     createSection,
+    createLessonWithPath,
     createLesson,
-    createGhostLesson,
     getLesson,
   };
 };
@@ -114,12 +114,13 @@ const setup = async () => {
 describe("CourseWriteService", () => {
   describe("reorderLessons", () => {
     it("reverses lesson order values in the database", async () => {
-      const { run, createSection, createLesson, getLesson } = await setup();
+      const { run, createSection, createLessonWithPath, getLesson } =
+        await setup();
 
       const section = await createSection("01-intro", 1);
-      const l1 = await createLesson(section.id, "01.01-first", 1);
-      const l2 = await createLesson(section.id, "01.02-second", 2);
-      const l3 = await createLesson(section.id, "01.03-third", 3);
+      const l1 = await createLessonWithPath(section.id, "01.01-first", 1);
+      const l2 = await createLessonWithPath(section.id, "01.02-second", 2);
+      const l3 = await createLessonWithPath(section.id, "01.03-third", 3);
 
       await run(
         Effect.gen(function* () {
@@ -142,15 +143,14 @@ describe("CourseWriteService", () => {
       expect(updated3.order).toBe(0);
     });
 
-    it("updates order values for all-ghost lessons", async () => {
-      const { run, createSection, createGhostLesson, getLesson } =
-        await setup();
+    it("updates order values for all-lessons", async () => {
+      const { run, createSection, createLesson, getLesson } = await setup();
 
       const section = await createSection("01-intro", 1);
-      const g1 = await createGhostLesson(section.id, "Alpha", 0);
-      const g2 = await createGhostLesson(section.id, "Beta", 1);
-      const g3 = await createGhostLesson(section.id, "Gamma", 2);
-      const g4 = await createGhostLesson(section.id, "Delta", 3);
+      const g1 = await createLesson(section.id, "Alpha", 0);
+      const g2 = await createLesson(section.id, "Beta", 1);
+      const g3 = await createLesson(section.id, "Gamma", 2);
+      const g4 = await createLesson(section.id, "Delta", 3);
 
       await run(
         Effect.gen(function* () {
@@ -178,11 +178,10 @@ describe("CourseWriteService", () => {
     });
 
     it("normalizes a single lesson order to zero", async () => {
-      const { run, createSection, createGhostLesson, getLesson } =
-        await setup();
+      const { run, createSection, createLesson, getLesson } = await setup();
 
       const section = await createSection("01-intro", 1);
-      const g1 = await createGhostLesson(section.id, "Only", 5);
+      const g1 = await createLesson(section.id, "Only", 5);
 
       await run(
         Effect.gen(function* () {
@@ -196,19 +195,18 @@ describe("CourseWriteService", () => {
     });
   });
 
-  describe("addGhostLesson (adjacent insertion)", () => {
+  describe("addLesson (adjacent insertion)", () => {
     it("inserts before the first lesson and shifts others", async () => {
-      const { run, createSection, createGhostLesson, getLesson } =
-        await setup();
+      const { run, createSection, createLesson, getLesson } = await setup();
 
       const section = await createSection("01-intro", 1);
-      const g1 = await createGhostLesson(section.id, "First", 0);
-      const g2 = await createGhostLesson(section.id, "Second", 1);
+      const g1 = await createLesson(section.id, "First", 0);
+      const g2 = await createLesson(section.id, "Second", 1);
 
       const result = await run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
-          return yield* service.addGhostLesson(section.id, "Zeroth", {
+          return yield* service.addLesson(section.id, "Zeroth", {
             adjacentLessonId: g1.id,
             position: "before",
           });

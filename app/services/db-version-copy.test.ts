@@ -238,7 +238,7 @@ describe("copyVersionStructure", () => {
       {
         sectionId: section!.id,
         order: 3,
-        title: "Ghost Lesson",
+        title: "Lesson",
         authoringStatus: "todo",
       },
     ]);

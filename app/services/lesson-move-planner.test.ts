@@ -176,7 +176,7 @@ describe("planLessonMove", () => {
   });
 
   describe("materialize target / dematerialize source", () => {
-    it("materializes a ghost target, keeps numbering when source stays real", () => {
+    it("numbers a now-non-empty target, keeps numbering when source stays non-empty", () => {
       const sections: PlannerSection[] = [
         {
           id: "s1",
@@ -242,7 +242,7 @@ describe("planLessonMove", () => {
       const secUpdates = Object.fromEntries(
         plan.sectionUpdates.map((s) => [s.id, s.path])
       );
-      // Source reverts to a plain title (ghost), target becomes 01.
+      // Source reverts to an unnumbered title, target becomes 01.
       expect(secUpdates.s1).toBe("Intro");
       expect(secUpdates.s2).toBe("01-advanced");
 
@@ -375,7 +375,7 @@ describe("planLessonsMove", () => {
     const secUpdates = Object.fromEntries(
       plan.sectionUpdates.map((s) => [s.id, s.path])
     );
-    // Source reverts to a plain (ghost) title; target renumbers 02 → 01.
+    // Source reverts to an unnumbered title; target renumbers 02 → 01.
     expect(secUpdates.s1).toBe("Intro");
     expect(secUpdates.s2).toBe("01-advanced");
     expect(plan.fsOps.some((o) => o.kind === "deleteSectionDir")).toBe(true);

@@ -60,7 +60,7 @@ export function SectionGrid({
   todoFilter,
   searchQuery,
   viewMode,
-  addGhostLessonSectionId,
+  addLessonSectionId,
   insertAdjacentLessonId,
   insertPosition,
   editSectionId,
@@ -101,7 +101,7 @@ export function SectionGrid({
   iconFilter: string[];
   todoFilter: boolean;
   searchQuery: string;
-  addGhostLessonSectionId: string | null;
+  addLessonSectionId: string | null;
   insertAdjacentLessonId: string | null;
   insertPosition: "before" | "after" | null;
   editSectionId: string | null;
@@ -238,7 +238,7 @@ export function SectionGrid({
                     todoFilter={todoFilter}
                     searchQuery={searchQuery}
                     viewMode={viewMode}
-                    addGhostLessonSectionId={addGhostLessonSectionId}
+                    addLessonSectionId={addLessonSectionId}
                     insertAdjacentLessonId={insertAdjacentLessonId}
                     insertPosition={insertPosition}
                     editSectionId={editSectionId}

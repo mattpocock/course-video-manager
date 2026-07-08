@@ -12,9 +12,8 @@ export type ParsedSectionPath = {
   slug: string;
 };
 
-export const sectionHasRealLessons = (
-  lessons: ReadonlyArray<unknown>
-): boolean => lessons.length > 0;
+export const sectionHasLessons = (lessons: ReadonlyArray<unknown>): boolean =>
+  lessons.length > 0;
 
 /**
  * Derives the slug for a section regardless of whether its path is already
@@ -30,7 +29,7 @@ export const sectionSlugFromPath = (sectionPath: string): string => {
 export type SectionForReorder = {
   id: string;
   path: string; // directory name like "01-intro"
-  hasRealLessons: boolean; // real-ness, derived from lessons (not the path)
+  hasLessons: boolean; // whether the section has lessons (not the path)
 };
 
 export type SectionRenameEntry = {
@@ -97,8 +96,8 @@ export const computeSectionRenumberingPlan = (
     const section = sectionMap.get(newOrderIds[i]!);
     if (!section) continue;
 
-    // Ghost sections (no real lessons) don't get numbered paths.
-    if (!section.hasRealLessons) continue;
+    // Empty sections (no lessons) don't get numbered paths.
+    if (!section.hasLessons) continue;
 
     const newSectionNumber = i + 1;
     const newPath = buildSectionPath(

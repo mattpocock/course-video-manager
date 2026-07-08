@@ -4,7 +4,7 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
-const addGhostCourseSchema = Schema.Struct({
+const addCourseSchema = Schema.Struct({
   name: Schema.String,
 });
 
@@ -13,7 +13,7 @@ export const action = makeAction({
   errors: { CourseNameTakenError: 409 },
   effect: ({ payload }) =>
     Effect.gen(function* () {
-      const result = yield* Schema.decodeUnknown(addGhostCourseSchema)(payload);
+      const result = yield* Schema.decodeUnknown(addCourseSchema)(payload);
 
       const courseOps = yield* CourseOperationsService;
       const versionOps = yield* VersionOperationsService;

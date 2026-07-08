@@ -57,11 +57,11 @@ const buildCourseWithVideos = async () => {
     })
     .returning();
 
-  const [lessonGhost] = await testDb
+  const [lessonB] = await testDb
     .insert(schema.lessons)
     .values({
       sectionId: section!.id,
-      title: "Ghost Lesson",
+      title: "Lesson",
       order: 2,
       authoringStatus: "todo",
     })
@@ -91,7 +91,7 @@ const buildCourseWithVideos = async () => {
     versionId: version!.id,
     sectionId: section!.id,
     lessonRealId: lessonReal!.id,
-    lessonGhostId: lessonGhost!.id,
+    lessonBId: lessonB!.id,
     videoId: video!.id,
   };
 };

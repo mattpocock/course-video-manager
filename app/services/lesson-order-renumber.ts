@@ -23,8 +23,8 @@ export const computeDenseLessonOrders = (
   const sorted = [...lessons].sort((a, b) => {
     // Primary: post-resync order — disk truth for real lessons.
     if (a.order !== b.order) return a.order - b.order;
-    // Secondary: pre-resync order — recovers the ghost's intended position
-    // when resync has just dropped a real lesson onto the ghost's slot.
+    // Secondary: pre-resync order — recovers the dragged lesson's intended position
+    // when resync has just dropped a lesson onto the dragged lesson's slot.
     const preA = preOrderById.get(a.id) ?? a.order;
     const preB = preOrderById.get(b.id) ?? b.order;
     if (preA !== preB) return preA - preB;

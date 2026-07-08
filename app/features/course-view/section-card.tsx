@@ -43,7 +43,7 @@ export function SectionCard({
   todoFilter,
   searchQuery,
   viewMode,
-  addGhostLessonSectionId,
+  addLessonSectionId,
   insertAdjacentLessonId,
   insertPosition,
   editSectionId,
@@ -78,7 +78,7 @@ export function SectionCard({
   iconFilter: string[];
   todoFilter: boolean;
   searchQuery: string;
-  addGhostLessonSectionId: string | null;
+  addLessonSectionId: string | null;
   insertAdjacentLessonId: string | null;
   insertPosition: "before" | "after" | null;
   editSectionId: string | null;
@@ -279,7 +279,7 @@ export function SectionCard({
             sectionId={section.id}
             sectionTitle={section.title}
             lessonCount={lessons.length}
-            addGhostLessonSectionId={addGhostLessonSectionId}
+            addLessonSectionId={addLessonSectionId}
             insertAdjacentLessonId={insertAdjacentLessonId}
             insertPosition={insertPosition}
             archiveSectionId={archiveSectionId}

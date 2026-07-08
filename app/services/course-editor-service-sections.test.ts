@@ -17,7 +17,7 @@ import {
 
 // A real section is one that holds at least one real lesson — never inferred
 // from the path prefix. These helpers build sections that are unambiguously
-// real or ghost under that rule.
+// under that rule.
 const realLesson = (order: number) => ({
   title: `Lesson ${order}`,
   order,
@@ -31,7 +31,7 @@ const db = () => testDb;
 
 describe("CourseEditorService — sections", () => {
   describe("create-section", () => {
-    it("creates a ghost section in the database", async () => {
+    it("creates a section in the database", async () => {
       const { version } = await createCourseWithVersion();
       const result = await svc().createSection(version.id, "Introduction", 0);
 
@@ -147,7 +147,7 @@ describe("CourseEditorService — sections", () => {
       expect(sections[0]!.title).toBe("Getting Started");
     });
 
-    it("renames a ghost section by storing the new title verbatim", async () => {
+    it("renames a section by storing the new title verbatim", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -183,7 +183,7 @@ describe("CourseEditorService — sections", () => {
   });
 
   describe("archive-section", () => {
-    it("archives a ghost section with no lessons (section no longer visible)", async () => {
+    it("archives a section with no lessons (section no longer visible)", async () => {
       const { version } = await createCourseWithVersion();
       const result = await svc().createSection(version.id, "To Archive", 0);
       await svc().archiveSection(result.sectionId);
@@ -198,7 +198,7 @@ describe("CourseEditorService — sections", () => {
       expect(allSections[0]!.archivedAt).not.toBeNull();
     });
 
-    it("archives a ghost section and ghost lessons are preserved (not deleted)", async () => {
+    it("archives a section and lessons are preserved (not deleted)", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -225,7 +225,7 @@ describe("CourseEditorService — sections", () => {
 
       // Section not visible
       expect(await getSections(version.id)).toHaveLength(0);
-      // Ghost lessons preserved in DB (not deleted)
+      // Lessons preserved in DB (not deleted)
       expect(await db().query.lessons.findMany()).toHaveLength(2);
     });
 
@@ -250,7 +250,7 @@ describe("CourseEditorService — sections", () => {
       expect(sections).toHaveLength(0);
     });
 
-    it("archives a section with mixed ghost and real lessons", async () => {
+    it("archives a section with lessons", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -263,7 +263,7 @@ describe("CourseEditorService — sections", () => {
         .values([
           {
             sectionId: createResult.sectionId,
-            title: "Ghost Lesson",
+            title: "Lesson",
             order: 1,
           },
           {
@@ -293,7 +293,7 @@ describe("CourseEditorService — sections", () => {
   });
 
   describe("reorder-sections", () => {
-    it("reorders ghost sections by updating order field", async () => {
+    it("reorders sections by updating order field", async () => {
       const { version } = await createCourseWithVersion();
       const r1 = await svc().createSection(version.id, "Alpha", 0);
       const r2 = await svc().createSection(version.id, "Beta", 1);

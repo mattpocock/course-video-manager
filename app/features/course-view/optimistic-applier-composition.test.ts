@@ -51,12 +51,12 @@ describe("applyOptimisticEvent – composition and edge cases", () => {
       expect(result).toBe(loaderData);
     });
 
-    it("returns loaderData unchanged for add-ghost-lesson", () => {
+    it("returns loaderData unchanged for add-lesson", () => {
       const loaderData = makeLoaderData();
       const event: CourseEditorEvent = {
-        type: "add-ghost-lesson",
+        type: "add-lesson",
         sectionId: "section-1",
-        title: "Ghost Lesson",
+        title: "Lesson",
       };
 
       const result = applyOptimisticEvent(loaderData, event);

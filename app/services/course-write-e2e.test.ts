@@ -74,7 +74,7 @@ const setup = async () => {
   ) => {
     const lessons = await Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
-      const created = yield* lsOps.createGhostLesson(sectionId, {
+      const created = yield* lsOps.createLesson(sectionId, {
         title,
         order,
       });
@@ -125,7 +125,7 @@ describe("CourseWriteService (DB-only)", () => {
       const addResult = await run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
-          return yield* service.addGhostLesson(section.id, "Where Were Going");
+          return yield* service.addLesson(section.id, "Where Were Going");
         })
       );
       expect(addResult.success).toBe(true);
@@ -149,17 +149,14 @@ describe("CourseWriteService (DB-only)", () => {
     });
   });
 
-  describe("addGhostSection", () => {
+  describe("addSection", () => {
     it("creates a section with the given title as its path", async () => {
       const { run, repoVersionId, getSection } = await setup();
 
       const result = await run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
-          return yield* service.addGhostSection(
-            repoVersionId,
-            "Before We Start"
-          );
+          return yield* service.addSection(repoVersionId, "Before We Start");
         })
       );
 
@@ -169,7 +166,7 @@ describe("CourseWriteService (DB-only)", () => {
     });
   });
 
-  describe("addGhostLesson creates a plain lesson row", () => {
+  describe("addLesson creates a plain lesson row", () => {
     it("creates with authoringStatus todo", async () => {
       const { run, createSection, getLesson } = await setup();
 
@@ -178,7 +175,7 @@ describe("CourseWriteService (DB-only)", () => {
       const result = await run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
-          return yield* service.addGhostLesson(section.id, "My Lesson");
+          return yield* service.addLesson(section.id, "My Lesson");
         })
       );
 
@@ -189,7 +186,7 @@ describe("CourseWriteService (DB-only)", () => {
     });
   });
 
-  describe("createRealLesson behaves identically to addGhostLesson", () => {
+  describe("createLesson behaves identically to addLesson", () => {
     it("creates a lesson with correct DB state", async () => {
       const { run, createSection, getLesson } = await setup();
 
@@ -198,7 +195,7 @@ describe("CourseWriteService (DB-only)", () => {
       const result = await run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
-          return yield* service.createRealLesson(section.id, "My Lesson");
+          return yield* service.createLesson(section.id, "My Lesson");
         })
       );
 

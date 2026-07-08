@@ -45,11 +45,11 @@ function makeVersion(
   return { id, name, description: "", createdAt: new Date(), sections };
 }
 
-describe("ghost sections excluded from changelog", () => {
-  it("does not report changes when versions only differ by a removed ghost section", () => {
-    // Ghost sections are filtered at the DB layer, so they never appear in
-    // VersionWithStructure. This test verifies that two identical real
-    // structures produce no changelog entries (the ghost section that existed
+describe("empty sections excluded from changelog", () => {
+  it("does not report changes when versions only differ by a removed empty section", () => {
+    // Empty sections are filtered at the DB layer, so they never appear in
+    // VersionWithStructure. This test verifies that two identical
+    // structures produce no changelog entries (the empty section that existed
     // in the DB was already stripped before reaching detectChanges).
     const prevVersion = makeVersion("v1", "v1.0", [
       makeSection("s1", "01-intro", [
@@ -97,10 +97,10 @@ describe("ghost sections excluded from changelog", () => {
     expect(changes!.renamedSections).toHaveLength(0);
   });
 
-  it("correctly detects a deleted lesson when its only reference was from a ghost section", () => {
-    // In the DB, lesson l2 was referenced by a ghost section's lesson. After
-    // ghost section filtering at the DB layer, that reference is gone, so l2
-    // should appear as deleted from its original real section.
+  it("correctly detects a deleted lesson when its only reference was from an empty section", () => {
+    // In the DB, lesson l2 was referenced by an empty section's lesson. After
+    // empty-section filtering at the DB layer, that reference is gone, so l2
+    // should appear as deleted from its original section.
     const prevVersion = makeVersion("v1", "v1.0", [
       makeSection("s1", "01-intro", [
         makeLesson("l1", "01.01-welcome", null, ["Hello"]),

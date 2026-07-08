@@ -15,31 +15,30 @@ import {
 /**
  * `cvm section` — read Sections of a Course Version.
  *
- * A Section is a directory-backed grouping of Lessons within a Course Version,
- * ordered by a fractional `order` (doublePrecision) index. Sections are
- * version-scoped: the same on-disk section appears once per Version, so every
- * read is anchored to a Version — by default the DRAFT Version (the single
- * mutable, latest-by-createdAt snapshot), or a pinned Published Version via
- * --course-version.
+ * A Section is a grouping of Lessons within a Course Version, ordered by a
+ * fractional `order` (doublePrecision) index. Sections are version-scoped: the
+ * same section appears once per Version, so every read is anchored to a Version
+ * — by default the DRAFT Version (the single mutable, latest-by-createdAt
+ * snapshot), or a pinned Published Version via --course-version.
  *
- * A Section can be a GHOST Section (it exists in the database but not yet on the
- * file system) — its "real"-ness is derived from whether it contains at least
- * one real Lesson, never from its path. A section whose path ends in `ARCHIVE`
- * is an ARCHIVE Section (filtered out of the default course view in the app, but
- * still returned here unless it has been archived/deleted).
+ * An empty Section (one with no Lessons) has no derived numbered path — its path
+ * falls back to its title — and is skipped from the numbered course view; it
+ * gains a number once it contains at least one Lesson. A section whose path ends
+ * in `ARCHIVE` is an ARCHIVE Section (filtered out of the default course view in
+ * the app, but still returned here unless it has been archived/deleted).
  */
 const SECTION_HELP = `cvm section — Sections of a Course Version.
 
 WHAT IS A SECTION
-  A Section is a directory-backed grouping of Lessons inside a single Course
-  Version, ordered by a fractional 'order' index. Sections are version-scoped:
-  every read resolves a Version first (the DRAFT by default, or --course-version <id>
-  to pin a Published Version snapshot).
+  A Section is a grouping of Lessons inside a single Course Version, ordered by a
+  fractional 'order' index. Sections are version-scoped: every read resolves a
+  Version first (the DRAFT by default, or --course-version <id> to pin a
+  Published Version snapshot).
 
-  A GHOST Section exists in the database but not yet on disk; its real-ness is
-  derived from containing at least one real Lesson, never from its path. Archived
-  (deleted) sections are ALWAYS filtered out and are never visible — there is no
-  --archived flag for sections.
+  An empty Section (no Lessons) has no derived numbered path — its path falls back
+  to its title — and is skipped from the numbered view; it gains a number once it
+  contains at least one Lesson. Archived (deleted) sections are ALWAYS filtered
+  out and are never visible — there is no --archived flag for sections.
 
 OUTPUT FIELDS
   id            section id (use with 'get' / 'tree').

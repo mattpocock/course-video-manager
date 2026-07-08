@@ -44,7 +44,7 @@ export type CourseEditorEvent =
     }
   // --- Lesson events ---
   | {
-      type: "add-ghost-lesson";
+      type: "add-lesson";
       sectionId: string;
       title: string;
       adjacentLessonId?: string;
@@ -198,13 +198,13 @@ export interface CourseEditorService {
   reorderSections(sectionIds: string[]): Promise<{ success: true }>;
 
   // Lesson operations
-  addGhostLesson(
+  addLesson(
     sectionId: string,
     title: string,
     opts?: { adjacentLessonId?: string; position?: "before" | "after" }
   ): Promise<{ success: true; lessonId: string }>;
 
-  createRealLesson(
+  createLesson(
     sectionId: string,
     title: string,
     opts?: { adjacentLessonId?: string; position?: "before" | "after" }
@@ -340,9 +340,9 @@ export function createCourseEditorService(
     },
 
     // --- Lesson operations ---
-    async addGhostLesson(sectionId, title, opts) {
+    async addLesson(sectionId, title, opts) {
       return send({
-        type: "add-ghost-lesson",
+        type: "add-lesson",
         sectionId,
         title,
         ...(opts?.adjacentLessonId && {
@@ -352,7 +352,7 @@ export function createCourseEditorService(
       }) as Promise<{ success: true; lessonId: string }>;
     },
 
-    async createRealLesson(sectionId, title, opts) {
+    async createLesson(sectionId, title, opts) {
       return send({
         type: "create-real-lesson",
         sectionId,

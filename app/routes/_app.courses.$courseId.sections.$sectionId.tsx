@@ -125,7 +125,7 @@ export default function Component(props: Route.ComponentProps) {
   const section = currentCourse?.sections[0];
 
   const {
-    addGhostLessonSectionId,
+    addLessonSectionId,
     insertAdjacentLessonId,
     insertPosition,
     addVideoToLessonId,
@@ -233,7 +233,7 @@ export default function Component(props: Route.ComponentProps) {
                     iconFilter={iconFilter}
                     todoFilter={todoFilter}
                     searchQuery={searchQuery}
-                    addGhostLessonSectionId={addGhostLessonSectionId}
+                    addLessonSectionId={addLessonSectionId}
                     insertAdjacentLessonId={insertAdjacentLessonId}
                     insertPosition={insertPosition}
                     editSectionId={editSectionId}

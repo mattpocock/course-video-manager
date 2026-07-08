@@ -163,7 +163,7 @@ describe("CourseWriteService", () => {
     });
   });
 
-  describe("createRealLesson", () => {
+  describe("createLesson", () => {
     it("creates a lesson with correct slug", async () => {
       const { run, createSection, getLesson } = await setup();
 
@@ -172,7 +172,7 @@ describe("CourseWriteService", () => {
       const result = await run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
-          return yield* service.createRealLesson(section.id, "My First Lesson");
+          return yield* service.createLesson(section.id, "My First Lesson");
         })
       );
 
@@ -194,11 +194,10 @@ describe("CourseWriteService", () => {
       const result = await run(
         Effect.gen(function* () {
           const service = yield* CourseWriteService;
-          return yield* service.createRealLesson(
-            section.id,
-            "Inserted Lesson",
-            { adjacentLessonId: l2.id, position: "before" }
-          );
+          return yield* service.createLesson(section.id, "Inserted Lesson", {
+            adjacentLessonId: l2.id,
+            position: "before",
+          });
         })
       );
 

@@ -22,12 +22,12 @@ const svc = () => es;
 const db = () => testDb;
 
 describe("CourseEditorService — lessons", () => {
-  describe("add-ghost-lesson", () => {
+  describe("add-lesson", () => {
     it("creates a lesson in a section", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
 
-      const result = await svc().addGhostLesson(s.sectionId, "My Lesson");
+      const result = await svc().addLesson(s.sectionId, "My Lesson");
       expect(result).toMatchObject({
         success: true,
         lessonId: expect.any(String),
@@ -43,18 +43,18 @@ describe("CourseEditorService — lessons", () => {
     it("lesson starts with authoringStatus todo", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "My Lesson");
+      const l = await svc().addLesson(s.sectionId, "My Lesson");
       const lesson = await getLessonById(l.lessonId);
       expect(lesson!.authoringStatus).toBe("todo");
     });
 
-    it("creates multiple ghost lessons with correct ordering", async () => {
+    it("creates multiple lessons with correct ordering", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
 
-      await svc().addGhostLesson(s.sectionId, "Lesson 1");
-      await svc().addGhostLesson(s.sectionId, "Lesson 2");
-      await svc().addGhostLesson(s.sectionId, "Lesson 3");
+      await svc().addLesson(s.sectionId, "Lesson 1");
+      await svc().addLesson(s.sectionId, "Lesson 2");
+      await svc().addLesson(s.sectionId, "Lesson 3");
 
       const lessons = await getLessons(s.sectionId);
       expect(lessons).toHaveLength(3);
@@ -78,10 +78,7 @@ describe("CourseEditorService — lessons", () => {
         })
         .returning();
 
-      const result = await svc().createRealLesson(
-        section!.id,
-        "Getting Started"
-      );
+      const result = await svc().createLesson(section!.id, "Getting Started");
       expect(result).toMatchObject({
         success: true,
         lessonId: expect.any(String),
@@ -103,10 +100,7 @@ describe("CourseEditorService — lessons", () => {
         })
         .returning();
 
-      const result = await svc().createRealLesson(
-        section!.id,
-        "Getting Started"
-      );
+      const result = await svc().createLesson(section!.id, "Getting Started");
       const lesson = await getLessonById(result.lessonId);
       expect(lesson!.authoringStatus).toBe("todo");
     });
@@ -114,16 +108,16 @@ describe("CourseEditorService — lessons", () => {
     it("creates a real lesson even when the course has no filePath", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const result = await svc().createRealLesson(s.sectionId, "My Lesson");
+      const result = await svc().createLesson(s.sectionId, "My Lesson");
       expect(result).toMatchObject({ success: true });
     });
   });
 
   describe("update-lesson-name", () => {
-    it("renames a ghost lesson slug", async () => {
+    it("renames a lesson slug", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "Old Name");
+      const l = await svc().addLesson(s.sectionId, "Old Name");
 
       const result = await svc().updateLessonName(l.lessonId, "new-name");
       expect(result).toMatchObject({ success: true, title: "new-name" });
@@ -135,7 +129,7 @@ describe("CourseEditorService — lessons", () => {
     it("returns early when slug is unchanged", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "My Lesson");
+      const l = await svc().addLesson(s.sectionId, "My Lesson");
 
       const result = await svc().updateLessonName(l.lessonId, "my-lesson");
       expect(result).toMatchObject({ success: true, title: "my-lesson" });
@@ -146,7 +140,7 @@ describe("CourseEditorService — lessons", () => {
     it("updates the title and regenerates path slug", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "Old Title");
+      const l = await svc().addLesson(s.sectionId, "Old Title");
 
       const result = await svc().updateLessonTitle(l.lessonId, "New Title");
       expect(result).toMatchObject({ success: true });
@@ -160,7 +154,7 @@ describe("CourseEditorService — lessons", () => {
     it("updates the description", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "My Lesson");
+      const l = await svc().addLesson(s.sectionId, "My Lesson");
 
       await svc().updateLessonDescription(
         l.lessonId,
@@ -176,7 +170,7 @@ describe("CourseEditorService — lessons", () => {
     it("updates the icon", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "My Lesson");
+      const l = await svc().addLesson(s.sectionId, "My Lesson");
 
       await svc().updateLessonIcon(l.lessonId, "code");
 
@@ -189,7 +183,7 @@ describe("CourseEditorService — lessons", () => {
     it("updates the priority", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "My Lesson");
+      const l = await svc().addLesson(s.sectionId, "My Lesson");
 
       await svc().updateLessonPriority(l.lessonId, 1);
 
@@ -202,8 +196,8 @@ describe("CourseEditorService — lessons", () => {
     it("updates dependencies array", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l1 = await svc().addGhostLesson(s.sectionId, "Lesson 1");
-      const l2 = await svc().addGhostLesson(s.sectionId, "Lesson 2");
+      const l1 = await svc().addLesson(s.sectionId, "Lesson 1");
+      const l2 = await svc().addLesson(s.sectionId, "Lesson 2");
 
       await svc().updateLessonDependencies(l2.lessonId, [l1.lessonId]);
 
@@ -213,10 +207,10 @@ describe("CourseEditorService — lessons", () => {
   });
 
   describe("delete-lesson", () => {
-    it("soft-deletes a ghost lesson (sets archived, not removed from DB)", async () => {
+    it("soft-deletes a lesson (sets archived, not removed from DB)", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l = await svc().addGhostLesson(s.sectionId, "To Delete");
+      const l = await svc().addLesson(s.sectionId, "To Delete");
 
       await svc().deleteLesson(l.lessonId);
       expect(await getLessons(s.sectionId)).toHaveLength(0);
@@ -251,12 +245,12 @@ describe("CourseEditorService — lessons", () => {
   });
 
   describe("reorder-lessons", () => {
-    it("reorders ghost lessons by updating order field", async () => {
+    it("reorders lessons by updating order field", async () => {
       const { version } = await createCourseWithVersion();
       const s = await svc().createSection(version.id, "Section A", 0);
-      const l1 = await svc().addGhostLesson(s.sectionId, "Alpha");
-      const l2 = await svc().addGhostLesson(s.sectionId, "Beta");
-      const l3 = await svc().addGhostLesson(s.sectionId, "Gamma");
+      const l1 = await svc().addLesson(s.sectionId, "Alpha");
+      const l2 = await svc().addLesson(s.sectionId, "Beta");
+      const l3 = await svc().addLesson(s.sectionId, "Gamma");
 
       await svc().reorderLessons(s.sectionId, [
         l3.lessonId,
@@ -293,11 +287,11 @@ describe("CourseEditorService — lessons", () => {
   });
 
   describe("move-lesson-to-section", () => {
-    it("moves a ghost lesson to another section", async () => {
+    it("moves a lesson to another section", async () => {
       const { version } = await createCourseWithVersion();
       const s1 = await svc().createSection(version.id, "Section A", 0);
       const s2 = await svc().createSection(version.id, "Section B", 1);
-      const l = await svc().addGhostLesson(s1.sectionId, "My Lesson");
+      const l = await svc().addLesson(s1.sectionId, "My Lesson");
 
       await svc().moveLessonToSection(l.lessonId, s2.sectionId);
 
@@ -381,10 +375,7 @@ describe("CourseEditorService — lessons", () => {
         })
         .returning();
 
-      const result = await svc().createRealLesson(
-        section!.id,
-        "Getting Started"
-      );
+      const result = await svc().createLesson(section!.id, "Getting Started");
       expect((await getLessonById(result.lessonId))!.authoringStatus).toBe(
         "todo"
       );

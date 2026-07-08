@@ -34,7 +34,7 @@ export function AddCourseModal({ isOpen, onOpenChange }: AddCourseModalProps) {
         </DialogHeader>
         <fetcher.Form
           method="post"
-          action="/api/courses/add-ghost"
+          action="/api/courses/add-course"
           className="space-y-4 py-4"
         >
           <div className="space-y-2">

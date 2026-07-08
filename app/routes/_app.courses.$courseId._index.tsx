@@ -151,7 +151,7 @@ export default function Component(props: Route.ComponentProps) {
     isCreateSectionModalOpen,
     insertAdjacentSectionId,
     insertSectionPosition,
-    addGhostLessonSectionId,
+    addLessonSectionId,
     insertAdjacentLessonId,
     insertPosition,
     addVideoToLessonId,
@@ -374,7 +374,7 @@ export default function Component(props: Route.ComponentProps) {
                       iconFilter={iconFilter}
                       todoFilter={todoFilter}
                       searchQuery={searchQuery}
-                      addGhostLessonSectionId={addGhostLessonSectionId}
+                      addLessonSectionId={addLessonSectionId}
                       insertAdjacentLessonId={insertAdjacentLessonId}
                       insertPosition={insertPosition}
                       editSectionId={editSectionId}

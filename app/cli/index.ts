@@ -60,8 +60,8 @@ WRITES
   any positional <id> (a flag after it exits 3). The write surface:
     beat    add/update/move/delete   author a Video's Beat plan
                                      (add --pitch <id> targets a pitch's video)
-    lesson  create/update/move       create a GHOST lesson, rename its title,
-                                     or reorder / re-home it (DB↔disk in sync)
+    lesson  create/update/move       create a lesson, rename its title,
+                                     or reorder / re-home it
     video   create/move/update       create a Video, re-home it to a lesson/
                                      pitch, or rename it (--name)
     pitch   create/update            create a Pitch (--title required) or patch

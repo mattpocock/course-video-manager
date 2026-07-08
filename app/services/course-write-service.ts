@@ -10,7 +10,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
     effect: Effect.gen(function* () {
       const lessonSectionOps = yield* LessonSectionOperationsService;
 
-      const addGhostSection = Effect.fn("addGhostSection")(function* (
+      const addSection = Effect.fn("addSection")(function* (
         repoVersionId: string,
         title: string,
         maxOrder: number = 0,
@@ -49,7 +49,7 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         return { success: true, sectionId: newSection!.id };
       });
 
-      const addGhostLesson = Effect.fn("addGhostLesson")(function* (
+      const addLesson = Effect.fn("addLesson")(function* (
         sectionId: string,
         title: string,
         opts?: { adjacentLessonId?: string; position?: "before" | "after" }
@@ -74,13 +74,10 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
           }
         }
 
-        const [newLesson] = yield* lessonSectionOps.createGhostLesson(
-          sectionId,
-          {
-            title,
-            order: insertOrder,
-          }
-        );
+        const [newLesson] = yield* lessonSectionOps.createLesson(sectionId, {
+          title,
+          order: insertOrder,
+        });
 
         yield* lessonSectionOps.updateLesson(newLesson!.id, {
           authoringStatus: "todo",
@@ -89,12 +86,12 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         return { success: true, lessonId: newLesson!.id };
       });
 
-      const createRealLesson = Effect.fn("createRealLesson")(function* (
+      const createLesson = Effect.fn("createLesson")(function* (
         sectionId: string,
         title: string,
         opts?: { adjacentLessonId?: string; position?: "before" | "after" }
       ) {
-        const result = yield* addGhostLesson(sectionId, title, opts);
+        const result = yield* addLesson(sectionId, title, opts);
         return {
           success: true,
           lessonId: result.lessonId,
@@ -164,13 +161,13 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
       });
 
       return {
-        createRealLesson,
+        createLesson,
         reorderLessons,
         reorderSections,
         renameSection,
         archiveSection,
-        addGhostSection,
-        addGhostLesson,
+        addSection,
+        addLesson,
         deleteLesson,
         renameLesson,
         moveToSection,
