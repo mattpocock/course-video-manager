@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { capitalizeTitle } from "@/utils/capitalize-title";
 import { useEffect, useRef, useState } from "react";
 
 export function CreateSectionModal(props: {
@@ -47,8 +46,7 @@ export function CreateSectionModal(props: {
           onSubmit={(e) => {
             e.preventDefault();
             if (!isValid) return;
-            const capitalizedTitle = capitalizeTitle(title.trim());
-            props.onCreateSection(capitalizedTitle);
+            props.onCreateSection(title.trim());
             setTitle("");
             props.onOpenChange(false);
           }}

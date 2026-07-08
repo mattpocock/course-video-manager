@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { capitalizeTitle } from "@/utils/capitalize-title";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import type { Lesson } from "./course-view-types";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,7 +19,7 @@ export function useLessonTitleEditor({
   const saveTitle = useCallback(
     (value: string) => {
       setEditingTitle(false);
-      const newTitle = capitalizeTitle(value.trim());
+      const newTitle = value.trim();
       if (newTitle && newTitle !== currentTitle) {
         submitEvent({
           type: "update-lesson-title",

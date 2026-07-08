@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildSectionRenameEvent } from "./section-title-editor";
 
 describe("buildSectionRenameEvent", () => {
-  it("1. capitalizes and returns event when title changes", () => {
+  it("1. stores the title verbatim and returns event when title changes", () => {
     const result = buildSectionRenameEvent({
       value: "new section title",
       sectionTitle: "Old Title",
@@ -11,17 +11,16 @@ describe("buildSectionRenameEvent", () => {
     expect(result).toEqual({
       type: "update-section-name",
       sectionId: "abc",
-      title: "New Section Title",
+      title: "new section title",
     });
   });
 
-  it("2. returns null when capitalized value equals current path (no-op)", () => {
+  it("2. returns null when trimmed value equals current title (no-op)", () => {
     const result = buildSectionRenameEvent({
-      value: "before we start",
+      value: "  Before We Start  ",
       sectionTitle: "Before We Start",
       sectionId: "abc",
     });
-    // capitalizeTitle("before we start") === "Before We Start" === sectionTitle
     expect(result).toBeNull();
   });
 
@@ -34,16 +33,16 @@ describe("buildSectionRenameEvent", () => {
     expect(result).toBeNull();
   });
 
-  it("4. returns event when title differs from current path", () => {
+  it("4. preserves the user's exact casing and returns event when title differs", () => {
     const result = buildSectionRenameEvent({
-      value: "new title",
+      value: "gRPC in Practice",
       sectionTitle: "Old Title",
       sectionId: "section-1",
     });
     expect(result).toEqual({
       type: "update-section-name",
       sectionId: "section-1",
-      title: "New Title",
+      title: "gRPC in Practice",
     });
   });
 });

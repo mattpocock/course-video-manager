@@ -4,6 +4,7 @@ import {
   planLessonsMove,
 } from "@/services/lesson-move-planner";
 import { attachDerivedPaths } from "@/services/path-projection";
+import { toSlug } from "@/services/lesson-path-service";
 import type {
   LoaderData,
   Lesson,
@@ -113,7 +114,7 @@ export function applyOptimisticEvent(
     case "update-section-name":
       return withPatchedSection(loaderData, event.sectionId, (section) => ({
         title: event.title,
-        path: replaceSlug(section.path, event.title),
+        path: replaceSlug(section.path, toSlug(event.title) || "untitled"),
       }));
     case "update-section-description":
       return withPatchedSection(loaderData, event.sectionId, () => ({

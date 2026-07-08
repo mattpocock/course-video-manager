@@ -10,7 +10,6 @@ import { Effect } from "effect";
 import { CourseWriteService } from "./course-write-service";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { BeatOperationsService } from "./db-beat-operations.server";
-import { toSlug } from "./lesson-path-service";
 import {
   createCourseEditorService,
   type CourseEditorEvent,
@@ -44,8 +43,8 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-section-name": {
-        const newSlug = toSlug(event.title.trim()) || "untitled";
-        return yield* service.renameSection(event.sectionId, newSlug);
+        const newTitle = event.title.trim() || "untitled";
+        return yield* service.renameSection(event.sectionId, newTitle);
       }
 
       case "update-section-description": {

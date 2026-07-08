@@ -115,7 +115,7 @@ describe("applyOptimisticEvent", () => {
 
       const result = applyOptimisticEvent(loaderData, event);
 
-      expect(result.selectedCourse!.sections[0]!.path).toBe("Renamed Section");
+      expect(result.selectedCourse!.sections[0]!.path).toBe("renamed-section");
     });
 
     it("handles section path with dotted prefix", () => {

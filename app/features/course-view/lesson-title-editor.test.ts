@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import { capitalizeTitle } from "@/utils/capitalize-title";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 
 // ---------------------------------------------------------------------------
@@ -11,7 +10,7 @@ function makeSaveTitle(
   submitEvent: (event: CourseEditorEvent) => void
 ) {
   return (value: string) => {
-    const newTitle = capitalizeTitle(value.trim());
+    const newTitle = value.trim();
     if (newTitle && newTitle !== (lesson.title || lesson.path)) {
       submitEvent({
         type: "update-lesson-title",
@@ -116,14 +115,26 @@ describe("useLessonTitleEditor — saveTitle guard condition", () => {
     expect(submitEvent).not.toHaveBeenCalled();
   });
 
-  it("does not submit when value trims/capitalizes to the same title", () => {
+  it("does not submit when value only differs by surrounding whitespace", () => {
     const submitEvent = vi.fn();
     const saveTitle = makeSaveTitle(baseLesson, submitEvent);
-    saveTitle("  my lesson  ");
+    saveTitle("  My Lesson  ");
     expect(submitEvent).not.toHaveBeenCalled();
   });
 
-  it("falls back to lesson.path when title is empty — does not submit when capitalized value equals path", () => {
+  it("preserves the user's exact casing rather than title-casing it", () => {
+    const submitEvent = vi.fn();
+    const saveTitle = makeSaveTitle(baseLesson, submitEvent);
+    saveTitle("my new lesson");
+    expect(submitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "update-lesson-title",
+        title: "my new lesson",
+      })
+    );
+  });
+
+  it("falls back to lesson.path when title is empty — does not submit when value equals path", () => {
     const submitEvent = vi.fn();
     const noTitleLesson = { ...baseLesson, title: "", path: "My Lesson" };
     const saveTitle = makeSaveTitle(noTitleLesson, submitEvent);

@@ -125,7 +125,7 @@ describe("CourseEditorService — sections", () => {
   });
 
   describe("update-section-name", () => {
-    it("renames a section by setting path to the new slug", async () => {
+    it("renames a section by storing the new title verbatim", async () => {
       const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
@@ -140,14 +140,14 @@ describe("CourseEditorService — sections", () => {
       );
       expect(result).toMatchObject({
         success: true,
-        title: "getting-started",
+        title: "Getting Started",
       });
 
       const sections = await getSections(version.id);
-      expect(sections[0]!.title).toBe("getting-started");
+      expect(sections[0]!.title).toBe("Getting Started");
     });
 
-    it("renames a ghost section by setting title to the slug", async () => {
+    it("renames a ghost section by storing the new title verbatim", async () => {
       const { version } = await createCourseWithVersion();
       const createResult = await svc().createSection(
         version.id,
@@ -161,14 +161,14 @@ describe("CourseEditorService — sections", () => {
       );
       expect(result).toMatchObject({
         success: true,
-        title: "getting-started",
+        title: "Getting Started",
       });
 
       const sections = await getSections(version.id);
-      expect(sections[0]!.title).toBe("getting-started");
+      expect(sections[0]!.title).toBe("Getting Started");
     });
 
-    it("returns early when slug matches the current title", async () => {
+    it("returns early when the new title matches the current title", async () => {
       const { version } = await createCourseWithVersion();
       const { section } = await createSectionWithLessons(
         version.id,
@@ -177,7 +177,7 @@ describe("CourseEditorService — sections", () => {
         [realLesson(1)]
       );
 
-      const result = await svc().updateSectionName(section.id, "Introduction");
+      const result = await svc().updateSectionName(section.id, "introduction");
       expect(result).toMatchObject({ success: true, title: "introduction" });
     });
   });

@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { capitalizeTitle } from "@/utils/capitalize-title";
 import type { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -14,7 +13,7 @@ export function buildSectionRenameEvent({
   sectionTitle: string;
   sectionId: string;
 }): CourseEditorEvent | null {
-  const newTitle = capitalizeTitle(value.trim());
+  const newTitle = value.trim();
   if (newTitle && newTitle !== sectionTitle) {
     return {
       type: "update-section-name",

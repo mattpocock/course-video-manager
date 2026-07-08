@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { capitalizeTitle } from "@/utils/capitalize-title";
 import { useState } from "react";
 
 export function AddGhostLessonModal(props: {
@@ -49,7 +48,7 @@ export function AddGhostLessonModal(props: {
             e.preventDefault();
             if (!isValid) return;
             props.onAddLesson({
-              title: capitalizeTitle(title.trim()),
+              title: title.trim(),
             });
             setTitle("");
             props.onOpenChange(false);
