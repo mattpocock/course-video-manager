@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by 0018-db-only-courses
 ---
 
 # Ghost Lessons are full video workspaces, not empty placeholders
