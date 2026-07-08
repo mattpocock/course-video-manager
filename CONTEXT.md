@@ -1,25 +1,21 @@
 # Course Video Manager
 
-A tool for authoring courses as structured collections of sections, lessons, and videos — backed by a git repo on disk and published as immutable snapshots.
+A tool for authoring courses as structured collections of sections, lessons, and videos — held entirely in the database and published as immutable snapshots (`.mp4` files plus a `course.json`).
 
 ## Language
 
 ### Course structure
 
 **Course**:
-The primary domain entity: a structured collection of versions, sections, lessons, and videos, stored in the database.
-_Avoid_: Repo (as domain entity), Project
-
-**CourseRepo**:
-The local git repository on disk that backs a course, referenced by the course's `repoPath`.
-_Avoid_: Repo (ambiguous without "Course" prefix)
+The primary domain entity: a structured collection of versions, sections, lessons, and videos, held entirely in the database. Not backed by any on-disk repository — courses were once backed by a local git repo, but that backing was retired (see ADR 0018).
+_Avoid_: Repo, Project
 
 **Section**:
-A directory-backed grouping of lessons within a course version, ordered by fractional index.
+A grouping of lessons within a course version, ordered by fractional index. Identity is carried by its `title` (uniqueness enforced per-parent by `order`); its display path is derived from title, not stored.
 _Avoid_: Module, Unit
 
 **Lesson**:
-A single learning unit within a section, corresponding to a folder on disk.
+A single learning unit within a section. A pure database record — no on-disk folder. Identity is carried by its `title` (uniqueness per-parent by `order`).
 _Avoid_: Exercise, Tutorial, Step
 
 ### Course versions
@@ -37,57 +33,21 @@ An immutable CourseVersion with a name and description, created by the Publish f
 _Avoid_: Released version, Committed version
 
 **Publish**:
-The atomic operation that uploads to Dropbox, freezes the Draft Version as a Published Version (setting name/description), and clones a new Draft Version.
+The atomic operation that uploads to Dropbox, freezes the Draft Version as a Published Version (setting name/description), and clones a new Draft Version. Its structure is derived from the database (not parsed from disk); its Dropbox output is exclusively `.mp4` video files plus a single `course.json` — no sidecar files (`.transcript.md`, `.body.md`, `.meta.json`, `TODO.md`) and no `changelog.md`.
 _Avoid_: Commit, Deploy, Push
 
 **Export Version Key**:
 A hardcoded constant in the codebase (`EXPORT_VERSION`) that, when bumped, invalidates all video export hashes and forces re-export.
 _Avoid_: Version number, Build version
 
-### Ghost entities
-
-**Ghost Lesson**:
-A lesson that exists in the database but not yet on the file system (`fsStatus = "ghost"`).
-A Ghost Lesson is a full planning and recording workspace: it can hold **Videos**
-(and their **Beats** and **Clips**) exactly as a real lesson can. These are
-DB-only planning structures — recording into them touches no filesystem, and they
-are never written to disk until the lesson is **Materialized** (Publish skips
-ghosts). **Dematerializing** a real lesson back to a ghost deletes only its on-disk
-directory; its Videos, Beats, and Clips are preserved.
-_Avoid_: Planned lesson, Draft lesson
-
-**Ghost Section**:
-A section that exists in the database but not yet on the file system. A section
-is **real** iff it contains at least one real lesson; otherwise it is a ghost.
-Real-ness is derived from its lessons, **never** inferred from the path prefix —
-a ghost section can carry a numbered path (e.g. left over after its last real
-lesson moved out) while having no directory on disk. See `sectionHasRealLessons`
-in `section-path-service.ts`.
-_Avoid_: Planned section
-
-**Ghost Course**:
-A course with no file path (`filePath = NULL`); exists only in the database as a planning space.
-_Avoid_: Planned course, Draft course
-
-**Materialize**:
-The act of transitioning a ghost entity to a real entity by creating its on-disk representation.
-_Avoid_: Create on disk, Realize
-
-**Materialization Cascade**:
-The chain reaction when materializing a lesson inside a ghost course: assigns file path to course, materializes section, then materializes lesson — all in one flow.
-
 ### Authoring lifecycle
 
 **Lesson Authoring Status**:
-A per-version marker on a real **Lesson** indicating where it sits in the authoring workflow. Two values: `todo` (default for newly created or materialized real lessons) and `done` (set by clicking the To-Do pill in the UI). Stored as `authoringStatus` on the lesson row and copied forward by `copyVersionStructure` at Publish, so a Published Version's lessons keep whatever status they had at publish time. Subject to a biconditional invariant with `fsStatus`: a real lesson always has a status, a **Ghost Lesson** never does. Distinct from `fsStatus` (filesystem presence) and from **Pitch State** (which tracks pitches, not lessons). Surfaced in the published output via the **TODO Marker** and in the changelog via the **Marked Ready** / **Marked TODO** transitions.
-_Avoid_: TODO flag, Lesson status (ambiguous with `fsStatus`), Completion
-
-**TODO Marker**:
-A `TODO.md` sentinel file Publish writes into every real **Lesson**'s dropbox folder when its **Lesson Authoring Status** is `todo`. Fixed template, identical across all TODO lessons. Purely additive — videos and source files still publish normally. Cleaned up by the stale-file sweep when the lesson flips to `done`. Ghost Lessons never get one.
-_Avoid_: Sentinel file (too generic), TODO file, Stub marker
+A per-version marker on a **Lesson** indicating where it sits in the authoring workflow. Two values: `todo` (default for every newly created lesson) and `done` (set by clicking the To-Do pill in the UI). Stored as `authoringStatus` on the lesson row and copied forward by `copyVersionStructure` at Publish, so a Published Version's lessons keep whatever status they had at publish time. Every lesson has a status (there is no longer a ghost/real distinction). Distinct from **Pitch State** (which tracks pitches, not lessons). Surfaced live via the To-Do pill and in the changelog via the **Marked Ready** / **Marked TODO** transitions.
+_Avoid_: TODO flag, Completion
 
 **Marked Ready** / **Marked TODO**:
-The changelog buckets for **Lesson Authoring Status** transitions across **Published Versions** — `todo → done` and `done → todo` respectively. First-class per-section sections in `changelog.md`.
+The changelog buckets for **Lesson Authoring Status** transitions across **Published Versions** — `todo → done` and `done → todo` respectively. First-class per-section sections in the in-app changelog preview shown on the publish screen (the changelog is no longer written to disk).
 _Avoid_: Completed, Reopened
 
 ### Video and clips
@@ -117,7 +77,7 @@ A clip added to the frontend state during recording before it is persisted to th
 _Avoid_: Pending clip, Temporary clip
 
 **Transcript**:
-The ordered text projection of a **Video** — its **Clips** and **Chapters** interleaved in timeline order. The unit of comparison for changelog diffs and the format shipped as `{video}.transcript.md` during **Publish**. Changes to either Clips or Chapters are first-class changes to the Transcript: a Chapter rename, insertion, deletion, or reorder is a Transcript change in the same sense that editing a Clip's text is. Rendered with each Chapter as a `## <name>` header between paragraphs of clip text.
+The ordered text projection of a **Video** — its **Clips** and **Chapters** interleaved in timeline order. The unit of comparison for changelog diffs. Changes to either Clips or Chapters are first-class changes to the Transcript: a Chapter rename, insertion, deletion, or reorder is a Transcript change in the same sense that editing a Clip's text is. Rendered with each Chapter as a `## <name>` header between paragraphs of clip text.
 _Avoid_: Clip text (only covers Clips), Joined clips, Caption (reserved for the per-clip transcription product)
 
 ### Video planning
@@ -131,7 +91,7 @@ A free-text planning note on a **Beat** — "what I'm actually going to do or sa
 _Avoid_: Notes, Summary, Body, Caption
 
 **Section Workbench**:
-A drill-down authoring surface for a single **Section**, reached by clicking a **Section**'s header (lands at the top) or a **Lesson**'s title (deep-links to that lesson) in the course view. Routed at `/courses/:courseId/sections/:sectionId`. A reskin and expansion of the compact course view, scoped to one section and expanded by default, so it has the room the course view lacks: it shows each Lesson's **Videos** and their **Beats** with **Beat Descriptions** inline-editable. Its added value is the beat/description layer — structural editing (lesson/video drag-drop, context menus) is inherited from the reused course-view components rather than re-added or stripped out. Works for **Ghost Sections** and **Ghost Lessons** (planning a section before any of it is real is its primary use). Sibling sections are not shown — navigation back to them goes through the course view.
+A drill-down authoring surface for a single **Section**, reached by clicking a **Section**'s header (lands at the top) or a **Lesson**'s title (deep-links to that lesson) in the course view. Routed at `/courses/:courseId/sections/:sectionId`. A reskin and expansion of the compact course view, scoped to one section and expanded by default, so it has the room the course view lacks: it shows each Lesson's **Videos** and their **Beats** with **Beat Descriptions** inline-editable. Its added value is the beat/description layer — structural editing (lesson/video drag-drop, context menus) is inherited from the reused course-view components rather than re-added or stripped out. Sibling sections are not shown — navigation back to them goes through the course view.
 _Avoid_: Section page, Lesson page (the workbench is section-altitude; there is no lesson-altitude page), Section editor
 
 ### Video warnings
@@ -287,5 +247,5 @@ A persisted state where a **Lesson** depends on another lesson ordered _after_ i
 _Avoid_: Broken dependency, Invalid order
 
 **Dependency Group**:
-A maximal run of _contiguous_ lessons within a single **Section**, in display order, chained by **Lesson Dependencies**. Built by walking a section's lessons top-to-bottom: the next lesson joins the current group iff it has a **direct** dependency on any lesson already in the group; otherwise the current group closes and the next lesson begins a new one. Purely a **within-section**, **contiguous**, **directed-backward** view of relatedness — a dependency that spans a gap (a non-member lesson interrupts) or points forward (an **Order Violation**) is _not_ represented. Surfaced in the compact course view as dashed lines connecting adjacent lesson-type icons; a group of one shows no line. **Ghost Lessons** participate as ordinary members. Suppressed entirely whenever a search or filter is active (the rendered list no longer reflects true adjacency). Read-only visual grouping — distinct from **Section** (the durable, directory-backed grouping).
+A maximal run of _contiguous_ lessons within a single **Section**, in display order, chained by **Lesson Dependencies**. Built by walking a section's lessons top-to-bottom: the next lesson joins the current group iff it has a **direct** dependency on any lesson already in the group; otherwise the current group closes and the next lesson begins a new one. Purely a **within-section**, **contiguous**, **directed-backward** view of relatedness — a dependency that spans a gap (a non-member lesson interrupts) or points forward (an **Order Violation**) is _not_ represented. Surfaced in the compact course view as dashed lines connecting adjacent lesson-type icons; a group of one shows no line. Suppressed entirely whenever a search or filter is active (the rendered list no longer reflects true adjacency). Read-only visual grouping — distinct from **Section** (the durable, order-backed grouping).
 _Avoid_: Dependency block, Cluster, Chain, Lesson group
