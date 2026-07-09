@@ -46,6 +46,10 @@ export function buildDeepLink(target: DeepLinkTarget): string {
 
 export async function copyDeepLink(target: DeepLinkTarget) {
   const link = buildDeepLink(target);
-  await navigator.clipboard.writeText(link);
-  toast("Deep link copied to clipboard");
+  try {
+    await navigator.clipboard.writeText(link);
+    toast("Deep link copied to clipboard");
+  } catch {
+    toast.error("Failed to copy deep link to clipboard");
+  }
 }

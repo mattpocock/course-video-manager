@@ -77,6 +77,7 @@ export function LessonContextMenuContent({
       </ContextMenuItem>
       {!isReadOnly && (
         <>
+          <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() =>
               dispatch({

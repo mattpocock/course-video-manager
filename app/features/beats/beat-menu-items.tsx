@@ -81,8 +81,8 @@ export function BeatContextMenuContent({
   onDelete: () => void;
   courseId?: string;
   sectionId?: string;
-  videoId?: string;
-  beatId?: string;
+  videoId: string;
+  beatId: string;
 }) {
   return (
     <>
@@ -92,7 +92,7 @@ export function BeatContextMenuContent({
           <BeatKindMenuItems onSelect={onSetKind} />
         </ContextMenuSubContent>
       </ContextMenuSub>
-      {courseId && sectionId && videoId && beatId && (
+      {courseId && sectionId && (
         <>
           <ContextMenuSeparator />
           <ContextMenuItem
