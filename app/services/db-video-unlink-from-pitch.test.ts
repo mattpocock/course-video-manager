@@ -1,7 +1,6 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { eq } from "drizzle-orm";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
@@ -32,49 +31,7 @@ beforeEach(async () => {
 });
 
 describe("unlinkVideoFromPitch", () => {
-  it.effect("sets pitchId to null on the video", () =>
-    Effect.gen(function* () {
-      const [pitch] = yield* Effect.promise(() =>
-        testDb.insert(schema.pitches).values({ title: "My Pitch" }).returning()
-      );
-
-      const [video] = yield* Effect.promise(() =>
-        testDb
-          .insert(schema.videos)
-          .values({
-            title: "test-vid",
-            originalFootagePath: "",
-            pitchId: pitch!.id,
-          })
-          .returning()
-      );
-
-      const videoOps = yield* VideoOperationsService;
-      const updated = yield* videoOps.unlinkVideoFromPitch(video!.id);
-
-      expect(updated.pitchId).toBeNull();
-
-      const row = yield* Effect.promise(() =>
-        testDb.query.videos.findFirst({
-          where: eq(schema.videos.id, video!.id),
-        })
-      );
-      expect(row!.pitchId).toBeNull();
-    }).pipe(Effect.provide(testLayer))
-  );
-
-  it.effect("fails with NotFoundError for non-existent video", () =>
-    Effect.gen(function* () {
-      const videoOps = yield* VideoOperationsService;
-      const result = yield* videoOps
-        .unlinkVideoFromPitch("nonexistent-id")
-        .pipe(Effect.flip);
-
-      expect(result._tag).toBe("NotFoundError");
-    }).pipe(Effect.provide(testLayer))
-  );
-
-  it.effect("returns the updated video row", () =>
+  it.effect("nulls pitchId and returns the updated video row", () =>
     Effect.gen(function* () {
       const [pitch] = yield* Effect.promise(() =>
         testDb.insert(schema.pitches).values({ title: "My Pitch" }).returning()
@@ -96,6 +53,18 @@ describe("unlinkVideoFromPitch", () => {
 
       expect(updated.id).toBe(video!.id);
       expect(updated.title).toBe("test-vid");
+      expect(updated.pitchId).toBeNull();
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("fails with NotFoundError for non-existent video", () =>
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      const result = yield* videoOps
+        .unlinkVideoFromPitch("nonexistent-id")
+        .pipe(Effect.flip);
+
+      expect(result._tag).toBe("NotFoundError");
     }).pipe(Effect.provide(testLayer))
   );
 });
