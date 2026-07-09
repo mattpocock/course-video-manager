@@ -10,6 +10,7 @@ import {
 import { and, asc, desc, eq, ilike, max, sql, type SQL } from "drizzle-orm";
 import { Effect } from "effect";
 import { hashScene } from "@/lib/scene-hash";
+import { extractSceneText } from "@/lib/extract-scene-text";
 import { writeThumbnail } from "@/services/diagram-thumbnail-store.server";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
@@ -161,10 +162,12 @@ export const createDiagramOperations = (db: Database) => {
       return existing;
     }
 
+    const searchText = extractSceneText(headScene);
+
     const results = yield* makeDbCall(() =>
       db
         .update(diagrams)
-        .set({ headScene, updatedAt: new Date() })
+        .set({ headScene, searchText, updatedAt: new Date() })
         .where(eq(diagrams.id, id))
         .returning()
     );
@@ -240,6 +243,8 @@ export const createDiagramOperations = (db: Database) => {
       return existing;
     }
 
+    const searchText = extractSceneText(diagram.headScene);
+
     const results = yield* makeDbCall(() =>
       db
         .insert(diagramSnapshots)
@@ -248,6 +253,7 @@ export const createDiagramOperations = (db: Database) => {
           scene: diagram.headScene!,
           contentHash,
           preserved,
+          searchText,
         })
         .returning()
     );
@@ -373,10 +379,16 @@ export const createDiagramOperations = (db: Database) => {
       });
     }
 
+    const searchText = extractSceneText(snapshot.scene);
+
     const results = yield* makeDbCall(() =>
       db
         .update(diagrams)
-        .set({ headScene: snapshot.scene, updatedAt: new Date() })
+        .set({
+          headScene: snapshot.scene,
+          searchText,
+          updatedAt: new Date(),
+        })
         .where(eq(diagrams.id, diagramId))
         .returning()
     );

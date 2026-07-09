@@ -40,14 +40,15 @@ describe("drizzle migrations", () => {
     const before = await db.execute<{ id: number }>(
       sql`SELECT id FROM drizzle.__drizzle_migrations`
     );
-    expect(before.rows).toHaveLength(1);
+    const migrationCount = before.rows.length;
+    expect(migrationCount).toBeGreaterThanOrEqual(1);
 
     await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
 
     const after = await db.execute<{ id: number }>(
       sql`SELECT id FROM drizzle.__drizzle_migrations`
     );
-    expect(after.rows).toHaveLength(1);
+    expect(after.rows).toHaveLength(migrationCount);
 
     await pglite.close();
   });
