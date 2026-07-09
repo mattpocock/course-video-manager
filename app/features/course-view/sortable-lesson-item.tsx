@@ -108,6 +108,7 @@ function LessonFsModals({
 }
 
 export function SortableLessonItem({
+  courseId,
   lesson,
   lessonIndex,
   section,
@@ -130,6 +131,7 @@ export function SortableLessonItem({
   isSelected,
   isBulkDragPeer,
 }: {
+  courseId: string;
   lesson: Lesson;
   lessonIndex: number;
   section: Section;
@@ -472,6 +474,7 @@ export function SortableLessonItem({
             </div>
           </ContextMenuTrigger>
           <LessonContextMenuContent
+            courseId={courseId}
             lesson={lesson}
             section={section}
             isReadOnly={isReadOnly}
@@ -502,6 +505,7 @@ export function SortableLessonItem({
         {!compact && (
           <div className="ml-5 mt-3">
             <VideoThumbnailGrid
+              courseId={courseId}
               videos={lesson.videos}
               section={section}
               lesson={lesson}
@@ -517,6 +521,7 @@ export function SortableLessonItem({
         )}
         {compact && (
           <LessonBeatTree
+            courseId={courseId}
             lesson={lesson}
             isReadOnly={isReadOnly}
             submitEvent={submitEvent}

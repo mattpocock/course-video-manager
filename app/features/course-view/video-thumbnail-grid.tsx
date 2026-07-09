@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 
 function VideoThumbnailItem({
+  courseId,
   video,
   section,
   lesson,
@@ -27,6 +28,7 @@ function VideoThumbnailItem({
   deleteVideoFileFetcher,
   submitDeleteVideo,
 }: {
+  courseId: string;
   video: Video;
   section: Section;
   lesson: Lesson;
@@ -95,6 +97,7 @@ function VideoThumbnailItem({
         </Link>
       </ContextMenuTrigger>
       <VideoContextMenuItems
+        courseId={courseId}
         video={video}
         section={section}
         lesson={lesson}
@@ -111,6 +114,7 @@ function VideoThumbnailItem({
 }
 
 export function VideoThumbnailGrid({
+  courseId,
   videos,
   section,
   lesson,
@@ -122,6 +126,7 @@ export function VideoThumbnailGrid({
   deleteVideoFileFetcher,
   submitDeleteVideo,
 }: {
+  courseId: string;
   videos: Video[];
   section: Section;
   lesson: Lesson;
@@ -140,6 +145,7 @@ export function VideoThumbnailGrid({
       {videos.map((video) => (
         <VideoThumbnailItem
           key={video.id}
+          courseId={courseId}
           video={video}
           section={section}
           lesson={lesson}

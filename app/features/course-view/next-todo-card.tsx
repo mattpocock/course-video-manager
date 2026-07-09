@@ -16,6 +16,7 @@ function isTodoLesson(lesson: Lesson): boolean {
 }
 
 export function NextTodoCard({
+  courseId,
   sections,
   data,
   navigate,
@@ -33,6 +34,7 @@ export function NextTodoCard({
   dismissed,
   onDismiss,
 }: {
+  courseId: string;
   sections: Section[];
   data: LoaderData;
   navigate: ReturnType<typeof useNavigate>;
@@ -91,6 +93,7 @@ export function NextTodoCard({
               strategy={verticalListSortingStrategy}
             >
               <SortableLessonItem
+                courseId={courseId}
                 lesson={bestLesson}
                 lessonIndex={0}
                 section={bestSection}

@@ -17,6 +17,7 @@ import type { LoaderData, Lesson, Section, Video } from "./course-view-types";
  * item so the compact tree's right-click menu matches the expanded view's.
  */
 type VideoMenuProps = {
+  courseId: string;
   section: Section;
   data: LoaderData;
   navigate: ReturnType<typeof useNavigate>;
@@ -105,6 +106,8 @@ function VideoBeatNode({
         video={{ id: video.id, beats: video.beats ?? [] }}
         submitEvent={submitEvent}
         isReadOnly={isReadOnly}
+        courseId={videoMenuProps.courseId}
+        sectionId={videoMenuProps.section.id}
         className="mt-0.5"
       />
     </div>

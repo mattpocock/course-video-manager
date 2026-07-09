@@ -225,6 +225,7 @@ export function SectionCard({
                                   <DropLine />
                                 )}
                               <SortableLessonItem
+                                courseId={currentCourse.id}
                                 lesson={lesson}
                                 lessonIndex={run.startIndex + idx}
                                 section={section}
@@ -267,6 +268,7 @@ export function SectionCard({
               </div>
             </ContextMenuTrigger>
             <SectionContextMenuItems
+              courseId={currentCourse.id}
               section={section}
               lessons={lessons}
               allSectionIds={allSectionIds}

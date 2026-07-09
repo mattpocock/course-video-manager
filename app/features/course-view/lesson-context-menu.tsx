@@ -14,13 +14,16 @@ import {
   ArrowRightLeft,
   FileText,
   FileVideo,
+  Link2,
   ListTodo,
   PencilIcon,
   Plus,
   Trash2,
 } from "lucide-react";
+import { copyDeepLink } from "./deep-link";
 
 export function LessonContextMenuContent({
+  courseId,
   lesson,
   section,
   isReadOnly,
@@ -32,6 +35,7 @@ export function LessonContextMenuContent({
   startEditingTitle,
   startEditingDescription,
 }: {
+  courseId: string;
   lesson: Lesson;
   section: Section;
   isReadOnly: boolean;
@@ -56,9 +60,21 @@ export function LessonContextMenuContent({
               {video.title}
             </ContextMenuItem>
           ))}
-          {!isReadOnly && <ContextMenuSeparator />}
+          <ContextMenuSeparator />
         </>
       )}
+      <ContextMenuItem
+        onSelect={() =>
+          copyDeepLink({
+            courseId,
+            sectionId: section.id,
+            lessonId: lesson.id,
+          })
+        }
+      >
+        <Link2 className="w-4 h-4" />
+        Copy Deep Link
+      </ContextMenuItem>
       {!isReadOnly && (
         <>
           <ContextMenuItem

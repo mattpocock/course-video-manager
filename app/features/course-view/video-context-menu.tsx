@@ -9,6 +9,7 @@ import {
   Copy,
   Download,
   FolderOpen,
+  Link2,
   PencilIcon,
   Play,
   Sparkles,
@@ -17,6 +18,7 @@ import {
 import { Suspense } from "react";
 import type { useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
+import { copyDeepLink } from "./deep-link";
 import { useGenerateChaptersAction } from "./generate-chapters-context";
 import { PurgeExportMenuItem } from "./export-status";
 import { AddBeatSubMenu } from "@/features/beats/beat-menu-items";
@@ -29,6 +31,7 @@ import { useRequestCreateBeat } from "@/features/beats/create-beat-dialog";
  * at the call site.
  */
 export function VideoContextMenuItems({
+  courseId,
   video,
   section,
   lesson,
@@ -40,6 +43,7 @@ export function VideoContextMenuItems({
   deleteVideoFileFetcher,
   submitDeleteVideo,
 }: {
+  courseId: string;
   video: Video;
   section: Section;
   lesson: Lesson;
@@ -115,6 +119,18 @@ export function VideoContextMenuItems({
       >
         <FolderOpen className="w-4 h-4" />
         Reveal in File System
+      </ContextMenuItem>
+      <ContextMenuItem
+        onSelect={() =>
+          copyDeepLink({
+            courseId,
+            sectionId: section.id,
+            videoId: video.id,
+          })
+        }
+      >
+        <Link2 className="w-4 h-4" />
+        Copy Deep Link
       </ContextMenuItem>
       {!isReadOnly && (
         <>

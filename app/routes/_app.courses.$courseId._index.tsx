@@ -321,6 +321,7 @@ export default function Component(props: Route.ComponentProps) {
                     {loaderData.isLatestVersion && (
                       <div className="mb-14">
                         <NextTodoCard
+                          courseId={selectedCourseId}
                           sections={displaySections}
                           data={loaderData}
                           navigate={navigate}
