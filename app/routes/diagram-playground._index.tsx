@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Plus, Search } from "lucide-react";
 import { sendToParent } from "@/lib/diagram-protocol";
@@ -169,6 +169,28 @@ export default function DiagramPlaygroundHome({
     };
   }, []);
 
+  const handleSearchResultClick = useCallback(
+    async (result: {
+      diagramId: string;
+      snapshotId: string | null;
+      source: string;
+    }) => {
+      if (result.source === "snapshot" && result.snapshotId) {
+        try {
+          await fetch(`/api/diagrams/${result.diagramId}/restore-from-search`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ snapshotId: result.snapshotId }),
+          });
+        } catch {
+          // Restore failed — navigate anyway to show the diagram
+        }
+      }
+      navigate(`/diagram-playground/${result.diagramId}`);
+    },
+    [navigate]
+  );
+
   const handleCreateDiagram = async () => {
     if (creating) return;
     setCreating(true);
@@ -260,13 +282,7 @@ export default function DiagramPlaygroundHome({
                   <button
                     key={key}
                     type="button"
-                    onClick={() =>
-                      navigate(
-                        result.source === "current"
-                          ? `/diagram-playground/${result.diagramId}`
-                          : `/diagram-playground/${result.diagramId}?snapshot=${result.snapshotId}`
-                      )
-                    }
+                    onClick={() => handleSearchResultClick(result)}
                     className="group flex flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 text-left transition-colors hover:border-zinc-500 hover:bg-zinc-700/60"
                   >
                     <div className="relative aspect-[4/3] w-full bg-zinc-900">

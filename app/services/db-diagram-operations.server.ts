@@ -544,6 +544,52 @@ export const createDiagramOperations = (db: Database) => {
     return diagram;
   });
 
+  const restoreFromSearch = Effect.fn("restoreFromSearch")(function* (
+    diagramId: string,
+    snapshotId: string
+  ) {
+    const snapshot = yield* makeDbCall(() =>
+      db.query.diagramSnapshots.findFirst({
+        where: and(
+          eq(diagramSnapshots.id, snapshotId),
+          eq(diagramSnapshots.diagramId, diagramId)
+        ),
+      })
+    );
+
+    if (!snapshot) {
+      return yield* new NotFoundError({
+        type: "restoreFromSearch",
+        params: { diagramId, snapshotId },
+      });
+    }
+
+    const diagram = yield* makeDbCall(() =>
+      db.query.diagrams.findFirst({
+        where: eq(diagrams.id, diagramId),
+      })
+    );
+
+    if (!diagram) {
+      return yield* new NotFoundError({
+        type: "restoreFromSearch",
+        params: { diagramId },
+      });
+    }
+
+    const headHash =
+      diagram.headScene == null ? null : hashScene(diagram.headScene);
+    if (headHash === snapshot.contentHash) {
+      return diagram;
+    }
+
+    if (diagram.headScene != null) {
+      yield* createSnapshot(diagramId, { preserved: true });
+    }
+
+    return yield* restoreSnapshotToHead(diagramId, snapshotId);
+  });
+
   const createSnapshotForClip = Effect.fn("createSnapshotForClip")(function* (
     diagramId: string,
     clipId: string,
@@ -599,6 +645,7 @@ export const createDiagramOperations = (db: Database) => {
     listAllSnapshotsWithClips,
     setSnapshotArchived,
     restoreSnapshotToHead,
+    restoreFromSearch,
     createSnapshotForClip,
     updateClipDiagramPin,
   };
