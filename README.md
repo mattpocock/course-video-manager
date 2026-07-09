@@ -2,6 +2,35 @@
 
 A tool for managing course video publishing workflows — editing metadata, generating descriptions, creating thumbnails, and posting to social platforms.
 
+## Database migrations
+
+Schema changes are managed with **drizzle-kit generate / migrate** (versioned SQL files), not `push`.
+
+### Making a schema change
+
+1. Edit `app/db/schema.ts`.
+2. `pnpm db:generate` — creates a new numbered `.sql` file under `app/db/migrations/`.
+3. `pnpm db:migrate` — applies any pending migrations to the local database.
+
+### First-time setup on an existing database
+
+If the database was originally created via `drizzle-kit push` and has never run migrations:
+
+```sh
+pnpm db:baseline
+```
+
+This registers the `0000` baseline migration as already-applied so `db:migrate` won't replay the initial `CREATE TABLE` statements.
+
+### Scripts
+
+| Script             | Description                                          |
+| ------------------ | ---------------------------------------------------- |
+| `pnpm db:generate` | Generate a new migration from schema changes         |
+| `pnpm db:migrate`  | Apply pending migrations to the database             |
+| `pnpm db:baseline` | Mark the `0000` baseline as applied (one-time setup) |
+| `pnpm db:studio`   | Open Drizzle Studio                                  |
+
 ## Zapier Webhook Setup (Buffer Integration)
 
 The app uses a **Dropbox → Zapier → Buffer** pipeline to post videos to social media. When you click "Post to Buffer" in the app, it:
