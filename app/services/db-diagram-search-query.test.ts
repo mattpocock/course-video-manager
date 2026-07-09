@@ -170,20 +170,34 @@ describe("searchDiagrams", () => {
     }).pipe(Effect.provide(testLayer))
   );
 
-  it.effect("name-only match returns results", () =>
+  it.effect("name-only match returns current head, not all snapshots", () =>
     Effect.gen(function* () {
       const diagramOps = yield* DiagramOperationsService;
       const diagram = yield* diagramOps.createDiagram();
       yield* diagramOps.updateDiagram(diagram.id, {
         name: "Architecture Overview",
       });
+
       yield* diagramOps.updateDiagramHead(
         diagram.id,
-        makeTextScene("unrelated content")
+        makeTextScene("unrelated content v1")
+      );
+      yield* diagramOps.createSnapshot(diagram.id, { preserved: true });
+
+      yield* diagramOps.updateDiagramHead(
+        diagram.id,
+        makeTextScene("unrelated content v2")
+      );
+      yield* diagramOps.createSnapshot(diagram.id, { preserved: true });
+
+      yield* diagramOps.updateDiagramHead(
+        diagram.id,
+        makeTextScene("unrelated content v3")
       );
 
       const results = yield* diagramOps.searchDiagrams("architecture");
-      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results).toHaveLength(1);
+      expect(results[0]!.source).toBe("current");
       expect(results[0]!.diagramName).toBe("Architecture Overview");
     }).pipe(Effect.provide(testLayer))
   );

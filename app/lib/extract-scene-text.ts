@@ -1,14 +1,4 @@
 const RICH_TEXT_SHAPE_TYPES = new Set(["text", "geo", "note", "arrow"]);
-const EXCLUDED_SHAPE_TYPES = new Set([
-  "image",
-  "video",
-  "bookmark",
-  "embed",
-  "draw",
-  "line",
-  "highlight",
-  "group",
-]);
 
 export function flattenRichText(richText: unknown): string {
   if (
@@ -51,8 +41,6 @@ export function flattenRichText(richText: unknown): string {
 function extractShapeText(shape: Record<string, unknown>): string {
   const type = shape.type;
   if (typeof type !== "string") return "";
-
-  if (EXCLUDED_SHAPE_TYPES.has(type)) return "";
 
   const props = shape.props;
   if (props === null || props === undefined || typeof props !== "object") {

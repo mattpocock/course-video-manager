@@ -125,10 +125,7 @@ export const createDiagramOperations = (db: Database) => {
       .groupBy(diagramSnapshots.diagramId)
       .as("last_clip_pin");
 
-    const matchCondition = or(
-      sql`${diagramSnapshots.searchVector} @@ ${tsQuery}`,
-      ilike(diagrams.name, `%${query}%`)
-    );
+    const recencyExpr = sql<Date>`GREATEST(${lastClipPinAt.lastClipPinAt}, ${diagrams.updatedAt})`;
 
     const snapshotResults = yield* makeDbCall(() =>
       db
@@ -138,10 +135,7 @@ export const createDiagramOperations = (db: Database) => {
           diagramName: diagrams.name,
           contentHash: diagramSnapshots.contentHash,
           searchText: diagramSnapshots.searchText,
-          sortKey:
-            sql<Date>`GREATEST(${lastClipPinAt.lastClipPinAt}, ${diagrams.updatedAt})`.as(
-              "sort_key"
-            ),
+          sortKey: recencyExpr.as("sort_key"),
         })
         .from(diagramSnapshots)
         .innerJoin(diagrams, eq(diagramSnapshots.diagramId, diagrams.id))
@@ -150,19 +144,10 @@ export const createDiagramOperations = (db: Database) => {
           and(
             eq(diagrams.archived, false),
             eq(diagramSnapshots.archived, false),
-            matchCondition
+            sql`${diagramSnapshots.searchVector} @@ ${tsQuery}`
           )
         )
-        .orderBy(
-          desc(
-            sql`GREATEST(${lastClipPinAt.lastClipPinAt}, ${diagrams.updatedAt})`
-          )
-        )
-    );
-
-    const headMatchCondition = or(
-      sql`${diagrams.searchVector} @@ ${tsQuery}`,
-      ilike(diagrams.name, `%${query}%`)
+        .orderBy(desc(recencyExpr))
     );
 
     const headResults = yield* makeDbCall(() =>
@@ -172,10 +157,7 @@ export const createDiagramOperations = (db: Database) => {
           diagramName: diagrams.name,
           headScene: diagrams.headScene,
           searchText: diagrams.searchText,
-          sortKey:
-            sql<Date>`GREATEST(${lastClipPinAt.lastClipPinAt}, ${diagrams.updatedAt})`.as(
-              "sort_key"
-            ),
+          sortKey: recencyExpr.as("sort_key"),
         })
         .from(diagrams)
         .leftJoin(lastClipPinAt, eq(lastClipPinAt.diagramId, diagrams.id))
@@ -183,7 +165,10 @@ export const createDiagramOperations = (db: Database) => {
           and(
             eq(diagrams.archived, false),
             isNotNull(diagrams.headScene),
-            headMatchCondition
+            or(
+              sql`${diagrams.searchVector} @@ ${tsQuery}`,
+              ilike(diagrams.name, `%${query}%`)
+            )
           )
         )
     );

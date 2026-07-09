@@ -66,6 +66,7 @@ function buildErrorPipeline<A, E, R>(
 interface MakeLoaderConfig<A, E, R> {
   errors?: { [K in ErrorTags<E>]?: number };
   effect: (ctx: {
+    request: Request;
     params: Record<string, string | undefined>;
   }) => Effect.Effect<A, E, R>;
 }
@@ -73,7 +74,10 @@ interface MakeLoaderConfig<A, E, R> {
 export function makeLoader<A, E, R>(
   config: MakeLoaderConfig<A, E, R>,
   runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
-): (args: { params: Record<string, string | undefined> }) => Promise<A> {
+): (args: {
+  request: Request;
+  params: Record<string, string | undefined>;
+}) => Promise<A> {
   const errorMap: Record<string, number> = {
     ParseError: 400,
     NotFoundError: 404,
@@ -81,7 +85,10 @@ export function makeLoader<A, E, R>(
   };
 
   return (args) => {
-    const effect = config.effect({ params: args.params });
+    const effect = config.effect({
+      request: args.request,
+      params: args.params,
+    });
     return runtime.runPromise(
       buildErrorPipeline(effect, errorMap, config.errors)
     );
