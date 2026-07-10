@@ -56,6 +56,12 @@ export function LessonPage({
   const [isGeneratingSeo, setIsGeneratingSeo] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [pendingGenerated, setPendingGenerated] = useState("");
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const dismissDialog = useCallback(() => {
+    setConfirmRegenerate(false);
+    setPendingGenerated("");
+  }, []);
 
   const optimisticDescription = descriptionFetcher.formData
     ? String(descriptionFetcher.formData.get("description") ?? "")
@@ -65,8 +71,9 @@ export function LessonPage({
     ? String(bodyFetcher.formData.get("body") ?? "")
     : (body ?? "");
 
-  const generateSeoDescription = useCallback(async () => {
+  const handleGenerateSeo = useCallback(async () => {
     setIsGeneratingSeo(true);
+    setGenerateError(null);
     try {
       const response = await fetch(`/api/videos/${videoId}/generate`, {
         method: "POST",
@@ -78,26 +85,25 @@ export function LessonPage({
         }),
       });
       if (!response.ok) {
-        throw new Error("Failed to generate SEO description");
+        setGenerateError("Failed to generate SEO description");
+        return;
       }
       const result = await response.json();
-      return result.text as string;
+      const text = result.text as string;
+      if (!text) return;
+
+      if (optimisticDescription.trim()) {
+        setPendingGenerated(text);
+        setConfirmRegenerate(true);
+      } else {
+        persistDescription(text);
+      }
+    } catch {
+      setGenerateError("Failed to generate SEO description");
     } finally {
       setIsGeneratingSeo(false);
     }
-  }, [videoId]);
-
-  const handleGenerateSeo = useCallback(async () => {
-    const text = await generateSeoDescription();
-    if (!text) return;
-
-    if (optimisticDescription.trim()) {
-      setPendingGenerated(text);
-      setConfirmRegenerate(true);
-    } else {
-      persistDescription(text);
-    }
-  }, [generateSeoDescription, optimisticDescription, persistDescription]);
+  }, [videoId, optimisticDescription, persistDescription]);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -137,24 +143,29 @@ export function LessonPage({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label>SEO Description</Label>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGenerateSeo}
-            disabled={isGeneratingSeo}
-          >
-            {isGeneratingSeo ? (
-              <>
-                <Loader2Icon className="h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <SparklesIcon className="h-4 w-4" />
-                Generate
-              </>
+          <div className="flex items-center gap-2">
+            {generateError && (
+              <span className="text-sm text-destructive">{generateError}</span>
             )}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateSeo}
+              disabled={isGeneratingSeo}
+            >
+              {isGeneratingSeo ? (
+                <>
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <SparklesIcon className="h-4 w-4" />
+                  Generate
+                </>
+              )}
+            </Button>
+          </div>
         </div>
         {writerContext ? (
           <WritableField
@@ -189,10 +200,7 @@ export function LessonPage({
       <Dialog
         open={confirmRegenerate}
         onOpenChange={(open) => {
-          if (!open) {
-            setConfirmRegenerate(false);
-            setPendingGenerated("");
-          }
+          if (!open) dismissDialog();
         }}
       >
         <DialogContent>
@@ -204,20 +212,13 @@ export function LessonPage({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setConfirmRegenerate(false);
-                setPendingGenerated("");
-              }}
-            >
+            <Button variant="outline" onClick={dismissDialog}>
               Cancel
             </Button>
             <Button
               onClick={() => {
                 persistDescription(pendingGenerated);
-                setConfirmRegenerate(false);
-                setPendingGenerated("");
+                dismissDialog();
               }}
             >
               Replace
