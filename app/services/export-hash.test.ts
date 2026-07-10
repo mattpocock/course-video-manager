@@ -16,7 +16,6 @@ const makeClip = (
   overrides: Partial<ExportClip> &
     Pick<ExportClip, "videoFilename" | "sourceStartTime" | "sourceEndTime">
 ): ExportClip => ({
-  order: "a0",
   ...overrides,
 });
 
@@ -43,13 +42,11 @@ describe("export-hash", () => {
           videoFilename: "rec.mp4",
           sourceStartTime: 0,
           sourceEndTime: 10,
-          order: "a0",
         }),
         makeClip({
           videoFilename: "rec2.mp4",
           sourceStartTime: 5,
           sourceEndTime: 15,
-          order: "a1",
         }),
       ];
       const hash1 = computeExportHash(clips);
@@ -57,36 +54,20 @@ describe("export-hash", () => {
       expect(hash1).toBe(hash2);
     });
 
-    it("sorts clips by order field before hashing", () => {
-      const clipsAB = [
-        makeClip({
-          videoFilename: "a.mp4",
-          sourceStartTime: 0,
-          sourceEndTime: 5,
-          order: "a0",
-        }),
-        makeClip({
-          videoFilename: "b.mp4",
-          sourceStartTime: 0,
-          sourceEndTime: 5,
-          order: "a1",
-        }),
-      ];
-      const clipsBA = [
-        makeClip({
-          videoFilename: "b.mp4",
-          sourceStartTime: 0,
-          sourceEndTime: 5,
-          order: "a1",
-        }),
-        makeClip({
-          videoFilename: "a.mp4",
-          sourceStartTime: 0,
-          sourceEndTime: 5,
-          order: "a0",
-        }),
-      ];
-      expect(computeExportHash(clipsAB)).toBe(computeExportHash(clipsBA));
+    it("hashes clips in the given array order, not a re-sorted one", () => {
+      const a = makeClip({
+        videoFilename: "a.mp4",
+        sourceStartTime: 0,
+        sourceEndTime: 5,
+      });
+      const b = makeClip({
+        videoFilename: "b.mp4",
+        sourceStartTime: 0,
+        sourceEndTime: 5,
+      });
+      // Clip sequence lives in the array itself — reordering the same clips is a
+      // different edit and must produce a different hash (and thus re-export).
+      expect(computeExportHash([a, b])).not.toBe(computeExportHash([b, a]));
     });
 
     it("transcript text changes do not affect the hash", () => {

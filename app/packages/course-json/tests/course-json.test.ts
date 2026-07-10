@@ -172,7 +172,6 @@ describe("buildCourseJson", () => {
     expect(lesson).toMatchObject({
       type: "explainer",
       title: "Welcome",
-      description: "A welcome lesson",
       explainer: {
         body: "# Hello",
         description: "SEO text",
@@ -180,6 +179,9 @@ describe("buildCourseJson", () => {
         chapters: [],
       },
     });
+    // The lesson's own description is an author-facing internal note and is
+    // never emitted; only the video keeps its (user-facing) description.
+    expect(lesson).not.toHaveProperty("description");
     expect(lesson).not.toHaveProperty("path");
     if (lesson.type === "explainer") {
       expect(lesson.explainer).not.toHaveProperty("path");
@@ -515,9 +517,9 @@ describe("buildCourseJson", () => {
     expect(error._tag).toBe("InvalidLessonRoleComboError");
   });
 
-  // ── Section description passthrough ────────────────────────────────
+  // ── Section description withheld ───────────────────────────────────
 
-  it("includes section description", async () => {
+  it("omits the section description (an internal author-facing note)", async () => {
     const result = await run(
       makeInput([
         makeSection({
@@ -533,7 +535,7 @@ describe("buildCourseJson", () => {
       ])
     );
 
-    expect(result.sections[0]!.description).toBe("Introduction section");
+    expect(result.sections[0]!).not.toHaveProperty("description");
   });
 
   // ── Section title passthrough ──────────────────────────────────────

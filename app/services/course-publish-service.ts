@@ -59,7 +59,6 @@ const toExportClips = (
     videoFilename: c.videoFilename,
     sourceStartTime: c.sourceStartTime,
     sourceEndTime: c.sourceEndTime,
-    order: c.order,
   }));
 
 type ExportOwner =

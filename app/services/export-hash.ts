@@ -13,26 +13,24 @@ export type ExportClip = {
   videoFilename: string;
   sourceStartTime: number;
   sourceEndTime: number;
-  order: string;
 };
 
 /**
  * Compute the content-addressed export hash for a set of clips.
  * Returns null if there are no clips (not a real video).
  *
- * Hash is deterministic: clips are sorted by their `order` field,
- * and only video-affecting fields are included (not transcript text).
+ * Hash is deterministic: clip sequence is taken as given (callers pass clips
+ * already in playback order), and only video-affecting fields are included
+ * (not transcript text). Clip order therefore lives in the array itself — it is
+ * never re-derived from an `order` field, so reordering a video's clips yields a
+ * new hash and triggers a re-export.
  */
 export const computeExportHash = (clips: ExportClip[]): string | null => {
   if (clips.length === 0) return null;
 
-  const sorted = [...clips].sort((a, b) =>
-    a.order < b.order ? -1 : a.order > b.order ? 1 : 0
-  );
-
   const payload = {
     v: EXPORT_VERSION,
-    clips: sorted.map((c) => ({
+    clips: clips.map((c) => ({
       f: c.videoFilename,
       s: c.sourceStartTime,
       e: c.sourceEndTime,

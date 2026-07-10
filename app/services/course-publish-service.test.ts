@@ -145,13 +145,11 @@ const setup = async () => {
       videoFilename: "recording.mp4",
       sourceStartTime: 0,
       sourceEndTime: 10,
-      order: "a0",
     },
     {
       videoFilename: "recording.mp4",
       sourceStartTime: 15,
       sourceEndTime: 25,
-      order: "a1",
     },
   ];
   const exportHash = computeExportHash(clips)!;

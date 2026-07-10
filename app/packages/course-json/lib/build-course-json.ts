@@ -40,7 +40,7 @@ const CourseJsonVideo = Schema.Struct({
   }),
   hash: Schema.NullOr(Schema.String).annotations({
     description:
-      "Export Hash identifying the rendered .mp4 (SHA256 of the video's clip filenames, timestamps, order, and Export Version Key); null when the video has no exportable clips.",
+      "Export Hash identifying the rendered .mp4 (SHA256 of the video's clip filenames and timestamps in sequence, plus the Export Version Key); null when the video has no exportable clips.",
   }),
   chapters: Schema.Array(CourseJsonChapter).annotations({
     description: "The video's chapters, in timeline order.",
@@ -60,9 +60,6 @@ const ExplainerLessonSchema = Schema.Struct({
   title: Schema.String.annotations({
     description: "The lesson title shown to learners.",
   }),
-  description: Schema.String.annotations({
-    description: "Short description of the lesson.",
-  }),
   explainer: CourseJsonVideo.annotations({
     description: "The explainer video that delivers this lesson.",
   }),
@@ -80,9 +77,6 @@ const ProblemLessonSchema = Schema.Struct({
   }),
   title: Schema.String.annotations({
     description: "The lesson title shown to learners.",
-  }),
-  description: Schema.String.annotations({
-    description: "Short description of the lesson.",
   }),
   problem: CourseJsonVideo.annotations({
     description: "The problem video the learner attempts.",
@@ -111,9 +105,6 @@ const CourseJsonSectionSchema = Schema.Struct({
   }),
   title: Schema.String.annotations({
     description: "The section title shown to learners.",
-  }),
-  description: Schema.String.annotations({
-    description: "Short description of the section.",
   }),
   lessons: Schema.Array(CourseJsonLessonSchema).annotations({
     description: "The lessons that ship in this section, in display order.",
@@ -221,7 +212,6 @@ function toVideoEntry(video: InputVideo): typeof CourseJsonVideo.Type {
     videoFilename: c.videoFilename,
     sourceStartTime: c.sourceStartTime,
     sourceEndTime: c.sourceEndTime,
-    order: c.order,
   }));
   return {
     id: video.lineageId,
@@ -278,7 +268,6 @@ export const buildCourseJson = (
               type: "problem",
               id: lesson.lineageId,
               title: lesson.title,
-              description: lesson.description,
               problem: toVideoEntry(problem.video),
               solution: toVideoEntry(solution.video),
             });
@@ -287,7 +276,6 @@ export const buildCourseJson = (
               type: "problem",
               id: lesson.lineageId,
               title: lesson.title,
-              description: lesson.description,
               problem: toVideoEntry(problem.video),
             });
           }
@@ -297,7 +285,6 @@ export const buildCourseJson = (
             type: "explainer",
             id: lesson.lineageId,
             title: lesson.title,
-            description: lesson.description,
             explainer: toVideoEntry(video),
           });
         }
@@ -312,7 +299,6 @@ export const buildCourseJson = (
       sections.push({
         id: section.lineageId,
         title: section.title,
-        description: section.description,
         lessons,
       });
     }
