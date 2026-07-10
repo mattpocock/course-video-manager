@@ -238,7 +238,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     ).toBe(true);
   });
 
-  it("writes only .mp4 and course.json — no sidecars", async () => {
+  it("writes only .mp4, course.json, and course.schema.json — no authoring sidecars", async () => {
     const { course, dropboxDir, run } = await setupSync();
 
     await run(
@@ -256,6 +256,7 @@ describe("CoursePublishService.syncToDropbox", () => {
       "01-intro/01.01-welcome/Problem.mp4",
       "01-intro/01.02-setup/Explainer.mp4",
       "course.json",
+      "course.schema.json",
     ]);
   });
 

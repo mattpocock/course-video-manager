@@ -9,9 +9,14 @@
 // is also exported directly because export, validation, and the Dropbox mirror
 // read the same effective Sections — so there is exactly one notion of what a
 // publish ships.
+//
+// `buildCourseJsonSchema` derives the JSON Schema sidecar (`course.schema.json`)
+// from the same `CourseJsonDocumentSchema` that types the manifest — one source
+// of truth for both the data and the schema published beside it.
 
 export {
   buildCourseJson,
+  buildCourseJsonSchema,
   CourseJsonDocumentSchema,
   InvalidLessonRoleComboError,
   type BuildCourseJsonInput,

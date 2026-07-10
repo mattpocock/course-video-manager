@@ -21,6 +21,7 @@ import {
 import { computeCourseViewLintCount } from "./lesson-warnings";
 import {
   buildCourseJson,
+  buildCourseJsonSchema,
   computeEffectiveSections,
 } from "@/packages/course-json";
 
@@ -450,6 +451,15 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           JSON.stringify(courseJsonDoc, null, 2)
         );
         filesSupposedToBeInDropbox.add(courseJsonPath);
+
+        // Emit the JSON Schema sidecar beside course.json (referenced by its
+        // `$schema` field), so editors and validators can resolve it locally.
+        const courseSchemaPath = path.join(dropboxCourseDir, "course.schema.json");
+        yield* effectFs.writeFileString(
+          courseSchemaPath,
+          JSON.stringify(buildCourseJsonSchema(), null, 2)
+        );
+        filesSupposedToBeInDropbox.add(courseSchemaPath);
 
         const dropboxExists = yield* effectFs.exists(dropboxCourseDir);
         if (dropboxExists) {

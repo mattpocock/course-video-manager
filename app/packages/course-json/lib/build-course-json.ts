@@ -1,4 +1,4 @@
-import { Data, Effect, Schema } from "effect";
+import { Data, Effect, JSONSchema, Schema } from "effect";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
 import { computeEffectiveSections } from "./effective-sections";
 import {
@@ -9,56 +9,149 @@ import { buildChapters } from "@/services/publish-to-dropbox";
 
 // ── Schema ──────────────────────────────────────────────────────────────
 
+// Descriptions on every field are load-bearing: `buildCourseJsonSchema` turns
+// this schema into the `course.schema.json` sidecar via `JSONSchema.make`, which
+// reads these annotations verbatim. Keep them in the domain's language (see
+// CONTEXT.md) — this is the published contract for a course.json.
+
 const CourseJsonChapter = Schema.Struct({
-  title: Schema.String,
-  startTime: Schema.Number,
+  title: Schema.String.annotations({
+    description: "The chapter name shown to viewers; maps 1:1 to a YouTube chapter.",
+  }),
+  startTime: Schema.Number.annotations({
+    description:
+      "Offset in seconds from the start of the video where this chapter begins.",
+  }),
+}).annotations({
+  description:
+    "A named marker within a video's timeline that groups related clips.",
 });
 
 const CourseJsonVideo = Schema.Struct({
-  id: Schema.String,
-  body: Schema.NullOr(Schema.String),
-  description: Schema.NullOr(Schema.String),
-  hash: Schema.NullOr(Schema.String),
-  chapters: Schema.Array(CourseJsonChapter),
+  id: Schema.String.annotations({
+    description: "Stable lineage id of the video, carried across course versions.",
+  }),
+  body: Schema.NullOr(Schema.String).annotations({
+    description:
+      "Long-form written companion to the video (its article body), or null when none was authored.",
+  }),
+  description: Schema.NullOr(Schema.String).annotations({
+    description: "Short description of the video, or null when none was authored.",
+  }),
+  hash: Schema.NullOr(Schema.String).annotations({
+    description:
+      "Export Hash identifying the rendered .mp4 (SHA256 of the video's clip filenames, timestamps, order, and Export Version Key); null when the video has no exportable clips.",
+  }),
+  chapters: Schema.Array(CourseJsonChapter).annotations({
+    description: "The video's chapters, in timeline order.",
+  }),
+}).annotations({
+  description:
+    "A single producible video output — a container of clips and chapters.",
 });
 
 const ExplainerLessonSchema = Schema.Struct({
-  type: Schema.Literal("explainer"),
-  id: Schema.String,
-  title: Schema.String,
-  description: Schema.String,
-  explainer: CourseJsonVideo,
+  type: Schema.Literal("explainer").annotations({
+    description: "Discriminant marking this lesson as a single-video explainer.",
+  }),
+  id: Schema.String.annotations({
+    description: "Stable lineage id of the lesson, carried across course versions.",
+  }),
+  title: Schema.String.annotations({
+    description: "The lesson title shown to learners.",
+  }),
+  description: Schema.String.annotations({
+    description: "Short description of the lesson.",
+  }),
+  explainer: CourseJsonVideo.annotations({
+    description: "The explainer video that delivers this lesson.",
+  }),
+}).annotations({
+  description:
+    "A lesson delivered as a single explainer video (no problem/solution split).",
 });
 
 const ProblemLessonSchema = Schema.Struct({
-  type: Schema.Literal("problem"),
-  id: Schema.String,
-  title: Schema.String,
-  description: Schema.String,
-  problem: CourseJsonVideo,
-  solution: Schema.optional(CourseJsonVideo),
+  type: Schema.Literal("problem").annotations({
+    description: "Discriminant marking this lesson as a problem/solution pair.",
+  }),
+  id: Schema.String.annotations({
+    description: "Stable lineage id of the lesson, carried across course versions.",
+  }),
+  title: Schema.String.annotations({
+    description: "The lesson title shown to learners.",
+  }),
+  description: Schema.String.annotations({
+    description: "Short description of the lesson.",
+  }),
+  problem: CourseJsonVideo.annotations({
+    description: "The problem video the learner attempts.",
+  }),
+  solution: Schema.optional(
+    CourseJsonVideo.annotations({
+      description:
+        "The worked-solution video; present only when the lesson ships a solution.",
+    })
+  ),
+}).annotations({
+  description:
+    "A lesson delivered as a problem video with an optional worked-solution video.",
 });
 
 const CourseJsonLessonSchema = Schema.Union(
   ExplainerLessonSchema,
   ProblemLessonSchema
-);
+).annotations({
+  description: "A single learning unit within a section.",
+});
 
 const CourseJsonSectionSchema = Schema.Struct({
-  id: Schema.String,
-  title: Schema.String,
-  description: Schema.String,
-  lessons: Schema.Array(CourseJsonLessonSchema),
+  id: Schema.String.annotations({
+    description: "Stable lineage id of the section, carried across course versions.",
+  }),
+  title: Schema.String.annotations({
+    description: "The section title shown to learners.",
+  }),
+  description: Schema.String.annotations({
+    description: "Short description of the section.",
+  }),
+  lessons: Schema.Array(CourseJsonLessonSchema).annotations({
+    description: "The lessons that ship in this section, in display order.",
+  }),
+}).annotations({
+  description: "A grouping of lessons within the course, in display order.",
 });
 
 export const CourseJsonDocumentSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(2),
-  courseId: Schema.String,
-  courseName: Schema.String,
-  sections: Schema.Array(CourseJsonSectionSchema),
+  $schema: Schema.optional(Schema.String).annotations({
+    description:
+      "Relative path to the JSON Schema describing this document (course.schema.json).",
+  }),
+  schemaVersion: Schema.Literal(2).annotations({
+    description: "Version of the course.json manifest format.",
+  }),
+  courseId: Schema.String.annotations({
+    description: "Stable identifier of the course this manifest snapshots.",
+  }),
+  courseName: Schema.String.annotations({
+    description: "Human-readable name of the course.",
+  }),
+  sections: Schema.Array(CourseJsonSectionSchema).annotations({
+    description: "The sections that ship in this course, in display order.",
+  }),
+}).annotations({
+  title: "Course Manifest",
+  description:
+    "The published manifest of a course — an immutable snapshot of its sections, lessons, and videos, emitted alongside the exported .mp4 files at publish time.",
 });
 
 export type CourseJsonDocument = typeof CourseJsonDocumentSchema.Type;
+
+// The JSON Schema sidecar (`course.schema.json`) generated from
+// `CourseJsonDocumentSchema`. A pure function of the schema — invariant across
+// courses and publishes — so callers can write it verbatim next to course.json.
+export const buildCourseJsonSchema = (): JSONSchema.JsonSchema7Root =>
+  JSONSchema.make(CourseJsonDocumentSchema);
 
 // ── Error ───────────────────────────────────────────────────────────────
 
@@ -225,6 +318,7 @@ export const buildCourseJson = (
     }
 
     return {
+      $schema: "./course.schema.json",
       schemaVersion: 2 as const,
       courseId: input.courseId,
       courseName: input.courseName,
