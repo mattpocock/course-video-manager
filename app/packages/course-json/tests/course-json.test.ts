@@ -313,6 +313,81 @@ describe("buildCourseJson", () => {
     }
   });
 
+  // ── Relative path per video ────────────────────────────────────────
+
+  it("sets relativePath to section-dir/lesson-dir/title.mp4 for an exportable video", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "03-concepts",
+          lessons: [
+            makeLesson({
+              path: "03.01-models-harnesses-agents-environments",
+              videos: [makeVideo({ title: "Explainer", clips: CLIPS })],
+            }),
+          ],
+        }),
+      ])
+    );
+
+    const lesson = result.sections[0]!.lessons[0]!;
+    if (lesson.type === "explainer") {
+      expect(lesson.explainer.relativePath).toBe(
+        "03-concepts/03.01-models-harnesses-agents-environments/Explainer.mp4"
+      );
+    }
+  });
+
+  it("sets relativePath to null when video has no clips", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", clips: [] })],
+            }),
+          ],
+        }),
+      ])
+    );
+
+    const lesson = result.sections[0]!.lessons[0]!;
+    if (lesson.type === "explainer") {
+      expect(lesson.explainer.relativePath).toBeNull();
+    }
+  });
+
+  it("uses each video's own title for the relativePath in a problem/solution pair", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "02-exercises",
+          lessons: [
+            makeLesson({
+              path: "02.01-exercise",
+              videos: [
+                makeVideo({ title: "Problem", clips: CLIPS }),
+                makeVideo({ title: "Solution", clips: CLIPS }),
+              ],
+            }),
+          ],
+        }),
+      ])
+    );
+
+    const lesson = result.sections[0]!.lessons[0]!;
+    if (lesson.type === "problem") {
+      expect(lesson.problem.relativePath).toBe(
+        "02-exercises/02.01-exercise/Problem.mp4"
+      );
+      expect(lesson.solution!.relativePath).toBe(
+        "02-exercises/02.01-exercise/Solution.mp4"
+      );
+    }
+  });
+
   // ── Inline chapters ────────────────────────────────────────────────
 
   it("includes inline chapters from clips and chapter markers", async () => {

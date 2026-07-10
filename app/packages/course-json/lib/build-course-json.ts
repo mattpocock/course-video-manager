@@ -31,6 +31,10 @@ const CourseJsonVideo = Schema.Struct({
   id: Schema.String.annotations({
     description: "Stable lineage id of the video, carried across course versions.",
   }),
+  relativePath: Schema.NullOr(Schema.String).annotations({
+    description:
+      "Path to the exported .mp4 relative to this course.json (section-dir/lesson-dir/VideoTitle.mp4); null when the video has no exportable clips and so ships no file.",
+  }),
   body: Schema.NullOr(Schema.String).annotations({
     description:
       "Long-form written companion to the video (its article body), or null when none was authored.",
@@ -207,17 +211,29 @@ export type BuildCourseJsonInput = {
 
 // ── Builder ─────────────────────────────────────────────────────────────
 
-function toVideoEntry(video: InputVideo): typeof CourseJsonVideo.Type {
+// The published .mp4 lands beside course.json under section-dir/lesson-dir at
+// the video's title (see syncToDropbox's copyFileToDropbox). The relative path
+// only points at a file that actually ships, so it is null exactly when the
+// export hash is — i.e. when the video has no exportable clips.
+function toVideoEntry(
+  video: InputVideo,
+  sectionPath: string,
+  lessonPath: string
+): typeof CourseJsonVideo.Type {
   const exportClips: ExportClip[] = video.clips.map((c) => ({
     videoFilename: c.videoFilename,
     sourceStartTime: c.sourceStartTime,
     sourceEndTime: c.sourceEndTime,
   }));
+  const hash = computeExportHash(exportClips);
   return {
     id: video.lineageId,
+    relativePath: hash
+      ? `${sectionPath}/${lessonPath}/${video.title}.mp4`
+      : null,
     body: video.body,
     description: video.description,
-    hash: computeExportHash(exportClips),
+    hash,
     chapters: buildChapters(video.clips, video.chapters) ?? [],
   };
 }
@@ -268,15 +284,15 @@ export const buildCourseJson = (
               type: "problem",
               id: lesson.lineageId,
               title: lesson.title,
-              problem: toVideoEntry(problem.video),
-              solution: toVideoEntry(solution.video),
+              problem: toVideoEntry(problem.video, section.path, lesson.path),
+              solution: toVideoEntry(solution.video, section.path, lesson.path),
             });
           } else {
             lessons.push({
               type: "problem",
               id: lesson.lineageId,
               title: lesson.title,
-              problem: toVideoEntry(problem.video),
+              problem: toVideoEntry(problem.video, section.path, lesson.path),
             });
           }
         } else {
@@ -285,7 +301,7 @@ export const buildCourseJson = (
             type: "explainer",
             id: lesson.lineageId,
             title: lesson.title,
-            explainer: toVideoEntry(video),
+            explainer: toVideoEntry(video, section.path, lesson.path),
           });
         }
       }
