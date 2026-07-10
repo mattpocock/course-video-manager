@@ -1,7 +1,11 @@
 import { Data, Effect, Schema } from "effect";
-import { computeExportHash, type ExportClip } from "./export-hash";
-import { computeLessonWarnings, deriveVideoRole } from "./lesson-warnings";
-import { buildChapters } from "./publish-to-dropbox";
+import { computeExportHash, type ExportClip } from "@/services/export-hash";
+import { computeEffectiveSections } from "./effective-sections";
+import {
+  computeLessonWarnings,
+  deriveVideoRole,
+} from "@/services/lesson-warnings";
+import { buildChapters } from "@/services/publish-to-dropbox";
 
 // ── Schema ──────────────────────────────────────────────────────────────
 
@@ -95,6 +99,7 @@ type InputLesson = {
   path: string;
   title: string;
   description: string;
+  authoringStatus: string | null;
   videos: InputVideo[];
 };
 
@@ -110,6 +115,10 @@ export type BuildCourseJsonInput = {
   courseId: string;
   courseName: string;
   sections: InputSection[];
+  // Whether Lessons still marked to-do ship in this manifest. When false, every
+  // to-do Lesson is withheld — omitted from course.json entirely, and Sections
+  // left with no shippable Lessons disappear.
+  includeTodoLessons: boolean;
 };
 
 // ── Builder ─────────────────────────────────────────────────────────────
@@ -136,12 +145,16 @@ export const buildCourseJson = (
   Effect.gen(function* () {
     const sections: Array<typeof CourseJsonSectionSchema.Type> = [];
 
-    for (const section of input.sections) {
-      // Empty sections derive no path — skip them rather than emit a section
-      // with an undefined path. (A real section with no active lessons still
-      // has a derived path and is emitted with an empty lessons array.)
-      if (!section.path) continue;
+    // The effective-output filter is the single home of "what this publish
+    // ships": it drops to-do Lessons when they are withheld, Lessons with no
+    // active Videos, and Sections left with no shippable Lessons. Everything
+    // below then models only what actually ships.
+    const effectiveSections = computeEffectiveSections(
+      input.sections,
+      input.includeTodoLessons
+    );
 
+    for (const section of effectiveSections) {
       const lessons: Array<typeof CourseJsonLessonSchema.Type> = [];
 
       for (const lesson of section.lessons) {
@@ -196,6 +209,12 @@ export const buildCourseJson = (
           });
         }
       }
+
+      // Emit a Section only when it actually ships Lessons. Sections are
+      // decided by their shippable Lessons, not by a derived path — an empty
+      // Section (whether it never had Lessons or had them all withheld/archived
+      // upstream) produces no course.json entry, never an empty lessons array.
+      if (lessons.length === 0) continue;
 
       sections.push({
         id: section.lineageId,

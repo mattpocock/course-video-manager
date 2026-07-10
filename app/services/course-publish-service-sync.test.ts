@@ -198,7 +198,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -221,7 +221,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -244,7 +244,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -270,7 +270,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -314,7 +314,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -337,7 +337,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, (event, data) => {
+        yield* svc.syncToDropbox(course.id, true, (event, data) => {
           events.push({ event, data });
         });
       })
@@ -360,7 +360,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     const result = await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        return yield* svc.syncToDropbox(course.id);
+        return yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -373,7 +373,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -394,7 +394,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -417,7 +417,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -439,7 +439,7 @@ describe("CoursePublishService.syncToDropbox", () => {
     await run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id);
+        yield* svc.syncToDropbox(course.id, true);
       })
     );
 
@@ -453,6 +453,76 @@ describe("CoursePublishService.syncToDropbox", () => {
     const video = lesson.problem ?? lesson.explainer;
     expect(video.hash).not.toBeNull();
     expect(typeof video.hash).toBe("string");
+  });
+
+  // ── Withholding to-do lessons (includeTodoLessons = false) ──────────
+
+  it("withholds a to-do lesson's folder and omits it from course.json", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id, false);
+      })
+    );
+
+    const courseDir = path.join(dropboxDir, "test-course");
+    // The "done" lesson ships…
+    expect(
+      fs.existsSync(
+        path.join(courseDir, "01-intro", "01.01-welcome", "Problem.mp4")
+      )
+    ).toBe(true);
+    // …the "todo" lesson does not.
+    expect(fs.existsSync(path.join(courseDir, "01-intro", "01.02-setup"))).toBe(
+      false
+    );
+
+    const doc = JSON.parse(
+      fs.readFileSync(path.join(courseDir, "course.json"), "utf-8")
+    );
+    expect(doc.sections).toHaveLength(1);
+    expect(doc.sections[0].lessons).toHaveLength(1);
+  });
+
+  it("removes a previously-published to-do lesson when it is later withheld", async () => {
+    const { course, dropboxDir, run } = await setupSync();
+
+    // First publish includes the to-do lesson…
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id, true);
+      })
+    );
+    const todoDir = path.join(
+      dropboxDir,
+      "test-course",
+      "01-intro",
+      "01.02-setup"
+    );
+    expect(fs.existsSync(path.join(todoDir, "Explainer.mp4"))).toBe(true);
+
+    // …a later publish withholds it, and the stale-file cleanup deletes it.
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id, false);
+      })
+    );
+    expect(fs.existsSync(todoDir)).toBe(false);
+    expect(
+      fs.existsSync(
+        path.join(
+          dropboxDir,
+          "test-course",
+          "01-intro",
+          "01.01-welcome",
+          "Problem.mp4"
+        )
+      )
+    ).toBe(true);
   });
 });
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Effect } from "effect";
-import { buildCourseJson, type BuildCourseJsonInput } from "./course-json";
-import { computeExportHash } from "./export-hash";
+import { buildCourseJson, type BuildCourseJsonInput } from "../index";
+import { computeExportHash } from "@/services/export-hash";
 
 const makeVideo = (
   overrides: Partial<
@@ -28,6 +28,7 @@ const makeLesson = (
   lineageId: `lesson-lineage-${overrides.path}`,
   title: overrides.path,
   description: "",
+  authoringStatus: null as string | null,
   ...overrides,
 });
 
@@ -44,11 +45,13 @@ const makeSection = (
 });
 
 const makeInput = (
-  sections: BuildCourseJsonInput["sections"]
+  sections: BuildCourseJsonInput["sections"],
+  includeTodoLessons = true
 ): BuildCourseJsonInput => ({
   courseId: "course-1",
   courseName: "Test Course",
   sections,
+  includeTodoLessons,
 });
 
 const run = (input: BuildCourseJsonInput) =>
@@ -89,7 +92,12 @@ describe("buildCourseJson", () => {
         makeSection({
           path: "01-intro",
           lineageId: "sec-abc",
-          lessons: [],
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer" })],
+            }),
+          ],
         }),
       ])
     );
@@ -393,7 +401,7 @@ describe("buildCourseJson", () => {
     expect(lesson.type).toBe("problem");
   });
 
-  it("skips lessons where all videos are archived", async () => {
+  it("drops a section whose only lesson has all videos archived", async () => {
     const result = await run(
       makeInput([
         makeSection({
@@ -408,7 +416,7 @@ describe("buildCourseJson", () => {
       ])
     );
 
-    expect(result.sections[0]!.lessons).toEqual([]);
+    expect(result.sections).toEqual([]);
   });
 
   // ── Invalid combos fail loudly ─────────────────────────────────────
@@ -515,7 +523,12 @@ describe("buildCourseJson", () => {
         makeSection({
           path: "01-intro",
           description: "Introduction section",
-          lessons: [],
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer" })],
+            }),
+          ],
         }),
       ])
     );
@@ -551,12 +564,22 @@ describe("buildCourseJson", () => {
         makeSection({
           path: "01-intro",
           title: "Introduction",
-          lessons: [],
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer" })],
+            }),
+          ],
         }),
         makeSection({
           path: "02-advanced",
           title: "Advanced Topics",
-          lessons: [],
+          lessons: [
+            makeLesson({
+              path: "02.01-deep",
+              videos: [makeVideo({ title: "Explainer" })],
+            }),
+          ],
         }),
       ])
     );
@@ -633,6 +656,114 @@ describe("buildCourseJson", () => {
     if (lesson.type === "explainer") {
       expect(lesson.explainer.body).toBeNull();
       expect(lesson.explainer.description).toBeNull();
+    }
+  });
+
+  // ── Effective-output filter (includeTodoLessons) ───────────────────
+
+  it("includes to-do lessons when includeTodoLessons is true", async () => {
+    const result = await run(
+      makeInput(
+        [
+          makeSection({
+            path: "01-intro",
+            lessons: [
+              makeLesson({
+                path: "01.01-todo",
+                authoringStatus: "todo",
+                videos: [makeVideo({ title: "Explainer" })],
+              }),
+              makeLesson({
+                path: "01.02-done",
+                authoringStatus: "done",
+                videos: [makeVideo({ title: "Explainer" })],
+              }),
+            ],
+          }),
+        ],
+        true
+      )
+    );
+    expect(result.sections[0]!.lessons).toHaveLength(2);
+  });
+
+  it("withholds to-do lessons when includeTodoLessons is false", async () => {
+    const result = await run(
+      makeInput(
+        [
+          makeSection({
+            path: "01-intro",
+            title: "Intro",
+            lessons: [
+              makeLesson({
+                path: "01.01-todo",
+                title: "Todo",
+                authoringStatus: "todo",
+                videos: [makeVideo({ title: "Explainer" })],
+              }),
+              makeLesson({
+                path: "01.02-done",
+                title: "Done",
+                authoringStatus: "done",
+                videos: [makeVideo({ title: "Explainer" })],
+              }),
+            ],
+          }),
+        ],
+        false
+      )
+    );
+    expect(result.sections[0]!.lessons.map((l) => l.title)).toEqual(["Done"]);
+  });
+
+  it("drops a section whose only lessons are withheld to-do lessons", async () => {
+    const result = await run(
+      makeInput(
+        [
+          makeSection({
+            path: "01-intro",
+            lessons: [
+              makeLesson({
+                path: "01.01-todo",
+                authoringStatus: "todo",
+                videos: [makeVideo({ title: "Explainer" })],
+              }),
+            ],
+          }),
+        ],
+        false
+      )
+    );
+    expect(result.sections).toEqual([]);
+  });
+
+  it("never emits a section with an empty lessons array", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({ path: "01-empty", title: "Empty", lessons: [] }),
+        makeSection({
+          path: "02-archived",
+          lessons: [
+            makeLesson({
+              path: "02.01-x",
+              videos: [makeVideo({ title: "Explainer", archived: true })],
+            }),
+          ],
+        }),
+        makeSection({
+          path: "03-real",
+          lessons: [
+            makeLesson({
+              path: "03.01-x",
+              videos: [makeVideo({ title: "Explainer" })],
+            }),
+          ],
+        }),
+      ])
+    );
+    expect(result.sections.map((s) => s.title)).toEqual(["03-real"]);
+    for (const section of result.sections) {
+      expect(section.lessons.length).toBeGreaterThan(0);
     }
   });
 });

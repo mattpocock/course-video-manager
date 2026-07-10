@@ -45,13 +45,17 @@ export interface UploadContextType {
     dependsOn?: string
   ) => string;
   startExportUpload: (videoId: string, title: string) => string;
-  startBatchExportUpload: (versionId: string) => void;
+  startBatchExportUpload: (
+    versionId: string,
+    includeTodoLessons: boolean
+  ) => void;
   startDropboxPublish: (repoId: string, repoName: string) => string;
   startPublish: (
     courseId: string,
     courseName: string,
     name: string,
-    description: string
+    description: string,
+    includeTodoLessons: boolean
   ) => string;
   dismissUpload: (uploadId: string) => void;
 }
@@ -281,73 +285,76 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     return uploadId;
   }, []);
 
-  const startBatchExportUpload = useCallback((versionId: string) => {
-    const abortController = startSSEBatchExport(
-      { versionId },
-      {
-        onVideos: (videos) => {
-          for (const video of videos) {
-            const uploadId = generateUploadId();
-            batchVideoIdToUploadIdRef.current.set(video.id, uploadId);
-            dispatch({
-              type: "START_UPLOAD",
-              uploadId,
-              videoId: video.id,
-              title: video.title,
-              uploadType: "export",
-              isBatchEntry: true,
-            });
-          }
-        },
-        onStageChange: (videoId, stage) => {
-          const uploadId = batchVideoIdToUploadIdRef.current.get(videoId);
-          if (uploadId) {
-            dispatch({
-              type: "UPDATE_EXPORT_STAGE",
-              uploadId,
-              stage,
-            });
-          }
-        },
-        onComplete: (videoId) => {
-          const uploadId = batchVideoIdToUploadIdRef.current.get(videoId);
-          if (uploadId) {
-            dispatch({
-              type: "UPLOAD_SUCCESS",
-              uploadId,
-            });
-            batchVideoIdToUploadIdRef.current.delete(videoId);
-          }
-        },
-        onError: (videoId, message) => {
-          if (videoId === null) {
-            // Connection-level error — mark all remaining batch entries as errored
-            for (const [, uid] of batchVideoIdToUploadIdRef.current) {
+  const startBatchExportUpload = useCallback(
+    (versionId: string, includeTodoLessons: boolean) => {
+      const abortController = startSSEBatchExport(
+        { versionId, includeTodoLessons },
+        {
+          onVideos: (videos) => {
+            for (const video of videos) {
+              const uploadId = generateUploadId();
+              batchVideoIdToUploadIdRef.current.set(video.id, uploadId);
               dispatch({
-                type: "UPLOAD_ERROR",
-                uploadId: uid,
-                errorMessage: message,
+                type: "START_UPLOAD",
+                uploadId,
+                videoId: video.id,
+                title: video.title,
+                uploadType: "export",
+                isBatchEntry: true,
               });
             }
-            batchVideoIdToUploadIdRef.current.clear();
-          } else {
+          },
+          onStageChange: (videoId, stage) => {
             const uploadId = batchVideoIdToUploadIdRef.current.get(videoId);
             if (uploadId) {
               dispatch({
-                type: "UPLOAD_ERROR",
+                type: "UPDATE_EXPORT_STAGE",
                 uploadId,
-                errorMessage: message,
+                stage,
+              });
+            }
+          },
+          onComplete: (videoId) => {
+            const uploadId = batchVideoIdToUploadIdRef.current.get(videoId);
+            if (uploadId) {
+              dispatch({
+                type: "UPLOAD_SUCCESS",
+                uploadId,
               });
               batchVideoIdToUploadIdRef.current.delete(videoId);
             }
-          }
-        },
-      }
-    );
+          },
+          onError: (videoId, message) => {
+            if (videoId === null) {
+              // Connection-level error — mark all remaining batch entries as errored
+              for (const [, uid] of batchVideoIdToUploadIdRef.current) {
+                dispatch({
+                  type: "UPLOAD_ERROR",
+                  uploadId: uid,
+                  errorMessage: message,
+                });
+              }
+              batchVideoIdToUploadIdRef.current.clear();
+            } else {
+              const uploadId = batchVideoIdToUploadIdRef.current.get(videoId);
+              if (uploadId) {
+                dispatch({
+                  type: "UPLOAD_ERROR",
+                  uploadId,
+                  errorMessage: message,
+                });
+                batchVideoIdToUploadIdRef.current.delete(videoId);
+              }
+            }
+          },
+        }
+      );
 
-    // Store with a synthetic key so it can be cleaned up on unmount
-    abortControllersRef.current.set(`batch-${versionId}`, abortController);
-  }, []);
+      // Store with a synthetic key so it can be cleaned up on unmount
+      abortControllersRef.current.set(`batch-${versionId}`, abortController);
+    },
+    []
+  );
 
   const startDropboxPublish = useCallback(
     (repoId: string, repoName: string) => {
@@ -386,11 +393,12 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       courseId: string,
       courseName: string,
       name: string,
-      description: string
+      description: string,
+      includeTodoLessons: boolean
     ) => {
       const uploadId = generateUploadId();
 
-      const params = { courseId, name, description };
+      const params = { courseId, name, description, includeTodoLessons };
       paramsMapRef.current.set(uploadId, { type: "publish", params });
 
       const action = {

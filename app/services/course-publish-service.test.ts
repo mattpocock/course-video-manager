@@ -340,7 +340,7 @@ describe("CoursePublishService", () => {
       const result = await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          return yield* svc.validatePublishability(version.id);
+          return (yield* svc.validatePublishability(version.id)).withTodo;
         })
       );
 
@@ -359,7 +359,7 @@ describe("CoursePublishService", () => {
       const result = await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          return yield* svc.validatePublishability(version.id);
+          return (yield* svc.validatePublishability(version.id)).withTodo;
         })
       );
 
@@ -375,7 +375,7 @@ describe("CoursePublishService", () => {
       await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          yield* svc.batchExport(version.id, (event, data) => {
+          yield* svc.batchExport(version.id, true, (event, data) => {
             events.push({ event, data });
           });
         })
@@ -408,7 +408,7 @@ describe("CoursePublishService", () => {
       await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          yield* svc.batchExport(version.id, (event, data) => {
+          yield* svc.batchExport(version.id, true, (event, data) => {
             events.push({ event, data });
           });
         })
@@ -460,7 +460,7 @@ describe("CoursePublishService", () => {
       const before = await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          return yield* svc.validatePublishability(version.id);
+          return (yield* svc.validatePublishability(version.id)).withTodo;
         })
       );
       expect(before.unexportedVideoIds).toContain(video.id);
@@ -477,7 +477,7 @@ describe("CoursePublishService", () => {
       const after = await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          return yield* svc.validatePublishability(version.id);
+          return (yield* svc.validatePublishability(version.id)).withTodo;
         })
       );
       expect(after.unexportedVideoIds).toEqual([]);
@@ -491,7 +491,7 @@ describe("CoursePublishService", () => {
       const result = await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          return yield* svc.validatePublishability(version.id);
+          return (yield* svc.validatePublishability(version.id)).withTodo;
         })
       );
 
@@ -585,7 +585,7 @@ describe("CoursePublishService", () => {
       const result = await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          return yield* svc.validatePublishability(version.id);
+          return (yield* svc.validatePublishability(version.id)).withTodo;
         })
       );
 
@@ -601,14 +601,16 @@ describe("CoursePublishService", () => {
       const result = await run(
         Effect.gen(function* () {
           const svc = yield* CoursePublishService;
-          return yield* svc.publish(course.id, "v1.0", "First release").pipe(
-            Effect.catchTag("PublishValidationError", (e) =>
-              Effect.succeed({
-                error: true,
-                unexportedVideoIds: e.unexportedVideoIds,
-              })
-            )
-          );
+          return yield* svc
+            .publish(course.id, "v1.0", "First release", true)
+            .pipe(
+              Effect.catchTag("PublishValidationError", (e) =>
+                Effect.succeed({
+                  error: true,
+                  unexportedVideoIds: e.unexportedVideoIds,
+                })
+              )
+            );
         })
       );
 

@@ -11,8 +11,12 @@ export const action = makeAction({
       const publishService = yield* CoursePublishService;
       const versionOps = yield* VersionOperationsService;
 
-      const { unexportedVideoIds } =
-        yield* publishService.validatePublishability(params.versionId!);
+      // This list backs the "unexported videos" detail view; it reflects the
+      // full course (include to-do Lessons), matching the default publish.
+      const { withTodo } = yield* publishService.validatePublishability(
+        params.versionId!
+      );
+      const { unexportedVideoIds } = withTodo;
 
       const version = yield* versionOps.getVersionWithSections(
         params.versionId!

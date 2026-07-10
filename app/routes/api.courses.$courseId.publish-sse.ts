@@ -7,6 +7,7 @@ import { createSSEResponse } from "@/lib/create-sse-response.server";
 const publishSchema = Schema.Struct({
   name: Schema.String,
   description: Schema.optional(Schema.String),
+  includeTodoLessons: Schema.optional(Schema.Boolean),
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -24,6 +25,7 @@ export const action = async (args: Route.ActionArgs) => {
           courseId,
           parsed.name,
           parsed.description ?? "",
+          parsed.includeTodoLessons ?? true,
           (stage) => {
             sendEvent("progress", { stage });
           }

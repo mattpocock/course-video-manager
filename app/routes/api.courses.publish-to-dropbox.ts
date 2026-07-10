@@ -18,6 +18,8 @@ export const action = makeAction({
       const result = yield* Schema.decodeUnknown(publishRepoSchema)(payload);
 
       const publishService = yield* CoursePublishService;
-      return yield* publishService.syncToDropbox(result.repoId);
+      // Standalone Dropbox mirror (no publish-page toggle) — include every
+      // Lesson, matching the default publish behaviour.
+      return yield* publishService.syncToDropbox(result.repoId, true);
     }),
 });

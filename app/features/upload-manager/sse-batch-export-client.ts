@@ -3,6 +3,7 @@ import type { uploadReducer } from "./upload-reducer";
 
 export interface SSEBatchExportParams {
   versionId: string;
+  includeTodoLessons: boolean;
 }
 
 export interface SSEBatchExportCallbacks {
@@ -18,7 +19,7 @@ export const startSSEBatchExport = (
 ): AbortController =>
   consumeSSEStream({
     url: `/api/courseVersions/${params.versionId}/batch-export-sse`,
-    body: {},
+    body: { includeTodoLessons: params.includeTodoLessons },
     events: {
       videos: (data: { videos: Array<{ id: string; title: string }> }) =>
         callbacks.onVideos(data.videos),

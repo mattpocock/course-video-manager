@@ -19,7 +19,10 @@ import {
   resolveSectionsWithVideos,
 } from "./publish-to-dropbox";
 import { computeCourseViewLintCount } from "./lesson-warnings";
-import { buildCourseJson } from "./course-json";
+import {
+  buildCourseJson,
+  computeEffectiveSections,
+} from "@/packages/course-json";
 
 export class PublishValidationError extends Data.TaggedError(
   "PublishValidationError"
@@ -178,10 +181,18 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
       const batchExport = Effect.fn("batchExport")(function* (
         versionId: string,
+        includeTodoLessons: boolean,
         sendEvent?: (event: string, data: unknown) => void
       ) {
         const version = yield* versionOps.getVersionWithSections(versionId);
         const courseId = version.repo.id;
+
+        // Export only what this publish will ship — the effective Sections for
+        // the current toggle. Withheld to-do Lessons' Videos are not exported.
+        const effectiveSections = computeEffectiveSections(
+          version.sections,
+          includeTodoLessons
+        );
 
         // Find unexported videos
         const unexportedVideos: Array<{
@@ -189,7 +200,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           title: string;
         }> = [];
 
-        for (const section of version.sections) {
+        for (const section of effectiveSections) {
           for (const lesson of section.lessons) {
             for (const video of lesson.videos) {
               if (video.clips.length === 0) continue;
@@ -252,12 +263,17 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         yield* garbageCollect(courseId);
       });
 
+      // Validation gates on the effective output — the set of Lessons this
+      // publish actually ships. Because the toggle can flip on the publish page
+      // with no round-trip, both positions are computed in a single pass: the
+      // expensive per-Video existence checks run once, then the pure counters
+      // run against the effective Sections for each toggle state.
       const validatePublishability = Effect.fn("validatePublishability")(
         function* (versionId: string) {
           const version = yield* versionOps.getVersionWithSections(versionId);
           const courseId = version.repo.id;
 
-          const unexportedVideoIds: string[] = [];
+          const exportedById = new Map<string, boolean>();
           for (const section of version.sections) {
             for (const lesson of section.lessons) {
               for (const video of lesson.videos) {
@@ -269,22 +285,41 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
                   courseId,
                   hash
                 );
-                if (!(yield* effectFs.exists(filePath))) {
-                  unexportedVideoIds.push(video.id);
-                }
+                exportedById.set(video.id, yield* effectFs.exists(filePath));
               }
             }
           }
 
-          const courseViewLintCount = computeCourseViewLintCount(
-            version.sections
-          );
-          return { unexportedVideoIds, courseViewLintCount };
+          const evaluate = (includeTodoLessons: boolean) => {
+            const effectiveSections = computeEffectiveSections(
+              version.sections,
+              includeTodoLessons
+            );
+            const unexportedVideoIds: string[] = [];
+            for (const section of effectiveSections) {
+              for (const lesson of section.lessons) {
+                for (const video of lesson.videos) {
+                  if (exportedById.get(video.id) === false) {
+                    unexportedVideoIds.push(video.id);
+                  }
+                }
+              }
+            }
+            const courseViewLintCount =
+              computeCourseViewLintCount(effectiveSections);
+            return { unexportedVideoIds, courseViewLintCount };
+          };
+
+          return {
+            withTodo: evaluate(true),
+            withoutTodo: evaluate(false),
+          };
         }
       );
 
       const syncToDropbox = Effect.fn("syncToDropbox")(function* (
         courseId: string,
+        includeTodoLessons: boolean,
         onProgress?: (event: string, data: unknown) => void
       ) {
         const latestVersion =
@@ -305,8 +340,18 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             versionId: latestVersion.id,
           });
 
+        // The effective Sections are the single source of "what this publish
+        // ships". The Dropbox mirror and course.json both read from it, so they
+        // can never disagree. Withheld to-do Lessons are absent here; the
+        // stale-file cleanup below removes any of their previously-published
+        // folders. Sections left with no shippable Lessons disappear entirely.
+        const effectiveSections = computeEffectiveSections(
+          repoWithSections.sections,
+          includeTodoLessons
+        );
+
         const videoPathOverrides = new Map<string, string>();
-        for (const section of repoWithSections.sections) {
+        for (const section of effectiveSections) {
           for (const lesson of section.lessons) {
             for (const video of lesson.videos) {
               if (video.clips.length > 0) {
@@ -327,7 +372,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         const { sections, missingVideos } = yield* resolveSectionsWithVideos({
-          sectionsInDb: repoWithSections.sections,
+          sectionsInDb: effectiveSections,
           finishedVideosDirectory: FINISHED_VIDEOS_DIRECTORY,
           videoPathOverrides,
         });
@@ -396,6 +441,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           courseId,
           courseName: repoWithSections.name,
           sections: repoWithSections.sections,
+          includeTodoLessons,
         });
         const courseJsonPath = path.join(dropboxCourseDir, "course.json");
         yield* effectFs.makeDirectory(dropboxCourseDir, { recursive: true });
@@ -443,6 +489,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         courseId: string,
         versionName: string,
         versionDescription: string,
+        includeTodoLessons: boolean,
         onProgress?: (
           stage:
             | "validating"
@@ -460,8 +507,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           return yield* Effect.die(new Error("No version found for course"));
         }
 
-        const { unexportedVideoIds, courseViewLintCount } =
-          yield* validatePublishability(latestVersion.id);
+        // Gate on the effective output for the chosen toggle: an unfinished
+        // to-do Lesson that is being withheld must not block a publish that is
+        // not shipping it.
+        const validation = yield* validatePublishability(latestVersion.id);
+        const { unexportedVideoIds, courseViewLintCount } = includeTodoLessons
+          ? validation.withTodo
+          : validation.withoutTodo;
         if (unexportedVideoIds.length > 0 || courseViewLintCount > 0) {
           return yield* new PublishValidationError({
             unexportedVideoIds,
@@ -470,7 +522,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         onProgress?.("uploading");
-        yield* syncToDropbox(courseId);
+        yield* syncToDropbox(courseId, includeTodoLessons);
 
         onProgress?.("freezing");
         yield* versionOps.updateCourseVersion({
