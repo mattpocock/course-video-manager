@@ -2,6 +2,7 @@ import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { lessonSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { AUTHORING_STATUSES } from "@/services/lesson-authoring-status";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -274,8 +275,7 @@ const updateTitle = Options.text("title").pipe(
   Options.optional
 );
 const updateAuthoringStatus = Options.choice("authoring-status", [
-  "todo",
-  "done",
+  ...AUTHORING_STATUSES,
 ]).pipe(
   Options.withDescription(
     'Set the authoring status: "todo" (still needs work — the default for new ' +
