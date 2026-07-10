@@ -68,6 +68,16 @@ export const COURSE_STRUCTURE_STORAGE_KEY =
   "article-writer-include-course-structure";
 export const MEMORY_ENABLED_STORAGE_KEY = "article-writer-memory-enabled";
 
+export const loadBooleanFlag = (key: string): boolean => {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(key) === "true";
+};
+
+export const saveBooleanFlag = (key: string, value: boolean): void => {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(key, String(value));
+};
+
 export const getMessagesStorageKey = (videoId: string, mode: Mode) =>
   `article-writer-messages-${videoId}-${mode}`;
 

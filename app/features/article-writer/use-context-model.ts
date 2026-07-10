@@ -4,6 +4,12 @@ import { useState, useMemo, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { WriterContext } from "./writer-engine";
 import { estimateTokens, type SourceView } from "./inline-context-strip";
+import {
+  loadBooleanFlag,
+  saveBooleanFlag,
+  MEMORY_ENABLED_STORAGE_KEY,
+  COURSE_STRUCTURE_STORAGE_KEY,
+} from "./write-utils";
 
 export interface ContextModel {
   sources: SourceView[];
@@ -63,8 +69,30 @@ export function useContextModel(
     () => new Set(context.chapters.map((s) => s.id))
   );
   const [includeTranscript, setIncludeTranscript] = useState(true);
-  const [includeCourseStructure, setIncludeCourseStructure] = useState(false);
-  const [memoryEnabled, setMemoryEnabled] = useState(false);
+  const [includeCourseStructure, setIncludeCourseStructureRaw] = useState(() =>
+    loadBooleanFlag(COURSE_STRUCTURE_STORAGE_KEY)
+  );
+  const setIncludeCourseStructure: Dispatch<SetStateAction<boolean>> =
+    useCallback((value) => {
+      setIncludeCourseStructureRaw((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        saveBooleanFlag(COURSE_STRUCTURE_STORAGE_KEY, next);
+        return next;
+      });
+    }, []);
+  const [memoryEnabled, setMemoryEnabledRaw] = useState(() =>
+    loadBooleanFlag(MEMORY_ENABLED_STORAGE_KEY)
+  );
+  const setMemoryEnabled: Dispatch<SetStateAction<boolean>> = useCallback(
+    (value) => {
+      setMemoryEnabledRaw((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        saveBooleanFlag(MEMORY_ENABLED_STORAGE_KEY, next);
+        return next;
+      });
+    },
+    []
+  );
   const [memoryText, setMemoryText] = useState(context.memory);
   // Links default to on; we track the *disabled* ids so links added after mount
   // (via revalidation) are included by default.

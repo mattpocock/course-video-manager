@@ -13,8 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HTMLAttributes } from "react";
 import type { Options } from "react-markdown";
 import { useFetcher } from "react-router";
-import { toast } from "sonner";
-
 import { WriteChat } from "./write-chat";
 import { DocumentPanel } from "./document-panel";
 import { useDocumentFlow } from "./use-document-flow";
@@ -39,6 +37,8 @@ import {
   saveFieldDocument,
 } from "./writer-engine-utils";
 import { useContextModel } from "./use-context-model";
+import { useMemoryAutosave } from "./use-memory-autosave";
+import { useApplyDocument } from "./use-apply-document";
 import { InlineContextStrip } from "./inline-context-strip";
 import { ContextView } from "./context-view";
 import { SettingsView } from "./settings-view";
@@ -133,6 +133,7 @@ export function WriterEngine({
   }, []);
 
   const ctxModel = useContextModel(context, pageFields);
+  useMemoryAutosave(ctxModel.memoryText, context.repoId);
 
   const [docCapturingKey, setDocCapturingKey] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -474,38 +475,12 @@ export function WriterEngine({
     [deleteLinkFetcher]
   );
 
-  // Apply: upload any local images to Cloudinary (rewriting local paths and
-  // deleting the local files) before handing the final document to the host.
-  const [isApplying, setIsApplying] = useState(false);
-  const handleApply = useCallback(async () => {
-    const doc = documentRef.current ?? "";
-    let finalDoc = doc;
-    if (doc.trim()) {
-      setIsApplying(true);
-      try {
-        const res = await fetch(`/api/videos/${videoId}/upload-images`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body: doc, deleteLocalFiles: true }),
-        });
-        if (!res.ok) {
-          throw new Error((await res.text()) || "Failed to upload images");
-        }
-        const { body: uploaded } = await res.json();
-        if (uploaded) {
-          finalDoc = uploaded;
-          if (uploaded !== doc) updateDocument(uploaded);
-        }
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Failed to upload images"
-        );
-      } finally {
-        setIsApplying(false);
-      }
-    }
-    onApply?.(finalDoc);
-  }, [videoId, documentRef, updateDocument, onApply]);
+  const { isApplying, handleApply } = useApplyDocument(
+    videoId,
+    documentRef,
+    updateDocument,
+    onApply
+  );
 
   const toolbarProps: WriteToolbarProps = useMemo(
     () => ({
