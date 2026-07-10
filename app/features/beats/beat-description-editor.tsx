@@ -52,7 +52,7 @@ export function BeatDescriptionEditor({
       <textarea
         ref={textareaRef}
         className={cn(
-          "w-full resize-none bg-transparent border-l-2 border-muted-foreground/40 pl-2 text-xs text-muted-foreground outline-none focus:border-foreground",
+          "w-full max-w-[80ch] resize-none bg-transparent border-l-2 border-muted-foreground/40 pl-2 text-xs text-muted-foreground outline-none focus:border-foreground",
           className
         )}
         rows={1}
@@ -100,7 +100,7 @@ export function BeatDescriptionEditor({
   return (
     <p
       className={cn(
-        "whitespace-pre-line border-l-2 border-muted-foreground/20 pl-2 text-xs text-muted-foreground",
+        "whitespace-pre-line max-w-[80ch] border-l-2 border-muted-foreground/20 pl-2 text-xs text-muted-foreground",
         !isReadOnly && "cursor-text hover:text-foreground/70",
         className
       )}
