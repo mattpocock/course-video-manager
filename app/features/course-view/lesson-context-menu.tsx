@@ -12,6 +12,7 @@ import type { Lesson, Section } from "./course-view-types";
 import type { useNavigate } from "react-router";
 import {
   ArrowRightLeft,
+  CheckCircle2,
   FileText,
   FileVideo,
   ListTodo,
@@ -82,22 +83,33 @@ export function LessonContextMenuContent({
               Edit Description
             </ContextMenuItem>
           )}
-          {lesson.authoringStatus === "done" && (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onSelect={() =>
-                  submitEvent({
-                    type: "set-lesson-authoring-status",
-                    lessonId: lesson.id,
-                    status: "todo",
-                  })
-                }
-              >
-                <ListTodo className="w-4 h-4" />
-                Mark as TODO
-              </ContextMenuItem>
-            </>
+          <ContextMenuSeparator />
+          {lesson.authoringStatus === "done" ? (
+            <ContextMenuItem
+              onSelect={() =>
+                submitEvent({
+                  type: "set-lesson-authoring-status",
+                  lessonId: lesson.id,
+                  status: "todo",
+                })
+              }
+            >
+              <ListTodo className="w-4 h-4" />
+              Mark as TODO
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem
+              onSelect={() =>
+                submitEvent({
+                  type: "set-lesson-authoring-status",
+                  lessonId: lesson.id,
+                  status: "done",
+                })
+              }
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Mark as Done
+            </ContextMenuItem>
           )}
           <ContextMenuSeparator />
           <ContextMenuItem

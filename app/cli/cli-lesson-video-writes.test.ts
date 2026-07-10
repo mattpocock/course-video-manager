@@ -188,6 +188,128 @@ describe("lesson create", () => {
   });
 });
 
+describe("lesson update", () => {
+  interface Lesson {
+    id: string;
+    title: string;
+    authoringStatus: string | null;
+  }
+  const lobj = (stdout: string): Lesson => one<Lesson>(stdout);
+
+  it("--authoring-status done marks the lesson done, echoing the row", async () => {
+    // The seed lesson starts as "done"; flip it to todo first so we can prove
+    // the write, then back to done.
+    await run(["lesson", "update", "--authoring-status", "todo", s.lessonId]);
+    const updated = lobj(
+      (
+        await run([
+          "lesson",
+          "update",
+          "--authoring-status",
+          "done",
+          s.lessonId,
+        ])
+      ).stdout
+    );
+    expect(updated.id).toBe(s.lessonId);
+    expect(updated.authoringStatus).toBe("done");
+  });
+
+  it("--authoring-status todo marks a done lesson back to todo", async () => {
+    const updated = lobj(
+      (
+        await run([
+          "lesson",
+          "update",
+          "--authoring-status",
+          "todo",
+          s.lessonId,
+        ])
+      ).stdout
+    );
+    expect(updated.authoringStatus).toBe("todo");
+  });
+
+  it("patches title and authoring status together, leaving the slug", async () => {
+    const updated = lobj(
+      (
+        await run([
+          "lesson",
+          "update",
+          "--title",
+          "A Clearer Title",
+          "--authoring-status",
+          "todo",
+          s.lessonId,
+        ])
+      ).stdout
+    );
+    expect(updated.title).toBe("A Clearer Title");
+    expect(updated.authoringStatus).toBe("todo");
+  });
+
+  it("--title only leaves the authoring status untouched", async () => {
+    // Seed lesson is "done"; renaming must not reset it to todo.
+    const updated = lobj(
+      (await run(["lesson", "update", "--title", "Renamed Only", s.lessonId]))
+        .stdout
+    );
+    expect(updated.title).toBe("Renamed Only");
+    expect(updated.authoringStatus).toBe("done");
+  });
+
+  it("with neither --title nor --authoring-status => invalid input, exit 3", async () => {
+    const { exitCode, stdout, stderr } = await run([
+      "lesson",
+      "update",
+      s.lessonId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
+      "ParseError"
+    );
+  });
+
+  it("an unknown --authoring-status value => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "lesson",
+      "update",
+      "--authoring-status",
+      "in-progress",
+      s.lessonId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("an empty --title => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "lesson",
+      "update",
+      "--title",
+      "  ",
+      s.lessonId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+  });
+
+  it("update an unknown lesson => NotFoundError(lesson), exit 2", async () => {
+    const { exitCode, stderr } = await run([
+      "lesson",
+      "update",
+      "--authoring-status",
+      "todo",
+      "les_missing",
+    ]);
+    expect(exitCode).toBe(2);
+    expect((JSON.parse(stderr.trim()) as { entity: string }).entity).toBe(
+      "lesson"
+    );
+  });
+});
+
 describe("video create / move / update", () => {
   interface Video {
     id: string;
