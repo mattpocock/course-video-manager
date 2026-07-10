@@ -4,10 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { WriterContext } from "./writer-engine";
 import { estimateTokens, type SourceView } from "./inline-context-strip";
-import {
-  formatBeatsContext,
-  type BeatContextItem,
-} from "./format-beats-context";
+import { formatBeatsContext } from "./format-beats-context";
 
 export interface ContextModel {
   sources: SourceView[];
@@ -81,7 +78,7 @@ export function useContextModel(
   );
   const [beatsEnabled, setBeatsEnabled] = useState(false);
   const beatsText = useMemo(
-    () => formatBeatsContext(context.beats as BeatContextItem[]),
+    () => formatBeatsContext(context.beats),
     [context.beats]
   );
 
@@ -265,7 +262,7 @@ export function useContextModel(
       });
     }
 
-    // 5. Memory (only if non-empty)
+    // 6. Memory (only if non-empty)
     if (memoryText.length > 0) {
       const tokens = estimateTokens(memoryText);
       const on = memoryEnabled;

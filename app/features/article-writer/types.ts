@@ -4,6 +4,7 @@ import type {
   editDocumentTool,
 } from "@/services/document-writing-agent";
 import type { InferUITools, UIMessage } from "ai";
+import type { BeatKind } from "@/features/beats/beat-kinds";
 
 export type DocumentAgentTools = {
   writeDocument: typeof writeDocumentTool;
@@ -69,5 +70,5 @@ export interface WriterContext {
   repoId: string | null;
   fullPath: string;
   isStandalone: boolean;
-  beats: Array<{ kind: string; title: string; description: string }>;
+  beats: Array<{ kind: BeatKind; title: string; description: string }>;
 }
