@@ -1,3 +1,6 @@
+// Internal implementation for the extract-scene-text package.
+// Hidden in a subfolder — reach it only through the package entry point (`../index`).
+
 const RICH_TEXT_SHAPE_TYPES = new Set(["text", "geo", "note", "arrow"]);
 
 export function flattenRichText(richText: unknown): string {
@@ -38,7 +41,7 @@ export function flattenRichText(richText: unknown): string {
   return joined.replace(/\s+/g, " ").trim();
 }
 
-function extractShapeText(shape: Record<string, unknown>): string {
+export function extractShapeText(shape: Record<string, unknown>): string {
   const type = shape.type;
   if (typeof type !== "string") return "";
 
@@ -63,31 +66,4 @@ function extractShapeText(shape: Record<string, unknown>): string {
   }
 
   return "";
-}
-
-export function extractSceneText(scene: unknown): string {
-  if (scene === null || scene === undefined || typeof scene !== "object") {
-    return "";
-  }
-
-  const s = scene as Record<string, unknown>;
-  const store = s.store;
-  if (store === null || store === undefined || typeof store !== "object") {
-    return "";
-  }
-
-  const parts: string[] = [];
-
-  for (const record of Object.values(store as Record<string, unknown>)) {
-    if (record === null || typeof record !== "object") continue;
-    const rec = record as Record<string, unknown>;
-    if (rec.typeName !== "shape") continue;
-
-    const text = extractShapeText(rec);
-    if (text) {
-      parts.push(text);
-    }
-  }
-
-  return parts.join(" ").replace(/\s+/g, " ").trim();
 }

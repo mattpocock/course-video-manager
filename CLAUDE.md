@@ -12,6 +12,10 @@ Canonical defaults, except `ready-for-agent` is spelled `Sandcastle` in this rep
 
 Single-context layout: `CONTEXT.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.
 
+### Deep-module packages
+
+Packages under `app/packages/` are deep modules — import only through a package's entry points (its root files); everything in `lib/`/`tests/` is private. See [app/packages/README.md](./app/packages/README.md) before adding or importing one. `npm run lint:boundaries` enforces it (runs in pre-commit alongside `typecheck`).
+
 ### cvm CLI
 
 `cvm` is a read-mostly CLI (source in `app/cli/`) that exposes this project's domain data to agents, reusing the Effect services. Every noun is read-only **except `beat`**, the first write-capable noun: `beat add/update/move/delete` author a Video's Beat plan (reusing `BeatOperationsService`'s write methods). Writes are immediate (no confirmation/dry-run) and flags come before the positional `<id>`. More nouns may gain writes over time. Its `--help` text is a domain-teaching document written in ubiquitous-language terms drawn from `CONTEXT.md`. **Keep the cvm help text and `CONTEXT.md` in sync manually** — when domain vocabulary or entity fields change in `CONTEXT.md`, update the corresponding noun/verb help in `app/cli/commands/*.ts` and the root help in `app/cli/index.ts`.
