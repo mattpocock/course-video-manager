@@ -196,11 +196,11 @@ The diagram-less mode of the Diagram Playground popup: a full-window picker/grid
 _Avoid_: Diagram picker, Diagrams page (overloaded with the deprecated parent route)
 
 **Preserved Snapshot**:
-A **DiagramSnapshot** flagged to remain visible in its Diagram's timeline regardless of whether any non-archived **Clip** pins to it. Created via the "Preserve snapshot" action in the playground, or automatically when a **Restore to Head** would otherwise overwrite an unpreserved `headScene` (the outgoing head is captured first) — either way forking `headScene` into a new snapshot independent of any Clip. Non-preserved snapshots disappear from the timeline if all their pinning Clips become archived; Preserved Snapshots do not. A snapshot can be both Preserved _and_ pinned by Clips (the two are independent reasons to keep it visible). Surfaced in the UI via a pill on the timeline thumbnail.
+A **DiagramSnapshot** flagged to remain visible in its Diagram's timeline regardless of whether any non-archived **Clip** pins to it. Created via the "Preserve snapshot" action in the playground, which forks `headScene` into a new snapshot independent of any Clip, or auto-created when a **Restore to Head** would overwrite an unpreserved head (silent auto-preserve). Non-preserved snapshots disappear from the timeline if all their pinning Clips become archived; Preserved Snapshots do not. A snapshot can be both Preserved _and_ pinned by Clips (the two are independent reasons to keep it visible). Surfaced in the UI via a pill on the timeline thumbnail.
 _Avoid_: Manual snapshot, Saved snapshot, Standalone snapshot, Bookmark
 
 **Restore to Head**:
-Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, making it the live canvas again — the Diagram's live state jumps back to that capture. Reachable from the Diagram timeline and by opening a matched snapshot from Diagram content search. To protect uncaptured work, an unpreserved outgoing `headScene` is safeguarded before it is overwritten (see **Preserved Snapshot**).
+Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog; see **Preserved Snapshot**). When triggered from the timeline's Restore button, the existing `RestoreSnapshotDialog` confirms the action. No-op when the head already matches the target snapshot.
 _Avoid_: Revert, Roll back, Undo
 
 ### Video destinations

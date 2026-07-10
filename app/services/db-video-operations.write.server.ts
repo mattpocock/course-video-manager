@@ -175,9 +175,31 @@ export const createVideoWriteOps = (db: Database) => {
     }
   );
 
+  const unlinkVideoFromPitch = Effect.fn("unlinkVideoFromPitch")(function* (
+    videoId: string
+  ) {
+    const [updated] = yield* makeDbCall(() =>
+      db
+        .update(videos)
+        .set({ pitchId: null, updatedAt: new Date() })
+        .where(eq(videos.id, videoId))
+        .returning()
+    );
+
+    if (!updated) {
+      return yield* new NotFoundError({
+        type: "unlinkVideoFromPitch",
+        params: { videoId },
+      });
+    }
+
+    return updated;
+  });
+
   return {
     getVideoRowById,
     linkVideoToPitch,
+    unlinkVideoFromPitch,
     moveVideoToLesson,
     updateVideoBody,
     updateVideoDescription,

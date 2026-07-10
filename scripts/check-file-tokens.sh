@@ -10,6 +10,7 @@ EXCLUDE_PATTERNS=(
   "docs/*"
   "progress.txt"
   "public/*"
+  "app/db/migrations/*"
 )
 
 should_skip() {

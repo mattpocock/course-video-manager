@@ -2,6 +2,7 @@ import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { lessonSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { AUTHORING_STATUSES } from "@/services/lesson-authoring-status";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -270,16 +271,35 @@ const updateId = Args.text({ name: "id" });
 const updateTitle = Options.text("title").pipe(
   Options.withDescription(
     "The lesson's new display title (the slug/path is left unchanged)."
-  )
+  ),
+  Options.optional
+);
+const updateAuthoringStatus = Options.choice("authoring-status", [
+  ...AUTHORING_STATUSES,
+]).pipe(
+  Options.withDescription(
+    'Set the authoring status: "todo" (still needs work — the default for new ' +
+      'lessons) or "done" (marked ready).'
+  ),
+  Options.optional
 );
 
 const updateCmd = Command.make(
   "update",
-  { id: updateId, title: updateTitle },
-  ({ id, title }) =>
+  { id: updateId, title: updateTitle, authoringStatus: updateAuthoringStatus },
+  ({ id, title, authoringStatus }) =>
     withBackupCoordination(
       Effect.gen(function* () {
-        if (title.trim().length === 0) {
+        const titleValue = Option.getOrUndefined(title);
+        const statusValue = Option.getOrUndefined(authoringStatus);
+
+        if (titleValue === undefined && statusValue === undefined) {
+          return yield* parseError(
+            "update needs at least one of --title or --authoring-status",
+            "lesson"
+          );
+        }
+        if (titleValue !== undefined && titleValue.trim().length === 0) {
           return yield* parseError(
             "update needs a non-empty --title",
             "lesson"
@@ -295,7 +315,12 @@ const updateCmd = Command.make(
 
         yield* assertDraftLesson(lesson);
 
-        yield* svc.updateLesson(id, { title });
+        yield* svc.updateLesson(id, {
+          ...(titleValue !== undefined ? { title: titleValue } : {}),
+          ...(statusValue !== undefined
+            ? { authoringStatus: statusValue }
+            : {}),
+        });
 
         const updated = yield* svc.getLessonWithHierarchyById(id);
         yield* emitObject(updated);

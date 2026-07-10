@@ -9,14 +9,17 @@ import {
   ArrowDown,
   ArrowUp,
   ClipboardCopy,
+  Link2,
   PencilIcon,
   Plus,
   Trash2,
 } from "lucide-react";
 import type { Lesson } from "./course-view-types";
+import { copyDeepLink } from "./deep-link";
 import { computeSectionSwap } from "./section-grid-utils";
 
 export function SectionContextMenuItems({
+  courseId,
   section,
   lessons,
   allSectionIds,
@@ -24,6 +27,7 @@ export function SectionContextMenuItems({
   dispatch,
   submitEvent,
 }: {
+  courseId: string;
   section: { id: string; title: string; description?: string | null };
   lessons: Lesson[];
   allSectionIds: string[];
@@ -74,6 +78,12 @@ export function SectionContextMenuItems({
           Copy Section Transcript
         </ContextMenuItem>
       )}
+      <ContextMenuItem
+        onSelect={() => copyDeepLink({ courseId, sectionId: section.id })}
+      >
+        <Link2 className="w-4 h-4" />
+        Copy Deep Link
+      </ContextMenuItem>
       {!isReadOnly && (
         <>
           <ContextMenuSeparator />

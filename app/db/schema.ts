@@ -5,6 +5,7 @@ import {
   customType,
   date,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgTableCreator,
@@ -22,6 +23,12 @@ const varcharCollateC = customType<{
 }>({
   dataType() {
     return 'varchar(255) COLLATE "C"';
+  },
+});
+
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return "tsvector";
   },
 });
 
@@ -450,27 +457,37 @@ export const links = createTable("link", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const diagrams = createTable("diagram", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull().default("Untitled 1"),
-  headScene: jsonb("head_scene"),
-  archived: boolean("archived").notNull().default(false),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp("updated_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
+export const diagrams = createTable(
+  "diagram",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull().default("Untitled 1"),
+    headScene: jsonb("head_scene"),
+    archived: boolean("archived").notNull().default(false),
+    searchText: text("search_text"),
+    searchVector: tsvector("search_vector").generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(search_text, ''))`
+    ),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("diagram_search_vector_idx").using("gin", table.searchVector),
+  ]
+);
 
 export const diagramSnapshots = createTable(
   "diagram_snapshot",
@@ -486,6 +503,10 @@ export const diagramSnapshots = createTable(
     contentHash: varchar("content_hash", { length: 255 }).notNull(),
     preserved: boolean("preserved").notNull().default(false),
     archived: boolean("archived").notNull().default(false),
+    searchText: text("search_text"),
+    searchVector: tsvector("search_vector").generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(search_text, ''))`
+    ),
     createdAt: timestamp("created_at", {
       mode: "date",
       withTimezone: true,
@@ -497,6 +518,10 @@ export const diagramSnapshots = createTable(
     uniqueIndex("diagram_snapshot_diagram_id_content_hash_idx").on(
       table.diagramId,
       table.contentHash
+    ),
+    index("diagram_snapshot_search_vector_idx").using(
+      "gin",
+      table.searchVector
     ),
   ]
 );

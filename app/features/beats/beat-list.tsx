@@ -66,6 +66,8 @@ export function BeatList({
   submitEvent,
   isReadOnly,
   showDescriptions,
+  courseId,
+  sectionId,
   className,
 }: {
   video: { id: string; beats: BeatListBeat[] };
@@ -78,6 +80,8 @@ export function BeatList({
    * ambient context (off on the dense course view, which hides the note).
    */
   showDescriptions?: boolean;
+  courseId?: string;
+  sectionId?: string;
   className?: string;
 }) {
   const ambientShowDescriptions = useShowBeatDescriptions();
@@ -98,6 +102,8 @@ export function BeatList({
             isReadOnly
             showDescription={showDescription}
             submitEvent={submitEvent}
+            courseId={courseId}
+            sectionId={sectionId}
           />
         ))}
       </div>
@@ -121,6 +127,8 @@ export function BeatList({
                 isReadOnly={false}
                 showDescription={showDescription}
                 submitEvent={submitEvent}
+                courseId={courseId}
+                sectionId={sectionId}
               />
             </SortableBeat>
           </Fragment>
@@ -170,12 +178,16 @@ function BeatRow({
   isReadOnly,
   showDescription,
   submitEvent,
+  courseId,
+  sectionId,
 }: {
   beat: BeatListBeat;
   nextBeatId: string | null;
   isReadOnly: boolean;
   showDescription: boolean;
   submitEvent: (event: CourseEditorEvent) => void;
+  courseId?: string;
+  sectionId?: string;
 }) {
   const kind = beat.kind as BeatKind;
   const Icon = BEAT_KIND_ICONS[kind];
@@ -250,6 +262,10 @@ function BeatRow({
             onDelete={() =>
               submitEvent({ type: "delete-beat", beatId: beat.id })
             }
+            courseId={courseId}
+            sectionId={sectionId}
+            videoId={beat.videoId}
+            beatId={beat.id}
           />
         </ContextMenuContent>
       </ContextMenu>

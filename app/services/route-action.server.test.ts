@@ -394,6 +394,8 @@ describe("makeAction", () => {
   });
 });
 
+const dummyRequest = new Request("http://localhost/test");
+
 describe("makeLoader", () => {
   it("returns success value when effect succeeds", async () => {
     const runtime = makeTestRuntime();
@@ -405,7 +407,7 @@ describe("makeLoader", () => {
       runtime
     );
 
-    const result = await loader({ params: {} });
+    const result = await loader({ request: dummyRequest, params: {} });
 
     expect(result).toEqual({ items: [1, 2, 3] });
   });
@@ -420,7 +422,10 @@ describe("makeLoader", () => {
       runtime
     );
 
-    const result = await loader({ params: { pitchId: "abc-123" } });
+    const result = await loader({
+      request: dummyRequest,
+      params: { pitchId: "abc-123" },
+    });
 
     expect(result).toEqual({ id: "abc-123" });
   });
@@ -437,7 +442,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
         const defect = extractDieDefect(error) as any;
@@ -457,7 +462,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
         const defect = extractDieDefect(error) as any;
@@ -483,7 +488,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
         const defect = extractDieDefect(error) as any;
@@ -503,7 +508,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
         const defect = extractDieDefect(error) as any;
@@ -524,7 +529,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
         const defect = extractDieDefect(error);
@@ -547,7 +552,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
         const defect = extractDieDefect(error) as any;
@@ -572,7 +577,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
         const defect = extractDieDefect(error) as any;
@@ -596,7 +601,7 @@ describe("makeLoader", () => {
       );
 
       try {
-        await loader({ params: {} });
+        await loader({ request: dummyRequest, params: {} });
       } catch {
         // expected
       }

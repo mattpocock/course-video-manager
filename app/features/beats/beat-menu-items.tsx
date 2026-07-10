@@ -5,7 +5,8 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
-import { Plus, Trash2 } from "lucide-react";
+import { copyDeepLink } from "@/features/course-view/deep-link";
+import { Link2, Plus, Trash2 } from "lucide-react";
 import {
   BEAT_KINDS,
   BEAT_KIND_DESCRIPTIONS,
@@ -69,11 +70,19 @@ export function BeatContextMenuContent({
   onAddBefore,
   onAddAfter,
   onDelete,
+  courseId,
+  sectionId,
+  videoId,
+  beatId,
 }: {
   onSetKind: (kind: BeatKind) => void;
   onAddBefore: (kind: BeatKind) => void;
   onAddAfter: (kind: BeatKind) => void;
   onDelete: () => void;
+  courseId?: string;
+  sectionId?: string;
+  videoId: string;
+  beatId: string;
 }) {
   return (
     <>
@@ -83,6 +92,19 @@ export function BeatContextMenuContent({
           <BeatKindMenuItems onSelect={onSetKind} />
         </ContextMenuSubContent>
       </ContextMenuSub>
+      {courseId && sectionId && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() =>
+              copyDeepLink({ courseId, sectionId, videoId, beatId })
+            }
+          >
+            <Link2 className="w-4 h-4" />
+            Copy Deep Link
+          </ContextMenuItem>
+        </>
+      )}
       <ContextMenuSeparator />
       <ContextMenuSub>
         <ContextMenuSubTrigger>

@@ -7,9 +7,21 @@ import {
   NotFoundError,
   UnknownDBServiceError,
 } from "@/services/db-service-errors";
-import { and, asc, desc, eq, ilike, max, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  isNotNull,
+  max,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { Effect } from "effect";
 import { hashScene } from "@/lib/scene-hash";
+import { extractSceneText } from "@/lib/extract-scene-text";
 import { writeThumbnail } from "@/services/diagram-thumbnail-store.server";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
@@ -99,6 +111,121 @@ export const createDiagramOperations = (db: Database) => {
     );
   });
 
+  const searchDiagrams = Effect.fn("searchDiagrams")(function* (query: string) {
+    const tsQuery = sql`websearch_to_tsquery('english', ${query})`;
+
+    const lastClipPinAt = db
+      .select({
+        diagramId: diagramSnapshots.diagramId,
+        lastClipPinAt: max(clips.createdAt).as("last_clip_pin_at"),
+      })
+      .from(diagramSnapshots)
+      .innerJoin(clips, eq(clips.diagramSnapshotId, diagramSnapshots.id))
+      .where(eq(clips.archived, false))
+      .groupBy(diagramSnapshots.diagramId)
+      .as("last_clip_pin");
+
+    const recencyExpr = sql<Date>`GREATEST(${lastClipPinAt.lastClipPinAt}, ${diagrams.updatedAt})`;
+
+    const snapshotResults = yield* makeDbCall(() =>
+      db
+        .select({
+          snapshotId: diagramSnapshots.id,
+          diagramId: diagrams.id,
+          diagramName: diagrams.name,
+          contentHash: diagramSnapshots.contentHash,
+          searchText: diagramSnapshots.searchText,
+          sortKey: recencyExpr.as("sort_key"),
+        })
+        .from(diagramSnapshots)
+        .innerJoin(diagrams, eq(diagramSnapshots.diagramId, diagrams.id))
+        .leftJoin(lastClipPinAt, eq(lastClipPinAt.diagramId, diagrams.id))
+        .where(
+          and(
+            eq(diagrams.archived, false),
+            eq(diagramSnapshots.archived, false),
+            sql`${diagramSnapshots.searchVector} @@ ${tsQuery}`
+          )
+        )
+        .orderBy(desc(recencyExpr))
+    );
+
+    const headResults = yield* makeDbCall(() =>
+      db
+        .select({
+          diagramId: diagrams.id,
+          diagramName: diagrams.name,
+          headScene: diagrams.headScene,
+          searchText: diagrams.searchText,
+          sortKey: recencyExpr.as("sort_key"),
+        })
+        .from(diagrams)
+        .leftJoin(lastClipPinAt, eq(lastClipPinAt.diagramId, diagrams.id))
+        .where(
+          and(
+            eq(diagrams.archived, false),
+            isNotNull(diagrams.headScene),
+            or(
+              sql`${diagrams.searchVector} @@ ${tsQuery}`,
+              ilike(diagrams.name, `%${query}%`)
+            )
+          )
+        )
+    );
+
+    const snapshotHashesByDiagram = new Map<string, Set<string>>();
+    for (const s of snapshotResults) {
+      let hashes = snapshotHashesByDiagram.get(s.diagramId);
+      if (!hashes) {
+        hashes = new Set();
+        snapshotHashesByDiagram.set(s.diagramId, hashes);
+      }
+      hashes.add(s.contentHash);
+    }
+
+    type SearchResult = {
+      snapshotId: string | null;
+      diagramId: string;
+      diagramName: string;
+      contentHash: string;
+      searchText: string | null;
+      source: "snapshot" | "current";
+      sortKey: Date;
+    };
+
+    const results: SearchResult[] = snapshotResults.map((s) => ({
+      snapshotId: s.snapshotId,
+      diagramId: s.diagramId,
+      diagramName: s.diagramName,
+      contentHash: s.contentHash,
+      searchText: s.searchText,
+      source: "snapshot" as const,
+      sortKey: s.sortKey,
+    }));
+
+    for (const h of headResults) {
+      const headHash = hashScene(h.headScene);
+      const existingHashes = snapshotHashesByDiagram.get(h.diagramId);
+      if (existingHashes?.has(headHash)) continue;
+
+      results.push({
+        snapshotId: null,
+        diagramId: h.diagramId,
+        diagramName: h.diagramName,
+        contentHash: headHash,
+        searchText: h.searchText,
+        source: "current" as const,
+        sortKey: h.sortKey,
+      });
+    }
+
+    results.sort(
+      (a, b) => new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime()
+    );
+
+    return results;
+  });
+
   const getDiagram = Effect.fn("getDiagram")(function* (id: string) {
     const diagram = yield* makeDbCall(() =>
       db.query.diagrams.findFirst({
@@ -161,10 +288,12 @@ export const createDiagramOperations = (db: Database) => {
       return existing;
     }
 
+    const searchText = extractSceneText(headScene);
+
     const results = yield* makeDbCall(() =>
       db
         .update(diagrams)
-        .set({ headScene, updatedAt: new Date() })
+        .set({ headScene, searchText, updatedAt: new Date() })
         .where(eq(diagrams.id, id))
         .returning()
     );
@@ -240,6 +369,8 @@ export const createDiagramOperations = (db: Database) => {
       return existing;
     }
 
+    const searchText = extractSceneText(diagram.headScene);
+
     const results = yield* makeDbCall(() =>
       db
         .insert(diagramSnapshots)
@@ -248,6 +379,7 @@ export const createDiagramOperations = (db: Database) => {
           scene: diagram.headScene!,
           contentHash,
           preserved,
+          searchText,
         })
         .returning()
     );
@@ -373,10 +505,16 @@ export const createDiagramOperations = (db: Database) => {
       });
     }
 
+    const searchText = extractSceneText(snapshot.scene);
+
     const results = yield* makeDbCall(() =>
       db
         .update(diagrams)
-        .set({ headScene: snapshot.scene, updatedAt: new Date() })
+        .set({
+          headScene: snapshot.scene,
+          searchText,
+          updatedAt: new Date(),
+        })
         .where(eq(diagrams.id, diagramId))
         .returning()
     );
@@ -389,6 +527,52 @@ export const createDiagramOperations = (db: Database) => {
       });
     }
     return diagram;
+  });
+
+  const restoreFromSearch = Effect.fn("restoreFromSearch")(function* (
+    diagramId: string,
+    snapshotId: string
+  ) {
+    const snapshot = yield* makeDbCall(() =>
+      db.query.diagramSnapshots.findFirst({
+        where: and(
+          eq(diagramSnapshots.id, snapshotId),
+          eq(diagramSnapshots.diagramId, diagramId)
+        ),
+      })
+    );
+
+    if (!snapshot) {
+      return yield* new NotFoundError({
+        type: "restoreFromSearch",
+        params: { diagramId, snapshotId },
+      });
+    }
+
+    const diagram = yield* makeDbCall(() =>
+      db.query.diagrams.findFirst({
+        where: eq(diagrams.id, diagramId),
+      })
+    );
+
+    if (!diagram) {
+      return yield* new NotFoundError({
+        type: "restoreFromSearch",
+        params: { diagramId },
+      });
+    }
+
+    const headHash =
+      diagram.headScene == null ? null : hashScene(diagram.headScene);
+    if (headHash === snapshot.contentHash) {
+      return diagram;
+    }
+
+    if (diagram.headScene != null) {
+      yield* createSnapshot(diagramId, { preserved: true });
+    }
+
+    return yield* restoreSnapshotToHead(diagramId, snapshotId);
   });
 
   const createSnapshotForClip = Effect.fn("createSnapshotForClip")(function* (
@@ -435,6 +619,7 @@ export const createDiagramOperations = (db: Database) => {
   return {
     createDiagram,
     listDiagrams,
+    searchDiagrams,
     getDiagram,
     updateDiagram,
     updateDiagramHead,
@@ -445,6 +630,7 @@ export const createDiagramOperations = (db: Database) => {
     listAllSnapshotsWithClips,
     setSnapshotArchived,
     restoreSnapshotToHead,
+    restoreFromSearch,
     createSnapshotForClip,
     updateClipDiagramPin,
   };

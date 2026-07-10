@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,6 +35,7 @@ import {
   MoreHorizontal,
   Plus,
   Trash2,
+  Unlink,
   Video,
   Youtube,
 } from "lucide-react";
@@ -211,6 +218,85 @@ function ChannelSection({
       </h3>
       <div className="space-y-4">{children}</div>
     </section>
+  );
+}
+
+function PitchVideoItem({
+  video,
+  hasExportedVideo,
+  submitEvent,
+}: {
+  video: PitchVideo;
+  hasExportedVideo: boolean;
+  submitEvent: (event: CourseEditorEvent) => void;
+}) {
+  const unlinkFetcher = useFetcher();
+  const isUnlinking = unlinkFetcher.state !== "idle";
+
+  if (isUnlinking) return null;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className="space-y-2">
+          <Link
+            to={`/videos/${video.id}/edit`}
+            className="text-left items-center group/thumb bg-muted rounded overflow-hidden inline-flex hover:ring-1 hover:ring-foreground/20 transition-all"
+          >
+            <div className="relative aspect-video w-32 bg-muted">
+              {video.firstClipId ? (
+                <img
+                  src={`/clips/${video.firstClipId}/first-frame`}
+                  alt={video.title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center border-r">
+                  <FileVideo className="w-6 h-6 text-muted-foreground/40" />
+                </div>
+              )}
+              {!hasExportedVideo && (
+                <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-red-500" />
+              )}
+            </div>
+            <div className="py-1 px-6 flex flex-col items-center text-muted-foreground">
+              <span className="text-xs truncate text-foreground transition-colors">
+                {video.title || "Untitled"}
+              </span>
+              <span className="text-xs font-mono mt-0.5">
+                {formatSecondsToTimeCode(video.totalDuration)}
+              </span>
+            </div>
+          </Link>
+          <div className="pl-1">
+            <BeatList
+              video={video}
+              submitEvent={submitEvent}
+              isReadOnly={false}
+              showDescriptions
+            />
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem
+          variant="destructive"
+          onSelect={() => {
+            unlinkFetcher.submit(
+              {},
+              {
+                method: "post",
+                action: `/api/videos/${video.id}/unlink-from-pitch`,
+              }
+            );
+          }}
+        >
+          <Unlink className="w-3.5 h-3.5" />
+          Remove from pitch
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -400,46 +486,12 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
                 >
                   <div className="space-y-5">
                     {videos.map((video) => (
-                      <div key={video.id} className="space-y-2">
-                        <Link
-                          to={`/videos/${video.id}/edit`}
-                          className="text-left items-center group/thumb bg-muted rounded overflow-hidden inline-flex hover:ring-1 hover:ring-foreground/20 transition-all"
-                        >
-                          <div className="relative aspect-video w-32 bg-muted">
-                            {video.firstClipId ? (
-                              <img
-                                src={`/clips/${video.firstClipId}/first-frame`}
-                                alt={video.title}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center border-r">
-                                <FileVideo className="w-6 h-6 text-muted-foreground/40" />
-                              </div>
-                            )}
-                            {!hasExportedVideoMap[video.id] && (
-                              <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-red-500" />
-                            )}
-                          </div>
-                          <div className="py-1 px-6 flex flex-col items-center text-muted-foreground">
-                            <span className="text-xs truncate text-foreground transition-colors">
-                              {video.title || "Untitled"}
-                            </span>
-                            <span className="text-xs font-mono mt-0.5">
-                              {formatSecondsToTimeCode(video.totalDuration)}
-                            </span>
-                          </div>
-                        </Link>
-                        <div className="pl-1">
-                          <BeatList
-                            video={video}
-                            submitEvent={submitEvent}
-                            isReadOnly={false}
-                            showDescriptions
-                          />
-                        </div>
-                      </div>
+                      <PitchVideoItem
+                        key={video.id}
+                        video={video}
+                        hasExportedVideo={!!hasExportedVideoMap[video.id]}
+                        submitEvent={submitEvent}
+                      />
                     ))}
                   </div>
                 </BeatDndProvider>

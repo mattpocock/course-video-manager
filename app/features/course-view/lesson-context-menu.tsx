@@ -12,15 +12,19 @@ import type { Lesson, Section } from "./course-view-types";
 import type { useNavigate } from "react-router";
 import {
   ArrowRightLeft,
+  CheckCircle2,
   FileText,
   FileVideo,
+  Link2,
   ListTodo,
   PencilIcon,
   Plus,
   Trash2,
 } from "lucide-react";
+import { copyDeepLink } from "./deep-link";
 
 export function LessonContextMenuContent({
+  courseId,
   lesson,
   section,
   isReadOnly,
@@ -32,6 +36,7 @@ export function LessonContextMenuContent({
   startEditingTitle,
   startEditingDescription,
 }: {
+  courseId: string;
   lesson: Lesson;
   section: Section;
   isReadOnly: boolean;
@@ -56,11 +61,24 @@ export function LessonContextMenuContent({
               {video.title}
             </ContextMenuItem>
           ))}
-          {!isReadOnly && <ContextMenuSeparator />}
+          <ContextMenuSeparator />
         </>
       )}
+      <ContextMenuItem
+        onSelect={() =>
+          copyDeepLink({
+            courseId,
+            sectionId: section.id,
+            lessonId: lesson.id,
+          })
+        }
+      >
+        <Link2 className="w-4 h-4" />
+        Copy Deep Link
+      </ContextMenuItem>
       {!isReadOnly && (
         <>
+          <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() =>
               dispatch({
@@ -82,22 +100,33 @@ export function LessonContextMenuContent({
               Edit Description
             </ContextMenuItem>
           )}
-          {lesson.authoringStatus === "done" && (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onSelect={() =>
-                  submitEvent({
-                    type: "set-lesson-authoring-status",
-                    lessonId: lesson.id,
-                    status: "todo",
-                  })
-                }
-              >
-                <ListTodo className="w-4 h-4" />
-                Mark as TODO
-              </ContextMenuItem>
-            </>
+          <ContextMenuSeparator />
+          {lesson.authoringStatus === "done" ? (
+            <ContextMenuItem
+              onSelect={() =>
+                submitEvent({
+                  type: "set-lesson-authoring-status",
+                  lessonId: lesson.id,
+                  status: "todo",
+                })
+              }
+            >
+              <ListTodo className="w-4 h-4" />
+              Mark as TODO
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem
+              onSelect={() =>
+                submitEvent({
+                  type: "set-lesson-authoring-status",
+                  lessonId: lesson.id,
+                  status: "done",
+                })
+              }
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Mark as Done
+            </ContextMenuItem>
           )}
           <ContextMenuSeparator />
           <ContextMenuItem

@@ -33,8 +33,9 @@ VERBS
   tree <id> [--depth N] Skeleton tree lesson -> videos -> clips.
   create --section <id> --title <t> [--before|--after <lessonId>]
                         Create a lesson in a Section (WRITE).
-  update <id> --title <t>
-                        Rename a lesson's display title (WRITE; slug unchanged).
+  update <id> [--title <t>] [--authoring-status todo|done]
+                        Rename a lesson and/or set its authoring status (WRITE;
+                        slug unchanged).
   move <id> [--section <id>] [--before|--after <lessonId>]
                         Reorder within a section, or re-home to another (WRITE).
   search <id> <query>   Substring search down this lesson's subtree
@@ -121,17 +122,28 @@ Examples:
   cvm lesson create --section sec_123 --title "Intro to Effect"
   cvm lesson create --section sec_123 --title "Setup" --before les_abc`;
 
-export const UPDATE_HELP = `Rename a lesson's display TITLE by id. Requires --title <t> (an update with an
-empty title is invalid input, exit 3).
+export const UPDATE_HELP = `Update a lesson by id. Change its display TITLE and/or its AUTHORING STATUS.
 
-This changes the human-readable 'title' only — the lesson's 'path' (its slug) is
-deliberately left untouched, so renaming never moves a URL. Editing a lesson in a
-published (frozen) version is refused (exit 3); edits go to the Draft.
+Flags (pass at least one — an update with neither is invalid input, exit 3):
+  --title <text>              new display title. The lesson's 'path' (its slug)
+                              is deliberately left untouched, so renaming never
+                              moves a URL. An empty title is invalid (exit 3).
+  --authoring-status <state>  set where the lesson sits in the authoring
+                              workflow: "todo" (still needs work — the default
+                              for newly created lessons) or "done" (marked
+                              ready). Any other value is invalid input (exit 3).
+
+This is a partial patch: only the flags you pass are changed; the rest are left
+as-is. Editing a lesson in a published (frozen) version is refused (exit 3);
+edits go to the Draft.
 
 Echoes the updated lesson with its Section/Version/Repo hierarchy (as 'get').
 
 Examples:
-  cvm lesson update les_abc --title "A clearer title"`;
+  cvm lesson update les_abc --title "A clearer title"
+  cvm lesson update les_abc --authoring-status done
+  cvm lesson update les_abc --authoring-status todo
+  cvm lesson update les_abc --title "Setup" --authoring-status todo`;
 
 export const MOVE_HELP = `Reposition a lesson: reorder it within its Section, or re-home it to another.
 
