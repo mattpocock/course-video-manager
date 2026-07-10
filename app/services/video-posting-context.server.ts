@@ -5,6 +5,7 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import {
   toTranscriptItems,
   formatProseTranscript,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/transcript-builder";
 import { sortByOrder } from "@/lib/sort-by-order";
 import { DEFAULT_CHECKED_EXTENSIONS } from "@/services/text-writing-agent";
+import type { BeatKind } from "@/features/beats/beat-kinds";
 import { getVideoFilePath } from "@/services/video-files";
 import { projectVersionPaths } from "@/services/path-projection";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
@@ -239,6 +241,11 @@ export interface WriterContextData {
     description: string | null;
     createdAt: Date;
   }>;
+  beats: Array<{
+    kind: BeatKind;
+    title: string;
+    description: string;
+  }>;
 }
 
 export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
@@ -248,12 +255,23 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
   const courseOps = yield* CourseOperationsService;
   const versionOps = yield* VersionOperationsService;
   const linkAuthOps = yield* LinkAuthOperationsService;
+  const beatOps = yield* BeatOperationsService;
   const fs = yield* FileSystem.FileSystem;
 
-  const [video, globalLinks] = yield* Effect.all(
-    [videoOps.getVideoWithClipsById(videoId), linkAuthOps.getLinks()],
+  const [video, globalLinks, rawBeats] = yield* Effect.all(
+    [
+      videoOps.getVideoWithClipsById(videoId),
+      linkAuthOps.getLinks(),
+      beatOps.listBeatsByVideoId(videoId),
+    ],
     { concurrency: "unbounded" }
   );
+
+  const beats = rawBeats.map((b) => ({
+    kind: b.kind as BeatKind,
+    title: b.title,
+    description: b.description ?? "",
+  }));
 
   const { indexedClips, transcript, wordCount, sections } = buildTranscript(
     video.clips,
@@ -277,6 +295,7 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
       isStandalone: true,
       courseStructure: null,
       links: globalLinks,
+      beats,
     } satisfies WriterContextData;
   }
 
@@ -311,5 +330,6 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
     isStandalone: false,
     courseStructure,
     links: globalLinks,
+    beats,
   } satisfies WriterContextData;
 });

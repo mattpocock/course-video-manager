@@ -206,6 +206,8 @@ function TabBody({
           onToggleSource={onToggleSource}
         />
       );
+    case "beats":
+      return <BeatsTab source={source} onToggleSource={onToggleSource} />;
     case "courseStructure":
       return (
         <CourseStructureTab source={source} onToggleSource={onToggleSource} />
@@ -486,6 +488,29 @@ function FieldsTab({
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Beats tab ─────────────────────────────────────────────────────────────
+
+function BeatsTab({
+  source,
+  onToggleSource,
+}: {
+  source: SourceView;
+  onToggleSource: (sourceKey: string) => void;
+}) {
+  const previewText = source.items.map((item) => item.text).join("\n");
+
+  return (
+    <div className="space-y-3">
+      <MasterToggle source={source} onToggleSource={onToggleSource} />
+      {previewText && (
+        <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 text-xs leading-relaxed">
+          {previewText}
+        </pre>
+      )}
     </div>
   );
 }

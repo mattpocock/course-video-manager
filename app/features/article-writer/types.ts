@@ -48,3 +48,26 @@ export type IndexedClip = {
   videoFilename: string;
   text: string | null;
 };
+
+export interface WriterContext {
+  files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
+  transcript: string;
+  transcriptWordCount: number;
+  chapters: SectionWithWordCount[];
+  indexedClips: IndexedClip[];
+  links: Array<{ id: string; url: string; title: string }>;
+  courseStructure: {
+    repoName: string;
+    currentSectionPath: string;
+    currentLessonPath: string;
+    sections: {
+      path: string;
+      lessons: { path: string; description?: string }[];
+    }[];
+  } | null;
+  memory: string;
+  repoId: string | null;
+  fullPath: string;
+  isStandalone: boolean;
+  beats: Array<{ kind: string; title: string; description: string }>;
+}

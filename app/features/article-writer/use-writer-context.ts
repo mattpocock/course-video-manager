@@ -31,6 +31,7 @@ export function useWriterContext(
             repoId: data.repoId,
             fullPath: data.fullPath,
             isStandalone: data.isStandalone,
+            beats: data.beats,
           });
         }
       })

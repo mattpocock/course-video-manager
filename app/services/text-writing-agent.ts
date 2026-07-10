@@ -54,6 +54,7 @@ export const createTextWritingAgent = (props: {
   courseStructure?: string;
   aiHeroUrl?: string;
   memory?: string;
+  beats?: string;
 }) => {
   const links = props.links ?? [];
   const systemPrompt = (() => {
@@ -197,9 +198,13 @@ export const createTextWritingAgent = (props: {
     ? `\n\n## Course Memory\n\nThe following is course-level context provided by the author. Use it to inform your response:\n\n<memory>\n${props.memory}\n</memory>`
     : "";
 
+  const beatsSection = props.beats
+    ? `\n\n## Beat Plan\n\nThe following is the video's beat plan — the planned structure of what the video covers, in order. Each beat has a kind (Definition, Walkthrough, Playthrough, Quest, Reaction) and may have a description. Use this to understand the video's intended flow and structure:\n\n<beats>\n${props.beats}\n</beats>`
+    : "";
+
   return new Agent({
     model: props.model,
-    instructions: systemPrompt + memorySection,
+    instructions: systemPrompt + memorySection + beatsSection,
   });
 };
 

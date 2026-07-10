@@ -1,12 +1,8 @@
 "use client";
 
-import type {
-  SectionWithWordCount,
-  IndexedClip,
-  Mode,
-  Model,
-  DocumentAgentMessage,
-} from "./types";
+import type { Mode, Model, DocumentAgentMessage, WriterContext } from "./types";
+
+export type { WriterContext };
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -51,28 +47,6 @@ import {
   AlertTriangleIcon,
   Loader2Icon,
 } from "lucide-react";
-
-export interface WriterContext {
-  files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
-  transcript: string;
-  transcriptWordCount: number;
-  chapters: SectionWithWordCount[];
-  indexedClips: IndexedClip[];
-  links: Array<{ id: string; url: string; title: string }>;
-  courseStructure: {
-    repoName: string;
-    currentSectionPath: string;
-    currentLessonPath: string;
-    sections: {
-      path: string;
-      lessons: { path: string; description?: string }[];
-    }[];
-  } | null;
-  memory: string;
-  repoId: string | null;
-  fullPath: string;
-  isStandalone: boolean;
-}
 
 export interface WriterEngineProps {
   videoId: string;
@@ -377,6 +351,10 @@ export function WriterEngine({
         ctxModel.memoryEnabled && ctxModel.memoryText
           ? ctxModel.memoryText
           : undefined,
+      beats:
+        ctxModel.beatsEnabled && ctxModel.beatsText
+          ? ctxModel.beatsText
+          : undefined,
       pageFields: enabledPageFields,
     };
     return isDocumentMode ? { ...base, document, mode } : { ...base, mode };
@@ -392,6 +370,8 @@ export function WriterEngine({
     courseStructure,
     ctxModel.memoryEnabled,
     ctxModel.memoryText,
+    ctxModel.beatsEnabled,
+    ctxModel.beatsText,
     isDocumentMode,
     document,
     mode,
