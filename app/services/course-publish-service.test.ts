@@ -612,29 +612,4 @@ describe("CoursePublishService", () => {
       expect(result.courseViewLintCount).toBeGreaterThanOrEqual(1);
     });
   });
-
-  describe("publish", () => {
-    it("fails with PublishValidationError when videos are unexported", async () => {
-      const { course, video, run } = await setup();
-
-      const result = await run(
-        Effect.gen(function* () {
-          const svc = yield* CoursePublishService;
-          return yield* svc
-            .publish(course.id, "v1.0", "First release", true)
-            .pipe(
-              Effect.catchTag("PublishValidationError", (e) =>
-                Effect.succeed({
-                  error: true,
-                  unexportedVideoIds: e.unexportedVideoIds,
-                })
-              )
-            );
-        })
-      );
-
-      expect((result as any).error).toBe(true);
-      expect((result as any).unexportedVideoIds).toContain(video.id);
-    });
-  });
 });

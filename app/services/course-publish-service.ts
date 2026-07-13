@@ -518,6 +518,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         onProgress?: (
           stage:
             | "validating"
+            | "exporting"
             | "uploading"
             | "freezing"
             | "cloning"
@@ -532,18 +533,29 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           return yield* Effect.die(new Error("No version found for course"));
         }
 
-        // Gate on the effective output for the chosen toggle: an unfinished
-        // to-do Lesson that is being withheld must not block a publish that is
-        // not shipping it.
         const validation = yield* validatePublishability(latestVersion.id);
         const { unexportedVideoIds, courseViewLintCount } = includeTodoLessons
           ? validation.withTodo
           : validation.withoutTodo;
-        if (unexportedVideoIds.length > 0 || courseViewLintCount > 0) {
+        if (courseViewLintCount > 0) {
           return yield* new PublishValidationError({
-            unexportedVideoIds,
+            unexportedVideoIds: [],
             courseViewLintCount,
           });
+        }
+
+        if (unexportedVideoIds.length > 0) {
+          onProgress?.("exporting");
+          yield* Effect.forEach(
+            unexportedVideoIds,
+            (videoId) =>
+              exportVideoCore(videoId).pipe(
+                Effect.retry(Schedule.recurs(2)),
+                Effect.catchAll(() => Effect.void)
+              ),
+            { concurrency: MAX_CONCURRENT_EXPORTS }
+          );
+          yield* garbageCollect(courseId);
         }
 
         onProgress?.("uploading");

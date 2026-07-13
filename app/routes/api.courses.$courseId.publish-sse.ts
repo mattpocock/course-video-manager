@@ -41,11 +41,6 @@ export const action = async (args: Route.ActionArgs) => {
         tag: "PublishValidationError",
         handler: (e, sendEvent) => {
           const parts: string[] = [];
-          if (e.unexportedVideoIds.length > 0) {
-            parts.push(
-              `${e.unexportedVideoIds.length} video(s) are not yet exported`
-            );
-          }
           if (e.courseViewLintCount && e.courseViewLintCount > 0) {
             parts.push(
               `${e.courseViewLintCount} course warning(s) must be fixed`
@@ -54,7 +49,6 @@ export const action = async (args: Route.ActionArgs) => {
           sendEvent("error", {
             message: parts.join("; ") || "Publish validation failed",
             type: "validation",
-            unexportedVideoIds: e.unexportedVideoIds,
             courseViewLintCount: e.courseViewLintCount ?? 0,
           });
         },
