@@ -56,6 +56,7 @@ const chatSchema = Schema.Struct({
     Schema.Array(Schema.Struct({ label: Schema.String, value: Schema.String })),
     { default: () => [] }
   ),
+  beats: Schema.optional(Schema.String),
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -133,6 +134,7 @@ export const action = async (args: Route.ActionArgs) => {
       courseStructure: courseStructureText,
       memory: parsed.memory,
       additionalContext: [...parsed.pageFields],
+      beats: parsed.beats,
     });
 
     const result = yield* Effect.promise(async () => {

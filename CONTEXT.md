@@ -33,7 +33,7 @@ An immutable CourseVersion with a name and description, created by the Publish f
 _Avoid_: Released version, Committed version
 
 **Publish**:
-The atomic operation that uploads to Dropbox, freezes the Draft Version as a Published Version (setting name/description), and clones a new Draft Version. Its structure is derived from the database (not parsed from disk); its Dropbox output is exclusively `.mp4` video files plus a single `course.json` — no sidecar files (`.transcript.md`, `.body.md`, `.meta.json`, `TODO.md`) and no `changelog.md`.
+The atomic operation that uploads to Dropbox, freezes the Draft Version as a Published Version (setting name/description), and clones a new Draft Version. Its structure is derived from the database (not parsed from disk); its Dropbox output is exclusively `.mp4` video files plus a single `course.json` and its companion `course.schema.json` (the JSON Schema describing course.json, referenced by course.json's `$schema` field) — no authoring sidecar files (`.transcript.md`, `.body.md`, `.meta.json`, `TODO.md`) and no `changelog.md`.
 _Avoid_: Commit, Deploy, Push
 
 **Export Version Key**:
@@ -200,7 +200,7 @@ A **DiagramSnapshot** flagged to remain visible in its Diagram's timeline regard
 _Avoid_: Manual snapshot, Saved snapshot, Standalone snapshot, Bookmark
 
 **Restore to Head**:
-Loading an older **DiagramSnapshot**'s scene back into `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog). When triggered from the timeline's Restore button, the existing `RestoreSnapshotDialog` confirms the action. No-op when the head already matches the target snapshot.
+Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog; see **Preserved Snapshot**). When triggered from the timeline's Restore button, the existing `RestoreSnapshotDialog` confirms the action. No-op when the head already matches the target snapshot.
 _Avoid_: Revert, Roll back, Undo
 
 ### Video destinations

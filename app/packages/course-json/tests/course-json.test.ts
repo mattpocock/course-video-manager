@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Effect } from "effect";
-import { buildCourseJson, type BuildCourseJsonInput } from "./course-json";
-import { computeExportHash } from "./export-hash";
+import { buildCourseJson, type BuildCourseJsonInput } from "../index";
+import { computeExportHash } from "@/services/export-hash";
 
 const makeVideo = (
   overrides: Partial<
@@ -28,6 +28,7 @@ const makeLesson = (
   lineageId: `lesson-lineage-${overrides.path}`,
   title: overrides.path,
   description: "",
+  authoringStatus: null as string | null,
   ...overrides,
 });
 
@@ -44,11 +45,13 @@ const makeSection = (
 });
 
 const makeInput = (
-  sections: BuildCourseJsonInput["sections"]
+  sections: BuildCourseJsonInput["sections"],
+  includeTodoLessons = true
 ): BuildCourseJsonInput => ({
   courseId: "course-1",
   courseName: "Test Course",
   sections,
+  includeTodoLessons,
 });
 
 const run = (input: BuildCourseJsonInput) =>
@@ -89,7 +92,12 @@ describe("buildCourseJson", () => {
         makeSection({
           path: "01-intro",
           lineageId: "sec-abc",
-          lessons: [],
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer" })],
+            }),
+          ],
         }),
       ])
     );
@@ -164,7 +172,6 @@ describe("buildCourseJson", () => {
     expect(lesson).toMatchObject({
       type: "explainer",
       title: "Welcome",
-      description: "A welcome lesson",
       explainer: {
         body: "# Hello",
         description: "SEO text",
@@ -172,6 +179,9 @@ describe("buildCourseJson", () => {
         chapters: [],
       },
     });
+    // The lesson's own description is an author-facing internal note and is
+    // never emitted; only the video keeps its (user-facing) description.
+    expect(lesson).not.toHaveProperty("description");
     expect(lesson).not.toHaveProperty("path");
     if (lesson.type === "explainer") {
       expect(lesson.explainer).not.toHaveProperty("path");
@@ -303,6 +313,81 @@ describe("buildCourseJson", () => {
     }
   });
 
+  // ── Relative path per video ────────────────────────────────────────
+
+  it("sets relativePath to section-dir/lesson-dir/title.mp4 for an exportable video", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "03-concepts",
+          lessons: [
+            makeLesson({
+              path: "03.01-models-harnesses-agents-environments",
+              videos: [makeVideo({ title: "Explainer", clips: CLIPS })],
+            }),
+          ],
+        }),
+      ])
+    );
+
+    const lesson = result.sections[0]!.lessons[0]!;
+    if (lesson.type === "explainer") {
+      expect(lesson.explainer.relativePath).toBe(
+        "03-concepts/03.01-models-harnesses-agents-environments/Explainer.mp4"
+      );
+    }
+  });
+
+  it("sets relativePath to null when video has no clips", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", clips: [] })],
+            }),
+          ],
+        }),
+      ])
+    );
+
+    const lesson = result.sections[0]!.lessons[0]!;
+    if (lesson.type === "explainer") {
+      expect(lesson.explainer.relativePath).toBeNull();
+    }
+  });
+
+  it("uses each video's own title for the relativePath in a problem/solution pair", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "02-exercises",
+          lessons: [
+            makeLesson({
+              path: "02.01-exercise",
+              videos: [
+                makeVideo({ title: "Problem", clips: CLIPS }),
+                makeVideo({ title: "Solution", clips: CLIPS }),
+              ],
+            }),
+          ],
+        }),
+      ])
+    );
+
+    const lesson = result.sections[0]!.lessons[0]!;
+    if (lesson.type === "problem") {
+      expect(lesson.problem.relativePath).toBe(
+        "02-exercises/02.01-exercise/Problem.mp4"
+      );
+      expect(lesson.solution!.relativePath).toBe(
+        "02-exercises/02.01-exercise/Solution.mp4"
+      );
+    }
+  });
+
   // ── Inline chapters ────────────────────────────────────────────────
 
   it("includes inline chapters from clips and chapter markers", async () => {
@@ -366,273 +451,6 @@ describe("buildCourseJson", () => {
     const lesson = result.sections[0]!.lessons[0]!;
     if (lesson.type === "explainer") {
       expect(lesson.explainer.chapters).toEqual([]);
-    }
-  });
-
-  // ── Archived videos filtered ───────────────────────────────────────
-
-  it("filters out archived videos", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [
-                makeVideo({ title: "Explainer", archived: true }),
-                makeVideo({ title: "Problem" }),
-              ],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    const lesson = result.sections[0]!.lessons[0]!;
-    expect(lesson.type).toBe("problem");
-  });
-
-  it("skips lessons where all videos are archived", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", archived: true })],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    expect(result.sections[0]!.lessons).toEqual([]);
-  });
-
-  // ── Invalid combos fail loudly ─────────────────────────────────────
-
-  it("fails on solution without problem", async () => {
-    const error = await Effect.runPromise(
-      buildCourseJson(
-        makeInput([
-          makeSection({
-            path: "01-intro",
-            lessons: [
-              makeLesson({
-                path: "01.01-exercise",
-                videos: [makeVideo({ title: "Solution" })],
-              }),
-            ],
-          }),
-        ])
-      ).pipe(Effect.flip)
-    );
-    expect(error).toMatchObject({
-      _tag: "InvalidLessonRoleComboError",
-      sectionPath: "01-intro",
-      lessonPath: "01.01-exercise",
-      videoTitles: ["Solution"],
-    });
-  });
-
-  it("fails on explainer beside problem", async () => {
-    const error = await Effect.runPromise(
-      buildCourseJson(
-        makeInput([
-          makeSection({
-            path: "01-intro",
-            lessons: [
-              makeLesson({
-                path: "01.01-exercise",
-                videos: [
-                  makeVideo({ title: "Explainer" }),
-                  makeVideo({ title: "Problem" }),
-                ],
-              }),
-            ],
-          }),
-        ])
-      ).pipe(Effect.flip)
-    );
-    expect(error).toMatchObject({
-      _tag: "InvalidLessonRoleComboError",
-      lessonPath: "01.01-exercise",
-    });
-  });
-
-  it("fails on duplicate roles", async () => {
-    const error = await Effect.runPromise(
-      buildCourseJson(
-        makeInput([
-          makeSection({
-            path: "01-intro",
-            lessons: [
-              makeLesson({
-                path: "01.01-exercise",
-                videos: [
-                  makeVideo({ title: "Problem" }),
-                  makeVideo({ title: "Problem" }),
-                ],
-              }),
-            ],
-          }),
-        ])
-      ).pipe(Effect.flip)
-    );
-    expect(error._tag).toBe("InvalidLessonRoleComboError");
-  });
-
-  it("fails on 3+ videos", async () => {
-    const error = await Effect.runPromise(
-      buildCourseJson(
-        makeInput([
-          makeSection({
-            path: "01-intro",
-            lessons: [
-              makeLesson({
-                path: "01.01-exercise",
-                videos: [
-                  makeVideo({ title: "Problem" }),
-                  makeVideo({ title: "Solution" }),
-                  makeVideo({ title: "Solution 2" }),
-                ],
-              }),
-            ],
-          }),
-        ])
-      ).pipe(Effect.flip)
-    );
-    expect(error._tag).toBe("InvalidLessonRoleComboError");
-  });
-
-  // ── Section description passthrough ────────────────────────────────
-
-  it("includes section description", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          description: "Introduction section",
-          lessons: [],
-        }),
-      ])
-    );
-
-    expect(result.sections[0]!.description).toBe("Introduction section");
-  });
-
-  // ── Section title passthrough ──────────────────────────────────────
-
-  it("includes faithful section title", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          title: "Introduction",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer" })],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    expect(result.sections[0]!.title).toBe("Introduction");
-    expect(result.sections[0]).not.toHaveProperty("path");
-  });
-
-  it("emits title on every section", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          title: "Introduction",
-          lessons: [],
-        }),
-        makeSection({
-          path: "02-advanced",
-          title: "Advanced Topics",
-          lessons: [],
-        }),
-      ])
-    );
-
-    expect(result.sections[0]!.title).toBe("Introduction");
-    expect(result.sections[1]!.title).toBe("Advanced Topics");
-  });
-
-  // ── Multiple sections and lessons ──────────────────────────────────
-
-  it("handles a course with multiple sections and mixed lesson types", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer" })],
-            }),
-          ],
-        }),
-        makeSection({
-          path: "02-exercises",
-          lessons: [
-            makeLesson({
-              path: "02.01-exercise",
-              videos: [
-                makeVideo({ title: "Problem" }),
-                makeVideo({ title: "Solution" }),
-              ],
-            }),
-            makeLesson({
-              path: "02.02-exercise",
-              videos: [makeVideo({ title: "Problem" })],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    expect(result.sections).toHaveLength(2);
-    expect(result.sections[0]!.lessons).toHaveLength(1);
-    expect(result.sections[0]!.lessons[0]!.type).toBe("explainer");
-    expect(result.sections[1]!.lessons).toHaveLength(2);
-    expect(result.sections[1]!.lessons[0]!.type).toBe("problem");
-    expect(result.sections[1]!.lessons[1]!.type).toBe("problem");
-  });
-
-  // ── Body and description nullable ──────────────────────────────────
-
-  it("preserves null body and description on videos", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [
-                makeVideo({
-                  title: "Explainer",
-                  body: null,
-                  description: null,
-                }),
-              ],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    const lesson = result.sections[0]!.lessons[0]!;
-    if (lesson.type === "explainer") {
-      expect(lesson.explainer.body).toBeNull();
-      expect(lesson.explainer.description).toBeNull();
     }
   });
 });

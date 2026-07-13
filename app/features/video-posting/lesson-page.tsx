@@ -1,9 +1,19 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useFetcher } from "react-router";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2Icon, SparklesIcon } from "lucide-react";
 import type { WriterContext } from "@/features/article-writer/writer-engine";
 import { WritableField } from "@/features/article-writer/writable-field";
 
@@ -43,6 +53,16 @@ export function LessonPage({
     [descriptionFetcher]
   );
 
+  const [isGeneratingSeo, setIsGeneratingSeo] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [pendingGenerated, setPendingGenerated] = useState("");
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const dismissDialog = useCallback(() => {
+    setConfirmRegenerate(false);
+    setPendingGenerated("");
+  }, []);
+
   const optimisticDescription = descriptionFetcher.formData
     ? String(descriptionFetcher.formData.get("description") ?? "")
     : (description ?? "");
@@ -50,6 +70,40 @@ export function LessonPage({
   const optimisticBody = bodyFetcher.formData
     ? String(bodyFetcher.formData.get("body") ?? "")
     : (body ?? "");
+
+  const handleGenerateSeo = useCallback(async () => {
+    setIsGeneratingSeo(true);
+    setGenerateError(null);
+    try {
+      const response = await fetch(`/api/videos/${videoId}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "seo-description",
+          enabledFiles: [],
+          includeTranscript: true,
+        }),
+      });
+      if (!response.ok) {
+        setGenerateError("Failed to generate SEO description");
+        return;
+      }
+      const result = await response.json();
+      const text = result.text as string;
+      if (!text) return;
+
+      if (optimisticDescription.trim()) {
+        setPendingGenerated(text);
+        setConfirmRegenerate(true);
+      } else {
+        persistDescription(text);
+      }
+    } catch {
+      setGenerateError("Failed to generate SEO description");
+    } finally {
+      setIsGeneratingSeo(false);
+    }
+  }, [videoId, optimisticDescription, persistDescription]);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -87,7 +141,32 @@ export function LessonPage({
       </div>
 
       <div className="space-y-2">
-        <Label>SEO Description</Label>
+        <div className="flex items-center justify-between">
+          <Label>SEO Description</Label>
+          <div className="flex items-center gap-2">
+            {generateError && (
+              <span className="text-sm text-destructive">{generateError}</span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateSeo}
+              disabled={isGeneratingSeo}
+            >
+              {isGeneratingSeo ? (
+                <>
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <SparklesIcon className="h-4 w-4" />
+                  Generate
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
         {writerContext ? (
           <WritableField
             videoId={videoId}
@@ -117,6 +196,36 @@ export function LessonPage({
           />
         )}
       </div>
+
+      <Dialog
+        open={confirmRegenerate}
+        onOpenChange={(open) => {
+          if (!open) dismissDialog();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Replace description?</DialogTitle>
+            <DialogDescription>
+              The SEO description field already has content. Do you want to
+              replace it with the newly generated text?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={dismissDialog}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                persistDescription(pendingGenerated);
+                dismissDialog();
+              }}
+            >
+              Replace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

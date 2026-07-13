@@ -18,8 +18,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
         const result = yield* Schema.decodeUnknown(publishRepoSchema)(body);
 
         const publishService = yield* CoursePublishService;
+        // Standalone Dropbox mirror (no publish-page toggle) — include every
+        // Lesson, matching the default publish behaviour.
         const { missingVideos } = yield* publishService.syncToDropbox(
           result.repoId,
+          true,
           sendEvent
         );
 

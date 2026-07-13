@@ -1,3 +1,4 @@
 npx lint-staged
 npm run typecheck
+npm run lint:boundaries
 npm run check:file-tokens

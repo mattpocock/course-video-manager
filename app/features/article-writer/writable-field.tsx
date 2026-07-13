@@ -3,21 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MarkdownMonacoEditor } from "@/components/markdown-monaco-editor";
 import { cn } from "@/lib/utils";
 import { PencilIcon, EyeIcon, Maximize2Icon } from "lucide-react";
 import type { OnMount } from "@monaco-editor/react";
-import { WriterEngine, type WriterContext } from "./writer-engine";
+import type { WriterContext } from "./writer-engine";
 import type { Mode } from "./types";
 import type { WriterFieldId } from "./writer-engine-utils";
-import {
-  FIELD_LABELS,
-  FIELD_MODES,
-  saveFieldMessages,
-  loadFieldMessages,
-} from "./writer-engine-utils";
+import { FIELD_MODES } from "./writer-engine-utils";
+import { WriterModal } from "./writer-modal";
 
 export interface WritableFieldProps {
   videoId: string;
@@ -56,7 +51,6 @@ export function WritableField({
   pageFields,
 }: WritableFieldProps) {
   const resolvedModes = modes ?? FIELD_MODES[fieldId] ?? [];
-  const resolvedLabel = label ?? FIELD_LABELS[fieldId] ?? fieldId;
 
   const [searchParams, setSearchParams] = useSearchParams();
   const isOpen = searchParams.get("writer") === fieldId;
@@ -68,11 +62,6 @@ export function WritableField({
       | "settings"
       | null) ?? "writer";
   const ctxTab = searchParams.get("writerTab") ?? undefined;
-
-  const workingValueRef = useRef(value);
-  const snapshotMessagesRef = useRef<Map<string, unknown[]>>(new Map());
-  const [isDirty, setIsDirty] = useState(false);
-  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   // Inline editor state: a local draft drives Monaco so persisting through the
   // host (which round-trips the value back down) never yanks the cursor.
@@ -158,54 +147,6 @@ export function WritableField({
     [setSearchParams]
   );
 
-  const handleOpen = useCallback(() => {
-    workingValueRef.current = value;
-    setIsDirty(false);
-    setShowConfirmClose(false);
-    const snap = new Map<string, unknown[]>();
-    for (const m of resolvedModes) {
-      snap.set(m, loadFieldMessages(videoId, fieldId, m));
-    }
-    snapshotMessagesRef.current = snap;
-    setOpen(true);
-  }, [value, resolvedModes, videoId, fieldId, setOpen]);
-
-  const handleApply = useCallback(
-    (finalValue: string) => {
-      onApply(finalValue);
-      workingValueRef.current = finalValue;
-      setIsDirty(false);
-      setOpen(false);
-    },
-    [onApply, setOpen]
-  );
-
-  const handleCancel = useCallback(() => {
-    for (const [m, msgs] of snapshotMessagesRef.current) {
-      saveFieldMessages(videoId, fieldId, m as Mode, msgs);
-    }
-    workingValueRef.current = value;
-    setIsDirty(false);
-    setShowConfirmClose(false);
-    setOpen(false);
-  }, [videoId, fieldId, value, setOpen]);
-
-  const handleRequestClose = useCallback(() => {
-    if (isDirty) {
-      setShowConfirmClose(true);
-    } else {
-      handleCancel();
-    }
-  }, [isDirty, handleCancel]);
-
-  const handleDocumentChange = useCallback(
-    (doc: string) => {
-      workingValueRef.current = doc;
-      setIsDirty(doc !== value);
-    },
-    [value]
-  );
-
   return (
     <>
       <div
@@ -235,7 +176,7 @@ export function WritableField({
             variant="secondary"
             size="sm"
             className="h-7 shadow-sm"
-            onClick={handleOpen}
+            onClick={() => setOpen(true)}
           >
             <Maximize2Icon className="mr-1 size-3.5" /> Open in writer
           </Button>
@@ -271,71 +212,23 @@ export function WritableField({
         </div>
       </div>
 
-      <Dialog
+      <WriterModal
         open={isOpen}
-        onOpenChange={(open) => {
-          if (!open) handleRequestClose();
-        }}
-      >
-        <DialogContent
-          className="flex h-[96vh] w-[97vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
-          showCloseButton={false}
-        >
-          <DialogTitle className="sr-only">{resolvedLabel}</DialogTitle>
-          <div className="flex items-center px-4 py-2 border-b">
-            <h2 className="text-sm font-semibold">{resolvedLabel}</h2>
-          </div>
-          <div className="relative flex-1 overflow-hidden">
-            {isOpen && (
-              <WriterEngine
-                videoId={videoId}
-                fieldId={fieldId}
-                modes={resolvedModes}
-                initialDocument={value}
-                layout="modal"
-                context={context}
-                onDocumentChange={handleDocumentChange}
-                view={view}
-                onViewChange={handleViewChange}
-                ctxTab={ctxTab}
-                onCtxTabChange={handleCtxTabChange}
-                onCancel={handleRequestClose}
-                onApply={handleApply}
-                onAddFileFromClipboard={onAddFileFromClipboard}
-                pageFields={pageFields}
-              />
-            )}
-
-            {/* Unsaved-changes confirmation */}
-            {showConfirmClose && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-                <div className="max-w-sm rounded-lg border bg-background p-6 shadow-lg">
-                  <h3 className="text-base font-semibold">Unsaved changes</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    You have unsaved edits. Discard them?
-                  </p>
-                  <div className="mt-4 flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowConfirmClose(false)}
-                    >
-                      Keep editing
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleCancel}
-                    >
-                      Discard
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setOpen}
+        videoId={videoId}
+        fieldId={fieldId}
+        modes={resolvedModes}
+        value={value}
+        context={context}
+        label={label}
+        onApply={onApply}
+        onAddFileFromClipboard={onAddFileFromClipboard}
+        pageFields={pageFields}
+        view={view}
+        onViewChange={handleViewChange}
+        ctxTab={ctxTab}
+        onCtxTabChange={handleCtxTabChange}
+      />
     </>
   );
 }

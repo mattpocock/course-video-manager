@@ -11,6 +11,8 @@ import {
   type SuggestionsPanelProps,
 } from "./suggestions-panel";
 import { ActionsDropdown } from "./actions-dropdown";
+import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
+import { GenerateSeoDescriptionModal } from "@/features/lesson-writer/generate-seo-description-modal";
 import { VideoPlayerLinksTab } from "./video-player-links-tab";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
@@ -72,6 +74,8 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.lessonId
   );
+  const [isLessonBodyWriterOpen, setIsLessonBodyWriterOpen] = useState(false);
+  const [isSeoDescriptionOpen, setIsSeoDescriptionOpen] = useState(false);
   const liveMediaStream = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.liveMediaStream
@@ -498,6 +502,10 @@ export const VideoPlayerPanel = () => {
               onShowBeatPanel={onShowBeatPanel}
               onGenerateChaptersClick={onOpenGenerateChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
+              onEditLessonBodyClick={() => setIsLessonBodyWriterOpen(true)}
+              onGenerateSeoDescriptionClick={() =>
+                setIsSeoDescriptionOpen(true)
+              }
             />
             <Button variant="secondary" onClick={onAddNoteFromClipboard}>
               <ClipboardIcon className="w-4 h-4 mr-1" />
@@ -581,6 +589,22 @@ export const VideoPlayerPanel = () => {
           onOpenChange={setIsAddVideoModalOpen}
         />
       </Suspense>
+
+      {lessonId && isLessonBodyWriterOpen && (
+        <LessonBodyWriterModal
+          videoId={videoId}
+          open={isLessonBodyWriterOpen}
+          onOpenChange={setIsLessonBodyWriterOpen}
+        />
+      )}
+
+      {lessonId && isSeoDescriptionOpen && (
+        <GenerateSeoDescriptionModal
+          videoId={videoId}
+          open={isSeoDescriptionOpen}
+          onOpenChange={setIsSeoDescriptionOpen}
+        />
+      )}
     </>
   );
 };

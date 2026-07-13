@@ -4,6 +4,7 @@ import type {
   editDocumentTool,
 } from "@/services/document-writing-agent";
 import type { InferUITools, UIMessage } from "ai";
+import type { BeatKind } from "@/features/beats/beat-kinds";
 
 export type DocumentAgentTools = {
   writeDocument: typeof writeDocumentTool;
@@ -48,3 +49,26 @@ export type IndexedClip = {
   videoFilename: string;
   text: string | null;
 };
+
+export interface WriterContext {
+  files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
+  transcript: string;
+  transcriptWordCount: number;
+  chapters: SectionWithWordCount[];
+  indexedClips: IndexedClip[];
+  links: Array<{ id: string; url: string; title: string }>;
+  courseStructure: {
+    repoName: string;
+    currentSectionPath: string;
+    currentLessonPath: string;
+    sections: {
+      path: string;
+      lessons: { path: string; description?: string }[];
+    }[];
+  } | null;
+  memory: string;
+  repoId: string | null;
+  fullPath: string;
+  isStandalone: boolean;
+  beats: Array<{ kind: BeatKind; title: string; description: string }>;
+}

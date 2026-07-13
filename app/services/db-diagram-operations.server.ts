@@ -21,7 +21,7 @@ import {
 } from "drizzle-orm";
 import { Effect } from "effect";
 import { hashScene } from "@/lib/scene-hash";
-import { extractSceneText } from "@/lib/extract-scene-text";
+import { extractSceneText } from "@/packages/extract-scene-text";
 import { writeThumbnail } from "@/services/diagram-thumbnail-store.server";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {

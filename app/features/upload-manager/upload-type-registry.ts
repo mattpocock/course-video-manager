@@ -456,6 +456,7 @@ export interface PublishParams {
   courseId: string;
   name: string;
   description: string;
+  includeTodoLessons: boolean;
 }
 
 const publishConfig: UploadTypeConfig<
@@ -495,6 +496,7 @@ const publishConfig: UploadTypeConfig<
           courseId: params.courseId,
           name: params.name,
           description: params.description,
+          includeTodoLessons: params.includeTodoLessons,
         },
         {
           onStageChange: (stage) => {

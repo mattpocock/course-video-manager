@@ -1,6 +1,7 @@
 import {
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import {
@@ -8,10 +9,11 @@ import {
   Combine,
   Copy,
   Download,
+  FileText,
   FolderOpen,
   Link2,
+  ListTree,
   PencilIcon,
-  Play,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -29,6 +31,9 @@ import { useRequestCreateBeat } from "@/features/beats/create-beat-dialog";
  * thumbnail grid and the compact beat tree so right-clicking a Video offers
  * the same actions in both views. Wrap in a `<ContextMenu>`/`<ContextMenuTrigger>`
  * at the call site.
+ *
+ * Grouped into sections divided by separators: deep link, lesson content,
+ * beats, organize, video files, and (destructively) delete.
  */
 export function VideoContextMenuItems({
   courseId,
@@ -63,64 +68,6 @@ export function VideoContextMenuItems({
   return (
     <ContextMenuContent>
       <ContextMenuItem
-        onSelect={() => {
-          dispatch({
-            type: "open-video-player",
-            videoId: video.id,
-            videoTitle: `${section.title}/${lesson.path}/${video.title}`,
-          });
-        }}
-      >
-        <Play className="w-4 h-4" />
-        Play Video
-      </ContextMenuItem>
-      <ContextMenuItem
-        onSelect={() => {
-          startExportUpload(
-            video.id,
-            `${section.title}/${lesson.path}/${video.title}`
-          );
-        }}
-      >
-        <Download className="w-4 h-4" />
-        Export
-      </ContextMenuItem>
-      <ContextMenuItem
-        onSelect={() => {
-          navigate(`/videos/concatenate?initial=${video.id}`);
-        }}
-      >
-        <Combine className="w-4 h-4" />
-        Create Concatenated Video
-      </ContextMenuItem>
-      {canGenerateChapters && (
-        <ContextMenuItem
-          onSelect={() => {
-            openGenerateChapters({
-              videoId: video.id,
-              videoLabel: `${section.title}/${lesson.path}/${video.title}`,
-            });
-          }}
-        >
-          <Sparkles className="w-4 h-4" />
-          Generate Chapters
-        </ContextMenuItem>
-      )}
-      <ContextMenuItem
-        onSelect={() => {
-          revealVideoFetcher.submit(
-            {},
-            {
-              method: "post",
-              action: `/api/videos/${video.id}/reveal`,
-            }
-          );
-        }}
-      >
-        <FolderOpen className="w-4 h-4" />
-        Reveal in File System
-      </ContextMenuItem>
-      <ContextMenuItem
         onSelect={() =>
           copyDeepLink({
             courseId,
@@ -132,8 +79,47 @@ export function VideoContextMenuItems({
         <Link2 className="w-4 h-4" />
         Copy Deep Link
       </ContextMenuItem>
+
       {!isReadOnly && (
         <>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() => {
+              dispatch({
+                type: "open-lesson-body-writer",
+                videoId: video.id,
+              });
+            }}
+          >
+            <FileText className="w-4 h-4" />
+            Edit Lesson Body
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              dispatch({
+                type: "open-seo-description",
+                videoId: video.id,
+              });
+            }}
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate SEO Description
+          </ContextMenuItem>
+          {canGenerateChapters && (
+            <ContextMenuItem
+              onSelect={() => {
+                openGenerateChapters({
+                  videoId: video.id,
+                  videoLabel: `${section.title}/${lesson.path}/${video.title}`,
+                });
+              }}
+            >
+              <ListTree className="w-4 h-4" />
+              Generate Chapters
+            </ContextMenuItem>
+          )}
+
+          <ContextMenuSeparator />
           <AddBeatSubMenu
             onAdd={(kind) =>
               requestCreateBeat({
@@ -143,6 +129,8 @@ export function VideoContextMenuItems({
               })
             }
           />
+
+          <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => {
               dispatch({
@@ -182,13 +170,56 @@ export function VideoContextMenuItems({
             <ArrowRightLeft className="w-4 h-4" />
             Move to Lesson
           </ContextMenuItem>
-          <Suspense>
-            <PurgeExportMenuItem
-              videoId={video.id}
-              hasExportedVideoMap={data.hasExportedVideoMap}
-              deleteVideoFileFetcher={deleteVideoFileFetcher}
-            />
-          </Suspense>
+          <ContextMenuItem
+            onSelect={() => {
+              navigate(`/videos/concatenate?initial=${video.id}`);
+            }}
+          >
+            <Combine className="w-4 h-4" />
+            Create Concatenated Video
+          </ContextMenuItem>
+        </>
+      )}
+
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        onSelect={() => {
+          startExportUpload(
+            video.id,
+            `${section.title}/${lesson.path}/${video.title}`
+          );
+        }}
+      >
+        <Download className="w-4 h-4" />
+        Export
+      </ContextMenuItem>
+      <ContextMenuItem
+        onSelect={() => {
+          revealVideoFetcher.submit(
+            {},
+            {
+              method: "post",
+              action: `/api/videos/${video.id}/reveal`,
+            }
+          );
+        }}
+      >
+        <FolderOpen className="w-4 h-4" />
+        Reveal in File System
+      </ContextMenuItem>
+      {!isReadOnly && (
+        <Suspense>
+          <PurgeExportMenuItem
+            videoId={video.id}
+            hasExportedVideoMap={data.hasExportedVideoMap}
+            deleteVideoFileFetcher={deleteVideoFileFetcher}
+          />
+        </Suspense>
+      )}
+
+      {!isReadOnly && (
+        <>
+          <ContextMenuSeparator />
           <ContextMenuItem
             variant="destructive"
             onSelect={() => {

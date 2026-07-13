@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import * as schema from "../app/db/schema";
-import { extractSceneText } from "../app/lib/extract-scene-text";
+import { extractSceneText } from "../app/packages/extract-scene-text";
 
 const url = process.env.DATABASE_URL;
 if (!url) {

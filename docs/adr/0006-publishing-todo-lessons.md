@@ -1,4 +1,17 @@
+---
+status: superseded
+---
+
 # Publishing TODO lessons
+
+> **Superseded (2026-07-10).** This ADR does not reflect the code. The per-lesson
+> `TODO.md` sentinel it describes (the **TODO Marker**) was never implemented — no
+> code writes such a file (the only file write in the publish path is `course.json`),
+> and the changelog legend's reference to a `TODO.md` sentinel is stale. The one real
+> signal is the changelog itself: the `(TODO)` suffix on **New Lessons** plus the
+> **Marked Ready** / **Marked TODO** buckets. TODO lessons are otherwise mirrored to
+> Dropbox identically to `done` lessons. A replacement decision — a publish-time filter
+> to include or withhold TODO lessons — is being designed and will supersede this.
 
 A real **Lesson** whose **Lesson Authoring Status** is `todo` is published into Dropbox normally — its directory is created, and any videos, transcripts, and source files it already has are mirrored exactly as for a `done` lesson. The TODO state is communicated via two additive signals: a per-lesson `TODO.md` sentinel file written inside the lesson's dropbox folder (the **TODO Marker**), and per-section **Marked Ready** / **Marked TODO** buckets in `changelog.md` tracking status transitions across **Published Versions** via lesson lineage (`previousVersionLessonId`). New lessons that arrive in `todo` state are listed in the existing **New Lessons** bucket with a `(TODO)` suffix. The sentinel content is a fixed template — identical across every TODO lesson, no per-lesson dynamic content — so the dropbox sync stays a pure idempotent function of `authoringStatus`. **Ghost Lessons** are not published, so the marker never applies to them.
 

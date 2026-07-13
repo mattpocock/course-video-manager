@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { hasActiveExportUploads } from "@/features/upload-manager/export-status";
-import { generateChangelog } from "@/services/changelog-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
@@ -19,8 +19,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
 import { data, Link, useNavigate, useRevalidator } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.publish";
 
@@ -44,19 +42,14 @@ export const loader = makeLoader({
         return yield* Effect.die(data("No version found", { status: 404 }));
       }
 
-      // Get changelog preview (treat draft as if it were published with a placeholder name)
-      const changelogVersions = allVersions.map((v) =>
-        v.id === latestVersion.id
-          ? { ...v, name: "(Draft — pending publish)" }
-          : v
-      );
-      const changelog = generateChangelog(changelogVersions);
-
       // Get previous published version name (allVersions is sorted newest first)
       const previousVersion = allVersions.length > 1 ? allVersions[1] : null;
 
-      // Get unexported videos and course-view lint count
-      const { unexportedVideoIds, courseViewLintCount } =
+      // Validation is computed for BOTH toggle positions in a single pass so the
+      // publish page can flip instantly with no server round-trip. `withTodo` is
+      // the default (everything ships); `withoutTodo` is what ships when to-do
+      // Lessons are withheld.
+      const { withTodo, withoutTodo } =
         yield* publishService.validatePublishability(latestVersion.id);
 
       const { sections: _, ...latestVersionMeta } = latestVersion;
@@ -64,22 +57,21 @@ export const loader = makeLoader({
         course,
         latestVersion: latestVersionMeta,
         previousVersionName: previousVersion?.name ?? null,
-        changelog,
-        unexportedVideoCount: unexportedVideoIds.length,
-        courseViewLintCount,
+        withTodo: {
+          unexportedVideoCount: withTodo.unexportedVideoIds.length,
+          courseViewLintCount: withTodo.courseViewLintCount,
+        },
+        withoutTodo: {
+          unexportedVideoCount: withoutTodo.unexportedVideoIds.length,
+          courseViewLintCount: withoutTodo.courseViewLintCount,
+        },
       };
     }),
 });
 
 export default function Component(props: Route.ComponentProps) {
-  const {
-    course,
-    latestVersion,
-    previousVersionName,
-    changelog,
-    unexportedVideoCount,
-    courseViewLintCount,
-  } = props.loaderData;
+  const { course, latestVersion, previousVersionName, withTodo, withoutTodo } =
+    props.loaderData;
   const navigate = useNavigate();
   const revalidator = useRevalidator();
   const { uploads, startBatchExportUpload, startPublish } =
@@ -87,6 +79,7 @@ export default function Component(props: Route.ComponentProps) {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [includeTodoLessons, setIncludeTodoLessons] = useState(true);
   const [publishStarted, setPublishStarted] = useState(false);
 
   const hasActiveExport = hasActiveExportUploads(uploads);
@@ -109,6 +102,13 @@ export default function Component(props: Route.ComponentProps) {
     prevHadActiveExportRef.current = hasActiveExport;
   }, [hasActiveExport, revalidator]);
 
+  // The warnings and the publish button reflect whichever toggle position is
+  // currently selected — flipping the toggle switches them instantly, with no
+  // server round-trip.
+  const effective = includeTodoLessons ? withTodo : withoutTodo;
+  const unexportedVideoCount = effective.unexportedVideoCount;
+  const courseViewLintCount = effective.courseViewLintCount;
+
   const hasUnexportedVideos = unexportedVideoCount > 0;
   const hasCourseViewLints = courseViewLintCount > 0;
   const canPublish =
@@ -119,15 +119,29 @@ export default function Component(props: Route.ComponentProps) {
     !isOperationInProgress;
 
   const handleExportAll = useCallback(() => {
-    startBatchExportUpload(latestVersion.id);
-  }, [latestVersion.id, startBatchExportUpload]);
+    startBatchExportUpload(latestVersion.id, includeTodoLessons);
+  }, [latestVersion.id, includeTodoLessons, startBatchExportUpload]);
 
   const handlePublish = useCallback(() => {
     setPublishStarted(true);
-    startPublish(course.id, course.name, name.trim(), description.trim());
+    startPublish(
+      course.id,
+      course.name,
+      name.trim(),
+      description.trim(),
+      includeTodoLessons
+    );
     // Navigate back to course — progress shows in GlobalUploadProgress
     navigate(`/courses/${course.id}`);
-  }, [course.id, course.name, name, description, startPublish, navigate]);
+  }, [
+    course.id,
+    course.name,
+    name,
+    description,
+    includeTodoLessons,
+    startPublish,
+    navigate,
+  ]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -171,6 +185,31 @@ export default function Component(props: Route.ComponentProps) {
               disabled={publishStarted}
               rows={3}
             />
+          </div>
+        </div>
+
+        {/* Include to-do lessons toggle */}
+        <div className="mb-8 rounded-lg border border-border p-4">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="include-todo"
+              checked={includeTodoLessons}
+              onCheckedChange={(checked) =>
+                setIncludeTodoLessons(checked === true)
+              }
+              disabled={publishStarted}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="include-todo" className="font-medium">
+                Include lessons marked to-do
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {includeTodoLessons
+                  ? "Every lesson will publish — including lessons still marked to-do, which may be unreviewed. They are exported, mirrored to the team's Dropbox, and listed in course.json exactly like finished lessons."
+                  : "Lessons still marked to-do are withheld from this publish: omitted from course.json, not exported, and not mirrored to Dropbox. Any to-do lesson already in the team's Dropbox is removed, and sections left with no remaining lessons disappear. Nothing is lost — every lesson stays saved in full in the Published Version, and turning this back on and republishing restores it."}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -225,14 +264,6 @@ export default function Component(props: Route.ComponentProps) {
                 ? "Export in progress..."
                 : "Publish"}
           </Button>
-        </div>
-
-        {/* Changelog Preview */}
-        <div className="border-t border-border pt-6">
-          <h2 className="text-lg font-semibold mb-4">Changelog Preview</h2>
-          <div className="prose dark:prose-invert max-w-none">
-            <Markdown rehypePlugins={[rehypeRaw]}>{changelog}</Markdown>
-          </div>
         </div>
       </div>
     </div>
