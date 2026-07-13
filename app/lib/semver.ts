@@ -6,6 +6,8 @@ export interface Semver {
 
 export type BumpLevel = "major" | "minor" | "patch";
 
+export const ZERO_SEMVER: Semver = { major: 0, minor: 0, patch: 0 };
+
 const SEMVER_RE = /^[vV]?(\d+)\.(\d+)\.(\d+)$/;
 
 export function parseSemver(input: string): Semver | null {

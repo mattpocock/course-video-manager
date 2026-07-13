@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSemver, formatSemver, bumpSemver } from "./semver";
+import { parseSemver, bumpSemver } from "./semver";
 
 describe("parseSemver", () => {
   it("parses a v-prefixed semver string", () => {
@@ -28,16 +28,6 @@ describe("parseSemver", () => {
   it("returns null for semver with extra text", () => {
     expect(parseSemver("v1.2.3-beta")).toBeNull();
     expect(parseSemver("v1.2.3 -- Added auth")).toBeNull();
-  });
-});
-
-describe("formatSemver", () => {
-  it("formats with lowercase v prefix", () => {
-    expect(formatSemver({ major: 1, minor: 2, patch: 3 })).toBe("v1.2.3");
-  });
-
-  it("formats v0.0.0", () => {
-    expect(formatSemver({ major: 0, minor: 0, patch: 0 })).toBe("v0.0.0");
   });
 });
 

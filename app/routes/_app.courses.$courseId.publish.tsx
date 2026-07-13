@@ -9,13 +9,13 @@ import {
   parseSemver,
   formatSemver,
   bumpSemver,
+  ZERO_SEMVER,
   type BumpLevel,
 } from "@/lib/semver";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { makeLoader } from "@/services/route-action.server";
-import { cn } from "@/lib/utils";
 import { Effect } from "effect";
 import {
   ArrowLeft,
@@ -94,9 +94,14 @@ export default function Component(props: Route.ComponentProps) {
   const { uploads, startBatchExportUpload, startPublish } =
     useContext(UploadContext);
 
-  const baseSemver = useMemo(() => {
-    if (!previousVersionName) return { major: 0, minor: 0, patch: 0 };
-    return parseSemver(previousVersionName) ?? { major: 0, minor: 0, patch: 0 };
+  const { baseSemver, previousWasSemver } = useMemo(() => {
+    if (!previousVersionName)
+      return { baseSemver: ZERO_SEMVER, previousWasSemver: true };
+    const parsed = parseSemver(previousVersionName);
+    return {
+      baseSemver: parsed ?? ZERO_SEMVER,
+      previousWasSemver: parsed !== null,
+    };
   }, [previousVersionName]);
 
   const [bumpLevel, setBumpLevel] = useState<BumpLevel>("patch");
@@ -205,7 +210,7 @@ export default function Component(props: Route.ComponentProps) {
                     size="sm"
                     onClick={() => setBumpLevel(level)}
                     disabled={publishStarted}
-                    className={cn("capitalize")}
+                    className="capitalize"
                   >
                     {level}
                   </Button>
@@ -215,8 +220,7 @@ export default function Component(props: Route.ComponentProps) {
             {previousVersionName && (
               <p className="text-xs text-muted-foreground">
                 Previous: {previousVersionName}
-                {!parseSemver(previousVersionName) &&
-                  " (not semver — starting from v0)"}
+                {!previousWasSemver && " (not semver — starting from v0)"}
               </p>
             )}
           </div>
