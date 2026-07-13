@@ -8,6 +8,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import {
   MEMORY_ENABLED_STORAGE_KEY,
   COURSE_STRUCTURE_STORAGE_KEY,
+  BEATS_ENABLED_STORAGE_KEY,
 } from "./write-utils";
 import { formatBeatsContext } from "./format-beats-context";
 
@@ -110,7 +111,21 @@ export function useContextModel(
   const [disabledLinks, setDisabledLinks] = useState<Set<string>>(
     () => new Set()
   );
-  const [beatsEnabled, setBeatsEnabled] = useState(false);
+  const [beatsEnabledRaw, setBeatsEnabledRaw] = useLocalStorage(
+    BEATS_ENABLED_STORAGE_KEY,
+    "false"
+  );
+  const beatsEnabled = beatsEnabledRaw === "true";
+  const setBeatsEnabled = useCallback(
+    (updater: boolean | ((prev: boolean) => boolean)) => {
+      setBeatsEnabledRaw((prev) => {
+        const next =
+          typeof updater === "function" ? updater(prev === "true") : updater;
+        return String(next);
+      });
+    },
+    [setBeatsEnabledRaw]
+  );
   const beatsText = useMemo(
     () => formatBeatsContext(context.beats),
     [context.beats]
