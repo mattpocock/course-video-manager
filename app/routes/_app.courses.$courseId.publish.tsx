@@ -1,15 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { hasActiveExportUploads } from "@/features/upload-manager/export-status";
+import {
+  parseSemver,
+  formatSemver,
+  bumpSemver,
+  type BumpLevel,
+} from "@/lib/semver";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { makeLoader } from "@/services/route-action.server";
+import { cn } from "@/lib/utils";
 import { Effect } from "effect";
 import {
   ArrowLeft,
@@ -18,7 +24,14 @@ import {
   AlertTriangle,
   ChevronRight,
 } from "lucide-react";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { data, Link, useNavigate, useRevalidator } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.publish";
 
@@ -81,7 +94,13 @@ export default function Component(props: Route.ComponentProps) {
   const { uploads, startBatchExportUpload, startPublish } =
     useContext(UploadContext);
 
-  const [name, setName] = useState("");
+  const baseSemver = useMemo(() => {
+    if (!previousVersionName) return { major: 0, minor: 0, patch: 0 };
+    return parseSemver(previousVersionName) ?? { major: 0, minor: 0, patch: 0 };
+  }, [previousVersionName]);
+
+  const [bumpLevel, setBumpLevel] = useState<BumpLevel>("patch");
+  const name = formatSemver(bumpSemver(baseSemver, bumpLevel));
   const [description, setDescription] = useState("");
   const [includeTodoLessons, setIncludeTodoLessons] = useState(true);
   const [publishStarted, setPublishStarted] = useState(false);
@@ -120,7 +139,6 @@ export default function Component(props: Route.ComponentProps) {
   const hasInvalidLessonCombos = invalidLessonCombos.length > 0;
   const hasIncompleteVideos = incompleteVideos.length > 0;
   const canPublish =
-    name.trim().length > 0 &&
     !hasUnexportedVideos &&
     !hasCourseViewLints &&
     !hasInvalidLessonCombos &&
@@ -137,7 +155,7 @@ export default function Component(props: Route.ComponentProps) {
     startPublish(
       course.id,
       course.name,
-      name.trim(),
+      name,
       description.trim(),
       includeTodoLessons
     );
@@ -169,21 +187,38 @@ export default function Component(props: Route.ComponentProps) {
         {previousVersionName && (
           <p className="text-sm text-muted-foreground mb-6">
             {previousVersionName} <ChevronRight className="inline w-3 h-3" />{" "}
-            {name.trim() || <span className="italic">New Version</span>}
+            {name}
           </p>
         )}
 
         {/* Publish Form */}
         <div className="space-y-4 mb-8">
           <div className="space-y-2">
-            <Label htmlFor="version-name">Version Name *</Label>
-            <Input
-              id="version-name"
-              placeholder='e.g. "v2.1 — Added auth module"'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={publishStarted}
-            />
+            <Label>Version</Label>
+            <div className="flex items-center gap-3">
+              <span className="text-lg font-mono font-semibold">{name}</span>
+              <div className="flex gap-1">
+                {(["patch", "minor", "major"] as const).map((level) => (
+                  <Button
+                    key={level}
+                    variant={bumpLevel === level ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setBumpLevel(level)}
+                    disabled={publishStarted}
+                    className={cn("capitalize")}
+                  >
+                    {level}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            {previousVersionName && (
+              <p className="text-xs text-muted-foreground">
+                Previous: {previousVersionName}
+                {!parseSemver(previousVersionName) &&
+                  " (not semver — starting from v0)"}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="version-description">Description</Label>
