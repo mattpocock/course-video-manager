@@ -46,10 +46,16 @@ export const action = async (args: Route.ActionArgs) => {
               `${e.courseViewLintCount} course warning(s) must be fixed`
             );
           }
+          if (e.failedExportVideoIds && e.failedExportVideoIds.length > 0) {
+            parts.push(
+              `${e.failedExportVideoIds.length} video(s) failed to export`
+            );
+          }
           sendEvent("error", {
             message: parts.join("; ") || "Publish validation failed",
             type: "validation",
             courseViewLintCount: e.courseViewLintCount ?? 0,
+            failedExportVideoIds: e.failedExportVideoIds ?? [],
           });
         },
       },

@@ -32,7 +32,9 @@ beforeAll(async () => {
   testDb = result.testDb;
 });
 
-const setup = async () => {
+const setup = async (opts?: {
+  mockVideoProcessing?: Layer.Layer<VideoProcessingService>;
+}) => {
   await truncateAllTables(testDb);
 
   finishedVideosDir = fs.mkdtempSync(
@@ -127,17 +129,22 @@ const setup = async () => {
     path.join(tmpdir(), "publish-test-dropbox-")
   );
 
-  const mockVideoProcessing = Layer.succeed(VideoProcessingService, {
-    exportVideoClips: (opts: any) =>
+  const defaultMockVideoProcessing = Layer.succeed(VideoProcessingService, {
+    exportVideoClips: (exportOpts: any) =>
       Effect.sync(() => {
-        const outputPath = path.join(finishedVideosDir, `${opts.videoId}.mp4`);
+        const outputPath = path.join(
+          finishedVideosDir,
+          `${exportOpts.videoId}.mp4`
+        );
         fs.mkdirSync(path.dirname(outputPath), { recursive: true });
         fs.writeFileSync(outputPath, "dummy-video-content");
-        opts.onStageChange?.("concatenating-clips");
-        opts.onStageChange?.("normalizing-audio");
+        exportOpts.onStageChange?.("concatenating-clips");
+        exportOpts.onStageChange?.("normalizing-audio");
         return outputPath;
       }),
   } as any);
+  const mockVideoProcessing =
+    opts?.mockVideoProcessing ?? defaultMockVideoProcessing;
 
   const configLayer = Layer.setConfigProvider(
     ConfigProvider.fromMap(
@@ -228,5 +235,33 @@ describe("CoursePublishService — publish", () => {
 
     expect(stages).not.toContain("exporting");
     expect(stages).toContain("uploading");
+  });
+
+  it("fails with PublishValidationError when export fails after retries", async () => {
+    const failingMock = Layer.succeed(VideoProcessingService, {
+      exportVideoClips: () => Effect.fail(new Error("ffmpeg crashed")),
+    } as any);
+    const { course, video, run } = await setup({
+      mockVideoProcessing: failingMock,
+    });
+
+    const result = await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        return yield* svc
+          .publish(course.id, "v1.0", "First release", true)
+          .pipe(
+            Effect.catchTag("PublishValidationError", (e) =>
+              Effect.succeed({
+                error: true as const,
+                failedExportVideoIds: e.failedExportVideoIds,
+              })
+            )
+          );
+      })
+    );
+
+    expect(result).toHaveProperty("error", true);
+    expect((result as any).failedExportVideoIds).toContain(video.id);
   });
 });
