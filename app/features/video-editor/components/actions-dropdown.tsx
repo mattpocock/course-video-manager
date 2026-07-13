@@ -22,6 +22,7 @@ import {
   Combine,
   CopyIcon,
   DownloadIcon,
+  FileText,
   FilmIcon,
   FolderOpen,
   ListTree,
@@ -89,6 +90,10 @@ export const ActionsDropdown = (props: {
   onGenerateChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
   onOpenDiagramPlayground: () => void;
+  /** Open the AI Writer on the lesson body (only when lesson-bound) */
+  onEditLessonBodyClick: () => void;
+  /** Open the Generate SEO Description modal (only when lesson-bound) */
+  onGenerateSeoDescriptionClick: () => void;
 }) => {
   const navigate = useNavigate();
 
@@ -132,6 +137,29 @@ export const ActionsDropdown = (props: {
             </span>
           </div>
         </DropdownMenuItem>
+
+        {props.lessonId && (
+          <>
+            <DropdownMenuItem onSelect={props.onEditLessonBodyClick}>
+              <FileText className="w-4 h-4 mr-2" />
+              <div className="flex flex-col">
+                <span className="font-medium">Edit Lesson Body</span>
+                <span className="text-xs text-muted-foreground">
+                  Open the AI Writer on the lesson body
+                </span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={props.onGenerateSeoDescriptionClick}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              <div className="flex flex-col">
+                <span className="font-medium">Generate SEO Description</span>
+                <span className="text-xs text-muted-foreground">
+                  AI-generate an SEO description from the body
+                </span>
+              </div>
+            </DropdownMenuItem>
+          </>
+        )}
 
         {props.referenceVideoId !== null &&
         props.referenceCandidates.some(

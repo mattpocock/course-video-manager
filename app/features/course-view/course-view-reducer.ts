@@ -64,6 +64,8 @@ export namespace courseViewReducer {
     deleteLessonId: string | null;
     archiveSectionId: string | null;
     editDescriptionLessonId: string | null;
+    lessonBodyWriterVideoId: string | null;
+    seoDescriptionVideoId: string | null;
 
     // Complex object states
     videoPlayerState: VideoPlayerState;
@@ -118,6 +120,10 @@ export namespace courseViewReducer {
     | { type: "set-delete-lesson-id"; lessonId: string | null }
     | { type: "set-archive-section-id"; sectionId: string | null }
     | { type: "set-edit-description-lesson-id"; lessonId: string | null }
+    | { type: "open-lesson-body-writer"; videoId: string }
+    | { type: "close-lesson-body-writer" }
+    | { type: "open-seo-description"; videoId: string }
+    | { type: "close-seo-description" }
     // Video player
     | {
         type: "open-video-player";
@@ -203,6 +209,8 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     deleteLessonId: null,
     archiveSectionId: null,
     editDescriptionLessonId: null,
+    lessonBodyWriterVideoId: null,
+    seoDescriptionVideoId: null,
     videoPlayerState: { isOpen: false, videoId: "", videoTitle: "" },
     moveVideoState: null,
     moveLessonState: null,
@@ -290,6 +298,14 @@ export const courseViewReducer: EffectReducer<
       return { ...state, archiveSectionId: action.sectionId };
     case "set-edit-description-lesson-id":
       return { ...state, editDescriptionLessonId: action.lessonId };
+    case "open-lesson-body-writer":
+      return { ...state, lessonBodyWriterVideoId: action.videoId };
+    case "close-lesson-body-writer":
+      return { ...state, lessonBodyWriterVideoId: null };
+    case "open-seo-description":
+      return { ...state, seoDescriptionVideoId: action.videoId };
+    case "close-seo-description":
+      return { ...state, seoDescriptionVideoId: null };
 
     // Video player
     case "open-video-player":
