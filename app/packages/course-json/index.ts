@@ -17,10 +17,15 @@
 export {
   buildCourseJson,
   buildCourseJsonSchema,
+  collectPublishBlockers,
   CourseJsonDocumentSchema,
   InvalidLessonRoleComboError,
+  IncompleteVideosError,
   type BuildCourseJsonInput,
   type CourseJsonDocument,
+  type IncompleteVideo,
+  type InvalidLessonCombo,
+  type PublishBlockers,
 } from "./lib/build-course-json";
 
 export {

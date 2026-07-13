@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { Effect } from "effect";
-import { buildCourseJson, type BuildCourseJsonInput } from "../index";
+import {
+  buildCourseJson,
+  collectPublishBlockers,
+  type BuildCourseJsonInput,
+} from "../index";
 
+// A complete, shippable Video by default: every field course.json requires is
+// present (clips → hash + relativePath, a body, and a description). Tests that
+// exercise incompleteness override these to null / [] explicitly.
 const makeVideo = (
   overrides: Partial<
     BuildCourseJsonInput["sections"][0]["lessons"][0]["videos"][0]
@@ -10,10 +17,10 @@ const makeVideo = (
   }
 ) => ({
   lineageId: `vid-lineage-${overrides.title}`,
-  body: null,
-  description: null,
+  body: "Video body",
+  description: "Video description",
   archived: false,
-  clips: [],
+  clips: CLIPS,
   chapters: [],
   ...overrides,
 });
@@ -55,6 +62,24 @@ const makeInput = (
 
 const run = (input: BuildCourseJsonInput) =>
   Effect.runPromise(buildCourseJson(input));
+
+const runFlip = (input: BuildCourseJsonInput) =>
+  Effect.runPromise(buildCourseJson(input).pipe(Effect.flip));
+
+const CLIPS = [
+  {
+    videoFilename: "rec.mp4",
+    sourceStartTime: 0,
+    sourceEndTime: 10,
+    order: "a0",
+  },
+  {
+    videoFilename: "rec.mp4",
+    sourceStartTime: 15,
+    sourceEndTime: 25,
+    order: "a1",
+  },
+];
 
 describe("buildCourseJson – validation and filtering", () => {
   // ── Archived videos filtered ───────────────────────────────────────
@@ -309,10 +334,77 @@ describe("buildCourseJson – validation and filtering", () => {
     expect(result.sections[1]!.lessons[1]!.type).toBe("problem");
   });
 
-  // ── Body and description nullable ──────────────────────────────────
+  // ── Incomplete videos fail loudly ──────────────────────────────────
 
-  it("preserves null body and description on videos", async () => {
-    const result = await run(
+  it("fails when a shipping video has no exportable clips", async () => {
+    const error = await runFlip(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", clips: [] })],
+            }),
+          ],
+        }),
+      ])
+    );
+    expect(error).toMatchObject({
+      _tag: "IncompleteVideosError",
+      videos: [
+        {
+          sectionPath: "01-intro",
+          lessonPath: "01.01-welcome",
+          videoTitle: "Explainer",
+          missing: ["clips"],
+        },
+      ],
+    });
+  });
+
+  it("fails when a shipping video has no body", async () => {
+    const error = await runFlip(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", body: null })],
+            }),
+          ],
+        }),
+      ])
+    );
+    expect(error).toMatchObject({
+      _tag: "IncompleteVideosError",
+      videos: [{ videoTitle: "Explainer", missing: ["body"] }],
+    });
+  });
+
+  it("fails when a shipping video has no description", async () => {
+    const error = await runFlip(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", description: null })],
+            }),
+          ],
+        }),
+      ])
+    );
+    expect(error).toMatchObject({
+      _tag: "IncompleteVideosError",
+      videos: [{ videoTitle: "Explainer", missing: ["description"] }],
+    });
+  });
+
+  it("reports every missing field on a single video", async () => {
+    const error = await runFlip(
       makeInput([
         makeSection({
           path: "01-intro",
@@ -322,6 +414,7 @@ describe("buildCourseJson – validation and filtering", () => {
               videos: [
                 makeVideo({
                   title: "Explainer",
+                  clips: [],
                   body: null,
                   description: null,
                 }),
@@ -331,11 +424,41 @@ describe("buildCourseJson – validation and filtering", () => {
         }),
       ])
     );
+    expect(error).toMatchObject({
+      _tag: "IncompleteVideosError",
+      videos: [{ missing: ["clips", "body", "description"] }],
+    });
+  });
 
-    const lesson = result.sections[0]!.lessons[0]!;
-    if (lesson.type === "explainer") {
-      expect(lesson.explainer.body).toBeNull();
-      expect(lesson.explainer.description).toBeNull();
+  it("collects every incomplete video across the whole course before failing", async () => {
+    const error = await runFlip(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", clips: [] })],
+            }),
+          ],
+        }),
+        makeSection({
+          path: "02-exercises",
+          lessons: [
+            makeLesson({
+              path: "02.01-exercise",
+              videos: [makeVideo({ title: "Problem", body: null })],
+            }),
+          ],
+        }),
+      ])
+    );
+    expect(error).toMatchObject({ _tag: "IncompleteVideosError" });
+    if (error._tag === "IncompleteVideosError") {
+      expect(error.videos.map((v) => v.videoTitle)).toEqual([
+        "Explainer",
+        "Problem",
+      ]);
     }
   });
 
@@ -445,5 +568,175 @@ describe("buildCourseJson – validation and filtering", () => {
     for (const section of result.sections) {
       expect(section.lessons.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// The pre-publish page reads collectPublishBlockers to warn and block before a
+// doomed publish; buildCourseJson reads the same result as its backstop. These
+// cover the collector's enumeration directly.
+describe("collectPublishBlockers", () => {
+  it("returns no blockers for a complete course", () => {
+    const blockers = collectPublishBlockers(
+      [
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer" })],
+            }),
+          ],
+        }),
+      ],
+      true
+    );
+    expect(blockers).toEqual({
+      invalidLessonCombos: [],
+      incompleteVideos: [],
+    });
+  });
+
+  it("collects every incomplete shipping video across the course", () => {
+    const blockers = collectPublishBlockers(
+      [
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", clips: [] })],
+            }),
+          ],
+        }),
+        makeSection({
+          path: "02-exercises",
+          lessons: [
+            makeLesson({
+              path: "02.01-exercise",
+              videos: [makeVideo({ title: "Problem", body: null })],
+            }),
+          ],
+        }),
+      ],
+      true
+    );
+    expect(blockers.invalidLessonCombos).toEqual([]);
+    expect(blockers.incompleteVideos).toEqual([
+      {
+        sectionPath: "01-intro",
+        lessonPath: "01.01-welcome",
+        videoTitle: "Explainer",
+        missing: ["clips"],
+      },
+      {
+        sectionPath: "02-exercises",
+        lessonPath: "02.01-exercise",
+        videoTitle: "Problem",
+        missing: ["body"],
+      },
+    ]);
+  });
+
+  it("collects every invalid lesson combo", () => {
+    const blockers = collectPublishBlockers(
+      [
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-exercise",
+              videos: [makeVideo({ title: "Solution" })],
+            }),
+            makeLesson({
+              path: "01.02-exercise",
+              videos: [
+                makeVideo({ title: "Explainer" }),
+                makeVideo({ title: "Problem" }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      true
+    );
+    expect(blockers.incompleteVideos).toEqual([]);
+    expect(blockers.invalidLessonCombos).toMatchObject([
+      { lessonPath: "01.01-exercise", videoTitles: ["Solution"] },
+      {
+        lessonPath: "01.02-exercise",
+        videoTitles: ["Explainer", "Problem"],
+      },
+    ]);
+  });
+
+  it("does not gap-check a lesson with an invalid combo (roles are ambiguous)", () => {
+    const blockers = collectPublishBlockers(
+      [
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-exercise",
+              // Invalid combo AND both videos incomplete — only the combo is
+              // reported, since we can't say which video plays which role.
+              videos: [
+                makeVideo({ title: "Explainer", clips: [] }),
+                makeVideo({ title: "Problem", clips: [] }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      true
+    );
+    expect(blockers.incompleteVideos).toEqual([]);
+    expect(blockers.invalidLessonCombos).toHaveLength(1);
+  });
+
+  it("ignores withheld to-do lessons", () => {
+    const sections = [
+      makeSection({
+        path: "01-intro",
+        lessons: [
+          makeLesson({
+            path: "01.01-todo",
+            authoringStatus: "todo",
+            videos: [makeVideo({ title: "Explainer", clips: [] })],
+          }),
+        ],
+      }),
+    ];
+    // Included → the incomplete to-do video is a blocker.
+    expect(
+      collectPublishBlockers(sections, true).incompleteVideos
+    ).toHaveLength(1);
+    // Withheld → it doesn't ship, so it isn't a blocker.
+    expect(
+      collectPublishBlockers(sections, false).incompleteVideos
+    ).toHaveLength(0);
+  });
+
+  it("ignores archived videos", () => {
+    const blockers = collectPublishBlockers(
+      [
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [
+                makeVideo({ title: "Old", archived: true, clips: [] }),
+                makeVideo({ title: "Explainer" }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      true
+    );
+    expect(blockers).toEqual({
+      invalidLessonCombos: [],
+      incompleteVideos: [],
+    });
   });
 });

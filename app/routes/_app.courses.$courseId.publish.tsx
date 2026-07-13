@@ -60,10 +60,14 @@ export const loader = makeLoader({
         withTodo: {
           unexportedVideoCount: withTodo.unexportedVideoIds.length,
           courseViewLintCount: withTodo.courseViewLintCount,
+          invalidLessonCombos: withTodo.invalidLessonCombos,
+          incompleteVideos: withTodo.incompleteVideos,
         },
         withoutTodo: {
           unexportedVideoCount: withoutTodo.unexportedVideoIds.length,
           courseViewLintCount: withoutTodo.courseViewLintCount,
+          invalidLessonCombos: withoutTodo.invalidLessonCombos,
+          incompleteVideos: withoutTodo.incompleteVideos,
         },
       };
     }),
@@ -108,13 +112,19 @@ export default function Component(props: Route.ComponentProps) {
   const effective = includeTodoLessons ? withTodo : withoutTodo;
   const unexportedVideoCount = effective.unexportedVideoCount;
   const courseViewLintCount = effective.courseViewLintCount;
+  const invalidLessonCombos = effective.invalidLessonCombos;
+  const incompleteVideos = effective.incompleteVideos;
 
   const hasUnexportedVideos = unexportedVideoCount > 0;
   const hasCourseViewLints = courseViewLintCount > 0;
+  const hasInvalidLessonCombos = invalidLessonCombos.length > 0;
+  const hasIncompleteVideos = incompleteVideos.length > 0;
   const canPublish =
     name.trim().length > 0 &&
     !hasUnexportedVideos &&
     !hasCourseViewLints &&
+    !hasInvalidLessonCombos &&
+    !hasIncompleteVideos &&
     !publishStarted &&
     !isOperationInProgress;
 
@@ -247,6 +257,75 @@ export default function Component(props: Route.ComponentProps) {
                 before publishing
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Incomplete Videos — a shipping video missing clips, body, or
+            description. Every field in course.json is required, so publishing
+            one would fail the build; block it here (see ADR 0019). */}
+        {hasIncompleteVideos && (
+          <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-medium text-amber-500">
+                {incompleteVideos.length} incomplete video
+                {incompleteVideos.length !== 1 ? "s" : ""} — finish{" "}
+                {incompleteVideos.length !== 1 ? "these" : "this"} before
+                publishing
+              </span>
+            </div>
+            <ul className="space-y-1.5">
+              {incompleteVideos.map((video) => (
+                <li
+                  key={`${video.sectionPath}/${video.lessonPath}/${video.videoTitle}`}
+                  className="text-xs text-muted-foreground"
+                >
+                  <span className="font-medium text-foreground">
+                    {video.videoTitle}
+                  </span>{" "}
+                  <span className="text-amber-500">
+                    (missing {video.missing.join(", ")})
+                  </span>
+                  <span className="block text-muted-foreground/70">
+                    {video.sectionPath} / {video.lessonPath}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Invalid Lesson Role Combos — a lesson whose videos don't form a valid
+            explainer / problem / solution combo. buildCourseJson can't resolve
+            it, so block publish until the roles are fixed in the course view. */}
+        {hasInvalidLessonCombos && (
+          <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-medium text-amber-500">
+                {invalidLessonCombos.length} lesson
+                {invalidLessonCombos.length !== 1 ? "s" : ""} with an invalid
+                video combo — fix in the course view before publishing
+              </span>
+            </div>
+            <ul className="space-y-1.5">
+              {invalidLessonCombos.map((lesson) => (
+                <li
+                  key={`${lesson.sectionPath}/${lesson.lessonPath}`}
+                  className="text-xs text-muted-foreground"
+                >
+                  <span className="font-medium text-foreground">
+                    {lesson.lessonPath}
+                  </span>{" "}
+                  <span className="text-amber-500">
+                    ({lesson.videoTitles.join(", ")})
+                  </span>
+                  <span className="block text-muted-foreground/70">
+                    {lesson.sectionPath}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

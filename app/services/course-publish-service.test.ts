@@ -363,6 +363,27 @@ describe("CoursePublishService", () => {
 
       expect(result.unexportedVideoIds).toEqual([]);
     });
+
+    it("surfaces incomplete shipping videos (the seed video has no body/description)", async () => {
+      const { version, run } = await setup();
+
+      const result = await run(
+        Effect.gen(function* () {
+          const svc = yield* CoursePublishService;
+          return (yield* svc.validatePublishability(version.id)).withTodo;
+        })
+      );
+
+      expect(result.incompleteVideos).toMatchObject([
+        {
+          sectionPath: "01-intro",
+          lessonPath: "01.01-welcome",
+          videoTitle: "Problem",
+          missing: ["body", "description"],
+        },
+      ]);
+      expect(result.invalidLessonCombos).toEqual([]);
+    });
   });
 
   describe("batchExport", () => {

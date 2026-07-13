@@ -3,6 +3,9 @@ import { Effect } from "effect";
 import { buildCourseJson, type BuildCourseJsonInput } from "../index";
 import { computeExportHash } from "@/services/export-hash";
 
+// A complete, shippable Video by default: every field course.json requires is
+// present (clips → hash + relativePath, a body, and a description). Tests that
+// exercise incompleteness override these to null / [] explicitly.
 const makeVideo = (
   overrides: Partial<
     BuildCourseJsonInput["sections"][0]["lessons"][0]["videos"][0]
@@ -11,10 +14,10 @@ const makeVideo = (
   }
 ) => ({
   lineageId: `vid-lineage-${overrides.title}`,
-  body: null,
-  description: null,
+  body: "Video body",
+  description: "Video description",
   archived: false,
-  clips: [],
+  clips: CLIPS,
   chapters: [],
   ...overrides,
 });
@@ -175,7 +178,6 @@ describe("buildCourseJson", () => {
       explainer: {
         body: "# Hello",
         description: "SEO text",
-        hash: null,
         chapters: [],
       },
     });
@@ -292,27 +294,6 @@ describe("buildCourseJson", () => {
     }
   });
 
-  it("sets hash to null when video has no clips", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", clips: [] })],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    const lesson = result.sections[0]!.lessons[0]!;
-    if (lesson.type === "explainer") {
-      expect(lesson.explainer.hash).toBeNull();
-    }
-  });
-
   // ── Relative path per video ────────────────────────────────────────
 
   it("sets relativePath to section-dir/lesson-dir/title.mp4 for an exportable video", async () => {
@@ -335,27 +316,6 @@ describe("buildCourseJson", () => {
       expect(lesson.explainer.relativePath).toBe(
         "03-concepts/03.01-models-harnesses-agents-environments/Explainer.mp4"
       );
-    }
-  });
-
-  it("sets relativePath to null when video has no clips", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", clips: [] })],
-            }),
-          ],
-        }),
-      ])
-    );
-
-    const lesson = result.sections[0]!.lessons[0]!;
-    if (lesson.type === "explainer") {
-      expect(lesson.explainer.relativePath).toBeNull();
     }
   });
 

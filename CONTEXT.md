@@ -33,7 +33,7 @@ An immutable CourseVersion with a name and description, created by the Publish f
 _Avoid_: Released version, Committed version
 
 **Publish**:
-The atomic operation that uploads to Dropbox, freezes the Draft Version as a Published Version (setting name/description), and clones a new Draft Version. Its structure is derived from the database (not parsed from disk); its Dropbox output is exclusively `.mp4` video files plus a single `course.json` and its companion `course.schema.json` (the JSON Schema describing course.json, referenced by course.json's `$schema` field) — no authoring sidecar files (`.transcript.md`, `.body.md`, `.meta.json`, `TODO.md`) and no `changelog.md`.
+The atomic operation that uploads to Dropbox, freezes the Draft Version as a Published Version (setting name/description), and clones a new Draft Version. Its structure is derived from the database (not parsed from disk); its Dropbox output is exclusively `.mp4` video files plus a single `course.json` and its companion `course.schema.json` (the JSON Schema describing course.json, referenced by course.json's `$schema` field) — no authoring sidecar files (`.transcript.md`, `.body.md`, `.meta.json`, `TODO.md`) and no `changelog.md`. Every shipping **Video** must be complete — it has exportable **Clips** (hence an `.mp4` and an **Export Hash**), a `body`, and a `description` — so every field in `course.json` is present, never null; an incomplete Video fails the Publish (see ADR 0019).
 _Avoid_: Commit, Deploy, Push
 
 **Export Version Key**:

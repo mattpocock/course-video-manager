@@ -122,6 +122,16 @@ const setupSync = async () => {
     });
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
+  // Every shipping Video needs a body and description to publish (see ADR 0019).
+  await testDb
+    .update(videosTable)
+    .set({ body: "Video body", description: "Video description" })
+    .where(eq(videosTable.id, video1.id));
+  await testDb
+    .update(videosTable)
+    .set({ body: "Video body", description: "Video description" })
+    .where(eq(videosTable.id, video2.id));
+
   const clipData = [
     {
       videoFilename: "recording.mp4",

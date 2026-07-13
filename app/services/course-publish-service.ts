@@ -22,6 +22,7 @@ import { computeCourseViewLintCount } from "./lesson-warnings";
 import {
   buildCourseJson,
   buildCourseJsonSchema,
+  collectPublishBlockers,
   computeEffectiveSections,
 } from "@/packages/course-json";
 
@@ -307,7 +308,19 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             }
             const courseViewLintCount =
               computeCourseViewLintCount(effectiveSections);
-            return { unexportedVideoIds, courseViewLintCount };
+
+            // Publish blockers computed from the exact same walk buildCourseJson
+            // uses (its backstop), so the pre-publish warnings and the build
+            // failure can never disagree — see collectPublishBlockers.
+            const { invalidLessonCombos, incompleteVideos } =
+              collectPublishBlockers(version.sections, includeTodoLessons);
+
+            return {
+              unexportedVideoIds,
+              courseViewLintCount,
+              invalidLessonCombos,
+              incompleteVideos,
+            };
           };
 
           return {
