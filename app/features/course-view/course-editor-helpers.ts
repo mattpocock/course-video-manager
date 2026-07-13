@@ -257,7 +257,7 @@ export function computeCourseStats(sections: Section[]) {
   for (const section of sections) {
     for (const lesson of section.lessons) {
       totalLessons++;
-      if (lesson.authoringStatus !== "done") todoCount++;
+      if (lesson.authoringStatus === "todo") todoCount++;
       totalVideos += lesson.videos.length;
       for (const video of lesson.videos) {
         totalDurationSeconds += video.totalDuration;
