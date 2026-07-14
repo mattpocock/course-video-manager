@@ -45,6 +45,7 @@ const makeClipOnDatabase = (
   pauseType: "none",
   diagramSnapshotId: null,
   diagramName: null,
+  webLinks: [],
   ...overrides,
 });
 

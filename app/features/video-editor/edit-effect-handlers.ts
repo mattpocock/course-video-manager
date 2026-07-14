@@ -294,6 +294,58 @@ export function createEditEffectHandlers(
         clipId: effect.clipId,
       });
     },
+    "persist-web-links": (_state, effect, dispatch) => {
+      fetch(`/api/clips/${effect.clipId}/web-links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ links: effect.links }),
+      })
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          return res.json();
+        })
+        .then((body: { webLinks: DB.ClipWebLink[] }) => {
+          dispatch({
+            type: "set-clip-web-links",
+            clipId: effect.clipId,
+            webLinks: body.webLinks,
+          });
+        })
+        .catch((error) => {
+          dispatch({
+            type: "effect-failed",
+            effectType: "persist-web-links",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to persist web links",
+          });
+        });
+    },
+    "delete-web-link": (_state, effect, dispatch) => {
+      const clip = clipStateRef.current.items.find(
+        (i) => i.type === "on-database" && i.frontendId === effect.clipId
+      );
+      const databaseClipId =
+        clip?.type === "on-database" ? clip.databaseId : null;
+      if (!databaseClipId) return;
+      fetch(`/api/clips/${databaseClipId}/web-links`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkId: effect.linkId }),
+      }).catch((error) => {
+        dispatch({
+          type: "effect-failed",
+          effectType: "delete-web-link",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete web link",
+        });
+      });
+    },
     "create-chapter-at": (_state, effect, dispatch) => {
       clipService
         .createChapterAtPosition({

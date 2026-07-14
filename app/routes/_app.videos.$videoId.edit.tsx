@@ -26,6 +26,8 @@ import { Effect } from "effect";
 import { useEffectReducer } from "use-effect-reducer";
 import { getActiveDiagramId } from "@/lib/diagram-window";
 import { isDiagramFocused } from "@/lib/diagram-focus-tracking";
+import { useBrowserLinkCapture } from "@/features/video-editor/hooks/use-browser-link-capture";
+import { openClipWindow, drainClipWebLinks } from "@/lib/browser-link-window";
 import type { Route } from "./+types/_app.videos.$videoId.edit";
 
 export const handle = { fullscreen: true };
@@ -215,6 +217,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           pauseType: clip.pauseType as PauseType,
           diagramSnapshotId: clip.diagramSnapshotId ?? null,
           diagramName: clip.diagramSnapshot?.diagram?.name ?? null,
+          webLinks: (clip.webLinks ?? []) as ClipOnDatabase["webLinks"],
         } satisfies ClipOnDatabase;
       } else {
         const chapter = item.data;
@@ -265,8 +268,16 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   const silenceLengthRef = useRef(silenceLength);
   silenceLengthRef.current = silenceLength;
 
+  // Records browser link-capture events from the Chrome extension so the drain
+  // below can attach on-screen URLs to the clip being recorded. Best-effort: no
+  // extension / hub means no capture.
+  useBrowserLinkCapture();
+
   const obsConnector = useOBSConnector({
     onNewClipOptimisticallyAdded: ({ scene, profile, soundDetectionId }) => {
+      // A clip's live window opens when speech is detected. Mark it so the
+      // browser-link timeline knows where this clip's window begins.
+      openClipWindow(Date.now());
       dispatch({
         type: "new-optimistic-clip-detected",
         scene,
@@ -284,6 +295,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
         sessionId: activeSession.id,
         activeDiagramId: getActiveDiagramId(),
         diagramFocused: isDiagramFocused(),
+        webLinks: drainClipWebLinks(Date.now()),
       });
     },
     silenceLength,
@@ -498,6 +510,9 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           .catch((error) => {
             console.error("Failed to update diagram pin", error);
           });
+      }}
+      onRemoveWebLink={(clipId, linkId) => {
+        dispatch({ type: "remove-clip-web-link", clipId, linkId });
       }}
       error={clipState.error}
       onCreateVideoFromSelection={(

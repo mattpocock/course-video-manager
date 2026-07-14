@@ -2,6 +2,7 @@ import { createContext } from "use-context-selector";
 import type {
   Clip,
   ClipOnDatabase,
+  DatabaseId,
   FrontendId,
   FrontendInsertionPoint,
   RecordingSession,
@@ -143,6 +144,9 @@ export type VideoEditorContextType = {
 
   // Diagram pin
   onUnpinDiagram: (clipId: FrontendId) => void;
+
+  // Web links captured during recording
+  onRemoveWebLink: (clipId: FrontendId, linkId: DatabaseId) => void;
 };
 
 export const VideoEditorContext = createContext<VideoEditorContextType>(null!);

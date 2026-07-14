@@ -3,7 +3,7 @@ import {
   type Database,
 } from "@/services/drizzle-service.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { clips, chapters, videos } from "@/db/schema";
+import { clips, chapters, videos, clipWebLinks } from "@/db/schema";
 import {
   CannotArchiveLessonVideoError,
   NotFoundError,
@@ -213,6 +213,9 @@ export const createVideoOperations = (
                     columns: { name: true },
                   },
                 },
+              },
+              webLinks: {
+                orderBy: asc(clipWebLinks.capturedAt),
               },
             },
           },

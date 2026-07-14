@@ -1,6 +1,7 @@
 import type { DB } from "@/db/schema";
 import type { PauseType } from "@/services/video-processing-service";
 import type { SilenceLength } from "@/silence-detection-constants";
+import type { CapturedWebLink } from "@/lib/clip-web-link-timeline";
 import type { Brand } from "./utils";
 
 export type DatabaseId = Brand<string, "DatabaseId">;
@@ -36,6 +37,12 @@ export type ClipOnDatabase = {
   pauseType: PauseType;
   diagramSnapshotId: string | null;
   diagramName: string | null;
+  /**
+   * Web pages that were on screen (focused Chrome window) while this clip was
+   * recorded. Loaded from the DB for existing clips, and filled in after a
+   * freshly-recorded clip's captured links are persisted.
+   */
+  webLinks: DB.ClipWebLink[];
   /**
    * If true, this clip has been archived by the user (deleted from session panel).
    * The clip stays in state so it can appear in the archived sub-section of the
@@ -93,6 +100,12 @@ export type ClipOptimisticallyAdded = {
     activeDiagramId: string | null;
     diagramFocused: boolean;
   };
+  /**
+   * Web links that were on screen during this clip, captured when the clip's
+   * audio window closed. Read when the optimistic clip is paired with a database
+   * clip, at which point they are persisted as `clip_web_link` rows.
+   */
+  pendingWebLinks?: CapturedWebLink[];
 };
 
 export const createFrontendId = (): FrontendId => {
@@ -305,6 +318,17 @@ export type ClipReducerAction =
       sessionId: SessionId;
       activeDiagramId: string | null;
       diagramFocused: boolean;
+      webLinks: CapturedWebLink[];
+    }
+  | {
+      type: "set-clip-web-links";
+      clipId: DatabaseId;
+      webLinks: DB.ClipWebLink[];
+    }
+  | {
+      type: "remove-clip-web-link";
+      clipId: FrontendId;
+      linkId: DatabaseId;
     };
 
 export type ClipReducerEffect =
@@ -399,6 +423,16 @@ export type ClipReducerEffect =
       type: "snapshot-for-clip";
       diagramId: string;
       clipId: DatabaseId;
+    }
+  | {
+      type: "persist-web-links";
+      clipId: DatabaseId;
+      links: CapturedWebLink[];
+    }
+  | {
+      type: "delete-web-link";
+      clipId: FrontendId;
+      linkId: DatabaseId;
     };
 
 export type ClipReducerExec = (effect: ClipReducerEffect) => void;

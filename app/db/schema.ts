@@ -268,6 +268,32 @@ export const clips = createTable("clip", {
   ),
 });
 
+/**
+ * Web pages that were on screen (in a focused Chrome window) while a clip was
+ * being recorded. Captured live during the optimistic-clip lifecycle from the
+ * browser link-capture extension, one row per distinct URL shown during the
+ * clip. See docs/adr on clip web links and the `chrome-extension/` directory.
+ */
+export const clipWebLinks = createTable("clip_web_link", {
+  id: varchar("id", { length: 255 })
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  clipId: varchar("clip_id", { length: 255 })
+    .references(() => clips.id, { onDelete: "cascade" })
+    .notNull(),
+  url: text("url").notNull(),
+  title: text("title"),
+  // Wall-clock time the URL was first shown during the clip. Used to order the
+  // links within a clip chronologically.
+  capturedAt: timestamp("captured_at", {
+    mode: "date",
+    withTimezone: true,
+  })
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const chapters = createTable("chapter", {
   id: varchar("id", { length: 255 })
     .notNull()
@@ -322,13 +348,29 @@ export namespace DB {
   > {
     id: DatabaseId;
   }
+
+  export interface ClipWebLink extends Omit<
+    InferSelectModel<typeof clipWebLinks>,
+    "id" | "clipId"
+  > {
+    id: DatabaseId;
+    clipId: DatabaseId;
+  }
 }
 
-export const clipsRelations = relations(clips, ({ one }) => ({
+export const clipsRelations = relations(clips, ({ one, many }) => ({
   video: one(videos, { fields: [clips.videoId], references: [videos.id] }),
   diagramSnapshot: one(diagramSnapshots, {
     fields: [clips.diagramSnapshotId],
     references: [diagramSnapshots.id],
+  }),
+  webLinks: many(clipWebLinks),
+}));
+
+export const clipWebLinksRelations = relations(clipWebLinks, ({ one }) => ({
+  clip: one(clips, {
+    fields: [clipWebLinks.clipId],
+    references: [clips.id],
   }),
 }));
 

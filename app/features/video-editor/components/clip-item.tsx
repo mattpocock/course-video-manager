@@ -17,6 +17,7 @@ import {
   ChevronRightIcon,
   FilmIcon,
   ImageIcon,
+  Link2Icon,
   Loader2,
   PauseIcon,
   PlusIcon,
@@ -39,6 +40,7 @@ import {
   fetchMeta,
 } from "@/features/diagrams/use-diagram-snapshot-scene";
 import { resolveForClip } from "@/lib/diagram-action-resolver";
+import { getWebLinkLabel } from "@/lib/clip-web-link-timeline";
 import {
   openPlayground,
   openPlaygroundWithDiagram,
@@ -94,6 +96,10 @@ export const ClipItem = (props: ClipItemProps) => {
   const onSetInsertionPoint = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.onSetInsertionPoint
+  );
+  const onRemoveWebLink = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.onRemoveWebLink
   );
   const onMoveClip = useContextSelector(
     VideoEditorContext,
@@ -238,6 +244,41 @@ export const ClipItem = (props: ClipItemProps) => {
                 snapshotId={clip.diagramSnapshotId}
                 diagramName={clip.diagramName}
               />
+            )}
+
+            {/* On-screen web links captured during recording */}
+            {clip.type === "on-database" && clip.webLinks.length > 0 && (
+              <div className="z-10 relative mt-2 flex flex-wrap gap-1">
+                {clip.webLinks.map((link) => (
+                  <span
+                    key={link.id}
+                    className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground max-w-[16rem]"
+                  >
+                    <Link2Icon className="w-3 h-3 shrink-0" />
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={link.url}
+                      className="truncate hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {link.title || getWebLinkLabel(link.url)}
+                    </a>
+                    <button
+                      type="button"
+                      aria-label="Remove link"
+                      className="shrink-0 rounded hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveWebLink(clip.frontendId, link.id);
+                      }}
+                    >
+                      <XIcon className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         </button>

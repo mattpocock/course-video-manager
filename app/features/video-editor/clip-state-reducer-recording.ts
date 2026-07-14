@@ -1,6 +1,7 @@
 import type { PauseType } from "@/services/video-processing-service";
 import { DEFAULT_SILENCE_LENGTH } from "@/silence-detection-constants";
 import { shouldSnapshot } from "@/lib/snapshot-rule";
+import type { CapturedWebLink } from "@/lib/clip-web-link-timeline";
 import type {
   ClipOnDatabase,
   ClipOptimisticallyAdded,
@@ -266,6 +267,38 @@ const emitSnapshotForClipEffects = (
   }
 };
 
+type PendingWebLinksEffect = {
+  clipId: DatabaseId;
+  links: CapturedWebLink[];
+};
+
+const collectWebLinksForClip = (
+  frontendClip: TimelineItem | undefined,
+  databaseClipId: DatabaseId
+): PendingWebLinksEffect | null => {
+  if (
+    frontendClip?.type !== "optimistically-added" ||
+    !frontendClip.pendingWebLinks ||
+    frontendClip.pendingWebLinks.length === 0
+  ) {
+    return null;
+  }
+  return { clipId: databaseClipId, links: frontendClip.pendingWebLinks };
+};
+
+const emitPersistWebLinksEffects = (
+  webLinks: PendingWebLinksEffect[],
+  exec: ClipReducerExec
+) => {
+  for (const entry of webLinks) {
+    exec({
+      type: "persist-web-links",
+      clipId: entry.clipId,
+      links: entry.links,
+    });
+  }
+};
+
 const handleNewDatabaseClips = (
   state: ClipReducerState,
   action: Extract<ClipReducerAction, { type: "new-database-clips" }>,
@@ -277,6 +310,7 @@ const handleNewDatabaseClips = (
   const databaseClipIdsToTranscribe = new Set<DatabaseId>();
   const frontendClipIdsToTranscribe = new Set<FrontendId>();
   const snapshotsToCreate: PendingSnapshotEffect[] = [];
+  const webLinksToPersist: PendingWebLinksEffect[] = [];
   const clipsToUpdateScene = new Map<
     DatabaseId,
     { scene: string; profile: string; pauseType: PauseType }
@@ -316,6 +350,12 @@ const handleNewDatabaseClips = (
       );
       if (pendingSnapshot) snapshotsToCreate.push(pendingSnapshot);
 
+      const pendingWebLinks = collectWebLinksForClip(
+        frontendClip,
+        databaseClip.id
+      );
+      if (pendingWebLinks) webLinksToPersist.push(pendingWebLinks);
+
       if (
         frontendClip?.type === "optimistically-added" &&
         frontendClip?.shouldArchive
@@ -331,6 +371,7 @@ const handleNewDatabaseClips = (
           pauseType: frontendClip.pauseType,
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
+          webLinks: [],
           shouldArchive: true,
           sessionId: frontendClip.sessionId,
         };
@@ -355,6 +396,7 @@ const handleNewDatabaseClips = (
           pauseType: frontendClip.pauseType,
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
+          webLinks: [],
         };
         newClipsState[index] = newDatabaseClip;
         clipsToUpdateScene.set(databaseClip.id, {
@@ -377,6 +419,7 @@ const handleNewDatabaseClips = (
         pauseType: databaseClip.pauseType as PauseType,
         diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
         diagramName: null,
+        webLinks: [],
       };
 
       const result = insertAtPoint(
@@ -421,6 +464,7 @@ const handleNewDatabaseClips = (
   }
 
   emitSnapshotForClipEffects(snapshotsToCreate, exec);
+  emitPersistWebLinksEffects(webLinksToPersist, exec);
 
   return {
     ...state,
@@ -439,6 +483,7 @@ const handleClipAudioWindowClosed = (
     sessionId: SessionId;
     activeDiagramId: string | null;
     diagramFocused: boolean;
+    webLinks: CapturedWebLink[];
   }
 ): ClipReducerState => {
   let targetIndex = -1;
@@ -465,6 +510,7 @@ const handleClipAudioWindowClosed = (
               activeDiagramId: action.activeDiagramId,
               diagramFocused: action.diagramFocused,
             },
+            pendingWebLinks: action.webLinks,
           }
         : item
     ),

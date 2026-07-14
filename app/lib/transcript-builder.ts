@@ -4,12 +4,42 @@ import type {
   SectionWithWordCount,
 } from "@/features/article-writer/types";
 
+export interface TranscriptWebLink {
+  url: string;
+  title: string | null;
+}
+
 export interface ClipInput {
   order: string;
   text: string | null;
   sourceStartTime: number;
   sourceEndTime: number;
   videoFilename: string;
+  webLinks?: readonly TranscriptWebLink[];
+}
+
+/**
+ * Renders the "on screen" annotation for the web links shown during a clip,
+ * for inline injection right after the clip's `[N]` marker.
+ *
+ * Deduped globally across the transcript via `seenUrls`: a URL is only annotated
+ * on its first appearance, so the writer is nudged to cite each page once. The
+ * passed set is mutated with any newly-seen URLs. Returns "" when there is
+ * nothing new to annotate.
+ */
+export function formatOnScreenLinks(
+  webLinks: readonly TranscriptWebLink[] | undefined,
+  seenUrls: Set<string>
+): string {
+  if (!webLinks || webLinks.length === 0) return "";
+  const fresh: string[] = [];
+  for (const link of webLinks) {
+    if (seenUrls.has(link.url)) continue;
+    seenUrls.add(link.url);
+    fresh.push(link.title ? `${link.title} — ${link.url}` : link.url);
+  }
+  if (fresh.length === 0) return "";
+  return `«on screen: ${fresh.join("; ")}» `;
 }
 
 export interface ChapterInput {
@@ -30,6 +60,7 @@ type OrderedItem =
       sourceStartTime: number;
       sourceEndTime: number;
       videoFilename: string;
+      webLinks?: readonly TranscriptWebLink[];
     }
   | { type: "section"; order: string; id: string; name: string };
 
@@ -45,6 +76,7 @@ function toOrderedItems(
       sourceStartTime: clip.sourceStartTime,
       sourceEndTime: clip.sourceEndTime,
       videoFilename: clip.videoFilename,
+      webLinks: clip.webLinks,
     })),
     ...chapters.map<OrderedItem>((section) => ({
       type: "section",
@@ -143,6 +175,10 @@ export function buildTranscript(
   const sections: SectionWithWordCount[] = [];
   let currentSectionIndex = -1;
 
+  // URLs already annotated earlier in the transcript. A given page is only
+  // called out on its first appearance so the writer cites it once.
+  const seenUrls = new Set<string>();
+
   for (const item of sortedItems) {
     if (item.type === "section") {
       if (currentParagraph.length > 0) {
@@ -168,7 +204,8 @@ export function buildTranscript(
       });
 
       if (item.text) {
-        currentParagraph.push(`[${clipIndex}] ${item.text}`);
+        const onScreen = formatOnScreenLinks(item.webLinks, seenUrls);
+        currentParagraph.push(`[${clipIndex}] ${onScreen}${item.text}`);
         if (currentSectionIndex >= 0) {
           sections[currentSectionIndex]!.wordCount +=
             item.text.split(/\s+/).length;

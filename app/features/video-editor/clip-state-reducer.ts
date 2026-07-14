@@ -402,6 +402,7 @@ export const clipStateReducer: EffectReducer<
               pauseType: item.pauseType,
               diagramSnapshotId: null,
               diagramName: null,
+              webLinks: [],
             };
             return onDatabase;
           }
@@ -522,6 +523,42 @@ export const clipStateReducer: EffectReducer<
               ...item,
               diagramSnapshotId: action.diagramSnapshotId,
               diagramName: action.diagramName,
+            };
+          }
+          return item;
+        }),
+      };
+    }
+    case "set-clip-web-links": {
+      return {
+        ...state,
+        items: state.items.map((item) => {
+          if (
+            item.type === "on-database" &&
+            item.databaseId === action.clipId
+          ) {
+            return { ...item, webLinks: action.webLinks };
+          }
+          return item;
+        }),
+      };
+    }
+    case "remove-clip-web-link": {
+      exec({
+        type: "delete-web-link",
+        clipId: action.clipId,
+        linkId: action.linkId,
+      });
+      return {
+        ...state,
+        items: state.items.map((item) => {
+          if (
+            item.type === "on-database" &&
+            item.frontendId === action.clipId
+          ) {
+            return {
+              ...item,
+              webLinks: item.webLinks.filter((l) => l.id !== action.linkId),
             };
           }
           return item;

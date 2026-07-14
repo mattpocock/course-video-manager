@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "CVM Browser Link Capture",
+  "version": "1.0.0",
+  "description": "Streams the focused Chrome tab's URL to the Course Video Manager over WebSocket, so web pages shown on screen during recording get attached to clips.",
+  "permissions": ["tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "CVM Link Capture"
+  }
+}

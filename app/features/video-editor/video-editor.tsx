@@ -34,6 +34,7 @@ import {
 import { enableVideoEditorMode } from "@/lib/diagram-window";
 import { useFetcher, useRevalidator, useSubmit } from "react-router";
 import type {
+  DatabaseId,
   EditorError,
   FrontendId,
   FrontendInsertionPoint,
@@ -134,6 +135,7 @@ export const VideoEditor = (props: {
     mode: "copy" | "move"
   ) => void;
   onUpdateClipDiagramPin: UpdateClipDiagramPinFn;
+  onRemoveWebLink: (clipId: FrontendId, linkId: DatabaseId) => void;
 }) => {
   // Filter items for the main timeline (excludes optimistic clips and archived items)
   const timelineItems = useMemo(
@@ -220,6 +222,8 @@ export const VideoEditor = (props: {
     props.items,
     props.onUpdateClipDiagramPin
   );
+
+  const onRemoveWebLink = props.onRemoveWebLink;
 
   // Setup keyboard shortcuts
   useKeyboardShortcuts(dispatch);
@@ -457,6 +461,9 @@ export const VideoEditor = (props: {
 
       // Diagram pin
       onUnpinDiagram,
+
+      // Web links
+      onRemoveWebLink,
     }),
     [
       state,
@@ -526,6 +533,7 @@ export const VideoEditor = (props: {
       generateDefaultChapterName,
       onOpenGenerateChaptersModal,
       onUnpinDiagram,
+      onRemoveWebLink,
     ]
   );
 
