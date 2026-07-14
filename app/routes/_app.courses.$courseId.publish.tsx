@@ -121,6 +121,7 @@ export default function Component(props: Route.ComponentProps) {
   const hasIncompleteVideos = incompleteVideos.length > 0;
   const canPublish =
     name.trim().length > 0 &&
+    description.trim().length > 0 &&
     !hasUnexportedVideos &&
     !hasCourseViewLints &&
     !hasInvalidLessonCombos &&
@@ -186,10 +187,10 @@ export default function Component(props: Route.ComponentProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="version-description">Description</Label>
+            <Label htmlFor="version-description">Description *</Label>
             <Textarea
               id="version-description"
-              placeholder="Optional description of what changed..."
+              placeholder="Describe what changed in this version..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={publishStarted}
