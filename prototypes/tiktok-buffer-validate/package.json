@@ -1,0 +1,16 @@
+{
+  "name": "tiktok-buffer-validate",
+  "private": true,
+  "type": "module",
+  "description": "THROWAWAY prototype — validates the Vercel Blob -> Buffer GraphQL createPost -> TikTok transport (CVM wayfinder #1278). Not production code; do not merge to main.",
+  "scripts": {
+    "channels": "tsx validate.ts --list-channels",
+    "validate": "tsx validate.ts"
+  },
+  "dependencies": {
+    "@vercel/blob": "^0.27.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}
