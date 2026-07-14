@@ -76,9 +76,8 @@ const nameOpt = Options.text("name").pipe(
 );
 
 const descriptionOpt = Options.text("description").pipe(
-  Options.withDefault(""),
   Options.withDescription(
-    "free-text description carried on the Published Version"
+    "free-text description carried on the Published Version (required)"
   )
 );
 
@@ -118,7 +117,7 @@ VALIDATION
 
 FLAGS
   --name <vX.Y.Z>     (required) the Published Version name.
-  --description <text> (optional) description for the Published Version.
+  --description <text> (required) description for the Published Version.
   --exclude-todo      withhold to-do Lessons (default ships every Lesson, matching
                       the standalone Dropbox mirror).
 
@@ -127,9 +126,9 @@ OUTPUT
   description }. Errors go to STDERR as the usual tagged contract object.
 
 EXAMPLES
-  cvm course publish course_123 --name v1.0.0
+  cvm course publish course_123 --name v1.0.0 --description "first cut"
   cvm course publish course_123 --name v1.1.0 --description "adds the testing section"
-  cvm course publish course_123 --name v2.0.0-beta.1 --exclude-todo`;
+  cvm course publish course_123 --name v2.0.0-beta.1 --description "beta" --exclude-todo`;
 
 // ---------------------------------------------------------------------------
 // publish
