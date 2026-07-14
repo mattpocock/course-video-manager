@@ -40,7 +40,20 @@ throwaway branch only.
 4. Test MP4s already on your machine: `~/Desktop/cvm-tiktok-test/` (incl. the
    141 MB / 75 s 1080×1920 one — the whole point is proving >100 MB works).
 
-## Run it
+## Fastest path: the wizard
+
+```bash
+cd prototypes/tiktok-buffer-validate
+./setup-wizard.sh
+```
+
+`setup-wizard.sh` walks you through all of it — opens Buffer + Vercel, captures
+both secrets into a git-ignored `.env`, installs deps, runs `npm run channels`
+to find the TikTok channel id, then (after a confirm) fires the post. Ctrl-C and
+re-run any time; it remembers what you already entered. The manual steps below
+are the same thing by hand.
+
+## Run it by hand
 
 ```bash
 cd prototypes/tiktok-buffer-validate
