@@ -1,6 +1,7 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect } from "effect";
 import { courseSearchCmd } from "./search";
+import { publishCmd } from "./course-publish";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
@@ -275,6 +276,8 @@ VERBS
   get <id...>          Course + section/lesson structure summary (variadic).
   tree <id>            Structure skeleton (--depth N|all, --course-version <id>).
   transcripts <id>     Video transcripts for the version, keyed by video id.
+  publish <id>         WRITE: mirror the Draft to Dropbox and freeze it as a
+                       named Published Version (--name vX.Y.Z required).
   search <id> <query>  Case-insensitive substring search down this course's
                        Draft subtree (--type course|section|lesson|video|beat).
 
@@ -289,6 +292,7 @@ export const courseCommand = Command.make("course").pipe(
     getCmd,
     treeCmd,
     transcriptsCmd,
+    publishCmd,
     courseSearchCmd,
   ])
 );

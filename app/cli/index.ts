@@ -20,8 +20,9 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'beat' (add/update/move/delete), 'lesson' (create/update/move), 'video'
-(create/move/update) and 'pitch' (create/update). Every other verb is read-only,
-and each verb's own --help is authoritative about whether it reads or writes.
+(create/move/update), 'pitch' (create/update) and 'course' (publish). Every
+other verb is read-only, and each verb's own --help is authoritative about
+whether it reads or writes.
 
 DOMAIN MODEL
   A Course is the primary entity. Its structure is snapshotted into Course
@@ -66,7 +67,13 @@ WRITES
                                      pitch, or rename it (--name)
     pitch   create/update            create a Pitch (--title required) or patch
                                      its copy/ranking fields
+    course  publish                  mirror the Draft Version to Dropbox and
+                                     freeze it as a named Published Version
+                                     (--name vX.Y.Z, a lowercase-'v' semver)
   See each noun's --help for the authoritative contract.
+
+  Publish is heavier than the other writes: it also touches the filesystem
+  (Dropbox) and reads publish-only config from the repo .env.
 
 NOUNS
   course version section lesson video clip beat pitch deliverable
