@@ -76,6 +76,10 @@ _Avoid_: Clip group, Divider, Marker, Section (ambiguous with course Section)
 A clip added to the frontend state during recording before it is persisted to the database.
 _Avoid_: Pending clip, Temporary clip
 
+**Clip Web Link**:
+A web page that was on screen — in a focused Chrome window, showing an `http(s)` page — while a **Clip** was being recorded. A one-to-many child of a Clip (a Clip can have several), captured live during the **Optimistic Clip** lifecycle from the browser link-capture Chrome extension (see `chrome-extension/`), which streams focus/URL events over the Stream Deck **WebSocket** hub. Deduped to one row per distinct URL per Clip. Surfaced as chips under the Clip in the editor and annotated inline in the **Transcript** (`«on screen: …»`, deduped to a URL's first appearance) so the writer agent knows which page accompanied each moment. Deliberately distinct from the global **Link** list (course-wide reference URLs with no clip/timing association): a Clip Web Link is positional and per-clip.
+_Avoid_: Link (reserved for the global reference-URL list), Clip URL, On-screen link (informal, ok in prose)
+
 **Transcript**:
 The ordered text projection of a **Video** — its **Clips** and **Chapters** interleaved in timeline order. The unit of comparison for changelog diffs. Changes to either Clips or Chapters are first-class changes to the Transcript: a Chapter rename, insertion, deletion, or reorder is a Transcript change in the same sense that editing a Clip's text is. Rendered with each Chapter as a `## <name>` header between paragraphs of clip text.
 _Avoid_: Clip text (only covers Clips), Joined clips, Caption (reserved for the per-clip transcription product)

@@ -272,7 +272,8 @@ export const clips = createTable("clip", {
  * Web pages that were on screen (in a focused Chrome window) while a clip was
  * being recorded. Captured live during the optimistic-clip lifecycle from the
  * browser link-capture extension, one row per distinct URL shown during the
- * clip. See docs/adr on clip web links and the `chrome-extension/` directory.
+ * clip. See docs/adr/0020-clip-web-links-over-websocket.md and the
+ * `chrome-extension/` directory.
  */
 export const clipWebLinks = createTable("clip_web_link", {
   id: varchar("id", { length: 255 })
