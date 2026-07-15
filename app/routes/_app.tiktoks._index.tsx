@@ -95,6 +95,7 @@ export default function TikToksIndex(props: Route.ComponentProps) {
             <RecordTile />
             {shorts.map((video) => {
               const status = getShortStatus(video.id, exportedMap, postedMap);
+              const StatusIcon = STATUS_META[status].icon;
               const totalDuration = video.clips.reduce(
                 (acc, clip) =>
                   acc + (clip.sourceEndTime - clip.sourceStartTime),
@@ -126,10 +127,7 @@ export default function TikToksIndex(props: Route.ComponentProps) {
                   </div>
                   <div className="p-2">
                     <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5">
-                      {(() => {
-                        const Icon = STATUS_META[status].icon;
-                        return <Icon className="w-3 h-3" />;
-                      })()}
+                      <StatusIcon className="w-3 h-3" />
                       {STATUS_META[status].label}
                     </span>
                     <p className="text-xs font-medium group-hover:text-foreground/80">
