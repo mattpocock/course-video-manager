@@ -89,6 +89,15 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
           );
           const durationInFrames = Math.ceil(totalDuration * fps);
 
+          // The call-to-action pill pops up at the very start and fades out over
+          // the length of the first clip. This mirrors the original Total
+          // TypeScript renderer, which set `ctaDurationInFrames` to the first
+          // clip's length. It is always the "ai" branded CTA.
+          const firstClip = video.clips[0]!;
+          const ctaDurationInFrames = Math.ceil(
+            (firstClip.sourceEndTime - firstClip.sourceStartTime) * fps
+          );
+
           // Step 5: Render Remotion overlay
           opts.onStageChange?.("rendering-overlay");
           const overlayDir = path.join(tmpdir(), "cvm-overlay-render");
@@ -106,7 +115,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             fps,
             durationInFrames,
             subtitles,
-            cta: null,
+            cta: { variant: "ai", durationInFrames: ctaDurationInFrames },
           });
 
           yield* renderOverlay(effectFs, propsJson, overlayPath);
