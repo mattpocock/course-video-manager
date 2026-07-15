@@ -7,7 +7,7 @@ export const action = makeAction({
   effect: () =>
     Effect.gen(function* () {
       const spacedesk = yield* SpacedeskService;
-      yield* spacedesk.openViewer();
+      yield* spacedesk.wakeDisplay();
       return { success: true as const };
     }).pipe(
       // Return failures as data so the button can surface a toast instead of

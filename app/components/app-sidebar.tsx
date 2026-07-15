@@ -84,7 +84,7 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   useEffect(() => {
     if (spacedeskFetcher.state !== "idle" || !spacedeskFetcher.data) return;
     if (spacedeskFetcher.data.success) {
-      toast("Opening the Space Desk window…");
+      toast("Space Desk display is waking up…");
     } else {
       toast.error(spacedeskFetcher.data.message);
     }
