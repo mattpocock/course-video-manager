@@ -44,7 +44,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
           if (video.clips.length === 0) {
             return yield* new RenderVerticalError({
               cause: null,
-              message: "Video has no clips to render",
+              message: "Video has no clips to export",
             });
           }
 

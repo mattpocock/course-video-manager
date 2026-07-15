@@ -239,7 +239,7 @@ const youtubeShortsConfig: UploadTypeConfig<
     );
   },
 
-  supportsDependsOn: false,
+  supportsDependsOn: true,
 };
 
 export interface BufferParams {
@@ -302,7 +302,7 @@ const bufferConfig: UploadTypeConfig<
     );
   },
 
-  supportsDependsOn: false,
+  supportsDependsOn: true,
 };
 
 export interface AiHeroParams {

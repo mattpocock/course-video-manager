@@ -45,7 +45,7 @@ const CourseJsonVideo = Schema.Struct({
   }),
   hash: Schema.String.annotations({
     description:
-      "Export Hash identifying the rendered .mp4 (SHA256 of the video's clip filenames and timestamps in sequence, plus the Export Version Key).",
+      "Export Hash identifying the exported .mp4 (SHA256 of the video's clip filenames and timestamps in sequence, plus the Export Version Key).",
   }),
   chapters: Schema.Array(CourseJsonChapter).annotations({
     description: "The video's chapters, in timeline order.",

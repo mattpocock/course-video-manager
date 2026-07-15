@@ -26,43 +26,43 @@ export const loader = makeLoader({
         format: "short",
       });
 
-      const renderedMap: Record<string, boolean> = {};
+      const exportedMap: Record<string, boolean> = {};
       const postedMap: Record<string, boolean> = {};
       yield* Effect.forEach(shorts, (video) =>
         Effect.gen(function* () {
           const mp4Path = `${finishedDir}/${video.id}.mp4`;
-          renderedMap[video.id] = yield* fs.exists(mp4Path);
+          exportedMap[video.id] = yield* fs.exists(mp4Path);
 
           const posts = yield* videoPostOps.listByVideoId(video.id);
           postedMap[video.id] = posts.some((p) => p.postedAt !== null);
         })
       );
 
-      return { shorts, renderedMap, postedMap };
+      return { shorts, exportedMap, postedMap };
     }),
 });
 
-type ShortStatus = "recorded" | "rendered" | "posted";
+type ShortStatus = "recorded" | "exported" | "posted";
 
 function getShortStatus(
   videoId: string,
-  renderedMap: Record<string, boolean>,
+  exportedMap: Record<string, boolean>,
   postedMap: Record<string, boolean>
 ): ShortStatus {
   if (postedMap[videoId]) return "posted";
-  if (renderedMap[videoId]) return "rendered";
+  if (exportedMap[videoId]) return "exported";
   return "recorded";
 }
 
 const STATUS_COLORS: Record<ShortStatus, string> = {
   recorded: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
-  rendered: "bg-green-500/15 text-green-700 dark:text-green-400",
+  exported: "bg-green-500/15 text-green-700 dark:text-green-400",
   posted: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
 };
 
 const STATUS_LABELS: Record<ShortStatus, string> = {
   recorded: "Recorded",
-  rendered: "Rendered",
+  exported: "Exported",
   posted: "Posted",
 };
 
@@ -100,7 +100,7 @@ function RecordTile() {
 }
 
 export default function TikToksIndex(props: Route.ComponentProps) {
-  const { shorts, renderedMap, postedMap } = props.loaderData;
+  const { shorts, exportedMap, postedMap } = props.loaderData;
 
   useFocusRevalidate({ enabled: true });
 
@@ -118,7 +118,7 @@ export default function TikToksIndex(props: Route.ComponentProps) {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             <RecordTile />
             {shorts.map((video) => {
-              const status = getShortStatus(video.id, renderedMap, postedMap);
+              const status = getShortStatus(video.id, exportedMap, postedMap);
               const totalDuration = video.clips.reduce(
                 (acc, clip) =>
                   acc + (clip.sourceEndTime - clip.sourceStartTime),

@@ -18,6 +18,8 @@ import {
 import { LinkIcon, Loader2Icon, SendIcon, SparklesIcon } from "lucide-react";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 
+type PostState = "idle" | "checking-export";
+
 const SHORTS_TITLE_KEY = (videoId: string) => `shorts-post-title-${videoId}`;
 const SHORTS_DESC_KEY = (videoId: string) =>
   `shorts-post-description-${videoId}`;
@@ -54,8 +56,13 @@ export function ShortsPostingModal({
   const [shortLinkUrl, setShortLinkUrl] = useState<string | null>(null);
   const [isCreatingShortLink, setIsCreatingShortLink] = useState(false);
 
-  const { startYoutubeShortsUpload, startSocialUpload } =
-    useContext(UploadContext);
+  const {
+    startYoutubeShortsUpload,
+    startSocialUpload,
+    startRenderVerticalUpload,
+  } = useContext(UploadContext);
+
+  const [postState, setPostState] = useState<PostState>("idle");
 
   const handleGenerate = async (
     mode: "youtube-title-single" | "youtube-description" | "social-caption",
@@ -111,24 +118,53 @@ export function ShortsPostingModal({
     }
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!title.trim() || !description.trim()) {
       toast.error("Title and description are required");
       return;
     }
 
-    startYoutubeShortsUpload(videoId, title.trim(), description.trim());
+    setPostState("checking-export");
+    try {
+      const res = await fetch(`/api/videos/${videoId}/vertical-export-exists`);
+      const { exists } = await res.json();
 
-    if (caption.trim()) {
-      startSocialUpload(videoId, title.trim(), caption.trim());
+      if (exists) {
+        startYoutubeShortsUpload(videoId, title.trim(), description.trim());
+
+        if (caption.trim()) {
+          startSocialUpload(videoId, title.trim(), caption.trim());
+        }
+
+        onOpenChange(false);
+        toast(
+          caption.trim()
+            ? "YouTube Shorts + Buffer posting started"
+            : "YouTube Shorts upload started"
+        );
+      } else {
+        const exportId = startRenderVerticalUpload(videoId, title.trim());
+        startYoutubeShortsUpload(
+          videoId,
+          title.trim(),
+          description.trim(),
+          exportId
+        );
+
+        if (caption.trim()) {
+          startSocialUpload(videoId, title.trim(), caption.trim(), exportId);
+        }
+
+        onOpenChange(false);
+        toast("Export + post started", {
+          description: `"${title.trim()}" will export first, then post`,
+        });
+      }
+    } catch {
+      toast.error("Failed to check export status");
+    } finally {
+      setPostState("idle");
     }
-
-    onOpenChange(false);
-    toast(
-      caption.trim()
-        ? "YouTube Shorts + Buffer posting started"
-        : "YouTube Shorts upload started"
-    );
   };
 
   return (
@@ -138,7 +174,7 @@ export function ShortsPostingModal({
           <DialogTitle>Post Short</DialogTitle>
           <DialogDescription>
             Post to YouTube Shorts and Buffer (TikTok / X / Bluesky). The
-            finished vertical render will be used.
+            exported vertical video will be used.
           </DialogDescription>
         </DialogHeader>
 
@@ -267,10 +303,23 @@ export function ShortsPostingModal({
           </Button>
           <Button
             onClick={handlePost}
-            disabled={!title.trim() || !description.trim()}
+            disabled={
+              !title.trim() ||
+              !description.trim() ||
+              postState === "checking-export"
+            }
           >
-            <SendIcon className="w-4 h-4 mr-2" />
-            Post Short
+            {postState === "checking-export" ? (
+              <>
+                <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+                Checking export...
+              </>
+            ) : (
+              <>
+                <SendIcon className="w-4 h-4 mr-2" />
+                Post Short
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

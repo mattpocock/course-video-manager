@@ -36,6 +36,6 @@ export const action = async (args: Route.ActionArgs) => {
         },
       },
     ],
-    fallbackMessage: "Render failed unexpectedly",
+    fallbackMessage: "Export vertical failed unexpectedly",
   });
 };

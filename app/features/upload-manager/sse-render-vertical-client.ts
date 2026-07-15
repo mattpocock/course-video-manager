@@ -25,5 +25,5 @@ export const startSSERenderVertical = (
       error: (data: { message: string }) => callbacks.onError(data.message),
     },
     onError: callbacks.onError,
-    errorLabel: "Render vertical failed",
+    errorLabel: "Export vertical failed",
   });

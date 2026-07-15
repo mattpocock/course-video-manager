@@ -23,7 +23,8 @@ export interface UploadContextType {
   startSocialUpload: (
     videoId: string,
     title: string,
-    caption: string
+    caption: string,
+    dependsOn?: string
   ) => string;
   startAiHeroUpload: (
     videoId: string,
@@ -47,7 +48,8 @@ export interface UploadContextType {
   startYoutubeShortsUpload: (
     videoId: string,
     title: string,
-    description: string
+    description: string,
+    dependsOn?: string
   ) => string;
   startExportUpload: (videoId: string, title: string) => string;
   startRenderVerticalUpload: (videoId: string, title: string) => string;
@@ -149,7 +151,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   );
 
   const startSocialUpload = useCallback(
-    (videoId: string, title: string, caption: string) => {
+    (videoId: string, title: string, caption: string, dependsOn?: string) => {
       const uploadId = generateUploadId();
 
       const params = { caption };
@@ -161,16 +163,19 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         videoId,
         title,
         uploadType: "buffer" as const,
+        dependsOn,
       };
       dispatch(action);
 
-      initiateFromRegistry(
-        "buffer",
-        action,
-        params,
-        dispatch,
-        abortControllersRef.current
-      );
+      if (!dependsOn) {
+        initiateFromRegistry(
+          "buffer",
+          action,
+          params,
+          dispatch,
+          abortControllersRef.current
+        );
+      }
 
       return uploadId;
     },
@@ -178,7 +183,12 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   );
 
   const startYoutubeShortsUpload = useCallback(
-    (videoId: string, title: string, description: string) => {
+    (
+      videoId: string,
+      title: string,
+      description: string,
+      dependsOn?: string
+    ) => {
       const uploadId = generateUploadId();
 
       const params = { description };
@@ -193,16 +203,19 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         videoId,
         title,
         uploadType: "youtube-shorts" as const,
+        dependsOn,
       };
       dispatch(action);
 
-      initiateFromRegistry(
-        "youtube-shorts",
-        action,
-        params,
-        dispatch,
-        abortControllersRef.current
-      );
+      if (!dependsOn) {
+        initiateFromRegistry(
+          "youtube-shorts",
+          action,
+          params,
+          dispatch,
+          abortControllersRef.current
+        );
+      }
 
       return uploadId;
     },
