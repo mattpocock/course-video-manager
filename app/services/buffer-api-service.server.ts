@@ -51,34 +51,60 @@ const createBufferApiOperations = (token: string) => ({
   createPost: (opts: { channelId: string; text: string; videoUrl: string }) =>
     graphql({
       token,
+      // `createPost` returns the `PostActionPayload` union, so the created post's
+      // `id` lives behind the `PostActionSuccess` inline fragment; on failure the
+      // `MutationError` fragment carries a human-readable message.
       query: `
         mutation CreatePost($input: CreatePostInput!) {
           createPost(input: $input) {
-            id
+            ... on PostActionSuccess {
+              post {
+                id
+              }
+            }
+            ... on MutationError {
+              message
+            }
           }
         }
       `,
       variables: {
         input: {
-          channelIds: [opts.channelId],
+          channelId: opts.channelId,
           text: opts.text,
           assets: [{ video: { url: opts.videoUrl } }],
           schedulingType: "automatic",
+          mode: "addToQueue",
         },
       },
-    }).pipe(Effect.map((data) => ({ id: data.createPost.id as string }))),
+    }).pipe(
+      Effect.flatMap((data) => {
+        const payload = data.createPost as {
+          post?: { id: string };
+          message?: string;
+        };
+        if (payload.post?.id) {
+          return Effect.succeed({ id: payload.post.id });
+        }
+        return Effect.fail(
+          new BufferApiError({
+            message: `Buffer createPost failed: ${payload.message ?? "unknown error"}`,
+          })
+        );
+      })
+    ),
 
   getPostStatus: (postId: string) =>
     graphql({
       token,
       query: `
-        query GetPostStatus($id: ID!) {
-          post(id: $id) {
+        query GetPostStatus($input: PostInput!) {
+          post(input: $input) {
             status
           }
         }
       `,
-      variables: { id: postId },
+      variables: { input: { id: postId } },
     }).pipe(
       Effect.map((data) => ({
         status: data.post.status as BufferPostStatus,
