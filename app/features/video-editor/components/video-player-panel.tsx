@@ -23,6 +23,7 @@ import {
   getIsLiveStreamPortrait as getIsLiveStreamPortraitSelector,
   getShouldShowLastFrameOverlay as getShouldShowLastFrameOverlaySelector,
   getShowCenterLine as getShowCenterLineSelector,
+  getShowScrubSlider as getShowScrubSliderSelector,
 } from "../video-editor-selectors";
 import { AlertTriangleIcon, ClipboardIcon, VideoOffIcon } from "lucide-react";
 import { useFetcher } from "react-router";
@@ -52,12 +53,7 @@ import {
   openPlaygroundWithDiagram,
 } from "@/lib/diagram-window";
 
-/**
- * Video player panel component displaying video preview, controls, and metadata.
- * Includes live stream, video player, table of contents, and action buttons.
- */
 export const VideoPlayerPanel = () => {
-  // Use context selectors for all state
   const videoTitle = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.videoTitle
@@ -300,6 +296,10 @@ export const VideoPlayerPanel = () => {
     obsConnectorState
   );
   const showCenterLine = getShowCenterLineSelector(obsConnectorState);
+  const showScrubSlider = getShowScrubSliderSelector(
+    currentClip?.type,
+    showVideoPlayer
+  );
 
   const handleOpenDiagramPlayground = useCallback(async () => {
     const resolverItems: ResolverTimelineItem[] = items.map((item) => {
@@ -374,7 +374,7 @@ export const VideoPlayerPanel = () => {
               {liveMediaStream && (
                 <div
                   className={cn(
-                    "w-full h-full relative aspect-[16/9]",
+                    "w-full relative aspect-[16/9]",
                     isLiveStreamPortrait && "w-92 aspect-[9/16]",
                     "hidden",
                     !showVideoPlayer &&
@@ -436,7 +436,7 @@ export const VideoPlayerPanel = () => {
             </div>
           )}
 
-          {currentClip?.type === "on-database" && (
+          {showScrubSlider && currentClip?.type === "on-database" && (
             <input
               type="range"
               className="scrub-slider mt-2"

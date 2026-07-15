@@ -19,6 +19,7 @@ import {
   getShowVideoPlayer,
   getShowLiveStream,
   getShowLastFrame,
+  getShowScrubSlider,
   getDatabaseClipBeforeInsertionPoint,
   getCurrentClip,
   getAllClipsHaveSilenceDetected,
@@ -251,6 +252,24 @@ describe("getShowLastFrame", () => {
 
   it("returns false when flag is not set", () => {
     expect(getShowLastFrame(false)).toBe(false);
+  });
+});
+
+describe("getShowScrubSlider", () => {
+  it("returns true when video player is showing and current clip is on database", () => {
+    expect(getShowScrubSlider("on-database", true)).toBe(true);
+  });
+
+  it("returns false when video player is hidden", () => {
+    expect(getShowScrubSlider("on-database", false)).toBe(false);
+  });
+
+  it("returns false when current clip is not on database", () => {
+    expect(getShowScrubSlider("optimistically-added", true)).toBe(false);
+  });
+
+  it("returns false when there is no current clip", () => {
+    expect(getShowScrubSlider(undefined, true)).toBe(false);
   });
 });
 
