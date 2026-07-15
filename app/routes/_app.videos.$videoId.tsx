@@ -44,6 +44,7 @@ export const loader = makeLoader({
         return {
           videoId,
           videoTitle: video.title,
+          videoFormat: video.format as "standard" | "short",
           lessonPath: null,
           sectionPath: null,
           repoId: null,
@@ -60,6 +61,7 @@ export const loader = makeLoader({
       return {
         videoId,
         videoTitle: video.title,
+        videoFormat: video.format as "standard" | "short",
         lessonPath: lesson.title,
         sectionPath: lesson.section.title,
         repoId: lesson.section.repoVersion.repoId,
@@ -137,6 +139,7 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
   const {
     videoId,
     videoTitle,
+    videoFormat,
     lessonPath,
     sectionPath,
     repoId,
@@ -210,28 +213,32 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Top-level tab switcher */}
-          <div className="flex gap-1">
-            {topTabs.map((tab) => {
-              const isActive =
-                tab.id === "post" ? isPostTab(activeTab) : activeTab === tab.id;
-              return (
-                <Link
-                  key={tab.id}
-                  to={`/videos/${videoId}/${tab.path}`}
-                  className={cn(
-                    "px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1.5",
-                    isActive
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <tab.icon className="size-4" />
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </div>
+          {/* Top-level tab switcher (hidden for short-format videos) */}
+          {videoFormat !== "short" && (
+            <div className="flex gap-1">
+              {topTabs.map((tab) => {
+                const isActive =
+                  tab.id === "post"
+                    ? isPostTab(activeTab)
+                    : activeTab === tab.id;
+                return (
+                  <Link
+                    key={tab.id}
+                    to={`/videos/${videoId}/${tab.path}`}
+                    className={cn(
+                      "px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1.5",
+                      isActive
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <tab.icon className="size-4" />
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {/* Navigation buttons */}
           <div className="flex items-center gap-2">

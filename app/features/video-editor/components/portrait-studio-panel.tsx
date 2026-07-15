@@ -224,11 +224,11 @@ export const PortraitStudioPanel = () => {
             </p>
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center">
+          <div className="h-full flex flex-col items-center max-h-full">
             {liveMediaStream && (
               <div
                 className={cn(
-                  "h-full aspect-[9/16] relative",
+                  "flex-1 min-h-0 aspect-[9/16] relative",
                   "hidden",
                   !showVideoPlayer &&
                     (showLiveStream || showLastFrame) &&
@@ -261,7 +261,7 @@ export const PortraitStudioPanel = () => {
             )}
             <div
               className={cn(
-                "h-full aspect-[9/16]",
+                "flex-1 min-h-0 aspect-[9/16]",
                 !showVideoPlayer && "hidden"
               )}
             >
@@ -282,7 +282,7 @@ export const PortraitStudioPanel = () => {
             </div>
 
             {isOBSActive && (
-              <div className="mt-2 flex justify-center">
+              <div className="mt-2 flex justify-center shrink-0">
                 <SilenceLengthToggle />
               </div>
             )}
@@ -290,7 +290,7 @@ export const PortraitStudioPanel = () => {
             {currentClip?.type === "on-database" && (
               <input
                 type="range"
-                className="scrub-slider mt-2 w-full max-w-xs"
+                className="scrub-slider mt-2 w-full max-w-xs shrink-0"
                 min={currentClip.sourceStartTime}
                 max={currentClip.sourceEndTime}
                 step={0.01}
