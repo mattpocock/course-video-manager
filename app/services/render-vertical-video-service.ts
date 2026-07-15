@@ -90,12 +90,16 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
           const durationInFrames = Math.ceil(totalDuration * fps);
 
           // The call-to-action pill pops up at the very start and fades out over
-          // the length of the first clip. This mirrors the original Total
-          // TypeScript renderer, which set `ctaDurationInFrames` to the first
-          // clip's length. It is always the "ai" branded CTA.
+          // the length of the first clip, capped at 5 seconds so a long opening
+          // clip doesn't leave it on screen too long. This mirrors the original
+          // Total TypeScript renderer, which timed `ctaDurationInFrames` to the
+          // first clip. It is always the "ai" branded CTA.
+          const CTA_MAX_SECONDS = 5;
           const firstClip = video.clips[0]!;
+          const firstClipDuration =
+            firstClip.sourceEndTime - firstClip.sourceStartTime;
           const ctaDurationInFrames = Math.ceil(
-            (firstClip.sourceEndTime - firstClip.sourceStartTime) * fps
+            Math.min(firstClipDuration, CTA_MAX_SECONDS) * fps
           );
 
           // Step 5: Render Remotion overlay
