@@ -6,6 +6,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { getBackButtonUrl } from "@/features/video-editor/video-editor-selectors";
 import { cn } from "@/lib/utils";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
@@ -184,14 +185,7 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
               ? "newsletter"
               : "edit";
 
-  // Build back button URL
-  const backButtonUrl = pitchId
-    ? `/pitches/${pitchId}`
-    : repoId && lessonId
-      ? `/courses/${repoId}#${lessonId}`
-      : format === "short"
-        ? "/tiktoks"
-        : "/videos";
+  const backButtonUrl = getBackButtonUrl(repoId, lessonId, format, pitchId);
 
   // Build breadcrumb text
   const breadcrumb = isStandalone
