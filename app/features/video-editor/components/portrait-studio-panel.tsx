@@ -10,6 +10,7 @@ import {
   getShouldShowLastFrameOverlay as getShouldShowLastFrameOverlaySelector,
   getShowCenterLine as getShowCenterLineSelector,
 } from "../video-editor-selectors";
+import { formatSecondsToTimeCode } from "@/services/utils";
 import { SendIcon, VideoOffIcon } from "lucide-react";
 import { useFetcher } from "react-router";
 import { useContextSelector } from "use-context-selector";
@@ -28,6 +29,10 @@ export const PortraitStudioPanel = () => {
   const videoTitle = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.videoTitle
+  );
+  const totalDuration = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.totalDuration
   );
   const liveMediaStream = useContextSelector(
     VideoEditorContext,
@@ -174,7 +179,10 @@ export const PortraitStudioPanel = () => {
     <div className="lg:flex-1 relative order-1 lg:order-2 h-full min-h-0 flex flex-col">
       {/* Header bar: title + Post + Actions */}
       <div className="flex items-center justify-between mb-4 shrink-0">
-        <h1 className="text-lg font-bold truncate mr-4">{videoTitle}</h1>
+        <h1 className="text-lg font-bold truncate mr-4">
+          {videoTitle}
+          {" (" + formatSecondsToTimeCode(totalDuration) + ")"}
+        </h1>
         <div className="flex gap-2 shrink-0">
           <StudioActionsDropdown
             allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
