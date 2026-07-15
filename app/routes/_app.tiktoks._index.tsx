@@ -1,5 +1,5 @@
-import { Badge } from "@/components/ui/badge";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
+import { getShortStatus, STATUS_META } from "@/lib/short-status";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
@@ -41,30 +41,6 @@ export const loader = makeLoader({
       return { shorts, exportedMap, postedMap };
     }),
 });
-
-type ShortStatus = "recorded" | "exported" | "posted";
-
-function getShortStatus(
-  videoId: string,
-  exportedMap: Record<string, boolean>,
-  postedMap: Record<string, boolean>
-): ShortStatus {
-  if (postedMap[videoId]) return "posted";
-  if (exportedMap[videoId]) return "exported";
-  return "recorded";
-}
-
-const STATUS_COLORS: Record<ShortStatus, string> = {
-  recorded: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
-  exported: "bg-green-500/15 text-green-700 dark:text-green-400",
-  posted: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
-};
-
-const STATUS_LABELS: Record<ShortStatus, string> = {
-  recorded: "Recorded",
-  exported: "Exported",
-  posted: "Posted",
-};
 
 function RecordTile() {
   const fetcher = useFetcher();
@@ -119,6 +95,7 @@ export default function TikToksIndex(props: Route.ComponentProps) {
             <RecordTile />
             {shorts.map((video) => {
               const status = getShortStatus(video.id, exportedMap, postedMap);
+              const StatusIcon = STATUS_META[status].icon;
               const totalDuration = video.clips.reduce(
                 (acc, clip) =>
                   acc + (clip.sourceEndTime - clip.sourceStartTime),
@@ -142,14 +119,6 @@ export default function TikToksIndex(props: Route.ComponentProps) {
                     ) : (
                       <VideoIcon className="w-8 h-8 text-muted-foreground/30" />
                     )}
-                    <div className="absolute top-2 right-2">
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] ${STATUS_COLORS[status]}`}
-                      >
-                        {STATUS_LABELS[status]}
-                      </Badge>
-                    </div>
                     {totalDuration > 0 && (
                       <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
                         {formatSecondsToTimeCode(totalDuration)}
@@ -157,6 +126,10 @@ export default function TikToksIndex(props: Route.ComponentProps) {
                     )}
                   </div>
                   <div className="p-2">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5">
+                      <StatusIcon className="w-3 h-3" />
+                      {STATUS_META[status].label}
+                    </span>
                     <p className="text-xs font-medium group-hover:text-foreground/80">
                       {video.title}
                     </p>

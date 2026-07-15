@@ -33,6 +33,7 @@ export namespace uploadReducer {
     | "compositing";
   export type PublishStage =
     | "validating"
+    | "exporting"
     | "uploading"
     | "freezing"
     | "cloning";
@@ -285,9 +286,10 @@ export const uploadReducer = (
       if (!upload || upload.uploadType !== "publish") return state;
 
       const publishStageProgress: Record<uploadReducer.PublishStage, number> = {
-        validating: 10,
-        uploading: 40,
-        freezing: 70,
+        validating: 5,
+        exporting: 20,
+        uploading: 50,
+        freezing: 75,
         cloning: 90,
       };
 

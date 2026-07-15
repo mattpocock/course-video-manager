@@ -39,6 +39,11 @@ import { PostPageOverwriteDialog } from "./post-page-overwrite-dialog";
 import { ThumbnailSelector } from "./post-page-thumbnail-selector";
 import { validateYoutubeTitle } from "./post-page-validation";
 import { getAutoSelectThumbnailId } from "./auto-select-thumbnail";
+import {
+  findConvertibleAiHeroUrls,
+  hasAiHeroUrls,
+  replaceUrls,
+} from "./convert-short-links";
 
 const POST_TITLE_STORAGE_KEY = (videoId: string) => `post-title-${videoId}`;
 const POST_DESCRIPTION_STORAGE_KEY = (videoId: string) =>
@@ -324,21 +329,16 @@ export function PostPage({
   const [isConvertingShortLinks, setIsConvertingShortLinks] = useState(false);
 
   const handleConvertToShortLinks = async () => {
-    const urlRegex = /https?:\/\/(?:www\.)?aihero\.dev[^\s)>]*/g;
-    const shortLinkRegex = /^https?:\/\/(?:www\.)?aihero\.dev\/s\//;
-    const matches = description.match(urlRegex);
-    if (!matches || matches.length === 0) {
+    const convertibleUrls = findConvertibleAiHeroUrls(description);
+
+    if (!hasAiHeroUrls(description)) {
       toast("No aihero.dev links found", {
         description: "The description doesn't contain any aihero.dev URLs.",
       });
       return;
     }
 
-    const uniqueUrls = [...new Set(matches)].filter(
-      (url) => !shortLinkRegex.test(url)
-    );
-
-    if (uniqueUrls.length === 0) {
+    if (convertibleUrls.length === 0) {
       toast("All links already converted", {
         description: "All aihero.dev links are already short links.",
       });
@@ -347,8 +347,8 @@ export function PostPage({
 
     setIsConvertingShortLinks(true);
     try {
-      let updatedDescription = description;
-      for (const url of uniqueUrls) {
+      const replacements = new Map<string, string>();
+      for (const url of convertibleUrls) {
         const response = await fetch("/api/shortlinks/find-or-create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -364,12 +364,12 @@ export function PostPage({
         }
 
         const { shortLinkUrl } = await response.json();
-        updatedDescription = updatedDescription.replaceAll(url, shortLinkUrl);
+        replacements.set(url, shortLinkUrl);
       }
 
-      setDescription(updatedDescription);
+      setDescription(replaceUrls(description, replacements));
       toast("Links converted", {
-        description: `Converted ${uniqueUrls.length} aihero.dev URL${uniqueUrls.length > 1 ? "s" : ""} to short links.`,
+        description: `Converted ${convertibleUrls.length} aihero.dev URL${convertibleUrls.length > 1 ? "s" : ""} to short links.`,
       });
     } catch (error) {
       console.error("Failed to convert short links:", error);

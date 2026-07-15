@@ -341,21 +341,28 @@ describe("UPDATE_PUBLISH_STAGE", () => {
       uploadId: "upload-1",
       stage: "validating",
     });
-    expect(state.uploads["upload-1"]!.progress).toBe(10);
+    expect(state.uploads["upload-1"]!.progress).toBe(5);
+
+    state = reduce(state, {
+      type: "UPDATE_PUBLISH_STAGE",
+      uploadId: "upload-1",
+      stage: "exporting",
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(20);
 
     state = reduce(state, {
       type: "UPDATE_PUBLISH_STAGE",
       uploadId: "upload-1",
       stage: "uploading",
     });
-    expect(state.uploads["upload-1"]!.progress).toBe(40);
+    expect(state.uploads["upload-1"]!.progress).toBe(50);
 
     state = reduce(state, {
       type: "UPDATE_PUBLISH_STAGE",
       uploadId: "upload-1",
       stage: "freezing",
     });
-    expect(state.uploads["upload-1"]!.progress).toBe(70);
+    expect(state.uploads["upload-1"]!.progress).toBe(75);
 
     state = reduce(state, {
       type: "UPDATE_PUBLISH_STAGE",

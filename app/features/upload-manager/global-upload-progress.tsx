@@ -262,6 +262,7 @@ const EXPORT_STAGE_LABELS: Record<uploadReducer.ExportStage, string> = {
 
 const PUBLISH_STAGE_LABELS: Record<uploadReducer.PublishStage, string> = {
   validating: "Validating",
+  exporting: "Exporting videos",
   uploading: "Uploading to Dropbox",
   freezing: "Freezing version",
   cloning: "Creating new draft",

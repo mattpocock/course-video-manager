@@ -9,6 +9,7 @@ import {
   getIsOBSActive as getIsOBSActiveSelector,
   getShouldShowLastFrameOverlay as getShouldShowLastFrameOverlaySelector,
   getShowCenterLine as getShowCenterLineSelector,
+  getShowScrubSlider as getShowScrubSliderSelector,
 } from "../video-editor-selectors";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { SendIcon, VideoOffIcon } from "lucide-react";
@@ -174,6 +175,10 @@ export const PortraitStudioPanel = () => {
     obsConnectorState
   );
   const showCenterLine = getShowCenterLineSelector(obsConnectorState);
+  const showScrubSlider = getShowScrubSliderSelector(
+    currentClip?.type,
+    showVideoPlayer
+  );
 
   return (
     <div className="lg:flex-1 relative order-1 lg:order-2 h-full min-h-0 flex flex-col">
@@ -295,7 +300,7 @@ export const PortraitStudioPanel = () => {
               </div>
             )}
 
-            {currentClip?.type === "on-database" && (
+            {showScrubSlider && currentClip?.type === "on-database" && (
               <input
                 type="range"
                 className="scrub-slider mt-2 w-full max-w-xs shrink-0"

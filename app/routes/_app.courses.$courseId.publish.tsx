@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { UploadContext } from "@/features/upload-manager/upload-context";
-import { hasActiveExportUploads } from "@/features/upload-manager/export-status";
 import {
   parseSemver,
   formatSemver,
@@ -17,22 +16,9 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
-import {
-  ArrowLeft,
-  Download,
-  AlertCircle,
-  AlertTriangle,
-  ChevronRight,
-} from "lucide-react";
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { data, Link, useNavigate, useRevalidator } from "react-router";
+import { ArrowLeft, AlertTriangle, ChevronRight } from "lucide-react";
+import { useCallback, useContext, useMemo, useState } from "react";
+import { data, Link, useNavigate } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.publish";
 
 export const loader = makeLoader({
@@ -71,13 +57,11 @@ export const loader = makeLoader({
         latestVersion: latestVersionMeta,
         previousVersionName: previousVersion?.name ?? null,
         withTodo: {
-          unexportedVideoCount: withTodo.unexportedVideoIds.length,
           courseViewLintCount: withTodo.courseViewLintCount,
           invalidLessonCombos: withTodo.invalidLessonCombos,
           incompleteVideos: withTodo.incompleteVideos,
         },
         withoutTodo: {
-          unexportedVideoCount: withoutTodo.unexportedVideoIds.length,
           courseViewLintCount: withoutTodo.courseViewLintCount,
           invalidLessonCombos: withoutTodo.invalidLessonCombos,
           incompleteVideos: withoutTodo.incompleteVideos,
@@ -87,12 +71,10 @@ export const loader = makeLoader({
 });
 
 export default function Component(props: Route.ComponentProps) {
-  const { course, latestVersion, previousVersionName, withTodo, withoutTodo } =
+  const { course, previousVersionName, withTodo, withoutTodo } =
     props.loaderData;
   const navigate = useNavigate();
-  const revalidator = useRevalidator();
-  const { uploads, startBatchExportUpload, startPublish } =
-    useContext(UploadContext);
+  const { uploads, startPublish } = useContext(UploadContext);
 
   // The version name is never free-typed: it is a lowercase-'v' semver computed
   // from the previous published version by a patch/minor/major bump, so the UI
@@ -114,7 +96,6 @@ export default function Component(props: Route.ComponentProps) {
   const [includeTodoLessons, setIncludeTodoLessons] = useState(true);
   const [publishStarted, setPublishStarted] = useState(false);
 
-  const hasActiveExport = hasActiveExportUploads(uploads);
   const hasActivePublish = Object.values(uploads).some(
     (u) =>
       u.uploadType === "publish" &&
@@ -122,43 +103,28 @@ export default function Component(props: Route.ComponentProps) {
         u.status === "waiting" ||
         u.status === "retrying")
   );
-  const isOperationInProgress = hasActiveExport || hasActivePublish;
+  const isOperationInProgress = hasActivePublish;
 
   useFocusRevalidate({ enabled: !publishStarted });
-
-  const prevHadActiveExportRef = useRef(false);
-  useEffect(() => {
-    if (prevHadActiveExportRef.current && !hasActiveExport) {
-      revalidator.revalidate();
-    }
-    prevHadActiveExportRef.current = hasActiveExport;
-  }, [hasActiveExport, revalidator]);
 
   // The warnings and the publish button reflect whichever toggle position is
   // currently selected — flipping the toggle switches them instantly, with no
   // server round-trip.
   const effective = includeTodoLessons ? withTodo : withoutTodo;
-  const unexportedVideoCount = effective.unexportedVideoCount;
   const courseViewLintCount = effective.courseViewLintCount;
   const invalidLessonCombos = effective.invalidLessonCombos;
   const incompleteVideos = effective.incompleteVideos;
 
-  const hasUnexportedVideos = unexportedVideoCount > 0;
   const hasCourseViewLints = courseViewLintCount > 0;
   const hasInvalidLessonCombos = invalidLessonCombos.length > 0;
   const hasIncompleteVideos = incompleteVideos.length > 0;
   const canPublish =
     description.trim().length > 0 &&
-    !hasUnexportedVideos &&
     !hasCourseViewLints &&
     !hasInvalidLessonCombos &&
     !hasIncompleteVideos &&
     !publishStarted &&
     !isOperationInProgress;
-
-  const handleExportAll = useCallback(() => {
-    startBatchExportUpload(latestVersion.id, includeTodoLessons);
-  }, [latestVersion.id, includeTodoLessons, startBatchExportUpload]);
 
   const handlePublish = useCallback(() => {
     setPublishStarted(true);
@@ -267,29 +233,6 @@ export default function Component(props: Route.ComponentProps) {
           </div>
         </div>
 
-        {/* Unexported Videos */}
-        {hasUnexportedVideos && (
-          <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
-                <span className="text-sm font-medium text-amber-500">
-                  {unexportedVideoCount} unexported video
-                  {unexportedVideoCount !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <Button
-                size="sm"
-                onClick={handleExportAll}
-                disabled={isOperationInProgress}
-              >
-                <Download className="w-3 h-3 mr-1" />
-                {hasActiveExport ? "Exporting..." : "Export All"}
-              </Button>
-            </div>
-          </div>
-        )}
-
         {/* Course-view Lints */}
         {hasCourseViewLints && (
           <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
@@ -381,11 +324,7 @@ export default function Component(props: Route.ComponentProps) {
             className="w-full"
             size="lg"
           >
-            {hasActivePublish
-              ? "Publishing..."
-              : hasActiveExport
-                ? "Export in progress..."
-                : "Publish"}
+            {hasActivePublish ? "Publishing..." : "Publish"}
           </Button>
         </div>
       </div>

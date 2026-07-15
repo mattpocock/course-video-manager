@@ -170,6 +170,13 @@ export const getShowLastFrame = (showLastFrameOfVideo: boolean): boolean => {
   return showLastFrameOfVideo;
 };
 
+export const getShowScrubSlider = (
+  currentClipType: Clip["type"] | undefined,
+  showVideoPlayer: boolean
+): boolean => {
+  return currentClipType === "on-database" && showVideoPlayer;
+};
+
 export const getDatabaseClipBeforeInsertionPoint = (
   items: TimelineItem[],
   insertionPoint: FrontendInsertionPoint
