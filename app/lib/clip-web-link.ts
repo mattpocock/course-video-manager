@@ -38,14 +38,12 @@ export function isCapturableUrl(url: string): boolean {
 }
 
 /**
- * A short human label for a URL when no page title is available: host + path,
- * without the scheme or a trailing slash. Falls back to the raw URL.
+ * The domain (host) of a URL, for compact inline display.
+ * Falls back to the raw string for malformed URLs.
  */
 export function getWebLinkLabel(url: string): string {
   try {
-    const parsed = new URL(url);
-    const path = parsed.pathname === "/" ? "" : parsed.pathname;
-    return `${parsed.host}${path}${parsed.search}`;
+    return new URL(url).host;
   } catch {
     return url;
   }

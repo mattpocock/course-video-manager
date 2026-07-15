@@ -259,11 +259,11 @@ export const ClipItem = (props: ClipItemProps) => {
                       href={link.url}
                       target="_blank"
                       rel="noreferrer"
-                      title={link.url}
+                      title={link.title || link.url}
                       className="truncate hover:underline"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {link.title || getWebLinkLabel(link.url)}
+                      {getWebLinkLabel(link.url)}
                     </a>
                     <button
                       type="button"

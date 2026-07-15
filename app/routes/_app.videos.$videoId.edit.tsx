@@ -28,6 +28,10 @@ import { Effect } from "effect";
 import { useEffectReducer } from "use-effect-reducer";
 import { getActiveDiagramId } from "@/lib/diagram-window";
 import { isDiagramFocused } from "@/lib/diagram-focus-tracking";
+import {
+  notifyBrowserFocus,
+  notifyBrowserBlur,
+} from "@/lib/browser-focus-tracking";
 import { useAiNameShort } from "@/features/video-editor/hooks/use-ai-name-short";
 import { useBrowserLinkCapture } from "@/features/video-editor/hooks/use-browser-link-capture";
 import type { Route } from "./+types/_app.videos.$videoId.edit";
@@ -274,7 +278,13 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   // reducer, which folds them to the currently-visible page and accumulates the
   // set of pages shown while a clip records. Best-effort: no extension / hub
   // means no capture.
-  useBrowserLinkCapture((event) => dispatch({ type: "browser-event", event }));
+  useBrowserLinkCapture((event) => {
+    dispatch({ type: "browser-event", event });
+    if (event.type === "browser-focus") {
+      if (event.focused) notifyBrowserFocus();
+      else notifyBrowserBlur();
+    }
+  });
 
   const obsConnector = useOBSConnector({
     onNewClipOptimisticallyAdded: ({ scene, profile, soundDetectionId }) => {

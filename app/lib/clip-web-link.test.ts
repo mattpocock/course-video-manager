@@ -28,9 +28,15 @@ describe("getWebLinkLabel", () => {
     expect(getWebLinkLabel("https://example.com")).toBe("example.com");
   });
 
-  it("keeps the path and query", () => {
+  it("returns only the domain, dropping path and query", () => {
     expect(getWebLinkLabel("https://example.com/docs/api?x=1")).toBe(
-      "example.com/docs/api?x=1"
+      "example.com"
+    );
+  });
+
+  it("includes port when present", () => {
+    expect(getWebLinkLabel("https://localhost:5173/foo")).toBe(
+      "localhost:5173"
     );
   });
 

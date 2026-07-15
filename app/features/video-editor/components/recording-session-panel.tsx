@@ -7,12 +7,17 @@ import {
   ArchiveIcon,
   Undo2Icon,
   PinIcon,
+  Link2Icon,
 } from "lucide-react";
 import { getActiveDiagramId } from "@/lib/diagram-window";
 import {
   isDiagramFocused,
   subscribeDiagramFocus,
 } from "@/lib/diagram-focus-tracking";
+import {
+  isBrowserFocused,
+  subscribeBrowserFocus,
+} from "@/lib/browser-focus-tracking";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import type { SessionPanelData } from "../video-editor-selectors";
@@ -169,6 +174,9 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
   const [diagramFocused, setDiagramFocused] = useState(() =>
     isDiagramFocused()
   );
+  const [browserFocused, setBrowserFocused] = useState(() =>
+    isBrowserFocused()
+  );
   const [hasActiveDiagram, setHasActiveDiagram] = useState(
     () => getActiveDiagramId() !== null
   );
@@ -188,6 +196,11 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
   useEffect(() => {
     setDiagramFocused(isDiagramFocused());
     return subscribeDiagramFocus(setDiagramFocused);
+  }, []);
+
+  useEffect(() => {
+    setBrowserFocused(isBrowserFocused());
+    return subscribeBrowserFocus(setBrowserFocused);
   }, []);
 
   const hasArchived = panel.archivedClips.length > 0;
@@ -211,24 +224,36 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
             </span>
           </span>
         )}
-        {panel.isRecording && hasActiveDiagram && (
+        {panel.isRecording && diagramFocused && (
           <span
-            className={cn(
-              "ml-auto flex items-center gap-1.5 text-xs",
-              diagramFocused
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-muted-foreground"
-            )}
-            title={
-              diagramFocused
-                ? "Diagram is focused — a snapshot will be pinned when this clip ends"
-                : "Diagram is not focused — focus it before the clip ends to pin a snapshot"
-            }
+            className="ml-auto flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400"
+            title="Diagram is focused — a snapshot will be pinned when this clip ends"
           >
             <PinIcon className="size-3" />
-            {diagramFocused ? "Diagram focused" : "Diagram not focused"}
+            Diagram focused
           </span>
         )}
+        {panel.isRecording && !diagramFocused && browserFocused && (
+          <span
+            className="ml-auto flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400"
+            title="A browser URL is focused — on-screen links will be captured"
+          >
+            <Link2Icon className="size-3" />
+            URL focused
+          </span>
+        )}
+        {panel.isRecording &&
+          hasActiveDiagram &&
+          !diagramFocused &&
+          !browserFocused && (
+            <span
+              className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"
+              title="Diagram is not focused — focus it before the clip ends to pin a snapshot"
+            >
+              <PinIcon className="size-3" />
+              Diagram not focused
+            </span>
+          )}
       </div>
 
       {/* Pending clips */}
