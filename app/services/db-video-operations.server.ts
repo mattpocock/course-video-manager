@@ -159,14 +159,18 @@ export const createVideoOperations = (
   );
 
   const getArchivedStandaloneVideos = Effect.fn("getArchivedStandaloneVideos")(
-    function* () {
+    function* (opts?: { format?: VideoFormat }) {
+      const conditions = [
+        isNull(videos.lessonId),
+        isNull(videos.pitchId),
+        eq(videos.archived, true),
+      ];
+      if (opts?.format) {
+        conditions.push(eq(videos.format, opts.format));
+      }
       const archivedVideos = yield* makeDbCall(() =>
         db.query.videos.findMany({
-          where: and(
-            isNull(videos.lessonId),
-            isNull(videos.pitchId),
-            eq(videos.archived, true)
-          ),
+          where: and(...conditions),
           orderBy: desc(videos.createdAt),
           with: {
             clips: {

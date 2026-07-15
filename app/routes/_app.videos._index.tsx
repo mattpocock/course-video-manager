@@ -1,7 +1,6 @@
 import { AddStandaloneVideoModal } from "@/components/add-standalone-video-modal";
 import { DeleteVideoModal } from "@/components/delete-video-modal";
 import { RenameVideoModal } from "@/components/rename-video-modal";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -30,9 +29,8 @@ import {
   VideoOffIcon,
 } from "lucide-react";
 import { useContext, useState } from "react";
-import { Link, useFetcher, useNavigate, useSearchParams } from "react-router";
+import { Link, useFetcher, useNavigate } from "react-router";
 import type { Route } from "./+types/_app.videos._index";
-import type { VideoFormat } from "@/features/videos/video-format";
 
 export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Videos" }];
@@ -46,8 +44,8 @@ export const loader = makeLoader({
 
       const [videos, archivedVideos] = yield* Effect.all(
         [
-          videoOps.getAllStandaloneVideos(),
-          videoOps.getArchivedStandaloneVideos(),
+          videoOps.getAllStandaloneVideos({ format: "standard" }),
+          videoOps.getArchivedStandaloneVideos({ format: "standard" }),
         ],
         { concurrency: "unbounded" }
       );
@@ -80,18 +78,12 @@ export default function Component(props: Route.ComponentProps) {
     title: string;
   } | null>(null);
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const formatFilter = searchParams.get("format") as VideoFormat | null;
   const archiveVideoFetcher = useFetcher();
   const revealVideoFetcher = useFetcher();
   const deleteVideoFileFetcher = useFetcher();
   const { startExportUpload } = useContext(UploadContext);
 
   useFocusRevalidate({ enabled: true });
-
-  const filteredVideos = formatFilter
-    ? videos.filter((v) => v.format === formatFilter)
-    : videos;
 
   return (
     <div className="flex-1 flex flex-col bg-background text-foreground">
@@ -116,45 +108,6 @@ export default function Component(props: Route.ComponentProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            <Button
-              variant={formatFilter === null ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setSearchParams((prev) => {
-                  prev.delete("format");
-                  return prev;
-                });
-              }}
-            >
-              All
-            </Button>
-            <Button
-              variant={formatFilter === "standard" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setSearchParams((prev) => {
-                  prev.set("format", "standard");
-                  return prev;
-                });
-              }}
-            >
-              Standard
-            </Button>
-            <Button
-              variant={formatFilter === "short" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setSearchParams((prev) => {
-                  prev.set("format", "short");
-                  return prev;
-                });
-              }}
-            >
-              Shorts
-            </Button>
-          </div>
-
           {videoToDelete && (
             <DeleteVideoModal
               videoId={videoToDelete.id}
@@ -177,13 +130,11 @@ export default function Component(props: Route.ComponentProps) {
             />
           )}
 
-          {filteredVideos.length === 0 ? (
+          {videos.length === 0 ? (
             <div className="text-center py-12">
               <VideoIcon className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-xl font-semibold mb-2">
-                {formatFilter
-                  ? `No ${formatFilter === "short" ? "shorts" : "standard videos"}`
-                  : "No standalone videos"}
+                No standalone videos
               </h3>
               <p className="text-muted-foreground">
                 Standalone videos are videos not attached to any lesson.
@@ -191,7 +142,7 @@ export default function Component(props: Route.ComponentProps) {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredVideos.map((video) => {
+              {videos.map((video) => {
                 const totalDuration = video.clips.reduce((acc, clip) => {
                   return acc + (clip.sourceEndTime - clip.sourceStartTime);
                 }, 0);
@@ -210,14 +161,6 @@ export default function Component(props: Route.ComponentProps) {
                             <VideoOffIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
                           )}
                           <span className="font-medium">{video.title}</span>
-                          {video.format === "short" && (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] bg-purple-500/15 text-purple-700 dark:text-purple-400"
-                            >
-                              Short
-                            </Badge>
-                          )}
                         </div>
                         <span className="text-sm text-muted-foreground">
                           {formatSecondsToTimeCode(totalDuration)}

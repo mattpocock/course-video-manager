@@ -153,4 +153,44 @@ describe("video format", () => {
       expect(shorts[0]!.id).toBe(short.id);
     }).pipe(Effect.provide(testLayer))
   );
+
+  it.effect(
+    "getArchivedStandaloneVideos with format filter returns only matching",
+    () =>
+      Effect.gen(function* () {
+        const videoOps = yield* VideoOperationsService;
+
+        const archivedStandard = yield* videoOps.createStandaloneVideo({
+          title: "Archived Standard",
+        });
+        const archivedShort = yield* videoOps.createStandaloneVideo({
+          title: "Archived Short",
+          format: "short",
+        });
+
+        yield* videoOps.updateVideoArchiveStatus({
+          videoId: archivedStandard.id,
+          archived: true,
+        });
+        yield* videoOps.updateVideoArchiveStatus({
+          videoId: archivedShort.id,
+          archived: true,
+        });
+
+        const standardOnly = yield* videoOps.getArchivedStandaloneVideos({
+          format: "standard",
+        });
+        expect(standardOnly).toHaveLength(1);
+        expect(standardOnly[0]!.title).toBe("Archived Standard");
+
+        const shortOnly = yield* videoOps.getArchivedStandaloneVideos({
+          format: "short",
+        });
+        expect(shortOnly).toHaveLength(1);
+        expect(shortOnly[0]!.title).toBe("Archived Short");
+
+        const all = yield* videoOps.getArchivedStandaloneVideos();
+        expect(all).toHaveLength(2);
+      }).pipe(Effect.provide(testLayer))
+  );
 });
