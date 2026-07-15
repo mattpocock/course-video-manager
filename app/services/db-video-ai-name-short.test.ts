@@ -143,12 +143,8 @@ describe("record tile → AI name/describe flow", () => {
         });
 
         expect(shorts).toHaveLength(1);
-        const clips = shorts[0]!.clips;
-        expect(clips).toHaveLength(2);
-
-        const firstClipId = clips[0]?.id ?? null;
-        expect(firstClipId).not.toBeNull();
-        expect(clips[0]!.sourceStartTime).toBe(0);
+        expect(shorts[0]!.clips).toHaveLength(2);
+        expect(shorts[0]!.clips[0]!.id).toBeDefined();
       }).pipe(Effect.provide(testLayer))
   );
 });

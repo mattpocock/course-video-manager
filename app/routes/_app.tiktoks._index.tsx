@@ -38,12 +38,7 @@ export const loader = makeLoader({
         })
       );
 
-      const shortsWithThumbnail = shorts.map((video) => ({
-        ...video,
-        firstClipId: video.clips[0]?.id ?? null,
-      }));
-
-      return { shorts: shortsWithThumbnail, renderedMap, postedMap };
+      return { shorts, renderedMap, postedMap };
     }),
 });
 
@@ -137,9 +132,9 @@ export default function TikToksIndex(props: Route.ComponentProps) {
                   className="group flex flex-col rounded-lg border bg-card overflow-hidden hover:border-foreground/20 transition-colors"
                 >
                   <div className="aspect-[9/16] bg-muted/50 flex items-center justify-center relative">
-                    {video.firstClipId ? (
+                    {video.clips[0] ? (
                       <img
-                        src={`/clips/${video.firstClipId}/first-frame`}
+                        src={`/clips/${video.clips[0].id}/first-frame`}
                         alt={video.title}
                         className="w-full h-full object-cover"
                         loading="lazy"
