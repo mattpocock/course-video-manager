@@ -418,6 +418,20 @@ describe("getBackButtonUrl", () => {
   it("returns /videos when both are missing", () => {
     expect(getBackButtonUrl(undefined, undefined)).toBe("/videos");
   });
+
+  it("returns /tiktoks when format is short and video is standalone", () => {
+    expect(getBackButtonUrl(undefined, undefined, "short")).toBe("/tiktoks");
+  });
+
+  it("returns /videos when format is standard and video is standalone", () => {
+    expect(getBackButtonUrl(undefined, undefined, "standard")).toBe("/videos");
+  });
+
+  it("returns lesson URL when format is short but video has a lesson", () => {
+    expect(getBackButtonUrl("repo-1", "lesson-1", "short")).toBe(
+      "/courses/repo-1#lesson-1"
+    );
+  });
 });
 
 describe("getShowCenterLine", () => {

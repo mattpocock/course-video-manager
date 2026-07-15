@@ -370,9 +370,11 @@ export const getShouldShowLastFrameOverlay = (
 
 export const getBackButtonUrl = (
   repoId: string | undefined,
-  lessonId: string | undefined
+  lessonId: string | undefined,
+  format?: string
 ): string => {
-  return repoId && lessonId ? `/courses/${repoId}#${lessonId}` : "/videos";
+  if (repoId && lessonId) return `/courses/${repoId}#${lessonId}`;
+  return format === "short" ? "/tiktoks" : "/videos";
 };
 
 export const getShowCenterLine = (

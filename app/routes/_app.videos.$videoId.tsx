@@ -50,6 +50,7 @@ export const loader = makeLoader({
           lessonId: null,
           pitchId: video.pitchId,
           isStandalone: true,
+          format: video.format,
           nextVideoId,
           previousVideoId,
           videoCount: 1,
@@ -66,6 +67,7 @@ export const loader = makeLoader({
         lessonId: lesson.id,
         pitchId: video.pitchId,
         isStandalone: false,
+        format: video.format,
         nextVideoId,
         previousVideoId,
         videoCount: lesson.videos.length,
@@ -143,6 +145,7 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
     lessonId,
     pitchId,
     isStandalone,
+    format,
     nextVideoId,
     previousVideoId,
     videoCount,
@@ -186,7 +189,9 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
     ? `/pitches/${pitchId}`
     : repoId && lessonId
       ? `/courses/${repoId}#${lessonId}`
-      : "/videos";
+      : format === "short"
+        ? "/tiktoks"
+        : "/videos";
 
   // Build breadcrumb text
   const breadcrumb = isStandalone
