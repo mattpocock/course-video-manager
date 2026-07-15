@@ -27,7 +27,7 @@ export const bufferPostProgram = (opts: {
     const exists = yield* fs.exists(filePath);
     if (!exists) {
       opts.sendEvent("error", {
-        message: "Rendered vertical video not found. Render it first.",
+        message: "Exported vertical video not found. Export it first.",
       });
       return;
     }

@@ -44,7 +44,7 @@ export const ActionsDropdown = (props: {
   allClipsHaveText: boolean;
   /** Callback to start export via upload manager */
   onExport: () => void;
-  /** Callback to start vertical render via upload manager */
+  /** Callback to start vertical export via upload manager */
   onRenderVertical?: () => void;
   /** Fetcher for exporting to DaVinci Resolve */
   exportToDavinciResolveFetcher: FetcherWithComponents<unknown>;

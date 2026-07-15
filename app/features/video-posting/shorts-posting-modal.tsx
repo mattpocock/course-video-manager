@@ -127,38 +127,36 @@ export function ShortsPostingModal({
     setPostState("checking-export");
     try {
       const res = await fetch(`/api/videos/${videoId}/vertical-export-exists`);
-      const { exists } = await res.json();
+      if (!res.ok) throw new Error("Failed to check export status");
+      const { exists } = (await res.json()) as { exists: boolean };
 
-      if (exists) {
-        startYoutubeShortsUpload(videoId, title.trim(), description.trim());
+      let exportId: string | undefined;
+      if (!exists) {
+        exportId = startRenderVerticalUpload(videoId, title.trim());
+      }
 
-        if (caption.trim()) {
-          startSocialUpload(videoId, title.trim(), caption.trim());
-        }
+      startYoutubeShortsUpload(
+        videoId,
+        title.trim(),
+        description.trim(),
+        exportId
+      );
 
-        onOpenChange(false);
+      if (caption.trim()) {
+        startSocialUpload(videoId, title.trim(), caption.trim(), exportId);
+      }
+
+      onOpenChange(false);
+      if (exportId) {
+        toast("Export + post started", {
+          description: `"${title.trim()}" will export first, then post`,
+        });
+      } else {
         toast(
           caption.trim()
             ? "YouTube Shorts + Buffer posting started"
             : "YouTube Shorts upload started"
         );
-      } else {
-        const exportId = startRenderVerticalUpload(videoId, title.trim());
-        startYoutubeShortsUpload(
-          videoId,
-          title.trim(),
-          description.trim(),
-          exportId
-        );
-
-        if (caption.trim()) {
-          startSocialUpload(videoId, title.trim(), caption.trim(), exportId);
-        }
-
-        onOpenChange(false);
-        toast("Export + post started", {
-          description: `"${title.trim()}" will export first, then post`,
-        });
       }
     } catch {
       toast.error("Failed to check export status");
