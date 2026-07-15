@@ -311,6 +311,69 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         return yield* Schema.decodeUnknown(transcribeClipsSchema)(results);
       });
 
+      /**
+       * Transcribe an entire, already-concatenated video in a single Whisper
+       * pass. Extracts the full audio track (audio-only, so it stays well under
+       * Whisper's 25MB upload limit even though the source video does not) and
+       * transcribes it once.
+       *
+       * Unlike {@link transcribeClips}, the returned segment timestamps are on
+       * the video's own final timeline, so downstream callers need no per-clip
+       * offset — matching the original Total TypeScript renderer, which
+       * transcribed a single concatenated audio file.
+       */
+      const transcribeVideoFile = Effect.fn("transcribeVideoFile")(function* (
+        inputVideo: string
+      ) {
+        const outputDir = path.join(tmpdir(), "whisper-audio");
+        yield* effectFs.makeDirectory(outputDir, { recursive: true });
+
+        const outputHash = crypto
+          .createHash("sha256")
+          .update(`${inputVideo}-full-audio`)
+          .digest("hex")
+          .slice(0, 12);
+        const audioPath = path.join(outputDir, `${outputHash}.mp3`);
+
+        const code = yield* Command.exitCode(
+          Command.make(
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-i",
+            inputVideo,
+            "-vn",
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "384k",
+            audioPath
+          )
+        ).pipe(
+          Effect.mapError(
+            (e) =>
+              new CouldNotExtractAudioError({
+                cause: e,
+                message: `Failed to extract audio: ${e.message}`,
+              })
+          )
+        );
+        if (code !== 0) {
+          yield* new CouldNotExtractAudioError({
+            cause: null,
+            message: `Failed to extract audio, exit code: ${code}`,
+          });
+        }
+
+        const transcription = yield* transcribeAudioFile(audioPath);
+
+        yield* effectFs
+          .remove(audioPath)
+          .pipe(Effect.catchAll(() => Effect.void));
+
+        return transcription;
+      });
+
       const getLastFrame = Effect.fn("getLastFrame")(function* (
         inputVideo: string,
         seekTo: number
@@ -513,6 +576,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         getLatestOBSVideoClips,
         exportVideoClips,
         transcribeClips,
+        transcribeVideoFile,
         getLastFrame,
         getFirstFrame,
         sendClipsToDavinciResolve,

@@ -19,71 +19,54 @@ import {
 } from "./render-vertical-video-service";
 
 describe("buildSubtitles", () => {
-  it("converts word timings to frame-based subtitles with clip offsets", () => {
-    const clips = [
-      { sourceStartTime: 10, sourceEndTime: 13 },
-      { sourceStartTime: 20, sourceEndTime: 22 },
-    ];
-    const transcriptions = [
-      {
-        id: "clip-1",
-        words: [
-          { start: 0, end: 0.5, text: "Hello" },
-          { start: 0.6, end: 1.0, text: "world" },
-        ],
-      },
-      {
-        id: "clip-2",
-        words: [{ start: 0, end: 0.8, text: "Test" }],
-      },
-    ];
-    const fps = 60;
+  it("keeps a short segment as a single subtitle and converts to frames", () => {
+    // "Hello world" is 11 chars (<= 32), so it passes through untouched.
+    const segments = [{ start: 0, end: 1, text: "Hello world" }];
 
-    const result = buildSubtitles(clips, transcriptions, fps);
+    const result = buildSubtitles(segments, 60);
 
     expect(result).toEqual([
-      { startFrame: 0, endFrame: 30, text: "Hello" },
-      { startFrame: 36, endFrame: 60, text: "world" },
-      // Clip 2 starts at offset 3s (clip 1 duration = 13-10 = 3s)
-      { startFrame: 180, endFrame: 228, text: "Test" },
+      { startFrame: 0, endFrame: 60, text: "Hello world" },
     ]);
   });
 
-  it("handles empty transcriptions for a clip", () => {
-    const clips = [
-      { sourceStartTime: 0, sourceEndTime: 2 },
-      { sourceStartTime: 5, sourceEndTime: 7 },
-    ];
-    const transcriptions = [
+  it("splits a long segment into phrases with evenly divided timing", () => {
+    // 43 chars > 32 → numChunks = ceil(43/32) = 2; 9 words →
+    // wordsPerChunk = ceil(9/2) = 5. Duration 10s / 2 = 5s per chunk.
+    const segments = [
       {
-        id: "clip-1",
-        words: [] as { start: number; end: number; text: string }[],
-      },
-      {
-        id: "clip-2",
-        words: [{ start: 0.5, end: 1.0, text: "Late" }],
+        start: 0,
+        end: 10,
+        text: "The quick brown fox jumps over the lazy dog",
       },
     ];
-    const fps = 30;
 
-    const result = buildSubtitles(clips, transcriptions, fps);
+    const result = buildSubtitles(segments, 1);
 
-    // Clip 1 has no words, clip 2 starts at offset 2s
-    expect(result).toEqual([{ startFrame: 75, endFrame: 90, text: "Late" }]);
+    expect(result).toEqual([
+      { startFrame: 0, endFrame: 5, text: "The quick brown fox jumps" },
+      { startFrame: 5, endFrame: 10, text: "over the lazy dog" },
+    ]);
   });
 
-  it("returns empty array when no words in any clip", () => {
-    const clips = [{ sourceStartTime: 0, sourceEndTime: 5 }];
-    const transcriptions = [
-      {
-        id: "clip-1",
-        words: [] as { start: number; end: number; text: string }[],
-      },
+  it("flattens multiple segments and trims Whisper's leading spaces", () => {
+    // Whisper segment text is typically prefixed with a space; floor() is used
+    // for the seconds → frames conversion.
+    const segments = [
+      { start: 0, end: 0.9, text: " Hi there" },
+      { start: 1, end: 2, text: " again" },
     ];
 
-    const result = buildSubtitles(clips, transcriptions, 60);
+    const result = buildSubtitles(segments, 1);
 
-    expect(result).toEqual([]);
+    expect(result).toEqual([
+      { startFrame: 0, endFrame: 0, text: "Hi there" },
+      { startFrame: 1, endFrame: 2, text: "again" },
+    ]);
+  });
+
+  it("returns an empty array when there are no segments", () => {
+    expect(buildSubtitles([], 60)).toEqual([]);
   });
 });
 
@@ -101,27 +84,19 @@ describe("RenderVerticalVideoService", () => {
 
   function buildTestLayer(overrides?: {
     exportResult?: string;
-    transcribeResult?: (clips: unknown[]) => unknown[];
     getFpsResult?: number;
   }) {
     const dbLayer = Layer.succeed(DrizzleService, testDb as any);
 
     const fakeVideoProcessing = Layer.succeed(VideoProcessingService, {
-      transcribeClips: (clips: any) => {
-        if (overrides?.transcribeResult) {
-          return Effect.succeed(overrides.transcribeResult(clips));
-        }
-        return Effect.succeed(
-          clips.map((c: any) => ({
-            id: c.id,
-            words: [
-              { start: 0, end: 0.5, text: "hello" },
-              { start: 0.6, end: 1.0, text: "world" },
-            ],
-            segments: [{ start: 0, end: 1.0, text: "hello world" }],
-          }))
-        );
-      },
+      transcribeVideoFile: () =>
+        Effect.succeed({
+          words: [
+            { start: 0, end: 0.5, text: "hello" },
+            { start: 0.6, end: 1.0, text: "world" },
+          ],
+          segments: [{ start: 0, end: 1.0, text: "hello world" }],
+        }),
       exportVideoClips: () =>
         Effect.succeed(overrides?.exportResult ?? "/tmp/fake-concatenated.mp4"),
     } as any);

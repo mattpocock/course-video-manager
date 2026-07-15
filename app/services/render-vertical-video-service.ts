@@ -68,24 +68,19 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             .remove(rawConcatenatedPath)
             .pipe(Effect.catchAll(() => Effect.void));
 
-          // Step 2: Transcribe clips with word timings
+          // Step 2: Transcribe the concatenated video in a single pass. Because
+          // Whisper runs on the already concatenated + normalized audio, its
+          // segment timestamps are on the final timeline — no per-clip offset,
+          // and the long-pause padding / audio normalization are accounted for.
           opts.onStageChange?.("transcribing");
-          const transcriptions = yield* videoProcessing.transcribeClips(
-            video.clips.map((clip) => ({
-              id: clip.id,
-              inputVideo: clip.videoFilename,
-              startTime: clip.sourceStartTime,
-              duration: clip.sourceEndTime - clip.sourceStartTime,
-            }))
-          );
+          const transcription =
+            yield* videoProcessing.transcribeVideoFile(concatenatedPath);
 
           // Step 3: Get FPS from the concatenated video
           const fps = yield* ffmpegCommands.getFPS(concatenatedPath);
 
-          // Step 4: Convert word timings to frame-based subtitles
-          // Word timings from each clip are relative to that clip's start (0-based).
-          // We need to offset them by the accumulated duration of preceding clips.
-          const subtitles = buildSubtitles(video.clips, transcriptions, fps);
+          // Step 4: Split long segments into short phrases and convert to frames
+          const subtitles = buildSubtitles(transcription.segments, fps);
 
           // Compute total duration in frames
           const totalDuration = video.clips.reduce(
@@ -150,44 +145,78 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
   }
 ) {}
 
+/** A caption segment timed in seconds, as returned by Whisper. */
+type SubtitleSegment = { start: number; end: number; text: string };
+
 /**
- * Build frame-based subtitles from per-clip word transcriptions.
- *
- * Each clip's word timings are 0-based relative to the extracted audio segment.
- * We offset them by the accumulated duration of preceding clips to place them
- * on the concatenated timeline, then convert seconds → frames.
+ * The longest a single on-screen subtitle may be before it is split into
+ * multiple phrases. Ported verbatim from the original Total TypeScript renderer.
  */
-export function buildSubtitles(
-  clips: readonly { sourceStartTime: number; sourceEndTime: number }[],
-  transcriptions: readonly {
-    id: string;
-    words: readonly { start: number; end: number; text: string }[];
-  }[],
-  fps: number
-): { startFrame: number; endFrame: number; text: string }[] {
-  const subtitles: { startFrame: number; endFrame: number; text: string }[] =
-    [];
-  let timelineOffset = 0;
+const MAXIMUM_SUBTITLE_LENGTH_IN_CHARS = 32;
 
-  for (let i = 0; i < clips.length; i++) {
-    const clip = clips[i]!;
-    const transcription = transcriptions[i];
-    const clipDuration = clip.sourceEndTime - clip.sourceStartTime;
-
-    if (transcription) {
-      for (const word of transcription.words) {
-        subtitles.push({
-          startFrame: Math.round((timelineOffset + word.start) * fps),
-          endFrame: Math.round((timelineOffset + word.end) * fps),
-          text: word.text,
-        });
-      }
-    }
-
-    timelineOffset += clipDuration;
+/**
+ * Split a Whisper segment that is longer than
+ * {@link MAXIMUM_SUBTITLE_LENGTH_IN_CHARS} into several shorter phrases,
+ * distributing the words evenly and dividing the segment's time span evenly
+ * across the resulting chunks.
+ *
+ * Ported verbatim from the original Total TypeScript renderer's
+ * `splitSubtitleSegments`. Timing is by even division (not per-word
+ * timestamps), which is the behaviour we are intentionally reproducing.
+ */
+export function splitSubtitleSegments(
+  subtitle: SubtitleSegment
+): SubtitleSegment[] {
+  if (subtitle.text.length <= MAXIMUM_SUBTITLE_LENGTH_IN_CHARS) {
+    return [subtitle];
   }
 
-  return subtitles;
+  const numChunks = Math.ceil(
+    subtitle.text.length / MAXIMUM_SUBTITLE_LENGTH_IN_CHARS
+  );
+
+  const words = subtitle.text.split(" ");
+  const wordsPerChunk = Math.ceil(words.length / numChunks);
+
+  const chunks: SubtitleSegment[] = [];
+  const duration = subtitle.end - subtitle.start;
+  const chunkDuration = duration / numChunks;
+
+  for (let i = 0; i < numChunks; i++) {
+    const startTime = subtitle.start + i * chunkDuration;
+    const endTime = startTime + chunkDuration;
+
+    const startWordIndex = i * wordsPerChunk;
+    const endWordIndex = startWordIndex + wordsPerChunk;
+
+    chunks.push({
+      start: startTime,
+      end: endTime,
+      text: words.slice(startWordIndex, endWordIndex).join(" ").trim(),
+    });
+  }
+
+  return chunks;
+}
+
+/**
+ * Build frame-based subtitles from Whisper segments of the concatenated video.
+ *
+ * The segment timestamps are already on the final timeline (Whisper transcribes
+ * the concatenated + normalized audio), so there is no per-clip offset. Long
+ * segments are split into short phrases, then seconds are converted to frames.
+ */
+export function buildSubtitles(
+  segments: readonly SubtitleSegment[],
+  fps: number
+): { startFrame: number; endFrame: number; text: string }[] {
+  return segments
+    .flatMap((segment) => splitSubtitleSegments(segment))
+    .map((subtitle) => ({
+      startFrame: Math.floor(subtitle.start * fps),
+      endFrame: Math.floor(subtitle.end * fps),
+      text: subtitle.text.trim(),
+    }));
 }
 
 function renderOverlay(
