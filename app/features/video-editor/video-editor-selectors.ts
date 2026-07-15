@@ -171,7 +171,7 @@ export const getShowLastFrame = (showLastFrameOfVideo: boolean): boolean => {
 };
 
 export const getShowScrubSlider = (
-  currentClipType: string | undefined,
+  currentClipType: Clip["type"] | undefined,
   showVideoPlayer: boolean
 ): boolean => {
   return currentClipType === "on-database" && showVideoPlayer;
