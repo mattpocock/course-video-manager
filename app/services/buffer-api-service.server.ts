@@ -74,7 +74,11 @@ const createBufferApiOperations = (token: string) => ({
           text: opts.text,
           assets: [{ video: { url: opts.videoUrl } }],
           schedulingType: "automatic",
-          mode: "addToQueue",
+          // `shareNow` publishes the post immediately instead of dropping it
+          // into the channel's queue (`addToQueue`). Buffer still downloads the
+          // video asset asynchronously, so the caller polls `getPostStatus`
+          // until the post reaches `sent`.
+          mode: "shareNow",
         },
       },
     }).pipe(

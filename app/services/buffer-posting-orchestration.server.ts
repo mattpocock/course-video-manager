@@ -6,7 +6,10 @@ import { VercelBlobService } from "@/services/vercel-blob-service.server";
 import type { SendEvent } from "@/lib/create-sse-response.server";
 
 const DEFAULT_POLL_INTERVAL_MS = 10_000;
-const DEFAULT_POLL_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+// The post is published immediately (`shareNow`), so delivery only takes as long
+// as Buffer needs to download and process the video asset — minutes, not the
+// open-ended wait a queued post would require.
+const DEFAULT_POLL_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 export const bufferPostProgram = (opts: {
   videoId: string;
