@@ -4,7 +4,6 @@ import { useContext, useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -20,11 +19,8 @@ import { UploadContext } from "@/features/upload-manager/upload-context";
 
 type PostState = "idle" | "checking-export";
 
-const SHORTS_TITLE_KEY = (videoId: string) => `shorts-post-title-${videoId}`;
 const SHORTS_DESC_KEY = (videoId: string) =>
   `shorts-post-description-${videoId}`;
-const SHORTS_CAPTION_KEY = (videoId: string) =>
-  `shorts-post-caption-${videoId}`;
 
 export function ShortsPostingModal({
   open,
@@ -37,22 +33,12 @@ export function ShortsPostingModal({
   videoId: string;
   videoTitle: string;
 }) {
-  const [title, setTitle] = useLocalStorage(
-    SHORTS_TITLE_KEY(videoId),
-    videoTitle
-  );
   const [description, setDescription] = useLocalStorage(
     SHORTS_DESC_KEY(videoId),
     ""
   );
-  const [caption, setCaption] = useLocalStorage(
-    SHORTS_CAPTION_KEY(videoId),
-    ""
-  );
 
-  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
-  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
   const [shortLinkUrl, setShortLinkUrl] = useState<string | null>(null);
   const [isCreatingShortLink, setIsCreatingShortLink] = useState(false);
 
@@ -64,18 +50,14 @@ export function ShortsPostingModal({
 
   const [postState, setPostState] = useState<PostState>("idle");
 
-  const handleGenerate = async (
-    mode: "youtube-title-single" | "youtube-description" | "social-caption",
-    setter: (text: string) => void,
-    setLoading: (loading: boolean) => void
-  ) => {
-    setLoading(true);
+  const handleGenerateDescription = async () => {
+    setIsGeneratingDescription(true);
     try {
       const response = await fetch(`/api/videos/${videoId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode,
+          mode: "youtube-description",
           enabledFiles: [],
           includeTranscript: true,
           enabledSections: [],
@@ -85,11 +67,11 @@ export function ShortsPostingModal({
       if (!response.ok) throw new Error("Generation failed");
 
       const result = await response.json();
-      setter(result.text as string);
+      setDescription(result.text as string);
     } catch {
       toast.error("Failed to generate text");
     } finally {
-      setLoading(false);
+      setIsGeneratingDescription(false);
     }
   };
 
@@ -119,8 +101,8 @@ export function ShortsPostingModal({
   };
 
   const handlePost = async () => {
-    if (!title.trim() || !description.trim()) {
-      toast.error("Title and description are required");
+    if (!description.trim()) {
+      toast.error("Description is required");
       return;
     }
 
@@ -132,31 +114,25 @@ export function ShortsPostingModal({
 
       let exportId: string | undefined;
       if (!exists) {
-        exportId = startRenderVerticalUpload(videoId, title.trim());
+        exportId = startRenderVerticalUpload(videoId, videoTitle);
       }
 
       startYoutubeShortsUpload(
         videoId,
-        title.trim(),
+        videoTitle,
         description.trim(),
         exportId
       );
 
-      if (caption.trim()) {
-        startSocialUpload(videoId, title.trim(), caption.trim(), exportId);
-      }
+      startSocialUpload(videoId, videoTitle, videoTitle, exportId);
 
       onOpenChange(false);
       if (exportId) {
         toast("Export + post started", {
-          description: `"${title.trim()}" will export first, then post`,
+          description: `"${videoTitle}" will export first, then post`,
         });
       } else {
-        toast(
-          caption.trim()
-            ? "YouTube Shorts + Buffer posting started"
-            : "YouTube Shorts upload started"
-        );
+        toast("YouTube Shorts + Buffer posting started");
       }
     } catch {
       toast.error("Failed to check export status");
@@ -177,34 +153,9 @@ export function ShortsPostingModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="shorts-title">Title</Label>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  handleGenerate(
-                    "youtube-title-single",
-                    setTitle,
-                    setIsGeneratingTitle
-                  )
-                }
-                disabled={isGeneratingTitle}
-              >
-                {isGeneratingTitle ? (
-                  <Loader2Icon className="h-3 w-3 animate-spin" />
-                ) : (
-                  <SparklesIcon className="h-3 w-3" />
-                )}
-              </Button>
-            </div>
-            <Input
-              id="shorts-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Video title..."
-            />
+          <div className="space-y-1">
+            <Label className="text-muted-foreground text-xs">Title</Label>
+            <p className="text-sm font-medium">{videoTitle}</p>
           </div>
 
           <div className="space-y-2">
@@ -213,13 +164,7 @@ export function ShortsPostingModal({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
-                  handleGenerate(
-                    "youtube-description",
-                    setDescription,
-                    setIsGeneratingDescription
-                  )
-                }
+                onClick={handleGenerateDescription}
                 disabled={isGeneratingDescription}
               >
                 {isGeneratingDescription ? (
@@ -236,41 +181,6 @@ export function ShortsPostingModal({
               placeholder="YouTube description..."
               className="min-h-[80px] resize-y"
             />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="shorts-caption">Caption / Hashtags</Label>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  handleGenerate(
-                    "social-caption",
-                    setCaption,
-                    setIsGeneratingCaption
-                  )
-                }
-                disabled={isGeneratingCaption}
-              >
-                {isGeneratingCaption ? (
-                  <Loader2Icon className="h-3 w-3 animate-spin" />
-                ) : (
-                  <SparklesIcon className="h-3 w-3" />
-                )}
-              </Button>
-            </div>
-            <Textarea
-              id="shorts-caption"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Short-form caption with #hashtags..."
-              className="min-h-[80px] resize-y"
-            />
-            <p className="text-xs text-muted-foreground">
-              Posted to TikTok / X / Bluesky via Buffer. Leave empty to skip
-              Buffer posting.
-            </p>
           </div>
 
           <div className="flex items-center gap-2 pt-1 border-t">
@@ -301,11 +211,7 @@ export function ShortsPostingModal({
           </Button>
           <Button
             onClick={handlePost}
-            disabled={
-              !title.trim() ||
-              !description.trim() ||
-              postState === "checking-export"
-            }
+            disabled={!description.trim() || postState === "checking-export"}
           >
             {postState === "checking-export" ? (
               <>
