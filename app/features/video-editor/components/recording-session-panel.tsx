@@ -205,6 +205,39 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
 
   const hasArchived = panel.archivedClips.length > 0;
 
+  let focusIndicator: {
+    Icon: typeof PinIcon;
+    label: string;
+    title: string;
+    color: string;
+  } | null = null;
+  if (panel.isRecording) {
+    if (diagramFocused) {
+      focusIndicator = {
+        Icon: PinIcon,
+        label: "Diagram focused",
+        title:
+          "Diagram is focused — a snapshot will be pinned when this clip ends",
+        color: "text-emerald-600 dark:text-emerald-400",
+      };
+    } else if (browserFocused) {
+      focusIndicator = {
+        Icon: Link2Icon,
+        label: "URL focused",
+        title: "A browser URL is focused — on-screen links will be captured",
+        color: "text-emerald-600 dark:text-emerald-400",
+      };
+    } else if (hasActiveDiagram) {
+      focusIndicator = {
+        Icon: PinIcon,
+        label: "Diagram not focused",
+        title:
+          "Diagram is not focused — focus it before the clip ends to pin a snapshot",
+        color: "text-muted-foreground",
+      };
+    }
+  }
+
   return (
     <div
       data-session-recording={panel.isRecording ? "true" : undefined}
@@ -224,36 +257,18 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
             </span>
           </span>
         )}
-        {panel.isRecording && diagramFocused && (
+        {focusIndicator && (
           <span
-            className="ml-auto flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400"
-            title="Diagram is focused — a snapshot will be pinned when this clip ends"
+            className={cn(
+              "ml-auto flex items-center gap-1.5 text-xs",
+              focusIndicator.color
+            )}
+            title={focusIndicator.title}
           >
-            <PinIcon className="size-3" />
-            Diagram focused
+            <focusIndicator.Icon className="size-3" />
+            {focusIndicator.label}
           </span>
         )}
-        {panel.isRecording && !diagramFocused && browserFocused && (
-          <span
-            className="ml-auto flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400"
-            title="A browser URL is focused — on-screen links will be captured"
-          >
-            <Link2Icon className="size-3" />
-            URL focused
-          </span>
-        )}
-        {panel.isRecording &&
-          hasActiveDiagram &&
-          !diagramFocused &&
-          !browserFocused && (
-            <span
-              className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"
-              title="Diagram is not focused — focus it before the clip ends to pin a snapshot"
-            >
-              <PinIcon className="size-3" />
-              Diagram not focused
-            </span>
-          )}
       </div>
 
       {/* Pending clips */}
