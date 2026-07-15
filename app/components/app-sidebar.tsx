@@ -23,10 +23,12 @@ import {
   FolderGit2,
   Lightbulb,
   Menu,
+  MonitorSmartphone,
   PenTool,
   Plus,
   VideoIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import {
   Link,
@@ -61,6 +63,9 @@ export function AppSidebar({ variant }: AppSidebarProps) {
 
   const archiveCourseFetcher = useFetcher();
   const createPitchFetcher = useFetcher<{ id: string }>();
+  const spacedeskFetcher = useFetcher<
+    { success: true } | { success: false; message: string }
+  >();
 
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false);
@@ -75,6 +80,21 @@ export function AppSidebar({ variant }: AppSidebarProps) {
       navigate(`/pitches/${createPitchFetcher.data.id}`);
     }
   }, [createPitchFetcher.state, createPitchFetcher.data, navigate]);
+
+  useEffect(() => {
+    if (spacedeskFetcher.state !== "idle" || !spacedeskFetcher.data) return;
+    if (spacedeskFetcher.data.success) {
+      toast("Opening the Space Desk window…");
+    } else {
+      toast.error(spacedeskFetcher.data.message);
+    }
+  }, [spacedeskFetcher.state, spacedeskFetcher.data]);
+
+  const openSpaceDesk = () =>
+    spacedeskFetcher.submit(
+      {},
+      { method: "post", action: "/api/spacedesk/open" }
+    );
 
   const onPitchesPath = location.pathname.startsWith("/pitches");
   const onTikToksPath = location.pathname.startsWith("/tiktoks");
@@ -186,6 +206,12 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         href="/videos"
         active={onVideosPath}
         onAdd={() => setIsAddVideoOpen(true)}
+      />
+
+      <EntityCard
+        icon={<MonitorSmartphone className="w-4 h-4 text-muted-foreground" />}
+        label="Space Desk"
+        onClick={openSpaceDesk}
       />
     </div>
   );

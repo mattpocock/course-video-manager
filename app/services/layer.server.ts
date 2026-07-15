@@ -7,6 +7,7 @@ import { BackgroundRemovalService } from "./background-removal-service";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import { FeatureFlagService } from "./feature-flag-service";
 import { OpenFolderService } from "./open-folder-service";
+import { SpacedeskService } from "./spacedesk-service";
 import { CloudinaryService } from "./cloudinary-service";
 import { CloudinaryMarkdownService } from "./cloudinary-markdown-service";
 import { CourseWriteService } from "./course-write-service";
@@ -53,6 +54,7 @@ const coreLayer = Layer.mergeAll(
   VideoEditorLoggerService.Default,
   FeatureFlagService.Default,
   OpenFolderService.Default,
+  SpacedeskService.Default,
   CloudinaryService.Default,
   CloudinaryMarkdownLayer,
   CourseWriteService.Default,
