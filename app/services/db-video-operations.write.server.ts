@@ -7,6 +7,7 @@ import {
 } from "@/services/db-service-errors";
 import { and, eq, ne } from "drizzle-orm";
 import { Effect } from "effect";
+import type { VideoFormat } from "@/features/videos/video-format";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -196,6 +197,28 @@ export const createVideoWriteOps = (db: Database) => {
     return updated;
   });
 
+  const updateVideoFormat = Effect.fn("updateVideoFormat")(function* (opts: {
+    videoId: string;
+    format: VideoFormat;
+  }) {
+    const [updated] = yield* makeDbCall(() =>
+      db
+        .update(videos)
+        .set({ format: opts.format, lessonId: null, updatedAt: new Date() })
+        .where(eq(videos.id, opts.videoId))
+        .returning()
+    );
+
+    if (!updated) {
+      return yield* new NotFoundError({
+        type: "updateVideoFormat",
+        params: { videoId: opts.videoId },
+      });
+    }
+
+    return updated;
+  });
+
   return {
     getVideoRowById,
     linkVideoToPitch,
@@ -203,5 +226,6 @@ export const createVideoWriteOps = (db: Database) => {
     moveVideoToLesson,
     updateVideoBody,
     updateVideoDescription,
+    updateVideoFormat,
   };
 };

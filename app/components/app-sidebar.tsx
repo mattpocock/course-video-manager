@@ -19,6 +19,7 @@ import {
   Archive,
   CalendarDays,
   ChevronRight,
+  Clapperboard,
   FolderGit2,
   Lightbulb,
   Menu,
@@ -76,6 +77,7 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   }, [createPitchFetcher.state, createPitchFetcher.data, navigate]);
 
   const onPitchesPath = location.pathname.startsWith("/pitches");
+  const onTikToksPath = location.pathname.startsWith("/tiktoks");
   const onVideosPath =
     location.pathname === "/videos" ||
     location.pathname === "/videos/concatenate";
@@ -169,6 +171,13 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         icon={<PenTool className="w-4 h-4 text-muted-foreground" />}
         label="Diagrams"
         onClick={() => openPlayground()}
+      />
+
+      <EntityCard
+        icon={<Clapperboard className="w-4 h-4 text-muted-foreground" />}
+        label="TikToks"
+        href="/tiktoks"
+        active={onTikToksPath}
       />
 
       <EntityCard

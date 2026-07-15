@@ -131,3 +131,9 @@ Avoid shallow modules: large interface with many methods that just pass through 
 ## localStorage
 
 Use `useLocalStorage` from `@/hooks/use-local-storage` for component state that should persist in `localStorage`. The hook handles SSR guards, initialization from a stored value with a fallback, and auto-saves on every change. Avoid raw `localStorage.getItem`/`setItem` scattered across components.
+
+---
+
+## ESM path resolution
+
+This is an ESM project (`"type": "module"`). Use `import.meta.dirname` and `import.meta.filename` instead of the CJS globals `__dirname` and `__filename`. A pre-commit hook (`check:no-dirname`) enforces this on staged files.

@@ -38,6 +38,20 @@ export function showSuccessToast(upload: uploadReducer.UploadEntry): void {
         },
       },
     });
+  } else if (upload.uploadType === "youtube-shorts") {
+    toast.success(`"${upload.title}" posted as YouTube Short`, {
+      duration: Infinity,
+      action: upload.youtubeVideoId
+        ? {
+            label: "Open on YouTube",
+            onClick: () =>
+              window.open(
+                `https://youtube.com/shorts/${upload.youtubeVideoId}`,
+                "_blank"
+              ),
+          }
+        : undefined,
+    });
   } else if (upload.uploadType === "ai-hero") {
     const aiHeroPageUrl = `/videos/${upload.videoId}/ai-hero`;
 

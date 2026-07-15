@@ -140,7 +140,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           return { targetPath, owner };
         }
 
-        // Render via ffmpeg → writes to {videoId}.mp4
+        // Export via ffmpeg → writes to {videoId}.mp4
         yield* videoProcessing.exportVideoClips({
           videoId,
           shortsDirectoryOutputName: undefined,

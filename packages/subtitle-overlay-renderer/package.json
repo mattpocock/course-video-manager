@@ -1,0 +1,42 @@
+{
+  "name": "@cvm/subtitle-overlay-renderer",
+  "version": "1.0.0",
+  "description": "Standalone Remotion renderer for the CVM subtitle + CTA caption overlay. Renders a transparent 1080x1920 overlay locally via @remotion/renderer (Chromium). No AWS/Lambda.",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "bin": {
+    "render-subtitle-overlay": "./bin.mjs"
+  },
+  "exports": {
+    ".": "./src/render.ts"
+  },
+  "scripts": {
+    "studio": "remotion studio remotion/index.ts",
+    "render": "node bin.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.347",
+    "@remotion/cli": "4.0.347",
+    "@remotion/google-fonts": "4.0.347",
+    "@remotion/renderer": "4.0.347",
+    "@remotion/tailwind-v4": "4.0.347",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.347",
+    "tailwindcss": "4.1.1",
+    "zod": "^3.25.46"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "19.1.8",
+    "tsx": "^4.19.2",
+    "typescript": "5.8.2",
+    "vitest": "^3.0.0"
+  },
+  "sideEffects": [
+    "*.css"
+  ]
+}

@@ -62,6 +62,7 @@ export const copyVideoImpl = (
             originalFootagePath: sourceVideo.originalFootagePath,
             lessonId: sourceVideo.lessonId,
             pitchId: sourceVideo.pitchId,
+            format: sourceVideo.format,
             archived: false,
             createdAt: now,
             updatedAt: now,

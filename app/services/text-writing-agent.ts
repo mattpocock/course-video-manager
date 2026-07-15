@@ -1,4 +1,5 @@
 import { sortByOrder } from "@/lib/sort-by-order";
+import { formatOnScreenLinks } from "@/lib/transcript-builder";
 import { generateArticlePrompt } from "@/prompts/generate-article";
 import { generateArticlePlanPrompt } from "@/prompts/generate-article-plan";
 import { generateStepsToCompleteForProjectPrompt } from "@/prompts/generate-steps-to-complete-for-project";
@@ -372,6 +373,8 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
       let currentParagraph: string[] = [];
       let currentSectionEnabled = allSectionsEnabled; // If no sections exist, include clips before first section
       let clipIndex = 0;
+      // On-screen web links are annotated inline once, on their first appearance.
+      const seenUrls = new Set<string>();
 
       for (const item of sortedAllItems) {
         if (item.type === "chapter") {
@@ -389,7 +392,10 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
         } else {
           clipIndex++;
           if (item.clip.text && currentSectionEnabled) {
-            currentParagraph.push(`[${clipIndex}] ${item.clip.text}`);
+            const onScreen = formatOnScreenLinks(item.clip.webLinks, seenUrls);
+            currentParagraph.push(
+              `[${clipIndex}] ${onScreen}${item.clip.text}`
+            );
           }
         }
       }

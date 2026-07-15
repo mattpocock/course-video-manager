@@ -105,3 +105,51 @@ export const ensureDatabaseUrl = (): EnsureDatabaseUrlResult => {
   process.env.DATABASE_URL = value;
   return { ok: true, databaseUrl: value };
 };
+
+/**
+ * Load EVERY key from the repo-root `.env` into `process.env` (never
+ * overwriting a value already set), anchored to the install location the same
+ * way `ensureDatabaseUrl` is.
+ *
+ * Read-only `cvm` commands need only DATABASE_URL, so the hot path stays lean.
+ * The Publish flow is the exception: it reaches for config the read services
+ * never touch (FINISHED_VIDEOS_DIRECTORY, DROPBOX_PATH, OPENAI_API_KEY — the
+ * last read at VideoProcessingService BUILD time), and Effect's default
+ * ConfigProvider resolves those from process.env. tsx does not auto-load `.env`,
+ * so the `publish` command calls this first to make the whole file visible.
+ *
+ * Best-effort: a missing/unreadable `.env` is a no-op — any config that stays
+ * absent surfaces as its own Config error when Publish actually reads it.
+ */
+export const loadRepoEnv = (): void => {
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  const repoRoot = findRepoRoot(moduleDir);
+  if (repoRoot === undefined) return;
+
+  const envPath = join(repoRoot, ".env");
+  if (!existsSync(envPath)) return;
+
+  let contents: string;
+  try {
+    contents = readFileSync(envPath, "utf8");
+  } catch {
+    return;
+  }
+
+  for (const rawLine of contents.split("\n")) {
+    const line = rawLine.trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    if (key === "" || process.env[key] != null) continue;
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+};

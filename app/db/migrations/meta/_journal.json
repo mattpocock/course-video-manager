@@ -15,6 +15,20 @@
       "when": 1783632802590,
       "tag": "0001_sudden_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784029785555,
+      "tag": "0002_regular_steel_serpent",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784043002167,
+      "tag": "0003_bizarre_mesmero",
+      "breakpoints": true
     }
   ]
 }

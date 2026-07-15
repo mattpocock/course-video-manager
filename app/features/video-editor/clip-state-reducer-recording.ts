@@ -1,6 +1,7 @@
 import type { PauseType } from "@/services/video-processing-service";
 import { DEFAULT_SILENCE_LENGTH } from "@/silence-detection-constants";
 import { shouldSnapshot } from "@/lib/snapshot-rule";
+import { isCapturableUrl, type CapturedWebLink } from "@/lib/clip-web-link";
 import type {
   ClipOnDatabase,
   ClipOptimisticallyAdded,
@@ -26,7 +27,8 @@ type RecordingAction = Extract<
       | "session-polling-complete"
       | "new-optimistic-clip-detected"
       | "new-database-clips"
-      | "clip-audio-window-closed";
+      | "clip-audio-window-closed"
+      | "browser-event";
   }
 >;
 
@@ -37,6 +39,7 @@ const RECORDING_ACTION_TYPES: ReadonlySet<string> = new Set([
   "new-optimistic-clip-detected",
   "new-database-clips",
   "clip-audio-window-closed",
+  "browser-event",
 ]);
 
 export const isRecordingAction = (
@@ -63,7 +66,23 @@ export const handleRecordingAction = (
       return handleNewDatabaseClips(state, action, exec);
     case "clip-audio-window-closed":
       return handleClipAudioWindowClosed(state, action);
+    case "browser-event":
+      return handleBrowserEvent(state, action);
   }
+};
+
+/**
+ * The single web page currently visible on screen, folded from the live browser
+ * focus + URL state. Null when Chrome does not hold OS focus or the URL is not a
+ * capturable web page (http/https).
+ */
+const effectiveWebLink = (
+  focused: boolean,
+  url: string | null | undefined,
+  title: string | null | undefined
+): { url: string; title: string | null } | null => {
+  if (!focused || url == null || !isCapturableUrl(url)) return null;
+  return { url, title: title ?? null };
 };
 
 const handleRecordingStarted = (
@@ -193,6 +212,14 @@ const handleNewOptimisticClipDetected = (
   }
 
   const newFrontendId = createFrontendId();
+  // Seed the clip with the page already on screen when narration begins (e.g.
+  // one shown during silent setup). Further pages switched to while the clip
+  // records are appended by `browser-event`.
+  const seed = effectiveWebLink(
+    state.browserFocus ?? false,
+    state.browserUrl,
+    state.browserTitle
+  );
   const newClip: ClipOptimisticallyAdded = {
     type: "optimistically-added",
     frontendId: newFrontendId,
@@ -202,6 +229,9 @@ const handleNewOptimisticClipDetected = (
     pauseType: "none",
     soundDetectionId: action.soundDetectionId,
     sessionId: activeSession.id,
+    pendingWebLinks: seed
+      ? [{ url: seed.url, title: seed.title, capturedAt: Date.now() }]
+      : undefined,
   };
 
   const { items, insertionPoint } = insertAtPoint(
@@ -220,6 +250,7 @@ const handleNewOptimisticClipDetected = (
     insertionOrder: state.insertionOrder + 1,
     insertionPoint,
     sessions,
+    recordingClipFrontendId: newFrontendId,
   };
 };
 
@@ -266,6 +297,38 @@ const emitSnapshotForClipEffects = (
   }
 };
 
+type PendingWebLinksEffect = {
+  clipId: DatabaseId;
+  links: CapturedWebLink[];
+};
+
+const collectWebLinksForClip = (
+  frontendClip: TimelineItem | undefined,
+  databaseClipId: DatabaseId
+): PendingWebLinksEffect | null => {
+  if (
+    frontendClip?.type !== "optimistically-added" ||
+    !frontendClip.pendingWebLinks ||
+    frontendClip.pendingWebLinks.length === 0
+  ) {
+    return null;
+  }
+  return { clipId: databaseClipId, links: frontendClip.pendingWebLinks };
+};
+
+const emitPersistWebLinksEffects = (
+  webLinks: PendingWebLinksEffect[],
+  exec: ClipReducerExec
+) => {
+  for (const entry of webLinks) {
+    exec({
+      type: "persist-web-links",
+      clipId: entry.clipId,
+      links: entry.links,
+    });
+  }
+};
+
 const handleNewDatabaseClips = (
   state: ClipReducerState,
   action: Extract<ClipReducerAction, { type: "new-database-clips" }>,
@@ -277,6 +340,7 @@ const handleNewDatabaseClips = (
   const databaseClipIdsToTranscribe = new Set<DatabaseId>();
   const frontendClipIdsToTranscribe = new Set<FrontendId>();
   const snapshotsToCreate: PendingSnapshotEffect[] = [];
+  const webLinksToPersist: PendingWebLinksEffect[] = [];
   const clipsToUpdateScene = new Map<
     DatabaseId,
     { scene: string; profile: string; pauseType: PauseType }
@@ -316,6 +380,12 @@ const handleNewDatabaseClips = (
       );
       if (pendingSnapshot) snapshotsToCreate.push(pendingSnapshot);
 
+      const pendingWebLinks = collectWebLinksForClip(
+        frontendClip,
+        databaseClip.id
+      );
+      if (pendingWebLinks) webLinksToPersist.push(pendingWebLinks);
+
       if (
         frontendClip?.type === "optimistically-added" &&
         frontendClip?.shouldArchive
@@ -331,6 +401,7 @@ const handleNewDatabaseClips = (
           pauseType: frontendClip.pauseType,
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
+          webLinks: [],
           shouldArchive: true,
           sessionId: frontendClip.sessionId,
         };
@@ -355,6 +426,7 @@ const handleNewDatabaseClips = (
           pauseType: frontendClip.pauseType,
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
+          webLinks: [],
         };
         newClipsState[index] = newDatabaseClip;
         clipsToUpdateScene.set(databaseClip.id, {
@@ -377,6 +449,7 @@ const handleNewDatabaseClips = (
         pauseType: databaseClip.pauseType as PauseType,
         diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
         diagramName: null,
+        webLinks: [],
       };
 
       const result = insertAtPoint(
@@ -421,6 +494,7 @@ const handleNewDatabaseClips = (
   }
 
   emitSnapshotForClipEffects(snapshotsToCreate, exec);
+  emitPersistWebLinksEffects(webLinksToPersist, exec);
 
   return {
     ...state,
@@ -441,6 +515,13 @@ const handleClipAudioWindowClosed = (
     diagramFocused: boolean;
   }
 ): ClipReducerState => {
+  // The clip's window has closed; stop accumulating web links to it. Its links
+  // were captured live via `browser-event` and already sit on `pendingWebLinks`.
+  const cleared: ClipReducerState = {
+    ...state,
+    recordingClipFrontendId: null,
+  };
+
   let targetIndex = -1;
   for (let i = state.items.length - 1; i >= 0; i--) {
     const item = state.items[i]!;
@@ -453,10 +534,10 @@ const handleClipAudioWindowClosed = (
       break;
     }
   }
-  if (targetIndex === -1) return state;
+  if (targetIndex === -1) return cleared;
 
   return {
-    ...state,
+    ...cleared,
     items: state.items.map((item, i) =>
       i === targetIndex && item.type === "optimistically-added"
         ? {
@@ -468,5 +549,60 @@ const handleClipAudioWindowClosed = (
           }
         : item
     ),
+  };
+};
+
+/**
+ * Fold a live browser link-capture event into the ambient focus/URL state and,
+ * if a clip is currently recording, accumulate the effective visible URL into
+ * that clip's captured-links set (deduped by URL, keeping the first sighting).
+ */
+const handleBrowserEvent = (
+  state: ClipReducerState,
+  action: Extract<ClipReducerAction, { type: "browser-event" }>
+): ClipReducerState => {
+  const { event } = action;
+
+  let browserFocus = state.browserFocus ?? false;
+  let browserUrl = state.browserUrl ?? null;
+  let browserTitle = state.browserTitle ?? null;
+  if (event.type === "browser-focus") {
+    browserFocus = event.focused;
+  } else {
+    browserUrl = event.url;
+    browserTitle = event.title ?? null;
+  }
+
+  const withAmbient: ClipReducerState = {
+    ...state,
+    browserFocus,
+    browserUrl,
+    browserTitle,
+  };
+
+  const recordingId = state.recordingClipFrontendId;
+  if (!recordingId) return withAmbient;
+
+  const link = effectiveWebLink(browserFocus, browserUrl, browserTitle);
+  if (!link) return withAmbient;
+
+  return {
+    ...withAmbient,
+    items: withAmbient.items.map((item) => {
+      if (
+        item.frontendId !== recordingId ||
+        item.type !== "optimistically-added"
+      ) {
+        return item;
+      }
+      const existing = item.pendingWebLinks ?? [];
+      if (existing.some((l) => l.url === link.url)) return item;
+      const captured: CapturedWebLink = {
+        url: link.url,
+        title: link.title,
+        capturedAt: event.ts,
+      };
+      return { ...item, pendingWebLinks: [...existing, captured] };
+    }),
   };
 };

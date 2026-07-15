@@ -2,7 +2,7 @@ import {
   DrizzleService,
   type Database,
 } from "@/services/drizzle-service.server";
-import { clips, chapters } from "@/db/schema";
+import { clips, chapters, clipWebLinks } from "@/db/schema";
 import {
   NotFoundError,
   UnknownDBServiceError,
@@ -659,6 +659,42 @@ export const createClipOperations = (db: Database) => {
     return clipsResult;
   });
 
+  const createClipWebLinks = Effect.fn("createClipWebLinks")(function* (
+    clipId: string,
+    links: readonly {
+      url: string;
+      title: string | null;
+      capturedAt: number;
+    }[]
+  ) {
+    if (links.length === 0) return [];
+
+    const inserted = yield* makeDbCall(() =>
+      db
+        .insert(clipWebLinks)
+        .values(
+          links.map((link) => ({
+            clipId,
+            url: link.url,
+            title: link.title,
+            capturedAt: new Date(link.capturedAt),
+          }))
+        )
+        .returning()
+    );
+
+    return inserted;
+  });
+
+  const deleteClipWebLink = Effect.fn("deleteClipWebLink")(function* (
+    linkId: string
+  ) {
+    yield* makeDbCall(() =>
+      db.delete(clipWebLinks).where(eq(clipWebLinks.id, linkId))
+    );
+    return { success: true };
+  });
+
   return {
     getClipById,
     getClipsByIds,
@@ -673,6 +709,8 @@ export const createClipOperations = (db: Database) => {
     archiveChapter,
     reorderChapter,
     appendClips,
+    createClipWebLinks,
+    deleteClipWebLink,
   };
 };
 

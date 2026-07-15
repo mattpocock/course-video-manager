@@ -44,8 +44,8 @@ export const loader = makeLoader({
 
       const [videos, archivedVideos] = yield* Effect.all(
         [
-          videoOps.getAllStandaloneVideos(),
-          videoOps.getArchivedStandaloneVideos(),
+          videoOps.getAllStandaloneVideos({ format: "standard" }),
+          videoOps.getArchivedStandaloneVideos({ format: "standard" }),
         ],
         { concurrency: "unbounded" }
       );

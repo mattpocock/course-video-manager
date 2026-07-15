@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildTranscript,
+  formatOnScreenLinks,
   formatProseTranscript,
   toDiffArray,
   toTranscriptItems,
@@ -295,5 +296,84 @@ describe("buildTranscript", () => {
       videoFilename: "recording.webm",
       text: "Test",
     });
+  });
+});
+
+describe("formatOnScreenLinks", () => {
+  it("renders title and URL, wrapped in the on-screen marker", () => {
+    const seen = new Set<string>();
+    expect(
+      formatOnScreenLinks(
+        [{ url: "https://a.com", title: "A Site" }],
+        seen
+      )
+    ).toBe("«on screen: A Site — https://a.com» ");
+  });
+
+  it("falls back to the bare URL when there is no title", () => {
+    const seen = new Set<string>();
+    expect(
+      formatOnScreenLinks([{ url: "https://a.com", title: null }], seen)
+    ).toBe("«on screen: https://a.com» ");
+  });
+
+  it("joins multiple fresh links and marks them all seen", () => {
+    const seen = new Set<string>();
+    expect(
+      formatOnScreenLinks(
+        [
+          { url: "https://a.com", title: "A" },
+          { url: "https://b.com", title: null },
+        ],
+        seen
+      )
+    ).toBe("«on screen: A — https://a.com; https://b.com» ");
+    expect(seen.has("https://a.com")).toBe(true);
+    expect(seen.has("https://b.com")).toBe(true);
+  });
+
+  it("skips already-seen URLs and returns empty when nothing is fresh", () => {
+    const seen = new Set<string>(["https://a.com"]);
+    expect(
+      formatOnScreenLinks([{ url: "https://a.com", title: "A" }], seen)
+    ).toBe("");
+  });
+
+  it("returns empty for undefined or empty link lists", () => {
+    expect(formatOnScreenLinks(undefined, new Set())).toBe("");
+    expect(formatOnScreenLinks([], new Set())).toBe("");
+  });
+});
+
+describe("buildTranscript on-screen web links", () => {
+  it("injects the annotation inline after the clip index", () => {
+    const { transcript } = buildTranscript(
+      [
+        makeClip("a0", "So here is the docs page.", {
+          webLinks: [{ url: "https://docs.com", title: "Docs" }],
+        }),
+      ],
+      []
+    );
+    expect(transcript).toBe(
+      "[1] «on screen: Docs — https://docs.com» So here is the docs page."
+    );
+  });
+
+  it("annotates a repeated URL only on its first appearance (global dedup)", () => {
+    const { transcript } = buildTranscript(
+      [
+        makeClip("a0", "First mention.", {
+          webLinks: [{ url: "https://docs.com", title: "Docs" }],
+        }),
+        makeClip("a1", "Second mention.", {
+          webLinks: [{ url: "https://docs.com", title: "Docs" }],
+        }),
+      ],
+      []
+    );
+    expect(transcript).toBe(
+      "[1] «on screen: Docs — https://docs.com» First mention. [2] Second mention."
+    );
   });
 });

@@ -7,6 +7,7 @@ import {
   useWatchForSpeechDetected,
 } from "./use-speech-detector";
 import type { SilenceLength } from "@/silence-detection-constants";
+import { ensureOBSProfile } from "./ensure-obs-profile";
 
 export type OBSNotRunningState = {
   type: "obs-not-running";
@@ -509,13 +510,24 @@ export const useOBSConnector = (props: {
     },
   });
 
+  const ensureProfile = useCallback(
+    (targetProfile: string) => ensureOBSProfile(websocket, targetProfile),
+    [websocket]
+  );
+
   const output = useMemo(() => {
     return {
       state: outerState,
       mediaStream,
       speechDetectorState,
+      ensureProfile,
     };
-  }, [JSON.stringify(outerState), mediaStream, speechDetectorState]);
+  }, [
+    JSON.stringify(outerState),
+    mediaStream,
+    speechDetectorState,
+    ensureProfile,
+  ]);
 
   return output;
 };

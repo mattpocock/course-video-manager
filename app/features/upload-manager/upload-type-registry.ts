@@ -3,9 +3,11 @@ import { startSSEAiHeroPost } from "./sse-ai-hero-client";
 import { startSSEDropboxPublish } from "./sse-dropbox-publish-client";
 import { startSSEExport } from "./sse-export-client";
 import { startSSEPublish } from "./sse-publish-client";
+import { startSSERenderVertical } from "./sse-render-vertical-client";
 import { startSSESkillsChangelogPost } from "./sse-skills-changelog-client";
 import { startSSESocialPost } from "./sse-social-client";
 import { startSSEUpload } from "./sse-upload-client";
+import { startSSEYoutubeShortsPost } from "./sse-youtube-shorts-client";
 
 type StartUploadAction = Extract<
   uploadReducer.Action,
@@ -176,6 +178,70 @@ const youtubeConfig: UploadTypeConfig<
   supportsDependsOn: true,
 };
 
+export interface YouTubeShortsParams {
+  description: string;
+}
+
+const youtubeShortsConfig: UploadTypeConfig<
+  YouTubeShortsParams,
+  uploadReducer.YouTubeShortsUploadEntry
+> = {
+  createEntry: (base) => ({
+    ...base,
+    uploadType: "youtube-shorts" as const,
+    youtubeVideoId: null,
+  }),
+
+  resetEntry: (base, prev) => ({
+    ...base,
+    uploadType: "youtube-shorts" as const,
+    youtubeVideoId: prev.youtubeVideoId,
+  }),
+
+  applySuccess: (entry, action) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    youtubeVideoId: action.youtubeVideoId ?? null,
+  }),
+
+  initiate: (uploadId, entry, params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSEYoutubeShortsPost(
+        {
+          videoId: entry.videoId,
+          title: entry.title,
+          description: params.description,
+        },
+        {
+          onProgress: (percentage) => {
+            dispatch({
+              type: "UPDATE_PROGRESS",
+              uploadId,
+              progress: percentage,
+            });
+          },
+          onComplete: (youtubeVideoId) => {
+            dispatch({ type: "UPLOAD_SUCCESS", uploadId, youtubeVideoId });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: true,
+};
+
 export interface BufferParams {
   caption: string;
 }
@@ -187,13 +253,13 @@ const bufferConfig: UploadTypeConfig<
   createEntry: (base) => ({
     ...base,
     uploadType: "buffer" as const,
-    bufferStage: "copying" as const,
+    bufferStage: "uploading-blob" as const,
   }),
 
   resetEntry: (base) => ({
     ...base,
     uploadType: "buffer" as const,
-    bufferStage: "copying" as const,
+    bufferStage: "uploading-blob" as const,
   }),
 
   applySuccess: (entry) => ({
@@ -236,7 +302,7 @@ const bufferConfig: UploadTypeConfig<
     );
   },
 
-  supportsDependsOn: false,
+  supportsDependsOn: true,
 };
 
 export interface AiHeroParams {
@@ -527,15 +593,73 @@ const publishConfig: UploadTypeConfig<
   supportsDependsOn: false,
 };
 
+const renderVerticalConfig: UploadTypeConfig<
+  undefined,
+  uploadReducer.RenderVerticalUploadEntry
+> = {
+  createEntry: (base) => ({
+    ...base,
+    uploadType: "render-vertical" as const,
+    renderVerticalStage: "concatenating-clips" as const,
+  }),
+
+  resetEntry: (base) => ({
+    ...base,
+    uploadType: "render-vertical" as const,
+    renderVerticalStage: "concatenating-clips" as const,
+  }),
+
+  applySuccess: (entry) => ({
+    ...entry,
+    status: "success" as const,
+    progress: 100,
+    errorMessage: null,
+    renderVerticalStage: null,
+  }),
+
+  initiate: (uploadId, entry, _params, dispatch, abortControllers) => {
+    withAbortManagement(uploadId, abortControllers, () =>
+      startSSERenderVertical(
+        { videoId: entry.videoId },
+        {
+          onStageChange: (stage) => {
+            dispatch({
+              type: "UPDATE_RENDER_VERTICAL_STAGE",
+              uploadId,
+              stage,
+            });
+          },
+          onComplete: () => {
+            dispatch({ type: "UPLOAD_SUCCESS", uploadId });
+            abortControllers.delete(uploadId);
+          },
+          onError: (message) => {
+            dispatch({
+              type: "UPLOAD_ERROR",
+              uploadId,
+              errorMessage: message,
+            });
+            abortControllers.delete(uploadId);
+          },
+        }
+      )
+    );
+  },
+
+  supportsDependsOn: false,
+};
+
 export const uploadTypeRegistry: Record<
   uploadReducer.UploadType,
   UploadTypeConfig<any, any>
 > = {
   export: exportConfig,
   youtube: youtubeConfig,
+  "youtube-shorts": youtubeShortsConfig,
   buffer: bufferConfig,
   "ai-hero": aiHeroConfig,
   "skills-changelog": skillsChangelogConfig,
   "dropbox-publish": dropboxPublishConfig,
   publish: publishConfig,
+  "render-vertical": renderVerticalConfig,
 };

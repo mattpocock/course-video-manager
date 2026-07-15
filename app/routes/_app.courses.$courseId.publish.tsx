@@ -1,17 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { UploadContext } from "@/features/upload-manager/upload-context";
+import {
+  parseSemver,
+  formatSemver,
+  bumpSemver,
+  ZERO_SEMVER,
+  type BumpLevel,
+} from "@/lib/semver";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { ArrowLeft, AlertTriangle, ChevronRight } from "lucide-react";
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useMemo, useState } from "react";
 import { data, Link, useNavigate } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.publish";
 
@@ -70,7 +76,22 @@ export default function Component(props: Route.ComponentProps) {
   const navigate = useNavigate();
   const { uploads, startPublish } = useContext(UploadContext);
 
-  const [name, setName] = useState("");
+  // The version name is never free-typed: it is a lowercase-'v' semver computed
+  // from the previous published version by a patch/minor/major bump, so the UI
+  // can only ever produce a valid semver (matching the CLI's contract). A
+  // non-semver previous name (or a first-ever publish) falls back to v0.0.0.
+  const { baseSemver, previousWasSemver } = useMemo(() => {
+    if (!previousVersionName)
+      return { baseSemver: ZERO_SEMVER, previousWasSemver: true };
+    const parsed = parseSemver(previousVersionName);
+    return {
+      baseSemver: parsed ?? ZERO_SEMVER,
+      previousWasSemver: parsed !== null,
+    };
+  }, [previousVersionName]);
+
+  const [bumpLevel, setBumpLevel] = useState<BumpLevel>("patch");
+  const name = formatSemver(bumpSemver(baseSemver, bumpLevel));
   const [description, setDescription] = useState("");
   const [includeTodoLessons, setIncludeTodoLessons] = useState(true);
   const [publishStarted, setPublishStarted] = useState(false);
@@ -98,7 +119,7 @@ export default function Component(props: Route.ComponentProps) {
   const hasInvalidLessonCombos = invalidLessonCombos.length > 0;
   const hasIncompleteVideos = incompleteVideos.length > 0;
   const canPublish =
-    name.trim().length > 0 &&
+    description.trim().length > 0 &&
     !hasCourseViewLints &&
     !hasInvalidLessonCombos &&
     !hasIncompleteVideos &&
@@ -110,7 +131,7 @@ export default function Component(props: Route.ComponentProps) {
     startPublish(
       course.id,
       course.name,
-      name.trim(),
+      name,
       description.trim(),
       includeTodoLessons
     );
@@ -142,27 +163,43 @@ export default function Component(props: Route.ComponentProps) {
         {previousVersionName && (
           <p className="text-sm text-muted-foreground mb-6">
             {previousVersionName} <ChevronRight className="inline w-3 h-3" />{" "}
-            {name.trim() || <span className="italic">New Version</span>}
+            {name}
           </p>
         )}
 
         {/* Publish Form */}
         <div className="space-y-4 mb-8">
           <div className="space-y-2">
-            <Label htmlFor="version-name">Version Name *</Label>
-            <Input
-              id="version-name"
-              placeholder='e.g. "v2.1 — Added auth module"'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={publishStarted}
-            />
+            <Label>Version</Label>
+            <div className="flex items-center gap-3">
+              <span className="text-lg font-mono font-semibold">{name}</span>
+              <div className="flex gap-1">
+                {(["patch", "minor", "major"] as const).map((level) => (
+                  <Button
+                    key={level}
+                    variant={bumpLevel === level ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setBumpLevel(level)}
+                    disabled={publishStarted}
+                    className="capitalize"
+                  >
+                    {level}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            {previousVersionName && (
+              <p className="text-xs text-muted-foreground">
+                Previous: {previousVersionName}
+                {!previousWasSemver && " (not semver — starting from v0)"}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="version-description">Description</Label>
+            <Label htmlFor="version-description">Description *</Label>
             <Textarea
               id="version-description"
-              placeholder="Optional description of what changed..."
+              placeholder="Describe what changed in this version..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={publishStarted}

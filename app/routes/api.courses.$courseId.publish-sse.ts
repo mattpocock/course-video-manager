@@ -6,7 +6,10 @@ import { createSSEResponse } from "@/lib/create-sse-response.server";
 
 const publishSchema = Schema.Struct({
   name: Schema.String,
-  description: Schema.optional(Schema.String),
+  // Required, like name: a Published Version always carries a description (it
+  // feeds the changelog and the frozen snapshot). The publish page gates on a
+  // non-empty value; this just refuses a payload that omits the field.
+  description: Schema.String,
   includeTodoLessons: Schema.optional(Schema.Boolean),
 });
 
@@ -24,7 +27,7 @@ export const action = async (args: Route.ActionArgs) => {
         const result = yield* publishService.publish(
           courseId,
           parsed.name,
-          parsed.description ?? "",
+          parsed.description,
           parsed.includeTodoLessons ?? true,
           (stage) => {
             sendEvent("progress", { stage });

@@ -47,6 +47,7 @@ const makeClipOnDatabase = (
   pauseType: "none",
   diagramSnapshotId: null,
   diagramName: null,
+  webLinks: [],
   ...overrides,
 });
 
@@ -401,21 +402,45 @@ describe("getShouldShowLastFrameOverlay", () => {
 
 describe("getBackButtonUrl", () => {
   it("returns lesson-specific URL when repoId and lessonId exist", () => {
-    expect(getBackButtonUrl("repo-1", "lesson-1")).toBe(
+    expect(getBackButtonUrl("repo-1", "lesson-1", "standard", null)).toBe(
       "/courses/repo-1#lesson-1"
     );
   });
 
   it("returns /videos when repoId is missing", () => {
-    expect(getBackButtonUrl(undefined, "lesson-1")).toBe("/videos");
+    expect(getBackButtonUrl(null, "lesson-1", "standard", null)).toBe(
+      "/videos"
+    );
   });
 
   it("returns /videos when lessonId is missing", () => {
-    expect(getBackButtonUrl("repo-1", undefined)).toBe("/videos");
+    expect(getBackButtonUrl("repo-1", null, "standard", null)).toBe("/videos");
   });
 
   it("returns /videos when both are missing", () => {
-    expect(getBackButtonUrl(undefined, undefined)).toBe("/videos");
+    expect(getBackButtonUrl(null, null, "standard", null)).toBe("/videos");
+  });
+
+  it("returns /tiktoks when format is short and video is standalone", () => {
+    expect(getBackButtonUrl(null, null, "short", null)).toBe("/tiktoks");
+  });
+
+  it("returns lesson URL when format is short but video has a lesson", () => {
+    expect(getBackButtonUrl("repo-1", "lesson-1", "short", null)).toBe(
+      "/courses/repo-1#lesson-1"
+    );
+  });
+
+  it("returns pitch URL when pitchId exists", () => {
+    expect(getBackButtonUrl(null, null, "standard", "pitch-1")).toBe(
+      "/pitches/pitch-1"
+    );
+  });
+
+  it("returns pitch URL even when repoId and lessonId exist", () => {
+    expect(getBackButtonUrl("repo-1", "lesson-1", "standard", "pitch-1")).toBe(
+      "/pitches/pitch-1"
+    );
   });
 });
 

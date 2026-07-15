@@ -24,6 +24,9 @@ const COMMON_EXCLUDE = [
   "**/dist/**",
   "**/.react-router/**",
   "**/.sandcastle/worktrees/**",
+  // Standalone root packages (e.g. the subtitle-overlay-renderer) ship their
+  // own toolchain and test runner — the main app suite must not sweep them in.
+  "packages/**",
 ];
 
 export default defineConfig({

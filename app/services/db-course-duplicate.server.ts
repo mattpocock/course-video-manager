@@ -183,6 +183,7 @@ export const makeDuplicateCourse = (db: Database) =>
                 originalFootagePath: sourceVideo.originalFootagePath,
                 body: sourceVideo.body,
                 description: sourceVideo.description,
+                format: sourceVideo.format,
               })
               .returning()
           );

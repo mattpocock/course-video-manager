@@ -6,7 +6,9 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { getBackButtonUrl } from "@/features/video-editor/video-editor-selectors";
 import { cn } from "@/lib/utils";
+import { type VideoFormat } from "@/features/videos/video-format";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
@@ -39,17 +41,20 @@ export const loader = makeLoader({
       ]);
 
       const lesson = video.lesson;
+      const videoFormat = video.format as VideoFormat;
 
       if (!lesson) {
         return {
           videoId,
           videoTitle: video.title,
+          videoFormat,
           lessonPath: null,
           sectionPath: null,
           repoId: null,
           lessonId: null,
           pitchId: video.pitchId,
           isStandalone: true,
+          format: video.format,
           nextVideoId,
           previousVideoId,
           videoCount: 1,
@@ -60,12 +65,14 @@ export const loader = makeLoader({
       return {
         videoId,
         videoTitle: video.title,
+        videoFormat,
         lessonPath: lesson.title,
         sectionPath: lesson.section.title,
         repoId: lesson.section.repoVersion.repoId,
         lessonId: lesson.id,
         pitchId: video.pitchId,
         isStandalone: false,
+        format: video.format,
         nextVideoId,
         previousVideoId,
         videoCount: lesson.videos.length,
@@ -137,12 +144,14 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
   const {
     videoId,
     videoTitle,
+    videoFormat,
     lessonPath,
     sectionPath,
     repoId,
     lessonId,
     pitchId,
     isStandalone,
+    format,
     nextVideoId,
     previousVideoId,
     videoCount,
@@ -181,12 +190,7 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
               ? "newsletter"
               : "edit";
 
-  // Build back button URL
-  const backButtonUrl = pitchId
-    ? `/pitches/${pitchId}`
-    : repoId && lessonId
-      ? `/courses/${repoId}#${lessonId}`
-      : "/videos";
+  const backButtonUrl = getBackButtonUrl(repoId, lessonId, format, pitchId);
 
   // Build breadcrumb text
   const breadcrumb = isStandalone
@@ -210,28 +214,32 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Top-level tab switcher */}
-          <div className="flex gap-1">
-            {topTabs.map((tab) => {
-              const isActive =
-                tab.id === "post" ? isPostTab(activeTab) : activeTab === tab.id;
-              return (
-                <Link
-                  key={tab.id}
-                  to={`/videos/${videoId}/${tab.path}`}
-                  className={cn(
-                    "px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1.5",
-                    isActive
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <tab.icon className="size-4" />
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </div>
+          {/* Top-level tab switcher (hidden for short-format videos) */}
+          {videoFormat !== "short" && (
+            <div className="flex gap-1">
+              {topTabs.map((tab) => {
+                const isActive =
+                  tab.id === "post"
+                    ? isPostTab(activeTab)
+                    : activeTab === tab.id;
+                return (
+                  <Link
+                    key={tab.id}
+                    to={`/videos/${videoId}/${tab.path}`}
+                    className={cn(
+                      "px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1.5",
+                      isActive
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <tab.icon className="size-4" />
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {/* Navigation buttons */}
           <div className="flex items-center gap-2">

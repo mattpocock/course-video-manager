@@ -446,7 +446,7 @@ describe("buffer registry entry", () => {
       expect(entry).toEqual({
         ...base,
         uploadType: "buffer",
-        bufferStage: "copying",
+        bufferStage: "uploading-blob",
       });
     });
 
@@ -475,7 +475,7 @@ describe("buffer registry entry", () => {
       const prevEntry: uploadReducer.BufferUploadEntry = {
         ...base,
         uploadType: "buffer",
-        bufferStage: "sending-webhook",
+        bufferStage: "creating-post",
       };
 
       const entry = bufferConfig.resetEntry(base, prevEntry);
@@ -483,7 +483,7 @@ describe("buffer registry entry", () => {
       expect(entry).toEqual({
         ...base,
         uploadType: "buffer",
-        bufferStage: "copying",
+        bufferStage: "uploading-blob",
       });
     });
   });
@@ -497,7 +497,7 @@ describe("buffer registry entry", () => {
         progress: 80,
         status: "uploading",
         uploadType: "buffer",
-        bufferStage: "sending-webhook",
+        bufferStage: "creating-post",
         errorMessage: null,
         retryCount: 0,
         dependsOn: null,
@@ -525,7 +525,7 @@ describe("buffer registry entry", () => {
         progress: 50,
         status: "uploading",
         uploadType: "buffer",
-        bufferStage: "syncing",
+        bufferStage: "polling",
         errorMessage: "previous error",
         retryCount: 1,
         dependsOn: null,
@@ -552,7 +552,7 @@ describe("buffer registry entry", () => {
         progress: 0,
         status: "uploading",
         uploadType: "buffer",
-        bufferStage: "copying",
+        bufferStage: "uploading-blob",
         errorMessage: null,
         retryCount: 0,
         dependsOn: null,
@@ -583,7 +583,7 @@ describe("buffer registry entry", () => {
         progress: 0,
         status: "uploading",
         uploadType: "buffer",
-        bufferStage: "copying",
+        bufferStage: "uploading-blob",
         errorMessage: null,
         retryCount: 0,
         dependsOn: null,

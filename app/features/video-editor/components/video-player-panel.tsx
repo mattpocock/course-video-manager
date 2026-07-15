@@ -161,7 +161,8 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.allClipsHaveText
   );
-  const { startExportUpload } = useContext(UploadContext);
+  const { startExportUpload, startRenderVerticalUpload } =
+    useContext(UploadContext);
   const exportToDavinciResolveFetcher = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.exportToDavinciResolveFetcher
@@ -457,6 +458,9 @@ export const VideoPlayerPanel = () => {
               allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
               allClipsHaveText={allClipsHaveText}
               onExport={() => startExportUpload(videoId, videoTitle)}
+              onRenderVertical={() =>
+                startRenderVerticalUpload(videoId, videoTitle)
+              }
               exportToDavinciResolveFetcher={exportToDavinciResolveFetcher}
               videoId={videoId}
               lessonId={lessonId}

@@ -23,6 +23,7 @@ const makeClip = (
   pauseType: "none",
   diagramSnapshotId: null,
   diagramName: null,
+  webLinks: [],
   ...overrides,
 });
 

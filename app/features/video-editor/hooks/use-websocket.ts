@@ -24,9 +24,15 @@ export function useWebSocket(params: {
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:5172");
     socket.addEventListener("message", (event) => {
-      const data = streamDeckForwarderMessageSchema.parse(
+      // The hub rebroadcasts every client's messages (Stream Deck actions AND
+      // browser link-capture events) to every client. This hook only handles
+      // Stream Deck actions, so unrecognized message types are ignored rather
+      // than throwing.
+      const parsed = streamDeckForwarderMessageSchema.safeParse(
         JSON.parse(event.data)
       );
+      if (!parsed.success) return;
+      const data = parsed.data;
       if (data.type === "delete-last-clip") {
         params.onDeleteLatestInsertedClip();
       } else if (data.type === "toggle-last-frame-of-video") {

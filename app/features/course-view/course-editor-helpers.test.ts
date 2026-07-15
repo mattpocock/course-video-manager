@@ -512,25 +512,26 @@ describe("computeCourseStats", () => {
     expect(stats.totalLessons).toBe(2);
   });
 
-  it("counts lessons with videos", () => {
+  it("counts todo lessons", () => {
     const sections = [
       makeSection([
-        makeLesson({ id: "l1", videos: [video] }),
-        makeLesson({ id: "l2", videos: [] }),
+        makeLesson({ id: "l1", authoringStatus: "done" }),
+        makeLesson({ id: "l2", authoringStatus: "todo" }),
+        makeLesson({ id: "l3", authoringStatus: "todo" }),
       ]),
     ];
     const stats = computeCourseStats(sections);
-    expect(stats.totalLessonsWithVideos).toBe(1);
-    expect(stats.totalLessons).toBe(2);
+    expect(stats.todoCount).toBe(2);
+    expect(stats.totalLessons).toBe(3);
   });
 
-  it("computes percentage correctly", () => {
+  it("computes percentage from authoringStatus, not videos", () => {
     const sections = [
       makeSection([
-        makeLesson({ id: "l1", videos: [video] }),
-        makeLesson({ id: "l2", videos: [] }),
-        makeLesson({ id: "l3", videos: [] }),
-        makeLesson({ id: "l4", videos: [video] }),
+        makeLesson({ id: "l1", authoringStatus: "done" }),
+        makeLesson({ id: "l2", authoringStatus: "todo" }),
+        makeLesson({ id: "l3", authoringStatus: "todo" }),
+        makeLesson({ id: "l4", authoringStatus: "done" }),
       ]),
     ];
     const stats = computeCourseStats(sections);
@@ -573,12 +574,18 @@ describe("computeCourseStats", () => {
 
   it("accumulates across multiple sections", () => {
     const sections = [
-      makeSection([makeLesson({ id: "l1", videos: [video] })], { id: "s1" }),
-      makeSection([makeLesson({ id: "l2", videos: [video] })], { id: "s2" }),
+      makeSection(
+        [makeLesson({ id: "l1", videos: [video], authoringStatus: "done" })],
+        { id: "s1" }
+      ),
+      makeSection(
+        [makeLesson({ id: "l2", videos: [video], authoringStatus: "done" })],
+        { id: "s2" }
+      ),
     ];
     const stats = computeCourseStats(sections);
     expect(stats.totalLessons).toBe(2);
-    expect(stats.totalLessonsWithVideos).toBe(2);
+    expect(stats.todoCount).toBe(0);
     expect(stats.totalVideos).toBe(2);
     expect(stats.totalDurationSeconds).toBe(240);
     expect(stats.percentageComplete).toBe(100);
@@ -587,12 +594,37 @@ describe("computeCourseStats", () => {
   it("rounds percentage to nearest integer", () => {
     const sections = [
       makeSection([
-        makeLesson({ id: "l1", videos: [video] }),
-        makeLesson({ id: "l2", videos: [] }),
-        makeLesson({ id: "l3", videos: [] }),
+        makeLesson({ id: "l1", authoringStatus: "done" }),
+        makeLesson({ id: "l2", authoringStatus: "todo" }),
+        makeLesson({ id: "l3", authoringStatus: "todo" }),
       ]),
     ];
     const stats = computeCourseStats(sections);
     expect(stats.percentageComplete).toBe(33);
+  });
+
+  it("reaches 100% only when no lessons are todo", () => {
+    const sections = [
+      makeSection([
+        makeLesson({ id: "l1", authoringStatus: "done" }),
+        makeLesson({ id: "l2", authoringStatus: "done" }),
+      ]),
+    ];
+    const stats = computeCourseStats(sections);
+    expect(stats.percentageComplete).toBe(100);
+    expect(stats.todoCount).toBe(0);
+  });
+
+  it("counts all-done lessons as 100% even with videos absent", () => {
+    const sections = [
+      makeSection([
+        makeLesson({ id: "l1", authoringStatus: "done", videos: [] }),
+        makeLesson({ id: "l2", authoringStatus: "done", videos: [] }),
+      ]),
+    ];
+    const stats = computeCourseStats(sections);
+    expect(stats.todoCount).toBe(0);
+    expect(stats.percentageComplete).toBe(100);
+    expect(stats.totalVideos).toBe(0);
   });
 });

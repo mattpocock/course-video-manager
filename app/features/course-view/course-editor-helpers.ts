@@ -250,14 +250,14 @@ export function computeTodoCount(
 
 export function computeCourseStats(sections: Section[]) {
   let totalLessons = 0;
-  let totalLessonsWithVideos = 0;
+  let todoCount = 0;
   let totalVideos = 0;
   let totalDurationSeconds = 0;
 
   for (const section of sections) {
     for (const lesson of section.lessons) {
       totalLessons++;
-      if (lesson.videos.length > 0) totalLessonsWithVideos++;
+      if (lesson.authoringStatus === "todo") todoCount++;
       totalVideos += lesson.videos.length;
       for (const video of lesson.videos) {
         totalDurationSeconds += video.totalDuration;
@@ -265,14 +265,13 @@ export function computeCourseStats(sections: Section[]) {
     }
   }
 
+  const doneCount = totalLessons - todoCount;
   const percentageComplete =
-    totalLessons > 0
-      ? Math.round((totalLessonsWithVideos / totalLessons) * 100)
-      : 0;
+    totalLessons > 0 ? Math.round((doneCount / totalLessons) * 100) : 0;
 
   return {
     totalLessons,
-    totalLessonsWithVideos,
+    todoCount,
     totalVideos,
     totalDurationSeconds,
     percentageComplete,

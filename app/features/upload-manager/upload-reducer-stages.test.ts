@@ -36,7 +36,7 @@ const createBufferEntry = (
   progress: 0,
   status: "uploading",
   uploadType: "buffer",
-  bufferStage: "copying",
+  bufferStage: "uploading-blob",
   errorMessage: null,
   retryCount: 0,
   dependsOn: null,
@@ -101,36 +101,58 @@ describe("UPDATE_BUFFER_STAGE", () => {
     const state = reduce(
       createState({
         uploads: {
-          "upload-1": createBufferEntry({ bufferStage: "copying" }),
-        },
-      }),
-      { type: "UPDATE_BUFFER_STAGE", uploadId: "upload-1", stage: "syncing" }
-    );
-
-    const upload = state.uploads["upload-1"]!;
-    expect(upload.uploadType === "buffer" && upload.bufferStage).toBe(
-      "syncing"
-    );
-  });
-
-  it("should transition from syncing to sending-webhook", () => {
-    const state = reduce(
-      createState({
-        uploads: {
-          "upload-1": createBufferEntry({ bufferStage: "syncing" }),
+          "upload-1": createBufferEntry({ bufferStage: "uploading-blob" }),
         },
       }),
       {
         type: "UPDATE_BUFFER_STAGE",
         uploadId: "upload-1",
-        stage: "sending-webhook",
+        stage: "creating-post",
       }
     );
 
     const upload = state.uploads["upload-1"]!;
     expect(upload.uploadType === "buffer" && upload.bufferStage).toBe(
-      "sending-webhook"
+      "creating-post"
     );
+  });
+
+  it("should transition from creating-post to polling", () => {
+    const state = reduce(
+      createState({
+        uploads: {
+          "upload-1": createBufferEntry({ bufferStage: "creating-post" }),
+        },
+      }),
+      {
+        type: "UPDATE_BUFFER_STAGE",
+        uploadId: "upload-1",
+        stage: "polling",
+      }
+    );
+
+    const upload = state.uploads["upload-1"]!;
+    expect(upload.uploadType === "buffer" && upload.bufferStage).toBe(
+      "polling"
+    );
+  });
+
+  it("should set progress based on stage", () => {
+    const state = reduce(
+      createState({
+        uploads: {
+          "upload-1": createBufferEntry({ bufferStage: "uploading-blob" }),
+        },
+      }),
+      {
+        type: "UPDATE_BUFFER_STAGE",
+        uploadId: "upload-1",
+        stage: "polling",
+      }
+    );
+
+    const upload = state.uploads["upload-1"]!;
+    expect(upload.progress).toBe(70);
   });
 
   it("should not modify state for non-existent upload", () => {
@@ -138,7 +160,7 @@ describe("UPDATE_BUFFER_STAGE", () => {
     const state = reduce(initial, {
       type: "UPDATE_BUFFER_STAGE",
       uploadId: "non-existent",
-      stage: "syncing",
+      stage: "creating-post",
     });
 
     expect(state).toBe(initial);
@@ -151,7 +173,7 @@ describe("UPDATE_BUFFER_STAGE", () => {
     const state = reduce(initial, {
       type: "UPDATE_BUFFER_STAGE",
       uploadId: "upload-1",
-      stage: "syncing",
+      stage: "creating-post",
     });
 
     expect(state).toBe(initial);
@@ -432,27 +454,37 @@ describe("buffer upload lifecycle with stages", () => {
     });
     const started = state.uploads["buf-1"]!;
     expect(started.uploadType === "buffer" && started.bufferStage).toBe(
-      "copying"
+      "uploading-blob"
     );
 
     state = reduce(state, {
       type: "UPDATE_BUFFER_STAGE",
       uploadId: "buf-1",
-      stage: "syncing",
+      stage: "creating-post",
     });
-    const syncing = state.uploads["buf-1"]!;
-    expect(syncing.uploadType === "buffer" && syncing.bufferStage).toBe(
-      "syncing"
+    const creating = state.uploads["buf-1"]!;
+    expect(creating.uploadType === "buffer" && creating.bufferStage).toBe(
+      "creating-post"
     );
 
     state = reduce(state, {
       type: "UPDATE_BUFFER_STAGE",
       uploadId: "buf-1",
-      stage: "sending-webhook",
+      stage: "polling",
     });
-    const webhook = state.uploads["buf-1"]!;
-    expect(webhook.uploadType === "buffer" && webhook.bufferStage).toBe(
-      "sending-webhook"
+    const polling = state.uploads["buf-1"]!;
+    expect(polling.uploadType === "buffer" && polling.bufferStage).toBe(
+      "polling"
+    );
+
+    state = reduce(state, {
+      type: "UPDATE_BUFFER_STAGE",
+      uploadId: "buf-1",
+      stage: "cleaning-up",
+    });
+    const cleanup = state.uploads["buf-1"]!;
+    expect(cleanup.uploadType === "buffer" && cleanup.bufferStage).toBe(
+      "cleaning-up"
     );
 
     state = reduce(state, {
@@ -464,7 +496,7 @@ describe("buffer upload lifecycle with stages", () => {
     expect(success.uploadType === "buffer" && success.bufferStage).toBeNull();
   });
 
-  it("should reset bufferStage to copying on retry", () => {
+  it("should reset bufferStage to uploading-blob on retry", () => {
     let state = reduce(createState(), {
       type: "START_UPLOAD",
       uploadId: "buf-1",
@@ -476,19 +508,19 @@ describe("buffer upload lifecycle with stages", () => {
     state = reduce(state, {
       type: "UPDATE_BUFFER_STAGE",
       uploadId: "buf-1",
-      stage: "syncing",
+      stage: "polling",
     });
     state = reduce(state, {
       type: "UPLOAD_ERROR",
       uploadId: "buf-1",
-      errorMessage: "Sync error",
+      errorMessage: "Poll error",
     });
     state = reduce(state, { type: "RETRY", uploadId: "buf-1" });
 
     const retried = state.uploads["buf-1"]!;
     expect(retried.status).toBe("uploading");
     expect(retried.uploadType === "buffer" && retried.bufferStage).toBe(
-      "copying"
+      "uploading-blob"
     );
     expect(retried.progress).toBe(0);
   });

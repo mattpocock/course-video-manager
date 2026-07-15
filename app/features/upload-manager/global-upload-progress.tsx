@@ -8,7 +8,6 @@ import {
   ExternalLink,
   Cloud,
   Send,
-  Copy,
   Film,
   Clock,
   Loader2,
@@ -218,12 +217,13 @@ function StatusIcon({ upload }: { upload: uploadReducer.UploadEntry }) {
     case "uploading":
       if (upload.uploadType === "buffer") {
         switch (upload.bufferStage) {
-          case "syncing":
-            return <Cloud className="size-4 text-blue-500 shrink-0" />;
-          case "sending-webhook":
+          case "creating-post":
+          case "polling":
             return <Send className="size-4 text-blue-500 shrink-0" />;
+          case "cleaning-up":
+            return <Cloud className="size-4 text-blue-500 shrink-0" />;
           default:
-            return <Copy className="size-4 text-blue-500 shrink-0" />;
+            return <Upload className="size-4 text-blue-500 shrink-0" />;
         }
       }
       if (upload.uploadType === "export") {
@@ -248,9 +248,10 @@ function StatusIcon({ upload }: { upload: uploadReducer.UploadEntry }) {
 }
 
 const BUFFER_STAGE_LABELS: Record<uploadReducer.BufferStage, string> = {
-  copying: "Copying to Dropbox",
-  syncing: "Syncing to Dropbox",
-  "sending-webhook": "Sending to Zapier",
+  "uploading-blob": "Uploading to cloud",
+  "creating-post": "Creating Buffer post",
+  polling: "Waiting for delivery",
+  "cleaning-up": "Cleaning up",
 };
 
 const EXPORT_STAGE_LABELS: Record<uploadReducer.ExportStage, string> = {
@@ -278,7 +279,7 @@ function UploadStatusDetail({ upload }: { upload: uploadReducer.UploadEntry }) {
     case "uploading":
       if (upload.uploadType === "buffer" && upload.bufferStage) {
         const stageLabel = BUFFER_STAGE_LABELS[upload.bufferStage];
-        if (upload.bufferStage === "copying") {
+        if (upload.bufferStage === "uploading-blob") {
           return (
             <div className="flex items-center gap-2 mt-0.5">
               <div className="flex-1 bg-secondary rounded-full h-1.5 overflow-hidden">

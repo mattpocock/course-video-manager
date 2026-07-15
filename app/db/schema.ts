@@ -32,12 +32,6 @@ const tsvector = customType<{ data: string }>({
   },
 });
 
-/**
- * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
- * database instance for multiple projects.
- *
- * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
- */
 export const createTable = pgTableCreator(
   (name) => `course-video-manager_${name}`
 );
@@ -215,6 +209,7 @@ export const videos = createTable(
     body: text("body"),
     description: text("video_description"),
     archived: boolean("archived").notNull().default(false),
+    format: text("format").notNull().default("standard"),
     createdAt: timestamp("created_at", {
       mode: "date",
       withTimezone: true,
@@ -266,6 +261,56 @@ export const clips = createTable("clip", {
     () => diagramSnapshots.id,
     { onDelete: "set null" }
   ),
+});
+
+/**
+ * Web pages that were on screen (in a focused Chrome window) while a clip was
+ * being recorded. Captured live during the optimistic-clip lifecycle from the
+ * browser link-capture extension, one row per distinct URL shown during the
+ * clip. See docs/adr/0020-clip-web-links-over-websocket.md and the
+ * `chrome-extension/` directory.
+ */
+export const clipWebLinks = createTable("clip_web_link", {
+  id: varchar("id", { length: 255 })
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  clipId: varchar("clip_id", { length: 255 })
+    .references(() => clips.id, { onDelete: "cascade" })
+    .notNull(),
+  url: text("url").notNull(),
+  title: text("title"),
+  // Wall-clock time the URL was first shown during the clip. Used to order the
+  // links within a clip chronologically.
+  capturedAt: timestamp("captured_at", {
+    mode: "date",
+    withTimezone: true,
+  })
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const videoPosts = createTable("video_post", {
+  id: varchar("id", { length: 255 })
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  videoId: varchar("video_id", { length: 255 })
+    .references(() => videos.id, { onDelete: "cascade" })
+    .notNull(),
+  platform: text("platform").notNull(),
+  remoteId: text("remote_id"),
+  remoteUrl: text("remote_url"),
+  postedAt: timestamp("posted_at", {
+    mode: "date",
+    withTimezone: true,
+  }),
+  createdAt: timestamp("created_at", {
+    mode: "date",
+    withTimezone: true,
+  })
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const chapters = createTable("chapter", {
@@ -322,13 +367,36 @@ export namespace DB {
   > {
     id: DatabaseId;
   }
+
+  export interface ClipWebLink extends Omit<
+    InferSelectModel<typeof clipWebLinks>,
+    "id" | "clipId"
+  > {
+    id: DatabaseId;
+    clipId: DatabaseId;
+  }
 }
 
-export const clipsRelations = relations(clips, ({ one }) => ({
+export const clipsRelations = relations(clips, ({ one, many }) => ({
   video: one(videos, { fields: [clips.videoId], references: [videos.id] }),
   diagramSnapshot: one(diagramSnapshots, {
     fields: [clips.diagramSnapshotId],
     references: [diagramSnapshots.id],
+  }),
+  webLinks: many(clipWebLinks),
+}));
+
+export const clipWebLinksRelations = relations(clipWebLinks, ({ one }) => ({
+  clip: one(clips, {
+    fields: [clipWebLinks.clipId],
+    references: [clips.id],
+  }),
+}));
+
+export const videoPostsRelations = relations(videoPosts, ({ one }) => ({
+  video: one(videos, {
+    fields: [videoPosts.videoId],
+    references: [videos.id],
   }),
 }));
 
@@ -358,6 +426,7 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   chapters: many(chapters),
   thumbnails: many(thumbnails),
   beats: many(beats),
+  videoPosts: many(videoPosts),
 }));
 
 export const lessonsRelations = relations(lessons, ({ one, many }) => ({
@@ -646,77 +715,3 @@ export const deliverablesPitchesRelations = relations(
     }),
   })
 );
-
-// export const chats = createTable("chat", {
-//   id: varchar("id", { length: 255 })
-//     .notNull()
-//     .primaryKey()
-//     .$defaultFn(() => crypto.randomUUID()),
-//   userId: varchar("user_id", { length: 255 })
-//     .notNull()
-//     .references(() => users.id),
-//   title: varchar("title", { length: 255 }).notNull(),
-//   createdAt: timestamp("created_at", {
-//     mode: "date",
-//     withTimezone: true,
-//   })
-//     .notNull()
-//     .default(sql`CURRENT_TIMESTAMP`),
-//   updatedAt: timestamp("updated_at", {
-//     mode: "date",
-//     withTimezone: true,
-//   })
-//     .notNull()
-//     .default(sql`CURRENT_TIMESTAMP`),
-// });
-
-// export const chatsRelations = relations(chats, ({ one, many }) => ({
-//   user: one(users, { fields: [chats.userId], references: [users.id] }),
-//   messages: many(messages),
-// }));
-
-// export const messages = createTable("message", {
-//   id: varchar("id", { length: 255 })
-//     .notNull()
-//     .primaryKey()
-//     .$defaultFn(() => crypto.randomUUID()),
-//   chatId: varchar("chat_id", { length: 255 })
-//     .notNull()
-//     .references(() => chats.id),
-//   role: varchar("role", { length: 255 }).notNull(),
-//   parts: json("parts").notNull(),
-//   annotations: json("annotations"),
-//   order: gloat("order").notNull(),
-//   createdAt: timestamp("created_at", {
-//     mode: "date",
-//     withTimezone: true,
-//   })
-//     .notNull()
-//     .default(sql`CURRENT_TIMESTAMP`),
-// });
-
-// export const messagesRelations = relations(messages, ({ one }) => ({
-//   chat: one(chats, { fields: [messages.chatId], references: [chats.id] }),
-// }));
-
-// export declare namespace DB {
-//   export type User = InferSelectModel<typeof users>;
-//   export type NewUser = InferInsertModel<typeof users>;
-
-//   export type Account = InferSelectModel<typeof accounts>;
-//   export type NewAccount = InferInsertModel<typeof accounts>;
-
-//   export type Session = InferSelectModel<typeof sessions>;
-//   export type NewSession = InferInsertModel<typeof sessions>;
-
-//   export type VerificationToken = InferSelectModel<typeof verificationTokens>;
-//   export type NewVerificationToken = InferInsertModel<
-//     typeof verificationTokens
-//   >;
-
-//   export type Chat = InferSelectModel<typeof chats>;
-//   export type NewChat = InferInsertModel<typeof chats>;
-
-//   export type Message = InferSelectModel<typeof messages>;
-//   export type NewMessage = InferInsertModel<typeof messages>;
-// }

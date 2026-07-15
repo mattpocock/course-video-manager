@@ -3,7 +3,7 @@ import {
   type Database,
 } from "@/services/drizzle-service.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { clips, chapters, videos } from "@/db/schema";
+import { clips, chapters, videos, clipWebLinks } from "@/db/schema";
 import {
   CannotArchiveLessonVideoError,
   NotFoundError,
@@ -14,6 +14,7 @@ import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { copyVideoImpl } from "@/services/db-video-operations.copy.server";
 import { createVideoWriteOps } from "@/services/db-video-operations.write.server";
+import type { VideoFormat } from "@/features/videos/video-format";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -131,14 +132,18 @@ export const createVideoOperations = (
   );
 
   const getAllStandaloneVideos = Effect.fn("getAllStandaloneVideos")(
-    function* () {
+    function* (opts?: { format?: VideoFormat }) {
+      const conditions = [
+        isNull(videos.lessonId),
+        isNull(videos.pitchId),
+        eq(videos.archived, false),
+      ];
+      if (opts?.format) {
+        conditions.push(eq(videos.format, opts.format));
+      }
       const standaloneVideos = yield* makeDbCall(() =>
         db.query.videos.findMany({
-          where: and(
-            isNull(videos.lessonId),
-            isNull(videos.pitchId),
-            eq(videos.archived, false)
-          ),
+          where: and(...conditions),
           orderBy: desc(videos.updatedAt),
           with: {
             clips: {
@@ -154,14 +159,18 @@ export const createVideoOperations = (
   );
 
   const getArchivedStandaloneVideos = Effect.fn("getArchivedStandaloneVideos")(
-    function* () {
+    function* (opts?: { format?: VideoFormat }) {
+      const conditions = [
+        isNull(videos.lessonId),
+        isNull(videos.pitchId),
+        eq(videos.archived, true),
+      ];
+      if (opts?.format) {
+        conditions.push(eq(videos.format, opts.format));
+      }
       const archivedVideos = yield* makeDbCall(() =>
         db.query.videos.findMany({
-          where: and(
-            isNull(videos.lessonId),
-            isNull(videos.pitchId),
-            eq(videos.archived, true)
-          ),
+          where: and(...conditions),
           orderBy: desc(videos.createdAt),
           with: {
             clips: {
@@ -213,6 +222,9 @@ export const createVideoOperations = (
                     columns: { name: true },
                   },
                 },
+              },
+              webLinks: {
+                orderBy: asc(clipWebLinks.capturedAt),
               },
             },
           },
@@ -301,7 +313,7 @@ export const createVideoOperations = (
   });
 
   const createStandaloneVideo = Effect.fn("createStandaloneVideo")(
-    function* (video: { title: string }) {
+    function* (video: { title: string; format?: VideoFormat }) {
       const videoResults = yield* makeDbCall(() =>
         db
           .insert(videos)
@@ -309,6 +321,7 @@ export const createVideoOperations = (
             title: video.title,
             originalFootagePath: "",
             lessonId: null,
+            ...(video.format ? { format: video.format } : {}),
           })
           .returning()
       );

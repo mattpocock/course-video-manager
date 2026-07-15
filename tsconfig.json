@@ -5,7 +5,12 @@
     "**/.client/**/*",
     ".react-router/types/**/*"
   ],
-  "exclude": ["node_modules", "standalone-video-files", "video-files"],
+  "exclude": [
+    "node_modules",
+    "standalone-video-files",
+    "video-files",
+    "packages"
+  ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "types": ["node", "vite/client"],

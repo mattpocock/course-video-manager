@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const ROUTES_DIR = path.join(__dirname, "..", "routes");
+const ROUTES_DIR = path.join(import.meta.dirname, "..", "routes");
 
 const VIDEO_SUB_ROUTES = [
   "_app.videos.$videoId.edit.tsx",

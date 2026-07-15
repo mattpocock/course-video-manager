@@ -21,15 +21,16 @@ export const startSSESocialPost = (
     url: `/api/videos/${params.videoId}/post-social`,
     body: { caption: params.caption },
     events: {
-      copying: (data: { percentage: number }) => {
-        callbacks.onStageChange("copying");
+      "uploading-blob": (data: { percentage: number }) => {
+        callbacks.onStageChange("uploading-blob");
         callbacks.onProgress(data.percentage);
       },
-      syncing: () => callbacks.onStageChange("syncing"),
-      "sending-webhook": () => callbacks.onStageChange("sending-webhook"),
+      "creating-post": () => callbacks.onStageChange("creating-post"),
+      polling: () => callbacks.onStageChange("polling"),
+      "cleaning-up": () => callbacks.onStageChange("cleaning-up"),
       complete: () => callbacks.onComplete(),
       error: (data: { message: string }) => callbacks.onError(data.message),
     },
     onError: callbacks.onError,
-    errorLabel: "Social post failed",
+    errorLabel: "Buffer posting failed",
   });

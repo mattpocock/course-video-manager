@@ -24,6 +24,7 @@ export function makeVideo(
     originalFootagePath: "/footage/video-01",
     body: null,
     description: null,
+    format: "standard",
     updatedAt: new Date(),
     clipCount: 0,
     warnings: [],

@@ -7,12 +7,17 @@ import {
   ArchiveIcon,
   Undo2Icon,
   PinIcon,
+  Link2Icon,
 } from "lucide-react";
 import { getActiveDiagramId } from "@/lib/diagram-window";
 import {
   isDiagramFocused,
   subscribeDiagramFocus,
 } from "@/lib/diagram-focus-tracking";
+import {
+  isBrowserFocused,
+  subscribeBrowserFocus,
+} from "@/lib/browser-focus-tracking";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import type { SessionPanelData } from "../video-editor-selectors";
@@ -169,6 +174,9 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
   const [diagramFocused, setDiagramFocused] = useState(() =>
     isDiagramFocused()
   );
+  const [browserFocused, setBrowserFocused] = useState(() =>
+    isBrowserFocused()
+  );
   const [hasActiveDiagram, setHasActiveDiagram] = useState(
     () => getActiveDiagramId() !== null
   );
@@ -190,7 +198,45 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
     return subscribeDiagramFocus(setDiagramFocused);
   }, []);
 
+  useEffect(() => {
+    setBrowserFocused(isBrowserFocused());
+    return subscribeBrowserFocus(setBrowserFocused);
+  }, []);
+
   const hasArchived = panel.archivedClips.length > 0;
+
+  let focusIndicator: {
+    Icon: typeof PinIcon;
+    label: string;
+    title: string;
+    color: string;
+  } | null = null;
+  if (panel.isRecording) {
+    if (diagramFocused) {
+      focusIndicator = {
+        Icon: PinIcon,
+        label: "Diagram focused",
+        title:
+          "Diagram is focused — a snapshot will be pinned when this clip ends",
+        color: "text-emerald-600 dark:text-emerald-400",
+      };
+    } else if (browserFocused) {
+      focusIndicator = {
+        Icon: Link2Icon,
+        label: "URL focused",
+        title: "A browser URL is focused — on-screen links will be captured",
+        color: "text-emerald-600 dark:text-emerald-400",
+      };
+    } else if (hasActiveDiagram) {
+      focusIndicator = {
+        Icon: PinIcon,
+        label: "Diagram not focused",
+        title:
+          "Diagram is not focused — focus it before the clip ends to pin a snapshot",
+        color: "text-muted-foreground",
+      };
+    }
+  }
 
   return (
     <div
@@ -211,22 +257,16 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
             </span>
           </span>
         )}
-        {panel.isRecording && hasActiveDiagram && (
+        {focusIndicator && (
           <span
             className={cn(
               "ml-auto flex items-center gap-1.5 text-xs",
-              diagramFocused
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-muted-foreground"
+              focusIndicator.color
             )}
-            title={
-              diagramFocused
-                ? "Diagram is focused — a snapshot will be pinned when this clip ends"
-                : "Diagram is not focused — focus it before the clip ends to pin a snapshot"
-            }
+            title={focusIndicator.title}
           >
-            <PinIcon className="size-3" />
-            {diagramFocused ? "Diagram focused" : "Diagram not focused"}
+            <focusIndicator.Icon className="size-3" />
+            {focusIndicator.label}
           </span>
         )}
       </div>

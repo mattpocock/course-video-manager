@@ -136,7 +136,7 @@ describe("retry effect integration", () => {
           progress: 30,
           status: "retrying" as const,
           uploadType: "buffer" as const,
-          bufferStage: "copying" as const,
+          bufferStage: "uploading-blob" as const,
           errorMessage: "err",
           retryCount: 1,
           dependsOn: null,
@@ -439,20 +439,20 @@ describe("full integration: reducer + registry through lifecycle", () => {
     const started = state.uploads["upload-1"]!;
     expect(started.uploadType).toBe("buffer");
     expect(started.uploadType === "buffer" && started.bufferStage).toBe(
-      "copying"
+      "uploading-blob"
     );
     expect(started.status).toBe("uploading");
 
     state = reduce(state, {
       type: "UPDATE_BUFFER_STAGE",
       uploadId: "upload-1",
-      stage: "syncing",
+      stage: "creating-post",
     });
 
     state = reduce(state, {
       type: "UPLOAD_ERROR",
       uploadId: "upload-1",
-      errorMessage: "Sync failed",
+      errorMessage: "Post failed",
     });
     expect(state.uploads["upload-1"]!.status).toBe("retrying");
 
@@ -460,7 +460,7 @@ describe("full integration: reducer + registry through lifecycle", () => {
     const retried = state.uploads["upload-1"]!;
     expect(retried.status).toBe("uploading");
     expect(retried.uploadType === "buffer" && retried.bufferStage).toBe(
-      "copying"
+      "uploading-blob"
     );
     expect(retried.progress).toBe(0);
 
