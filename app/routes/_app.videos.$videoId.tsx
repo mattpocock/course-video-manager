@@ -7,6 +7,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
+import { type VideoFormat } from "@/features/videos/video-format";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
@@ -39,12 +40,13 @@ export const loader = makeLoader({
       ]);
 
       const lesson = video.lesson;
+      const videoFormat = video.format as VideoFormat;
 
       if (!lesson) {
         return {
           videoId,
           videoTitle: video.title,
-          videoFormat: video.format as "standard" | "short",
+          videoFormat,
           lessonPath: null,
           sectionPath: null,
           repoId: null,
@@ -61,7 +63,7 @@ export const loader = makeLoader({
       return {
         videoId,
         videoTitle: video.title,
-        videoFormat: video.format as "standard" | "short",
+        videoFormat,
         lessonPath: lesson.title,
         sectionPath: lesson.section.title,
         repoId: lesson.section.repoVersion.repoId,
