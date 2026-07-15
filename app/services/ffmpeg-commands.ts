@@ -312,6 +312,65 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         return outputFile;
       });
 
+      const compositeOverlay = Effect.fn("compositeOverlay")(function* (
+        videoPath: string,
+        overlayPath: string,
+        outputPath: string
+      ) {
+        const args = [
+          "-y",
+          "-hide_banner",
+          "-i",
+          videoPath,
+          "-i",
+          overlayPath,
+          "-filter_complex",
+          "[0:v][1:v]overlay=0:0:format=auto[outv]",
+          "-map",
+          "[outv]",
+          "-map",
+          "0:a",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "slow",
+          "-crf",
+          "18",
+          "-c:a",
+          "copy",
+          "-movflags",
+          "+faststart",
+          outputPath,
+        ];
+
+        yield* gpuSemaphore.withPermits(1)(
+          Effect.gen(function* () {
+            const code = yield* Command.exitCode(
+              Command.make("ffmpeg", ...args).pipe(
+                Command.stdout("inherit"),
+                Command.stderr("inherit")
+              )
+            ).pipe(
+              Effect.mapError(
+                (e) =>
+                  new FFmpegError({
+                    cause: e,
+                    message: `Failed to composite overlay: ${e.message}`,
+                  })
+              )
+            );
+            if (code !== 0) {
+              yield* new FFmpegError({
+                cause: null,
+                message: `ffmpeg composite exited with code ${code}`,
+              });
+            }
+          })
+        );
+
+        return outputPath;
+      });
+
       const captureFrameAtTime = Effect.fn("captureFrameAtTime")(function* (
         inputVideo: string,
         timestamp: number,
@@ -366,6 +425,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         getFPS,
         createAndConcatenateVideoClipsSinglePass,
         normalizeAudio,
+        compositeOverlay,
         captureFrameAtTime,
       };
     }),

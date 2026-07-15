@@ -121,7 +121,11 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             recursive: true,
           });
 
-          yield* compositeOverlay(concatenatedPath, overlayPath, outputPath);
+          yield* ffmpegCommands.compositeOverlay(
+            concatenatedPath,
+            overlayPath,
+            outputPath
+          );
 
           // Clean up intermediate files
           yield* effectFs
@@ -286,60 +290,5 @@ function renderOverlay(
     yield* effectFs.remove(propsFile).pipe(Effect.catchAll(() => Effect.void));
 
     return result;
-  });
-}
-
-function compositeOverlay(
-  videoPath: string,
-  overlayPath: string,
-  outputPath: string
-) {
-  const args = [
-    "-y",
-    "-hide_banner",
-    "-i",
-    videoPath,
-    "-i",
-    overlayPath,
-    "-filter_complex",
-    "[0:v][1:v]overlay=0:0:format=auto[outv]",
-    "-map",
-    "[outv]",
-    "-map",
-    "0:a",
-    "-c:v",
-    "libx264",
-    "-preset",
-    "slow",
-    "-crf",
-    "18",
-    "-c:a",
-    "copy",
-    "-movflags",
-    "+faststart",
-    outputPath,
-  ];
-
-  return Effect.gen(function* () {
-    const code = yield* Command.exitCode(
-      Command.make("ffmpeg", ...args).pipe(
-        Command.stdout("inherit"),
-        Command.stderr("inherit")
-      )
-    ).pipe(
-      Effect.mapError(
-        (e) =>
-          new RenderVerticalError({
-            cause: e,
-            message: `Failed to composite overlay: ${e.message}`,
-          })
-      )
-    );
-    if (code !== 0) {
-      yield* new RenderVerticalError({
-        cause: null,
-        message: `ffmpeg composite exited with code ${code}`,
-      });
-    }
   });
 }
