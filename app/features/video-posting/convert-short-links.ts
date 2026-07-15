@@ -1,5 +1,10 @@
 const AI_HERO_URL_REGEX = /https?:\/\/(?:www\.)?aihero\.dev[^\s)>]*/g;
+const AI_HERO_URL_TEST = /https?:\/\/(?:www\.)?aihero\.dev[^\s)>]*/;
 const SHORT_LINK_REGEX = /^https?:\/\/(?:www\.)?aihero\.dev\/s\//;
+
+export function hasAiHeroUrls(text: string): boolean {
+  return AI_HERO_URL_TEST.test(text);
+}
 
 export function findConvertibleAiHeroUrls(text: string): string[] {
   const matches = text.match(AI_HERO_URL_REGEX);

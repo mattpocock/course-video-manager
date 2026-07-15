@@ -39,7 +39,11 @@ import { PostPageOverwriteDialog } from "./post-page-overwrite-dialog";
 import { ThumbnailSelector } from "./post-page-thumbnail-selector";
 import { validateYoutubeTitle } from "./post-page-validation";
 import { getAutoSelectThumbnailId } from "./auto-select-thumbnail";
-import { findConvertibleAiHeroUrls, replaceUrls } from "./convert-short-links";
+import {
+  findConvertibleAiHeroUrls,
+  hasAiHeroUrls,
+  replaceUrls,
+} from "./convert-short-links";
 
 const POST_TITLE_STORAGE_KEY = (videoId: string) => `post-title-${videoId}`;
 const POST_DESCRIPTION_STORAGE_KEY = (videoId: string) =>
@@ -327,7 +331,7 @@ export function PostPage({
   const handleConvertToShortLinks = async () => {
     const convertibleUrls = findConvertibleAiHeroUrls(description);
 
-    if (!description.match(/https?:\/\/(?:www\.)?aihero\.dev[^\s)>]*/g)) {
+    if (!hasAiHeroUrls(description)) {
       toast("No aihero.dev links found", {
         description: "The description doesn't contain any aihero.dev URLs.",
       });

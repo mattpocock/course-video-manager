@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { findConvertibleAiHeroUrls, replaceUrls } from "./convert-short-links";
+import {
+  findConvertibleAiHeroUrls,
+  hasAiHeroUrls,
+  replaceUrls,
+} from "./convert-short-links";
 
 describe("findConvertibleAiHeroUrls", () => {
   it("finds aihero.dev URLs in text", () => {
@@ -57,6 +61,26 @@ describe("findConvertibleAiHeroUrls", () => {
     expect(findConvertibleAiHeroUrls(text)).toEqual([
       "https://aihero.dev/skills/subscribe",
     ]);
+  });
+});
+
+describe("hasAiHeroUrls", () => {
+  it("returns true when aihero.dev URL exists", () => {
+    expect(hasAiHeroUrls("Visit https://aihero.dev/skills/subscribe")).toBe(
+      true
+    );
+  });
+
+  it("returns false when no aihero.dev URL exists", () => {
+    expect(hasAiHeroUrls("No links here")).toBe(false);
+  });
+
+  it("returns true for short links too", () => {
+    expect(hasAiHeroUrls("Visit https://aihero.dev/s/abc123")).toBe(true);
+  });
+
+  it("returns true for www variant", () => {
+    expect(hasAiHeroUrls("Visit https://www.aihero.dev/page")).toBe(true);
   });
 });
 
