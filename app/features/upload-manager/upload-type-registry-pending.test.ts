@@ -36,6 +36,7 @@ const entry: uploadReducer.PublishUploadEntry = {
   status: "uploading",
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   uploadType: "publish",
   publishStage: "validating",
@@ -68,7 +69,7 @@ describe("pending Dropbox publish recovery", () => {
     );
 
     clients.publishCallbacks!.onDropboxCommitPending!({
-      publishedVersionId: "version-published",
+      pendingVersionId: "version-pending",
       newDraftVersionId: "version-draft",
       includeTodoLessons: false,
       reason: "sync_failed",
@@ -77,7 +78,7 @@ describe("pending Dropbox publish recovery", () => {
 
     expect(clients.startDropbox).toHaveBeenCalledWith({
       repoId: "course-1",
-      courseVersionId: "version-published",
+      courseVersionId: "version-pending",
       includeTodoLessons: false,
     });
 
@@ -137,7 +138,7 @@ describe("pending Dropbox publish recovery", () => {
       abortControllers
     );
     clients.publishCallbacks!.onDropboxCommitPending!({
-      publishedVersionId: "version-published",
+      pendingVersionId: "version-pending",
       newDraftVersionId: "version-draft",
       includeTodoLessons: false,
       reason: "sync_failed",

@@ -23,6 +23,7 @@ const createYouTubeEntry = (
   youtubeVideoId: null,
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });
@@ -39,6 +40,7 @@ const createBufferEntry = (
   bufferStage: "uploading-blob",
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });
@@ -56,6 +58,7 @@ const createExportEntry = (
   isBatchEntry: false,
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });
@@ -73,6 +76,7 @@ const createDropboxPublishEntry = (
   uploadType: "dropbox-publish",
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   missingVideoCount: null,
   ...overrides,
@@ -92,6 +96,7 @@ const createPublishEntry = (
   courseId: "course-1",
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });

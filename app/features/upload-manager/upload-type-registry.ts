@@ -586,7 +586,7 @@ const publishConfig: UploadTypeConfig<
             const retryController = startSSEDropboxPublish(
               {
                 repoId: params.courseId,
-                courseVersionId: pending.publishedVersionId,
+                courseVersionId: pending.pendingVersionId,
                 includeTodoLessons: pending.includeTodoLessons,
               },
               {

@@ -15,6 +15,7 @@ const makeBase = (
   status: "uploading",
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });

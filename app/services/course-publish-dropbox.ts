@@ -124,29 +124,26 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     relativeAssetPath: string;
   }> = [];
 
-  for (const section of sections) {
-    for (const lesson of section.lessons) {
-      for (const video of lesson.videos) {
-        const extName = path.extname(video.absolutePath);
-        const relativeAssetPath = `${section.path}/${lesson.path}/${video.name}${extName}`;
-        stagedVideos.push({
-          videoId: video.id,
-          sourcePath: video.absolutePath,
-          stagedPath: path.join(stagingDir, ...relativeAssetPath.split("/")),
-          relativeAssetPath,
-        });
-      }
-    }
-  }
-
   const manifestJson = yield* Effect.gen(function* () {
     yield* effectFs.makeDirectory(stagingDir, { recursive: true });
 
-    let stagedVideoIndex = 0;
+    // Stage, copy, and hash each Video in a single traversal. Building the
+    // staged list here — rather than in a prior loop re-walked by a positional
+    // index — keeps the staged entries, the copied files, and the asset hashes
+    // from ever drifting out of the Section → Lesson → Video order they all
+    // derive from.
     for (const section of sections) {
       for (const lesson of section.lessons) {
-        for (const _video of lesson.videos) {
-          const stagedVideo = stagedVideos[stagedVideoIndex++]!;
+        for (const video of lesson.videos) {
+          const extName = path.extname(video.absolutePath);
+          const relativeAssetPath = `${section.path}/${lesson.path}/${video.name}${extName}`;
+          const stagedVideo = {
+            videoId: video.id,
+            sourcePath: video.absolutePath,
+            stagedPath: path.join(stagingDir, ...relativeAssetPath.split("/")),
+            relativeAssetPath,
+          };
+          stagedVideos.push(stagedVideo);
           yield* effectFs.makeDirectory(path.dirname(stagedVideo.stagedPath), {
             recursive: true,
           });
@@ -210,6 +207,11 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
       path.join(stagingDir, "course.schema.json"),
       schemaJson
     );
+    // `manifest.json` is the bundle's own immutable, self-describing copy of the
+    // course document: it lives inside the content-addressed bundle dir and is
+    // frozen there forever alongside the assets it fingerprints. The identical
+    // bytes are also written to the root `course.json` below, but the two serve
+    // distinct roles and are intentionally duplicated — see the root write.
     yield* effectFs.writeFileString(
       path.join(stagingDir, "manifest.json"),
       manifestJson
@@ -271,7 +273,13 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
 
   yield* Effect.gen(function* () {
     yield* effectFs.writeFileString(manifestTempPath, manifestJson);
-    // course.json is the sole commit marker and is the final successful write.
+    // Root `course.json` is the mutable commit marker: consumers read it first,
+    // and its atomic rename is the sole receipt that this publish committed. It
+    // is overwritten on every publish to point at the newest bundle, whereas the
+    // byte-identical `manifest.json` inside the bundle dir stays immutable. The
+    // duplication is deliberate — the bundle stays self-describing in isolation
+    // while the root marker always names the current release — so it is the
+    // final successful write.
     yield* effectFs.rename(manifestTempPath, courseJsonPath);
   }).pipe(
     Effect.onError(() =>

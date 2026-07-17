@@ -12,7 +12,10 @@ export class PublishValidationError extends Data.TaggedError(
 export class DropboxCommitPendingError extends Data.TaggedError(
   "DropboxCommitPendingError"
 )<{
-  publishedVersionId: string;
+  // The Submitted Version, now durably Pending, whose Dropbox commit did not
+  // land. It is NOT Published (the commit failed), so it must not be named as
+  // such — recovery retries or discards this exact Pending Version.
+  pendingVersionId: string;
   newDraftVersionId: string;
   reason: "sync_failed" | "missing_assets";
   includeTodoLessons: boolean;

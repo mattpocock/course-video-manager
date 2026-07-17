@@ -69,7 +69,7 @@ export const action = async (args: Route.ActionArgs) => {
             message:
               "The Course Version is frozen and the new Draft is safe, but Dropbox still needs to be re-synced.",
             type: "dropbox_commit_pending",
-            publishedVersionId: e.publishedVersionId,
+            pendingVersionId: e.pendingVersionId,
             newDraftVersionId: e.newDraftVersionId,
             reason: e.reason,
             includeTodoLessons: e.includeTodoLessons,

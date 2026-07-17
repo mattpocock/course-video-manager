@@ -33,6 +33,9 @@ export namespace uploadReducer {
     status: UploadStatus;
     errorMessage: string | null;
     retryCount: number;
+    // When set, this entry has failed terminally and must never be
+    // auto-retried, independent of how many attempts `retryCount` has counted.
+    terminal: boolean;
     dependsOn: string | null;
   }
 
@@ -175,6 +178,7 @@ export const uploadReducer = (
         status,
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn,
       };
 
@@ -368,7 +372,7 @@ export const uploadReducer = (
         [action.uploadId]: {
           ...upload,
           status: "error" as const,
-          retryCount: 3,
+          terminal: true,
           errorMessage: action.errorMessage,
         },
       };
@@ -393,7 +397,7 @@ export const uploadReducer = (
 
       const nextRetryCount = upload.retryCount + 1;
 
-      if (nextRetryCount < 3) {
+      if (nextRetryCount < 3 && !upload.terminal) {
         return {
           ...state,
           uploads: {
@@ -446,6 +450,7 @@ export const uploadReducer = (
         status: "uploading" as const,
         errorMessage: upload.errorMessage,
         retryCount: upload.retryCount,
+        terminal: upload.terminal,
         dependsOn: upload.dependsOn,
       };
 

@@ -20,6 +20,7 @@ function makeYouTubeUpload(
     status: "success",
     errorMessage: null,
     retryCount: 0,
+    terminal: false,
     dependsOn: null,
     uploadType: "youtube",
     youtubeVideoId: "yt-123",

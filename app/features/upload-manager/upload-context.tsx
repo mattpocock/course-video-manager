@@ -89,6 +89,7 @@ function initiateFromRegistry(
     status: "uploading",
     errorMessage: null,
     retryCount: 0,
+    terminal: false,
     dependsOn: null,
   };
   const entry = config.createEntry(base, action);

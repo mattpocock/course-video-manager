@@ -270,7 +270,7 @@ describe("CoursePublishService — publish", () => {
         });
         const retry = yield* svc.syncFrozenVersionToDropbox(
           course.id,
-          pending.publishedVersionId,
+          pending.pendingVersionId,
           pending.includeTodoLessons
         );
         const versionOps = yield* VersionOperationsService;
@@ -299,7 +299,7 @@ describe("CoursePublishService — publish", () => {
     expect(result.versions.some((version) => version.name === "")).toBe(true);
     expect(result.retry.missingVideos).toEqual([]);
     expect(result.manifest.courseVersionId).toBe(
-      (result.outcome as any).errorDetails.publishedVersionId
+      (result.outcome as any).errorDetails.pendingVersionId
     );
     expect(result.manifest.sections).toEqual([]);
   });

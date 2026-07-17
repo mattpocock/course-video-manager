@@ -16,6 +16,7 @@ const makeBase = (
   status: "uploading",
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });
@@ -127,6 +128,7 @@ describe("export registry entry", () => {
         isBatchEntry: false,
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -156,6 +158,7 @@ describe("export registry entry", () => {
         isBatchEntry: true,
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -181,6 +184,7 @@ describe("export registry entry", () => {
         isBatchEntry: false,
         errorMessage: "previous error",
         retryCount: 1,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -288,6 +292,7 @@ describe("youtube registry entry", () => {
         youtubeVideoId: null,
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -317,6 +322,7 @@ describe("youtube registry entry", () => {
         youtubeVideoId: null,
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -339,6 +345,7 @@ describe("youtube registry entry", () => {
         youtubeVideoId: null,
         errorMessage: "previous error",
         retryCount: 1,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -370,6 +377,7 @@ describe("youtube registry entry", () => {
         youtubeVideoId: null,
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -407,6 +415,7 @@ describe("youtube registry entry", () => {
         youtubeVideoId: null,
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -500,6 +509,7 @@ describe("buffer registry entry", () => {
         bufferStage: "creating-post",
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -528,6 +538,7 @@ describe("buffer registry entry", () => {
         bufferStage: "polling",
         errorMessage: "previous error",
         retryCount: 1,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -555,6 +566,7 @@ describe("buffer registry entry", () => {
         bufferStage: "uploading-blob",
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 
@@ -586,6 +598,7 @@ describe("buffer registry entry", () => {
         bufferStage: "uploading-blob",
         errorMessage: null,
         retryCount: 0,
+        terminal: false,
         dependsOn: null,
       };
 

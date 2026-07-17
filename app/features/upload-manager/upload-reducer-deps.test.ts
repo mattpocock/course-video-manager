@@ -23,6 +23,7 @@ const createYouTubeEntry = (
   youtubeVideoId: null,
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });

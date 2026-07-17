@@ -23,6 +23,7 @@ const createYouTubeEntry = (
   youtubeVideoId: null,
   errorMessage: null,
   retryCount: 0,
+  terminal: false,
   dependsOn: null,
   ...overrides,
 });
@@ -251,7 +252,7 @@ describe("UPLOAD_FATAL_ERROR", () => {
 
     expect(state.uploads["upload-1"]).toMatchObject({
       status: "error",
-      retryCount: 3,
+      terminal: true,
       errorMessage: "Exact recovery required",
     });
   });

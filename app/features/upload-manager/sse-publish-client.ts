@@ -9,7 +9,7 @@ export interface SSEPublishParams {
 }
 
 export interface DropboxCommitPendingResult {
-  publishedVersionId: string;
+  pendingVersionId: string;
   newDraftVersionId: string;
   includeTodoLessons: boolean;
   reason: "sync_failed" | "missing_assets";
@@ -58,7 +58,7 @@ export const startSSEPublish = (
       ) => {
         if (data.type === "dropbox_commit_pending") {
           callbacks.onDropboxCommitPending({
-            publishedVersionId: data.publishedVersionId,
+            pendingVersionId: data.pendingVersionId,
             newDraftVersionId: data.newDraftVersionId,
             includeTodoLessons: data.includeTodoLessons,
             reason: data.reason,

@@ -450,7 +450,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         );
         if (Exit.isFailure(commitExit)) {
           return yield* new DropboxCommitPendingError({
-            publishedVersionId: latestVersion.id,
+            pendingVersionId: latestVersion.id,
             newDraftVersionId: newDraft.id,
             reason: "sync_failed",
             includeTodoLessons,
@@ -458,7 +458,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
         if (commitExit.value.missingVideos.length > 0) {
           return yield* new DropboxCommitPendingError({
-            publishedVersionId: latestVersion.id,
+            pendingVersionId: latestVersion.id,
             newDraftVersionId: newDraft.id,
             reason: "missing_assets",
             includeTodoLessons,
