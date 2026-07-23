@@ -81,7 +81,7 @@ jobs:
 
       - name: Setup pnpm
         if: steps.shape.outputs.mode == 'run'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1  # v4
 
       - name: Setup Node.js 22
         if: steps.shape.outputs.mode == 'run'
