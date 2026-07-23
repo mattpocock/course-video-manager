@@ -50,6 +50,13 @@
       "when": 1784797202206,
       "tag": "0006_one_pending_uniq",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784900000000,
+      "tag": "0007_dropbox_auth",
+      "breakpoints": true
     }
   ]
 }

@@ -2,52 +2,62 @@
  * Reconcile-on-load classification for a crash-stranded Pending Version
  * (issues #1350/#1404). The classifier correlates the course's Pending row
  * (at most one, by the partial unique index) against the root Dropbox
- * `course.json` receipt: the receipt naming the Pending Version means the
- * publish committed (→ Promote); anything else means the crash preceded the
- * atomic rename (→ offer Discard). The transitions themselves
- * (promote/discard) are covered in version-lifecycle.test.ts.
+ * `course.json` receipt downloaded via the Dropbox HTTP API.
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/pglite";
+import {
+  createFakeDropbox,
+  FAKE_ACCESS_TOKEN,
+} from "@/test-utils/fake-dropbox";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { classifyPendingRecovery } from "@/services/pending-recovery.server";
+import { dropboxAuth } from "@/db/schema";
 
 let testDb: TestDb;
-let dropboxDir: string;
+let fakeDropbox: ReturnType<typeof createFakeDropbox>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  dropboxDir = await fs.mkdtemp(path.join(os.tmpdir(), "cvm-recovery-"));
+});
+
+afterEach(() => {
+  fakeDropbox?.cleanup();
 });
 
 const COURSE_NAME = "recovery-course";
+const DROPBOX_REMOTE_PATH = "/Courses";
 
 const setup = async () => {
   await truncateAllTables(testDb);
-  await fs.rm(path.join(dropboxDir, COURSE_NAME), {
-    recursive: true,
-    force: true,
+
+  fakeDropbox = createFakeDropbox();
+  fakeDropbox.install();
+
+  // Seed Dropbox auth.
+  await testDb.insert(dropboxAuth).values({
+    accessToken: FAKE_ACCESS_TOKEN,
+    refreshToken: "fake-refresh-token",
+    expiresAt: new Date(Date.now() + 3600 * 1000),
   });
-  await fs.mkdir(path.join(dropboxDir, COURSE_NAME), { recursive: true });
 
   const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
   const dbLayer = Layer.mergeAll(
     CourseOperationsService.Default,
     VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
+    LessonSectionOperationsService.Default,
+    LinkAuthOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer), Layer.merge(NodeContext.layer));
 
   const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -55,7 +65,9 @@ const setup = async () => {
       effect.pipe(
         Effect.provide(dbLayer),
         Effect.withConfigProvider(
-          ConfigProvider.fromMap(new Map([["DROPBOX_PATH", dropboxDir]]))
+          ConfigProvider.fromMap(
+            new Map([["DROPBOX_REMOTE_PATH", DROPBOX_REMOTE_PATH]])
+          )
         )
       ) as Effect.Effect<A, E, never>
     ) as Promise<A>;
@@ -73,8 +85,6 @@ const setup = async () => {
     })
   );
 
-  // Submit: freeze the Draft as a Pending Version — the state a crash between
-  // the receipt rename and Promote leaves at rest.
   const submit = () =>
     run(
       Effect.gen(function* () {
@@ -97,8 +107,12 @@ const setup = async () => {
       })
     );
 
-  const writeReceipt = (contents: string) =>
-    fs.writeFile(path.join(dropboxDir, COURSE_NAME, "course.json"), contents);
+  const writeReceipt = (contents: string) => {
+    fakeDropbox.store(
+      `${DROPBOX_REMOTE_PATH}/${COURSE_NAME}/course.json`,
+      Buffer.from(contents, "utf-8")
+    );
+  };
 
   return { ...seeded, run, submit, classify, writeReceipt };
 };
@@ -122,7 +136,7 @@ describe("classifyPendingRecovery (#1404)", () => {
   it("classifies a Pending whose receipt names it as committed", async () => {
     const { submit, classify, writeReceipt, version } = await setup();
     await submit();
-    await writeReceipt(JSON.stringify({ courseVersionId: version.id }));
+    writeReceipt(JSON.stringify({ courseVersionId: version.id }));
     expect(await classify()).toEqual({
       versionId: version.id,
       versionName: "v1.0.0",
@@ -133,35 +147,27 @@ describe("classifyPendingRecovery (#1404)", () => {
   it("a receipt naming an earlier version is absent for this Pending", async () => {
     const { submit, classify, writeReceipt } = await setup();
     await submit();
-    await writeReceipt(JSON.stringify({ courseVersionId: "some-older-id" }));
+    writeReceipt(JSON.stringify({ courseVersionId: "some-older-id" }));
     expect((await classify())?.receiptState).toBe("absent");
   });
 
-  // Discard may only be offered on a PROVABLY absent receipt: anything we
-  // could not actually read refuses to classify, so a down mount can never
-  // lead to discarding a version whose receipt in fact committed.
   it("an unparseable receipt refuses to classify (unreadable)", async () => {
     const { submit, classify, writeReceipt } = await setup();
     await submit();
-    await writeReceipt("{ not json");
+    writeReceipt("{ not json");
     expect((await classify())?.receiptState).toBe("unreadable");
   });
 
-  it("a missing Dropbox root refuses to classify (unreadable)", async () => {
+  it("no Dropbox auth refuses to classify (unreadable)", async () => {
     const { submit, run, course } = await setup();
     await submit();
+    // Delete the auth row so getValidDropboxAccessToken fails.
+    await testDb.delete(dropboxAuth);
     const result = await run(
       classifyPendingRecovery({
         courseId: course.id,
         courseName: COURSE_NAME,
-      }).pipe(
-        // Innermost provider wins: simulate the whole mount being absent.
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([["DROPBOX_PATH", path.join(dropboxDir, "no-such-mount")]])
-          )
-        )
-      )
+      })
     );
     expect(result?.receiptState).toBe("unreadable");
   });

@@ -5,6 +5,7 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import { CoursePublishService } from "@/services/course-publish-service";
@@ -56,6 +57,7 @@ const publishDeps = Layer.mergeAll(
   CourseOperationsService.Default,
   VideoOperationsService.Default,
   VersionOperationsService.Default,
+  LinkAuthOperationsService.Default,
   VideoProcessingService.Default,
   FFmpegCommandsService.Default,
   NodeContext.layer
@@ -219,7 +221,7 @@ export const publishCmd = Command.make(
     });
 
     // loadRepoEnv MUST run before publishLayer is built: VideoProcessingService
-    // reads OPENAI_API_KEY at build time and the sync reads DROPBOX_PATH /
+    // reads OPENAI_API_KEY at build time and the sync reads DROPBOX_REMOTE_PATH /
     // FINISHED_VIDEOS_DIRECTORY at runtime, all from process.env.
     return Effect.sync(() => loadRepoEnv()).pipe(
       Effect.zipRight(

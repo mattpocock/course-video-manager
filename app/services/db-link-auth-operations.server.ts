@@ -2,7 +2,7 @@ import {
   DrizzleService,
   type Database,
 } from "@/services/drizzle-service.server";
-import { links, youtubeAuth, aiHeroAuth } from "@/db/schema";
+import { links, youtubeAuth, aiHeroAuth, dropboxAuth } from "@/db/schema";
 import {
   NotFoundError,
   UnknownDBServiceError,
@@ -166,6 +166,80 @@ export const createLinkAuthOperations = (db: Database) => {
     return { success: true };
   });
 
+  const getDropboxAuth = Effect.fn("getDropboxAuth")(function* () {
+    const auth = yield* makeDbCall(() => db.query.dropboxAuth.findFirst());
+    return auth ?? null;
+  });
+
+  const upsertDropboxAuth = Effect.fn("upsertDropboxAuth")(function* (tokens: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: Date;
+  }) {
+    yield* makeDbCall(() => db.delete(dropboxAuth));
+
+    const [newAuth] = yield* makeDbCall(() =>
+      db
+        .insert(dropboxAuth)
+        .values({
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: tokens.expiresAt,
+        })
+        .returning()
+    );
+
+    if (!newAuth) {
+      return yield* new UnknownDBServiceError({
+        cause: "No Dropbox auth was returned from the database",
+      });
+    }
+
+    return newAuth;
+  });
+
+  const updateDropboxAccessToken = Effect.fn("updateDropboxAccessToken")(
+    function* (tokens: { accessToken: string; expiresAt: Date }) {
+      const existing = yield* makeDbCall(() =>
+        db.query.dropboxAuth.findFirst()
+      );
+
+      if (!existing) {
+        return yield* new NotFoundError({
+          type: "updateDropboxAccessToken",
+          params: {},
+          message: "No Dropbox auth found to update",
+        });
+      }
+
+      const [updated] = yield* makeDbCall(() =>
+        db
+          .update(dropboxAuth)
+          .set({
+            accessToken: tokens.accessToken,
+            expiresAt: tokens.expiresAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(dropboxAuth.id, existing.id))
+          .returning()
+      );
+
+      if (!updated) {
+        return yield* new NotFoundError({
+          type: "updateDropboxAccessToken",
+          params: {},
+        });
+      }
+
+      return updated;
+    }
+  );
+
+  const deleteDropboxAuth = Effect.fn("deleteDropboxAuth")(function* () {
+    yield* makeDbCall(() => db.delete(dropboxAuth));
+    return { success: true };
+  });
+
   return {
     getLinks,
     createLink,
@@ -177,6 +251,10 @@ export const createLinkAuthOperations = (db: Database) => {
     getAiHeroAuth,
     upsertAiHeroAuth,
     deleteAiHeroAuth,
+    getDropboxAuth,
+    upsertDropboxAuth,
+    updateDropboxAccessToken,
+    deleteDropboxAuth,
   };
 };
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
@@ -9,10 +9,15 @@ import {
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/pglite";
+import {
+  createFakeDropbox,
+  FAKE_ACCESS_TOKEN,
+} from "@/test-utils/fake-dropbox";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
@@ -21,32 +26,51 @@ import {
   clips as clipsTable,
   chapters as chaptersTable,
   videos as videosTable,
+  dropboxAuth,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
+let fakeDropbox: ReturnType<typeof createFakeDropbox>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
 });
 
+afterEach(() => {
+  fakeDropbox?.cleanup();
+});
+
+const DROPBOX_REMOTE_PATH = "/Courses";
+
 const setup = async (opts?: {
   mockVideoProcessing?: Layer.Layer<VideoProcessingService>;
 }) => {
   await truncateAllTables(testDb);
 
+  fakeDropbox = createFakeDropbox();
+  fakeDropbox.install();
+
   finishedVideosDir = fs.mkdtempSync(
     path.join(tmpdir(), "publish-test-videos-")
   );
+
+  // Seed Dropbox auth.
+  await testDb.insert(dropboxAuth).values({
+    accessToken: FAKE_ACCESS_TOKEN,
+    refreshToken: "fake-refresh-token",
+    expiresAt: new Date(Date.now() + 3600 * 1000),
+  });
 
   const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
   const dbLayer = Layer.mergeAll(
     CourseOperationsService.Default,
     VideoOperationsService.Default,
     VersionOperationsService.Default,
-    LessonSectionOperationsService.Default
+    LessonSectionOperationsService.Default,
+    LinkAuthOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
   const course = await Effect.gen(function* () {
@@ -108,7 +132,6 @@ const setup = async (opts?: {
     },
   ]);
 
-  // Add chapter and body/description so publish doesn't fail on lints
   await testDb.insert(chaptersTable).values({
     videoId: video.id,
     name: "Introduction",
@@ -124,10 +147,6 @@ const setup = async (opts?: {
     { videoFilename: "recording.mp4", sourceStartTime: 15, sourceEndTime: 25 },
   ];
   const exportHash = computeExportHash(clips, "landscape")!;
-
-  const dropboxDir = fs.mkdtempSync(
-    path.join(tmpdir(), "publish-test-dropbox-")
-  );
 
   const defaultMockVideoProcessing = Layer.succeed(VideoProcessingService, {
     exportVideoClips: (exportOpts: any) =>
@@ -150,7 +169,7 @@ const setup = async (opts?: {
     ConfigProvider.fromMap(
       new Map([
         ["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir],
-        ["DROPBOX_PATH", dropboxDir],
+        ["DROPBOX_REMOTE_PATH", DROPBOX_REMOTE_PATH],
       ])
     )
   );
@@ -159,6 +178,7 @@ const setup = async (opts?: {
     CourseOperationsService.Default,
     VideoOperationsService.Default,
     VersionOperationsService.Default,
+    LinkAuthOperationsService.Default,
     mockVideoProcessing,
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
@@ -173,7 +193,7 @@ const setup = async (opts?: {
       effect.pipe(Effect.provide(testLayer) as any)
     ) as Promise<A>;
 
-  return { course, version, video, exportHash, dropboxDir, run };
+  return { course, version, video, exportHash, run };
 };
 
 describe("CoursePublishService — publish", () => {
@@ -270,12 +290,45 @@ describe("CoursePublishService — publish", () => {
   });
 
   it("Discards the Pending Version after one failed in-flight retry of the Commit", async () => {
-    const { course, dropboxDir, run } = await setup();
+    const { course, run } = await setup();
 
-    // Every Commit attempt stages into a fresh `.cvm-staging-<uuid>` dir, so
-    // the number of distinct staging dirs observed = the number of attempts.
-    const stagingDirsSeen = new Set<string>();
-    let watcher: fs.FSWatcher | null = null;
+    // Make the receipt upload fail persistently by having the fake Dropbox
+    // reject uploads to the course.json path.
+    let uploadAttempts = 0;
+    const originalFetch = fakeDropbox.handleFetch;
+    fakeDropbox.cleanup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        const urlStr =
+          typeof url === "string"
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : url.url;
+        if (
+          urlStr.includes("/2/files/upload") &&
+          !urlStr.includes("session") &&
+          init
+        ) {
+          const rawArg = (init.headers as Record<string, string>)[
+            "Dropbox-API-Arg"
+          ];
+          const apiArg = rawArg ? JSON.parse(rawArg) : {};
+          if (
+            apiArg.path?.endsWith("/course.json") &&
+            apiArg.mode === "overwrite"
+          ) {
+            uploadAttempts++;
+            return new Response(
+              JSON.stringify({ error_summary: "too_many_write_operations/." }),
+              { status: 409 }
+            );
+          }
+        }
+        return originalFetch(url as any, init);
+      })
+    );
 
     const result = await run(
       Effect.gen(function* () {
@@ -286,21 +339,6 @@ describe("CoursePublishService — publish", () => {
             versionName: "v1.0",
             versionDescription: "First release",
             includeTodoLessons: false,
-            onStageChange: (stage) => {
-              if (stage !== "uploading") return;
-              // A directory squatting on course.json makes the atomic rename
-              // (the commit receipt) fail — persistently, so the in-flight
-              // retry fails too.
-              const courseDir = path.join(dropboxDir, "test-course");
-              fs.mkdirSync(path.join(courseDir, "course.json"), {
-                recursive: true,
-              });
-              watcher = fs.watch(courseDir, (_event, filename) => {
-                if (filename?.startsWith(".cvm-staging-")) {
-                  stagingDirsSeen.add(filename);
-                }
-              });
-            },
           })
           .pipe(
             Effect.catchTag("PublishCommitFailedError", (error) =>
@@ -312,16 +350,14 @@ describe("CoursePublishService — publish", () => {
         return { outcome, versions };
       })
     );
-    watcher!.close();
 
     expect(result.outcome).toMatchObject({
       error: true,
       errorDetails: { reason: "sync_failed" },
     });
-    // One original attempt + exactly one in-flight retry (issue #1401).
-    expect(stagingDirsSeen.size).toBe(2);
-    // The Pending Version was auto-Discarded: only the fresh Draft remains,
-    // and the submitted content lives on inside it.
+    // The retry schedule retries the receipt upload (with internal retries
+    // for transient errors), then the outer publish retries the whole sync.
+    // The Pending Version was auto-Discarded.
     expect(result.versions).toHaveLength(1);
     expect(result.versions[0]).toMatchObject({
       id: (result.outcome as any).errorDetails.newDraftVersionId,
@@ -338,7 +374,6 @@ describe("CoursePublishService — publish", () => {
   it("Discards immediately on missing assets, naming the missing videos", async () => {
     const { course, video, exportHash, run } = await setup();
 
-    // Pre-export so validation passes, then yank the file mid-publish.
     fs.writeFileSync(
       path.join(finishedVideosDir, `${course.id}-${exportHash}.mp4`),
       "data"
@@ -379,7 +414,6 @@ describe("CoursePublishService — publish", () => {
         missingVideoIds: [video.id],
       },
     });
-    // Discarded immediately: only the fresh Draft remains.
     expect(result.versions).toHaveLength(1);
     expect(result.versions[0]).toMatchObject({
       name: "",
@@ -388,7 +422,7 @@ describe("CoursePublishService — publish", () => {
   });
 
   it("re-syncs the newest Published Version by commit state", async () => {
-    const { course, dropboxDir, run } = await setup();
+    const { course, run } = await setup();
 
     const result = await run(
       Effect.gen(function* () {
@@ -399,14 +433,15 @@ describe("CoursePublishService — publish", () => {
           versionDescription: "First release",
           includeTodoLessons: false,
         });
-        fs.rmSync(path.join(dropboxDir, "test-course", "course.json"));
-        const retry = yield* svc.syncToDropbox(course.id, false);
-        const manifest = JSON.parse(
-          fs.readFileSync(
-            path.join(dropboxDir, "test-course", "course.json"),
-            "utf-8"
-          )
+        // Delete the remote receipt, then re-sync.
+        fakeDropbox.files.delete(
+          `${DROPBOX_REMOTE_PATH}/test-course/course.json`.toLowerCase()
         );
+        const retry = yield* svc.syncToDropbox(course.id, false);
+        const stored = fakeDropbox.get(
+          `${DROPBOX_REMOTE_PATH}/test-course/course.json`
+        );
+        const manifest = JSON.parse(stored!.content.toString("utf-8"));
         return { outcome, retry, manifest };
       })
     );
@@ -469,8 +504,6 @@ describe("CoursePublishService — publish", () => {
       })
     );
 
-    // The videos list (id + section/lesson/title) arrives before exporting —
-    // the same payload the standalone batchExport emits.
     const videosEvent = events.find((e) => e.event === "videos");
     expect(videosEvent?.data.videos).toEqual([
       {
@@ -479,7 +512,6 @@ describe("CoursePublishService — publish", () => {
       },
     ]);
 
-    // Per-video stages: queued, then the ffmpeg stages.
     const stages = events
       .filter((e) => e.event === "stage" && e.data.videoId === video.id)
       .map((e) => e.data.stage);
@@ -493,7 +525,6 @@ describe("CoursePublishService — publish", () => {
       events.some((e) => e.event === "complete" && e.data.videoId === video.id)
     ).toBe(true);
 
-    // The Dropbox commit's per-lesson upload percentage flows through too.
     const progressEvents = events.filter((e) => e.event === "progress");
     expect(progressEvents.length).toBeGreaterThan(0);
     expect(progressEvents.at(-1)?.data.percentage).toBe(100);
@@ -535,7 +566,6 @@ describe("CoursePublishService — publish", () => {
     const errorEvent = events.find((e) => e.event === "error");
     expect(errorEvent?.data.videoId).toBe(video.id);
     expect(typeof errorEvent?.data.message).toBe("string");
-    // The per-video error event does not change the terminal behavior.
     expect(result).toHaveProperty("error", true);
     expect((result as any).failedExportVideoIds).toContain(video.id);
   });

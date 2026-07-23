@@ -8,13 +8,14 @@ import {
   index,
   integer,
   jsonb,
-  pgTableCreator,
   primaryKey,
   text,
   timestamp,
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
+import { createTable } from "./table-creator";
+export { createTable } from "./table-creator";
 
 const varcharCollateC = customType<{
   data: string;
@@ -31,10 +32,6 @@ const tsvector = customType<{ data: string }>({
     return "tsvector";
   },
 });
-
-export const createTable = pgTableCreator(
-  (name) => `course-video-manager_${name}`
-);
 
 export const courses = createTable(
   "course",
@@ -488,47 +485,7 @@ export const coursesRelations = relations(courses, ({ many }) => ({
   deliverablesCourses: many(deliverablesCourses),
 }));
 
-// YouTube OAuth tokens table (single-user, stores one token set)
-export const youtubeAuth = createTable("youtube_auth", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  accessToken: text("access_token").notNull(),
-  refreshToken: text("refresh_token").notNull(),
-  expiresAt: timestamp("expires_at", {
-    mode: "date",
-    withTimezone: true,
-  }).notNull(),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp("updated_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
-
-// AI Hero OAuth tokens table (single-user, stores one token set)
-export const aiHeroAuth = createTable("ai_hero_auth", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  accessToken: text("access_token").notNull(),
-  userId: text("user_id").notNull(),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
+export { youtubeAuth, aiHeroAuth, dropboxAuth } from "./schema-auth";
 
 // Global links table for article writing
 export const links = createTable("link", {

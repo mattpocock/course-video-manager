@@ -1,7 +1,6 @@
-import { Config, Effect, Option, Schedule, Stream } from "effect";
+import { Config, Effect, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
-import { createHash, randomUUID } from "node:crypto";
-import path from "node:path";
+import { createHash } from "node:crypto";
 import {
   buildCourseJson,
   buildCourseJsonSchema,
@@ -15,6 +14,14 @@ import {
 import { VersionOperationsService } from "./db-version-operations.server";
 import { ExportError, PublishValidationError } from "./course-publish-errors";
 import { resolveSectionsWithVideos } from "./publish-to-dropbox";
+import {
+  uploadFile,
+  getMetadata,
+  listFolder,
+  type DropboxFileMetadata,
+} from "./dropbox-http-client";
+import { DropboxContentHasher } from "./dropbox-content-hash";
+import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 
 const toExportClips = (
   clips: Array<{
@@ -30,13 +37,32 @@ const toExportClips = (
     sourceEndTime: clip.sourceEndTime,
   }));
 
+const hashFileLocally = Effect.fn("hashFileLocally")(function* (
+  effectFs: FileSystem.FileSystem,
+  filePath: string
+) {
+  const sha256Hash = createHash("sha256");
+  const contentHasher = new DropboxContentHasher();
+  const bytes = yield* effectFs.stream(filePath).pipe(
+    Stream.runFold(0, (total, chunk) => {
+      sha256Hash.update(chunk);
+      contentHasher.update(chunk);
+      return total + chunk.byteLength;
+    })
+  );
+  return {
+    sha256: sha256Hash.digest("hex"),
+    bytes,
+    contentHash: contentHasher.digest(),
+  };
+});
+
 export const syncFrozenCourseVersionToDropbox = Effect.fn(
   "syncFrozenCourseVersionToDropbox"
 )(function* (input: {
   courseId: string;
   courseVersionId: string;
   includeTodoLessons: boolean;
-  // The Dropbox commit's per-lesson upload percentage.
   onProgress?: (event: "progress", data: { percentage: number }) => void;
 }) {
   const effectFs = yield* FileSystem.FileSystem;
@@ -44,51 +70,12 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const finishedVideosDirectory = yield* Config.string(
     "FINISHED_VIDEOS_DIRECTORY"
   );
-  const dropboxPath = yield* Config.string("DROPBOX_PATH");
-  // Optional out-of-tree staging area. The Dropbox client indexes files the
-  // moment they land inside the synced tree and holds open handles while it
-  // does, which makes the bundle rename below fail with EACCES on
-  // Windows-backed mounts. Staging outside the synced tree sidesteps the
-  // contention entirely; it must live on the same volume as DROPBOX_PATH so
-  // the rename into the bundle dir stays atomic.
-  const publishStagingDir = yield* Config.option(
-    Config.string("PUBLISH_STAGING_DIR")
-  );
-
-  // Rename through transient sync-client locks: while the Dropbox client is
-  // indexing freshly-written files it holds handles that surface as
-  // EACCES/EBUSY on rename. The contention clears once indexing finishes, so
-  // retry with backoff before treating the failure as real.
-  const renameThroughSyncLocks = (oldPath: string, newPath: string) =>
-    effectFs.rename(oldPath, newPath).pipe(
-      Effect.retry({
-        while: (error) =>
-          error._tag === "SystemError" &&
-          (error.reason === "PermissionDenied" || error.reason === "Busy"),
-        schedule: Schedule.exponential("1 second").pipe(
-          Schedule.intersect(Schedule.recurs(6))
-        ),
-      })
-    );
-
-  const hashFile = Effect.fn("hashFileSha256")(function* (filePath: string) {
-    const hash = createHash("sha256");
-    const bytes = yield* effectFs.stream(filePath).pipe(
-      Stream.runFold(0, (total, chunk) => {
-        hash.update(chunk);
-        return total + chunk.byteLength;
-      })
-    );
-    return { sha256: hash.digest("hex"), bytes };
-  });
+  const dropboxRemotePath = yield* Config.string("DROPBOX_REMOTE_PATH");
+  const accessToken = yield* getValidDropboxAccessToken;
 
   const targetVersion = yield* versionOps.getCourseVersionById(
     input.courseVersionId
   );
-  // The commit state is authoritative: only a non-Draft version (a Pending
-  // Version mid-Commit, or a Published Version being re-synced) may be
-  // mirrored to Dropbox. (Previously inferred positionally as "not the
-  // latest version".)
   if (
     targetVersion.repoId !== input.courseId ||
     targetVersion.commitState === "draft"
@@ -103,8 +90,6 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     versionId: input.courseVersionId,
   });
 
-  // The effective Sections are the single source of what this publish ships.
-  // Prior immutable bundles remain intact for replay and rollback.
   const effectiveSections = computeEffectiveSections(
     repoWithSections.sections,
     input.includeTodoLessons
@@ -135,189 +120,199 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   });
   if (missingVideos.length > 0) return { missingVideos };
 
-  const totalLessons = sections.reduce(
-    (sum, section) => sum + section.lessons.length,
-    0
-  );
-  let completedLessons = 0;
-  const syncId = randomUUID();
-  const dropboxCourseDir = path.join(dropboxPath, repoWithSections.name);
-  const stagingDir = Option.match(publishStagingDir, {
-    onNone: () => path.join(dropboxCourseDir, `.cvm-staging-${syncId}`),
-    onSome: (dir) => path.join(dir, `cvm-staging-${syncId}`),
-  });
-  const manifestTempPath = path.join(dropboxCourseDir, `.course-${syncId}.tmp`);
-  const courseJsonPath = path.join(dropboxCourseDir, "course.json");
+  const dropboxCourseDir = `${dropboxRemotePath}/${repoWithSections.name}`;
   const videoAssets = new Map<string, { sha256: string; bytes: number }>();
-  const stagedVideos: Array<{
+  const videoContentHashes = new Map<string, string>();
+
+  const videoEntries: Array<{
     videoId: string;
-    sourcePath: string;
-    stagedPath: string;
+    localPath: string;
     relativeAssetPath: string;
   }> = [];
 
-  const manifestJson = yield* Effect.gen(function* () {
-    yield* effectFs.makeDirectory(stagingDir, { recursive: true });
+  for (const section of sections) {
+    for (const lesson of section.lessons) {
+      for (const video of lesson.videos) {
+        const relativeAssetPath = `${section.path}/${lesson.path}/${video.name}.mp4`;
+        videoEntries.push({
+          videoId: video.id,
+          localPath: video.absolutePath,
+          relativeAssetPath,
+        });
+      }
+    }
+  }
 
-    // Stage, copy, and hash each Video in a single traversal. Building the
-    // staged list here — rather than in a prior loop re-walked by a positional
-    // index — keeps the staged entries, the copied files, and the asset hashes
-    // from ever drifting out of the Section → Lesson → Video order they all
-    // derive from.
+  // Hash all local video files to compute the asset fingerprint and
+  // content_hashes for verification — before any upload begins.
+  for (const entry of videoEntries) {
+    const hashes = yield* hashFileLocally(effectFs, entry.localPath);
+    videoAssets.set(entry.videoId, {
+      sha256: hashes.sha256,
+      bytes: hashes.bytes,
+    });
+    videoContentHashes.set(entry.videoId, hashes.contentHash);
+  }
+
+  const schemaJson = JSON.stringify(buildCourseJsonSchema(), null, 2);
+  const assetFingerprint = createHash("sha256")
+    .update(
+      JSON.stringify({
+        schemaJson,
+        courseId: input.courseId,
+        courseVersionId: input.courseVersionId,
+        courseName: repoWithSections.name,
+        includeTodoLessons: input.includeTodoLessons,
+        sections: repoWithSections.sections,
+        videos: videoEntries.map((entry) => ({
+          relativeAssetPath: entry.relativeAssetPath,
+          ...videoAssets.get(entry.videoId)!,
+        })),
+      })
+    )
+    .digest("hex")
+    .slice(0, 32);
+  const versionFingerprint = createHash("sha256")
+    .update(input.courseVersionId)
+    .digest("hex")
+    .slice(0, 16);
+  const assetBasePath = `versions/${versionFingerprint}-${assetFingerprint}`;
+  const remoteBundleDir = `${dropboxCourseDir}/${assetBasePath}`;
+
+  const courseJsonDoc = yield* buildCourseJson({
+    courseId: input.courseId,
+    courseVersionId: input.courseVersionId,
+    courseName: repoWithSections.name,
+    assetBasePath,
+    sections: repoWithSections.sections,
+    videoAssets,
+    includeTodoLessons: input.includeTodoLessons,
+  });
+  const manifestJson = JSON.stringify(courseJsonDoc, null, 2);
+
+  // Check if the bundle already exists remotely.
+  const existingBundle = yield* getMetadata({
+    accessToken,
+    path: remoteBundleDir,
+  }).pipe(Effect.catchTag("DropboxApiError", () => Effect.succeed(null)));
+
+  if (existingBundle && existingBundle[".tag"] === "folder") {
+    // Verify the existing bundle's integrity via content_hash + size.
+    const remoteEntries = yield* listFolder({
+      accessToken,
+      path: remoteBundleDir,
+      recursive: true,
+    });
+    const remoteFilesByPath = new Map<string, DropboxFileMetadata>();
+    for (const entry of remoteEntries) {
+      if (entry[".tag"] === "file") {
+        remoteFilesByPath.set(entry.path_display.toLowerCase(), entry);
+      }
+    }
+
+    for (const entry of videoEntries) {
+      const remotePath =
+        `${remoteBundleDir}/${entry.relativeAssetPath}`.toLowerCase();
+      const remoteFile = remoteFilesByPath.get(remotePath);
+      if (!remoteFile) {
+        return yield* new ExportError({
+          message: `Immutable asset bundle is missing video ${entry.videoId}`,
+        });
+      }
+      const expectedHash = videoContentHashes.get(entry.videoId)!;
+      const expected = videoAssets.get(entry.videoId)!;
+      if (
+        remoteFile.content_hash !== expectedHash ||
+        remoteFile.size !== expected.bytes
+      ) {
+        return yield* new ExportError({
+          message: `Immutable asset bundle conflict for video ${entry.videoId}`,
+        });
+      }
+    }
+
+    // Verify schema and manifest in the existing bundle.
+    const remoteSchemaPath =
+      `${remoteBundleDir}/course.schema.json`.toLowerCase();
+    const remoteManifestPath = `${remoteBundleDir}/manifest.json`.toLowerCase();
+    const remoteSchema = remoteFilesByPath.get(remoteSchemaPath);
+    const remoteManifest = remoteFilesByPath.get(remoteManifestPath);
+    if (!remoteSchema || !remoteManifest) {
+      return yield* new ExportError({
+        message: "Immutable asset bundle is missing schema or manifest",
+      });
+    }
+  } else {
+    // Upload the bundle.
+    let totalBytes = 0;
+    let uploadedBytes = 0;
+
+    for (const entry of videoEntries) {
+      totalBytes += videoAssets.get(entry.videoId)!.bytes;
+    }
+
     for (const section of sections) {
       for (const lesson of section.lessons) {
         for (const video of lesson.videos) {
-          const extName = path.extname(video.absolutePath);
-          const relativeAssetPath = `${section.path}/${lesson.path}/${video.name}${extName}`;
-          const stagedVideo = {
-            videoId: video.id,
-            sourcePath: video.absolutePath,
-            stagedPath: path.join(stagingDir, ...relativeAssetPath.split("/")),
-            relativeAssetPath,
-          };
-          stagedVideos.push(stagedVideo);
-          yield* effectFs.makeDirectory(path.dirname(stagedVideo.stagedPath), {
-            recursive: true,
-          });
-          yield* effectFs.copyFile(
-            stagedVideo.sourcePath,
-            stagedVideo.stagedPath
+          const entry = videoEntries.find((e) => e.videoId === video.id)!;
+          const content = Buffer.from(
+            yield* effectFs.readFile(entry.localPath)
           );
-          videoAssets.set(
-            stagedVideo.videoId,
-            yield* hashFile(stagedVideo.stagedPath)
-          );
-        }
 
-        completedLessons++;
-        if (totalLessons > 0) {
-          input.onProgress?.("progress", {
-            percentage: Math.round((completedLessons / totalLessons) * 100),
+          const remotePath = `${remoteBundleDir}/${entry.relativeAssetPath}`;
+          const metadata = yield* uploadFile({
+            accessToken,
+            path: remotePath,
+            content,
+            onProgress: (uploaded) => {
+              if (totalBytes > 0) {
+                const pct = Math.round(
+                  ((uploadedBytes + uploaded) / totalBytes) * 100
+                );
+                input.onProgress?.("progress", {
+                  percentage: Math.min(pct, 99),
+                });
+              }
+            },
           });
+
+          uploadedBytes += content.length;
+
+          // Verify the upload via content_hash.
+          const expectedHash = videoContentHashes.get(entry.videoId)!;
+          if (metadata.content_hash !== expectedHash) {
+            return yield* new ExportError({
+              message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
+            });
+          }
         }
       }
     }
 
-    const schemaJson = JSON.stringify(buildCourseJsonSchema(), null, 2);
-    const assetFingerprint = createHash("sha256")
-      .update(
-        JSON.stringify({
-          schemaJson,
-          courseId: input.courseId,
-          courseVersionId: input.courseVersionId,
-          courseName: repoWithSections.name,
-          includeTodoLessons: input.includeTodoLessons,
-          sections: repoWithSections.sections,
-          videos: stagedVideos.map((video) => ({
-            relativeAssetPath: video.relativeAssetPath,
-            ...videoAssets.get(video.videoId)!,
-          })),
-        })
-      )
-      .digest("hex")
-      .slice(0, 32);
-    const versionFingerprint = createHash("sha256")
-      .update(input.courseVersionId)
-      .digest("hex")
-      .slice(0, 16);
-    const assetBasePath = `versions/${versionFingerprint}-${assetFingerprint}`;
-    const finalBundleDir = path.join(
-      dropboxCourseDir,
-      ...assetBasePath.split("/")
-    );
-    const courseJsonDoc = yield* buildCourseJson({
-      courseId: input.courseId,
-      courseVersionId: input.courseVersionId,
-      courseName: repoWithSections.name,
-      assetBasePath,
-      sections: repoWithSections.sections,
-      videoAssets,
-      includeTodoLessons: input.includeTodoLessons,
+    // Upload schema and manifest.
+    yield* uploadFile({
+      accessToken,
+      path: `${remoteBundleDir}/course.schema.json`,
+      content: Buffer.from(schemaJson, "utf-8"),
     });
-    const manifestJson = JSON.stringify(courseJsonDoc, null, 2);
-    yield* effectFs.writeFileString(
-      path.join(stagingDir, "course.schema.json"),
-      schemaJson
-    );
-    // `manifest.json` is the bundle's own immutable, self-describing copy of the
-    // course document: it lives inside the content-addressed bundle dir and is
-    // frozen there forever alongside the assets it fingerprints. The identical
-    // bytes are also written to the root `course.json` below, but the two serve
-    // distinct roles and are intentionally duplicated — see the root write.
-    yield* effectFs.writeFileString(
-      path.join(stagingDir, "manifest.json"),
-      manifestJson
-    );
-
-    yield* effectFs.makeDirectory(path.dirname(finalBundleDir), {
-      recursive: true,
+    yield* uploadFile({
+      accessToken,
+      path: `${remoteBundleDir}/manifest.json`,
+      content: Buffer.from(manifestJson, "utf-8"),
     });
-    if (yield* effectFs.exists(finalBundleDir)) {
-      for (const video of stagedVideos) {
-        const finalPath = path.join(
-          finalBundleDir,
-          ...video.relativeAssetPath.split("/")
-        );
-        if (!(yield* effectFs.exists(finalPath))) {
-          return yield* new ExportError({
-            message: `Immutable asset bundle is missing video ${video.videoId}`,
-          });
-        }
-        const expected = videoAssets.get(video.videoId)!;
-        const actual = yield* hashFile(finalPath);
-        if (
-          actual.sha256 !== expected.sha256 ||
-          actual.bytes !== expected.bytes
-        ) {
-          return yield* new ExportError({
-            message: `Immutable asset bundle conflict for video ${video.videoId}`,
-          });
-        }
-      }
-      const existingSchema = yield* effectFs.readFileString(
-        path.join(finalBundleDir, "course.schema.json")
-      );
-      if (existingSchema !== schemaJson) {
-        return yield* new ExportError({
-          message: "Immutable asset bundle schema conflict",
-        });
-      }
-      const existingManifest = yield* effectFs.readFileString(
-        path.join(finalBundleDir, "manifest.json")
-      );
-      if (existingManifest !== manifestJson) {
-        return yield* new ExportError({
-          message: "Immutable asset bundle manifest conflict",
-        });
-      }
-    } else {
-      yield* renameThroughSyncLocks(stagingDir, finalBundleDir);
-    }
+  }
 
-    return manifestJson;
-  }).pipe(
-    Effect.ensuring(
-      effectFs
-        .remove(stagingDir, { recursive: true, force: true })
-        .pipe(Effect.orDie)
-    )
-  );
+  // Write the root course.json receipt with overwrite mode — the sole
+  // commit marker. This is the last write; consumers read it to know
+  // which bundle is current.
+  yield* uploadFile({
+    accessToken,
+    path: `${dropboxCourseDir}/course.json`,
+    content: Buffer.from(manifestJson, "utf-8"),
+    mode: "overwrite",
+  });
 
-  yield* Effect.gen(function* () {
-    yield* effectFs.writeFileString(manifestTempPath, manifestJson);
-    // Root `course.json` is the mutable commit marker: consumers read it first,
-    // and its atomic rename is the sole receipt that this publish committed. It
-    // is overwritten on every publish to point at the newest bundle, whereas the
-    // byte-identical `manifest.json` inside the bundle dir stays immutable. The
-    // duplication is deliberate — the bundle stays self-describing in isolation
-    // while the root marker always names the current release — so it is the
-    // final successful write.
-    yield* renameThroughSyncLocks(manifestTempPath, courseJsonPath);
-  }).pipe(
-    Effect.onError(() =>
-      effectFs.remove(manifestTempPath, { force: true }).pipe(Effect.orDie)
-    )
-  );
+  input.onProgress?.("progress", { percentage: 100 });
 
   return { missingVideos };
 });
