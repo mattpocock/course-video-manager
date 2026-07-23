@@ -1,4 +1,4 @@
-import { Config, Effect, Stream } from "effect";
+import { Config, Effect, Option, Schedule, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -45,6 +45,31 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     "FINISHED_VIDEOS_DIRECTORY"
   );
   const dropboxPath = yield* Config.string("DROPBOX_PATH");
+  // Optional out-of-tree staging area. The Dropbox client indexes files the
+  // moment they land inside the synced tree and holds open handles while it
+  // does, which makes the bundle rename below fail with EACCES on
+  // Windows-backed mounts. Staging outside the synced tree sidesteps the
+  // contention entirely; it must live on the same volume as DROPBOX_PATH so
+  // the rename into the bundle dir stays atomic.
+  const publishStagingDir = yield* Config.option(
+    Config.string("PUBLISH_STAGING_DIR")
+  );
+
+  // Rename through transient sync-client locks: while the Dropbox client is
+  // indexing freshly-written files it holds handles that surface as
+  // EACCES/EBUSY on rename. The contention clears once indexing finishes, so
+  // retry with backoff before treating the failure as real.
+  const renameThroughSyncLocks = (oldPath: string, newPath: string) =>
+    effectFs.rename(oldPath, newPath).pipe(
+      Effect.retry({
+        while: (error) =>
+          error._tag === "SystemError" &&
+          (error.reason === "PermissionDenied" || error.reason === "Busy"),
+        schedule: Schedule.exponential("1 second").pipe(
+          Schedule.intersect(Schedule.recurs(6))
+        ),
+      })
+    );
 
   const hashFile = Effect.fn("hashFileSha256")(function* (filePath: string) {
     const hash = createHash("sha256");
@@ -117,7 +142,10 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   let completedLessons = 0;
   const syncId = randomUUID();
   const dropboxCourseDir = path.join(dropboxPath, repoWithSections.name);
-  const stagingDir = path.join(dropboxCourseDir, `.cvm-staging-${syncId}`);
+  const stagingDir = Option.match(publishStagingDir, {
+    onNone: () => path.join(dropboxCourseDir, `.cvm-staging-${syncId}`),
+    onSome: (dir) => path.join(dir, `cvm-staging-${syncId}`),
+  });
   const manifestTempPath = path.join(dropboxCourseDir, `.course-${syncId}.tmp`);
   const courseJsonPath = path.join(dropboxCourseDir, "course.json");
   const videoAssets = new Map<string, { sha256: string; bytes: number }>();
@@ -263,7 +291,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
         });
       }
     } else {
-      yield* effectFs.rename(stagingDir, finalBundleDir);
+      yield* renameThroughSyncLocks(stagingDir, finalBundleDir);
     }
 
     return manifestJson;
@@ -284,7 +312,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     // duplication is deliberate — the bundle stays self-describing in isolation
     // while the root marker always names the current release — so it is the
     // final successful write.
-    yield* effectFs.rename(manifestTempPath, courseJsonPath);
+    yield* renameThroughSyncLocks(manifestTempPath, courseJsonPath);
   }).pipe(
     Effect.onError(() =>
       effectFs.remove(manifestTempPath, { force: true }).pipe(Effect.orDie)

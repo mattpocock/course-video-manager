@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
+import { FileSystem } from "@effect/platform";
+import { SystemError } from "@effect/platform/Error";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
 import path from "node:path";
@@ -33,7 +35,12 @@ beforeAll(async () => {
   testDb = result.testDb;
 });
 
-const setupSync = async () => {
+const setupSync = async (options?: {
+  // Wrap the real FileSystem service — used to fault-inject the sync-client
+  // lock contention (EACCES on rename) the Dropbox client causes in production.
+  wrapFileSystem?: (real: FileSystem.FileSystem) => FileSystem.FileSystem;
+  publishStagingDir?: string;
+}) => {
   await truncateAllTables(testDb);
 
   finishedVideosDir = fs.mkdtempSync(path.join(tmpdir(), "sync-test-videos-"));
@@ -187,16 +194,27 @@ const setupSync = async () => {
       new Map([
         ["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir],
         ["DROPBOX_PATH", dropboxDir],
+        ...(options?.publishStagingDir
+          ? [["PUBLISH_STAGING_DIR", options.publishStagingDir] as const]
+          : []),
       ])
     )
   );
+
+  const fsOverrideLayer = options?.wrapFileSystem
+    ? Layer.effect(
+        FileSystem.FileSystem,
+        Effect.map(FileSystem.FileSystem, options.wrapFileSystem)
+      ).pipe(Layer.provide(NodeContext.layer))
+    : Layer.empty;
 
   const coreTestLayer = Layer.mergeAll(
     CourseOperationsService.Default,
     VideoOperationsService.Default,
     VersionOperationsService.Default,
     mockVideoProcessing,
-    NodeContext.layer
+    NodeContext.layer,
+    fsOverrideLayer
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
 
   const testLayer = Layer.merge(
@@ -222,6 +240,100 @@ describe("CoursePublishService.syncToDropbox", () => {
         yield* svc.syncToDropbox(course.id, true);
       })
     );
+
+    const courseDir = path.join(dropboxDir, "test-course");
+    const doc = readCourseManifest(courseDir);
+    for (const video of getManifestVideos(doc)) {
+      expect(
+        fs.existsSync(path.join(courseDir, ...video.relativePath.split("/")))
+      ).toBe(true);
+    }
+  });
+
+  it("retries the bundle rename through transient sync-client locks", async () => {
+    // The Dropbox client holds handles on files it is indexing, so on
+    // Windows-backed mounts the staging → bundle dir rename fails with EACCES
+    // until the client lets go. The commit must ride out the contention
+    // instead of discarding the publish.
+    let deniedRenames = 0;
+    const { course, dropboxDir, run } = await setupSync({
+      wrapFileSystem: (real) =>
+        FileSystem.make({
+          ...real,
+          // Effect.suspend so the deny-or-delegate decision is made on every
+          // execution — Effect.retry re-runs the constructed effect, it does
+          // not call this factory again.
+          rename: (oldPath, newPath) =>
+            Effect.suspend(() => {
+              if (
+                deniedRenames < 2 &&
+                newPath.includes(`versions${path.sep}`)
+              ) {
+                deniedRenames++;
+                return Effect.fail(
+                  new SystemError({
+                    reason: "PermissionDenied",
+                    module: "FileSystem",
+                    method: "rename",
+                    pathOrDescriptor: oldPath,
+                    description: "EACCES: permission denied (sync lock)",
+                  })
+                );
+              }
+              return real.rename(oldPath, newPath);
+            }),
+        }),
+    });
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id, true);
+      })
+    );
+
+    expect(deniedRenames).toBe(2);
+    const courseDir = path.join(dropboxDir, "test-course");
+    const doc = readCourseManifest(courseDir);
+    for (const video of getManifestVideos(doc)) {
+      expect(
+        fs.existsSync(path.join(courseDir, ...video.relativePath.split("/")))
+      ).toBe(true);
+    }
+  }, 30_000);
+
+  it("stages outside the synced tree when PUBLISH_STAGING_DIR is set", async () => {
+    const stagingRoot = fs.mkdtempSync(
+      path.join(tmpdir(), "sync-test-staging-")
+    );
+    const renameSources: string[] = [];
+    const { course, dropboxDir, run } = await setupSync({
+      publishStagingDir: stagingRoot,
+      wrapFileSystem: (real) =>
+        FileSystem.make({
+          ...real,
+          rename: (oldPath, newPath) => {
+            renameSources.push(oldPath);
+            return real.rename(oldPath, newPath);
+          },
+        }),
+    });
+
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        yield* svc.syncToDropbox(course.id, true);
+      })
+    );
+
+    // The bundle was staged under PUBLISH_STAGING_DIR, never inside the
+    // synced tree, and the staging area is cleaned up afterwards.
+    const bundleRenameSource = renameSources.find((source) =>
+      source.includes("cvm-staging-")
+    );
+    expect(bundleRenameSource).toBeDefined();
+    expect(bundleRenameSource!.startsWith(stagingRoot)).toBe(true);
+    expect(fs.readdirSync(stagingRoot)).toEqual([]);
 
     const courseDir = path.join(dropboxDir, "test-course");
     const doc = readCourseManifest(courseDir);
