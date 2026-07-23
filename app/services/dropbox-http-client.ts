@@ -50,13 +50,22 @@ const fetchWithRetry = Effect.fn("dropboxFetch")(function* (
     Effect.flatMap((response) => {
       if (response.ok) return Effect.succeed(response);
       if (isTransient(response.status)) {
-        return Effect.fail(
+        const retryAfter = parseInt(
+          response.headers.get("Retry-After") ?? "0",
+          10
+        );
+        const fail = Effect.fail(
           new DropboxApiError({
             message: `Transient error: ${response.status}`,
             status: response.status,
             endpoint,
           })
         );
+        return retryAfter > 0
+          ? Effect.sleep(Duration.seconds(retryAfter)).pipe(
+              Effect.zipRight(fail)
+            )
+          : fail;
       }
       return Effect.tryPromise({
         try: () => response.text(),
@@ -89,11 +98,7 @@ const authHeaders = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`,
 });
 
-/**
- * Upload a file (up to 150 MB) in a single request.
- * Returns file metadata including content_hash.
- */
-export const upload = Effect.fn("dropboxUpload")(function* (opts: {
+const upload = Effect.fn("dropboxUpload")(function* (opts: {
   accessToken: string;
   path: string;
   content: Buffer;
@@ -126,80 +131,52 @@ export const upload = Effect.fn("dropboxUpload")(function* (opts: {
   });
 });
 
-/**
- * Upload a large file via upload sessions.
- * Splits into 8 MB chunks; returns file metadata including content_hash.
- */
-export const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(
-  function* (opts: {
-    accessToken: string;
-    path: string;
-    content: Buffer;
-    mode?: "add" | "overwrite";
-    onProgress?: (uploaded: number, total: number) => void;
-  }) {
-    const { accessToken, path: filePath, content, mode, onProgress } = opts;
-    const total = content.length;
+const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(function* (opts: {
+  accessToken: string;
+  path: string;
+  content: Buffer;
+  mode?: "add" | "overwrite";
+  onProgress?: (uploaded: number, total: number) => void;
+}) {
+  const { accessToken, path: filePath, content, mode, onProgress } = opts;
+  const total = content.length;
 
-    // Start session
-    const firstChunkEnd = Math.min(UPLOAD_SESSION_CHUNK_SIZE, total);
-    const firstChunk = content.subarray(0, firstChunkEnd);
-    const startResponse = yield* fetchWithRetry(
-      "https://content.dropboxapi.com/2/files/upload_session/start",
-      {
-        method: "POST",
-        headers: {
-          ...authHeaders(accessToken),
-          "Content-Type": "application/octet-stream",
-          "Dropbox-API-Arg": JSON.stringify({
-            close: firstChunkEnd >= total,
-          }),
-        },
-        body: new Uint8Array(firstChunk),
-      },
-      "upload_session/start"
-    );
-    const { session_id } = yield* Effect.tryPromise({
-      try: () => startResponse.json() as Promise<{ session_id: string }>,
-      catch: (e) =>
-        new DropboxApiError({
-          message: `Failed to parse session start: ${e}`,
-          endpoint: "upload_session/start",
+  // Start session
+  const firstChunkEnd = Math.min(UPLOAD_SESSION_CHUNK_SIZE, total);
+  const firstChunk = content.subarray(0, firstChunkEnd);
+  const startResponse = yield* fetchWithRetry(
+    "https://content.dropboxapi.com/2/files/upload_session/start",
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(accessToken),
+        "Content-Type": "application/octet-stream",
+        "Dropbox-API-Arg": JSON.stringify({
+          close: firstChunkEnd >= total,
         }),
-    });
+      },
+      body: new Uint8Array(firstChunk),
+    },
+    "upload_session/start"
+  );
+  const { session_id } = yield* Effect.tryPromise({
+    try: () => startResponse.json() as Promise<{ session_id: string }>,
+    catch: (e) =>
+      new DropboxApiError({
+        message: `Failed to parse session start: ${e}`,
+        endpoint: "upload_session/start",
+      }),
+  });
 
-    let offset = firstChunkEnd;
-    onProgress?.(offset, total);
+  let offset = firstChunkEnd;
+  onProgress?.(offset, total);
 
-    // Append remaining chunks (all but the last)
-    while (offset < total - UPLOAD_SESSION_CHUNK_SIZE) {
-      const chunkEnd = offset + UPLOAD_SESSION_CHUNK_SIZE;
-      const chunk = content.subarray(offset, chunkEnd);
-      yield* fetchWithRetry(
-        "https://content.dropboxapi.com/2/files/upload_session/append_v2",
-        {
-          method: "POST",
-          headers: {
-            ...authHeaders(accessToken),
-            "Content-Type": "application/octet-stream",
-            "Dropbox-API-Arg": JSON.stringify({
-              cursor: { session_id, offset },
-              close: false,
-            }),
-          },
-          body: new Uint8Array(chunk),
-        },
-        "upload_session/append_v2"
-      );
-      offset = chunkEnd;
-      onProgress?.(offset, total);
-    }
-
-    // Finish session with the last chunk
-    const lastChunk =
-      offset < total ? content.subarray(offset) : new Uint8Array(0);
-    const finishResponse = yield* fetchWithRetry(
-      "https://content.dropboxapi.com/2/files/upload_session/finish",
+  // Append remaining chunks (all but the last)
+  while (offset < total - UPLOAD_SESSION_CHUNK_SIZE) {
+    const chunkEnd = offset + UPLOAD_SESSION_CHUNK_SIZE;
+    const chunk = content.subarray(offset, chunkEnd);
+    yield* fetchWithRetry(
+      "https://content.dropboxapi.com/2/files/upload_session/append_v2",
       {
         method: "POST",
         headers: {
@@ -207,30 +184,52 @@ export const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(
           "Content-Type": "application/octet-stream",
           "Dropbox-API-Arg": JSON.stringify({
             cursor: { session_id, offset },
-            commit: {
-              path: filePath,
-              mode: mode ?? "add",
-              autorename: false,
-            },
+            close: false,
           }),
         },
-        body: new Uint8Array(lastChunk),
+        body: new Uint8Array(chunk),
       },
-      "upload_session/finish"
+      "upload_session/append_v2"
     );
-
-    onProgress?.(total, total);
-
-    return yield* Effect.tryPromise({
-      try: () => finishResponse.json() as Promise<DropboxFileMetadata>,
-      catch: (e) =>
-        new DropboxApiError({
-          message: `Failed to parse session finish: ${e}`,
-          endpoint: "upload_session/finish",
-        }),
-    });
+    offset = chunkEnd;
+    onProgress?.(offset, total);
   }
-);
+
+  // Finish session with the last chunk
+  const lastChunk =
+    offset < total ? content.subarray(offset) : new Uint8Array(0);
+  const finishResponse = yield* fetchWithRetry(
+    "https://content.dropboxapi.com/2/files/upload_session/finish",
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(accessToken),
+        "Content-Type": "application/octet-stream",
+        "Dropbox-API-Arg": JSON.stringify({
+          cursor: { session_id, offset },
+          commit: {
+            path: filePath,
+            mode: mode ?? "add",
+            autorename: false,
+          },
+        }),
+      },
+      body: new Uint8Array(lastChunk),
+    },
+    "upload_session/finish"
+  );
+
+  onProgress?.(total, total);
+
+  return yield* Effect.tryPromise({
+    try: () => finishResponse.json() as Promise<DropboxFileMetadata>,
+    catch: (e) =>
+      new DropboxApiError({
+        message: `Failed to parse session finish: ${e}`,
+        endpoint: "upload_session/finish",
+      }),
+  });
+});
 
 /**
  * Upload a file, choosing simple upload or upload session based on size.
@@ -287,62 +286,24 @@ export const getMetadata = Effect.fn("dropboxGetMetadata")(function* (opts: {
   accessToken: string;
   path: string;
 }) {
-  const response = yield* Effect.tryPromise({
-    try: () =>
-      fetch("https://api.dropboxapi.com/2/files/get_metadata", {
-        method: "POST",
-        headers: {
-          ...authHeaders(opts.accessToken),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ path: opts.path }),
-      }),
-    catch: (e) =>
-      new DropboxApiError({
-        message: e instanceof Error ? e.message : "Network error",
-        endpoint: "get_metadata",
-      }),
-  }).pipe(
-    Effect.retry({
-      while: (e) => e._tag === "DropboxApiError" && isTransient(e.status ?? 0),
-      schedule: retrySchedule,
-    })
+  const response = yield* fetchWithRetry(
+    "https://api.dropboxapi.com/2/files/get_metadata",
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(opts.accessToken),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ path: opts.path }),
+    },
+    "get_metadata"
+  ).pipe(
+    Effect.catchTag("DropboxApiError", (e) =>
+      e.status === 409 ? Effect.succeed(null) : Effect.fail(e)
+    )
   );
 
-  if (response.status === 409) {
-    const body = yield* Effect.tryPromise({
-      try: () => response.json() as Promise<{ error: { ".tag": string } }>,
-      catch: () =>
-        new DropboxApiError({
-          message: "Failed to parse 409 body",
-          status: 409,
-          endpoint: "get_metadata",
-        }),
-    });
-    if (
-      body.error?.[".tag"] === "path" ||
-      body.error?.[".tag"] === "not_found"
-    ) {
-      return null;
-    }
-  }
-
-  if (!response.ok) {
-    const text = yield* Effect.tryPromise({
-      try: () => response.text(),
-      catch: () =>
-        new DropboxApiError({
-          message: `HTTP ${response.status}`,
-          status: response.status,
-          endpoint: "get_metadata",
-        }),
-    });
-    return yield* new DropboxApiError({
-      message: `HTTP ${response.status}: ${text}`,
-      status: response.status,
-      endpoint: "get_metadata",
-    });
-  }
+  if (response === null) return null;
 
   return yield* Effect.tryPromise({
     try: () => response.json() as Promise<DropboxEntry>,

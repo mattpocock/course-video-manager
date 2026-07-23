@@ -1,5 +1,6 @@
 import { Config, ConfigProvider, Console, Effect } from "effect";
 import { redirect } from "react-router";
+import { runtimeLive } from "@/services/layer.server";
 
 export const loader = async ({ request }: { request: Request }) => {
   const url = new URL(request.url);
@@ -30,6 +31,6 @@ export const loader = async ({ request }: { request: Request }) => {
     Effect.catchAll(() => {
       return Effect.die(new Response("Internal server error", { status: 500 }));
     }),
-    Effect.runPromise
+    runtimeLive.runPromise
   );
 };
