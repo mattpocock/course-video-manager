@@ -29,6 +29,9 @@ export interface WritableFieldProps {
   className?: string;
   /** Height of the inline editor/preview box in pixels. */
   height?: number;
+  /** Fill parent container instead of using a fixed height. Removes own
+   *  border/rounding so the parent's chrome frames the editor. */
+  fill?: boolean;
   /** When set, the modal's Repo Files tab shows an "add from clipboard" button. */
   onAddFileFromClipboard?: () => void;
   /** Other fields on the same page, offered as toggleable AI context. */
@@ -47,6 +50,7 @@ export function WritableField({
   placeholder,
   className,
   height = 280,
+  fill,
   onAddFileFromClipboard,
   pageFields,
 }: WritableFieldProps) {
@@ -57,10 +61,7 @@ export function WritableField({
 
   const view =
     (searchParams.get("writerView") as
-      | "writer"
-      | "context"
-      | "settings"
-      | null) ?? "writer";
+      "writer" | "context" | "settings" | null) ?? "writer";
   const ctxTab = searchParams.get("writerTab") ?? undefined;
 
   // Inline editor state: a local draft drives Monaco so persisting through the
@@ -151,7 +152,8 @@ export function WritableField({
     <>
       <div
         className={cn(
-          "relative overflow-hidden rounded-md border bg-background",
+          "relative overflow-hidden bg-background",
+          fill ? "flex flex-col flex-1 min-h-0" : "rounded-md border",
           className
         )}
       >
@@ -181,7 +183,10 @@ export function WritableField({
             <Maximize2Icon className="mr-1 size-3.5" /> Open in writer
           </Button>
         </div>
-        <div style={{ height }}>
+        <div
+          className={fill ? "flex-1 min-h-0" : undefined}
+          style={fill ? undefined : { height }}
+        >
           {preview ? (
             <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted h-full overflow-y-auto p-4">
               <div className="max-w-[75ch]">

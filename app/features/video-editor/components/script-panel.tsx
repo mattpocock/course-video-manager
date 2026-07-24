@@ -23,7 +23,7 @@ export function ScriptPanel({ videoId }: { videoId: string }) {
   }
 
   return (
-    <div className="overflow-y-auto flex-1 p-3">
+    <div className="flex-1 min-h-0 flex flex-col">
       <WritableField
         videoId={videoId}
         fieldId="video-script"
@@ -33,7 +33,7 @@ export function ScriptPanel({ videoId }: { videoId: string }) {
         context={context}
         modes={[]}
         placeholder="Write the teleprompter script for this video…"
-        height={480}
+        fill
       />
     </div>
   );
