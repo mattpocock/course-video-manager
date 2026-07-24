@@ -23,7 +23,7 @@ const PromptOutput = z.discriminatedUnion("status", [
 
 const result = await runWithExtraction({
   name: `architecture-review-${new Date().toISOString().slice(0, 10)}`,
-  agent: sandcastle.claudeCode("claude-opus-4-6", {
+  agent: sandcastle.claudeCode("claude-opus-5", {
     env: {
       CLAUDE_CODE_OAUTH_TOKEN: required("CLAUDE_CODE_OAUTH_TOKEN"),
     },

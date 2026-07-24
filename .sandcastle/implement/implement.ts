@@ -11,7 +11,7 @@ const OUTPUT_DIR = process.env.OUTPUT_DIR ?? "/tmp";
 
 const result = await sandcastle.run({
   name: `implement-#${ISSUE_NUMBER}`,
-  agent: sandcastle.claudeCode("claude-opus-4-6", {
+  agent: sandcastle.claudeCode("claude-opus-5", {
     env: {
       CLAUDE_CODE_OAUTH_TOKEN: required("CLAUDE_CODE_OAUTH_TOKEN"),
     },

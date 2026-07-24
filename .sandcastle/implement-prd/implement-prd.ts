@@ -10,7 +10,7 @@ const BRANCH = required("BRANCH");
 
 const result = await sandcastle.run({
   name: `implement-prd-#${PRD_NUMBER}-sub-#${SUB_ISSUE_NUMBER}`,
-  agent: sandcastle.claudeCode("claude-opus-4-6", {
+  agent: sandcastle.claudeCode("claude-opus-5", {
     env: {
       CLAUDE_CODE_OAUTH_TOKEN: required("CLAUDE_CODE_OAUTH_TOKEN"),
     },
