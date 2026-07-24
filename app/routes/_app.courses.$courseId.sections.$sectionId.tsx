@@ -19,7 +19,14 @@ import {
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Effect } from "effect";
 import { ChevronLeft } from "lucide-react";
-import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Link,
   useFetcher,
@@ -47,6 +54,8 @@ import {
 } from "@/features/course-view/use-optimistic-course";
 import { DivergenceReportModal } from "@/features/course-view/divergence-report-modal";
 import { BeatDescriptionsProvider } from "@/features/beats/beat-descriptions-context";
+import { SectionScriptsView } from "@/features/course-view/section-scripts-view";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const meta: Route.MetaFunction = ({ data }) => {
   const section = data?.selectedCourse?.sections[0];
@@ -101,6 +110,8 @@ export default function Component(props: Route.ComponentProps) {
     createInitialCourseViewState(),
     {}
   );
+
+  const [activeTab, setActiveTab] = useState<"videos" | "scripts">("videos");
 
   const submit = useSubmit();
 
@@ -221,38 +232,62 @@ export default function Component(props: Route.ComponentProps) {
                   </div>
                 )}
 
-                <BeatDescriptionsProvider show>
-                  <SectionGrid
-                    currentCourse={currentCourse}
-                    data={loaderData}
-                    viewMode="compact"
-                    singleColumn
-                    sensors={sensors}
-                    handleSectionDragEnd={handleSectionDragEnd}
-                    priorityFilter={priorityFilter}
-                    iconFilter={iconFilter}
-                    todoFilter={todoFilter}
-                    searchQuery={searchQuery}
-                    addLessonSectionId={addLessonSectionId}
-                    insertAdjacentLessonId={insertAdjacentLessonId}
-                    insertPosition={insertPosition}
-                    editSectionId={editSectionId}
-                    addVideoToLessonId={addVideoToLessonId}
-                    deleteLessonId={deleteLessonId}
-                    editDescriptionLessonId={editDescriptionLessonId}
-                    archiveSectionId={archiveSectionId}
-                    collapsedSections={NO_COLLAPSED_SECTIONS}
-                    toggleSection={noopToggleSection}
-                    lessonSelection={lessonSelection}
-                    dispatch={dispatch}
-                    submitEvent={submitEvent}
-                    navigate={navigate}
-                    startExportUpload={startExportUpload}
-                    revealVideoFetcher={revealVideoFetcher}
-                    deleteVideoFileFetcher={deleteVideoFileFetcher}
-                    submitDeleteVideo={submitDeleteVideo}
-                  />
-                </BeatDescriptionsProvider>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(value) =>
+                    setActiveTab(value as "videos" | "scripts")
+                  }
+                >
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="videos">Videos</TabsTrigger>
+                    <TabsTrigger value="scripts">Scripts</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="videos">
+                    <BeatDescriptionsProvider show>
+                      <SectionGrid
+                        currentCourse={currentCourse}
+                        data={loaderData}
+                        viewMode="compact"
+                        singleColumn
+                        sensors={sensors}
+                        handleSectionDragEnd={handleSectionDragEnd}
+                        priorityFilter={priorityFilter}
+                        iconFilter={iconFilter}
+                        todoFilter={todoFilter}
+                        searchQuery={searchQuery}
+                        addLessonSectionId={addLessonSectionId}
+                        insertAdjacentLessonId={insertAdjacentLessonId}
+                        insertPosition={insertPosition}
+                        editSectionId={editSectionId}
+                        addVideoToLessonId={addVideoToLessonId}
+                        deleteLessonId={deleteLessonId}
+                        editDescriptionLessonId={editDescriptionLessonId}
+                        archiveSectionId={archiveSectionId}
+                        collapsedSections={NO_COLLAPSED_SECTIONS}
+                        toggleSection={noopToggleSection}
+                        lessonSelection={lessonSelection}
+                        dispatch={dispatch}
+                        submitEvent={submitEvent}
+                        navigate={navigate}
+                        startExportUpload={startExportUpload}
+                        revealVideoFetcher={revealVideoFetcher}
+                        deleteVideoFileFetcher={deleteVideoFileFetcher}
+                        submitDeleteVideo={submitDeleteVideo}
+                      />
+                    </BeatDescriptionsProvider>
+                  </TabsContent>
+
+                  <TabsContent value="scripts">
+                    <SectionScriptsView
+                      section={section}
+                      readOnly={Boolean(
+                        loaderData.selectedVersion &&
+                        !loaderData.isLatestVersion
+                      )}
+                    />
+                  </TabsContent>
+                </Tabs>
               </>
             ) : (
               <div className="text-center py-12">
