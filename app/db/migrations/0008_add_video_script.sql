@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_video" ADD COLUMN "script" text;

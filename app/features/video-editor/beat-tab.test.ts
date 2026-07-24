@@ -62,23 +62,33 @@ describe("resolveBeatTab", () => {
     ).toBe("beats");
   });
 
-  it("returns null when neither tab is available", () => {
+  it("falls back to script when neither beats nor reference is available", () => {
     expect(
       resolveBeatTab({
         persistedTab: null,
         hasBeats: false,
         hasReference: false,
       })
-    ).toBeNull();
+    ).toBe("script");
   });
 
-  it("returns null when neither exists even if a stale tab was persisted", () => {
+  it("falls back to script when a stale beats tab was persisted and neither exists", () => {
     expect(
       resolveBeatTab({
         persistedTab: "beats",
         hasBeats: false,
         hasReference: false,
       })
-    ).toBeNull();
+    ).toBe("script");
+  });
+
+  it("honours a persisted script tab (always available)", () => {
+    expect(
+      resolveBeatTab({
+        persistedTab: "script",
+        hasBeats: true,
+        hasReference: true,
+      })
+    ).toBe("script");
   });
 });

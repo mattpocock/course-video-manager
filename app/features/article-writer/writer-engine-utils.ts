@@ -5,7 +5,8 @@ export type WriterFieldId =
   | "skills-changelog-body"
   | "newsletter-copy"
   | "video-body"
-  | "video-description";
+  | "video-description"
+  | "video-script";
 
 export const FIELD_MODES: Record<WriterFieldId, Mode[]> = {
   "ai-hero-body": ["article", "article-plan"],
@@ -13,6 +14,10 @@ export const FIELD_MODES: Record<WriterFieldId, Mode[]> = {
   "newsletter-copy": ["newsletter"],
   "video-body": ["article", "article-plan"],
   "video-description": ["seo-description-document"],
+  // No AI generation modes yet — the script is authored manually. Beat→script
+  // generation is a follow-up (course-video-manager#1421); the field still gets
+  // the full WritableField editing experience today.
+  "video-script": [],
 };
 
 export const FIELD_LABELS: Record<WriterFieldId, string> = {
@@ -21,6 +26,7 @@ export const FIELD_LABELS: Record<WriterFieldId, string> = {
   "newsletter-copy": "Newsletter Copy",
   "video-body": "Lesson Body",
   "video-description": "SEO Description",
+  "video-script": "Script",
 };
 
 export function getFieldMessagesStorageKey(

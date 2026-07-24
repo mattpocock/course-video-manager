@@ -61,11 +61,13 @@ export const copyVideoImpl = (
     newTitle: string;
     copyClips: boolean;
     copyBeats: boolean;
+    copyScript: boolean;
     renameOld: boolean;
   }
 ): Effect.Effect<string, NotFoundError | UnknownDBServiceError> =>
   Effect.gen(function* () {
-    const { sourceVideoId, newTitle, copyClips, copyBeats, renameOld } = opts;
+    const { sourceVideoId, newTitle, copyClips, copyBeats, copyScript, renameOld } =
+      opts;
 
     // Load source video outside the transaction so we can surface NotFoundError
     // before opening a transaction.
@@ -115,6 +117,7 @@ export const copyVideoImpl = (
             lessonId: sourceVideo.lessonId,
             pitchId: sourceVideo.pitchId,
             format: sourceVideo.format,
+            script: copyScript ? sourceVideo.script : null,
             archived: false,
             createdAt: now,
             updatedAt: now,

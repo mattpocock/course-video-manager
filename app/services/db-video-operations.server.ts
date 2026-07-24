@@ -414,6 +414,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     newTitle: string;
     copyClips: boolean;
     copyBeats: boolean;
+    copyScript: boolean;
     renameOld: boolean;
   }) {
     yield* requireDraftVersionForVideo(db, opts.sourceVideoId);

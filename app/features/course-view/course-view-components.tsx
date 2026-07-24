@@ -7,6 +7,7 @@ import { RenameCourseModal } from "@/components/rename-course-modal";
 import { RenameVideoModal } from "@/components/rename-video-modal";
 import { VersionSelectorModal } from "@/components/version-selector-modal";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
+import { ScriptWriterModal } from "@/features/video-editor/script-writer-modal";
 import { GenerateSeoDescriptionModal } from "@/features/lesson-writer/generate-seo-description-modal";
 import { computeCourseStats } from "@/features/course-view/course-editor-helpers";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
@@ -323,8 +324,10 @@ export function RouteModals({
       videoTitle: string;
       clipCount: number;
       beatCount: number;
+      hasScript: boolean;
     } | null;
     lessonBodyWriterVideoId: string | null;
+    scriptEditorVideoId: string | null;
     seoDescriptionVideoId: string | null;
     priorityFilter: number[];
     iconFilter: string[];
@@ -472,6 +475,7 @@ export function RouteModals({
           videoTitle={viewState.copyVideoState.videoTitle}
           clipCount={viewState.copyVideoState.clipCount}
           beatCount={viewState.copyVideoState.beatCount}
+          hasScript={viewState.copyVideoState.hasScript}
           open={true}
           onOpenChange={(open) => {
             if (!open) dispatch({ type: "close-copy-video" });
@@ -488,6 +492,16 @@ export function RouteModals({
           open={true}
           onOpenChange={(open) => {
             if (!open) dispatch({ type: "close-lesson-body-writer" });
+          }}
+        />
+      )}
+
+      {viewState.scriptEditorVideoId && (
+        <ScriptWriterModal
+          videoId={viewState.scriptEditorVideoId}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) dispatch({ type: "close-script-editor" });
           }}
         />
       )}

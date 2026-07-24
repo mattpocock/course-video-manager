@@ -18,6 +18,7 @@ export function CopyVideoModal(props: {
   videoTitle: string;
   clipCount: number;
   beatCount: number;
+  hasScript: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCopy?: () => void;
@@ -26,12 +27,14 @@ export function CopyVideoModal(props: {
   const [options, setOptions] = useVideoCopyOptions();
   const copyClipsDisabled = props.clipCount === 0;
   const copyBeatsDisabled = props.beatCount === 0;
+  const copyScriptDisabled = !props.hasScript;
 
   // Track checkbox state with refs so we can read them on submit without
   // needing controlled inputs (mirrors the uncontrolled pattern of the name input).
   // We show the stored preference but force false when the count is zero.
   const copyClipsChecked = copyClipsDisabled ? false : options.copyClips;
   const copyBeatsChecked = copyBeatsDisabled ? false : options.copyBeats;
+  const copyScriptChecked = copyScriptDisabled ? false : options.copyScript;
 
   const copyClipsRef = useRef(copyClipsChecked);
   copyClipsRef.current = copyClipsChecked;
@@ -67,10 +70,14 @@ export function CopyVideoModal(props: {
             const newCopyBeats = copyBeatsDisabled
               ? options.copyBeats
               : formData.get("copyBeats") === "on";
+            const newCopyScript = copyScriptDisabled
+              ? options.copyScript
+              : formData.get("copyScript") === "on";
 
             setOptions({
               copyClips: newCopyClips,
               copyBeats: newCopyBeats,
+              copyScript: newCopyScript,
               renameOld: formData.get("renameOld") === "on",
             });
 
@@ -137,6 +144,21 @@ export function CopyVideoModal(props: {
                 className={copyBeatsDisabled ? "text-muted-foreground" : ""}
               >
                 Copy beats ({props.beatCount})
+              </Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="copy-script"
+                name="copyScript"
+                defaultChecked={copyScriptChecked}
+                disabled={copyScriptDisabled}
+              />
+              <Label
+                htmlFor="copy-script"
+                className={copyScriptDisabled ? "text-muted-foreground" : ""}
+              >
+                Copy script
               </Label>
             </div>
           </div>

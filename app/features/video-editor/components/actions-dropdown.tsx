@@ -25,6 +25,7 @@ import {
   ListTree,
   Loader2,
   Plus,
+  ScrollText,
   Sparkles,
   Workflow,
   XIcon,
@@ -84,6 +85,8 @@ export const ActionsDropdown = (props: {
   hasBeats: boolean;
   /** Activate the Beat Panel (the Beats tab) in the side panel */
   onShowBeatPanel: () => void;
+  /** Activate the Script tab in the side panel */
+  onShowScriptPanel: () => void;
   /** Open the AI-driven Chapter generation modal */
   onGenerateChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
@@ -208,6 +211,16 @@ export const ActionsDropdown = (props: {
             </div>
           </DropdownMenuItem>
         )}
+
+        <DropdownMenuItem onSelect={props.onShowScriptPanel}>
+          <ScrollText className="w-4 h-4 mr-2" />
+          <div className="flex flex-col">
+            <span className="font-medium">Edit Script</span>
+            <span className="text-xs text-muted-foreground">
+              Open this video's teleprompter script
+            </span>
+          </div>
+        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 

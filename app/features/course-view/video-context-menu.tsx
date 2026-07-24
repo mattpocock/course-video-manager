@@ -14,6 +14,7 @@ import {
   Link2,
   ListTree,
   PencilIcon,
+  ScrollText,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -97,6 +98,17 @@ export function VideoContextMenuItems({
           <ContextMenuItem
             onSelect={() => {
               dispatch({
+                type: "open-script-editor",
+                videoId: video.id,
+              });
+            }}
+          >
+            <ScrollText className="w-4 h-4" />
+            Edit Script
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              dispatch({
                 type: "open-seo-description",
                 videoId: video.id,
               });
@@ -151,6 +163,7 @@ export function VideoContextMenuItems({
                 videoTitle: video.title,
                 clipCount: video.clipCount,
                 beatCount: video.beats.length,
+                hasScript: video.hasScript,
               });
             }}
           >

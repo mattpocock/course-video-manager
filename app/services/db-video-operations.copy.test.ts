@@ -59,6 +59,7 @@ describe("copyVideoImpl — renameOld", () => {
         newTitle: "problem",
         copyClips: false,
         copyBeats: false,
+        copyScript: false,
         renameOld: true,
       })
     );
@@ -83,6 +84,7 @@ describe("copyVideoImpl — renameOld", () => {
         newTitle: "problem",
         copyClips: false,
         copyBeats: false,
+        copyScript: false,
         renameOld: true,
       })
     );
@@ -114,6 +116,7 @@ describe("copyVideoImpl — renameOld", () => {
         newTitle: "Explainer",
         copyClips: false,
         copyBeats: false,
+        copyScript: false,
         renameOld: true,
       })
     );
@@ -133,6 +136,7 @@ describe("copyVideoImpl — renameOld", () => {
         newTitle: "Explainer",
         copyClips: false,
         copyBeats: false,
+        copyScript: false,
         renameOld: true,
       })
     );
@@ -156,6 +160,7 @@ describe("copyVideoImpl — renameOld", () => {
         newTitle: "Explainer",
         copyClips: false,
         copyBeats: false,
+        copyScript: false,
         renameOld: true,
       })
     );
@@ -172,11 +177,56 @@ describe("copyVideoImpl — renameOld", () => {
         newTitle: "problem (copy)",
         copyClips: false,
         copyBeats: false,
+        copyScript: false,
         renameOld: false,
       })
     );
 
     const oldVideo = await getVideo(source.id);
     expect(oldVideo!.title).toBe("problem");
+  });
+});
+
+describe("copyVideoImpl — copyScript", () => {
+  it("copies the source script onto the new video when copyScript is true", async () => {
+    const source = await createVideo({
+      title: "problem",
+      script: "INT. TERMINAL - DAY\n\n[improvise the build]",
+    });
+
+    const newVideoId = await run(
+      copyVideoImpl(db(), {
+        sourceVideoId: source.id,
+        newTitle: "problem (copy)",
+        copyClips: false,
+        copyBeats: false,
+        copyScript: true,
+        renameOld: false,
+      })
+    );
+
+    const newVideo = await getVideo(newVideoId);
+    expect(newVideo!.script).toBe("INT. TERMINAL - DAY\n\n[improvise the build]");
+  });
+
+  it("leaves the new video's script null when copyScript is false", async () => {
+    const source = await createVideo({
+      title: "problem",
+      script: "some script",
+    });
+
+    const newVideoId = await run(
+      copyVideoImpl(db(), {
+        sourceVideoId: source.id,
+        newTitle: "problem (copy)",
+        copyClips: false,
+        copyBeats: false,
+        copyScript: false,
+        renameOld: false,
+      })
+    );
+
+    const newVideo = await getVideo(newVideoId);
+    expect(newVideo!.script).toBeNull();
   });
 });

@@ -83,6 +83,8 @@ export type VideoEditorContextType = {
   setReferenceVideoId: (id: string | null) => void;
   hasBeats: boolean;
   onShowBeatPanel: () => void;
+  /** Activate the Script tab in the editor side panel. */
+  onShowScriptPanel: () => void;
   insertionPoint: FrontendInsertionPoint;
   obsConnectorState: OBSConnectionOuterState;
   liveMediaStream: MediaStream | null;

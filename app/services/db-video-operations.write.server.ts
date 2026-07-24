@@ -163,6 +163,29 @@ export const createVideoWriteOps = (db: Database) => {
     return updated;
   });
 
+  const updateVideoScript = Effect.fn("updateVideoScript")(function* (opts: {
+    videoId: string;
+    script: string | null;
+  }) {
+    yield* requireDraftVersionForVideo(db, opts.videoId);
+    const [updated] = yield* makeDbCall(() =>
+      db
+        .update(videos)
+        .set({ script: opts.script, updatedAt: new Date() })
+        .where(eq(videos.id, opts.videoId))
+        .returning()
+    );
+
+    if (!updated) {
+      return yield* new NotFoundError({
+        type: "updateVideoScript",
+        params: { videoId: opts.videoId },
+      });
+    }
+
+    return updated;
+  });
+
   const updateVideoDescription = Effect.fn("updateVideoDescription")(
     function* (opts: { videoId: string; description: string | null }) {
       yield* requireDraftVersionForVideo(db, opts.videoId);
@@ -235,6 +258,7 @@ export const createVideoWriteOps = (db: Database) => {
     unlinkVideoFromPitch,
     moveVideoToLesson,
     updateVideoBody,
+    updateVideoScript,
     updateVideoDescription,
     updateVideoFormat,
   };
@@ -257,6 +281,7 @@ export const videoWriteMethods = [
   "linkVideoToPitch",
   "moveVideoToLesson",
   "updateVideoBody",
+  "updateVideoScript",
   "updateVideoDescription",
   "updateVideoFormat",
 ] as const;

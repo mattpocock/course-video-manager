@@ -29,6 +29,7 @@ export namespace courseViewReducer {
     videoTitle: string;
     clipCount: number;
     beatCount: number;
+    hasScript: boolean;
   } | null;
 
   export type LessonSelection = {
@@ -65,6 +66,7 @@ export namespace courseViewReducer {
     archiveSectionId: string | null;
     editDescriptionLessonId: string | null;
     lessonBodyWriterVideoId: string | null;
+    scriptEditorVideoId: string | null;
     seoDescriptionVideoId: string | null;
 
     // Complex object states
@@ -122,6 +124,8 @@ export namespace courseViewReducer {
     | { type: "set-edit-description-lesson-id"; lessonId: string | null }
     | { type: "open-lesson-body-writer"; videoId: string }
     | { type: "close-lesson-body-writer" }
+    | { type: "open-script-editor"; videoId: string }
+    | { type: "close-script-editor" }
     | { type: "open-seo-description"; videoId: string }
     | { type: "close-seo-description" }
     // Video player
@@ -163,6 +167,7 @@ export namespace courseViewReducer {
         videoTitle: string;
         clipCount: number;
         beatCount: number;
+        hasScript: boolean;
       }
     | { type: "close-copy-video" }
     // Lesson selection
@@ -210,6 +215,7 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     archiveSectionId: null,
     editDescriptionLessonId: null,
     lessonBodyWriterVideoId: null,
+    scriptEditorVideoId: null,
     seoDescriptionVideoId: null,
     videoPlayerState: { isOpen: false, videoId: "", videoTitle: "" },
     moveVideoState: null,
@@ -302,6 +308,10 @@ export const courseViewReducer: EffectReducer<
       return { ...state, lessonBodyWriterVideoId: action.videoId };
     case "close-lesson-body-writer":
       return { ...state, lessonBodyWriterVideoId: null };
+    case "open-script-editor":
+      return { ...state, scriptEditorVideoId: action.videoId };
+    case "close-script-editor":
+      return { ...state, scriptEditorVideoId: null };
     case "open-seo-description":
       return { ...state, seoDescriptionVideoId: action.videoId };
     case "close-seo-description":
@@ -372,6 +382,7 @@ export const courseViewReducer: EffectReducer<
           videoTitle: action.videoTitle,
           clipCount: action.clipCount,
           beatCount: action.beatCount,
+          hasScript: action.hasScript,
         },
       };
     case "close-copy-video":

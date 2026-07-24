@@ -5,18 +5,19 @@ import { BeatDndProvider } from "@/features/beats/beat-dnd-context";
 import { BeatList, type BeatListBeat } from "@/features/beats/beat-list";
 import type { BeatTab } from "../beat-tab";
 import { ReferencePanel, type ReferenceCandidate } from "./reference-panel";
+import { ScriptPanel } from "./script-panel";
 
 /**
- * The editor's middle 40ch slot as a tabbed container holding two mutually
- * exclusive panels that share the space: **Beats** (this video's own plan)
- * and **Reference** (the sibling-video reader). "Reference" stays reserved for
- * the sibling reader — the beat view is the Beat Panel, never a
- * "reference".
+ * The editor's middle 40ch slot as a tabbed container holding three mutually
+ * exclusive panels that share the space: **Beats** (this video's own plan),
+ * **Reference** (the sibling-video reader) and **Script** (this video's
+ * teleprompter script). "Reference" stays reserved for the sibling reader —
+ * the beat view is the Beat Panel, never a "reference".
  *
- * Tabs are available iff their content exists: the Beats tab iff the video
- * has ≥1 beat, the Reference tab iff a reference video is selected. The
- * caller renders this only when at least one tab exists; the tab strip always
- * shows so the UI stays structurally stable when the second tab appears.
+ * The Beats tab is available iff the video has ≥1 beat, and the Reference tab
+ * iff a reference video is selected; the Script tab is ALWAYS available (you
+ * author the script there, empty or not), so this panel always renders. The
+ * tab strip always shows so the UI stays structurally stable as tabs appear.
  */
 export function EditorSidePanel(props: {
   activeTab: BeatTab;
@@ -65,9 +66,17 @@ export function EditorSidePanel(props: {
             Reference
           </TabButton>
         )}
+        <TabButton
+          active={props.activeTab === "script"}
+          onClick={() => props.onTabChange("script")}
+        >
+          Script
+        </TabButton>
       </div>
 
-      {props.activeTab === "beats" ? (
+      {props.activeTab === "script" ? (
+        <ScriptPanel videoId={props.videoId} />
+      ) : props.activeTab === "beats" ? (
         <div className="overflow-y-auto flex-1 px-3 py-2">
           <CreateBeatDialogProvider submitEvent={props.onBeatEvent}>
             <BeatDndProvider

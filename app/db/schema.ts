@@ -232,6 +232,10 @@ export const videos = createTable(
     originalFootagePath: text("original_footage_path").notNull(),
     body: text("body"),
     description: text("video_description"),
+    // The high-fidelity, screenplay-style plan read off the teleprompter while
+    // filming. Internal like beats: copied into version snapshots but never
+    // emitted into the shipped course.json.
+    script: text("script"),
     archived: boolean("archived").notNull().default(false),
     format: text("format").notNull().default("landscape"),
     createdAt: timestamp("created_at", {

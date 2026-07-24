@@ -114,11 +114,16 @@ export function toSlimVideo<
     lessonId?: string | null;
     body?: string | null;
     description?: string | null;
+    script?: string | null;
   },
 >(video: T) {
-  const { clips, chapters, ...rest } = video;
+  // Drop the full script text from the slim video — it can be large and the
+  // course-view tree only needs to know whether one exists (e.g. to enable the
+  // "Copy script" option). The editor loads the full script separately.
+  const { clips, chapters, script, ...rest } = video;
   return {
     ...rest,
+    hasScript: script != null && script !== "",
     clipCount: clips.length,
     totalDuration: clips.reduce(
       (acc, c) => acc + (c.sourceEndTime - c.sourceStartTime),

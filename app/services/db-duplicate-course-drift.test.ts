@@ -64,7 +64,14 @@ describe("duplicateCourse — schema-drift guard", () => {
     },
     video: {
       table: schema.videos,
-      copied: ["title", "originalFootagePath", "body", "description", "format"],
+      copied: [
+        "title",
+        "originalFootagePath",
+        "body",
+        "description",
+        "script",
+        "format",
+      ],
       notCopied: [
         "id",
         "lessonId",
@@ -178,6 +185,7 @@ describe("duplicateCourse — schema-drift guard", () => {
         originalFootagePath: "/footage/coverage.mp4",
         body: "video body content",
         description: "video SEO description",
+        script: "video teleprompter script",
       })
       .returning();
     await testDb.insert(schema.clips).values({

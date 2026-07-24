@@ -37,9 +37,10 @@ Verbs:
   get <id...>          a Video plus its Clips and Chapters (variadic; NDJSON when >1 id)
   tree <id>            skeleton: video -> clips/chapters (id/kind/name/children)
   transcript <id>      the ordered text projection (Clips + Chapters as prose)
+  script <id>          the Video's teleprompter SCRIPT (internal; never published)
   create --name <n>    create a Video (--lesson <id> | --pitch <id> | neither=standalone; --format for standalone) (WRITE)
   move <id>            re-home a Video to a lesson/pitch (--lesson | --pitch) (WRITE)
-  update <id>          patch a Video's name / body / SEO description / format (WRITE)
+  update <id>          patch a Video's name / body / SEO description / script / format (WRITE)
 
 Worked example (find a video, then read it):
   cvm video list | jq -r '.id'                     # map name -> id
@@ -145,6 +146,24 @@ Examples:
   cvm video transcript <id> | jq -r '.transcript'
   cvm video transcript <id> | jq '.wordCount'`;
 
+export const SCRIPT_HELP = `Read a Video's SCRIPT — the teleprompter plan authored before filming.
+
+The Script is one flowing, screenplay-style document per Video (verbatim prose
+for definition/framing, bracketed cues for improvised playthroughs). It is
+internal: like Beats, it is never emitted into the shipped course.json. Write it
+with 'cvm video update --script / --script-file'.
+
+Accepts a SINGLE video id (standalone or lesson-bound). Missing id ->
+NotFoundError on stderr, exit 2.
+
+Output is one JSON object:
+  { id, title, lessonId, script }
+where 'script' is the raw script string, or null when none has been authored.
+
+Examples:
+  cvm video script <id>
+  cvm video script <id> | jq -r '.script'`;
+
 export const CREATE_HELP = `Create a Video. Requires --name <n> (the video's name / title).
 
 Choose the parent with a flag (they are mutually exclusive):
@@ -183,8 +202,8 @@ Examples:
 
 export const UPDATE_HELP = `Patch a Video by id. A PARTIAL update: pass only the fields you want to change,
 and only those columns are written (unset flags are left untouched). At least one
-of --name / --body / --body-file / --description / --format is required (an
-update with none is invalid input, exit 3).
+of --name / --body / --body-file / --description / --script / --script-file /
+--format is required (an update with none is invalid input, exit 3).
 
 Fields:
   --name <n>          the Video's 'name' (its 'title' column). For lesson-bound
@@ -197,6 +216,11 @@ Fields:
                       invalid input (exit 3).
   --description <s>   the Video's SEO DESCRIPTION (the 'video_description'
                       column) as inline text.
+  --script <md>       the Video's teleprompter SCRIPT (the 'script' column) as
+                      inline text. Mutually exclusive with --script-file.
+  --script-file <p>   read the SCRIPT from a file; '-' reads STDIN. Mutually
+                      exclusive with --script. An unreadable path is invalid
+                      input (exit 3).
   --format <f>        the Video Format: 'landscape' or 'short'. IMPORTANT:
                       setting a format calls updateVideoFormat, which ALSO NULLs
                       the video's lessonId (re-homing it to standalone) — this is

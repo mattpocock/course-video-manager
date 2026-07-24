@@ -169,6 +169,7 @@ export function VideoItem({
               videoTitle: video.title,
               clipCount: video.clipCount,
               beatCount: video.beats.length,
+              hasScript: video.hasScript,
             });
           }}
         >

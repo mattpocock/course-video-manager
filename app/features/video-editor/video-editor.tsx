@@ -353,6 +353,11 @@ export const VideoEditor = (props: {
     [setPersistedBeatTab]
   );
 
+  const onShowScriptPanel = useCallback(
+    () => setPersistedBeatTab("script"),
+    [setPersistedBeatTab]
+  );
+
   // Build context value with all state and callbacks
   const contextValue = useMemo(
     () => ({
@@ -401,6 +406,7 @@ export const VideoEditor = (props: {
       setReferenceVideoId: handleSetReferenceVideoId,
       hasBeats: props.beats.length > 0,
       onShowBeatPanel,
+      onShowScriptPanel,
       insertionPoint: props.insertionPoint,
       obsConnectorState: props.obsConnectorState,
       liveMediaStream: props.liveMediaStream,
@@ -509,6 +515,7 @@ export const VideoEditor = (props: {
       handleSetReferenceVideoId,
       props.beats,
       onShowBeatPanel,
+      onShowScriptPanel,
       props.insertionPoint,
       props.obsConnectorState,
       props.liveMediaStream,
@@ -608,41 +615,37 @@ export const VideoEditor = (props: {
 
   const playerPanel = isShort ? <PortraitStudioPanel /> : <VideoPlayerPanel />;
 
-  const body: ReactNode =
-    activeTab !== null ? (
-      <>
-        <ClipTimeline />
-        <div className="order-3 lg:order-2 lg:w-[40ch] shrink-0 h-full min-h-0">
-          <EditorSidePanel
-            activeTab={activeTab}
-            hasBeats={hasBeats}
-            hasReference={hasReference}
-            onTabChange={setPersistedBeatTab}
-            videoId={props.videoId}
-            beats={props.beats}
-            isBeatsReadOnly={captureInProgress}
-            onBeatEvent={submitBeatEvent}
-            referenceCandidates={props.referenceCandidates}
-            referenceVideoId={activeReference}
-            onRemoveReference={() => handleSetReferenceVideoId(null)}
-            onAddReferenceChapterAt={props.onAddReferenceChapterAt}
-            onEditReferenceChapterName={props.onEditReferenceChapterName}
-            onDeleteReferenceChapter={props.onDeleteReferenceChapter}
-            onGenerateReferenceChapters={() => {
-              if (activeReference) onOpenGenerateForReference(activeReference);
-            }}
-          />
-        </div>
-        <div className="order-1 lg:order-3 lg:flex-[1.5] h-full min-h-0 flex flex-col">
-          {playerPanel}
-        </div>
-      </>
-    ) : (
-      <>
+  // The Script tab is always available, so the side slot always renders (three
+  // columns): timeline, side panel, player.
+  const body: ReactNode = (
+    <>
+      <ClipTimeline />
+      <div className="order-3 lg:order-2 lg:w-[40ch] shrink-0 h-full min-h-0">
+        <EditorSidePanel
+          activeTab={activeTab}
+          hasBeats={hasBeats}
+          hasReference={hasReference}
+          onTabChange={setPersistedBeatTab}
+          videoId={props.videoId}
+          beats={props.beats}
+          isBeatsReadOnly={captureInProgress}
+          onBeatEvent={submitBeatEvent}
+          referenceCandidates={props.referenceCandidates}
+          referenceVideoId={activeReference}
+          onRemoveReference={() => handleSetReferenceVideoId(null)}
+          onAddReferenceChapterAt={props.onAddReferenceChapterAt}
+          onEditReferenceChapterName={props.onEditReferenceChapterName}
+          onDeleteReferenceChapter={props.onDeleteReferenceChapter}
+          onGenerateReferenceChapters={() => {
+            if (activeReference) onOpenGenerateForReference(activeReference);
+          }}
+        />
+      </div>
+      <div className="order-1 lg:order-3 lg:flex-[1.5] h-full min-h-0 flex flex-col">
         {playerPanel}
-        <ClipTimeline />
-      </>
-    );
+      </div>
+    </>
+  );
 
   return (
     <VideoEditorContext.Provider value={contextValue}>

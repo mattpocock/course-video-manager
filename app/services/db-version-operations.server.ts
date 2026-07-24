@@ -443,6 +443,7 @@ export const createVersionOperations = (db: Database) => {
                   originalFootagePath: sourceVideo.originalFootagePath,
                   body: sourceVideo.body,
                   description: sourceVideo.description,
+                  script: sourceVideo.script,
                 })
                 .returning()
             );

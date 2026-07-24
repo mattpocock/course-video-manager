@@ -26,6 +26,7 @@ import {
   GET_HELP,
   TREE_HELP,
   TRANSCRIPT_HELP,
+  SCRIPT_HELP,
   CREATE_HELP,
   MOVE_HELP,
   UPDATE_HELP,
@@ -163,6 +164,23 @@ const transcriptCmd = Command.make(
       });
     })
 ).pipe(Command.withDescription(detail(TRANSCRIPT_HELP)));
+
+const scriptId = Args.text({ name: "id" });
+
+const scriptCmd = Command.make("script", { id: scriptId }, ({ id }) =>
+  Effect.gen(function* () {
+    const svc = yield* VideoOperationsService;
+    const video = yield* svc
+      .getVideoRowById(id)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+    yield* emitObject({
+      id: video.id,
+      title: video.title,
+      lessonId: video.lessonId,
+      script: video.script,
+    });
+  })
+).pipe(Command.withDescription(detail(SCRIPT_HELP)));
 
 // ---------------------------------------------------------------------------
 // Write verbs: create / move / update
@@ -352,6 +370,20 @@ const updateDescriptionOption = Options.text("description").pipe(
   ),
   Options.optional
 );
+const updateScriptOption = Options.text("script").pipe(
+  Options.withDescription(
+    "The Video's teleprompter script, inline (mutually exclusive with " +
+      "--script-file)."
+  ),
+  Options.optional
+);
+const updateScriptFileOption = Options.text("script-file").pipe(
+  Options.withDescription(
+    "Read the Video's script from a file; '-' reads STDIN (mutually " +
+      "exclusive with --script)."
+  ),
+  Options.optional
+);
 const updateFormatOption = Options.choice("format", [...VIDEO_FORMATS]).pipe(
   Options.withDescription(
     "The Video Format ('landscape' or 'short'). NOTE: setting a format " +
@@ -361,16 +393,16 @@ const updateFormatOption = Options.choice("format", [...VIDEO_FORMATS]).pipe(
 );
 
 /**
- * Read the markdown body from a file path, or from STDIN when the path is '-'.
- * An unreadable source is invalid input (exit 3), matching the CLI's treatment
- * of other bad flag values.
+ * Read text from a file path, or from STDIN when the path is '-'. An unreadable
+ * source is invalid input (exit 3), matching the CLI's treatment of other bad
+ * flag values. `flag` names the option in the error (e.g. "--body-file").
  */
-const readBodySource = (source: string) =>
+const readFileSource = (source: string, flag: string) =>
   Effect.try({
     try: () => readFileSync(source === "-" ? 0 : source, "utf8"),
     catch: () =>
       parseError(
-        `could not read --body-file ${
+        `could not read ${flag} ${
           source === "-" ? "(stdin)" : `"${source}"`
         }`,
         "video"
@@ -385,15 +417,19 @@ const updateCmd = Command.make(
     body: updateBodyOption,
     bodyFile: updateBodyFileOption,
     description: updateDescriptionOption,
+    script: updateScriptOption,
+    scriptFile: updateScriptFileOption,
     format: updateFormatOption,
   },
-  ({ id, name, body, bodyFile, description, format }) =>
+  ({ id, name, body, bodyFile, description, script, scriptFile, format }) =>
     withBackupCoordination(
       Effect.gen(function* () {
         const newName = Option.getOrUndefined(name);
         const inlineBody = Option.getOrUndefined(body);
         const bodyFilePath = Option.getOrUndefined(bodyFile);
         const newDescription = Option.getOrUndefined(description);
+        const inlineScript = Option.getOrUndefined(script);
+        const scriptFilePath = Option.getOrUndefined(scriptFile);
         const newFormat = Option.getOrUndefined(format);
 
         yield* rejectBothFlags({
@@ -402,16 +438,24 @@ const updateCmd = Command.make(
           flags: ["--body", "--body-file"],
           entity: "video",
         });
+        yield* rejectBothFlags({
+          a: inlineScript,
+          b: scriptFilePath,
+          flags: ["--script", "--script-file"],
+          entity: "video",
+        });
 
         if (
           newName === undefined &&
           inlineBody === undefined &&
           bodyFilePath === undefined &&
           newDescription === undefined &&
+          inlineScript === undefined &&
+          scriptFilePath === undefined &&
           newFormat === undefined
         ) {
           return yield* parseError(
-            "update needs at least one of --name / --body / --body-file / --description / --format",
+            "update needs at least one of --name / --body / --body-file / --description / --script / --script-file / --format",
             "video"
           );
         }
@@ -422,8 +466,13 @@ const updateCmd = Command.make(
 
         const newBody =
           bodyFilePath !== undefined
-            ? yield* readBodySource(bodyFilePath)
+            ? yield* readFileSource(bodyFilePath, "--body-file")
             : inlineBody;
+
+        const newScript =
+          scriptFilePath !== undefined
+            ? yield* readFileSource(scriptFilePath, "--script-file")
+            : inlineScript;
 
         const svc = yield* VideoOperationsService;
         yield* svc
@@ -448,6 +497,9 @@ const updateCmd = Command.make(
             description: newDescription,
           });
         }
+        if (newScript !== undefined) {
+          yield* svc.updateVideoScript({ videoId: id, script: newScript });
+        }
         if (newFormat !== undefined) {
           yield* svc.updateVideoFormat({ videoId: id, format: newFormat });
         }
@@ -469,6 +521,7 @@ export const videoCommand = Command.make("video").pipe(
     getCmd,
     treeCmd,
     transcriptCmd,
+    scriptCmd,
     createCmd,
     moveCmd,
     updateCmd,

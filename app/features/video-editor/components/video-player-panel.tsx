@@ -184,6 +184,10 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.onShowBeatPanel
   );
+  const onShowScriptPanel = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.onShowScriptPanel
+  );
   const onOpenGenerateChaptersModal = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.onOpenGenerateChaptersModal
@@ -504,6 +508,7 @@ export const VideoPlayerPanel = () => {
               setReferenceVideoId={setReferenceVideoId}
               hasBeats={hasBeats}
               onShowBeatPanel={onShowBeatPanel}
+              onShowScriptPanel={onShowScriptPanel}
               onGenerateChaptersClick={onOpenGenerateChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
               onEditLessonBodyClick={() => setIsLessonBodyWriterOpen(true)}

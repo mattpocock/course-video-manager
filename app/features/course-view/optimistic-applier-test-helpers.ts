@@ -27,6 +27,7 @@ export function makeVideo(
     format: "landscape",
     updatedAt: new Date(),
     clipCount: 0,
+    hasScript: false,
     warnings: [],
     beats: [],
     ...overrides,
