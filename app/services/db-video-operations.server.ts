@@ -10,7 +10,7 @@ import {
   UnknownDBServiceError,
   VideoTitleTakenError,
 } from "@/services/db-service-errors";
-import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { copyVideoImpl } from "@/services/db-video-operations.copy.server";
 import {
@@ -253,6 +253,28 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     }
 
     return video;
+  });
+
+  /**
+   * The full script text for a set of videos, keyed by video id. Powers the
+   * section page's Scripts tab, which re-attaches scripts to the one section it
+   * narrows to (the course-view loader slims them away — see `toSlimVideo`).
+   * Videos with no row / no id in the set are simply absent from the map.
+   */
+  const getVideoScriptsByIds = Effect.fn("getVideoScriptsByIds")(function* (
+    ids: string[]
+  ) {
+    if (ids.length === 0) return {} as Record<string, string | null>;
+    const rows = yield* makeDbCall(() =>
+      db.query.videos.findMany({
+        where: inArray(videos.id, ids),
+        columns: { id: true, script: true },
+      })
+    );
+    return Object.fromEntries(rows.map((row) => [row.id, row.script])) as Record<
+      string,
+      string | null
+    >;
   });
 
   const getVideoWithLessonById = Effect.fn("getVideoWithLessonById")(function* (
@@ -729,6 +751,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     getArchivedStandaloneVideos,
     getVideoWithClipsById,
     getVideoWithLessonById,
+    getVideoScriptsByIds,
     createVideo,
     createStandaloneVideo,
     hasOriginalFootagePathAlreadyBeenUsed,

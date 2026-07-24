@@ -9,6 +9,7 @@ import {
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { makeLoader } from "@/services/route-action.server";
 import { courseViewEffect } from "@/features/course-view/course-view-loader.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { NotFoundError } from "@/services/db-service-errors";
 import {
   PointerSensor,
@@ -19,19 +20,13 @@ import {
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Effect } from "effect";
 import { ChevronLeft } from "lucide-react";
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import {
   Link,
   useFetcher,
   useLocation,
   useNavigate,
+  useSearchParams,
   useSubmit,
 } from "react-router";
 import { useEffectReducer } from "use-effect-reducer";
@@ -77,21 +72,47 @@ export const loader = async (args: Route.LoaderArgs) => {
         selectedVersionId,
         viewMode: "compact",
       }).pipe(
-        Effect.flatMap((result) => {
-          const sectionId = params.sectionId!;
-          const section = result.selectedCourse?.sections.find(
-            (s) => s.id === sectionId
-          );
-          if (!result.selectedCourse || !section) {
-            return Effect.fail(
-              new NotFoundError({ type: "section", params: { sectionId } })
+        Effect.flatMap((result) =>
+          Effect.gen(function* () {
+            const sectionId = params.sectionId!;
+            const section = result.selectedCourse?.sections.find(
+              (s) => s.id === sectionId
             );
-          }
-          return Effect.succeed({
-            ...result,
-            selectedCourse: { ...result.selectedCourse, sections: [section] },
-          });
-        })
+            if (!result.selectedCourse || !section) {
+              return yield* Effect.fail(
+                new NotFoundError({ type: "section", params: { sectionId } })
+              );
+            }
+
+            // Re-attach the full script text the course-view loader slims away
+            // (see `toSlimVideo`), scoped to just this one section, so the
+            // Scripts tab can seed every field from the loader without a
+            // per-field fetch. Writes still go per-video via the script route.
+            const videoIds = section.lessons.flatMap((lesson) =>
+              lesson.videos.map((video) => video.id)
+            );
+            const videoOps = yield* VideoOperationsService;
+            const scripts = yield* videoOps.getVideoScriptsByIds(videoIds);
+            const sectionWithScripts = {
+              ...section,
+              lessons: section.lessons.map((lesson) => ({
+                ...lesson,
+                videos: lesson.videos.map((video) => ({
+                  ...video,
+                  script: scripts[video.id] ?? null,
+                })),
+              })),
+            };
+
+            return {
+              ...result,
+              selectedCourse: {
+                ...result.selectedCourse,
+                sections: [sectionWithScripts],
+              },
+            };
+          })
+        )
       ),
   })(args);
 };
@@ -111,7 +132,11 @@ export default function Component(props: Route.ComponentProps) {
     {}
   );
 
-  const [activeTab, setActiveTab] = useState<"videos" | "scripts">("videos");
+  // Which tab is showing lives in the URL (`?view=scripts`) so it is
+  // bookmarkable, shareable, and survives refresh and focus-revalidation.
+  // Default (absent param) = videos.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("view") === "scripts" ? "scripts" : "videos";
 
   const submit = useSubmit();
 
@@ -235,7 +260,14 @@ export default function Component(props: Route.ComponentProps) {
                 <Tabs
                   value={activeTab}
                   onValueChange={(value) =>
-                    setActiveTab(value as "videos" | "scripts")
+                    setSearchParams(
+                      (prev) => {
+                        if (value === "scripts") prev.set("view", "scripts");
+                        else prev.delete("view");
+                        return prev;
+                      },
+                      { replace: true, preventScrollReset: true }
+                    )
                   }
                 >
                   <TabsList className="mb-4">

@@ -7,10 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { useFetcher } from "react-router";
 import { Maximize2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useVideoScript } from "@/features/video-editor/hooks/use-video-script";
 
 const SAVE_DEBOUNCE_MS = 700;
 
@@ -19,35 +19,50 @@ const SAVE_DEBOUNCE_MS = 700;
  * document ({@link SectionScriptsView}): a title, then an auto-growing textarea
  * that reads as flowing prose (no inner scrollbar) rather than a boxed editor.
  *
- * Loads and persists through the shared {@link useVideoScript} hook — the exact
- * same `/api/videos/:videoId/script` route as the per-video Script tab and the
- * fullscreen writer — so all three surfaces stay in sync. The "Open in writer"
- * button hands off to the full {@link ScriptWriterModal} (Monaco + preview) for
- * heavier editing; we deliberately don't stack `WritableField`s here because
- * they'd all share the single `?writer=video-script` URL slot and open at once.
+ * Reads are seeded from the section loader (`initialScript`) — no per-field
+ * fetch, so opening the tab doesn't fan out one heavy writer-context request per
+ * video. Writes go per-video through `/api/videos/:videoId/script` (silent
+ * autosave, debounced + on blur); the loader re-seeds the field on revalidation
+ * when it isn't focused. The "Open in writer" button hands off to the full
+ * {@link ScriptWriterModal} (Monaco + preview) for heavier editing; we
+ * deliberately don't stack `WritableField`s here because they'd all share the
+ * single `?writer=video-script` URL slot and open at once.
  */
 export function SectionScriptField({
   videoId,
   title,
+  initialScript,
   readOnly,
   onOpenWriter,
 }: {
   videoId: string;
   title: string;
+  initialScript: string;
   readOnly: boolean;
   onOpenWriter: () => void;
 }) {
-  const { loaded, script, persistScript } = useVideoScript(videoId);
+  const saveFetcher = useFetcher();
 
-  // Local draft so typing stays smooth; re-seed from the canonical value only
-  // when the user isn't editing this field (mirrors WritableField's approach).
-  const [draft, setDraft] = useState(script);
+  // Local draft so typing stays smooth; re-seed from the loader value only when
+  // the user isn't editing this field (mirrors WritableField's approach), so a
+  // revalidation can't clobber in-progress edits.
+  const [draft, setDraft] = useState(initialScript);
   const focusedRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!focusedRef.current) setDraft(script);
-  }, [script]);
+    if (!focusedRef.current) setDraft(initialScript);
+  }, [initialScript]);
+
+  const persistScript = useCallback(
+    (value: string) => {
+      saveFetcher.submit(
+        { intent: "updateScript", script: value },
+        { method: "post", action: `/api/videos/${videoId}/script` }
+      );
+    },
+    [saveFetcher, videoId]
+  );
 
   const scheduleSave = useCallback(
     (value: string) => {
@@ -97,18 +112,14 @@ export function SectionScriptField({
         ref={textareaRef}
         value={draft}
         readOnly={readOnly}
-        placeholder={
-          loaded
-            ? "Write the teleprompter script for this video…"
-            : "Loading script…"
-        }
+        placeholder="Write the teleprompter script for this video…"
         onFocus={() => {
           focusedRef.current = true;
         }}
         onBlur={() => {
           focusedRef.current = false;
           if (saveTimer.current) clearTimeout(saveTimer.current);
-          if (draft !== script) persistScript(draft);
+          if (draft !== initialScript) persistScript(draft);
         }}
         onChange={(e) => {
           const value = e.target.value;

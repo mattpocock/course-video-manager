@@ -3,28 +3,22 @@
 import { useState } from "react";
 import { ScriptWriterModal } from "@/features/video-editor/script-writer-modal";
 import { SectionScriptField } from "./section-script-field";
-
-/**
- * Minimal structural shape the Scripts document needs from a section. Kept
- * loose so it accepts both the loader's Section and the optimistically-patched
- * course-view section without type friction.
- */
-type SectionForScripts = {
-  lessons: Array<{
-    id: string;
-    title: string | null;
-    path: string;
-    videos: Array<{ id: string; title: string }>;
-  }>;
-};
+import {
+  buildSectionScripts,
+  type SectionForScripts,
+} from "./section-scripts-utils";
 
 /**
  * The section page's **Scripts** tab: every video's teleprompter script in the
  * section stitched into one long, editable document — lesson headings with each
  * video's script as an inline {@link SectionScriptField} beneath. A top-level
  * read/write view of the whole section's script, so you can draft it end to end
- * without opening each video. Read-only on non-draft versions, matching the
- * grid's ReadOnlyBanner.
+ * without opening each video.
+ *
+ * Reads are seeded from the section loader (which re-attaches `script` for this
+ * one section — see the route loader) via the pure {@link buildSectionScripts}
+ * view model; writes still go per-video through `/api/videos/:videoId/script`.
+ * Read-only on non-draft versions, matching the grid's ReadOnlyBanner.
  */
 export function SectionScriptsView({
   section,
@@ -35,9 +29,9 @@ export function SectionScriptsView({
 }) {
   const [writerVideoId, setWriterVideoId] = useState<string | null>(null);
 
-  const lessonsWithVideos = section.lessons.filter((l) => l.videos.length > 0);
+  const lessons = buildSectionScripts(section);
 
-  if (lessonsWithVideos.length === 0) {
+  if (lessons.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         This section has no videos yet.
@@ -47,18 +41,19 @@ export function SectionScriptsView({
 
   return (
     <div className="max-w-3xl mx-auto space-y-10 pb-24">
-      {lessonsWithVideos.map((lesson) => (
-        <section key={lesson.id} className="space-y-5">
+      {lessons.map((lesson) => (
+        <section key={lesson.lessonId} className="space-y-5">
           <h2 className="text-lg font-bold border-b border-border pb-1">
-            {lesson.title || lesson.path}
+            {lesson.heading}
           </h2>
           {lesson.videos.map((video) => (
             <SectionScriptField
-              key={video.id}
-              videoId={video.id}
+              key={video.videoId}
+              videoId={video.videoId}
               title={video.title}
+              initialScript={video.script}
               readOnly={readOnly}
-              onOpenWriter={() => setWriterVideoId(video.id)}
+              onOpenWriter={() => setWriterVideoId(video.videoId)}
             />
           ))}
         </section>
