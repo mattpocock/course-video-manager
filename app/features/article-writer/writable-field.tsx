@@ -14,7 +14,7 @@ import type { WriterFieldId } from "./writer-engine-utils";
 import { FIELD_MODES } from "./writer-engine-utils";
 import { WriterModal } from "./writer-modal";
 
-export interface WritableFieldProps {
+interface WritableFieldPropsBase {
   videoId: string;
   fieldId: WriterFieldId;
   value: string;
@@ -27,16 +27,26 @@ export interface WritableFieldProps {
   label?: string;
   placeholder?: string;
   className?: string;
-  /** Height of the inline editor/preview box in pixels. */
-  height?: number;
-  /** Fill parent container instead of using a fixed height. Removes own
-   *  border/rounding so the parent's chrome frames the editor. */
-  fill?: boolean;
   /** When set, the modal's Repo Files tab shows an "add from clipboard" button. */
   onAddFileFromClipboard?: () => void;
   /** Other fields on the same page, offered as toggleable AI context. */
   pageFields?: Array<{ id: string; label: string; value: string }>;
 }
+
+export type WritableFieldProps = WritableFieldPropsBase &
+  (
+    | {
+        /** Fill parent container instead of using a fixed height. Removes own
+         *  border/rounding so the parent's chrome frames the editor. */
+        fill: true;
+        height?: never;
+      }
+    | {
+        fill?: false | undefined;
+        /** Height of the inline editor/preview box in pixels. */
+        height?: number;
+      }
+  );
 
 export function WritableField({
   videoId,
