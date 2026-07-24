@@ -391,6 +391,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               });
             }
           },
+          onProgress: (videoId, stage, percent) => {
+            if (stage === "queued") return;
+            const uploadId = batchVideoIdToUploadIdRef.current.get(videoId);
+            if (uploadId) {
+              dispatch({
+                type: "UPDATE_EXPORT_PROGRESS",
+                uploadId,
+                stage,
+                percent,
+              });
+            }
+          },
           onComplete: (videoId) => {
             const uploadId = batchVideoIdToUploadIdRef.current.get(videoId);
             if (uploadId) {

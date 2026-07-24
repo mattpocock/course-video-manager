@@ -13,9 +13,15 @@ export const action = async (args: Route.ActionArgs) => {
       Effect.gen(function* () {
         const publishService = yield* CoursePublishService;
 
-        yield* publishService.exportVideo(videoId, (stage) => {
-          sendEvent("stage", { stage });
-        });
+        yield* publishService.exportVideo(
+          videoId,
+          (stage) => {
+            sendEvent("stage", { stage });
+          },
+          ({ stage, percent }) => {
+            sendEvent("video-progress", { stage, percent });
+          }
+        );
 
         sendEvent("complete", {});
       }),

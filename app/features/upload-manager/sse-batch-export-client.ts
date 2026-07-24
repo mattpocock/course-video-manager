@@ -9,6 +9,13 @@ export interface SSEBatchExportParams {
 export interface SSEBatchExportCallbacks {
   onVideos: (videos: Array<{ id: string; title: string }>) => void;
   onStageChange: (videoId: string, stage: uploadReducer.ExportStage) => void;
+  // Real ffmpeg progress within a stage: integer percent 0–99, resets when
+  // the stage changes.
+  onProgress: (
+    videoId: string,
+    stage: uploadReducer.ExportStage,
+    percent: number
+  ) => void;
   onComplete: (videoId: string) => void;
   onError: (videoId: string | null, message: string) => void;
 }
@@ -25,6 +32,11 @@ export const startSSEBatchExport = (
         callbacks.onVideos(data.videos),
       stage: (data: { videoId: string; stage: uploadReducer.ExportStage }) =>
         callbacks.onStageChange(data.videoId, data.stage),
+      "video-progress": (data: {
+        videoId: string;
+        stage: uploadReducer.ExportStage;
+        percent: number;
+      }) => callbacks.onProgress(data.videoId, data.stage, data.percent),
       complete: (data: { videoId: string }) =>
         callbacks.onComplete(data.videoId),
       error: (data: { videoId?: string | null; message: string }) =>

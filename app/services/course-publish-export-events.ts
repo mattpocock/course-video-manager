@@ -15,6 +15,16 @@ export type PublishDetailEvent =
     }
   | { event: "complete"; data: { videoId: string } }
   | { event: "error"; data: { videoId: string; message: string } }
+  // Real ffmpeg progress within an export stage: integer percent 0–99 that
+  // resets when the stage changes (100 is signalled by `complete`).
+  | {
+      event: "video-progress";
+      data: {
+        videoId: string;
+        stage: "concatenating-clips" | "normalizing-audio";
+        percent: number;
+      };
+    }
   // Per-lesson upload percentage from the Dropbox commit.
   | { event: "progress"; data: { percentage: number } };
 
@@ -47,7 +57,11 @@ export const runObservedExportLoop = <A, E, R>(input: {
   unexportedVideos: Array<{ id: string; title: string }>;
   exportVideo: (
     videoId: string,
-    onStage: (stage: "concatenating-clips" | "normalizing-audio") => void
+    onStage: (stage: "concatenating-clips" | "normalizing-audio") => void,
+    onProgress: (info: {
+      stage: "concatenating-clips" | "normalizing-audio";
+      percent: number;
+    }) => void
   ) => Effect.Effect<A, E, R>;
   onDetailEvent?: EmitPublishDetailEvent;
 }): Effect.Effect<{ failedVideoIds: string[] }, never, R> =>
@@ -72,12 +86,21 @@ export const runObservedExportLoop = <A, E, R>(input: {
     yield* Effect.forEach(
       unexportedVideos,
       (video) =>
-        exportVideo(video.id, (stage) => {
-          onDetailEvent?.({
-            event: "stage",
-            data: { videoId: video.id, stage },
-          });
-        }).pipe(
+        exportVideo(
+          video.id,
+          (stage) => {
+            onDetailEvent?.({
+              event: "stage",
+              data: { videoId: video.id, stage },
+            });
+          },
+          ({ stage, percent }) => {
+            onDetailEvent?.({
+              event: "video-progress",
+              data: { videoId: video.id, stage, percent },
+            });
+          }
+        ).pipe(
           Effect.retry(Schedule.recurs(2)),
           Effect.tap(() => {
             onDetailEvent?.({

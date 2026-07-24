@@ -4,6 +4,8 @@ import { Data, Effect, Stream } from "effect";
 import crypto from "node:crypto";
 import path from "node:path";
 import { tmpdir } from "os";
+import { registerFfmpegChild } from "./ffmpeg-child-registry";
+import { createFfmpegProgressParser } from "./ffmpeg-progress";
 
 const GPU_PERMITS = 6;
 const CPU_PERMITS = 12;
@@ -20,6 +22,77 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
       const fs = yield* FileSystem.FileSystem;
       const gpuSemaphore = yield* Effect.makeSemaphore(GPU_PERMITS);
       const cpuSemaphore = yield* Effect.makeSemaphore(CPU_PERMITS);
+
+      /**
+       * Run a long-lived ffmpeg encode with real progress reporting.
+       *
+       * `-progress pipe:1` makes ffmpeg emit key=value progress blocks on
+       * stdout (which nothing else uses), parsed incrementally into integer
+       * percents of `totalDurationSeconds` (see createFfmpegProgressParser for
+       * the emission contract). `-nostats` drops the carriage-return stats
+       * line from the inherited stderr, which otherwise duplicates the same
+       * numbers as terminal noise.
+       *
+       * Runs under a scope, so fiber interruption (SSE disconnect, cancelled
+       * publish) kills the child; the PID is also registered with the
+       * parent-death backstop (see ffmpeg-child-registry) for the case where
+       * the dev server itself dies without interrupting any fiber.
+       */
+      const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
+        function* (opts: {
+          args: string[];
+          totalDurationSeconds: number;
+          onProgress: ((percent: number) => void) | undefined;
+          errorPrefix: string;
+        }) {
+          const toError = (cause: unknown, detail: string) =>
+            new FFmpegError({
+              cause,
+              message: `${opts.errorPrefix}${detail}`,
+            });
+
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const child = yield* Command.start(
+                Command.make(
+                  "ffmpeg",
+                  "-nostats",
+                  "-progress",
+                  "pipe:1",
+                  ...opts.args
+                ).pipe(Command.stderr("inherit"))
+              ).pipe(Effect.mapError((e) => toError(e, `: ${e.message}`)));
+
+              yield* Effect.acquireRelease(
+                Effect.sync(() => registerFfmpegChild(child.pid)),
+                (unregister) => Effect.sync(unregister)
+              );
+
+              const parser = createFfmpegProgressParser({
+                totalDurationSeconds: opts.totalDurationSeconds,
+                onPercent: opts.onProgress ?? (() => {}),
+              });
+
+              // Drain stdout even when nobody listens — an unread pipe would
+              // eventually block ffmpeg. The stream ends when the process does.
+              yield* child.stdout.pipe(
+                Stream.decodeText(),
+                Stream.runForEach((chunk) =>
+                  Effect.sync(() => parser.push(chunk))
+                ),
+                Effect.ignore
+              );
+
+              const code = yield* child.exitCode.pipe(
+                Effect.mapError((e) => toError(e, `: ${e.message}`))
+              );
+              if (code !== 0) {
+                yield* toError(null, `, exit code: ${code}`);
+              }
+            })
+          );
+        }
+      );
 
       const detectSilence = Effect.fn("detectSilence")(function* (
         inputVideo: string,
@@ -101,7 +174,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           duration: number;
           pauseType: "none" | "long";
         }[],
-        dimensions: { width: number; height: number }
+        dimensions: { width: number; height: number },
+        onProgress?: (percent: number) => void
       ) {
         const LONG_PAUSE_DURATION = 0.18;
 
@@ -115,13 +189,17 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           .slice(0, 12);
         const outputFile = path.join(outputDir, `${outputHash}.mp4`);
 
-        // Build input args
+        // Build input args. The summed -t values are also the expected output
+        // duration (the concat filter output is exactly the clips end to end),
+        // which anchors the progress percentage.
         const inputArgs: string[] = [];
+        let expectedOutputDuration = 0;
         for (const clip of clips) {
           const duration =
             clip.pauseType === "long"
               ? clip.duration + LONG_PAUSE_DURATION
               : clip.duration;
+          expectedOutputDuration += duration;
           inputArgs.push(
             "-ss",
             clip.startTime.toString(),
@@ -196,27 +274,11 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         ];
 
         yield* gpuSemaphore.withPermits(1)(
-          Effect.gen(function* () {
-            const code = yield* Command.exitCode(
-              Command.make("ffmpeg", ...args).pipe(
-                Command.stdout("inherit"),
-                Command.stderr("inherit")
-              )
-            ).pipe(
-              Effect.mapError(
-                (e) =>
-                  new FFmpegError({
-                    cause: e,
-                    message: `Failed to create concatenated video: ${e.message}`,
-                  })
-              )
-            );
-            if (code !== 0) {
-              yield* new FFmpegError({
-                cause: null,
-                message: `Failed to create concatenated video, exit code: ${code}`,
-              });
-            }
+          runFfmpegWithProgress({
+            args,
+            totalDurationSeconds: expectedOutputDuration,
+            onProgress,
+            errorPrefix: "Failed to create concatenated video",
           })
         );
 
@@ -224,7 +286,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
       });
 
       const normalizeAudio = Effect.fn("normalizeAudio")(function* (
-        inputVideo: string
+        inputVideo: string,
+        onProgress?: (percent: number) => void
       ) {
         const outputDir = path.join(tmpdir(), "video-processing");
         yield* fs.makeDirectory(outputDir, { recursive: true });
@@ -286,27 +349,12 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         ];
 
         yield* cpuSemaphore.withPermits(1)(
-          Effect.gen(function* () {
-            const code = yield* Command.exitCode(
-              Command.make("ffmpeg", ...args).pipe(
-                Command.stdout("inherit"),
-                Command.stderr("inherit")
-              )
-            ).pipe(
-              Effect.mapError(
-                (e) =>
-                  new FFmpegError({
-                    cause: e,
-                    message: `Failed to normalize audio: ${e.message}`,
-                  })
-              )
-            );
-            if (code !== 0) {
-              yield* new FFmpegError({
-                cause: null,
-                message: `Failed to normalize audio, exit code: ${code}`,
-              });
-            }
+          runFfmpegWithProgress({
+            args,
+            // Video is stream-copied, so the output duration is the input's.
+            totalDurationSeconds: videoDuration,
+            onProgress,
+            errorPrefix: "Failed to normalize audio",
           })
         );
 

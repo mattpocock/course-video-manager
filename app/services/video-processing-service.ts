@@ -142,6 +142,15 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         onStageChange?: (
           stage: "concatenating-clips" | "normalizing-audio"
         ) => void;
+        /**
+         * Real per-phase progress from the underlying ffmpeg processes.
+         * `percent` is an integer 0–99 that resets when the stage changes;
+         * 100 is signalled by completion, not by this callback.
+         */
+        onProgress?: (info: {
+          stage: "concatenating-clips" | "normalizing-audio";
+          percent: number;
+        }) => void;
       }) {
         const FINISHED_VIDEOS_DIRECTORY = yield* Config.string(
           "FINISHED_VIDEOS_DIRECTORY"
@@ -154,13 +163,18 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         const concatenatedPath =
           yield* ffmpegCommands.createAndConcatenateVideoClipsSinglePass(
             opts.clips,
-            VIDEO_FORMAT_DIMENSIONS[opts.format]
+            VIDEO_FORMAT_DIMENSIONS[opts.format],
+            (percent) =>
+              opts.onProgress?.({ stage: "concatenating-clips", percent })
           );
 
         // Normalize audio
         opts.onStageChange?.("normalizing-audio");
-        const normalizedPath =
-          yield* ffmpegCommands.normalizeAudio(concatenatedPath);
+        const normalizedPath = yield* ffmpegCommands.normalizeAudio(
+          concatenatedPath,
+          (percent) =>
+            opts.onProgress?.({ stage: "normalizing-audio", percent })
+        );
 
         // Move to final location
         const outputPath = path.join(

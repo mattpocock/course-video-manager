@@ -118,6 +118,15 @@ export namespace uploadReducer {
         stage: ExportStage;
       }
     | {
+        // Real ffmpeg progress within an export stage (integer 0–99, resets
+        // per stage) — banded into the single bar: concatenating 0–80,
+        // normalizing 80–99.
+        type: "UPDATE_EXPORT_PROGRESS";
+        uploadId: string;
+        stage: Exclude<ExportStage, "queued">;
+        percent: number;
+      }
+    | {
         type: "UPLOAD_SUCCESS";
         uploadId: string;
         youtubeVideoId?: string;
@@ -148,6 +157,18 @@ export namespace uploadReducer {
 export const createInitialUploadState = (): uploadReducer.State => ({
   uploads: {},
 });
+
+// The single bar's bands per export stage: the stage change jumps to `start`,
+// then real ffmpeg percent (0–99) fills `width` of the band. 100 is reserved
+// for completion (UPLOAD_SUCCESS).
+const EXPORT_STAGE_BANDS: Record<
+  uploadReducer.ExportStage,
+  { start: number; width: number }
+> = {
+  queued: { start: 0, width: 0 },
+  "concatenating-clips": { start: 0, width: 80 },
+  "normalizing-audio": { start: 80, width: 19 },
+};
 
 export const uploadReducer = (
   state: uploadReducer.State,
@@ -226,11 +247,29 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload || upload.uploadType !== "export") return state;
 
-      const stageProgress: Record<uploadReducer.ExportStage, number> = {
-        queued: 0,
-        "concatenating-clips": 50,
-        "normalizing-audio": 80,
+      return {
+        ...state,
+        uploads: {
+          ...state.uploads,
+          [action.uploadId]: {
+            ...upload,
+            exportStage: action.stage,
+            progress: Math.max(
+              upload.progress,
+              EXPORT_STAGE_BANDS[action.stage].start
+            ),
+          },
+        },
       };
+    }
+
+    case "UPDATE_EXPORT_PROGRESS": {
+      const upload = state.uploads[action.uploadId];
+      if (!upload || upload.uploadType !== "export") return state;
+
+      const band = EXPORT_STAGE_BANDS[action.stage];
+      const banded =
+        band.start + Math.floor((action.percent / 100) * band.width);
 
       return {
         ...state,
@@ -239,7 +278,9 @@ export const uploadReducer = (
           [action.uploadId]: {
             ...upload,
             exportStage: action.stage,
-            progress: stageProgress[action.stage],
+            // Monotonic: a late event from the previous phase never drags the
+            // bar backwards.
+            progress: Math.max(upload.progress, banded),
           },
         },
       };

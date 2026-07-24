@@ -13,6 +13,7 @@ import { createSSEResponse } from "@/lib/create-sse-response.server";
 const DETAIL_EVENT_WIRE_NAMES = {
   videos: "export-videos",
   stage: "export-stage",
+  "video-progress": "export-progress",
   complete: "export-complete",
   error: "export-error",
   progress: "upload-progress",

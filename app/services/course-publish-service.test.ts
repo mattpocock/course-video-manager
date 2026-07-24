@@ -52,7 +52,9 @@ const setup = async () => {
         fs.mkdirSync(path.dirname(outputPath), { recursive: true });
         fs.writeFileSync(outputPath, "dummy-video-content");
         opts.onStageChange?.("concatenating-clips");
+        opts.onProgress?.({ stage: "concatenating-clips", percent: 50 });
         opts.onStageChange?.("normalizing-audio");
+        opts.onProgress?.({ stage: "normalizing-audio", percent: 50 });
         return outputPath;
       }),
   } as any);
@@ -412,6 +414,16 @@ describe("CoursePublishService", () => {
       expect(videosEvent).toBeTruthy();
       const completeEvent = events.find((e) => e.event === "complete");
       expect(completeEvent).toBeTruthy();
+
+      // Real ffmpeg percentages ride alongside the stages, keyed by videoId.
+      const progressEvents = events
+        .filter((e) => e.event === "video-progress")
+        .map((e) => e.data as any);
+      expect(progressEvents).toEqual([
+        expect.objectContaining({ stage: "concatenating-clips", percent: 50 }),
+        expect.objectContaining({ stage: "normalizing-audio", percent: 50 }),
+      ]);
+      expect(progressEvents[0].videoId).toBeTruthy();
     });
 
     it("skips already exported videos", async () => {

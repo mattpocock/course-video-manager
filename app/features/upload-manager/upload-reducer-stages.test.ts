@@ -189,17 +189,18 @@ describe("UPDATE_EXPORT_STAGE", () => {
     );
   });
 
-  it("should update progress based on stage", () => {
+  it("should update progress to the stage's band start", () => {
     let state = createState({
       uploads: { "upload-1": createExportEntry() },
     });
 
+    // Band start: real ffmpeg progress fills 0→80 during concatenation.
     state = reduce(state, {
       type: "UPDATE_EXPORT_STAGE",
       uploadId: "upload-1",
       stage: "concatenating-clips",
     });
-    expect(state.uploads["upload-1"]!.progress).toBe(50);
+    expect(state.uploads["upload-1"]!.progress).toBe(0);
 
     state = reduce(state, {
       type: "UPDATE_EXPORT_STAGE",
@@ -248,6 +249,105 @@ describe("UPDATE_EXPORT_STAGE", () => {
       type: "UPDATE_EXPORT_STAGE",
       uploadId: "upload-1",
       stage: "normalizing-audio",
+    });
+
+    expect(state).toBe(initial);
+  });
+});
+
+describe("UPDATE_EXPORT_PROGRESS", () => {
+  it("bands concatenation percent into 0–80", () => {
+    let state = createState({
+      uploads: { "upload-1": createExportEntry() },
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_EXPORT_PROGRESS",
+      uploadId: "upload-1",
+      stage: "concatenating-clips",
+      percent: 50,
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(40);
+
+    state = reduce(state, {
+      type: "UPDATE_EXPORT_PROGRESS",
+      uploadId: "upload-1",
+      stage: "concatenating-clips",
+      percent: 99,
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(79);
+  });
+
+  it("bands normalization percent into 80–99", () => {
+    let state = createState({
+      uploads: { "upload-1": createExportEntry() },
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_EXPORT_PROGRESS",
+      uploadId: "upload-1",
+      stage: "normalizing-audio",
+      percent: 0,
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(80);
+
+    state = reduce(state, {
+      type: "UPDATE_EXPORT_PROGRESS",
+      uploadId: "upload-1",
+      stage: "normalizing-audio",
+      percent: 99,
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(98);
+  });
+
+  it("never moves the bar backwards across late or out-of-order events", () => {
+    let state = createState({
+      uploads: { "upload-1": createExportEntry() },
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_EXPORT_STAGE",
+      uploadId: "upload-1",
+      stage: "normalizing-audio",
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(80);
+
+    // A straggler event from the concatenation phase must not drag it back.
+    state = reduce(state, {
+      type: "UPDATE_EXPORT_PROGRESS",
+      uploadId: "upload-1",
+      stage: "concatenating-clips",
+      percent: 50,
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(80);
+  });
+
+  it("updates the export stage alongside the percent", () => {
+    let state = createState({
+      uploads: { "upload-1": createExportEntry() },
+    });
+
+    state = reduce(state, {
+      type: "UPDATE_EXPORT_PROGRESS",
+      uploadId: "upload-1",
+      stage: "concatenating-clips",
+      percent: 10,
+    });
+    const upload = state.uploads["upload-1"]!;
+    expect(upload.uploadType === "export" && upload.exportStage).toBe(
+      "concatenating-clips"
+    );
+  });
+
+  it("should not modify state for non-export upload", () => {
+    const initial = createState({
+      uploads: { "upload-1": createYouTubeEntry() },
+    });
+    const state = reduce(initial, {
+      type: "UPDATE_EXPORT_PROGRESS",
+      uploadId: "upload-1",
+      stage: "concatenating-clips",
+      percent: 50,
     });
 
     expect(state).toBe(initial);

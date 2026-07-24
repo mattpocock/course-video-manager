@@ -132,7 +132,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
       const exportVideoCore = Effect.fn("exportVideoCore")(function* (
         videoId: string,
-        onStage?: (stage: "concatenating-clips" | "normalizing-audio") => void
+        onStage?: (stage: "concatenating-clips" | "normalizing-audio") => void,
+        onProgress?: (info: {
+          stage: "concatenating-clips" | "normalizing-audio";
+          percent: number;
+        }) => void
       ) {
         const video = yield* videoOps.getVideoWithClipsById(videoId);
         const courseId = video.lesson?.section.repoVersion.repo.id;
@@ -178,6 +182,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             };
           }),
           onStageChange: onStage,
+          onProgress,
         });
 
         // Move from {videoId}.mp4 to content-addressed path
@@ -192,9 +197,17 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
 
       const exportVideo = Effect.fn("exportVideo")(function* (
         videoId: string,
-        onStage?: (stage: "concatenating-clips" | "normalizing-audio") => void
+        onStage?: (stage: "concatenating-clips" | "normalizing-audio") => void,
+        onProgress?: (info: {
+          stage: "concatenating-clips" | "normalizing-audio";
+          percent: number;
+        }) => void
       ) {
-        const { targetPath, owner } = yield* exportVideoCore(videoId, onStage);
+        const { targetPath, owner } = yield* exportVideoCore(
+          videoId,
+          onStage,
+          onProgress
+        );
         if (owner.kind === "course") {
           yield* garbageCollect(owner.courseId);
         }

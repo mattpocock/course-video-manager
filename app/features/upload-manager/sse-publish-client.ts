@@ -17,6 +17,13 @@ export interface SSEPublishCallbacks {
     videoId: string,
     stage: uploadReducer.ExportStage
   ) => void;
+  // Real ffmpeg progress within an export stage: integer percent 0–99,
+  // resets when the stage changes.
+  onExportProgress: (
+    videoId: string,
+    stage: uploadReducer.ExportStage,
+    percent: number
+  ) => void;
   onExportComplete: (videoId: string) => void;
   onExportError: (videoId: string, message: string) => void;
   // Per-lesson Dropbox upload percentage during the "uploading" stage.
@@ -49,6 +56,11 @@ export const startSSEPublish = (
         videoId: string;
         stage: uploadReducer.ExportStage;
       }) => callbacks.onExportStageChange(data.videoId, data.stage),
+      "export-progress": (data: {
+        videoId: string;
+        stage: uploadReducer.ExportStage;
+        percent: number;
+      }) => callbacks.onExportProgress(data.videoId, data.stage, data.percent),
       "export-complete": (data: { videoId: string }) =>
         callbacks.onExportComplete(data.videoId),
       "export-error": (data: { videoId: string; message: string }) =>

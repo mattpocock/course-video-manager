@@ -89,6 +89,15 @@ const exportConfig: UploadTypeConfig<
           onStageChange: (stage) => {
             dispatch({ type: "UPDATE_EXPORT_STAGE", uploadId, stage });
           },
+          onProgress: (stage, percent) => {
+            if (stage === "queued") return;
+            dispatch({
+              type: "UPDATE_EXPORT_PROGRESS",
+              uploadId,
+              stage,
+              percent,
+            });
+          },
           onComplete: () => {
             dispatch({ type: "UPLOAD_SUCCESS", uploadId });
             abortControllers.delete(uploadId);
@@ -524,6 +533,18 @@ const publishConfig: UploadTypeConfig<
                 type: "UPDATE_EXPORT_STAGE",
                 uploadId: exportUploadId,
                 stage,
+              });
+            }
+          },
+          onExportProgress: (videoId, stage, percent) => {
+            if (stage === "queued") return;
+            const exportUploadId = exportUploadIds.get(videoId);
+            if (exportUploadId) {
+              dispatch({
+                type: "UPDATE_EXPORT_PROGRESS",
+                uploadId: exportUploadId,
+                stage,
+                percent,
               });
             }
           },

@@ -158,7 +158,10 @@ const setup = async (opts?: {
         fs.mkdirSync(path.dirname(outputPath), { recursive: true });
         fs.writeFileSync(outputPath, "dummy-video-content");
         exportOpts.onStageChange?.("concatenating-clips");
+        exportOpts.onProgress?.({ stage: "concatenating-clips", percent: 50 });
+        exportOpts.onProgress?.({ stage: "concatenating-clips", percent: 99 });
         exportOpts.onStageChange?.("normalizing-audio");
+        exportOpts.onProgress?.({ stage: "normalizing-audio", percent: 50 });
         return outputPath;
       }),
   } as any);
@@ -525,6 +528,19 @@ describe("CoursePublishService — publish", () => {
       events.some((e) => e.event === "complete" && e.data.videoId === video.id)
     ).toBe(true);
 
+    // Real ffmpeg percentages ride alongside the stages, keyed by videoId.
+    const percents = events
+      .filter(
+        (e) => e.event === "video-progress" && e.data.videoId === video.id
+      )
+      .map((e) => ({ stage: e.data.stage, percent: e.data.percent }));
+    expect(percents).toEqual([
+      { stage: "concatenating-clips", percent: 50 },
+      { stage: "concatenating-clips", percent: 99 },
+      { stage: "normalizing-audio", percent: 50 },
+    ]);
+
+    // The Commit sync's per-lesson upload percentage flows through too.
     const progressEvents = events.filter((e) => e.event === "progress");
     expect(progressEvents.length).toBeGreaterThan(0);
     expect(progressEvents.at(-1)?.data.percentage).toBe(100);
