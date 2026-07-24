@@ -1,4 +1,9 @@
 import { Data, Duration, Effect, Schedule } from "effect";
+import {
+  open as fsOpen,
+  readFile as fsReadFile,
+  type FileHandle,
+} from "node:fs/promises";
 
 export class DropboxApiError extends Data.TaggedError("DropboxApiError")<{
   message: string;
@@ -248,6 +253,174 @@ export const uploadFile = Effect.fn("dropboxUploadFile")(function* (opts: {
   }
   return yield* uploadLargeFile(opts);
 });
+
+const readChunkFromDisk = (fh: FileHandle, position: number, size: number) =>
+  Effect.tryPromise({
+    try: async () => {
+      const buf = Buffer.alloc(size);
+      const { bytesRead } = await fh.read(buf, 0, size, position);
+      return bytesRead < size ? buf.subarray(0, bytesRead) : buf;
+    },
+    catch: (e) =>
+      new DropboxApiError({
+        message: `Failed to read file chunk at offset ${position}: ${e}`,
+        endpoint: "upload_session",
+      }),
+  });
+
+/**
+ * Upload a file directly from disk, streaming chunks to avoid loading
+ * the entire file into memory. For files under the simple-upload limit
+ * this falls back to a single-shot upload; larger files use chunked
+ * upload sessions reading 8 MB at a time from the file handle.
+ */
+export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
+  function* (opts: {
+    accessToken: string;
+    path: string;
+    filePath: string;
+    fileSize: number;
+    mode?: "add" | "overwrite";
+    onProgress?: (uploaded: number, total: number) => void;
+  }) {
+    const SIMPLE_UPLOAD_LIMIT = 150 * 1024 * 1024;
+    const {
+      accessToken,
+      path: remotePath,
+      filePath,
+      fileSize,
+      mode,
+      onProgress,
+    } = opts;
+
+    if (fileSize <= SIMPLE_UPLOAD_LIMIT) {
+      const content = yield* Effect.tryPromise({
+        try: () => fsReadFile(filePath),
+        catch: (e) =>
+          new DropboxApiError({
+            message: `Failed to read file for upload: ${e}`,
+            endpoint: "upload",
+          }),
+      });
+      onProgress?.(fileSize, fileSize);
+      return yield* upload({
+        accessToken,
+        path: remotePath,
+        content: Buffer.from(content),
+        mode,
+      });
+    }
+
+    return yield* Effect.acquireUseRelease(
+      Effect.tryPromise({
+        try: () => fsOpen(filePath, "r"),
+        catch: (e) =>
+          new DropboxApiError({
+            message: `Failed to open file for upload: ${e}`,
+            endpoint: "upload_session/start",
+          }),
+      }),
+      (fh) =>
+        Effect.gen(function* () {
+          const total = fileSize;
+          const firstChunkEnd = Math.min(UPLOAD_SESSION_CHUNK_SIZE, total);
+          const firstChunk = yield* readChunkFromDisk(fh, 0, firstChunkEnd);
+
+          const startResponse = yield* fetchWithRetry(
+            "https://content.dropboxapi.com/2/files/upload_session/start",
+            {
+              method: "POST",
+              headers: {
+                ...authHeaders(accessToken),
+                "Content-Type": "application/octet-stream",
+                "Dropbox-API-Arg": JSON.stringify({
+                  close: firstChunkEnd >= total,
+                }),
+              },
+              body: new Uint8Array(firstChunk),
+            },
+            "upload_session/start"
+          );
+          const { session_id } = yield* Effect.tryPromise({
+            try: () => startResponse.json() as Promise<{ session_id: string }>,
+            catch: (e) =>
+              new DropboxApiError({
+                message: `Failed to parse session start: ${e}`,
+                endpoint: "upload_session/start",
+              }),
+          });
+
+          let offset = firstChunkEnd;
+          onProgress?.(offset, total);
+
+          while (offset < total - UPLOAD_SESSION_CHUNK_SIZE) {
+            const chunk = yield* readChunkFromDisk(
+              fh,
+              offset,
+              UPLOAD_SESSION_CHUNK_SIZE
+            );
+            yield* fetchWithRetry(
+              "https://content.dropboxapi.com/2/files/upload_session/append_v2",
+              {
+                method: "POST",
+                headers: {
+                  ...authHeaders(accessToken),
+                  "Content-Type": "application/octet-stream",
+                  "Dropbox-API-Arg": JSON.stringify({
+                    cursor: { session_id, offset },
+                    close: false,
+                  }),
+                },
+                body: new Uint8Array(chunk),
+              },
+              "upload_session/append_v2"
+            );
+            offset += chunk.length;
+            onProgress?.(offset, total);
+          }
+
+          const lastChunkSize = total - offset;
+          const lastChunk =
+            lastChunkSize > 0
+              ? yield* readChunkFromDisk(fh, offset, lastChunkSize)
+              : Buffer.alloc(0);
+
+          const finishResponse = yield* fetchWithRetry(
+            "https://content.dropboxapi.com/2/files/upload_session/finish",
+            {
+              method: "POST",
+              headers: {
+                ...authHeaders(accessToken),
+                "Content-Type": "application/octet-stream",
+                "Dropbox-API-Arg": JSON.stringify({
+                  cursor: { session_id, offset },
+                  commit: {
+                    path: remotePath,
+                    mode: mode ?? "add",
+                    autorename: false,
+                  },
+                }),
+              },
+              body: new Uint8Array(lastChunk),
+            },
+            "upload_session/finish"
+          );
+
+          onProgress?.(total, total);
+
+          return yield* Effect.tryPromise({
+            try: () => finishResponse.json() as Promise<DropboxFileMetadata>,
+            catch: (e) =>
+              new DropboxApiError({
+                message: `Failed to parse session finish: ${e}`,
+                endpoint: "upload_session/finish",
+              }),
+          });
+        }),
+      (fh) => Effect.promise(() => fh.close())
+    );
+  }
+);
 
 /**
  * Download a file's content.

@@ -16,6 +16,7 @@ import { ExportError, PublishValidationError } from "./course-publish-errors";
 import { resolveSectionsWithVideos } from "./publish-to-dropbox";
 import {
   uploadFile,
+  uploadFileFromDisk,
   getMetadata,
   listFolder,
   type DropboxFileMetadata,
@@ -251,41 +252,34 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
       totalBytes += videoAssets.get(entry.videoId)!.bytes;
     }
 
-    for (const section of sections) {
-      for (const lesson of section.lessons) {
-        for (const video of lesson.videos) {
-          const entry = videoEntries.find((e) => e.videoId === video.id)!;
-          const content = Buffer.from(
-            yield* effectFs.readFile(entry.localPath)
-          );
-
-          const remotePath = `${remoteBundleDir}/${entry.relativeAssetPath}`;
-          const metadata = yield* uploadFile({
-            accessToken,
-            path: remotePath,
-            content,
-            onProgress: (uploaded) => {
-              if (totalBytes > 0) {
-                const pct = Math.round(
-                  ((uploadedBytes + uploaded) / totalBytes) * 100
-                );
-                input.onProgress?.("progress", {
-                  percentage: Math.min(pct, 99),
-                });
-              }
-            },
-          });
-
-          uploadedBytes += content.length;
-
-          // Verify the upload via content_hash.
-          const expectedHash = videoContentHashes.get(entry.videoId)!;
-          if (metadata.content_hash !== expectedHash) {
-            return yield* new ExportError({
-              message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
+    for (const entry of videoEntries) {
+      const fileSize = videoAssets.get(entry.videoId)!.bytes;
+      const remotePath = `${remoteBundleDir}/${entry.relativeAssetPath}`;
+      const metadata = yield* uploadFileFromDisk({
+        accessToken,
+        path: remotePath,
+        filePath: entry.localPath,
+        fileSize,
+        onProgress: (uploaded) => {
+          if (totalBytes > 0) {
+            const pct = Math.round(
+              ((uploadedBytes + uploaded) / totalBytes) * 100
+            );
+            input.onProgress?.("progress", {
+              percentage: Math.min(pct, 99),
             });
           }
-        }
+        },
+      });
+
+      uploadedBytes += fileSize;
+
+      // Verify the upload via content_hash.
+      const expectedHash = videoContentHashes.get(entry.videoId)!;
+      if (metadata.content_hash !== expectedHash) {
+        return yield* new ExportError({
+          message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
+        });
       }
     }
 

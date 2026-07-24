@@ -39,6 +39,17 @@ export const action = async ({ request }: Route.ActionArgs) => {
           missingVideoCount: missingVideos.length,
         });
       }).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv())),
+    errorHandlers: [
+      {
+        tag: "DropboxNotAuthenticatedError",
+        handler: (_error, sendEvent) => {
+          sendEvent("error", {
+            message:
+              "Dropbox is not connected. Connect your Dropbox account before publishing.",
+          });
+        },
+      },
+    ],
     fallbackMessage: "Publish failed unexpectedly",
   });
 };
