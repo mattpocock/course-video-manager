@@ -24,6 +24,7 @@ import {
   FilmIcon,
   ListTree,
   Loader2,
+  MonitorSpeaker,
   Plus,
   ScrollText,
   Sparkles,
@@ -91,6 +92,8 @@ export const ActionsDropdown = (props: {
   onGenerateChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
   onOpenDiagramPlayground: () => void;
+  /** PROTOTYPE (teleprompter) — remove along with the prototype. */
+  onOpenTeleprompter: () => void;
   /** Open the AI Writer on the lesson body (only when lesson-bound) */
   onEditLessonBodyClick: () => void;
   /** Open the Generate SEO Description modal (only when lesson-bound) */
@@ -302,6 +305,16 @@ export const ActionsDropdown = (props: {
             <span className="font-medium">Open Diagram Playground</span>
             <span className="text-xs text-muted-foreground">
               Open the diagram playground in a popup window
+            </span>
+          </div>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onSelect={props.onOpenTeleprompter}>
+          <MonitorSpeaker className="w-4 h-4 mr-2" />
+          <div className="flex flex-col">
+            <span className="font-medium">Open Teleprompter (prototype)</span>
+            <span className="text-xs text-muted-foreground">
+              Follows whichever video this editor has open
             </span>
           </div>
         </DropdownMenuItem>

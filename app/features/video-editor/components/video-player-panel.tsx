@@ -52,6 +52,8 @@ import {
   openPlayground,
   openPlaygroundWithDiagram,
 } from "@/lib/diagram-window";
+// PROTOTYPE (teleprompter) — remove along with the prototype.
+import { openTeleprompter } from "@/lib/teleprompter-prototype-window";
 
 export const VideoPlayerPanel = () => {
   const videoTitle = useContextSelector(
@@ -511,6 +513,7 @@ export const VideoPlayerPanel = () => {
               onShowScriptPanel={onShowScriptPanel}
               onGenerateChaptersClick={onOpenGenerateChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
+              onOpenTeleprompter={openTeleprompter}
               onEditLessonBodyClick={() => setIsLessonBodyWriterOpen(true)}
               onGenerateSeoDescriptionClick={() =>
                 setIsSeoDescriptionOpen(true)

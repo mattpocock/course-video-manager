@@ -88,6 +88,22 @@ export function startStreamDeckForwarder(opts?: {
       sendMessage({
         type: "clear-all-archived",
       });
+    } else if (req.url === "/api/teleprompter-advance") {
+      sendMessage({
+        type: "teleprompter-advance",
+      });
+    } else if (req.url === "/api/teleprompter-back") {
+      sendMessage({
+        type: "teleprompter-back",
+      });
+    } else if (req.url === "/api/teleprompter-toggle-play") {
+      sendMessage({
+        type: "teleprompter-toggle-play",
+      });
+    } else if (req.url === "/api/teleprompter-reset") {
+      sendMessage({
+        type: "teleprompter-reset",
+      });
     }
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("Hello, world!");

@@ -31,9 +31,12 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { enableVideoEditorMode } from "@/lib/diagram-window";
+import { enableTeleprompterEditorMode } from "@/lib/teleprompter-prototype-window";
+import type { CaptureStatus } from "@/lib/teleprompter-prototype-protocol";
 import { useFetcher, useRevalidator, useSubmit } from "react-router";
 import type {
   DatabaseId,
@@ -166,6 +169,24 @@ export const VideoEditor = (props: {
   );
 
   useEffect(() => enableVideoEditorMode(), []);
+
+  // PROTOTYPE (teleprompter) — the popup has no picker, so this is the only way
+  // it learns which video to show and what capture is doing. Read through a ref
+  // at pong time so the fast-changing speech-detector state doesn't re-subscribe.
+  const teleprompterStateRef = useRef<{
+    videoId: string | null;
+    capture: CaptureStatus;
+  }>({ videoId: props.videoId, capture: "not-recording" });
+  teleprompterStateRef.current = {
+    videoId: props.videoId,
+    capture: props.isRecordingActive
+      ? props.speechDetectorState.type
+      : "not-recording",
+  };
+  useEffect(
+    () => enableTeleprompterEditorMode(() => teleprompterStateRef.current),
+    []
+  );
 
   const { state, dispatch } = useVideoEditor({
     items: timelineItems,

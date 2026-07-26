@@ -13,9 +13,21 @@ Bridges Stream Deck button presses to the video editor via WebSocket.
 | ------------------ | ------------------------------------- | ------------------------------------------------------------------ |
 | Delete Last Clip   | `GET /api/delete-last-clip`           | Deletes the most recently inserted clip                            |
 | Toggle Last Frame  | `GET /api/toggle-last-frame-of-video` | Toggles the last frame overlay                                     |
-| Toggle Beat        | `GET /api/toggle-beat`                | Toggles beat/pause at the insertion point                          |
+| Toggle Pause       | `GET /api/toggle-pause`               | Toggles pause at the insertion point                               |
 | Add Chapter        | `GET /api/add-chapter`                | Opens the chapter naming modal                                     |
 | Clear All Archived | `GET /api/clear-all-archived`         | Clears all deleted clips and orphans across all recording sessions |
+
+### Teleprompter (PROTOTYPE — remove along with the prototype)
+
+Consumed only by `/teleprompter-prototype`; the Video Editor ignores them. See
+`app/features/teleprompter-prototype/README.md`.
+
+| Action     | HTTP Endpoint                       | Description                      |
+| ---------- | ----------------------------------- | -------------------------------- |
+| Advance    | `GET /api/teleprompter-advance`     | Move forward one step            |
+| Back       | `GET /api/teleprompter-back`        | Move back one step               |
+| Play/Pause | `GET /api/teleprompter-toggle-play` | Meaning varies per reading model |
+| Reset      | `GET /api/teleprompter-reset`       | Return to the top                |
 
 ## Stream Deck Setup
 
