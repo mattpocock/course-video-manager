@@ -65,9 +65,11 @@ export function textStyle(): React.CSSProperties {
     lineHeight: TYPE.lineHeight,
     letterSpacing: `${TYPE.letterSpacing}em`,
     color: TYPE.color,
-    // Justified, so both edges of the column are fixed and the eye returns to
-    // the same x on every line instead of hunting for a ragged start.
-    textAlign: "justify",
+    // Left, so the eye returns to the same x on every line. Justifying fixes
+    // the right edge too, but on a measure this narrow it buys that by
+    // stretching word-spaces, and the rivers that opens are worse to read past
+    // than a ragged edge you never look at.
+    textAlign: "left",
   };
 }
 
