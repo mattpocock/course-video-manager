@@ -48,6 +48,26 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
   z.object({ type: z.literal("editorDisconnected") }),
   /** Editor saved a script or edited beats; refetch now, don't wait for the poll. */
   z.object({ type: z.literal("contentChanged"), videoId: z.string() }),
+  /**
+   * The script as it stands in the editor *right now*, pushed on a throttle
+   * while typing. Carries the text itself rather than telling the popup to
+   * refetch: a refetch would race the save that produced it, and the round trip
+   * is the difference between "instant" and "a beat later".
+   */
+  z.object({
+    type: z.literal("scriptChanged"),
+    videoId: z.string(),
+    script: z.string(),
+  }),
+  /**
+   * A transport control pressed in the *editor* window. The popup only receives
+   * keystrokes when it has OS focus, which it won't while you're reading off the
+   * Prompter, so the editor forwards its own presses.
+   */
+  z.object({
+    type: z.literal("command"),
+    command: z.enum(["advance", "back", "togglePlay", "reset"]),
+  }),
 ]);
 
 export const TeleprompterChildToParent = z.discriminatedUnion("type", [
@@ -57,6 +77,10 @@ export const TeleprompterChildToParent = z.discriminatedUnion("type", [
 export type TeleprompterParentToChildMessage = z.infer<
   typeof TeleprompterParentToChild
 >;
+export type TeleprompterCommand = Extract<
+  TeleprompterParentToChildMessage,
+  { type: "command" }
+>["command"];
 export type TeleprompterChildToParentMessage = z.infer<
   typeof TeleprompterChildToParent
 >;

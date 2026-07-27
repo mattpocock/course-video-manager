@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useFetcher } from "react-router";
+import { pushTeleprompterScript } from "@/lib/teleprompter-window";
 import { toWriterContext } from "@/features/article-writer/use-writer-context";
 import type { WriterContext } from "@/features/article-writer/writer-engine";
 import type { WriterContextData } from "@/services/video-posting-context.server";
@@ -44,6 +45,9 @@ export function useVideoScript(videoId: string, enabled = true) {
         { intent: "updateScript", script: newValue },
         { method: "post", action: `/api/videos/${videoId}/script` }
       );
+      // Straight onto the glass, throttled, without waiting for the save to
+      // land and the popup to poll for it. A no-op when no teleprompter is open.
+      pushTeleprompterScript(videoId, newValue);
     },
     [saveFetcher, videoId]
   );

@@ -1,7 +1,7 @@
 /**
- * One input surface: Stream Deck presses (over the
- * forwarder hub at ws://localhost:5172) and the equivalent keyboard shortcuts,
- * so the feel can be judged without touching Stream Deck config first.
+ * One input surface: Stream Deck presses (over the forwarder hub at
+ * ws://localhost:5172), the equivalent keyboard shortcuts, and the same
+ * shortcuts pressed over in the Video Editor window.
  *
  * Connects its own socket rather than reusing the editor's `useWebSocket` —
  * this is a different window, and the hub fans out to every client anyway.
@@ -12,6 +12,7 @@
  * */
 import { useEffect, useRef } from "react";
 import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
+import { subscribeTeleprompterChild } from "@/lib/teleprompter-protocol";
 
 export type TeleprompterActions = {
   advance: () => void;
@@ -66,6 +67,17 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
       socket?.close();
     };
   }, []);
+
+  // The same controls pressed in the editor window, forwarded over
+  // BroadcastChannel — this popup only sees real keystrokes when it has OS
+  // focus, and it won't while you're reading off the Prompter.
+  useEffect(
+    () =>
+      subscribeTeleprompterChild((msg) => {
+        if (msg.type === "command") ref.current[msg.command]();
+      }),
+    []
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -16,7 +16,11 @@ export const TYPE = {
   fontFamily:
     'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   fontSize: 26,
-  fontWeight: 500,
+  /**
+   * Light. Through beam-splitter glass a heavy face blooms and the counters
+   * fill in; bold is reserved for the words the script actually marks bold.
+   */
+  fontWeight: 400,
   lineHeight: 1.55,
   letterSpacing: 0,
   /** Measure in `ch`. Short lines are the biggest teleprompter lever there is. */
@@ -47,44 +51,31 @@ export const MIN_WPM = 80;
 export const MAX_WPM = 400;
 const DEFAULT_WPM = 200;
 
-export type TeleprompterSettings = {
-  source: Source;
-  /** Crawl speed, in spoken words per minute. */
-  wpm: number;
-};
-
-export function useTeleprompterSettings(): [
-  TeleprompterSettings,
-  <K extends keyof TeleprompterSettings>(
-    key: K,
-    value: TeleprompterSettings[K]
-  ) => void,
-] {
+/**
+ * Crawl speed, in spoken words per minute, kept in the URL so a reload
+ * mid-session doesn't lose it.
+ *
+ * Speed is the only setting that persists. Which document is on the glass is
+ * derived from the video — see `teleprompterSession.resolveSource` — because a
+ * remembered tab is wrong the moment you move to a video shaped differently.
+ */
+export function useTeleprompterWpm(): [number, (wpm: number) => void] {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const rawSource = searchParams.get("source");
-  const rawWpm = Number(searchParams.get("wpm"));
+  const raw = Number(searchParams.get("wpm"));
+  const wpm =
+    Number.isFinite(raw) && raw > 0
+      ? Math.min(MAX_WPM, Math.max(MIN_WPM, raw))
+      : DEFAULT_WPM;
 
-  const settings: TeleprompterSettings = {
-    source: (SOURCES as readonly string[]).includes(rawSource ?? "")
-      ? (rawSource as Source)
-      : "script",
-    wpm:
-      Number.isFinite(rawWpm) && rawWpm > 0
-        ? Math.min(MAX_WPM, Math.max(MIN_WPM, rawWpm))
-        : DEFAULT_WPM,
-  };
-
-  const update = useCallback(
-    <K extends keyof TeleprompterSettings>(
-      key: K,
-      value: TeleprompterSettings[K]
-    ) => {
+  const setWpm = useCallback(
+    (next: number) => {
+      const clamped = Math.min(MAX_WPM, Math.max(MIN_WPM, next));
       setSearchParams(
         (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set(key, String(value));
-          return next;
+          const params = new URLSearchParams(prev);
+          params.set("wpm", String(clamped));
+          return params;
         },
         { replace: true, preventScrollReset: true }
       );
@@ -92,5 +83,5 @@ export function useTeleprompterSettings(): [
     [setSearchParams]
   );
 
-  return [settings, update];
+  return [wpm, setWpm];
 }

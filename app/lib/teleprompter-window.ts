@@ -10,6 +10,7 @@ import {
   sendToTeleprompter,
   subscribeTeleprompterParent,
   type CaptureStatus,
+  type TeleprompterCommand,
   type TeleprompterChildToParentMessage,
 } from "./teleprompter-protocol";
 
@@ -69,6 +70,38 @@ export function enableTeleprompterEditorMode(
 /** Nudge an open teleprompter to refetch immediately after an edit. */
 export function notifyTeleprompterContentChanged(videoId: string): void {
   sendToTeleprompter({ type: "contentChanged", videoId });
+}
+
+/**
+ * Mirror the script being typed onto the glass, throttled to
+ * {@link SCRIPT_PUSH_MS}.
+ *
+ * Leading *and* trailing: the first keystroke lands immediately so the update
+ * feels instant, and the last one always lands too, so the glass can't end up
+ * one keystroke behind when you stop typing.
+ */
+const SCRIPT_PUSH_MS = 250;
+let lastScriptPushAt = 0;
+let pendingScriptPush: ReturnType<typeof setTimeout> | null = null;
+
+export function pushTeleprompterScript(videoId: string, script: string): void {
+  if (typeof window === "undefined") return;
+  if (pendingScriptPush) clearTimeout(pendingScriptPush);
+
+  const send = () => {
+    lastScriptPushAt = Date.now();
+    pendingScriptPush = null;
+    sendToTeleprompter({ type: "scriptChanged", videoId, script });
+  };
+
+  const since = Date.now() - lastScriptPushAt;
+  if (since >= SCRIPT_PUSH_MS) send();
+  else pendingScriptPush = setTimeout(send, SCRIPT_PUSH_MS - since);
+}
+
+/** Forward a transport control pressed in the editor to the popup. */
+export function sendTeleprompterCommand(command: TeleprompterCommand): void {
+  sendToTeleprompter({ type: "command", command });
 }
 
 function isTeleprompterAlive(): boolean {

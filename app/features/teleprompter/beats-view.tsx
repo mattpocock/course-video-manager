@@ -93,7 +93,10 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
             const kind = asBeatKind(beat.kind);
             const Icon = BEAT_KIND_ICONS[kind];
             const isActive = i === activeIndex;
-            const titleSize = TYPE.fontSize * (isActive ? 1 : 0.62);
+            // Every beat reads at the script's size — this is glass at arm's
+            // length, and anything smaller isn't readable from where you stand.
+            // Position is carried by opacity alone.
+            const titleSize = TYPE.fontSize;
 
             return (
               <div
@@ -150,7 +153,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                       style={{
                         ...base,
                         textAlign: "left",
-                        fontSize: `${TYPE.fontSize * 0.55}px`,
+                        fontSize: `${TYPE.fontSize}px`,
                         // A step back from the title rather than a dimmer copy
                         // of it: the description is context, not the line you
                         // read off the glass.

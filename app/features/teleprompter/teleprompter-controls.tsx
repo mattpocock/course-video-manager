@@ -11,24 +11,21 @@ import {
   MAX_WPM,
   MIN_WPM,
   SOURCES,
-  type TeleprompterSettings,
+  type Source,
 } from "./teleprompter-settings";
 
 const WPM_STEP = 10;
 
 export function TeleprompterControls(props: {
-  settings: TeleprompterSettings;
-  onChange: <K extends keyof TeleprompterSettings>(
-    key: K,
-    value: TeleprompterSettings[K]
-  ) => void;
+  source: Source;
+  onSourceChange: (source: Source) => void;
+  wpm: number;
+  onWpmChange: (wpm: number) => void;
   /** Editor connection state, shown so you never wonder if it's stuck. */
   status: string;
 }) {
-  const { settings, onChange } = props;
-
   const setWpm = (wpm: number) =>
-    onChange("wpm", Math.min(MAX_WPM, Math.max(MIN_WPM, wpm)));
+    props.onWpmChange(Math.min(MAX_WPM, Math.max(MIN_WPM, wpm)));
 
   return (
     <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 opacity-25 transition-opacity duration-200 hover:opacity-100">
@@ -38,9 +35,9 @@ export function TeleprompterControls(props: {
             <button
               key={source}
               type="button"
-              onClick={() => onChange("source", source)}
+              onClick={() => props.onSourceChange(source)}
               className={`px-3 py-1 text-xs capitalize transition-colors ${
-                settings.source === source
+                props.source === source
                   ? "bg-white/15 text-white"
                   : "text-white/50 hover:text-white"
               }`}
@@ -50,23 +47,23 @@ export function TeleprompterControls(props: {
           ))}
         </div>
 
-        {settings.source === "script" && (
+        {props.source === "script" && (
           <>
             <span className="mx-1 h-4 w-px bg-white/10" />
             <button
               type="button"
-              onClick={() => setWpm(settings.wpm - WPM_STEP)}
+              onClick={() => setWpm(props.wpm - WPM_STEP)}
               className="rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white"
               aria-label="Slower"
             >
               <Minus className="h-3.5 w-3.5" />
             </button>
             <span className="w-16 text-center text-xs tabular-nums text-white/70">
-              {settings.wpm} wpm
+              {props.wpm} wpm
             </span>
             <button
               type="button"
-              onClick={() => setWpm(settings.wpm + WPM_STEP)}
+              onClick={() => setWpm(props.wpm + WPM_STEP)}
               className="rounded-full p-1 text-white/60 hover:bg-white/10 hover:text-white"
               aria-label="Faster"
             >

@@ -23,6 +23,7 @@ import { useChapterModal } from "./hooks/use-chapter-modal";
 import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { RenameVideoModal } from "@/components/rename-video-modal";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
+import { useTeleprompterShortcuts } from "./hooks/use-teleprompter-shortcuts";
 import { useWebSocket } from "./hooks/use-websocket";
 import { useClipboardOperations } from "./hooks/use-clipboard-operations";
 import {
@@ -187,6 +188,7 @@ export const VideoEditor = (props: {
     () => enableTeleprompterEditorMode(() => teleprompterStateRef.current),
     []
   );
+  useTeleprompterShortcuts();
 
   const { state, dispatch } = useVideoEditor({
     items: timelineItems,
