@@ -65,7 +65,8 @@ export function VariantBand(props: {
       const scroller = scrollRef.current;
       if (scroller) {
         // Quarter of the crawl pace: this is trim, not transport.
-        scroller.scrollTop += ((settings.wpm / 60) * settings.fontSize * 0.5) * dt;
+        scroller.scrollTop +=
+          (settings.wpm / 60) * settings.fontSize * 0.5 * dt;
       }
       raf = requestAnimationFrame(tick);
     };

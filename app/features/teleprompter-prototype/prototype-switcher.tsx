@@ -8,13 +8,14 @@
  * sliders, not by describing it and waiting for a rebuild.
  *
  * Deliberately high-contrast and ugly so it never reads as part of the design
- * being judged, collapsible to a pill, and never rendered in a production build.
+ * being judged, and collapsible to a pill. Rendered in production builds too:
+ * the whole route is throwaway, and hiding the Beats/Script tab behind a dev
+ * build just makes the prototype look broken.
  *
  * ← / → cycle script variants; the teleprompter itself uses J/K/Space/P/R.
  */
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Settings2, X } from "lucide-react";
-import { RETICULE_STYLES } from "./focus-reticule";
 import {
   FONT_FAMILY_KEYS,
   SOURCES,
@@ -112,8 +113,6 @@ export function PrototypeSwitcher(props: {
     return () => window.removeEventListener("keydown", onKey);
   }, [settings.variant, settings.source, onChange]);
 
-  if (import.meta.env.PROD) return null;
-
   const cycleVariant = (delta: number) => {
     const index = VARIANTS.indexOf(settings.variant);
     onChange(
@@ -181,14 +180,6 @@ export function PrototypeSwitcher(props: {
             </p>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               <Slider
-                label="Eyeline"
-                value={settings.eyeline}
-                min={5}
-                max={90}
-                suffix="%"
-                onChange={(v) => onChange("eyeline", v)}
-              />
-              <Slider
                 label="Read line"
                 value={settings.readLine}
                 min={5}
@@ -227,12 +218,6 @@ export function PrototypeSwitcher(props: {
               options={["left", "center"] as const}
               onChange={(v) => onChange("align", v)}
             />
-            <Cycle
-              label="Reticule"
-              value={settings.reticule}
-              options={RETICULE_STYLES}
-              onChange={(v) => onChange("reticule", v)}
-            />
             <button
               type="button"
               onClick={() => onChange("mirror", !settings.mirror)}
@@ -244,10 +229,10 @@ export function PrototypeSwitcher(props: {
 
           <p className="text-[11px] leading-relaxed text-white/40">
             The Elgato Prompter mirrors its display automatically, so leave
-            Mirror <strong>off</strong> — turning it on will double-flip and make
-            the text unreadable through the glass. It&apos;s here only as an
-            escape hatch. The panel is 1024&times;600; this popup opens at that
-            size so what you tune is what you get.
+            Mirror <strong>off</strong> — turning it on will double-flip and
+            make the text unreadable through the glass. It&apos;s here only as
+            an escape hatch. The panel is 1024&times;600; this popup opens at
+            that size so what you tune is what you get.
           </p>
           <p className="text-[11px] leading-relaxed text-white/40">
             J / ↓ / Space advance · K / ↑ back · P play-pause (Beats: toggle

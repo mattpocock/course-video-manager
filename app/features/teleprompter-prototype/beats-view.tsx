@@ -73,7 +73,13 @@ export function BeatsView(props: {
       top: row.offsetTop - anchor + row.clientHeight / 2,
       behavior: "smooth",
     });
-  }, [activeIndex, beats, settings.readLine, showDescriptions, settings.fontSize]);
+  }, [
+    activeIndex,
+    beats,
+    settings.readLine,
+    showDescriptions,
+    settings.fontSize,
+  ]);
 
   const base = textStyle(settings);
 
@@ -97,6 +103,7 @@ export function BeatsView(props: {
             const kind = asBeatKind(beat.kind);
             const Icon = BEAT_KIND_ICONS[kind];
             const isActive = i === activeIndex;
+            const titleSize = settings.fontSize * (isActive ? 1 : 0.62);
 
             return (
               <div
@@ -105,7 +112,13 @@ export function BeatsView(props: {
                   if (el) rowRefs.current.set(beat.id, el);
                   else rowRefs.current.delete(beat.id);
                 }}
-                className="mb-6 flex gap-3"
+                // Clicking a beat moves the spotlight. Advance normally comes
+                // from the Stream Deck, but the popup only receives keystrokes
+                // when it has OS focus — which it won't while you're looking at
+                // the Prompter — so there needs to be a way in that doesn't
+                // depend on that.
+                onClick={() => setActiveIndex(i)}
+                className="mb-6 flex cursor-pointer gap-3"
                 style={{
                   opacity: isActive ? 1 : 0.3,
                   transition: "opacity 180ms ease",
@@ -114,20 +127,30 @@ export function BeatsView(props: {
                   ...(i < activeIndex ? { opacity: 0.16 } : {}),
                 }}
               >
-                <Icon
-                  className="mt-1 shrink-0 text-sky-400"
+                {/* Centred inside a box exactly one line tall, so the icon sits
+                    on the title's first line whatever the size or line height. */}
+                <span
+                  className="flex shrink-0 items-center justify-center"
                   style={{
-                    width: settings.fontSize * (isActive ? 0.62 : 0.44),
-                    height: settings.fontSize * (isActive ? 0.62 : 0.44),
+                    height: `${titleSize * settings.lineHeight}px`,
+                    width: titleSize * 0.62,
                   }}
-                  aria-hidden
-                />
+                >
+                  <Icon
+                    className="text-neutral-400"
+                    style={{
+                      width: titleSize * 0.62,
+                      height: titleSize * 0.62,
+                    }}
+                    aria-hidden
+                  />
+                </span>
                 <div className="min-w-0 flex-1">
                   <div
                     style={{
                       ...base,
                       textAlign: "left",
-                      fontSize: `${settings.fontSize * (isActive ? 1 : 0.62)}px`,
+                      fontSize: `${titleSize}px`,
                     }}
                   >
                     {beat.title || BEAT_KIND_LABELS[kind]}
@@ -138,7 +161,10 @@ export function BeatsView(props: {
                         ...base,
                         textAlign: "left",
                         fontSize: `${settings.fontSize * 0.55}px`,
-                        opacity: 0.7,
+                        // A step back from the title rather than a dimmer copy
+                        // of it: the description is context, not the line you
+                        // read off the glass.
+                        color: "#9ca3af",
                         marginTop: settings.fontSize * 0.2,
                       }}
                     >
@@ -150,11 +176,6 @@ export function BeatsView(props: {
             );
           })}
         </div>
-      </div>
-
-      <div className="pointer-events-none absolute right-4 top-4 text-xs tabular-nums text-white/40">
-        {activeIndex + 1} / {beats.length}
-        {showDescriptions ? "" : " · titles only"}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
 } from "react-router";
 import {
   AlertTriangle,
@@ -72,33 +73,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  // PROTOTYPE (teleprompter): that window is pointed at a camera lens, so
+  // nothing app-chrome belongs on it. Remove with the prototype.
+  const isTeleprompter = useLocation().pathname.startsWith(
+    "/teleprompter-prototype"
+  );
 
   return (
     <UploadProvider>
       <GlobalUploadProgress />
       <Outlet />
-      <Button
-        size="icon"
-        variant="outline"
-        className="fixed bottom-4 z-40 rounded-full size-10 shadow-lg transition-[right] duration-200"
-        style={{
-          right: "calc(1rem + var(--agent-sidebar-width, 0px))",
-        }}
-        onClick={() => setFeedbackOpen(true)}
-        disabled={feedbackSubmitting}
-        aria-label="Send feedback"
-      >
-        {feedbackSubmitting ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : (
-          <MessageSquarePlus className="size-5" />
-        )}
-      </Button>
-      <FeedbackModal
-        open={feedbackOpen}
-        onOpenChange={setFeedbackOpen}
-        onSubmittingChange={setFeedbackSubmitting}
-      />
+      {!isTeleprompter && (
+        <Button
+          size="icon"
+          variant="outline"
+          className="fixed bottom-4 z-40 rounded-full size-10 shadow-lg transition-[right] duration-200"
+          style={{
+            right: "calc(1rem + var(--agent-sidebar-width, 0px))",
+          }}
+          onClick={() => setFeedbackOpen(true)}
+          disabled={feedbackSubmitting}
+          aria-label="Send feedback"
+        >
+          {feedbackSubmitting ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : (
+            <MessageSquarePlus className="size-5" />
+          )}
+        </Button>
+      )}
+      {!isTeleprompter && (
+        <FeedbackModal
+          open={feedbackOpen}
+          onOpenChange={setFeedbackOpen}
+          onSubmittingChange={setFeedbackSubmitting}
+        />
+      )}
     </UploadProvider>
   );
 }

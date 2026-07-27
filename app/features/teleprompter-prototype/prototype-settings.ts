@@ -8,7 +8,6 @@
  */
 import { useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { isReticuleStyle, type ReticuleStyle } from "./focus-reticule";
 
 export const VARIANTS = ["A", "B", "C"] as const;
 export type Variant = (typeof VARIANTS)[number];
@@ -48,10 +47,7 @@ export const TEXT_COLOR_KEYS = Object.keys(TEXT_COLORS) as TextColorKey[];
 export type PrototypeSettings = {
   source: Source;
   variant: Variant;
-  reticule: ReticuleStyle;
-  /** Reticule height, % of viewport — where the eyes sit, i.e. the lens. */
-  eyeline: number;
-  /** Where the live text is pinned, % of viewport. May differ from eyeline. */
+  /** Where the live text is pinned, % of viewport. */
   readLine: number;
   fontSize: number;
   fontFamily: FontFamilyKey;
@@ -71,8 +67,6 @@ export type PrototypeSettings = {
 const DEFAULTS: PrototypeSettings = {
   source: "beats",
   variant: "A",
-  reticule: "ring",
-  eyeline: 34,
   readLine: 42,
   fontSize: 44,
   fontFamily: "system",
@@ -127,10 +121,6 @@ export function useTeleprompterSettings(): [
   const settings: PrototypeSettings = {
     source: oneOf(searchParams.get("source"), SOURCES, DEFAULTS.source),
     variant: oneOf(searchParams.get("variant"), VARIANTS, DEFAULTS.variant),
-    reticule: isReticuleStyle(searchParams.get("reticule"))
-      ? (searchParams.get("reticule") as ReticuleStyle)
-      : DEFAULTS.reticule,
-    eyeline: num(searchParams.get("eyeline"), DEFAULTS.eyeline),
     readLine: num(searchParams.get("readLine"), DEFAULTS.readLine),
     fontSize: num(searchParams.get("fontSize"), DEFAULTS.fontSize),
     fontFamily: oneOf(
@@ -163,7 +153,10 @@ export function useTeleprompterSettings(): [
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
-          next.set(key, typeof value === "boolean" ? (value ? "1" : "0") : String(value));
+          next.set(
+            key,
+            typeof value === "boolean" ? (value ? "1" : "0") : String(value)
+          );
           return next;
         },
         { replace: true, preventScrollReset: true }

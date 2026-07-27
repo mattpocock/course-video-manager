@@ -9,12 +9,14 @@ it should be promoted as-is — when a shape wins, rewrite it properly.
 
 ## The questions
 
-1. **Beats or Script on the glass?** Visible tab, top-left of the control bar.
+1. **Beats or Script on the glass?** Visible tab, top-left of the control bar. A
+   video with a script opens on the script; one without falls back to its beat
+   plan. Picking the tab by hand pins it until you move to another video.
 2. **Which reading model for prose?** Three variants, `?variant=A|B|C`.
-3. **How loud does a focus reticule need to be** to hold a gaze when there's
-   nothing to read — and does it want to sit at the same height as the text?
-4. **What does the type want to be?** Every knob is in the tuning popup, so this
+3. **What does the type want to be?** Every knob is in the tuning popup, so this
    is settled by moving sliders rather than by describing it.
+
+A focus reticule was tried and cut — the eyeline sat fine without one.
 
 ## Running it
 
@@ -28,20 +30,24 @@ the text becomes unreadable. The toggle exists only as an escape hatch.
 
 ## Controls
 
-| Action | Keyboard | Stream Deck (or pedal) |
-| --- | --- | --- |
-| Advance | `J` / `↓` / `Space` | `localhost:5174/api/teleprompter-advance` |
-| Back | `K` / `↑` | `…/api/teleprompter-back` |
-| Play-pause | `P` | `…/api/teleprompter-toggle-play` |
-| Reset to top | `R` | `…/api/teleprompter-reset` |
-| Change variant | `←` / `→` | — |
+| Action         | Keyboard            | Stream Deck (or pedal)                    |
+| -------------- | ------------------- | ----------------------------------------- |
+| Advance        | `J` / `↓` / `Space` | `localhost:5174/api/teleprompter-advance` |
+| Back           | `K` / `↑`           | `…/api/teleprompter-back`                 |
+| Play-pause     | `P`                 | `…/api/teleprompter-toggle-play`          |
+| Reset to top   | `R`                 | `…/api/teleprompter-reset`                |
+| Change variant | `←` / `→`           | —                                         |
+
+In Beats you can also click a beat to move the spotlight straight to it. The
+keyboard only works when the popup has OS focus, which it won't while you're
+looking at the Prompter — so the Stream Deck, or a click, is the real way in.
 
 Configure a Stream Deck button as a **Website / System: Open** action pointing at
 the URL, exactly as the existing forwarder actions are set up (see
 `stream-deck-forwarder/README.md`). The pedal is an Elgato device routed through
 the same Stream Deck software, so it needs no separate handling.
 
-What play-pause *means* differs per shape, deliberately: crawl rolls/stops,
+What play-pause _means_ differs per shape, deliberately: crawl rolls/stops,
 stepper auto-advances, band drifts slowly, beats toggles descriptions.
 
 ## Design notes

@@ -18,27 +18,27 @@ const PRESENTATION: Record<
 > = {
   "not-recording": {
     bg: "bg-neutral-700",
-    icon: <MicOffIcon className="size-4 text-white" />,
+    icon: <MicOffIcon className="size-7 text-white" />,
     label: "Not recording",
   },
   "warming-up": {
     bg: "bg-red-600",
-    icon: <Loader2 className="size-4 animate-spin text-white" />,
+    icon: <Loader2 className="size-7 animate-spin text-white" />,
     label: "Warming up",
   },
   "speaking-detected": {
     bg: "bg-yellow-600",
-    icon: <MicIcon className="size-4 text-white" />,
+    icon: <MicIcon className="size-7 text-white" />,
     label: "Speaking",
   },
   "long-enough-speaking-for-clip-detected": {
     bg: "bg-green-600",
-    icon: <MicIcon className="size-4 text-white" />,
+    icon: <MicIcon className="size-7 text-white" />,
     label: "Clip capturing",
   },
   silence: {
     bg: "bg-blue-600",
-    icon: <CheckIcon className="size-4 text-white" />,
+    icon: <CheckIcon className="size-7 text-white" />,
     label: "Silence — clip closed",
   },
 };
@@ -52,7 +52,7 @@ export function CaptureIndicator(props: {
 
   return (
     <div
-      className={`pointer-events-none absolute left-4 top-4 z-40 flex size-8 items-center justify-center rounded-full ${
+      className={`pointer-events-none absolute left-4 top-4 z-40 flex size-14 items-center justify-center rounded-full ${
         props.editorConnected ? presentation.bg : "bg-neutral-800"
       } ${props.editorConnected ? "" : "opacity-40"}`}
       title={
@@ -65,7 +65,7 @@ export function CaptureIndicator(props: {
       {props.editorConnected ? (
         presentation.icon
       ) : (
-        <MicOffIcon className="size-4 text-white/60" />
+        <MicOffIcon className="size-7 text-white/60" />
       )}
     </div>
   );

@@ -9,12 +9,11 @@
  * and shows an empty state when the editor has nothing. That means no loader —
  * the server doesn't know which video this is until the editor says so.
  *
- * Three things are under evaluation, and they're separable:
+ * Two things are under evaluation, and they're separable:
  *   1. Beats or Script on the glass  → the visible tab (?source=)
  *   2. Which reading model for prose → ?variant=A|B|C
- *   3. How loud a focus reticule must be → ?reticule=, ?eyeline=
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   subscribeTeleprompterChild,
   sendToEditor,
@@ -24,10 +23,12 @@ import {
   parseScriptBlocks,
   splitIntoSteps,
 } from "@/features/teleprompter-prototype/script-blocks";
-import { FocusReticule } from "@/features/teleprompter-prototype/focus-reticule";
 import { CaptureIndicator } from "@/features/teleprompter-prototype/capture-indicator";
 import { PrototypeSwitcher } from "@/features/teleprompter-prototype/prototype-switcher";
-import { useTeleprompterSettings } from "@/features/teleprompter-prototype/prototype-settings";
+import {
+  useTeleprompterSettings,
+  type PrototypeSettings,
+} from "@/features/teleprompter-prototype/prototype-settings";
 import {
   BeatsView,
   type TeleprompterBeat,
@@ -143,6 +144,36 @@ export default function TeleprompterPrototype() {
   );
   const steps = useMemo(() => splitIntoSteps(blocks), [blocks]);
 
+  // --- Source: script wins, unless you've said otherwise for this video ------
+  // A video with a written script should land on the script; only a video
+  // without one falls back to the beat plan. Choosing the tab by hand pins it,
+  // and moving to another video un-pins it so the new video decides again.
+  const sourcePinned = useRef(false);
+  useEffect(() => {
+    sourcePinned.current = false;
+  }, [videoId]);
+
+  const changeSetting = useCallback(
+    <K extends keyof PrototypeSettings>(
+      key: K,
+      value: PrototypeSettings[K]
+    ) => {
+      if (key === "source") sourcePinned.current = true;
+      updateSetting(key, value);
+    },
+    [updateSetting]
+  );
+
+  useEffect(() => {
+    if (sourcePinned.current) return;
+    const wanted = blocks.length
+      ? "script"
+      : content.beats.length
+        ? "beats"
+        : null;
+    if (wanted && wanted !== settings.source) updateSetting("source", wanted);
+  }, [blocks.length, content.beats.length, settings.source, updateSetting]);
+
   const status = editorConnected
     ? videoId
       ? "following editor"
@@ -165,7 +196,7 @@ export default function TeleprompterPrototype() {
       <CaptureIndicator status={capture} editorConnected={editorConnected} />
 
       {content.title && (
-        <div className="pointer-events-none absolute left-16 top-5 z-40 truncate pr-24 text-xs text-white/25">
+        <div className="pointer-events-none absolute left-24 top-9 z-40 truncate pr-24 text-xs text-white/25">
           {content.title}
         </div>
       )}
@@ -184,13 +215,9 @@ export default function TeleprompterPrototype() {
         <VariantBand blocks={blocks} settings={settings} />
       )}
 
-      {/* Always rendered, even with no text — the whole point is having
-          something to look at when there's nothing to read. */}
-      <FocusReticule style={settings.reticule} topPct={settings.eyeline} />
-
       <PrototypeSwitcher
         settings={settings}
-        onChange={updateSetting}
+        onChange={changeSetting}
         status={status}
       />
     </div>
