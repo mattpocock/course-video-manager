@@ -152,7 +152,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                         // A step back from the title rather than a dimmer copy
                         // of it: the description is context, not the line you
                         // read off the glass.
-                        color: "#9ca3af",
+                        color: "var(--color-neutral-400)",
                         marginTop: TYPE.fontSize * 0.2,
                       }}
                     >
