@@ -55,6 +55,19 @@ describe("shouldIgnoreKeyboardShortcut", () => {
     expect(shouldIgnoreKeyboardShortcut(makeEvent(target))).toBe(false);
   });
 
+  it("suppresses shortcuts when typing in a contenteditable (Monaco's edit context)", () => {
+    const target = { isContentEditable: true, closest: () => null };
+    expect(shouldIgnoreKeyboardShortcut(makeEvent(target))).toBe(true);
+  });
+
+  it("suppresses shortcuts anywhere inside a Monaco editor", () => {
+    const editorEl = {};
+    const target = {
+      closest: (sel: string) => (sel === ".monaco-editor" ? editorEl : null),
+    };
+    expect(shouldIgnoreKeyboardShortcut(makeEvent(target))).toBe(true);
+  });
+
   it("suppresses shortcuts when focused inside a dialog", () => {
     const dialogEl = {};
     const target = {
