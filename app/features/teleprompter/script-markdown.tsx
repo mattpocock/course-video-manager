@@ -11,6 +11,7 @@
  */
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { TYPE } from "./teleprompter-settings";
 
 const COMPONENTS: Components = {
   // The crawl supplies the wrapper element and its margin.
@@ -26,7 +27,9 @@ const COMPONENTS: Components = {
   // body it's already a wide gap, and a true 700 blooms through the glass —
   // which is exactly what the light body weight is there to avoid.
   strong: ({ children }) => (
-    <strong style={{ fontWeight: 600 }}>{children}</strong>
+    <strong style={{ fontWeight: 600, color: TYPE.boldColor }}>
+      {children}
+    </strong>
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
   code: ({ children }) => (

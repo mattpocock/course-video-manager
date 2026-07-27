@@ -41,6 +41,12 @@ export const TYPE = {
   beatsMeasure: 30,
   /** Warm rather than white: easier on the eye through beam-splitter glass. */
   color: "#f5e9d7",
+  /**
+   * What the script marks bold. Cool against the warm body, so emphasis is
+   * visible in peripheral vision before you reach the words — weight alone only
+   * registers once you're looking straight at it.
+   */
+  boldColor: "#a8d5ff",
   /** Where the live line sits, as a % of viewport height. */
   readLine: 42,
 } as const;
