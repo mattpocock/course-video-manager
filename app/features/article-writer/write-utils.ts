@@ -104,35 +104,37 @@ export const saveMessagesToStorage = (
   }
 };
 
-export const getDocumentStorageKey = (videoId: string, mode: Mode) =>
-  `article-writer-document-${videoId}-${mode}`;
+// Documents are NOT persisted — only messages are. The route loader (i.e. the
+// database) is the single source of truth for a field's value; a stored draft
+// used to shadow it and could be applied over a newer value.
 
-export const loadDocumentFromStorage = (
-  videoId: string,
-  mode: Mode
-): string | undefined => {
-  if (typeof localStorage === "undefined") return undefined;
-  try {
-    const saved = localStorage.getItem(getDocumentStorageKey(videoId, mode));
-    return saved ?? undefined;
-  } catch {
-    return undefined;
-  }
-};
+/** Keys written by the retired document-persistence code. */
+export const LEGACY_DOCUMENT_KEY_PREFIXES = [
+  "article-writer-document-",
+  "writer-field-document-",
+];
 
-export const saveDocumentToStorage = (
-  videoId: string,
-  mode: Mode,
-  document: string | undefined
-) => {
+export const LEGACY_DOCUMENT_PURGE_KEY = "article-writer-document-purge-done";
+
+/**
+ * One-time removal of documents left in localStorage by earlier versions, so a
+ * stale draft can never resurface. Safe to call on every load; it no-ops once
+ * it has run. Can be deleted once every browser in use has loaded the app.
+ */
+export const purgeLegacyDocumentStorage = () => {
   if (typeof localStorage === "undefined") return;
   try {
-    const key = getDocumentStorageKey(videoId, mode);
-    if (document === undefined) {
-      localStorage.removeItem(key);
-    } else {
-      localStorage.setItem(key, document);
+    if (localStorage.getItem(LEGACY_DOCUMENT_PURGE_KEY)) return;
+    const stale: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (LEGACY_DOCUMENT_KEY_PREFIXES.some((p) => key.startsWith(p))) {
+        stale.push(key);
+      }
     }
+    for (const key of stale) localStorage.removeItem(key);
+    localStorage.setItem(LEGACY_DOCUMENT_PURGE_KEY, "1");
   } catch {
     // ignore
   }

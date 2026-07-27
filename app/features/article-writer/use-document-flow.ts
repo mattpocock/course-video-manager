@@ -1,38 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  applyDocumentToolCalls,
+  collectDocumentToolCallIds,
+  getStreamingDocument,
+} from "./document-tool-calls";
 import type { DocumentAgentMessage, Mode } from "./types";
-import { loadDocumentFromStorage, saveDocumentToStorage } from "./write-utils";
-import { applyEdits, type DocumentEdit } from "./document-editing-engine";
-
-function getAlreadyProcessedToolCallIds(
-  messages: DocumentAgentMessage[],
-  videoId: string,
-  mode: Mode
-): Set<string> {
-  const existing = loadDocumentFromStorage(videoId, mode);
-  if (!existing) return new Set();
-  const ids = new Set<string>();
-  for (const message of messages) {
-    if (message.role !== "assistant") continue;
-    for (const part of message.parts) {
-      if (
-        (part.type === "tool-writeDocument" ||
-          part.type === "tool-editDocument") &&
-        part.state !== "input-streaming"
-      ) {
-        ids.add(part.toolCallId);
-      }
-    }
-  }
-  return ids;
-}
 
 /**
- * Manages document state for the article mode document flow.
- * Handles writeDocument tool call interception, live streaming,
- * and localStorage persistence.
+ * Manages the working document for the article-mode document flow: executes
+ * `writeDocument`/`editDocument` tool calls client-side and streams the
+ * document in live while the model writes it.
+ *
+ * The document is deliberately **not** persisted. Its single source of truth is
+ * `initialDocument`, supplied by the route loader (i.e. the database), and it
+ * lives in memory for the life of the writer. Chat messages *are* persisted to
+ * localStorage by the caller — which is why a restored conversation's tool
+ * calls are marked processed on mount: replaying them would otherwise overwrite
+ * the loader's value with output from a previous session.
  */
 export function useDocumentFlow(opts: {
-  videoId: string;
+  /** The persisted value from the route loader — the source of truth. */
+  initialDocument?: string;
   mode: Mode;
   isDocumentMode: boolean;
   messages: DocumentAgentMessage[];
@@ -42,138 +30,87 @@ export function useDocumentFlow(opts: {
     toolCallId: string;
     output: string;
   }) => Promise<void>;
+  /** Notified on every document change, including AI-driven ones. */
+  onDocumentChange?: (document: string) => void;
 }) {
-  const { videoId, mode, isDocumentMode, messages, status, addToolOutput } =
-    opts;
+  const {
+    initialDocument,
+    mode,
+    isDocumentMode,
+    messages,
+    status,
+    addToolOutput,
+    onDocumentChange,
+  } = opts;
 
-  const [document, setDocument] = useState<string | undefined>(() =>
-    loadDocumentFromStorage(videoId, mode)
+  const [document, setDocumentState] = useState<string | undefined>(
+    initialDocument
   );
 
-  // Reload document from localStorage when mode changes
-  const prevModeRef = useRef(mode);
-  useEffect(() => {
-    if (prevModeRef.current !== mode) {
-      prevModeRef.current = mode;
-      setDocument(loadDocumentFromStorage(videoId, mode));
-      processedToolCallsRef.current = getAlreadyProcessedToolCallIds(
-        messages,
-        videoId,
-        mode
-      );
-    }
-  }, [mode, videoId, messages]);
-
-  // Ref tracks latest document for use in async callbacks (avoids stale closures)
+  // Ref tracks latest document for use in async callbacks and effects that must
+  // not re-run when it changes (avoids stale closures without extra deps).
   const documentRef = useRef(document);
   documentRef.current = document;
 
+  const onDocumentChangeRef = useRef(onDocumentChange);
+  onDocumentChangeRef.current = onDocumentChange;
+
+  const setDocument = useCallback((content: string | undefined) => {
+    setDocumentState(content);
+    documentRef.current = content;
+    onDocumentChangeRef.current?.(content ?? "");
+  }, []);
+
   const processedToolCallsRef = useRef<Set<string>>(
-    // On mount, if a document already exists in storage, mark all existing
-    // writeDocument/editDocument tool calls as already processed so they
-    // don't re-run and overwrite the (potentially updated) stored document.
-    getAlreadyProcessedToolCallIds(messages, videoId, mode)
+    // On mount, treat every tool call in the restored conversation as already
+    // executed: the loader owns the document, not the transcript.
+    new Set(collectDocumentToolCallIds(messages))
   );
 
-  // Handle completed writeDocument tool calls
+  // Switching mode swaps in that mode's stored conversation, whose tool calls
+  // belong to an earlier session — mark them processed for the same reason.
+  // The document itself is unaffected: a field has one working document,
+  // whichever mode wrote it.
+  const prevModeRef = useRef(mode);
+  useEffect(() => {
+    if (prevModeRef.current === mode) return;
+    prevModeRef.current = mode;
+    processedToolCallsRef.current = new Set(
+      collectDocumentToolCallIds(messages)
+    );
+  }, [mode, messages]);
+
+  // Execute newly-settled document tool calls.
   useEffect(() => {
     if (!isDocumentMode) return;
-    for (const message of messages) {
-      if (message.role !== "assistant") continue;
-      for (const part of message.parts) {
-        if (
-          part.type === "tool-writeDocument" &&
-          part.state !== "input-streaming" &&
-          part.input &&
-          !processedToolCallsRef.current.has(part.toolCallId)
-        ) {
-          processedToolCallsRef.current.add(part.toolCallId);
-          const content = part.input.content;
-          setDocument(content);
-          saveDocumentToStorage(videoId, mode, content);
-          addToolOutput({
-            tool: "writeDocument",
-            toolCallId: part.toolCallId,
-            output: "Document written successfully.",
-          });
-        }
-      }
+    const outcome = applyDocumentToolCalls({
+      messages,
+      document: documentRef.current,
+      processedToolCallIds: processedToolCallsRef.current,
+    });
+    if (outcome.processedToolCallIds.length === 0) return;
+    for (const id of outcome.processedToolCallIds) {
+      processedToolCallsRef.current.add(id);
     }
-  }, [messages, isDocumentMode, videoId, addToolOutput]);
-
-  // Handle completed editDocument tool calls
-  useEffect(() => {
-    if (!isDocumentMode) return;
-    for (const message of messages) {
-      if (message.role !== "assistant") continue;
-      for (const part of message.parts) {
-        if (
-          part.type === "tool-editDocument" &&
-          part.state !== "input-streaming" &&
-          part.input &&
-          !processedToolCallsRef.current.has(part.toolCallId)
-        ) {
-          processedToolCallsRef.current.add(part.toolCallId);
-          const edits = part.input.edits as DocumentEdit[];
-          const currentDoc = documentRef.current ?? "";
-          const result = applyEdits(currentDoc, edits);
-          if ("error" in result) {
-            addToolOutput({
-              tool: "editDocument",
-              toolCallId: part.toolCallId,
-              output: result.error,
-            });
-          } else {
-            setDocument(result.document);
-            saveDocumentToStorage(videoId, mode, result.document);
-            addToolOutput({
-              tool: "editDocument",
-              toolCallId: part.toolCallId,
-              output: "Document edited successfully.",
-            });
-          }
-        }
-      }
+    setDocument(outcome.document);
+    for (const output of outcome.outputs) {
+      addToolOutput(output);
     }
-  }, [messages, isDocumentMode, videoId, addToolOutput]);
+  }, [messages, isDocumentMode, addToolOutput, setDocument]);
 
-  // Stream document content live during writeDocument tool call
+  // Stream document content live during an in-flight writeDocument call.
   useEffect(() => {
     if (!isDocumentMode) return;
     if (status !== "streaming" && status !== "submitted") return;
-    for (const message of messages) {
-      if (message.role !== "assistant") continue;
-      for (const part of message.parts) {
-        if (
-          part.type === "tool-writeDocument" &&
-          part.state === "input-streaming" &&
-          part.input?.content
-        ) {
-          setDocument(part.input.content);
-        }
-      }
-    }
-  }, [messages, isDocumentMode, status]);
+    const streaming = getStreamingDocument(messages);
+    if (streaming !== undefined) setDocument(streaming);
+  }, [messages, isDocumentMode, status, setDocument]);
 
-  const clearDocument = () => {
-    setDocument(undefined);
-    saveDocumentToStorage(videoId, mode, undefined);
+  /** Drop the session's work and return to the loader's value. */
+  const resetDocument = useCallback(() => {
+    setDocument(initialDocument);
     processedToolCallsRef.current.clear();
-  };
+  }, [initialDocument, setDocument]);
 
-  const saveDocument = () => {
-    if (document) {
-      saveDocumentToStorage(videoId, mode, document);
-    }
-  };
-
-  const updateDocument = useCallback(
-    (content: string) => {
-      setDocument(content);
-      saveDocumentToStorage(videoId, mode, content);
-    },
-    [videoId, mode]
-  );
-
-  return { document, documentRef, clearDocument, saveDocument, updateDocument };
+  return { document, documentRef, resetDocument, updateDocument: setDocument };
 }

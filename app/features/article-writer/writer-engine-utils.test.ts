@@ -1,11 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   getFieldMessagesStorageKey,
-  getFieldDocumentStorageKey,
   loadFieldMessages,
   saveFieldMessages,
-  loadFieldDocument,
-  saveFieldDocument,
   constrainModes,
   FIELD_MODES,
   FIELD_LABELS,
@@ -47,22 +44,6 @@ describe("conversation keying by (videoId, fieldId, mode)", () => {
     const k2 = getFieldMessagesStorageKey("v2", "ai-hero-body", "article");
     expect(k1).not.toBe(k2);
   });
-
-  it("generates distinct document keys for different fields", () => {
-    const k1 = getFieldDocumentStorageKey("v1", "ai-hero-body", "article");
-    const k2 = getFieldDocumentStorageKey(
-      "v1",
-      "newsletter-copy",
-      "newsletter"
-    );
-    expect(k1).not.toBe(k2);
-  });
-
-  it("message and document keys for the same triple are different", () => {
-    const mk = getFieldMessagesStorageKey("v1", "ai-hero-body", "article");
-    const dk = getFieldDocumentStorageKey("v1", "ai-hero-body", "article");
-    expect(mk).not.toBe(dk);
-  });
 });
 
 describe("field messages localStorage persistence", () => {
@@ -95,31 +76,6 @@ describe("field messages localStorage persistence", () => {
     expect(loadFieldMessages("v1", "skills-changelog-body", "article")).toEqual(
       [{ id: 2 }]
     );
-  });
-});
-
-describe("field document localStorage persistence", () => {
-  beforeEach(() => {
-    vi.stubGlobal("localStorage", createMockLocalStorage());
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("loads undefined when nothing stored", () => {
-    expect(loadFieldDocument("v1", "ai-hero-body", "article")).toBeUndefined();
-  });
-
-  it("round-trips document content", () => {
-    saveFieldDocument("v1", "ai-hero-body", "article", "# Hello");
-    expect(loadFieldDocument("v1", "ai-hero-body", "article")).toBe("# Hello");
-  });
-
-  it("removes document when saved as undefined", () => {
-    saveFieldDocument("v1", "ai-hero-body", "article", "# Hello");
-    saveFieldDocument("v1", "ai-hero-body", "article", undefined);
-    expect(loadFieldDocument("v1", "ai-hero-body", "article")).toBeUndefined();
   });
 });
 

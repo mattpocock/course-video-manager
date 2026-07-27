@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   loadFieldMessages,
   saveFieldMessages,
-  loadFieldDocument,
-  saveFieldDocument,
   FIELD_MODES,
   constrainModes,
 } from "./writer-engine-utils";
@@ -18,7 +16,7 @@ function createMockLocalStorage() {
     get length() {
       return store.size;
     },
-    key: (_index: number) => null,
+    key: (index: number) => [...store.keys()][index] ?? null,
   } satisfies Storage;
 }
 
@@ -98,18 +96,10 @@ describe("WritableField Apply/Cancel semantics", () => {
     });
   });
 
-  describe("Apply uses working document value", () => {
-    it("document value persisted during session is available for apply", () => {
-      const videoId = "v1";
-      const fieldId = "ai-hero-body" as const;
-      const mode = "article" as const;
-
-      saveFieldDocument(videoId, fieldId, mode, "# Draft article");
-
-      const workingValue = loadFieldDocument(videoId, fieldId, mode);
-      expect(workingValue).toBe("# Draft article");
-    });
-
+  describe("Apply/Cancel act on messages only", () => {
+    // The document itself is not persisted — the route loader owns it, and the
+    // fold that keeps a restored conversation from overwriting it is covered in
+    // document-tool-calls.test.ts.
     it("apply does not revert messages (only cancel does)", () => {
       const videoId = "v1";
       const fieldId = "skills-changelog-body" as const;
@@ -186,16 +176,14 @@ describe("WritableField keying isolation", () => {
     ]);
   });
 
-  it("documents are keyed independently from messages", () => {
+  it("stores nothing but conversations", () => {
     saveFieldMessages("v1", "ai-hero-body", "article", [{ id: "msg" }]);
-    saveFieldDocument("v1", "ai-hero-body", "article", "# Document");
 
-    expect(loadFieldMessages("v1", "ai-hero-body", "article")).toEqual([
-      { id: "msg" },
-    ]);
-    expect(loadFieldDocument("v1", "ai-hero-body", "article")).toBe(
-      "# Document"
-    );
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      keys.push(localStorage.key(i)!);
+    }
+    expect(keys).toEqual(["writer-field-messages-v1-ai-hero-body-article"]);
   });
 });
 

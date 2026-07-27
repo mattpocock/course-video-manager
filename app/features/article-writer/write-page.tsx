@@ -212,9 +212,11 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     }
   }, [blocker]);
 
-  const { document, documentRef, clearDocument, saveDocument, updateDocument } =
+  // No persisted document backs this page — it is a scratchpad whose output is
+  // exported explicitly (Apply / write-to-readme / copy), so the document lives
+  // in memory only. The conversation still survives a reload.
+  const { document, documentRef, resetDocument, updateDocument } =
     useDocumentFlow({
-      videoId,
       mode,
       isDocumentMode,
       messages,
@@ -357,7 +359,6 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
 
     if (transitionedToReady) {
       saveMessagesToStorage(videoId, mode, messages);
-      if (isDocumentMode) saveDocument();
       return;
     }
 
@@ -367,7 +368,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     if (isDocumentMode && status === "ready" && messages.length > 0) {
       saveMessagesToStorage(videoId, mode, messages);
     }
-  }, [status, videoId, mode, messages, isDocumentMode, saveDocument]);
+  }, [status, videoId, mode, messages, isDocumentMode]);
 
   const handleModeChange = (newMode: Mode) => {
     if (messages.length > 0) {
@@ -397,7 +398,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     setMessages([]);
     clearQueue();
     saveMessagesToStorage(videoId, mode, []);
-    if (isDocumentMode) clearDocument();
+    if (isDocumentMode) resetDocument();
   };
 
   const getBodyPayload = useCallback(() => {

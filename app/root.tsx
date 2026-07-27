@@ -27,7 +27,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { purgeLegacyDocumentStorage } from "@/features/article-writer/write-utils";
 import { UploadProvider } from "@/features/upload-manager/upload-context";
 import { GlobalUploadProgress } from "@/features/upload-manager/global-upload-progress";
 import { FeedbackModal } from "@/components/feedback-modal";
@@ -73,6 +74,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  // Sweep up writer documents left behind by the retired localStorage
+  // persistence, so no stale draft can resurface over a newer saved value.
+  useEffect(purgeLegacyDocumentStorage, []);
   // The teleprompter window is pointed at a camera lens, so
   // no app chrome belongs on it.
   const isTeleprompter = useLocation().pathname.startsWith("/teleprompter");

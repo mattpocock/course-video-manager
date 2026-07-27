@@ -30,7 +30,6 @@ import {
   constrainModes,
   loadFieldMessages,
   saveFieldMessages,
-  saveFieldDocument,
 } from "./writer-engine-utils";
 import { useContextModel } from "./use-context-model";
 import { useMemoryAutosave } from "./use-memory-autosave";
@@ -149,50 +148,20 @@ export function WriterEngine({
     [addToolOutput]
   );
 
-  const {
-    document,
-    documentRef,
-    clearDocument: rawClearDocument,
-    saveDocument: rawSaveDocument,
-    updateDocument: rawUpdateDocument,
-  } = useDocumentFlow({
-    videoId,
-    mode,
-    isDocumentMode,
-    messages,
-    status,
-    addToolOutput: wrappedAddToolOutput,
-  });
-
-  const seeded = useRef(false);
-  useEffect(() => {
-    if (seeded.current) return;
-    if (initialDocument && !document) {
-      rawUpdateDocument(initialDocument);
-      seeded.current = true;
-    }
-  }, [initialDocument, document, rawUpdateDocument]);
-
-  const updateDocument = useCallback(
-    (content: string) => {
-      rawUpdateDocument(content);
-      saveFieldDocument(videoId, fieldId, mode, content);
-      onDocumentChange?.(content);
-    },
-    [rawUpdateDocument, videoId, fieldId, mode, onDocumentChange]
-  );
-
-  const clearDocument = useCallback(() => {
-    rawClearDocument();
-    saveFieldDocument(videoId, fieldId, mode, undefined);
-  }, [rawClearDocument, videoId, fieldId, mode]);
-
-  const saveDocument = useCallback(() => {
-    if (document) {
-      rawSaveDocument();
-      saveFieldDocument(videoId, fieldId, mode, document);
-    }
-  }, [rawSaveDocument, videoId, fieldId, mode, document]);
+  // The document is seeded from — and only from — the persisted value handed
+  // down by the host's route loader. It is never written to localStorage: a
+  // stored draft would shadow the loader and could be applied over a newer
+  // value. Only the conversation survives a reload.
+  const { document, documentRef, resetDocument, updateDocument } =
+    useDocumentFlow({
+      initialDocument,
+      mode,
+      isDocumentMode,
+      messages,
+      status,
+      addToolOutput: wrappedAddToolOutput,
+      onDocumentChange,
+    });
 
   // Screenshot support
   const handleDocCapture = useCallback(
@@ -311,14 +280,13 @@ export function WriterEngine({
 
     if (transitionedToReady) {
       saveFieldMessages(videoId, fieldId, mode, messages);
-      if (isDocumentMode) saveDocument();
       return;
     }
 
     if (isDocumentMode && status === "ready" && messages.length > 0) {
       saveFieldMessages(videoId, fieldId, mode, messages);
     }
-  }, [status, videoId, fieldId, mode, messages, isDocumentMode, saveDocument]);
+  }, [status, videoId, fieldId, mode, messages, isDocumentMode]);
 
   const handleModeChange = (newMode: Mode) => {
     if (modes.length > 0 && !modes.includes(newMode)) return;
@@ -414,7 +382,9 @@ export function WriterEngine({
     setMessages([]);
     clearQueue();
     saveFieldMessages(videoId, fieldId, mode, []);
-    if (isDocumentMode) clearDocument();
+    // Clearing the chat throws away the session's AI work; the document goes
+    // back to the persisted value rather than blank.
+    if (isDocumentMode) resetDocument();
   };
 
   const handleFixLintViolations = useCallback(() => {

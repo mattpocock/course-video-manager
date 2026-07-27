@@ -37,13 +37,9 @@ export function getFieldMessagesStorageKey(
   return `writer-field-messages-${videoId}-${fieldId}-${mode}`;
 }
 
-export function getFieldDocumentStorageKey(
-  videoId: string,
-  fieldId: WriterFieldId,
-  mode: Mode
-): string {
-  return `writer-field-document-${videoId}-${fieldId}-${mode}`;
-}
+// Only the conversation is persisted. A field's document is owned by the route
+// loader (i.e. the database) and held in memory for the life of the writer —
+// see `useDocumentFlow`.
 
 export function loadFieldMessages(
   videoId: string,
@@ -73,41 +69,6 @@ export function saveFieldMessages(
       getFieldMessagesStorageKey(videoId, fieldId, mode),
       JSON.stringify(messages)
     );
-  } catch {
-    // ignore
-  }
-}
-
-export function loadFieldDocument(
-  videoId: string,
-  fieldId: WriterFieldId,
-  mode: Mode
-): string | undefined {
-  if (typeof localStorage === "undefined") return undefined;
-  try {
-    const saved = localStorage.getItem(
-      getFieldDocumentStorageKey(videoId, fieldId, mode)
-    );
-    return saved ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export function saveFieldDocument(
-  videoId: string,
-  fieldId: WriterFieldId,
-  mode: Mode,
-  document: string | undefined
-): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    const key = getFieldDocumentStorageKey(videoId, fieldId, mode);
-    if (document === undefined) {
-      localStorage.removeItem(key);
-    } else {
-      localStorage.setItem(key, document);
-    }
   } catch {
     // ignore
   }
