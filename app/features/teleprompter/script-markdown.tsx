@@ -22,10 +22,11 @@ const COMPONENTS: Components = {
     <ol className="list-inside list-decimal">{children}</ol>
   ),
   li: ({ children }) => <li className="mb-2 last:mb-0">{children}</li>,
-  // Explicit weights: the body text is deliberately light, and `bolder` would
-  // only be one step up from it.
+  // Semibold rather than bold, and explicit rather than `bolder`: against a 300
+  // body it's already a wide gap, and a true 700 blooms through the glass —
+  // which is exactly what the light body weight is there to avoid.
   strong: ({ children }) => (
-    <strong style={{ fontWeight: 700 }}>{children}</strong>
+    <strong style={{ fontWeight: 600 }}>{children}</strong>
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
   code: ({ children }) => (
