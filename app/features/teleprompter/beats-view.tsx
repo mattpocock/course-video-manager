@@ -4,14 +4,16 @@
  * Beats aren't prose — they're a dozen short Title-Case labels with a sentence
  * of description each — so nothing about the script's crawl applies here.
  * Nothing moves on its own and play/pause does nothing: the whole plan is on
- * the glass at once, every beat showing its description, with the current one
- * spotlit. Rows never expand or collapse, so the plan you glanced at a second
- * ago is still in the same place.
+ * the glass at once, every beat showing its description at full strength.
+ * Nothing dims and no row expands or collapses, so the beat you glanced at a
+ * second ago is still where you left it, still legible. Position is carried by
+ * scroll alone rather than by fading the beats around it.
  *
  * Kind icons and labels are imported from the real Beats tab rather than
  * redrawn, so the plan reads the same on the glass as it does in the editor.
  *
- * Stream Deck: advance/back move the spotlight, reset returns to the top.
+ * Stream Deck: advance/back scroll to the next/previous beat, reset returns to
+ * the top.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -93,10 +95,9 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
           {beats.map((beat, i) => {
             const kind = asBeatKind(beat.kind);
             const Icon = BEAT_KIND_ICONS[kind];
-            const isActive = i === activeIndex;
-            // Every beat reads at the script's size — this is glass at arm's
-            // length, and anything smaller isn't readable from where you stand.
-            // Position is carried by opacity alone.
+            // Every beat reads at the script's size, at full strength — this
+            // is glass at arm's length, and anything dimmed or smaller isn't
+            // readable from where you stand.
             const titleSize = TYPE.fontSize;
 
             return (
@@ -113,13 +114,6 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                 // depend on that.
                 onClick={() => setActiveIndex(i)}
                 className="mb-6 flex cursor-pointer gap-3"
-                style={{
-                  opacity: isActive ? 1 : 0.3,
-                  transition: "opacity 180ms ease",
-                  // Done beats fade further than upcoming ones — the plan reads
-                  // as a position, not just a list.
-                  ...(i < activeIndex ? { opacity: 0.16 } : {}),
-                }}
               >
                 {/* Centred inside a box exactly one line tall, so the icon sits
                     on the title's first line whatever the size or line height. */}
