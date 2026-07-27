@@ -1,6 +1,4 @@
 /**
- * PROTOTYPE — throwaway.
- *
  * The icon-only twin of the editor's recording badge, so capture state is
  * readable from behind the lens without looking back at the main screen.
  *
@@ -10,7 +8,7 @@
  * point: you should not have to learn a second vocabulary while filming.
  */
 import { CheckIcon, Loader2, MicIcon, MicOffIcon } from "lucide-react";
-import type { CaptureStatus } from "@/lib/teleprompter-prototype-protocol";
+import type { CaptureStatus } from "@/lib/teleprompter-protocol";
 
 const PRESENTATION: Record<
   CaptureStatus,

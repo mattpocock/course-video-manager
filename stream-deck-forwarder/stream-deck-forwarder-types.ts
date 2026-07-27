@@ -7,8 +7,7 @@ export const streamDeckForwarderMessageSchema = z.object({
     "toggle-pause",
     "add-chapter",
     "clear-all-archived",
-    // PROTOTYPE (teleprompter) — consumed only by the throwaway
-    // /teleprompter-prototype route. The Video Editor's use-websocket dispatch
+    // Consumed only by the /teleprompter route. The Video Editor's dispatch
     // is an if/else chain, so it ignores these rather than throwing.
     "teleprompter-advance",
     "teleprompter-back",

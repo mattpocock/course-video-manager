@@ -11,10 +11,10 @@ import {
   subscribeTeleprompterParent,
   type CaptureStatus,
   type TeleprompterChildToParentMessage,
-} from "./teleprompter-prototype-protocol";
+} from "./teleprompter-protocol";
 
-const TELEPROMPTER_PATH = "/teleprompter-prototype";
-const WINDOW_NAME = "cvm-teleprompter-prototype";
+const TELEPROMPTER_PATH = "/teleprompter";
+const WINDOW_NAME = "cvm-teleprompter";
 // Sized to the Elgato Prompter's panel (9", 1024x600) so what you judge in the
 // popup is what you'll get on the glass.
 const POPUP_FEATURES = "popup,width=1024,height=600";

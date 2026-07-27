@@ -1,4 +1,6 @@
+import { realpathSync } from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
@@ -29,7 +31,23 @@ const COMMON_EXCLUDE = [
   "packages/**",
 ];
 
+// Git worktrees symlink node_modules back to the main checkout. Vite's dev-time
+// file guard resolves symlinks before checking, so the real path lands outside
+// the project root and every dependency — including the React Router client
+// entry — comes back 403. The page still renders but never hydrates, which
+// presents as "buttons don't work" rather than as a server error.
+function serveRoots(): string[] {
+  const roots = [path.resolve(".")];
+  try {
+    roots.push(realpathSync(path.resolve("node_modules")));
+  } catch {
+    // No node_modules to resolve (fresh clone, or a test run) — nothing to add.
+  }
+  return roots;
+}
+
 export default defineConfig({
+  server: { fs: { allow: serveRoots() } },
   plugins:
     process.env.NODE_ENV === "test"
       ? [tsconfigPaths()]

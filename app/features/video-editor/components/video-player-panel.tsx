@@ -1,4 +1,3 @@
-import { AddVideoModal } from "@/components/add-video-modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
@@ -7,9 +6,9 @@ import { SilenceLengthToggle } from "./silence-length-toggle";
 import { RecordingSignalIndicator } from "./timeline-indicators";
 import { TableOfContents } from "./table-of-contents";
 import {
-  SuggestionsPanel,
-  type SuggestionsPanelProps,
-} from "./suggestions-panel";
+  DeferredAddVideoModal,
+  DeferredSuggestionsPanel,
+} from "./deferred-fs-panels";
 import { ActionsDropdown } from "./actions-dropdown";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
 import { GenerateSeoDescriptionModal } from "@/features/lesson-writer/generate-seo-description-modal";
@@ -34,7 +33,6 @@ import {
 } from "../video-editor-context";
 import {
   Suspense,
-  use,
   useState,
   useMemo,
   useCallback,
@@ -52,8 +50,7 @@ import {
   openPlayground,
   openPlaygroundWithDiagram,
 } from "@/lib/diagram-window";
-// PROTOTYPE (teleprompter) — remove along with the prototype.
-import { openTeleprompter } from "@/lib/teleprompter-prototype-window";
+import { openTeleprompter } from "@/lib/teleprompter-window";
 
 export const VideoPlayerPanel = () => {
   const videoTitle = useContextSelector(
@@ -617,33 +614,5 @@ export const VideoPlayerPanel = () => {
         />
       )}
     </>
-  );
-};
-
-type FsData = Promise<{
-  hasExplainerFolder: boolean;
-  standaloneFiles: Array<{ path: string }>;
-  files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
-}>;
-
-const DeferredSuggestionsPanel = (
-  props: Omit<SuggestionsPanelProps, "files"> & { fsData: FsData }
-) => {
-  const { fsData: fsDataPromise, ...rest } = props;
-  const fsData = use(fsDataPromise);
-  return <SuggestionsPanel {...rest} files={fsData.files} />;
-};
-
-const DeferredAddVideoModal = (props: {
-  fsData: FsData;
-  lessonId?: string;
-  videoCount: number;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) => {
-  const { fsData: fsDataPromise, ...rest } = props;
-  const fsData = use(fsDataPromise);
-  return (
-    <AddVideoModal {...rest} hasExplainerFolder={fsData.hasExplainerFolder} />
   );
 };

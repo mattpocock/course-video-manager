@@ -1,6 +1,4 @@
 /**
- * PROTOTYPE — throwaway.
- *
  * Everything the teleprompter can put on the glass, for one video, in one call:
  * the Script and the Beat plan. Polled every few seconds so edits made in the
  * main window appear without a reload.

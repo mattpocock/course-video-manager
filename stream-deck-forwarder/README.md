@@ -17,10 +17,9 @@ Bridges Stream Deck button presses to the video editor via WebSocket.
 | Add Chapter        | `GET /api/add-chapter`                | Opens the chapter naming modal                                     |
 | Clear All Archived | `GET /api/clear-all-archived`         | Clears all deleted clips and orphans across all recording sessions |
 
-### Teleprompter (PROTOTYPE — remove along with the prototype)
+### Teleprompter
 
-Consumed only by `/teleprompter-prototype`; the Video Editor ignores them. See
-`app/features/teleprompter-prototype/README.md`.
+Consumed only by `/teleprompter`; the Video Editor ignores them.
 
 | Action     | HTTP Endpoint                       | Description                      |
 | ---------- | ----------------------------------- | -------------------------------- |

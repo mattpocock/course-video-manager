@@ -92,7 +92,7 @@ export const ActionsDropdown = (props: {
   onGenerateChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
   onOpenDiagramPlayground: () => void;
-  /** PROTOTYPE (teleprompter) — remove along with the prototype. */
+  /** Open the teleprompter window, which follows whatever video is open here */
   onOpenTeleprompter: () => void;
   /** Open the AI Writer on the lesson body (only when lesson-bound) */
   onEditLessonBodyClick: () => void;
@@ -312,7 +312,7 @@ export const ActionsDropdown = (props: {
         <DropdownMenuItem onSelect={props.onOpenTeleprompter}>
           <MonitorSpeaker className="w-4 h-4 mr-2" />
           <div className="flex flex-col">
-            <span className="font-medium">Open Teleprompter (prototype)</span>
+            <span className="font-medium">Open Teleprompter</span>
             <span className="text-xs text-muted-foreground">
               Follows whichever video this editor has open
             </span>

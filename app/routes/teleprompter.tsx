@@ -1,50 +1,40 @@
 /**
- * PROTOTYPE — throwaway. See app/features/teleprompter-prototype/README.md.
+ * The teleprompter window: the current video's Script (or Beat plan) on an
+ * Elgato Prompter, following whatever the Video Editor has open.
  *
- * The teleprompter popup. A top-level flat route (no `_app.` prefix) so it
- * renders bare with no sidebar, exactly like `diagram-playground.*`.
+ * A top-level flat route (no `_app.` prefix) so it renders bare with no
+ * sidebar, exactly like `diagram-playground.*`.
  *
  * There is no videoId in the URL and no picker, by design: the window shows
  * whatever the Video Editor currently has open, learned over BroadcastChannel,
  * and shows an empty state when the editor has nothing. That means no loader —
  * the server doesn't know which video this is until the editor says so.
- *
- * Two things are under evaluation, and they're separable:
- *   1. Beats or Script on the glass  → the visible tab (?source=)
- *   2. Which reading model for prose → ?variant=A|B|C
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   subscribeTeleprompterChild,
   sendToEditor,
   type CaptureStatus,
-} from "@/lib/teleprompter-prototype-protocol";
-import {
-  parseScriptBlocks,
-  splitIntoSteps,
-} from "@/features/teleprompter-prototype/script-blocks";
-import { CaptureIndicator } from "@/features/teleprompter-prototype/capture-indicator";
-import { PrototypeSwitcher } from "@/features/teleprompter-prototype/prototype-switcher";
+} from "@/lib/teleprompter-protocol";
+import { parseScriptBlocks } from "@/features/teleprompter/script-blocks";
+import { CaptureIndicator } from "@/features/teleprompter/capture-indicator";
+import { TeleprompterControls } from "@/features/teleprompter/teleprompter-controls";
 import {
   useTeleprompterSettings,
-  type PrototypeSettings,
-} from "@/features/teleprompter-prototype/prototype-settings";
+  type TeleprompterSettings,
+} from "@/features/teleprompter/teleprompter-settings";
 import {
   BeatsView,
   type TeleprompterBeat,
-} from "@/features/teleprompter-prototype/beats-view";
-import { VariantCrawl } from "@/features/teleprompter-prototype/variant-crawl";
-import { VariantStepper } from "@/features/teleprompter-prototype/variant-stepper";
-import { VariantBand } from "@/features/teleprompter-prototype/variant-band";
-import type { Route } from "./+types/teleprompter-prototype";
+} from "@/features/teleprompter/beats-view";
+import { TeleprompterCrawl } from "@/features/teleprompter/teleprompter-crawl";
+import type { Route } from "./+types/teleprompter";
 
 const PING_INTERVAL_MS = 2000;
 const POLL_INTERVAL_MS = 3000;
 const EDITOR_ALIVE_MS = 5000;
 
-export const meta: Route.MetaFunction = () => [
-  { title: "Teleprompter (prototype)" },
-];
+export const meta: Route.MetaFunction = () => [{ title: "Teleprompter" }];
 
 type Content = {
   title: string;
@@ -54,7 +44,7 @@ type Content = {
 
 const EMPTY_CONTENT: Content = { title: "", script: "", beats: [] };
 
-export default function TeleprompterPrototype() {
+export default function Teleprompter() {
   const [settings, updateSetting] = useTeleprompterSettings();
 
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -111,9 +101,7 @@ export default function TeleprompterPrototype() {
 
     const load = async () => {
       try {
-        const res = await fetch(
-          `/api/teleprompter-prototype/${videoId}/content`
-        );
+        const res = await fetch(`/api/teleprompter/${videoId}/content`);
         if (!res.ok || cancelled) return;
         const json = (await res.json()) as Content;
         if (cancelled) return;
@@ -142,7 +130,6 @@ export default function TeleprompterPrototype() {
     () => parseScriptBlocks(content.script),
     [content.script]
   );
-  const steps = useMemo(() => splitIntoSteps(blocks), [blocks]);
 
   // --- Source: script wins, unless you've said otherwise for this video ------
   // A video with a written script should land on the script; only a video
@@ -154,9 +141,9 @@ export default function TeleprompterPrototype() {
   }, [videoId]);
 
   const changeSetting = useCallback(
-    <K extends keyof PrototypeSettings>(
+    <K extends keyof TeleprompterSettings>(
       key: K,
-      value: PrototypeSettings[K]
+      value: TeleprompterSettings[K]
     ) => {
       if (key === "source") sourcePinned.current = true;
       updateSetting(key, value);
@@ -206,16 +193,12 @@ export default function TeleprompterPrototype() {
           <p className="max-w-md text-white/35">{emptyMessage}</p>
         </div>
       ) : settings.source === "beats" ? (
-        <BeatsView beats={content.beats} settings={settings} />
-      ) : settings.variant === "A" ? (
-        <VariantCrawl blocks={blocks} settings={settings} />
-      ) : settings.variant === "B" ? (
-        <VariantStepper steps={steps} settings={settings} />
+        <BeatsView beats={content.beats} />
       ) : (
-        <VariantBand blocks={blocks} settings={settings} />
+        <TeleprompterCrawl blocks={blocks} settings={settings} />
       )}
 
-      <PrototypeSwitcher
+      <TeleprompterControls
         settings={settings}
         onChange={changeSetting}
         status={status}

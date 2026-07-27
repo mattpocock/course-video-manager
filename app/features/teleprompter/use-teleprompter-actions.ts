@@ -1,7 +1,5 @@
 /**
- * PROTOTYPE — throwaway.
- *
- * One input surface for all three variants: Stream Deck presses (over the
+ * One input surface: Stream Deck presses (over the
  * forwarder hub at ws://localhost:5172) and the equivalent keyboard shortcuts,
  * so the feel can be judged without touching Stream Deck config first.
  *
@@ -11,10 +9,7 @@
  *   advance / back  →  Stream Deck /api/teleprompter-advance | -back  ·  J/K, ↓/↑, Space
  *   togglePlay      →  /api/teleprompter-toggle-play                  ·  P
  *   reset           →  /api/teleprompter-reset                        ·  R
- *
- * Note ← / → are NOT bound here: the prototype switcher owns them for cycling
- * variants.
- */
+ * */
 import { useEffect, useRef } from "react";
 import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
 

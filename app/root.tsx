@@ -73,11 +73,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
-  // PROTOTYPE (teleprompter): that window is pointed at a camera lens, so
-  // nothing app-chrome belongs on it. Remove with the prototype.
-  const isTeleprompter = useLocation().pathname.startsWith(
-    "/teleprompter-prototype"
-  );
+  // The teleprompter window is pointed at a camera lens, so
+  // no app chrome belongs on it.
+  const isTeleprompter = useLocation().pathname.startsWith("/teleprompter");
 
   return (
     <UploadProvider>

@@ -1,9 +1,9 @@
 /**
- * PROTOTYPE — throwaway. The Beats reading model.
+ * The Beats plan on the glass.
  *
  * Beats aren't prose — they're a dozen short Title-Case labels with a sentence
- * of description each — so none of the three script variants apply. A crawl
- * through twelve bullet points is meaningless. This is the one sensible shape:
+ * of description each — so the script's crawl doesn't apply. A crawl through
+ * twelve bullet points is meaningless. This is the shape that works:
  * the whole plan visible as a checklist, the current beat spotlit and expanded
  * to show its description, everything else collapsed to its title.
  *
@@ -21,7 +21,7 @@ import {
   type BeatKind,
 } from "@/features/beats/beat-kinds";
 import { useTeleprompterActions } from "./use-teleprompter-actions";
-import { textStyle, type PrototypeSettings } from "./prototype-settings";
+import { TYPE, textStyle } from "./teleprompter-settings";
 
 export type TeleprompterBeat = {
   id: string;
@@ -36,11 +36,8 @@ function asBeatKind(kind: string): BeatKind {
     : (DEFAULT_BEAT_KIND as BeatKind);
 }
 
-export function BeatsView(props: {
-  beats: TeleprompterBeat[];
-  settings: PrototypeSettings;
-}) {
-  const { beats, settings } = props;
+export function BeatsView(props: { beats: TeleprompterBeat[] }) {
+  const { beats } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const [activeIndex, setActiveIndex] = useState(0);
@@ -68,34 +65,27 @@ export function BeatsView(props: {
     const scroller = scrollRef.current;
     const row = beat ? rowRefs.current.get(beat.id) : undefined;
     if (!scroller || !row) return;
-    const anchor = (scroller.clientHeight * settings.readLine) / 100;
+    const anchor = (scroller.clientHeight * TYPE.readLine) / 100;
     scroller.scrollTo({
       top: row.offsetTop - anchor + row.clientHeight / 2,
       behavior: "smooth",
     });
-  }, [
-    activeIndex,
-    beats,
-    settings.readLine,
-    showDescriptions,
-    settings.fontSize,
-  ]);
+  }, [activeIndex, beats, showDescriptions]);
 
-  const base = textStyle(settings);
+  const base = textStyle();
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
       <div
         ref={scrollRef}
         className="h-full w-full overflow-y-scroll [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{ transform: settings.mirror ? "scaleX(-1)" : undefined }}
       >
         <div
           className="mx-auto"
           style={{
-            width: `${settings.measure}ch`,
+            width: `${TYPE.measure}ch`,
             maxWidth: "92vw",
-            paddingTop: `${settings.readLine}vh`,
+            paddingTop: `${TYPE.readLine}vh`,
             paddingBottom: "70vh",
           }}
         >
@@ -103,7 +93,7 @@ export function BeatsView(props: {
             const kind = asBeatKind(beat.kind);
             const Icon = BEAT_KIND_ICONS[kind];
             const isActive = i === activeIndex;
-            const titleSize = settings.fontSize * (isActive ? 1 : 0.62);
+            const titleSize = TYPE.fontSize * (isActive ? 1 : 0.62);
 
             return (
               <div
@@ -132,7 +122,7 @@ export function BeatsView(props: {
                 <span
                   className="flex shrink-0 items-center justify-center"
                   style={{
-                    height: `${titleSize * settings.lineHeight}px`,
+                    height: `${titleSize * TYPE.lineHeight}px`,
                     width: titleSize * 0.62,
                   }}
                 >
@@ -160,12 +150,12 @@ export function BeatsView(props: {
                       style={{
                         ...base,
                         textAlign: "left",
-                        fontSize: `${settings.fontSize * 0.55}px`,
+                        fontSize: `${TYPE.fontSize * 0.55}px`,
                         // A step back from the title rather than a dimmer copy
                         // of it: the description is context, not the line you
                         // read off the glass.
                         color: "#9ca3af",
-                        marginTop: settings.fontSize * 0.2,
+                        marginTop: TYPE.fontSize * 0.2,
                       }}
                     >
                       {beat.description}

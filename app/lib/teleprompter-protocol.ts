@@ -1,6 +1,4 @@
 /**
- * PROTOTYPE — throwaway. See app/features/teleprompter-prototype/README.md.
- *
  * Transport between the Video Editor and the teleprompter popup, cloned from
  * `diagram-protocol.ts` (BroadcastChannel, same-origin, no server). Deliberately
  * a SEPARATE channel name from "cvm-diagrams" so the two popups never parse each
@@ -63,7 +61,7 @@ export type TeleprompterChildToParentMessage = z.infer<
   typeof TeleprompterChildToParent
 >;
 
-const CHANNEL_NAME = "cvm-teleprompter-prototype";
+const CHANNEL_NAME = "cvm-teleprompter";
 
 let sendChannel: BroadcastChannel | null = null;
 function getSendChannel(): BroadcastChannel | null {
