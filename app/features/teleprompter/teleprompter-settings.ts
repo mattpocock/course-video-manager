@@ -48,11 +48,11 @@ export const TYPE = {
    */
   color: "var(--color-orange-100)",
   /**
-   * What the script marks bold. Cool against the warm body, so emphasis is
-   * visible in peripheral vision before you reach the words — weight alone only
-   * registers once you're looking straight at it.
+   * What the script marks bold. Carried by hue rather than weight, so emphasis
+   * is visible in peripheral vision before you reach the words — weight alone
+   * only registers once you're looking straight at it.
    */
-  boldColor: "var(--color-sky-300)",
+  boldColor: "var(--color-yellow-200)",
   /** Where the live line sits, as a % of viewport height. */
   readLine: 42,
 } as const;

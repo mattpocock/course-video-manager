@@ -23,11 +23,12 @@ const COMPONENTS: Components = {
     <ol className="list-inside list-decimal">{children}</ol>
   ),
   li: ({ children }) => <li className="mb-2 last:mb-0">{children}</li>,
-  // Semibold rather than bold, and explicit rather than `bolder`: against a 300
-  // body it's already a wide gap, and a true 700 blooms through the glass —
-  // which is exactly what the light body weight is there to avoid.
+  // Medium, and explicit rather than `bolder`. Most of the emphasis is doing
+  // its work through colour now, so the weight only has to be a nudge — and a
+  // heavy face blooms through the glass, which is what the light body is there
+  // to avoid in the first place.
   strong: ({ children }) => (
-    <strong style={{ fontWeight: 600, color: TYPE.boldColor }}>
+    <strong style={{ fontWeight: 500, color: TYPE.boldColor }}>
       {children}
     </strong>
   ),
