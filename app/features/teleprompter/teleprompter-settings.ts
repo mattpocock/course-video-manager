@@ -23,7 +23,12 @@ export const TYPE = {
    * the browser synthesises, which thins the strokes unevenly.
    */
   fontWeight: 300,
-  lineHeight: 1.55,
+  /**
+   * Generous. Light justified type on a narrow measure needs the horizontal
+   * white between words to be clearly outweighed by the white between lines,
+   * or the eye starts reading down the gaps instead of across the line.
+   */
+  lineHeight: 1.8,
   letterSpacing: 0,
   /** Measure in `ch`. Short lines are the biggest teleprompter lever there is. */
   measure: 25,
