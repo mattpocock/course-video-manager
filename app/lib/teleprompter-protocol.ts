@@ -7,16 +7,24 @@
  * Two differences from the diagram protocol, both because the teleprompter is a
  * pure slave to the editor:
  *
- *   - There is no "load this video" command and no picker. `pong` carries the
- *     editor's current videoId, so the main window is unconditionally the source
- *     of truth for what's on the glass. No video open in the editor means an
- *     empty teleprompter.
- *   - `pong` also carries capture state, mirroring the editor's recording +
- *     silence-detection indicator so the same status is visible on the glass,
+ *   - There is no "load this video" command and no picker. `editorState` carries
+ *     the editor's current videoId, so the main window is unconditionally the
+ *     source of truth for what's on the glass. No video open in the editor means
+ *     an empty teleprompter.
+ *   - `editorState` also carries capture state, mirroring the editor's recording
+ *     + silence-detection indicator so the same status is visible on the glass,
  *     and the side panel's active tab, so the glass shows whichever of Script
  *     or Beats you're looking at in the editor.
  *
- * Nothing flows back the other way: the teleprompter never reports position.
+ * State is **pushed, not polled**. `editorState` goes out when it changes, so
+ * the glass is never more than a message behind the editor. The ping/pong
+ * heartbeat exists only to answer "is the editor still there" — a pong carries
+ * nothing, and a popup that is already attached learns everything by push.
+ * `hello` is the handshake for the other join order: a popup opened after the
+ * editor mounted missed the mount push, so it asks once, and keeps asking only
+ * while it believes nobody is on the other end.
+ *
+ * Nothing else flows back the other way: the teleprompter never reports position.
  */
 import { z } from "zod";
 
@@ -44,26 +52,25 @@ export const EditorTab = z.enum(["beats", "reference", "script"]);
 export type EditorTab = z.infer<typeof EditorTab>;
 
 export const TeleprompterParentToChild = z.discriminatedUnion("type", [
-  /** Editor answering a ping: what it has open, and what capture is doing. */
+  /**
+   * What the editor has open, what capture is doing, and which tab it's showing.
+   * Pushed whenever any of the three changes — plus once on editor mount, and
+   * once in answer to a `hello`. Never sent on a timer.
+   */
   z.object({
-    type: z.literal("pong"),
+    type: z.literal("editorState"),
     videoId: z.string().nullable(),
     capture: CaptureStatus,
     tab: EditorTab,
   }),
-  /** Sent on editor mount so the popup catches up without waiting a beat. */
-  z.object({
-    type: z.literal("editorConnected"),
-    videoId: z.string().nullable(),
-    capture: CaptureStatus,
-    tab: EditorTab,
-  }),
+  /** Heartbeat answer, and nothing more. State travels by `editorState`. */
+  z.object({ type: z.literal("pong") }),
   z.object({ type: z.literal("editorDisconnected") }),
   /** Editor saved a script or edited beats; refetch now, don't wait for the poll. */
   z.object({ type: z.literal("contentChanged"), videoId: z.string() }),
   /**
-   * The script as it stands in the editor *right now*, pushed on a throttle
-   * while typing. Carries the text itself rather than telling the popup to
+   * The script as it stands in the editor *right now*, pushed on every
+   * keystroke. Carries the text itself rather than telling the popup to
    * refetch: a refetch would race the save that produced it, and the round trip
    * is the difference between "instant" and "a beat later".
    */
@@ -84,7 +91,10 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
 ]);
 
 export const TeleprompterChildToParent = z.discriminatedUnion("type", [
+  /** Liveness only. Answered with a bare `pong`. */
   z.object({ type: z.literal("ping") }),
+  /** "I just arrived, or I think you left — send me your state once." */
+  z.object({ type: z.literal("hello") }),
 ]);
 
 export type TeleprompterParentToChildMessage = z.infer<

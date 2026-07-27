@@ -21,10 +21,10 @@ const content = (
   overrides: Partial<teleprompterSession.Content> = {}
 ): teleprompterSession.Content => ({ ...EMPTY_CONTENT, ...overrides });
 
-describe("editor-spoke", () => {
+describe("editor-state", () => {
   it("connects and adopts the editor's video", () => {
     const next = reducer(initialState, {
-      type: "editor-spoke",
+      type: "editor-state",
       videoId: "v1",
       capture: "not-recording",
       tab: "script",
@@ -37,7 +37,7 @@ describe("editor-spoke", () => {
 
   it("leaves the crawl still when capture starts", () => {
     const next = reducer(connected(), {
-      type: "editor-spoke",
+      type: "editor-state",
       videoId: "v1",
       capture: "speaking-detected",
       tab: "script",
@@ -48,7 +48,7 @@ describe("editor-spoke", () => {
 
   it("leaves a hand-started crawl rolling when capture starts", () => {
     const next = reducer(connected({ playing: true }), {
-      type: "editor-spoke",
+      type: "editor-state",
       videoId: "v1",
       capture: "speaking-detected",
       tab: "script",
@@ -61,7 +61,7 @@ describe("editor-spoke", () => {
     const next = reducer(
       connected({ capture: "speaking-detected", playing: true }),
       {
-        type: "editor-spoke",
+        type: "editor-state",
         videoId: "v1",
         capture: "not-recording",
         tab: "script",
@@ -77,7 +77,7 @@ describe("editor-spoke", () => {
     const next = reducer(
       connected({ capture: "speaking-detected", playing: false }),
       {
-        type: "editor-spoke",
+        type: "editor-state",
         videoId: "v1",
         capture: "silence",
         tab: "script",
@@ -96,7 +96,7 @@ describe("editor-spoke", () => {
         lastScriptPushAt: 900,
       }),
       {
-        type: "editor-spoke",
+        type: "editor-state",
         videoId: "v2",
         capture: "not-recording",
         tab: "script",
@@ -107,6 +107,33 @@ describe("editor-spoke", () => {
     expect(next.playing).toBe(false);
     expect(next.pinnedSource).toBeNull();
     expect(next.lastScriptPushAt).toBe(0);
+  });
+});
+
+describe("editor-alive", () => {
+  it("keeps the editor connected without touching what's on the glass", () => {
+    const state = connected({
+      content: content({ script: "hello" }),
+      capture: "speaking-detected",
+      playing: true,
+      pinnedSource: { videoId: "v1", source: "beats" },
+    });
+    const next = reducer(state, { type: "editor-alive", at: 3000 });
+    expect(next.lastPongAt).toBe(3000);
+    expect(next.editorConnected).toBe(true);
+    expect(next.videoId).toBe("v1");
+    expect(next.capture).toBe("speaking-detected");
+    expect(next.playing).toBe(true);
+    expect(next.content).toBe(state.content);
+    expect(next.pinnedSource).toBe(state.pinnedSource);
+  });
+
+  it("reconnects an editor that went quiet and came back", () => {
+    const next = reducer(connected({ editorConnected: false }), {
+      type: "editor-alive",
+      at: 9000,
+    });
+    expect(next.editorConnected).toBe(true);
   });
 });
 
@@ -233,7 +260,7 @@ describe("following the editor's tab", () => {
     tab: "script" | "beats" | "reference"
   ) =>
     reducer(state, {
-      type: "editor-spoke",
+      type: "editor-state",
       videoId: "v1",
       capture: "not-recording",
       tab,

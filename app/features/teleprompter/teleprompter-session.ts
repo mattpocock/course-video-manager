@@ -63,14 +63,19 @@ export namespace teleprompterSession {
   }
 
   export type Action =
-    /** A pong, or the editor announcing itself on mount. */
+    /**
+     * The editor pushed what it has open, because something about it changed
+     * (or because we just said hello). Never arrives on a timer.
+     */
     | {
-        type: "editor-spoke";
+        type: "editor-state";
         videoId: string | null;
         capture: CaptureStatus;
         tab: EditorTab;
         at: number;
       }
+    /** A bare pong: the editor is still there, and nothing has changed. */
+    | { type: "editor-alive"; at: number }
     | { type: "editor-disconnected" }
     /** The heartbeat timer, checking whether the editor has gone quiet. */
     | { type: "liveness-checked"; at: number }
@@ -103,12 +108,18 @@ export namespace teleprompterSession {
 
   export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
-      case "editor-spoke": {
+      case "editor-alive":
+        return state.editorConnected && state.lastPongAt === action.at
+          ? state
+          : { ...state, editorConnected: true, lastPongAt: action.at };
+
+      case "editor-state": {
         const videoChanged = action.videoId !== state.videoId;
         const tabSource = tabToSource(action.tab);
         const editorSource = tabSource ?? state.editorSource;
-        // Only a *change* of tab overrides a hand-picked source, so the pong
-        // every two seconds doesn't keep undoing the choice.
+        // Only a *change* of tab overrides a hand-picked source. Pushes arrive
+        // on change so this is nearly always true, but the join handshake can
+        // re-send a tab you've already overridden on the glass.
         const tabChanged =
           tabSource !== null && tabSource !== state.editorSource;
         const takeEnded =

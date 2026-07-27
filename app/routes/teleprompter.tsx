@@ -41,16 +41,26 @@ export default function Teleprompter() {
   const { videoId, content } = state;
 
   // --- Editor sync: the only way this window learns anything --------------
+  // The editor *pushes*; the heartbeat below is liveness only. `hello` goes out
+  // alongside the ping while we believe nobody is attached, which covers both
+  // join orders (popup first, or editor first) and re-syncs after the editor
+  // reloads — and stops the moment we're attached, so a running editor isn't
+  // answering questions every two seconds.
+  const connectedRef = useRef(false);
+  connectedRef.current = state.editorConnected;
+
   useEffect(() => {
     const unsub = subscribeTeleprompterChild((msg) => {
-      if (msg.type === "pong" || msg.type === "editorConnected") {
+      if (msg.type === "editorState") {
         dispatch({
-          type: "editor-spoke",
+          type: "editor-state",
           videoId: msg.videoId,
           capture: msg.capture,
           tab: msg.tab,
           at: Date.now(),
         });
+      } else if (msg.type === "pong") {
+        dispatch({ type: "editor-alive", at: Date.now() });
       } else if (msg.type === "editorDisconnected") {
         dispatch({ type: "editor-disconnected" });
       } else if (msg.type === "contentChanged") {
@@ -65,9 +75,14 @@ export default function Teleprompter() {
       }
     });
 
-    sendToEditor({ type: "ping" });
-    const beat = setInterval(() => {
+    const knock = () => {
       sendToEditor({ type: "ping" });
+      if (!connectedRef.current) sendToEditor({ type: "hello" });
+    };
+
+    knock();
+    const beat = setInterval(() => {
+      knock();
       dispatch({ type: "liveness-checked", at: Date.now() });
     }, PING_INTERVAL_MS);
 
