@@ -27,6 +27,7 @@ describe("editor-spoke", () => {
       type: "editor-spoke",
       videoId: "v1",
       capture: "not-recording",
+      tab: "script",
       at: 500,
     });
     expect(next.editorConnected).toBe(true);
@@ -39,6 +40,7 @@ describe("editor-spoke", () => {
       type: "editor-spoke",
       videoId: "v1",
       capture: "speaking-detected",
+      tab: "script",
       at: 2000,
     });
     expect(next.playing).toBe(true);
@@ -51,6 +53,7 @@ describe("editor-spoke", () => {
         type: "editor-spoke",
         videoId: "v1",
         capture: "not-recording",
+        tab: "script",
         at: 2000,
       }
     );
@@ -62,7 +65,13 @@ describe("editor-spoke", () => {
     // are a start/stop, so none of them may restart a crawl paused by hand.
     const next = reducer(
       connected({ capture: "speaking-detected", playing: false }),
-      { type: "editor-spoke", videoId: "v1", capture: "silence", at: 2000 }
+      {
+        type: "editor-spoke",
+        videoId: "v1",
+        capture: "silence",
+        tab: "script",
+        at: 2000,
+      }
     );
     expect(next.playing).toBe(false);
   });
@@ -79,6 +88,7 @@ describe("editor-spoke", () => {
         type: "editor-spoke",
         videoId: "v2",
         capture: "not-recording",
+        tab: "script",
         at: 2000,
       }
     );
@@ -201,6 +211,59 @@ describe("content-fetched", () => {
         at: 10_000,
       })
     ).toBe(state);
+  });
+});
+
+describe("following the editor's tab", () => {
+  const both = { hasScript: true, hasBeats: true };
+
+  const spoke = (
+    state: teleprompterSession.State,
+    tab: "script" | "beats" | "reference"
+  ) =>
+    reducer(state, {
+      type: "editor-spoke",
+      videoId: "v1",
+      capture: "not-recording",
+      tab,
+      at: 2000,
+    });
+
+  it("shows the beats when the editor is on the Beats tab", () => {
+    const next = spoke(connected(), "beats");
+    expect(teleprompterSession.resolveSource(next, both)).toBe("beats");
+  });
+
+  it("shows the script when the editor is on the Script tab", () => {
+    const next = spoke(connected({ editorSource: "beats" }), "script");
+    expect(teleprompterSession.resolveSource(next, both)).toBe("script");
+  });
+
+  it("holds its ground while the editor is on the Reference tab", () => {
+    // Reference has no counterpart on the glass, so the last real tab stands
+    // rather than the teleprompter blanking or flipping.
+    const next = spoke(connected({ editorSource: "beats" }), "reference");
+    expect(next.editorSource).toBe("beats");
+    expect(teleprompterSession.resolveSource(next, both)).toBe("beats");
+  });
+
+  it("lets the editor changing tab override a source picked by hand", () => {
+    const pinned = connected({
+      editorSource: "script",
+      pinnedSource: { videoId: "v1", source: "beats" },
+    });
+    expect(spoke(pinned, "beats").pinnedSource).toBeNull();
+  });
+
+  it("keeps a hand-picked source while the editor's tab stays put", () => {
+    // A pong lands every two seconds; none of them may undo the choice.
+    const pinned = connected({
+      editorSource: "script",
+      pinnedSource: { videoId: "v1", source: "beats" },
+    });
+    const next = spoke(pinned, "script");
+    expect(next.pinnedSource).toEqual({ videoId: "v1", source: "beats" });
+    expect(teleprompterSession.resolveSource(next, both)).toBe("beats");
   });
 });
 

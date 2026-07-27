@@ -13,9 +13,11 @@ export type BeatTab = "beats" | "reference" | "script";
  * tested independently of React:
  *
  *  - Honour the persisted tab if it still exists.
- *  - Otherwise prefer Reference when one is selected, else Beats.
- *  - The Script tab always exists (you author the script there, empty or not),
- *    so it is the terminal fallback and the side slot always renders.
+ *  - Otherwise Script. It always exists (you author the script there, empty or
+ *    not), it's what the teleprompter mirrors, and it's what you're in front of
+ *    for most of a session. Reference and Beats are still selected outright by
+ *    the actions that open them — adding a reference, or jumping to a beat —
+ *    they're just not what an unopened video falls back to.
  */
 export const resolveBeatTab = ({
   persistedTab,
@@ -34,7 +36,5 @@ export const resolveBeatTab = ({
 
   if (persistedTab !== null && exists(persistedTab)) return persistedTab;
 
-  if (hasReference) return "reference";
-  if (hasBeats) return "beats";
   return "script";
 };

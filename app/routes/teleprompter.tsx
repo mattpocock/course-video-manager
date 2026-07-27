@@ -48,6 +48,7 @@ export default function Teleprompter() {
           type: "editor-spoke",
           videoId: msg.videoId,
           capture: msg.capture,
+          tab: msg.tab,
           at: Date.now(),
         });
       } else if (msg.type === "editorDisconnected") {
@@ -146,12 +147,6 @@ export default function Teleprompter() {
         status={state.capture}
         editorConnected={state.editorConnected}
       />
-
-      {content.title && (
-        <div className="pointer-events-none absolute left-24 top-9 z-40 truncate pr-24 text-xs text-white/25">
-          {content.title}
-        </div>
-      )}
 
       {!hasContent ? (
         <div className="flex h-full items-center justify-center px-12 text-center">

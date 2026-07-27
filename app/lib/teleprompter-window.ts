@@ -10,6 +10,7 @@ import {
   sendToTeleprompter,
   subscribeTeleprompterParent,
   type CaptureStatus,
+  type EditorTab,
   type TeleprompterCommand,
   type TeleprompterChildToParentMessage,
 } from "./teleprompter-protocol";
@@ -44,14 +45,18 @@ function ensureLivenessTracker(): void {
  * (and therefore doesn't churn the channel while recording).
  */
 export function enableTeleprompterEditorMode(
-  getState: () => { videoId: string | null; capture: CaptureStatus }
+  getState: () => {
+    videoId: string | null;
+    capture: CaptureStatus;
+    tab: EditorTab;
+  }
 ): () => void {
   if (typeof window === "undefined") return () => {};
   const unsub = subscribeTeleprompterParent(
     (msg: TeleprompterChildToParentMessage) => {
       if (msg.type === "ping") {
-        const { videoId, capture } = getState();
-        sendToTeleprompter({ type: "pong", videoId, capture });
+        const { videoId, capture, tab } = getState();
+        sendToTeleprompter({ type: "pong", videoId, capture, tab });
       }
     }
   );
@@ -60,6 +65,7 @@ export function enableTeleprompterEditorMode(
     type: "editorConnected",
     videoId: initial.videoId,
     capture: initial.capture,
+    tab: initial.tab,
   });
   return () => {
     sendToTeleprompter({ type: "editorDisconnected" });

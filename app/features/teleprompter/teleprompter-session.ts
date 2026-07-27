@@ -12,7 +12,7 @@
  * timestamps are passed in rather than read from the clock so the time-sensitive
  * rules are testable.
  */
-import type { CaptureStatus } from "@/lib/teleprompter-protocol";
+import type { CaptureStatus, EditorTab } from "@/lib/teleprompter-protocol";
 import type { TeleprompterBeat } from "./beats-view";
 import type { Source } from "./teleprompter-settings";
 
@@ -43,10 +43,18 @@ export namespace teleprompterSession {
     /** Whether the crawl is rolling. */
     playing: boolean;
     /**
-     * A tab chosen by hand, and the video it was chosen for. Pinning is scoped
-     * to the video so moving to the next one lets its own content decide again
-     * — otherwise one glance at the beats of a scriptless video would leave
-     * every video after it showing beats.
+     * What the editor's side panel is showing, mapped to a source. `null` until
+     * the editor has said. The Reference tab has no counterpart on the glass, so
+     * looking at a reference leaves this on whatever it was — the teleprompter
+     * holds its ground rather than blanking.
+     */
+    editorSource: Source | null;
+    /**
+     * A tab chosen by hand on the glass, and the video it was chosen for.
+     * Pinning is scoped to the video so moving to the next one lets the editor
+     * decide again, and any change of the editor's own tab clears it — the
+     * editor is the one driving, and a stale pin silently outranking it is
+     * exactly the confusion this is meant to remove.
      */
     pinnedSource: { videoId: string | null; source: Source } | null;
   }
@@ -57,6 +65,7 @@ export namespace teleprompterSession {
         type: "editor-spoke";
         videoId: string | null;
         capture: CaptureStatus;
+        tab: EditorTab;
         at: number;
       }
     | { type: "editor-disconnected" }
@@ -78,16 +87,27 @@ export namespace teleprompterSession {
     content: EMPTY_CONTENT,
     lastScriptPushAt: 0,
     playing: false,
+    editorSource: null,
     pinnedSource: null,
   };
 
   const isRecording = (capture: CaptureStatus): boolean =>
     capture !== "not-recording";
 
+  /** The Reference tab has nothing to show on the glass — see `editorSource`. */
+  const tabToSource = (tab: EditorTab): Source | null =>
+    tab === "script" ? "script" : tab === "beats" ? "beats" : null;
+
   export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
       case "editor-spoke": {
         const videoChanged = action.videoId !== state.videoId;
+        const tabSource = tabToSource(action.tab);
+        const editorSource = tabSource ?? state.editorSource;
+        // Only a *change* of tab overrides a hand-picked source, so the pong
+        // every two seconds doesn't keep undoing the choice.
+        const tabChanged =
+          tabSource !== null && tabSource !== state.editorSource;
         return {
           ...state,
           editorConnected: true,
@@ -107,14 +127,17 @@ export namespace teleprompterSession {
           // one. Drop it rather than showing it under the new title.
           content: videoChanged ? EMPTY_CONTENT : state.content,
           lastScriptPushAt: videoChanged ? 0 : state.lastScriptPushAt,
-          pinnedSource: videoChanged ? null : state.pinnedSource,
+          editorSource,
+          pinnedSource: videoChanged || tabChanged ? null : state.pinnedSource,
         };
       }
 
       case "editor-disconnected":
         return {
           ...initialState,
-          // Keep the pin: the editor reloading shouldn't lose a chosen tab.
+          // Keep what's driving the glass: the editor reloading shouldn't flip
+          // the document out from under you.
+          editorSource: state.editorSource,
           pinnedSource: state.pinnedSource,
         };
 
@@ -179,9 +202,10 @@ export namespace teleprompterSession {
     JSON.stringify(a.beats) === JSON.stringify(b.beats);
 
   /**
-   * Which document is on the glass. Derived rather than stored: a video with a
-   * written script should land on the script, and only a scriptless one falls
-   * back to its beat plan — but a tab chosen by hand wins for that video.
+   * Which document is on the glass. Derived rather than stored, and driven by
+   * the editor: you're looking at the Script tab, so the glass shows the script.
+   * A tab picked by hand on the glass holds until the editor's own tab moves,
+   * and until the editor has said anything the video's content decides.
    */
   export const resolveSource = (
     state: State,
@@ -190,6 +214,7 @@ export namespace teleprompterSession {
     if (state.pinnedSource && state.pinnedSource.videoId === state.videoId) {
       return state.pinnedSource.source;
     }
+    if (state.editorSource) return state.editorSource;
     if (hasScript) return "script";
     if (hasBeats) return "beats";
     return "script";

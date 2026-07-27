@@ -160,12 +160,6 @@ export function TeleprompterCrawl(props: {
         style={{ height: `${TYPE.readLine}%` }}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black to-transparent" />
-
-      {!props.playing && (
-        <div className="pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-widest text-white/60">
-          Paused
-        </div>
-      )}
     </div>
   );
 }

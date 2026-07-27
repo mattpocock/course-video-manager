@@ -50,6 +50,14 @@ export function EditorSidePanel(props: {
   return (
     <div className="border rounded-lg bg-muted/30 flex flex-col min-h-0 h-full">
       <div className="flex items-center gap-1 px-1.5 py-1 border-b bg-muted/50 shrink-0">
+        {/* Script leads: it's the default tab and the one the teleprompter
+            mirrors, so it gets the position the eye starts from. */}
+        <TabButton
+          active={props.activeTab === "script"}
+          onClick={() => props.onTabChange("script")}
+        >
+          Script
+        </TabButton>
         {props.hasBeats && (
           <TabButton
             active={props.activeTab === "beats"}
@@ -66,12 +74,6 @@ export function EditorSidePanel(props: {
             Reference
           </TabButton>
         )}
-        <TabButton
-          active={props.activeTab === "script"}
-          onClick={() => props.onTabChange("script")}
-        >
-          Script
-        </TabButton>
       </div>
 
       {props.activeTab === "script" ? (

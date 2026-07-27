@@ -12,7 +12,9 @@
  *     of truth for what's on the glass. No video open in the editor means an
  *     empty teleprompter.
  *   - `pong` also carries capture state, mirroring the editor's recording +
- *     silence-detection indicator so the same status is visible on the glass.
+ *     silence-detection indicator so the same status is visible on the glass,
+ *     and the side panel's active tab, so the glass shows whichever of Script
+ *     or Beats you're looking at in the editor.
  *
  * Nothing flows back the other way: the teleprompter never reports position.
  */
@@ -32,18 +34,29 @@ export const CaptureStatus = z.enum([
 ]);
 export type CaptureStatus = z.infer<typeof CaptureStatus>;
 
+/**
+ * Which tab the editor's side panel is showing. Declared here rather than
+ * imported from `app/features/video-editor/beat-tab.ts` because this is a wire
+ * format: `app/lib` doesn't reach into features, and a transport that owns its
+ * own vocabulary can't be broken by a refactor on either side of the channel.
+ */
+export const EditorTab = z.enum(["beats", "reference", "script"]);
+export type EditorTab = z.infer<typeof EditorTab>;
+
 export const TeleprompterParentToChild = z.discriminatedUnion("type", [
   /** Editor answering a ping: what it has open, and what capture is doing. */
   z.object({
     type: z.literal("pong"),
     videoId: z.string().nullable(),
     capture: CaptureStatus,
+    tab: EditorTab,
   }),
   /** Sent on editor mount so the popup catches up without waiting a beat. */
   z.object({
     type: z.literal("editorConnected"),
     videoId: z.string().nullable(),
     capture: CaptureStatus,
+    tab: EditorTab,
   }),
   z.object({ type: z.literal("editorDisconnected") }),
   /** Editor saved a script or edited beats; refetch now, don't wait for the poll. */

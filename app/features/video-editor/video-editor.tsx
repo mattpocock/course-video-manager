@@ -24,6 +24,7 @@ import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { RenameVideoModal } from "@/components/rename-video-modal";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useTeleprompterShortcuts } from "./hooks/use-teleprompter-shortcuts";
+import { useTeleprompterEditorMode } from "./hooks/use-teleprompter-editor-mode";
 import { useWebSocket } from "./hooks/use-websocket";
 import { useClipboardOperations } from "./hooks/use-clipboard-operations";
 import {
@@ -32,12 +33,9 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { enableVideoEditorMode } from "@/lib/diagram-window";
-import { enableTeleprompterEditorMode } from "@/lib/teleprompter-window";
-import type { CaptureStatus } from "@/lib/teleprompter-protocol";
 import { useFetcher, useRevalidator, useSubmit } from "react-router";
 import type {
   DatabaseId,
@@ -170,25 +168,6 @@ export const VideoEditor = (props: {
   );
 
   useEffect(() => enableVideoEditorMode(), []);
-
-  // The teleprompter popup has no picker, so this is the only way
-  // it learns which video to show and what capture is doing. Read through a ref
-  // at pong time so the fast-changing speech-detector state doesn't re-subscribe.
-  const teleprompterStateRef = useRef<{
-    videoId: string | null;
-    capture: CaptureStatus;
-  }>({ videoId: props.videoId, capture: "not-recording" });
-  teleprompterStateRef.current = {
-    videoId: props.videoId,
-    capture: props.isRecordingActive
-      ? props.speechDetectorState.type
-      : "not-recording",
-  };
-  useEffect(
-    () => enableTeleprompterEditorMode(() => teleprompterStateRef.current),
-    []
-  );
-  useTeleprompterShortcuts();
 
   const { state, dispatch } = useVideoEditor({
     items: timelineItems,
@@ -334,6 +313,32 @@ export const VideoEditor = (props: {
   );
 
   const [persistedBeatTab, setPersistedBeatTab] = useBeatTab(props.videoId);
+
+  const activeReference =
+    referenceVideoId &&
+    props.referenceCandidates.some((c) => c.id === referenceVideoId)
+      ? referenceVideoId
+      : null;
+
+  const hasReference = activeReference !== null;
+  const hasBeats = props.beats.length > 0;
+  const activeTab = resolveBeatTab({
+    persistedTab: persistedBeatTab,
+    hasBeats,
+    hasReference,
+  });
+
+  // Sits below `activeTab` rather than up with the other mount effects because
+  // it carries the tab — and above the error-overlay early return, because
+  // these are hooks.
+  useTeleprompterEditorMode({
+    videoId: props.videoId,
+    capture: props.isRecordingActive
+      ? props.speechDetectorState.type
+      : "not-recording",
+    tab: activeTab,
+  });
+  useTeleprompterShortcuts();
 
   // Adding a reference auto-switches the persisted tab to Reference so the
   // newly-added reader surfaces; removing (next === null) leaves the tab alone.
@@ -586,20 +591,6 @@ export const VideoEditor = (props: {
   if (props.error) {
     return <ErrorOverlay error={props.error} />;
   }
-
-  const activeReference =
-    referenceVideoId &&
-    props.referenceCandidates.some((c) => c.id === referenceVideoId)
-      ? referenceVideoId
-      : null;
-
-  const hasReference = activeReference !== null;
-  const hasBeats = props.beats.length > 0;
-  const activeTab = resolveBeatTab({
-    persistedTab: persistedBeatTab,
-    hasBeats,
-    hasReference,
-  });
 
   const modals = (
     <>
