@@ -25,6 +25,13 @@ export const TYPE = {
   letterSpacing: 0,
   /** Measure in `ch`. Short lines are the biggest teleprompter lever there is. */
   measure: 25,
+  /**
+   * Beats run wider than the script. They're left-aligned behind an icon
+   * gutter, so the script's measure leaves them narrower than it looks — and
+   * they're glanced at rather than read aloud, which is what the short measure
+   * is for.
+   */
+  beatsMeasure: 30,
   /** Warm rather than white: easier on the eye through beam-splitter glass. */
   color: "#f5e9d7",
   /** Where the live line sits, as a % of viewport height. */

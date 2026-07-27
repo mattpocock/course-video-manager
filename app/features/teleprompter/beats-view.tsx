@@ -2,16 +2,16 @@
  * The Beats plan on the glass.
  *
  * Beats aren't prose — they're a dozen short Title-Case labels with a sentence
- * of description each — so the script's crawl doesn't apply. A crawl through
- * twelve bullet points is meaningless. This is the shape that works:
- * the whole plan visible as a checklist, the current beat spotlit and expanded
- * to show its description, everything else collapsed to its title.
+ * of description each — so nothing about the script's crawl applies here.
+ * Nothing moves on its own and play/pause does nothing: the whole plan is on
+ * the glass at once, every beat showing its description, with the current one
+ * spotlit. Rows never expand or collapse, so the plan you glanced at a second
+ * ago is still in the same place.
  *
  * Kind icons and labels are imported from the real Beats tab rather than
  * redrawn, so the plan reads the same on the glass as it does in the editor.
  *
- * Stream Deck: advance/back move the spotlight, play toggles descriptions
- * (worth knowing whether you want them at all mid-take), reset returns to the top.
+ * Stream Deck: advance/back move the spotlight, reset returns to the top.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -41,7 +41,6 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const [activeIndex, setActiveIndex] = useState(0);
-  const [showDescriptions, setShowDescriptions] = useState(true);
 
   const goTo = useCallback(
     (index: number) => {
@@ -54,12 +53,14 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
   useTeleprompterActions({
     advance: () => goTo(activeIndex + 1),
     back: () => goTo(activeIndex - 1),
-    togglePlay: () => setShowDescriptions((v) => !v),
+    // Deliberately inert. Play/pause belongs to the script crawl; there is
+    // nothing here for it to start or stop, and a key that silently does
+    // nothing beats one that changes the layout you're reading off.
+    togglePlay: () => {},
     reset: () => goTo(0),
   });
 
-  // Keep the active beat pinned to the read line. Runs after the expand/collapse
-  // re-render so it accounts for the description's height.
+  // Keep the active beat pinned to the read line.
   useEffect(() => {
     const beat = beats[activeIndex];
     const scroller = scrollRef.current;
@@ -70,7 +71,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
       top: row.offsetTop - anchor + row.clientHeight / 2,
       behavior: "smooth",
     });
-  }, [activeIndex, beats, showDescriptions]);
+  }, [activeIndex, beats]);
 
   const base = textStyle();
 
@@ -83,7 +84,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
         <div
           className="mx-auto"
           style={{
-            width: `${TYPE.measure}ch`,
+            width: `${TYPE.beatsMeasure}ch`,
             maxWidth: "92vw",
             paddingTop: `${TYPE.readLine}vh`,
             paddingBottom: "70vh",
@@ -148,7 +149,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                   >
                     {beat.title || BEAT_KIND_LABELS[kind]}
                   </div>
-                  {isActive && showDescriptions && beat.description && (
+                  {beat.description && (
                     <div
                       style={{
                         ...base,
