@@ -4,13 +4,16 @@
  * This window is driven entirely from outside itself — the editor's heartbeat,
  * the content poll, live script pushes, Stream Deck presses. Held as separate
  * `useState`s those arrive as a pile of effects that each set one field, and
- * the interesting behaviour (a poll landing after a live edit, a capture change
- * starting the crawl, moving to a video that hasn't loaded yet) ends up spread
+ * the interesting behaviour (a poll landing after a live edit, a take ending
+ * stopping the crawl, moving to a video that hasn't loaded yet) ends up spread
  * across their dependency arrays where it can't be seen or tested.
  *
  * So every input is an action and the transitions live here, pure. `at`
  * timestamps are passed in rather than read from the clock so the time-sensitive
  * rules are testable.
+ *
+ * The crawl is the one thing the editor doesn't drive: it rolls only when
+ * someone presses play, and a take ending stops it.
  */
 import type { CaptureStatus, EditorTab } from "@/lib/teleprompter-protocol";
 import type { TeleprompterBeat } from "./beats-view";
@@ -108,21 +111,19 @@ export namespace teleprompterSession {
         // every two seconds doesn't keep undoing the choice.
         const tabChanged =
           tabSource !== null && tabSource !== state.editorSource;
+        const takeEnded =
+          isRecording(state.capture) && !isRecording(action.capture);
         return {
           ...state,
           editorConnected: true,
           lastPongAt: action.at,
           videoId: action.videoId,
           capture: action.capture,
-          // Hitting record starts the take, so it starts the crawl; stopping
-          // stops it. Only the transition counts — a pong that repeats the
-          // current capture state must not undo a manual pause mid-take.
-          playing:
-            isRecording(action.capture) === isRecording(state.capture)
-              ? videoChanged
-                ? false
-                : state.playing
-              : isRecording(action.capture),
+          // Recording never starts the crawl: the first words of a take are
+          // rarely the first words of the script, so rolling on record puts the
+          // glass ahead of the delivery. Play is a deliberate press. The end of
+          // a take does stop it, so the script can't run away between takes.
+          playing: videoChanged || takeEnded ? false : state.playing,
           // A different video means the content on screen belongs to the last
           // one. Drop it rather than showing it under the new title.
           content: videoChanged ? EMPTY_CONTENT : state.content,

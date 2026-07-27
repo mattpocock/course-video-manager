@@ -22,8 +22,8 @@ export function TeleprompterCrawl(props: {
   /** Crawl speed, in spoken words per minute. */
   wpm: number;
   /**
-   * Whether the crawl is rolling. Owned by the session reducer, which starts it
-   * when the editor starts recording — see `teleprompter-session.ts`.
+   * Whether the crawl is rolling. Owned by the session reducer, and only ever
+   * started by hand — recording doesn't — see `teleprompter-session.ts`.
    */
   playing: boolean;
   onTogglePlay: () => void;

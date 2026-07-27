@@ -35,8 +35,19 @@ describe("editor-spoke", () => {
     expect(next.lastPongAt).toBe(500);
   });
 
-  it("starts the crawl when capture starts", () => {
+  it("leaves the crawl still when capture starts", () => {
     const next = reducer(connected(), {
+      type: "editor-spoke",
+      videoId: "v1",
+      capture: "speaking-detected",
+      tab: "script",
+      at: 2000,
+    });
+    expect(next.playing).toBe(false);
+  });
+
+  it("leaves a hand-started crawl rolling when capture starts", () => {
+    const next = reducer(connected({ playing: true }), {
       type: "editor-spoke",
       videoId: "v1",
       capture: "speaking-detected",
