@@ -19,8 +19,10 @@ export const TYPE = {
   /**
    * Light. Through beam-splitter glass a heavy face blooms and the counters
    * fill in; bold is reserved for the words the script actually marks bold.
+   * 300 is as far down as the system stack goes with a real cut — below that
+   * the browser synthesises, which thins the strokes unevenly.
    */
-  fontWeight: 400,
+  fontWeight: 300,
   lineHeight: 1.55,
   letterSpacing: 0,
   /** Measure in `ch`. Short lines are the biggest teleprompter lever there is. */
@@ -46,7 +48,9 @@ export function textStyle(): React.CSSProperties {
     lineHeight: TYPE.lineHeight,
     letterSpacing: `${TYPE.letterSpacing}em`,
     color: TYPE.color,
-    textAlign: "center",
+    // Justified, so both edges of the column are fixed and the eye returns to
+    // the same x on every line instead of hunting for a ragged start.
+    textAlign: "justify",
   };
 }
 
