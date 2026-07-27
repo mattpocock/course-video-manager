@@ -52,7 +52,7 @@ export const TYPE = {
    * visible in peripheral vision before you reach the words — weight alone only
    * registers once you're looking straight at it.
    */
-  boldColor: "var(--color-sky-200)",
+  boldColor: "var(--color-sky-300)",
   /** Where the live line sits, as a % of viewport height. */
   readLine: 42,
 } as const;
