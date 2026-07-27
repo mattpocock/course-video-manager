@@ -48,11 +48,11 @@ export const TYPE = {
    */
   color: "var(--color-orange-100)",
   /**
-   * What the script marks bold. Carried by hue rather than weight, so emphasis
-   * is visible in peripheral vision before you reach the words — weight alone
-   * only registers once you're looking straight at it.
+   * What the script marks bold. Cool against the warm body, so emphasis is
+   * visible in peripheral vision before you reach the words — weight alone only
+   * registers once you're looking straight at it.
    */
-  boldColor: "var(--color-amber-200)",
+  boldColor: "var(--color-sky-300)",
   /** Where the live line sits, as a % of viewport height. */
   readLine: 42,
 } as const;
@@ -85,9 +85,9 @@ const DEFAULT_WPM = 200;
  * Crawl speed, in spoken words per minute, kept in the URL so a reload
  * mid-session doesn't lose it.
  *
- * Speed is the only setting that persists. Which document is on the glass is
- * derived from the video — see `teleprompterSession.resolveSource` — because a
- * remembered tab is wrong the moment you move to a video shaped differently.
+ * Speed is the only setting that persists. Which document is on the glass
+ * follows the editor's side panel — see `teleprompterSession.resolveSource` —
+ * so there's nothing to remember.
  */
 export function useTeleprompterWpm(): [number, (wpm: number) => void] {
   const [searchParams, setSearchParams] = useSearchParams();
