@@ -233,8 +233,17 @@ export function AppSidebar({ variant }: AppSidebarProps) {
 
   return (
     <>
+      {/*
+        The page scrolls at the document level, so the rail has to stick to the
+        viewport to stay visible. Sticky only takes effect on a flex child that
+        is shorter than its container — hence self-start + h-screen rather than
+        the default stretch.
+      */}
       {variant === "rail" && (
-        <div className="hidden md:flex w-80 border-r bg-muted/30 flex-col shrink-0">
+        <div
+          data-slot="app-sidebar-rail"
+          className="hidden md:flex w-80 border-r bg-muted/30 flex-col shrink-0 sticky top-0 self-start h-screen"
+        >
           <div className="p-4 flex-1 flex flex-col min-h-0">{content}</div>
         </div>
       )}
