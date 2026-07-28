@@ -40,6 +40,7 @@ import { WriteChat } from "./write-chat";
 import { WriteModals } from "./write-modals";
 import { DocumentPanel } from "./document-panel";
 import { useDocumentFlow } from "./use-document-flow";
+import { useRemoveDocumentBlock } from "./use-remove-document-block";
 import { useVideoContextHandlers } from "./use-video-context-handlers";
 import { useToolbarProps } from "./use-toolbar-props";
 import { writePageReducer, createInitialState } from "./write-page-reducer";
@@ -351,6 +352,13 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     return (md: string) => preprocessChooseScreenshotMarkdown(md);
   }, [docExtraComponents]);
 
+  const handleRemoveDocBlock = useRemoveDocumentBlock({
+    documentRef,
+    updateDocument,
+    isGenerating: status === "streaming" || status === "submitted",
+    hasScreenshotPreprocessing: docPreprocessMarkdown !== undefined,
+  });
+
   const prevStatusRef = useRef(status);
   useEffect(() => {
     const transitionedToReady =
@@ -630,6 +638,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
                 fullPath={fullPath}
                 extraComponents={docExtraComponents}
                 preprocessMarkdown={docPreprocessMarkdown}
+                onRemoveBlock={handleRemoveDocBlock}
                 onDocumentChange={updateDocument}
                 isCopied={isCopied}
                 isUploadingForCopy={isUploadingForCopy}

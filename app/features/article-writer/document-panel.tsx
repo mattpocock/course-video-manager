@@ -30,6 +30,7 @@ import {
   ClipboardPasteIcon,
 } from "lucide-react";
 import type { LintViolation } from "./lint-rules";
+import type { RemoveBlockHandler } from "components/ui/kibo-ui/ai/response";
 import type { Options } from "react-markdown";
 import type { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
@@ -39,6 +40,11 @@ export interface DocumentPanelProps {
   fullPath: string;
   extraComponents?: Options["components"];
   preprocessMarkdown?: (md: string) => string;
+  /**
+   * Enables the per-block X button in the preview. Ranges index into the
+   * markdown the preview parsed, i.e. after `preprocessMarkdown`.
+   */
+  onRemoveBlock?: RemoveBlockHandler;
   onDocumentChange?: (content: string) => void;
   isCopied?: boolean;
   isUploadingForCopy?: boolean;
@@ -72,6 +78,7 @@ export const DocumentPanel = memo(function DocumentPanel({
   fullPath,
   extraComponents,
   preprocessMarkdown,
+  onRemoveBlock,
   onDocumentChange,
   isCopied,
   isUploadingForCopy,
@@ -208,6 +215,7 @@ export const DocumentPanel = memo(function DocumentPanel({
                   imageBasePath={fullPath}
                   extraComponents={extraComponents}
                   preprocessMarkdown={preprocessMarkdown}
+                  onRemoveBlock={onRemoveBlock}
                 >
                   {document}
                 </AIResponse>
@@ -456,6 +464,7 @@ export const DocumentPanel = memo(function DocumentPanel({
               imageBasePath={fullPath}
               extraComponents={extraComponents}
               preprocessMarkdown={preprocessMarkdown}
+              onRemoveBlock={onRemoveBlock}
             >
               {document}
             </AIResponse>
