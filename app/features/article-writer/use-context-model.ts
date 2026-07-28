@@ -9,6 +9,7 @@ import {
   MEMORY_ENABLED_STORAGE_KEY,
   COURSE_STRUCTURE_STORAGE_KEY,
   BEATS_ENABLED_STORAGE_KEY,
+  SCRIPT_ENABLED_STORAGE_KEY,
 } from "./write-utils";
 import { formatBeatsContext } from "./format-beats-context";
 
@@ -24,6 +25,7 @@ export interface ContextModel {
   includeCourseStructure: boolean;
   memoryEnabled: boolean;
   beatsEnabled: boolean;
+  scriptEnabled: boolean;
 
   // Mutation callbacks
   toggleItem: (itemId: string) => void;
@@ -43,6 +45,9 @@ export interface ContextModel {
 
   // Beats (read-only formatted text)
   beatsText: string;
+
+  // Script (read-only; empty when the video has no script)
+  scriptText: string;
 
   // Links (read from context, mutation via callbacks on the host)
   links: Array<{
@@ -92,6 +97,12 @@ export function useContextModel(
     () => formatBeatsContext(context.beats),
     [context.beats]
   );
+  // Scripts are rare but high-value, so default to on wherever one exists.
+  const [scriptEnabled, setScriptEnabled] = useLocalStorageBoolean(
+    SCRIPT_ENABLED_STORAGE_KEY,
+    true
+  );
+  const scriptText = context.script;
 
   // ── Build sources ─────────────────────────────────────────────────────────
 
@@ -230,7 +241,25 @@ export function useContextModel(
       });
     }
 
-    // 4. Beats (only if non-empty)
+    // 4. Script (only if non-empty — most videos have none)
+    if (scriptText.length > 0) {
+      const tokens = estimateTokens(scriptText);
+      const on = scriptEnabled;
+      result.push({
+        key: "script",
+        label: "Script",
+        note: "the base Matt improvised from — authoritative for spelling and naming",
+        items: [
+          { id: "script", label: "Script", text: scriptText, on, tokens },
+        ],
+        onCount: on ? 1 : 0,
+        check: on,
+        atomic: true,
+        tokens: on ? tokens : 0,
+      });
+    }
+
+    // 5. Beats (only if non-empty)
     if (beatsText.length > 0) {
       const tokens = estimateTokens(beatsText);
       const on = beatsEnabled;
@@ -248,7 +277,7 @@ export function useContextModel(
       });
     }
 
-    // 5. Course structure (only if present)
+    // 6. Course structure (only if present)
     if (context.courseStructure !== null) {
       const text = JSON.stringify(context.courseStructure);
       const tokens = estimateTokens(text);
@@ -273,7 +302,7 @@ export function useContextModel(
       });
     }
 
-    // 6. Memory (only if non-empty)
+    // 7. Memory (only if non-empty)
     if (memoryText.length > 0) {
       const tokens = estimateTokens(memoryText);
       const on = memoryEnabled;
@@ -306,6 +335,7 @@ export function useContextModel(
     context.courseStructure,
     memoryText,
     beatsText,
+    scriptText,
     enabledSections,
     enabledFiles,
     enabledFields,
@@ -315,6 +345,7 @@ export function useContextModel(
     includeCourseStructure,
     memoryEnabled,
     beatsEnabled,
+    scriptEnabled,
   ]);
 
   const totalTokens = useMemo(
@@ -384,6 +415,10 @@ export function useContextModel(
         setBeatsEnabled((prev) => !prev);
         return;
       }
+      if (itemId === "script") {
+        setScriptEnabled((prev) => !prev);
+        return;
+      }
       if (itemId === "courseStructure") {
         setIncludeCourseStructure((prev) => !prev);
         return;
@@ -444,6 +479,9 @@ export function useContextModel(
         case "beats":
           setBeatsEnabled((prev) => !prev);
           break;
+        case "script":
+          setScriptEnabled((prev) => !prev);
+          break;
         case "courseStructure":
           setIncludeCourseStructure((prev) => !prev);
           break;
@@ -498,6 +536,7 @@ export function useContextModel(
     includeCourseStructure,
     memoryEnabled,
     beatsEnabled,
+    scriptEnabled,
 
     toggleItem,
     toggleSource,
@@ -513,6 +552,8 @@ export function useContextModel(
     setMemoryText,
 
     beatsText,
+
+    scriptText,
 
     links,
   };

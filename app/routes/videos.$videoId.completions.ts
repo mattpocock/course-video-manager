@@ -65,6 +65,7 @@ const chatSchema = Schema.Struct({
   aiHeroUrl: Schema.optional(Schema.String),
   memory: Schema.optional(Schema.String),
   beats: Schema.optional(Schema.String),
+  script: Schema.optional(Schema.String),
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -133,6 +134,7 @@ export const action = async (args: Route.ActionArgs) => {
       aiHeroUrl: parsed.aiHeroUrl,
       memory: parsed.memory,
       beats: parsed.beats,
+      script: parsed.script,
     });
 
     const result = yield* Effect.tryPromise(() =>

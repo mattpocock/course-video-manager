@@ -68,6 +68,7 @@ export const COURSE_STRUCTURE_STORAGE_KEY =
   "article-writer-include-course-structure";
 export const MEMORY_ENABLED_STORAGE_KEY = "article-writer-memory-enabled";
 export const BEATS_ENABLED_STORAGE_KEY = "article-writer-beats-enabled";
+export const SCRIPT_ENABLED_STORAGE_KEY = "article-writer-script-enabled";
 
 export const getMessagesStorageKey = (videoId: string, mode: Mode) =>
   `article-writer-messages-${videoId}-${mode}`;

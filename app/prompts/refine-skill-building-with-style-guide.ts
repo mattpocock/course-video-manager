@@ -1,5 +1,6 @@
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { getSkillBuildingSharedTemplate } from "./skill-building-shared-template";
+import { SOURCE_HIERARCHY } from "./source-hierarchy";
 import { getTranscriptSection } from "./transcript-instructions";
 
 export const refineSkillBuildingWithStyleGuidePrompt = (opts: {
@@ -61,6 +62,8 @@ ${opts.code
   .map((file) => `<file path="${file.path}">${file.content}</file>`)
   .join("\n")}
 </code>
+
+${SOURCE_HIERARCHY}
 
 Here is a sample of what a well-formatted skill building README looks like:
 

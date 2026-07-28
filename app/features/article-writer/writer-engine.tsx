@@ -324,6 +324,10 @@ export function WriterEngine({
         ctxModel.beatsEnabled && ctxModel.beatsText
           ? ctxModel.beatsText
           : undefined,
+      script:
+        ctxModel.scriptEnabled && ctxModel.scriptText
+          ? ctxModel.scriptText
+          : undefined,
       pageFields: enabledPageFields,
     };
     return isDocumentMode ? { ...base, document, mode } : { ...base, mode };
@@ -341,6 +345,8 @@ export function WriterEngine({
     ctxModel.memoryText,
     ctxModel.beatsEnabled,
     ctxModel.beatsText,
+    ctxModel.scriptEnabled,
+    ctxModel.scriptText,
     isDocumentMode,
     document,
     mode,

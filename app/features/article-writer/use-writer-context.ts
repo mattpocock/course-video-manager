@@ -27,6 +27,7 @@ export function toWriterContext(data: WriterContextData): WriterContext {
     fullPath: data.fullPath,
     isStandalone: data.isStandalone,
     beats: data.beats,
+    script: data.script,
   };
 }
 

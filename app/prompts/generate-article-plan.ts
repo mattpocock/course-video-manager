@@ -1,5 +1,6 @@
 import { getImageInstructions } from "./image-instructions";
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
+import { SOURCE_HIERARCHY } from "./source-hierarchy";
 import { getTranscriptSection } from "./transcript-instructions";
 
 export const generateArticlePlanPrompt = (opts: {
@@ -19,7 +20,7 @@ export const generateArticlePlanPrompt = (opts: {
 
   const codeSection =
     opts.code.length > 0
-      ? `Here is the code for the topic:
+      ? `Here is the supporting material for the topic — the code, notes and session logs that were on screen:
 
 <code>
 ${opts.code
@@ -60,12 +61,14 @@ Before planning, consider what type of lesson this is:
 Identify which type this lesson is and let that shape the plan's structure and emphasis. A lesson should be ONE type only. Mixing types signals the lesson is too diffuse, too long, or too hard to reference — flag this if you notice it.
 </lesson-types>
 
+${SOURCE_HIERARCHY}
+
 <the-ask>
 Create an article plan with the following characteristics:
 
-1. **Choose your own flow**: Don't follow the source material's order. Find the optimal path through the topics that builds understanding progressively for the reader.
+1. **Plan in transcript order**: The article this plan feeds is an annotated transcript, so the plan is a structured pass over the transcript in the order it was taught. Grouping and headings are your job; resequencing is not.
 
-2. **Be ruthlessly selective**: The source material likely contains irrelevant tangents, repeated points, or off-topic content. Leave it on the cutting room floor. Only include what serves the main learning goal.
+2. **Be ruthlessly selective**: The transcript contains tangents, repeated points, and dead air. Leave those on the cutting room floor. Cutting is how you select — reordering is not.
 
 3. **Prioritize mercilessly**: Identify the core concepts and main learning outcomes. Everything in the plan should serve these goals.
 

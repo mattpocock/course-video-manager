@@ -71,4 +71,6 @@ export interface WriterContext {
   fullPath: string;
   isStandalone: boolean;
   beats: Array<{ kind: BeatKind; title: string; description: string }>;
+  /** The video's script — the base Matt improvised from. Empty when unwritten. */
+  script: string;
 }

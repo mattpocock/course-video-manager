@@ -1,10 +1,13 @@
 import { getImageInstructions } from "./image-instructions";
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { SCREENSHOT_INSTRUCTIONS } from "./screenshot-instructions";
+import { ARTICLE_SOURCE_HIERARCHY } from "./source-hierarchy";
 import { CODE_SAMPLES, STYLE_GUIDE_BASE } from "./style-guide";
 import { getTranscriptSection } from "./transcript-instructions";
 
 const taskInstructions = `
+${ARTICLE_SOURCE_HIERARCHY}
+
 ${STYLE_GUIDE_BASE}
 
 ${CODE_SAMPLES}
@@ -55,7 +58,7 @@ You are a helpful assistant being asked to format a transcript of a video to acc
 
 ## Documents
 
-${transcriptSection}${sectionNamesSection}${courseStructureSection}Here is the code for the video.
+${transcriptSection}${sectionNamesSection}${courseStructureSection}Here is the supporting material for the video — the code, notes and session logs that were on screen.
 
 <code>
 ${opts.code

@@ -1,5 +1,6 @@
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { getSkillBuildingSharedTemplate } from "./skill-building-shared-template";
+import { SOURCE_HIERARCHY } from "./source-hierarchy";
 import { getTranscriptSection } from "./transcript-instructions";
 
 export const generateStepsToCompleteForSkillBuildingProblemPrompt = (opts: {
@@ -32,7 +33,7 @@ The user will be reading this content alongside the lesson.
 </role-context>
 
 <documents>
-${transcriptSection}${courseStructureSection}Here is the code for the video.
+${transcriptSection}${courseStructureSection}Here is the supporting material for the video — the code, notes and session logs that were on screen.
 
 <code>
 ${opts.code
@@ -40,6 +41,8 @@ ${opts.code
   .join("\n")}
 </code>
 </documents>
+
+${SOURCE_HIERARCHY}
 
 ${getSkillBuildingSharedTemplate(opts.images)}
 

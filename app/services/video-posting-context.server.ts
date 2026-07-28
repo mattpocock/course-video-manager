@@ -206,6 +206,8 @@ export interface WriterContextData {
     title: string;
     description: string;
   }>;
+  /** The video's script — the base Matt improvised from. Empty when unwritten. */
+  script: string;
 }
 
 export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
@@ -255,6 +257,7 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
       courseStructure: null,
       links: globalLinks,
       beats,
+      script: video.script ?? "",
     } satisfies WriterContextData;
   }
 
@@ -290,5 +293,6 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
     courseStructure,
     links: globalLinks,
     beats,
+    script: video.script ?? "",
   } satisfies WriterContextData;
 });

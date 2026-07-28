@@ -2,6 +2,7 @@ import { getImageInstructions } from "./image-instructions";
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { PROJECT_STYLE_GUIDE } from "./project-style-guide";
 import PROJECT_STEPS_SAMPLE from "./project-steps-sample.md?raw";
+import { PROJECT_SOURCE_HIERARCHY } from "./source-hierarchy";
 import { getTranscriptSection } from "./transcript-instructions";
 
 export const generateStepsToCompleteForProjectPrompt = (opts: {
@@ -40,6 +41,8 @@ ${opts.code
   .map((file) => `<file path="${file.path}">${file.content}</file>`)
   .join("\n")}
 </code>
+
+${PROJECT_SOURCE_HIERARCHY}
 
 ${PROJECT_STYLE_GUIDE}
 
