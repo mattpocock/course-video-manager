@@ -83,6 +83,29 @@ describe("drainQueue", () => {
   });
 });
 
+describe("holding a send while a screenshot capture is in flight", () => {
+  it("queues a message submitted while a capture is running", () => {
+    const result = processSubmit("ready", "make it shorter", [], true);
+    expect(result.sent).toBeNull();
+    expect(result.queued).toEqual(["make it shorter"]);
+  });
+
+  it("does not drain while a capture is running", () => {
+    const result = drainQueue("ready", ["make it shorter"], true);
+    expect(result.messageToSend).toBeNull();
+    expect(result.nextQueue).toEqual(["make it shorter"]);
+  });
+
+  it("drains once the capture has landed", () => {
+    // The capture rewrites the document; only then may the message go out, so
+    // the request carries the captured image rather than the placeholder.
+    const { queued } = processSubmit("ready", "make it shorter", [], true);
+    const result = drainQueue("ready", queued, false);
+    expect(result.messageToSend).toBe("make it shorter");
+    expect(result.nextQueue).toEqual([]);
+  });
+});
+
 describe("full queue lifecycle", () => {
   it("queues messages during streaming, then drains one by one on ready", () => {
     // User submits while streaming

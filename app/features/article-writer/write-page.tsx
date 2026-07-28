@@ -491,7 +491,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     submit: handleSubmit,
     queuedMessages,
     clearQueue,
-  } = useMessageQueue(status, handleSend);
+  } = useMessageQueue(status, handleSend, docCapturingKey !== null);
 
   const handleGoLive = () => {
     dispatch({ type: "set-mode", mode: "interview" });
