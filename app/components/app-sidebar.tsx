@@ -234,16 +234,15 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   return (
     <>
       {/*
-        The page scrolls at the document level, so the rail has to stick to the
-        viewport to stay visible. Sticky only takes effect on a flex child that
-        is shorter than its container — hence self-start + h-screen rather than
-        the default stretch.
+        The page scrolls at the document level, so the rail sticks to the
+        viewport to stay visible. A sticky box can only travel inside its own
+        containing block, and the layout's default `align-items: stretch` would
+        size the rail to the full scrollable page — leaving it nowhere to
+        travel. `self-start` + `h-screen` cap it at the viewport instead, which
+        also gives the nav list below a real scrollport when it overflows.
       */}
       {variant === "rail" && (
-        <div
-          data-slot="app-sidebar-rail"
-          className="hidden md:flex w-80 border-r bg-muted/30 flex-col shrink-0 sticky top-0 self-start h-screen"
-        >
+        <div className="hidden md:flex w-80 border-r bg-muted/30 flex-col shrink-0 sticky top-0 self-start h-screen">
           <div className="p-4 flex-1 flex flex-col min-h-0">{content}</div>
         </div>
       )}
