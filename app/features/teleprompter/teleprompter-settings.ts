@@ -57,6 +57,10 @@ export const TYPE = {
    * Cues are stage directions, not lines — read at a glance and never aloud.
    * Small enough that the eye registers "not my words" before it reads them,
    * and still large enough to take in without leaning towards the glass.
+   *
+   * Relative to whatever the cue sits in, not to the body size: a cue inside a
+   * heading is already set smaller than the body, and an aside that came out
+   * larger than the line it interrupts would do the opposite of its job.
    */
   cueScale: 0.6,
   /**
@@ -91,7 +95,7 @@ export function textStyle(): React.CSSProperties {
  */
 export function cueStyle(): React.CSSProperties {
   return {
-    fontSize: `${TYPE.fontSize * TYPE.cueScale}px`,
+    fontSize: `${TYPE.cueScale}em`,
     fontStyle: "italic",
     color: TYPE.cueColor,
   };

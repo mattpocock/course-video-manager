@@ -34,8 +34,8 @@ const COMPONENTS: Components = {
     </strong>
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
-  // The only spans in play are the ones `remarkInlineCues` inserts, but check
-  // rather than assume — a stray span from the script shouldn't read as a cue.
+  // `remarkInlineCues` marks its spans with `CUE_CLASS`; that class is the
+  // whole handshake, so anything else wearing a span stays a plain span.
   span: ({ children, className }) =>
     className === CUE_CLASS ? (
       <span data-cue style={cueStyle()}>
