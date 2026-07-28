@@ -1,21 +1,21 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { DocumentAgentMessage } from "./types";
 
 /**
  * Rewrite the text parts of one message, leaving every other message — and
  * every non-text part of the addressed message — exactly as it was.
  */
-export function applyTextMutation(
+function rewriteMessageText(
   messages: DocumentAgentMessage[],
   messageId: string,
-  mutator: (text: string) => string
+  rewrite: (text: string) => string
 ): DocumentAgentMessage[] {
   return messages.map((message) => {
     if (message.id !== messageId) return message;
     return {
       ...message,
       parts: message.parts.map((part) =>
-        part.type === "text" ? { ...part, text: mutator(part.text) } : part
+        part.type === "text" ? { ...part, text: rewrite(part.text) } : part
       ),
     };
   });
@@ -45,17 +45,17 @@ export function createMessageTextMutator(messages: DocumentAgentMessage[]) {
      * before React has re-rendered with the first one — compose instead of
      * overwriting each other.
      */
-    mutate(messageId: string, mutator: (text: string) => string) {
-      latest = applyTextMutation(latest, messageId, mutator);
+    mutate(messageId: string, rewrite: (text: string) => string) {
+      latest = rewriteMessageText(latest, messageId, rewrite);
       return latest;
     },
   };
 }
 
 /**
- * Wires {@link createMessageTextMutator} to a component's render loop: every
- * render feeds in the messages React just handed down, and each mutation hands
- * the rebased list back through `onMutated`.
+ * Wires {@link createMessageTextMutator} to a component's render loop: each
+ * committed change to `messages` becomes the new baseline, and each mutation
+ * hands the rebased list back through `onMutated`.
  */
 export function useMessageTextMutation(
   messages: DocumentAgentMessage[],
@@ -63,12 +63,19 @@ export function useMessageTextMutation(
 ) {
   const mutatorRef = useRef<ReturnType<typeof createMessageTextMutator>>(null);
   mutatorRef.current ??= createMessageTextMutator(messages);
-  mutatorRef.current.sync(messages);
 
   const onMutatedRef = useRef(onMutated);
   onMutatedRef.current = onMutated;
 
-  return useCallback((messageId: string, mutator: (text: string) => string) => {
-    onMutatedRef.current(mutatorRef.current!.mutate(messageId, mutator));
+  // Keyed on `messages`, so a re-render caused by unrelated local state — a
+  // keystroke in the composer — cannot rewind the baseline to a list that
+  // predates a capture React has not handed back down yet. Layout rather than
+  // passive, so no capture can resolve into the gap between commit and sync.
+  useLayoutEffect(() => {
+    mutatorRef.current!.sync(messages);
+  }, [messages]);
+
+  return useCallback((messageId: string, rewrite: (text: string) => string) => {
+    onMutatedRef.current(mutatorRef.current!.mutate(messageId, rewrite));
   }, []);
 }

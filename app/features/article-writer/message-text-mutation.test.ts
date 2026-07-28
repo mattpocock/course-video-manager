@@ -1,9 +1,6 @@
 import { fromPartial } from "@total-typescript/shoehorn";
 import { describe, expect, it } from "vitest";
-import {
-  applyTextMutation,
-  createMessageTextMutator,
-} from "./message-text-mutation";
+import { createMessageTextMutator } from "./message-text-mutation";
 import { replaceChooseScreenshotWithImage } from "./choose-screenshot-mutations";
 import type { DocumentAgentMessage } from "./types";
 
@@ -25,56 +22,45 @@ const textOf = (msg: DocumentAgentMessage | undefined) =>
 const tag = (clipIndex: number, alt: string) =>
   `<ChooseScreenshot clipIndex={${clipIndex}} alt="${alt}" />`;
 
-describe("applyTextMutation", () => {
-  it("mutates the text parts of the addressed message only", () => {
-    const messages = [
-      message("m1", "assistant", "first"),
-      message("m2", "assistant", "second"),
-    ];
+describe("createMessageTextMutator", () => {
+  it("keeps the tool calls in a message it rewrites", () => {
+    // A captured screenshot must not cost the message its writeDocument call —
+    // that is what renders the document panel alongside the reply.
+    const mutator = createMessageTextMutator([
+      fromPartial<DocumentAgentMessage>({
+        id: "m1",
+        role: "assistant",
+        parts: [
+          { type: "tool-writeDocument", state: "output-available" },
+          { type: "text", text: tag(3, "the error") },
+        ],
+      }),
+    ]);
 
-    const result = applyTextMutation(messages, "m2", (t) => t.toUpperCase());
-
-    expect(textOf(result[0])).toBe("first");
-    expect(textOf(result[1])).toBe("SECOND");
-  });
-
-  it("leaves non-text parts untouched", () => {
-    const withTool = fromPartial<DocumentAgentMessage>({
-      id: "m1",
-      role: "assistant",
-      parts: [
-        { type: "tool-writeDocument", state: "output-available" },
-        { type: "text", text: "hello" },
-      ],
-    });
-
-    const result = applyTextMutation([withTool], "m1", (t) => `${t}!`);
+    const result = mutator.mutate("m1", (text) =>
+      replaceChooseScreenshotWithImage(text, 3, "the error", "./shot-1.png")
+    );
 
     expect(result[0]!.parts[0]).toEqual({
       type: "tool-writeDocument",
       state: "output-available",
     });
-    expect(textOf(result[0])).toBe("hello!");
+    expect(textOf(result[0])).toBe("![the error](./shot-1.png)");
   });
 
-  it("does not mutate the messages it is given", () => {
-    const messages = [message("m1", "assistant", "original")];
+  it("leaves the messages it was given untouched", () => {
+    // The caller hands these straight back to React, which compares by
+    // identity — rewriting in place would lose the re-render.
+    const original = [message("m1", "assistant", tag(3, "the error"))];
+    const mutator = createMessageTextMutator(original);
 
-    applyTextMutation(messages, "m1", () => "changed");
+    mutator.mutate("m1", (text) =>
+      replaceChooseScreenshotWithImage(text, 3, "the error", "./shot-1.png")
+    );
 
-    expect(textOf(messages[0])).toBe("original");
+    expect(textOf(original[0])).toBe(tag(3, "the error"));
   });
 
-  it("is a no-op when no message matches", () => {
-    const messages = [message("m1", "assistant", "only")];
-
-    const result = applyTextMutation(messages, "gone", () => "changed");
-
-    expect(result.map(textOf)).toEqual(["only"]);
-  });
-});
-
-describe("createMessageTextMutator", () => {
   it("rebases a mutation onto messages that arrived while it was in flight", () => {
     // The user clicks Capture, which awaits an HTTP round-trip...
     const mutator = createMessageTextMutator([
