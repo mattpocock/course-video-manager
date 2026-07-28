@@ -11,7 +11,8 @@
  */
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { TYPE } from "./teleprompter-settings";
+import { CUE_CLASS, remarkInlineCues } from "./inline-cues";
+import { TYPE, cueStyle } from "./teleprompter-settings";
 
 const COMPONENTS: Components = {
   // The crawl supplies the wrapper element and its margin.
@@ -33,6 +34,16 @@ const COMPONENTS: Components = {
     </strong>
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
+  // The only spans in play are the ones `remarkInlineCues` inserts, but check
+  // rather than assume — a stray span from the script shouldn't read as a cue.
+  span: ({ children, className }) =>
+    className === CUE_CLASS ? (
+      <span data-cue style={cueStyle()}>
+        {children}
+      </span>
+    ) : (
+      <span className={className}>{children}</span>
+    ),
   code: ({ children }) => (
     <code className="rounded bg-white/10 px-1 py-0.5">{children}</code>
   ),
@@ -46,7 +57,10 @@ const COMPONENTS: Components = {
 
 export function ScriptMarkdown(props: { children: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkInlineCues]}
+      components={COMPONENTS}
+    >
       {props.children}
     </ReactMarkdown>
   );

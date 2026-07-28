@@ -53,6 +53,18 @@ export const TYPE = {
    * registers once you're looking straight at it.
    */
   boldColor: "var(--color-sky-300)",
+  /**
+   * Cues are stage directions, not lines — read at a glance and never aloud.
+   * Small enough that the eye registers "not my words" before it reads them,
+   * and still large enough to take in without leaning towards the glass.
+   */
+  cueScale: 0.6,
+  /**
+   * Grey, and deliberately the coolest, quietest thing on the glass: cues sit
+   * inside sentences the reader is speaking, so they have to fall away in
+   * peripheral vision rather than compete with the line being delivered.
+   */
+  cueColor: "var(--color-neutral-400)",
   /** Where the live line sits, as a % of viewport height. */
   readLine: 42,
 } as const;
@@ -70,6 +82,18 @@ export function textStyle(): React.CSSProperties {
     // stretching word-spaces, and the rivers that opens are worse to read past
     // than a ragged edge you never look at.
     textAlign: "left",
+  };
+}
+
+/**
+ * How a cue looks, wherever it appears — a block of its own, or mid-sentence.
+ * One definition so the two never drift apart on the glass.
+ */
+export function cueStyle(): React.CSSProperties {
+  return {
+    fontSize: `${TYPE.fontSize * TYPE.cueScale}px`,
+    fontStyle: "italic",
+    color: TYPE.cueColor,
   };
 }
 

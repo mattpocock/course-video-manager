@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useTeleprompterActions } from "./use-teleprompter-actions";
 import { ScriptMarkdown } from "./script-markdown";
 import { wordCount, type ScriptBlock } from "./script-blocks";
-import { TYPE, textStyle } from "./teleprompter-settings";
+import { TYPE, cueStyle, textStyle } from "./teleprompter-settings";
 
 export function TeleprompterCrawl(props: {
   blocks: ScriptBlock[];
@@ -129,15 +129,13 @@ export function TeleprompterCrawl(props: {
                 className={
                   block.kind === "heading"
                     ? "mb-6 mt-12 font-semibold uppercase tracking-widest text-neutral-400"
-                    : block.kind === "cue"
-                      ? "mb-8 italic text-amber-400/80"
-                      : "mb-8"
+                    : "mb-8"
                 }
                 style={
                   block.kind === "heading"
                     ? { fontSize: `${TYPE.fontSize * 0.55}px` }
                     : block.kind === "cue"
-                      ? { fontSize: `${TYPE.fontSize * 0.7}px` }
+                      ? cueStyle()
                       : undefined
                 }
               >
