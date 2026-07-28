@@ -71,6 +71,13 @@
       "when": 1785236165919,
       "tag": "0009_index_clip_diagram_snapshot_id",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785237484986,
+      "tag": "0010_index_video_pitch_id",
+      "breakpoints": true
     }
   ]
 }

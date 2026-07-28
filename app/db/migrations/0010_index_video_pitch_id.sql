@@ -1,0 +1,1 @@
+CREATE INDEX "video_pitch_id_idx" ON "course-video-manager_video" USING btree ("pitch_id");

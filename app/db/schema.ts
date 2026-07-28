@@ -255,6 +255,9 @@ export const videos = createTable(
     uniqueIndex("video_lesson_title_uniq")
       .on(table.lessonId, table.title)
       .where(sql`NOT ${table.archived}`),
+    // Postgres does not index FK columns automatically, so resolving a Pitch's
+    // videos would otherwise scan the whole video table once per Pitch.
+    index("video_pitch_id_idx").on(table.pitchId),
   ]
 );
 
