@@ -202,9 +202,7 @@ export const createTextWritingAgent = (props: {
 
   const beatsSection = getBeatsSection(props.beats ?? "");
 
-  const scriptSection = props.script
-    ? `\n\n## Script\n\n${getScriptSection(props.script)}`
-    : "";
+  const scriptSection = getScriptSection(props.script ?? "");
 
   return new Agent({
     model: props.model,

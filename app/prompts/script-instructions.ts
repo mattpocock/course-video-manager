@@ -1,7 +1,7 @@
 export const getScriptSection = (script: string): string => {
   if (!script.trim()) return "";
 
-  return `Here is the script for the video:
+  return `\n\n## Script\n\nHere is the script for the video:
 
 <script>
 ${script}

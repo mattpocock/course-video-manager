@@ -110,17 +110,17 @@ function computeChapterWordCounts(
   };
 
   const sortedItems = sortByOrder<ClipItem | ChapterItem>([
-    ...clips.map(
-      (clip): ClipItem => ({ type: "clip", order: clip.order, text: clip.text })
-    ),
-    ...chapters.map(
-      (ch): ChapterItem => ({
-        type: "chapter",
-        order: ch.order,
-        id: ch.id,
-        name: ch.name,
-      })
-    ),
+    ...clips.map((clip): ClipItem => ({
+      type: "clip",
+      order: clip.order,
+      text: clip.text,
+    })),
+    ...chapters.map((ch): ChapterItem => ({
+      type: "chapter",
+      order: ch.order,
+      id: ch.id,
+      name: ch.name,
+    })),
   ]);
 
   const sections: SectionWithWordCount[] = [];

@@ -10,8 +10,9 @@ describe("getScriptSection", () => {
     expect(getScriptSection("   \n  ")).toBe("");
   });
 
-  it("wraps the script in <script> tags", () => {
+  it("wraps the script in <script> tags under a Script heading", () => {
     const result = getScriptSection("[On screen: the repo]");
+    expect(result).toContain("## Script");
     expect(result).toContain("<script>");
     expect(result).toContain("[On screen: the repo]");
     expect(result).toContain("</script>");

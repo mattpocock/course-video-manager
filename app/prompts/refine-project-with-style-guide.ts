@@ -2,7 +2,7 @@ import { getImageInstructions } from "./image-instructions";
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { PROJECT_STYLE_GUIDE } from "./project-style-guide";
 import PROJECT_STEPS_SAMPLE from "./project-steps-sample.md?raw";
-import { PROJECT_SOURCE_HIERARCHY } from "./source-hierarchy";
+import { REFINE_SOURCE_HIERARCHY } from "./source-hierarchy";
 import { getTranscriptSection } from "./transcript-instructions";
 
 export const refineProjectWithStyleGuidePrompt = (opts: {
@@ -71,7 +71,7 @@ Here is a sample of what a well-formatted project README looks like:
 ${PROJECT_STEPS_SAMPLE}
 </example-format>
 
-${PROJECT_SOURCE_HIERARCHY}
+${REFINE_SOURCE_HIERARCHY}
 
 ${PROJECT_STYLE_GUIDE}
 

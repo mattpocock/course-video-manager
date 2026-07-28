@@ -3,6 +3,8 @@ import {
   SOURCE_HIERARCHY,
   ARTICLE_SOURCE_HIERARCHY,
   PROJECT_SOURCE_HIERARCHY,
+  SKILL_BUILDING_SOURCE_HIERARCHY,
+  REFINE_SOURCE_HIERARCHY,
 } from "./source-hierarchy";
 
 describe("SOURCE_HIERARCHY", () => {
@@ -74,5 +76,36 @@ describe("PROJECT_SOURCE_HIERARCHY", () => {
   it("exempts the diff, which defines the steps", () => {
     expect(PROJECT_SOURCE_HIERARCHY).toContain("diff");
     expect(PROJECT_SOURCE_HIERARCHY).toContain("defines the steps");
+  });
+});
+
+describe("SKILL_BUILDING_SOURCE_HIERARCHY", () => {
+  it("includes the shared hierarchy", () => {
+    expect(SKILL_BUILDING_SOURCE_HIERARCHY).toContain(SOURCE_HIERARCHY);
+  });
+
+  it("exempts the TODO comments, which define the steps", () => {
+    expect(SKILL_BUILDING_SOURCE_HIERARCHY).toContain("TODO comments");
+    expect(SKILL_BUILDING_SOURCE_HIERARCHY).toContain("defines the steps");
+  });
+
+  it("keeps the transcript in charge of the teaching around the steps", () => {
+    expect(SKILL_BUILDING_SOURCE_HIERARCHY).toContain(
+      "transcript still governs the teaching"
+    );
+  });
+});
+
+describe("REFINE_SOURCE_HIERARCHY", () => {
+  it("includes the shared hierarchy", () => {
+    expect(REFINE_SOURCE_HIERARCHY).toContain(SOURCE_HIERARCHY);
+  });
+
+  it("forbids cutting README content absent from the transcript", () => {
+    expect(REFINE_SOURCE_HIERARCHY).toContain("never cut a section");
+  });
+
+  it("narrows the ladder to wording on a reformatting pass", () => {
+    expect(REFINE_SOURCE_HIERARCHY).toContain("ladder to wording only");
   });
 });

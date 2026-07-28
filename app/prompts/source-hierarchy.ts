@@ -24,6 +24,20 @@ export const ARTICLE_SOURCE_HIERARCHY = `${SOURCE_HIERARCHY}
 
 Your output is an annotated transcript, so follow the transcript's order and stay close to it. Your job is to render what was said as readable prose, annotated with the supporting material — not to restructure it.`;
 
+export const SKILL_BUILDING_SOURCE_HIERARCHY = `${SOURCE_HIERARCHY}
+
+One exception applies here: the exercise code defines the steps. The TODO comments in the attached code are the task the reader is being set, so each one earns a step whether or not it was narrated, along with the steps needed to run and verify the exercise. The transcript still governs the teaching wrapped around those steps — the introduction, the explanations, and the vocabulary.`;
+
 export const PROJECT_SOURCE_HIERARCHY = `${SOURCE_HIERARCHY}
 
 One exception applies here: the git diff defines the steps. The commit is the work the reader is recreating, so every change in the diff earns a step whether or not it was narrated. The transcript still governs the teaching wrapped around those steps — the explanations, the reasoning, and the vocabulary.`;
+
+/**
+ * The refine passes reformat an existing README rather than writing from
+ * scratch, so the ladder governs their wording but must not license deletion:
+ * the README's own content is the subject, not a claim to be fact-checked
+ * against the transcript.
+ */
+export const REFINE_SOURCE_HIERARCHY = `${SOURCE_HIERARCHY}
+
+One exception applies here: you are reformatting an existing README, not writing one. Its content is the subject of the task and stays in — never cut a section, step or code sample merely because the transcript does not mention it. Apply the ladder to wording only: fix spelling and naming, and align vocabulary with what was said on camera. Do not add claims the transcript does not support.`;

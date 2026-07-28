@@ -19,10 +19,7 @@ import type {
 } from "./text-writing-agent";
 
 export type DocumentWritingAgentMode =
-  | "article"
-  | "skill-building"
-  | "newsletter"
-  | "seo-description-document";
+  "article" | "skill-building" | "newsletter" | "seo-description-document";
 
 export const writeDocumentTool = tool({
   description:
@@ -176,9 +173,7 @@ After calling writeDocument, you may add a brief conversational message explaini
 
   const beatsSection = getBeatsSection(props.beats ?? "");
 
-  const scriptSection = props.script
-    ? `\n\n## Script\n\n${getScriptSection(props.script)}`
-    : "";
+  const scriptSection = getScriptSection(props.script ?? "");
 
   const repairToolCall: ConstructorParameters<
     typeof Agent
@@ -194,8 +189,7 @@ After calling writeDocument, you may add a brief conversational message explaini
   if (props.document) {
     return new Agent({
       model: props.model,
-      instructions:
-        systemPrompt + memorySection + scriptSection + beatsSection,
+      instructions: systemPrompt + memorySection + scriptSection + beatsSection,
       tools: { editDocument: editDocumentTool },
       stopWhen: stepCountIs(5),
       experimental_repairToolCall: repairToolCall,
@@ -204,8 +198,7 @@ After calling writeDocument, you may add a brief conversational message explaini
 
   return new Agent({
     model: props.model,
-    instructions:
-        systemPrompt + memorySection + scriptSection + beatsSection,
+    instructions: systemPrompt + memorySection + scriptSection + beatsSection,
     tools: { writeDocument: writeDocumentTool },
     stopWhen: stepCountIs(5),
     experimental_repairToolCall: repairToolCall,

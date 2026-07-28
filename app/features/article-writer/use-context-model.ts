@@ -242,7 +242,7 @@ export function useContextModel(
     }
 
     // 4. Script (only if non-empty — most videos have none)
-    if (scriptText.length > 0) {
+    if (scriptText.trim().length > 0) {
       const tokens = estimateTokens(scriptText);
       const on = scriptEnabled;
       result.push({

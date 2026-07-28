@@ -1,6 +1,6 @@
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { getSkillBuildingSharedTemplate } from "./skill-building-shared-template";
-import { SOURCE_HIERARCHY } from "./source-hierarchy";
+import { SKILL_BUILDING_SOURCE_HIERARCHY } from "./source-hierarchy";
 import { getTranscriptSection } from "./transcript-instructions";
 
 export const generateStepsToCompleteForSkillBuildingProblemPrompt = (opts: {
@@ -42,7 +42,7 @@ ${opts.code
 </code>
 </documents>
 
-${SOURCE_HIERARCHY}
+${SKILL_BUILDING_SOURCE_HIERARCHY}
 
 ${getSkillBuildingSharedTemplate(opts.images)}
 

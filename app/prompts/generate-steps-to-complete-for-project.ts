@@ -34,7 +34,7 @@ You are a helpful assistant being asked to turn a git commit diff and video tran
 
 ## Documents
 
-${transcriptSection}${courseStructureSection}Here is the code for the video, which includes the git diff and commit message:
+${transcriptSection}${courseStructureSection}Here is the supporting material for the video, which includes the git diff and commit message:
 
 <code>
 ${opts.code
