@@ -57,6 +57,49 @@ describe("computeVideoWarnings", () => {
     ).toEqual([{ kind: "missingChapters" }]);
   });
 
+  it("raises missingChapters when a chapter shares the first clip's order", () => {
+    // "Opens with a chapter" means strictly before the first clip, so a chapter
+    // tied with it does not open the video.
+    expect(
+      computeVideoWarnings({
+        clips: [{ order: "a1", archived: false }],
+        chapters: [{ order: "a1", archived: false }],
+      })
+    ).toEqual([{ kind: "missingChapters" }]);
+  });
+
+  it("finds the earliest clip and chapter regardless of array order", () => {
+    expect(
+      computeVideoWarnings({
+        clips: [
+          { order: "a5", archived: false },
+          { order: "a2", archived: false },
+        ],
+        chapters: [
+          { order: "a4", archived: false },
+          { order: "a1", archived: false },
+        ],
+      })
+    ).toEqual([]);
+  });
+
+  it("ignores archived entries when they sort earliest", () => {
+    // Both the archived clip and the archived chapter sort ahead of everything
+    // live, so neither may influence the comparison.
+    expect(
+      computeVideoWarnings({
+        clips: [
+          { order: "a0", archived: true },
+          { order: "a2", archived: false },
+        ],
+        chapters: [
+          { order: "a1", archived: true },
+          { order: "a3", archived: false },
+        ],
+      })
+    ).toEqual([{ kind: "missingChapters" }]);
+  });
+
   it("returns no warnings when only archived clips remain", () => {
     expect(
       computeVideoWarnings({

@@ -277,8 +277,8 @@ describe("collectCourseViewLints", () => {
   });
 
   it("excludes archived videos from video warnings", () => {
-    // The archived video is missing its chapters, but archived videos are
-    // never published, so it must not raise a warning.
+    // The archived video has no chapters, but archived videos are never
+    // published, so it must not raise a warning.
     const sections = [
       {
         path: "01-intro",
