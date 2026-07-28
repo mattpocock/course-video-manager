@@ -12,6 +12,9 @@ import type { LiveMediaStreamProps } from "../types";
  * - Dynamic outline colors based on speech detection state
  * - Optional center line guide for camera framing
  * - Auto-plays the video stream when mounted or stream changes
+ *
+ * `showCaptureStatus` turns the first two off wholesale — badge and ring both —
+ * so the teleprompter can be the only screen reporting the take.
  */
 export const LiveMediaStream = (props: LiveMediaStreamProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -24,33 +27,38 @@ export const LiveMediaStream = (props: LiveMediaStreamProps) => {
   }, [props.mediaStream, videoRef.current]);
 
   const isRecording = props.obsConnectorState.type === "obs-recording";
+  // Both gates fold in `showCaptureStatus`: with the teleprompter connected the
+  // preview reports nothing at all, not even the muted not-recording badge.
+  const showRecordingStatus = props.showCaptureStatus && isRecording;
+  const showIdleStatus = props.showCaptureStatus && !isRecording;
 
   return (
     <div className={cn("relative w-full h-full")}>
-      {isRecording && props.speechDetectorState.type === "silence" && (
+      {showRecordingStatus && props.speechDetectorState.type === "silence" && (
         <div className="absolute top-4 left-4 bg-blue-600 rounded-full size-8 flex items-center justify-center">
           <CheckIcon className="size-4 text-white" />
         </div>
       )}
-      {isRecording &&
+      {showRecordingStatus &&
         props.speechDetectorState.type === "speaking-detected" && (
           <div className="absolute top-4 left-4 bg-yellow-600 rounded-full size-8 flex items-center justify-center">
             <MicIcon className="size-4 text-white" />
           </div>
         )}
-      {isRecording &&
+      {showRecordingStatus &&
         props.speechDetectorState.type ===
           "long-enough-speaking-for-clip-detected" && (
           <div className="absolute top-4 left-4 bg-green-600 rounded-full size-8 flex items-center justify-center">
             <MicIcon className="size-4 text-white" />
           </div>
         )}
-      {isRecording && props.speechDetectorState.type === "warming-up" && (
-        <div className="absolute top-4 left-4 bg-red-600 rounded-full size-8 flex items-center justify-center">
-          <Loader2 className="size-4 text-white animate-spin" />
-        </div>
-      )}
-      {!isRecording && (
+      {showRecordingStatus &&
+        props.speechDetectorState.type === "warming-up" && (
+          <div className="absolute top-4 left-4 bg-red-600 rounded-full size-8 flex items-center justify-center">
+            <Loader2 className="size-4 text-white animate-spin" />
+          </div>
+        )}
+      {showIdleStatus && (
         <div className="absolute top-4 left-4 bg-muted rounded-full size-8 flex items-center justify-center">
           <MicOffIcon className="size-4 text-foreground" />
         </div>
@@ -69,17 +77,17 @@ export const LiveMediaStream = (props: LiveMediaStreamProps) => {
           "ring-4",
           "ring-muted-foreground",
           "rounded-lg",
-          isRecording &&
+          showRecordingStatus &&
             props.speechDetectorState.type === "speaking-detected" &&
             "ring-yellow-600",
-          isRecording &&
+          showRecordingStatus &&
             props.speechDetectorState.type ===
               "long-enough-speaking-for-clip-detected" &&
             "ring-green-600",
-          isRecording &&
+          showRecordingStatus &&
             props.speechDetectorState.type === "silence" &&
             "ring-blue-600",
-          isRecording &&
+          showRecordingStatus &&
             props.speechDetectorState.type === "warming-up" &&
             "ring-red-600"
         )}

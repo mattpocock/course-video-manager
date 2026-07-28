@@ -20,7 +20,10 @@ import {
 } from "@/lib/browser-focus-tracking";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
-import type { SessionPanelData } from "../video-editor-selectors";
+import {
+  getShowCaptureStatus as getShowCaptureStatusSelector,
+  type SessionPanelData,
+} from "../video-editor-selectors";
 import type {
   ClipOptimisticallyAdded,
   ClipOnDatabase,
@@ -167,6 +170,10 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
     VideoEditorContext,
     (ctx) => ctx.onPermanentlyRemoveArchived
   );
+  const isTeleprompterConnected = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.isTeleprompterConnected
+  );
 
   const [elapsedSeconds, setElapsedSeconds] = useState(() =>
     Math.floor((Date.now() - panel.startedAt) / 1000)
@@ -250,7 +257,19 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
         </span>
         {panel.isRecording && (
           <span className="flex items-center gap-1.5 text-xs text-red-400">
-            <CircleDotIcon className="size-3 animate-pulse" />
+            {/*
+              The badge stays while the teleprompter is connected — it says
+              *which* session is live, which nothing else does — but it stops
+              pulsing. The whole point of the glass is that the editor isn't
+              what you're looking at, and a blinking dot is what pulls you back.
+            */}
+            <CircleDotIcon
+              className={cn(
+                "size-3",
+                getShowCaptureStatusSelector(isTeleprompterConnected) &&
+                  "animate-pulse"
+              )}
+            />
             Recording
             <span className="font-mono tabular-nums">
               {formatSecondsToTimeCode(elapsedSeconds)}

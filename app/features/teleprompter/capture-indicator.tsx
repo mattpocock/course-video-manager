@@ -6,6 +6,10 @@
  * `app/features/video-editor/components/live-media-stream.tsx` — if that badge
  * changes, this should change with it. Keeping them identical is the whole
  * point: you should not have to learn a second vocabulary while filming.
+ *
+ * While this window is attached the editor hides its own badge and record
+ * signal (`getShowCaptureStatus`), so this is the only place the take is
+ * reported — nothing is left blinking on a screen you aren't looking at.
  */
 import { CheckIcon, Loader2, MicIcon, MicOffIcon } from "lucide-react";
 import type { CaptureStatus } from "@/lib/teleprompter-protocol";

@@ -21,7 +21,9 @@ import {
   getIsOBSActive as getIsOBSActiveSelector,
   getIsLiveStreamPortrait as getIsLiveStreamPortraitSelector,
   getShouldShowLastFrameOverlay as getShouldShowLastFrameOverlaySelector,
+  getShowCaptureStatus as getShowCaptureStatusSelector,
   getShowCenterLine as getShowCenterLineSelector,
+  getShowRecordingSignal as getShowRecordingSignalSelector,
   getShowScrubSlider as getShowScrubSliderSelector,
 } from "../video-editor-selectors";
 import { AlertTriangleIcon, ClipboardIcon, VideoOffIcon } from "lucide-react";
@@ -94,6 +96,10 @@ export const VideoPlayerPanel = () => {
   const speechDetectorState = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.speechDetectorState
+  );
+  const isTeleprompterConnected = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.isTeleprompterConnected
   );
   const databaseClipToShowLastFrameOf = useContextSelector(
     VideoEditorContext,
@@ -299,6 +305,13 @@ export const VideoPlayerPanel = () => {
     obsConnectorState
   );
   const showCenterLine = getShowCenterLineSelector(obsConnectorState);
+  const showCaptureStatus = getShowCaptureStatusSelector(
+    isTeleprompterConnected
+  );
+  const showRecordingSignal = getShowRecordingSignalSelector(
+    obsConnectorState,
+    isTeleprompterConnected
+  );
   const showScrubSlider = getShowScrubSliderSelector(
     currentClip?.type,
     showVideoPlayer
@@ -385,9 +398,7 @@ export const VideoPlayerPanel = () => {
                       "block"
                   )}
                 >
-                  {obsConnectorState.type === "obs-recording" && (
-                    <RecordingSignalIndicator />
-                  )}
+                  {showRecordingSignal && <RecordingSignalIndicator />}
 
                   {isOBSActive && (
                     <LiveMediaStream
@@ -395,6 +406,7 @@ export const VideoPlayerPanel = () => {
                       obsConnectorState={obsConnectorState}
                       speechDetectorState={speechDetectorState}
                       showCenterLine={showCenterLine}
+                      showCaptureStatus={showCaptureStatus}
                     />
                   )}
                   {!showVideoPlayer &&

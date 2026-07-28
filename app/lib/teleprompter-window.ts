@@ -27,7 +27,12 @@ const WINDOW_NAME = "cvm-teleprompter";
 // Sized to the Elgato Prompter's panel (9", 1024x600) so what you judge in the
 // popup is what you'll get on the glass.
 const POPUP_FEATURES = "popup,width=1024,height=600";
-const ALIVE_WINDOW_MS = 5000;
+/**
+ * How long after a ping the popup is presumed still there — the editor-side
+ * mirror of `EDITOR_ALIVE_MS`. The popup pings every 2s, so this survives one
+ * missed beat.
+ */
+export const TELEPROMPTER_ALIVE_WINDOW_MS = 5000;
 
 let lastPingAt = 0;
 let livenessSubscribed = false;
@@ -104,13 +109,27 @@ export function sendTeleprompterCommand(command: TeleprompterCommand): void {
   sendToTeleprompter({ type: "command", command });
 }
 
-function isTeleprompterAlive(): boolean {
+/**
+ * Whether a ping heard at `lastPingAt` still means the popup is there. Pure and
+ * clock-injected so the window is testable; `0` means nothing has ever pinged.
+ */
+export function isPingFresh(pingAt: number, now: number): boolean {
+  return pingAt > 0 && now - pingAt < TELEPROMPTER_ALIVE_WINDOW_MS;
+}
+
+/**
+ * Is a teleprompter popup attached right now?
+ *
+ * Polled rather than subscribed: liveness expires by the clock, so there is no
+ * message to hang an event on when it goes away.
+ */
+export function isTeleprompterAlive(): boolean {
   if (popupRef && popupRef.closed) {
     popupRef = null;
     lastPingAt = 0;
     return false;
   }
-  return Date.now() - lastPingAt < ALIVE_WINDOW_MS;
+  return isPingFresh(lastPingAt, Date.now());
 }
 
 /**

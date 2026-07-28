@@ -25,6 +25,7 @@ import { RenameVideoModal } from "@/components/rename-video-modal";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useTeleprompterShortcuts } from "./hooks/use-teleprompter-shortcuts";
 import { useTeleprompterEditorMode } from "./hooks/use-teleprompter-editor-mode";
+import { useTeleprompterConnected } from "./hooks/use-teleprompter-connected";
 import { useWebSocket } from "./hooks/use-websocket";
 import { useClipboardOperations } from "./hooks/use-clipboard-operations";
 import {
@@ -340,6 +341,10 @@ export const VideoEditor = (props: {
   });
   useTeleprompterShortcuts();
 
+  // Drives the live preview's capture status off, so the glass is the only
+  // place the take is being reported — see getShowCaptureStatus.
+  const isTeleprompterConnected = useTeleprompterConnected();
+
   // Adding a reference auto-switches the persisted tab to Reference so the
   // newly-added reader surfaces; removing (next === null) leaves the tab alone.
   const handleSetReferenceVideoId = useCallback(
@@ -442,6 +447,7 @@ export const VideoEditor = (props: {
       silenceLength: props.silenceLength,
       setSilenceLength: props.onSilenceLengthChange,
       isRecordingActive: props.isRecordingActive,
+      isTeleprompterConnected,
       clipIdsBeingTranscribed: props.clipIdsBeingTranscribed,
 
       // Callbacks
@@ -551,6 +557,7 @@ export const VideoEditor = (props: {
       props.silenceLength,
       props.onSilenceLengthChange,
       props.isRecordingActive,
+      isTeleprompterConnected,
       props.clipIdsBeingTranscribed,
       props.onSetInsertionPoint,
       props.onMoveClip,

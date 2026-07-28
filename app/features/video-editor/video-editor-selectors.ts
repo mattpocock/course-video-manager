@@ -419,6 +419,34 @@ export const getShowCenterLine = (
 };
 
 /**
+ * Does the live preview report capture status at all — the mic badge, the
+ * coloured ring around the feed, the pulsing record signal?
+ *
+ * Answered no whenever the teleprompter is connected. The glass already shows
+ * the same status (`capture-indicator.tsx` mirrors the badge verbatim) and it
+ * is where you're looking while filming, so the editor's copy adds nothing —
+ * it just leaves something flashing on the other screen for the whole take.
+ * This silences the not-recording badge too: while the glass has it, the
+ * editor's status corner is quiet, not merely un-animated.
+ */
+export const getShowCaptureStatus = (
+  isTeleprompterConnected: boolean
+): boolean => {
+  return !isTeleprompterConnected;
+};
+
+/** The pulsing red signal over the live preview — see {@link getShowCaptureStatus}. */
+export const getShowRecordingSignal = (
+  obsConnectorState: OBSConnectionOuterState,
+  isTeleprompterConnected: boolean
+): boolean => {
+  return (
+    obsConnectorState.type === "obs-recording" &&
+    getShowCaptureStatus(isTeleprompterConnected)
+  );
+};
+
+/**
  * Is a capture in progress — recording *or* still settling afterwards?
  *
  * The Beat Panel is editable only when fully idle and every clip is
