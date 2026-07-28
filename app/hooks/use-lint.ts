@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type RefObject } from "react";
 import {
   LINT_RULES,
   getLintRulesWithPhrases,
@@ -88,21 +88,31 @@ export function useLint(
  * applied to the document up front — so the model is asked only about what is
  * left, and sees the repaired document when it is asked at all.
  *
- * `documentRef` is read (rather than a document value) because the repair and
- * the send happen in the same tick, before React state catches up. Pass
- * undefined outside document mode, where the linted text is the model's own
- * last message and there is nothing of ours to rewrite.
+ * The document is read from `documentRef` rather than from state because the
+ * repair and the send happen in the same tick, before React state catches up.
+ * Outside document mode there is no document of ours to rewrite — the linted
+ * text is the model's own last message — so every violation goes to the model.
  */
 export function useLintFix(opts: {
   violations: LintViolation[];
-  documentRef: { current: string | undefined } | undefined;
+  isDocumentMode: boolean;
+  documentRef: RefObject<string | undefined>;
   updateDocument: (document: string) => void;
   submitMessage: (text: string) => void;
 }) {
-  const { violations, documentRef, updateDocument, submitMessage } = opts;
+  const {
+    violations,
+    isDocumentMode,
+    documentRef,
+    updateDocument,
+    submitMessage,
+  } = opts;
   return useCallback(() => {
-    const plan = planLintFix({ document: documentRef?.current, violations });
+    const plan = planLintFix({
+      document: isDocumentMode ? documentRef.current : undefined,
+      violations,
+    });
     if (plan.document !== null) updateDocument(plan.document);
     if (plan.message) submitMessage(plan.message);
-  }, [violations, documentRef, updateDocument, submitMessage]);
+  }, [violations, isDocumentMode, documentRef, updateDocument, submitMessage]);
 }

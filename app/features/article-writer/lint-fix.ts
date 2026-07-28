@@ -1,13 +1,18 @@
 import type { LintViolation } from "./lint-rules";
 
-/** An ATX heading line. Deliberately the same shape as the lint rule's
- * pattern, so anything the rule flags is something this can strip. */
-const HEADING_LINE = /^#+ /;
+/**
+ * A document that opens with an ATX heading. Shared with the
+ * `no-leading-heading` rule so detection and repair cannot drift apart.
+ */
+export const LEADING_HEADING_PATTERN = /^#+ /;
 
 /**
  * Removes the heading(s) a document opens with, so the first thing in it is the
  * first paragraph. A single leading heading goes; so does a run of them (an H1
  * followed directly by an H2, say). Headings further down are left alone.
+ *
+ * A document with no first paragraph to promote — nothing but headings — is
+ * returned untouched. Emptying the document is never the fix.
  */
 export function stripLeadingHeadings(text: string): string {
   const lines = text.split("\n");
@@ -16,7 +21,7 @@ export function stripLeadingHeadings(text: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
     if (line.trim() === "") continue;
-    if (!HEADING_LINE.test(line)) break;
+    if (!LEADING_HEADING_PATTERN.test(line)) break;
     lastHeadingIndex = i;
   }
 
@@ -25,6 +30,8 @@ export function stripLeadingHeadings(text: string): string {
   // Drop the headings plus the blank lines separating them from the paragraph.
   let start = lastHeadingIndex + 1;
   while (start < lines.length && (lines[start] ?? "").trim() === "") start++;
+  if (start === lines.length) return text;
+
   return lines.slice(start).join("\n");
 }
 
@@ -37,10 +44,15 @@ export interface LintFixPlan {
 
 /**
  * Splits a set of lint violations into the part we can fix ourselves and the
- * part the model has to fix. Rules carrying a `deterministicFix` are applied to
- * the document here and left out of the message entirely — no point asking the
- * model to redo work we have already done. Without a document (chat mode, where
- * the linted text is the model's last message) every violation goes to the model.
+ * part the model has to fix. A rule carrying a `deterministicFix` is applied to
+ * the document here and its `fixInstruction` left out of the message — no point
+ * asking the model to redo work we have already done.
+ *
+ * A fix that changes nothing has fixed nothing, so its instruction goes to the
+ * model after all. That covers the cases where the deterministic path cannot
+ * reach: no document at all (chat mode, where the linted text is the model's
+ * own last message), and a document that is not the text the violation was
+ * raised against. Pressing Fix therefore always does something.
  */
 export function planLintFix(opts: {
   document: string | undefined;
@@ -53,10 +65,15 @@ export function planLintFix(opts: {
 
   for (const violation of violations) {
     const { deterministicFix, fixInstruction } = violation.rule;
+
     if (deterministicFix && fixed !== undefined) {
-      fixed = deterministicFix(fixed);
-      continue;
+      const repaired = deterministicFix(fixed);
+      if (repaired !== fixed) {
+        fixed = repaired;
+        continue;
+      }
     }
+
     instructions.push(
       typeof fixInstruction === "function"
         ? fixInstruction(violation.matches)

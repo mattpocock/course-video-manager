@@ -498,7 +498,8 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
 
   const handleFixLintViolations = useLintFix({
     violations,
-    documentRef: isDocumentMode ? documentRef : undefined,
+    isDocumentMode,
+    documentRef,
     updateDocument,
     submitMessage: handleSubmit,
   });

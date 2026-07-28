@@ -398,7 +398,8 @@ export function WriterEngine({
 
   const handleFixLintViolations = useLintFix({
     violations,
-    documentRef: isDocumentMode ? documentRef : undefined,
+    isDocumentMode,
+    documentRef,
     updateDocument,
     submitMessage: handleSubmit,
   });
