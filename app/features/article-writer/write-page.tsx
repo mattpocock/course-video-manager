@@ -20,7 +20,7 @@ import { useFetcher, useBlocker, useRevalidator } from "react-router";
 import { toast } from "sonner";
 import type { Options } from "react-markdown";
 import { VideoContextPanel } from "@/components/video-context-panel";
-import { useLint } from "@/hooks/use-lint";
+import { useLint, useLintFix } from "@/hooks/use-lint";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 
 import {
@@ -413,7 +413,10 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
         includeCourseStructure && courseStructure ? courseStructure : undefined,
       memory: memoryEnabled && memory ? memory : undefined,
     };
-    return isDocumentMode ? { ...base, document, mode } : { ...base, mode };
+    // Ref, not state: a lint fix sends in the same tick as it rewrites.
+    return isDocumentMode
+      ? { ...base, document: documentRef.current, mode }
+      : { ...base, mode };
   }, [
     chapters.length,
     enabledSections,
@@ -425,7 +428,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     memoryEnabled,
     memory,
     isDocumentMode,
-    document,
+    documentRef,
     mode,
   ]);
 
@@ -474,7 +477,7 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
       .find((m) => m.role === "assistant")?.parts ?? []
   );
 
-  const { violations, composeFixMessage } = useLint(
+  const { violations } = useLint(
     isDocumentMode && document ? document : lastAssistantMessageText,
     mode,
     bannedPhrases
@@ -492,6 +495,13 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     queuedMessages,
     clearQueue,
   } = useMessageQueue(status, handleSend);
+
+  const handleFixLintViolations = useLintFix({
+    violations,
+    documentRef: isDocumentMode ? documentRef : undefined,
+    updateDocument,
+    submitMessage: handleSubmit,
+  });
 
   const handleGoLive = () => {
     dispatch({ type: "set-mode", mode: "interview" });
@@ -532,13 +542,12 @@ export function WritePage({ videoId, loaderData }: WritePageProps) {
     document,
     writeToReadmeFetcher,
     lessonId,
-    composeFixMessage,
-    submitMessage: handleSubmit,
     getBodyPayload,
     regenerate,
     onModeChange: handleModeChange,
     onModelChange: (m) => dispatch({ type: "set-model", model: m }),
     onGoLive: handleGoLive,
+    onFixLintViolations: handleFixLintViolations,
     onClearChat: handleClearChat,
     onOpenBannedPhrases: () =>
       dispatch({ type: "set-banned-phrases-modal-open", value: true }),

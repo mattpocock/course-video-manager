@@ -22,13 +22,12 @@ export function useToolbarProps({
   document,
   writeToReadmeFetcher,
   lessonId,
-  composeFixMessage,
-  submitMessage,
   getBodyPayload,
   regenerate,
   onModeChange,
   onModelChange,
   onGoLive,
+  onFixLintViolations,
   onClearChat,
   onOpenBannedPhrases,
 }: {
@@ -46,13 +45,12 @@ export function useToolbarProps({
   document: string | undefined;
   writeToReadmeFetcher: FetcherWithComponents<unknown>;
   lessonId: string | null;
-  composeFixMessage: () => string | null;
-  submitMessage: (text: string) => void;
   getBodyPayload: () => Record<string, unknown>;
   regenerate: (opts: { body: Record<string, unknown> }) => void;
   onModeChange: (mode: Mode) => void;
   onModelChange: (model: Model) => void;
   onGoLive: () => void;
+  onFixLintViolations: () => void;
   onClearChat: () => void;
   onOpenBannedPhrases: () => void;
 }): WriteToolbarProps {
@@ -120,10 +118,7 @@ export function useToolbarProps({
         }
       },
       onGoLive,
-      onFixLintViolations: () => {
-        const fixMessage = composeFixMessage();
-        if (fixMessage) submitMessage(fixMessage);
-      },
+      onFixLintViolations,
       onOpenBannedPhrases,
       onRegenerate: () => regenerate({ body: getBodyPayload() }),
       onClearChat,
@@ -163,8 +158,7 @@ export function useToolbarProps({
       onModeChange,
       onModelChange,
       onGoLive,
-      composeFixMessage,
-      submitMessage,
+      onFixLintViolations,
       getBodyPayload,
       regenerate,
       onClearChat,

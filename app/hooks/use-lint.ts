@@ -1,28 +1,27 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   LINT_RULES,
   getLintRulesWithPhrases,
   type LintViolation,
   type BannedPhrase,
 } from "@/features/article-writer/lint-rules";
+import { planLintFix } from "@/features/article-writer/lint-fix";
 import type { Mode } from "@/features/article-writer/types";
 
 /**
- * Hook to check text for lint rule violations and compose fix messages.
+ * Hook to check text for lint rule violations.
  *
  * @param text - The text to check for violations
  * @param mode - The current writing mode (determines which rules apply)
  * @param customPhrases - Optional custom banned phrases (if provided, replaces defaults)
- * @returns Object containing violations array and fix message composer
+ * @returns Object containing the violations array
  *
  * @example
  * ```tsx
- * const { violations, composeFixMessage } = useLint(lastAssistantMessage, mode, customPhrases);
+ * const { violations } = useLint(lastAssistantMessage, mode, customPhrases);
  *
- * if (violations.length > 0) {
- *   const fixMessage = composeFixMessage();
- *   // Send fixMessage to LLM
- * }
+ * // Turn them into a document rewrite and/or a message for the model:
+ * const plan = planLintFix({ document, violations });
  * ```
  */
 export function useLint(
@@ -81,26 +80,29 @@ export function useLint(
     return results;
   }, [text, mode, rules]);
 
-  const composeFixMessage = useMemo(() => {
-    return () => {
-      if (violations.length === 0) return "";
+  return { violations };
+}
 
-      const instructions = violations
-        .map((v) => {
-          const instruction =
-            typeof v.rule.fixInstruction === "function"
-              ? v.rule.fixInstruction(v.matches)
-              : v.rule.fixInstruction;
-          return `- ${instruction}`;
-        })
-        .join("\n");
-
-      return `Please fix the following issues in your response:\n${instructions}\n\nOutput the corrected version.`;
-    };
-  }, [violations]);
-
-  return {
-    violations,
-    composeFixMessage,
-  };
+/**
+ * The Fix button's handler. Violations the rules can repair themselves are
+ * applied to the document up front — so the model is asked only about what is
+ * left, and sees the repaired document when it is asked at all.
+ *
+ * `documentRef` is read (rather than a document value) because the repair and
+ * the send happen in the same tick, before React state catches up. Pass
+ * undefined outside document mode, where the linted text is the model's own
+ * last message and there is nothing of ours to rewrite.
+ */
+export function useLintFix(opts: {
+  violations: LintViolation[];
+  documentRef: { current: string | undefined } | undefined;
+  updateDocument: (document: string) => void;
+  submitMessage: (text: string) => void;
+}) {
+  const { violations, documentRef, updateDocument, submitMessage } = opts;
+  return useCallback(() => {
+    const plan = planLintFix({ document: documentRef?.current, violations });
+    if (plan.document !== null) updateDocument(plan.document);
+    if (plan.message) submitMessage(plan.message);
+  }, [violations, documentRef, updateDocument, submitMessage]);
 }
