@@ -168,7 +168,7 @@ export function VideoContextMenuItems({
               Generate Chapters
               <MissingContentWarning
                 warnings={video.warnings}
-                kind="missingOpeningChapter"
+                kind="missingChapters"
               />
             </ContextMenuItem>
           )}
