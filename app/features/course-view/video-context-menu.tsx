@@ -5,6 +5,7 @@ import {
 } from "@/components/ui/context-menu";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import {
+  AlertTriangle,
   ArrowRightLeft,
   Combine,
   Copy,
@@ -26,6 +27,37 @@ import { useGenerateChaptersAction } from "./generate-chapters-context";
 import { PurgeExportMenuItem } from "./export-status";
 import { AddBeatSubMenu } from "@/features/beats/beat-menu-items";
 import { useRequestCreateBeat } from "@/features/beats/create-beat-dialog";
+import {
+  videoActionWarningLabel,
+  type VideoWarningAction,
+} from "./video-warning-labels";
+
+/**
+ * Trailing amber triangle on an action-menu item whose content the Video is
+ * still missing — so the gap is visible at the point where you'd go fill it.
+ * Renders nothing when that content is already there.
+ */
+function MissingContentWarning({
+  warnings,
+  action,
+}: {
+  warnings: Video["warnings"];
+  action: VideoWarningAction;
+}) {
+  const label = videoActionWarningLabel(warnings, action);
+  if (!label) return null;
+
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className="ml-auto inline-flex items-center"
+    >
+      <AlertTriangle className="size-3.5 text-amber-500" />
+    </span>
+  );
+}
 
 /**
  * The full set of video context-menu items, shared between the expanded
@@ -94,6 +126,10 @@ export function VideoContextMenuItems({
           >
             <FileText className="w-4 h-4" />
             Edit Lesson Body
+            <MissingContentWarning
+              warnings={video.warnings}
+              action="edit-lesson-body"
+            />
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
@@ -116,6 +152,10 @@ export function VideoContextMenuItems({
           >
             <Sparkles className="w-4 h-4" />
             Generate SEO Description
+            <MissingContentWarning
+              warnings={video.warnings}
+              action="generate-seo-description"
+            />
           </ContextMenuItem>
           {canGenerateChapters && (
             <ContextMenuItem
@@ -128,6 +168,10 @@ export function VideoContextMenuItems({
             >
               <ListTree className="w-4 h-4" />
               Generate Chapters
+              <MissingContentWarning
+                warnings={video.warnings}
+                action="generate-chapters"
+              />
             </ContextMenuItem>
           )}
 
