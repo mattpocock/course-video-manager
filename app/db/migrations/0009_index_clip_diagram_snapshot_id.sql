@@ -1,0 +1,1 @@
+CREATE INDEX "clip_diagram_snapshot_id_idx" ON "course-video-manager_clip" USING btree ("diagram_snapshot_id");

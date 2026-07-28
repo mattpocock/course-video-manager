@@ -64,6 +64,13 @@
       "when": 1784899546426,
       "tag": "0008_add_video_script",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785236165919,
+      "tag": "0009_index_clip_diagram_snapshot_id",
+      "breakpoints": true
     }
   ]
 }

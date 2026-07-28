@@ -258,38 +258,46 @@ export const videos = createTable(
   ]
 );
 
-export const clips = createTable("clip", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  videoId: varchar("video_id", { length: 255 })
-    .references(() => videos.id, { onDelete: "cascade" })
-    .notNull(),
-  videoFilename: text("video_filename").notNull(),
-  sourceStartTime: doublePrecision("source_start_time").notNull(),
-  sourceEndTime: doublePrecision("source_end_time").notNull(),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  order: varcharCollateC("order").notNull(),
-  archived: boolean("archived").notNull().default(false),
-  text: text("text").notNull(),
-  transcribedAt: timestamp("transcribed_at", {
-    mode: "date",
-    withTimezone: true,
-  }),
-  scene: varchar("scene", { length: 255 }),
-  profile: varchar("profile", { length: 255 }),
-  pauseType: varchar("pause_type", { length: 255 }).notNull().default("none"),
-  diagramSnapshotId: varchar("diagram_snapshot_id", { length: 255 }).references(
-    () => diagramSnapshots.id,
-    { onDelete: "set null" }
-  ),
-});
+export const clips = createTable(
+  "clip",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    videoFilename: text("video_filename").notNull(),
+    sourceStartTime: doublePrecision("source_start_time").notNull(),
+    sourceEndTime: doublePrecision("source_end_time").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    order: varcharCollateC("order").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    text: text("text").notNull(),
+    transcribedAt: timestamp("transcribed_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
+    scene: varchar("scene", { length: 255 }),
+    profile: varchar("profile", { length: 255 }),
+    pauseType: varchar("pause_type", { length: 255 }).notNull().default("none"),
+    diagramSnapshotId: varchar("diagram_snapshot_id", {
+      length: 255,
+    }).references(() => diagramSnapshots.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    // The diagram playground resolves clips-per-snapshot for every snapshot it
+    // renders. Without this the FK column is unindexed (Postgres does not index
+    // FKs automatically) and each lookup seq-scans the whole clip table.
+    index("clip_diagram_snapshot_id_idx").on(table.diagramSnapshotId),
+  ]
+);
 
 /**
  * Web pages that were on screen (in a focused Chrome window) while a clip was
