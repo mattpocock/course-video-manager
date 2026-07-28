@@ -1,16 +1,14 @@
 export type VideoWarningKind =
-  | "missingOpeningChapter"
-  | "missingBody"
-  | "missingDescription";
+  "missingChapters" | "missingBody" | "missingDescription";
 
 export type VideoWarning = { kind: VideoWarningKind };
 
 type WarningInputClip = { order: string; archived: boolean };
-type WarningInputSection = { order: string; archived: boolean };
+type WarningInputChapter = { order: string; archived: boolean };
 
 export const computeVideoWarnings = (input: {
   clips: WarningInputClip[];
-  chapters: WarningInputSection[];
+  chapters: WarningInputChapter[];
   /** Set when the video belongs to a lesson; only then are body/SEO required. */
   lessonId?: string | null;
   body?: string | null;
@@ -25,18 +23,18 @@ export const computeVideoWarnings = (input: {
       liveClips[0]!.order
     );
 
-    const liveSections = input.chapters.filter((s) => !s.archived);
-    const firstSectionOrder = liveSections.length
-      ? liveSections.reduce(
-          (min, s) => (s.order < min ? s.order : min),
-          liveSections[0]!.order
+    const liveChapters = input.chapters.filter((c) => !c.archived);
+    const firstChapterOrder = liveChapters.length
+      ? liveChapters.reduce(
+          (min, c) => (c.order < min ? c.order : min),
+          liveChapters[0]!.order
         )
       : null;
 
-    const opensWithSection =
-      firstSectionOrder !== null && firstSectionOrder < minClipOrder;
+    const opensWithChapter =
+      firstChapterOrder !== null && firstChapterOrder < minClipOrder;
 
-    if (!opensWithSection) warnings.push({ kind: "missingOpeningChapter" });
+    if (!opensWithChapter) warnings.push({ kind: "missingChapters" });
   }
 
   // Lesson videos publish canonical body + SEO description, so both are

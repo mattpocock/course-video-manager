@@ -177,7 +177,7 @@ describe("computeCourseViewLintCount", () => {
     expect(computeCourseViewLintCount(sections)).toBeGreaterThanOrEqual(1);
   });
 
-  it("counts video warnings for missing opening chapter", () => {
+  it("counts video warnings for missing chapters", () => {
     const sections = [
       {
         lessons: [
@@ -277,7 +277,7 @@ describe("collectCourseViewLints", () => {
   });
 
   it("excludes archived videos from video warnings", () => {
-    // The archived video is missing its opening chapter, but archived videos are
+    // The archived video is missing its chapters, but archived videos are
     // never published, so it must not raise a warning.
     const sections = [
       {
@@ -321,7 +321,7 @@ describe("collectCourseViewLints", () => {
       sectionPath: "01-intro",
       lessonPath: "01-a",
       videoTitle: "Explainer",
-      kind: "missingOpeningChapter",
+      kind: "missingChapters",
     });
   });
 });

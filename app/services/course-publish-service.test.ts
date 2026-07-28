@@ -516,7 +516,7 @@ describe("CoursePublishService", () => {
   });
 
   describe("validatePublishability — course-view lints", () => {
-    it("returns courseViewLintCount > 0 when missingOpeningChapter warning exists", async () => {
+    it("returns courseViewLintCount > 0 when missingChapters warning exists", async () => {
       const { version, run } = await setup();
 
       const result = await run(

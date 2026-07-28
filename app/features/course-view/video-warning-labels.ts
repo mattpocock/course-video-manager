@@ -1,7 +1,7 @@
 import type { VideoWarning } from "@/services/video-warnings";
 
 export const VIDEO_WARNING_LABELS: Record<VideoWarning["kind"], string> = {
-  missingOpeningChapter: "Missing opening section",
+  missingChapters: "Missing chapters",
   missingBody: "Missing lesson body",
   missingDescription: "Missing SEO description",
 };
