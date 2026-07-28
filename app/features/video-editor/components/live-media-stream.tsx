@@ -13,8 +13,9 @@ import type { LiveMediaStreamProps } from "../types";
  * - Optional center line guide for camera framing
  * - Auto-plays the video stream when mounted or stream changes
  *
- * `showCaptureStatus` turns the first two off wholesale — badge and ring both —
- * so the teleprompter can be the only screen reporting the take.
+ * `showCaptureStatus` false turns the first two off wholesale — badge and ring,
+ * recording and idle alike — so the teleprompter is the only screen reporting
+ * the take.
  */
 export const LiveMediaStream = (props: LiveMediaStreamProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -27,8 +28,6 @@ export const LiveMediaStream = (props: LiveMediaStreamProps) => {
   }, [props.mediaStream, videoRef.current]);
 
   const isRecording = props.obsConnectorState.type === "obs-recording";
-  // Both gates fold in `showCaptureStatus`: with the teleprompter connected the
-  // preview reports nothing at all, not even the muted not-recording badge.
   const showRecordingStatus = props.showCaptureStatus && isRecording;
   const showIdleStatus = props.showCaptureStatus && !isRecording;
 

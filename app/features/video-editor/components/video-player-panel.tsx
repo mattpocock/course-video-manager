@@ -21,7 +21,6 @@ import {
   getIsOBSActive as getIsOBSActiveSelector,
   getIsLiveStreamPortrait as getIsLiveStreamPortraitSelector,
   getShouldShowLastFrameOverlay as getShouldShowLastFrameOverlaySelector,
-  getShowCaptureStatus as getShowCaptureStatusSelector,
   getShowCenterLine as getShowCenterLineSelector,
   getShowRecordingSignal as getShowRecordingSignalSelector,
   getShowScrubSlider as getShowScrubSliderSelector,
@@ -305,9 +304,6 @@ export const VideoPlayerPanel = () => {
     obsConnectorState
   );
   const showCenterLine = getShowCenterLineSelector(obsConnectorState);
-  const showCaptureStatus = getShowCaptureStatusSelector(
-    isTeleprompterConnected
-  );
   const showRecordingSignal = getShowRecordingSignalSelector(
     obsConnectorState,
     isTeleprompterConnected
@@ -406,7 +402,7 @@ export const VideoPlayerPanel = () => {
                       obsConnectorState={obsConnectorState}
                       speechDetectorState={speechDetectorState}
                       showCenterLine={showCenterLine}
-                      showCaptureStatus={showCaptureStatus}
+                      showCaptureStatus={!isTeleprompterConnected}
                     />
                   )}
                   {!showVideoPlayer &&

@@ -7,9 +7,9 @@
  * message, it just stops pinging.
  *
  * The tick is a second, an order of magnitude finer than the 5s window and well
- * under the delay you'd notice when opening the glass. It costs nothing per
- * tick: `setState` with an unchanged boolean bails out before rendering, so a
- * settled connection re-renders the editor exactly zero times.
+ * under the delay you'd notice when opening the glass. A settled connection
+ * costs nothing to hold: `setState` with an unchanged boolean bails out, so the
+ * editor re-renders on the transitions rather than once a second.
  */
 import { useEffect, useState } from "react";
 import { isTeleprompterAlive } from "@/lib/teleprompter-window";

@@ -341,8 +341,6 @@ export const VideoEditor = (props: {
   });
   useTeleprompterShortcuts();
 
-  // Drives the live preview's capture status off, so the glass is the only
-  // place the take is being reported — see getShowCaptureStatus.
   const isTeleprompterConnected = useTeleprompterConnected();
 
   // Adding a reference auto-switches the persisted tab to Reference so the

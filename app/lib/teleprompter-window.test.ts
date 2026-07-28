@@ -19,4 +19,12 @@ describe("isPingFresh", () => {
       false
     );
   });
+
+  // A backwards clock step (NTP correcting mid-take) puts `now` behind the
+  // ping. The popup is plainly still there, so this must not read as a
+  // disconnect and blank the editor's status for a whole take. Rules out
+  // "tidying" the elapsed check to an absolute difference.
+  it("is true when the clock steps backwards after a ping", () => {
+    expect(isPingFresh(10_000, 5_000)).toBe(true);
+  });
 });

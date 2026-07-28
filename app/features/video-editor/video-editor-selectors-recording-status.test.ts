@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OBSConnectionOuterState } from "./obs-connector";
-import {
-  getShowCaptureStatus,
-  getShowRecordingSignal,
-} from "./video-editor-selectors";
+import { getShowRecordingSignal } from "./video-editor-selectors";
 
 const recording: OBSConnectionOuterState = {
   type: "obs-recording",
@@ -37,14 +34,12 @@ describe("getShowRecordingSignal", () => {
   it("stays hidden while recording if the teleprompter is connected", () => {
     expect(getShowRecordingSignal(recording, true)).toBe(false);
   });
-});
 
-describe("getShowCaptureStatus", () => {
-  it("shows the mic badge and coloured ring when no teleprompter is attached", () => {
-    expect(getShowCaptureStatus(false)).toBe(true);
-  });
-
-  it("hides them — including the not-recording badge — once one is", () => {
-    expect(getShowCaptureStatus(true)).toBe(false);
+  // A teleprompter attached while OBS is idle must not resurrect the signal
+  // when recording later starts — connectedness gates, it doesn't merely
+  // toggle.
+  it("stays hidden when a take starts with the teleprompter already connected", () => {
+    expect(getShowRecordingSignal(connected, true)).toBe(false);
+    expect(getShowRecordingSignal(recording, true)).toBe(false);
   });
 });

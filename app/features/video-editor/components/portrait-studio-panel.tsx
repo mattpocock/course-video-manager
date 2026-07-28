@@ -7,7 +7,6 @@ import { StudioActionsDropdown } from "./studio-actions-dropdown";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
   getIsOBSActive as getIsOBSActiveSelector,
-  getShowCaptureStatus as getShowCaptureStatusSelector,
   getShowCenterLine as getShowCenterLineSelector,
   getShowRecordingSignal as getShowRecordingSignalSelector,
   getShowScrubSlider as getShowScrubSliderSelector,
@@ -175,9 +174,6 @@ export const PortraitStudioPanel = () => {
 
   const isOBSActive = getIsOBSActiveSelector(obsConnectorState);
   const showCenterLine = getShowCenterLineSelector(obsConnectorState);
-  const showCaptureStatus = getShowCaptureStatusSelector(
-    isTeleprompterConnected
-  );
   const showRecordingSignal = getShowRecordingSignalSelector(
     obsConnectorState,
     isTeleprompterConnected
@@ -216,7 +212,7 @@ export const PortraitStudioPanel = () => {
                     obsConnectorState={obsConnectorState}
                     speechDetectorState={speechDetectorState}
                     showCenterLine={showCenterLine}
-                    showCaptureStatus={showCaptureStatus}
+                    showCaptureStatus={!isTeleprompterConnected}
                   />
                 )}
               </div>
