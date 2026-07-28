@@ -1,28 +1,27 @@
 import type { uploadReducer } from "./upload-reducer";
 
-export const BUFFER_STAGE_LABELS: Record<uploadReducer.BufferStage, string> = {
+const BUFFER_STAGE_LABELS: Record<uploadReducer.BufferStage, string> = {
   "uploading-blob": "Uploading to cloud",
   "creating-post": "Creating Buffer post",
   polling: "Waiting for delivery",
   "cleaning-up": "Cleaning up",
 };
 
-export const EXPORT_STAGE_LABELS: Record<uploadReducer.ExportStage, string> = {
+const EXPORT_STAGE_LABELS: Record<uploadReducer.ExportStage, string> = {
   queued: "Queued",
   "concatenating-clips": "Concatenating clips",
   "normalizing-audio": "Normalizing audio",
 };
 
-export const PUBLISH_STAGE_LABELS: Record<uploadReducer.PublishStage, string> =
-  {
-    validating: "Validating",
-    exporting: "Exporting videos",
-    uploading: "Uploading to Dropbox",
-    freezing: "Freezing version",
-    cloning: "Creating new draft",
-  };
+const PUBLISH_STAGE_LABELS: Record<uploadReducer.PublishStage, string> = {
+  validating: "Validating",
+  exporting: "Exporting videos",
+  uploading: "Uploading to Dropbox",
+  freezing: "Freezing version",
+  cloning: "Creating new draft",
+};
 
-export const RENDER_VERTICAL_STAGE_LABELS: Record<
+const RENDER_VERTICAL_STAGE_LABELS: Record<
   uploadReducer.RenderVerticalStage,
   string
 > = {

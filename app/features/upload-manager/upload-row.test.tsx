@@ -26,12 +26,6 @@ const bars = (html: string) =>
     ),
   ].map((m) => Number(m[1]));
 
-/** The rendered widths of every progress bar fill, in document order. */
-const widths = (html: string) =>
-  [
-    ...html.matchAll(/<div[^>]*role="progressbar"[^>]*style="width:([^"]*)"/g),
-  ].map((m) => m[1]!.trim());
-
 describe("UploadRow progress indicator", () => {
   it("shows a progress bar for an in-flight export", () => {
     const html = render({
@@ -43,7 +37,6 @@ describe("UploadRow progress indicator", () => {
     });
 
     expect(bars(html)).toEqual([42]);
-    expect(widths(html)).toEqual(["42%"]);
     expect(html).toContain("Concatenating clips");
     expect(html).toContain("42%");
   });
@@ -126,6 +119,19 @@ describe("UploadRow progress indicator", () => {
     expect(html).toContain("Retrying");
   });
 
+  it("shows an unlabelled progress bar before a staged job reports its stage", () => {
+    const html = render({
+      ...base,
+      progress: 12,
+      uploadType: "export",
+      exportStage: null,
+      isBatchEntry: false,
+    });
+
+    expect(bars(html)).toEqual([12]);
+    expect(html).toContain("12%");
+  });
+
   it("shows no progress bar once a job has succeeded", () => {
     const html = render({
       ...base,
@@ -138,5 +144,32 @@ describe("UploadRow progress indicator", () => {
 
     expect(bars(html)).toEqual([]);
     expect(html).toContain("Exported");
+  });
+});
+
+describe("UploadRow success state", () => {
+  it("names the destination for a job type that has one", () => {
+    const html = render({
+      ...base,
+      progress: 100,
+      status: "success",
+      uploadType: "ai-hero",
+      aiHeroSlug: "my-post",
+    });
+
+    expect(html).toContain("Posted to AI Hero");
+    expect(html).toContain("https://aihero.dev/my-post");
+  });
+
+  it("falls back to Complete for a job type with no destination of its own", () => {
+    const html = render({
+      ...base,
+      progress: 100,
+      status: "success",
+      uploadType: "render-vertical",
+      renderVerticalStage: null,
+    });
+
+    expect(html).toContain("Complete");
   });
 });

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import type { uploadReducer } from "./upload-reducer";
-import { uploadStageLabel } from "./upload-progress";
+import { uploadStageLabel } from "./upload-stage-labels";
 import { Badge } from "@/components/ui/badge";
 
 export function UploadRow({
@@ -85,11 +85,11 @@ function StatusIcon({ upload }: { upload: uploadReducer.UploadEntry }) {
 function InlineProgress({
   label,
   percent,
-  tone = "active",
+  tone,
 }: {
   label: string | null;
   percent: number;
-  tone?: "active" | "retrying";
+  tone: "active" | "retrying";
 }) {
   return (
     <div className="flex items-center gap-2 mt-0.5">
@@ -125,12 +125,15 @@ function InlineProgress({
 function UploadStatusDetail({ upload }: { upload: uploadReducer.UploadEntry }) {
   switch (upload.status) {
     case "waiting":
-      return <InlineProgress label="Waiting for export" percent={0} />;
+      return (
+        <InlineProgress label="Waiting for export" percent={0} tone="active" />
+      );
     case "uploading":
       return (
         <InlineProgress
           label={uploadStageLabel(upload)}
           percent={upload.progress}
+          tone="active"
         />
       );
     case "retrying":
@@ -142,40 +145,7 @@ function UploadStatusDetail({ upload }: { upload: uploadReducer.UploadEntry }) {
         />
       );
     case "success":
-      if (upload.uploadType === "buffer") {
-        return <SuccessBadge label="Sent to Buffer" />;
-      }
-      if (upload.uploadType === "youtube") {
-        return (
-          <SuccessBadge label="Complete">
-            {upload.youtubeVideoId && (
-              <SuccessLink
-                href={`https://studio.youtube.com/video/${upload.youtubeVideoId}/edit`}
-              >
-                YouTube Studio
-              </SuccessLink>
-            )}
-          </SuccessBadge>
-        );
-      }
-      if (upload.uploadType === "ai-hero") {
-        return (
-          <SuccessBadge label="Posted to AI Hero">
-            {upload.aiHeroSlug && (
-              <SuccessLink href={`https://aihero.dev/${upload.aiHeroSlug}`}>
-                View Post
-              </SuccessLink>
-            )}
-          </SuccessBadge>
-        );
-      }
-      if (upload.uploadType === "export") {
-        return <SuccessBadge label="Exported" />;
-      }
-      if (upload.uploadType === "publish") {
-        return <SuccessBadge label="Published" />;
-      }
-      return <SuccessBadge label="Complete" />;
+      return <SuccessDetail upload={upload} />;
     case "error":
       return (
         <div className="flex items-center gap-2 mt-0.5">
@@ -193,6 +163,44 @@ function UploadStatusDetail({ upload }: { upload: uploadReducer.UploadEntry }) {
           )}
         </div>
       );
+  }
+}
+
+/** Where a finished job landed, plus a link to it when there is one to give. */
+function SuccessDetail({ upload }: { upload: uploadReducer.UploadEntry }) {
+  switch (upload.uploadType) {
+    case "buffer":
+      return <SuccessBadge label="Sent to Buffer" />;
+    case "export":
+      return <SuccessBadge label="Exported" />;
+    case "publish":
+      return <SuccessBadge label="Published" />;
+    case "ai-hero":
+      return (
+        <SuccessBadge label="Posted to AI Hero">
+          {upload.aiHeroSlug && (
+            <SuccessLink href={`https://aihero.dev/${upload.aiHeroSlug}`}>
+              View Post
+            </SuccessLink>
+          )}
+        </SuccessBadge>
+      );
+    case "youtube":
+      return (
+        <SuccessBadge label="Complete">
+          {upload.youtubeVideoId && (
+            <SuccessLink
+              href={`https://studio.youtube.com/video/${upload.youtubeVideoId}/edit`}
+            >
+              YouTube Studio
+            </SuccessLink>
+          )}
+        </SuccessBadge>
+      );
+    case "youtube-shorts":
+    case "skills-changelog":
+    case "render-vertical":
+      return <SuccessBadge label="Complete" />;
   }
 }
 
