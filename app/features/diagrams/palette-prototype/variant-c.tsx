@@ -7,7 +7,9 @@
 import { useCallback, useMemo, useRef } from "react";
 import { Command } from "cmdk";
 import { ChevronRight, Search, X } from "lucide-react";
+import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { getIcon } from "./palette-model";
+import { ComponentCard, DiagramCard } from "./result-cards";
 import {
   GRID_PAGES,
   PAGE_TITLES,
@@ -16,7 +18,12 @@ import {
 import { useGridNav } from "./use-grid-nav";
 import "./palette-prototype.css";
 
-const COLUMNS = 5;
+/** Columns differ per page: icons are tiny, cards are not. */
+const COLUMNS: Partial<Record<string, number>> = {
+  icons: 5,
+  components: 3,
+  diagrams: 2,
+};
 
 export const NAME = "Docked inspector — non-modal, preview pane";
 
@@ -26,7 +33,7 @@ export function VariantC({ state }: { state: PaletteState }) {
 
   const gridNav = useGridNav({
     listRef,
-    columns: COLUMNS,
+    columns: COLUMNS[state.page] ?? 1,
     value: state.value,
     onValueChange: state.setValue,
     enabled: isGrid,
@@ -97,10 +104,17 @@ export function VariantC({ state }: { state: PaletteState }) {
       if (!h) return null;
       return (
         <div className="flex h-full flex-col gap-3 p-4">
-          <div className="flex h-28 items-center justify-center rounded bg-zinc-950 text-[10px] text-zinc-600">
-            thumbnail
+          <div className="h-28 shrink-0 overflow-hidden rounded bg-zinc-950">
+            <DiagramThumbnail
+              diagramId={h.diagramId}
+              contentHash={h.contentHash ?? undefined}
+              className="h-full w-full object-contain"
+            />
           </div>
           <p className="text-sm text-zinc-100">{h.diagramName}</p>
+          <p className="text-[10px] text-zinc-600">
+            {h.source === "snapshot" ? "matched a snapshot" : "current state"}
+          </p>
           <p className="line-clamp-6 text-[11px] leading-relaxed text-zinc-500">
             {h.searchText ?? "—"}
           </p>
@@ -211,20 +225,16 @@ export function VariantC({ state }: { state: PaletteState }) {
               <Command.Empty className="py-10 text-center text-xs text-zinc-500">
                 No components match.
               </Command.Empty>
-              <Command.Group className="[&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-5 [&_[cmdk-group-items]]:gap-1.5">
+              <Command.Group className="[&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-3 [&_[cmdk-group-items]]:gap-2">
                 {state.components.map((c) => (
                   <Command.Item
                     key={c.id}
                     value={c.name}
                     onSelect={() => state.insertComponent(c.name)}
                     title={c.name}
-                    className="flex aspect-square cursor-default items-center justify-center rounded-md border border-zinc-800 bg-zinc-800/40 p-1 select-none data-[selected=true]:border-zinc-400 data-[selected=true]:bg-zinc-700"
+                    className="flex cursor-default flex-col overflow-hidden rounded-md border border-zinc-800 bg-zinc-800/40 select-none data-[selected=true]:border-zinc-400 data-[selected=true]:bg-zinc-700"
                   >
-                    <img
-                      src={c.thumbnail}
-                      alt=""
-                      className="h-full w-full object-contain"
-                    />
+                    <ComponentCard component={c} compact />
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -242,16 +252,18 @@ export function VariantC({ state }: { state: PaletteState }) {
                       : "Type to search names and contents."}
                 </p>
               )}
-              {state.diagramHits.map((h) => (
-                <Command.Item
-                  key={h.snapshotId ?? `${h.diagramId}:current`}
-                  value={h.snapshotId ?? `${h.diagramId}:current`}
-                  onSelect={() => state.goToDiagram(h)}
-                  className="cursor-default rounded px-2 py-1.5 text-[13px] text-zinc-300 select-none data-[selected=true]:bg-zinc-700 data-[selected=true]:text-white"
-                >
-                  {h.diagramName}
-                </Command.Item>
-              ))}
+              <Command.Group className="[&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-2 [&_[cmdk-group-items]]:gap-2">
+                {state.diagramHits.map((h) => (
+                  <Command.Item
+                    key={h.snapshotId ?? `${h.diagramId}:current`}
+                    value={h.snapshotId ?? `${h.diagramId}:current`}
+                    onSelect={() => state.goToDiagram(h)}
+                    className="flex cursor-default flex-col overflow-hidden rounded-md border border-zinc-800 bg-zinc-800/40 select-none data-[selected=true]:border-zinc-400 data-[selected=true]:bg-zinc-700"
+                  >
+                    <DiagramCard hit={h} query={state.query} compact />
+                  </Command.Item>
+                ))}
+              </Command.Group>
             </>
           )}
 

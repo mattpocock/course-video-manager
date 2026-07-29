@@ -9,6 +9,7 @@ import { Command } from "cmdk";
 import { ChevronLeft, Search } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { getIcon } from "./palette-model";
+import { ComponentCard, DiagramCard } from "./result-cards";
 import {
   GRID_PAGES,
   PAGE_TITLES,
@@ -17,7 +18,12 @@ import {
 import { useGridNav } from "./use-grid-nav";
 import "./palette-prototype.css";
 
-const COLUMNS = 6;
+/** Columns differ per page: icons are tiny, cards are not. */
+const COLUMNS: Partial<Record<string, number>> = {
+  icons: 6,
+  components: 3,
+  diagrams: 3,
+};
 
 export const NAME = "Spotlight — wide, thumb-forward, title header";
 
@@ -40,7 +46,7 @@ export function VariantB({ state }: { state: PaletteState }) {
 
   const gridNav = useGridNav({
     listRef,
-    columns: COLUMNS,
+    columns: COLUMNS[state.page] ?? 1,
     value: state.value,
     onValueChange: state.setValue,
     enabled: isGrid,
@@ -69,8 +75,14 @@ export function VariantB({ state }: { state: PaletteState }) {
     if (state.page === "root") {
       return state.rootActions.find((a) => a.id === state.value)?.hint ?? "—";
     }
+    if (state.page === "diagrams") {
+      const h = state.diagramHits.find(
+        (x) => (x.snapshotId ?? `${x.diagramId}:current`) === state.value
+      );
+      return h ? `${h.diagramName} · ${h.source}` : "—";
+    }
     return "—";
-  }, [state.page, state.value, state.rootActions]);
+  }, [state.page, state.value, state.rootActions, state.diagramHits]);
 
   return (
     <Dialog open={state.open} onOpenChange={state.setOpen}>
@@ -191,14 +203,7 @@ export function VariantB({ state }: { state: PaletteState }) {
                       onSelect={() => state.insertComponent(c.name)}
                       className="flex cursor-default flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 select-none data-[selected=true]:border-zinc-300 data-[selected=true]:bg-zinc-700"
                     >
-                      <img
-                        src={c.thumbnail}
-                        alt=""
-                        className="h-20 w-full object-contain p-2"
-                      />
-                      <span className="truncate px-2 pb-2 text-xs text-zinc-300">
-                        {c.name}
-                      </span>
+                      <ComponentCard component={c} />
                     </Command.Item>
                   ))}
                 </Command.Group>
@@ -216,26 +221,18 @@ export function VariantB({ state }: { state: PaletteState }) {
                         : "Type to search names and contents."}
                   </p>
                 )}
-                {state.diagramHits.map((h) => (
-                  <Command.Item
-                    key={h.snapshotId ?? `${h.diagramId}:current`}
-                    value={h.snapshotId ?? `${h.diagramId}:current`}
-                    onSelect={() => state.goToDiagram(h)}
-                    className="flex cursor-default items-center gap-3 rounded-lg px-3 py-2.5 select-none data-[selected=true]:bg-zinc-700/80"
-                  >
-                    <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded bg-zinc-800 text-[9px] text-zinc-600">
-                      thumb
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-[15px] text-zinc-100">
-                        {h.diagramName}
-                      </span>
-                      <span className="line-clamp-1 text-xs text-zinc-500">
-                        {h.searchText ?? "—"}
-                      </span>
-                    </span>
-                  </Command.Item>
-                ))}
+                <Command.Group className="[&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-3 [&_[cmdk-group-items]]:gap-3">
+                  {state.diagramHits.map((h) => (
+                    <Command.Item
+                      key={h.snapshotId ?? `${h.diagramId}:current`}
+                      value={h.snapshotId ?? `${h.diagramId}:current`}
+                      onSelect={() => state.goToDiagram(h)}
+                      className="flex cursor-default flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 select-none data-[selected=true]:border-zinc-300 data-[selected=true]:bg-zinc-700"
+                    >
+                      <DiagramCard hit={h} query={state.query} />
+                    </Command.Item>
+                  ))}
+                </Command.Group>
               </>
             )}
 

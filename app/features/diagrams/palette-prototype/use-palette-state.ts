@@ -22,8 +22,12 @@ export type DiagramHit = {
   source: string;
 };
 
-/** Grid pages are the ones that need custom 2-D navigation. */
-export const GRID_PAGES: PageKey[] = ["icons", "components"];
+/**
+ * Grid pages are the ones that need custom 2-D navigation. Diagrams joined
+ * this list once its results became thumbnail cards laid out like the
+ * diagrams root page — a text list would not have needed it.
+ */
+export const GRID_PAGES: PageKey[] = ["icons", "components", "diagrams"];
 
 export type PaletteState = ReturnType<typeof usePaletteState>;
 
