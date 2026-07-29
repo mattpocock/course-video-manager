@@ -594,6 +594,32 @@ export const diagramSnapshots = createTable(
   ]
 );
 
+/**
+ * A Component (see CONTEXT.md) is NOT a Diagram, so it diverges deliberately
+ * from the `diagram` / `diagram_snapshot` conventions: no `archived` (delete is
+ * a hard DELETE — nothing references a component), no `updatedAt` (immutable),
+ * no search vector (name-substring only), no indexes and no relations block.
+ * Rationale lives in `db-diagram-component-operations.server.ts`.
+ */
+export const diagramComponents = createTable("diagram_component", {
+  id: varchar("id", { length: 255 })
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  sceneFragment: jsonb("scene_fragment").notNull(),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  // Recency of USE, not creation. Non-null and defaulting to creation time, so
+  // a never-used component sorts by its birth and the ORDER BY stays a single
+  // bare column with no COALESCE. Only insertion bumps it; rename does not,
+  // because curation is not use.
+  lastUsedAt: timestamp("last_used_at", { mode: "date", withTimezone: true })
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const diagramSnapshotsRelations = relations(
   diagramSnapshots,
   ({ one, many }) => ({

@@ -235,6 +235,18 @@ _Avoid_: Manual snapshot, Saved snapshot, Standalone snapshot, Bookmark
 Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog; see **Preserved Snapshot**). When triggered from the timeline's Restore button, the existing `RestoreSnapshotDialog` confirms the action. No-op when the head already matches the target snapshot.
 _Avoid_: Revert, Roll back, Undo
 
+**Component**:
+A named, immutable fragment of a tldraw scene — captured from a selection on the canvas and re-insertable into any Diagram via the command palette. Stored flat as the bare `TLContent` produced by `editor.getContentFromCurrentPage`, with a thumbnail and a last-used timestamp. Has no snapshot history, no lineage, and no relationship to any Diagram: capturing one copies the shapes out, and the source Diagram can change or be deleted without affecting it. Rename and delete are the only mutations; deletion is permanent.
+_Avoid_: template, stencil, symbol, DiagramComponent (there is no such record on a Diagram), "saved selection"
+
+**Command Palette**:
+The `Cmd+K` modal inside the **Active Diagram** window — the single keyboard surface for inserting an **Icon** or a **Component**, saving a selection as a Component, searching all Diagrams by content, and mirroring the snapshot and diagram actions the surrounding chrome already offers. Invisible until summoned, so it survives tldraw Focus Mode (ADR 0004). Exists in the Active Diagram window only, never on **Playground Home**.
+_Avoid_: Command bar, Quick actions, Spotlight, Omnibox
+
+**Icon**:
+A vector-native lucide glyph on a Diagram's canvas, stored as a `cvm-icon` shape carrying the icon's **name** and never its geometry. The geometry lives in a vendored, append-only table committed to the repo, so a Diagram renders its icons exactly as it did when it was filmed. An icon contributes its name to content search.
+_Avoid_: Glyph, Symbol, Image (icons are deliberately not assets — ADR 0003)
+
 ### Video destinations
 
 **Skills Changelog**:

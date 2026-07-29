@@ -19,6 +19,7 @@ import { VideoOperationsService } from "./db-video-operations.server";
 import { VersionOperationsService } from "./db-version-operations.server";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
 import { DiagramOperationsService } from "./db-diagram-operations.server";
+import { DiagramComponentOperationsService } from "./db-diagram-component-operations.server";
 import { PitchOperationsService } from "./db-pitch-operations.server";
 import { BeatOperationsService } from "./db-beat-operations.server";
 import { DeliverableOperationsService } from "./db-deliverable-operations.server";
@@ -40,6 +41,7 @@ const coreLayer = Layer.mergeAll(
   VersionOperationsService.Default,
   LessonSectionOperationsService.Default,
   DiagramOperationsService.Default,
+  DiagramComponentOperationsService.Default,
   PitchOperationsService.Default,
   BeatOperationsService.Default,
   DeliverableOperationsService.Default,
