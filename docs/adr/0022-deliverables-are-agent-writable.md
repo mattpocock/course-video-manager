@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Deliverables are agent-writable, and that leaves them manual
@@ -19,7 +19,7 @@ different jobs:
    act, never computed from a linked Pitch or Course. This is what ADR-0007
    actually decided, and its whole justification (entries pre-date the entities
    they describe, get moved speculatively, and bundle several items under one
-   ship date) is about *derivation*, not about who is holding the keyboard.
+   ship date) is about _derivation_, not about who is holding the keyboard.
 2. **Hand-typed by a human in the UI** — an incidental fact about the only write
    surface that existed when 0007 was written.
 
@@ -43,8 +43,8 @@ Consequences of that framing, made explicit in the CLI surface:
   not touch a linked Pitch's stored state (there isn't one — ADR-0009 deleted
   it); it changes what the derived Pitch State computes to, which is exactly
   what the UI already does.
-- **All transitions stay reversible.** `done` and `cancelled` are terminal *for
-  Pitch State derivation*, not immutable. The CLI refuses to pretend otherwise:
+- **All transitions stay reversible.** `done` and `cancelled` are terminal _for
+  Pitch State derivation_, not immutable. The CLI refuses to pretend otherwise:
   `update --status planned <id>` reopens a Deliverable.
 - **Archive is still the only hide**, and it is exposed as its own verb so an
   agent cannot reach for `cancelled` to make something disappear.
@@ -66,7 +66,7 @@ Consequences of that framing, made explicit in the CLI surface:
   has, and the two copies would drift the first time Matt moved something in
   the app.
 - **Expose writes but restrict agents to `--status` only** (dates human-only).
-  Rejected: slipping a date *is* the most common outcome of a stand-up, and a
+  Rejected: slipping a date _is_ the most common outcome of a stand-up, and a
   read-only date would push the agent straight back to a second store.
 - **Treat this as a plain implementation detail and write no ADR.** Tempting —
   no decision in ADR-0007 is being reversed. Rejected because a future reader
@@ -80,5 +80,5 @@ Consequences of that framing, made explicit in the CLI surface:
 - The Deliverables Calendar becomes a shared surface between Matt and an agent.
   Conflicting edits are last-write-wins, as they already are between browser
   tabs; nothing detects that an agent moved a date Matt had just set.
-- If a future agent needs to *propose* rather than *set* a date, that is a new
+- If a future agent needs to _propose_ rather than _set_ a date, that is a new
   decision (a proposal state on the Deliverable) and not covered here.
