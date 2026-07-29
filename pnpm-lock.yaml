@@ -173,7 +173,7 @@ importers:
         specifier: ^3.13.3
         version: 3.15.0
       lucide-react:
-        specifier: ^0.525.0
+        specifier: 0.525.0
         version: 0.525.0(react@19.2.7)
       marked:
         specifier: ^17.0.1
