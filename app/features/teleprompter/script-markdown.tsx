@@ -13,8 +13,8 @@ import type { ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CUE_CLASS, remarkInlineCues } from "./inline-cues";
-import { shortenUrl } from "./linked-text";
-import { TYPE, cueStyle, linkStyle } from "./teleprompter-settings";
+import { GlassLink, shortenUrl } from "./linked-text";
+import { TYPE, cueStyle } from "./teleprompter-settings";
 
 const COMPONENTS: Components = {
   // The crawl supplies the wrapper element and its margin.
@@ -49,13 +49,8 @@ const COMPONENTS: Components = {
   code: ({ children }) => (
     <code className="rounded bg-white/10 px-1 py-0.5">{children}</code>
   ),
-  // Links are the one thing on the glass worth clicking: mid-take you open the
-  // page you're about to demo rather than read its address out. A new window,
-  // always — the teleprompter must still be on the glass when you come back.
   a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noreferrer" style={linkStyle()}>
-      {urlLabel(children, href) ?? children}
-    </a>
+    <GlassLink href={href}>{urlLabel(children, href) ?? children}</GlassLink>
   ),
   // Headings are their own block kind, split out before this ever runs.
   h1: ({ children }) => <>{children}</>,
@@ -77,12 +72,14 @@ function urlLabel(
     Array.isArray(children) && children.length === 1 ? children[0] : children;
   if (!href || typeof label !== "string") return null;
 
-  // How GFM writes the three literal forms it recognises: bare, `www.` (which
-  // gains a protocol), and an email address (which gains `mailto:`).
+  // How GFM writes the literal forms it recognises: bare (already carrying its
+  // protocol), `www.` (which gains one), and an email address (which gains
+  // `mailto:`).
   const isUrlItself =
     href === label ||
-    href === `mailto:${label}` ||
-    href.replace(/^https?:\/\//, "") === label;
+    href === `https://${label}` ||
+    href === `http://${label}` ||
+    href === `mailto:${label}`;
   return isUrlItself ? shortenUrl(label) : null;
 }
 
@@ -96,12 +93,17 @@ export function ScriptMarkdown(props: {
    * Whether `[bracketed asides]` are marked as cues. Off inside a block that is
    * already a cue — there the direction *is* the block, so a bracket in it is
    * just a bracket, and marking it again would set it smaller again.
+   *
+   * Required rather than defaulted: which of the two a block wants is the whole
+   * reason the caller knows what kind of block it is, and a renderer that
+   * quietly picks one when asked nothing is a wrong answer waiting to be
+   * omitted.
    */
-  cues?: boolean;
+  cues: boolean;
 }) {
   return (
     <ReactMarkdown
-      remarkPlugins={props.cues === false ? PLUGINS_WITHOUT_CUES : PLUGINS}
+      remarkPlugins={props.cues ? PLUGINS : PLUGINS_WITHOUT_CUES}
       components={COMPONENTS}
     >
       {props.children}

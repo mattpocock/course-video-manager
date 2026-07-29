@@ -1,24 +1,17 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { links } from "./glass-links-test-helpers";
 import { ScriptMarkdown } from "./script-markdown";
 import { TYPE } from "./teleprompter-settings";
 
 const render = (markdown: string) =>
-  renderToStaticMarkup(<ScriptMarkdown>{markdown}</ScriptMarkdown>);
+  renderToStaticMarkup(<ScriptMarkdown cues>{markdown}</ScriptMarkdown>);
 
 /** The text of every span the renderer marked as a cue, in document order. */
 const cues = (html: string) =>
   [...html.matchAll(/<span[^>]*data-cue="true"[^>]*>([\s\S]*?)<\/span>/g)].map(
     (m) => m[1]
   );
-
-/** Every anchor the renderer produced, in document order. */
-const links = (html: string) =>
-  [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
-    attrs: m[1]!,
-    href: /href="([^"]*)"/.exec(m[1]!)?.[1] ?? "",
-    text: m[2]!,
-  }));
 
 describe("ScriptMarkdown cues", () => {
   it("marks a bracketed aside as a cue", () => {

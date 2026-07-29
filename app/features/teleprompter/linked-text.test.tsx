@@ -1,17 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { LinkedText, shortenUrl } from "./linked-text";
+import { links } from "./glass-links-test-helpers";
+import { LinkedText } from "./linked-text";
 import { TYPE } from "./teleprompter-settings";
 
 const render = (text: string) =>
   renderToStaticMarkup(<LinkedText>{text}</LinkedText>);
-
-const links = (html: string) =>
-  [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
-    attrs: m[1]!,
-    href: /href="([^"]*)"/.exec(m[1]!)?.[1] ?? "",
-    text: m[2]!,
-  }));
 
 describe("LinkedText", () => {
   it("links a URL inside a plain note", () => {
@@ -27,6 +21,14 @@ describe("LinkedText", () => {
     expect(links(render("Show www.example.com.")).map((l) => l.href)).toEqual([
       "https://www.example.com",
     ]);
+  });
+
+  // An href with no scheme is a path: the browser would resolve it against the
+  // teleprompter and navigate the glass away instead of opening the page.
+  it("gives a www address a scheme however it was capitalised", () => {
+    expect(links(render("Go to WWW.example.com now."))[0]?.href).toBe(
+      "https://WWW.example.com"
+    );
   });
 
   it("opens links away from the glass", () => {
@@ -47,6 +49,28 @@ describe("LinkedText", () => {
     expect(links(render("[https://example.com]"))[0]?.href).toBe(
       "https://example.com"
     );
+  });
+
+  // A parenthesis the sentence put round the address, not one the address owns.
+  it("leaves the parenthesis that wrapped the address out of it", () => {
+    expect(links(render("(see https://example.com/docs)"))[0]?.href).toBe(
+      "https://example.com/docs"
+    );
+  });
+
+  // The other way round: plenty of real pages carry a balanced pair in the
+  // path, and stopping at the `(` points the link at a page that isn't there.
+  it("keeps a balanced pair of parentheses inside the address", () => {
+    const url = "https://en.wikipedia.org/wiki/Trie_(data_structure)";
+    const html = render(`Read ${url} now.`);
+    expect(links(html)[0]?.href).toBe(url);
+    expect(html).not.toContain("(data_structure) now.");
+  });
+
+  it("keeps the address's own parentheses when the sentence adds one too", () => {
+    expect(
+      links(render("(read https://example.com/Trie_(data_structure))"))[0]?.href
+    ).toBe("https://example.com/Trie_(data_structure)");
   });
 
   it("links every address in the note", () => {
@@ -73,6 +97,18 @@ describe("LinkedText", () => {
     );
   });
 
+  // A protocol with nothing behind it is a line to read out, not somewhere to
+  // send anyone — and an empty anchor is invisible on the glass.
+  it("leaves a protocol with no address behind it as words", () => {
+    const html = render("Type https://, then the domain.");
+    expect(links(html)).toEqual([]);
+    expect(html).toContain("Type https://, then the domain.");
+  });
+
+  it("renders nothing for an empty note", () => {
+    expect(render("")).toBe("");
+  });
+
   it("shortens a long address on the glass", () => {
     const [link] = links(
       render("https://example.com/a/really/long/path/that/goes/on?q=1")
@@ -80,26 +116,20 @@ describe("LinkedText", () => {
     expect(link?.text.endsWith("…")).toBe(true);
     expect(link?.text.length).toBeLessThanOrEqual(TYPE.measure);
   });
-});
 
-describe("shortenUrl", () => {
-  it("drops the protocol and a trailing slash", () => {
-    expect(shortenUrl("https://example.com/")).toBe("example.com");
+  // The protocol and a bare `www.` are never spoken and never read, and on a
+  // measure this narrow they're a third of the line. Only the label is cut —
+  // the address it points at stays whole.
+  it("drops the protocol and www from the label, not from the link", () => {
+    const [link] = links(render("Go to https://www.example.com/ now."));
+    expect(link?.text).toBe("example.com");
+    expect(link?.href).toBe("https://www.example.com/");
   });
 
-  it("drops a leading www, which is four characters of a short line", () => {
-    expect(shortenUrl("www.example.com")).toBe("example.com");
-  });
-
-  it("keeps an address that fits whole", () => {
-    expect(shortenUrl("https://example.com/pricing")).toBe(
-      "example.com/pricing"
+  it("truncates the label from the end, so the host survives", () => {
+    const [link] = links(
+      render("https://example.com/a/really/long/path/that/goes/on")
     );
-  });
-
-  it("truncates from the end, so the host survives", () => {
-    expect(
-      shortenUrl("https://example.com/a/really/long/path/that/goes/on")
-    ).toMatch(/^example\.com\/.*…$/);
+    expect(link?.text).toMatch(/^example\.com\/.*…$/);
   });
 });

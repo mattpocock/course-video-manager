@@ -150,7 +150,7 @@ export function TeleprompterCrawl(props: {
                     {" ]"}
                   </>
                 ) : (
-                  <ScriptMarkdown>{block.text}</ScriptMarkdown>
+                  <ScriptMarkdown cues>{block.text}</ScriptMarkdown>
                 )}
               </div>
             ))}
