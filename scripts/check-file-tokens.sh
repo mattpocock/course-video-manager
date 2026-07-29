@@ -11,6 +11,10 @@ EXCLUDE_PATTERNS=(
   "progress.txt"
   "public/*"
   "app/db/migrations/*"
+  # Vendored, generated, append-only icon data. It is committed on purpose
+  # (see app/packages/lucide-icons/README.md) and is never hand-edited, so the
+  # "split this into smaller modules" advice does not apply.
+  "app/packages/lucide-icons/lib/generated/*"
 )
 
 should_skip() {
