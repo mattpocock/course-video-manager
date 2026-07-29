@@ -244,11 +244,11 @@ _Avoid_: Changelog (ambiguous with course publish changelog), Skill post, Change
 ### Deliverables and scheduling
 
 **Deliverable**:
-A manually-authored entry on the **Deliverables Calendar**, pinned to a single all-day date. May link to zero or more **Courses** and/or **Pitches**; the Deliverable's own state is never derived, but a linked Pitch's **Pitch State** is derived from it. Archived Deliverables are hidden from both the active calendar and the history disclosure — archive is the only hide.
+A manually-authored entry on the **Deliverables Calendar**, pinned to a single all-day date — its `date` is the only date-of-intent in the schema (nothing else carries a deadline). May link to zero or more **Courses** and/or **Pitches**; the Deliverable's own state is never derived, but a linked Pitch's **Pitch State** is derived from it. Archived Deliverables are hidden from both the active calendar and the history disclosure — archive is the only hide.
 _Avoid_: Task, Item, Scheduled work, Ship target
 
 **Deliverable Status**:
-A manual marker on a **Deliverable**: `planned` (default), `done`, or `cancelled`. All transitions reversible; never derived from linked entities. Distinct from **Archive** — `cancelled` Deliverables stay on the calendar; archiving is what hides them.
+A manual marker on a **Deliverable**: `planned` (default), `done`, or `cancelled`. All transitions reversible; never derived from linked entities. "Manual" means _underived_, not hand-typed: the app and an agent (`cvm deliverable`) author it the same way (ADR 0022). Distinct from **Archive** — `cancelled` Deliverables stay on the calendar; archiving is what hides them.
 _Avoid_: Completion, Deliverable state
 
 **Deliverables Calendar**:

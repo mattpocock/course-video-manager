@@ -78,6 +78,20 @@ describe("unhealthy server blocks writes", () => {
     expect(stderr).toContain("BackupCoordinatorError");
   });
 
+  it("deliverable create is blocked", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "deliverable",
+      "create",
+      "--title",
+      "Should not be created",
+      "--date",
+      "2026-08-14",
+    ]);
+    expect(exitCode).not.toBe(0);
+    expect(stdout).toBe("");
+    expect(stderr).toContain("BackupCoordinatorError");
+  });
+
   it("segment add is blocked", async () => {
     const { stdout, stderr, exitCode } = await run([
       "segment",
@@ -148,6 +162,32 @@ describe("healthy server allows writes and fires dump", () => {
     expect(exitCode).toBe(0);
     const p = one<{ title: string }>(stdout);
     expect(p.title).toBe("Coordinated pitch");
+    expect(dumpCount).toBe(1);
+  });
+
+  it("deliverable update fires dump once", async () => {
+    const created = one<{ id: string }>(
+      (
+        await run([
+          "deliverable",
+          "create",
+          "--title",
+          "Coordinated deliverable",
+          "--date",
+          "2026-08-14",
+        ])
+      ).stdout
+    );
+    dumpCount = 0;
+    const { stdout, exitCode } = await run([
+      "deliverable",
+      "update",
+      "--status",
+      "done",
+      created.id,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(one<{ status: string }>(stdout).status).toBe("done");
     expect(dumpCount).toBe(1);
   });
 

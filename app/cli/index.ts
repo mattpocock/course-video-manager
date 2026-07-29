@@ -21,8 +21,8 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'beat' (add/update/move/delete), 'lesson' (create/update/move), 'video'
-(create/move/update), 'file' (add/delete), 'pitch' (create/update) and 'course'
-(publish). Every
+(create/move/update), 'file' (add/delete), 'pitch' (create/update),
+'deliverable' (create/update/archive) and 'course' (publish). Every
 other verb is read-only, and each verb's own --help is authoritative about
 whether it reads or writes.
 
@@ -74,6 +74,12 @@ WRITES
                                      need the CVM server running
     pitch   create/update            create a Pitch (--title required) or patch
                                      its copy/ranking fields
+    deliverable
+            create/update/archive    author the Deliverables Calendar — the
+                                     ONLY date-of-intent in the schema. 'update'
+                                     patches any subset (--date to slip a
+                                     deadline, --status to close it out);
+                                     'archive' is the only hide
     course  publish                  Submit the Draft as a Pending Version,
                                      Commit it to Dropbox, Promote to Published
                                      (--name vX.Y.Z, a lowercase-'v' semver)

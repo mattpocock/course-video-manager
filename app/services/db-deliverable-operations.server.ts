@@ -36,8 +36,10 @@ export const createDeliverableOperations = (db: Database) => {
     title: string;
     date: string;
     notes?: string;
-    courseIds?: string[];
-    pitchIds?: string[];
+    /** Omitted => the column default, `planned`. */
+    status?: "planned" | "done" | "cancelled";
+    courseIds?: readonly string[];
+    pitchIds?: readonly string[];
   }) {
     const results = yield* makeDbCall(() =>
       db
@@ -46,6 +48,7 @@ export const createDeliverableOperations = (db: Database) => {
           title: input.title,
           date: input.date,
           notes: input.notes || null,
+          ...(input.status === undefined ? {} : { status: input.status }),
         })
         .returning()
     );
@@ -114,8 +117,8 @@ export const createDeliverableOperations = (db: Database) => {
     date: string;
     notes?: string;
     status: "planned" | "done" | "cancelled";
-    courseIds?: string[];
-    pitchIds?: string[];
+    courseIds?: readonly string[];
+    pitchIds?: readonly string[];
   }) {
     const results = yield* makeDbCall(() =>
       db
