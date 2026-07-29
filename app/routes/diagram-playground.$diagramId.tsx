@@ -29,10 +29,8 @@ import { useParams, useNavigate, Link, useRevalidator } from "react-router";
 import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
 import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
-import {
-  ShapeTypeErrorBoundary,
-  UnknownShapeNotice,
-} from "@/features/diagrams/unknown-shape-boundary";
+import { DiagramEditorBoundary } from "@/features/diagrams/unknown-shape-boundary";
+import { DiagramCommandPalette } from "@/features/diagrams/palette/diagram-command-palette";
 
 export const loader = loadDiagramPlaygroundActive;
 
@@ -81,6 +79,16 @@ export default function DiagramPlaygroundActive({
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => saveHead(), DEBOUNCE_MS);
+  }, [saveHead]);
+
+  // Every flow that leaves the current diagram must call this first, or up to
+  // 500ms of debounced edits is silently lost.
+  const flushPendingSave = useCallback(async () => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    await saveHead();
   }, [saveHead]);
 
   const loadDiagramScene = useCallback(
@@ -165,11 +173,7 @@ export default function DiagramPlaygroundActive({
     preservingRef.current = true;
     setPreserving(true);
     try {
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current);
-        saveTimer.current = null;
-      }
-      await saveHead();
+      await flushPendingSave();
 
       let thumbnailPngBase64: string | null;
       try {
@@ -439,11 +443,7 @@ export default function DiagramPlaygroundActive({
     async (id: string) => {
       try {
         if (id === activeDiagramId.current) {
-          if (saveTimer.current) {
-            clearTimeout(saveTimer.current);
-            saveTimer.current = null;
-          }
-          await saveHead();
+          await flushPendingSave();
         }
         const res = await fetch(`/api/diagrams/${id}/head`);
         if (!res.ok) {
@@ -474,11 +474,7 @@ export default function DiagramPlaygroundActive({
     if (creating) return;
     setCreating(true);
     try {
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current);
-        saveTimer.current = null;
-      }
-      await saveHead();
+      await flushPendingSave();
       const res = await fetch("/api/diagrams/create", { method: "POST" });
       if (!res.ok) {
         toast.error("Failed to create diagram");
@@ -494,11 +490,7 @@ export default function DiagramPlaygroundActive({
   }, [creating, saveHead, navigate]);
 
   const handleNavigateHome = useCallback(async () => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    await saveHead();
+    await flushPendingSave();
     sendToParent({ type: "activeDiagramChanged", diagramId: null });
     navigate("/diagram-playground");
   }, [saveHead, navigate]);
@@ -508,7 +500,7 @@ export default function DiagramPlaygroundActive({
   return (
     <div className="flex h-screen w-screen">
       <div className="relative flex-1">
-        <ShapeTypeErrorBoundary fallback={<UnknownShapeNotice />}>
+        <DiagramEditorBoundary>
           <Tldraw
             onMount={handleMount}
             colorScheme="dark"
@@ -528,7 +520,19 @@ export default function DiagramPlaygroundActive({
               <Save className="h-4 w-4" />
             </button>
           )}
-        </ShapeTypeErrorBoundary>
+        </DiagramEditorBoundary>
+        {/* Active Diagram window only — never Playground Home. */}
+        {diagramId && (
+          <DiagramCommandPalette
+            diagramId={diagramId}
+            editorRef={editorRef}
+            flushPendingSave={flushPendingSave}
+            preserveSnapshot={preserveSnapshot}
+            handleRestoreRequest={handleRestoreRequest}
+            handleCopyDiagramContents={handleCopyDiagramContents}
+            handleCreateDiagram={handleCreateDiagram}
+          />
+        )}
         <ConnectionStatusIndicator
           editorConnected={editorConnected}
           windowFocused={windowFocused}

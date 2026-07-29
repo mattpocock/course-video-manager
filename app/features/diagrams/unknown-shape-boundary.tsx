@@ -30,8 +30,16 @@ export class ShapeTypeErrorBoundary extends Component<
   }
 }
 
-/** The playground editor's fallback: say what happened, in words. */
-export function UnknownShapeNotice() {
+/** The playground editor's boundary: a legible message, never a white screen. */
+export function DiagramEditorBoundary({ children }: { children: ReactNode }) {
+  return (
+    <ShapeTypeErrorBoundary fallback={<UnknownShapeNotice />}>
+      {children}
+    </ShapeTypeErrorBoundary>
+  );
+}
+
+function UnknownShapeNotice() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-zinc-950 p-8 text-center">
       <p className="text-sm font-medium text-zinc-200">

@@ -1,0 +1,439 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
+import type { Editor } from "tldraw";
+import { searchIconNames } from "@/packages/lucide-icons";
+import { renderThumbnailPngBase64 } from "@/features/diagrams/render-thumbnail";
+import {
+  buildIconContent,
+  insertContentAtViewportCentre,
+  quantiseIconSize,
+} from "@/features/diagrams/insert-onto-canvas";
+import {
+  ICON_RESULT_CAP,
+  ROOT_ACTIONS,
+  matchesComponentName,
+  type RootAction,
+} from "./palette-model";
+import {
+  INITIAL_NAV,
+  currentPage,
+  navReducer,
+  type NavAction,
+  type PageKey,
+  type PaletteNav,
+} from "./palette-nav";
+
+export type ComponentSummary = { id: string; name: string };
+
+export type DiagramHit = {
+  diagramId: string;
+  snapshotId: string | null;
+  diagramName: string;
+  contentHash: string | null;
+  searchText: string | null;
+  source: string;
+};
+
+export type PaletteHandlers = {
+  onPreserveSnapshot: () => void | Promise<void>;
+  onRestoreToHead: () => void | Promise<void>;
+  onCopyContents: () => void | Promise<void>;
+  onRenameDiagram: (name: string) => void | Promise<void>;
+  onNewDiagram: () => void | Promise<void>;
+  /** Navigating away flushes the pending save first — see the call site. */
+  onGoToDiagram: (diagramId: string) => void | Promise<void>;
+};
+
+/** Server-side diagram search is debounced by this much. */
+const SEARCH_DEBOUNCE_MS = 180;
+
+/** No spinner below this, where it would only flicker. */
+const SPINNER_THRESHOLD_MS = 150;
+
+export function usePalette(opts: {
+  editorRef: React.RefObject<Editor | null>;
+  handlers: PaletteHandlers;
+}) {
+  const { editorRef, handlers } = opts;
+
+  const [open, setOpen] = useState(false);
+  const [nav, dispatchNav] = useReducer(
+    (state: PaletteNav, action: NavAction) => navReducer(state, action).nav,
+    INITIAL_NAV
+  );
+  const page = currentPage(nav);
+
+  const [hasSelection, setHasSelection] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const dispatch = useCallback((action: NavAction) => {
+    // The reducer decides when an action means "close"; the hook owns the flag.
+    dispatchNav(action);
+  }, []);
+
+  /** Esc / Backspace, routed through the reducer so closing stays its decision. */
+  const navigateBack = useCallback(
+    (action: Extract<NavAction, { type: "escape" | "backspace" }>) => {
+      const result = navReducer(nav, action);
+      dispatchNav(action);
+      if (result.close) setOpen(false);
+    },
+    [nav]
+  );
+
+  // --- Cmd+K ---------------------------------------------------------------
+  // tldraw 5.2.4 leaves Cmd+K unbound (the laser tool binds bare `k`, and its
+  // modifier matching is exact) and never stopPropagations keydown, so a plain
+  // document listener is enough — and it works identically in Focus Mode.
+  useEffect(() => {
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    dispatchNav({ type: "open" });
+    setBusy(false);
+    setHasSelection((editorRef.current?.getSelectedShapeIds().length ?? 0) > 0);
+  }, [open, editorRef]);
+
+  // At `maxShapesPerPage`, `putContentOntoCurrentPage` bails SILENTLY — it
+  // emits this event and returns. Without listening, an insert at the cap looks
+  // like a dead keypress.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const onMaxShapes = () =>
+      toast.error("This page is full — tldraw's shape limit was reached");
+    editor.on("max-shapes", onMaxShapes);
+    return () => {
+      editor.off("max-shapes", onMaxShapes);
+    };
+  }, [editorRef, open]);
+
+  // --- Root ----------------------------------------------------------------
+  const rootActions = useMemo(
+    () => ROOT_ACTIONS.filter((a) => !a.requiresSelection || hasSelection),
+    [hasSelection]
+  );
+
+  const runAction = useCallback(
+    (action: RootAction) => {
+      if (action.opens) {
+        dispatchNav({ type: "push", page: action.opens });
+        return;
+      }
+      switch (action.id) {
+        case "preserve-snapshot":
+          void handlers.onPreserveSnapshot();
+          break;
+        case "restore-head":
+          void handlers.onRestoreToHead();
+          break;
+        case "copy-contents":
+          void handlers.onCopyContents();
+          break;
+        case "new-diagram":
+          void handlers.onNewDiagram();
+          break;
+      }
+      setOpen(false);
+    },
+    [handlers]
+  );
+
+  // --- Icons ---------------------------------------------------------------
+  const icons = useMemo(
+    () => searchIconNames(nav.query, { limit: ICON_RESULT_CAP }),
+    [nav.query]
+  );
+
+  const insertIcon = useCallback(
+    (name: string) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      // Sizing is the one thing the insert path actively supplies: it is the
+      // only place that can see the camera zoom.
+      const content = buildIconContent({
+        name,
+        size: quantiseIconSize(editor.getZoomLevel()),
+        schema: editor.store.schema.serialize(),
+      });
+
+      insertContentAtViewportCentre(editor, content, {
+        historyLabel: "insert icon",
+      });
+      // Synchronous, so it closes instantly — by the same rule the async
+      // component path follows: the palette goes when the shapes land.
+      setOpen(false);
+    },
+    [editorRef]
+  );
+
+  // --- Components ----------------------------------------------------------
+  const [components, setComponents] = useState<ComponentSummary[]>([]);
+
+  const refreshComponents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/diagram-components/list");
+      if (!res.ok) return;
+      const data = await res.json();
+      setComponents(data.components ?? []);
+    } catch {
+      // A failed list leaves the previous one up; the palette is still usable.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open && page === "components") void refreshComponents();
+  }, [open, page, refreshComponents]);
+
+  /** Client-side filtering PRESERVES the server's recency ordering. */
+  const filteredComponents = useMemo(
+    () => components.filter((c) => matchesComponentName(c.name, nav.query)),
+    [components, nav.query]
+  );
+
+  /** Run an async step, showing a spinner only if it is genuinely slow. */
+  const withSpinner = useCallback(async <T>(fn: () => Promise<T>) => {
+    const timer = setTimeout(() => setBusy(true), SPINNER_THRESHOLD_MS);
+    try {
+      return await fn();
+    } finally {
+      clearTimeout(timer);
+      setBusy(false);
+    }
+  }, []);
+
+  const saveComponent = useCallback(
+    async (name: string) => {
+      const editor = editorRef.current;
+      // An empty name BLOCKS the save: a component is only findable by name, so
+      // an "Untitled 3" is dead weight. No auto-naming.
+      if (!editor || !name.trim()) return;
+
+      const shapeIds = editor.getSelectedShapeIds();
+      if (shapeIds.length === 0) return;
+
+      await withSpinner(async () => {
+        try {
+          // tldraw already solves the hard part: this expands the selection to
+          // descendants (so group and frame children come along), keeps only
+          // bindings with BOTH ends inside the selection, drops dangling ones,
+          // and rewrites root shapes into page coordinates.
+          const content = editor.getContentFromCurrentPage(shapeIds);
+          if (!content) {
+            toast.error("Couldn't capture that selection");
+            return;
+          }
+          // `users` is collaborator presence — meaningless here, and the
+          // clipboard envelope is a transport concern that is not persisted.
+          const { users: _users, ...sceneFragment } = content;
+
+          const thumbnailPngBase64 = await renderThumbnailPngBase64(
+            editor,
+            shapeIds
+          );
+
+          const res = await fetch("/api/diagram-components/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: name.trim(),
+              sceneFragment,
+              thumbnailPngBase64,
+            }),
+          });
+          if (!res.ok) {
+            toast.error("Couldn't save that component");
+            return;
+          }
+          toast.success(`Saved “${name.trim()}”`);
+          setOpen(false);
+        } catch {
+          toast.error("Couldn't save that component");
+        }
+      });
+    },
+    [editorRef, withSpinner]
+  );
+
+  const insertComponent = useCallback(
+    async (component: ComponentSummary) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      await withSpinner(async () => {
+        let fragment: unknown;
+        try {
+          const res = await fetch(
+            `/api/diagram-components/${component.id}/insert`,
+            { method: "POST" }
+          );
+          if (res.status === 404) {
+            // Reachable, because delete is a hard DELETE: another window may
+            // have removed it. Drop the tile so the library heals itself
+            // instead of offering something that can never work.
+            toast.error("That component no longer exists");
+            setComponents((cs) => cs.filter((c) => c.id !== component.id));
+            return;
+          }
+          if (!res.ok) {
+            toast.error("Couldn't insert component");
+            return;
+          }
+          fragment = (await res.json()).sceneFragment;
+        } catch {
+          // A network blip leaves the palette open, so retrying is one Enter.
+          toast.error("Couldn't insert component");
+          return;
+        }
+
+        try {
+          insertContentAtViewportCentre(editor, fragment as never, {
+            historyLabel: "insert component",
+          });
+        } catch {
+          // `putContentOntoCurrentPage` runs the store's migrations against the
+          // stored schema and throws when it cannot migrate. The row is left
+          // untouched: no broken flag, no migration-on-read backfill.
+          toast.error(
+            "This component was saved with an incompatible tldraw version"
+          );
+          return;
+        }
+        // The palette closes when the shapes LAND, never before.
+        setOpen(false);
+      });
+    },
+    [editorRef, withSpinner]
+  );
+
+  const [componentUnderEdit, setComponentUnderEdit] =
+    useState<ComponentSummary | null>(null);
+
+  const renameComponent = useCallback(
+    async (id: string, name: string) => {
+      if (!name.trim()) return;
+      const body = new FormData();
+      body.set("name", name.trim());
+      const res = await fetch(`/api/diagram-components/${id}/rename`, {
+        method: "POST",
+        body,
+      });
+      if (!res.ok) {
+        toast.error("Couldn't rename that component");
+        return;
+      }
+      await refreshComponents();
+      dispatchNav({ type: "pop" });
+    },
+    [refreshComponents]
+  );
+
+  const deleteComponent = useCallback(async (id: string) => {
+    const res = await fetch(`/api/diagram-components/${id}/delete`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      toast.error("Couldn't delete that component");
+      return;
+    }
+    setComponents((cs) => cs.filter((c) => c.id !== id));
+  }, []);
+
+  // --- Diagrams (server-side search) ---------------------------------------
+  const [diagramHits, setDiagramHits] = useState<DiagramHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchSeq = useRef(0);
+
+  useEffect(() => {
+    if (page !== "diagrams") return;
+    const q = nav.query.trim();
+    // A sequence guard, so a slow early response cannot overwrite a fast later
+    // one.
+    const seq = ++searchSeq.current;
+    if (!q) {
+      setDiagramHits([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/diagrams/search?q=${encodeURIComponent(q)}`
+        );
+        const data = await res.json();
+        if (seq === searchSeq.current) setDiagramHits(data.results ?? []);
+      } catch {
+        if (seq === searchSeq.current) setDiagramHits([]);
+      } finally {
+        if (seq === searchSeq.current) setSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [nav.query, page]);
+
+  const goToDiagram = useCallback(
+    async (hit: DiagramHit) => {
+      // This NAVIGATES. It is not restore-from-search and it does not touch
+      // headScene.
+      await handlers.onGoToDiagram(hit.diagramId);
+      setOpen(false);
+    },
+    [handlers]
+  );
+
+  const renameDiagram = useCallback(
+    async (name: string) => {
+      if (!name.trim()) return;
+      await handlers.onRenameDiagram(name.trim());
+      setOpen(false);
+    },
+    [handlers]
+  );
+
+  return {
+    open,
+    setOpen,
+    nav,
+    page,
+    dispatch,
+    navigateBack,
+    busy,
+    hasSelection,
+    rootActions,
+    runAction,
+    icons,
+    insertIcon,
+    components: filteredComponents,
+    insertComponent,
+    saveComponent,
+    componentUnderEdit,
+    setComponentUnderEdit,
+    renameComponent,
+    deleteComponent,
+    diagramHits,
+    searching,
+    goToDiagram,
+    renameDiagram,
+  };
+}
+
+export type PaletteState = ReturnType<typeof usePalette>;
+export type { PageKey };

@@ -1,0 +1,52 @@
+/*
+ * The grid goes on [cmdk-group-items], NEVER on [cmdk-group].
+ *
+ * Two reasons, both required:
+ *   1. A wrapper div between a cmdk group and its items breaks cmdk's
+ *      score-reordering, so the grid has to be the items container itself.
+ *   2. Command.Item UNMOUNTS when filtered out, so grid cells are never at
+ *      risk — but Command.Group survives with a `hidden` attribute, and an
+ *      author `.grid` rule beats the UA's `[hidden]` rule, which is not
+ *      `!important`. That leaves an empty group AND its heading on screen.
+ *      Hence the defensive rule below.
+ */
+[cmdk-group=""][hidden] {
+  display: none !important;
+}
+
+.cvm-palette-group [cmdk-group-heading] {
+  padding: 0.25rem 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-zinc-500, #71717a);
+}
+
+.cvm-palette-grid [cmdk-group-items] {
+  display: grid;
+  gap: 0.25rem;
+}
+
+/* Column counts are per page and fixed — the palette is a fixed width, so
+   there is no ResizeObserver and nothing to measure. They must stay in step
+   with GRID_COLUMNS in palette-model.ts, which is what the arrow keys use. */
+.cvm-palette-grid-10 [cmdk-group-items] {
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+}
+
+.cvm-palette-grid-4 [cmdk-group-items] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.cvm-palette-grid-3 [cmdk-group-items] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+/* An empty-state paragraph is a plain child of the items grid, so it has to
+   span the whole row rather than sit in the first cell. */
+.cvm-palette-grid [cmdk-group-items] > p {
+  grid-column: 1 / -1;
+}
