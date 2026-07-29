@@ -8,7 +8,7 @@ import { EditableDiagramName } from "@/features/diagrams/editable-diagram-name";
 import { Effect } from "effect";
 import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { makeLoader } from "@/services/route-action.server";
-import { filteredNewestSnapshot } from "@/lib/filtered-newest-snapshot";
+import { newestSnapshotHashByDiagram } from "@/lib/filtered-newest-snapshot";
 import { data } from "react-router";
 import type { Route } from "./+types/diagram-playground._index";
 
@@ -37,38 +37,14 @@ export const loader = makeLoader({
         { concurrency: "unbounded" }
       );
 
-      const snapshotsByDiagram = new Map<
-        string,
-        {
-          id: string;
-          contentHash: string;
-          preserved: boolean;
-          createdAt: Date;
-          clips: { archived: boolean }[];
-        }[]
-      >();
-      for (const s of allSnapshots) {
-        let arr = snapshotsByDiagram.get(s.diagramId);
-        if (!arr) {
-          arr = [];
-          snapshotsByDiagram.set(s.diagramId, arr);
-        }
-        arr.push(s);
-      }
+      const hashes = newestSnapshotHashByDiagram(allSnapshots);
 
-      const tiles = allDiagrams.map((d) => {
-        const snapshots = snapshotsByDiagram.get(d.id) ?? [];
-        const newestId = filteredNewestSnapshot(snapshots);
-        const newestSnapshot = newestId
-          ? snapshots.find((s) => s.id === newestId)
-          : null;
-        return {
-          id: d.id,
-          name: d.name,
-          updatedAt: d.updatedAt.toISOString(),
-          thumbnailContentHash: newestSnapshot?.contentHash ?? null,
-        };
-      });
+      const tiles = allDiagrams.map((d) => ({
+        id: d.id,
+        name: d.name,
+        updatedAt: d.updatedAt.toISOString(),
+        thumbnailContentHash: hashes.get(d.id) ?? null,
+      }));
 
       return data({ mode: "grid" as const, tiles });
     }),

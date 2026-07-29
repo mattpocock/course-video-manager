@@ -18,6 +18,7 @@ export function DiagramCommandPalette(props: {
   handleRestoreRequest: (snapshot: Snapshot, headIsPreserved: boolean) => void;
   handleCopyDiagramContents: (id: string) => Promise<void>;
   handleCreateDiagram: () => Promise<void>;
+  reloadScene: (id: string) => Promise<void>;
 }) {
   const handlers = usePaletteHandlers(props);
   return <CommandPalette editorRef={props.editorRef} handlers={handlers} />;

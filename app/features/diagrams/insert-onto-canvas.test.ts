@@ -38,16 +38,31 @@ describe("buildIconContent", () => {
     expect(records.map((r) => r.typeName)).toEqual(["shape"]);
   });
 
-  it("passes the size, and deliberately not colour or dash", () => {
-    // Leaving them out is what makes an inserted icon pick up the shape's
-    // declared defaults and the style panel's next-shape styles.
+  it("passes the size, and deliberately not colour", () => {
+    // Leaving `color` out is what makes an inserted icon pick up the style
+    // panel's next-shape colour.
     const content = buildIconContent({
       name: "database",
       size: 96,
       schema: schemaOf().serialize(),
     });
     const props = content.shapes[0]!.props as Record<string, unknown>;
-    expect(props).toEqual({ name: "database", w: 96, h: 96 });
+    expect(props).toEqual({ name: "database", w: 96, h: 96, dash: "solid" });
+  });
+
+  it("pins dash to solid, because an omitted one arrives as tldraw's `draw`", () => {
+    // `createShapes` overwrites every UNSUPPLIED style prop with the next-shape
+    // style before merging the partial's props, and tldraw ships `draw` as the
+    // next-shape dash. So omitting `dash` does NOT fall through to this shape's
+    // own `solid` default — it inserts a hand-drawn wobble of a lucide glyph.
+    const content = buildIconContent({
+      name: "database",
+      size: 48,
+      schema: schemaOf().serialize(),
+    });
+    expect((content.shapes[0]!.props as Record<string, unknown>).dash).toBe(
+      "solid"
+    );
   });
 
   it("names its one shape as the root, so it lands at the viewport centre", () => {

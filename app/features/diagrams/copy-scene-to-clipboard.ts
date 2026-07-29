@@ -7,6 +7,8 @@
 // paste handler expects a `TLContent` ({ shapes, bindings, assets, rootShapeIds,
 // schema }) wrapped in a tagged HTML envelope. We rebuild that from the scene.
 
+import { toast } from "sonner";
+
 interface SerializedRecord {
   typeName: string;
   id: string;
@@ -46,6 +48,39 @@ function buildTldrawClipboardHtml(scene: SceneDocument): string | null {
   };
 
   return `<div data-tldraw>${JSON.stringify(clipboard)}</div>`;
+}
+
+/**
+ * Copy a STORED diagram — head is fetched from the server rather than read off
+ * the editor, so this works for any diagram, not only the open one. Callers
+ * that are copying the open diagram must flush its pending save first, or the
+ * copy is up to 500ms stale.
+ *
+ * Every outcome is a toast, because copying has no other visible result.
+ */
+export async function copyDiagramContents(diagramId: string): Promise<void> {
+  try {
+    const res = await fetch(`/api/diagrams/${diagramId}/head`);
+    if (!res.ok) {
+      toast.error("Failed to copy diagram");
+      return;
+    }
+    const data = await res.json();
+    if (!data.headScene) {
+      toast.error("Diagram is empty");
+      return;
+    }
+    const result = await copySceneToClipboard(data.headScene);
+    if (result === "ok") {
+      toast.success("Diagram copied — paste into the canvas");
+    } else if (result === "empty") {
+      toast.error("Diagram has no shapes to copy");
+    } else {
+      toast.error("Failed to copy diagram");
+    }
+  } catch {
+    toast.error("Failed to copy diagram");
+  }
 }
 
 export async function copySceneToClipboard(

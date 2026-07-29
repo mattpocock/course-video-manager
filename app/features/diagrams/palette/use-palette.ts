@@ -41,14 +41,27 @@ export type DiagramHit = {
   source: string;
 };
 
+/**
+ * What "go to this result" needs to know. A hit carrying a `snapshotId` is a
+ * request for THAT state, not for the diagram's head — see `onGoToDiagram`.
+ */
+export type DiagramTarget = Pick<
+  DiagramHit,
+  "diagramId" | "snapshotId" | "source"
+>;
+
 export type PaletteHandlers = {
   onPreserveSnapshot: () => void | Promise<void>;
   onRestoreToHead: () => void | Promise<void>;
   onCopyContents: () => void | Promise<void>;
   onRenameDiagram: (name: string) => void | Promise<void>;
   onNewDiagram: () => void | Promise<void>;
-  /** Navigating away flushes the pending save first — see the call site. */
-  onGoToDiagram: (diagramId: string) => void | Promise<void>;
+  /**
+   * Navigating away flushes the pending save first — see the call site. A
+   * snapshot hit is restored on the way, so the author arrives at the state
+   * they picked out of the results.
+   */
+  onGoToDiagram: (target: DiagramTarget) => void | Promise<void>;
 };
 
 /** Server-side diagram search is debounced by this much. */
@@ -371,33 +384,37 @@ export function usePalette(opts: {
     // A sequence guard, so a slow early response cannot overwrite a fast later
     // one.
     const seq = ++searchSeq.current;
-    if (!q) {
-      setDiagramHits([]);
-      setSearching(false);
-      return;
-    }
     setSearching(true);
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/diagrams/search?q=${encodeURIComponent(q)}`
-        );
-        const data = await res.json();
-        if (seq === searchSeq.current) setDiagramHits(data.results ?? []);
-      } catch {
-        if (seq === searchSeq.current) setDiagramHits([]);
-      } finally {
-        if (seq === searchSeq.current) setSearching(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
+    // An empty query is a REQUEST, not a skip: the route answers it with the
+    // most recently touched diagrams, so the page opens on something jumpable.
+    // It goes out immediately — the debounce exists to spare the server a query
+    // per keystroke, and there are no keystrokes here.
+    const timer = setTimeout(
+      async () => {
+        try {
+          const res = await fetch(
+            `/api/diagrams/search?q=${encodeURIComponent(q)}`
+          );
+          const data = await res.json();
+          if (seq === searchSeq.current) setDiagramHits(data.results ?? []);
+        } catch {
+          if (seq === searchSeq.current) setDiagramHits([]);
+        } finally {
+          if (seq === searchSeq.current) setSearching(false);
+        }
+      },
+      q ? SEARCH_DEBOUNCE_MS : 0
+    );
     return () => clearTimeout(timer);
   }, [nav.query, page]);
 
   const goToDiagram = useCallback(
     async (hit: DiagramHit) => {
-      // This NAVIGATES. It is not restore-from-search and it does not touch
-      // headScene.
-      await handlers.onGoToDiagram(hit.diagramId);
+      // The WHOLE hit goes through, not just the id: picking a snapshot means
+      // "take me to that state", exactly as it does from the search box on
+      // Playground Home. Discarding the snapshot id here landed the author on
+      // the diagram's head instead — the one state they did not choose.
+      await handlers.onGoToDiagram(hit);
       setOpen(false);
     },
     [handlers]

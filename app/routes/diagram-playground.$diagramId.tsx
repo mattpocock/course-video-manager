@@ -14,7 +14,7 @@ import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { renderThumbnailPngBase64 } from "@/features/diagrams/render-thumbnail";
 import { usePreserveSnapshotShortcut } from "@/features/diagrams/preserve-snapshot-shortcut";
 import { EditableDiagramName } from "@/features/diagrams/editable-diagram-name";
-import { copySceneToClipboard } from "@/features/diagrams/copy-scene-to-clipboard";
+import { copyDiagramContents } from "@/features/diagrams/copy-scene-to-clipboard";
 import {
   TimelinePanel,
   type Snapshot,
@@ -442,33 +442,12 @@ export default function DiagramPlaygroundActive({
 
   const handleCopyDiagramContents = useCallback(
     async (id: string) => {
-      try {
-        if (id === activeDiagramId.current) {
-          await flushPendingSave();
-        }
-        const res = await fetch(`/api/diagrams/${id}/head`);
-        if (!res.ok) {
-          toast.error("Failed to copy diagram");
-          return;
-        }
-        const data = await res.json();
-        if (!data.headScene) {
-          toast.error("Diagram is empty");
-          return;
-        }
-        const result = await copySceneToClipboard(data.headScene);
-        if (result === "ok") {
-          toast.success("Diagram copied — paste into the canvas");
-        } else if (result === "empty") {
-          toast.error("Diagram has no shapes to copy");
-        } else {
-          toast.error("Failed to copy diagram");
-        }
-      } catch {
-        toast.error("Failed to copy diagram");
-      }
+      // Copying the OPEN diagram reads its stored head like any other, so the
+      // debounced save has to land first or the clipboard is up to 500ms stale.
+      if (id === activeDiagramId.current) await flushPendingSave();
+      await copyDiagramContents(id);
     },
-    [saveHead]
+    [flushPendingSave]
   );
 
   const handleCreateDiagram = useCallback(async () => {
@@ -532,6 +511,7 @@ export default function DiagramPlaygroundActive({
             handleRestoreRequest={handleRestoreRequest}
             handleCopyDiagramContents={handleCopyDiagramContents}
             handleCreateDiagram={handleCreateDiagram}
+            reloadScene={loadDiagramScene}
           />
         )}
         <ConnectionStatusIndicator

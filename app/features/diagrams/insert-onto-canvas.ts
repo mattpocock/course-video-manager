@@ -55,12 +55,18 @@ export function quantiseIconSize(zoom: number): number {
  * does. It pays a trivial migration pass over one shape; in exchange there is
  * exactly one insertion path.
  *
- * `size` is the only thing supplied here, because the insert path is the only
- * place that can see the camera zoom. `color` and `dash` are deliberately
- * ABSENT: `createShapes` merges a shape's declared prop defaults (and the style
- * panel's next-shape styles) under whatever props arrive, so leaving them out
- * is what makes an inserted icon pick them up. `size` isn't passed because the
- * prop doesn't exist.
+ * `size` is the only thing the CAMERA supplies, because the insert path is the
+ * only place that can see the zoom. `color` is deliberately ABSENT:
+ * `createShapes` merges a shape's declared prop defaults, then the style
+ * panel's next-shape styles, under whatever props arrive — so leaving `color`
+ * out is what makes an inserted icon pick up the current pen colour.
+ *
+ * `dash` is the exception, and it is passed for exactly that reason. tldraw's
+ * next-shape `dash` defaults to `"draw"`, so an omitted `dash` does not fall
+ * through to this shape's own `"solid"` default — it lands as tldraw's
+ * hand-drawn stroke, which turns a crisp lucide glyph into a wobbled sketch of
+ * one. Icons insert SOLID; the style panel can still switch an existing icon
+ * afterwards.
  */
 export function buildIconContent(opts: {
   name: string;
@@ -78,7 +84,12 @@ export function buildIconContent(opts: {
         type: "cvm-icon",
         x: 0,
         y: 0,
-        props: { name: opts.name, w: opts.size, h: opts.size },
+        props: {
+          name: opts.name,
+          w: opts.size,
+          h: opts.size,
+          dash: "solid",
+        },
       },
     ],
     bindings: [],

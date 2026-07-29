@@ -138,7 +138,10 @@ export function CommandPalette({
 
           <CommandList
             ref={listRef}
-            className="max-h-[340px] overflow-y-auto p-1"
+            // The scrollbar is styled explicitly: the UA default is a light
+            // system bar that reads as a bright stripe down the side of a
+            // zinc-900 panel.
+            className="max-h-[340px] overflow-y-auto p-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-700 hover:scrollbar-thumb-zinc-600"
           >
             {state.page === "root" && (
               <>
@@ -196,9 +199,13 @@ export function CommandPalette({
                     value={name}
                     onSelect={() => state.insertIcon(name)}
                     title={name}
-                    className="flex aspect-square items-center justify-center rounded p-0 text-zinc-300 data-[selected=true]:bg-zinc-700 data-[selected=true]:text-white"
+                    className="flex aspect-square items-center justify-center rounded p-0 text-zinc-100 data-[selected=true]:bg-zinc-700 data-[selected=true]:text-white"
                   >
-                    <IconGlyph name={name} className="size-4" />
+                    {/* `text-current` is load-bearing: the shared CommandItem
+                        base paints any descendant svg WITHOUT a `text-*` class
+                        `text-muted-foreground`, which is what greyed every
+                        glyph out regardless of the cell's own colour. */}
+                    <IconGlyph name={name} className="size-6 text-current" />
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -262,14 +269,20 @@ export function CommandPalette({
 
             {state.page === "diagrams" && (
               <CommandGroup
-                heading={state.searching ? "Searching…" : "Diagrams"}
+                heading={
+                  state.searching
+                    ? "Searching…"
+                    : state.nav.query.trim()
+                      ? "Diagrams"
+                      : "Recent"
+                }
                 className="cvm-palette-group cvm-palette-grid cvm-palette-grid-3"
               >
                 {state.diagramHits.length === 0 && !state.searching && (
                   <p className="px-2 py-6 text-center text-sm text-zinc-500">
                     {state.nav.query
                       ? `No diagrams match “${state.nav.query}”.`
-                      : "Type to search names and contents."}
+                      : "No diagrams yet."}
                   </p>
                 )}
                 {state.diagramHits.map((hit) => {
@@ -348,7 +361,11 @@ function NamePage({
         // because a component is only ever findable by name.
         disabled={!trimmed}
         onSelect={onSubmit}
-        className="mt-3 justify-center rounded bg-zinc-700 py-1.5 text-zinc-100 data-[selected=true]:bg-zinc-600"
+        // Plain white, selected or not. cmdk auto-selects the only item here,
+        // and the shared base's `data-[selected=true]:text-accent-foreground`
+        // wins over an unqualified colour — so both states are spelled out, or
+        // the confirm button renders permanently dimmed.
+        className="mt-3 justify-center rounded bg-white py-1.5 font-medium text-zinc-900 data-[selected=true]:bg-white data-[selected=true]:text-zinc-900 data-[disabled=true]:bg-zinc-700 data-[disabled=true]:text-zinc-300"
       >
         {trimmed ? "Confirm" : "Type a name first"}
       </CommandItem>
