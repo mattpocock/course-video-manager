@@ -1,5 +1,4 @@
-// PROTOTYPE — throwaway. Shared result cards for the diagram and component
-// pages, so all three variants render the same thing at different densities.
+// PROTOTYPE — throwaway. Result cards for the diagram and component pages.
 //
 // Deliberately mirrors app/routes/diagram-playground._index.tsx: real
 // thumbnail (via /api/diagram-thumbnails/:diagramId/:contentHash), the diagram
@@ -7,9 +6,40 @@
 // matched search text underneath. Components get the same treatment minus the
 // snippet, which they don't have.
 
-import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
+import { useState } from "react";
 import type { DiagramHit } from "./use-palette-state";
 import type { StubComponent } from "./palette-model";
+
+/**
+ * Same URL as DiagramThumbnail, but tracks the failure itself. The shared
+ * component falls back to an empty div, and because tldraw renders have
+ * transparent backgrounds a placeholder sitting *behind* it shows through on
+ * every card, not just the broken ones.
+ */
+function Thumbnail({
+  diagramId,
+  contentHash,
+}: {
+  diagramId: string;
+  contentHash: string | null;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!contentHash || failed) {
+    return (
+      <span className="absolute inset-0 flex items-center justify-center text-[9px] text-zinc-700">
+        no preview
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`/api/diagram-thumbnails/${diagramId}/${contentHash}`}
+      alt=""
+      onError={() => setFailed(true)}
+      className="h-full w-full object-contain"
+    />
+  );
+}
 
 /**
  * Lifted verbatim from the diagrams root page so the palette shows the same
@@ -34,70 +64,39 @@ export function makeSnippet(searchText: string | null, query: string): string {
 export function DiagramCard({
   hit,
   query,
-  compact,
 }: {
   hit: DiagramHit;
   query: string;
-  compact?: boolean;
 }) {
   const snippet = makeSnippet(hit.searchText, query);
   return (
     <>
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-t bg-zinc-950">
-        {/* Sits behind the thumbnail; shows through when the head state has no
-            cached render yet (source: "current" often doesn't). */}
-        <span className="absolute inset-0 flex items-center justify-center text-[9px] text-zinc-700">
-          no preview
-        </span>
-        <DiagramThumbnail
-          diagramId={hit.diagramId}
-          contentHash={hit.contentHash ?? undefined}
-          className="relative h-full w-full object-contain"
-        />
+      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-t bg-zinc-950">
+        <Thumbnail diagramId={hit.diagramId} contentHash={hit.contentHash} />
         <span className="absolute right-1 bottom-1 max-w-[85%] truncate rounded bg-zinc-950/85 px-1.5 py-0.5 text-[10px] font-medium text-zinc-100">
           {hit.diagramName}
         </span>
-        {hit.source === "snapshot" && (
-          <span className="absolute top-1 left-1 rounded bg-amber-500/80 px-1 py-px text-[9px] font-medium text-amber-950">
-            snapshot
-          </span>
-        )}
       </div>
-      <p
-        className={`px-1.5 py-1 leading-snug text-zinc-400 ${
-          compact ? "line-clamp-2 text-[10px]" : "line-clamp-2 text-[11px]"
-        }`}
-      >
+      {/* Fixed height so a one-line snippet and a two-line one produce cards
+          of the same height — grid rows are otherwise ragged. */}
+      <p className="line-clamp-2 h-[34px] px-1.5 py-1 text-[10px] leading-snug text-zinc-400">
         {snippet || "—"}
       </p>
     </>
   );
 }
 
-export function ComponentCard({
-  component,
-  compact,
-}: {
-  component: StubComponent;
-  compact?: boolean;
-}) {
+export function ComponentCard({ component }: { component: StubComponent }) {
   return (
     <>
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-t bg-zinc-950">
+      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-t bg-zinc-950">
         <img
           src={component.thumbnail}
           alt=""
           className="h-full w-full object-contain p-2"
         />
-        <span className="absolute right-1 bottom-1 rounded bg-zinc-950/85 px-1 py-px text-[9px] text-zinc-400">
-          {component.shapeCount} shapes
-        </span>
       </div>
-      <p
-        className={`truncate px-1.5 py-1 text-zinc-300 ${
-          compact ? "text-[10px]" : "text-[11px]"
-        }`}
-      >
+      <p className="truncate px-1.5 py-1 text-[10px] text-zinc-300">
         {component.name}
       </p>
     </>

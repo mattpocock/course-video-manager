@@ -1,8 +1,11 @@
-// PROTOTYPE — throwaway. Variant A: "Raycast".
+// PROTOTYPE — throwaway. The chosen shape (was "variant A" / Raycast).
 // Compact centred modal, grouped root list with section headings, breadcrumb
 // chip inside the input, very dense icon grid (10 cols / 28px cells), keyboard
 // hints right-aligned on every row. Uses the shadcn command.tsx wrappers as
 // shipped, to prove they survive contact with a grid.
+//
+// The two rejected layouts (a wide "Spotlight" modal, and a docked non-modal
+// inspector with a live preview pane) were deleted; they live at 5fd288cc.
 
 import { useCallback, useMemo, useRef } from "react";
 import { Command as CommandPrimitive } from "cmdk";
@@ -29,12 +32,10 @@ import "./palette-prototype.css";
 const COLUMNS: Partial<Record<string, number>> = {
   icons: 10,
   components: 4,
-  diagrams: 2,
+  diagrams: 3,
 };
 
-export const NAME = "Raycast — dense, grouped, breadcrumb chip";
-
-export function VariantA({ state }: { state: PaletteState }) {
+export function Palette({ state }: { state: PaletteState }) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const isGrid = GRID_PAGES.includes(state.page);
 
@@ -182,7 +183,7 @@ export function VariantA({ state }: { state: PaletteState }) {
                       title={c.name}
                       className="flex flex-col items-stretch gap-0 overflow-hidden rounded border border-zinc-700 bg-zinc-800 p-0 data-[selected=true]:border-zinc-300 data-[selected=true]:bg-zinc-700"
                     >
-                      <ComponentCard component={c} compact />
+                      <ComponentCard component={c} />
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -196,10 +197,10 @@ export function VariantA({ state }: { state: PaletteState }) {
                     ? "Searching…"
                     : `Diagrams${state.diagramHits.length ? ` (${state.diagramHits.length})` : ""}`
                 }
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:text-zinc-500 [&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-2 [&_[cmdk-group-items]]:gap-2"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:text-zinc-500 [&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-3 [&_[cmdk-group-items]]:gap-2"
               >
                 {state.diagramHits.length === 0 && !state.searching && (
-                  <p className="col-span-2 px-2 py-6 text-center text-sm text-zinc-500">
+                  <p className="col-span-3 px-2 py-6 text-center text-sm text-zinc-500">
                     {state.query
                       ? "No diagrams match."
                       : "Type to search names and contents."}
@@ -212,7 +213,7 @@ export function VariantA({ state }: { state: PaletteState }) {
                     onSelect={() => state.goToDiagram(h)}
                     className="flex flex-col items-stretch gap-0 overflow-hidden rounded border border-zinc-700 bg-zinc-800 p-0 data-[selected=true]:border-zinc-300 data-[selected=true]:bg-zinc-700"
                   >
-                    <DiagramCard hit={h} query={state.query} compact />
+                    <DiagramCard hit={h} query={state.query} />
                   </CommandItem>
                 ))}
               </CommandGroup>
