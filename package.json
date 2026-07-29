@@ -30,7 +30,8 @@
     "db:clone-local": "./scripts/clone-db-to-local.sh",
     "sandcastle": "tsx ./.sandcastle/main.ts",
     "check:file-tokens": "./scripts/check-file-tokens.sh",
-    "check:no-dirname": "./scripts/check-no-dirname.sh"
+    "check:no-dirname": "./scripts/check-no-dirname.sh",
+    "prototype:lucide": "node prototypes/lucide-pathbuilder/gen-icon-nodes.mjs && vite --config prototypes/lucide-pathbuilder/vite.config.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",
