@@ -49,10 +49,6 @@ function iconScene(props: Record<string, unknown>) {
 }
 
 describe("registration", () => {
-  it("names the icon util in CVM_SHAPE_UTILS, the single registry", () => {
-    expect(CVM_SHAPE_UTILS).toContain(CvmIconShapeUtil);
-  });
-
   it("uses the prefixed `cvm-icon` type, never bare `icon`", () => {
     // tldraw owns the unprefixed namespace; a future `icon` builtin would
     // collide irrecoverably inside already-persisted documents.

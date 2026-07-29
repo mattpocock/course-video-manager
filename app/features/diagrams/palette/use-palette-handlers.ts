@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import { toast } from "sonner";
 import { useNavigate, useRevalidator } from "react-router";
-import type { Snapshot } from "@/features/diagrams/timeline-panel";
+import {
+  isHeadPreserved,
+  type Snapshot,
+  type SnapshotListResponse,
+} from "@/features/diagrams/snapshot-list";
 import type { PaletteHandlers } from "./use-palette";
 
 /**
@@ -48,7 +52,7 @@ export function usePaletteHandlers(opts: {
             toast.error("Failed to load snapshots");
             return;
           }
-          const data = await res.json();
+          const data = (await res.json()) as SnapshotListResponse;
           // The list comes back oldest-first.
           const newest: Snapshot | undefined =
             data.snapshots?.[data.snapshots.length - 1];
@@ -56,13 +60,10 @@ export function usePaletteHandlers(opts: {
             toast.error("No snapshots to restore");
             return;
           }
-          const headIsPreserved =
-            data.headContentHash != null &&
-            data.snapshots.some(
-              (s: Snapshot) =>
-                s.preserved && s.contentHash === data.headContentHash
-            );
-          handleRestoreRequest(newest, headIsPreserved);
+          handleRestoreRequest(
+            newest,
+            isHeadPreserved(data.snapshots, data.headContentHash)
+          );
         } catch {
           toast.error("Failed to load snapshots");
         }

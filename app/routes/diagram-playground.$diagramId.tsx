@@ -177,7 +177,7 @@ export default function DiagramPlaygroundActive({
 
       let thumbnailPngBase64: string | null;
       try {
-        thumbnailPngBase64 = await renderThumbnailPngBase64(ed);
+        thumbnailPngBase64 = await renderThumbnailPngBase64(ed, "current-page");
       } catch {
         toast.error("Failed to render thumbnail");
         return;
@@ -303,9 +303,10 @@ export default function DiagramPlaygroundActive({
             await saveHead();
 
             // Auto-pin thumbnails are best-effort; proceed without one if rendering fails.
-            const thumbnailPngBase64 = await renderThumbnailPngBase64(ed).catch(
-              () => null
-            );
+            const thumbnailPngBase64 = await renderThumbnailPngBase64(
+              ed,
+              "current-page"
+            ).catch(() => null);
 
             const res = await fetch(
               `/api/diagrams/${targetDiagramId}/snapshots`,

@@ -26,21 +26,14 @@ export const action = makeAction({
       }
 
       const name = typeof body.name === "string" ? body.name : "";
-      const thumbnailBase64 =
+      // `Buffer.from(…, "base64")` never throws — it drops characters outside
+      // the alphabet — so there is nothing to catch here. An absent or
+      // non-string thumbnail becomes `undefined`, which the service rejects as
+      // a 400 (a component with no thumbnail is unusable in a grid picker).
+      const thumbnailPng =
         typeof body.thumbnailPngBase64 === "string"
-          ? body.thumbnailPngBase64
+          ? Buffer.from(body.thumbnailPngBase64, "base64")
           : undefined;
-
-      let thumbnailPng: Buffer | undefined;
-      if (thumbnailBase64) {
-        try {
-          thumbnailPng = Buffer.from(thumbnailBase64, "base64");
-        } catch {
-          return yield* Effect.die(
-            data("Invalid thumbnail encoding", { status: 400 })
-          );
-        }
-      }
 
       const componentOps = yield* DiagramComponentOperationsService;
       const component = yield* componentOps.createComponent({

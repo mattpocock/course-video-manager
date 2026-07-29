@@ -17,8 +17,8 @@ import {
 } from "@/features/diagrams/insert-onto-canvas";
 import {
   ICON_RESULT_CAP,
-  ROOT_ACTIONS,
   matchesComponentName,
+  visibleRootActions,
   type RootAction,
 } from "./palette-model";
 import {
@@ -73,11 +73,6 @@ export function usePalette(opts: {
   const [hasSelection, setHasSelection] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const dispatch = useCallback((action: NavAction) => {
-    // The reducer decides when an action means "close"; the hook owns the flag.
-    dispatchNav(action);
-  }, []);
-
   /** Esc / Backspace, routed through the reducer so closing stays its decision. */
   const navigateBack = useCallback(
     (action: Extract<NavAction, { type: "escape" | "backspace" }>) => {
@@ -126,7 +121,7 @@ export function usePalette(opts: {
 
   // --- Root ----------------------------------------------------------------
   const rootActions = useMemo(
-    () => ROOT_ACTIONS.filter((a) => !a.requiresSelection || hasSelection),
+    () => visibleRootActions({ hasSelection }),
     [hasSelection]
   );
 
@@ -174,12 +169,14 @@ export function usePalette(opts: {
         schema: editor.store.schema.serialize(),
       });
 
-      insertContentAtViewportCentre(editor, content, {
+      const landed = insertContentAtViewportCentre(editor, content, {
         historyLabel: "insert icon",
       });
       // Synchronous, so it closes instantly — by the same rule the async
-      // component path follows: the palette goes when the shapes land.
-      setOpen(false);
+      // component path follows: the palette goes when the shapes LAND. At the
+      // page's shape cap nothing lands, and the `max-shapes` toast below is the
+      // only thing the author should see.
+      if (landed) setOpen(false);
     },
     [editorRef]
   );
@@ -303,21 +300,28 @@ export function usePalette(opts: {
           return;
         }
 
+        let landed: boolean;
         try {
-          insertContentAtViewportCentre(editor, fragment as never, {
+          landed = insertContentAtViewportCentre(editor, fragment as never, {
             historyLabel: "insert component",
           });
-        } catch {
+        } catch (error) {
           // `putContentOntoCurrentPage` runs the store's migrations against the
           // stored schema and throws when it cannot migrate. The row is left
           // untouched: no broken flag, no migration-on-read backfill.
+          //
+          // Logged as well as toasted: the toast names the likeliest cause, but
+          // any throw out of the put lands here, so the real one has to stay
+          // reachable from the console.
+          console.error("Component insert failed", error);
           toast.error(
             "This component was saved with an incompatible tldraw version"
           );
           return;
         }
-        // The palette closes when the shapes LAND, never before.
-        setOpen(false);
+        // The palette closes when the shapes LAND, never before — so at the
+        // page's shape cap it stays up and retrying is one Enter.
+        if (landed) setOpen(false);
       });
     },
     [editorRef, withSpinner]
@@ -413,7 +417,7 @@ export function usePalette(opts: {
     setOpen,
     nav,
     page,
-    dispatch,
+    dispatch: dispatchNav,
     navigateBack,
     busy,
     hasSelection,

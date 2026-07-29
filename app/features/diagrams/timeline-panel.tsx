@@ -4,20 +4,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { copySceneToClipboard } from "@/features/diagrams/copy-scene-to-clipboard";
+import {
+  isHeadPreserved,
+  type Snapshot,
+  type SnapshotListResponse,
+} from "@/features/diagrams/snapshot-list";
 
-export interface Snapshot {
-  id: string;
-  diagramId: string;
-  scene: unknown;
-  contentHash: string;
-  preserved: boolean;
-  createdAt: string;
-}
-
-interface SnapshotListResponse {
-  snapshots: Snapshot[];
-  headContentHash: string | null;
-}
+export type { Snapshot };
 
 export function TimelinePanel({
   diagramId,
@@ -59,12 +52,8 @@ export function TimelinePanel({
     return fetchSnapshots();
   }, [fetchSnapshots, refreshKey]);
 
-  const headIsPreserved =
-    headContentHash != null &&
-    snapshots.some((s) => s.preserved && s.contentHash === headContentHash);
-
   const handleRestoreClick = (snapshot: Snapshot) => {
-    onRestoreRequest(snapshot, headIsPreserved);
+    onRestoreRequest(snapshot, isHeadPreserved(snapshots, headContentHash));
   };
 
   const handleCopy = async (snapshot: Snapshot) => {

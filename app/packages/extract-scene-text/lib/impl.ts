@@ -51,14 +51,11 @@ export function extractShapeText(shape: Record<string, unknown>): string {
   }
   const p = props as Record<string, unknown>;
 
-  if (type === "frame") {
-    return typeof p.name === "string" ? p.name.replace(/\s+/g, " ").trim() : "";
-  }
-
-  // An icon contributes its lucide name, so "find the diagram with the database
-  // icon in it" is a search the shipped box can answer. Hyphenated names
-  // (`git-branch`) tokenise into `git` + `branch`, which is a feature.
-  if (type === "cvm-icon") {
+  // Both of these contribute `props.name`: a frame's label, and an icon's lucide
+  // name — so "find the diagram with the database icon in it" is a search the
+  // shipped box can answer. Hyphenated names (`git-branch`) tokenise into `git`
+  // + `branch`, which is a feature.
+  if (type === "frame" || type === "cvm-icon") {
     return typeof p.name === "string" ? p.name.replace(/\s+/g, " ").trim() : "";
   }
 

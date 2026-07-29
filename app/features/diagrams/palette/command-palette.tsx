@@ -17,12 +17,7 @@ import {
 } from "@/components/ui/command";
 import { IconGlyph } from "./icon-glyph";
 import { ComponentCard, DiagramCard } from "./result-cards";
-import {
-  GRID_COLUMNS,
-  GROUP_ORDER,
-  PAGE_TITLES,
-  type PaletteGroup,
-} from "./palette-model";
+import { GROUP_ORDER, PAGE_META, type PaletteGroup } from "./palette-model";
 import { usePalette, type PaletteHandlers } from "./use-palette";
 import { useGridNav } from "./use-grid-nav";
 import "./command-palette.css";
@@ -45,7 +40,7 @@ export function CommandPalette({
 }) {
   const state = usePalette({ editorRef, handlers });
   const listRef = useRef<HTMLDivElement | null>(null);
-  const columns = GRID_COLUMNS[state.page];
+  const { title, placeholder, columns } = PAGE_META[state.page];
 
   const gridNav = useGridNav({
     listRef,
@@ -94,25 +89,18 @@ export function CommandPalette({
     ).filter(([, actions]) => actions.length > 0);
   }, [state.rootActions]);
 
-  const placeholder =
-    state.page === "nameComponent"
-      ? "Name this component…"
-      : state.page === "renameComponent"
-        ? "New name for this component…"
-        : state.page === "renameDiagram"
-          ? "New name for this diagram…"
-          : state.page === "root"
-            ? "Type a command…"
-            : "Search…";
-
   return (
     <Dialog open={state.open} onOpenChange={state.setOpen}>
       <DialogContent
         showCloseButton={false}
         onEscapeKeyDown={blockRadixEscape}
-        className="top-[22%] max-w-xl translate-y-0 overflow-hidden border-zinc-700 bg-zinc-900 p-0 text-zinc-100"
+        // `sm:max-w-xl`, not `max-w-xl`: the shared DialogContent base carries
+        // `sm:max-w-lg`, and twMerge keeps a `sm:`-prefixed rule over an
+        // unprefixed one — so a bare `max-w-xl` would be silently overridden at
+        // every width that matters.
+        className="top-[22%] sm:max-w-xl translate-y-0 overflow-hidden border-zinc-700 bg-zinc-900 p-0 text-zinc-100"
       >
-        <DialogTitle className="sr-only">{PAGE_TITLES[state.page]}</DialogTitle>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">
           Insert icons and components, search diagrams, and run snapshot
           actions.
@@ -131,7 +119,7 @@ export function CommandPalette({
           <div className="flex h-11 items-center gap-2 border-b border-zinc-700 px-3">
             {state.nav.stack.length > 1 && (
               <span className="shrink-0 rounded bg-zinc-700 px-1.5 py-0.5 text-[11px] font-medium text-zinc-200">
-                {PAGE_TITLES[state.page]}
+                {title}
               </span>
             )}
             <CommandPrimitive.Input

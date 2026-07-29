@@ -108,23 +108,47 @@ export const GROUP_ORDER: PaletteGroup[] = [
   "Diagram",
 ];
 
-export const ACTIONS_BY_ID = new Map(ROOT_ACTIONS.map((a) => [a.id, a]));
+/**
+ * Rows the root list shows right now.
+ *
+ * Actions that make no sense are ABSENT rather than greyed out, so the list
+ * stays short and everything in it is actionable.
+ */
+export function visibleRootActions(opts: { hasSelection: boolean }) {
+  return ROOT_ACTIONS.filter((a) => !a.requiresSelection || opts.hasSelection);
+}
 
-/** Grid pages, and the fixed column count each one's CSS lays out. */
-export const GRID_COLUMNS: Partial<Record<PageKey, number>> = {
-  icons: 10,
-  components: 4,
-  diagrams: 3,
-};
-
-export const PAGE_TITLES: Record<PageKey, string> = {
-  root: "Command palette",
-  icons: "Insert icon",
-  components: "Insert component",
-  diagrams: "Go to diagram",
-  nameComponent: "Save selection as component",
-  renameComponent: "Rename component",
-  renameDiagram: "Rename diagram",
+/**
+ * Everything that varies per page, in one table.
+ *
+ * `columns` is present only on the grid pages, and its value is the fixed
+ * column count that page's CSS lays out — there is no `ResizeObserver`, because
+ * the palette is a fixed width.
+ */
+export const PAGE_META: Record<
+  PageKey,
+  { title: string; placeholder: string; columns?: number }
+> = {
+  root: { title: "Command palette", placeholder: "Type a command…" },
+  icons: { title: "Insert icon", placeholder: "Search…", columns: 10 },
+  components: {
+    title: "Insert component",
+    placeholder: "Search…",
+    columns: 4,
+  },
+  diagrams: { title: "Go to diagram", placeholder: "Search…", columns: 3 },
+  nameComponent: {
+    title: "Save selection as component",
+    placeholder: "Name this component…",
+  },
+  renameComponent: {
+    title: "Rename component",
+    placeholder: "New name for this component…",
+  },
+  renameDiagram: {
+    title: "Rename diagram",
+    placeholder: "New name for this diagram…",
+  },
 };
 
 /**

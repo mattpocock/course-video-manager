@@ -11,10 +11,41 @@ export function getDiagramThumbnailsBaseDir(): string {
 
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 
+/**
+ * Whether a URL segment is safe to use as a path component.
+ *
+ * Exported so the routes can turn a bad segment into a 400 instead of letting
+ * `assertSafeSegment` throw its way to a 500 — one definition of "safe", used
+ * by both the guard and the routes.
+ */
+export function isSafeSegment(value: string): boolean {
+  return SAFE_ID.test(value);
+}
+
 function assertSafeSegment(value: string, field: string): void {
-  if (!SAFE_ID.test(value)) {
+  if (!isSafeSegment(value)) {
     throw new Error(`Unsafe ${field}: ${value}`);
   }
+}
+
+/**
+ * The response both thumbnail routes return: the PNG if it is there, a 404 if
+ * it is not.
+ *
+ * Thumbnails are immutable — keyed by content hash for diagrams, and by id for
+ * components, which never change — so the cache header is the same for both.
+ */
+export function thumbnailResponse(png: Buffer | null): Response {
+  if (!png) {
+    return new Response("Not found", { status: 404 });
+  }
+  return new Response(new Uint8Array(png), {
+    status: 200,
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  });
 }
 
 export function getThumbnailPath(

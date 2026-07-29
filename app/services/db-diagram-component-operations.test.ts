@@ -121,6 +121,18 @@ describe("createComponent", () => {
     }).pipe(Effect.provide(testLayer))
   );
 
+  it.effect("rejects a zero-byte thumbnail", () =>
+    Effect.gen(function* () {
+      // An empty `thumbnailPngBase64` decodes to an empty Buffer, which is
+      // truthy — without a length check the row would be created pointing at a
+      // 0-byte file that can never render.
+      const failure = yield* Effect.flip(
+        create("Empty thumbnail", { thumbnailPng: Buffer.alloc(0) })
+      );
+      expect(failure._tag).toBe("InvalidComponentError");
+    }).pipe(Effect.provide(testLayer))
+  );
+
   it.effect("rejects a fragment with no shapes", () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(

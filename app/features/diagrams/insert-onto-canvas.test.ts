@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { createTLStore, defaultShapeUtils } from "tldraw";
+import type { Editor, TLContent } from "tldraw";
 import {
   ICON_SIZE_LADDER,
   buildIconContent,
+  insertContentAtViewportCentre,
   quantiseIconSize,
 } from "./insert-onto-canvas";
 import { CVM_SHAPE_UTILS } from "./cvm-shape-utils";
@@ -64,6 +66,57 @@ describe("buildIconContent", () => {
     const a = buildIconContent({ name: "database", size: 48, schema });
     const b = buildIconContent({ name: "database", size: 48, schema });
     expect(a.shapes[0]!.id).not.toBe(b.shapes[0]!.id);
+  });
+});
+
+/**
+ * A stand-in for tldraw's `Editor` — a third-party boundary, not one of our own
+ * collaborators. `putContentOntoCurrentPage` is the only interesting part: it
+ * either adds shapes, or (at `maxShapesPerPage`) emits `"max-shapes"` and
+ * returns having done NOTHING, which is the case the return value exists for.
+ */
+function fakeEditor(opts: { atShapeCap: boolean }) {
+  const shapeIds = new Set(["existing"]);
+  return {
+    setCurrentTool: () => {},
+    markHistoryStoppingPoint: () => {},
+    getCurrentPageShapeIds: () => shapeIds,
+    getViewportPageBounds: () => ({ center: { x: 0, y: 0 } }),
+    putContentOntoCurrentPage: () => {
+      if (opts.atShapeCap) return;
+      shapeIds.add("inserted");
+    },
+  } as unknown as Editor;
+}
+
+const someContent = { shapes: [{}] } as unknown as TLContent;
+
+describe("insertContentAtViewportCentre", () => {
+  it("reports that the shapes landed", () => {
+    expect(
+      insertContentAtViewportCentre(
+        fakeEditor({ atShapeCap: false }),
+        someContent,
+        {
+          historyLabel: "insert icon",
+        }
+      )
+    ).toBe(true);
+  });
+
+  it("reports that nothing landed when the page is at tldraw's shape cap", () => {
+    // The cap path bails SILENTLY. Without this, the palette would close on a
+    // keypress that inserted nothing — exactly the "palette vanished before
+    // anything appeared" sequence the spec forbids.
+    expect(
+      insertContentAtViewportCentre(
+        fakeEditor({ atShapeCap: true }),
+        someContent,
+        {
+          historyLabel: "insert icon",
+        }
+      )
+    ).toBe(false);
   });
 });
 

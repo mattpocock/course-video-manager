@@ -1,5 +1,5 @@
 import type { Editor } from "tldraw";
-import type { Snapshot } from "@/features/diagrams/timeline-panel";
+import type { Snapshot } from "@/features/diagrams/snapshot-list";
 import { CommandPalette } from "./command-palette";
 import { usePaletteHandlers } from "./use-palette-handlers";
 

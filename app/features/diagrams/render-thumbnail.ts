@@ -1,22 +1,28 @@
 import type { Editor, TLShapeId } from "tldraw";
 
 /**
- * Render a PNG thumbnail, base64-encoded, from the editor.
+ * What a thumbnail frames: the whole page (snapshot preservation) or an
+ * explicit set of shapes (component capture, which must show the saved
+ * selection rather than everything around it).
  *
- * Pass `shapeIds` to frame a subset — component capture uses that so the
- * thumbnail shows the saved selection rather than the whole page. Omit it and
- * the whole current page is rendered, which is what snapshot preservation
- * wants.
+ * Spelled out at every call site rather than defaulted, because the two mean
+ * materially different pictures and an omitted argument would silently pick one.
+ */
+export type ThumbnailSubject = "current-page" | readonly TLShapeId[];
+
+/**
+ * Render a PNG thumbnail, base64-encoded, from the editor.
  *
  * Returns `null` when there is nothing to render.
  */
 export async function renderThumbnailPngBase64(
   editor: Editor,
-  shapeIds?: readonly TLShapeId[]
+  subject: ThumbnailSubject
 ): Promise<string | null> {
-  const ids = shapeIds
-    ? Array.from(shapeIds)
-    : Array.from(editor.getCurrentPageShapeIds());
+  const ids =
+    subject === "current-page"
+      ? Array.from(editor.getCurrentPageShapeIds())
+      : Array.from(subject);
   if (ids.length === 0) return null;
 
   const { blob } = await editor.toImage(ids, {

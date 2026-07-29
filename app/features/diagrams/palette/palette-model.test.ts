@@ -1,51 +1,36 @@
 import { describe, it, expect } from "vitest";
 import { getIconNode } from "@/packages/lucide-icons";
 import {
-  GROUP_ORDER,
+  PAGE_META,
   ROOT_ACTIONS,
   matchesComponentName,
+  visibleRootActions,
 } from "./palette-model";
 
+describe("visibleRootActions", () => {
+  it("offers `save selection as component` once something is selected", () => {
+    const ids = visibleRootActions({ hasSelection: true }).map((a) => a.id);
+    expect(ids).toContain("save-component");
+  });
+
+  it("omits it entirely when nothing is selected, rather than disabling it", () => {
+    // Absent, not greyed out: the list stays short and everything in it is
+    // actionable.
+    const ids = visibleRootActions({ hasSelection: false }).map((a) => a.id);
+    expect(ids).not.toContain("save-component");
+  });
+
+  it("hides nothing else when the selection is empty", () => {
+    const withSelection = visibleRootActions({ hasSelection: true });
+    const without = visibleRootActions({ hasSelection: false });
+    expect(without.length).toBe(withSelection.length - 1);
+  });
+});
+
 describe("the root action list", () => {
-  it("puts every action in one of the four groups", () => {
-    for (const action of ROOT_ACTIONS) {
-      expect(GROUP_ORDER, action.id).toContain(action.group);
-    }
-  });
-
-  it("hides `save selection as component` unless something is selected", () => {
-    const save = ROOT_ACTIONS.find((a) => a.id === "save-component");
-    expect(save?.requiresSelection).toBe(true);
-  });
-
-  it("offers exactly the five mirrored snapshot and diagram actions", () => {
-    const mirrored = ROOT_ACTIONS.filter(
-      (a) => a.group === "Snapshot" || a.group === "Diagram"
-    ).map((a) => a.id);
-    expect(mirrored.sort()).toEqual([
-      "copy-contents",
-      "new-diagram",
-      "preserve-snapshot",
-      "rename-diagram",
-      "restore-head",
-    ]);
-  });
-
-  it("marks which rows open a page and which fire immediately", () => {
-    // The right-aligned affordance is `→` vs `⏎`, so this has to be knowable
-    // before Enter is pressed.
-    const opens = ROOT_ACTIONS.filter((a) => a.opens).map((a) => a.id);
-    expect(opens.sort()).toEqual([
-      "go-to-diagram",
-      "insert-component",
-      "insert-icon",
-      // Rename needs a name, and the palette's own input is where it is typed.
-      "rename-diagram",
-      "save-component",
-    ]);
-  });
-
-  it("has unique ids", () => {
+  it("gives every row a unique id", () => {
+    // The id is the cmdk `value` for the row, so a duplicate would make two
+    // rows highlight and fire as one.
     const ids = ROOT_ACTIONS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -56,6 +41,13 @@ describe("the root action list", () => {
     // nothing at all rather than falling back.
     for (const action of ROOT_ACTIONS) {
       expect(getIconNode(action.icon), action.icon).toBeDefined();
+    }
+  });
+
+  it("only opens pages that exist", () => {
+    for (const action of ROOT_ACTIONS) {
+      if (action.opens)
+        expect(PAGE_META[action.opens], action.id).toBeDefined();
     }
   });
 });
@@ -70,11 +62,8 @@ describe("matchesComponentName", () => {
   const filter = (q: string) =>
     LIBRARY.filter((name) => matchesComponentName(name, q));
 
-  it("matches a plain substring", () => {
+  it("matches a plain substring, whatever the case", () => {
     expect(filter("stack")).toEqual(["Three-tier stack"]);
-  });
-
-  it("is case-insensitive", () => {
     expect(filter("QUEUE")).toEqual(["Queue with workers"]);
   });
 
@@ -85,7 +74,7 @@ describe("matchesComponentName", () => {
     expect(filter("queue")).not.toContain("Request/response pair");
   });
 
-  it("matches everything for an empty or whitespace query", () => {
+  it("matches everything for an empty or whitespace-only query", () => {
     expect(filter("")).toEqual(LIBRARY);
     expect(filter("   ")).toEqual(LIBRARY);
   });

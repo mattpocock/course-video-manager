@@ -96,7 +96,10 @@ export const createDiagramComponentOperations = (db: Database) => {
 
     // A component with no thumbnail is unusable in a grid picker, so there is
     // no meaningful degraded state — mandatory, like a preserved snapshot's.
-    if (!input.thumbnailPng) {
+    // A zero-byte buffer counts as none: an empty base64 string decodes to one,
+    // and writing it would leave a row pointing at an unrenderable file.
+    const thumbnailPng = input.thumbnailPng;
+    if (!thumbnailPng || thumbnailPng.length === 0) {
       return yield* new InvalidComponentError({
         message: "Components require a thumbnail",
       });
@@ -107,7 +110,7 @@ export const createDiagramComponentOperations = (db: Database) => {
     // Thumbnail file BEFORE the DB row: a row must never reference a missing
     // file.
     yield* Effect.try({
-      try: () => writeComponentThumbnail(id, input.thumbnailPng!),
+      try: () => writeComponentThumbnail(id, thumbnailPng),
       catch: (e) => new UnknownDBServiceError({ cause: e }),
     });
 

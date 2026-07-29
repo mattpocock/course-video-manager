@@ -95,12 +95,18 @@ export function buildIconContent(opts: {
  *   1. force the `select` tool,
  *   2. mark a history stopping point, with nothing between it and the put,
  *   3. put, at an EXPLICIT point, with `select: true`.
+ *
+ * Returns whether the shapes actually LANDED. At `maxShapesPerPage`,
+ * `putContentOntoCurrentPage` bails silently — it emits a `"max-shapes"` event
+ * and returns, having inserted nothing. Callers close the palette on `true`
+ * only, so the visible sequence stays "press Enter → palette gone → shapes
+ * there" and never "palette gone → nothing happened".
  */
 export function insertContentAtViewportCentre(
   editor: Editor,
   content: TLContent,
   opts: { historyLabel: string }
-): void {
+): boolean {
   // `SelectionForegroundOverlayUtil.isActive()` only renders the selection box
   // and handles while the editor is in a `select.*` state. Without this,
   // inserting while the DRAW tool is active — the likely case, since drawing is
@@ -108,6 +114,8 @@ export function insertContentAtViewportCentre(
   // but with no visible box and no handles, and the next drag scribbles over
   // it. `select: true` would be a lie.
   editor.setCurrentTool("select");
+
+  const shapesBefore = editor.getCurrentPageShapeIds().size;
 
   // One mark immediately before the put, nothing between: one Cmd+Z then
   // removes an entire 40-shape component.
@@ -134,4 +142,6 @@ export function insertContentAtViewportCentre(
     // independent shape sets. Spelled out because it is load-bearing.
     preserveIds: false,
   });
+
+  return editor.getCurrentPageShapeIds().size > shapesBefore;
 }
