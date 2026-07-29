@@ -10,7 +10,7 @@ import {
 import {
   computeExportHash,
   resolveExportPath as resolveExportPathPure,
-  type ExportClip,
+  toExportClips,
 } from "./export-hash";
 import { garbageCollect } from "./export-hash.server";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
@@ -43,20 +43,6 @@ export type VideoForExport = {
     order: string;
   }>;
 };
-
-const toExportClips = (
-  clips: Array<{
-    videoFilename: string;
-    sourceStartTime: number;
-    sourceEndTime: number;
-    order: string;
-  }>
-): ExportClip[] =>
-  clips.map((c) => ({
-    videoFilename: c.videoFilename,
-    sourceStartTime: c.sourceStartTime,
-    sourceEndTime: c.sourceEndTime,
-  }));
 
 type ExportOwner =
   { kind: "course"; courseId: string } | { kind: "standalone" };

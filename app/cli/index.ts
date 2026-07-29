@@ -49,10 +49,12 @@ VERSIONS
 
 PUBLISH READINESS
   'cvm course readiness <courseId>' answers "what stands between this course and
-  shipping": the publish blockers (Unexported Videos, Course View Lints, invalid
-  Lesson role combos, incomplete Videos) plus authoring progress counts. It runs
-  the same computation the publish gate runs, and reads whether a Video is
-  exported straight off the filesystem — the CVM server does not need to be up.
+  shipping": whether it is publishable and what is blocking if not, four lists of
+  outstanding work (Unexported Videos, course-view lints, invalid Lesson role
+  combos, incomplete Videos), and authoring progress counts. Note Unexported
+  Videos do NOT block a publish — it renders them itself — so they are reported
+  as exportsRequired, apart from the blocking lists. Exportedness is read
+  straight off the filesystem; the CVM server does not need to be up.
 
 ARCHIVED
   'list' shows ACTIVE records only. Only 'course' and standalone 'video' have a

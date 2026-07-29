@@ -279,9 +279,10 @@ VERBS
   get <id...>          Course + section/lesson structure summary (variadic).
   tree <id>            Structure skeleton (--depth N|all, --course-version <id>).
   transcripts <id>     Video transcripts for the version, keyed by video id.
-  readiness <id>       Publish blockers + authoring progress: what stands between
-                       this course and shipping (--exclude-todo to match a
-                       publish that withholds to-do Lessons).
+  readiness <id>       What stands between this course and shipping: publishable
+                       + why not, outstanding work lists, authoring progress
+                       (--exclude-todo to match a publish that withholds to-do
+                       Lessons).
   publish <id>         WRITE: mirror the Draft to Dropbox and freeze it as a
                        named Published Version (--name vX.Y.Z required).
   search <id> <query>  Case-insensitive substring search down this course's

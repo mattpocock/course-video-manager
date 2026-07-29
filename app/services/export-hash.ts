@@ -17,6 +17,25 @@ export type ExportClip = {
 };
 
 /**
+ * Narrow a Clip row (which carries transcript text, ordering, archived flags…)
+ * down to the fields the export address is derived from. Every caller that
+ * hashes DB clips goes through here, so no site can accidentally widen or
+ * narrow what the hash sees.
+ */
+export const toExportClips = (
+  clips: ReadonlyArray<{
+    videoFilename: string;
+    sourceStartTime: number;
+    sourceEndTime: number;
+  }>
+): ExportClip[] =>
+  clips.map((c) => ({
+    videoFilename: c.videoFilename,
+    sourceStartTime: c.sourceStartTime,
+    sourceEndTime: c.sourceEndTime,
+  }));
+
+/**
  * Compute the content-addressed export hash for a set of clips.
  * Returns null if there are no clips (not a real video).
  *

@@ -76,7 +76,7 @@ const markSeededVideoExported = async () => {
 };
 
 describe("course readiness", () => {
-  it("reports the seeded video as an unexported publish blocker", async () => {
+  it("lists the seeded video as unexported, with its derived path as title", async () => {
     const res = await run(["course", "readiness", s.courseAId]);
 
     expect(res.exitCode).toBe(0);
@@ -85,15 +85,50 @@ describe("course readiness", () => {
     expect(out.courseId).toBe(s.courseAId);
     expect(out.versionId).toBe(s.draftVersionId);
     expect(out.includesTodoLessons).toBe(true);
-    expect(out.publishable).toBe(false);
     expect(out.counts.unexportedVideos).toBe(1);
-    expect(out.blockers.unexportedVideos).toEqual([
+    expect(out.exportsRequired).toBe(1);
+    expect(out.unexportedVideos).toEqual([
       // The title is the DERIVED section/lesson path, not the raw titles.
       { id: s.lessonVideoId, title: "01-01-intro/01.01-welcome/intro.mp4" },
     ]);
   });
 
-  it("clears the unexported blocker once the .mp4 exists on disk", async () => {
+  // The load-bearing distinction: `cvm course publish` RENDERS unexported
+  // videos as its exporting stage and carries on, so they must never flip
+  // `publishable` to false. Only courseViewLints / invalidLessonCombos /
+  // incompleteVideos do that.
+  it("stays publishable when the only outstanding work is unexported videos", async () => {
+    // Clear every other kind of outstanding work so the missing .mp4 is the
+    // sole remaining item: a body + description (else incompleteVideos), and an
+    // opening chapter before the first clip (else the missingChapters lint —
+    // the seed's chapter sits at order 0002, between clips 0001 and 0003).
+    await testDb
+      .update(schema.videos)
+      .set({ body: "body", description: "description" });
+    await testDb.update(schema.chapters).set({ order: "0000" });
+
+    const res = await run(["course", "readiness", s.courseAId]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out.counts.unexportedVideos).toBe(1);
+    expect(out.exportsRequired).toBe(1);
+    expect(out.blockedBy).toEqual([]);
+    expect(out.publishable).toBe(true);
+  });
+
+  it("reports publishable:false with the blocking lists named in blockedBy", async () => {
+    const res = await run(["course", "readiness", s.courseAId]);
+
+    const out = JSON.parse(res.stdout);
+    // The seed's video has no body/description, so it is an incomplete video.
+    expect(out.publishable).toBe(false);
+    expect(out.blockedBy).toContain("incompleteVideos");
+    // blockedBy never names the unexported list, however long it is.
+    expect(out.blockedBy).not.toContain("unexportedVideos");
+    expect(out.counts.unexportedVideos).toBe(1);
+  });
+
+  it("drops the video from the unexported list once its .mp4 exists on disk", async () => {
     await markSeededVideoExported();
 
     const res = await run(["course", "readiness", s.courseAId]);
@@ -101,7 +136,8 @@ describe("course readiness", () => {
     expect(res.exitCode).toBe(0);
     const out = JSON.parse(res.stdout);
     expect(out.counts.unexportedVideos).toBe(0);
-    expect(out.blockers.unexportedVideos).toEqual([]);
+    expect(out.exportsRequired).toBe(0);
+    expect(out.unexportedVideos).toEqual([]);
     expect(out.progress.videos.exported).toBe(1);
     expect(out.progress.videos.unexported).toBe(0);
   });
@@ -113,10 +149,28 @@ describe("course readiness", () => {
     // The seed's draft has one active section, one active lesson (done) and
     // one active video with clips. Archived rows are excluded throughout.
     expect(out.progress.sections).toBe(1);
-    expect(out.progress.lessons).toEqual({ total: 1, todo: 0, done: 1 });
+    expect(out.progress.lessons).toEqual({
+      total: 1,
+      todo: 0,
+      done: 1,
+      unset: 0,
+    });
     expect(out.progress.videos.total).toBe(1);
     expect(out.progress.videos.unexported).toBe(1);
     expect(out.progress.videos.noClips).toBe(0);
+  });
+
+  // authoringStatus is a nullable column with no DB default, so the three
+  // buckets must still sum to total — a sweep deriving "remaining = total -
+  // done" would otherwise over-count.
+  it("counts a lesson with no authoringStatus as unset, and the buckets sum", async () => {
+    await testDb.update(schema.lessons).set({ authoringStatus: null });
+
+    const res = await run(["course", "readiness", s.courseAId]);
+
+    const { lessons } = JSON.parse(res.stdout).progress;
+    expect(lessons).toEqual({ total: 1, todo: 0, done: 0, unset: 1 });
+    expect(lessons.todo + lessons.done + lessons.unset).toBe(lessons.total);
   });
 
   it("measures the pinned version when --course-version is given", async () => {
@@ -147,7 +201,7 @@ describe("course readiness", () => {
     expect(JSON.parse(res.stdout).includesTodoLessons).toBe(false);
   });
 
-  it("withholds a to-do lesson's video from the blockers under --exclude-todo", async () => {
+  it("withholds a to-do lesson's video from the lists under --exclude-todo", async () => {
     await testDb.update(schema.lessons).set({ authoringStatus: "todo" });
 
     const shipping = await run(["course", "readiness", s.courseAId]);
@@ -162,7 +216,12 @@ describe("course readiness", () => {
     const out = JSON.parse(withheld.stdout);
     expect(out.counts.unexportedVideos).toBe(0);
     // Progress is toggle-independent: the work is still there to do.
-    expect(out.progress.lessons).toEqual({ total: 1, todo: 1, done: 0 });
+    expect(out.progress.lessons).toEqual({
+      total: 1,
+      todo: 1,
+      done: 0,
+      unset: 0,
+    });
   });
 
   it("exits 2 for an unknown course id", async () => {
