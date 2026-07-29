@@ -15,10 +15,7 @@ import type { StubComponent } from "./palette-model";
  * Lifted verbatim from the diagrams root page so the palette shows the same
  * "…10 words around the first match…" text the user already recognises.
  */
-export function makeSnippet(
-  searchText: string | null,
-  query: string
-): string {
+export function makeSnippet(searchText: string | null, query: string): string {
   if (!searchText) return "";
   const words = searchText.split(/\s+/);
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
