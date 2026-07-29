@@ -16,11 +16,8 @@ import { garbageCollect } from "./export-hash.server";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import { resolveVideoFormat } from "@/features/videos/video-format";
 import { DoesNotExistOnDbError } from "./publish-to-dropbox";
-import { collectCourseViewLints } from "./lesson-warnings";
-import {
-  collectPublishBlockers,
-  computeEffectiveSections,
-} from "@/packages/course-json";
+import { computeEffectiveSections } from "@/packages/course-json";
+import { validatePublishability as validatePublishabilityCore } from "./course-publish-readiness";
 import {
   ExportError,
   PublishCommitFailedError,
@@ -283,73 +280,19 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         yield* garbageCollect(courseId);
       });
 
-      // Validation gates on the effective output — the set of Lessons this
-      // publish actually ships. Because the toggle can flip on the publish page
-      // with no round-trip, both positions are computed in a single pass: the
-      // expensive per-Video existence checks run once, then the pure counters
-      // run against the effective Sections for each toggle state.
+      // The publish validation gate. The computation itself lives in
+      // ./course-publish-readiness so it can also be read on its own — by the
+      // `cvm course readiness` CLI verb — without dragging in the export stack.
+      // Its deps are closed over here so callers of this service method don't
+      // inherit them.
+      const readinessContext = yield* Effect.context<
+        VersionOperationsService | FileSystem.FileSystem
+      >();
       const validatePublishability = Effect.fn("validatePublishability")(
         function* (versionId: string) {
-          const version = yield* versionOps.getVersionWithSections(versionId);
-          const courseId = version.repo.id;
-
-          const exportedById = new Map<string, boolean>();
-          for (const section of version.sections) {
-            for (const lesson of section.lessons) {
-              for (const video of lesson.videos) {
-                if (video.clips.length === 0) continue;
-                const hash = computeExportHash(
-                  toExportClips(video.clips),
-                  video.format
-                );
-                if (!hash) continue;
-                const filePath = resolveExportPathPure(
-                  FINISHED_VIDEOS_DIRECTORY,
-                  courseId,
-                  hash
-                );
-                exportedById.set(video.id, yield* effectFs.exists(filePath));
-              }
-            }
-          }
-
-          const evaluate = (includeTodoLessons: boolean) => {
-            const effectiveSections = computeEffectiveSections(
-              version.sections,
-              includeTodoLessons
-            );
-            const unexportedVideoIds: string[] = [];
-            for (const section of effectiveSections) {
-              for (const lesson of section.lessons) {
-                for (const video of lesson.videos) {
-                  if (exportedById.get(video.id) === false) {
-                    unexportedVideoIds.push(video.id);
-                  }
-                }
-              }
-            }
-            const courseViewLints = collectCourseViewLints(effectiveSections);
-            const courseViewLintCount = courseViewLints.length;
-
-            // Publish blockers computed from the exact same walk buildCourseJson
-            // uses (its backstop), so the pre-publish warnings and the build
-            // failure can never disagree — see collectPublishBlockers.
-            const { invalidLessonCombos, incompleteVideos } =
-              collectPublishBlockers(version.sections, includeTodoLessons);
-
-            return {
-              unexportedVideoIds,
-              courseViewLintCount,
-              courseViewLints,
-              invalidLessonCombos,
-              incompleteVideos,
-            };
-          };
-
-          return {
-            withTodo: evaluate(true),
-            withoutTodo: evaluate(false),
-          };
+          return yield* validatePublishabilityCore(versionId).pipe(
+            Effect.provide(readinessContext)
+          );
         }
       );
 

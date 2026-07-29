@@ -47,6 +47,13 @@ VERSIONS
   Version-scoped reads (course / section / lesson / tree) default to the Draft
   Version. Pass --course-version <id> to pin a Published Version snapshot.
 
+PUBLISH READINESS
+  'cvm course readiness <courseId>' answers "what stands between this course and
+  shipping": the publish blockers (Unexported Videos, Course View Lints, invalid
+  Lesson role combos, incomplete Videos) plus authoring progress counts. It runs
+  the same computation the publish gate runs, and reads whether a Video is
+  exported straight off the filesystem — the CVM server does not need to be up.
+
 ARCHIVED
   'list' shows ACTIVE records only. Only 'course' and standalone 'video' have a
   viewable archive (use --archived to include it). For every other noun,
