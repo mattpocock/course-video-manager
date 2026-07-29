@@ -51,8 +51,13 @@ Consequences of that framing, made explicit in the CLI surface:
 - **Writes are backup-coordinated** like every other `cvm` write: the server
   must be up, and a dump is requested afterwards. Agent authorship gets no
   weaker durability guarantee than human authorship.
-- **No un-archive on the CLI.** Recovering an archived Deliverable stays a
-  deliberate app action.
+- **Archive is exposed even though it is a one-way door.** Nothing un-archives a
+  Deliverable anywhere in the product — no CLI verb, no HTTP route, no UI
+  action — so `cvm deliverable archive` hands an agent an irreversible hide.
+  This is a pre-existing gap the CLI now makes reachable, not one it creates.
+  We expose it anyway, because withholding it would push agents toward
+  `cancelled` as a pseudo-delete and corrupt the meaning of a status the
+  calendar displays. The `--help` says plainly that it cannot be undone.
 
 ## Considered alternatives
 

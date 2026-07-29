@@ -110,6 +110,24 @@ describe("deliverable create", () => {
     expect(fetched.pitchIds).toEqual([s.pitchActiveId]);
   });
 
+  it("echoes exactly what a following 'get' returns", async () => {
+    const created = (
+      await run([
+        "deliverable",
+        "create",
+        "--title",
+        "Echo",
+        "--date",
+        "2026-09-03",
+        "--course",
+        courseId,
+      ])
+    ).stdout;
+    // The echo is a re-read, not a replay of the input: byte-for-byte 'get'.
+    const fetched = (await run(["deliverable", "get", dobj(created).id])).stdout;
+    expect(created).toBe(fetched);
+  });
+
   it("de-duplicates repeated link ids", async () => {
     const d = dobj(
       (

@@ -15,8 +15,9 @@ A Deliverable's 'date' is the ONLY date-of-intent in the CVM schema — no Cours
 CourseVersion, Section, Lesson, Video or Pitch carries a deadline. If you are
 scheduling work, this noun is the deadline surface.
 
-A Deliverable's OWN state is never derived — its Deliverable Status is set by
-hand. But the linkage flows the other way: a linked Pitch's Pitch State IS
+A Deliverable's OWN state is never derived — its Deliverable Status is authored
+by a deliberate act, never computed. But the linkage flows the other way: a
+linked Pitch's Pitch State IS
 derived from the Deliverable Status of the Deliverables it links to (a Pitch is
 idle with no Deliverable, scheduled while any linked Deliverable is non-terminal,
 shipped once all are terminal). Writing a Deliverable through this CLI is the
@@ -169,7 +170,8 @@ FLAGS
   --clear-pitches      Remove every Pitch link (rejects --pitch alongside it).
 
 An unknown id — or an archived one, since archived is deleted-equivalent here —
-is a not-found (exit 2). Un-archiving is not exposed; do it in the app.
+is a not-found (exit 2). Nothing un-archives a Deliverable: not this CLI, not
+the app. Prefer --status cancelled unless you mean it.
 
 EXAMPLES
   cvm deliverable update --date 2026-08-21 <id>
@@ -187,13 +189,15 @@ history disclosure, and out of this CLI entirely: it stops appearing in 'list',
 the archived row (shaped like 'get', with archived: true) one last time.
 Requires the CVM server to be running (writes are backup-coordinated).
 
-ARCHIVE IS NOT 'cancelled'. Use --status cancelled for work you deliberately
-abandoned but want to keep SEEING on the calendar; archive for entries that
-should not have existed. Archiving also removes the Deliverable from a linked
-Pitch's derived Pitch State, so a Pitch whose only Deliverable is archived falls
-back to idle.
+ONE-WAY DOOR. Nothing in this product un-archives a Deliverable — there is no
+CLI verb, no HTTP route and no UI action, so archiving is effectively a delete
+you cannot undo without touching the database. Reach for it accordingly.
 
-Un-archiving is not exposed on the CLI — do it in the app.
+ARCHIVE IS NOT 'cancelled'. Use --status cancelled for work you deliberately
+abandoned but want to keep SEEING on the calendar (reversible, and the usual
+right answer); archive only for entries that should not have existed. Archiving
+also removes the Deliverable from a linked Pitch's derived Pitch State, so a
+Pitch whose only Deliverable is archived falls back to idle.
 
 EXAMPLES
   cvm deliverable archive <id>

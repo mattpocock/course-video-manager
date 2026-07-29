@@ -32,6 +32,25 @@ export const createDeliverableOperations = (db: Database) => {
     );
   });
 
+  /**
+   * One Deliverable by id, links included — same shape as a `listDeliverables`
+   * row. Returns undefined when the id is unknown; archived rows ARE returned
+   * (unlike listDeliverables), so callers decide what archived means to them.
+   */
+  const getDeliverableById = Effect.fn("getDeliverableById")(function* (
+    id: string
+  ) {
+    return yield* makeDbCall(() =>
+      db.query.deliverables.findFirst({
+        where: eq(deliverables.id, id),
+        with: {
+          deliverablesCourses: { columns: { courseId: true } },
+          deliverablesPitches: { columns: { pitchId: true } },
+        },
+      })
+    );
+  });
+
   const createDeliverable = Effect.fn("createDeliverable")(function* (input: {
     title: string;
     date: string;
@@ -249,6 +268,7 @@ export const createDeliverableOperations = (db: Database) => {
 
   return {
     listDeliverables,
+    getDeliverableById,
     createDeliverable,
     updateDeliverableStatus,
     updateDeliverable,

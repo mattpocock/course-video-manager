@@ -136,43 +136,53 @@ const resolveLinks = (params: {
     const courseIds = [...new Set(params.courseIds)];
     const pitchIds = [...new Set(params.pitchIds)];
 
+    // The two loops below are deliberately not folded into one: a Course row
+    // and a Pitch row have nothing in common but `archived`, so a shared
+    // check would need the effects unified into a union that inference can't
+    // carry through `.pipe`. Eight duplicated lines beat the casts.
     const courseOps = yield* CourseOperationsService;
-    yield* Effect.forEach(courseIds, (id) =>
-      courseOps.getCourseById(id).pipe(
-        Effect.catchTag("NotFoundError", () => notFound("course", id)),
-        Effect.flatMap((course) =>
-          course.archived ? notFound("course", id) : Effect.void
-        )
-      )
+    yield* Effect.forEach(
+      courseIds,
+      (id) =>
+        courseOps.getCourseById(id).pipe(
+          Effect.catchTag("NotFoundError", () => notFound("course", id)),
+          Effect.flatMap((course) =>
+            course.archived ? notFound("course", id) : Effect.void
+          )
+        ),
+      { discard: true }
     );
 
     const pitchOps = yield* PitchOperationsService;
-    yield* Effect.forEach(pitchIds, (id) =>
-      pitchOps.getPitch(id).pipe(
-        Effect.catchTag("NotFoundError", () => notFound("pitch", id)),
-        Effect.flatMap((pitch) =>
-          pitch.archived ? notFound("pitch", id) : Effect.void
-        )
-      )
+    yield* Effect.forEach(
+      pitchIds,
+      (id) =>
+        pitchOps.getPitch(id).pipe(
+          Effect.catchTag("NotFoundError", () => notFound("pitch", id)),
+          Effect.flatMap((pitch) =>
+            pitch.archived ? notFound("pitch", id) : Effect.void
+          )
+        ),
+      { discard: true }
     );
 
     return { courseIds, pitchIds };
   });
 
 /**
- * Existence + active guard. There is no get-by-id on the Deliverable service,
- * so filter the complete-set `listDeliverables` — which already excludes
- * archived rows, exactly the "archived == deleted" semantics this CLI wants.
+ * Existence + active guard: the row, links included, or not-found (exit 2).
+ * Archived rows are deleted-equivalent across this CLI, so they fail too —
+ * `getDeliverableById` deliberately still returns them, and this is the one
+ * place that decides they don't count.
  */
 const requireActiveDeliverable = (id: string) =>
   Effect.gen(function* () {
     const svc = yield* DeliverableOperationsService;
-    const rows = yield* svc.listDeliverables();
-    const match = rows.find((r) => r.id === id);
-    if (!match) {
+    const row = yield* svc.getDeliverableById(id);
+    if (!row || row.archived) {
       return yield* notFound("deliverable", id);
     }
-    return match;
+    return row;
   });
 
 // ---------------------------------------------------------------------------
@@ -189,21 +199,22 @@ const listCmd = Command.make("list", {}, () =>
 
 const ids = Args.text({ name: "id" }).pipe(Args.repeated);
 
-// There is no get-by-id getter on the Deliverable service, so synthesize one by
-// filtering the complete-set listDeliverables. An absent id resolves to
-// undefined (the CLI owns not-found detection; emitGet maps it to exit 2).
+// An unknown OR archived id resolves to undefined — archived is
+// deleted-equivalent here, and the CLI owns not-found detection (emitGet maps
+// undefined to exit 2; never throw a domain NotFoundError for an absent row).
 const getCmd = Command.make("get", { ids }, ({ ids }) =>
   emitGet({
     entity: "deliverable",
     ids,
     fetch: (id) =>
       Effect.flatMap(DeliverableOperationsService, (svc) =>
-        svc.listDeliverables().pipe(
-          Effect.map((rows) => {
-            const match = rows.find((r) => r.id === id);
-            return match ? shape(match) : undefined;
-          })
-        )
+        svc
+          .getDeliverableById(id)
+          .pipe(
+            Effect.map((row) =>
+              row && !row.archived ? shape(row) : undefined
+            )
+          )
       ),
   })
 ).pipe(Command.withDescription(detail(GET_HELP)));
@@ -254,13 +265,10 @@ const createCmd = Command.make(
           pitchIds: links.pitchIds,
         });
 
-        yield* emitObject(
-          withName({
-            ...created,
-            courseIds: links.courseIds,
-            pitchIds: links.pitchIds,
-          })
-        );
+        // Echo what the DATABASE now holds, not what we sent it: every verb
+        // re-reads through the same shape() so `create` output is byte-for-byte
+        // what a following `get` returns, links included.
+        yield* emitObject(shape(yield* requireActiveDeliverable(created.id)));
       })
     )
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
