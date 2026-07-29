@@ -28,6 +28,11 @@ import {
 import { useParams, useNavigate, Link, useRevalidator } from "react-router";
 import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
+import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
+import {
+  ShapeTypeErrorBoundary,
+  UnknownShapeNotice,
+} from "@/features/diagrams/unknown-shape-boundary";
 
 export const loader = loadDiagramPlaygroundActive;
 
@@ -503,24 +508,27 @@ export default function DiagramPlaygroundActive({
   return (
     <div className="flex h-screen w-screen">
       <div className="relative flex-1">
-        <Tldraw
-          onMount={handleMount}
-          colorScheme="dark"
-          acceptedImageMimeTypes={EMPTY_MIME_TYPES}
-          acceptedVideoMimeTypes={EMPTY_MIME_TYPES}
-          embeds={EMPTY_EMBEDS}
-        />
-        {diagramId && (
-          <button
-            onClick={preserveSnapshot}
-            disabled={preserving}
-            title="Preserve Snapshot"
-            aria-label="Preserve Snapshot"
-            className="absolute bottom-16 right-2 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 text-zinc-100 shadow hover:bg-zinc-600 disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-          </button>
-        )}
+        <ShapeTypeErrorBoundary fallback={<UnknownShapeNotice />}>
+          <Tldraw
+            onMount={handleMount}
+            colorScheme="dark"
+            acceptedImageMimeTypes={EMPTY_MIME_TYPES}
+            acceptedVideoMimeTypes={EMPTY_MIME_TYPES}
+            embeds={EMPTY_EMBEDS}
+            shapeUtils={CVM_SHAPE_UTILS}
+          />
+          {diagramId && (
+            <button
+              onClick={preserveSnapshot}
+              disabled={preserving}
+              title="Preserve Snapshot"
+              aria-label="Preserve Snapshot"
+              className="absolute bottom-16 right-2 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-700 text-zinc-100 shadow hover:bg-zinc-600 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+            </button>
+          )}
+        </ShapeTypeErrorBoundary>
         <ConnectionStatusIndicator
           editorConnected={editorConnected}
           windowFocused={windowFocused}

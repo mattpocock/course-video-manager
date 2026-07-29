@@ -55,6 +55,13 @@ export function extractShapeText(shape: Record<string, unknown>): string {
     return typeof p.name === "string" ? p.name.replace(/\s+/g, " ").trim() : "";
   }
 
+  // An icon contributes its lucide name, so "find the diagram with the database
+  // icon in it" is a search the shipped box can answer. Hyphenated names
+  // (`git-branch`) tokenise into `git` + `branch`, which is a feature.
+  if (type === "cvm-icon") {
+    return typeof p.name === "string" ? p.name.replace(/\s+/g, " ").trim() : "";
+  }
+
   if (!RICH_TEXT_SHAPE_TYPES.has(type)) return "";
 
   if (p.richText !== undefined && p.richText !== null) {

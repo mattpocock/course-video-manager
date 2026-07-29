@@ -293,6 +293,22 @@ describe("extractSceneText", () => {
     expect(result).not.toContain("ignored");
   });
 
+  it("contributes a cvm-icon's lucide name verbatim", () => {
+    // "find the diagram with the database icon in it" is precisely the query
+    // the shipped search box exists for.
+    const s = scene({ i: { type: "cvm-icon", props: { name: "database" } } });
+    expect(extractSceneText(s)).toBe("database");
+  });
+
+  it("contributes nothing for an icon with a missing or non-string name", () => {
+    const s = scene({
+      a: { type: "cvm-icon", props: {} },
+      b: { type: "cvm-icon", props: { name: 42 } },
+      c: { type: "text", props: { richText: doc([{ text: "kept" }]) } },
+    });
+    expect(extractSceneText(s)).toBe("kept");
+  });
+
   it("collapses whitespace from shapes that produce whitespace-only text", () => {
     const s = scene({
       a: { type: "text", props: { richText: doc([{ text: "  " }]) } },

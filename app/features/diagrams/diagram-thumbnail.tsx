@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { TldrawImage } from "tldraw";
 import "tldraw/tldraw.css";
+import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
+import { ShapeTypeErrorBoundary } from "@/features/diagrams/unknown-shape-boundary";
 
 export const DiagramThumbnail = (props: {
   diagramId?: string;
@@ -33,13 +35,22 @@ export const DiagramThumbnail = (props: {
     "store" in props.scene
   ) {
     return (
-      <div className={props.className}>
-        <TldrawImage
-          snapshot={{ document: props.scene } as never}
-          darkMode={props.darkMode ?? true}
-          background={false}
-        />
-      </div>
+      // A thumbnail that fails to render leaves a blank tile rather than
+      // taking down the page around it — one bad diagram must not break
+      // Playground Home.
+      <ShapeTypeErrorBoundary fallback={<div className={props.className} />}>
+        <div className={props.className}>
+          <TldrawImage
+            snapshot={{ document: props.scene } as never}
+            darkMode={props.darkMode ?? true}
+            background={false}
+            // Without the custom shape utils, the first diagram containing an
+            // icon would throw right here — this is the fallback path whenever
+            // no cached PNG exists.
+            shapeUtils={CVM_SHAPE_UTILS}
+          />
+        </div>
+      </ShapeTypeErrorBoundary>
     );
   }
 
