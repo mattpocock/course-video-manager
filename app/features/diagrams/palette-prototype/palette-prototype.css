@@ -1,0 +1,37 @@
+/* PROTOTYPE — throwaway. Wayfinder issue #209. */
+
+/*
+ * The [hidden] question, settled empirically against cmdk 1.1.1:
+ *
+ *  - Command.Item does NOT get a `hidden` attribute when filtered out. It
+ *    returns null and unmounts (`if (!render) return null` in the source).
+ *    So grid cells never need this rule.
+ *  - Command.Group DOES stay mounted and gets `hidden` when none of its items
+ *    match. The UA sheet's `[hidden] { display: none }` has specificity 0-0-0,
+ *    so ANY `display` declaration on the group — including a Tailwind `grid`
+ *    or `flex` class — silently beats it and leaves an empty heading behind.
+ *
+ * Fix: never put a display class on [cmdk-group] itself (put the grid on an
+ * inner wrapper), and keep this belt-and-braces rule.
+ */
+[cmdk-group=""][hidden],
+[cmdk-item=""][hidden] {
+  display: none !important;
+}
+
+/* Variant C is non-modal and sits over the tldraw canvas. */
+.palette-proto-docked {
+  box-shadow:
+    0 0 0 1px rgb(63 63 70),
+    0 24px 48px -12px rgb(0 0 0 / 0.7);
+}
+
+.palette-proto-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.palette-proto-scroll::-webkit-scrollbar-thumb {
+  background: rgb(82 82 91);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}

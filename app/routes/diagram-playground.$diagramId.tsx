@@ -28,6 +28,8 @@ import {
 import { useParams, useNavigate, Link, useRevalidator } from "react-router";
 import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
+// PROTOTYPE (wayfinder #209) — renders only when ?variant=A|B|C is present.
+import { PalettePrototypeMount } from "@/features/diagrams/palette-prototype/palette-prototype-mount";
 
 export const loader = loadDiagramPlaygroundActive;
 
@@ -525,6 +527,9 @@ export default function DiagramPlaygroundActive({
           editorConnected={editorConnected}
           windowFocused={windowFocused}
         />
+        {/* PROTOTYPE (wayfinder #209). Inside the canvas box so the docked
+            variant can anchor to it. No-ops without ?variant=. */}
+        <PalettePrototypeMount editorRef={editorRef} />
       </div>
       {!isFocusMode && (
         <div className="flex w-64 shrink-0 flex-col border-l border-zinc-700 bg-zinc-900">
