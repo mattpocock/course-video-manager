@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ScriptMarkdown } from "./script-markdown";
+import { TYPE } from "./teleprompter-settings";
 
 const render = (markdown: string) =>
   renderToStaticMarkup(<ScriptMarkdown>{markdown}</ScriptMarkdown>);
@@ -10,6 +11,14 @@ const cues = (html: string) =>
   [...html.matchAll(/<span[^>]*data-cue="true"[^>]*>([\s\S]*?)<\/span>/g)].map(
     (m) => m[1]
   );
+
+/** Every anchor the renderer produced, in document order. */
+const links = (html: string) =>
+  [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
+    attrs: m[1]!,
+    href: /href="([^"]*)"/.exec(m[1]!)?.[1] ?? "",
+    text: m[2]!,
+  }));
 
 describe("ScriptMarkdown cues", () => {
   it("marks a bracketed aside as a cue", () => {
@@ -102,6 +111,89 @@ describe("ScriptMarkdown cues", () => {
   it("sizes a cue relative to the line it interrupts", () => {
     expect(render("Say this [pause] now")).toMatch(
       /<span[^>]*font-size:\s*[\d.]+em/
+    );
+  });
+});
+
+describe("ScriptMarkdown links", () => {
+  it("linkifies a URL nobody wrote as a link", () => {
+    const hrefs = links(render("Go to https://example.com now.")).map(
+      (l) => l.href
+    );
+    expect(hrefs).toEqual(["https://example.com"]);
+  });
+
+  it("linkifies a www address with no protocol", () => {
+    const [link] = links(render("Visit www.example.com today."));
+    expect(link?.href).toMatch(/^https?:\/\/www\.example\.com$/);
+  });
+
+  it("linkifies an email address", () => {
+    expect(links(render("Mail me@example.com.")).map((l) => l.href)).toEqual([
+      "mailto:me@example.com",
+    ]);
+  });
+
+  it("opens a link away from the glass", () => {
+    const [link] = links(render("Go to https://example.com now."));
+    expect(link?.attrs).toContain('target="_blank"');
+    expect(link?.attrs).toContain("noreferrer");
+  });
+
+  it("keeps the prose around a link", () => {
+    const html = render("Go to https://example.com now.");
+    expect(html).toContain("Go to ");
+    expect(html).toContain(" now.");
+  });
+
+  it("still links a URL that was written as a markdown link", () => {
+    const [link] = links(render("Read [the docs](https://example.com) first."));
+    expect(link?.href).toBe("https://example.com");
+    expect(link?.text).toBe("the docs");
+  });
+
+  // The protocol is never spoken and never read, and on a 25ch measure it is a
+  // third of the line.
+  it("drops the protocol from a URL that is its own label", () => {
+    expect(links(render("Go to https://example.com/ now."))[0]?.text).toBe(
+      "example.com"
+    );
+  });
+
+  it("shortens a URL too long to fit the measure", () => {
+    const url = "https://example.com/a/really/long/path/that/goes/on?q=1";
+    const [link] = links(render(`Go to ${url} now.`));
+    expect(link?.href).toBe(url);
+    expect(link?.text.startsWith("example.com/")).toBe(true);
+    expect(link?.text.endsWith("…")).toBe(true);
+    expect(link?.text.length).toBeLessThanOrEqual(TYPE.measure);
+  });
+
+  // A written label is prose: the author chose those words to be read aloud.
+  it("leaves a written label at full length", () => {
+    const label = "the page where every one of the options is written down";
+    const [link] = links(render(`Read [${label}](https://example.com) first.`));
+    expect(link?.text).toBe(label);
+  });
+});
+
+// A block that is entirely one bracketed cue is already grey and small — the
+// direction inside it is the whole block, so there is no aside to mark.
+describe("ScriptMarkdown with cues off", () => {
+  const plain = (markdown: string) =>
+    renderToStaticMarkup(
+      <ScriptMarkdown cues={false}>{markdown}</ScriptMarkdown>
+    );
+
+  it("leaves brackets as plain text", () => {
+    const html = plain("point at [this] thing");
+    expect(cues(html)).toEqual([]);
+    expect(html).toContain("[this]");
+  });
+
+  it("still linkifies a URL", () => {
+    expect(links(plain("open https://example.com"))[0]?.href).toBe(
+      "https://example.com"
     );
   });
 });

@@ -69,6 +69,12 @@ export const TYPE = {
    * peripheral vision rather than compete with the line being delivered.
    */
   cueColor: "var(--color-neutral-400)",
+  /**
+   * The same cool as bold, because a link is emphasis of a kind — the underline
+   * is what says "this one is clickable", and it's the only underline on the
+   * glass, so it doesn't have to shout.
+   */
+  linkColor: "var(--color-sky-300)",
   /** Where the live line sits, as a % of viewport height. */
   readLine: 42,
 } as const;
@@ -86,6 +92,28 @@ export function textStyle(): React.CSSProperties {
     // stretching word-spaces, and the rivers that opens are worse to read past
     // than a ragged edge you never look at.
     textAlign: "left",
+    // A URL or a file path is one unbreakable "word" far wider than the
+    // measure, and left to itself it runs off the right of the glass — off the
+    // panel entirely, since the crawl clips rather than scrolls sideways.
+    // Breaking mid-word is ugly and keeps every character on the glass; losing
+    // the end of the line is neither.
+    overflowWrap: "anywhere",
+  };
+}
+
+/**
+ * How a link looks on the glass. Underlined rather than merely coloured: the
+ * teleprompter is watched from arm's length through beam-splitter glass, where
+ * a hue shift alone doesn't read as "you can click this".
+ */
+export function linkStyle(): React.CSSProperties {
+  return {
+    color: TYPE.linkColor,
+    textDecoration: "underline",
+    // The body weight is light, so a default-thickness rule sits heavier than
+    // the letters it belongs to.
+    textDecorationThickness: "1px",
+    textUnderlineOffset: "0.18em",
   };
 }
 

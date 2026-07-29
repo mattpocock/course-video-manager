@@ -9,10 +9,12 @@
  * Block-level spacing and size stay with the crawl, which already knows what
  * kind of block this is, so the overrides here strip markdown's own.
  */
+import type { ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CUE_CLASS, remarkInlineCues } from "./inline-cues";
-import { TYPE, cueStyle } from "./teleprompter-settings";
+import { shortenUrl } from "./linked-text";
+import { TYPE, cueStyle, linkStyle } from "./teleprompter-settings";
 
 const COMPONENTS: Components = {
   // The crawl supplies the wrapper element and its margin.
@@ -47,18 +49,59 @@ const COMPONENTS: Components = {
   code: ({ children }) => (
     <code className="rounded bg-white/10 px-1 py-0.5">{children}</code>
   ),
-  // Nothing on the glass is clickable, and link colour is just noise.
-  a: ({ children }) => <>{children}</>,
+  // Links are the one thing on the glass worth clicking: mid-take you open the
+  // page you're about to demo rather than read its address out. A new window,
+  // always — the teleprompter must still be on the glass when you come back.
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noreferrer" style={linkStyle()}>
+      {urlLabel(children, href) ?? children}
+    </a>
+  ),
   // Headings are their own block kind, split out before this ever runs.
   h1: ({ children }) => <>{children}</>,
   h2: ({ children }) => <>{children}</>,
   h3: ({ children }) => <>{children}</>,
 };
 
-export function ScriptMarkdown(props: { children: string }) {
+/**
+ * What to show for a link whose label is the address itself — the `https://…`
+ * a writer dropped into a sentence, which GFM turns into a link on its own.
+ * Null for a written label like `[the docs](…)`: those are words the author
+ * chose to be read aloud, and shortening them would change the line.
+ */
+function urlLabel(
+  children: ReactNode,
+  href: string | undefined
+): string | null {
+  const label =
+    Array.isArray(children) && children.length === 1 ? children[0] : children;
+  if (!href || typeof label !== "string") return null;
+
+  // How GFM writes the three literal forms it recognises: bare, `www.` (which
+  // gains a protocol), and an email address (which gains `mailto:`).
+  const isUrlItself =
+    href === label ||
+    href === `mailto:${label}` ||
+    href.replace(/^https?:\/\//, "") === label;
+  return isUrlItself ? shortenUrl(label) : null;
+}
+
+const PLUGINS = [remarkGfm, remarkInlineCues];
+/** Cues off: same markdown, minus the pass that greys bracketed asides. */
+const PLUGINS_WITHOUT_CUES = [remarkGfm];
+
+export function ScriptMarkdown(props: {
+  children: string;
+  /**
+   * Whether `[bracketed asides]` are marked as cues. Off inside a block that is
+   * already a cue — there the direction *is* the block, so a bracket in it is
+   * just a bracket, and marking it again would set it smaller again.
+   */
+  cues?: boolean;
+}) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkInlineCues]}
+      remarkPlugins={props.cues === false ? PLUGINS_WITHOUT_CUES : PLUGINS}
       components={COMPONENTS}
     >
       {props.children}

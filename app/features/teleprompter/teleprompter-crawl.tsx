@@ -140,7 +140,15 @@ export function TeleprompterCrawl(props: {
                 }
               >
                 {block.kind === "cue" ? (
-                  `[ ${block.text} ]`
+                  // Rendered rather than printed, because "open <this page>"
+                  // is what a stage direction most often says — and the link in
+                  // it is the one thing on the glass you actually click. Cue
+                  // marking is off: the block is already the aside.
+                  <>
+                    {"[ "}
+                    <ScriptMarkdown cues={false}>{block.text}</ScriptMarkdown>
+                    {" ]"}
+                  </>
                 ) : (
                   <ScriptMarkdown>{block.text}</ScriptMarkdown>
                 )}

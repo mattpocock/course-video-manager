@@ -23,6 +23,7 @@ import {
   type BeatKind,
 } from "@/features/beats/beat-kinds";
 import { useTeleprompterActions } from "./use-teleprompter-actions";
+import { LinkedText } from "./linked-text";
 import { TYPE, textStyle } from "./teleprompter-settings";
 
 export type TeleprompterBeat = {
@@ -156,7 +157,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                         marginTop: TYPE.fontSize * 0.2,
                       }}
                     >
-                      {beat.description}
+                      <LinkedText>{beat.description}</LinkedText>
                     </div>
                   )}
                 </div>
