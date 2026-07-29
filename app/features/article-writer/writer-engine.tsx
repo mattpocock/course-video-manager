@@ -12,6 +12,7 @@ import { useFetcher } from "react-router";
 import { WriteChat } from "./write-chat";
 import { DocumentPanel } from "./document-panel";
 import { useDocumentFlow } from "./use-document-flow";
+import { useRemoveDocumentBlock } from "./use-remove-document-block";
 import { useLint, useLintFix } from "@/hooks/use-lint";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 import { useMessageQueue } from "./use-message-queue";
@@ -271,6 +272,13 @@ export function WriterEngine({
     return (md: string) => preprocessChooseScreenshotMarkdown(md);
   }, [docExtraComponents]);
 
+  const handleRemoveDocBlock = useRemoveDocumentBlock({
+    documentRef,
+    updateDocument,
+    isGenerating,
+    hasScreenshotPreprocessing: docPreprocessMarkdown !== undefined,
+  });
+
   // Persist messages on stream completion
   const prevStatusRef = useRef(status);
   useEffect(() => {
@@ -385,7 +393,7 @@ export function WriterEngine({
     submit: handleSubmit,
     queuedMessages,
     clearQueue,
-  } = useMessageQueue(status, handleSend);
+  } = useMessageQueue(status, handleSend, docCapturingKey !== null);
 
   const handleClearChat = () => {
     setMessages([]);
@@ -553,6 +561,7 @@ export function WriterEngine({
               fullPath={fullPath}
               extraComponents={docExtraComponents}
               preprocessMarkdown={docPreprocessMarkdown}
+              onRemoveBlock={handleRemoveDocBlock}
               onDocumentChange={updateDocument}
             />
           </div>
@@ -683,6 +692,7 @@ export function WriterEngine({
               fullPath={fullPath}
               extraComponents={docExtraComponents}
               preprocessMarkdown={docPreprocessMarkdown}
+              onRemoveBlock={handleRemoveDocBlock}
               onDocumentChange={updateDocument}
               violations={violations}
               onFixLintViolations={handleFixLintViolations}

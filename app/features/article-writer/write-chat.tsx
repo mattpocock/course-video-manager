@@ -29,6 +29,7 @@ import {
   removeChooseScreenshot,
 } from "./choose-screenshot-mutations";
 import { WriteDocumentDisplay, EditDocumentDisplay } from "./tool-call-display";
+import { useMessageTextMutation } from "./message-text-mutation";
 
 export interface WriteChatProps {
   messages: DocumentAgentMessage[];
@@ -69,23 +70,10 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
 
   const [text, setText] = useState("");
 
-  const mutateMessageText = useCallback(
-    (messageId: string, mutator: (text: string) => string) => {
-      const updated = messages.map((msg) => {
-        if (msg.id !== messageId) return msg;
-        return {
-          ...msg,
-          parts: msg.parts.map((part) => {
-            if (part.type !== "text") return part;
-            return { ...part, text: mutator(part.text) };
-          }),
-        };
-      });
-      setMessages(updated);
-      saveMessagesToStorage(videoId, mode, updated);
-    },
-    [messages, setMessages, videoId, mode]
-  );
+  const mutateMessageText = useMessageTextMutation(messages, (updated) => {
+    setMessages(updated);
+    saveMessagesToStorage(videoId, mode, updated);
+  });
 
   const handleClipIndexChange = useCallback(
     (

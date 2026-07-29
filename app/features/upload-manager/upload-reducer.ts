@@ -158,16 +158,69 @@ export const createInitialUploadState = (): uploadReducer.State => ({
   uploads: {},
 });
 
-// The single bar's bands per export stage: the stage change jumps to `start`,
-// then real ffmpeg percent (0–99) fills `width` of the band. 100 is reserved
-// for completion (UPLOAD_SUCCESS).
-const EXPORT_STAGE_BANDS: Record<
-  uploadReducer.ExportStage,
-  { start: number; width: number }
-> = {
+interface StageBand {
+  start: number;
+  width: number;
+}
+
+// Every job type divides its single bar into one band per stage: the stage
+// change jumps to `start`, then any real percentage the stage streams fills
+// `width` of that band. A stage with `width: 0` reports no measurable progress
+// and simply parks the bar at `start`. 100 is reserved for completion
+// (UPLOAD_SUCCESS).
+const EXPORT_STAGE_BANDS: Record<uploadReducer.ExportStage, StageBand> = {
   queued: { start: 0, width: 0 },
   "concatenating-clips": { start: 0, width: 80 },
   "normalizing-audio": { start: 80, width: 19 },
+};
+
+// Only the blob upload streams a real byte percentage; Buffer's own pipeline
+// gives us stage transitions and nothing finer.
+const BUFFER_STAGE_BANDS: Record<uploadReducer.BufferStage, StageBand> = {
+  "uploading-blob": { start: 0, width: 50 },
+  "creating-post": { start: 50, width: 0 },
+  polling: { start: 70, width: 0 },
+  "cleaning-up": { start: 90, width: 0 },
+};
+
+// Only the Dropbox commit ("uploading") reports a real per-lesson percentage.
+const PUBLISH_STAGE_BANDS: Record<uploadReducer.PublishStage, StageBand> = {
+  validating: { start: 5, width: 0 },
+  exporting: { start: 20, width: 0 },
+  uploading: { start: 40, width: 35 },
+  freezing: { start: 75, width: 0 },
+  cloning: { start: 90, width: 0 },
+};
+
+const RENDER_VERTICAL_STAGE_BANDS: Record<
+  uploadReducer.RenderVerticalStage,
+  StageBand
+> = {
+  "concatenating-clips": { start: 10, width: 0 },
+  transcribing: { start: 30, width: 0 },
+  "rendering-overlay": { start: 60, width: 0 },
+  compositing: { start: 85, width: 0 },
+};
+
+/** Where in the bar `percent` (0–100, within the stage) lands. */
+const fillBand = (band: StageBand, percent: number) =>
+  band.start + Math.floor((percent / 100) * band.width);
+
+/**
+ * The band a raw `UPDATE_PROGRESS` percentage belongs to. `null` when the job
+ * streams a real percentage for its whole life rather than per stage, in which
+ * case the percentage already *is* the bar position.
+ */
+const streamedProgressBand = (
+  upload: uploadReducer.UploadEntry
+): StageBand | null => {
+  if (upload.uploadType === "buffer" && upload.bufferStage) {
+    return BUFFER_STAGE_BANDS[upload.bufferStage];
+  }
+  if (upload.uploadType === "publish" && upload.publishStage) {
+    return PUBLISH_STAGE_BANDS[upload.publishStage];
+  }
+  return null;
 };
 
 export const uploadReducer = (
@@ -207,13 +260,21 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload) return state;
 
+      const band = streamedProgressBand(upload);
+
       return {
         ...state,
         uploads: {
           ...state.uploads,
           [action.uploadId]: {
             ...upload,
-            progress: action.progress,
+            // Monotonic, like UPDATE_EXPORT_PROGRESS: a stage that streams a
+            // real percentage fills its own band, so finishing one stage can
+            // never drag the bar back below where the next stage starts.
+            progress: Math.max(
+              upload.progress,
+              band ? fillBand(band, action.progress) : action.progress
+            ),
           },
         },
       };
@@ -223,13 +284,6 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload || upload.uploadType !== "buffer") return state;
 
-      const bufferStageProgress: Record<uploadReducer.BufferStage, number> = {
-        "uploading-blob": 20,
-        "creating-post": 50,
-        polling: 70,
-        "cleaning-up": 90,
-      };
-
       return {
         ...state,
         uploads: {
@@ -237,7 +291,10 @@ export const uploadReducer = (
           [action.uploadId]: {
             ...upload,
             bufferStage: action.stage,
-            progress: bufferStageProgress[action.stage],
+            progress: Math.max(
+              upload.progress,
+              BUFFER_STAGE_BANDS[action.stage].start
+            ),
           },
         },
       };
@@ -267,9 +324,7 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload || upload.uploadType !== "export") return state;
 
-      const band = EXPORT_STAGE_BANDS[action.stage];
-      const banded =
-        band.start + Math.floor((action.percent / 100) * band.width);
+      const banded = fillBand(EXPORT_STAGE_BANDS[action.stage], action.percent);
 
       return {
         ...state,
@@ -290,17 +345,6 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload || upload.uploadType !== "publish") return state;
 
-      // "uploading" starts at 0: the Dropbox commit streams a real per-lesson
-      // percentage into `progress` via UPDATE_PROGRESS, so the bar begins
-      // empty and fills with actual upload progress.
-      const publishStageProgress: Record<uploadReducer.PublishStage, number> = {
-        validating: 5,
-        exporting: 20,
-        uploading: 0,
-        freezing: 75,
-        cloning: 90,
-      };
-
       return {
         ...state,
         uploads: {
@@ -308,7 +352,10 @@ export const uploadReducer = (
           [action.uploadId]: {
             ...upload,
             publishStage: action.stage,
-            progress: publishStageProgress[action.stage],
+            progress: Math.max(
+              upload.progress,
+              PUBLISH_STAGE_BANDS[action.stage].start
+            ),
           },
         },
       };
@@ -334,16 +381,6 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload || upload.uploadType !== "render-vertical") return state;
 
-      const renderVerticalStageProgress: Record<
-        uploadReducer.RenderVerticalStage,
-        number
-      > = {
-        "concatenating-clips": 10,
-        transcribing: 30,
-        "rendering-overlay": 60,
-        compositing: 85,
-      };
-
       return {
         ...state,
         uploads: {
@@ -351,7 +388,10 @@ export const uploadReducer = (
           [action.uploadId]: {
             ...upload,
             renderVerticalStage: action.stage,
-            progress: renderVerticalStageProgress[action.stage],
+            progress: Math.max(
+              upload.progress,
+              RENDER_VERTICAL_STAGE_BANDS[action.stage].start
+            ),
           },
         },
       };
