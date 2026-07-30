@@ -21,11 +21,7 @@ import {
   visibleRootActions,
   type RootAction,
 } from "./palette-model";
-import {
-  pushRecentIcon,
-  readRecentIcons,
-  writeRecentIcons,
-} from "./recent-icons";
+import { readRecentIcons, recordIconUse } from "./recent-icons";
 import {
   INITIAL_NAV,
   currentPage,
@@ -169,8 +165,8 @@ export function usePalette(opts: {
   );
 
   // --- Icons ---------------------------------------------------------------
-  // Re-read on every open, not once at mount: the parent window and the popup
-  // share an origin, so the list may have moved on since this window loaded.
+  // Re-read on every open, not once at mount: storage is the source of truth
+  // (see `recent-icons`), and this is only the copy the grid renders from.
   const [recentIcons, setRecentIcons] = useState<string[]>([]);
   useEffect(() => {
     if (open) setRecentIcons(readRecentIcons());
@@ -209,11 +205,7 @@ export function usePalette(opts: {
       // Recorded only for an icon that actually landed, so a run into the shape
       // cap does not reorder the grid for an insert that never happened. The
       // palette is closing, so the reorder is never seen mid-gesture.
-      setRecentIcons((recent) => {
-        const next = pushRecentIcon(recent, name);
-        writeRecentIcons(next);
-        return next;
-      });
+      setRecentIcons(recordIconUse(name));
       setOpen(false);
     },
     [editorRef]

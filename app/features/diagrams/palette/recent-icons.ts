@@ -3,12 +3,11 @@
  *
  * Client-only and deliberately so: an Icon carries no record of its own — a
  * Diagram stores a name, and the table behind it is frozen — so there is nothing
- * server-side to hang a `lastUsedAt` off, the way a Component has one. The list
- * is a per-browser convenience, shared between the popup and the parent window
- * because they are the same origin.
+ * server-side to hang a `lastUsedAt` off, the way a Component has one.
  *
- * The list ops are pure and the storage boundary is one thin pair of functions,
- * so the ordering rules are testable without a DOM.
+ * `localStorage` is the source of truth rather than a cache of React state:
+ * `recordIconUse` re-reads before it writes, so a list that moved on since this
+ * window read it is extended, not overwritten.
  */
 
 const STORAGE_KEY = "diagram-palette:recent-icons";
@@ -20,15 +19,28 @@ const STORAGE_KEY = "diagram-palette:recent-icons";
  */
 export const RECENT_ICONS_LIMIT = 20;
 
-/** The list after using `name` — most recent first, no duplicates, capped. */
-export function pushRecentIcon(
-  recent: readonly string[],
-  name: string
-): string[] {
-  return [name, ...recent.filter((n) => n !== name)].slice(
+/** The stored list, most recent first. `[]` whenever there is nothing usable. */
+export function readRecentIcons(): string[] {
+  try {
+    return parse(window.localStorage.getItem(STORAGE_KEY));
+  } catch {
+    // No `window`, or storage blocked (private mode) — no history.
+    return [];
+  }
+}
+
+/** Records `name` as just used, and returns the list that produces. */
+export function recordIconUse(name: string): string[] {
+  const next = [name, ...readRecentIcons().filter((n) => n !== name)].slice(
     0,
     RECENT_ICONS_LIMIT
   );
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Storage unavailable; the returned order still holds for this session.
+  }
+  return next;
 }
 
 /**
@@ -36,7 +48,7 @@ export function pushRecentIcon(
  * can be sitting under the key. Junk reads as "no history" rather than throwing,
  * because a broken recents list must never cost the author the icon picker.
  */
-export function parseRecentIcons(raw: string | null): string[] {
+function parse(raw: string | null): string[] {
   if (!raw) return [];
   let parsed: unknown;
   try {
@@ -48,22 +60,4 @@ export function parseRecentIcons(raw: string | null): string[] {
   return parsed
     .filter((n): n is string => typeof n === "string")
     .slice(0, RECENT_ICONS_LIMIT);
-}
-
-export function readRecentIcons(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return parseRecentIcons(window.localStorage.getItem(STORAGE_KEY));
-  } catch {
-    // localStorage unavailable (private mode, blocked storage) — no history.
-    return [];
-  }
-}
-
-export function writeRecentIcons(recent: readonly string[]): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(recent));
-  } catch {
-    // localStorage unavailable; the in-memory order still holds for the session.
-  }
 }

@@ -19,7 +19,14 @@ export type IconSearchEntry = {
   terms: string[];
 };
 
-export function buildSearchIndex(names: readonly string[]): IconSearchEntry[] {
+export type IconSearchIndex = {
+  /** Table order, which is the fallback ranking. */
+  entries: IconSearchEntry[];
+  /** So a recently-used name resolves by lookup instead of by scanning. */
+  byName: Map<string, IconSearchEntry>;
+};
+
+export function buildSearchIndex(names: readonly string[]): IconSearchIndex {
   const aliasesByTarget = new Map<string, string[]>();
   for (const [alias, target] of Object.entries(SYNONYMS)) {
     const list = aliasesByTarget.get(target);
@@ -27,25 +34,24 @@ export function buildSearchIndex(names: readonly string[]): IconSearchEntry[] {
     else aliasesByTarget.set(target, [alias]);
   }
 
-  return names.map((name) => ({
+  const entries = names.map((name) => ({
     name,
     terms: [toWords(name), ...(aliasesByTarget.get(name) ?? []).map(toWords)],
   }));
+
+  return { entries, byName: new Map(entries.map((e) => [e.name, e])) };
 }
 
-const NO_MATCH = -1;
-const EXACT = 0;
-const PREFIX = 1;
-const SUBSTRING = 2;
+/** How well a query matches an entry; `null` is no match at all. */
+type MatchTier = "exact" | "prefix" | "substring" | null;
 
-/** How well `q` matches an entry, on the scale above. */
-function matchTier(entry: IconSearchEntry, q: string): number {
+function matchTier(entry: IconSearchEntry, q: string): MatchTier {
   // An empty query matches everything, and nothing about it is exact.
-  if (!q) return PREFIX;
-  if (entry.terms.some((t) => t === q)) return EXACT;
-  if (entry.terms.some((t) => t.startsWith(q))) return PREFIX;
-  if (entry.terms.some((t) => t.includes(q))) return SUBSTRING;
-  return NO_MATCH;
+  if (!q) return "prefix";
+  if (entry.terms.some((t) => t === q)) return "exact";
+  if (entry.terms.some((t) => t.startsWith(q))) return "prefix";
+  if (entry.terms.some((t) => t.includes(q))) return "substring";
+  return null;
 }
 
 /**
@@ -56,60 +62,54 @@ function matchTier(entry: IconSearchEntry, q: string): number {
  * `recent` (a most-recently-used list, most recent first) outranks textual
  * quality because the alphabetical table order it would otherwise fall back to
  * carries no information at all. It does NOT outrank an exact match: Enter fires
- * on the first cell, so a name the author has spelled out in full has to stay
- * there or history would insert the wrong icon. Names the build has never heard
- * of are ignored, so a stored list can outlive the table it was written against.
+ * on the first cell, so a term the author has spelled out in full — a name, or
+ * one of lucide's aliases — has to stay there or history would insert the wrong
+ * icon. Names the build has never heard of are ignored, so a stored list can
+ * outlive the table it was written against.
  *
  * The `limit` is about MOUNT COST, not filter quality: rendering all ~1,775
  * icon cells and letting cmdk filter them costs ~0.7s of dead air on every
  * open, while filtering here and capping costs ~0.17s for an identical top-8.
  */
 export function searchIndex(
-  index: readonly IconSearchEntry[],
+  index: IconSearchIndex,
   query: string,
   limit: number,
-  recent: readonly string[] = []
+  recent: readonly string[]
 ): string[] {
   const q = query.trim().toLowerCase();
 
-  const rankByName = new Map(recent.map((name, i) => [name, i]));
   const exact: string[] = [];
-  // Sparse on purpose: written by rank, so recency order survives a table that
-  // visits the names in some entirely unrelated order.
   const recentHits: string[] = [];
-  let recentFound = 0;
-  const starts: string[] = [];
-  const contains: string[] = [];
-
-  for (const entry of index) {
+  // Resolved by lookup, ahead of the scan and in recency order. Doing it here
+  // rather than inside the scan is what lets the `limit` guard below stop early:
+  // a recent name sitting at the far end of the table is already accounted for.
+  const promoted = new Set<string>();
+  for (const name of recent) {
+    if (promoted.has(name)) continue;
+    const entry = index.byName.get(name);
+    if (!entry) continue;
     const tier = matchTier(entry, q);
-    if (tier === NO_MATCH) continue;
-
-    const rank = rankByName.get(entry.name);
-    if (tier === EXACT) exact.push(entry.name);
-    else if (rank !== undefined) recentHits[rank] = entry.name;
-    else if (tier === PREFIX) starts.push(entry.name);
-    else contains.push(entry.name);
-
-    if (rank !== undefined) recentFound++;
-
-    // A cheap guard, not a rule: it must not fire while a recent icon could
-    // still be waiting further down the table, or the cap would silently swallow
-    // the one ordering the author explicitly earned.
-    if (
-      exact.length + starts.length >= limit &&
-      recentFound === rankByName.size
-    ) {
-      break;
-    }
+    if (tier === null) continue;
+    promoted.add(name);
+    if (tier === "exact") exact.push(name);
+    else recentHits.push(name);
   }
 
-  return [
-    ...exact,
-    ...recentHits.filter((name) => name !== undefined),
-    ...starts,
-    ...contains,
-  ].slice(0, limit);
+  const starts: string[] = [];
+  const contains: string[] = [];
+  for (const entry of index.entries) {
+    if (promoted.has(entry.name)) continue;
+    const tier = matchTier(entry, q);
+    if (tier === "exact") exact.push(entry.name);
+    else if (tier === "prefix") starts.push(entry.name);
+    else if (tier === "substring") contains.push(entry.name);
+    // `contains` is excluded on purpose: it is the band a later prefix match
+    // displaces, so it can never be what fills the last cell.
+    if (exact.length + recentHits.length + starts.length >= limit) break;
+  }
+
+  return [...exact, ...recentHits, ...starts, ...contains].slice(0, limit);
 }
 
 export { SYNONYMS };

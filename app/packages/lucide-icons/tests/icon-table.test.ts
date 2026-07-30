@@ -65,31 +65,33 @@ describe("the frozen table", () => {
 
 describe("searchIconNames", () => {
   it("finds an icon by a prefix of its name", () => {
-    expect(searchIconNames("databas")).toContain("database");
+    expect(searchIconNames("databas", { recent: [] })).toContain("database");
   });
 
   it("finds an icon by a word in the middle of its name", () => {
-    expect(searchIconNames("branch")).toContain("git-branch");
+    expect(searchIconNames("branch", { recent: [] })).toContain("git-branch");
   });
 
   it("honours lucide's aliases as synonyms", () => {
     // "grab" is not a substring of any part of "hand-grab" that a prefix search
     // would reach first; it is lucide's own alias for it.
-    expect(searchIconNames("grab")).toContain("hand-grab");
+    expect(searchIconNames("grab", { recent: [] })).toContain("hand-grab");
   });
 
   it("never returns an alias as a name — synonyms only widen matching", () => {
     const names = new Set(ICON_NAMES);
-    for (const hit of searchIconNames("grab")) {
+    for (const hit of searchIconNames("grab", { recent: [] })) {
       expect(names.has(hit), hit).toBe(true);
     }
   });
 
   it("caps its result count", () => {
-    expect(searchIconNames("a", { limit: 12 })).toHaveLength(12);
+    expect(searchIconNames("a", { limit: 12, recent: [] })).toHaveLength(12);
   });
 
   it("returns the head of the set for an empty query", () => {
-    expect(searchIconNames("", { limit: 3 })).toEqual(ICON_NAMES.slice(0, 3));
+    expect(searchIconNames("", { limit: 3, recent: [] })).toEqual(
+      ICON_NAMES.slice(0, 3)
+    );
   });
 });
