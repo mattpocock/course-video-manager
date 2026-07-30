@@ -11,8 +11,18 @@ export type RootAction = {
   icon: string;
   /** Pushes a nested page rather than firing immediately. */
   opens?: PageKey;
-  /** Absent — not disabled — when the tldraw selection is empty. */
-  requiresSelection?: boolean;
+  /**
+   * What the tldraw selection has to be for this row to exist at all. A row
+   * whose requirement is unmet is ABSENT, never greyed out.
+   */
+  requires?: keyof PaletteSelection;
+};
+
+/** What the palette knows about the canvas selection when it opens. */
+export type PaletteSelection = {
+  hasSelection: boolean;
+  /** Exactly one shape is selected and it is a `cvm-icon`. */
+  hasSingleIcon: boolean;
 };
 
 /**
@@ -42,6 +52,17 @@ export const ROOT_ACTIONS: RootAction[] = [
     opens: "components",
   },
   {
+    id: "replace-icon",
+    label: "Replace icon",
+    hint: "Swap the selected icon, keeping its size and position",
+    group: "Insert",
+    icon: "replace",
+    opens: "replaceIcon",
+    // Only for a lone icon: two icons, or an icon plus something else, has no
+    // unambiguous target.
+    requires: "hasSingleIcon",
+  },
+  {
     id: "save-component",
     label: "Save selection as component",
     hint: "Name the current selection",
@@ -50,7 +71,7 @@ export const ROOT_ACTIONS: RootAction[] = [
     opens: "nameComponent",
     // Absent rather than greyed out: the list stays short and everything in it
     // is actionable.
-    requiresSelection: true,
+    requires: "hasSelection",
   },
   {
     id: "go-to-diagram",
@@ -114,8 +135,8 @@ export const GROUP_ORDER: PaletteGroup[] = [
  * Actions that make no sense are ABSENT rather than greyed out, so the list
  * stays short and everything in it is actionable.
  */
-export function visibleRootActions(opts: { hasSelection: boolean }) {
-  return ROOT_ACTIONS.filter((a) => !a.requiresSelection || opts.hasSelection);
+export function visibleRootActions(selection: PaletteSelection) {
+  return ROOT_ACTIONS.filter((a) => !a.requires || selection[a.requires]);
 }
 
 /**
@@ -131,6 +152,10 @@ export const PAGE_META: Record<
 > = {
   root: { title: "Command palette", placeholder: "Type a command…" },
   icons: { title: "Insert icon", placeholder: "Search…", columns: 10 },
+  // The same grid as `icons`, and deliberately a separate page rather than a
+  // mode flag on that one: the page IS what Enter means here, so a stale flag
+  // could not silently insert a second icon next to the one being replaced.
+  replaceIcon: { title: "Replace icon", placeholder: "Search…", columns: 10 },
   components: {
     title: "Insert component",
     placeholder: "Search…",

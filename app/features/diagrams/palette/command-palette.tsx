@@ -15,6 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { IconGlyph } from "./icon-glyph";
 import { ComponentCard, DiagramCard } from "./result-cards";
 import { GROUP_ORDER, PAGE_META, type PaletteGroup } from "./palette-model";
@@ -41,6 +42,12 @@ export function CommandPalette({
   const state = usePalette({ editorRef, handlers });
   const listRef = useRef<HTMLDivElement | null>(null);
   const { title, placeholder, columns } = PAGE_META[state.page];
+
+  // One grid, two meanings. `replacing` is the icon Enter would REWRITE rather
+  // than add a second one beside — non-null on the replace page only, so it is
+  // both the mode switch and the target.
+  const isIconGrid = state.page === "icons" || state.page === "replaceIcon";
+  const replacing = state.page === "replaceIcon" ? state.selectedIcon : null;
 
   const gridNav = useGridNav({
     listRef,
@@ -102,8 +109,8 @@ export function CommandPalette({
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">
-          Insert icons and components, search diagrams, and run snapshot
-          actions.
+          Insert icons and components, replace a selected icon, search diagrams,
+          and run snapshot actions.
         </DialogDescription>
         <Command
           value={state.nav.value}
@@ -183,9 +190,13 @@ export function CommandPalette({
               </>
             )}
 
-            {state.page === "icons" && (
+            {isIconGrid && (
               <CommandGroup
-                heading={`${state.icons.length} icons`}
+                heading={
+                  replacing
+                    ? `Replacing “${replacing.props.name}” — ${state.icons.length} icons`
+                    : `${state.icons.length} icons`
+                }
                 className="cvm-palette-group cvm-palette-grid cvm-palette-grid-10"
               >
                 {state.icons.length === 0 && (
@@ -197,9 +208,19 @@ export function CommandPalette({
                   <CommandItem
                     key={name}
                     value={name}
-                    onSelect={() => state.insertIcon(name)}
+                    onSelect={() =>
+                      replacing
+                        ? state.replaceIcon(name)
+                        : state.insertIcon(name)
+                    }
                     title={name}
-                    className="flex aspect-square items-center justify-center rounded p-0 text-zinc-100 data-[selected=true]:bg-zinc-700 data-[selected=true]:text-white"
+                    className={cn(
+                      "flex aspect-square items-center justify-center rounded p-0 text-zinc-100 data-[selected=true]:bg-zinc-700 data-[selected=true]:text-white",
+                      // The glyph already on the canvas, ringed: picking it is a
+                      // no-op, and seeing which one it is beats guessing from a
+                      // grid of 200 near-identical outlines.
+                      name === replacing?.props.name && "ring-1 ring-zinc-500"
+                    )}
                   >
                     {/* `text-current` is load-bearing: the shared CommandItem
                         base paints any descendant svg WITHOUT a `text-*` class

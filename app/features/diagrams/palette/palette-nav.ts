@@ -9,6 +9,7 @@
 export type PageKey =
   | "root"
   | "icons"
+  | "replaceIcon"
   | "components"
   | "diagrams"
   | "nameComponent"

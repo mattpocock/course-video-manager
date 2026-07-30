@@ -5,25 +5,45 @@ import {
   ROOT_ACTIONS,
   matchesComponentName,
   visibleRootActions,
+  type PaletteSelection,
 } from "./palette-model";
+
+const NOTHING_SELECTED = { hasSelection: false, hasSingleIcon: false };
+const SOMETHING_SELECTED = { hasSelection: true, hasSingleIcon: false };
+const ONE_ICON_SELECTED = { hasSelection: true, hasSingleIcon: true };
+
+const idsFor = (selection: PaletteSelection) =>
+  visibleRootActions(selection).map((a) => a.id);
 
 describe("visibleRootActions", () => {
   it("offers `save selection as component` once something is selected", () => {
-    const ids = visibleRootActions({ hasSelection: true }).map((a) => a.id);
-    expect(ids).toContain("save-component");
+    expect(idsFor(SOMETHING_SELECTED)).toContain("save-component");
   });
 
   it("omits it entirely when nothing is selected, rather than disabling it", () => {
     // Absent, not greyed out: the list stays short and everything in it is
     // actionable.
-    const ids = visibleRootActions({ hasSelection: false }).map((a) => a.id);
-    expect(ids).not.toContain("save-component");
+    expect(idsFor(NOTHING_SELECTED)).not.toContain("save-component");
   });
 
-  it("hides nothing else when the selection is empty", () => {
-    const withSelection = visibleRootActions({ hasSelection: true });
-    const without = visibleRootActions({ hasSelection: false });
-    expect(without.length).toBe(withSelection.length - 1);
+  it("offers `replace icon` for a lone selected icon", () => {
+    expect(idsFor(ONE_ICON_SELECTED)).toContain("replace-icon");
+  });
+
+  it("omits `replace icon` for any other selection", () => {
+    // There is no unambiguous answer for two icons or a mixed selection, and
+    // none at all for a rectangle — so the row is absent, not a guess.
+    expect(idsFor(SOMETHING_SELECTED)).not.toContain("replace-icon");
+    expect(idsFor(NOTHING_SELECTED)).not.toContain("replace-icon");
+  });
+
+  it("hides nothing else as the selection narrows", () => {
+    expect(idsFor(NOTHING_SELECTED).length).toBe(
+      idsFor(SOMETHING_SELECTED).length - 1
+    );
+    expect(idsFor(SOMETHING_SELECTED).length).toBe(
+      idsFor(ONE_ICON_SELECTED).length - 1
+    );
   });
 });
 

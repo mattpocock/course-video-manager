@@ -16,6 +16,11 @@ import {
   quantiseIconSize,
 } from "@/features/diagrams/insert-onto-canvas";
 import {
+  replaceIconName,
+  singleSelectedIcon,
+} from "@/features/diagrams/replace-icon";
+import type { CvmIconShape } from "@/features/diagrams/cvm-icon-shape";
+import {
   ICON_RESULT_CAP,
   matchesComponentName,
   visibleRootActions,
@@ -84,6 +89,8 @@ export function usePalette(opts: {
   const page = currentPage(nav);
 
   const [hasSelection, setHasSelection] = useState(false);
+  /** The lone selected icon, if the selection is exactly that. */
+  const [selectedIcon, setSelectedIcon] = useState<CvmIconShape | null>(null);
   const [busy, setBusy] = useState(false);
 
   /** Esc / Backspace, routed through the reducer so closing stays its decision. */
@@ -115,7 +122,11 @@ export function usePalette(opts: {
     if (!open) return;
     dispatchNav({ type: "open" });
     setBusy(false);
-    setHasSelection((editorRef.current?.getSelectedShapeIds().length ?? 0) > 0);
+    // Read ONCE, on open: the palette is modal, so the canvas cannot change
+    // underneath it, and every page below decides what it offers from this.
+    const selected = editorRef.current?.getSelectedShapes() ?? [];
+    setHasSelection(selected.length > 0);
+    setSelectedIcon(singleSelectedIcon(selected));
   }, [open, editorRef]);
 
   // At `maxShapesPerPage`, `putContentOntoCurrentPage` bails SILENTLY — it
@@ -134,8 +145,8 @@ export function usePalette(opts: {
 
   // --- Root ----------------------------------------------------------------
   const rootActions = useMemo(
-    () => visibleRootActions({ hasSelection }),
-    [hasSelection]
+    () => visibleRootActions({ hasSelection, hasSingleIcon: !!selectedIcon }),
+    [hasSelection, selectedIcon]
   );
 
   const runAction = useCallback(
@@ -192,6 +203,24 @@ export function usePalette(opts: {
       if (landed) setOpen(false);
     },
     [editorRef]
+  );
+
+  const replaceIcon = useCallback(
+    (name: string) => {
+      const editor = editorRef.current;
+      if (!editor || !selectedIcon) return;
+
+      // No size, no point, no camera: the shape already has all of that, and
+      // keeping it is the entire reason this is not an insert.
+      if (!replaceIconName(editor, selectedIcon.id, name)) {
+        // Same rule as the insert paths — the palette stays up when the canvas
+        // did not change, rather than vanishing on a keypress that did nothing.
+        toast.error("That icon is no longer on the canvas");
+        return;
+      }
+      setOpen(false);
+    },
+    [editorRef, selectedIcon]
   );
 
   // --- Components ----------------------------------------------------------
@@ -442,6 +471,8 @@ export function usePalette(opts: {
     runAction,
     icons,
     insertIcon,
+    selectedIcon,
+    replaceIcon,
     components: filteredComponents,
     insertComponent,
     saveComponent,

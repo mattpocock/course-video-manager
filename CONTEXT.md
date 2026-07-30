@@ -240,12 +240,16 @@ A named, immutable fragment of a tldraw scene — captured from a selection on t
 _Avoid_: template, stencil, symbol, DiagramComponent (there is no such record on a Diagram), "saved selection"
 
 **Command Palette**:
-The `Cmd+K` modal inside the **Active Diagram** window — the single keyboard surface for inserting an **Icon** or a **Component**, saving a selection as a Component, searching all Diagrams by content, and mirroring the snapshot and diagram actions the surrounding chrome already offers. Invisible until summoned, so it survives tldraw Focus Mode (ADR 0004). Exists in the Active Diagram window only, never on **Playground Home**.
+The `Cmd+K` modal inside the **Active Diagram** window — the single keyboard surface for inserting an **Icon** or a **Component**, replacing a selected Icon, saving a selection as a Component, searching all Diagrams by content, and mirroring the snapshot and diagram actions the surrounding chrome already offers. Invisible until summoned, so it survives tldraw Focus Mode (ADR 0004). Exists in the Active Diagram window only, never on **Playground Home**.
 _Avoid_: Command bar, Quick actions, Spotlight, Omnibox
 
 **Icon**:
 A vector-native lucide glyph on a Diagram's canvas, stored as a `cvm-icon` shape carrying the icon's **name** and never its geometry. The geometry lives in a vendored, append-only table committed to the repo, so a Diagram renders its icons exactly as it did when it was filmed. An icon contributes its name to content search.
 _Avoid_: Glyph, Symbol, Image (icons are deliberately not assets — ADR 0003)
+
+**Replace Icon**:
+Pointing an **Icon** already on the canvas at a different glyph, from the **Command Palette** with exactly one Icon selected. Rewrites the shape's `name` and nothing else, so the size it was resized to, its position, rotation, colour, dash, parent frame and bound arrows all survive — the difference from inserting a second Icon and deleting the first. Absent from the palette for any other selection, since two Icons or a mixed selection has no unambiguous target.
+_Avoid_: Swap icon, Change icon, Edit icon (an Icon has no edit mode — `canEdit` is false)
 
 ### Video destinations
 
