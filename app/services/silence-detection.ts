@@ -42,11 +42,16 @@ export function getClipsOfSpeakingFromFFmpeg(
   for (const line of lines) {
     if (!line.includes("[silencedetect @")) continue;
 
-    const startMatch = line.match(/silence_start:\s*([\d.]+)/);
-    const endMatch = line.match(/silence_end:\s*([\d.]+)/);
+    // ffmpeg reports a slightly-negative silence_start (e.g. -0.000166667)
+    // whenever a file opens in silence, which every OBS recording does. The
+    // sign has to be inside the capture or the line fails to match at all, the
+    // leading silence period is dropped, and it merges with the first spoken
+    // take — losing the first clip of the recording.
+    const startMatch = line.match(/silence_start:\s*(-?[\d.]+)/);
+    const endMatch = line.match(/silence_end:\s*(-?[\d.]+)/);
 
     if (startMatch) {
-      currentSilenceStart = Number(startMatch[1]);
+      currentSilenceStart = Math.max(0, Number(startMatch[1]));
     }
 
     if (endMatch && currentSilenceStart !== null) {
