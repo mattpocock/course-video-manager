@@ -244,7 +244,7 @@ The `Cmd+K` modal inside the **Active Diagram** window — the single keyboard s
 _Avoid_: Command bar, Quick actions, Spotlight, Omnibox
 
 **Icon**:
-A vector-native lucide glyph on a Diagram's canvas, stored as a `cvm-icon` shape carrying the icon's **name** and never its geometry. The geometry lives in a vendored, append-only table committed to the repo, so a Diagram renders its icons exactly as it did when it was filmed. An icon contributes its name to content search.
+A vector-native lucide glyph on a Diagram's canvas, stored as a `cvm-icon` shape carrying the icon's **name** and never its geometry. The geometry lives in a vendored, append-only table committed to the repo, so a Diagram renders its icons exactly as it did when it was filmed. An icon contributes its name to content search. The icon picker sorts recently inserted names to the top of its results, ahead of every textual ranking except a name typed out in full — that history is per-browser (there is no record on an Icon to hang a last-used timestamp off, unlike a **Component**).
 _Avoid_: Glyph, Symbol, Image (icons are deliberately not assets — ADR 0003)
 
 ### Video destinations
