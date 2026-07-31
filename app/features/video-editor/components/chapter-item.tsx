@@ -68,7 +68,6 @@ export const ChapterItem = (props: {
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <ChapterDivider
-            id={`chapter-${props.chapter.frontendId}`}
             name={props.chapter.name}
             isSelected={isSelected}
             isCollapsed={props.isCollapsed}

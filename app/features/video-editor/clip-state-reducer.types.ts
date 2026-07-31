@@ -367,6 +367,11 @@ export type ClipReducerEffect =
       type: "archive-clips";
       clipIds: DatabaseId[];
     }
+  /**
+   * The editor's only viewport jump (#1483). Recording — and nothing else —
+   * fires it, so the timeline follows clips as they land while you narrate;
+   * every other action leaves you looking at wherever you already were.
+   */
   | {
       type: "scroll-to-insertion-point";
     }

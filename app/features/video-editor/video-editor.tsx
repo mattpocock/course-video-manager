@@ -456,22 +456,14 @@ export const VideoEditor = (props: {
       onUpdateCurrentTime: (time: number) => {
         dispatch({ type: "update-clip-current-time", time });
       },
-      onChapterClick: (chapterId: FrontendId, index: number) => {
+      // Selects the chapter, nothing more. The timeline deliberately stays put
+      // (#1483) — only recording moves the viewport, to the insertion point.
+      onChapterClick: (chapterId: FrontendId) => {
         dispatch({
           type: "click-clip",
           clipId: chapterId,
           ctrlKey: false,
           shiftKey: false,
-        });
-
-        requestAnimationFrame(() => {
-          const allChapters = document.querySelectorAll('[id^="chapter-"]');
-          if (allChapters[index]) {
-            allChapters[index].scrollIntoView({
-              behavior: "instant",
-              block: "center",
-            });
-          }
         });
       },
       onAddIntroChapter,

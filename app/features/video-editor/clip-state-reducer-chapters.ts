@@ -81,10 +81,6 @@ const handleAddChapter = (
     insertionPoint: state.insertionPoint,
   });
 
-  exec({
-    type: "scroll-to-insertion-point",
-  });
-
   return {
     ...state,
     items,

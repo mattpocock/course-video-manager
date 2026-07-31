@@ -604,4 +604,21 @@ describe("clipStateReducer", () => {
       });
     });
   });
+
+  describe("Adding a chapter does not move the viewport", () => {
+    // Only recording jumps the timeline to the insertion point (#1483) —
+    // adding a chapter by hand leaves you looking at what you were looking at.
+    it("Should not fire scroll-to-insertion-point", () => {
+      const tester = new ReducerTester(clipStateReducer, createInitialState());
+
+      tester.send({
+        type: "add-chapter",
+        name: "Section 1",
+      });
+
+      expect(tester.getExec()).not.toHaveBeenCalledWith({
+        type: "scroll-to-insertion-point",
+      });
+    });
+  });
 });
