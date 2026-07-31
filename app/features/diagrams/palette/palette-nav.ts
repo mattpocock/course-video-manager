@@ -30,8 +30,10 @@ export const INITIAL_NAV: PaletteNav = {
 };
 
 export type NavAction =
-  /** `page`, when given, is opened onto directly — the root stays beneath it. */
-  | { type: "open"; page?: PageKey }
+  /** Summoned to the root list. */
+  | { type: "open" }
+  /** Summoned straight onto a page, with the root left beneath it. */
+  | { type: "openAt"; page: PageKey }
   /** A row that opens a further page rather than firing immediately. */
   | { type: "push"; page: PageKey }
   | { type: "pop" }
@@ -55,14 +57,14 @@ export function navReducer(nav: PaletteNav, action: NavAction): NavResult {
     case "open":
       // Reset on every open, so the palette behaves the same way every time
       // regardless of what the last session did.
-      //
+      return { nav: INITIAL_NAV, close: false };
+
+    case "openAt":
       // A shortcut that opens onto a page (Ctrl+F → diagram search) stacks it
-      // ON the root rather than replacing it, so Esc backs out to the full
-      // command list exactly as it would have had the row been picked.
+      // ON the reset root rather than replacing it, so Esc backs out to the
+      // full command list exactly as it would have had the row been picked.
       return {
-        nav: action.page
-          ? { ...INITIAL_NAV, stack: [...INITIAL_NAV.stack, action.page] }
-          : INITIAL_NAV,
+        nav: { ...INITIAL_NAV, stack: [...INITIAL_NAV.stack, action.page] },
         close: false,
       };
 

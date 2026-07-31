@@ -35,7 +35,7 @@ import {
   type PageKey,
   type PaletteNav,
 } from "./palette-nav";
-import { matchPaletteShortcut } from "./palette-shortcuts";
+import { paletteKeyCommand } from "./palette-shortcuts";
 
 export type ComponentSummary = { id: string; name: string };
 
@@ -105,47 +105,48 @@ export function usePalette(opts: {
     [nav]
   );
 
-  // --- Shortcuts -----------------------------------------------------------
-  // The page a shortcut asked to land on, kept as state rather than passed
-  // straight to the reducer: the open effect below RESETS the nav, so a push
-  // issued here would be undone the moment the palette mounts.
-  const [openAtPage, setOpenAtPage] = useState<PageKey | null>(null);
+  /**
+   * Every summon runs through here, `page` and all — a call, not a piece of
+   * state reconciled by an effect. That distinction is the whole point: an
+   * effect keyed on "which page was asked for" does nothing at all when the
+   * answer has not changed, so Cmd+F pressed a second time (opened onto the
+   * search, Esc back to the root, Cmd+F again) would be a dead keypress.
+   */
+  const openPalette = useCallback(
+    (page: PageKey | null) => {
+      dispatchNav(page ? { type: "openAt", page } : { type: "open" });
+      setBusy(false);
+      // Read on every summon: the palette is modal, so the canvas cannot change
+      // underneath it, and every page below decides what it offers from this.
+      const selected = editorRef.current?.getSelectedShapes() ?? [];
+      setHasSelection(selected.length > 0);
+      setSelectedIcon(singleSelectedIcon(selected));
+      setOpen(true);
+    },
+    [editorRef]
+  );
 
+  /** Radix's handle on the dialog: a click away comes back through here. */
+  const onOpenChange = useCallback(
+    (next: boolean) => {
+      if (next) openPalette(null);
+      else setOpen(false);
+    },
+    [openPalette]
+  );
+
+  // --- Shortcuts -----------------------------------------------------------
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent) {
-      const shortcut = matchPaletteShortcut(e);
-      if (!shortcut) return;
+      const command = paletteKeyCommand(e, { isOpen: open });
+      if (!command) return;
       e.preventDefault();
-      if (shortcut.action === "toggle") {
-        setOpenAtPage(null);
-        setOpen((o) => !o);
-        return;
-      }
-      // Not a toggle: pressed with the palette already up, it should walk to
-      // the page rather than dismiss what the author just asked for.
-      setOpenAtPage(shortcut.page);
-      setOpen(true);
+      if (command.command === "close") setOpen(false);
+      else openPalette(command.page);
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    dispatchNav({ type: "open", page: openAtPage ?? undefined });
-    setBusy(false);
-    // Read ONCE, on open: the palette is modal, so the canvas cannot change
-    // underneath it, and every page below decides what it offers from this.
-    const selected = editorRef.current?.getSelectedShapes() ?? [];
-    setHasSelection(selected.length > 0);
-    setSelectedIcon(singleSelectedIcon(selected));
-  }, [open, openAtPage, editorRef]);
-
-  // Forgotten on close, so a plain `setOpen(true)` — a click-away then reopen,
-  // or any future opener — always means the root list.
-  useEffect(() => {
-    if (!open) setOpenAtPage(null);
-  }, [open]);
+  }, [open, openPalette]);
 
   // At `maxShapesPerPage`, `putContentOntoCurrentPage` bails SILENTLY — it
   // emits this event and returns. Without listening, an insert at the cap looks
@@ -494,7 +495,7 @@ export function usePalette(opts: {
 
   return {
     open,
-    setOpen,
+    onOpenChange,
     nav,
     page,
     dispatch: dispatchNav,

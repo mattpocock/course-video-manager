@@ -1,18 +1,18 @@
 /**
- * The palette's global keyboard shortcuts, as a pure matcher.
+ * The palette's global keyboard shortcuts, as a pure decision function.
  *
  * Extracted from the hook for the same reason the page stack is (see
  * `palette-nav`): a plain function is the only part of this the test suite can
- * reach.
+ * reach. The open/closed state comes in as an argument rather than being
+ * branched on in the hook, so "which key dismisses and which never does" is
+ * decided here, where it is tested.
  */
 
 import type { PageKey } from "./palette-nav";
 
-export type PaletteShortcut =
-  /** Summon or dismiss, whichever the palette is not already doing. */
-  | { action: "toggle" }
-  /** Summon it already standing on a page, skipping the root list. */
-  | { action: "openAt"; page: PageKey };
+export type PaletteCommand =
+  /** Summon it, standing on `page` — or on the root list when that is null. */
+  { command: "open"; page: PageKey | null } | { command: "close" };
 
 /** What the palette reads off a keydown — nothing React-specific. */
 type ShortcutEvent = { key: string; metaKey: boolean; ctrlKey: boolean };
@@ -23,17 +23,28 @@ type ShortcutEvent = { key: string; metaKey: boolean; ctrlKey: boolean };
  * never stopPropagations keydown, so a plain document listener is enough — and
  * it works identically in Focus Mode.
  *
- * Both take the browser's binding: Cmd/Ctrl+F is find-in-page, which on a
- * canvas of shapes can find nothing, and searching diagram contents is the
- * thing an author actually meant by it.
+ * Cmd/Ctrl+F takes the browser's binding: find-in-page can find nothing on a
+ * canvas of shapes, and searching Diagram contents is the thing an author
+ * actually meant by it.
  */
-export function matchPaletteShortcut(e: ShortcutEvent): PaletteShortcut | null {
+export function paletteKeyCommand(
+  e: ShortcutEvent,
+  palette: { isOpen: boolean }
+): PaletteCommand | null {
   if (!e.metaKey && !e.ctrlKey) return null;
   switch (e.key.toLowerCase()) {
     case "k":
-      return { action: "toggle" };
+      // The summon key is the dismiss key too.
+      return palette.isOpen
+        ? { command: "close" }
+        : { command: "open", page: null };
+
     case "f":
-      return { action: "openAt", page: "diagrams" };
+      // Never a toggle. Pressed with the palette already up — sitting on the
+      // root, or on whatever page the author has since walked to — it goes to
+      // the search rather than dismissing the thing just asked for.
+      return { command: "open", page: "diagrams" };
+
     default:
       return null;
   }

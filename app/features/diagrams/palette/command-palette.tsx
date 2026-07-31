@@ -98,7 +98,7 @@ export function CommandPalette({
   }, [state.rootActions]);
 
   return (
-    <Dialog open={state.open} onOpenChange={state.setOpen}>
+    <Dialog open={state.open} onOpenChange={state.onOpenChange}>
       <DialogContent
         showCloseButton={false}
         onEscapeKeyDown={blockRadixEscape}
