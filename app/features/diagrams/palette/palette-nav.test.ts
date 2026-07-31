@@ -28,6 +28,32 @@ describe("opening", () => {
     };
     expect(run([{ type: "open" }], dirty).nav).toEqual(INITIAL_NAV);
   });
+
+  it("can open straight onto a nested page", () => {
+    // Ctrl+F opens on the diagram search rather than on the root list.
+    expect(run([{ type: "open", page: "diagrams" }]).page).toBe("diagrams");
+  });
+
+  it("leaves the root underneath a page it opens onto", () => {
+    // So Esc backs out to the full command list, exactly as it would have if
+    // the page had been reached by picking the row.
+    const result = run([
+      { type: "open", page: "diagrams" },
+      { type: "escape" },
+    ]);
+    expect(result.page).toBe("root");
+    expect(result.close).toBe(false);
+  });
+
+  it("still clears a dirty query when opening onto a page", () => {
+    const dirty: PaletteNav = {
+      stack: ["root", "icons"],
+      query: "datab",
+      value: "database",
+    };
+    const { nav } = run([{ type: "open", page: "diagrams" }], dirty);
+    expect(nav).toEqual({ stack: ["root", "diagrams"], query: "", value: "" });
+  });
 });
 
 describe("push", () => {
