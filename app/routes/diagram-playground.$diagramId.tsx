@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { Tldraw, getSnapshot, loadSnapshot, type Editor } from "tldraw";
 import "tldraw/tldraw.css";
-import { ArrowLeft, Copy, Plus, Save, Trash2 } from "lucide-react";
+import { Save } from "lucide-react";
 import { ConnectionStatusIndicator } from "@/features/diagrams/connection-status-indicator";
 import { toast } from "sonner";
 import {
@@ -10,22 +10,17 @@ import {
   type ParentToChildMessage,
 } from "@/lib/diagram-protocol";
 import { RestoreSnapshotDialog } from "@/features/diagrams/restore-snapshot-dialog";
-import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { renderThumbnailPngBase64 } from "@/features/diagrams/render-thumbnail";
 import { usePreserveSnapshotShortcut } from "@/features/diagrams/preserve-snapshot-shortcut";
-import { EditableDiagramName } from "@/features/diagrams/editable-diagram-name";
+import { useSnapshotStepShortcut } from "@/features/diagrams/use-snapshot-step-shortcut";
+import { centreCameraOnContent } from "@/features/diagrams/centre-camera-on-content";
 import { copyDiagramContents } from "@/features/diagrams/copy-scene-to-clipboard";
 import {
   TimelinePanel,
   type Snapshot,
 } from "@/features/diagrams/timeline-panel";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { useParams, useNavigate, Link, useRevalidator } from "react-router";
+import { DiagramRail } from "@/features/diagrams/diagram-rail";
+import { useParams, useNavigate, useRevalidator } from "react-router";
 import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
 import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
@@ -113,6 +108,9 @@ export default function DiagramPlaygroundActive({
         const data = await res.json();
         if (data.headScene) {
           loadSnapshot(ed.store, { document: data.headScene });
+          // Covers the palette's search restore, which lands here via
+          // `reloadScene`, as well as opening or switching diagrams.
+          centreCameraOnContent(ed);
         } else {
           ed.deleteShapes([...ed.getCurrentPageShapeIds()]);
         }
@@ -145,6 +143,7 @@ export default function DiagramPlaygroundActive({
         saveTimer.current = null;
       }
       loadSnapshot(ed.store, { document: snapshot.scene as never });
+      centreCameraOnContent(ed);
       setRefreshKey((k) => k + 1);
     } catch {
       toast.error("Failed to restore snapshot");
@@ -209,6 +208,11 @@ export default function DiagramPlaygroundActive({
   }, [saveHead]);
 
   usePreserveSnapshotShortcut(diagramId ? preserveSnapshot : null);
+  useSnapshotStepShortcut({
+    diagramId,
+    flushPendingSave,
+    onRestoreRequest: handleRestoreRequest,
+  });
 
   // Emit activeDiagramChanged on mount
   useEffect(() => {
@@ -540,83 +544,15 @@ export default function DiagramPlaygroundActive({
               "flex min-h-0 flex-col " + (timelineVisible ? "h-1/2" : "flex-1")
             }
           >
-            <div className="flex items-stretch border-b border-zinc-700">
-              <button
-                onClick={handleNavigateHome}
-                className="flex flex-1 items-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
-              >
-                <ArrowLeft className="h-3 w-3" />
-                All Diagrams
-              </button>
-              <button
-                onClick={handleCreateDiagram}
-                disabled={creating}
-                title="New diagram"
-                aria-label="New diagram"
-                className="flex items-center justify-center border-l border-zinc-700 px-2 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              <div className="flex flex-col gap-1">
-                {diagrams.map((d) => {
-                  const isActive = d.id === diagramId;
-                  return (
-                    <ContextMenu key={d.id}>
-                      <ContextMenuTrigger asChild>
-                        <div
-                          className={
-                            "flex items-center gap-2 overflow-hidden rounded border border-zinc-700 " +
-                            (isActive
-                              ? "bg-zinc-700/60"
-                              : "bg-zinc-800 hover:bg-zinc-700/40")
-                          }
-                        >
-                          <Link
-                            to={`/diagram-playground/${d.id}`}
-                            className="h-10 w-14 shrink-0 bg-zinc-900"
-                            aria-label={`Open ${d.name}`}
-                          >
-                            <DiagramThumbnail
-                              diagramId={d.id}
-                              contentHash={d.thumbnailContentHash ?? undefined}
-                              className="h-full w-full object-contain"
-                            />
-                          </Link>
-                          <div className="min-w-0 flex-1 pr-2">
-                            <EditableDiagramName
-                              diagramId={d.id}
-                              name={d.name}
-                              className={
-                                "block w-full truncate text-sm " +
-                                (isActive ? "text-zinc-100" : "text-zinc-300")
-                              }
-                              inputClassName="w-full rounded bg-zinc-900 px-1 text-sm text-zinc-100 outline-none ring-1 ring-zinc-500"
-                            />
-                          </div>
-                        </div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent>
-                        <ContextMenuItem
-                          onSelect={() => handleCopyDiagramContents(d.id)}
-                        >
-                          <Copy />
-                          Copy contents
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          variant="destructive"
-                          onSelect={() => handleDeleteDiagram(d.id)}
-                        >
-                          <Trash2 />
-                          Delete
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  );
-                })}
-              </div>
-            </div>
+            <DiagramRail
+              diagrams={diagrams}
+              activeDiagramId={diagramId}
+              creating={creating}
+              onNavigateHome={handleNavigateHome}
+              onCreateDiagram={handleCreateDiagram}
+              onCopyContents={handleCopyDiagramContents}
+              onDelete={handleDeleteDiagram}
+            />
           </div>
         </div>
       )}

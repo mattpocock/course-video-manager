@@ -236,8 +236,12 @@ A **DiagramSnapshot** flagged to stay visible in its Diagram's timeline even wit
 _Avoid_: Manual snapshot, Saved snapshot, Standalone snapshot, Bookmark
 
 **Restore to Head**:
-Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog; see **Preserved Snapshot**). When triggered from the timeline's Restore button, the existing `RestoreSnapshotDialog` confirms the action. No-op when the head already matches the target snapshot.
+Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog; see **Preserved Snapshot**). When triggered from the timeline's Restore button or by a **Snapshot Step**, the existing `RestoreSnapshotDialog` confirms the action. Whichever route was taken, the camera is then centred on the restored content (never zoomed past 100%) — camera state is not persisted (ADR 0003), so without that the restore lands off-screen. No-op when the head already matches the target snapshot.
 _Avoid_: Revert, Roll back, Undo
+
+**Snapshot Step**:
+Moving one place along the Active Diagram's timeline with `Ctrl-[` (older) / `Ctrl-]` (newer), performing a **Restore to Head** on whatever it lands on. There is no stored cursor: position is read back off the head's content hash, so unsaved edits sit just past the newest snapshot (the first step back lands _on_ it), and consecutive snapshots holding identical content count as one place. Works in Focus Mode, where the timeline is hidden.
+_Avoid_: Undo/redo (this walks the timeline, not tldraw's history), Prev/next snapshot, Scrub
 
 **Component**:
 A named, immutable fragment of a tldraw scene — captured from a selection on the canvas and re-insertable into any Diagram via the command palette. Stored flat as the bare `TLContent` produced by `editor.getContentFromCurrentPage`, with a thumbnail and a last-used timestamp. Has no snapshot history, no lineage, and no relationship to any Diagram: capturing one copies the shapes out, and the source Diagram can change or be deleted without affecting it. Rename and delete are the only mutations; deletion is permanent.
