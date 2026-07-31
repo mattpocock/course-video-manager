@@ -114,7 +114,6 @@ export type VideoEditorContextType = {
   ) => void;
   onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
-  onChapterClick: (chapterId: FrontendId) => void;
   onAddIntroChapter: () => void;
   onOpenCreateChapterModal: () => void;
   onEditChapter: (chapterId: FrontendId, currentName: string) => void;

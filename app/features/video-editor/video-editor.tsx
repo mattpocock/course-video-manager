@@ -456,16 +456,6 @@ export const VideoEditor = (props: {
       onUpdateCurrentTime: (time: number) => {
         dispatch({ type: "update-clip-current-time", time });
       },
-      // Selects the chapter, nothing more. The timeline deliberately stays put
-      // (#1483) — only recording moves the viewport, to the insertion point.
-      onChapterClick: (chapterId: FrontendId) => {
-        dispatch({
-          type: "click-clip",
-          clipId: chapterId,
-          ctrlKey: false,
-          shiftKey: false,
-        });
-      },
       onAddIntroChapter,
       onOpenCreateChapterModal,
       onEditChapter,

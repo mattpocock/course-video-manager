@@ -13,9 +13,10 @@ export type TableOfContentsProps = {
 };
 
 /**
- * TableOfContents component displays a navigable list of chapters.
- * Clicking one selects it and shows which section is currently selected —
- * it does not scroll the timeline (#1483).
+ * TableOfContents displays a selectable list of chapters, highlighting whichever
+ * one is currently selected. Clicking a chapter selects it without scrolling the
+ * timeline — see the `scroll-to-insertion-point` effect for the editor's only
+ * viewport jump.
  */
 export function TableOfContents(props: TableOfContentsProps) {
   if (props.chapters.length === 0) return null;

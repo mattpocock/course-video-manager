@@ -606,16 +606,25 @@ describe("clipStateReducer", () => {
   });
 
   describe("Adding a chapter does not move the viewport", () => {
-    // Only recording jumps the timeline to the insertion point (#1483) —
-    // adding a chapter by hand leaves you looking at what you were looking at.
-    it("Should not fire scroll-to-insertion-point", () => {
+    it("Should add the chapter without firing scroll-to-insertion-point", () => {
       const tester = new ReducerTester(clipStateReducer, createInitialState());
 
-      tester.send({
-        type: "add-chapter",
-        name: "Section 1",
-      });
+      const state = tester
+        .send({
+          type: "add-chapter",
+          name: "Section 1",
+        })
+        .getState();
 
+      // Assert the chapter actually landed first — otherwise the negative
+      // assertion below would also pass if add-chapter stopped doing anything.
+      expect(state.items).toHaveLength(1);
+      expect(tester.getExec()).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "create-chapter", name: "Section 1" })
+      );
+
+      // Only recording jumps the timeline to the insertion point — adding a
+      // chapter by hand leaves you looking at what you were looking at.
       expect(tester.getExec()).not.toHaveBeenCalledWith({
         type: "scroll-to-insertion-point",
       });
