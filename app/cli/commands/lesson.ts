@@ -276,6 +276,16 @@ const updateTitle = Options.text("title").pipe(
   ),
   Options.optional
 );
+// The column is NOT NULL DEFAULT '', so there is no null to write back and no
+// need for a --clear-description flag: `--description ""` IS the clear, and the
+// reason this flag exists (a stale description you cannot otherwise blank from
+// the CLI). Hence no non-empty guard here, unlike --title.
+const updateDescription = Options.text("description").pipe(
+  Options.withDescription(
+    'The lesson\'s description (pass "" to clear a stale one).'
+  ),
+  Options.optional
+);
 const updateAuthoringStatus = Options.choice("authoring-status", [
   ...AUTHORING_STATUSES,
 ]).pipe(
@@ -288,16 +298,26 @@ const updateAuthoringStatus = Options.choice("authoring-status", [
 
 const updateCmd = Command.make(
   "update",
-  { id: updateId, title: updateTitle, authoringStatus: updateAuthoringStatus },
-  ({ id, title, authoringStatus }) =>
+  {
+    id: updateId,
+    title: updateTitle,
+    description: updateDescription,
+    authoringStatus: updateAuthoringStatus,
+  },
+  ({ id, title, description, authoringStatus }) =>
     withBackupCoordination(
       Effect.gen(function* () {
         const titleValue = Option.getOrUndefined(title);
+        const descriptionValue = Option.getOrUndefined(description);
         const statusValue = Option.getOrUndefined(authoringStatus);
 
-        if (titleValue === undefined && statusValue === undefined) {
+        if (
+          titleValue === undefined &&
+          descriptionValue === undefined &&
+          statusValue === undefined
+        ) {
           return yield* parseError(
-            "update needs at least one of --title or --authoring-status",
+            "update needs at least one of --title, --description or --authoring-status",
             "lesson"
           );
         }
@@ -319,6 +339,9 @@ const updateCmd = Command.make(
 
         yield* svc.updateLesson(id, {
           ...(titleValue !== undefined ? { title: titleValue } : {}),
+          ...(descriptionValue !== undefined
+            ? { description: descriptionValue }
+            : {}),
           ...(statusValue !== undefined
             ? { authoringStatus: statusValue }
             : {}),

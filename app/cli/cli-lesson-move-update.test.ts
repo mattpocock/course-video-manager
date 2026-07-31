@@ -38,6 +38,7 @@ interface Lesson {
   id: string;
   sectionId: string;
   title: string;
+  description: string;
   order: number;
   archived: boolean;
 }
@@ -212,6 +213,100 @@ describe("lesson update --title", () => {
       "lesson",
       "update",
       "--title",
+      "Nope",
+      s.publishedLessonId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stderr).toContain("ParseError");
+  });
+
+  it("rejects an update with no flags at all (exit 3)", async () => {
+    const { exitCode, stderr } = await run(["lesson", "update", s.a1]);
+    expect(exitCode).toBe(3);
+    expect(stderr).toContain("ParseError");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// update --description
+// ---------------------------------------------------------------------------
+
+describe("lesson update --description", () => {
+  it("writes the description and echoes the lesson", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "lesson",
+      "update",
+      "--description",
+      "What this lesson actually covers",
+      s.a1,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    const lesson = one<Lesson>(stdout);
+    expect(lesson.description).toBe("What this lesson actually covers");
+  });
+
+  // The whole point of the flag: the column is NOT NULL DEFAULT '', so blanking
+  // a stale description means writing "" — which must NOT be rejected the way
+  // an empty --title is.
+  it('clears a stale description with --description ""', async () => {
+    await run(["lesson", "update", "--description", "stale", s.a1]);
+
+    const { exitCode, stdout, stderr } = await run([
+      "lesson",
+      "update",
+      "--description",
+      "",
+      s.a1,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(one<Lesson>(stdout).description).toBe("");
+  });
+
+  it("leaves the title untouched (partial patch)", async () => {
+    const { stdout } = await run([
+      "lesson",
+      "update",
+      "--description",
+      "Just the description",
+      s.a1,
+    ]);
+    expect(one<Lesson>(stdout).title).toBe("A One");
+  });
+
+  it("patches title and description together", async () => {
+    const { stdout, exitCode } = await run([
+      "lesson",
+      "update",
+      "--title",
+      "Renamed",
+      "--description",
+      "And described",
+      s.a1,
+    ]);
+    expect(exitCode).toBe(0);
+    const lesson = one<Lesson>(stdout);
+    expect(lesson.title).toBe("Renamed");
+    expect(lesson.description).toBe("And described");
+  });
+
+  it("reports a missing lesson as not-found (exit 2)", async () => {
+    const { exitCode } = await run([
+      "lesson",
+      "update",
+      "--description",
+      "X",
+      "les_missing",
+    ]);
+    expect(exitCode).toBe(2);
+  });
+
+  it("refuses to edit a lesson in a published version (exit 3)", async () => {
+    const { exitCode, stderr } = await run([
+      "lesson",
+      "update",
+      "--description",
       "Nope",
       s.publishedLessonId,
     ]);

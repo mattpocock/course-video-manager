@@ -15,6 +15,9 @@ KEY FIELDS
   authoringStatus  Where a lesson sits in the authoring workflow: "todo"
                    (default for newly created lessons) or "done" (marked ready
                    in the UI).
+  description      Free-text description of the lesson. Never null — an absent
+                   description is the empty string, so clearing one means
+                   writing "".
   path             The lesson's slug/segment (often number-prefixed, e.g.
                    "01-intro"). Unique per section among non-archived lessons.
   title            Human-readable lesson title (may be empty; untitled lesson).
@@ -33,9 +36,9 @@ VERBS
   tree <id> [--depth N] Skeleton tree lesson -> videos -> clips.
   create --section <id> --title <t> [--before|--after <lessonId>]
                         Create a lesson in a Section (WRITE).
-  update <id> [--title <t>] [--authoring-status todo|done]
-                        Rename a lesson and/or set its authoring status (WRITE;
-                        slug unchanged).
+  update <id> [--title <t>] [--description <d>] [--authoring-status todo|done]
+                        Rename a lesson, rewrite its description and/or set its
+                        authoring status (WRITE; slug unchanged).
   move <id> [--section <id>] [--before|--after <lessonId>]
                         Reorder within a section, or re-home to another (WRITE).
   search <id> <query>   Substring search down this lesson's subtree
@@ -122,12 +125,19 @@ Examples:
   cvm lesson create --section sec_123 --title "Intro to Effect"
   cvm lesson create --section sec_123 --title "Setup" --before les_abc`;
 
-export const UPDATE_HELP = `Update a lesson by id. Change its display TITLE and/or its AUTHORING STATUS.
+export const UPDATE_HELP = `Update a lesson by id. Change its display TITLE, its DESCRIPTION and/or its
+AUTHORING STATUS.
 
-Flags (pass at least one — an update with neither is invalid input, exit 3):
+Flags (pass at least one — an update with none is invalid input, exit 3):
   --title <text>              new display title. The lesson's 'path' (its slug)
                               is deliberately left untouched, so renaming never
                               moves a URL. An empty title is invalid (exit 3).
+  --description <text>        replace the lesson's free-text description. The
+                              column is NOT NULL, so an empty description is
+                              "" rather than null — and that makes
+                              '--description ""' the way to CLEAR a stale
+                              description. Unlike --title, an empty (or
+                              whitespace-only) value is deliberately LEGAL here.
   --authoring-status <state>  set where the lesson sits in the authoring
                               workflow: "todo" (still needs work — the default
                               for newly created lessons) or "done" (marked
@@ -141,6 +151,8 @@ Echoes the updated lesson with its Section/Version/Repo hierarchy (as 'get').
 
 Examples:
   cvm lesson update les_abc --title "A clearer title"
+  cvm lesson update les_abc --description "What this lesson actually covers"
+  cvm lesson update les_abc --description ""          # clear a stale description
   cvm lesson update les_abc --authoring-status done
   cvm lesson update les_abc --authoring-status todo
   cvm lesson update les_abc --title "Setup" --authoring-status todo`;
