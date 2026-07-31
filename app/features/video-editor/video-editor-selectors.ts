@@ -127,6 +127,18 @@ export const getClips = (items: TimelineItem[]): Clip[] => {
   return items.filter(isClip);
 };
 
+/**
+ * How many clips a Copy Video would actually duplicate: the ones that exist on
+ * the database and aren't on their way to the archive. Clips from an in-flight
+ * recording have no row yet, and archived clips are skipped by copyVideo — so
+ * counting raw timeline items would over-promise in the Copy Video modal.
+ */
+export const getCopyableClipCount = (items: TimelineItem[]): number => {
+  return items.filter(
+    (item) => item.type === "on-database" && !item.shouldArchive
+  ).length;
+};
+
 export const getCurrentClipIndex = (
   clips: Clip[],
   currentClipId: FrontendId | undefined

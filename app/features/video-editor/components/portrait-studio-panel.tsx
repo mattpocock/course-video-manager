@@ -142,6 +142,10 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.setIsRenameVideoModalOpen
   );
+  const setIsCopyVideoModalOpen = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.setIsCopyVideoModalOpen
+  );
   const revealVideoFetcher = useFetcher();
 
   const [isPostingModalOpen, setIsPostingModalOpen] = useState(false);
@@ -289,6 +293,7 @@ export const PortraitStudioPanel = () => {
             isChaptersCopied={isChaptersCopied}
             copyYoutubeChaptersToClipboard={copyYoutubeChaptersToClipboard}
             onRenameVideoClick={() => setIsRenameVideoModalOpen(true)}
+            onCopyVideoClick={() => setIsCopyVideoModalOpen(true)}
             onRevealInFileSystem={
               exportFileExists
                 ? () => {

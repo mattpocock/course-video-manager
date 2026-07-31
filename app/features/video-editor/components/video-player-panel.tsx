@@ -232,6 +232,10 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.setIsRenameVideoModalOpen
   );
+  const setIsCopyVideoModalOpen = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.setIsCopyVideoModalOpen
+  );
   const items = useContextSelector(VideoEditorContext, (ctx) => ctx.items);
   const fsData = useContextSelector(VideoEditorContext, (ctx) => ctx.fsData);
   const selectedClipsSet = useContextSelector(
@@ -482,6 +486,7 @@ export const VideoPlayerPanel = () => {
               copyYoutubeChaptersToClipboard={copyYoutubeChaptersToClipboard}
               onAddVideoClick={() => setIsAddVideoModalOpen(true)}
               onRenameVideoClick={() => setIsRenameVideoModalOpen(true)}
+              onCopyVideoClick={() => setIsCopyVideoModalOpen(true)}
               onRevealInFileSystem={
                 exportFileExists
                   ? () => {

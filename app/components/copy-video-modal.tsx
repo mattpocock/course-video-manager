@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useVideoCopyOptions } from "@/features/video-editor/hooks/use-video-copy-options";
 import { Loader2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 export function CopyVideoModal(props: {
@@ -22,8 +22,15 @@ export function CopyVideoModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCopy?: () => void;
+  /**
+   * Called once the copy has landed, with the new video's id. Lets a surface
+   * that is *showing* the source video (the editor) follow the user onto the
+   * copy — the tree views, which show the new video where it lands, don't need
+   * it.
+   */
+  onCopied?: (newVideoId: string) => void;
 }) {
-  const fetcher = useFetcher();
+  const fetcher = useFetcher<{ success: boolean; newVideoId: string }>();
   const [options, setOptions] = useVideoCopyOptions();
   const copyClipsDisabled = props.clipCount === 0;
   const copyBeatsDisabled = props.beatCount === 0;
@@ -40,6 +47,18 @@ export function CopyVideoModal(props: {
   copyClipsRef.current = copyClipsChecked;
   const copyBeatsRef = useRef(copyBeatsChecked);
   copyBeatsRef.current = copyBeatsChecked;
+
+  // The action's response only reaches us through fetcher.data, so report it in
+  // an effect — and only once per copy, since onCopied's identity is the
+  // caller's business.
+  const onCopied = props.onCopied;
+  const reportedVideoIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const newVideoId = fetcher.data?.newVideoId;
+    if (!newVideoId || reportedVideoIdRef.current === newVideoId) return;
+    reportedVideoIdRef.current = newVideoId;
+    onCopied?.(newVideoId);
+  }, [fetcher.data, onCopied]);
 
   const [renameOld, setRenameOld] = useState(options.renameOld);
   const [nameEdited, setNameEdited] = useState(false);

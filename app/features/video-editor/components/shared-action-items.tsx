@@ -12,6 +12,7 @@ import {
 import {
   CheckIcon,
   CopyIcon,
+  CopyPlusIcon,
   FolderOpen,
   PencilLineIcon,
   ScrollTextIcon,
@@ -101,6 +102,18 @@ export const RenameVideoItem = (props: { onRenameVideoClick: () => void }) => (
       <span className="font-medium">Rename Video</span>
       <span className="text-xs text-muted-foreground">
         Change the video name
+      </span>
+    </div>
+  </DropdownMenuItem>
+);
+
+export const CopyVideoItem = (props: { onCopyVideoClick: () => void }) => (
+  <DropdownMenuItem onSelect={props.onCopyVideoClick}>
+    <CopyPlusIcon className="w-4 h-4 mr-2" />
+    <div className="flex flex-col">
+      <span className="font-medium">Copy Video</span>
+      <span className="text-xs text-muted-foreground">
+        Duplicate this video, then edit the copy
       </span>
     </div>
   </DropdownMenuItem>

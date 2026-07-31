@@ -35,6 +35,7 @@ import type { ReferenceCandidate } from "./reference-panel";
 import { type FetcherWithComponents, useNavigate } from "react-router";
 import {
   CopySubmenu,
+  CopyVideoItem,
   RenameVideoItem,
   RevealInFileSystemItem,
 } from "./shared-action-items";
@@ -68,6 +69,8 @@ export const ActionsDropdown = (props: {
   onAddVideoClick: () => void;
   /** Callback to open "Rename Video" modal */
   onRenameVideoClick: () => void;
+  /** Callback to open "Copy Video" modal */
+  onCopyVideoClick: () => void;
   /** Callback to reveal video in file system (hidden when no exported file) */
   onRevealInFileSystem?: () => void;
   /** Callback to open repo in VS Code (hidden when no repo) */
@@ -322,6 +325,8 @@ export const ActionsDropdown = (props: {
         <DropdownMenuSeparator />
 
         <RenameVideoItem onRenameVideoClick={props.onRenameVideoClick} />
+
+        <CopyVideoItem onCopyVideoClick={props.onCopyVideoClick} />
 
         {props.onRevealInFileSystem && (
           <RevealInFileSystemItem

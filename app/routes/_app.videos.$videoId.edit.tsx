@@ -117,7 +117,16 @@ export const loader = makeLoader({
       const sortedItems = sortByOrder([...clipItems, ...chapterItems]);
 
       const lesson = video.lesson;
-      const { clips: _clips, chapters: _chapters, ...slimVideo } = video;
+      // The script itself is loaded on demand by the Script tab — the editor
+      // only needs to know one exists (to enable the Copy Video modal's "Copy
+      // script"), and script text can be long.
+      const {
+        clips: _clips,
+        chapters: _chapters,
+        script,
+        ...slimVideo
+      } = video;
+      const hasScript = script != null && script !== "";
 
       const whiteNoiseAssetPath = path.join(
         process.cwd(),
@@ -132,6 +141,7 @@ export const loader = makeLoader({
 
       return {
         video: slimVideo,
+        hasScript,
         items: sortedItems,
         waveformData: undefined,
         videoCount: lesson?.videos.length ?? 1,
@@ -443,6 +453,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       videoCount={props.loaderData.videoCount}
       referenceCandidates={props.loaderData.referenceCandidates}
       beats={props.loaderData.beats}
+      hasScript={props.loaderData.hasScript}
       onAddReferenceChapterAt={({
         videoId,
         targetItemId,

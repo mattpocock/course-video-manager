@@ -14,6 +14,7 @@ import {
 import { ChevronDown, DownloadIcon, FilmIcon, SendIcon } from "lucide-react";
 import {
   CopySubmenu,
+  CopyVideoItem,
   RenameVideoItem,
   RevealInFileSystemItem,
 } from "./shared-action-items";
@@ -33,6 +34,7 @@ export const StudioActionsDropdown = (props: {
   isChaptersCopied: boolean;
   copyYoutubeChaptersToClipboard: () => void;
   onRenameVideoClick: () => void;
+  onCopyVideoClick: () => void;
   onRevealInFileSystem?: () => void;
   isLogPathCopied: boolean;
   copyLogPathToClipboard: () => void;
@@ -137,6 +139,8 @@ export const StudioActionsDropdown = (props: {
         <DropdownMenuSeparator />
 
         <RenameVideoItem onRenameVideoClick={props.onRenameVideoClick} />
+
+        <CopyVideoItem onCopyVideoClick={props.onCopyVideoClick} />
 
         {props.onRevealInFileSystem && (
           <RevealInFileSystemItem

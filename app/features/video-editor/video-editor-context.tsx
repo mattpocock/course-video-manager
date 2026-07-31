@@ -138,6 +138,8 @@ export type VideoEditorContextType = {
   onAddNoteFromClipboard: () => void;
   isRenameVideoModalOpen: boolean;
   setIsRenameVideoModalOpen: (value: boolean) => void;
+  isCopyVideoModalOpen: boolean;
+  setIsCopyVideoModalOpen: (value: boolean) => void;
   isCreateVideoModalOpen: boolean;
   setIsCreateVideoModalOpen: (value: boolean) => void;
 
