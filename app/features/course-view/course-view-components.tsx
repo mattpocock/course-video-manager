@@ -483,6 +483,8 @@ export function RouteModals({
           onCopy={() => {
             dispatch({ type: "close-copy-video" });
           }}
+          // The tree already shows the new video where it lands, so stay put.
+          redirectTo={null}
         />
       )}
 

@@ -66,7 +66,6 @@ import {
   getAllClipsHaveText,
   getClipComputedProps,
   getAreAnyClipsDangerous,
-  getCopyableClipCount,
   isCaptureInProgress,
 } from "./video-editor-selectors";
 
@@ -158,14 +157,10 @@ export const VideoEditor = (props: {
     [props.items]
   );
 
-  // Derive clips from timeline items for playback, timecodes, etc.
+  // Derive clips from timeline items for playback, timecodes, etc. This is also
+  // exactly what a Copy Video duplicates — clips on the database that aren't on
+  // their way to the archive — so its length is what the Copy Video modal shows.
   const clips = useMemo(() => timelineItems.filter(isClip), [timelineItems]);
-
-  // What a Copy Video would actually duplicate — shown in the Copy Video modal.
-  const copyableClipCount = useMemo(
-    () => getCopyableClipCount(props.items),
-    [props.items]
-  );
 
   // Derive session panel data for RecordingSessionPanel components
   const sessionPanels = useMemo(
@@ -600,25 +595,13 @@ export const VideoEditor = (props: {
 
   const modals = (
     <EditorModals
-      videoId={props.videoId}
-      videoTitle={props.videoTitle}
-      fsData={props.fsData}
       chapterNamingModal={chapterNamingModal}
       onCloseChapterNamingModal={() => setChapterNamingModal(null)}
-      onAddChapter={props.onAddChapter}
-      onUpdateChapter={props.onUpdateChapter}
-      onAddChapterAt={props.onAddChapterAt}
       isPasteModalOpen={isPasteModalOpen}
       setIsPasteModalOpen={setIsPasteModalOpen}
-      isRenameVideoModalOpen={isRenameVideoModalOpen}
-      setIsRenameVideoModalOpen={setIsRenameVideoModalOpen}
-      isCopyVideoModalOpen={isCopyVideoModalOpen}
-      setIsCopyVideoModalOpen={setIsCopyVideoModalOpen}
-      copyableClipCount={copyableClipCount}
+      clipCount={clips.length}
       beatCount={props.beats.length}
       hasScript={props.hasScript}
-      isCreateVideoModalOpen={isCreateVideoModalOpen}
-      setIsCreateVideoModalOpen={setIsCreateVideoModalOpen}
       onCreateVideoFromSelection={handleCreateVideoFromSelection}
       generateChaptersModal={generateChaptersModal}
     />
