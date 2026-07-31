@@ -85,16 +85,18 @@ function distinctStops(snapshots: readonly Snapshot[]): Snapshot[] {
  *
  * @param snapshots Oldest first, as `/api/diagrams/:id/snapshots/list` returns.
  * @param headContentHash The head's hash; `null` when the diagram has no head.
- * @param lastVisitedId The snapshot the last step landed on, used only to break
- *   ties when the same content appears twice in the timeline. Ignored the
- *   moment the head no longer holds that content — an edit, or a dismissed
- *   confirmation, invalidates it automatically.
+ * @param lastVisitedId The snapshot the last step landed on, or `null` before
+ *   the first step of a run. Used only to break ties when the same content
+ *   appears twice in the timeline, and ignored the moment the head no longer
+ *   holds that content — an edit, or a dismissed confirmation, invalidates it
+ *   automatically. Required rather than optional: forgetting to thread it
+ *   through silently strands the author on a repeated state.
  */
 export function snapshotAtStep(
   snapshots: readonly Snapshot[],
   headContentHash: string | null,
   step: SnapshotStep,
-  lastVisitedId?: string | null
+  lastVisitedId: string | null
 ): Snapshot | null {
   const stops = distinctStops(snapshots);
 

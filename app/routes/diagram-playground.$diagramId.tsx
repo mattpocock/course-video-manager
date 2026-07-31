@@ -150,15 +150,18 @@ export default function DiagramPlaygroundActive({
     }
   }, []);
 
+  // Returns a promise that settles when the head has moved, so a caller
+  // stepping through the timeline can wait for one restore before aiming the
+  // next. The dialog branch settles immediately — it hands control to the
+  // dialog, which owns the keyboard until it is answered.
   const handleRestoreRequest = useCallback(
-    (snapshot: Snapshot, headIsPreserved: boolean) => {
+    (snapshot: Snapshot, headIsPreserved: boolean): Promise<void> | void => {
       const ed = editorRef.current;
       const canvasIsEmpty = ed ? ed.getCurrentPageShapeIds().size === 0 : false;
       if (headIsPreserved || canvasIsEmpty) {
-        performRestore(snapshot);
-      } else {
-        setPendingRestore(snapshot);
+        return performRestore(snapshot);
       }
+      setPendingRestore(snapshot);
     },
     [performRestore]
   );

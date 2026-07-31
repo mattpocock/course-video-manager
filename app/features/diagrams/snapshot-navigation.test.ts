@@ -16,6 +16,16 @@ const snapshot = (over: Partial<Snapshot>): Snapshot => ({
   ...over,
 });
 
+const chord = (over: Partial<Parameters<typeof snapshotStepFromKey>[0]>) =>
+  snapshotStepFromKey({
+    key: "[",
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    ...over,
+  });
+
 /** Oldest first, matching `/api/diagrams/:id/snapshots/list`. */
 const timeline = [
   snapshot({ id: "a", contentHash: "h1" }),
@@ -24,118 +34,53 @@ const timeline = [
 ];
 
 describe("snapshotStepFromKey", () => {
-  it("reads Ctrl-[ as a step towards older snapshots", () => {
-    expect(
-      snapshotStepFromKey({
-        key: "[",
-        ctrlKey: true,
-        metaKey: false,
-        altKey: false,
-        shiftKey: false,
-      })
-    ).toBe("older");
-  });
-
-  it("reads Ctrl-] as a step towards newer snapshots", () => {
-    expect(
-      snapshotStepFromKey({
-        key: "]",
-        ctrlKey: true,
-        metaKey: false,
-        altKey: false,
-        shiftKey: false,
-      })
-    ).toBe("newer");
+  it("steps older on Ctrl-[ and newer on Ctrl-]", () => {
+    expect(chord({ key: "[", ctrlKey: true })).toBe("older");
+    expect(chord({ key: "]", ctrlKey: true })).toBe("newer");
   });
 
   it("accepts Cmd as well as Ctrl, like every other playground shortcut", () => {
-    expect(
-      snapshotStepFromKey({
-        key: "]",
-        ctrlKey: false,
-        metaKey: true,
-        altKey: false,
-        shiftKey: false,
-      })
-    ).toBe("newer");
+    expect(chord({ key: "]", metaKey: true })).toBe("newer");
   });
 
-  it("ignores an unmodified bracket, which is just typing", () => {
-    expect(
-      snapshotStepFromKey({
-        key: "[",
-        ctrlKey: false,
-        metaKey: false,
-        altKey: false,
-        shiftKey: false,
-      })
-    ).toBe(null);
-  });
-
-  it("ignores brackets with extra modifiers", () => {
-    // Ctrl-Shift-[ is a different chord; claiming it would shadow whatever
-    // tldraw or the browser binds there.
-    expect(
-      snapshotStepFromKey({
-        key: "[",
-        ctrlKey: true,
-        metaKey: false,
-        altKey: false,
-        shiftKey: true,
-      })
-    ).toBe(null);
-    expect(
-      snapshotStepFromKey({
-        key: "[",
-        ctrlKey: true,
-        metaKey: false,
-        altKey: true,
-        shiftKey: false,
-      })
-    ).toBe(null);
-  });
-
-  it("ignores other keys", () => {
-    expect(
-      snapshotStepFromKey({
-        key: "k",
-        ctrlKey: true,
-        metaKey: false,
-        altKey: false,
-        shiftKey: false,
-      })
-    ).toBe(null);
+  it("leaves any other bracket chord alone", () => {
+    // An unmodified bracket is just typing, and Ctrl-Shift-[ / Ctrl-Alt-[ are
+    // different chords — claiming them would shadow whatever tldraw or the
+    // browser binds there.
+    expect(chord({})).toBe(null);
+    expect(chord({ ctrlKey: true, shiftKey: true })).toBe(null);
+    expect(chord({ ctrlKey: true, altKey: true })).toBe(null);
   });
 });
 
 describe("snapshotAtStep", () => {
   it("steps back one snapshot from the state the head already holds", () => {
-    expect(snapshotAtStep(timeline, "h3", "older")?.id).toBe("b");
+    expect(snapshotAtStep(timeline, "h3", "older", null)?.id).toBe("b");
   });
 
   it("steps forward one snapshot", () => {
-    expect(snapshotAtStep(timeline, "h1", "newer")?.id).toBe("b");
+    expect(snapshotAtStep(timeline, "h1", "newer", null)?.id).toBe("b");
   });
 
   it("treats an unsaved head as sitting past the newest snapshot", () => {
     // Edits since the last snapshot are not on the timeline at all, so the
     // first step back lands on the newest snapshot rather than skipping it.
-    expect(snapshotAtStep(timeline, "unsaved", "older")?.id).toBe("c");
-    expect(snapshotAtStep(timeline, "unsaved", "newer")).toBe(null);
+    expect(snapshotAtStep(timeline, "unsaved", "older", null)?.id).toBe("c");
+    expect(snapshotAtStep(timeline, "unsaved", "newer", null)).toBe(null);
   });
 
   it("stops at the ends instead of wrapping", () => {
-    expect(snapshotAtStep(timeline, "h1", "older")).toBe(null);
-    expect(snapshotAtStep(timeline, "h3", "newer")).toBe(null);
+    expect(snapshotAtStep(timeline, "h1", "older", null)).toBe(null);
+    expect(snapshotAtStep(timeline, "h3", "newer", null)).toBe(null);
   });
 
   it("has nowhere to go on an empty timeline", () => {
-    expect(snapshotAtStep([], null, "older")).toBe(null);
-    expect(snapshotAtStep([], null, "newer")).toBe(null);
+    expect(snapshotAtStep([], null, "older", null)).toBe(null);
+    expect(snapshotAtStep([], null, "newer", null)).toBe(null);
   });
 
   it("treats a head with no content hash as unsaved", () => {
-    expect(snapshotAtStep(timeline, null, "older")?.id).toBe("c");
+    expect(snapshotAtStep(timeline, null, "older", null)?.id).toBe("c");
   });
 
   it("skips over a neighbour holding identical content", () => {
@@ -150,9 +95,9 @@ describe("snapshotAtStep", () => {
       snapshot({ id: "b2", contentHash: "h2" }),
       snapshot({ id: "c", contentHash: "h3" }),
     ];
-    expect(snapshotAtStep(withDuplicate, "h3", "older")?.id).toBe("b2");
-    expect(snapshotAtStep(withDuplicate, "h2", "older")?.id).toBe("a");
-    expect(snapshotAtStep(withDuplicate, "h1", "newer")?.id).toBe("b2");
+    expect(snapshotAtStep(withDuplicate, "h3", "older", null)?.id).toBe("b2");
+    expect(snapshotAtStep(withDuplicate, "h2", "older", null)?.id).toBe("a");
+    expect(snapshotAtStep(withDuplicate, "h1", "newer", null)?.id).toBe("b2");
   });
 
   it("uses the last-visited snapshot to break ties between equal hashes", () => {
@@ -164,7 +109,7 @@ describe("snapshotAtStep", () => {
       snapshot({ id: "b", contentHash: "h2" }),
       snapshot({ id: "c", contentHash: "h1" }),
     ];
-    expect(snapshotAtStep(revisited, "h1", "older")).toBe(null);
+    expect(snapshotAtStep(revisited, "h1", "older", null)).toBe(null);
     expect(snapshotAtStep(revisited, "h1", "older", "c")?.id).toBe("b");
   });
 
@@ -173,13 +118,20 @@ describe("snapshotAtStep", () => {
     // between steps; a hint only counts while the head still holds its content.
     expect(snapshotAtStep(timeline, "h1", "older", "c")).toBe(null);
   });
+
+  it("ignores a hint naming a snapshot that is no longer on the timeline", () => {
+    // Non-preserved snapshots vanish when the Clips pinning them are archived,
+    // so a run of steps can outlive the stop it last landed on.
+    expect(snapshotAtStep(timeline, "h3", "older", "gone")?.id).toBe("b");
+  });
 });
 
 describe("isTextEntryTarget", () => {
-  it("is false for the canvas itself", () => {
+  it("is false for the canvas, and for no target at all", () => {
     expect(isTextEntryTarget({ tagName: "DIV", closest: () => null })).toBe(
       false
     );
+    expect(isTextEntryTarget(null)).toBe(false);
   });
 
   it("is true inside a text field", () => {
@@ -208,9 +160,5 @@ describe("isTextEntryTarget", () => {
     expect(isTextEntryTarget({ tagName: "DIV", closest: () => ({}) })).toBe(
       true
     );
-  });
-
-  it("is false when there is no target at all", () => {
-    expect(isTextEntryTarget(null)).toBe(false);
   });
 });

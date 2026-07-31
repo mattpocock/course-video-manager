@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { copySceneToClipboard } from "@/features/diagrams/copy-scene-to-clipboard";
 import {
+  fetchSnapshotList,
   isHeadPreserved,
   type Snapshot,
-  type SnapshotListResponse,
 } from "@/features/diagrams/snapshot-list";
 
 export type { Snapshot };
@@ -29,19 +29,14 @@ export function TimelinePanel({
   const fetchSnapshots = useCallback(() => {
     let cancelled = false;
 
-    fetch(`/api/diagrams/${diagramId}/snapshots/list`)
-      .then((res) =>
-        res.ok ? (res.json() as Promise<SnapshotListResponse>) : null
-      )
-      .then((data) => {
-        if (cancelled || !data) return;
+    fetchSnapshotList(diagramId).then((data) => {
+      if (cancelled) return;
+      if (data) {
         setSnapshots(data.snapshots);
         setHeadContentHash(data.headContentHash);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setHasLoadedOnce(true);
-      });
+      }
+      setHasLoadedOnce(true);
+    });
 
     return () => {
       cancelled = true;

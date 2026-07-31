@@ -7,12 +7,13 @@ import { centreCameraOnContent } from "./centre-camera-on-content";
  * call matters here, so the fake records it rather than simulating it.
  */
 function fakeEditor(
-  bounds: { x: number; y: number; w: number; h: number } | undefined
+  bounds: { x: number; y: number; w: number; h: number } | undefined,
+  baseZoom = 1
 ) {
   const calls: Array<{ bounds: unknown; opts: unknown }> = [];
   const editor = {
     getCurrentPageBounds: () => bounds,
-    getBaseZoom: () => 1,
+    getBaseZoom: () => baseZoom,
     zoomToBounds: (b: unknown, opts: unknown) => {
       calls.push({ bounds: b, opts });
     },
@@ -28,12 +29,14 @@ describe("centreCameraOnContent", () => {
     expect(calls[0]!.bounds).toEqual({ x: 100, y: 200, w: 400, h: 300 });
   });
 
-  it("never zooms in past 100%", () => {
+  it("never zooms in past the editor's own 100%", () => {
     // `targetZoom` is a cap in tldraw, not a target: a big diagram still zooms
-    // out to fit, but a single small shape does not fill the screen at 8x.
-    const { editor, calls } = fakeEditor({ x: 0, y: 0, w: 10, h: 10 });
+    // out to fit, but a single small shape does not fill the screen at 8x. The
+    // cap is whatever this editor calls 100% — not a hardcoded 1, which camera
+    // constraints can move.
+    const { editor, calls } = fakeEditor({ x: 0, y: 0, w: 10, h: 10 }, 2);
     centreCameraOnContent(editor);
-    expect(calls[0]!.opts).toMatchObject({ targetZoom: 1 });
+    expect(calls[0]!.opts).toMatchObject({ targetZoom: 2 });
   });
 
   it("leaves the camera alone when the page is empty", () => {

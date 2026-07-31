@@ -1,12 +1,12 @@
 /**
- * The shape of `/api/diagrams/:id/snapshots/list`, and the one derivation both
- * readers of it need.
+ * The shape of `/api/diagrams/:id/snapshots/list`, how to read it, and the one
+ * derivation every reader needs.
  *
- * Two surfaces consume that endpoint: the right-rail timeline, and the command
- * palette's "Restore to head". They must agree on what "the head is already
- * preserved" means, because that flag decides whether restoring shows a
- * confirmation dialog — a disagreement would silently lose work from one route
- * and not the other.
+ * Three surfaces consume that endpoint: the right-rail timeline, the command
+ * palette's "Restore to head", and a **Snapshot Step**. They must agree on what
+ * "the head is already preserved" means, because that flag decides whether
+ * restoring shows a confirmation dialog — a disagreement would silently lose
+ * work from one route and not the other.
  */
 
 export interface Snapshot {
@@ -22,6 +22,26 @@ export interface SnapshotListResponse {
   /** Oldest first. */
   snapshots: Snapshot[];
   headContentHash: string | null;
+}
+
+/**
+ * Read the timeline, or `null` if it could not be read.
+ *
+ * A refused response and a dead network are the same thing to every caller —
+ * there is no timeline to act on — so they collapse into one absent value
+ * instead of two branches each caller has to remember to write. Callers own the
+ * message, since "no timeline" reads differently in each surface.
+ */
+export async function fetchSnapshotList(
+  diagramId: string
+): Promise<SnapshotListResponse | null> {
+  try {
+    const res = await fetch(`/api/diagrams/${diagramId}/snapshots/list`);
+    if (!res.ok) return null;
+    return (await res.json()) as SnapshotListResponse;
+  } catch {
+    return null;
+  }
 }
 
 /**

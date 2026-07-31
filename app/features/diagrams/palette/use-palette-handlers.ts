@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 import { useNavigate, useRevalidator } from "react-router";
 import {
+  fetchSnapshotList,
   isHeadPreserved,
   type Snapshot,
-  type SnapshotListResponse,
 } from "@/features/diagrams/snapshot-list";
 import type { PaletteHandlers } from "./use-palette";
 
@@ -49,27 +49,22 @@ export function usePaletteHandlers(opts: {
         // timeline performs, on the newest snapshot, and through the same
         // handler, so the confirm dialog still appears when the head is not
         // already preserved.
-        try {
-          const res = await fetch(`/api/diagrams/${diagramId}/snapshots/list`);
-          if (!res.ok) {
-            toast.error("Failed to load snapshots");
-            return;
-          }
-          const data = (await res.json()) as SnapshotListResponse;
-          // The list comes back oldest-first.
-          const newest: Snapshot | undefined =
-            data.snapshots?.[data.snapshots.length - 1];
-          if (!newest) {
-            toast.error("No snapshots to restore");
-            return;
-          }
-          handleRestoreRequest(
-            newest,
-            isHeadPreserved(data.snapshots, data.headContentHash)
-          );
-        } catch {
+        const data = await fetchSnapshotList(diagramId);
+        if (!data) {
           toast.error("Failed to load snapshots");
+          return;
         }
+        // The list comes back oldest-first.
+        const newest: Snapshot | undefined =
+          data.snapshots?.[data.snapshots.length - 1];
+        if (!newest) {
+          toast.error("No snapshots to restore");
+          return;
+        }
+        handleRestoreRequest(
+          newest,
+          isHeadPreserved(data.snapshots, data.headContentHash)
+        );
       },
 
       onCopyContents: () => handleCopyDiagramContents(diagramId),

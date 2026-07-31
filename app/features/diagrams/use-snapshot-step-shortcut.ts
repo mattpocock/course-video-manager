@@ -1,17 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import {
-  isHeadPreserved,
+  fetchSnapshotList,
   type Snapshot,
-  type SnapshotListResponse,
 } from "@/features/diagrams/snapshot-list";
 import {
   isTextEntryTarget,
-  snapshotAtStep,
   snapshotStepFromKey,
   type ShortcutTarget,
   type SnapshotStep,
 } from "@/features/diagrams/snapshot-navigation";
+import { createSnapshotStepper } from "@/features/diagrams/snapshot-stepper";
 
 /**
  * Ctrl-[ / Ctrl-] stepping through the **Snapshot Timeline**.
@@ -29,62 +28,33 @@ export function useSnapshotStepShortcut(opts: {
   diagramId: string | undefined;
   /** Cancels the debounced autosave and lands it now. */
   flushPendingSave: () => Promise<void>;
-  onRestoreRequest: (snapshot: Snapshot, headIsPreserved: boolean) => void;
+  /** Resolves once the head has moved, or immediately if a dialog intercepts. */
+  onRestoreRequest: (
+    snapshot: Snapshot,
+    headIsPreserved: boolean
+  ) => Promise<void> | void;
 }) {
   const { diagramId, flushPendingSave, onRestoreRequest } = opts;
-
-  // Only breaks ties between snapshots holding identical content; see
-  // `snapshotAtStep`, which discards it as soon as the head moves elsewhere.
-  const lastVisitedId = useRef<string | null>(null);
-  const stepping = useRef(false);
 
   useEffect(() => {
     if (!diagramId) return;
 
+    // Scoped to the effect, so switching diagrams starts a fresh run rather
+    // than carrying a tie-break hint onto a timeline it does not belong to.
+    const stepper = createSnapshotStepper({
+      readTimeline: () => fetchSnapshotList(diagramId),
+      flushPendingSave,
+      requestRestore: onRestoreRequest,
+    });
+
     async function step(direction: SnapshotStep) {
-      // Holding the chord would otherwise fire a restore per repeat, each one
-      // racing the last on the same head.
-      if (stepping.current) return;
-      stepping.current = true;
-      try {
-        // The server's head hash decides where the cursor is, so the debounced
-        // edits have to land before it is read — otherwise the author's latest
-        // work reads as "already on the newest snapshot".
-        await flushPendingSave();
-
-        const res = await fetch(`/api/diagrams/${diagramId}/snapshots/list`);
-        if (!res.ok) {
-          toast.error("Failed to load snapshots");
-          return;
-        }
-        const data = (await res.json()) as SnapshotListResponse;
-        const snapshots = data.snapshots ?? [];
-
-        const target = snapshotAtStep(
-          snapshots,
-          data.headContentHash,
-          direction,
-          lastVisitedId.current
-        );
-        if (!target) {
-          toast.info(
-            direction === "older" ? "No older snapshot" : "No newer snapshot"
-          );
-          return;
-        }
-
-        // Set before the request so a confirmed dialog lands on the right
-        // cursor. A dismissed one leaves the head where it was, which makes
-        // this hint stale and therefore ignored.
-        lastVisitedId.current = target.id;
-        onRestoreRequest(
-          target,
-          isHeadPreserved(snapshots, data.headContentHash)
-        );
-      } catch {
+      const outcome = await stepper.step(direction);
+      if (outcome.kind === "unavailable") {
         toast.error("Failed to load snapshots");
-      } finally {
-        stepping.current = false;
+      } else if (outcome.kind === "at-end") {
+        toast.info(
+          direction === "older" ? "No older snapshot" : "No newer snapshot"
+        );
       }
     }
 
@@ -96,7 +66,7 @@ export function useSnapshotStepShortcut(opts: {
       void step(direction);
     }
 
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [diagramId, flushPendingSave, onRestoreRequest]);
 }
