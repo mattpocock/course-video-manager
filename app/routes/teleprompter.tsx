@@ -25,8 +25,7 @@ import { useTeleprompterWpm } from "@/features/teleprompter/teleprompter-setting
 import { BeatsView } from "@/features/teleprompter/beats-view";
 import { TeleprompterCrawl } from "@/features/teleprompter/teleprompter-crawl";
 import { teleprompterSession } from "@/features/teleprompter/teleprompter-session";
-import { SessionMarksDisplay } from "@/features/teleprompter/prototype-session-marks-display";
-import { PrototypeControls } from "@/features/teleprompter/prototype-controls";
+import { SessionMarks } from "@/features/teleprompter/session-marks";
 import type { Route } from "./+types/teleprompter";
 
 const PING_INTERVAL_MS = 2000;
@@ -159,9 +158,6 @@ export default function Teleprompter() {
   const hasContent =
     source === "beats" ? content.beats.length > 0 : blocks.length > 0;
 
-  // PROTOTYPE — session-clip dots. Always on: with no session under way it
-  // draws nothing at all, so the glass is unchanged until you press record.
-
   return (
     <div className="fixed inset-0 select-none overflow-hidden bg-black">
       <CaptureIndicator
@@ -169,7 +165,11 @@ export default function Teleprompter() {
         editorConnected={state.editorConnected}
       />
 
-      {state.editorConnected && <SessionMarksDisplay marks={state.marks} />}
+      {/*
+        Always mounted: with no session under way it draws nothing at all, so
+        the glass is unchanged until you press record.
+      */}
+      {state.editorConnected && <SessionMarks marks={state.marks} />}
 
       {!hasContent ? (
         <div className="flex h-full items-center justify-center px-12 text-center">
@@ -196,8 +196,6 @@ export default function Teleprompter() {
         onWpmChange={setWpm}
         status={status}
       />
-
-      <PrototypeControls marks={state.marks} />
     </div>
   );
 }

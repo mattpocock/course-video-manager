@@ -13,8 +13,9 @@
  *     an empty teleprompter.
  *   - `editorState` also carries capture state, mirroring the editor's recording
  *     + silence-detection indicator so the same status is visible on the glass,
- *     and the side panel's active tab, so the glass shows whichever of Script
- *     or Beats you're looking at in the editor.
+ *     the side panel's active tab, so the glass shows whichever of Script or
+ *     Beats you're looking at in the editor, and one mark per clip in the
+ *     current recording session, so the glass can show clips landing.
  *
  * State is **pushed, not polled**. `editorState` goes out when it changes, so
  * the glass is never more than a message behind the editor. The ping/pong
@@ -52,7 +53,7 @@ export const EditorTab = z.enum(["beats", "reference", "script"]);
 export type EditorTab = z.infer<typeof EditorTab>;
 
 /**
- * PROTOTYPE — the state of one clip in the current recording session.
+ * The state of one clip in the current recording session.
  *
  * Two independent axes, deliberately: whether the backend has caught up
  * (pending vs landed), and whether the clip is healthy (ok / orphaned /
@@ -81,8 +82,9 @@ export type ClipMarkState = z.infer<typeof ClipMarkState>;
  * rather than counts so a clip changing state repaints one mark in place
  * instead of regrouping the whole display.
  *
- * Optional so a popup left open across a reload of this branch doesn't fail to
- * parse the whole message and go blank.
+ * Optional on the wire: a popup left open across a deploy would otherwise fail
+ * to parse the whole message and go blank rather than merely lose the marks.
+ * Absent is read as "no session".
  */
 export const ClipMarks = z.array(ClipMarkState);
 export type ClipMarks = z.infer<typeof ClipMarks>;

@@ -28,7 +28,7 @@ export type TeleprompterEditorState = {
   videoId: string | null;
   capture: CaptureStatus;
   tab: BeatTab;
-  /** PROTOTYPE — see `prototype-session-marks.ts`. */
+  /** One per clip in the current session — see `session-clip-marks.ts`. */
   marks: ClipMarks;
 };
 

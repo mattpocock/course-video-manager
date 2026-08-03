@@ -50,9 +50,13 @@ export type ClipOnDatabase = {
    */
   shouldArchive?: boolean;
   /**
-   * The recording session this clip belongs to. Only set when the clip was
-   * created from an archived optimistic clip, so it can be grouped in the
-   * correct session panel's archived sub-section.
+   * The recording session this clip belongs to, inherited from the optimistic
+   * clip it was paired with — so a clip keeps its session across both halves of
+   * its life. Absent for clips loaded from the database on page load, which
+   * belong to no session in this window.
+   *
+   * Read by the session panel, to group archived clips under the right session,
+   * and by `session-clip-marks.ts`, which needs live clips too.
    */
   sessionId?: SessionId;
 };

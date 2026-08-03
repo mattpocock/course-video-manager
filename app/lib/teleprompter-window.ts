@@ -21,7 +21,7 @@ export type TeleprompterEditorState = {
   videoId: string | null;
   capture: CaptureStatus;
   tab: EditorTab;
-  /** PROTOTYPE — this session's clips, for the status display on the glass. */
+  /** This session's clips, for the marks display on the glass. */
   marks?: ClipMarks;
 };
 

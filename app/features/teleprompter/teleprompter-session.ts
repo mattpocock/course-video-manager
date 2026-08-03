@@ -46,9 +46,9 @@ export namespace teleprompterSession {
     videoId: string | null;
     capture: CaptureStatus;
     /**
-     * PROTOTYPE — this recording session's clips and what state each is in, as
-     * last pushed by the editor. Held rather than derived: the glass has no
-     * access to the clip reducer.
+     * This recording session's clips and what state each is in, as last pushed
+     * by the editor. Held rather than derived: the glass has no access to the
+     * clip reducer.
      */
     marks: ClipMarks;
     content: Content;
@@ -82,7 +82,7 @@ export namespace teleprompterSession {
         videoId: string | null;
         capture: CaptureStatus;
         tab: EditorTab;
-        /** PROTOTYPE — absent from an older editor; treated as no session. */
+        /** Absent from an editor running older code; treated as no session. */
         marks?: ClipMarks;
         at: number;
       }
@@ -99,7 +99,7 @@ export namespace teleprompterSession {
 
   export const EMPTY_CONTENT: Content = { title: "", script: "", beats: [] };
 
-  /** PROTOTYPE — no session under way, or nobody to ask. */
+  /** No session under way, or nobody to ask. */
   export const NO_MARKS: ClipMarks = [];
 
   export const initialState: State = {

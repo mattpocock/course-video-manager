@@ -22,7 +22,7 @@ import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useTeleprompterShortcuts } from "./hooks/use-teleprompter-shortcuts";
 import { useTeleprompterEditorMode } from "./hooks/use-teleprompter-editor-mode";
-import { usePrototypeSessionMarks } from "./prototype-session-marks";
+import { useSessionClipMarks } from "./session-clip-marks";
 import { useTeleprompterConnected } from "./hooks/use-teleprompter-connected";
 import { useWebSocket } from "./hooks/use-websocket";
 import { useClipboardOperations } from "./hooks/use-clipboard-operations";
@@ -169,12 +169,8 @@ export const VideoEditor = (props: {
     [props.items, props.sessions]
   );
 
-  // PROTOTYPE — this session's clips and their states, for the teleprompter's
-  // status display.
-  const prototypeSessionMarks = usePrototypeSessionMarks(
-    props.items,
-    props.sessions
-  );
+  // This session's clips and their states, for the teleprompter's glass.
+  const sessionClipMarks = useSessionClipMarks(props.items, props.sessions);
 
   useEffect(() => enableVideoEditorMode(), []);
 
@@ -338,7 +334,7 @@ export const VideoEditor = (props: {
       ? props.speechDetectorState.type
       : "not-recording",
     tab: activeTab,
-    marks: prototypeSessionMarks,
+    marks: sessionClipMarks,
   });
   useTeleprompterShortcuts();
 

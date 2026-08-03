@@ -158,6 +158,53 @@ describe("liveness-checked", () => {
     const state = connected({ playing: true });
     expect(reducer(state, { type: "liveness-checked", at: 1000 })).toBe(state);
   });
+
+  it("clears the session marks, which nobody is refreshing any more", () => {
+    // A frozen row of dots reads as a live claim about clips. Worse than none.
+    const state = connected({ marks: ["landed", "pending"] });
+    const next = reducer(state, {
+      type: "liveness-checked",
+      at: 1000 + EDITOR_ALIVE_MS + 1,
+    });
+    expect(next.marks).toEqual([]);
+  });
+});
+
+describe("session marks", () => {
+  it("adopts what the editor pushed", () => {
+    const next = reducer(connected(), {
+      type: "editor-state",
+      videoId: "v1",
+      capture: "long-enough-speaking-for-clip-detected",
+      tab: "script",
+      marks: ["landed", "pending"],
+      at: 2000,
+    });
+    expect(next.marks).toEqual(["landed", "pending"]);
+  });
+
+  it("drops another video's marks when the editor moves on", () => {
+    const next = reducer(connected({ marks: ["landed"] }), {
+      type: "editor-state",
+      videoId: "v2",
+      capture: "not-recording",
+      tab: "script",
+      marks: ["pending"],
+      at: 2000,
+    });
+    expect(next.marks).toEqual([]);
+  });
+
+  it("reads an editor that says nothing about marks as no session", () => {
+    const next = reducer(connected({ marks: ["landed"] }), {
+      type: "editor-state",
+      videoId: "v1",
+      capture: "not-recording",
+      tab: "script",
+      at: 2000,
+    });
+    expect(next.marks).toEqual([]);
+  });
 });
 
 describe("script-pushed", () => {
