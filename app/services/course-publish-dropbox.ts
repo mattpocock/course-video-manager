@@ -39,6 +39,12 @@ const toExportClips = (
     sourceEndTime: clip.sourceEndTime,
   }));
 
+/**
+ * Read an Exported Video off disk purely to digest it. Only Videos this
+ * Publish is NOT sending go through here — anything actually uploaded is
+ * digested off the upload's own byte stream instead, so no file is ever read
+ * twice and the whole-course pre-hash pass no longer exists.
+ */
 const hashFileLocally = Effect.fn("hashFileLocally")(function* (
   effectFs: FileSystem.FileSystem,
   filePath: string
@@ -97,6 +103,11 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     input.includeTodoLessons
   );
 
+  // The Export Hash is the recipe an Exported Video is addressed by — Clip
+  // filenames, source timings, order, Video Format and the Export Version Key.
+  // It is pure database state, so it is knowable before a single frame is
+  // encoded, which is what lets the bundle path below be knowable too.
+  const videoExportHashes = new Map<string, string>();
   const videoPathOverrides = new Map<string, string>();
   for (const section of effectiveSections) {
     for (const lesson of section.lessons) {
@@ -107,6 +118,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
           video.format
         );
         if (!hash) continue;
+        videoExportHashes.set(video.id, hash);
         videoPathOverrides.set(
           video.id,
           resolveExportPath(finishedVideosDirectory, input.courseId, hash)
@@ -123,13 +135,12 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   if (missingVideos.length > 0) return { missingVideos };
 
   const dropboxCourseDir = `${dropboxRemotePath}/${repoWithSections.name}`;
-  const videoAssets = new Map<string, { sha256: string; bytes: number }>();
-  const videoContentHashes = new Map<string, string>();
 
   const videoEntries: Array<{
     videoId: string;
     localPath: string;
     relativeAssetPath: string;
+    exportHash: string | null;
   }> = [];
 
   for (const section of sections) {
@@ -140,23 +151,21 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
           videoId: video.id,
           localPath: video.absolutePath,
           relativeAssetPath,
+          exportHash: videoExportHashes.get(video.id) ?? null,
         });
       }
     }
   }
 
-  // Hash all local video files to compute the asset fingerprint and
-  // content_hashes for verification — before any upload begins.
-  for (const entry of videoEntries) {
-    const hashes = yield* hashFileLocally(effectFs, entry.localPath);
-    videoAssets.set(entry.videoId, {
-      sha256: hashes.sha256,
-      bytes: hashes.bytes,
-    });
-    videoContentHashes.set(entry.videoId, hashes.contentHash);
-  }
-
   const schemaJson = JSON.stringify(buildCourseJsonSchema(), null, 2);
+  // The bundle is addressed by its RECIPE, not by its bytes: each Video
+  // contributes its Export Hash rather than a SHA256 of the encoded file. Every
+  // ingredient is therefore database state, so the destination path is known
+  // before any encoding or reading happens — which is what lets export and
+  // upload overlap. Two files at one address are asserted identical because
+  // they came from identical Clips and Video Format; the Export Version Key is
+  // the manual lever for invalidating that assertion (see ADR on bundle
+  // addressing).
   const assetFingerprint = createHash("sha256")
     .update(
       JSON.stringify({
@@ -168,7 +177,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
         sections: repoWithSections.sections,
         videos: videoEntries.map((entry) => ({
           relativeAssetPath: entry.relativeAssetPath,
-          ...videoAssets.get(entry.videoId)!,
+          exportHash: entry.exportHash,
         })),
       })
     )
@@ -181,16 +190,13 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const assetBasePath = `versions/${versionFingerprint}-${assetFingerprint}`;
   const remoteBundleDir = `${dropboxCourseDir}/${assetBasePath}`;
 
-  const courseJsonDoc = yield* buildCourseJson({
-    courseId: input.courseId,
-    courseVersionId: input.courseVersionId,
-    courseName: repoWithSections.name,
-    assetBasePath,
-    sections: repoWithSections.sections,
-    videoAssets,
-    includeTodoLessons: input.includeTodoLessons,
-  });
-  const manifestJson = JSON.stringify(courseJsonDoc, null, 2);
+  // Sizes come from stat, not from a read: they weight the progress aggregate
+  // and pick each Video's upload strategy.
+  const videoByteSizes = new Map<string, number>();
+  for (const entry of videoEntries) {
+    const info = yield* effectFs.stat(entry.localPath);
+    videoByteSizes.set(entry.videoId, Number(info.size));
+  }
 
   // Take stock of whatever of this bundle already landed. A bundle left
   // half-written by an interrupted Publish is resumed, not rejected: the
@@ -217,43 +223,14 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const remoteVideoPath = (entry: (typeof videoEntries)[number]) =>
     `${remoteBundleDir}/${entry.relativeAssetPath}`;
 
-  // Partition the bundle's Videos into "already landed" and "still to send".
-  // A Video present with a matching content_hash and size is skipped; one
-  // present but different is an immutability violation rather than an
-  // interrupted transfer, and is never overwritten.
-  const pendingUploads: typeof videoEntries = [];
-  // Bytes of each Video that are already in Dropbox — the input to the
-  // byte-weighted progress below.
-  const uploadedByVideo = new Map<string, number>();
-  for (const entry of videoEntries) {
-    const remoteFile = remoteFilesByPath.get(
-      remoteVideoPath(entry).toLowerCase()
-    );
-    if (!remoteFile) {
-      pendingUploads.push(entry);
-      uploadedByVideo.set(entry.videoId, 0);
-      continue;
-    }
-    const expectedHash = videoContentHashes.get(entry.videoId)!;
-    const expected = videoAssets.get(entry.videoId)!;
-    if (
-      remoteFile.content_hash !== expectedHash ||
-      remoteFile.size !== expected.bytes
-    ) {
-      return yield* new ExportError({
-        message: `Immutable asset bundle conflict for video ${entry.videoId}`,
-      });
-    }
-    // Landed by a previous attempt — a resumed Publish counts it as done
-    // rather than reporting itself back at zero.
-    uploadedByVideo.set(entry.videoId, expected.bytes);
-  }
-
   // Byte-weighted progress across every Video in the bundle. Uploads report
   // interleaved once several are in flight, so the aggregate is recomputed
   // from the per-Video counters rather than accumulated as they complete.
+  const uploadedByVideo = new Map<string, number>(
+    videoEntries.map((entry) => [entry.videoId, 0])
+  );
   const totalBytes = videoEntries.reduce(
-    (sum, entry) => sum + videoAssets.get(entry.videoId)!.bytes,
+    (sum, entry) => sum + videoByteSizes.get(entry.videoId)!,
     0
   );
   let lastReportedPercentage = 0;
@@ -270,19 +247,62 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     lastReportedPercentage = percentage;
     input.onProgress?.("progress", { percentage });
   };
-  reportProgress();
 
   const uploadConcurrencyLimit = yield* uploadConcurrency;
 
-  yield* Effect.forEach(
-    pendingUploads,
+  // Ship each Video, digesting it off the same pass. A Video already present
+  // with a matching content_hash and size is skipped; one present but
+  // different is an immutability violation rather than an interrupted
+  // transfer, and is never overwritten.
+  const receipts = yield* Effect.forEach(
+    videoEntries,
     (entry) =>
       Effect.gen(function* () {
+        const remoteFile = remoteFilesByPath.get(
+          remoteVideoPath(entry).toLowerCase()
+        );
+
+        if (remoteFile) {
+          // Landed by a previous attempt. Its SHA256 is still owed to the
+          // manifest and nothing streamed it, so this is the one place a
+          // local read survives — and only for Videos this Publish is NOT
+          // sending.
+          const hashes = yield* hashFileLocally(effectFs, entry.localPath);
+          if (
+            remoteFile.content_hash !== hashes.contentHash ||
+            remoteFile.size !== hashes.bytes
+          ) {
+            return yield* new ExportError({
+              message: `Immutable asset bundle conflict for video ${entry.videoId}`,
+            });
+          }
+          // A resumed Publish counts it as done rather than reporting itself
+          // back at zero.
+          uploadedByVideo.set(entry.videoId, hashes.bytes);
+          reportProgress();
+          return {
+            videoId: entry.videoId,
+            sha256: hashes.sha256,
+            bytes: hashes.bytes,
+          };
+        }
+
+        // The manifest's proven-source-revision guarantee is met off the
+        // upload's own byte stream: no separate read pass exists any more.
+        const sha256Hash = createHash("sha256");
+        const contentHasher = new DropboxContentHasher();
+        let streamedBytes = 0;
+
         const metadata = yield* uploadFileFromDisk({
           accessToken,
           path: remoteVideoPath(entry),
           filePath: entry.localPath,
-          fileSize: videoAssets.get(entry.videoId)!.bytes,
+          fileSize: videoByteSizes.get(entry.videoId)!,
+          onChunk: (chunk) => {
+            sha256Hash.update(chunk);
+            contentHasher.update(chunk);
+            streamedBytes += chunk.byteLength;
+          },
           onProgress: (uploaded) => {
             uploadedByVideo.set(entry.videoId, uploaded);
             reportProgress();
@@ -290,15 +310,40 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
         });
 
         // Verify the upload via content_hash.
-        const expectedHash = videoContentHashes.get(entry.videoId)!;
-        if (metadata.content_hash !== expectedHash) {
+        if (metadata.content_hash !== contentHasher.digest()) {
           return yield* new ExportError({
             message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
           });
         }
+
+        return {
+          videoId: entry.videoId,
+          sha256: sha256Hash.digest("hex"),
+          bytes: streamedBytes,
+        };
       }),
     { concurrency: uploadConcurrencyLimit }
   );
+
+  const videoAssets = new Map(
+    receipts.map((receipt) => [
+      receipt.videoId,
+      { sha256: receipt.sha256, bytes: receipt.bytes },
+    ])
+  );
+
+  // The manifest is built last because it carries every Video's SHA256 and
+  // byte count, and those are only known once the bytes have gone past.
+  const courseJsonDoc = yield* buildCourseJson({
+    courseId: input.courseId,
+    courseVersionId: input.courseVersionId,
+    courseName: repoWithSections.name,
+    assetBasePath,
+    sections: repoWithSections.sections,
+    videoAssets,
+    includeTodoLessons: input.includeTodoLessons,
+  });
+  const manifestJson = JSON.stringify(courseJsonDoc, null, 2);
 
   // Schema and manifest are content-identical for a given bundle path, so
   // whichever of them a previous attempt landed is left alone.

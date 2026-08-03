@@ -3,6 +3,7 @@ import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import {
   createTestDb,
@@ -245,12 +246,17 @@ const setupUploads = async (opts?: {
     ) as Promise<A>;
 
   const sync = (
-    onProgress?: (event: "progress", data: { percentage: number }) => void
+    onProgress?: (event: "progress", data: { percentage: number }) => void,
+    includeTodoLessons = true
   ) =>
     run(
       Effect.gen(function* () {
         const svc = yield* CoursePublishService;
-        return yield* svc.syncToDropbox(course.id, true, onProgress);
+        return yield* svc.syncToDropbox(
+          course.id,
+          includeTodoLessons,
+          onProgress
+        );
       })
     );
 
@@ -262,6 +268,111 @@ const remoteBundleVideoPaths = () =>
     .map((stored) => stored.pathDisplay)
     .filter((remotePath) => remotePath.endsWith(".mp4"))
     .sort();
+
+/** The `{versionFingerprint}-{assetFingerprint}` directory the bundle landed in. */
+const remoteBundleDirs = () =>
+  Array.from(
+    new Set(
+      remoteBundleVideoPaths().map(
+        (remotePath) => remotePath.split("/versions/")[1]!.split("/")[0]!
+      )
+    )
+  );
+
+const receiptManifest = () =>
+  JSON.parse(
+    fakeDropbox
+      .get(`${DROPBOX_REMOTE_PATH}/test-course/course.json`)!
+      .content.toString("utf-8")
+  );
+
+const manifestVideos = (manifest: any): any[] =>
+  manifest.sections.flatMap((section: any) =>
+    section.lessons.flatMap((lesson: any) =>
+      [lesson.explainer, lesson.problem, lesson.solution].filter(Boolean)
+    )
+  );
+
+describe("Dropbox publish upload — bundle addressing", () => {
+  it("addresses the bundle by Export Hash, not by the exported bytes", async () => {
+    const { videos, sync } = await setupUploads({ videoCount: 2 });
+
+    await sync();
+    const originalBundleDirs = remoteBundleDirs();
+    expect(originalBundleDirs).toHaveLength(1);
+
+    // Wipe the remote entirely and re-encode every Video to different bytes.
+    // The recipe — Clips, source timings, Video Format, Export Version Key —
+    // is untouched, so the destination must be untouched too.
+    fakeDropbox.files.clear();
+    for (const video of videos) {
+      fs.writeFileSync(video.exportPath, `re-encoded-${"z".repeat(64)}`);
+    }
+
+    await sync();
+
+    expect(remoteBundleDirs()).toEqual(originalBundleDirs);
+  });
+
+  it("keeps every Video's SHA256 and byte count in the shipped manifest", async () => {
+    const { videos, sync } = await setupUploads({ videoCount: 3 });
+
+    await sync();
+
+    const expected = new Map(
+      videos.map((video) => {
+        const bytes = fs.readFileSync(video.exportPath);
+        return [
+          `${video.title}.mp4`,
+          {
+            sha256: createHash("sha256").update(bytes).digest("hex"),
+            bytes: bytes.length,
+          },
+        ];
+      })
+    );
+
+    const entries = manifestVideos(receiptManifest());
+    expect(entries).toHaveLength(3);
+    for (const entry of entries) {
+      const key = entry.relativePath.split("/").pop()!;
+      expect({ sha256: entry.sha256, bytes: entry.bytes }).toEqual(
+        expected.get(key)
+      );
+    }
+  });
+
+  it("re-derives the manifest's SHA256 from the bytes that actually shipped", async () => {
+    const { videos, sync } = await setupUploads({ videoCount: 1 });
+
+    await sync();
+    fakeDropbox.files.clear();
+    const reEncoded = Buffer.from(`re-encoded-${"z".repeat(64)}`);
+    fs.writeFileSync(videos[0]!.exportPath, reEncoded);
+
+    await sync();
+
+    expect(manifestVideos(receiptManifest())[0]).toMatchObject({
+      sha256: createHash("sha256").update(reEncoded).digest("hex"),
+      bytes: reEncoded.length,
+    });
+  });
+
+  it("lands a differing to-do lesson setting in a distinct bundle", async () => {
+    const { sync } = await setupUploads({ videoCount: 2 });
+
+    await sync(undefined, true);
+    const withTodo = remoteBundleDirs();
+
+    fakeDropbox.files.clear();
+    await sync(undefined, false);
+    const withoutTodo = remoteBundleDirs();
+
+    expect(withTodo).toHaveLength(1);
+    expect(withoutTodo).toHaveLength(1);
+    expect(withoutTodo).not.toEqual(withTodo);
+  });
+});
 
 describe("Dropbox publish upload — concurrency", () => {
   it("uploads several Videos at once, up to the default limit of 4", async () => {
