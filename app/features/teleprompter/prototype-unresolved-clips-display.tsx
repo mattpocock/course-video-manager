@@ -9,11 +9,15 @@
  * something the backend's silence detection didn't agree with.
  *
  * Three wide, growing downward, so a pile-up reads as a column getting longer
- * rather than a row getting denser. Colours are the editor's own vocabulary
- * from `recording-session-panel.tsx` (amber = orphaned, red = archived), so
- * there is no second language to learn while filming. Nothing animates: #1435
- * and the commit that stripped the beats view's 1/N counter both say motion in
- * the filming field of view is the thing to avoid.
+ * rather than a row getting denser — and exactly as wide as the capture
+ * indicator above it, so the two read as one instrument rather than two things
+ * that happen to be near each other.
+ *
+ * Colours are the editor's own vocabulary from `recording-session-panel.tsx`
+ * (amber = orphaned, red = archived), so there is no second language to learn
+ * while filming. Nothing animates: #1435 and the commit that stripped the
+ * beats view's 1/N counter both say motion in the filming field of view is the
+ * thing to avoid.
  */
 import { useRef } from "react";
 import type {
@@ -34,9 +38,10 @@ const PER_ROW = 3;
 const MAX_DOTS = PER_ROW * 12;
 
 const DOT_COLOUR: Record<UnresolvedClipState, string> = {
-  // In flight, and probably fine. Warm, like the body type — present without
-  // asking for anything.
-  pending: TYPE.color,
+  // In flight, and probably fine. Appears the moment the frontend detects the
+  // clip — the same instant it shows up in the editor's session panel — so the
+  // glass and the editor never disagree about what has been heard.
+  pending: "#fff",
   // No database clip is coming. This is the one worth stopping for.
   orphaned: "var(--color-amber-400)",
   // Deleted by hand, still waiting to be reconciled. Nothing to do.
@@ -74,24 +79,24 @@ export function UnresolvedClipsDisplay(props: { unresolved: UnresolvedClips }) {
   // Keep the newest when overflowing: the oldest are already lost causes.
   const shown = props.unresolved.slice(-MAX_DOTS);
 
-  const rows: UnresolvedClips[] = [];
-  for (let i = 0; i < shown.length; i += PER_ROW) {
-    rows.push(shown.slice(i, i + PER_ROW));
-  }
-
   return (
     <div className={ANCHOR}>
-      <div className="flex flex-col gap-2.5">
-        {rows.map((row, rowIndex) => (
-          <div key={rowIndex} className="flex gap-2.5">
-            {row.map((state, i) => (
-              <div
-                key={`${rowIndex}-${i}`}
-                className="size-4 rounded-full"
-                style={{ background: DOT_COLOUR[state] }}
-              />
-            ))}
-          </div>
+      {/*
+        `w-14` is the capture indicator's `size-14`, and the dots divide that
+        width rather than being sized independently — so the column lines up
+        with the circle above it whatever the gap is set to. Wrapping is the
+        grid's job, which is why there is no row chunking here.
+      */}
+      <div
+        className="grid w-14 gap-1.5"
+        style={{ gridTemplateColumns: `repeat(${PER_ROW}, 1fr)` }}
+      >
+        {shown.map((state, i) => (
+          <div
+            key={i}
+            className="aspect-square w-full rounded-full"
+            style={{ background: DOT_COLOUR[state] }}
+          />
         ))}
       </div>
 

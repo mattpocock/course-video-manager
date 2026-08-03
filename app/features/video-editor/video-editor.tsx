@@ -171,7 +171,10 @@ export const VideoEditor = (props: {
 
   // PROTOTYPE — optimistic clips that haven't found a database clip, for the
   // teleprompter's status display.
-  const prototypeUnresolvedClips = usePrototypeUnresolvedClips(props.items);
+  const prototypeUnresolvedClips = usePrototypeUnresolvedClips(
+    props.items,
+    props.sessions
+  );
 
   useEffect(() => enableVideoEditorMode(), []);
 
