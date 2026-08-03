@@ -60,12 +60,17 @@ export function setupPublishServiceTests() {
 }
 
 /**
- * A one-Section, one-Lesson, one-Video Course whose single Video is complete
- * and shippable but not yet exported — so a Publish has to render it.
+ * A one-Section Course with `videoCount` Lessons, each holding one complete and
+ * shippable but not-yet-exported Video — so a Publish has to render every one
+ * of them. Clip timings differ per Video, so each has its own Export Hash and
+ * therefore its own file in the bundle.
  */
 export const setupPublishableCourse = async (opts?: {
   mockVideoProcessing?: Layer.Layer<VideoProcessingService>;
+  videoCount?: number;
+  config?: Record<string, string>;
 }) => {
+  const videoCount = opts?.videoCount ?? 1;
   await truncateAllTables(testDb);
 
   fakeDropbox = createFakeDropbox();
@@ -113,58 +118,81 @@ export const setupPublishableCourse = async (opts?: {
     return sections[0]!;
   }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
-  const lesson = await Effect.gen(function* () {
-    const lsOps = yield* LessonSectionOperationsService;
-    const lessons = yield* lsOps.createLessons(section.id, [
-      { lessonPathWithNumber: "01.01-welcome", lessonNumber: 1 },
-    ]);
-    return lessons[0]!;
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
-
-  const video = await Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    return yield* videoOps.createVideo(lesson.id, {
-      title: "Problem",
-      originalFootagePath: "/tmp/footage.mp4",
-    });
-  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
-
-  await testDb.insert(clipsTable).values([
+  // Video n's clips are shifted by n, so every Video gets a distinct Export
+  // Hash — and therefore a distinct export file and bundle entry. Video 0's
+  // timings are the historical ones, so its Export Hash is stable.
+  const clipsForIndex = (index: number): ExportClip[] => [
     {
-      videoId: video.id,
       videoFilename: "recording.mp4",
       sourceStartTime: 0,
-      sourceEndTime: 10,
-      order: "a0",
-      text: "Hello world",
-      pauseType: "none",
+      sourceEndTime: 10 + index,
     },
     {
-      videoId: video.id,
       videoFilename: "recording.mp4",
       sourceStartTime: 15,
-      sourceEndTime: 25,
-      order: "a1",
-      text: "Welcome to the course",
-      pauseType: "none",
+      sourceEndTime: 25 + index,
     },
-  ]);
-
-  await testDb.insert(chaptersTable).values({
-    videoId: video.id,
-    name: "Introduction",
-    order: "a",
-  });
-  await testDb
-    .update(videosTable)
-    .set({ body: "Lesson body content", description: "SEO description" })
-    .where(eq(videosTable.id, video.id));
-
-  const clips: ExportClip[] = [
-    { videoFilename: "recording.mp4", sourceStartTime: 0, sourceEndTime: 10 },
-    { videoFilename: "recording.mp4", sourceStartTime: 15, sourceEndTime: 25 },
   ];
-  const exportHash = computeExportHash(clips, "landscape")!;
+
+  const videos: Array<{
+    id: string;
+    title: string;
+    lessonPath: string;
+    exportHash: string;
+    /** Where this Video lands inside the bundle directory. */
+    relativeAssetPath: string;
+  }> = [];
+
+  for (let index = 0; index < videoCount; index++) {
+    const lessonPath = `01.${String(index + 1).padStart(2, "0")}-welcome`;
+    const lesson = await Effect.gen(function* () {
+      const lsOps = yield* LessonSectionOperationsService;
+      const lessons = yield* lsOps.createLessons(section.id, [
+        { lessonPathWithNumber: lessonPath, lessonNumber: index + 1 },
+      ]);
+      return lessons[0]!;
+    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+    const video = await Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      return yield* videoOps.createVideo(lesson.id, {
+        title: "Problem",
+        originalFootagePath: "/tmp/footage.mp4",
+      });
+    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+    const videoClips = clipsForIndex(index);
+    await testDb.insert(clipsTable).values(
+      videoClips.map((clip, clipIndex) => ({
+        ...clip,
+        videoId: video.id,
+        order: `a${clipIndex}`,
+        text: clipIndex === 0 ? "Hello world" : "Welcome to the course",
+        pauseType: "none" as const,
+      }))
+    );
+
+    await testDb.insert(chaptersTable).values({
+      videoId: video.id,
+      name: "Introduction",
+      order: "a",
+    });
+    await testDb
+      .update(videosTable)
+      .set({ body: "Lesson body content", description: "SEO description" })
+      .where(eq(videosTable.id, video.id));
+
+    videos.push({
+      id: video.id,
+      title: video.title,
+      lessonPath,
+      exportHash: computeExportHash(videoClips, "landscape")!,
+      relativeAssetPath: `01-intro/${lessonPath}/${video.title}.mp4`,
+    });
+  }
+
+  const video = videos[0]!;
+  const exportHash = video.exportHash;
 
   const defaultMockVideoProcessing = Layer.succeed(VideoProcessingService, {
     exportVideoClips: (exportOpts: any) =>
@@ -191,6 +219,7 @@ export const setupPublishableCourse = async (opts?: {
       new Map([
         ["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir],
         ["DROPBOX_REMOTE_PATH", DROPBOX_REMOTE_PATH],
+        ...Object.entries(opts?.config ?? {}),
       ])
     )
   );
@@ -214,5 +243,5 @@ export const setupPublishableCourse = async (opts?: {
       effect.pipe(Effect.provide(testLayer) as any)
     ) as Promise<A>;
 
-  return { course, version, video, exportHash, run };
+  return { course, version, video, videos, exportHash, run };
 };

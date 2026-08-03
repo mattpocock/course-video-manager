@@ -87,6 +87,29 @@ export const createFakeDropbox = () => {
     return releaseBarrier;
   };
 
+  // ── Arrival watchers ───────────────────────────────────────────────
+  const requestWatchers: Array<{
+    match: RequestMatcher;
+    resolve: () => void;
+  }> = [];
+
+  /**
+   * Resolves the moment a matching request ARRIVES — before any barrier,
+   * injected failure or dispatch. Event-driven, so a test can wait on "this
+   * Video started uploading" without polling or sleeping.
+   */
+  const waitForRequest = (match: RequestMatcher = () => true) =>
+    new Promise<void>((resolve) => {
+      requestWatchers.push({ match, resolve });
+    });
+
+  const notifyWatchers = (url: string, init: RequestInit) => {
+    for (let index = requestWatchers.length - 1; index >= 0; index--) {
+      if (!requestWatchers[index]!.match(url, init)) continue;
+      requestWatchers.splice(index, 1)[0]!.resolve();
+    }
+  };
+
   // ── Fault injection ────────────────────────────────────────────────
   const injectedFailures: InjectedFailure[] = [];
 
@@ -316,6 +339,7 @@ export const createFakeDropbox = () => {
       end: Number.POSITIVE_INFINITY,
     };
     requestSpans.push(span);
+    notifyWatchers(urlStr, reqInit);
 
     try {
       if (barrier?.match(urlStr, reqInit)) {
@@ -361,6 +385,7 @@ export const createFakeDropbox = () => {
     handleFetch,
     peakConcurrentRequests,
     holdUntilInFlight,
+    waitForRequest,
     failNextRequests,
   };
 };
