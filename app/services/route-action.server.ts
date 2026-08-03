@@ -17,6 +17,17 @@ interface MakeActionConfig<A, E, R> {
   }) => Effect.Effect<A, E, R>;
 }
 
+/**
+ * The services the live runtime can supply, and the error it can fail building
+ * with.
+ *
+ * Constraining a route's `R` to this is the whole point: a route that uses a
+ * service nobody added to `layerLive` is a typecheck failure here rather than a
+ * "Service not found" 500 the first time someone clicks the button.
+ */
+type AppContext = ManagedRuntime.ManagedRuntime.Context<typeof runtimeLive>;
+type AppRuntimeError = ManagedRuntime.ManagedRuntime.Error<typeof runtimeLive>;
+
 function statusMessage(status: number): string {
   switch (status) {
     case 400:
@@ -71,9 +82,9 @@ interface MakeLoaderConfig<A, E, R> {
   }) => Effect.Effect<A, E, R>;
 }
 
-export function makeLoader<A, E, R>(
+export function makeLoader<A, E, R extends AppContext>(
   config: MakeLoaderConfig<A, E, R>,
-  runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
+  runtime: ManagedRuntime.ManagedRuntime<R, AppRuntimeError> = runtimeLive
 ): (args: {
   request: Request;
   params: Record<string, string | undefined>;
@@ -95,9 +106,9 @@ export function makeLoader<A, E, R>(
   };
 }
 
-export function makeAction<A, E, R>(
+export function makeAction<A, E, R extends AppContext>(
   config: MakeActionConfig<A, E, R>,
-  runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
+  runtime: ManagedRuntime.ManagedRuntime<R, AppRuntimeError> = runtimeLive
 ): (args: {
   request: Request;
   params: Record<string, string | undefined>;
