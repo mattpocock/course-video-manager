@@ -21,18 +21,15 @@ import {
   enableTeleprompterEditorMode,
   pushTeleprompterState,
 } from "@/lib/teleprompter-window";
-import type {
-  CaptureStatus,
-  UnresolvedClips,
-} from "@/lib/teleprompter-protocol";
+import type { CaptureStatus, ClipMarks } from "@/lib/teleprompter-protocol";
 import type { BeatTab } from "../beat-tab";
 
 export type TeleprompterEditorState = {
   videoId: string | null;
   capture: CaptureStatus;
   tab: BeatTab;
-  /** PROTOTYPE — see `prototype-unresolved-clips.ts`. */
-  unresolved: UnresolvedClips;
+  /** PROTOTYPE — see `prototype-session-marks.ts`. */
+  marks: ClipMarks;
 };
 
 export function useTeleprompterEditorMode(state: TeleprompterEditorState) {
@@ -41,19 +38,16 @@ export function useTeleprompterEditorMode(state: TeleprompterEditorState) {
 
   useEffect(() => enableTeleprompterEditorMode(() => ref.current), []);
 
-  const { videoId, capture, tab, unresolved } = state;
+  const { videoId, capture, tab, marks } = state;
   // A fresh array every render would push on every frame of a take, so the
   // dependency is the array's *content*, flattened to a string.
-  const unresolvedKey = unresolved.join(",");
+  const marksKey = marks.join(",");
   useEffect(() => {
     pushTeleprompterState({
       videoId,
       capture,
       tab,
-      unresolved:
-        unresolvedKey === ""
-          ? []
-          : (unresolvedKey.split(",") as UnresolvedClips),
+      marks: marksKey === "" ? [] : (marksKey.split(",") as ClipMarks),
     });
-  }, [videoId, capture, tab, unresolvedKey]);
+  }, [videoId, capture, tab, marksKey]);
 }

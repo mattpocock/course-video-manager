@@ -22,7 +22,7 @@ import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useTeleprompterShortcuts } from "./hooks/use-teleprompter-shortcuts";
 import { useTeleprompterEditorMode } from "./hooks/use-teleprompter-editor-mode";
-import { usePrototypeUnresolvedClips } from "./prototype-unresolved-clips";
+import { usePrototypeSessionMarks } from "./prototype-session-marks";
 import { useTeleprompterConnected } from "./hooks/use-teleprompter-connected";
 import { useWebSocket } from "./hooks/use-websocket";
 import { useClipboardOperations } from "./hooks/use-clipboard-operations";
@@ -169,9 +169,9 @@ export const VideoEditor = (props: {
     [props.items, props.sessions]
   );
 
-  // PROTOTYPE — optimistic clips that haven't found a database clip, for the
-  // teleprompter's status display.
-  const prototypeUnresolvedClips = usePrototypeUnresolvedClips(
+  // PROTOTYPE — this session's clips and their states, for the teleprompter's
+  // status display.
+  const prototypeSessionMarks = usePrototypeSessionMarks(
     props.items,
     props.sessions
   );
@@ -338,7 +338,7 @@ export const VideoEditor = (props: {
       ? props.speechDetectorState.type
       : "not-recording",
     tab: activeTab,
-    unresolved: prototypeUnresolvedClips,
+    marks: prototypeSessionMarks,
   });
   useTeleprompterShortcuts();
 

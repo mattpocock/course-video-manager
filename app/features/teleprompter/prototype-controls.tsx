@@ -11,22 +11,23 @@
  * silence suppressed the dot appearing as the indicator turns green, which is
  * the one moment this display exists to show.
  */
-import type { UnresolvedClips } from "@/lib/teleprompter-protocol";
+import type { ClipMarks } from "@/lib/teleprompter-protocol";
 
 const isProduction = import.meta.env.PROD;
 
-export function PrototypeControls(props: { unresolved: UnresolvedClips }) {
+export function PrototypeControls(props: { marks: ClipMarks }) {
   if (isProduction) return null;
 
-  const counts = props.unresolved.reduce<Record<string, number>>(
+  const counts = props.marks.reduce<Record<string, number>>(
     (acc, state) => ({ ...acc, [state]: (acc[state] ?? 0) + 1 }),
     {}
   );
 
   return (
     <div className="fixed bottom-20 left-1/2 z-[60] -translate-x-1/2 rounded-full border-2 border-fuchsia-500 bg-fuchsia-950/95 px-3 py-1.5 font-mono text-xs tabular-nums text-fuchsia-100 shadow-lg">
-      pending {counts.pending ?? 0} · orphaned {counts.orphaned ?? 0} · deleted{" "}
-      {counts.deleted ?? 0}
+      pending {counts.pending ?? 0} · landed {counts.landed ?? 0} · orphaned{" "}
+      {counts.orphaned ?? 0} · deleted{" "}
+      {(counts["deleted-pending"] ?? 0) + (counts["deleted-landed"] ?? 0)}
     </div>
   );
 }

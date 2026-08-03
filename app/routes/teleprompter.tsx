@@ -25,7 +25,7 @@ import { useTeleprompterWpm } from "@/features/teleprompter/teleprompter-setting
 import { BeatsView } from "@/features/teleprompter/beats-view";
 import { TeleprompterCrawl } from "@/features/teleprompter/teleprompter-crawl";
 import { teleprompterSession } from "@/features/teleprompter/teleprompter-session";
-import { UnresolvedClipsDisplay } from "@/features/teleprompter/prototype-unresolved-clips-display";
+import { SessionMarksDisplay } from "@/features/teleprompter/prototype-session-marks-display";
 import { PrototypeControls } from "@/features/teleprompter/prototype-controls";
 import type { Route } from "./+types/teleprompter";
 
@@ -59,7 +59,7 @@ export default function Teleprompter() {
           videoId: msg.videoId,
           capture: msg.capture,
           tab: msg.tab,
-          unresolved: msg.unresolved,
+          marks: msg.marks,
           at: Date.now(),
         });
       } else if (msg.type === "pong") {
@@ -159,9 +159,8 @@ export default function Teleprompter() {
   const hasContent =
     source === "beats" ? content.beats.length > 0 : blocks.length > 0;
 
-  // PROTOTYPE — unresolved-clip dots. Always on: with nothing unresolved it
-  // draws nothing at all, so the glass is unchanged until there's a leak to
-  // report.
+  // PROTOTYPE — session-clip dots. Always on: with no session under way it
+  // draws nothing at all, so the glass is unchanged until you press record.
 
   return (
     <div className="fixed inset-0 select-none overflow-hidden bg-black">
@@ -170,9 +169,7 @@ export default function Teleprompter() {
         editorConnected={state.editorConnected}
       />
 
-      {state.editorConnected && (
-        <UnresolvedClipsDisplay unresolved={state.unresolved} />
-      )}
+      {state.editorConnected && <SessionMarksDisplay marks={state.marks} />}
 
       {!hasContent ? (
         <div className="flex h-full items-center justify-center px-12 text-center">
@@ -200,7 +197,7 @@ export default function Teleprompter() {
         status={status}
       />
 
-      <PrototypeControls unresolved={state.unresolved} />
+      <PrototypeControls marks={state.marks} />
     </div>
   );
 }

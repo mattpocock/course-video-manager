@@ -18,7 +18,7 @@
 import type {
   CaptureStatus,
   EditorTab,
-  UnresolvedClips,
+  ClipMarks,
 } from "@/lib/teleprompter-protocol";
 import type { TeleprompterBeat } from "./beats-view";
 import type { Source } from "./teleprompter-settings";
@@ -46,11 +46,11 @@ export namespace teleprompterSession {
     videoId: string | null;
     capture: CaptureStatus;
     /**
-     * PROTOTYPE — optimistic clips still waiting for a database clip, as last
-     * pushed by the editor. Held rather than derived: the glass has no access
-     * to the clip reducer.
+     * PROTOTYPE — this recording session's clips and what state each is in, as
+     * last pushed by the editor. Held rather than derived: the glass has no
+     * access to the clip reducer.
      */
-    unresolved: UnresolvedClips;
+    marks: ClipMarks;
     content: Content;
     lastScriptPushAt: number;
     /** Whether the crawl is rolling. */
@@ -82,8 +82,8 @@ export namespace teleprompterSession {
         videoId: string | null;
         capture: CaptureStatus;
         tab: EditorTab;
-        /** PROTOTYPE — absent from an older editor; treated as nothing pending. */
-        unresolved?: UnresolvedClips;
+        /** PROTOTYPE — absent from an older editor; treated as no session. */
+        marks?: ClipMarks;
         at: number;
       }
     /** A bare pong: the editor is still there, and nothing has changed. */
@@ -99,15 +99,15 @@ export namespace teleprompterSession {
 
   export const EMPTY_CONTENT: Content = { title: "", script: "", beats: [] };
 
-  /** PROTOTYPE — nothing in flight, or nobody to ask. */
-  export const NOTHING_UNRESOLVED: UnresolvedClips = [];
+  /** PROTOTYPE — no session under way, or nobody to ask. */
+  export const NO_MARKS: ClipMarks = [];
 
   export const initialState: State = {
     editorConnected: false,
     lastPongAt: 0,
     videoId: null,
     capture: "not-recording",
-    unresolved: NOTHING_UNRESOLVED,
+    marks: NO_MARKS,
     content: EMPTY_CONTENT,
     lastScriptPushAt: 0,
     playing: false,
@@ -147,9 +147,7 @@ export namespace teleprompterSession {
           videoId: action.videoId,
           capture: action.capture,
           // A different video's leftovers aren't this video's problem.
-          unresolved: videoChanged
-            ? NOTHING_UNRESOLVED
-            : (action.unresolved ?? NOTHING_UNRESOLVED),
+          marks: videoChanged ? NO_MARKS : (action.marks ?? NO_MARKS),
           // Recording never starts the crawl: the first words of a take are
           // rarely the first words of the script, so rolling on record puts the
           // glass ahead of the delivery. Play is a deliberate press. The end of
@@ -190,7 +188,7 @@ export namespace teleprompterSession {
           // Marks we can no longer refresh are worse than no marks: a frozen
           // row of dots reads as a live claim about clips nobody is reporting
           // on any more.
-          unresolved: NOTHING_UNRESOLVED,
+          marks: NO_MARKS,
         };
 
       case "content-fetched": {

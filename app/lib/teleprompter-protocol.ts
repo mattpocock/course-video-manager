@@ -52,31 +52,40 @@ export const EditorTab = z.enum(["beats", "reference", "script"]);
 export type EditorTab = z.infer<typeof EditorTab>;
 
 /**
- * PROTOTYPE — the state of one optimistic clip that has not yet found a
- * database clip to pair with.
+ * PROTOTYPE — the state of one clip in the current recording session.
  *
- *   pending  — detected by the frontend, still waiting for the backend.
- *   orphaned — the timeout expired. No database clip is coming: the frontend
- *              heard speech the backend's silence detection disagreed with.
- *   deleted  — deleted by hand, but still waiting to be reconciled.
+ * Two independent axes, deliberately: whether the backend has caught up
+ * (pending vs landed), and whether the clip is healthy (ok / orphaned /
+ * deleted). The display draws them as fill and colour respectively, so neither
+ * question can hide the other.
  *
- * A clip that pairs successfully leaves this list entirely, which is the whole
- * point: what remains on the glass is the frontend/backend mismatch, and an
- * empty list means there is nothing to catch.
+ *   pending         — the frontend heard it; no database clip yet.
+ *   landed          — paired with a database clip. The happy ending.
+ *   orphaned        — the timeout expired. No database clip is coming: the
+ *                     frontend heard speech the backend's silence detection
+ *                     disagreed with. Only ever optimistic, by definition.
+ *   deleted-pending — deleted by hand before the backend caught up.
+ *   deleted-landed  — deleted by hand, already paired.
  */
-export const UnresolvedClipState = z.enum(["pending", "orphaned", "deleted"]);
-export type UnresolvedClipState = z.infer<typeof UnresolvedClipState>;
+export const ClipMarkState = z.enum([
+  "pending",
+  "landed",
+  "orphaned",
+  "deleted-pending",
+  "deleted-landed",
+]);
+export type ClipMarkState = z.infer<typeof ClipMarkState>;
 
 /**
- * Every unresolved optimistic clip, oldest first. An ordered list rather than
- * counts so a clip changing state repaints one mark in place instead of
- * regrouping the whole display.
+ * Every clip in the current recording session, oldest first. An ordered list
+ * rather than counts so a clip changing state repaints one mark in place
+ * instead of regrouping the whole display.
  *
  * Optional so a popup left open across a reload of this branch doesn't fail to
  * parse the whole message and go blank.
  */
-export const UnresolvedClips = z.array(UnresolvedClipState);
-export type UnresolvedClips = z.infer<typeof UnresolvedClips>;
+export const ClipMarks = z.array(ClipMarkState);
+export type ClipMarks = z.infer<typeof ClipMarks>;
 
 export const TeleprompterParentToChild = z.discriminatedUnion("type", [
   /**
@@ -89,7 +98,7 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
     videoId: z.string().nullable(),
     capture: CaptureStatus,
     tab: EditorTab,
-    unresolved: UnresolvedClips.optional(),
+    marks: ClipMarks.optional(),
   }),
   /** Heartbeat answer, and nothing more. State travels by `editorState`. */
   z.object({ type: z.literal("pong") }),
