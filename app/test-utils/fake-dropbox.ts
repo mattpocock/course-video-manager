@@ -9,11 +9,110 @@ type StoredFile = {
 
 export const FAKE_ACCESS_TOKEN = "fake-dropbox-access-token";
 
+/** A request's lifetime on a logical clock, so overlap is computable. */
+type RequestSpan = {
+  url: string;
+  init: RequestInit;
+  start: number;
+  end: number;
+};
+
+type RequestMatcher = (url: string, init: RequestInit) => boolean;
+
+type InjectedFailure = {
+  match: RequestMatcher;
+  remaining: number;
+  status: number;
+  retryAfterSeconds?: number;
+};
+
 export const createFakeDropbox = () => {
   const files = new Map<string, StoredFile>();
   const sessions = new Map<string, { chunks: Buffer[] }>();
   const fetchCalls: Array<{ url: string; init: RequestInit }> = [];
   let sessionCounter = 0;
+
+  // ── In-flight instrumentation ──────────────────────────────────────
+  // Requests are timestamped on a logical clock (incremented per event)
+  // rather than a wall clock, so peak-concurrency assertions never depend
+  // on timing.
+  const requestSpans: RequestSpan[] = [];
+  let logicalClock = 0;
+
+  /**
+   * The largest number of matching requests that were ever simultaneously
+   * in flight.
+   */
+  const peakConcurrentRequests = (match: RequestMatcher = () => true) => {
+    const events: Array<{ at: number; delta: number }> = [];
+    for (const span of requestSpans) {
+      if (!match(span.url, span.init)) continue;
+      events.push({ at: span.start, delta: 1 });
+      events.push({ at: span.end, delta: -1 });
+    }
+    events.sort((a, b) => a.at - b.at || a.delta - b.delta);
+    let current = 0;
+    let peak = 0;
+    for (const event of events) {
+      current += event.delta;
+      peak = Math.max(peak, current);
+    }
+    return peak;
+  };
+
+  // ── Deterministic concurrency barrier ──────────────────────────────
+  let barrier: {
+    count: number;
+    match: RequestMatcher;
+    waiting: Array<() => void>;
+  } | null = null;
+
+  const releaseBarrier = () => {
+    const pending = barrier;
+    barrier = null;
+    for (const resolve of pending?.waiting ?? []) resolve();
+  };
+
+  /**
+   * Hold every matching request open until `count` of them are in flight at
+   * once, then release them all and stop holding. No timers are involved, so
+   * a caller that uploads serially never trips the barrier and the test hangs
+   * to its timeout rather than passing by accident.
+   */
+  const holdUntilInFlight = (
+    count: number,
+    match: RequestMatcher = () => true
+  ) => {
+    barrier = { count, match, waiting: [] };
+    return releaseBarrier;
+  };
+
+  // ── Fault injection ────────────────────────────────────────────────
+  const injectedFailures: InjectedFailure[] = [];
+
+  /** Answer the next `times` matching requests with `status`. */
+  const failNextRequests = (opts: {
+    match: RequestMatcher;
+    times: number;
+    status: number;
+    retryAfterSeconds?: number;
+  }) => {
+    injectedFailures.push({
+      match: opts.match,
+      remaining: opts.times,
+      status: opts.status,
+      retryAfterSeconds: opts.retryAfterSeconds,
+    });
+  };
+
+  const takeInjectedFailure = (url: string, init: RequestInit) => {
+    const failure = injectedFailures.find(
+      (candidate) => candidate.remaining > 0 && candidate.match(url, init)
+    );
+    if (!failure) return null;
+    failure.remaining -= 1;
+    return failure;
+  };
 
   const store = (pathDisplay: string, content: Buffer) => {
     const key = pathDisplay.toLowerCase();
@@ -52,19 +151,10 @@ export const createFakeDropbox = () => {
     return raw ? JSON.parse(raw) : {};
   };
 
-  const handleFetch = async (
-    url: string | URL | Request,
-    init?: RequestInit
+  const dispatch = async (
+    urlStr: string,
+    reqInit: RequestInit
   ): Promise<Response> => {
-    const urlStr =
-      typeof url === "string"
-        ? url
-        : url instanceof URL
-          ? url.toString()
-          : url.url;
-    const reqInit = init ?? {};
-    fetchCalls.push({ url: urlStr, init: reqInit });
-
     // Upload
     if (urlStr.includes("/2/files/upload") && !urlStr.includes("session")) {
       const apiArg = getApiArg(reqInit.headers);
@@ -206,11 +296,57 @@ export const createFakeDropbox = () => {
     });
   };
 
+  const handleFetch = async (
+    url: string | URL | Request,
+    init?: RequestInit
+  ): Promise<Response> => {
+    const urlStr =
+      typeof url === "string"
+        ? url
+        : url instanceof URL
+          ? url.toString()
+          : url.url;
+    const reqInit = init ?? {};
+    fetchCalls.push({ url: urlStr, init: reqInit });
+
+    const span: RequestSpan = {
+      url: urlStr,
+      init: reqInit,
+      start: ++logicalClock,
+      end: Number.POSITIVE_INFINITY,
+    };
+    requestSpans.push(span);
+
+    try {
+      if (barrier?.match(urlStr, reqInit)) {
+        const held = barrier;
+        const wait = new Promise<void>((resolve) => held.waiting.push(resolve));
+        if (held.waiting.length >= held.count) releaseBarrier();
+        await wait;
+      }
+
+      const failure = takeInjectedFailure(urlStr, reqInit);
+      if (failure) {
+        return new Response(JSON.stringify({ error_summary: "injected" }), {
+          status: failure.status,
+          headers: failure.retryAfterSeconds
+            ? { "Retry-After": String(failure.retryAfterSeconds) }
+            : undefined,
+        });
+      }
+
+      return await dispatch(urlStr, reqInit);
+    } finally {
+      span.end = ++logicalClock;
+    }
+  };
+
   const install = () => {
     vi.stubGlobal("fetch", vi.fn(handleFetch));
   };
 
   const cleanup = () => {
+    releaseBarrier();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   };
@@ -223,5 +359,8 @@ export const createFakeDropbox = () => {
     install,
     cleanup,
     handleFetch,
+    peakConcurrentRequests,
+    holdUntilInFlight,
+    failNextRequests,
   };
 };

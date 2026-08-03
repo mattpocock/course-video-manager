@@ -23,6 +23,7 @@ import {
 } from "./dropbox-http-client";
 import { DropboxContentHasher } from "./dropbox-content-hash";
 import { getValidDropboxAccessToken } from "./dropbox-auth-service";
+import { uploadConcurrency } from "./dropbox-upload-config";
 
 const toExportClips = (
   clips: Array<{
@@ -191,107 +192,129 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   });
   const manifestJson = JSON.stringify(courseJsonDoc, null, 2);
 
-  // Check if the bundle already exists remotely.
+  // Take stock of whatever of this bundle already landed. A bundle left
+  // half-written by an interrupted Publish is resumed, not rejected: the
+  // listing already says precisely which files are absent.
+  const remoteFilesByPath = new Map<string, DropboxFileMetadata>();
   const existingBundle = yield* getMetadata({
     accessToken,
     path: remoteBundleDir,
   }).pipe(Effect.catchTag("DropboxApiError", () => Effect.succeed(null)));
 
   if (existingBundle && existingBundle[".tag"] === "folder") {
-    // Verify the existing bundle's integrity via content_hash + size.
     const remoteEntries = yield* listFolder({
       accessToken,
       path: remoteBundleDir,
       recursive: true,
     });
-    const remoteFilesByPath = new Map<string, DropboxFileMetadata>();
     for (const entry of remoteEntries) {
       if (entry[".tag"] === "file") {
         remoteFilesByPath.set(entry.path_display.toLowerCase(), entry);
       }
     }
+  }
 
-    for (const entry of videoEntries) {
-      const remotePath =
-        `${remoteBundleDir}/${entry.relativeAssetPath}`.toLowerCase();
-      const remoteFile = remoteFilesByPath.get(remotePath);
-      if (!remoteFile) {
-        return yield* new ExportError({
-          message: `Immutable asset bundle is missing video ${entry.videoId}`,
-        });
-      }
-      const expectedHash = videoContentHashes.get(entry.videoId)!;
-      const expected = videoAssets.get(entry.videoId)!;
-      if (
-        remoteFile.content_hash !== expectedHash ||
-        remoteFile.size !== expected.bytes
-      ) {
-        return yield* new ExportError({
-          message: `Immutable asset bundle conflict for video ${entry.videoId}`,
-        });
-      }
+  const remoteVideoPath = (entry: (typeof videoEntries)[number]) =>
+    `${remoteBundleDir}/${entry.relativeAssetPath}`;
+
+  // Partition the bundle's Videos into "already landed" and "still to send".
+  // A Video present with a matching content_hash and size is skipped; one
+  // present but different is an immutability violation rather than an
+  // interrupted transfer, and is never overwritten.
+  const pendingUploads: typeof videoEntries = [];
+  // Bytes of each Video that are already in Dropbox — the input to the
+  // byte-weighted progress below.
+  const uploadedByVideo = new Map<string, number>();
+  for (const entry of videoEntries) {
+    const remoteFile = remoteFilesByPath.get(
+      remoteVideoPath(entry).toLowerCase()
+    );
+    if (!remoteFile) {
+      pendingUploads.push(entry);
+      uploadedByVideo.set(entry.videoId, 0);
+      continue;
     }
-
-    // Verify schema and manifest in the existing bundle.
-    const remoteSchemaPath =
-      `${remoteBundleDir}/course.schema.json`.toLowerCase();
-    const remoteManifestPath = `${remoteBundleDir}/manifest.json`.toLowerCase();
-    const remoteSchema = remoteFilesByPath.get(remoteSchemaPath);
-    const remoteManifest = remoteFilesByPath.get(remoteManifestPath);
-    if (!remoteSchema || !remoteManifest) {
+    const expectedHash = videoContentHashes.get(entry.videoId)!;
+    const expected = videoAssets.get(entry.videoId)!;
+    if (
+      remoteFile.content_hash !== expectedHash ||
+      remoteFile.size !== expected.bytes
+    ) {
       return yield* new ExportError({
-        message: "Immutable asset bundle is missing schema or manifest",
+        message: `Immutable asset bundle conflict for video ${entry.videoId}`,
       });
     }
-  } else {
-    // Upload the bundle.
-    let totalBytes = 0;
-    let uploadedBytes = 0;
+    // Landed by a previous attempt — a resumed Publish counts it as done
+    // rather than reporting itself back at zero.
+    uploadedByVideo.set(entry.videoId, expected.bytes);
+  }
 
-    for (const entry of videoEntries) {
-      totalBytes += videoAssets.get(entry.videoId)!.bytes;
-    }
+  // Byte-weighted progress across every Video in the bundle. Uploads report
+  // interleaved once several are in flight, so the aggregate is recomputed
+  // from the per-Video counters rather than accumulated as they complete.
+  const totalBytes = videoEntries.reduce(
+    (sum, entry) => sum + videoAssets.get(entry.videoId)!.bytes,
+    0
+  );
+  let lastReportedPercentage = 0;
+  const reportProgress = () => {
+    if (totalBytes <= 0) return;
+    let uploaded = 0;
+    for (const bytes of uploadedByVideo.values()) uploaded += bytes;
+    const percentage = Math.min(
+      Math.round((uploaded / totalBytes) * 100),
+      // 100 is reserved for the commit receipt landing.
+      99
+    );
+    if (percentage <= lastReportedPercentage) return;
+    lastReportedPercentage = percentage;
+    input.onProgress?.("progress", { percentage });
+  };
+  reportProgress();
 
-    for (const entry of videoEntries) {
-      const fileSize = videoAssets.get(entry.videoId)!.bytes;
-      const remotePath = `${remoteBundleDir}/${entry.relativeAssetPath}`;
-      const metadata = yield* uploadFileFromDisk({
-        accessToken,
-        path: remotePath,
-        filePath: entry.localPath,
-        fileSize,
-        onProgress: (uploaded) => {
-          if (totalBytes > 0) {
-            const pct = Math.round(
-              ((uploadedBytes + uploaded) / totalBytes) * 100
-            );
-            input.onProgress?.("progress", {
-              percentage: Math.min(pct, 99),
-            });
-          }
-        },
-      });
+  const uploadConcurrencyLimit = yield* uploadConcurrency;
 
-      uploadedBytes += fileSize;
-
-      // Verify the upload via content_hash.
-      const expectedHash = videoContentHashes.get(entry.videoId)!;
-      if (metadata.content_hash !== expectedHash) {
-        return yield* new ExportError({
-          message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
+  yield* Effect.forEach(
+    pendingUploads,
+    (entry) =>
+      Effect.gen(function* () {
+        const metadata = yield* uploadFileFromDisk({
+          accessToken,
+          path: remoteVideoPath(entry),
+          filePath: entry.localPath,
+          fileSize: videoAssets.get(entry.videoId)!.bytes,
+          onProgress: (uploaded) => {
+            uploadedByVideo.set(entry.videoId, uploaded);
+            reportProgress();
+          },
         });
-      }
-    }
 
-    // Upload schema and manifest.
+        // Verify the upload via content_hash.
+        const expectedHash = videoContentHashes.get(entry.videoId)!;
+        if (metadata.content_hash !== expectedHash) {
+          return yield* new ExportError({
+            message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
+          });
+        }
+      }),
+    { concurrency: uploadConcurrencyLimit }
+  );
+
+  // Schema and manifest are content-identical for a given bundle path, so
+  // whichever of them a previous attempt landed is left alone.
+  const schemaRemotePath = `${remoteBundleDir}/course.schema.json`;
+  const manifestRemotePath = `${remoteBundleDir}/manifest.json`;
+  if (!remoteFilesByPath.has(schemaRemotePath.toLowerCase())) {
     yield* uploadFile({
       accessToken,
-      path: `${remoteBundleDir}/course.schema.json`,
+      path: schemaRemotePath,
       content: Buffer.from(schemaJson, "utf-8"),
     });
+  }
+  if (!remoteFilesByPath.has(manifestRemotePath.toLowerCase())) {
     yield* uploadFile({
       accessToken,
-      path: `${remoteBundleDir}/manifest.json`,
+      path: manifestRemotePath,
       content: Buffer.from(manifestJson, "utf-8"),
     });
   }
