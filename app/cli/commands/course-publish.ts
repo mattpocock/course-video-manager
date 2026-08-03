@@ -18,13 +18,15 @@ import { detail, emitObject, notFound, parseError } from "@/cli/helpers";
  *
  * Publish (see CONTEXT.md) runs the Version lifecycle: Submit freezes the
  * Draft as a Pending Version (stamping name + description) and clones a fresh
- * Draft; any Unexported Video is then rendered; Commit mirrors the Pending
- * Version's shippable output to Dropbox (`.mp4`s + `course.json` +
- * `course.schema.json`), ending in the atomic `course.json` rename (the commit
+ * Draft; any Unexported Video is then rendered while the Commit mirrors the
+ * Pending Version's shippable output to Dropbox (`.mp4`s + `course.json` +
+ * `course.schema.json`) — the two overlap, a Video uploading as soon as its
+ * own export finishes — ending in the atomic `course.json` rename (the commit
  * receipt); Promote then marks it Published. A caught Commit failure — or a
  * failed export — auto-Discards the Pending Version. This just wraps
  * CoursePublishService.publish for the CLI; the heavy lifting (validation
- * gate, export, Dropbox sync, lifecycle transitions) lives there.
+ * gate, the export/upload pipeline, lifecycle transitions) lives there — so
+ * the CLI inherits the pipelining with its output contract untouched.
  *
  * NAME CONTRACT
  *   The version name MUST be a lowercase-'v' prefixed semver — `v1.2.3`,
@@ -98,14 +100,24 @@ named Published Version.
 Publish is the release operation (see CONTEXT.md). It (1) validates the
 shippable output, (2) SUBMITS the Draft — freezing it as a Pending Version
 stamped with --name and --description, and cloning a fresh Draft to carry on
-editing, (3) EXPORTS any Unexported Video, (4) COMMITS — copies every shipping
-Video's .mp4 plus a content-addressed asset bundle into Dropbox, ending in the
-atomic course.json rename that is the commit receipt, and (5) PROMOTES the
-Pending Version to Published. Submit comes before the export so encoding and
-uploading always work against an immutable Pending Version — a Clip edit
-landing mid-Publish can never invalidate work in flight. The published
+editing, (3) EXPORTS any Unexported Video and COMMITS at the same time — each
+Video starts uploading the moment its own export finishes, into a
+content-addressed asset bundle in Dropbox, ending in the atomic course.json
+rename that is the commit receipt, (4) reclaims stale exports, and (5)
+PROMOTES the Pending Version to Published. Submit comes before the export so
+encoding and uploading always work against an immutable Pending Version — a
+Clip edit landing mid-Publish can never invalidate work in flight, and the
+bundle's address is knowable before any encoding starts. The published
 snapshot is immutable and can never be deleted; a failed export or Commit
 auto-Discards the Pending Version (see FAILURE HANDLING).
+
+CONCURRENCY
+  Export and upload are separate pools with separate budgets, connected by a
+  per-Video handoff: encoding stays six-way concurrent (GPU-bound) while
+  uploads run at DROPBOX_UPLOAD_CONCURRENCY (default 4, network-bound). A
+  Publish therefore costs roughly the longer of the two phases rather than
+  their sum. Export garbage collection runs only once every upload has
+  finished, so it can never unlink a file mid-transfer.
 
 ADDRESSING
   The positional argument is the COURSE id (find it via 'cvm course list'). The
