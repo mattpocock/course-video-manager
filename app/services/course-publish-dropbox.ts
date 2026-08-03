@@ -1,6 +1,7 @@
 import { Config, Effect, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
 import { createHash } from "node:crypto";
+import path from "node:path";
 import {
   buildCourseJson,
   buildCourseJsonSchema,
@@ -13,7 +14,6 @@ import {
 } from "./export-hash";
 import { VersionOperationsService } from "./db-version-operations.server";
 import { ExportError, PublishValidationError } from "./course-publish-errors";
-import { resolveSectionsWithVideos } from "./publish-to-dropbox";
 import {
   uploadFile,
   uploadFileFromDisk,
@@ -72,6 +72,15 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   courseVersionId: string;
   includeTodoLessons: boolean;
   onProgress?: (event: "progress", data: { percentage: number }) => void;
+  /**
+   * The handoff queue out of the export pool. A Video's upload waits on this
+   * before touching its file, so a Publish can start shipping the Videos that
+   * have finished encoding while the rest are still on the GPU. It fails if
+   * that Video's export failed, which fails this sync.
+   *
+   * Absent (the manual re-sync path) every Video is ready from the start.
+   */
+  awaitVideoReady?: (videoId: string) => Effect.Effect<void, ExportError>;
 }) {
   const effectFs = yield* FileSystem.FileSystem;
   const versionOps = yield* VersionOperationsService;
@@ -127,30 +136,32 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     }
   }
 
-  const { sections, missingVideos } = yield* resolveSectionsWithVideos({
-    sectionsInDb: effectiveSections,
-    finishedVideosDirectory,
-    videoPathOverrides,
-  });
-  if (missingVideos.length > 0) return { missingVideos };
-
   const dropboxCourseDir = `${dropboxRemotePath}/${repoWithSections.name}`;
 
+  // The bundle's contents are read off the DATABASE, not off the disk: which
+  // Videos ship, where each lands inside the bundle, and which local file each
+  // comes from are all knowable before a single frame has been encoded. Whether
+  // that file has actually appeared yet is checked per Video, after its handoff.
   const videoEntries: Array<{
     videoId: string;
+    videoTitle: string;
+    lessonPath: string;
     localPath: string;
     relativeAssetPath: string;
     exportHash: string | null;
   }> = [];
 
-  for (const section of sections) {
+  for (const section of effectiveSections) {
     for (const lesson of section.lessons) {
       for (const video of lesson.videos) {
-        const relativeAssetPath = `${section.path}/${lesson.path}/${video.name}.mp4`;
         videoEntries.push({
           videoId: video.id,
-          localPath: video.absolutePath,
-          relativeAssetPath,
+          videoTitle: video.title,
+          lessonPath: lesson.path,
+          localPath:
+            videoPathOverrides.get(video.id) ??
+            path.join(finishedVideosDirectory, `${video.id}.mp4`),
+          relativeAssetPath: `${section.path}/${lesson.path}/${video.title}.mp4`,
           exportHash: videoExportHashes.get(video.id) ?? null,
         });
       }
@@ -190,14 +201,6 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const assetBasePath = `versions/${versionFingerprint}-${assetFingerprint}`;
   const remoteBundleDir = `${dropboxCourseDir}/${assetBasePath}`;
 
-  // Sizes come from stat, not from a read: they weight the progress aggregate
-  // and pick each Video's upload strategy.
-  const videoByteSizes = new Map<string, number>();
-  for (const entry of videoEntries) {
-    const info = yield* effectFs.stat(entry.localPath);
-    videoByteSizes.set(entry.videoId, Number(info.size));
-  }
-
   // Take stock of whatever of this bundle already landed. A bundle left
   // half-written by an interrupted Publish is resumed, not rejected: the
   // listing already says precisely which files are absent.
@@ -223,23 +226,34 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const remoteVideoPath = (entry: (typeof videoEntries)[number]) =>
     `${remoteBundleDir}/${entry.relativeAssetPath}`;
 
+  // Sizes come from stat, not from a read, and only once a Video's export has
+  // landed — so under pipelining they arrive one at a time rather than upfront.
+  const videoByteSizes = new Map<string, number>();
+
   // Byte-weighted progress across every Video in the bundle. Uploads report
   // interleaved once several are in flight, so the aggregate is recomputed
   // from the per-Video counters rather than accumulated as they complete.
   const uploadedByVideo = new Map<string, number>(
     videoEntries.map((entry) => [entry.videoId, 0])
   );
-  const totalBytes = videoEntries.reduce(
-    (sum, entry) => sum + videoByteSizes.get(entry.videoId)!,
-    0
-  );
   let lastReportedPercentage = 0;
   const reportProgress = () => {
-    if (totalBytes <= 0) return;
+    const knownSizes = Array.from(videoByteSizes.values());
+    if (knownSizes.length === 0) return;
+    const knownTotal = knownSizes.reduce((sum, bytes) => sum + bytes, 0);
+    // A Video still encoding has no size yet. Standing it in at the mean of
+    // the Videos already measured keeps the denominator from collapsing to
+    // whatever has landed so far, which would otherwise read as ~100% the
+    // moment the first Video finishes. Once every size is known this is
+    // exactly the byte-weighted total.
+    const meanKnown = knownTotal / knownSizes.length;
+    const denominator =
+      knownTotal + (videoEntries.length - knownSizes.length) * meanKnown;
+    if (denominator <= 0) return;
     let uploaded = 0;
     for (const bytes of uploadedByVideo.values()) uploaded += bytes;
     const percentage = Math.min(
-      Math.round((uploaded / totalBytes) * 100),
+      Math.round((uploaded / denominator) * 100),
       // 100 is reserved for the commit receipt landing.
       99
     );
@@ -250,6 +264,17 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
 
   const uploadConcurrencyLimit = yield* uploadConcurrency;
 
+  // Videos whose file never appeared. Under pipelining this is only knowable
+  // per Video, after its handoff — so unlike the old upfront disk walk, other
+  // Videos may already have shipped by the time one turns up missing. Harmless:
+  // the caller Discards without writing a manifest, and the half-written bundle
+  // is resumed rather than rejected by the next attempt.
+  const missingVideos: Array<{
+    videoId: string;
+    videoTitle: string;
+    lessonPath: string;
+  }> = [];
+
   // Ship each Video, digesting it off the same pass. A Video already present
   // with a matching content_hash and size is skipped; one present but
   // different is an immutability violation rather than an interrupted
@@ -258,6 +283,20 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     videoEntries,
     (entry) =>
       Effect.gen(function* () {
+        // The handoff: this Video's own export, and nothing else's.
+        if (input.awaitVideoReady) yield* input.awaitVideoReady(entry.videoId);
+
+        if (!(yield* effectFs.exists(entry.localPath))) {
+          missingVideos.push({
+            videoId: entry.videoId,
+            videoTitle: entry.videoTitle,
+            lessonPath: entry.lessonPath,
+          });
+          return null;
+        }
+        const info = yield* effectFs.stat(entry.localPath);
+        videoByteSizes.set(entry.videoId, Number(info.size));
+
         const remoteFile = remoteFilesByPath.get(
           remoteVideoPath(entry).toLowerCase()
         );
@@ -325,11 +364,15 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     { concurrency: uploadConcurrencyLimit }
   );
 
+  if (missingVideos.length > 0) return { missingVideos };
+
   const videoAssets = new Map(
-    receipts.map((receipt) => [
-      receipt.videoId,
-      { sha256: receipt.sha256, bytes: receipt.bytes },
-    ])
+    receipts
+      .filter((receipt) => receipt !== null)
+      .map((receipt) => [
+        receipt.videoId,
+        { sha256: receipt.sha256, bytes: receipt.bytes },
+      ])
   );
 
   // The manifest is built last because it carries every Video's SHA256 and

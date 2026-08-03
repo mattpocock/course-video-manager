@@ -1,4 +1,4 @@
-import { Config, Effect, Exit, Schedule } from "effect";
+import { Config, Deferred, Effect, Exit, Schedule } from "effect";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
 import { VideoOperationsService } from "./db-video-operations.server";
@@ -288,13 +288,15 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         courseId: string,
         courseVersionId: string,
         includeTodoLessons: boolean,
-        onProgress?: DropboxSyncProgressCallback
+        onProgress?: DropboxSyncProgressCallback,
+        awaitVideoReady?: (videoId: string) => Effect.Effect<void, ExportError>
       ) {
         return yield* syncFrozenCourseVersionToDropbox({
           courseId,
           courseVersionId,
           includeTodoLessons,
           onProgress,
+          awaitVideoReady,
         });
       });
 
@@ -376,49 +378,114 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           sourceDescription: versionDescription,
         });
 
-        if (unexportedVideoIds.length > 0) {
-          onStageChange?.("exporting");
-          // Re-walk with titles so the export step is observable per Video —
-          // the same walk (and events) the standalone batchExport emits. The
-          // Export Hash is untouched by Submit: the clone copies Clip
-          // filenames, source timings and order verbatim and never mutates the
-          // source rows, so this walk sees exactly what validation saw.
-          const { unexportedVideos } = yield* findUnexportedVideos(
-            latestVersion.id,
-            includeTodoLessons
+        // Re-walk with titles so the export step is observable per Video —
+        // the same walk (and events) the standalone batchExport emits. The
+        // Export Hash is untouched by Submit: the clone copies Clip
+        // filenames, source timings and order verbatim and never mutates the
+        // source rows, so this walk sees exactly what validation saw.
+        const unexportedVideos =
+          unexportedVideoIds.length > 0
+            ? (yield* findUnexportedVideos(
+                latestVersion.id,
+                includeTodoLessons
+              )).unexportedVideos
+            : [];
+
+        // THE HANDOFF QUEUE between two pools that must not share a budget:
+        // the export pool (GPU-bound, six-way concurrent) and the upload pool
+        // (network-bound, its own smaller limit). One latch per Video still to
+        // encode; a Video already exported has none and is ready immediately.
+        // The upload pool waits on a single Video's latch rather than on the
+        // export phase as a whole, which is what makes the two overlap.
+        const exportLatches = new Map<
+          string,
+          Deferred.Deferred<void, ExportError>
+        >();
+        for (const video of unexportedVideos) {
+          exportLatches.set(
+            video.id,
+            yield* Deferred.make<void, ExportError>()
           );
-          const { failedVideoIds } = yield* runObservedExportLoop({
+        }
+        const awaitVideoReady = (videoId: string) => {
+          const latch = exportLatches.get(videoId);
+          return latch ? Deferred.await(latch) : Effect.void;
+        };
+
+        if (unexportedVideos.length > 0) onStageChange?.("exporting");
+        onStageChange?.("uploading");
+
+        const exportPhase = Effect.gen(function* () {
+          if (unexportedVideos.length === 0) {
+            return { failedVideoIds: [] as string[] };
+          }
+          return yield* runObservedExportLoop({
             unexportedVideos,
             exportVideo: exportVideoCore,
             onDetailEvent,
+            onVideoSettled: ({ videoId, exported }) => {
+              const latch = exportLatches.get(videoId)!;
+              return exported
+                ? Deferred.succeed(latch, undefined)
+                : Deferred.fail(
+                    latch,
+                    new ExportError({
+                      message: `Export failed for video ${videoId}`,
+                    })
+                  );
+            },
           });
-          if (failedVideoIds.length > 0) {
-            // A Pending Version now exists by the time export can fail, so
-            // Discard it rather than stranding it for manual reconciliation.
-            // The error the caller sees is unchanged: the failed Video ids.
-            yield* versionOps.discardPendingVersion(latestVersion.id);
-            return yield* new PublishValidationError({
-              failedExportVideoIds: failedVideoIds,
-            });
-          }
-          yield* garbageCollect(courseId);
-        }
+        }).pipe(
+          // Never strand the upload pool waiting on a latch the export pool
+          // will now never settle. Completing an already-settled latch is a
+          // no-op, so this only catches the abnormal exits.
+          Effect.ensuring(
+            Effect.forEach(
+              exportLatches.values(),
+              (latch) =>
+                Deferred.fail(
+                  latch,
+                  new ExportError({ message: "Export did not complete" })
+                ),
+              { discard: true }
+            )
+          )
+        );
 
-        onStageChange?.("uploading");
         // Commit: the Dropbox commit, culminating in the atomic `course.json`
         // rename — the external commit receipt. A caught failure is TERMINAL
         // for this Pending Version (issue #1401): retry the Commit once
         // in-flight (`sync_failed` only), then auto-Discard. The sync is
         // content-addressed and idempotent, so a later re-publish re-uploads
         // nothing that already landed.
-        const commitExit = yield* Effect.exit(
+        const commitPhase = Effect.exit(
           syncFrozenVersionToDropboxUnlocked(
             courseId,
             latestVersion.id,
             includeTodoLessons,
-            (event, data) => onDetailEvent?.({ event, data })
+            (event, data) => onDetailEvent?.({ event, data }),
+            awaitVideoReady
           ).pipe(Effect.retry(Schedule.recurs(1)))
         );
+
+        // Both pools run to completion. Neither can fail outright — the export
+        // loop collects its failures, the commit is captured as an Exit — so
+        // neither ever interrupts the other mid-encode or mid-transfer.
+        const [exportResult, commitExit] = yield* Effect.all(
+          [exportPhase, commitPhase],
+          { concurrency: 2 }
+        );
+
+        if (exportResult.failedVideoIds.length > 0) {
+          // A Pending Version now exists by the time export can fail, so
+          // Discard it rather than stranding it for manual reconciliation.
+          // The error the caller sees is unchanged: the failed Video ids —
+          // reported ahead of whatever the commit made of the failure.
+          yield* versionOps.discardPendingVersion(latestVersion.id);
+          return yield* new PublishValidationError({
+            failedExportVideoIds: exportResult.failedVideoIds,
+          });
+        }
         if (Exit.isFailure(commitExit)) {
           yield* versionOps.discardPendingVersion(latestVersion.id);
           return yield* new PublishCommitFailedError({
@@ -440,6 +507,14 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             ),
           });
         }
+
+        // Reclaim stale exports LAST, once every byte has gone past. GC deletes
+        // any Exported Video whose Export Hash is unreachable from current
+        // database state and cannot tell a file being streamed to Dropbox from
+        // an abandoned one — so it must never run while uploads are in flight.
+        // It has no correctness consumers, so the critical path is not its
+        // place.
+        if (unexportedVideos.length > 0) yield* garbageCollect(courseId);
 
         // Promote: the receipt landed, so the Pending Version is Published.
         yield* versionOps.promotePendingVersion(latestVersion.id);

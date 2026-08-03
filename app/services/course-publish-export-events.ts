@@ -53,6 +53,12 @@ export const extractErrorMessage = (e: unknown, fallback: string): string =>
 // publish: emit the `videos` list, pre-emit `queued` per Video, run the
 // export with its ffmpeg stage wiring, retry twice per Video, emit
 // `complete`/`error` per Video, and return the ids that still failed.
+//
+// `onVideoSettled` is the HANDOFF out of the export pool: it fires once a
+// Video's export has finally succeeded or failed, and is what lets a
+// downstream pool (the Dropbox upload pool) start on that one Video while its
+// siblings are still encoding. It runs inside the fan-out, so it is reached as
+// soon as that Video settles rather than when the loop as a whole finishes.
 export const runObservedExportLoop = <A, E, R>(input: {
   unexportedVideos: Array<{ id: string; title: string }>;
   exportVideo: (
@@ -64,9 +70,14 @@ export const runObservedExportLoop = <A, E, R>(input: {
     }) => void
   ) => Effect.Effect<A, E, R>;
   onDetailEvent?: EmitPublishDetailEvent;
+  onVideoSettled?: (result: {
+    videoId: string;
+    exported: boolean;
+  }) => Effect.Effect<void>;
 }): Effect.Effect<{ failedVideoIds: string[] }, never, R> =>
   Effect.gen(function* () {
-    const { unexportedVideos, exportVideo, onDetailEvent } = input;
+    const { unexportedVideos, exportVideo, onDetailEvent, onVideoSettled } =
+      input;
 
     onDetailEvent?.({
       event: "videos",
@@ -81,6 +92,13 @@ export const runObservedExportLoop = <A, E, R>(input: {
         data: { videoId: video.id, stage: "queued" },
       });
     }
+
+    // Suspended so the hand-off is only reached when the Video actually
+    // settles, never while the fan-out is being described.
+    const settle = (videoId: string, exported: boolean) =>
+      Effect.suspend(
+        () => onVideoSettled?.({ videoId, exported }) ?? Effect.void
+      );
 
     const failedVideoIds: string[] = [];
     yield* Effect.forEach(
@@ -108,18 +126,23 @@ export const runObservedExportLoop = <A, E, R>(input: {
               data: { videoId: video.id },
             });
           }),
-          Effect.catchAll((e) =>
-            Effect.sync(() => {
-              onDetailEvent?.({
-                event: "error",
-                data: {
-                  videoId: video.id,
-                  message: extractErrorMessage(e, "Export failed unexpectedly"),
-                },
-              });
-              failedVideoIds.push(video.id);
-            })
-          )
+          Effect.matchEffect({
+            onSuccess: () => settle(video.id, true),
+            onFailure: (e) =>
+              Effect.sync(() => {
+                onDetailEvent?.({
+                  event: "error",
+                  data: {
+                    videoId: video.id,
+                    message: extractErrorMessage(
+                      e,
+                      "Export failed unexpectedly"
+                    ),
+                  },
+                });
+                failedVideoIds.push(video.id);
+              }).pipe(Effect.andThen(settle(video.id, false))),
+          })
         ),
       { concurrency: MAX_CONCURRENT_EXPORTS }
     );
