@@ -52,22 +52,31 @@ export const EditorTab = z.enum(["beats", "reference", "script"]);
 export type EditorTab = z.infer<typeof EditorTab>;
 
 /**
- * PROTOTYPE — the recording session, reduced to the three numbers that answer
- * "is the machine keeping up with me". Session-scoped and derived editor-side,
- * because sessions live in the editor's reducer and the glass is a pure slave.
+ * PROTOTYPE — the state of one optimistic clip that has not yet found a
+ * database clip to pair with.
+ *
+ *   pending  — detected by the frontend, still waiting for the backend.
+ *   orphaned — the timeout expired. No database clip is coming: the frontend
+ *              heard speech the backend's silence detection disagreed with.
+ *   deleted  — deleted by hand, but still waiting to be reconciled.
+ *
+ * A clip that pairs successfully leaves this list entirely, which is the whole
+ * point: what remains on the glass is the frontend/backend mismatch, and an
+ * empty list means there is nothing to catch.
+ */
+export const UnresolvedClipState = z.enum(["pending", "orphaned", "deleted"]);
+export type UnresolvedClipState = z.infer<typeof UnresolvedClipState>;
+
+/**
+ * Every unresolved optimistic clip, oldest first. An ordered list rather than
+ * counts so a clip changing state repaints one mark in place instead of
+ * regrouping the whole display.
  *
  * Optional so a popup left open across a reload of this branch doesn't fail to
  * parse the whole message and go blank.
  */
-export const SessionCounts = z.object({
-  /** Optimistic clips still waiting for silence detection to confirm them. */
-  pending: z.number(),
-  /** Clips that made it to the database this session, archived excluded. */
-  settled: z.number(),
-  /** Clips the 10s timeout gave up on. A take that is simply missing. */
-  orphaned: z.number(),
-});
-export type SessionCounts = z.infer<typeof SessionCounts>;
+export const UnresolvedClips = z.array(UnresolvedClipState);
+export type UnresolvedClips = z.infer<typeof UnresolvedClips>;
 
 export const TeleprompterParentToChild = z.discriminatedUnion("type", [
   /**
@@ -80,7 +89,7 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
     videoId: z.string().nullable(),
     capture: CaptureStatus,
     tab: EditorTab,
-    counts: SessionCounts.optional(),
+    unresolved: UnresolvedClips.optional(),
   }),
   /** Heartbeat answer, and nothing more. State travels by `editorState`. */
   z.object({ type: z.literal("pong") }),

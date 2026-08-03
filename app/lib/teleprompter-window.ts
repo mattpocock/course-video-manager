@@ -12,7 +12,7 @@ import {
   subscribeTeleprompterParent,
   type CaptureStatus,
   type EditorTab,
-  type SessionCounts,
+  type UnresolvedClips,
   type TeleprompterCommand,
   type TeleprompterChildToParentMessage,
 } from "./teleprompter-protocol";
@@ -21,8 +21,8 @@ export type TeleprompterEditorState = {
   videoId: string | null;
   capture: CaptureStatus;
   tab: EditorTab;
-  /** PROTOTYPE — recording session counts for the status display on the glass. */
-  counts?: SessionCounts;
+  /** PROTOTYPE — unresolved optimistic clips, for the status display on the glass. */
+  unresolved?: UnresolvedClips;
 };
 
 const TELEPROMPTER_PATH = "/teleprompter";

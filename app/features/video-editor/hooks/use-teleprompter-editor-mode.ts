@@ -11,8 +11,8 @@
  *     speech-detector state changes constantly mid-take, and re-subscribing the
  *     channel on every change is the one failure mode a teleprompter can't have.
  *   - The second *pushes* state the moment it changes, so the glass is never a
- *     heartbeat behind the editor. Its dependencies are the three primitives
- *     rather than the state object, so a re-render that produces an identical
+ *     heartbeat behind the editor. Its dependencies are the primitives rather
+ *     than the state object, so a re-render that produces an identical
  *     `{ videoId, capture, tab }` sends nothing — which matters, because the
  *     speech detector re-renders far more often than it actually transitions.
  */
@@ -21,15 +21,18 @@ import {
   enableTeleprompterEditorMode,
   pushTeleprompterState,
 } from "@/lib/teleprompter-window";
-import type { CaptureStatus, SessionCounts } from "@/lib/teleprompter-protocol";
+import type {
+  CaptureStatus,
+  UnresolvedClips,
+} from "@/lib/teleprompter-protocol";
 import type { BeatTab } from "../beat-tab";
 
 export type TeleprompterEditorState = {
   videoId: string | null;
   capture: CaptureStatus;
   tab: BeatTab;
-  /** PROTOTYPE — see `prototype-session-counts.ts`. */
-  counts: SessionCounts;
+  /** PROTOTYPE — see `prototype-unresolved-clips.ts`. */
+  unresolved: UnresolvedClips;
 };
 
 export function useTeleprompterEditorMode(state: TeleprompterEditorState) {
@@ -38,16 +41,19 @@ export function useTeleprompterEditorMode(state: TeleprompterEditorState) {
 
   useEffect(() => enableTeleprompterEditorMode(() => ref.current), []);
 
-  const { videoId, capture, tab, counts } = state;
-  // Depends on the count primitives rather than the object, so the fresh
-  // `{...}` a re-render produces doesn't push an identical message.
-  const { pending, settled, orphaned } = counts;
+  const { videoId, capture, tab, unresolved } = state;
+  // A fresh array every render would push on every frame of a take, so the
+  // dependency is the array's *content*, flattened to a string.
+  const unresolvedKey = unresolved.join(",");
   useEffect(() => {
     pushTeleprompterState({
       videoId,
       capture,
       tab,
-      counts: { pending, settled, orphaned },
+      unresolved:
+        unresolvedKey === ""
+          ? []
+          : (unresolvedKey.split(",") as UnresolvedClips),
     });
-  }, [videoId, capture, tab, pending, settled, orphaned]);
+  }, [videoId, capture, tab, unresolvedKey]);
 }
