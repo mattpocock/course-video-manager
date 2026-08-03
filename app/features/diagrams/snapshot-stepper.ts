@@ -8,7 +8,7 @@
  */
 
 import {
-  isHeadPreserved,
+  isHeadCaptured,
   type Snapshot,
   type SnapshotListResponse,
 } from "@/features/diagrams/snapshot-list";
@@ -45,7 +45,7 @@ export function createSnapshotStepper(deps: {
    */
   requestRestore: (
     snapshot: Snapshot,
-    headIsPreserved: boolean
+    headIsCaptured: boolean
   ) => Promise<void> | void;
 }): SnapshotStepper {
   /**
@@ -91,7 +91,7 @@ export function createSnapshotStepper(deps: {
         lastVisitedId = target.id;
         await deps.requestRestore(
           target,
-          isHeadPreserved(snapshots, list.headContentHash)
+          isHeadCaptured(snapshots, list.headContentHash)
         );
         return { kind: "stepped", snapshot: target };
       } catch {

@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useNavigate, useRevalidator } from "react-router";
 import {
   fetchSnapshotList,
-  isHeadPreserved,
+  isHeadCaptured,
   type Snapshot,
 } from "@/features/diagrams/snapshot-list";
 import type { PaletteHandlers } from "./use-palette";
@@ -21,7 +21,7 @@ export function usePaletteHandlers(opts: {
   /** Cancels the debounced autosave and lands it now. */
   flushPendingSave: () => Promise<void>;
   preserveSnapshot: () => Promise<void>;
-  handleRestoreRequest: (snapshot: Snapshot, headIsPreserved: boolean) => void;
+  handleRestoreRequest: (snapshot: Snapshot, headIsCaptured: boolean) => void;
   handleCopyDiagramContents: (id: string) => Promise<void>;
   handleCreateDiagram: () => Promise<void>;
   /** Re-reads head from the server and loads it into the editor. */
@@ -48,7 +48,7 @@ export function usePaletteHandlers(opts: {
         // "Discard changes since the last snapshot" — the same restore the
         // timeline performs, on the newest snapshot, and through the same
         // handler, so the confirm dialog still appears when the head is not
-        // already preserved.
+        // already captured on the timeline.
         const data = await fetchSnapshotList(diagramId);
         if (!data) {
           toast.error("Failed to load snapshots");
@@ -63,7 +63,7 @@ export function usePaletteHandlers(opts: {
         }
         handleRestoreRequest(
           newest,
-          isHeadPreserved(data.snapshots, data.headContentHash)
+          isHeadCaptured(data.snapshots, data.headContentHash)
         );
       },
 

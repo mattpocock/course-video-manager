@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isHeadPreserved, type Snapshot } from "./snapshot-list";
+import { isHeadCaptured, type Snapshot } from "./snapshot-list";
 
 const snapshot = (over: Partial<Snapshot>): Snapshot => ({
   id: "s1",
@@ -11,32 +11,41 @@ const snapshot = (over: Partial<Snapshot>): Snapshot => ({
   ...over,
 });
 
-describe("isHeadPreserved", () => {
+describe("isHeadCaptured", () => {
   it("is true when a preserved snapshot already holds the head's content", () => {
-    expect(isHeadPreserved([snapshot({ contentHash: "aaa" })], "aaa")).toBe(
+    expect(isHeadCaptured([snapshot({ contentHash: "aaa" })], "aaa")).toBe(
       true
     );
   });
 
-  it("is false when the only matching snapshot is not preserved", () => {
-    // An auto-pinned snapshot can be archived out from under the head, so it is
-    // not a safe place for work to live.
+  it("is true when the only matching snapshot is Clip-pinned rather than preserved", () => {
+    // The endpoint has already dropped everything that left the timeline, so a
+    // non-preserved snapshot still in this list is one click away — restoring
+    // over the head loses nothing. Stepping relies on this: without it, landing
+    // on a Clip-pinned snapshot makes the next keypress warn about the snapshot
+    // it just landed on.
     expect(
-      isHeadPreserved(
+      isHeadCaptured(
         [snapshot({ contentHash: "aaa", preserved: false })],
         "aaa"
       )
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("is false when no snapshot on the timeline holds the head's content", () => {
+    expect(isHeadCaptured([snapshot({ contentHash: "bbb" })], "aaa")).toBe(
+      false
+    );
   });
 
   it("is false when the head has no content hash at all", () => {
     // The guard that matters: a snapshot's contentHash is a string, so without
     // the null check a null head would still have to not match — but treating
     // "unknown" as "safe" is the failure that loses work silently.
-    expect(isHeadPreserved([snapshot({})], null)).toBe(false);
+    expect(isHeadCaptured([snapshot({})], null)).toBe(false);
   });
 
   it("is false when there are no snapshots", () => {
-    expect(isHeadPreserved([], "aaa")).toBe(false);
+    expect(isHeadCaptured([], "aaa")).toBe(false);
   });
 });

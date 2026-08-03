@@ -236,7 +236,7 @@ A **DiagramSnapshot** flagged to stay visible in its Diagram's timeline even wit
 _Avoid_: Manual snapshot, Saved snapshot, Standalone snapshot, Bookmark
 
 **Restore to Head**:
-Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog; see **Preserved Snapshot**). When triggered from the timeline's Restore button or by a **Snapshot Step**, the existing `RestoreSnapshotDialog` confirms the action. Whichever route was taken, the camera is then centred on the restored content (never zoomed past 100%) — camera state is not persisted (ADR 0003), so without that the restore lands off-screen. No-op when the head already matches the target snapshot.
+Loading an older **DiagramSnapshot**'s scene back into the Active Diagram's `headScene`, replacing the live canvas. When triggered from a search-result click, the outgoing head is silently auto-preserved first (no dialog; see **Preserved Snapshot**). When triggered from the timeline's Restore button or by a **Snapshot Step**, `RestoreSnapshotDialog` confirms the action — but only when the outgoing head's content is held by no snapshot on the timeline; content already sitting there (**Preserved** _or_ Clip-pinned) is one click away, so replacing it loses nothing and the restore goes through silently. Whichever route was taken, the camera is then centred on the restored content (never zoomed past 100%) — camera state is not persisted (ADR 0003), so without that the restore lands off-screen. No-op when the head already matches the target snapshot.
 _Avoid_: Revert, Roll back, Undo
 
 **Snapshot Step**:

@@ -15,7 +15,7 @@ export function DiagramCommandPalette(props: {
   editorRef: React.RefObject<Editor | null>;
   flushPendingSave: () => Promise<void>;
   preserveSnapshot: () => Promise<void>;
-  handleRestoreRequest: (snapshot: Snapshot, headIsPreserved: boolean) => void;
+  handleRestoreRequest: (snapshot: Snapshot, headIsCaptured: boolean) => void;
   handleCopyDiagramContents: (id: string) => Promise<void>;
   handleCreateDiagram: () => Promise<void>;
   reloadScene: (id: string) => Promise<void>;

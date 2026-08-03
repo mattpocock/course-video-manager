@@ -155,10 +155,10 @@ export default function DiagramPlaygroundActive({
   // next. The dialog branch settles immediately — it hands control to the
   // dialog, which owns the keyboard until it is answered.
   const handleRestoreRequest = useCallback(
-    (snapshot: Snapshot, headIsPreserved: boolean): Promise<void> | void => {
+    (snapshot: Snapshot, headIsCaptured: boolean): Promise<void> | void => {
       const ed = editorRef.current;
       const canvasIsEmpty = ed ? ed.getCurrentPageShapeIds().size === 0 : false;
-      if (headIsPreserved || canvasIsEmpty) {
+      if (headIsCaptured || canvasIsEmpty) {
         return performRestore(snapshot);
       }
       setPendingRestore(snapshot);

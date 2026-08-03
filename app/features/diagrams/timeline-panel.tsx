@@ -6,7 +6,7 @@ import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { copySceneToClipboard } from "@/features/diagrams/copy-scene-to-clipboard";
 import {
   fetchSnapshotList,
-  isHeadPreserved,
+  isHeadCaptured,
   type Snapshot,
 } from "@/features/diagrams/snapshot-list";
 
@@ -18,7 +18,7 @@ export function TimelinePanel({
   refreshKey,
 }: {
   diagramId: string;
-  onRestoreRequest: (snapshot: Snapshot, headIsPreserved: boolean) => void;
+  onRestoreRequest: (snapshot: Snapshot, headIsCaptured: boolean) => void;
   refreshKey: number;
 }) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -48,7 +48,7 @@ export function TimelinePanel({
   }, [fetchSnapshots, refreshKey]);
 
   const handleRestoreClick = (snapshot: Snapshot) => {
-    onRestoreRequest(snapshot, isHeadPreserved(snapshots, headContentHash));
+    onRestoreRequest(snapshot, isHeadCaptured(snapshots, headContentHash));
   };
 
   const handleCopy = async (snapshot: Snapshot) => {

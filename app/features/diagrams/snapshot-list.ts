@@ -4,7 +4,7 @@
  *
  * Three surfaces consume that endpoint: the right-rail timeline, the command
  * palette's "Restore to head", and a **Snapshot Step**. They must agree on what
- * "the head is already preserved" means, because that flag decides whether
+ * "the head is already captured" means, because that flag decides whether
  * restoring shows a confirmation dialog — a disagreement would silently lose
  * work from one route and not the other.
  */
@@ -45,18 +45,24 @@ export async function fetchSnapshotList(
 }
 
 /**
- * Whether the current head state is already safely captured — i.e. some
- * preserved snapshot has the same content hash.
+ * Whether the current head state is already safely captured — i.e. some snapshot
+ * *on the timeline* has the same content hash.
  *
  * When this is false, restoring discards work that exists nowhere else, which is
  * what the confirmation dialog is for.
+ *
+ * Preserved and Clip-pinned both count. The endpoint has already dropped the
+ * snapshots that are no longer visible, so anything still in this list is
+ * content the author can get back to by clicking a row — warning that it "won't
+ * be recoverable" would be pointing at a thumbnail sitting right there. That
+ * matters most for a **Snapshot Step**: stepping onto a Clip-pinned snapshot
+ * would otherwise make the next keypress raise a dialog about the snapshot it
+ * just landed on, so walking a run of them meant confirming every hop.
  */
-export function isHeadPreserved(
+export function isHeadCaptured(
   snapshots: readonly Snapshot[],
   headContentHash: string | null
 ): boolean {
   if (headContentHash === null) return false;
-  return snapshots.some(
-    (s) => s.preserved && s.contentHash === headContentHash
-  );
+  return snapshots.some((s) => s.contentHash === headContentHash);
 }

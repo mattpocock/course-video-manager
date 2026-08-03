@@ -29,7 +29,7 @@ export function RestoreSnapshotDialog({
         <DialogHeader>
           <DialogTitle>Restore snapshot?</DialogTitle>
           <DialogDescription>
-            The current canvas has not been saved as a preserved snapshot.
+            The current canvas is not saved as a snapshot on the timeline.
             Restoring will replace it and you won't be able to recover it.
           </DialogDescription>
         </DialogHeader>

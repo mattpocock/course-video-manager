@@ -58,9 +58,9 @@ function fakeDiagram(opts: {
       events.push("read");
       return { snapshots: opts.snapshots ?? timeline, headContentHash: head };
     },
-    requestRestore: async (target, headIsPreserved) => {
+    requestRestore: async (target, headIsCaptured) => {
       events.push(`restore:${target.id}`);
-      confirmations.push(headIsPreserved);
+      confirmations.push(headIsCaptured);
       // `performRestore` POSTs first, so the head moves server-side before
       // `loadSnapshot` puts the same scene on the canvas.
       setHead(target.contentHash);
@@ -99,15 +99,24 @@ describe("createSnapshotStepper", () => {
   });
 
   it("carries the confirmation flag through to the restore", async () => {
-    // An unpreserved head is work that exists nowhere else, so the surrounding
-    // chrome must get the chance to raise its dialog.
-    const unpreserved = [
+    // Unsaved edits sit past the newest snapshot: that head is work existing
+    // nowhere else, so the surrounding chrome must get the chance to warn.
+    const d = fakeDiagram({ headContentHash: "unsaved" });
+    await d.stepper.step("older");
+    expect(d.confirmations).toEqual([false]);
+  });
+
+  it("does not ask for confirmation when the head sits on a Clip-pinned snapshot", async () => {
+    // Stepping lands on whatever the timeline holds, preserved or not. Warning
+    // that the head "can't be recovered" when it is the snapshot one row over
+    // would mean a dialog on every hop across a run of auto snapshots.
+    const pinned = [
       snapshot({ id: "a", contentHash: "h1" }),
       snapshot({ id: "b", contentHash: "h2", preserved: false }),
     ];
-    const d = fakeDiagram({ snapshots: unpreserved, headContentHash: "h2" });
+    const d = fakeDiagram({ snapshots: pinned, headContentHash: "h2" });
     await d.stepper.step("older");
-    expect(d.confirmations).toEqual([false]);
+    expect(d.confirmations).toEqual([true]);
   });
 
   it("refuses a second step until the first restore has landed", async () => {

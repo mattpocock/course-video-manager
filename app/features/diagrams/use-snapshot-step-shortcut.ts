@@ -31,7 +31,7 @@ export function useSnapshotStepShortcut(opts: {
   /** Resolves once the head has moved, or immediately if a dialog intercepts. */
   onRestoreRequest: (
     snapshot: Snapshot,
-    headIsPreserved: boolean
+    headIsCaptured: boolean
   ) => Promise<void> | void;
 }) {
   const { diagramId, flushPendingSave, onRestoreRequest } = opts;
