@@ -5,6 +5,7 @@ import path from "node:path";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
+import { computeExportHash, toExportClips } from "@/services/export-hash";
 import { courseVersions as courseVersionsTable } from "@/db/schema";
 import {
   finishedVideosDir,
@@ -16,6 +17,50 @@ import {
 setupPublishServiceTests();
 
 describe("CoursePublishService — Submit before export", () => {
+  it("leaves every Video's Export Hash untouched across Submit", async () => {
+    // The bundle path is derived from these, and it is computed before Submit
+    // but used after it. The freeze-and-clone must therefore copy Clip
+    // filenames, source timings and order verbatim, and never mutate the
+    // source rows.
+    const { course, version, run } = await setup();
+
+    const exportHashesFor = (versionId: string) =>
+      run(
+        Effect.gen(function* () {
+          const versionOps = yield* VersionOperationsService;
+          const withSections =
+            yield* versionOps.getVersionWithSections(versionId);
+          return withSections.sections.flatMap((section) =>
+            section.lessons.flatMap((lesson) =>
+              lesson.videos.map((v) =>
+                computeExportHash(toExportClips(v.clips), v.format)
+              )
+            )
+          );
+        })
+      );
+
+    const before = await exportHashesFor(version.id);
+
+    const { newDraftVersionId } = await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        return yield* svc.publish({
+          courseId: course.id,
+          versionName: "v1.0",
+          versionDescription: "First release",
+          includeTodoLessons: true,
+        });
+      })
+    );
+
+    expect(before).toHaveLength(1);
+    expect(before[0]).toBeTruthy();
+    // Unchanged on the Submitted Version, and carried verbatim into the clone.
+    expect(await exportHashesFor(version.id)).toEqual(before);
+    expect(await exportHashesFor(newDraftVersionId)).toEqual(before);
+  });
+
   it("Submits before exporting, so encoding operates on a Pending Version", async () => {
     // While a Course Version is a Draft it legally accepts Clip, Video and
     // Section writes — and a Video's title is its path inside the bundle. So
