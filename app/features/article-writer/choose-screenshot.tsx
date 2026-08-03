@@ -9,6 +9,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { useRef, useState, useCallback, useEffect } from "react";
+import { ScreenshotCandidateGrid } from "./screenshot-candidate-grid";
 import type { IndexedClip, ScreenshotProposal } from "./types";
 
 export interface ChooseScreenshotProps {
@@ -25,13 +26,15 @@ export interface ChooseScreenshotProps {
   onRemove: (clipIndex: number, alt: string) => void;
   isCapturing?: boolean;
   isStreaming?: boolean;
-  /** Ask the judge to find a frame for this block. */
+  /** Ask the judge for candidate frames for this block. */
   onFindScreenshot?: (clipIndex: number, alt: string) => void;
-  /** Accept a proposal as-is, reusing the frame already captured for preview. */
-  onApplyProposal?: (clipIndex: number, alt: string, imagePath: string) => void;
   onDismissProposal?: (clipIndex: number, alt: string) => void;
   proposal?: ScreenshotProposal;
   isProposing?: boolean;
+  /** Index of the chosen candidate, or null. Owned by the caller so it can
+   * outlive this component's mount — see `useScreenshotProposals`. */
+  selectedCandidate?: number | null;
+  onSelectCandidate?: (index: number) => void;
 }
 
 export function ChooseScreenshot({
@@ -44,10 +47,11 @@ export function ChooseScreenshot({
   isCapturing,
   isStreaming,
   onFindScreenshot,
-  onApplyProposal,
   onDismissProposal,
   proposal,
   isProposing,
+  selectedCandidate = null,
+  onSelectCandidate,
 }: ChooseScreenshotProps) {
   const clip = clips.find((c) => c.index === clipIndex);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -56,6 +60,21 @@ export function ChooseScreenshot({
   const isFirstClip = clipIndex <= 1;
   const isLastClip = clipIndex >= clips.length;
 
+  const candidates = proposal?.found ? proposal.candidates : undefined;
+  const selected =
+    selectedCandidate === null ? undefined : candidates?.[selectedCandidate];
+
+  /**
+   * The clip the preview is currently working within.
+   *
+   * A candidate may sit in a neighbouring clip, since the search covers
+   * clipIndex ± 2. Rather than rewriting the tag to point there — pointless,
+   * since applying deletes the tag — the scrubber's range simply widens to
+   * whichever clip is being looked at, and narrows back on reject.
+   */
+  const activeClip =
+    (selected && clips.find((c) => c.index === selected.clipIndex)) || clip;
+
   useEffect(() => {
     if (clip && videoRef.current) {
       videoRef.current.currentTime = clip.sourceStartTime;
@@ -63,43 +82,34 @@ export function ChooseScreenshot({
     }
   }, [clip?.sourceStartTime]);
 
-  const proposedTime = proposal?.found ? proposal.timestamp : undefined;
-
-  // Seek to a proposal so "the judge was 0.4s off" is a nudge of the scrubber
-  // rather than a rejection. Declared after the reset effect above so that when
-  // a proposal retargets the block to a neighbouring clip — which resets the
-  // scrubber to that clip's start — this still wins on the same render.
+  // Seek to the selected candidate, so picking one lands the scrubber on it and
+  // "the judge was 0.4s off" becomes a nudge rather than a rejection.
   useEffect(() => {
-    if (proposedTime === undefined || !videoRef.current || !clip) return;
-    if (
-      proposedTime < clip.sourceStartTime ||
-      proposedTime > clip.sourceEndTime
-    )
-      return;
-    videoRef.current.currentTime = proposedTime;
-    setCurrentTime(proposedTime);
-  }, [proposedTime, clip?.sourceStartTime, clip?.sourceEndTime]);
+    if (!selected || !videoRef.current) return;
+    videoRef.current.currentTime = selected.timestamp;
+    setCurrentTime(selected.timestamp);
+  }, [selected?.timestamp]);
 
   const handleTimeUpdate = useCallback(() => {
-    if (!videoRef.current || !clip) return;
+    if (!videoRef.current || !activeClip) return;
     const time = videoRef.current.currentTime;
-    // Clamp to clip boundaries
-    if (time < clip.sourceStartTime) {
-      videoRef.current.currentTime = clip.sourceStartTime;
-    } else if (time > clip.sourceEndTime) {
-      videoRef.current.currentTime = clip.sourceEndTime;
+    // Clamp to the active clip's boundaries
+    if (time < activeClip.sourceStartTime) {
+      videoRef.current.currentTime = activeClip.sourceStartTime;
+    } else if (time > activeClip.sourceEndTime) {
+      videoRef.current.currentTime = activeClip.sourceEndTime;
     }
     setCurrentTime(videoRef.current.currentTime);
-  }, [clip]);
+  }, [activeClip]);
 
   const handleScrub = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!videoRef.current || !clip) return;
+      if (!videoRef.current || !activeClip) return;
       const time = parseFloat(e.target.value);
       videoRef.current.currentTime = time;
       setCurrentTime(time);
     },
-    [clip]
+    [activeClip]
   );
 
   if (!clip) {
@@ -115,7 +125,8 @@ export function ChooseScreenshot({
     );
   }
 
-  const duration = clip.sourceEndTime - clip.sourceStartTime;
+  const active = activeClip ?? clip;
+  const duration = active.sourceEndTime - active.sourceStartTime;
 
   if (isStreaming) {
     return (
@@ -137,11 +148,6 @@ export function ChooseScreenshot({
       </div>
     );
   }
-
-  // The scrubber having moved off the proposed frame means the preview png is
-  // stale, so Apply has to re-capture at the new position instead of reusing it.
-  const isOnProposedFrame =
-    proposedTime !== undefined && Math.abs(currentTime - proposedTime) < 0.01;
 
   return (
     <div className="my-4 rounded-lg border border-border bg-muted/50 p-4 relative">
@@ -171,39 +177,35 @@ export function ChooseScreenshot({
         </div>
       )}
 
-      {proposal?.found === true && (
+      {candidates && candidates.length > 0 && (
         <div className="mb-3 rounded-md border border-primary/40 bg-primary/5 p-2">
-          <img
-            src={`/view-image?imagePath=${encodeURIComponent(proposal.absoluteImagePath)}`}
-            alt={alt}
-            className="w-full rounded-md"
-          />
-          <p className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
-            <SparklesIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-            <span>
-              {proposal.reason}{" "}
-              <span className="tabular-nums opacity-70">
-                ({formatTime(proposal.timestamp - clip.sourceStartTime)} into
-                clip {proposal.clipIndex})
-              </span>
-            </span>
+          <p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <SparklesIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
+            {selected
+              ? "Nudge the scrubber if it is slightly off, then apply."
+              : `Pick one of ${candidates.length}.`}
           </p>
+          <ScreenshotCandidateGrid
+            candidates={candidates}
+            selectedIndex={selectedCandidate}
+            onSelect={(index) => onSelectCandidate?.(index)}
+            alt={alt}
+          />
           <div className="mt-2 flex items-center gap-2">
             <Button
               size="sm"
-              disabled={isCapturing}
-              onClick={() => {
-                if (isOnProposedFrame) {
-                  onApplyProposal?.(clipIndex, alt, proposal.imagePath);
-                } else {
-                  onCapture(clipIndex, alt, currentTime, clip.videoFilename);
-                }
-              }}
+              disabled={isCapturing || !selected}
+              // Always a fresh capture at the scrubber's real position: the
+              // preview png is only ever a thumbnail, and reusing it would
+              // silently discard any nudge made after selecting.
+              onClick={() =>
+                onCapture(clipIndex, alt, currentTime, clip.videoFilename)
+              }
             >
               {isCapturing ? (
                 <LoaderIcon className="h-3 w-3 mr-1 animate-spin" />
               ) : null}
-              {isOnProposedFrame ? "Apply" : "Apply at scrubber"}
+              Apply
             </Button>
             <Button
               variant="ghost"
@@ -224,22 +226,18 @@ export function ChooseScreenshot({
         onLoadedMetadata={() => {
           if (videoRef.current) {
             videoRef.current.currentTime =
-              proposedTime !== undefined &&
-              proposedTime >= clip.sourceStartTime &&
-              proposedTime <= clip.sourceEndTime
-                ? proposedTime
-                : clip.sourceStartTime;
+              selected?.timestamp ?? clip.sourceStartTime;
           }
         }}
       />
       <div className="mt-2 flex items-center gap-2">
         <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">
-          {formatTime(currentTime - clip.sourceStartTime)}
+          {formatTime(currentTime - active.sourceStartTime)}
         </span>
         <input
           type="range"
-          min={clip.sourceStartTime}
-          max={clip.sourceEndTime}
+          min={active.sourceStartTime}
+          max={active.sourceEndTime}
           step={0.1}
           value={currentTime}
           onChange={handleScrub}

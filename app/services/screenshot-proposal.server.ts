@@ -3,9 +3,9 @@ import {
   FINE_FRAME_HEIGHT,
   computeSearchWindow,
   planCoarseSamples,
-  planFineSamples,
+  planFineSampleGroups,
+  selectDistinctMoments,
   type FrameSample,
-  type SearchWindow,
 } from "@/features/article-writer/screenshot-search-window";
 import type { IndexedClip } from "@/features/article-writer/types";
 import {
@@ -35,12 +35,15 @@ export class ScreenshotProposalError extends Data.TaggedError(
   message: string;
 }> {}
 
+export interface ScreenshotCandidate {
+  /** Absolute time in the source file. */
+  readonly timestamp: number;
+  /** The clip this frame was drawn from, which need not be the named one. */
+  readonly clipIndex: number;
+}
+
 export type ScreenshotProposal =
-  | {
-      readonly found: true;
-      readonly timestamp: number;
-      readonly reason: string;
-    }
+  | { readonly found: true; readonly candidates: ScreenshotCandidate[] }
   | { readonly found: false; readonly reason: string };
 
 export interface ProposeScreenshotInput {
@@ -50,22 +53,37 @@ export interface ProposeScreenshotInput {
   readonly surroundingText: string;
 }
 
-// `frameNumber` is deliberately a plain number rather than `.int()`: zod v4
+// Frame numbers are deliberately plain numbers rather than `.int()`: zod v4
 // renders `.int()` as JSON-schema `minimum`/`maximum` safe-integer bounds, and
-// Anthropic's structured output rejects those on an integer type. It is
-// rounded, and range-checked against the frames actually shown, below.
+// Anthropic's structured output rejects those on an integer type. They are
+// rounded and range-checked against the frames actually shown, below.
 const coarseResult = z.object({
-  frameNumber: z
-    .number()
-    .nullable()
-    .describe("The chosen frame number, or null if no frame matches."),
-  reason: z.string().describe("One sentence, written for Matt."),
+  frameNumbers: z
+    .array(z.number())
+    .describe("Up to six frame numbers, best first. Empty if none match."),
+  reason: z
+    .string()
+    .describe(
+      "One sentence, written for Matt. Only read when the list is empty."
+    ),
 });
 
 const fineResult = z.object({
-  frameNumber: z.number().describe("The chosen frame number."),
-  reason: z.string().describe("One sentence, written for Matt."),
+  picks: z
+    .array(
+      z.object({
+        group: z.number().describe("The group number."),
+        frameNumber: z.number().describe("The best frame in that group."),
+      })
+    )
+    .describe("Exactly one pick per group."),
 });
+
+/** A frame handed to the model, with the label that identifies it. */
+interface LabelledSample {
+  readonly sample: FrameSample;
+  readonly label: string;
+}
 
 export class ScreenshotProposalService extends Effect.Service<ScreenshotProposalService>()(
   "ScreenshotProposalService",
@@ -74,111 +92,102 @@ export class ScreenshotProposalService extends Effect.Service<ScreenshotProposal
       const ffmpeg = yield* FFmpegCommandsService;
       const fs = yield* FileSystem.FileSystem;
 
-      /** Sample frames, label each with its number, and ask the model to pick. */
-      const judgeFrames = Effect.fn("judgeFrames")(function* (
-        window: SearchWindow,
-        samples: FrameSample[],
-        instructions: string,
-        contextBlock: string,
-        height: number,
-        allowNoMatch: boolean
-      ) {
-        const workDir = path.join(
-          tmpdir(),
-          `screenshot-judge-${crypto.randomUUID()}`
-        );
+      /**
+       * Extract the frames, label each one, and ask the model about them.
+       *
+       * Every frame goes as its own labelled text part followed by its own
+       * image part, rather than tiled into one contact sheet. A contact sheet
+       * would be cheaper, but it makes the model responsible for mapping a
+       * tile position back to a timestamp — and a silent off-by-one there
+       * returns a confident, plausible, wrong frame.
+       */
+      const askJudge = <A>(opts: {
+        videoFilename: string;
+        labelled: LabelledSample[];
+        height: number;
+        instructions: string;
+        contextBlock: string;
+        schema: z.ZodType<A>;
+      }) =>
+        Effect.gen(function* () {
+          const workDir = path.join(
+            tmpdir(),
+            `screenshot-judge-${crypto.randomUUID()}`
+          );
 
-        const frames = yield* ffmpeg
-          .captureFramesAtTimes(
-            window.videoFilename,
-            samples.map((s) => s.timestamp),
-            workDir,
-            height
-          )
-          .pipe(
-            Effect.mapError(
-              (e) =>
-                new ScreenshotProposalError({
-                  cause: e,
-                  message: `Could not extract frames: ${e.message}`,
-                })
+          const frames = yield* ffmpeg
+            .captureFramesAtTimes(
+              opts.videoFilename,
+              opts.labelled.map((l) => l.sample.timestamp),
+              workDir,
+              opts.height
+            )
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new ScreenshotProposalError({
+                    cause: e,
+                    message: `Could not extract frames: ${e.message}`,
+                  })
+              )
+            );
+
+          const content: Array<
+            | { type: "text"; text: string }
+            | { type: "image"; image: Uint8Array }
+          > = [
+            {
+              type: "text",
+              text: `${opts.contextBlock}\n\n${opts.instructions}`,
+            },
+          ];
+
+          for (const [i, frame] of frames.entries()) {
+            const bytes = yield* fs.readFile(frame.outputPath).pipe(
+              Effect.mapError(
+                (e) =>
+                  new ScreenshotProposalError({
+                    cause: e,
+                    message: `Could not read extracted frame: ${e.message}`,
+                  })
+              )
+            );
+            content.push({ type: "text", text: opts.labelled[i]!.label });
+            content.push({ type: "image", image: bytes });
+          }
+
+          const result = yield* Effect.tryPromise({
+            try: () =>
+              generateObject({
+                model: anthropic(JUDGE_MODEL),
+                schema: opts.schema,
+                system: SCREENSHOT_RUBRIC,
+                messages: [{ role: "user", content }],
+              }),
+            catch: (e) =>
+              new ScreenshotProposalError({
+                cause: e,
+                message: `The screenshot judge failed: ${String(e)}`,
+              }),
+          }).pipe(
+            // The frames are scratch: remove them however the judgement went.
+            Effect.ensuring(
+              fs.remove(workDir, { recursive: true }).pipe(Effect.ignore)
             )
           );
 
-        const content: Array<
-          { type: "text"; text: string } | { type: "image"; image: Uint8Array }
-        > = [{ type: "text", text: `${contextBlock}\n\n${instructions}` }];
-
-        for (const [i, frame] of frames.entries()) {
-          const sample = samples[i]!;
-          const bytes = yield* fs.readFile(frame.outputPath).pipe(
-            Effect.mapError(
-              (e) =>
-                new ScreenshotProposalError({
-                  cause: e,
-                  message: `Could not read extracted frame: ${e.message}`,
-                })
-            )
-          );
-          content.push({
-            type: "text",
-            text: `Frame ${i + 1} — ${frame.timestamp.toFixed(2)}s, from clip ${
-              sample.clipIndex
-            }${sample.isNamedClip ? " (the named clip)" : ""}`,
-          });
-          content.push({ type: "image", image: bytes });
-        }
-
-        const result = yield* Effect.tryPromise({
-          try: () =>
-            generateObject({
-              model: anthropic(JUDGE_MODEL),
-              schema: allowNoMatch ? coarseResult : fineResult,
-              system: SCREENSHOT_RUBRIC,
-              messages: [{ role: "user", content }],
-            }),
-          catch: (e) =>
-            new ScreenshotProposalError({
-              cause: e,
-              message: `The screenshot judge failed: ${String(e)}`,
-            }),
-        }).pipe(
-          // The frames are scratch: remove them however the judgement went.
-          Effect.ensuring(
-            fs.remove(workDir, { recursive: true }).pipe(Effect.ignore)
-          )
-        );
-
-        const chosen = result.object.frameNumber;
-        if (chosen === null || chosen === undefined) {
-          return { timestamp: null, reason: result.object.reason };
-        }
-
-        // A frame number outside the range it was shown means the judgement
-        // cannot be trusted — treat it as no match rather than capturing a
-        // frame nobody chose.
-        const index = Math.round(chosen) - 1;
-        if (index < 0 || index >= samples.length) {
-          return {
-            timestamp: null,
-            reason: `The judge picked frame ${chosen}, which was not one of the ${samples.length} frames it was shown.`,
-          };
-        }
-
-        return {
-          timestamp: samples[index]!.timestamp,
-          reason: result.object.reason,
-        };
-      });
+          return result.object;
+        });
 
       /**
-       * Find the best frame for a `<ChooseScreenshot>` tag, in two passes.
+       * Find candidate frames for a `<ChooseScreenshot>` tag, in two passes.
        *
        * Coarse: one small frame per second across the clip and its neighbours,
-       * to localise the moment. Fine: full-size frames a fifth of a second
-       * apart around the winner, to pick the exact one. Two vision calls,
-       * fixed — at ~30 candidate seconds there is nothing worth searching
-       * adaptively, and a fixed shape stays debuggable.
+       * ranking up to six plausible moments. Those are thinned to genuinely
+       * distinct ones, then a single fine pass sees every survivor's
+       * neighbourhood at full size and picks the most presentable frame of
+       * each. Two vision calls whatever the candidate count — the fine pass
+       * batches rather than looping, so the cost is flat.
        */
       const proposeScreenshot = Effect.fn("proposeScreenshot")(function* (
         input: ProposeScreenshotInput
@@ -202,39 +211,92 @@ export class ScreenshotProposalService extends Effect.Service<ScreenshotProposal
         });
 
         const coarseSamples = planCoarseSamples(window);
-        const coarse = yield* judgeFrames(
-          window,
-          coarseSamples,
-          COARSE_PASS_INSTRUCTIONS,
+        const coarse = yield* askJudge({
+          videoFilename: window.videoFilename,
+          labelled: coarseSamples.map((sample, i) => ({
+            sample,
+            label: `Frame ${i + 1} — ${sample.timestamp.toFixed(
+              2
+            )}s, from clip ${sample.clipIndex}${
+              sample.isNamedClip ? " (the named clip)" : ""
+            }`,
+          })),
+          height: COARSE_FRAME_HEIGHT,
+          instructions: COARSE_PASS_INSTRUCTIONS,
           contextBlock,
-          COARSE_FRAME_HEIGHT,
-          true
-        );
+          schema: coarseResult,
+        });
 
-        if (coarse.timestamp === null) {
+        // Frame numbers outside the range shown are dropped rather than
+        // clamped: a number nobody was offered is not a near miss, it is a
+        // judgement that cannot be trusted to point anywhere.
+        const ranked = coarse.frameNumbers
+          .map((n) => coarseSamples[Math.round(n) - 1])
+          .filter((s): s is FrameSample => s !== undefined);
+
+        if (ranked.length === 0) {
           return {
             found: false,
             reason: coarse.reason,
           } satisfies ScreenshotProposal;
         }
 
-        const fineSamples = planFineSamples(window, coarse.timestamp);
-        const fine = yield* judgeFrames(
+        const moments = selectDistinctMoments(ranked);
+        const groups = planFineSampleGroups(
           window,
-          fineSamples,
-          FINE_PASS_INSTRUCTIONS,
-          contextBlock,
-          FINE_FRAME_HEIGHT,
-          false
+          moments.map((m) => m.timestamp)
         );
 
-        // The fine pass cannot decline; falling back to the coarse winner keeps
-        // a malformed frame number from losing a good localisation.
-        return {
-          found: true,
-          timestamp: fine.timestamp ?? coarse.timestamp,
-          reason: fine.reason,
-        } satisfies ScreenshotProposal;
+        // Frames are numbered across the whole call and also tagged with their
+        // group, so a pick is checked twice: the number has to exist, and it
+        // has to belong to the group it was offered for.
+        const flat = groups.flatMap((group, groupIndex) =>
+          group.samples.map((sample) => ({ sample, groupIndex }))
+        );
+
+        const fine = yield* askJudge({
+          videoFilename: window.videoFilename,
+          labelled: flat.map(({ sample, groupIndex }, i) => ({
+            sample,
+            label: `Frame ${i + 1} — group ${groupIndex + 1}, ${sample.timestamp.toFixed(
+              2
+            )}s, from clip ${sample.clipIndex}${
+              sample.isNamedClip ? " (the named clip)" : ""
+            }`,
+          })),
+          height: FINE_FRAME_HEIGHT,
+          instructions: FINE_PASS_INSTRUCTIONS,
+          contextBlock,
+          schema: fineResult,
+        });
+
+        const candidates = groups.map((group, groupIndex) => {
+          const pick = fine.picks.find(
+            (p) => Math.round(p.group) === groupIndex + 1
+          );
+          const chosen = pick
+            ? flat[Math.round(pick.frameNumber) - 1]
+            : undefined;
+
+          // A missing or misfiled pick loses the refinement, not the
+          // candidate: the coarse moment was already a real frame.
+          if (!chosen || chosen.groupIndex !== groupIndex) {
+            const fallback =
+              group.samples.find((s) => s.timestamp === group.center) ??
+              group.samples[0]!;
+            return {
+              timestamp: fallback.timestamp,
+              clipIndex: fallback.clipIndex,
+            };
+          }
+
+          return {
+            timestamp: chosen.sample.timestamp,
+            clipIndex: chosen.sample.clipIndex,
+          };
+        });
+
+        return { found: true, candidates } satisfies ScreenshotProposal;
       });
 
       return { proposeScreenshot };

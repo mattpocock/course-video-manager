@@ -75,32 +75,50 @@ ${
 `.trim();
 }
 
-/** Coarse pass: localise the right second within the search window. */
+/** Coarse pass: nominate the candidate moments, best first. */
 export const COARSE_PASS_INSTRUCTIONS = `
 The frames below are sampled roughly one second apart across the search window.
-Pick the ONE frame closest to the ideal screenshot. You are localising the right
-moment, not making the final choice — a later pass will refine within a fraction
-of a second of whatever you pick, so favour the right *moment* over small
-imperfections in timing.
+
+Return up to SIX frame numbers, ranked best first. Matt will be shown several of
+these side by side and will pick the one he wants, so your job is to nominate the
+genuinely plausible moments — not to make the final decision.
+
+Two things matter about the list:
+
+- **Rank honestly.** The order is used to break ties, so put the frame you would
+  have chosen on its own first.
+- **Nominate different moments, not one moment six times.** The seconds either
+  side of a good frame usually also look good; listing all of them wastes the
+  slots. If only two moments in this window are plausible, return two. A short
+  honest list beats a padded one.
+
+You are localising moments, not making the final choice — a later pass refines
+within a fraction of a second of each one you pick, so favour the right *moment*
+over small imperfections in timing.
 
 Frames from the clip the writer named are marked. When two frames are genuinely
 equally good, prefer the one from the named clip.
 
-If no frame in the window shows what the alt text describes, return null for
-frameNumber and explain what you saw instead. Do not settle for a frame that
-does not show the described content — a confidently wrong screenshot is worse
-than none, because it will not get checked.
+If NO frame in the window shows what the alt text describes, return an empty list
+and explain what you saw instead. Do not settle for frames that do not show the
+described content — a confidently wrong screenshot is worse than none, because it
+will not get checked.
 `.trim();
 
-/** Fine pass: pick the exact frame from a fifth-of-a-second spread. */
+/** Fine pass: pick the exact frame within each candidate's neighbourhood. */
 export const FINE_PASS_INSTRUCTIONS = `
-These frames are a fifth of a second apart, around the moment picked by the
-previous pass. They will look very similar. Pick the single best one, judging
-on the details that separate near-identical frames: output fully arrived rather
-than still landing, nothing mid-animation, no popup, text selection clearly
-visible, and Matt not caught mid-blink.
+The frames below are arranged in numbered GROUPS. Each group holds frames a fifth
+of a second apart around one of the candidate moments, so frames within a group
+will look very similar.
 
-Return the frame number of your choice, and a one-sentence reason written for
-Matt — say what is on screen and why this frame, not the mechanics of your
-decision.
+Pick the single best frame from EVERY group — one per group, no more, no fewer.
+You are not choosing between the groups here; Matt does that. Each pick is simply
+the most presentable frame of that moment, judged on the details that separate
+near-identical frames: output fully arrived rather than still landing, nothing
+mid-animation, no popup, text selection clearly visible, and Matt not caught
+mid-blink.
+
+These frames become thumbnails Matt chooses between at a glance, so a group's
+pick has to represent that moment fairly — a blink or an open mouth will lose a
+good moment on sight.
 `.trim();

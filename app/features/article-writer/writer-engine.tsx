@@ -12,8 +12,6 @@ export type { WriterContext };
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { HTMLAttributes } from "react";
-import type { Options } from "react-markdown";
 import { useFetcher } from "react-router";
 import { WriteChat } from "./write-chat";
 import { DocumentPanel } from "./document-panel";
@@ -30,7 +28,11 @@ import {
   hasUnresolvedScreenshots,
 } from "./choose-screenshot-mutations";
 import { preprocessChooseScreenshotMarkdown } from "./choose-screenshot-markdown";
-import { ChooseScreenshot } from "./choose-screenshot";
+import {
+  CHOOSE_SCREENSHOT_COMPONENTS,
+  ChooseScreenshotProvider,
+  type ChooseScreenshotHost,
+} from "./choose-screenshot-md";
 import { useScreenshotProposals } from "./use-screenshot-proposals";
 import type { WriteToolbarProps } from "./write-toolbar";
 import type { WriterFieldId } from "./writer-engine-utils";
@@ -231,17 +233,12 @@ export function WriterEngine({
 
   const {
     findScreenshot,
-    applyProposal,
     dismissProposal,
     proposalFor,
     isProposingFor,
-  } = useScreenshotProposals({
-    videoId,
-    indexedClips,
-    documentRef,
-    updateDocument,
-    onClipIndexChange: handleDocClipIndexChange,
-  });
+    selectionFor,
+    selectCandidate,
+  } = useScreenshotProposals({ videoId, indexedClips, documentRef });
 
   const handleDocRemove = useCallback(
     (clipIndex: number, alt: string) => {
@@ -253,55 +250,48 @@ export function WriterEngine({
     [documentRef, updateDocument]
   );
 
-  const docExtraComponents = useMemo((): Options["components"] | undefined => {
-    if (indexedClips.length === 0 || !isDocumentMode) return undefined;
-    return {
-      choosescreenshot: ((
-        compProps: HTMLAttributes<HTMLElement> & Record<string, unknown>
-      ) => {
-        const clipIdx = parseInt(compProps.clipindex as string, 10);
-        const altText = (compProps.alt as string) ?? "";
-        const key = `doc-${clipIdx}-${altText}`;
-        return (
-          <ChooseScreenshot
-            clipIndex={clipIdx}
-            alt={altText}
-            clips={indexedClips}
-            onClipIndexChange={(current, next) =>
-              handleDocClipIndexChange(current, next, altText)
-            }
-            onCapture={handleDocCapture}
-            onRemove={handleDocRemove}
-            isCapturing={docCapturingKey === key}
-            isStreaming={isGenerating}
-            onFindScreenshot={findScreenshot}
-            onApplyProposal={applyProposal}
-            onDismissProposal={dismissProposal}
-            proposal={proposalFor(clipIdx, altText)}
-            isProposing={isProposingFor(clipIdx, altText)}
-          />
-        );
-      }) as unknown,
-    } as Options["components"];
-  }, [
-    indexedClips,
-    isDocumentMode,
-    handleDocClipIndexChange,
-    handleDocCapture,
-    handleDocRemove,
-    docCapturingKey,
-    isGenerating,
-    findScreenshot,
-    applyProposal,
-    dismissProposal,
-    proposalFor,
-    isProposingFor,
-  ]);
+  // Deliberately not a `useMemo` over the writer's state: the map is a module
+  // constant, and everything volatile reaches the blocks through the provider
+  // below. See `choose-screenshot-md.tsx` for why identity is load-bearing.
+  const docExtraComponents =
+    indexedClips.length === 0 || !isDocumentMode
+      ? undefined
+      : CHOOSE_SCREENSHOT_COMPONENTS;
 
-  const docPreprocessMarkdown = useMemo(() => {
-    if (!docExtraComponents) return undefined;
-    return (md: string) => preprocessChooseScreenshotMarkdown(md);
-  }, [docExtraComponents]);
+  const chooseScreenshotHost = useMemo(
+    (): ChooseScreenshotHost => ({
+      clips: indexedClips,
+      onClipIndexChange: handleDocClipIndexChange,
+      onCapture: handleDocCapture,
+      onRemove: handleDocRemove,
+      capturingKey: docCapturingKey,
+      isStreaming: isGenerating,
+      onFindScreenshot: findScreenshot,
+      onDismissProposal: dismissProposal,
+      proposalFor,
+      isProposingFor,
+      selectionFor,
+      onSelectCandidate: selectCandidate,
+    }),
+    [
+      indexedClips,
+      handleDocClipIndexChange,
+      handleDocCapture,
+      handleDocRemove,
+      docCapturingKey,
+      isGenerating,
+      findScreenshot,
+      dismissProposal,
+      proposalFor,
+      isProposingFor,
+      selectionFor,
+      selectCandidate,
+    ]
+  );
+
+  const docPreprocessMarkdown = docExtraComponents
+    ? preprocessChooseScreenshotMarkdown
+    : undefined;
 
   const handleRemoveDocBlock = useRemoveDocumentBlock({
     documentRef,
@@ -586,15 +576,17 @@ export function WriterEngine({
               onToggleItem={ctxModel.toggleItem}
               onOpenPanel={() => onViewChange?.("context")}
             />
-            <DocumentPanel
-              variant="modal"
-              document={document}
-              fullPath={fullPath}
-              extraComponents={docExtraComponents}
-              preprocessMarkdown={docPreprocessMarkdown}
-              onRemoveBlock={handleRemoveDocBlock}
-              onDocumentChange={updateDocument}
-            />
+            <ChooseScreenshotProvider value={chooseScreenshotHost}>
+              <DocumentPanel
+                variant="modal"
+                document={document}
+                fullPath={fullPath}
+                extraComponents={docExtraComponents}
+                preprocessMarkdown={docPreprocessMarkdown}
+                onRemoveBlock={handleRemoveDocBlock}
+                onDocumentChange={updateDocument}
+              />
+            </ChooseScreenshotProvider>
           </div>
         </div>
 
@@ -718,16 +710,18 @@ export function WriterEngine({
         <>
           <WriteChat {...chatProps} className="w-2/5" />
           <div className="w-3/5 flex flex-col border-l">
-            <DocumentPanel
-              document={document}
-              fullPath={fullPath}
-              extraComponents={docExtraComponents}
-              preprocessMarkdown={docPreprocessMarkdown}
-              onRemoveBlock={handleRemoveDocBlock}
-              onDocumentChange={updateDocument}
-              violations={violations}
-              onFixLintViolations={handleFixLintViolations}
-            />
+            <ChooseScreenshotProvider value={chooseScreenshotHost}>
+              <DocumentPanel
+                document={document}
+                fullPath={fullPath}
+                extraComponents={docExtraComponents}
+                preprocessMarkdown={docPreprocessMarkdown}
+                onRemoveBlock={handleRemoveDocBlock}
+                onDocumentChange={updateDocument}
+                violations={violations}
+                onFixLintViolations={handleFixLintViolations}
+              />
+            </ChooseScreenshotProvider>
           </div>
         </>
       ) : (

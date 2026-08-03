@@ -26,6 +26,28 @@ export const COARSE_FRAME_HEIGHT = 540;
 /** Height, in pixels, of fine-pass frames. Matches the capture endpoint. */
 export const FINE_FRAME_HEIGHT = 720;
 
+/**
+ * How many moments the coarse pass is asked to rank.
+ *
+ * More than the grid holds, deliberately. The separation filter below discards
+ * clustered picks, and without slack a run of near-neighbours would leave the
+ * grid half empty. Two extra ranks cost two integers on a call already made.
+ */
+export const COARSE_CANDIDATE_COUNT = 6;
+
+/** How many candidates the grid shows. */
+export const MAX_CANDIDATES = 4;
+
+/**
+ * How far apart two candidates must sit to count as different moments.
+ *
+ * The seconds either side of a good frame also look good, so an unfiltered
+ * ranking returns four views of one instant — four cells showing the same
+ * thing, which is no choice at all. Two seconds is about where a screencast
+ * has moved on to something else.
+ */
+export const MIN_MOMENT_SEPARATION_SECONDS = 2;
+
 export interface SearchWindow {
   /** Source file every clip in the window shares. */
   readonly videoFilename: string;
@@ -106,6 +128,62 @@ export function planCoarseSamples(
   }
 
   return samples;
+}
+
+/**
+ * Thin a ranked list of moments down to ones that are genuinely distinct.
+ *
+ * Greedy in rank order: the best pick is always kept, and each next pick is
+ * kept only if it is at least `minSeparation` from everything already held.
+ * Rank order matters — dropping the *later* of two neighbours means the model's
+ * own preference decides which of the pair survives.
+ *
+ * Enforced here rather than asked for in the prompt because "at least two
+ * seconds apart" is arithmetic, and a model asked to do arithmetic over
+ * timestamps it inferred from labels will occasionally get it wrong silently.
+ */
+export function selectDistinctMoments(
+  ranked: FrameSample[],
+  minSeparation: number = MIN_MOMENT_SEPARATION_SECONDS,
+  max: number = MAX_CANDIDATES
+): FrameSample[] {
+  const kept: FrameSample[] = [];
+
+  for (const sample of ranked) {
+    if (kept.length >= max) break;
+    const tooClose = kept.some(
+      (k) => Math.abs(k.timestamp - sample.timestamp) < minSeparation
+    );
+    if (!tooClose) kept.push(sample);
+  }
+
+  return kept;
+}
+
+/** One candidate's neighbourhood of frames, for the fine pass. */
+export interface FineSampleGroup {
+  /** The coarse moment this group refines. */
+  readonly center: number;
+  readonly samples: FrameSample[];
+}
+
+/**
+ * Neighbourhoods around every coarse candidate, for a single fine pass.
+ *
+ * All the groups go to the model in one call. Refining each candidate in its
+ * own call would be four round trips for a judgement that benefits from seeing
+ * the alternatives together.
+ */
+export function planFineSampleGroups(
+  window: SearchWindow,
+  centers: number[],
+  interval: number = FINE_SAMPLE_INTERVAL_SECONDS,
+  radius: number = FINE_SAMPLE_RADIUS
+): FineSampleGroup[] {
+  return centers.map((center) => ({
+    center,
+    samples: planFineSamples(window, center, interval, radius),
+  }));
 }
 
 /**

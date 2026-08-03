@@ -1,11 +1,11 @@
-import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import { makeAction } from "@/services/route-action.server";
 import { ScreenshotProposalService } from "@/services/screenshot-proposal.server";
-import { getVideoFilePath } from "@/services/video-files";
 import { FileSystem } from "@effect/platform";
 import { Effect, Schema } from "effect";
 import path from "node:path";
+import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 
 const ClipSchema = Schema.Struct({
   index: Schema.Number,
@@ -28,11 +28,20 @@ const RequestSchema = Schema.Struct({
   surroundingText: Schema.String,
 });
 
+/**
+ * A path-safe directory name for one ChooseScreenshot block.
+ *
+ * The alt text is hashed rather than sanitised because it is model-written
+ * prose on its way into a filesystem path: hashing settles traversal,
+ * separators and length limits in one step, and nothing needs to read it back.
+ */
+const blockDirName = (clipIndex: number, alt: string) =>
+  `${clipIndex}-${createHash("sha1").update(alt).digest("hex").slice(0, 12)}`;
+
 export const action = makeAction({
   input: "json",
   dump: false,
   errors: {
-    NotFoundError: 404,
     FFmpegError: 500,
     ScreenshotProposalError: 500,
   },
@@ -42,7 +51,6 @@ export const action = makeAction({
         yield* Schema.decodeUnknown(RequestSchema)(payload);
 
       const proposals = yield* ScreenshotProposalService;
-      const videoOps = yield* VideoOperationsService;
       const ffmpeg = yield* FFmpegCommandsService;
       const fs = yield* FileSystem.FileSystem;
 
@@ -57,48 +65,47 @@ export const action = makeAction({
         return { found: false as const, reason: proposal.reason };
       }
 
-      // Capture straight to the real screenshot filename. The document is not
-      // rewritten until Matt hits Apply, so a rejected proposal leaves an
-      // unreferenced png in the video's scratch directory and nothing else.
-      const video = yield* videoOps.getVideoDeepById(params.videoId!);
-      const baseDir = path.resolve(getVideoFilePath(video.lineageId));
-      yield* fs.makeDirectory(baseDir, { recursive: true });
-
-      let counter = 1;
-      let filename: string;
-      do {
-        filename = `screenshot-${counter}.png`;
-        const exists = yield* fs.exists(path.join(baseDir, filename));
-        if (!exists) break;
-        counter++;
-      } while (true);
+      // Candidates are previews, so they go to a scratch directory rather than
+      // into the video's own files: three of the four are about to be thrown
+      // away, and Apply re-captures the chosen frame at the scrubber's real
+      // position anyway. Nothing this route writes is ever referenced by the
+      // document, so nothing it writes can be orphaned in it.
+      //
+      // The directory is per *block*, not per video, and wiped on entry. Per
+      // video would mean the second block's search deleting the first block's
+      // thumbnails while its grid is still on screen — the files are gone but
+      // the panel is not, so it just renders four broken images. Keyed this way
+      // it stays bounded: one directory per block, replaced when re-searched.
+      const previewDir = path.join(
+        tmpdir(),
+        "cvm-screenshot-candidates",
+        params.videoId!,
+        blockDirName(clipIndex, alt)
+      );
+      yield* fs.remove(previewDir, { recursive: true }).pipe(Effect.ignore);
+      yield* fs.makeDirectory(previewDir, { recursive: true });
 
       const namedClip = clips.find((c) => c.index === clipIndex)!;
-      yield* ffmpeg.captureFrameAtTime(
-        namedClip.videoFilename,
-        proposal.timestamp,
-        path.join(baseDir, filename)
+
+      const candidates = yield* Effect.forEach(
+        proposal.candidates,
+        (candidate, i) =>
+          Effect.gen(function* () {
+            const previewPath = path.join(previewDir, `candidate-${i}.png`);
+            yield* ffmpeg.captureFrameAtTime(
+              namedClip.videoFilename,
+              candidate.timestamp,
+              previewPath
+            );
+            return {
+              timestamp: candidate.timestamp,
+              clipIndex: candidate.clipIndex,
+              previewPath,
+            };
+          }),
+        { concurrency: 4 }
       );
 
-      // The winning frame can sit in a neighbouring clip, since the search
-      // covers clipIndex ± 2. Report which clip it landed in so the client can
-      // retarget the tag — otherwise the block's scrubber, which clamps to the
-      // named clip, cannot even seek to the frame being proposed.
-      const winningClip =
-        clips.find(
-          (c) =>
-            c.videoFilename === namedClip.videoFilename &&
-            proposal.timestamp >= c.sourceStartTime &&
-            proposal.timestamp <= c.sourceEndTime
-        ) ?? namedClip;
-
-      return {
-        found: true as const,
-        timestamp: proposal.timestamp,
-        clipIndex: winningClip.index,
-        reason: proposal.reason,
-        imagePath: `./${filename}`,
-        absoluteImagePath: path.join(baseDir, filename),
-      };
+      return { found: true as const, candidates };
     }),
 });

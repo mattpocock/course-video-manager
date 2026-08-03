@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   computeSearchWindow,
   planCoarseSamples,
+  planFineSampleGroups,
   planFineSamples,
+  selectDistinctMoments,
+  type FrameSample,
 } from "./screenshot-search-window";
 import type { IndexedClip } from "./types";
 
@@ -114,5 +117,99 @@ describe("planFineSamples", () => {
   it("always yields at least the centre frame", () => {
     const window = computeSearchWindow([clip(1, 10, 10.05)], 1)!;
     expect(planFineSamples(window, 10.025)).toHaveLength(1);
+  });
+});
+
+describe("selectDistinctMoments", () => {
+  const sample = (timestamp: number, clipIndex = 1): FrameSample => ({
+    timestamp,
+    clipIndex,
+    isNamedClip: true,
+  });
+
+  it("keeps the highest-ranked of a cluster and drops the rest", () => {
+    // Ranked best-first, all within a second of each other.
+    const kept = selectDistinctMoments([
+      sample(10),
+      sample(10.5),
+      sample(9.5),
+      sample(11),
+    ]);
+    expect(kept.map((s) => s.timestamp)).toEqual([10]);
+  });
+
+  it("keeps moments that are far enough apart, in rank order", () => {
+    const kept = selectDistinctMoments([sample(20), sample(10), sample(30)]);
+    expect(kept.map((s) => s.timestamp)).toEqual([20, 10, 30]);
+  });
+
+  it("thins a realistic ranking down to distinct moments", () => {
+    const kept = selectDistinctMoments([
+      sample(12),
+      sample(12.4),
+      sample(30),
+      sample(11.6),
+      sample(41),
+      sample(30.8),
+    ]);
+    expect(kept.map((s) => s.timestamp)).toEqual([12, 30, 41]);
+  });
+
+  it("never returns more than the grid holds", () => {
+    const kept = selectDistinctMoments([
+      sample(0),
+      sample(10),
+      sample(20),
+      sample(30),
+      sample(40),
+      sample(50),
+    ]);
+    expect(kept).toHaveLength(4);
+  });
+
+  it("returns fewer than four rather than padding", () => {
+    const kept = selectDistinctMoments([sample(5), sample(5.2)]);
+    expect(kept.map((s) => s.timestamp)).toEqual([5]);
+  });
+
+  it("returns nothing when given nothing", () => {
+    expect(selectDistinctMoments([])).toEqual([]);
+  });
+
+  it("respects the separation exactly at the boundary", () => {
+    // Exactly two seconds apart counts as distinct; a hair under does not.
+    expect(selectDistinctMoments([sample(10), sample(12)])).toHaveLength(2);
+    expect(selectDistinctMoments([sample(10), sample(11.99)])).toHaveLength(1);
+  });
+});
+
+describe("planFineSampleGroups", () => {
+  const clips = [clip(1, 0, 10), clip(2, 10, 20), clip(3, 20, 30)];
+  const window = computeSearchWindow(clips, 2)!;
+
+  it("builds one group per candidate, centred on it", () => {
+    const groups = planFineSampleGroups(window, [5, 15, 25]);
+    expect(groups.map((g) => g.center)).toEqual([5, 15, 25]);
+    expect(groups).toHaveLength(3);
+  });
+
+  it("clamps each group to the clip its candidate sits in", () => {
+    // 9.9 is near the end of clip 1; nothing may spill into clip 2.
+    const [group] = planFineSampleGroups(window, [9.9]);
+    for (const s of group!.samples) {
+      expect(s.timestamp).toBeLessThanOrEqual(10);
+      expect(s.clipIndex).toBe(1);
+    }
+  });
+
+  it("gives every group at least one frame", () => {
+    const groups = planFineSampleGroups(window, [0, 15, 30]);
+    for (const group of groups) {
+      expect(group.samples.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("returns no groups when there are no candidates", () => {
+    expect(planFineSampleGroups(window, [])).toEqual([]);
   });
 });
