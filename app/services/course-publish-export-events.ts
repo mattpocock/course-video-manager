@@ -26,7 +26,28 @@ export type PublishDetailEvent =
       };
     }
   // Per-lesson upload percentage from the Dropbox commit.
-  | { event: "progress"; data: { percentage: number } };
+  | { event: "progress"; data: { percentage: number } }
+  // ── The Dropbox upload, one task per shipping Video ──────────────────────
+  // Every Video this Publish ships, titled section/lesson/title. Unlike the
+  // export `videos` roster above this is the WHOLE bundle: a Video a previous
+  // run already exported does no encoding but still has to be uploaded, so it
+  // still gets a task.
+  | {
+      event: "upload-videos";
+      data: { videos: Array<{ id: string; title: string }> };
+    }
+  // This Video's bytes exist — its export settled, or it was already on disk —
+  // and it is now waiting for a slot in the upload pool.
+  | { event: "upload-queued"; data: { videoId: string } }
+  // Bytes moving for one Video. Emitted at 0 the moment the upload pool picks
+  // the Video up, so `totalBytes` (its size on disk) is known from the start
+  // and a consumer can weight this Video against its siblings.
+  | {
+      event: "upload-video-progress";
+      data: { videoId: string; uploadedBytes: number; totalBytes: number };
+    }
+  | { event: "upload-video-complete"; data: { videoId: string; bytes: number } }
+  | { event: "upload-video-error"; data: { videoId: string; message: string } };
 
 export type EmitPublishDetailEvent = (e: PublishDetailEvent) => void;
 

@@ -15,6 +15,10 @@ import {
 import { VersionOperationsService } from "./db-version-operations.server";
 import { ExportError, PublishValidationError } from "./course-publish-errors";
 import {
+  extractErrorMessage,
+  type EmitPublishDetailEvent,
+} from "./course-publish-export-events";
+import {
   uploadFile,
   uploadFileFromDisk,
   getMetadata,
@@ -71,7 +75,11 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   courseId: string;
   courseVersionId: string;
   includeTodoLessons: boolean;
-  onProgress?: (event: "progress", data: { percentage: number }) => void;
+  /**
+   * The observable surface of the upload: the bundle-wide `progress`
+   * percentage plus one task's worth of events per shipping Video.
+   */
+  onDetailEvent?: EmitPublishDetailEvent;
   /**
    * The handoff queue out of the export pool. A Video's upload waits on this
    * before touching its file, so a Publish can start shipping the Videos that
@@ -259,7 +267,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     );
     if (percentage <= lastReportedPercentage) return;
     lastReportedPercentage = percentage;
-    input.onProgress?.("progress", { percentage });
+    input.onDetailEvent?.({ event: "progress", data: { percentage } });
   };
 
   const uploadConcurrencyLimit = yield* uploadConcurrency;
@@ -292,10 +300,28 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
             videoTitle: entry.videoTitle,
             lessonPath: entry.lessonPath,
           });
+          input.onDetailEvent?.({
+            event: "upload-video-error",
+            data: {
+              videoId: entry.videoId,
+              message: "No exported file to upload",
+            },
+          });
           return null;
         }
         const info = yield* effectFs.stat(entry.localPath);
         videoByteSizes.set(entry.videoId, Number(info.size));
+        // This Video has a slot and a size: it is uploading, not queued. The
+        // size rides along from the very first event so a consumer can weight
+        // this Video against its siblings before a byte has moved.
+        input.onDetailEvent?.({
+          event: "upload-video-progress",
+          data: {
+            videoId: entry.videoId,
+            uploadedBytes: 0,
+            totalBytes: Number(info.size),
+          },
+        });
 
         const remoteFile = remoteFilesByPath.get(
           remoteVideoPath(entry).toLowerCase()
@@ -319,6 +345,10 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
           // back at zero.
           uploadedByVideo.set(entry.videoId, hashes.bytes);
           reportProgress();
+          input.onDetailEvent?.({
+            event: "upload-video-complete",
+            data: { videoId: entry.videoId, bytes: hashes.bytes },
+          });
           return {
             videoId: entry.videoId,
             sha256: hashes.sha256,
@@ -342,9 +372,17 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
             contentHasher.update(chunk);
             streamedBytes += chunk.byteLength;
           },
-          onProgress: (uploaded) => {
+          onProgress: (uploaded, total) => {
             uploadedByVideo.set(entry.videoId, uploaded);
             reportProgress();
+            input.onDetailEvent?.({
+              event: "upload-video-progress",
+              data: {
+                videoId: entry.videoId,
+                uploadedBytes: uploaded,
+                totalBytes: total,
+              },
+            });
           },
         });
 
@@ -355,12 +393,31 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
           });
         }
 
+        input.onDetailEvent?.({
+          event: "upload-video-complete",
+          data: { videoId: entry.videoId, bytes: streamedBytes },
+        });
+
         return {
           videoId: entry.videoId,
           sha256: sha256Hash.digest("hex"),
           bytes: streamedBytes,
         };
-      }),
+      }).pipe(
+        // Whatever went wrong for this Video — a missing file, a rejected
+        // request, a hash that did not verify — belongs to that Video by name
+        // rather than to the Publish as an undifferentiated whole.
+        Effect.tapError((error) => {
+          input.onDetailEvent?.({
+            event: "upload-video-error",
+            data: {
+              videoId: entry.videoId,
+              message: extractErrorMessage(error, "Upload failed unexpectedly"),
+            },
+          });
+          return Effect.void;
+        })
+      ),
     { concurrency: uploadConcurrencyLimit }
   );
 
@@ -417,7 +474,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     mode: "overwrite",
   });
 
-  input.onProgress?.("progress", { percentage: 100 });
+  input.onDetailEvent?.({ event: "progress", data: { percentage: 100 } });
 
   return { missingVideos };
 });

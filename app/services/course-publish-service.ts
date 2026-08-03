@@ -16,8 +16,8 @@ import { garbageCollect } from "./export-hash.server";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import { resolveVideoFormat } from "@/features/videos/video-format";
 import { DoesNotExistOnDbError } from "./publish-to-dropbox";
-import { computeEffectiveSections } from "@/packages/course-json";
 import { validatePublishability as validatePublishabilityCore } from "./course-publish-readiness";
+import { findShippingVideos as findShippingVideosCore } from "./course-publish-video-roster";
 import {
   ExportError,
   PublishCommitFailedError,
@@ -47,11 +47,19 @@ export type VideoForExport = {
 type ExportOwner =
   { kind: "course"; courseId: string } | { kind: "standalone" };
 
-// The Dropbox commit only ever reports its per-lesson upload percentage.
+// The manual re-sync surface only ever reports the bundle-wide upload
+// percentage — the per-Video task events belong to a Publish, which is the
+// only caller that has an export phase to interleave them with.
 type DropboxSyncProgressCallback = (
   event: "progress",
   data: { percentage: number }
 ) => void;
+
+const onlyBundleProgress =
+  (onProgress?: DropboxSyncProgressCallback): EmitPublishDetailEvent =>
+  (e) => {
+    if (e.event === "progress") onProgress?.("progress", e.data);
+  };
 
 export type PublishOptions = {
   courseId: string;
@@ -197,51 +205,20 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         return targetPath;
       });
 
-      // The shared walk behind batchExport and publish: which Videos this
-      // publish/export will ship (the effective Sections for the toggle) that
-      // have no export file yet, titled `section/lesson/videoTitle`. Withheld
-      // to-do Lessons' Videos are not included.
-      const findUnexportedVideos = Effect.fn("findUnexportedVideos")(function* (
+      // The publish/export roster walk lives in ./course-publish-video-roster
+      // so it can be read on its own. Its deps are closed over here so callers
+      // of this service don't inherit them.
+      const rosterContext = yield* Effect.context<
+        VersionOperationsService | FileSystem.FileSystem
+      >();
+      const findShippingVideos = Effect.fn("findShippingVideos")(function* (
         versionId: string,
         includeTodoLessons: boolean
       ) {
-        const version = yield* versionOps.getVersionWithSections(versionId);
-        const courseId = version.repo.id;
-        const effectiveSections = computeEffectiveSections(
-          version.sections,
+        return yield* findShippingVideosCore(
+          versionId,
           includeTodoLessons
-        );
-
-        const unexportedVideos: Array<{
-          id: string;
-          title: string;
-        }> = [];
-
-        for (const section of effectiveSections) {
-          for (const lesson of section.lessons) {
-            for (const video of lesson.videos) {
-              if (video.clips.length === 0) continue;
-              const hash = computeExportHash(
-                toExportClips(video.clips),
-                video.format
-              );
-              if (!hash) continue;
-              const filePath = resolveExportPathPure(
-                FINISHED_VIDEOS_DIRECTORY,
-                courseId,
-                hash
-              );
-              if (!(yield* effectFs.exists(filePath))) {
-                unexportedVideos.push({
-                  id: video.id,
-                  title: `${section.path}/${lesson.path}/${video.title}`,
-                });
-              }
-            }
-          }
-        }
-
-        return { courseId, unexportedVideos };
+        ).pipe(Effect.provide(rosterContext));
       });
 
       const batchExport = Effect.fn("batchExport")(function* (
@@ -249,7 +226,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         includeTodoLessons: boolean,
         onDetailEvent?: EmitPublishDetailEvent
       ) {
-        const { courseId, unexportedVideos } = yield* findUnexportedVideos(
+        const { courseId, unexportedVideos } = yield* findShippingVideos(
           versionId,
           includeTodoLessons
         );
@@ -288,14 +265,14 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         courseId: string,
         courseVersionId: string,
         includeTodoLessons: boolean,
-        onProgress?: DropboxSyncProgressCallback,
+        onDetailEvent?: EmitPublishDetailEvent,
         awaitVideoReady?: (videoId: string) => Effect.Effect<void, ExportError>
       ) {
         return yield* syncFrozenCourseVersionToDropbox({
           courseId,
           courseVersionId,
           includeTodoLessons,
-          onProgress,
+          onDetailEvent,
           awaitVideoReady,
         });
       });
@@ -328,7 +305,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             courseId,
             latestPublishedVersion.id,
             includeTodoLessons,
-            onProgress
+            onlyBundleProgress(onProgress)
           );
         }
       );
@@ -353,7 +330,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         const validation = yield* validatePublishability(latestVersion.id);
-        const { unexportedVideoIds, courseViewLintCount } = includeTodoLessons
+        const { courseViewLintCount } = includeTodoLessons
           ? validation.withTodo
           : validation.withoutTodo;
         if (courseViewLintCount > 0) {
@@ -378,18 +355,24 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           sourceDescription: versionDescription,
         });
 
-        // Re-walk with titles so the export step is observable per Video —
-        // the same walk (and events) the standalone batchExport emits. The
+        // Re-walk with titles so both halves are observable per Video — the
+        // export step emits the same events the standalone batchExport does,
+        // and the upload phase draws its task roster from the same walk. The
         // Export Hash is untouched by Submit: the clone copies Clip
         // filenames, source timings and order verbatim and never mutates the
         // source rows, so this walk sees exactly what validation saw.
-        const unexportedVideos =
-          unexportedVideoIds.length > 0
-            ? (yield* findUnexportedVideos(
-                latestVersion.id,
-                includeTodoLessons
-              )).unexportedVideos
-            : [];
+        const { unexportedVideos, shippingVideos } = yield* findShippingVideos(
+          latestVersion.id,
+          includeTodoLessons
+        );
+
+        // Announce the whole roster before either pool starts, so every Video
+        // has a task from the outset rather than appearing when its bytes
+        // happen to move.
+        onDetailEvent?.({
+          event: "upload-videos",
+          data: { videos: shippingVideos },
+        });
 
         // THE HANDOFF QUEUE between two pools that must not share a budget:
         // the export pool (GPU-bound, six-way concurrent) and the upload pool
@@ -412,6 +395,17 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           return latch ? Deferred.await(latch) : Effect.void;
         };
 
+        // A Video with no latch already has its bytes on disk: it is waiting
+        // for a slot in the upload pool from the very first moment, never
+        // encoding.
+        for (const video of shippingVideos) {
+          if (exportLatches.has(video.id)) continue;
+          onDetailEvent?.({
+            event: "upload-queued",
+            data: { videoId: video.id },
+          });
+        }
+
         if (unexportedVideos.length > 0) onStageChange?.("exporting");
         onStageChange?.("uploading");
 
@@ -425,6 +419,14 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             onDetailEvent,
             onVideoSettled: ({ videoId, exported }) => {
               const latch = exportLatches.get(videoId)!;
+              if (exported) {
+                // Out of the export pool, into the upload queue — the one
+                // moment a Video is genuinely waiting rather than working.
+                onDetailEvent?.({
+                  event: "upload-queued",
+                  data: { videoId },
+                });
+              }
               return exported
                 ? Deferred.succeed(latch, undefined)
                 : Deferred.fail(
@@ -463,7 +465,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             courseId,
             latestVersion.id,
             includeTodoLessons,
-            (event, data) => onDetailEvent?.({ event, data }),
+            onDetailEvent,
             awaitVideoReady
           ).pipe(Effect.retry(Schedule.recurs(1)))
         );
@@ -540,7 +542,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             courseId,
             courseVersionId,
             includeTodoLessons,
-            onProgress
+            onlyBundleProgress(onProgress)
           )
         );
       });
