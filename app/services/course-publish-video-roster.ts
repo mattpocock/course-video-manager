@@ -21,11 +21,21 @@ import { VersionOperationsService } from "./db-version-operations.server";
  *   per-Video tasks are drawn from this, because a Video a previous run already
  *   encoded still has to be uploaded.
  * - `unexportedVideos` — the subset with no export file on disk yet, which is
- *   what the export pool actually has work for.
+ *   what the export pool actually has work for. Each one also carries its
+ *   `durationSeconds`, which the pool orders the queue by.
  *
  * Same walk and same titles either way, so a Video's export task and its upload
  * task are one task.
  */
+// How long a Video runs: the sum of its Clips' source spans.
+const clipsDurationSeconds = (
+  clips: ReadonlyArray<{ sourceStartTime: number; sourceEndTime: number }>
+): number =>
+  clips.reduce(
+    (total, clip) => total + (clip.sourceEndTime - clip.sourceStartTime),
+    0
+  );
+
 export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
   versionId: string,
   includeTodoLessons: boolean
@@ -44,7 +54,11 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
   );
 
   const shippingVideos: Array<{ id: string; title: string }> = [];
-  const unexportedVideos: Array<{ id: string; title: string }> = [];
+  const unexportedVideos: Array<{
+    id: string;
+    title: string;
+    durationSeconds: number;
+  }> = [];
 
   for (const section of effectiveSections) {
     for (const lesson of section.lessons) {
@@ -66,7 +80,14 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
           courseId,
           hash
         );
-        if (!(yield* effectFs.exists(filePath))) unexportedVideos.push(entry);
+        if (!(yield* effectFs.exists(filePath)))
+          unexportedVideos.push({
+            ...entry,
+            // Ordering only, so the raw clip sum is enough — the pause and
+            // final-clip padding the export adds are far too small to reorder
+            // the queue.
+            durationSeconds: clipsDurationSeconds(video.clips),
+          });
       }
     }
   }

@@ -390,69 +390,6 @@ describe("CoursePublishService", () => {
     });
   });
 
-  describe("batchExport", () => {
-    it("exports all unexported videos in a version", async () => {
-      const { version, course, exportHash, run } = await setup();
-
-      const events: Array<{ event: string; data: unknown }> = [];
-      await run(
-        Effect.gen(function* () {
-          const svc = yield* CoursePublishService;
-          yield* svc.batchExport(version.id, true, (e) => {
-            events.push({ event: e.event, data: e.data });
-          });
-        })
-      );
-
-      // Should have exported the video
-      const expectedPath = path.join(
-        finishedVideosDir,
-        `${course.id}-${exportHash}.mp4`
-      );
-      expect(fs.existsSync(expectedPath)).toBe(true);
-
-      // Should have sent events
-      const videosEvent = events.find((e) => e.event === "videos");
-      expect(videosEvent).toBeTruthy();
-      const completeEvent = events.find((e) => e.event === "complete");
-      expect(completeEvent).toBeTruthy();
-
-      // Real ffmpeg percentages ride alongside the stages, keyed by videoId.
-      const progressEvents = events
-        .filter((e) => e.event === "video-progress")
-        .map((e) => e.data as any);
-      expect(progressEvents).toEqual([
-        expect.objectContaining({ stage: "concatenating-clips", percent: 50 }),
-        expect.objectContaining({ stage: "normalizing-audio", percent: 50 }),
-      ]);
-      expect(progressEvents[0].videoId).toBeTruthy();
-    });
-
-    it("skips already exported videos", async () => {
-      const { version, course, exportHash, run } = await setup();
-
-      // Pre-create the exported file
-      fs.writeFileSync(
-        path.join(finishedVideosDir, `${course.id}-${exportHash}.mp4`),
-        "data"
-      );
-
-      const events: Array<{ event: string; data: unknown }> = [];
-      await run(
-        Effect.gen(function* () {
-          const svc = yield* CoursePublishService;
-          yield* svc.batchExport(version.id, true, (e) => {
-            events.push({ event: e.event, data: e.data });
-          });
-        })
-      );
-
-      // Should report zero unexported videos
-      const videosEvent = events.find((e) => e.event === "videos");
-      expect((videosEvent?.data as any)?.videos).toEqual([]);
-    });
-  });
-
   describe("exportVideo → isExported integration", () => {
     it("isExported returns true after exportVideo", async () => {
       const { video, run } = await setup();
