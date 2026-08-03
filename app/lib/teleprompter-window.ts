@@ -12,6 +12,7 @@ import {
   subscribeTeleprompterParent,
   type CaptureStatus,
   type EditorTab,
+  type SessionCounts,
   type TeleprompterCommand,
   type TeleprompterChildToParentMessage,
 } from "./teleprompter-protocol";
@@ -20,6 +21,8 @@ export type TeleprompterEditorState = {
   videoId: string | null;
   capture: CaptureStatus;
   tab: EditorTab;
+  /** PROTOTYPE — recording session counts for the status display on the glass. */
+  counts?: SessionCounts;
 };
 
 const TELEPROMPTER_PATH = "/teleprompter";

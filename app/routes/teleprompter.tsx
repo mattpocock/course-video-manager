@@ -25,6 +25,14 @@ import { useTeleprompterWpm } from "@/features/teleprompter/teleprompter-setting
 import { BeatsView } from "@/features/teleprompter/beats-view";
 import { TeleprompterCrawl } from "@/features/teleprompter/teleprompter-crawl";
 import { teleprompterSession } from "@/features/teleprompter/teleprompter-session";
+import {
+  SessionStatus,
+  useHeldCounts,
+} from "@/features/teleprompter/prototype-status-variants";
+import {
+  PrototypeSwitcher,
+  usePrototypeVariant,
+} from "@/features/teleprompter/prototype-switcher";
 import type { Route } from "./+types/teleprompter";
 
 const PING_INTERVAL_MS = 2000;
@@ -57,6 +65,7 @@ export default function Teleprompter() {
           videoId: msg.videoId,
           capture: msg.capture,
           tab: msg.tab,
+          counts: msg.counts,
           at: Date.now(),
         });
       } else if (msg.type === "pong") {
@@ -156,12 +165,21 @@ export default function Teleprompter() {
   const hasContent =
     source === "beats" ? content.beats.length > 0 : blocks.length > 0;
 
+  // PROTOTYPE — recording-session status display. Off unless `?variant=` is in
+  // the URL, so the glass is unchanged for ordinary use.
+  const proto = usePrototypeVariant();
+  const heldCounts = useHeldCounts(state.counts, state.capture, proto.frozen);
+
   return (
     <div className="fixed inset-0 select-none overflow-hidden bg-black">
       <CaptureIndicator
         status={state.capture}
         editorConnected={state.editorConnected}
       />
+
+      {proto.enabled && state.editorConnected && (
+        <SessionStatus variant={proto.variant} counts={heldCounts} />
+      )}
 
       {!hasContent ? (
         <div className="flex h-full items-center justify-center px-12 text-center">
@@ -188,6 +206,16 @@ export default function Teleprompter() {
         onWpmChange={setWpm}
         status={status}
       />
+
+      {proto.enabled && (
+        <PrototypeSwitcher
+          variant={proto.variant}
+          frozen={proto.frozen}
+          counts={state.counts}
+          onCycle={proto.cycle}
+          onToggleFreeze={proto.toggleFreeze}
+        />
+      )}
     </div>
   );
 }

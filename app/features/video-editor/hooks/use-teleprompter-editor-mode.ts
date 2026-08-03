@@ -21,13 +21,15 @@ import {
   enableTeleprompterEditorMode,
   pushTeleprompterState,
 } from "@/lib/teleprompter-window";
-import type { CaptureStatus } from "@/lib/teleprompter-protocol";
+import type { CaptureStatus, SessionCounts } from "@/lib/teleprompter-protocol";
 import type { BeatTab } from "../beat-tab";
 
 export type TeleprompterEditorState = {
   videoId: string | null;
   capture: CaptureStatus;
   tab: BeatTab;
+  /** PROTOTYPE — see `prototype-session-counts.ts`. */
+  counts: SessionCounts;
 };
 
 export function useTeleprompterEditorMode(state: TeleprompterEditorState) {
@@ -36,8 +38,16 @@ export function useTeleprompterEditorMode(state: TeleprompterEditorState) {
 
   useEffect(() => enableTeleprompterEditorMode(() => ref.current), []);
 
-  const { videoId, capture, tab } = state;
+  const { videoId, capture, tab, counts } = state;
+  // Depends on the count primitives rather than the object, so the fresh
+  // `{...}` a re-render produces doesn't push an identical message.
+  const { pending, settled, orphaned } = counts;
   useEffect(() => {
-    pushTeleprompterState({ videoId, capture, tab });
-  }, [videoId, capture, tab]);
+    pushTeleprompterState({
+      videoId,
+      capture,
+      tab,
+      counts: { pending, settled, orphaned },
+    });
+  }, [videoId, capture, tab, pending, settled, orphaned]);
 }

@@ -15,7 +15,11 @@
  * The crawl is the one thing the editor doesn't drive: it rolls only when
  * someone presses play, and a take ending stops it.
  */
-import type { CaptureStatus, EditorTab } from "@/lib/teleprompter-protocol";
+import type {
+  CaptureStatus,
+  EditorTab,
+  SessionCounts,
+} from "@/lib/teleprompter-protocol";
 import type { TeleprompterBeat } from "./beats-view";
 import type { Source } from "./teleprompter-settings";
 
@@ -41,6 +45,11 @@ export namespace teleprompterSession {
     lastPongAt: number;
     videoId: string | null;
     capture: CaptureStatus;
+    /**
+     * PROTOTYPE — the recording session's clip counts, as last pushed by the
+     * editor. Held rather than derived: the glass has no access to sessions.
+     */
+    counts: SessionCounts;
     content: Content;
     lastScriptPushAt: number;
     /** Whether the crawl is rolling. */
@@ -72,6 +81,8 @@ export namespace teleprompterSession {
         videoId: string | null;
         capture: CaptureStatus;
         tab: EditorTab;
+        /** PROTOTYPE — absent from an older editor; treated as all-zero. */
+        counts?: SessionCounts;
         at: number;
       }
     /** A bare pong: the editor is still there, and nothing has changed. */
@@ -87,11 +98,19 @@ export namespace teleprompterSession {
 
   export const EMPTY_CONTENT: Content = { title: "", script: "", beats: [] };
 
+  /** PROTOTYPE — nothing filmed yet, or nobody to ask. */
+  export const EMPTY_COUNTS: SessionCounts = {
+    pending: 0,
+    settled: 0,
+    orphaned: 0,
+  };
+
   export const initialState: State = {
     editorConnected: false,
     lastPongAt: 0,
     videoId: null,
     capture: "not-recording",
+    counts: EMPTY_COUNTS,
     content: EMPTY_CONTENT,
     lastScriptPushAt: 0,
     playing: false,
@@ -130,6 +149,8 @@ export namespace teleprompterSession {
           lastPongAt: action.at,
           videoId: action.videoId,
           capture: action.capture,
+          // A different video is a different session's worth of work.
+          counts: videoChanged ? EMPTY_COUNTS : (action.counts ?? EMPTY_COUNTS),
           // Recording never starts the crawl: the first words of a take are
           // rarely the first words of the script, so rolling on record puts the
           // glass ahead of the delivery. Play is a deliberate press. The end of
@@ -167,6 +188,10 @@ export namespace teleprompterSession {
           editorConnected: false,
           capture: "not-recording",
           playing: false,
+          // Counts we can no longer refresh are worse than no counts: a frozen
+          // "2 waiting" reads as a live claim about a session nobody is
+          // reporting on any more.
+          counts: EMPTY_COUNTS,
         };
 
       case "content-fetched": {

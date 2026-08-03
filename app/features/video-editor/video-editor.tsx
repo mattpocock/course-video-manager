@@ -22,6 +22,7 @@ import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useTeleprompterShortcuts } from "./hooks/use-teleprompter-shortcuts";
 import { useTeleprompterEditorMode } from "./hooks/use-teleprompter-editor-mode";
+import { usePrototypeSessionCounts } from "./prototype-session-counts";
 import { useTeleprompterConnected } from "./hooks/use-teleprompter-connected";
 import { useWebSocket } from "./hooks/use-websocket";
 import { useClipboardOperations } from "./hooks/use-clipboard-operations";
@@ -166,6 +167,12 @@ export const VideoEditor = (props: {
   const sessionPanels = useMemo(
     () => getSessionPanels(props.items, props.sessions),
     [props.items, props.sessions]
+  );
+
+  // PROTOTYPE — the three numbers the teleprompter status display reads.
+  const prototypeSessionCounts = usePrototypeSessionCounts(
+    props.items,
+    props.sessions
   );
 
   useEffect(() => enableVideoEditorMode(), []);
@@ -330,6 +337,7 @@ export const VideoEditor = (props: {
       ? props.speechDetectorState.type
       : "not-recording",
     tab: activeTab,
+    counts: prototypeSessionCounts,
   });
   useTeleprompterShortcuts();
 

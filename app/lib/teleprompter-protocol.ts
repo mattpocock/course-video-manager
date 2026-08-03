@@ -51,6 +51,24 @@ export type CaptureStatus = z.infer<typeof CaptureStatus>;
 export const EditorTab = z.enum(["beats", "reference", "script"]);
 export type EditorTab = z.infer<typeof EditorTab>;
 
+/**
+ * PROTOTYPE — the recording session, reduced to the three numbers that answer
+ * "is the machine keeping up with me". Session-scoped and derived editor-side,
+ * because sessions live in the editor's reducer and the glass is a pure slave.
+ *
+ * Optional so a popup left open across a reload of this branch doesn't fail to
+ * parse the whole message and go blank.
+ */
+export const SessionCounts = z.object({
+  /** Optimistic clips still waiting for silence detection to confirm them. */
+  pending: z.number(),
+  /** Clips that made it to the database this session, archived excluded. */
+  settled: z.number(),
+  /** Clips the 10s timeout gave up on. A take that is simply missing. */
+  orphaned: z.number(),
+});
+export type SessionCounts = z.infer<typeof SessionCounts>;
+
 export const TeleprompterParentToChild = z.discriminatedUnion("type", [
   /**
    * What the editor has open, what capture is doing, and which tab it's showing.
@@ -62,6 +80,7 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
     videoId: z.string().nullable(),
     capture: CaptureStatus,
     tab: EditorTab,
+    counts: SessionCounts.optional(),
   }),
   /** Heartbeat answer, and nothing more. State travels by `editorState`. */
   z.object({ type: z.literal("pong") }),
