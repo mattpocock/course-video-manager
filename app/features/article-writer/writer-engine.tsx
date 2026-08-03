@@ -1,6 +1,12 @@
 "use client";
 
-import type { Mode, Model, DocumentAgentMessage, WriterContext } from "./types";
+import type {
+  Mode,
+  Model,
+  DocumentAgentMessage,
+  WriterContext,
+  WriterView,
+} from "./types";
 
 export type { WriterContext };
 import { useChat } from "@ai-sdk/react";
@@ -56,8 +62,8 @@ export interface WriterEngineProps {
   layout: "fullscreen" | "modal";
   context: WriterContext;
   onDocumentChange?: (document: string) => void;
-  view?: "writer" | "context" | "settings";
-  onViewChange?: (view: "writer" | "context" | "settings") => void;
+  view?: WriterView;
+  onViewChange?: (view: WriterView) => void;
   ctxTab?: string;
   onCtxTabChange?: (tab: string) => void;
   onCancel?: () => void;

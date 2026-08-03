@@ -40,6 +40,11 @@ export type Mode = TextWritingAgentMode;
 export type Model = "claude-sonnet-4-5" | "claude-haiku-4-5" | "auto";
 
 /**
+ * The writer's sub-view. `"writer"` is the default the writer opens on.
+ */
+export type WriterView = "writer" | "context" | "settings";
+
+/**
  * Indexed clip data passed to the client for ChooseScreenshot component.
  */
 export type IndexedClip = {

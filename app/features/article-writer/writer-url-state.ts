@@ -1,11 +1,16 @@
 import type { NavigateOptions } from "react-router";
+import type { WriterView } from "./types";
 
-export type WriterView = "writer" | "context" | "settings";
-
-/** The open writer's sub-view. `null` means no writer is open for the field. */
+/**
+ * The open writer's sub-view. `null` means no writer is open for the field.
+ *
+ * `ctxTab` is deliberately required rather than optional: `applyWriterUrlState`
+ * clears the tab when it is `undefined`, so omitting it silently drops the
+ * user's context tab. Every caller must say which it means.
+ */
 export type WriterUrlState = {
   view: WriterView;
-  ctxTab?: string;
+  ctxTab: string | undefined;
 } | null;
 
 const FIELD_PARAM = "writer";
@@ -18,12 +23,13 @@ const TAB_PARAM = "writerTab";
  * `replace` keeps opening a panel out of the history stack — Back should leave
  * the page, not walk the writer's tabs.
  *
- * `preventScrollReset` keeps the host page where the user left it. Pages here
- * scroll at the document level, and React Router's `<ScrollRestoration>` sends
- * any location it holds no saved position for straight to the top — which
- * every one of these updates is, since they replace the location. Applying the
- * writer's document closes it, so without this a save threw the page back to
- * the top (course-video-manager#1485).
+ * `preventScrollReset` tells React Router's `<ScrollRestoration>` (mounted in
+ * `app/root.tsx`) not to send the window to the top on these replace-navigations.
+ * Note that today every page hosting a writer scrolls inside a nested
+ * `overflow-y-auto` container rather than the document, so this is belt-and-braces
+ * — it matches how the rest of the app navigates (see
+ * `_app.courses.$courseId.sections.$sectionId.tsx`, `teleprompter-settings.ts`)
+ * and guards a page that later scrolls at the document level.
  */
 export const WRITER_URL_UPDATE: NavigateOptions = {
   replace: true,

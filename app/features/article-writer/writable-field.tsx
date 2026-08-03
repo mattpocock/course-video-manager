@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { PencilIcon, EyeIcon, Maximize2Icon } from "lucide-react";
 import type { OnMount } from "@monaco-editor/react";
 import type { WriterContext } from "./writer-engine";
-import type { Mode } from "./types";
+import type { Mode, WriterView } from "./types";
 import type { WriterFieldId } from "./writer-engine-utils";
 import { FIELD_MODES } from "./writer-engine-utils";
 import { WriterModal } from "./writer-modal";
@@ -18,7 +18,6 @@ import {
   applyWriterUrlState,
   readWriterUrlState,
   type WriterUrlState,
-  type WriterView,
 } from "./writer-url-state";
 
 interface WritableFieldPropsBase {
@@ -125,7 +124,9 @@ export function WritableField({
 
   const setOpen = useCallback(
     (open: boolean) => {
-      updateWriterUrl(open ? { view: "writer" } : null);
+      // Opening starts on the writer with no context tab selected, so a fresh
+      // open never inherits the sub-view another field was left on.
+      updateWriterUrl(open ? { view: "writer", ctxTab: undefined } : null);
     },
     [updateWriterUrl]
   );

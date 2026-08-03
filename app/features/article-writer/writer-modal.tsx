@@ -5,7 +5,7 @@ import { Loader2Icon } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { WriterEngine, type WriterContext } from "./writer-engine";
-import type { Mode } from "./types";
+import type { Mode, WriterView } from "./types";
 import type { WriterFieldId } from "./writer-engine-utils";
 import {
   FIELD_LABELS,
@@ -36,8 +36,8 @@ export interface WriterModalProps {
   // Optional controlled sub-view. When omitted the modal manages it internally;
   // WritableField drives these through URL search params so a reload restores
   // the open writer's tab.
-  view?: "writer" | "context" | "settings";
-  onViewChange?: (view: "writer" | "context" | "settings") => void;
+  view?: WriterView;
+  onViewChange?: (view: WriterView) => void;
   ctxTab?: string;
   onCtxTabChange?: (tab: string) => void;
 }
@@ -66,9 +66,7 @@ export function WriterModal({
 }: WriterModalProps) {
   const resolvedLabel = label ?? FIELD_LABELS[fieldId] ?? fieldId;
 
-  const [viewInternal, setViewInternal] = useState<
-    "writer" | "context" | "settings"
-  >("writer");
+  const [viewInternal, setViewInternal] = useState<WriterView>("writer");
   const view = viewProp ?? viewInternal;
   const handleViewChange = onViewChange ?? setViewInternal;
 
