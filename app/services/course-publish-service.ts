@@ -360,10 +360,29 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           });
         }
 
+        // Submit FIRST. It is a pure database transaction with no dependency
+        // on exports whatsoever, and it is what makes everything after it
+        // sound: a Draft Version legally accepts Clip, Video and Section
+        // writes, and a Video's title is its path inside the Dropbox bundle —
+        // so encoding or uploading from a Draft lets an edit landing mid-flight
+        // invalidate work already done.
+        onStageChange?.("freezing");
+        onStageChange?.("cloning");
+        const { version: newDraft } = yield* versionOps.freezeAndCloneVersion({
+          sourceVersionId: latestVersion.id,
+          repoId: courseId,
+          newVersionName: "",
+          sourceName: versionName,
+          sourceDescription: versionDescription,
+        });
+
         if (unexportedVideoIds.length > 0) {
           onStageChange?.("exporting");
           // Re-walk with titles so the export step is observable per Video —
-          // the same walk (and events) the standalone batchExport emits.
+          // the same walk (and events) the standalone batchExport emits. The
+          // Export Hash is untouched by Submit: the clone copies Clip
+          // filenames, source timings and order verbatim and never mutates the
+          // source rows, so this walk sees exactly what validation saw.
           const { unexportedVideos } = yield* findUnexportedVideos(
             latestVersion.id,
             includeTodoLessons
@@ -374,22 +393,16 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             onDetailEvent,
           });
           if (failedVideoIds.length > 0) {
+            // A Pending Version now exists by the time export can fail, so
+            // Discard it rather than stranding it for manual reconciliation.
+            // The error the caller sees is unchanged: the failed Video ids.
+            yield* versionOps.discardPendingVersion(latestVersion.id);
             return yield* new PublishValidationError({
               failedExportVideoIds: failedVideoIds,
             });
           }
           yield* garbageCollect(courseId);
         }
-
-        onStageChange?.("freezing");
-        onStageChange?.("cloning");
-        const { version: newDraft } = yield* versionOps.freezeAndCloneVersion({
-          sourceVersionId: latestVersion.id,
-          repoId: courseId,
-          newVersionName: "",
-          sourceName: versionName,
-          sourceDescription: versionDescription,
-        });
 
         onStageChange?.("uploading");
         // Commit: the Dropbox commit, culminating in the atomic `course.json`

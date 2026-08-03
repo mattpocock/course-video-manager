@@ -18,12 +18,13 @@ import { detail, emitObject, notFound, parseError } from "@/cli/helpers";
  *
  * Publish (see CONTEXT.md) runs the Version lifecycle: Submit freezes the
  * Draft as a Pending Version (stamping name + description) and clones a fresh
- * Draft; Commit mirrors the Pending Version's shippable output to Dropbox
- * (`.mp4`s + `course.json` + `course.schema.json`), ending in the atomic
- * `course.json` rename (the commit receipt); Promote then marks it Published.
- * A caught Commit failure auto-Discards the Pending Version. This just wraps
+ * Draft; any Unexported Video is then rendered; Commit mirrors the Pending
+ * Version's shippable output to Dropbox (`.mp4`s + `course.json` +
+ * `course.schema.json`), ending in the atomic `course.json` rename (the commit
+ * receipt); Promote then marks it Published. A caught Commit failure — or a
+ * failed export — auto-Discards the Pending Version. This just wraps
  * CoursePublishService.publish for the CLI; the heavy lifting (validation
- * gate, Dropbox sync, lifecycle transitions) lives there.
+ * gate, export, Dropbox sync, lifecycle transitions) lives there.
  *
  * NAME CONTRACT
  *   The version name MUST be a lowercase-'v' prefixed semver — `v1.2.3`,
@@ -97,11 +98,14 @@ named Published Version.
 Publish is the release operation (see CONTEXT.md). It (1) validates the
 shippable output, (2) SUBMITS the Draft — freezing it as a Pending Version
 stamped with --name and --description, and cloning a fresh Draft to carry on
-editing, (3) COMMITS — copies every shipping Video's .mp4 plus a
-content-addressed asset bundle into Dropbox, ending in the atomic course.json
-rename that is the commit receipt, and (4) PROMOTES the Pending Version to
-Published. The published snapshot is immutable and can never be deleted; a
-failed Commit auto-Discards the Pending Version (see FAILURE HANDLING).
+editing, (3) EXPORTS any Unexported Video, (4) COMMITS — copies every shipping
+Video's .mp4 plus a content-addressed asset bundle into Dropbox, ending in the
+atomic course.json rename that is the commit receipt, and (5) PROMOTES the
+Pending Version to Published. Submit comes before the export so encoding and
+uploading always work against an immutable Pending Version — a Clip edit
+landing mid-Publish can never invalidate work in flight. The published
+snapshot is immutable and can never be deleted; a failed export or Commit
+auto-Discards the Pending Version (see FAILURE HANDLING).
 
 ADDRESSING
   The positional argument is the COURSE id (find it via 'cvm course list'). The
@@ -115,21 +119,24 @@ VERSION NAME (--name, required)
   this course, is rejected (exit 3) before anything is written.
 
 VALIDATION
-  Every shipping Video must already be exported (have its .mp4) and the course
-  view must be lint-clean for the effective output. If not, the publish is
-  refused with a PublishValidationError listing the offending video ids — nothing
-  is uploaded and no version is frozen. Export the missing videos first, then
-  re-run.
+  The course view must be lint-clean for the effective output. If it is not, the
+  publish is refused with a PublishValidationError — nothing is uploaded and no
+  version is frozen. An Unexported Video blocks nothing: Publish renders it
+  itself as its export stage. Only if that render FAILS does the publish stop,
+  with a PublishValidationError naming the failed video ids (and the Pending
+  Version already Discarded).
 
 FAILURE HANDLING
-  Submit freezes the Draft as a Pending Version and clones a fresh Draft; the
-  Dropbox Commit then uploads it, ending in the atomic course.json rename (the
-  commit receipt). A caught Commit failure auto-Discards the Pending Version:
-  a sync failure is retried once in-flight first; missing asset files Discard
-  immediately, naming the missing videos. Either way the command exits 4 with
-  PublishCommitFailedError — nothing is lost, your edits are safe in the new
-  Draft, so fix the cause and publish again. The upload is content-addressed,
-  so a re-publish re-uploads nothing that already landed.
+  Submit freezes the Draft as a Pending Version and clones a fresh Draft;
+  Publish then exports any Unexported Video and the Dropbox Commit uploads it,
+  ending in the atomic course.json rename (the commit receipt). A failed export
+  auto-Discards the Pending Version and exits 3 with PublishValidationError. A
+  caught Commit failure likewise auto-Discards: a sync failure is retried once
+  in-flight first; missing asset files Discard immediately, naming the missing
+  videos. Either way the command exits 4 with PublishCommitFailedError — nothing
+  is lost, your edits are safe in the new Draft, so fix the cause and publish
+  again. The upload is content-addressed, so a re-publish re-uploads nothing that
+  already landed, and a Publish interrupted partway resumes rather than failing.
 
   Edits racing a publish are safe: a write serializes with Submit and either
   lands before the freeze (carried into the new Draft) or is refused with
