@@ -23,7 +23,10 @@ import {
   PublishCommitFailedError,
   PublishValidationError,
 } from "./course-publish-errors";
-import { syncFrozenCourseVersionToDropbox } from "./course-publish-dropbox";
+import {
+  noExportPhase,
+  syncFrozenCourseVersionToDropbox,
+} from "./course-publish-dropbox";
 import {
   runObservedExportLoop,
   type EmitPublishDetailEvent,
@@ -259,24 +262,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
       );
 
-      const syncFrozenVersionToDropboxUnlocked = Effect.fn(
-        "syncFrozenVersionToDropboxUnlocked"
-      )(function* (
-        courseId: string,
-        courseVersionId: string,
-        includeTodoLessons: boolean,
-        onDetailEvent?: EmitPublishDetailEvent,
-        awaitVideoReady?: (videoId: string) => Effect.Effect<void, ExportError>
-      ) {
-        return yield* syncFrozenCourseVersionToDropbox({
-          courseId,
-          courseVersionId,
-          includeTodoLessons,
-          onDetailEvent,
-          awaitVideoReady,
-        });
-      });
-
       const syncToDropboxUnlocked = Effect.fn("syncToDropboxUnlocked")(
         function* (
           courseId: string,
@@ -301,12 +286,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
               unfrozenCourseVersionId: latestVersion.id,
             });
           }
-          return yield* syncFrozenVersionToDropboxUnlocked(
+          return yield* syncFrozenCourseVersionToDropbox({
             courseId,
-            latestPublishedVersion.id,
+            courseVersionId: latestPublishedVersion.id,
             includeTodoLessons,
-            onlyBundleProgress(onProgress)
-          );
+            onDetailEvent: onlyBundleProgress(onProgress),
+            awaitVideoReady: noExportPhase,
+          });
         }
       );
 
@@ -461,13 +447,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // content-addressed and idempotent, so a later re-publish re-uploads
         // nothing that already landed.
         const commitPhase = Effect.exit(
-          syncFrozenVersionToDropboxUnlocked(
+          syncFrozenCourseVersionToDropbox({
             courseId,
-            latestVersion.id,
+            courseVersionId: latestVersion.id,
             includeTodoLessons,
             onDetailEvent,
-            awaitVideoReady
-          ).pipe(Effect.retry(Schedule.recurs(1)))
+            awaitVideoReady,
+          }).pipe(Effect.retry(Schedule.recurs(1)))
         );
 
         // Both pools run to completion. Neither can fail outright — the export
@@ -538,12 +524,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         onProgress?: DropboxSyncProgressCallback
       ) {
         return yield* courseVersionMutationSemaphore.withPermits(1)(
-          syncFrozenVersionToDropboxUnlocked(
+          syncFrozenCourseVersionToDropbox({
             courseId,
             courseVersionId,
             includeTodoLessons,
-            onlyBundleProgress(onProgress)
-          )
+            onDetailEvent: onlyBundleProgress(onProgress),
+            awaitVideoReady: noExportPhase,
+          })
         );
       });
 

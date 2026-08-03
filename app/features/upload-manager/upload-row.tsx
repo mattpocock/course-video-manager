@@ -30,7 +30,6 @@ export function UploadRow({
       className={`py-2.5 flex items-center gap-3 ${
         nested ? "pl-5 border-l-2 border-muted ml-1.5" : ""
       }`}
-      data-nested={nested ? "true" : undefined}
     >
       <StatusIcon upload={upload} />
       <div className="flex-1 min-w-0">

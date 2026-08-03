@@ -211,8 +211,8 @@ describe("UploadRow for a per-Video task under a Publish", () => {
       <UploadRow upload={videoTask()} onDismiss={() => {}} nested />
     );
 
-    expect(flat).not.toContain('data-nested="true"');
-    expect(nested).toContain('data-nested="true"');
+    expect(flat).not.toContain("pl-5");
+    expect(nested).toContain("pl-5");
   });
 
   it("names each phase of the Video's life", () => {

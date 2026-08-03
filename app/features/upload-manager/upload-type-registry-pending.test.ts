@@ -121,9 +121,9 @@ describe("publish failure handling", () => {
       { id: "vid-2", title: "01-intro/01.02-setup/Solution" },
     ]);
     // vid-2 has already been shipped to Dropbox when the publish dies — its
-    // task is settled. An export finishing is NOT settled: the same task
-    // carries on into its upload.
-    clients.publishCallbacks!.onExportComplete!("vid-1");
+    // task is settled. vid-1 has only finished encoding, which does NOT settle
+    // it: the same task carries on into its upload.
+    clients.publishCallbacks!.onVideoUploadQueued!("vid-1");
     clients.publishCallbacks!.onVideoUploadComplete!("vid-2");
     clients.publishCallbacks!.onError!("Stream disconnected");
 

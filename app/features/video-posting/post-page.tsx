@@ -5,6 +5,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { useFetcher } from "react-router";
 import { UploadContext } from "@/features/upload-manager/upload-context";
+import { findVideoUpload } from "@/features/upload-manager/upload-selectors";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -106,9 +107,7 @@ export function PostPage({
   } = useContext(UploadContext);
 
   // Find active upload for this video in global context
-  const activeUpload = Object.values(uploads).find(
-    (u) => u.videoId === videoId
-  );
+  const activeUpload = findVideoUpload(uploads, videoId);
 
   // Historical youtubeVideoId from localStorage (hydration-safe: read in useEffect)
   const [storedYoutubeVideoId, setStoredYoutubeVideoId] = useState("");

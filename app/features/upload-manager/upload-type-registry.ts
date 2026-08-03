@@ -532,8 +532,8 @@ const publishConfig: UploadTypeConfig<
             dispatch({ type: "UPDATE_PUBLISH_STAGE", uploadId, stage });
           },
           // The whole shipping roster, announced before either pool starts.
-          // The export roster below is a subset of it, so nothing is created
-          // from that one.
+          // Every task is created from this one event; the export roster is
+          // only a subset of it, so nothing is created from that.
           onPublishVideos: (videos) => {
             for (const video of videos) {
               liveVideoIds.add(video.id);
@@ -548,7 +548,6 @@ const publishConfig: UploadTypeConfig<
               });
             }
           },
-          onExportVideos: () => {},
           onExportStageChange: (videoId, stage) => {
             dispatch({
               type: "UPDATE_EXPORT_STAGE",
@@ -565,9 +564,6 @@ const publishConfig: UploadTypeConfig<
               percent,
             });
           },
-          // Not the end of this Video's task — only of its encode. The upload
-          // half follows on the same entry.
-          onExportComplete: () => {},
           // Terminal per video: the publish already retried the export
           // server-side, and the publish itself is about to fail — never
           // auto-retry a standalone export from here.
@@ -606,9 +602,6 @@ const publishConfig: UploadTypeConfig<
               errorMessage: message,
             });
           },
-          // The bundle-wide percentage. The parent's bar is derived from its
-          // children now, so this is not fed into it.
-          onUploadProgress: () => {},
           onComplete: (result) => {
             dispatch({
               type: "PUBLISH_COMPLETE",

@@ -10,7 +10,7 @@ import {
 import {
   computeExportHash,
   resolveExportPath,
-  type ExportClip,
+  toExportClips,
 } from "./export-hash";
 import { VersionOperationsService } from "./db-version-operations.server";
 import { ExportError, PublishValidationError } from "./course-publish-errors";
@@ -29,19 +29,19 @@ import { DropboxContentHasher } from "./dropbox-content-hash";
 import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
 
-const toExportClips = (
-  clips: Array<{
-    videoFilename: string;
-    sourceStartTime: number;
-    sourceEndTime: number;
-    order: string;
-  }>
-): ExportClip[] =>
-  clips.map((clip) => ({
-    videoFilename: clip.videoFilename,
-    sourceStartTime: clip.sourceStartTime,
-    sourceEndTime: clip.sourceEndTime,
-  }));
+/**
+ * One Video's place in the bundle, all of it read off the DATABASE: where it
+ * lands inside the bundle, which local file it comes from, and the Export Hash
+ * that addresses that file. Knowable before a single frame has been encoded.
+ */
+type VideoEntry = {
+  videoId: string;
+  videoTitle: string;
+  lessonPath: string;
+  localPath: string;
+  relativeAssetPath: string;
+  exportHash: string | null;
+};
 
 /**
  * Read an Exported Video off disk purely to digest it. Only Videos this
@@ -69,6 +69,14 @@ const hashFileLocally = Effect.fn("hashFileLocally")(function* (
   };
 });
 
+/**
+ * The handoff for a sync with no export phase in front of it — the manual
+ * re-sync of an already-Published Version. Every Video's bytes are either on
+ * disk already or missing, and no latch will ever change that.
+ */
+export const noExportPhase = (): Effect.Effect<void, ExportError> =>
+  Effect.void;
+
 export const syncFrozenCourseVersionToDropbox = Effect.fn(
   "syncFrozenCourseVersionToDropbox"
 )(function* (input: {
@@ -86,9 +94,12 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
    * have finished encoding while the rest are still on the GPU. It fails if
    * that Video's export failed, which fails this sync.
    *
-   * Absent (the manual re-sync path) every Video is ready from the start.
+   * Required rather than optional: omitting it would silently mean "every
+   * Video is ready", i.e. upload-before-export, which is a race rather than a
+   * type error. The manual re-sync path says so explicitly with
+   * `noExportPhase`.
    */
-  awaitVideoReady?: (videoId: string) => Effect.Effect<void, ExportError>;
+  awaitVideoReady: (videoId: string) => Effect.Effect<void, ExportError>;
 }) {
   const effectFs = yield* FileSystem.FileSystem;
   const versionOps = yield* VersionOperationsService;
@@ -120,61 +131,37 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     input.includeTodoLessons
   );
 
-  // The Export Hash is the recipe an Exported Video is addressed by — Clip
-  // filenames, source timings, order, Video Format and the Export Version Key.
-  // It is pure database state, so it is knowable before a single frame is
-  // encoded, which is what lets the bundle path below be knowable too.
-  const videoExportHashes = new Map<string, string>();
-  const videoPathOverrides = new Map<string, string>();
-  for (const section of effectiveSections) {
-    for (const lesson of section.lessons) {
-      for (const video of lesson.videos) {
-        if (video.clips.length === 0) continue;
-        const hash = computeExportHash(
-          toExportClips(video.clips),
-          video.format
-        );
-        if (!hash) continue;
-        videoExportHashes.set(video.id, hash);
-        videoPathOverrides.set(
-          video.id,
-          resolveExportPath(finishedVideosDirectory, input.courseId, hash)
-        );
-      }
-    }
-  }
-
   const dropboxCourseDir = `${dropboxRemotePath}/${repoWithSections.name}`;
 
-  // The bundle's contents are read off the DATABASE, not off the disk: which
-  // Videos ship, where each lands inside the bundle, and which local file each
-  // comes from are all knowable before a single frame has been encoded. Whether
-  // that file has actually appeared yet is checked per Video, after its handoff.
-  const videoEntries: Array<{
-    videoId: string;
-    videoTitle: string;
-    lessonPath: string;
-    localPath: string;
-    relativeAssetPath: string;
-    exportHash: string | null;
-  }> = [];
-
-  for (const section of effectiveSections) {
-    for (const lesson of section.lessons) {
-      for (const video of lesson.videos) {
-        videoEntries.push({
+  // The Export Hash is the recipe an Exported Video is addressed by — Clip
+  // filenames, source timings, order, Video Format and the Export Version Key —
+  // and is pure database state, which is what lets the bundle path below be
+  // knowable up front too. Whether a Video's file has actually appeared yet is
+  // checked per Video, after its handoff.
+  const videoEntries: VideoEntry[] = effectiveSections.flatMap((section) =>
+    section.lessons.flatMap((lesson) =>
+      lesson.videos.map((video) => {
+        const exportHash =
+          video.clips.length > 0
+            ? computeExportHash(toExportClips(video.clips), video.format)
+            : null;
+        return {
           videoId: video.id,
           videoTitle: video.title,
           lessonPath: lesson.path,
-          localPath:
-            videoPathOverrides.get(video.id) ??
-            path.join(finishedVideosDirectory, `${video.id}.mp4`),
+          localPath: exportHash
+            ? resolveExportPath(
+                finishedVideosDirectory,
+                input.courseId,
+                exportHash
+              )
+            : path.join(finishedVideosDirectory, `${video.id}.mp4`),
           relativeAssetPath: `${section.path}/${lesson.path}/${video.title}.mp4`,
-          exportHash: videoExportHashes.get(video.id) ?? null,
-        });
-      }
-    }
-  }
+          exportHash,
+        };
+      })
+    )
+  );
 
   const schemaJson = JSON.stringify(buildCourseJsonSchema(), null, 2);
   // The bundle is addressed by its RECIPE, not by its bytes: each Video
@@ -231,7 +218,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     }
   }
 
-  const remoteVideoPath = (entry: (typeof videoEntries)[number]) =>
+  const remoteVideoPath = (entry: VideoEntry) =>
     `${remoteBundleDir}/${entry.relativeAssetPath}`;
 
   // Sizes come from stat, not from a read, and only once a Video's export has
@@ -283,143 +270,143 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     lessonPath: string;
   }> = [];
 
-  // Ship each Video, digesting it off the same pass. A Video already present
-  // with a matching content_hash and size is skipped; one present but
-  // different is an immutability violation rather than an interrupted
-  // transfer, and is never overwritten.
-  const receipts = yield* Effect.forEach(
-    videoEntries,
-    (entry) =>
-      Effect.gen(function* () {
-        // The handoff: this Video's own export, and nothing else's.
-        if (input.awaitVideoReady) yield* input.awaitVideoReady(entry.videoId);
+  const emitVideoError = (videoId: string, message: string) =>
+    input.onDetailEvent?.({
+      event: "upload-video-error",
+      data: { videoId, message },
+    });
 
-        if (!(yield* effectFs.exists(entry.localPath))) {
-          missingVideos.push({
-            videoId: entry.videoId,
-            videoTitle: entry.videoTitle,
-            lessonPath: entry.lessonPath,
-          });
-          input.onDetailEvent?.({
-            event: "upload-video-error",
-            data: {
-              videoId: entry.videoId,
-              message: "No exported file to upload",
-            },
-          });
-          return null;
-        }
-        const info = yield* effectFs.stat(entry.localPath);
-        videoByteSizes.set(entry.videoId, Number(info.size));
-        // This Video has a slot and a size: it is uploading, not queued. The
-        // size rides along from the very first event so a consumer can weight
-        // this Video against its siblings before a byte has moved.
+  /**
+   * A Video already sitting at its address, put there by a previous attempt.
+   * Its SHA256 is still owed to the manifest and nothing streamed it, so this
+   * is the one place a local read survives — and only for Videos this Publish
+   * is NOT sending. A mismatch is an immutability violation rather than an
+   * interrupted transfer, and is never overwritten.
+   */
+  const adoptLandedVideo = Effect.fn("adoptLandedVideo")(function* (
+    entry: VideoEntry,
+    remoteFile: DropboxFileMetadata
+  ) {
+    const hashes = yield* hashFileLocally(effectFs, entry.localPath);
+    if (
+      remoteFile.content_hash !== hashes.contentHash ||
+      remoteFile.size !== hashes.bytes
+    ) {
+      return yield* new ExportError({
+        message: `Immutable asset bundle conflict for video ${entry.videoId}`,
+      });
+    }
+    // A resumed Publish counts it as done rather than reporting itself back
+    // at zero.
+    uploadedByVideo.set(entry.videoId, hashes.bytes);
+    reportProgress();
+    return { sha256: hashes.sha256, bytes: hashes.bytes };
+  });
+
+  /**
+   * Send the Video's bytes, digesting them off the same pass — the manifest's
+   * proven-source-revision guarantee is met without a separate read.
+   */
+  const streamVideo = Effect.fn("streamVideoToDropbox")(function* (
+    entry: VideoEntry,
+    fileSize: number
+  ) {
+    const sha256Hash = createHash("sha256");
+    const contentHasher = new DropboxContentHasher();
+    let streamedBytes = 0;
+
+    const metadata = yield* uploadFileFromDisk({
+      accessToken,
+      path: remoteVideoPath(entry),
+      filePath: entry.localPath,
+      fileSize,
+      onChunk: (chunk) => {
+        sha256Hash.update(chunk);
+        contentHasher.update(chunk);
+        streamedBytes += chunk.byteLength;
+      },
+      onProgress: (uploaded, total) => {
+        uploadedByVideo.set(entry.videoId, uploaded);
+        reportProgress();
         input.onDetailEvent?.({
           event: "upload-video-progress",
           data: {
             videoId: entry.videoId,
-            uploadedBytes: 0,
-            totalBytes: Number(info.size),
+            uploadedBytes: uploaded,
+            totalBytes: total,
           },
         });
+      },
+    });
 
-        const remoteFile = remoteFilesByPath.get(
-          remoteVideoPath(entry).toLowerCase()
-        );
+    if (metadata.content_hash !== contentHasher.digest()) {
+      return yield* new ExportError({
+        message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
+      });
+    }
 
-        if (remoteFile) {
-          // Landed by a previous attempt. Its SHA256 is still owed to the
-          // manifest and nothing streamed it, so this is the one place a
-          // local read survives — and only for Videos this Publish is NOT
-          // sending.
-          const hashes = yield* hashFileLocally(effectFs, entry.localPath);
-          if (
-            remoteFile.content_hash !== hashes.contentHash ||
-            remoteFile.size !== hashes.bytes
-          ) {
-            return yield* new ExportError({
-              message: `Immutable asset bundle conflict for video ${entry.videoId}`,
-            });
-          }
-          // A resumed Publish counts it as done rather than reporting itself
-          // back at zero.
-          uploadedByVideo.set(entry.videoId, hashes.bytes);
-          reportProgress();
-          input.onDetailEvent?.({
-            event: "upload-video-complete",
-            data: { videoId: entry.videoId, bytes: hashes.bytes },
-          });
-          return {
-            videoId: entry.videoId,
-            sha256: hashes.sha256,
-            bytes: hashes.bytes,
-          };
-        }
+    return { sha256: sha256Hash.digest("hex"), bytes: streamedBytes };
+  });
 
-        // The manifest's proven-source-revision guarantee is met off the
-        // upload's own byte stream: no separate read pass exists any more.
-        const sha256Hash = createHash("sha256");
-        const contentHasher = new DropboxContentHasher();
-        let streamedBytes = 0;
+  /** One Video's whole trip: wait for its export, then skip it or send it. */
+  const shipVideo = Effect.fn("shipVideo")(
+    function* (entry: VideoEntry) {
+      // The handoff: this Video's own export, and nothing else's.
+      yield* input.awaitVideoReady(entry.videoId);
 
-        const metadata = yield* uploadFileFromDisk({
-          accessToken,
-          path: remoteVideoPath(entry),
-          filePath: entry.localPath,
-          fileSize: videoByteSizes.get(entry.videoId)!,
-          onChunk: (chunk) => {
-            sha256Hash.update(chunk);
-            contentHasher.update(chunk);
-            streamedBytes += chunk.byteLength;
-          },
-          onProgress: (uploaded, total) => {
-            uploadedByVideo.set(entry.videoId, uploaded);
-            reportProgress();
-            input.onDetailEvent?.({
-              event: "upload-video-progress",
-              data: {
-                videoId: entry.videoId,
-                uploadedBytes: uploaded,
-                totalBytes: total,
-              },
-            });
-          },
-        });
-
-        // Verify the upload via content_hash.
-        if (metadata.content_hash !== contentHasher.digest()) {
-          return yield* new ExportError({
-            message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
-          });
-        }
-
-        input.onDetailEvent?.({
-          event: "upload-video-complete",
-          data: { videoId: entry.videoId, bytes: streamedBytes },
-        });
-
-        return {
+      if (!(yield* effectFs.exists(entry.localPath))) {
+        missingVideos.push({
           videoId: entry.videoId,
-          sha256: sha256Hash.digest("hex"),
-          bytes: streamedBytes,
-        };
-      }).pipe(
-        // Whatever went wrong for this Video — a missing file, a rejected
-        // request, a hash that did not verify — belongs to that Video by name
-        // rather than to the Publish as an undifferentiated whole.
-        Effect.tapError((error) => {
-          input.onDetailEvent?.({
-            event: "upload-video-error",
-            data: {
-              videoId: entry.videoId,
-              message: extractErrorMessage(error, "Upload failed unexpectedly"),
-            },
-          });
-          return Effect.void;
-        })
-      ),
-    { concurrency: uploadConcurrencyLimit }
+          videoTitle: entry.videoTitle,
+          lessonPath: entry.lessonPath,
+        });
+        emitVideoError(entry.videoId, "No exported file to upload");
+        return null;
+      }
+
+      const fileSize = Number((yield* effectFs.stat(entry.localPath)).size);
+      videoByteSizes.set(entry.videoId, fileSize);
+      // This Video has a slot and a size: it is uploading, not queued. The
+      // size rides along from the very first event so a consumer can weight
+      // this Video against its siblings before a byte has moved.
+      input.onDetailEvent?.({
+        event: "upload-video-progress",
+        data: {
+          videoId: entry.videoId,
+          uploadedBytes: 0,
+          totalBytes: fileSize,
+        },
+      });
+
+      const remoteFile = remoteFilesByPath.get(
+        remoteVideoPath(entry).toLowerCase()
+      );
+      const receipt = remoteFile
+        ? yield* adoptLandedVideo(entry, remoteFile)
+        : yield* streamVideo(entry, fileSize);
+
+      input.onDetailEvent?.({
+        event: "upload-video-complete",
+        data: { videoId: entry.videoId, bytes: receipt.bytes },
+      });
+      return { videoId: entry.videoId, ...receipt };
+    },
+    // Whatever went wrong for this Video — a missing file, a rejected request,
+    // a hash that did not verify — belongs to that Video by name rather than
+    // to the Publish as an undifferentiated whole.
+    (effect, entry) =>
+      Effect.tapError(effect, (error) => {
+        emitVideoError(
+          entry.videoId,
+          extractErrorMessage(error, "Upload failed unexpectedly")
+        );
+        return Effect.void;
+      })
   );
+
+  const receipts = yield* Effect.forEach(videoEntries, shipVideo, {
+    concurrency: uploadConcurrencyLimit,
+  });
 
   if (missingVideos.length > 0) return { missingVideos };
 
