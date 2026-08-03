@@ -5,10 +5,11 @@ import {
   ChevronRightIcon,
   AlertTriangleIcon,
   LoaderIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import { useRef, useState, useCallback, useEffect } from "react";
-import type { IndexedClip } from "./types";
+import type { IndexedClip, ScreenshotProposal } from "./types";
 
 export interface ChooseScreenshotProps {
   clipIndex: number;
@@ -24,6 +25,13 @@ export interface ChooseScreenshotProps {
   onRemove: (clipIndex: number, alt: string) => void;
   isCapturing?: boolean;
   isStreaming?: boolean;
+  /** Ask the judge to find a frame for this block. */
+  onFindScreenshot?: (clipIndex: number, alt: string) => void;
+  /** Accept a proposal as-is, reusing the frame already captured for preview. */
+  onApplyProposal?: (clipIndex: number, alt: string, imagePath: string) => void;
+  onDismissProposal?: (clipIndex: number, alt: string) => void;
+  proposal?: ScreenshotProposal;
+  isProposing?: boolean;
 }
 
 export function ChooseScreenshot({
@@ -35,6 +43,11 @@ export function ChooseScreenshot({
   onRemove,
   isCapturing,
   isStreaming,
+  onFindScreenshot,
+  onApplyProposal,
+  onDismissProposal,
+  proposal,
+  isProposing,
 }: ChooseScreenshotProps) {
   const clip = clips.find((c) => c.index === clipIndex);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -49,6 +62,23 @@ export function ChooseScreenshot({
       setCurrentTime(clip.sourceStartTime);
     }
   }, [clip?.sourceStartTime]);
+
+  const proposedTime = proposal?.found ? proposal.timestamp : undefined;
+
+  // Seek to a proposal so "the judge was 0.4s off" is a nudge of the scrubber
+  // rather than a rejection. Declared after the reset effect above so that when
+  // a proposal retargets the block to a neighbouring clip — which resets the
+  // scrubber to that clip's start — this still wins on the same render.
+  useEffect(() => {
+    if (proposedTime === undefined || !videoRef.current || !clip) return;
+    if (
+      proposedTime < clip.sourceStartTime ||
+      proposedTime > clip.sourceEndTime
+    )
+      return;
+    videoRef.current.currentTime = proposedTime;
+    setCurrentTime(proposedTime);
+  }, [proposedTime, clip?.sourceStartTime, clip?.sourceEndTime]);
 
   const handleTimeUpdate = useCallback(() => {
     if (!videoRef.current || !clip) return;
@@ -108,6 +138,11 @@ export function ChooseScreenshot({
     );
   }
 
+  // The scrubber having moved off the proposed frame means the preview png is
+  // stale, so Apply has to re-capture at the new position instead of reusing it.
+  const isOnProposedFrame =
+    proposedTime !== undefined && Math.abs(currentTime - proposedTime) < 0.01;
+
   return (
     <div className="my-4 rounded-lg border border-border bg-muted/50 p-4 relative">
       <Button
@@ -126,6 +161,61 @@ export function ChooseScreenshot({
           {clip.text}
         </p>
       )}
+
+      {proposal?.found === false && (
+        <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm">
+          <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <span className="text-amber-900 dark:text-amber-200">
+            No good frame found. {proposal.reason}
+          </span>
+        </div>
+      )}
+
+      {proposal?.found === true && (
+        <div className="mb-3 rounded-md border border-primary/40 bg-primary/5 p-2">
+          <img
+            src={`/view-image?imagePath=${encodeURIComponent(proposal.absoluteImagePath)}`}
+            alt={alt}
+            className="w-full rounded-md"
+          />
+          <p className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
+            <SparklesIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+            <span>
+              {proposal.reason}{" "}
+              <span className="tabular-nums opacity-70">
+                ({formatTime(proposal.timestamp - clip.sourceStartTime)} into
+                clip {proposal.clipIndex})
+              </span>
+            </span>
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={isCapturing}
+              onClick={() => {
+                if (isOnProposedFrame) {
+                  onApplyProposal?.(clipIndex, alt, proposal.imagePath);
+                } else {
+                  onCapture(clipIndex, alt, currentTime, clip.videoFilename);
+                }
+              }}
+            >
+              {isCapturing ? (
+                <LoaderIcon className="h-3 w-3 mr-1 animate-spin" />
+              ) : null}
+              {isOnProposedFrame ? "Apply" : "Apply at scrubber"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDismissProposal?.(clipIndex, alt)}
+            >
+              Reject
+            </Button>
+          </div>
+        </div>
+      )}
+
       <video
         ref={videoRef}
         src={`/view-video?videoPath=${encodeURIComponent(clip.videoFilename)}#t=${clip.sourceStartTime},${clip.sourceEndTime}`}
@@ -133,7 +223,12 @@ export function ChooseScreenshot({
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => {
           if (videoRef.current) {
-            videoRef.current.currentTime = clip.sourceStartTime;
+            videoRef.current.currentTime =
+              proposedTime !== undefined &&
+              proposedTime >= clip.sourceStartTime &&
+              proposedTime <= clip.sourceEndTime
+                ? proposedTime
+                : clip.sourceStartTime;
           }
         }}
       />
@@ -174,6 +269,21 @@ export function ChooseScreenshot({
           <ChevronRightIcon className="h-3 w-3 ml-1" />
         </Button>
         <div className="flex-1" />
+        {onFindScreenshot && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isProposing}
+            onClick={() => onFindScreenshot(clipIndex, alt)}
+          >
+            {isProposing ? (
+              <LoaderIcon className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <SparklesIcon className="h-3 w-3 mr-1" />
+            )}
+            {isProposing ? "Looking…" : "Find it"}
+          </Button>
+        )}
         <Button
           size="sm"
           disabled={isCapturing}

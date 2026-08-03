@@ -55,6 +55,26 @@ export type IndexedClip = {
   text: string | null;
 };
 
+/**
+ * A screenshot the judge has proposed for one ChooseScreenshot block.
+ *
+ * Held in React state only, never written into the document — the tag is not
+ * replaced by an image until Matt hits Apply, so a proposal is free to be
+ * wrong. `absoluteImagePath` is the already-captured preview frame, served
+ * through `/view-image`; `imagePath` is the document-relative form written
+ * into the markdown on Apply.
+ */
+export type ScreenshotProposal =
+  | {
+      found: true;
+      timestamp: number;
+      clipIndex: number;
+      reason: string;
+      imagePath: string;
+      absoluteImagePath: string;
+    }
+  | { found: false; reason: string };
+
 export interface WriterContext {
   files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
   transcript: string;

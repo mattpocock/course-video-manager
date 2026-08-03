@@ -31,6 +31,7 @@ import {
 } from "./choose-screenshot-mutations";
 import { preprocessChooseScreenshotMarkdown } from "./choose-screenshot-markdown";
 import { ChooseScreenshot } from "./choose-screenshot";
+import { useScreenshotProposals } from "./use-screenshot-proposals";
 import type { WriteToolbarProps } from "./write-toolbar";
 import type { WriterFieldId } from "./writer-engine-utils";
 import {
@@ -228,6 +229,20 @@ export function WriterEngine({
     [documentRef, updateDocument]
   );
 
+  const {
+    findScreenshot,
+    applyProposal,
+    dismissProposal,
+    proposalFor,
+    isProposingFor,
+  } = useScreenshotProposals({
+    videoId,
+    indexedClips,
+    documentRef,
+    updateDocument,
+    onClipIndexChange: handleDocClipIndexChange,
+  });
+
   const handleDocRemove = useCallback(
     (clipIndex: number, alt: string) => {
       const currentDoc = documentRef.current;
@@ -259,6 +274,11 @@ export function WriterEngine({
             onRemove={handleDocRemove}
             isCapturing={docCapturingKey === key}
             isStreaming={isGenerating}
+            onFindScreenshot={findScreenshot}
+            onApplyProposal={applyProposal}
+            onDismissProposal={dismissProposal}
+            proposal={proposalFor(clipIdx, altText)}
+            isProposing={isProposingFor(clipIdx, altText)}
           />
         );
       }) as unknown,
@@ -271,6 +291,11 @@ export function WriterEngine({
     handleDocRemove,
     docCapturingKey,
     isGenerating,
+    findScreenshot,
+    applyProposal,
+    dismissProposal,
+    proposalFor,
+    isProposingFor,
   ]);
 
   const docPreprocessMarkdown = useMemo(() => {
