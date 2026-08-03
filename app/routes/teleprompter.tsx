@@ -25,14 +25,8 @@ import { useTeleprompterWpm } from "@/features/teleprompter/teleprompter-setting
 import { BeatsView } from "@/features/teleprompter/beats-view";
 import { TeleprompterCrawl } from "@/features/teleprompter/teleprompter-crawl";
 import { teleprompterSession } from "@/features/teleprompter/teleprompter-session";
-import {
-  UnresolvedClipsDisplay,
-  useHeldUnresolved,
-} from "@/features/teleprompter/prototype-unresolved-clips-display";
-import {
-  PrototypeControls,
-  usePrototypeControls,
-} from "@/features/teleprompter/prototype-controls";
+import { UnresolvedClipsDisplay } from "@/features/teleprompter/prototype-unresolved-clips-display";
+import { PrototypeControls } from "@/features/teleprompter/prototype-controls";
 import type { Route } from "./+types/teleprompter";
 
 const PING_INTERVAL_MS = 2000;
@@ -168,12 +162,6 @@ export default function Teleprompter() {
   // PROTOTYPE — unresolved-clip dots. Always on: with nothing unresolved it
   // draws nothing at all, so the glass is unchanged until there's a leak to
   // report.
-  const proto = usePrototypeControls();
-  const heldUnresolved = useHeldUnresolved(
-    state.unresolved,
-    state.capture,
-    proto.frozen
-  );
 
   return (
     <div className="fixed inset-0 select-none overflow-hidden bg-black">
@@ -183,7 +171,7 @@ export default function Teleprompter() {
       />
 
       {state.editorConnected && (
-        <UnresolvedClipsDisplay unresolved={heldUnresolved} />
+        <UnresolvedClipsDisplay unresolved={state.unresolved} />
       )}
 
       {!hasContent ? (
@@ -212,11 +200,7 @@ export default function Teleprompter() {
         status={status}
       />
 
-      <PrototypeControls
-        frozen={proto.frozen}
-        unresolved={state.unresolved}
-        onToggleFreeze={proto.toggleFreeze}
-      />
+      <PrototypeControls unresolved={state.unresolved} />
     </div>
   );
 }

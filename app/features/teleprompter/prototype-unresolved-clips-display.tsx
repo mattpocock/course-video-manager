@@ -15,13 +15,15 @@
  *
  * Colours are the editor's own vocabulary from `recording-session-panel.tsx`
  * (amber = orphaned, red = archived), so there is no second language to learn
- * while filming. Nothing animates: #1435 and the commit that stripped the
- * beats view's 1/N counter both say motion in the filming field of view is the
- * thing to avoid.
+ * while filming.
+ *
+ * Updates live, deliberately. #1435 says motion in the filming field of view
+ * is the thing to avoid, and that still holds for anything decorative — but a
+ * dot appearing the instant the capture indicator turns green *is* the signal
+ * here, so holding it back until silence would remove the only thing this
+ * display is for. Nothing animates; marks simply appear and disappear.
  */
-import { useRef } from "react";
 import type {
-  CaptureStatus,
   UnresolvedClips,
   UnresolvedClipState,
 } from "@/lib/teleprompter-protocol";
@@ -47,28 +49,6 @@ const DOT_COLOUR: Record<UnresolvedClipState, string> = {
   // Deleted by hand, still waiting to be reconciled. Nothing to do.
   deleted: "var(--color-red-500)",
 };
-
-export function isSpeaking(capture: CaptureStatus): boolean {
-  return (
-    capture === "speaking-detected" ||
-    capture === "long-enough-speaking-for-clip-detected"
-  );
-}
-
-/**
- * Q6(b): hold the last value taken while he wasn't talking, so the display
- * never changes mid-sentence. Toggleable so live and held can be felt back to
- * back.
- */
-export function useHeldUnresolved(
-  unresolved: UnresolvedClips,
-  capture: CaptureStatus,
-  frozen: boolean
-): UnresolvedClips {
-  const held = useRef(unresolved);
-  if (!frozen || !isSpeaking(capture)) held.current = unresolved;
-  return held.current;
-}
 
 export function UnresolvedClipsDisplay(props: { unresolved: UnresolvedClips }) {
   // Nothing unresolved means nothing on the glass. The empty state is the
