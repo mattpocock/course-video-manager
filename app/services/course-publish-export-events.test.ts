@@ -5,20 +5,15 @@ import {
   type PublishDetailEvent,
 } from "@/services/course-publish-export-events";
 
-const video = (id: string, durationSeconds: number) => ({
+const video = (id: string) => ({
   id,
   title: `01-intro/01.01-welcome/${id}`,
-  durationSeconds,
 });
 
 /** Run the loop over `unexportedVideos`, recording every emitted event and the
  *  order in which the exports were actually begun. */
 const runLoop = async (
-  unexportedVideos: Array<{
-    id: string;
-    title: string;
-    durationSeconds: number;
-  }>
+  unexportedVideos: Array<{ id: string; title: string }>
 ) => {
   const events: PublishDetailEvent[] = [];
   const startedVideoIds: string[] = [];
@@ -38,59 +33,31 @@ const runLoop = async (
 };
 
 describe("runObservedExportLoop", () => {
+  // Whoever builds the queue decides which Videos run first, so the loop has
+  // to honour the order it is handed even once the concurrency cap forces the
+  // tail to wait for a free slot.
   describe("queue order", () => {
-    it("begins the longest videos first", async () => {
-      const { startedVideoIds } = await runLoop([
-        video("short", 30),
-        video("longest", 900),
-        video("medium", 120),
-      ]);
+    // More Videos than MAX_CONCURRENT_EXPORTS, so the last few only start as
+    // earlier ones finish.
+    const queue = Array.from({ length: 8 }, (_, i) => video(`video-${i}`));
+    const queueIds = queue.map((v) => v.id);
 
-      expect(startedVideoIds).toEqual(["longest", "medium", "short"]);
+    it("begins the exports in the order it was given", async () => {
+      const { startedVideoIds } = await runLoop(queue);
+
+      expect(startedVideoIds).toEqual(queueIds);
     });
 
-    it("announces the queue longest-first too", async () => {
-      const { events } = await runLoop([
-        video("short", 30),
-        video("longest", 900),
-        video("medium", 120),
-      ]);
+    it("announces the videos in that same order", async () => {
+      const { events } = await runLoop(queue);
 
       const videosEvent = events.find((e) => e.event === "videos");
-      expect(videosEvent?.data).toEqual({
-        videos: [
-          { id: "longest", title: "01-intro/01.01-welcome/longest" },
-          { id: "medium", title: "01-intro/01.01-welcome/medium" },
-          { id: "short", title: "01-intro/01.01-welcome/short" },
-        ],
-      });
-    });
-
-    it("queues every video before starting any of them", async () => {
-      const { events } = await runLoop([
-        video("short", 30),
-        video("longest", 900),
-      ]);
-
-      const queuedIds = events
-        .filter((e) => e.event === "stage" && e.data.stage === "queued")
-        .map((e) => (e.data as { videoId: string }).videoId);
-      expect(queuedIds).toEqual(["longest", "short"]);
-    });
-
-    it("keeps the walk order for videos of equal length", async () => {
-      const { startedVideoIds } = await runLoop([
-        video("first", 60),
-        video("second", 60),
-        video("third", 60),
-      ]);
-
-      expect(startedVideoIds).toEqual(["first", "second", "third"]);
+      expect(videosEvent?.data).toEqual({ videos: queue });
     });
   });
 
   it("emits complete per video and reports no failures", async () => {
-    const { events, result } = await runLoop([video("only", 10)]);
+    const { events, result } = await runLoop([video("only")]);
 
     expect(events.filter((e) => e.event === "complete")).toEqual([
       { event: "complete", data: { videoId: "only" } },
@@ -102,7 +69,7 @@ describe("runObservedExportLoop", () => {
     const events: PublishDetailEvent[] = [];
     const result = await Effect.runPromise(
       runObservedExportLoop({
-        unexportedVideos: [video("good", 10), video("bad", 20)],
+        unexportedVideos: [video("good"), video("bad")],
         exportVideo: (videoId) =>
           videoId === "bad"
             ? Effect.fail({ message: "ffmpeg exploded" })

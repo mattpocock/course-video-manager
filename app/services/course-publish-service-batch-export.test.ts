@@ -181,20 +181,71 @@ const setup = async () => {
   };
 };
 
+type Setup = Awaited<ReturnType<typeof setup>>;
+
+/** Seed a Video with one Clip per entry in `clipDurations` (seconds), so a
+ *  Video's length can be spread over however many Clips a test needs. */
+const addVideo = async (
+  { lesson, dbLayer }: Setup,
+  title: string,
+  clipDurations: number[]
+) => {
+  const created = await Effect.gen(function* () {
+    const videoOps = yield* VideoOperationsService;
+    return yield* videoOps.createVideo(lesson.id, {
+      title,
+      originalFootagePath: "/tmp/footage.mp4",
+    });
+  }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+  let sourceStartTime = 0;
+  await testDb.insert(clipsTable).values(
+    clipDurations.map((duration, index) => {
+      const clip = {
+        videoId: created.id,
+        videoFilename: `${title}.mp4`,
+        sourceStartTime,
+        sourceEndTime: sourceStartTime + duration,
+        order: `a${index}`,
+        text: title,
+        pauseType: "none",
+      };
+      // Leave a gap, so the spans read as distinct takes from one recording.
+      sourceStartTime += duration + 1;
+      return clip;
+    })
+  );
+  return created;
+};
+
+/** Run a batch export, collecting every emitted event. */
+const runBatchExport = async ({ version, run }: Setup) => {
+  const events: Array<{ event: string; data: any }> = [];
+  await run(
+    Effect.gen(function* () {
+      const svc = yield* CoursePublishService;
+      yield* svc.batchExport(version.id, true, (e) => {
+        events.push({ event: e.event, data: e.data });
+      });
+    })
+  );
+  return events;
+};
+
+/** The titles of the announced queue, in the order the run will work through
+ *  them. */
+const announcedTitles = (events: Array<{ event: string; data: any }>) =>
+  events
+    .find((e) => e.event === "videos")
+    ?.data.videos.map((v: any) => v.title);
+
 describe("CoursePublishService", () => {
   describe("batchExport", () => {
     it("exports all unexported videos in a version", async () => {
-      const { version, course, exportHash, run } = await setup();
+      const context = await setup();
+      const { course, exportHash } = context;
 
-      const events: Array<{ event: string; data: unknown }> = [];
-      await run(
-        Effect.gen(function* () {
-          const svc = yield* CoursePublishService;
-          yield* svc.batchExport(version.id, true, (e) => {
-            events.push({ event: e.event, data: e.data });
-          });
-        })
-      );
+      const events = await runBatchExport(context);
 
       // Should have exported the video
       const expectedPath = path.join(
@@ -220,64 +271,45 @@ describe("CoursePublishService", () => {
       expect(progressEvents[0].videoId).toBeTruthy();
     });
 
-    it("queues the longest videos first", async () => {
-      const { version, lesson, dbLayer, run } = await setup();
+    it("begins the longest videos first", async () => {
+      const context = await setup();
 
       // Titles chosen so the walk order (sections → lessons → title asc) is
       // "A Tiny", "B Long", "Problem" — nothing like the longest-first order.
-      const addVideo = async (title: string, durationSeconds: number) => {
-        const created = await Effect.gen(function* () {
-          const videoOps = yield* VideoOperationsService;
-          return yield* videoOps.createVideo(lesson.id, {
-            title,
-            originalFootagePath: "/tmp/footage.mp4",
-          });
-        }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+      await addVideo(context, "A Tiny", [2]);
+      await addVideo(context, "B Long", [300]);
 
-        await testDb.insert(clipsTable).values([
-          {
-            videoId: created.id,
-            videoFilename: `${title}.mp4`,
-            sourceStartTime: 0,
-            sourceEndTime: durationSeconds,
-            order: "a0",
-            text: title,
-            pauseType: "none",
-          },
-        ]);
-        return created;
-      };
-
-      const tiny = await addVideo("A Tiny", 2);
-      const long = await addVideo("B Long", 300);
-
-      const events: Array<{ event: string; data: any }> = [];
-      await run(
-        Effect.gen(function* () {
-          const svc = yield* CoursePublishService;
-          yield* svc.batchExport(version.id, true, (e) => {
-            events.push({ event: e.event, data: e.data });
-          });
-        })
-      );
+      const events = await runBatchExport(context);
 
       // "Problem" is the 20s video seeded by setup().
-      const videosEvent = events.find((e) => e.event === "videos");
-      expect(videosEvent?.data.videos.map((v: any) => v.title)).toEqual([
+      expect(announcedTitles(events)).toEqual([
         "01-intro/01.01-welcome/B Long",
         "01-intro/01.01-welcome/Problem",
         "01-intro/01.01-welcome/A Tiny",
       ]);
+    });
 
-      const queuedIds = events
-        .filter((e) => e.event === "stage" && e.data.stage === "queued")
-        .map((e) => e.data.videoId);
-      expect(queuedIds[0]).toBe(long.id);
-      expect(queuedIds.at(-1)).toBe(tiny.id);
+    it("measures a video's length across all of its clips", async () => {
+      const context = await setup();
+
+      // Six 20s clips outrun a single 100s one, though every clip in the
+      // longer Video is individually the shorter of the two. Titled so the
+      // walk order puts the longest Video last.
+      await addVideo(context, "Z Many Short", Array(6).fill(20));
+      await addVideo(context, "A One Long", [100]);
+
+      const events = await runBatchExport(context);
+
+      expect(announcedTitles(events)).toEqual([
+        "01-intro/01.01-welcome/Z Many Short",
+        "01-intro/01.01-welcome/A One Long",
+        "01-intro/01.01-welcome/Problem",
+      ]);
     });
 
     it("skips already exported videos", async () => {
-      const { version, course, exportHash, run } = await setup();
+      const context = await setup();
+      const { course, exportHash } = context;
 
       // Pre-create the exported file
       fs.writeFileSync(
@@ -285,19 +317,10 @@ describe("CoursePublishService", () => {
         "data"
       );
 
-      const events: Array<{ event: string; data: unknown }> = [];
-      await run(
-        Effect.gen(function* () {
-          const svc = yield* CoursePublishService;
-          yield* svc.batchExport(version.id, true, (e) => {
-            events.push({ event: e.event, data: e.data });
-          });
-        })
-      );
+      const events = await runBatchExport(context);
 
       // Should report zero unexported videos
-      const videosEvent = events.find((e) => e.event === "videos");
-      expect((videosEvent?.data as any)?.videos).toEqual([]);
+      expect(announcedTitles(events)).toEqual([]);
     });
   });
 });

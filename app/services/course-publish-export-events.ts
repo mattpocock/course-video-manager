@@ -70,20 +70,14 @@ export const extractErrorMessage = (e: unknown, fallback: string): string =>
     ? e.message
     : fallback;
 
-// The queue's running order: longest Video first. Exports run
-// MAX_CONCURRENT_EXPORTS at a time, so whichever Videos start last decide when
-// the whole run finishes — starting the longest first keeps a slow Video from
-// being picked up at the end and stretching the tail on its own. Ties keep the
-// walk order (section → lesson → title) they arrived in, since sort is stable.
-export const orderLongestFirst = <T extends { durationSeconds: number }>(
-  videos: ReadonlyArray<T>
-): T[] => [...videos].sort((a, b) => b.durationSeconds - a.durationSeconds);
-
 // The shared per-video export+emission loop behind both batchExport and
-// publish: order the queue longest-first, emit the `videos` list, pre-emit
-// `queued` per Video, run the export with its ffmpeg stage wiring, retry twice
-// per Video, emit `complete`/`error` per Video, and return the ids that still
-// failed.
+// publish: emit the `videos` list, pre-emit `queued` per Video, run the
+// export with its ffmpeg stage wiring, retry twice per Video, emit
+// `complete`/`error` per Video, and return the ids that still failed.
+//
+// The queue runs in the order it is handed over — announced, queued, and
+// started front to back — so the caller that builds the list decides which
+// Videos begin first.
 //
 // `onVideoSettled` is the HANDOFF out of the export pool: it fires once a
 // Video's export has finally succeeded or failed, and is what lets a
@@ -91,13 +85,7 @@ export const orderLongestFirst = <T extends { durationSeconds: number }>(
 // siblings are still encoding. It runs inside the fan-out, so it is reached as
 // soon as that Video settles rather than when the loop as a whole finishes.
 export const runObservedExportLoop = <A, E, R>(input: {
-  // `durationSeconds` is the summed clip length used to order the queue — it is
-  // never emitted, so the `videos` event stays `{ id, title }`.
-  unexportedVideos: Array<{
-    id: string;
-    title: string;
-    durationSeconds: number;
-  }>;
+  unexportedVideos: Array<{ id: string; title: string }>;
   exportVideo: (
     videoId: string,
     onStage: (stage: "concatenating-clips" | "normalizing-audio") => void,
@@ -113,8 +101,8 @@ export const runObservedExportLoop = <A, E, R>(input: {
   }) => Effect.Effect<void>;
 }): Effect.Effect<{ failedVideoIds: string[] }, never, R> =>
   Effect.gen(function* () {
-    const { exportVideo, onDetailEvent, onVideoSettled } = input;
-    const unexportedVideos = orderLongestFirst(input.unexportedVideos);
+    const { unexportedVideos, exportVideo, onDetailEvent, onVideoSettled } =
+      input;
 
     onDetailEvent?.({
       event: "videos",
