@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { ScriptWriterModal } from "@/features/video-editor/script-writer-modal";
 import { Button } from "@/components/ui/button";
-import { areAllCollapsed } from "./collapsed-ids";
 import { SectionScriptField } from "./section-script-field";
 import {
   buildSectionScripts,
@@ -39,7 +38,7 @@ export function SectionScriptsView({
   readOnly: boolean;
 }) {
   const [writerVideoId, setWriterVideoId] = useState<string | null>(null);
-  const { collapsed, toggle, toggleAll } = useCollapsedIds(
+  const { collapsed, toggle, areAllCollapsed, toggleAll } = useCollapsedIds(
     COLLAPSED_SCRIPTS_KEY
   );
 
@@ -54,7 +53,7 @@ export function SectionScriptsView({
   }
 
   const videoIds = scriptVideoIds(lessons);
-  const allCollapsed = areAllCollapsed(collapsed, videoIds);
+  const allCollapsed = areAllCollapsed(videoIds);
 
   return (
     <div className="max-w-3xl mx-auto space-y-10 pb-24">

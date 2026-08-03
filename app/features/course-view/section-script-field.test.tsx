@@ -1,26 +1,19 @@
-import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it } from "vitest";
+import { renderInRouter } from "@/test-utils/render-in-router";
 import { SectionScriptField } from "./section-script-field";
 
-/**
- * The field autosaves through a fetcher, so it only renders inside a data
- * router — a memory router with the field as its one route is the cheapest way
- * to give it one.
- */
-const renderInRouter = (element: ReactNode) =>
-  renderToStaticMarkup(
-    <RouterProvider router={createMemoryRouter([{ path: "/", element }])} />
-  );
-
-const render = (props: { script: string; collapsed: boolean }) =>
+/** The field autosaves through a fetcher, so it only renders inside a router. */
+const render = (props: {
+  script: string;
+  collapsed: boolean;
+  readOnly?: boolean;
+}) =>
   renderInRouter(
     <SectionScriptField
       videoId="v1"
       title="Introducing the problem"
       initialScript={props.script}
-      readOnly={false}
+      readOnly={props.readOnly ?? false}
       collapsed={props.collapsed}
       onToggleCollapsed={() => {}}
       onOpenWriter={() => {}}
@@ -61,5 +54,25 @@ describe("SectionScriptField folding", () => {
 
   it("says so when a folded script has not been written yet", () => {
     expect(render({ script: "", collapsed: true })).toContain("No script yet");
+  });
+
+  // Reading a published version is exactly when folding earns its keep, so it
+  // must not ride along with the edit affordances that read-only strips out.
+  it("still folds on a read-only version", () => {
+    const html = render({
+      script: "So today we build a router.",
+      collapsed: true,
+      readOnly: true,
+    });
+
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain("So today we build a router.");
+    expect(html).not.toContain("Open in writer");
+  });
+
+  it("keeps the heading out of the button, which only takes phrasing content", () => {
+    expect(render({ script: "anything", collapsed: false })).not.toMatch(
+      /<button[^>]*>(?:(?!<\/button>)[\s\S])*<h3/
+    );
   });
 });

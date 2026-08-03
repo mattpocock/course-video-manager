@@ -5,8 +5,8 @@
  * lesson or video shows its content rather than hiding it).
  *
  * Kept free of React and `localStorage` so it can be unit-tested directly;
- * {@link useCollapsedIds} layers persistence on top, and the section grid
- * ({@link useCollapsedSections}) and the Scripts tab both build on that.
+ * {@link useCollapsedIds} layers persistence on top, and both the course grid's
+ * sections and the section page's Scripts tab build on that.
  */
 
 export type CollapsedIds = ReadonlySet<string>;
@@ -47,4 +47,22 @@ export function areAllCollapsed(
   ids: readonly string[]
 ): boolean {
   return ids.length > 0 && ids.every((id) => collapsed.has(id));
+}
+
+/**
+ * Reads back what {@link useCollapsedIds} persisted. `localStorage` is shared
+ * with every other tab and every past version of this app, so the stored JSON
+ * is untrusted input: anything that isn't an array of strings means "nothing is
+ * folded" rather than a crash or a set of stray characters (`new Set("abc")`
+ * would otherwise fold three single-letter ids).
+ */
+export function parseCollapsedIds(raw: string | null): Set<string> {
+  if (!raw) return new Set();
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+  } catch {
+    return new Set();
+  }
 }

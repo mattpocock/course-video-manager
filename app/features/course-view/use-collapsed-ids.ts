@@ -1,79 +1,55 @@
-import { useCallback, useState } from "react";
-import {
-  areAllCollapsed,
-  collapseIds,
-  expandIds,
-  toggleId,
-  type CollapsedIds,
-} from "./collapsed-ids";
+import { useCallback, useMemo } from "react";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import * as collapsedIds from "./collapsed-ids";
 
 /**
  * Collapse state that outlives the page: which ids are folded away, kept in
  * `localStorage` under `storageKey` so reopening a course (or bouncing through
  * a video and back) restores the shape you left the page in.
  *
- * The set algebra lives in {@link collapsed-ids}; this only adds React state
- * and persistence. Callers: {@link useCollapsedSections} for the course grid's
- * sections, and the section page's Scripts tab for individual scripts.
+ * The set algebra lives in {@link collapsedIds} and the persistence in
+ * {@link useLocalStorage}; this only stitches the two together, storing the set
+ * as a JSON array of ids. Callers: the course grid's sections and the section
+ * page's Scripts tab.
  */
 export function useCollapsedIds(storageKey: string) {
-  const [collapsed, setCollapsed] = useState<CollapsedIds>(() =>
-    readStoredIds(storageKey)
+  const [stored, setStored] = useLocalStorage(storageKey, "[]");
+
+  const collapsed = useMemo(
+    () => collapsedIds.parseCollapsedIds(stored),
+    [stored]
   );
 
   const update = useCallback(
-    (next: (previous: CollapsedIds) => Set<string>) => {
-      setCollapsed((previous) => {
-        const value = next(previous);
-        persistIds(storageKey, value);
-        return value;
-      });
+    (next: (previous: collapsedIds.CollapsedIds) => Set<string>) => {
+      setStored((previous) =>
+        JSON.stringify([...next(collapsedIds.parseCollapsedIds(previous))])
+      );
     },
-    [storageKey]
+    [setStored]
   );
 
   const toggle = useCallback(
-    (id: string) => update((previous) => toggleId(previous, id)),
+    (id: string) => update((previous) => collapsedIds.toggleId(previous, id)),
     [update]
   );
 
-  const expandAll = useCallback(
-    (ids: readonly string[]) => update((previous) => expandIds(previous, ids)),
-    [update]
-  );
-
-  const collapseAll = useCallback(
-    (ids: readonly string[]) =>
-      update((previous) => collapseIds(previous, ids)),
-    [update]
+  /** Labels the {@link toggleAll} control: true means it should read "Expand all". */
+  const areAllCollapsed = useCallback(
+    (ids: readonly string[]) => collapsedIds.areAllCollapsed(collapsed, ids),
+    [collapsed]
   );
 
   /** Collapse-all / expand-all in one control: folds unless everything is folded. */
   const toggleAll = useCallback(
     (ids: readonly string[]) =>
       update((previous) =>
-        areAllCollapsed(previous, ids)
-          ? expandIds(previous, ids)
-          : collapseIds(previous, ids)
+        collapsedIds.areAllCollapsed(previous, ids)
+          ? collapsedIds.expandIds(previous, ids)
+          : collapsedIds.collapseIds(previous, ids)
       ),
     [update]
   );
 
-  return { collapsed, toggle, expandAll, collapseAll, toggleAll };
-}
-
-function readStoredIds(storageKey: string): Set<string> {
-  if (typeof localStorage === "undefined") return new Set();
-  try {
-    const stored = localStorage.getItem(storageKey);
-    if (stored) return new Set(JSON.parse(stored) as string[]);
-  } catch {}
-  return new Set();
-}
-
-function persistIds(storageKey: string, ids: CollapsedIds) {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(storageKey, JSON.stringify([...ids]));
-  } catch {}
+  return { collapsed, toggle, areAllCollapsed, toggleAll };
 }

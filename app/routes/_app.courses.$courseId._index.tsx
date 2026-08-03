@@ -27,7 +27,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useCollapsedSections } from "@/features/course-view/use-collapsed-sections";
+import { useCollapsedIds } from "@/features/course-view/use-collapsed-ids";
 import { readCookie, useCookieState } from "@/hooks/use-cookie-state";
 import { useFetcher, useNavigate, useSubmit } from "react-router";
 import { useEffectReducer } from "use-effect-reducer";
@@ -58,6 +58,9 @@ import {
   useCourseEditorFailureToast,
 } from "@/features/course-view/use-optimistic-course";
 import { DivergenceReportModal } from "@/features/course-view/divergence-report-modal";
+
+/** Which sections of the course grid are folded away, remembered per browser. */
+const COLLAPSED_SECTIONS_KEY = "collapsed-sections";
 
 export const meta: Route.MetaFunction = ({ data }) => {
   const selectedCourse = data?.selectedCourse;
@@ -172,23 +175,22 @@ export default function Component(props: Route.ComponentProps) {
     loaderData.viewMode
   ) as ["expanded" | "compact", (value: "expanded" | "compact") => void];
 
-  const { collapsedSections, toggleSection, expandAll, collapseAll } =
-    useCollapsedSections();
+  const {
+    collapsed: collapsedSections,
+    toggle: toggleSection,
+    areAllCollapsed,
+    toggleAll,
+  } = useCollapsedIds(COLLAPSED_SECTIONS_KEY);
 
   const sectionIds = useMemo(
     () => displaySections.map((s) => s.id),
     [displaySections]
   );
-  const allSectionsCollapsed =
-    sectionIds.length > 0 &&
-    sectionIds.every((id) => collapsedSections.has(id));
-  const handleToggleAllSections = useCallback(() => {
-    if (allSectionsCollapsed) {
-      expandAll(sectionIds);
-    } else {
-      collapseAll(sectionIds);
-    }
-  }, [allSectionsCollapsed, expandAll, collapseAll, sectionIds]);
+  const allSectionsCollapsed = areAllCollapsed(sectionIds);
+  const handleToggleAllSections = useCallback(
+    () => toggleAll(sectionIds),
+    [toggleAll, sectionIds]
+  );
 
   const [nextUpDismissed, setNextUpDismissed] = useState(false);
   const { startExportUpload, startBatchExportUpload } =

@@ -3,38 +3,21 @@ import {
   areAllCollapsed,
   collapseIds,
   expandIds,
+  parseCollapsedIds,
   toggleId,
 } from "./collapsed-ids";
 
-describe("toggleId", () => {
-  it("collapses an id that is currently expanded", () => {
-    expect([...toggleId(new Set(), "a")]).toEqual(["a"]);
-  });
+// React only re-renders on a fresh reference, so every operation has to build a
+// new set rather than fold the caller's one in place.
+describe("collapse operations", () => {
+  it("leave the set they were given untouched", () => {
+    const previous = new Set(["a", "b"]);
 
-  it("expands an id that is currently collapsed", () => {
-    expect([...toggleId(new Set(["a", "b"]), "a")]).toEqual(["b"]);
-  });
+    toggleId(previous, "a");
+    collapseIds(previous, ["c"]);
+    expandIds(previous, ["b"]);
 
-  it("leaves the previous set untouched", () => {
-    const previous = new Set(["a"]);
-    toggleId(previous, "b");
-    expect([...previous]).toEqual(["a"]);
-  });
-});
-
-describe("collapseIds", () => {
-  it("collapses every given id, keeping ones already collapsed", () => {
-    expect([...collapseIds(new Set(["a"]), ["b", "c"])].sort()).toEqual([
-      "a",
-      "b",
-      "c",
-    ]);
-  });
-});
-
-describe("expandIds", () => {
-  it("expands every given id and leaves the rest collapsed", () => {
-    expect([...expandIds(new Set(["a", "b", "c"]), ["a", "c"])]).toEqual(["b"]);
+    expect([...previous]).toEqual(["a", "b"]);
   });
 });
 
@@ -51,5 +34,36 @@ describe("areAllCollapsed", () => {
   // offers "Collapse all" rather than a no-op "Expand all".
   it("is false when there are no ids at all", () => {
     expect(areAllCollapsed(new Set(), [])).toBe(false);
+  });
+
+  it("ignores collapsed ids that are not on the list", () => {
+    expect(areAllCollapsed(new Set(["a", "gone"]), ["a"])).toBe(true);
+  });
+});
+
+describe("parseCollapsedIds", () => {
+  it("restores the ids that were persisted", () => {
+    expect([...parseCollapsedIds('["a","b"]')]).toEqual(["a", "b"]);
+  });
+
+  it("treats a missing or empty entry as nothing collapsed", () => {
+    expect([...parseCollapsedIds(null)]).toEqual([]);
+    expect([...parseCollapsedIds("")]).toEqual([]);
+  });
+
+  it("treats unparseable JSON as nothing collapsed", () => {
+    expect([...parseCollapsedIds("not json")]).toEqual([]);
+  });
+
+  // A bare string is iterable, so handing it to `new Set` would silently fold
+  // one id per character.
+  it("treats a non-array payload as nothing collapsed", () => {
+    expect([...parseCollapsedIds('"abc"')]).toEqual([]);
+    expect([...parseCollapsedIds('{"a":true}')]).toEqual([]);
+    expect([...parseCollapsedIds("42")]).toEqual([]);
+  });
+
+  it("drops non-string entries rather than collapsing on them", () => {
+    expect([...parseCollapsedIds('["a",null,7,{},"b"]')]).toEqual(["a", "b"]);
   });
 });

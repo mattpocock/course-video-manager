@@ -30,9 +30,9 @@ const SAVE_DEBOUNCE_MS = 700;
  * single `?writer=video-script` URL slot and open at once.
  *
  * Folding is controlled from {@link SectionScriptsView} (which remembers it per
- * browser): a folded field hides its textarea behind a one-line
- * {@link scriptPreview} but stays mounted, so a debounced save in flight when
- * you fold still lands.
+ * browser): it swaps the textarea for a one-line {@link scriptPreview}, but the
+ * field itself stays mounted, so `draft` and any debounced save still in flight
+ * survive the fold.
  */
 export function SectionScriptField({
   videoId,
@@ -107,21 +107,25 @@ export function SectionScriptField({
   return (
     <div className="group">
       <div className="flex items-center gap-2 mb-1">
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-expanded={!collapsed}
-          title={collapsed ? "Expand script" : "Collapse script"}
-          className="flex items-center gap-1.5 text-left text-muted-foreground/60 hover:text-foreground transition-colors"
-        >
-          <ChevronRight
-            className={cn(
-              "w-3.5 h-3.5 transition-transform",
-              !collapsed && "rotate-90"
-            )}
-          />
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        </button>
+        {/* The heading wraps the button, not the other way round: `button`
+            only takes phrasing content, so an `h3` inside it is invalid. */}
+        <h3 className="text-sm font-semibold">
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Expand script" : "Collapse script"}
+            className="flex items-center gap-1.5 text-left text-muted-foreground/60 hover:text-foreground transition-colors"
+          >
+            <ChevronRight
+              className={cn(
+                "w-3.5 h-3.5 transition-transform",
+                !collapsed && "rotate-90"
+              )}
+            />
+            <span className="text-foreground">{title}</span>
+          </button>
+        </h3>
         {!readOnly && (
           <Button
             type="button"

@@ -1,14 +1,7 @@
-import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it } from "vitest";
+import { renderInRouter } from "@/test-utils/render-in-router";
 import { SectionScriptsView } from "./section-scripts-view";
 import type { SectionForScripts } from "./section-scripts-utils";
-
-const renderInRouter = (element: ReactNode) =>
-  renderToStaticMarkup(
-    <RouterProvider router={createMemoryRouter([{ path: "/", element }])} />
-  );
 
 const section: SectionForScripts = {
   lessons: [

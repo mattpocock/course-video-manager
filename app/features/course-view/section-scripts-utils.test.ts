@@ -149,6 +149,19 @@ describe("scriptPreview", () => {
     expect(preview).not.toMatch(/wor…$/);
   });
 
+  it("leaves a line that exactly fills the limit alone", () => {
+    const exactly = "a".repeat(100);
+    expect(scriptPreview(exactly)).toBe(exactly);
+    expect(scriptPreview(`${exactly}a`)).not.toBe(`${exactly}a`);
+  });
+
+  // No space to cut back to, so the word boundary rule has to give way rather
+  // than return an empty preview.
+  it("still truncates a single unbroken word", () => {
+    const preview = scriptPreview("x".repeat(300));
+    expect(preview).toBe(`${"x".repeat(100)}…`);
+  });
+
   it("has nothing to show for a blank script", () => {
     expect(scriptPreview("")).toBe(null);
     expect(scriptPreview("   \n\t\n")).toBe(null);
