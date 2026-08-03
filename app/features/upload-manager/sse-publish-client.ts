@@ -26,7 +26,20 @@ export interface SSEPublishCallbacks {
   ) => void;
   onExportComplete: (videoId: string) => void;
   onExportError: (videoId: string, message: string) => void;
-  // Per-lesson Dropbox upload percentage during the "uploading" stage.
+  // Every Video this Publish ships, exported or not — one task each. The
+  // export roster above is the subset of these that still needs encoding.
+  onPublishVideos: (videos: Array<{ id: string; title: string }>) => void;
+  // This Video's bytes are ready and it is waiting for a slot in the upload
+  // pool.
+  onVideoUploadQueued: (videoId: string) => void;
+  onVideoUploadProgress: (
+    videoId: string,
+    uploadedBytes: number,
+    totalBytes: number
+  ) => void;
+  onVideoUploadComplete: (videoId: string) => void;
+  onVideoUploadError: (videoId: string, message: string) => void;
+  // Bundle-wide Dropbox upload percentage.
   onUploadProgress: (percentage: number) => void;
   onComplete: (result: {
     publishedVersionId: string;
@@ -65,6 +78,25 @@ export const startSSEPublish = (
         callbacks.onExportComplete(data.videoId),
       "export-error": (data: { videoId: string; message: string }) =>
         callbacks.onExportError(data.videoId, data.message),
+      "publish-videos": (data: {
+        videos: Array<{ id: string; title: string }>;
+      }) => callbacks.onPublishVideos(data.videos),
+      "video-upload-queued": (data: { videoId: string }) =>
+        callbacks.onVideoUploadQueued(data.videoId),
+      "video-upload-progress": (data: {
+        videoId: string;
+        uploadedBytes: number;
+        totalBytes: number;
+      }) =>
+        callbacks.onVideoUploadProgress(
+          data.videoId,
+          data.uploadedBytes,
+          data.totalBytes
+        ),
+      "video-upload-complete": (data: { videoId: string }) =>
+        callbacks.onVideoUploadComplete(data.videoId),
+      "video-upload-error": (data: { videoId: string; message: string }) =>
+        callbacks.onVideoUploadError(data.videoId, data.message),
       "upload-progress": (data: { percentage: number }) =>
         callbacks.onUploadProgress(data.percentage),
       complete: (data: {

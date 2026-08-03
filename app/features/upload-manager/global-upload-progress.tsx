@@ -21,7 +21,13 @@ export function GlobalUploadProgress() {
   const uploadEntries = Object.values(uploads);
   const hasUploads = uploadEntries.length > 0;
 
-  const activeUploads = uploadEntries.filter(
+  // A child task is already counted inside its parent's bar, so only the
+  // top-level jobs speak for the badge counts and the floating indicator.
+  const rootEntries = uploadEntries.filter((u) => !u.parentUploadId);
+  const childrenOf = (parentUploadId: string) =>
+    uploadEntries.filter((u) => u.parentUploadId === parentUploadId);
+
+  const activeUploads = rootEntries.filter(
     (u) =>
       u.status === "uploading" ||
       u.status === "retrying" ||
@@ -29,10 +35,10 @@ export function GlobalUploadProgress() {
   );
   const isActive = activeUploads.length > 0;
 
-  const completedCount = uploadEntries.filter(
+  const completedCount = rootEntries.filter(
     (u) => u.status === "success"
   ).length;
-  const errorCount = uploadEntries.filter((u) => u.status === "error").length;
+  const errorCount = rootEntries.filter((u) => u.status === "error").length;
 
   const aggregateProgress =
     activeUploads.length > 0
@@ -152,12 +158,18 @@ export function GlobalUploadProgress() {
               </p>
             ) : (
               <div className="space-y-0 divide-y">
-                {uploadEntries.map((upload) => (
-                  <UploadRow
-                    key={upload.uploadId}
-                    upload={upload}
-                    onDismiss={handleDismiss}
-                  />
+                {rootEntries.map((upload) => (
+                  <div key={upload.uploadId}>
+                    <UploadRow upload={upload} onDismiss={handleDismiss} />
+                    {childrenOf(upload.uploadId).map((child) => (
+                      <UploadRow
+                        key={child.uploadId}
+                        upload={child}
+                        onDismiss={handleDismiss}
+                        nested
+                      />
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

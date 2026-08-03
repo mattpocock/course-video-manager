@@ -13,6 +13,14 @@ const EXPORT_STAGE_LABELS: Record<uploadReducer.ExportStage, string> = {
   "normalizing-audio": "Normalizing audio",
 };
 
+const VIDEO_UPLOAD_STAGE_LABELS: Record<
+  uploadReducer.VideoUploadStage,
+  string
+> = {
+  "queued-for-upload": "Waiting to upload",
+  uploading: "Uploading to Dropbox",
+};
+
 const PUBLISH_STAGE_LABELS: Record<uploadReducer.PublishStage, string> = {
   validating: "Validating",
   exporting: "Exporting videos",
@@ -42,6 +50,12 @@ export function uploadStageLabel(
 ): string | null {
   switch (upload.uploadType) {
     case "export":
+      // A per-Video task under a Publish encodes first and uploads after, so
+      // its upload stage — once it has one — is the later word on what it is
+      // doing.
+      if (upload.videoUploadStage) {
+        return VIDEO_UPLOAD_STAGE_LABELS[upload.videoUploadStage];
+      }
       return upload.exportStage
         ? EXPORT_STAGE_LABELS[upload.exportStage]
         : null;

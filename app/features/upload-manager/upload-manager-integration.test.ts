@@ -80,6 +80,7 @@ describe("retry effect integration", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       },
     };
 
@@ -126,6 +127,7 @@ describe("retry effect integration", () => {
           retryCount: 1,
           terminal: false,
           dependsOn: null,
+          parentUploadId: null,
         },
       },
       {
@@ -143,6 +145,7 @@ describe("retry effect integration", () => {
           retryCount: 1,
           terminal: false,
           dependsOn: null,
+          parentUploadId: null,
         },
       },
       {
@@ -160,6 +163,7 @@ describe("retry effect integration", () => {
           retryCount: 1,
           terminal: false,
           dependsOn: null,
+          parentUploadId: null,
         },
       },
       {
@@ -174,10 +178,14 @@ describe("retry effect integration", () => {
           uploadType: "export" as const,
           exportStage: "queued" as const,
           isBatchEntry: false,
+          videoUploadStage: null,
+          uploadedBytes: 0,
+          totalBytes: null,
           errorMessage: "err",
           retryCount: 1,
           terminal: false,
           dependsOn: null,
+          parentUploadId: null,
         },
       },
     ];
@@ -381,10 +389,14 @@ describe("export retry with no stored params", () => {
         uploadType: "export",
         exportStage: "concatenating-clips",
         isBatchEntry: false,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
         errorMessage: null,
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       },
     };
 

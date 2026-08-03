@@ -25,6 +25,7 @@ const createYouTubeEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -42,6 +43,7 @@ const createBufferEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -56,10 +58,14 @@ const createExportEntry = (
   uploadType: "export",
   exportStage: "queued",
   isBatchEntry: false,
+  videoUploadStage: null,
+  uploadedBytes: 0,
+  totalBytes: null,
   errorMessage: null,
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -79,6 +85,7 @@ const createPublishEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -378,42 +385,43 @@ describe("UPDATE_PUBLISH_STAGE", () => {
       uploads: { "upload-1": createPublishEntry() },
     });
 
+    // Only the prologue is banded: validate, then Submit. Everything past it
+    // overlaps, so the bar parks at the work band's floor and is filled by the
+    // per-Video children instead.
     state = reduce(state, {
       type: "UPDATE_PUBLISH_STAGE",
       uploadId: "upload-1",
       stage: "validating",
     });
-    expect(state.uploads["upload-1"]!.progress).toBe(5);
-
-    state = reduce(state, {
-      type: "UPDATE_PUBLISH_STAGE",
-      uploadId: "upload-1",
-      stage: "exporting",
-    });
-    expect(state.uploads["upload-1"]!.progress).toBe(20);
-
-    state = reduce(state, {
-      type: "UPDATE_PUBLISH_STAGE",
-      uploadId: "upload-1",
-      stage: "uploading",
-    });
-    // Starts at its band floor — the Dropbox sync then streams a real
-    // percentage into `progress` via UPDATE_PROGRESS, which fills the band.
-    expect(state.uploads["upload-1"]!.progress).toBe(40);
+    expect(state.uploads["upload-1"]!.progress).toBe(2);
 
     state = reduce(state, {
       type: "UPDATE_PUBLISH_STAGE",
       uploadId: "upload-1",
       stage: "freezing",
     });
-    expect(state.uploads["upload-1"]!.progress).toBe(75);
+    expect(state.uploads["upload-1"]!.progress).toBe(4);
 
     state = reduce(state, {
       type: "UPDATE_PUBLISH_STAGE",
       uploadId: "upload-1",
       stage: "cloning",
     });
-    expect(state.uploads["upload-1"]!.progress).toBe(90);
+    expect(state.uploads["upload-1"]!.progress).toBe(6);
+
+    state = reduce(state, {
+      type: "UPDATE_PUBLISH_STAGE",
+      uploadId: "upload-1",
+      stage: "exporting",
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(10);
+
+    state = reduce(state, {
+      type: "UPDATE_PUBLISH_STAGE",
+      uploadId: "upload-1",
+      stage: "uploading",
+    });
+    expect(state.uploads["upload-1"]!.progress).toBe(10);
   });
 
   it("should not modify state for non-existent upload", () => {

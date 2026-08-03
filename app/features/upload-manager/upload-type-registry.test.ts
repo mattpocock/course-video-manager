@@ -18,6 +18,7 @@ const makeBase = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -38,6 +39,9 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "queued",
         isBatchEntry: false,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
       });
     });
 
@@ -53,6 +57,9 @@ describe("export registry entry", () => {
       expect(entry).toMatchObject({
         uploadType: "export",
         isBatchEntry: true,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
       });
     });
 
@@ -83,6 +90,9 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "normalizing-audio",
         isBatchEntry: true,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
       };
 
       const entry = exportConfig.resetEntry(base, prevEntry);
@@ -92,6 +102,9 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "queued",
         isBatchEntry: true,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
       });
     });
 
@@ -103,6 +116,9 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "concatenating-clips",
         isBatchEntry: false,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
       };
 
       const entry = exportConfig.resetEntry(base, prevEntry);
@@ -111,6 +127,9 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "queued",
         isBatchEntry: false,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
       });
     });
   });
@@ -126,10 +145,14 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "normalizing-audio",
         isBatchEntry: false,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
         errorMessage: null,
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = exportConfig.applySuccess(entry, {
@@ -156,10 +179,14 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "normalizing-audio",
         isBatchEntry: true,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
         errorMessage: null,
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = exportConfig.applySuccess(entry, {
@@ -182,10 +209,14 @@ describe("export registry entry", () => {
         uploadType: "export",
         exportStage: "concatenating-clips",
         isBatchEntry: false,
+        videoUploadStage: null,
+        uploadedBytes: 0,
+        totalBytes: null,
         errorMessage: "previous error",
         retryCount: 1,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = exportConfig.applySuccess(entry, {
@@ -294,6 +325,7 @@ describe("youtube registry entry", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = youtubeConfig.applySuccess(entry, {
@@ -324,6 +356,7 @@ describe("youtube registry entry", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = youtubeConfig.applySuccess(entry, {
@@ -347,6 +380,7 @@ describe("youtube registry entry", () => {
         retryCount: 1,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = youtubeConfig.applySuccess(entry, {
@@ -379,6 +413,7 @@ describe("youtube registry entry", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const params = {
@@ -417,6 +452,7 @@ describe("youtube registry entry", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       youtubeConfig.initiate(
@@ -511,6 +547,7 @@ describe("buffer registry entry", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = bufferConfig.applySuccess(entry, {
@@ -540,6 +577,7 @@ describe("buffer registry entry", () => {
         retryCount: 1,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       const result = bufferConfig.applySuccess(entry, {
@@ -568,6 +606,7 @@ describe("buffer registry entry", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       bufferConfig.initiate(
@@ -600,6 +639,7 @@ describe("buffer registry entry", () => {
         retryCount: 0,
         terminal: false,
         dependsOn: null,
+        parentUploadId: null,
       };
 
       bufferConfig.initiate(

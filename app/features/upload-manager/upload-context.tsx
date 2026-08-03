@@ -90,6 +90,7 @@ function initiateFromRegistry(
     retryCount: 0,
     terminal: false,
     dependsOn: null,
+    parentUploadId: null,
   };
   const entry = config.createEntry(base, action);
   config.initiate(action.uploadId, entry, params, dispatch, abortControllers);
@@ -501,7 +502,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (!prevUpload) continue;
       if (prevUpload.status === upload.status) continue;
 
-      if (upload.status === "success") {
+      // A child task's success is reported by its row under its parent; the
+      // parent's own toast speaks for the job as a whole. Failures still toast
+      // per child, because that is how a single stuck Video gets named.
+      if (upload.status === "success" && !upload.parentUploadId) {
         showSuccessToast(upload);
       }
 
