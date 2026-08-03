@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSectionScripts,
+  scriptPreview,
+  scriptVideoIds,
   type SectionForScripts,
 } from "./section-scripts-utils";
 
-function makeSection(
-  lessons: SectionForScripts["lessons"]
-): SectionForScripts {
+function makeSection(lessons: SectionForScripts["lessons"]): SectionForScripts {
   return { lessons };
 }
 
@@ -95,5 +95,62 @@ describe("buildSectionScripts", () => {
     );
 
     expect(result[0]!.heading).toBe("the-path");
+  });
+});
+
+describe("scriptVideoIds", () => {
+  it("lists every video in document order, across lessons", () => {
+    const document = buildSectionScripts(
+      makeSection([
+        {
+          id: "l1",
+          title: "First",
+          path: "first",
+          videos: [
+            { id: "v1", title: "Intro" },
+            { id: "v2", title: "Deep dive" },
+          ],
+        },
+        {
+          id: "l2",
+          title: "Second",
+          path: "second",
+          videos: [{ id: "v3", title: "Wrap" }],
+        },
+      ])
+    );
+
+    expect(scriptVideoIds(document)).toEqual(["v1", "v2", "v3"]);
+  });
+
+  it("is empty for an empty document", () => {
+    expect(scriptVideoIds([])).toEqual([]);
+  });
+});
+
+describe("scriptPreview", () => {
+  it("summarises a collapsed script with its first line", () => {
+    expect(scriptPreview("Hello there.\nSecond line.")).toBe("Hello there.");
+  });
+
+  it("skips leading blank lines", () => {
+    expect(scriptPreview("\n\n   \nThe real opening")).toBe("The real opening");
+  });
+
+  it("collapses runs of whitespace inside the line", () => {
+    expect(scriptPreview("So\t\ttoday   we build")).toBe("So today we build");
+  });
+
+  it("truncates a long line with an ellipsis", () => {
+    const preview = scriptPreview("word ".repeat(60));
+    expect(preview!.length).toBeLessThanOrEqual(101);
+    expect(preview!.endsWith("…")).toBe(true);
+    // Cuts at a word boundary rather than mid-word.
+    expect(preview).not.toMatch(/wor…$/);
+  });
+
+  it("has nothing to show for a blank script", () => {
+    expect(scriptPreview("")).toBe(null);
+    expect(scriptPreview("   \n\t\n")).toBe(null);
   });
 });

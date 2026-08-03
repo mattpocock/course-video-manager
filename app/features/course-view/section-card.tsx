@@ -86,7 +86,7 @@ export function SectionCard({
   deleteLessonId: string | null;
   editDescriptionLessonId: string | null;
   archiveSectionId: string | null;
-  collapsedSections: Set<string>;
+  collapsedSections: ReadonlySet<string>;
   toggleSection: (sectionId: string) => void;
   lessonSelection: courseViewReducer.LessonSelection;
   dispatch: (action: courseViewReducer.Action) => void;

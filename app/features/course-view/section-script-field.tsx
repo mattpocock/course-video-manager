@@ -8,9 +8,10 @@ import {
   useState,
 } from "react";
 import { useFetcher } from "react-router";
-import { Maximize2Icon } from "lucide-react";
+import { ChevronRight, Maximize2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { scriptPreview } from "./section-scripts-utils";
 
 const SAVE_DEBOUNCE_MS = 700;
 
@@ -27,18 +28,27 @@ const SAVE_DEBOUNCE_MS = 700;
  * {@link ScriptWriterModal} (Monaco + preview) for heavier editing; we
  * deliberately don't stack `WritableField`s here because they'd all share the
  * single `?writer=video-script` URL slot and open at once.
+ *
+ * Folding is controlled from {@link SectionScriptsView} (which remembers it per
+ * browser): a folded field hides its textarea behind a one-line
+ * {@link scriptPreview} but stays mounted, so a debounced save in flight when
+ * you fold still lands.
  */
 export function SectionScriptField({
   videoId,
   title,
   initialScript,
   readOnly,
+  collapsed,
+  onToggleCollapsed,
   onOpenWriter,
 }: {
   videoId: string;
   title: string;
   initialScript: string;
   readOnly: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   onOpenWriter: () => void;
 }) {
   const saveFetcher = useFetcher();
@@ -82,19 +92,36 @@ export function SectionScriptField({
     []
   );
 
-  // Auto-grow: keep the textarea tall enough to show all its text.
+  // Auto-grow: keep the textarea tall enough to show all its text. Re-runs on
+  // unfold too, when the textarea mounts back in with no height of its own.
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [draft]);
+  }, [draft, collapsed]);
+
+  const preview = scriptPreview(draft);
 
   return (
     <div className="group">
       <div className="flex items-center gap-2 mb-1">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Expand script" : "Collapse script"}
+          className="flex items-center gap-1.5 text-left text-muted-foreground/60 hover:text-foreground transition-colors"
+        >
+          <ChevronRight
+            className={cn(
+              "w-3.5 h-3.5 transition-transform",
+              !collapsed && "rotate-90"
+            )}
+          />
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        </button>
         {!readOnly && (
           <Button
             type="button"
@@ -108,32 +135,43 @@ export function SectionScriptField({
           </Button>
         )}
       </div>
-      <textarea
-        ref={textareaRef}
-        value={draft}
-        readOnly={readOnly}
-        placeholder="Write the teleprompter script for this video…"
-        onFocus={() => {
-          focusedRef.current = true;
-        }}
-        onBlur={() => {
-          focusedRef.current = false;
-          if (saveTimer.current) clearTimeout(saveTimer.current);
-          if (draft !== initialScript) persistScript(draft);
-        }}
-        onChange={(e) => {
-          const value = e.target.value;
-          setDraft(value);
-          if (!readOnly) scheduleSave(value);
-        }}
-        className={cn(
-          "w-full resize-none bg-transparent text-sm leading-relaxed text-foreground",
-          "placeholder:text-muted-foreground focus:outline-none",
-          "border-l-2 border-transparent focus:border-primary/50 pl-3 -ml-3",
-          readOnly && "cursor-default"
-        )}
-        rows={2}
-      />
+      {collapsed ? (
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title="Expand script"
+          className="block w-full truncate text-left text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {preview ?? "No script yet"}
+        </button>
+      ) : (
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          readOnly={readOnly}
+          placeholder="Write the teleprompter script for this video…"
+          onFocus={() => {
+            focusedRef.current = true;
+          }}
+          onBlur={() => {
+            focusedRef.current = false;
+            if (saveTimer.current) clearTimeout(saveTimer.current);
+            if (draft !== initialScript) persistScript(draft);
+          }}
+          onChange={(e) => {
+            const value = e.target.value;
+            setDraft(value);
+            if (!readOnly) scheduleSave(value);
+          }}
+          className={cn(
+            "w-full resize-none bg-transparent text-sm leading-relaxed text-foreground",
+            "placeholder:text-muted-foreground focus:outline-none",
+            "border-l-2 border-transparent focus:border-primary/50 pl-3 -ml-3",
+            readOnly && "cursor-default"
+          )}
+          rows={2}
+        />
+      )}
     </div>
   );
 }

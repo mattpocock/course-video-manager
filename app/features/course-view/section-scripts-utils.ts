@@ -33,6 +33,9 @@ export type SectionScriptLesson = {
   videos: SectionScriptVideo[];
 };
 
+/** Longest collapsed preview we render before cutting to a word boundary. */
+const PREVIEW_MAX_LENGTH = 100;
+
 export function buildSectionScripts(
   section: SectionForScripts
 ): SectionScriptLesson[] {
@@ -47,4 +50,31 @@ export function buildSectionScripts(
       })),
     }))
     .filter((lesson) => lesson.videos.length > 0);
+}
+
+/**
+ * Every video in the document, in reading order — the id list the Scripts tab's
+ * collapse-all / expand-all control folds and unfolds in one go.
+ */
+export function scriptVideoIds(lessons: SectionScriptLesson[]): string[] {
+  return lessons.flatMap((lesson) => lesson.videos.map((v) => v.videoId));
+}
+
+/**
+ * The one-line stand-in shown in place of a folded script, so a collapsed
+ * document still reads as an outline rather than a list of bare titles. `null`
+ * when the script is blank — there is nothing to preview, and the field says so
+ * with its own placeholder.
+ */
+export function scriptPreview(script: string): string | null {
+  const line = script
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .find((l) => l.length > 0);
+  if (!line) return null;
+  if (line.length <= PREVIEW_MAX_LENGTH) return line;
+
+  const cut = line.slice(0, PREVIEW_MAX_LENGTH);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
