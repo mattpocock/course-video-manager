@@ -33,6 +33,9 @@ const timeline = [
   snapshot({ id: "c", contentHash: "h3" }),
 ];
 
+/** A ring of one: every direction leads back to the stop you are on. */
+const singleStop = [snapshot({ id: "a", contentHash: "h1" })];
+
 describe("snapshotStepFromKey", () => {
   it("steps older on Ctrl-[ and newer on Ctrl-]", () => {
     expect(chord({ key: "[", ctrlKey: true })).toBe("older");
@@ -66,8 +69,12 @@ describe("snapshotAtStep", () => {
     // Edits since the last snapshot are not on the timeline at all, so the
     // first step back lands on the newest snapshot rather than skipping it.
     expect(snapshotAtStep(timeline, "unsaved", "older", null)?.id).toBe("c");
-    // Forward from past-the-newest is over the end of the timeline, so it
-    // wraps to the oldest — the same place the newest snapshot leads to.
+  });
+
+  it("wraps forward off the unsaved place to the oldest snapshot", () => {
+    // Past-the-newest is already over the end, so forward from there wraps —
+    // to the same place the newest snapshot itself leads to. The unsaved place
+    // is where a walk starts, not a stop the ring ever comes back around to.
     expect(snapshotAtStep(timeline, "unsaved", "newer", null)?.id).toBe("a");
   });
 
@@ -87,17 +94,15 @@ describe("snapshotAtStep", () => {
     // Wrapping around a one-stop ring lands back where the head already is.
     // That is not a step, so it reports the same nothing an empty timeline
     // does rather than restoring the canvas onto itself.
-    const single = [snapshot({ id: "a", contentHash: "h1" })];
-    expect(snapshotAtStep(single, "h1", "older", null)).toBe(null);
-    expect(snapshotAtStep(single, "h1", "newer", null)).toBe(null);
+    expect(snapshotAtStep(singleStop, "h1", "older", null)).toBe(null);
+    expect(snapshotAtStep(singleStop, "h1", "newer", null)).toBe(null);
   });
 
   it("reaches the only stop on the timeline from an unsaved head", () => {
     // Unsaved edits are a place of their own, one past the newest snapshot, so
     // either direction is a real move onto that snapshot.
-    const single = [snapshot({ id: "a", contentHash: "h1" })];
-    expect(snapshotAtStep(single, "unsaved", "older", null)?.id).toBe("a");
-    expect(snapshotAtStep(single, "unsaved", "newer", null)?.id).toBe("a");
+    expect(snapshotAtStep(singleStop, "unsaved", "older", null)?.id).toBe("a");
+    expect(snapshotAtStep(singleStop, "unsaved", "newer", null)?.id).toBe("a");
   });
 
   it("treats a head with no content hash as unsaved", () => {
@@ -121,17 +126,31 @@ describe("snapshotAtStep", () => {
     expect(snapshotAtStep(withDuplicate, "h1", "newer", null)?.id).toBe("b2");
   });
 
-  it("uses the last-visited snapshot to break ties between equal hashes", () => {
-    // The same content can reappear later in the timeline. Without the hint,
-    // the head's hash matches the earlier one and stepping back wraps to the
-    // far end while the author is looking at the later copy.
+  it("steps over a stop holding the head's own content", () => {
+    // The same content can reappear further along the timeline, where
+    // `distinctStops` cannot collapse it. Wrapping straight onto that other
+    // copy would restore the canvas onto itself: nothing moves and nothing is
+    // said, so the chord reads as broken. The next distinct stop is the step.
     const revisited = [
       snapshot({ id: "a", contentHash: "h1" }),
       snapshot({ id: "b", contentHash: "h2" }),
       snapshot({ id: "c", contentHash: "h1" }),
     ];
-    expect(snapshotAtStep(revisited, "h1", "older", null)?.id).toBe("c");
-    expect(snapshotAtStep(revisited, "h1", "older", "c")?.id).toBe("b");
+    expect(snapshotAtStep(revisited, "h1", "older", null)?.id).toBe("b");
+  });
+
+  it("uses the last-visited snapshot to break ties between equal hashes", () => {
+    // Which copy of "h1" the author stands on decides what lies one step
+    // newer; the head's hash alone matches the earlier one, so only the hint
+    // can tell the two apart.
+    const revisited = [
+      snapshot({ id: "a", contentHash: "h1" }),
+      snapshot({ id: "b", contentHash: "h2" }),
+      snapshot({ id: "c", contentHash: "h1" }),
+      snapshot({ id: "d", contentHash: "h3" }),
+    ];
+    expect(snapshotAtStep(revisited, "h1", "newer", null)?.id).toBe("b");
+    expect(snapshotAtStep(revisited, "h1", "newer", "c")?.id).toBe("d");
   });
 
   it("ignores a hint the head has since moved away from", () => {

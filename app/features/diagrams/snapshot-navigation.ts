@@ -92,6 +92,9 @@ function distinctStops(snapshots: readonly Snapshot[]): Snapshot[] {
  * snapshots at all, or a single stop the head is already on, where wrapping
  * would restore the canvas onto itself.
  *
+ * Stops holding the head's own content are stepped over rather than landed on,
+ * for the reason `distinctStops` collapses adjacent ones — see below.
+ *
  * @param snapshots Oldest first, as `/api/diagrams/:id/snapshots/list` returns.
  * @param headContentHash The head's hash; `null` when the diagram has no head.
  * @param lastVisitedId The snapshot the last step landed on, or `null` before
@@ -127,13 +130,24 @@ export function snapshotAtStep(
   // itself does.
   if (index === -1) index = stops.length;
 
-  let target = step === "older" ? index - 1 : index + 1;
-  if (target < 0) target = stops.length - 1;
-  if (target >= stops.length) target = 0;
+  const direction = step === "older" ? -1 : 1;
+  let target = index + direction;
+  // One lap at most. The head's own stop is always the last candidate, so a
+  // ring holding nothing but the head's content runs out here.
+  for (let tried = 0; tried < stops.length; tried++) {
+    // Clamped rather than `%`: the unsaved place sits at `stops.length`, so a
+    // forward step from it reaches one *past* the end, which modulo would land
+    // on the second-oldest stop instead of the oldest.
+    if (target < 0) target = stops.length - 1;
+    else if (target >= stops.length) target = 0;
 
-  // Only reachable from a one-stop timeline the head is already on; anywhere
-  // else, a wrap lands somewhere new.
-  if (target === index) return null;
-
-  return stops[target]!;
+    // Restoring content the head already holds leaves the canvas exactly as it
+    // is, so the chord reads as dead. That is `distinctStops`' rule applied to
+    // copies that are *not* adjacent: the head's hash cannot say which of them
+    // the author is looking at, so a wrap can otherwise aim straight at the
+    // copy they are already standing on.
+    if (stops[target]!.contentHash !== headContentHash) return stops[target]!;
+    target += direction;
+  }
+  return null;
 }
