@@ -1,7 +1,18 @@
 import { useCallback, useReducer, type RefObject } from "react";
 import { chooseScreenshotKey } from "./choose-screenshot-md";
+import type { ChooseScreenshotTag } from "./choose-screenshot-mutations";
 import { extractSurroundingText } from "./screenshot-surrounding-text";
 import type { IndexedClip, ScreenshotProposal } from "./types";
+
+/**
+ * How many blocks "Find all" searches at once.
+ *
+ * Each search is two vision calls either side of ~70 ffmpeg frame extractions,
+ * so this bounds CPU on the box rather than API concurrency. Three keeps a
+ * six-screenshot article to two rounds — about a minute — without the machine
+ * spending that minute unresponsive.
+ */
+const FIND_ALL_CONCURRENCY = 3;
 
 /** What one ChooseScreenshot block has been offered, and what was chosen. */
 interface BlockProposal {
@@ -153,6 +164,35 @@ export function useScreenshotProposals({
     [videoId, indexedClips, documentRef]
   );
 
+  /**
+   * Search several blocks, a few at a time.
+   *
+   * Takes the blocks explicitly rather than working them out from state: the
+   * caller already has the document, and reading state from inside a callback
+   * would search whatever the list looked like when the callback was built.
+   *
+   * Each search reports itself as it settles, so the grids fill in as they
+   * arrive rather than all at the end, and one block failing leaves the rest
+   * alone — `findScreenshot` turns its own failure into a declined proposal.
+   */
+  const findAllScreenshots = useCallback(
+    async (tags: ChooseScreenshotTag[]) => {
+      const queue = [...tags];
+      const worker = async () => {
+        for (let tag = queue.shift(); tag; tag = queue.shift()) {
+          await findScreenshot(tag.clipIndex, tag.alt);
+        }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(FIND_ALL_CONCURRENCY, queue.length) },
+          worker
+        )
+      );
+    },
+    [findScreenshot]
+  );
+
   const dismissProposal = useCallback((clipIndex: number, alt: string) => {
     dispatch({ type: "dismissed", key: chooseScreenshotKey(clipIndex, alt) });
   }, []);
@@ -188,10 +228,13 @@ export function useScreenshotProposals({
 
   return {
     findScreenshot,
+    findAllScreenshots,
     dismissProposal,
     proposalFor,
     isProposingFor,
     selectionFor,
     selectCandidate,
+    /** How many searches are in flight, for the toolbar's progress. */
+    searchingCount: Object.keys(state.searching).length,
   };
 }

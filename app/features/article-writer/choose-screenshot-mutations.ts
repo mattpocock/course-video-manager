@@ -67,6 +67,38 @@ export function removeChooseScreenshot(
   return message.replace(pattern, "");
 }
 
+/** One unresolved ChooseScreenshot tag, identified the way every write here is. */
+export interface ChooseScreenshotTag {
+  clipIndex: number;
+  alt: string;
+}
+
+/**
+ * Every unresolved ChooseScreenshot tag in the document, in document order.
+ *
+ * Duplicates are collapsed, matching every mutation in this file: they all
+ * match by clipIndex and alt with /g and rewrite both, so two identical tags
+ * are one thing. Counting them twice would promise a search that only lands
+ * once.
+ */
+export function listChooseScreenshotTags(
+  message: string
+): ChooseScreenshotTag[] {
+  const pattern =
+    /<ChooseScreenshot\s+clipIndex=\{(\d+)\}\s+alt="([^"]*)"\s*\/>/g;
+  const seen = new Set<string>();
+  const tags: ChooseScreenshotTag[] = [];
+  for (const match of message.matchAll(pattern)) {
+    const clipIndex = parseInt(match[1]!, 10);
+    const alt = match[2]!;
+    const key = `${clipIndex}-${alt}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tags.push({ clipIndex, alt });
+  }
+  return tags;
+}
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

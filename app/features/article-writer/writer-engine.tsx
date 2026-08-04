@@ -21,19 +21,9 @@ import { useLint, useLintFix } from "@/hooks/use-lint";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 import { useMessageQueue } from "./use-message-queue";
 import { MODEL_STORAGE_KEY, partsToText } from "./write-utils";
-import {
-  replaceChooseScreenshotWithImage,
-  updateChooseScreenshotClipIndex,
-  removeChooseScreenshot,
-  hasUnresolvedScreenshots,
-} from "./choose-screenshot-mutations";
-import { preprocessChooseScreenshotMarkdown } from "./choose-screenshot-markdown";
-import {
-  CHOOSE_SCREENSHOT_COMPONENTS,
-  ChooseScreenshotProvider,
-  type ChooseScreenshotHost,
-} from "./choose-screenshot-md";
-import { useScreenshotProposals } from "./use-screenshot-proposals";
+import { hasUnresolvedScreenshots } from "./choose-screenshot-mutations";
+import { ChooseScreenshotProvider } from "./choose-screenshot-md";
+import { useChooseScreenshotBlocks } from "./use-choose-screenshot-blocks";
 import type { WriteToolbarProps } from "./write-toolbar";
 import type { WriterFieldId } from "./writer-engine-utils";
 import {
@@ -118,7 +108,6 @@ export function WriterEngine({
   const ctxModel = useContextModel(context, pageFields);
   useMemoryAutosave(ctxModel.memoryText, context.repoId);
 
-  const [docCapturingKey, setDocCapturingKey] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   const isDocumentMode =
@@ -173,125 +162,23 @@ export function WriterEngine({
       onDocumentChange,
     });
 
-  // Screenshot support
-  const handleDocCapture = useCallback(
-    async (
-      clipIndex: number,
-      alt: string,
-      timestamp: number,
-      videoFilename: string
-    ) => {
-      const key = `doc-${clipIndex}-${alt}`;
-      setDocCapturingKey(key);
-      try {
-        const res = await fetch(`/api/videos/${videoId}/capture-screenshot`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ timestamp, videoFilename }),
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Failed to capture screenshot");
-        }
-        const { imagePath } = await res.json();
-        const currentDoc = documentRef.current;
-        if (currentDoc) {
-          updateDocument(
-            replaceChooseScreenshotWithImage(
-              currentDoc,
-              clipIndex,
-              alt,
-              imagePath
-            )
-          );
-        }
-      } catch (err) {
-        console.error("Screenshot capture failed:", err);
-      } finally {
-        setDocCapturingKey(null);
-      }
-    },
-    [videoId, documentRef, updateDocument]
-  );
-
-  const handleDocClipIndexChange = useCallback(
-    (currentIndex: number, newIndex: number, alt: string) => {
-      const currentDoc = documentRef.current;
-      if (currentDoc) {
-        updateDocument(
-          updateChooseScreenshotClipIndex(
-            currentDoc,
-            currentIndex,
-            newIndex,
-            alt
-          )
-        );
-      }
-    },
-    [documentRef, updateDocument]
-  );
-
   const {
-    findScreenshot,
-    dismissProposal,
-    proposalFor,
-    isProposingFor,
-    selectionFor,
-    selectCandidate,
-  } = useScreenshotProposals({ videoId, indexedClips, documentRef });
-
-  const handleDocRemove = useCallback(
-    (clipIndex: number, alt: string) => {
-      const currentDoc = documentRef.current;
-      if (currentDoc) {
-        updateDocument(removeChooseScreenshot(currentDoc, clipIndex, alt));
-      }
-    },
-    [documentRef, updateDocument]
-  );
-
-  // Deliberately not a `useMemo` over the writer's state: the map is a module
-  // constant, and everything volatile reaches the blocks through the provider
-  // below. See `choose-screenshot-md.tsx` for why identity is load-bearing.
-  const docExtraComponents =
-    indexedClips.length === 0 || !isDocumentMode
-      ? undefined
-      : CHOOSE_SCREENSHOT_COMPONENTS;
-
-  const chooseScreenshotHost = useMemo(
-    (): ChooseScreenshotHost => ({
-      clips: indexedClips,
-      onClipIndexChange: handleDocClipIndexChange,
-      onCapture: handleDocCapture,
-      onRemove: handleDocRemove,
-      capturingKey: docCapturingKey,
-      isStreaming: isGenerating,
-      onFindScreenshot: findScreenshot,
-      onDismissProposal: dismissProposal,
-      proposalFor,
-      isProposingFor,
-      selectionFor,
-      onSelectCandidate: selectCandidate,
-    }),
-    [
-      indexedClips,
-      handleDocClipIndexChange,
-      handleDocCapture,
-      handleDocRemove,
-      docCapturingKey,
-      isGenerating,
-      findScreenshot,
-      dismissProposal,
-      proposalFor,
-      isProposingFor,
-      selectionFor,
-      selectCandidate,
-    ]
-  );
-
-  const docPreprocessMarkdown = docExtraComponents
-    ? preprocessChooseScreenshotMarkdown
-    : undefined;
+    host: chooseScreenshotHost,
+    extraComponents: docExtraComponents,
+    preprocessMarkdown: docPreprocessMarkdown,
+    capturingKey: docCapturingKey,
+    pendingCount: pendingScreenshotCount,
+    searchingCount: searchingScreenshotCount,
+    findAll: handleFindAllScreenshots,
+  } = useChooseScreenshotBlocks({
+    videoId,
+    indexedClips,
+    isDocumentMode,
+    isGenerating,
+    document,
+    documentRef,
+    updateDocument,
+  });
 
   const handleRemoveDocBlock = useRemoveDocumentBlock({
     documentRef,
@@ -720,6 +607,9 @@ export function WriterEngine({
                 onDocumentChange={updateDocument}
                 violations={violations}
                 onFixLintViolations={handleFixLintViolations}
+                pendingScreenshotCount={pendingScreenshotCount}
+                searchingScreenshotCount={searchingScreenshotCount}
+                onFindAllScreenshots={handleFindAllScreenshots}
               />
             </ChooseScreenshotProvider>
           </div>
