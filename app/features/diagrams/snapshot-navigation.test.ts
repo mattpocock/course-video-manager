@@ -66,17 +66,38 @@ describe("snapshotAtStep", () => {
     // Edits since the last snapshot are not on the timeline at all, so the
     // first step back lands on the newest snapshot rather than skipping it.
     expect(snapshotAtStep(timeline, "unsaved", "older", null)?.id).toBe("c");
-    expect(snapshotAtStep(timeline, "unsaved", "newer", null)).toBe(null);
+    // Forward from past-the-newest is over the end of the timeline, so it
+    // wraps to the oldest — the same place the newest snapshot leads to.
+    expect(snapshotAtStep(timeline, "unsaved", "newer", null)?.id).toBe("a");
   });
 
-  it("stops at the ends instead of wrapping", () => {
-    expect(snapshotAtStep(timeline, "h1", "older", null)).toBe(null);
-    expect(snapshotAtStep(timeline, "h3", "newer", null)).toBe(null);
+  it("wraps around the ends of the timeline", () => {
+    // The timeline is a ring: stepping off either end comes back on the other
+    // side, rather than stopping dead and telling the author so.
+    expect(snapshotAtStep(timeline, "h1", "older", null)?.id).toBe("c");
+    expect(snapshotAtStep(timeline, "h3", "newer", null)?.id).toBe("a");
   });
 
   it("has nowhere to go on an empty timeline", () => {
     expect(snapshotAtStep([], null, "older", null)).toBe(null);
     expect(snapshotAtStep([], null, "newer", null)).toBe(null);
+  });
+
+  it("has nowhere to go when the head sits on the timeline's only stop", () => {
+    // Wrapping around a one-stop ring lands back where the head already is.
+    // That is not a step, so it reports the same nothing an empty timeline
+    // does rather than restoring the canvas onto itself.
+    const single = [snapshot({ id: "a", contentHash: "h1" })];
+    expect(snapshotAtStep(single, "h1", "older", null)).toBe(null);
+    expect(snapshotAtStep(single, "h1", "newer", null)).toBe(null);
+  });
+
+  it("reaches the only stop on the timeline from an unsaved head", () => {
+    // Unsaved edits are a place of their own, one past the newest snapshot, so
+    // either direction is a real move onto that snapshot.
+    const single = [snapshot({ id: "a", contentHash: "h1" })];
+    expect(snapshotAtStep(single, "unsaved", "older", null)?.id).toBe("a");
+    expect(snapshotAtStep(single, "unsaved", "newer", null)?.id).toBe("a");
   });
 
   it("treats a head with no content hash as unsaved", () => {
@@ -102,21 +123,22 @@ describe("snapshotAtStep", () => {
 
   it("uses the last-visited snapshot to break ties between equal hashes", () => {
     // The same content can reappear later in the timeline. Without the hint,
-    // the head's hash matches the earlier one and stepping back reports "no
-    // older snapshot" while the author is looking at the later copy.
+    // the head's hash matches the earlier one and stepping back wraps to the
+    // far end while the author is looking at the later copy.
     const revisited = [
       snapshot({ id: "a", contentHash: "h1" }),
       snapshot({ id: "b", contentHash: "h2" }),
       snapshot({ id: "c", contentHash: "h1" }),
     ];
-    expect(snapshotAtStep(revisited, "h1", "older", null)).toBe(null);
+    expect(snapshotAtStep(revisited, "h1", "older", null)?.id).toBe("c");
     expect(snapshotAtStep(revisited, "h1", "older", "c")?.id).toBe("b");
   });
 
   it("ignores a hint the head has since moved away from", () => {
     // The confirm dialog can be dismissed, and the canvas is edited freely
     // between steps; a hint only counts while the head still holds its content.
-    expect(snapshotAtStep(timeline, "h1", "older", "c")).toBe(null);
+    // Honouring this one would step forward off "c" and wrap to "a".
+    expect(snapshotAtStep(timeline, "h1", "newer", "c")?.id).toBe("b");
   });
 
   it("ignores a hint naming a snapshot that is no longer on the timeline", () => {

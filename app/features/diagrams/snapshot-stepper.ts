@@ -20,8 +20,11 @@ import {
 export type SnapshotStepOutcome =
   /** A restore was raised for `snapshot` — possibly behind the confirm dialog. */
   | { kind: "stepped"; snapshot: Snapshot }
-  /** Already at the oldest/newest stop on the timeline. */
-  | { kind: "at-end"; step: SnapshotStep }
+  /**
+   * The timeline holds no other place to stand — empty, or a single stop the
+   * head is already on. Reaching an *end* is not this: stepping wraps.
+   */
+  | { kind: "nowhere-to-go" }
   /** The timeline could not be read. */
   | { kind: "unavailable" }
   /** A step is still settling; this keypress was dropped. */
@@ -83,7 +86,7 @@ export function createSnapshotStepper(deps: {
           direction,
           lastVisitedId
         );
-        if (!target) return { kind: "at-end", step: direction };
+        if (!target) return { kind: "nowhere-to-go" };
 
         // Set before the request so a confirmed dialog lands on the right
         // cursor. A dismissed one leaves the head where it was, which makes

@@ -173,12 +173,19 @@ describe("createSnapshotStepper", () => {
     });
   });
 
-  it("reports the end of the timeline in the direction asked for", async () => {
+  it("wraps off the oldest snapshot round to the newest", async () => {
     const d = fakeDiagram({ headContentHash: "h1" });
-    expect(await d.stepper.step("older")).toEqual({
-      kind: "at-end",
-      step: "older",
+    expect(await d.stepper.step("older")).toMatchObject({
+      snapshot: { id: "c" },
     });
+  });
+
+  it("reports a timeline with nowhere else to step to", async () => {
+    // One stop, and the head is on it: every direction leads back to the
+    // canvas already showing, so there is no restore to raise.
+    const single = [snapshot({ id: "a", contentHash: "h1" })];
+    const d = fakeDiagram({ snapshots: single, headContentHash: "h1" });
+    expect(await d.stepper.step("newer")).toEqual({ kind: "nowhere-to-go" });
   });
 
   it("reports a timeline it could not read", async () => {
