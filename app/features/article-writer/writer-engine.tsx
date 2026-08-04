@@ -472,6 +472,9 @@ export function WriterEngine({
                 preprocessMarkdown={docPreprocessMarkdown}
                 onRemoveBlock={handleRemoveDocBlock}
                 onDocumentChange={updateDocument}
+                pendingScreenshotCount={pendingScreenshotCount}
+                searchingScreenshotCount={searchingScreenshotCount}
+                onFindAllScreenshots={handleFindAllScreenshots}
               />
             </ChooseScreenshotProvider>
           </div>

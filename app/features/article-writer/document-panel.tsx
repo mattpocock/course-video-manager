@@ -171,28 +171,51 @@ export const DocumentPanel = memo(function DocumentPanel({
     }
   }, [onDocumentChange]);
 
-  // Modal (field-writer) layout: no header toolbar. A floating Edit/Preview
-  // toggle sits over a shared scroll box; copy and lint fixes live in the
-  // modal's bottom bar, so they are intentionally absent here.
+  // Modal (field-writer) layout: no header toolbar. Floating controls sit over
+  // a shared scroll box; copy and lint fixes live in the modal's bottom bar, so
+  // they are intentionally absent here.
   if (variant === "modal") {
     return (
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="absolute right-3 top-2 z-10 h-7 shadow-sm"
-          onClick={handleToggleEditing}
-        >
-          {isEditing ? (
-            <>
-              <EyeIcon className="mr-1 size-3.5" /> Preview
-            </>
-          ) : (
-            <>
-              <PencilIcon className="mr-1 size-3.5" /> Edit
-            </>
+        <div className="absolute right-3 top-2 z-10 flex items-center gap-1.5">
+          {/* Find every screenshot at once. Offered in the editor too: the
+              blocks are not rendered there, but the candidates are waiting
+              in the preview by the time you switch back. */}
+          {onFindAllScreenshots && pendingScreenshotCount > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-7 shadow-sm"
+              disabled={searchingScreenshotCount > 0}
+              onClick={onFindAllScreenshots}
+            >
+              {searchingScreenshotCount > 0 ? (
+                <Loader2Icon className="mr-1 size-3.5 animate-spin" />
+              ) : (
+                <SparklesIcon className="mr-1 size-3.5 text-primary" />
+              )}
+              {searchingScreenshotCount > 0
+                ? `Finding ${searchingScreenshotCount}…`
+                : `Find (${pendingScreenshotCount})`}
+            </Button>
           )}
-        </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 shadow-sm"
+            onClick={handleToggleEditing}
+          >
+            {isEditing ? (
+              <>
+                <EyeIcon className="mr-1 size-3.5" /> Preview
+              </>
+            ) : (
+              <>
+                <PencilIcon className="mr-1 size-3.5" /> Edit
+              </>
+            )}
+          </Button>
+        </div>
         {isEditing ? (
           <div className="h-full overflow-hidden">
             <MarkdownMonacoEditor
