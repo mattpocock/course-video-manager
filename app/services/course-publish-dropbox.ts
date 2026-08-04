@@ -28,6 +28,7 @@ import {
 import { DropboxContentHasher } from "./dropbox-content-hash";
 import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
+import { readExportDigest, writeExportDigest } from "./export-sha256-sidecar";
 
 /**
  * One Video's place in the bundle, all of it read off the DATABASE: where it
@@ -278,16 +279,24 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
 
   /**
    * A Video already sitting at its address, put there by a previous attempt.
-   * Its SHA256 is still owed to the manifest and nothing streamed it, so this
-   * is the one place a local read survives — and only for Videos this Publish
-   * is NOT sending. A mismatch is an immutability violation rather than an
-   * interrupted transfer, and is never overwritten.
+   * Its SHA256 is still owed to the manifest and nothing streamed it, so the
+   * numbers have to come from somewhere other than the upload: the sidecar
+   * written when this export was last digested, or — if that is missing or
+   * disagrees with the file — one local read that then writes the sidecar for
+   * next time. A mismatch against the remote is an immutability violation
+   * rather than an interrupted transfer, and is never overwritten.
    */
   const adoptLandedVideo = Effect.fn("adoptLandedVideo")(function* (
     entry: VideoEntry,
-    remoteFile: DropboxFileMetadata
+    remoteFile: DropboxFileMetadata,
+    fileSize: number
   ) {
-    const hashes = yield* hashFileLocally(effectFs, entry.localPath);
+    const cached = yield* readExportDigest(effectFs, entry.localPath, fileSize);
+    const hashes =
+      cached ?? (yield* hashFileLocally(effectFs, entry.localPath));
+    if (!cached) {
+      yield* writeExportDigest(effectFs, entry.localPath, hashes);
+    }
     if (
       remoteFile.content_hash !== hashes.contentHash ||
       remoteFile.size !== hashes.bytes
@@ -339,13 +348,24 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
       },
     });
 
-    if (metadata.content_hash !== contentHasher.digest()) {
+    const contentHash = contentHasher.digest();
+    if (metadata.content_hash !== contentHash) {
       return yield* new ExportError({
         message: `Upload verification failed for video ${entry.videoId}: content_hash mismatch`,
       });
     }
 
-    return { sha256: sha256Hash.digest("hex"), bytes: streamedBytes };
+    const digest = {
+      sha256: sha256Hash.digest("hex"),
+      contentHash,
+      bytes: streamedBytes,
+    };
+    // These numbers were free this time — they came off the upload stream. Bank
+    // them so a resumed or unchanged re-Publish, which sends nothing and so
+    // streams nothing, does not have to read the file back to recover them.
+    yield* writeExportDigest(effectFs, entry.localPath, digest);
+
+    return { sha256: digest.sha256, bytes: digest.bytes };
   });
 
   /** One Video's whole trip: wait for its export, then skip it or send it. */
@@ -382,7 +402,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
         remoteVideoPath(entry).toLowerCase()
       );
       const receipt = remoteFile
-        ? yield* adoptLandedVideo(entry, remoteFile)
+        ? yield* adoptLandedVideo(entry, remoteFile, fileSize)
         : yield* streamVideo(entry, fileSize);
 
       input.onDetailEvent?.({

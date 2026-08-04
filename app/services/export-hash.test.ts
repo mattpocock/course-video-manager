@@ -375,6 +375,61 @@ describe("export-hash", () => {
       expect(removedFiles).toEqual([]);
     });
 
+    it("deletes a stale export's digest sidecar along with it", async () => {
+      const validClips = [
+        makeClip({
+          videoFilename: "rec.mp4",
+          sourceStartTime: 0,
+          sourceEndTime: 10,
+        }),
+      ];
+      const validHash = computeExportHash(validClips, "landscape")!;
+      const staleHash = "deadbeef12345678901234567890abcd";
+
+      const { layer, removedFiles } = makeGCLayer({
+        versions: [{ id: "v1", clips: validClips }],
+        filesOnDisk: [
+          `course-1-${validHash}.mp4`,
+          `course-1-${validHash}.mp4.sha256`,
+          `course-1-${staleHash}.mp4`,
+          `course-1-${staleHash}.mp4.sha256`,
+        ],
+      });
+
+      await Effect.runPromise(
+        garbageCollect("course-1").pipe(Effect.provide(layer))
+      );
+
+      // The sidecar shares the export's Export Hash, so it shares its fate —
+      // otherwise every collected export would leave one behind forever.
+      expect(removedFiles.sort()).toEqual([
+        `/output/course-1-${staleHash}.mp4`,
+        `/output/course-1-${staleHash}.mp4.sha256`,
+      ]);
+    });
+
+    it("keeps the digest sidecar of a referenced export", async () => {
+      const clips = [
+        makeClip({
+          videoFilename: "rec.mp4",
+          sourceStartTime: 0,
+          sourceEndTime: 10,
+        }),
+      ];
+      const hash = computeExportHash(clips, "landscape")!;
+
+      const { layer, removedFiles } = makeGCLayer({
+        versions: [{ id: "v1", clips }],
+        filesOnDisk: [`course-1-${hash}.mp4`, `course-1-${hash}.mp4.sha256`],
+      });
+
+      await Effect.runPromise(
+        garbageCollect("course-1").pipe(Effect.provide(layer))
+      );
+
+      expect(removedFiles).toEqual([]);
+    });
+
     it("only considers files matching the courseId prefix", async () => {
       const { layer, removedFiles } = makeGCLayer({
         versions: [{ id: "v1", clips: [] }],

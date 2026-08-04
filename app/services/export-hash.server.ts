@@ -3,13 +3,14 @@ import { Config, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { computeExportHash } from "@/services/export-hash";
+import { SIDECAR_SUFFIX } from "@/services/export-sha256-sidecar";
 
 /**
  * Garbage-collect stale exported files for a course.
  *
  * Collects all valid hashes across all versions in the DB, then deletes any
- * `{courseId}-*.mp4` files in the finished videos directory whose hash is not
- * in that set.
+ * `{courseId}-*.mp4` files — and their `.sha256` digest sidecars — in the
+ * finished videos directory whose hash is not in that set.
  *
  * Returns the list of deleted file paths.
  */
@@ -35,17 +36,22 @@ export const garbageCollect = (courseId: string) =>
     }
 
     const prefix = `${courseId}-`;
-    const suffix = ".mp4";
+    // An export and its digest sidecar share one Export Hash and one fate: the
+    // sidecar describes only that file, so it is stale exactly when that file
+    // is. Listed longest-first so `.mp4.sha256` is stripped before `.mp4`.
+    const suffixes = [`.mp4${SIDECAR_SUFFIX}`, ".mp4"];
     const dirExists = yield* fs.exists(finishedVideosDir);
     if (!dirExists) return [];
 
     const allFiles = yield* fs.readDirectory(finishedVideosDir);
-    const courseFiles = allFiles.filter(
-      (f) => f.startsWith(prefix) && f.endsWith(suffix)
-    );
+    const courseFiles = allFiles.flatMap((f) => {
+      if (!f.startsWith(prefix)) return [];
+      const suffix = suffixes.find((s) => f.endsWith(s));
+      return suffix ? [{ file: f, suffix }] : [];
+    });
 
     const deleted: string[] = [];
-    for (const file of courseFiles) {
+    for (const { file, suffix } of courseFiles) {
       const hash = file.slice(prefix.length, -suffix.length);
       if (!allValidHashes.has(hash)) {
         const filePath = path.join(finishedVideosDir, file);
