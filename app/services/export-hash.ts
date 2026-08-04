@@ -14,7 +14,16 @@ export type ExportClip = {
   videoFilename: string;
   sourceStartTime: number;
   sourceEndTime: number;
+  pauseType: string;
 };
+
+/**
+ * The only `pauseType` the renderer acts on: it extends the clip by
+ * LONG_PAUSE_DURATION, so it changes the exported bytes and must therefore
+ * change the export address. Every other value renders identically to "none"
+ * — see `createAndConcatenateVideoClipsSinglePass` in ffmpeg-commands.ts.
+ */
+const LONG_PAUSE = "long";
 
 /**
  * Narrow a Clip row (which carries transcript text, ordering, archived flags…)
@@ -27,12 +36,14 @@ export const toExportClips = (
     videoFilename: string;
     sourceStartTime: number;
     sourceEndTime: number;
+    pauseType: string;
   }>
 ): ExportClip[] =>
   clips.map((c) => ({
     videoFilename: c.videoFilename,
     sourceStartTime: c.sourceStartTime,
     sourceEndTime: c.sourceEndTime,
+    pauseType: c.pauseType,
   }));
 
 /**
@@ -51,6 +62,13 @@ export const toExportClips = (
  * flipping a video's format must invalidate its existing export. The raw column
  * is normalised via {@link resolveVideoFormat} so callers can pass it straight
  * from the DB.
+ *
+ * A clip's `pauseType` is part of the address too, because a long pause makes
+ * the renderer hold the clip longer and so changes the exported bytes. It is
+ * emitted only when it is "long": a clip that renders exactly as it always did
+ * contributes exactly what it always did, so adding this field left every
+ * existing export address intact and re-exported only the videos whose address
+ * had been lying about their contents.
  */
 export const computeExportHash = (
   clips: ExportClip[],
@@ -65,6 +83,7 @@ export const computeExportHash = (
       f: c.videoFilename,
       s: c.sourceStartTime,
       e: c.sourceEndTime,
+      ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
     })),
   };
 

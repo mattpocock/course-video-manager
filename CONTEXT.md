@@ -157,7 +157,7 @@ _Avoid_: Missing Opening Chapter (the former name), Missing opening section, No 
 ### Video export and hashing
 
 **Export Hash**:
-A SHA256 hash derived from a video's clip filenames, timestamps, clip order, and the Export Version Key; determines whether a video needs re-export.
+A SHA256 hash derived from a video's clip filenames, timestamps, clip order, long-pause flags, format, and the Export Version Key; determines whether a video needs re-export. It must name everything the renderer acts on — a clip property that changes the exported bytes but not the hash leaves a stale export addressable, and the Publish ships it.
 _Avoid_: Content hash, Video hash
 
 **Exported Video**:

@@ -181,6 +181,7 @@ const setupSync = async () => {
     videoFilename: c.videoFilename,
     sourceStartTime: c.sourceStartTime,
     sourceEndTime: c.sourceEndTime,
+    pauseType: "none",
     order: c.order,
   }));
   const exportHash = computeExportHash(clips, "landscape")!;

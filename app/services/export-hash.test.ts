@@ -16,6 +16,7 @@ const makeClip = (
   overrides: Partial<ExportClip> &
     Pick<ExportClip, "videoFilename" | "sourceStartTime" | "sourceEndTime">
 ): ExportClip => ({
+  pauseType: "none",
   ...overrides,
 });
 
@@ -146,6 +147,67 @@ describe("export-hash", () => {
         "landscape"
       );
       expect(hash1).not.toBe(hash2);
+    });
+
+    it("a long pause changes the hash, because it changes the bytes", () => {
+      // The renderer holds a "long" clip open for an extra LONG_PAUSE_DURATION,
+      // so two videos differing only here are genuinely different videos and
+      // must not share an export.
+      const at = (pauseType: string) =>
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              pauseType,
+            }),
+          ],
+          "landscape"
+        );
+
+      expect(at("long")).not.toBe(at("none"));
+    });
+
+    it("treats every pause type the renderer ignores as 'none'", () => {
+      // pause_type is a varchar, not an enum. Only "long" reaches ffmpeg as a
+      // duration change, so only "long" may move the address.
+      const at = (pauseType: string) =>
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              pauseType,
+            }),
+          ],
+          "landscape"
+        );
+
+      expect(at("short")).toBe(at("none"));
+      expect(at("")).toBe(at("none"));
+    });
+
+    // Regression guard for the migration: pauseType was added to the address
+    // after thousands of exports were already on disk under the old scheme.
+    // Because "none" contributes nothing to the payload, those files stayed
+    // addressable and only the long-pause videos re-exported. Changing this
+    // constant means re-exporting and re-publishing the entire catalogue.
+    it("leaves the address of a clip without a long pause untouched", () => {
+      expect(
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              pauseType: "none",
+            }),
+          ],
+          "landscape"
+        )
+      ).toBe("ae5332862e6c002c82e975dceadd3cab");
     });
 
     it("changing EXPORT_VERSION would change hashes", () => {

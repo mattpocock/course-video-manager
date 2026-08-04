@@ -43,6 +43,7 @@ export type VideoForExport = {
     videoFilename: string;
     sourceStartTime: number;
     sourceEndTime: number;
+    pauseType: string;
     order: string;
   }>;
 };

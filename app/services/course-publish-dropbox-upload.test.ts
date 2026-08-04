@@ -182,6 +182,7 @@ const setupUploads = async (opts?: {
       videoFilename: clip.videoFilename,
       sourceStartTime: clip.sourceStartTime,
       sourceEndTime: clip.sourceEndTime,
+      pauseType: "none",
     }));
     const exportHash = computeExportHash(clips, "landscape")!;
     const exportPath = resolveExportPath(

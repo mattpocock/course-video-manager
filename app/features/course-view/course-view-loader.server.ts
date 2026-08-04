@@ -8,7 +8,7 @@ import {
   toSlimVideo,
 } from "@/services/course-loader-fs";
 import { computeLessonWarnings } from "@/services/lesson-warnings";
-import type { ExportClip } from "@/services/export-hash";
+import { toExportClips } from "@/services/export-hash";
 import { runtimeLive } from "@/services/layer.server";
 
 /**
@@ -111,7 +111,7 @@ export function courseViewEffect(input: {
             videos: (allVideos ?? []).map((v) => ({
               id: v.id,
               format: v.format,
-              clips: v.clips as ExportClip[],
+              clips: toExportClips(v.clips),
             })),
           })
         )

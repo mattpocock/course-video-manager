@@ -86,12 +86,14 @@ const CLIPS = [
     videoFilename: "rec.mp4",
     sourceStartTime: 0,
     sourceEndTime: 10,
+    pauseType: "none",
     order: "a0",
   },
   {
     videoFilename: "rec.mp4",
     sourceStartTime: 15,
     sourceEndTime: 25,
+    pauseType: "none",
     order: "a1",
   },
 ];

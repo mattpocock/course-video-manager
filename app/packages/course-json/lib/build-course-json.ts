@@ -1,5 +1,5 @@
 import { Data, Effect, JSONSchema, Schema } from "effect";
-import { computeExportHash, type ExportClip } from "@/services/export-hash";
+import { computeExportHash, toExportClips } from "@/services/export-hash";
 import { computeEffectiveSections } from "./effective-sections";
 import {
   computeLessonWarnings,
@@ -240,6 +240,7 @@ type InputClip = {
   videoFilename: string;
   sourceStartTime: number;
   sourceEndTime: number;
+  pauseType: string;
   order: string;
 };
 
@@ -408,11 +409,7 @@ function toVideoEntry(
   assetBasePath: string,
   asset: VideoAssetReceipt
 ): typeof CourseJsonVideo.Type {
-  const exportClips: ExportClip[] = video.clips.map((c) => ({
-    videoFilename: c.videoFilename,
-    sourceStartTime: c.sourceStartTime,
-    sourceEndTime: c.sourceEndTime,
-  }));
+  const exportClips = toExportClips(video.clips);
   return {
     id: video.lineageId,
     relativePath: `${assetBasePath}/${sectionPath}/${lessonPath}/${video.title}.mp4`,

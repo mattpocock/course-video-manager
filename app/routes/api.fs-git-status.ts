@@ -8,7 +8,7 @@ import {
   loadExportStatusMap,
   loadLessonFsMaps,
 } from "@/services/course-loader-fs";
-import type { ExportClip } from "@/services/export-hash";
+import { toExportClips } from "@/services/export-hash";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -78,7 +78,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       videos: allVideos.map((v) => ({
         id: v.id,
         format: v.format,
-        clips: v.clips as ExportClip[],
+        clips: toExportClips(v.clips),
       })),
     });
 
