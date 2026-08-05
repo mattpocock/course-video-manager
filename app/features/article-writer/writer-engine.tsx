@@ -45,6 +45,7 @@ import {
   Settings2Icon,
   AlertTriangleIcon,
   Loader2Icon,
+  SparklesIcon,
 } from "lucide-react";
 
 export interface WriterEngineProps {
@@ -472,9 +473,6 @@ export function WriterEngine({
                 preprocessMarkdown={docPreprocessMarkdown}
                 onRemoveBlock={handleRemoveDocBlock}
                 onDocumentChange={updateDocument}
-                pendingScreenshotCount={pendingScreenshotCount}
-                searchingScreenshotCount={searchingScreenshotCount}
-                onFindAllScreenshots={handleFindAllScreenshots}
               />
             </ChooseScreenshotProvider>
           </div>
@@ -549,6 +547,27 @@ export function WriterEngine({
               >
                 <AlertTriangleIcon className="size-4 mr-1 text-orange-500" />
                 Fix ({lintCount})
+              </Button>
+            )}
+            {pendingScreenshotCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                disabled={searchingScreenshotCount > 0}
+                onClick={handleFindAllScreenshots}
+                title={`Find candidates for ${pendingScreenshotCount} screenshot${
+                  pendingScreenshotCount > 1 ? "s" : ""
+                }`}
+              >
+                {searchingScreenshotCount > 0 ? (
+                  <Loader2Icon className="size-4 mr-1 animate-spin" />
+                ) : (
+                  <SparklesIcon className="size-4 mr-1 text-primary" />
+                )}
+                {searchingScreenshotCount > 0
+                  ? `Finding ${searchingScreenshotCount}…`
+                  : `Find (${pendingScreenshotCount})`}
               </Button>
             )}
             <Button
