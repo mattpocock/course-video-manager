@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import type { Options } from "react-markdown";
 import { preprocessChooseScreenshotMarkdown } from "./choose-screenshot-markdown";
 import {
@@ -136,10 +143,38 @@ export function useChooseScreenshotBlocks({
     [document, proposalFor]
   );
 
-  const findAll = useCallback(
-    () => void findAllScreenshots(pending),
-    [findAllScreenshots, pending]
-  );
+  /**
+   * "Find all", pressed mid-stream, waits for the stream rather than refusing.
+   *
+   * The tags Matt can already see are real, but the prose around them is not
+   * finished, and the search reads that prose as its brief — so firing now
+   * would search against text that is about to change. Holding the press means
+   * he can arm it and walk away instead of watching for the stream to land.
+   *
+   * Pressing again while armed cancels: the only way out otherwise would be to
+   * let a search he no longer wants run to completion.
+   */
+  const [isQueued, setIsQueued] = useState(false);
+
+  // Read through a ref so the drain below depends on the stream ending alone.
+  // `pending` changes on every token, and a queued run wants the list as it is
+  // when the stream lands, not as it was when the button was pressed.
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
+
+  const findAll = useCallback(() => {
+    if (isGenerating) {
+      setIsQueued((armed) => !armed);
+      return;
+    }
+    void findAllScreenshots(pending);
+  }, [isGenerating, findAllScreenshots, pending]);
+
+  useEffect(() => {
+    if (isGenerating || !isQueued) return;
+    setIsQueued(false);
+    void findAllScreenshots(pendingRef.current);
+  }, [isGenerating, isQueued, findAllScreenshots]);
 
   // Deliberately not a `useMemo` over the writer's state: the map is a module
   // constant, and everything volatile reaches the blocks through the context.
@@ -189,12 +224,13 @@ export function useChooseScreenshotBlocks({
     /** Non-null while a capture is writing back to the document. */
     capturingKey,
     /**
-     * Hidden while the model is writing, matching the blocks themselves: the
-     * tags are still arriving, and a search fired now would be against prose
-     * that is about to change.
+     * Counts the tags that have fully arrived, including mid-stream — a half
+     * written tag does not match, so the number climbs as the model writes.
      */
-    pendingCount: isGenerating ? 0 : pending.length,
+    pendingCount: pending.length,
     searchingCount,
+    /** True once "Find all" has been armed to run when the stream lands. */
+    isFindAllQueued: isQueued,
     findAll,
   };
 }

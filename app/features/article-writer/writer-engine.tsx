@@ -46,6 +46,7 @@ import {
   AlertTriangleIcon,
   Loader2Icon,
   SparklesIcon,
+  ClockIcon,
 } from "lucide-react";
 
 export interface WriterEngineProps {
@@ -170,6 +171,7 @@ export function WriterEngine({
     capturingKey: docCapturingKey,
     pendingCount: pendingScreenshotCount,
     searchingCount: searchingScreenshotCount,
+    isFindAllQueued: isFindAllScreenshotsQueued,
     findAll: handleFindAllScreenshots,
   } = useChooseScreenshotBlocks({
     videoId,
@@ -556,18 +558,28 @@ export function WriterEngine({
                 className="h-8"
                 disabled={searchingScreenshotCount > 0}
                 onClick={handleFindAllScreenshots}
-                title={`Find candidates for ${pendingScreenshotCount} screenshot${
-                  pendingScreenshotCount > 1 ? "s" : ""
-                }`}
+                title={
+                  isGenerating
+                    ? isFindAllScreenshotsQueued
+                      ? "Waiting for the article to finish — press again to cancel"
+                      : "Search every screenshot once the article finishes"
+                    : `Find candidates for ${pendingScreenshotCount} screenshot${
+                        pendingScreenshotCount > 1 ? "s" : ""
+                      }`
+                }
               >
                 {searchingScreenshotCount > 0 ? (
                   <Loader2Icon className="size-4 mr-1 animate-spin" />
+                ) : isFindAllScreenshotsQueued ? (
+                  <ClockIcon className="size-4 mr-1 text-primary" />
                 ) : (
                   <SparklesIcon className="size-4 mr-1 text-primary" />
                 )}
                 {searchingScreenshotCount > 0
                   ? `Finding ${searchingScreenshotCount}…`
-                  : `Find (${pendingScreenshotCount})`}
+                  : isFindAllScreenshotsQueued
+                    ? `Queued (${pendingScreenshotCount})`
+                    : `Find (${pendingScreenshotCount})`}
               </Button>
             )}
             <Button
@@ -631,6 +643,7 @@ export function WriterEngine({
                 onFixLintViolations={handleFixLintViolations}
                 pendingScreenshotCount={pendingScreenshotCount}
                 searchingScreenshotCount={searchingScreenshotCount}
+                isFindAllScreenshotsQueued={isFindAllScreenshotsQueued}
                 onFindAllScreenshots={handleFindAllScreenshots}
               />
             </ChooseScreenshotProvider>

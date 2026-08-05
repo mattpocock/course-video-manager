@@ -29,6 +29,7 @@ import {
   EyeIcon,
   AlertTriangleIcon,
   ClipboardPasteIcon,
+  ClockIcon,
 } from "lucide-react";
 import type { LintViolation } from "./lint-rules";
 import type { RemoveBlockHandler } from "components/ui/kibo-ui/ai/response";
@@ -68,6 +69,8 @@ export interface DocumentPanelProps {
   pendingScreenshotCount?: number;
   /** Blocks with a search in flight, whether started here or from a block. */
   searchingScreenshotCount?: number;
+  /** Armed mid-stream: the search starts when the article finishes. */
+  isFindAllScreenshotsQueued?: boolean;
   onFindAllScreenshots?: () => void;
   sessionTimer?: React.ReactNode;
   /**
@@ -102,6 +105,7 @@ export const DocumentPanel = memo(function DocumentPanel({
   onFixLintViolations,
   pendingScreenshotCount = 0,
   searchingScreenshotCount = 0,
+  isFindAllScreenshotsQueued = false,
   onFindAllScreenshots,
   sessionTimer,
   variant = "full",
@@ -441,17 +445,22 @@ export const DocumentPanel = memo(function DocumentPanel({
                 >
                   {searchingScreenshotCount > 0 ? (
                     <Loader2Icon className="h-4 w-4 mr-1 animate-spin" />
+                  ) : isFindAllScreenshotsQueued ? (
+                    <ClockIcon className="h-4 w-4 mr-1 text-primary" />
                   ) : (
                     <SparklesIcon className="h-4 w-4 mr-1 text-primary" />
                   )}
-                  Find ({pendingScreenshotCount})
+                  {isFindAllScreenshotsQueued ? "Queued" : "Find"} (
+                  {pendingScreenshotCount})
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>
                   {searchingScreenshotCount > 0
                     ? `Searching ${searchingScreenshotCount} screenshot${searchingScreenshotCount > 1 ? "s" : ""}…`
-                    : `Find candidates for ${pendingScreenshotCount} screenshot${pendingScreenshotCount > 1 ? "s" : ""}`}
+                    : isFindAllScreenshotsQueued
+                      ? "Waiting for the article to finish — press again to cancel"
+                      : `Find candidates for ${pendingScreenshotCount} screenshot${pendingScreenshotCount > 1 ? "s" : ""}`}
                 </p>
               </TooltipContent>
             </Tooltip>
