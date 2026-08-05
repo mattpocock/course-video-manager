@@ -40,6 +40,16 @@ export const TYPE = {
    */
   beatsMeasure: 30,
   /**
+   * A Beat Description, relative to the beat title above it.
+   *
+   * The title is what you scan the plan for; the description is the detail you
+   * read once you've found it. Set at the same size the two run together into
+   * one wall of text and the plan loses its shape at a glance. Well above the
+   * cue size, though — a description is a sentence of what you're about to
+   * actually do, and it still has to be legible from where you stand.
+   */
+  beatDescriptionScale: 0.7,
+  /**
    * Warm rather than white: easier on the eye through beam-splitter glass.
    *
    * Colours here are Tailwind palette variables rather than hexes — Tailwind v4
@@ -98,6 +108,12 @@ export function textStyle(): React.CSSProperties {
     // Breaking mid-word is ugly and keeps every character on the glass; losing
     // the end of the line is neither.
     overflowWrap: "anywhere",
+    // The window as a whole is inert to the pointer — it lives reflected in
+    // front of a lens, and a stray drag highlighting the chrome is pure noise.
+    // The words themselves are the exception: a line of script or a beat's note
+    // is as often something to paste elsewhere as something to read aloud, so
+    // everything set in this type opts selection back in.
+    userSelect: "text",
   };
 }
 

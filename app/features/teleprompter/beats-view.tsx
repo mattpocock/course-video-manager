@@ -4,10 +4,12 @@
  * Beats aren't prose — they're a dozen short Title-Case labels with a sentence
  * of description each — so nothing about the script's crawl applies here.
  * Nothing moves on its own and play/pause does nothing: the whole plan is on
- * the glass at once, every beat showing its description at full strength.
- * Nothing dims and no row expands or collapses, so the beat you glanced at a
- * second ago is still where you left it, still legible. Position is carried by
- * scroll alone rather than by fading the beats around it.
+ * the glass at once, every beat showing its description in full — a step
+ * smaller than its title, so the titles still carry the shape of the plan when
+ * you only glance. Nothing dims and no row expands or collapses, so the beat
+ * you glanced at a second ago is still where you left it, still legible.
+ * Position is carried by scroll alone rather than by fading the beats around
+ * it.
  *
  * Kind icons and labels are imported from the real Beats tab rather than
  * redrawn, so the plan reads the same on the glass as it does in the editor.
@@ -37,6 +39,21 @@ function asBeatKind(kind: string): BeatKind {
   return kind in BEAT_KIND_LABELS
     ? (kind as BeatKind)
     : (DEFAULT_BEAT_KIND as BeatKind);
+}
+
+/**
+ * Whether a click landed at the end of a drag across the words rather than on
+ * the beat.
+ *
+ * Both gestures end in a `click` on the row, and the row's is to move the
+ * spotlight — which scrolls the plan out from under the text you were half way
+ * through highlighting. A collapsed selection is just the caret a plain click
+ * leaves behind, so only actual words count.
+ */
+export function isSelectingText(selection: Selection | null): boolean {
+  return (
+    !!selection && !selection.isCollapsed && selection.toString().trim() !== ""
+  );
 }
 
 export function BeatsView(props: { beats: TeleprompterBeat[] }) {
@@ -96,10 +113,11 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
           {beats.map((beat, i) => {
             const kind = asBeatKind(beat.kind);
             const Icon = BEAT_KIND_ICONS[kind];
-            // Every beat reads at the script's size, at full strength — this
-            // is glass at arm's length, and anything dimmed or smaller isn't
-            // readable from where you stand.
+            // Every beat's title reads at the script's size, at full strength —
+            // this is glass at arm's length, and anything dimmed isn't readable
+            // from where you stand.
             const titleSize = TYPE.fontSize;
+            const descriptionSize = titleSize * TYPE.beatDescriptionScale;
 
             return (
               <div
@@ -113,7 +131,10 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                 // when it has OS focus — which it won't while you're looking at
                 // the Prompter — so there needs to be a way in that doesn't
                 // depend on that.
-                onClick={() => setActiveIndex(i)}
+                onClick={() => {
+                  if (isSelectingText(window.getSelection())) return;
+                  setActiveIndex(i);
+                }}
                 className="mb-6 flex cursor-pointer gap-3"
               >
                 {/* Centred inside a box exactly one line tall, so the icon sits
@@ -149,12 +170,12 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                       style={{
                         ...base,
                         textAlign: "left",
-                        fontSize: `${TYPE.fontSize}px`,
-                        // A step back from the title rather than a dimmer copy
-                        // of it: the description is context, not the line you
-                        // read off the glass.
+                        fontSize: `${descriptionSize}px`,
+                        // A step back from the title in size and in colour: the
+                        // description is context, not the line you read off the
+                        // glass.
                         color: "var(--color-neutral-400)",
-                        marginTop: TYPE.fontSize * 0.2,
+                        marginTop: descriptionSize * 0.2,
                       }}
                     >
                       <LinkedText>{beat.description}</LinkedText>

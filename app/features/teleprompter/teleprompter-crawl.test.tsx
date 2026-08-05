@@ -41,4 +41,10 @@ describe("TeleprompterCrawl", () => {
       /overflow-wrap:\s*anywhere/
     );
   });
+
+  // A line of the script is as often something to copy out as something to
+  // read aloud.
+  it("lets the script be selected", () => {
+    expect(render("Walk through the setup.")).toMatch(/user-select:\s*text/);
+  });
 });
