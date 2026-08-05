@@ -19,6 +19,7 @@ import { generateScopingDocumentPrompt } from "@/prompts/generate-scoping-docume
 import type { GlobalLink } from "@/prompts/link-instructions";
 import { getBeatsSection } from "@/prompts/beats-instructions";
 import { getScriptSection } from "@/prompts/script-instructions";
+import { CACHE_BREAKPOINT_1H } from "./prompt-cache";
 import {
   ToolLoopAgent as Agent,
   convertToModelMessages,
@@ -213,6 +214,16 @@ export const createTextWritingAgent = (props: {
 export const createModelMessagesForTextWritingAgent = async (props: {
   messages: UIMessage[];
   imageFiles: TextWritingAgentImageFile[];
+  /**
+   * Put an Anthropic cache breakpoint on the screenshots message.
+   *
+   * Off by default. Only the document writer holds a conversation, so only it
+   * ever reads the cache back; the one-shot generation modes would pay the
+   * write premium and never get a hit. A video carries up to eight
+   * screenshots — roughly 13k tokens — so this earns a breakpoint wherever
+   * there IS a second request.
+   */
+  cacheImages?: boolean;
 }): Promise<ModelMessage[]> => {
   const modelMessages = await convertToModelMessages(props.messages);
 
@@ -231,6 +242,7 @@ export const createModelMessagesForTextWritingAgent = async (props: {
           },
         ];
       }),
+      ...(props.cacheImages ? { providerOptions: CACHE_BREAKPOINT_1H } : {}),
     });
   }
 

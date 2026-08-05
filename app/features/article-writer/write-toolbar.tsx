@@ -1,11 +1,5 @@
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -33,14 +27,13 @@ import {
   RefreshCwIcon,
 } from "lucide-react";
 import type { LintViolation } from "./lint-rules";
-import type { Mode, Model } from "./types";
+import type { Mode } from "./types";
 import { WriteModeDropdown } from "./write-mode-dropdown";
 
 export type SaveTargetFolder = "explainer" | "problem" | "solution";
 
 export interface WriteToolbarProps {
   mode: Mode;
-  model: Model;
   status: "streaming" | "submitted" | "ready" | "error";
   isCopied: boolean;
   messagesLength: number;
@@ -53,7 +46,6 @@ export interface WriteToolbarProps {
   writeToReadmeFetcherState: "idle" | "submitting" | "loading";
   hasUnresolvedScreenshots: boolean;
   onModeChange: (mode: Mode) => void;
-  onModelChange: (model: Model) => void;
   onCopyToClipboard: () => void;
   onCopyAsRichText: () => void;
   onCopyConversationHistory: () => void;
@@ -71,7 +63,6 @@ export interface WriteToolbarProps {
 export function WriteToolbar(props: WriteToolbarProps) {
   const {
     mode,
-    model,
     status,
     isCopied,
     messagesLength,
@@ -83,7 +74,6 @@ export function WriteToolbar(props: WriteToolbarProps) {
     lastAssistantMessageText,
     writeToReadmeFetcherState,
     onModeChange,
-    onModelChange,
     onCopyToClipboard,
     onCopyAsRichText,
     onCopyConversationHistory,
@@ -99,7 +89,6 @@ export function WriteToolbar(props: WriteToolbarProps) {
   return (
     <div className="mb-4 flex gap-2 items-center">
       <WriteModeDropdown mode={mode} onModeChange={onModeChange} />
-      <ModelSelector model={model} onModelChange={onModelChange} />
       {!isDocumentMode && (
         <CopyButtons
           mode={mode}
@@ -199,53 +188,6 @@ export function WriteToolbar(props: WriteToolbarProps) {
         />
       )}
     </div>
-  );
-}
-
-function ModelSelector(props: {
-  model: Model;
-  onModelChange: (model: Model) => void;
-}) {
-  const { model, onModelChange } = props;
-  return (
-    <Select
-      value={model}
-      onValueChange={(value) => onModelChange(value as Model)}
-    >
-      <SelectTrigger>
-        {model === "auto"
-          ? "Auto"
-          : model === "claude-sonnet-4-5"
-            ? "Sonnet 4.5"
-            : "Haiku 4.5"}
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="auto">
-          <div>
-            <div>Auto</div>
-            <div className="text-xs text-muted-foreground">
-              Haiku for generation, Sonnet for editing
-            </div>
-          </div>
-        </SelectItem>
-        <SelectItem value="claude-haiku-4-5">
-          <div>
-            <div>Haiku 4.5</div>
-            <div className="text-xs text-muted-foreground">
-              Fast and cost-effective
-            </div>
-          </div>
-        </SelectItem>
-        <SelectItem value="claude-sonnet-4-5">
-          <div>
-            <div>Sonnet 4.5</div>
-            <div className="text-xs text-muted-foreground">
-              More capable and thorough
-            </div>
-          </div>
-        </SelectItem>
-      </SelectContent>
-    </Select>
   );
 }
 

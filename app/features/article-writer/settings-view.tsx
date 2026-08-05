@@ -5,20 +5,11 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { FullCover } from "./context-view";
 
 // ─── SettingsView ───────────────────────────────────────────────────────────
 
 export interface SettingsViewProps {
-  model: string;
-  onModelChange: (m: string) => void;
   banned: string[];
   onAddPhrase: (phrase: string) => void;
   onRemovePhrase: (index: number) => void;
@@ -26,8 +17,6 @@ export interface SettingsViewProps {
 }
 
 export function SettingsView({
-  model,
-  onModelChange,
   banned,
   onAddPhrase,
   onRemovePhrase,
@@ -49,38 +38,8 @@ export function SettingsView({
 
   return (
     <FullCover title="Settings" onBack={onBack}>
-      {/* Model picker */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Model</Label>
-        <Select value={model} onValueChange={onModelChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">
-              <div>
-                <div>Auto</div>
-                <div className="text-xs text-muted-foreground">
-                  Haiku to generate, Sonnet to edit
-                </div>
-              </div>
-            </SelectItem>
-            <SelectItem value="claude-haiku-4-5">
-              <div>
-                <div>Haiku 4.5</div>
-              </div>
-            </SelectItem>
-            <SelectItem value="claude-sonnet-4-5">
-              <div>
-                <div>Sonnet 4</div>
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Banned phrases */}
-      <div className="mt-6 space-y-3">
+      <div className="space-y-3">
         <Label className="text-sm font-medium">Banned phrases</Label>
 
         {banned.length > 0 && (
