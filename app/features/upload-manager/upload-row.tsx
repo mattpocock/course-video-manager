@@ -18,12 +18,19 @@ import { Badge } from "@/components/ui/badge";
 export function UploadRow({
   upload,
   onDismiss,
+  nested = false,
 }: {
   upload: uploadReducer.UploadEntry;
   onDismiss: (e: React.MouseEvent, uploadId: string) => void;
+  /** A child task, indented under the parent job that spawned it. */
+  nested?: boolean;
 }) {
   return (
-    <div className="py-2.5 flex items-center gap-3">
+    <div
+      className={`py-2.5 flex items-center gap-3 ${
+        nested ? "pl-5 border-l-2 border-muted ml-1.5" : ""
+      }`}
+    >
       <StatusIcon upload={upload} />
       <div className="flex-1 min-w-0">
         <p className="text-sm truncate">{upload.title}</p>
@@ -60,7 +67,11 @@ function StatusIcon({ upload }: { upload: uploadReducer.UploadEntry }) {
         }
       }
       if (upload.uploadType === "export") {
-        return <Film className="size-4 text-blue-500 shrink-0" />;
+        return upload.videoUploadStage ? (
+          <Cloud className="size-4 text-blue-500 shrink-0" />
+        ) : (
+          <Film className="size-4 text-blue-500 shrink-0" />
+        );
       }
       if (upload.uploadType === "publish") {
         return <Send className="size-4 text-blue-500 shrink-0" />;
@@ -152,7 +163,9 @@ function UploadStatusDetail({ upload }: { upload: uploadReducer.UploadEntry }) {
           <span className="text-xs text-destructive truncate">
             {upload.errorMessage}
           </span>
-          {upload.uploadType !== "publish" && (
+          {/* A child task's Video belongs to the job above it, not to a
+              social post — the same reason a Publish offers no link here. */}
+          {upload.uploadType !== "publish" && !upload.parentUploadId && (
             <Link
               to={`/videos/${upload.videoId}/post`}
               className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap"
@@ -172,7 +185,11 @@ function SuccessDetail({ upload }: { upload: uploadReducer.UploadEntry }) {
     case "buffer":
       return <SuccessBadge label="Sent to Buffer" />;
     case "export":
-      return <SuccessBadge label="Exported" />;
+      // A per-Video task under a Publish did not stop at the export: it also
+      // shipped the file to Dropbox.
+      return (
+        <SuccessBadge label={upload.parentUploadId ? "Uploaded" : "Exported"} />
+      );
     case "publish":
       return <SuccessBadge label="Published" />;
     case "ai-hero":

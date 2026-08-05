@@ -10,6 +10,31 @@ import { createFfmpegProgressParser } from "./ffmpeg-progress";
 const GPU_PERMITS = 6;
 const CPU_PERMITS = 12;
 
+/**
+ * Written before every output file in the export pipeline, so that an export's
+ * bytes are a function of its inputs and nothing else.
+ *
+ * Without these, ffmpeg stamps the running library versions into the file — an
+ * `encoder=Lavf60.16.100` format tag and an `encoder=Lavc60.31.102 h264_nvenc`
+ * stream tag. Neither changes a frame, but both change the SHA256 that the
+ * published manifest carries and that AI Hero uses to decide whether a Video is
+ * new. Upgrading ffmpeg would otherwise re-ingest the whole catalogue into Mux.
+ *
+ * They must go on every pass, not just the last: the stream tag is written by
+ * the pass that encodes the stream and survives the later stream-copy.
+ *
+ * Reproducibility here is per-machine — same ffmpeg build, same driver, same
+ * GPU. These flags remove the part that was gratuitously variable.
+ */
+const BITEXACT_ARGS = [
+  "-fflags",
+  "+bitexact",
+  "-flags:v",
+  "+bitexact",
+  "-flags:a",
+  "+bitexact",
+];
+
 class FFmpegError extends Data.TaggedError("FFmpegError")<{
   cause: unknown;
   message: string;
@@ -270,6 +295,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           "1",
           "-movflags",
           "+faststart",
+          ...BITEXACT_ARGS,
           outputFile,
         ];
 
@@ -345,6 +371,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           "48000",
           "-b:a",
           "320k",
+          ...BITEXACT_ARGS,
           outputFile,
         ];
 
@@ -389,6 +416,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           "copy",
           "-movflags",
           "+faststart",
+          ...BITEXACT_ARGS,
           outputPath,
         ];
 

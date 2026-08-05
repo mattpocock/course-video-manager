@@ -25,6 +25,7 @@ const createYouTubeEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -182,6 +183,7 @@ describe("dependency chains", () => {
           uploadId: "yt-1",
           status: "uploading",
           dependsOn: "export-1",
+          parentUploadId: null,
         }),
       },
     });

@@ -17,6 +17,7 @@ const makeBase = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 

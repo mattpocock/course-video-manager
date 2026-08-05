@@ -25,6 +25,7 @@ const createYouTubeEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -42,6 +43,7 @@ const createBufferEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -61,6 +63,7 @@ const createPublishEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   ...overrides,
 });
 
@@ -114,13 +117,17 @@ describe("progress never runs backwards", () => {
     expect(seen.at(-1)).toBe(90);
   });
 
-  it("keeps the publish bar climbing when the Dropbox commit starts", () => {
+  it("keeps the publish bar climbing across the prologue and into the work", () => {
+    // The real emission order: validate, Submit (freeze then clone), and only
+    // then the overlapping export and upload.
     const seen = progressOver(createPublishEntry(), [
       {
         type: "UPDATE_PUBLISH_STAGE",
         uploadId: "upload-1",
         stage: "validating",
       },
+      { type: "UPDATE_PUBLISH_STAGE", uploadId: "upload-1", stage: "freezing" },
+      { type: "UPDATE_PUBLISH_STAGE", uploadId: "upload-1", stage: "cloning" },
       {
         type: "UPDATE_PUBLISH_STAGE",
         uploadId: "upload-1",
@@ -131,14 +138,20 @@ describe("progress never runs backwards", () => {
         uploadId: "upload-1",
         stage: "uploading",
       },
-      { type: "UPDATE_PROGRESS", uploadId: "upload-1", progress: 0 },
-      { type: "UPDATE_PROGRESS", uploadId: "upload-1", progress: 99 },
-      { type: "UPDATE_PUBLISH_STAGE", uploadId: "upload-1", stage: "freezing" },
-      { type: "UPDATE_PUBLISH_STAGE", uploadId: "upload-1", stage: "cloning" },
     ]);
 
     expect(isMonotonic(seen)).toBe(true);
-    expect(seen.at(-1)).toBe(90);
+    expect(seen.at(-1)).toBe(10);
+  });
+
+  it("ignores a bundle-wide percentage aimed at the publish bar", () => {
+    // The Publish's bar is derived from its per-Video children; the aggregate
+    // the server also reports must not be able to overwrite it.
+    const seen = progressOver(createPublishEntry({ progress: 40 }), [
+      { type: "UPDATE_PROGRESS", uploadId: "upload-1", progress: 99 },
+    ]);
+
+    expect(seen).toEqual([40, 40]);
   });
 
   it("ignores a late progress event from a stage the job has left", () => {

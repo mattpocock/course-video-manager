@@ -17,6 +17,11 @@ const DETAIL_EVENT_WIRE_NAMES = {
   complete: "export-complete",
   error: "export-error",
   progress: "upload-progress",
+  "upload-videos": "publish-videos",
+  "upload-queued": "video-upload-queued",
+  "upload-video-progress": "video-upload-progress",
+  "upload-video-complete": "video-upload-complete",
+  "upload-video-error": "video-upload-error",
 } satisfies Record<PublishDetailEvent["event"], string>;
 
 const publishSchema = Schema.Struct({

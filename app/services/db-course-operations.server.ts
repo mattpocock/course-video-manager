@@ -259,6 +259,8 @@ export const createCourseOperations = (db: Database) => {
                                 videoFilename: true,
                                 sourceStartTime: true,
                                 sourceEndTime: true,
+                                // Part of the export address — see export-hash.
+                                pauseType: true,
                                 order: true,
                                 archived: true,
                               },

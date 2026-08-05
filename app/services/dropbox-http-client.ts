@@ -4,6 +4,7 @@ import {
   readFile as fsReadFile,
   type FileHandle,
 } from "node:fs/promises";
+import { uploadChunkSizeBytes } from "./dropbox-upload-config";
 
 export class DropboxApiError extends Data.TaggedError("DropboxApiError")<{
   message: string;
@@ -28,8 +29,6 @@ type DropboxFolderMetadata = {
 type DropboxEntry = DropboxFileMetadata | DropboxFolderMetadata;
 
 export type { DropboxFileMetadata, DropboxEntry };
-
-const UPLOAD_SESSION_CHUNK_SIZE = 8 * 1024 * 1024; // 8 MB
 
 const isTransient = (status: number) =>
   status === 429 || (status >= 500 && status <= 599);
@@ -145,9 +144,10 @@ const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(function* (opts: {
 }) {
   const { accessToken, path: filePath, content, mode, onProgress } = opts;
   const total = content.length;
+  const chunkSize = yield* uploadChunkSizeBytes;
 
   // Start session
-  const firstChunkEnd = Math.min(UPLOAD_SESSION_CHUNK_SIZE, total);
+  const firstChunkEnd = Math.min(chunkSize, total);
   const firstChunk = content.subarray(0, firstChunkEnd);
   const startResponse = yield* fetchWithRetry(
     "https://content.dropboxapi.com/2/files/upload_session/start",
@@ -177,8 +177,8 @@ const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(function* (opts: {
   onProgress?.(offset, total);
 
   // Append remaining chunks (all but the last)
-  while (offset < total - UPLOAD_SESSION_CHUNK_SIZE) {
-    const chunkEnd = offset + UPLOAD_SESSION_CHUNK_SIZE;
+  while (offset < total - chunkSize) {
+    const chunkEnd = offset + chunkSize;
     const chunk = content.subarray(offset, chunkEnd);
     yield* fetchWithRetry(
       "https://content.dropboxapi.com/2/files/upload_session/append_v2",
@@ -272,7 +272,14 @@ const readChunkFromDisk = (fh: FileHandle, position: number, size: number) =>
  * Upload a file directly from disk, streaming chunks to avoid loading
  * the entire file into memory. For files under the simple-upload limit
  * this falls back to a single-shot upload; larger files use chunked
- * upload sessions reading 8 MB at a time from the file handle.
+ * upload sessions reading DROPBOX_UPLOAD_CHUNK_SIZE_MB at a time from the
+ * file handle.
+ *
+ * `onChunk` sees every byte exactly once, in file order, as it is read — so a
+ * caller can digest the file (SHA256, Dropbox content_hash) off the same pass
+ * that ships it, instead of reading it twice. Chunks are handed over before
+ * their request is issued; a request retried in place is not re-read, so a
+ * digest built here stays correct across transient retries.
  */
 export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
   function* (opts: {
@@ -282,6 +289,7 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
     fileSize: number;
     mode?: "add" | "overwrite";
     onProgress?: (uploaded: number, total: number) => void;
+    onChunk?: (chunk: Buffer) => void;
   }) {
     const SIMPLE_UPLOAD_LIMIT = 150 * 1024 * 1024;
     const {
@@ -291,6 +299,7 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
       fileSize,
       mode,
       onProgress,
+      onChunk,
     } = opts;
 
     if (fileSize <= SIMPLE_UPLOAD_LIMIT) {
@@ -302,11 +311,13 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
             endpoint: "upload",
           }),
       });
+      const buffer = Buffer.from(content);
+      onChunk?.(buffer);
       onProgress?.(fileSize, fileSize);
       return yield* upload({
         accessToken,
         path: remotePath,
-        content: Buffer.from(content),
+        content: buffer,
         mode,
       });
     }
@@ -323,8 +334,10 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
       (fh) =>
         Effect.gen(function* () {
           const total = fileSize;
-          const firstChunkEnd = Math.min(UPLOAD_SESSION_CHUNK_SIZE, total);
+          const chunkSize = yield* uploadChunkSizeBytes;
+          const firstChunkEnd = Math.min(chunkSize, total);
           const firstChunk = yield* readChunkFromDisk(fh, 0, firstChunkEnd);
+          onChunk?.(firstChunk);
 
           const startResponse = yield* fetchWithRetry(
             "https://content.dropboxapi.com/2/files/upload_session/start",
@@ -353,12 +366,9 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
           let offset = firstChunkEnd;
           onProgress?.(offset, total);
 
-          while (offset < total - UPLOAD_SESSION_CHUNK_SIZE) {
-            const chunk = yield* readChunkFromDisk(
-              fh,
-              offset,
-              UPLOAD_SESSION_CHUNK_SIZE
-            );
+          while (offset < total - chunkSize) {
+            const chunk = yield* readChunkFromDisk(fh, offset, chunkSize);
+            onChunk?.(chunk);
             yield* fetchWithRetry(
               "https://content.dropboxapi.com/2/files/upload_session/append_v2",
               {
@@ -384,6 +394,7 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
             lastChunkSize > 0
               ? yield* readChunkFromDisk(fh, offset, lastChunkSize)
               : Buffer.alloc(0);
+          if (lastChunk.length > 0) onChunk?.(lastChunk);
 
           const finishResponse = yield* fetchWithRetry(
             "https://content.dropboxapi.com/2/files/upload_session/finish",

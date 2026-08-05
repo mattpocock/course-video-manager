@@ -28,6 +28,7 @@ const entry: uploadReducer.PublishUploadEntry = {
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   uploadType: "publish",
   publishStage: "validating",
   newDraftVersionId: null,
@@ -99,7 +100,7 @@ describe("publish failure handling", () => {
     expect(clients.startPublish).toHaveBeenCalledTimes(1);
   });
 
-  it("fails the still-in-flight spawned export entries on a publish-level error", () => {
+  it("fails the still-in-flight per-Video tasks on a publish-level error", () => {
     const dispatch = vi.fn();
     const abortControllers = new Map<string, AbortController>();
 
@@ -115,25 +116,28 @@ describe("publish failure handling", () => {
       dispatch,
       abortControllers
     );
-    clients.publishCallbacks!.onExportVideos!([
+    clients.publishCallbacks!.onPublishVideos!([
       { id: "vid-1", title: "01-intro/01.01-welcome/Problem" },
       { id: "vid-2", title: "01-intro/01.02-setup/Solution" },
     ]);
-    // vid-2 finishes before the publish dies — its entry already resolved.
-    clients.publishCallbacks!.onExportComplete!("vid-2");
+    // vid-2 has already been shipped to Dropbox when the publish dies — its
+    // task is settled. vid-1 has only finished encoding, which does NOT settle
+    // it: the same task carries on into its upload.
+    clients.publishCallbacks!.onVideoUploadQueued!("vid-1");
+    clients.publishCallbacks!.onVideoUploadComplete!("vid-2");
     clients.publishCallbacks!.onError!("Stream disconnected");
 
-    // The in-flight export entry is terminally failed, not left dangling.
+    // The in-flight per-Video task is terminally failed, not left dangling.
     expect(dispatch).toHaveBeenCalledWith({
       type: "UPLOAD_FATAL_ERROR",
-      uploadId: "upload-1-export-vid-1",
+      uploadId: "upload-1-video-vid-1",
       errorMessage: "Stream disconnected",
     });
-    // The already-completed entry is not re-touched by the failure.
+    // The already-shipped task is not re-touched by the failure.
     expect(dispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({
         type: "UPLOAD_FATAL_ERROR",
-        uploadId: "upload-1-export-vid-2",
+        uploadId: "upload-1-video-vid-2",
       })
     );
     // The parent publish entry still fails terminally.

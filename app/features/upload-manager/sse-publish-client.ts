@@ -10,9 +10,11 @@ export interface SSEPublishParams {
 
 export interface SSEPublishCallbacks {
   onStageChange: (stage: uploadReducer.PublishStage) => void;
-  // Per-video export progress during the "exporting" stage — the same
-  // payloads the standalone batch export emits, on `export-*` wire names.
-  onExportVideos: (videos: Array<{ id: string; title: string }>) => void;
+  // Per-Video encoding progress, on `export-*` wire names — the same payloads
+  // the standalone batch export emits. The roster and the per-Video completion
+  // are NOT taken from here: a Publish's tasks span encoding AND uploading, so
+  // both come off the `publish-*`/`video-upload-*` events below, which cover
+  // every shipping Video rather than only the ones that still need encoding.
   onExportStageChange: (
     videoId: string,
     stage: uploadReducer.ExportStage
@@ -24,10 +26,19 @@ export interface SSEPublishCallbacks {
     stage: uploadReducer.ExportStage,
     percent: number
   ) => void;
-  onExportComplete: (videoId: string) => void;
   onExportError: (videoId: string, message: string) => void;
-  // Per-lesson Dropbox upload percentage during the "uploading" stage.
-  onUploadProgress: (percentage: number) => void;
+  // Every Video this Publish ships, exported or not — one task each.
+  onPublishVideos: (videos: Array<{ id: string; title: string }>) => void;
+  // This Video's bytes are ready and it is waiting for a slot in the upload
+  // pool.
+  onVideoUploadQueued: (videoId: string) => void;
+  onVideoUploadProgress: (
+    videoId: string,
+    uploadedBytes: number,
+    totalBytes: number
+  ) => void;
+  onVideoUploadComplete: (videoId: string) => void;
+  onVideoUploadError: (videoId: string, message: string) => void;
   onComplete: (result: {
     publishedVersionId: string;
     newDraftVersionId: string;
@@ -49,9 +60,6 @@ export const startSSEPublish = (
     events: {
       progress: (data: { stage: uploadReducer.PublishStage }) =>
         callbacks.onStageChange(data.stage),
-      "export-videos": (data: {
-        videos: Array<{ id: string; title: string }>;
-      }) => callbacks.onExportVideos(data.videos),
       "export-stage": (data: {
         videoId: string;
         stage: uploadReducer.ExportStage;
@@ -61,12 +69,27 @@ export const startSSEPublish = (
         stage: uploadReducer.ExportStage;
         percent: number;
       }) => callbacks.onExportProgress(data.videoId, data.stage, data.percent),
-      "export-complete": (data: { videoId: string }) =>
-        callbacks.onExportComplete(data.videoId),
       "export-error": (data: { videoId: string; message: string }) =>
         callbacks.onExportError(data.videoId, data.message),
-      "upload-progress": (data: { percentage: number }) =>
-        callbacks.onUploadProgress(data.percentage),
+      "publish-videos": (data: {
+        videos: Array<{ id: string; title: string }>;
+      }) => callbacks.onPublishVideos(data.videos),
+      "video-upload-queued": (data: { videoId: string }) =>
+        callbacks.onVideoUploadQueued(data.videoId),
+      "video-upload-progress": (data: {
+        videoId: string;
+        uploadedBytes: number;
+        totalBytes: number;
+      }) =>
+        callbacks.onVideoUploadProgress(
+          data.videoId,
+          data.uploadedBytes,
+          data.totalBytes
+        ),
+      "video-upload-complete": (data: { videoId: string }) =>
+        callbacks.onVideoUploadComplete(data.videoId),
+      "video-upload-error": (data: { videoId: string; message: string }) =>
+        callbacks.onVideoUploadError(data.videoId, data.message),
       complete: (data: {
         publishedVersionId: string;
         newDraftVersionId: string;

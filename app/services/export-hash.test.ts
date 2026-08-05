@@ -16,6 +16,7 @@ const makeClip = (
   overrides: Partial<ExportClip> &
     Pick<ExportClip, "videoFilename" | "sourceStartTime" | "sourceEndTime">
 ): ExportClip => ({
+  pauseType: "none",
   ...overrides,
 });
 
@@ -146,6 +147,67 @@ describe("export-hash", () => {
         "landscape"
       );
       expect(hash1).not.toBe(hash2);
+    });
+
+    it("a long pause changes the hash, because it changes the bytes", () => {
+      // The renderer holds a "long" clip open for an extra LONG_PAUSE_DURATION,
+      // so two videos differing only here are genuinely different videos and
+      // must not share an export.
+      const at = (pauseType: string) =>
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              pauseType,
+            }),
+          ],
+          "landscape"
+        );
+
+      expect(at("long")).not.toBe(at("none"));
+    });
+
+    it("treats every pause type the renderer ignores as 'none'", () => {
+      // pause_type is a varchar, not an enum. Only "long" reaches ffmpeg as a
+      // duration change, so only "long" may move the address.
+      const at = (pauseType: string) =>
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              pauseType,
+            }),
+          ],
+          "landscape"
+        );
+
+      expect(at("short")).toBe(at("none"));
+      expect(at("")).toBe(at("none"));
+    });
+
+    // Regression guard for the migration: pauseType was added to the address
+    // after thousands of exports were already on disk under the old scheme.
+    // Because "none" contributes nothing to the payload, those files stayed
+    // addressable and only the long-pause videos re-exported. Changing this
+    // constant means re-exporting and re-publishing the entire catalogue.
+    it("leaves the address of a clip without a long pause untouched", () => {
+      expect(
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              pauseType: "none",
+            }),
+          ],
+          "landscape"
+        )
+      ).toBe("ae5332862e6c002c82e975dceadd3cab");
     });
 
     it("changing EXPORT_VERSION would change hashes", () => {
@@ -366,6 +428,61 @@ describe("export-hash", () => {
       const { layer, removedFiles } = makeGCLayer({
         versions: [{ id: "v1", clips }],
         filesOnDisk: [`course-1-${hash}.mp4`],
+      });
+
+      await Effect.runPromise(
+        garbageCollect("course-1").pipe(Effect.provide(layer))
+      );
+
+      expect(removedFiles).toEqual([]);
+    });
+
+    it("deletes a stale export's digest sidecar along with it", async () => {
+      const validClips = [
+        makeClip({
+          videoFilename: "rec.mp4",
+          sourceStartTime: 0,
+          sourceEndTime: 10,
+        }),
+      ];
+      const validHash = computeExportHash(validClips, "landscape")!;
+      const staleHash = "deadbeef12345678901234567890abcd";
+
+      const { layer, removedFiles } = makeGCLayer({
+        versions: [{ id: "v1", clips: validClips }],
+        filesOnDisk: [
+          `course-1-${validHash}.mp4`,
+          `course-1-${validHash}.mp4.sha256`,
+          `course-1-${staleHash}.mp4`,
+          `course-1-${staleHash}.mp4.sha256`,
+        ],
+      });
+
+      await Effect.runPromise(
+        garbageCollect("course-1").pipe(Effect.provide(layer))
+      );
+
+      // The sidecar shares the export's Export Hash, so it shares its fate —
+      // otherwise every collected export would leave one behind forever.
+      expect(removedFiles.sort()).toEqual([
+        `/output/course-1-${staleHash}.mp4`,
+        `/output/course-1-${staleHash}.mp4.sha256`,
+      ]);
+    });
+
+    it("keeps the digest sidecar of a referenced export", async () => {
+      const clips = [
+        makeClip({
+          videoFilename: "rec.mp4",
+          sourceStartTime: 0,
+          sourceEndTime: 10,
+        }),
+      ];
+      const hash = computeExportHash(clips, "landscape")!;
+
+      const { layer, removedFiles } = makeGCLayer({
+        versions: [{ id: "v1", clips }],
+        filesOnDisk: [`course-1-${hash}.mp4`, `course-1-${hash}.mp4.sha256`],
       });
 
       await Effect.runPromise(

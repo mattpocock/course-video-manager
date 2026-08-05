@@ -14,9 +14,13 @@ const makeExportEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   uploadType: "export",
   exportStage: "queued",
   isBatchEntry: true,
+  videoUploadStage: null,
+  uploadedBytes: 0,
+  totalBytes: null,
   ...overrides,
 });
 
@@ -32,6 +36,7 @@ const makeYouTubeEntry = (
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
   uploadType: "youtube",
   youtubeVideoId: null,
   ...overrides,

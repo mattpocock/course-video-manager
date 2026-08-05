@@ -8,7 +8,11 @@ import {
   type TestDb,
 } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
-import { computeExportHash, resolveExportPath } from "@/services/export-hash";
+import {
+  computeExportHash,
+  resolveExportPath,
+  toExportClips,
+} from "@/services/export-hash";
 import {
   buildReadLayer,
   makeReadRun,
@@ -64,14 +68,7 @@ const markSeededVideoExported = async () => {
     where: (v, { eq }) => eq(v.id, s.lessonVideoId),
     with: { clips: { where: (c, { eq }) => eq(c.archived, false) } },
   });
-  const hash = computeExportHash(
-    video!.clips.map((c) => ({
-      videoFilename: c.videoFilename,
-      sourceStartTime: c.sourceStartTime,
-      sourceEndTime: c.sourceEndTime,
-    })),
-    video!.format
-  );
+  const hash = computeExportHash(toExportClips(video!.clips), video!.format);
   writeFileSync(resolveExportPath(finishedDir, s.courseAId, hash!), "");
 };
 

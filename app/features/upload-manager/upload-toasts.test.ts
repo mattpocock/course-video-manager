@@ -22,6 +22,7 @@ function makeYouTubeUpload(
     retryCount: 0,
     terminal: false,
     dependsOn: null,
+    parentUploadId: null,
     uploadType: "youtube",
     youtubeVideoId: "yt-123",
     ...overrides,

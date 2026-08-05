@@ -1,4 +1,15 @@
 import { uploadTypeRegistry } from "./upload-type-registry";
+import {
+  BUFFER_STAGE_BANDS,
+  PUBLISH_STAGE_BANDS,
+  PUBLISH_VIDEO_UPLOAD_BANDS,
+  RENDER_VERTICAL_STAGE_BANDS,
+  exportStageBands,
+  fillBand,
+  isSettled,
+  streamedProgressBand,
+  withDerivedParentProgress,
+} from "./upload-progress";
 
 export namespace uploadReducer {
   export type UploadStatus =
@@ -23,6 +34,10 @@ export namespace uploadReducer {
     | "compositing";
   export type PublishStage =
     "validating" | "exporting" | "uploading" | "freezing" | "cloning";
+  // The upload half of a per-Video task under a Publish. It follows the
+  // export stages above: encode, then wait for a slot in the upload pool,
+  // then move bytes.
+  export type VideoUploadStage = "queued-for-upload" | "uploading";
 
   export interface BaseUploadEntry {
     uploadId: string;
@@ -36,6 +51,11 @@ export namespace uploadReducer {
     // auto-retried, independent of how many attempts `retryCount` has counted.
     terminal: boolean;
     dependsOn: string | null;
+    // The job this entry is a child task of — a Publish, for the per-Video
+    // tasks it fans out into. Held in state rather than in a closure so
+    // children render nested under their parent, are dismissed with it, and
+    // can be aggregated into its progress.
+    parentUploadId: string | null;
   }
 
   export interface YouTubeUploadEntry extends BaseUploadEntry {
@@ -67,6 +87,15 @@ export namespace uploadReducer {
     uploadType: "export";
     exportStage: ExportStage | null;
     isBatchEntry: boolean;
+    // Set only for a per-Video task under a Publish, which carries on into
+    // Dropbox once its encode is done. A standalone export has nowhere to
+    // upload to and leaves these at their defaults.
+    videoUploadStage: VideoUploadStage | null;
+    uploadedBytes: number;
+    // This Video's size on disk, known once the upload pool picks it up. It is
+    // what weights the Video inside its parent's progress, so a 1.7 GB Video
+    // does not count the same as a 200 MB one.
+    totalBytes: number | null;
   }
 
   export interface PublishUploadEntry extends BaseUploadEntry {
@@ -105,6 +134,7 @@ export namespace uploadReducer {
         dependsOn?: string;
         isBatchEntry?: boolean;
         courseId?: string;
+        parentUploadId?: string;
       }
     | { type: "UPDATE_PROGRESS"; uploadId: string; progress: number }
     | {
@@ -151,6 +181,20 @@ export namespace uploadReducer {
         type: "UPDATE_RENDER_VERTICAL_STAGE";
         uploadId: string;
         stage: RenderVerticalStage;
+      }
+    | {
+        type: "UPDATE_VIDEO_UPLOAD_STAGE";
+        uploadId: string;
+        stage: VideoUploadStage;
+      }
+    | {
+        // Bytes moving for one Video inside a Publish. `totalBytes` is its
+        // size on disk and arrives with the first event, before any byte has
+        // gone past.
+        type: "UPDATE_VIDEO_UPLOAD_PROGRESS";
+        uploadId: string;
+        uploadedBytes: number;
+        totalBytes: number;
       };
 }
 
@@ -158,72 +202,17 @@ export const createInitialUploadState = (): uploadReducer.State => ({
   uploads: {},
 });
 
-interface StageBand {
-  start: number;
-  width: number;
-}
-
-// Every job type divides its single bar into one band per stage: the stage
-// change jumps to `start`, then any real percentage the stage streams fills
-// `width` of that band. A stage with `width: 0` reports no measurable progress
-// and simply parks the bar at `start`. 100 is reserved for completion
-// (UPLOAD_SUCCESS).
-const EXPORT_STAGE_BANDS: Record<uploadReducer.ExportStage, StageBand> = {
-  queued: { start: 0, width: 0 },
-  "concatenating-clips": { start: 0, width: 80 },
-  "normalizing-audio": { start: 80, width: 19 },
-};
-
-// Only the blob upload streams a real byte percentage; Buffer's own pipeline
-// gives us stage transitions and nothing finer.
-const BUFFER_STAGE_BANDS: Record<uploadReducer.BufferStage, StageBand> = {
-  "uploading-blob": { start: 0, width: 50 },
-  "creating-post": { start: 50, width: 0 },
-  polling: { start: 70, width: 0 },
-  "cleaning-up": { start: 90, width: 0 },
-};
-
-// Only the Dropbox commit ("uploading") reports a real per-lesson percentage.
-const PUBLISH_STAGE_BANDS: Record<uploadReducer.PublishStage, StageBand> = {
-  validating: { start: 5, width: 0 },
-  exporting: { start: 20, width: 0 },
-  uploading: { start: 40, width: 35 },
-  freezing: { start: 75, width: 0 },
-  cloning: { start: 90, width: 0 },
-};
-
-const RENDER_VERTICAL_STAGE_BANDS: Record<
-  uploadReducer.RenderVerticalStage,
-  StageBand
-> = {
-  "concatenating-clips": { start: 10, width: 0 },
-  transcribing: { start: 30, width: 0 },
-  "rendering-overlay": { start: 60, width: 0 },
-  compositing: { start: 85, width: 0 },
-};
-
-/** Where in the bar `percent` (0–100, within the stage) lands. */
-const fillBand = (band: StageBand, percent: number) =>
-  band.start + Math.floor((percent / 100) * band.width);
-
-/**
- * The band a raw `UPDATE_PROGRESS` percentage belongs to. `null` when the job
- * streams a real percentage for its whole life rather than per stage, in which
- * case the percentage already *is* the bar position.
- */
-const streamedProgressBand = (
-  upload: uploadReducer.UploadEntry
-): StageBand | null => {
-  if (upload.uploadType === "buffer" && upload.bufferStage) {
-    return BUFFER_STAGE_BANDS[upload.bufferStage];
-  }
-  if (upload.uploadType === "publish" && upload.publishStage) {
-    return PUBLISH_STAGE_BANDS[upload.publishStage];
-  }
-  return null;
-};
-
 export const uploadReducer = (
+  state: uploadReducer.State,
+  action: uploadReducer.Action
+): uploadReducer.State => {
+  const next = reduceUploads(state, action);
+  if (next === state) return state;
+  const uploads = withDerivedParentProgress(next.uploads);
+  return uploads === next.uploads ? next : { ...next, uploads };
+};
+
+const reduceUploads = (
   state: uploadReducer.State,
   action: uploadReducer.Action
 ): uploadReducer.State => {
@@ -242,6 +231,7 @@ export const uploadReducer = (
         retryCount: 0,
         terminal: false,
         dependsOn,
+        parentUploadId: action.parentUploadId ?? null,
       };
 
       return {
@@ -259,6 +249,9 @@ export const uploadReducer = (
     case "UPDATE_PROGRESS": {
       const upload = state.uploads[action.uploadId];
       if (!upload) return state;
+      // A Publish's bar is the aggregate of its per-Video children, so no
+      // number streamed at the job as a whole may move it.
+      if (upload.uploadType === "publish") return state;
 
       const band = streamedProgressBand(upload);
 
@@ -313,7 +306,7 @@ export const uploadReducer = (
             exportStage: action.stage,
             progress: Math.max(
               upload.progress,
-              EXPORT_STAGE_BANDS[action.stage].start
+              exportStageBands(upload)[action.stage].start
             ),
           },
         },
@@ -324,7 +317,10 @@ export const uploadReducer = (
       const upload = state.uploads[action.uploadId];
       if (!upload || upload.uploadType !== "export") return state;
 
-      const banded = fillBand(EXPORT_STAGE_BANDS[action.stage], action.percent);
+      const banded = fillBand(
+        exportStageBands(upload)[action.stage],
+        action.percent
+      );
 
       return {
         ...state,
@@ -336,6 +332,61 @@ export const uploadReducer = (
             // Monotonic: a late event from the previous phase never drags the
             // bar backwards.
             progress: Math.max(upload.progress, banded),
+          },
+        },
+      };
+    }
+
+    case "UPDATE_VIDEO_UPLOAD_STAGE": {
+      const upload = state.uploads[action.uploadId];
+      if (!upload || upload.uploadType !== "export") return state;
+      // The Dropbox commit is retried once server-side, which replays these
+      // events for Videos that already landed. A settled task stays settled.
+      if (isSettled(upload)) return state;
+
+      return {
+        ...state,
+        uploads: {
+          ...state.uploads,
+          [action.uploadId]: {
+            ...upload,
+            // The encode is over — whatever stage it was left mid-way through
+            // no longer describes this Video.
+            exportStage: null,
+            videoUploadStage: action.stage,
+            progress: Math.max(
+              upload.progress,
+              PUBLISH_VIDEO_UPLOAD_BANDS[action.stage].start
+            ),
+          },
+        },
+      };
+    }
+
+    case "UPDATE_VIDEO_UPLOAD_PROGRESS": {
+      const upload = state.uploads[action.uploadId];
+      if (!upload || upload.uploadType !== "export") return state;
+      if (isSettled(upload)) return state;
+
+      const percent =
+        action.totalBytes > 0
+          ? (action.uploadedBytes / action.totalBytes) * 100
+          : 0;
+
+      return {
+        ...state,
+        uploads: {
+          ...state.uploads,
+          [action.uploadId]: {
+            ...upload,
+            exportStage: null,
+            videoUploadStage: "uploading",
+            uploadedBytes: action.uploadedBytes,
+            totalBytes: action.totalBytes,
+            progress: Math.max(
+              upload.progress,
+              fillBand(PUBLISH_VIDEO_UPLOAD_BANDS.uploading, percent)
+            ),
           },
         },
       };
@@ -508,6 +559,7 @@ export const uploadReducer = (
         retryCount: upload.retryCount,
         terminal: upload.terminal,
         dependsOn: upload.dependsOn,
+        parentUploadId: upload.parentUploadId,
       };
 
       return {
@@ -523,10 +575,29 @@ export const uploadReducer = (
     }
 
     case "DISMISS": {
-      const { [action.uploadId]: _, ...remaining } = state.uploads;
+      if (!state.uploads[action.uploadId]) return state;
+
+      // Dismissing a parent takes its whole subtree with it. Children are only
+      // ever rendered nested under their parent, so leaving them behind would
+      // strand them in the list with nothing to belong to.
+      const dismissed = new Set([action.uploadId]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const upload of Object.values(state.uploads)) {
+          if (dismissed.has(upload.uploadId)) continue;
+          if (!upload.parentUploadId) continue;
+          if (!dismissed.has(upload.parentUploadId)) continue;
+          dismissed.add(upload.uploadId);
+          grew = true;
+        }
+      }
+
       return {
         ...state,
-        uploads: remaining,
+        uploads: Object.fromEntries(
+          Object.entries(state.uploads).filter(([id]) => !dismissed.has(id))
+        ),
       };
     }
 

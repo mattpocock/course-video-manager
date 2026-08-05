@@ -64,6 +64,9 @@ const exportConfig: UploadTypeConfig<
     uploadType: "export" as const,
     exportStage: "queued" as const,
     isBatchEntry: action.isBatchEntry ?? false,
+    videoUploadStage: null,
+    uploadedBytes: 0,
+    totalBytes: null,
   }),
 
   resetEntry: (base, prev) => ({
@@ -71,6 +74,11 @@ const exportConfig: UploadTypeConfig<
     uploadType: "export" as const,
     exportStage: "queued" as const,
     isBatchEntry: prev.isBatchEntry,
+    videoUploadStage: null,
+    uploadedBytes: 0,
+    // The Video's size on disk survives a retry: it is a fact about the file,
+    // not about the attempt.
+    totalBytes: prev.totalBytes,
   }),
 
   applySuccess: (entry) => ({
@@ -79,6 +87,7 @@ const exportConfig: UploadTypeConfig<
     progress: 100,
     errorMessage: null,
     exportStage: null,
+    videoUploadStage: null,
   }),
 
   initiate: (uploadId, entry, _params, dispatch, abortControllers) => {
@@ -497,9 +506,19 @@ const publishConfig: UploadTypeConfig<
   }),
 
   initiate: (uploadId, _entry, params, dispatch, abortControllers) => {
-    // videoId → uploadId for the per-video export entries this publish spawns.
-    // They render exactly like standalone batch-export entries.
-    const exportUploadIds = new Map<string, string>();
+    // One task per Video, spanning BOTH halves of its life: encoding, then
+    // waiting for an upload slot, then uploading. The id is derived from the
+    // videoId rather than remembered in a map, so the export and upload event
+    // streams address the same entry without a lookup table to keep in step.
+    const videoUploadId = (videoId: string) => `${uploadId}-video-${videoId}`;
+    // Videos that have not yet reached a terminal state, so a stream-level
+    // failure knows which children to take down with it.
+    const liveVideoIds = new Set<string>();
+    const settle = (videoId: string, action: uploadReducer.Action) => {
+      if (!liveVideoIds.delete(videoId)) return;
+      dispatch(action);
+    };
+
     withAbortManagement(uploadId, abortControllers, () =>
       startSSEPublish(
         {
@@ -512,68 +531,75 @@ const publishConfig: UploadTypeConfig<
           onStageChange: (stage) => {
             dispatch({ type: "UPDATE_PUBLISH_STAGE", uploadId, stage });
           },
-          onExportVideos: (videos) => {
+          // The whole shipping roster, announced before either pool starts.
+          // Every task is created from this one event; the export roster is
+          // only a subset of it, so nothing is created from that.
+          onPublishVideos: (videos) => {
             for (const video of videos) {
-              const exportUploadId = `${uploadId}-export-${video.id}`;
-              exportUploadIds.set(video.id, exportUploadId);
+              liveVideoIds.add(video.id);
               dispatch({
                 type: "START_UPLOAD",
-                uploadId: exportUploadId,
+                uploadId: videoUploadId(video.id),
                 videoId: video.id,
                 title: video.title,
                 uploadType: "export",
                 isBatchEntry: true,
+                parentUploadId: uploadId,
               });
             }
           },
           onExportStageChange: (videoId, stage) => {
-            const exportUploadId = exportUploadIds.get(videoId);
-            if (exportUploadId) {
-              dispatch({
-                type: "UPDATE_EXPORT_STAGE",
-                uploadId: exportUploadId,
-                stage,
-              });
-            }
+            dispatch({
+              type: "UPDATE_EXPORT_STAGE",
+              uploadId: videoUploadId(videoId),
+              stage,
+            });
           },
           onExportProgress: (videoId, stage, percent) => {
             if (stage === "queued") return;
-            const exportUploadId = exportUploadIds.get(videoId);
-            if (exportUploadId) {
-              dispatch({
-                type: "UPDATE_EXPORT_PROGRESS",
-                uploadId: exportUploadId,
-                stage,
-                percent,
-              });
-            }
-          },
-          onExportComplete: (videoId) => {
-            const exportUploadId = exportUploadIds.get(videoId);
-            if (exportUploadId) {
-              dispatch({ type: "UPLOAD_SUCCESS", uploadId: exportUploadId });
-              exportUploadIds.delete(videoId);
-            }
+            dispatch({
+              type: "UPDATE_EXPORT_PROGRESS",
+              uploadId: videoUploadId(videoId),
+              stage,
+              percent,
+            });
           },
           // Terminal per video: the publish already retried the export
           // server-side, and the publish itself is about to fail — never
           // auto-retry a standalone export from here.
           onExportError: (videoId, message) => {
-            const exportUploadId = exportUploadIds.get(videoId);
-            if (exportUploadId) {
-              dispatch({
-                type: "UPLOAD_FATAL_ERROR",
-                uploadId: exportUploadId,
-                errorMessage: message,
-              });
-              exportUploadIds.delete(videoId);
-            }
+            settle(videoId, {
+              type: "UPLOAD_FATAL_ERROR",
+              uploadId: videoUploadId(videoId),
+              errorMessage: message,
+            });
           },
-          onUploadProgress: (percentage) => {
+          onVideoUploadQueued: (videoId) => {
             dispatch({
-              type: "UPDATE_PROGRESS",
-              uploadId,
-              progress: percentage,
+              type: "UPDATE_VIDEO_UPLOAD_STAGE",
+              uploadId: videoUploadId(videoId),
+              stage: "queued-for-upload",
+            });
+          },
+          onVideoUploadProgress: (videoId, uploadedBytes, totalBytes) => {
+            dispatch({
+              type: "UPDATE_VIDEO_UPLOAD_PROGRESS",
+              uploadId: videoUploadId(videoId),
+              uploadedBytes,
+              totalBytes,
+            });
+          },
+          onVideoUploadComplete: (videoId) => {
+            settle(videoId, {
+              type: "UPLOAD_SUCCESS",
+              uploadId: videoUploadId(videoId),
+            });
+          },
+          onVideoUploadError: (videoId, message) => {
+            settle(videoId, {
+              type: "UPLOAD_FATAL_ERROR",
+              uploadId: videoUploadId(videoId),
+              errorMessage: message,
             });
           },
           onComplete: (result) => {
@@ -589,17 +615,16 @@ const publishConfig: UploadTypeConfig<
           // (issue #1401), so there is no recoverable "pending" state to
           // retry from here — every failure is terminal for this attempt.
           onError: (message) => {
-            // The per-video export entries this publish spawned would
-            // otherwise dangle at their last stage forever: the stream that
-            // fed them is gone, so fail the ones still in flight too.
-            for (const [, exportUploadId] of exportUploadIds) {
-              dispatch({
+            // The per-video tasks this publish spawned would otherwise dangle
+            // at their last stage forever: the stream that fed them is gone,
+            // so fail the ones still in flight too.
+            for (const videoId of [...liveVideoIds]) {
+              settle(videoId, {
                 type: "UPLOAD_FATAL_ERROR",
-                uploadId: exportUploadId,
+                uploadId: videoUploadId(videoId),
                 errorMessage: message,
               });
             }
-            exportUploadIds.clear();
             dispatch({
               type: "UPLOAD_FATAL_ERROR",
               uploadId,

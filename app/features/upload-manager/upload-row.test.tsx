@@ -13,6 +13,7 @@ const base: uploadReducer.BaseUploadEntry = {
   retryCount: 0,
   terminal: false,
   dependsOn: null,
+  parentUploadId: null,
 };
 
 const render = (upload: uploadReducer.UploadEntry) =>
@@ -34,6 +35,9 @@ describe("UploadRow progress indicator", () => {
       uploadType: "export",
       exportStage: "concatenating-clips",
       isBatchEntry: false,
+      videoUploadStage: null,
+      uploadedBytes: 0,
+      totalBytes: null,
     });
 
     expect(bars(html)).toEqual([42]);
@@ -98,6 +102,7 @@ describe("UploadRow progress indicator", () => {
       uploadType: "youtube",
       youtubeVideoId: null,
       dependsOn: "u0",
+      parentUploadId: null,
     });
 
     expect(bars(html)).toEqual([0]);
@@ -113,6 +118,9 @@ describe("UploadRow progress indicator", () => {
       uploadType: "export",
       exportStage: "concatenating-clips",
       isBatchEntry: false,
+      videoUploadStage: null,
+      uploadedBytes: 0,
+      totalBytes: null,
     });
 
     expect(bars(html)).toEqual([20]);
@@ -126,6 +134,9 @@ describe("UploadRow progress indicator", () => {
       uploadType: "export",
       exportStage: null,
       isBatchEntry: false,
+      videoUploadStage: null,
+      uploadedBytes: 0,
+      totalBytes: null,
     });
 
     expect(bars(html)).toEqual([12]);
@@ -140,6 +151,9 @@ describe("UploadRow progress indicator", () => {
       uploadType: "export",
       exportStage: null,
       isBatchEntry: false,
+      videoUploadStage: null,
+      uploadedBytes: 0,
+      totalBytes: null,
     });
 
     expect(bars(html)).toEqual([]);
@@ -171,5 +185,63 @@ describe("UploadRow success state", () => {
     });
 
     expect(html).toContain("Complete");
+  });
+});
+
+const videoTask = (
+  overrides: Partial<uploadReducer.ExportUploadEntry> = {}
+): uploadReducer.ExportUploadEntry => ({
+  ...base,
+  parentUploadId: "pub-1",
+  uploadType: "export",
+  exportStage: null,
+  isBatchEntry: true,
+  videoUploadStage: null,
+  uploadedBytes: 0,
+  totalBytes: null,
+  ...overrides,
+});
+
+describe("UploadRow for a per-Video task under a Publish", () => {
+  it("indents a child task so it reads as belonging to its parent", () => {
+    const flat = renderToStaticMarkup(
+      <UploadRow upload={videoTask()} onDismiss={() => {}} />
+    );
+    const nested = renderToStaticMarkup(
+      <UploadRow upload={videoTask()} onDismiss={() => {}} nested />
+    );
+
+    expect(flat).not.toContain("pl-5");
+    expect(nested).toContain("pl-5");
+  });
+
+  it("names each phase of the Video's life", () => {
+    expect(
+      render(videoTask({ progress: 20, exportStage: "concatenating-clips" }))
+    ).toContain("Concatenating clips");
+    expect(
+      render(videoTask({ progress: 50, videoUploadStage: "queued-for-upload" }))
+    ).toContain("Waiting to upload");
+    expect(
+      render(videoTask({ progress: 74, videoUploadStage: "uploading" }))
+    ).toContain("Uploading to Dropbox");
+  });
+
+  it("says the Video was uploaded, not merely exported, once it lands", () => {
+    expect(render(videoTask({ progress: 100, status: "success" }))).toContain(
+      "Uploaded"
+    );
+  });
+
+  it("attributes a failure to the Video by name", () => {
+    const html = render(
+      videoTask({
+        status: "error",
+        errorMessage: "HTTP 400: insufficient_space",
+      })
+    );
+
+    expect(html).toContain("Test Video");
+    expect(html).toContain("HTTP 400: insufficient_space");
   });
 });
