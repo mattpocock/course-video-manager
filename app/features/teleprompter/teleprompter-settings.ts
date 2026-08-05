@@ -108,11 +108,13 @@ export function textStyle(): React.CSSProperties {
     // Breaking mid-word is ugly and keeps every character on the glass; losing
     // the end of the line is neither.
     overflowWrap: "anywhere",
-    // The window as a whole is inert to the pointer — it lives reflected in
-    // front of a lens, and a stray drag highlighting the chrome is pure noise.
-    // The words themselves are the exception: a line of script or a beat's note
-    // is as often something to paste elsewhere as something to read aloud, so
-    // everything set in this type opts selection back in.
+    // The window as a whole is inert to the pointer — `select-none` on the
+    // teleprompter shell in `app/routes/teleprompter.tsx`, because the glass
+    // lives reflected in front of a lens and a stray drag highlighting the
+    // chrome is pure noise. The words themselves are the exception: a line of
+    // script or a beat's note is as often something to paste elsewhere as
+    // something to read aloud, so everything set in this type opts back in.
+    // Inline, so it beats that class wherever this style lands.
     userSelect: "text",
   };
 }

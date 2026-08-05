@@ -42,15 +42,21 @@ function asBeatKind(kind: string): BeatKind {
 }
 
 /**
- * Whether a click landed at the end of a drag across the words rather than on
- * the beat.
+ * Whether words on the glass are highlighted right now.
  *
- * Both gestures end in a `click` on the row, and the row's is to move the
- * spotlight — which scrolls the plan out from under the text you were half way
- * through highlighting. A collapsed selection is just the caret a plain click
- * leaves behind, so only actual words count.
+ * A drag across a beat's words ends in a `click` on the row just as a plain
+ * click does, and the row's job — moving the spotlight — scrolls the plan out
+ * from under the text you were half way through highlighting. A collapsed
+ * selection is only the caret a plain click leaves behind, so it takes actual
+ * words to hold the spotlight still.
+ *
+ * Only drags are caught. A double-click's first click arrives with nothing yet
+ * selected and is indistinguishable from a single one at the moment it fires,
+ * so double-clicking a word on a beat other than the active one still moves the
+ * spotlight out from under it.
  */
-export function isSelectingText(selection: Selection | null): boolean {
+function hasSelectedText(): boolean {
+  const selection = window.getSelection();
   return (
     !!selection && !selection.isCollapsed && selection.toString().trim() !== ""
   );
@@ -132,7 +138,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                 // the Prompter — so there needs to be a way in that doesn't
                 // depend on that.
                 onClick={() => {
-                  if (isSelectingText(window.getSelection())) return;
+                  if (hasSelectedText()) return;
                   setActiveIndex(i);
                 }}
                 className="mb-6 flex cursor-pointer gap-3"

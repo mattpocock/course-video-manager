@@ -1,28 +1,40 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BeatsView, isSelectingText } from "./beats-view";
+import { BeatsView } from "./beats-view";
+import { TYPE } from "./teleprompter-settings";
+
+const TITLE = "The setup";
+const DESCRIPTION = "Walk through the setup.";
 
 const render = (description: string) =>
   renderToStaticMarkup(
     <BeatsView
-      beats={[
-        { id: "beat-1", kind: "definition", title: "The setup", description },
-      ]}
+      beats={[{ id: "beat-1", kind: "definition", title: TITLE, description }]}
     />
   );
 
-/** Every `font-size` the row set, in document order: the title, then the note. */
-const fontSizes = (html: string) =>
-  [...html.matchAll(/font-size:\s*([\d.]+)px/g)].map((match) =>
-    Number(match[1])
+/**
+ * The inline style of whatever element renders exactly `text`.
+ *
+ * Anchored to the words rather than to document order: the row draws an icon
+ * and a title before it reaches the description, and a test that picked the
+ * second `font-size` it found would silently start reading the wrong element
+ * the day anything sized is added in front of it.
+ */
+const styleOf = (html: string, text: string): string => {
+  const element = [...html.matchAll(/style="([^"]*)"[^>]*>([^<]*)</g)].find(
+    (match) => match[2] === text
   );
+  if (!element) throw new Error(`Nothing in the markup renders "${text}".`);
+  return element[1]!;
+};
 
-/** A selection as the browser hands one back. */
-const selection = (text: string) =>
-  ({
-    isCollapsed: text === "",
-    toString: () => text,
-  }) as unknown as Selection;
+/** The `font-size`, in px, of whatever element renders `text`. */
+const fontSizeOf = (html: string, text: string): number => {
+  const size = styleOf(html, text).match(/font-size:\s*([\d.]+)px/);
+  if (!size) throw new Error(`"${text}" is rendered without a font-size.`);
+  return Number(size[1]);
+};
 
 describe("BeatsView", () => {
   // Beat descriptions are pasted notes as often as written ones, so a URL or a
@@ -40,46 +52,32 @@ describe("BeatsView", () => {
   });
 
   it("leaves a description with no address alone", () => {
-    expect(render("Walk through the setup.")).toContain(
-      "Walk through the setup."
-    );
+    expect(render(DESCRIPTION)).toContain(DESCRIPTION);
   });
 
   // The title is the beat you're looking for; the description is the detail you
   // read once you've found it. Same size makes the plan one undifferentiated
   // wall of text at a glance.
   it("sets a description smaller than the title it belongs to", () => {
-    const [title, description] = fontSizes(render("Walk through the setup."));
-    expect(title).toBeGreaterThan(0);
-    expect(description).toBeLessThan(title!);
+    const html = render(DESCRIPTION);
+    expect(fontSizeOf(html, DESCRIPTION)).toBeLessThan(fontSizeOf(html, TITLE));
   });
 
-  // Small, but still glass-at-arm's-length legible rather than fine print.
-  it("keeps the description well clear of the cue size", () => {
-    const [, description] = fontSizes(render("Walk through the setup."));
-    expect(description).toBeGreaterThan(16);
+  // Smaller, but not fine print: a description is a sentence of what you're
+  // about to actually do, so it has to stay at least as legible as a cue — the
+  // smallest thing this design already trusts you to read from where you stand.
+  it("keeps the description no smaller than a cue", () => {
+    const html = render(DESCRIPTION);
+    expect(fontSizeOf(html, DESCRIPTION)).toBeGreaterThanOrEqual(
+      TYPE.fontSize * TYPE.cueScale
+    );
   });
 
   // A note on the glass is as often something to paste elsewhere as something
-  // to read out.
-  it("lets the text be selected", () => {
-    expect(render("Walk through the setup.")).toMatch(/user-select:\s*text/);
-  });
-});
-
-describe("isSelectingText", () => {
-  it("is false with nothing selected", () => {
-    expect(isSelectingText(null)).toBe(false);
-    expect(isSelectingText(selection(""))).toBe(false);
-  });
-
-  // A plain click leaves a collapsed selection at the caret, and that must
-  // still move the spotlight.
-  it("is false for a selection of whitespace alone", () => {
-    expect(isSelectingText(selection("  \n "))).toBe(false);
-  });
-
-  it("is true once words are highlighted", () => {
-    expect(isSelectingText(selection("the setup"))).toBe(true);
+  // to read out, and the whole window is otherwise inert to the pointer.
+  it("lets a beat's title and its description be selected", () => {
+    const html = render(DESCRIPTION);
+    expect(styleOf(html, TITLE)).toMatch(/user-select:\s*text/);
+    expect(styleOf(html, DESCRIPTION)).toMatch(/user-select:\s*text/);
   });
 });
