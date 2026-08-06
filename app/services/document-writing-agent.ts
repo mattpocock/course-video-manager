@@ -9,6 +9,7 @@ import {
   ToolLoopAgent as Agent,
   tool,
   type LanguageModel,
+  type SystemModelMessage,
   stepCountIs,
 } from "ai";
 import { z } from "zod";
@@ -17,6 +18,7 @@ import type {
   TextWritingAgentCodeFile,
   TextWritingAgentImageFile,
 } from "./text-writing-agent";
+import { CACHE_BREAKPOINT_1H } from "./prompt-cache";
 
 export type DocumentWritingAgentMode =
   "article" | "skill-building" | "newsletter" | "seo-description-document";
@@ -63,10 +65,34 @@ export const editDocumentTool = tool({
   outputSchema: z.string(),
 });
 
-export const createDocumentWritingAgent = (props: {
-  model: LanguageModel;
+/**
+ * Render the other fields on the same page as reference context.
+ *
+ * This is NOT part of the system prompt, and must not become part of it. In
+ * the SEO writer the "related field" is the entire lesson body, which changes
+ * on every keystroke in the other pane; in the body writer it is the SEO
+ * description. Sending it as a message keeps that churn behind the system and
+ * screenshot cache breakpoints, where it can only invalidate itself.
+ *
+ * Returns undefined when there is nothing worth sending.
+ */
+export const formatRelatedFields = (
+  fields: ReadonlyArray<{ label: string; value: string }>
+): string | undefined => {
+  const populated = fields.filter((field) => field.value.trim());
+  if (populated.length === 0) return undefined;
+
+  return `## Related Fields
+
+The following fields from the same lesson page are provided as reference. Use them to stay consistent, but do not simply copy them:
+
+${populated
+  .map((field) => `<field label="${field.label}">\n${field.value}\n</field>`)
+  .join("\n\n")}`;
+};
+
+export type DocumentWritingContext = {
   mode?: DocumentWritingAgentMode;
-  document: string | undefined;
   transcript: string;
   code: TextWritingAgentCodeFile[];
   imageFiles: TextWritingAgentImageFile[];
@@ -74,13 +100,27 @@ export const createDocumentWritingAgent = (props: {
   links?: GlobalLink[];
   courseStructure?: string;
   memory?: string;
-  /** Other fields from the same page, offered as reference context. */
-  additionalContext?: Array<{ label: string; value: string }>;
   /** Pre-formatted beat plan text (kinds + titles + descriptions). */
   beats?: string;
   /** The video's script — the base Matt improvised from. */
   script?: string;
-}) => {
+};
+
+/**
+ * Build the writer's system prompt as a single cache-breakpointed block.
+ *
+ * Exported so a test can assert the cache layout directly. A dropped
+ * breakpoint produces no error and no visible defect — just a silently larger
+ * bill — so the structure is worth pinning down.
+ *
+ * Every part of this block is stable for the life of a writing session. That
+ * is the whole point: content that churns (the related page fields, the
+ * document itself) is sent as messages by the route, so that it lands AFTER
+ * this breakpoint and cannot invalidate it.
+ */
+export const buildDocumentWritingSystemMessage = (
+  props: DocumentWritingContext
+): SystemModelMessage => {
   const links = props.links ?? [];
   const mode = props.mode ?? "article";
 
@@ -123,12 +163,19 @@ export const createDocumentWritingAgent = (props: {
     }
   })();
 
-  const documentInstructions = props.document
-    ? `
+  // These instructions deliberately do NOT branch on whether a document
+  // exists. They used to, which meant the first draft landing rewrote the
+  // system prompt and threw away the whole cached prefix — transcript,
+  // screenshots and all — exactly once per document. The model picks its tool
+  // from the presence of <current-document> instead, so the prefix now
+  // survives the write-to-edit transition.
+  const documentInstructions = `
 
-## Document Editing Instructions
+## Document Instructions
 
-A document already exists. The user will provide it in a <current-document> tag. You MUST use the \`editDocument\` tool to make changes. Do not output the full content as plain text.
+Which tool you use depends on whether a document already exists.
+
+**If the user's messages contain a <current-document> tag, a document exists.** You MUST use the \`editDocument\` tool to make changes. Do not output the full content as plain text.
 
 IMPORTANT: The user may have manually edited the document since your last tool call. The <current-document> tag always contains the latest version of the document. Do NOT assume your previous tool call inputs reflect the current state — always reference <current-document> as the single source of truth when planning edits.
 
@@ -141,31 +188,15 @@ You can include multiple edits in a single editDocument call. Edits are applied 
 
 If an edit fails (e.g. text not found), you will receive an error message. Read it carefully and retry with corrected text.
 
+**If there is no <current-document> tag, there is no document yet.** You MUST use the \`writeDocument\` tool to create the content. Do not output the content as plain text — always use the tool.
+
+Never call \`writeDocument\` when a <current-document> tag is present: that would discard the user's existing work. Never call \`editDocument\` when one is absent.
+
 ## Adding Screenshots
 
 When the user asks you to add a screenshot or image from the video, you MUST use the \`<ChooseScreenshot clipIndex={N} alt="description" />\` component — do NOT insert a raw markdown image like \`![alt](url)\`. The ChooseScreenshot component lets the user interactively select the exact frame from the video clip. The clipIndex must reference a valid clip index from the transcript.
 
-After calling editDocument, you may add a brief conversational message explaining what you changed.`
-    : `
-
-## Document Writing Instructions
-
-There is no document yet. You MUST use the \`writeDocument\` tool to create the content. Do not output the content as plain text — always use the tool.
-
-After calling writeDocument, you may add a brief conversational message explaining what you wrote.`;
-
-  const additionalContext = (props.additionalContext ?? []).filter((f) =>
-    f.value.trim()
-  );
-  const additionalContextSection =
-    additionalContext.length > 0
-      ? `\n\n## Related Fields\n\nThe following fields from the same lesson page are provided as reference. Use them to stay consistent, but do not simply copy them:\n\n${additionalContext
-          .map((f) => `<field label="${f.label}">\n${f.value}\n</field>`)
-          .join("\n\n")}`
-      : "";
-
-  const systemPrompt =
-    basePrompt + additionalContextSection + documentInstructions;
+After calling a tool, you may add a brief conversational message explaining what you did.`;
 
   const memorySection = props.memory
     ? `\n\n## Course Memory\n\nThe following is course-level context provided by the author. Use it to inform your response:\n\n<memory>\n${props.memory}\n</memory>`
@@ -175,6 +206,21 @@ After calling writeDocument, you may add a brief conversational message explaini
 
   const scriptSection = getScriptSection(props.script ?? "");
 
+  return {
+    role: "system",
+    content:
+      basePrompt +
+      documentInstructions +
+      scriptSection +
+      beatsSection +
+      memorySection,
+    providerOptions: CACHE_BREAKPOINT_1H,
+  };
+};
+
+export const createDocumentWritingAgent = (
+  props: DocumentWritingContext & { model: LanguageModel }
+) => {
   const repairToolCall: ConstructorParameters<
     typeof Agent
   >[0]["experimental_repairToolCall"] = async ({ toolCall }) => {
@@ -186,20 +232,16 @@ After calling writeDocument, you may add a brief conversational message explaini
     }
   };
 
-  if (props.document) {
-    return new Agent({
-      model: props.model,
-      instructions: systemPrompt + memorySection + scriptSection + beatsSection,
-      tools: { editDocument: editDocumentTool },
-      stopWhen: stepCountIs(5),
-      experimental_repairToolCall: repairToolCall,
-    });
-  }
-
+  // Both tools are always registered. Changing the tool set invalidates the
+  // tools, the system prompt AND the messages, so a tool set that flipped
+  // when the first draft landed was throwing the entire cache away.
   return new Agent({
     model: props.model,
-    instructions: systemPrompt + memorySection + scriptSection + beatsSection,
-    tools: { writeDocument: writeDocumentTool },
+    instructions: [buildDocumentWritingSystemMessage(props)],
+    tools: {
+      writeDocument: writeDocumentTool,
+      editDocument: editDocumentTool,
+    },
     stopWhen: stepCountIs(5),
     experimental_repairToolCall: repairToolCall,
   });

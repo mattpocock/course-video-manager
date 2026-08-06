@@ -33,12 +33,44 @@ export const TYPE = {
   /** Measure in `ch`. Short lines are the biggest teleprompter lever there is. */
   measure: 25,
   /**
-   * Beats run wider than the script. They're left-aligned behind an icon
-   * gutter, so the script's measure leaves them narrower than it looks — and
-   * they're glanced at rather than read aloud, which is what the short measure
+   * The Beats column, in `ch` of the page's own type rather than the glass's —
+   * the column sets no font of its own, so this number isn't comparable to
+   * `measure` above, only to itself.
+   *
+   * A short measure is for reading a line aloud without losing your place in
+   * it. The plan isn't read that way: it's glanced at, a row at a time, behind
+   * an icon gutter that takes width off every line. Wide enough that a beat's
+   * sentence lands in a line or two rather than a stack of fragments.
+   *
+   * Anchored to the page's type, so it doesn't follow `beatTitleScale`: setting
+   * the plan a step larger buys no extra width, it spends some. Tune the two
+   * together, and judge the result by characters on a line rather than by
+   * either number on its own.
+   */
+  beatsMeasure: 36,
+  /**
+   * A Beat Title, against the script's body size. The rest of the row — the
+   * icon gutter, and the description under it — is sized from the title, so
+   * this is the one number that scales a beat.
+   *
+   * The script's size is tuned for reading a line off the glass word by word,
+   * from where the lens has you standing. A beat is taken in whole and at a
+   * glance — often from further back than that, and never mid-sentence — so it
+   * is set a step above. A step, not a jump: much larger and a plan of a dozen
+   * beats stops fitting on the glass at once, which is the thing the Beats view
    * is for.
    */
-  beatsMeasure: 30,
+  beatTitleScale: 1.1,
+  /**
+   * A Beat Description, relative to the beat title above it.
+   *
+   * The title is what you scan the plan for; the description is the detail you
+   * read once you've found it. Set at the same size the two run together into
+   * one wall of text and the plan loses its shape at a glance. Well above the
+   * cue size, though — a description is a sentence of what you're about to
+   * actually do, and it still has to be legible from where you stand.
+   */
+  beatDescriptionScale: 0.7,
   /**
    * Warm rather than white: easier on the eye through beam-splitter glass.
    *
@@ -98,6 +130,14 @@ export function textStyle(): React.CSSProperties {
     // Breaking mid-word is ugly and keeps every character on the glass; losing
     // the end of the line is neither.
     overflowWrap: "anywhere",
+    // The window as a whole is inert to the pointer — `select-none` on the
+    // teleprompter shell in `app/routes/teleprompter.tsx`, because the glass
+    // lives reflected in front of a lens and a stray drag highlighting the
+    // chrome is pure noise. The words themselves are the exception: a line of
+    // script or a beat's note is as often something to paste elsewhere as
+    // something to read aloud, so everything set in this type opts back in.
+    // Inline, so it beats that class wherever this style lands.
+    userSelect: "text",
   };
 }
 

@@ -157,28 +157,39 @@ describe("createSnapshotStepper", () => {
     expect(d.head).toBe("h1");
   });
 
-  it("breaks ties with the stop the previous step landed on", async () => {
-    // The same content can appear twice on the timeline. Without the hint the
-    // head's hash matches the earlier copy, and stepping back off the later one
-    // reports "no older snapshot".
+  it("carries the stop each step landed on into the next one", async () => {
+    // The same content appears twice here, so the head's hash alone matches the
+    // earlier copy and a second "newer" would double back to "b". Only the
+    // stepper remembering where the first step landed reaches "d".
     const revisited = [
       snapshot({ id: "a", contentHash: "h1" }),
       snapshot({ id: "b", contentHash: "h2" }),
       snapshot({ id: "c", contentHash: "h1" }),
+      snapshot({ id: "d", contentHash: "h3" }),
     ];
     const d = fakeDiagram({ snapshots: revisited, headContentHash: "h2" });
     await d.stepper.step("newer");
-    expect(await d.stepper.step("older")).toMatchObject({
-      snapshot: { id: "b" },
+    expect(await d.stepper.step("newer")).toMatchObject({
+      snapshot: { id: "d" },
     });
   });
 
-  it("reports the end of the timeline in the direction asked for", async () => {
+  it("wraps off the oldest snapshot round to the newest", async () => {
+    // The behaviour the toast used to stand in for: an end is a real restore
+    // now, not an outcome the caller has to explain away.
     const d = fakeDiagram({ headContentHash: "h1" });
-    expect(await d.stepper.step("older")).toEqual({
-      kind: "at-end",
-      step: "older",
+    expect(await d.stepper.step("older")).toMatchObject({
+      kind: "stepped",
+      snapshot: { id: "c" },
     });
+  });
+
+  it("reports a timeline with nowhere else to step to", async () => {
+    // One stop, and the head is on it: every direction leads back to the
+    // canvas already showing, so there is no restore to raise.
+    const singleStop = [snapshot({ id: "a", contentHash: "h1" })];
+    const d = fakeDiagram({ snapshots: singleStop, headContentHash: "h1" });
+    expect(await d.stepper.step("newer")).toEqual({ kind: "nowhere-to-go" });
   });
 
   it("reports a timeline it could not read", async () => {

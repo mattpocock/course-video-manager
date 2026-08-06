@@ -11,8 +11,23 @@ export type DocumentAgentTools = {
   editDocument: typeof editDocumentTool;
 };
 
+/**
+ * Prompt-cache counts for one assistant message, sent down from the server.
+ *
+ * A cache miss produces no error — it just bills the full prefix — so these
+ * counts are the only signal that the breakpoints are still working.
+ */
+export type WriterCacheStats = {
+  /** Prefix tokens served from cache. Large means a hit. */
+  cacheReadTokens: number;
+  /** Prefix tokens written to cache. Large on the first request of a session. */
+  cacheWriteTokens: number;
+  /** Tokens billed at full price because nothing cached them. */
+  noCacheTokens: number;
+};
+
 export type DocumentAgentMessage = UIMessage<
-  unknown,
+  WriterCacheStats,
   never,
   InferUITools<DocumentAgentTools>
 >;
@@ -33,11 +48,6 @@ export type SectionWithWordCount = {
  * Inferred from the schema definition to ensure type safety.
  */
 export type Mode = TextWritingAgentMode;
-
-/**
- * AI model selection for article generation.
- */
-export type Model = "claude-sonnet-4-5" | "claude-haiku-4-5" | "auto";
 
 /**
  * The writer's sub-view. `"writer"` is the default the writer opens on.

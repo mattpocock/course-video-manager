@@ -29,6 +29,7 @@ import {
   removeChooseScreenshot,
 } from "./choose-screenshot-mutations";
 import { WriteDocumentDisplay, EditDocumentDisplay } from "./tool-call-display";
+import { CacheStatsBadge } from "./cache-stats-badge";
 import { useMessageTextMutation } from "./message-text-mutation";
 
 export interface WriteChatProps {
@@ -251,6 +252,9 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
                   >
                     {textContent}
                   </AIResponse>
+                )}
+                {message.metadata && (
+                  <CacheStatsBadge stats={message.metadata} />
                 )}
               </AIMessage>
             );

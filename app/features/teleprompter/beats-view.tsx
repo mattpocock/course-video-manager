@@ -4,10 +4,13 @@
  * Beats aren't prose — they're a dozen short Title-Case labels with a sentence
  * of description each — so nothing about the script's crawl applies here.
  * Nothing moves on its own and play/pause does nothing: the whole plan is on
- * the glass at once, every beat showing its description at full strength.
- * Nothing dims and no row expands or collapses, so the beat you glanced at a
- * second ago is still where you left it, still legible. Position is carried by
- * scroll alone rather than by fading the beats around it.
+ * the glass at once, every beat showing its description in full — a step
+ * smaller than its title, so the titles still carry the shape of the plan when
+ * you only glance. The plan is set a step larger than the script and on a
+ * measure of its own, because it's taken in at a glance rather than read out
+ * line by line. Nothing dims and no row expands or collapses, so the beat you
+ * glanced at a second ago is still where you left it, still legible. Position
+ * is carried by scroll alone rather than by fading the beats around it.
  *
  * Kind icons and labels are imported from the real Beats tab rather than
  * redrawn, so the plan reads the same on the glass as it does in the editor.
@@ -37,6 +40,27 @@ function asBeatKind(kind: string): BeatKind {
   return kind in BEAT_KIND_LABELS
     ? (kind as BeatKind)
     : (DEFAULT_BEAT_KIND as BeatKind);
+}
+
+/**
+ * Whether words on the glass are highlighted right now.
+ *
+ * A drag across a beat's words ends in a `click` on the row just as a plain
+ * click does, and the row's job — moving the spotlight — scrolls the plan out
+ * from under the text you were half way through highlighting. A collapsed
+ * selection is only the caret a plain click leaves behind, so it takes actual
+ * words to hold the spotlight still.
+ *
+ * Only drags are caught. A double-click's first click arrives with nothing yet
+ * selected and is indistinguishable from a single one at the moment it fires,
+ * so double-clicking a word on a beat other than the active one still moves the
+ * spotlight out from under it.
+ */
+function hasSelectedText(): boolean {
+  const selection = window.getSelection();
+  return (
+    !!selection && !selection.isCollapsed && selection.toString().trim() !== ""
+  );
 }
 
 export function BeatsView(props: { beats: TeleprompterBeat[] }) {
@@ -96,10 +120,13 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
           {beats.map((beat, i) => {
             const kind = asBeatKind(beat.kind);
             const Icon = BEAT_KIND_ICONS[kind];
-            // Every beat reads at the script's size, at full strength — this
-            // is glass at arm's length, and anything dimmed or smaller isn't
-            // readable from where you stand.
-            const titleSize = TYPE.fontSize;
+            // Every beat's title reads a step above the script's size, at full
+            // strength — this is glass at arm's length, and anything dimmed
+            // isn't readable from where you stand. The icon gutter and the
+            // description below both take their size from here, so the row
+            // scales as one.
+            const titleSize = TYPE.fontSize * TYPE.beatTitleScale;
+            const descriptionSize = titleSize * TYPE.beatDescriptionScale;
 
             return (
               <div
@@ -113,7 +140,10 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                 // when it has OS focus — which it won't while you're looking at
                 // the Prompter — so there needs to be a way in that doesn't
                 // depend on that.
-                onClick={() => setActiveIndex(i)}
+                onClick={() => {
+                  if (hasSelectedText()) return;
+                  setActiveIndex(i);
+                }}
                 className="mb-6 flex cursor-pointer gap-3"
               >
                 {/* Centred inside a box exactly one line tall, so the icon sits
@@ -149,12 +179,12 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
                       style={{
                         ...base,
                         textAlign: "left",
-                        fontSize: `${TYPE.fontSize}px`,
-                        // A step back from the title rather than a dimmer copy
-                        // of it: the description is context, not the line you
-                        // read off the glass.
+                        fontSize: `${descriptionSize}px`,
+                        // A step back from the title in size and in colour: the
+                        // description is context, not the line you read off the
+                        // glass.
                         color: "var(--color-neutral-400)",
-                        marginTop: TYPE.fontSize * 0.2,
+                        marginTop: descriptionSize * 0.2,
                       }}
                     >
                       <LinkedText>{beat.description}</LinkedText>

@@ -51,10 +51,8 @@ export function useSnapshotStepShortcut(opts: {
       const outcome = await stepper.step(direction);
       if (outcome.kind === "unavailable") {
         toast.error("Failed to load snapshots");
-      } else if (outcome.kind === "at-end") {
-        toast.info(
-          direction === "older" ? "No older snapshot" : "No newer snapshot"
-        );
+      } else if (outcome.kind === "nowhere-to-go") {
+        toast.info("No other snapshot to step to");
       }
     }
 

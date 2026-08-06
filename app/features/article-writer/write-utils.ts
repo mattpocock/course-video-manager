@@ -63,7 +63,6 @@ export const saveRecentMode = (mode: Mode): void => {
     // ignore
   }
 };
-export const MODEL_STORAGE_KEY = "article-writer-model";
 export const COURSE_STRUCTURE_STORAGE_KEY =
   "article-writer-include-course-structure";
 export const MEMORY_ENABLED_STORAGE_KEY = "article-writer-memory-enabled";

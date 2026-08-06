@@ -2,7 +2,6 @@
 
 import type {
   Mode,
-  Model,
   DocumentAgentMessage,
   WriterContext,
   WriterView,
@@ -20,7 +19,7 @@ import { useRemoveDocumentBlock } from "./use-remove-document-block";
 import { useLint, useLintFix } from "@/hooks/use-lint";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 import { useMessageQueue } from "./use-message-queue";
-import { MODEL_STORAGE_KEY, partsToText } from "./write-utils";
+import { partsToText } from "./write-utils";
 import { hasUnresolvedScreenshots } from "./choose-screenshot-mutations";
 import { ChooseScreenshotProvider } from "./choose-screenshot-md";
 import { useChooseScreenshotBlocks } from "./use-choose-screenshot-blocks";
@@ -95,18 +94,6 @@ export function WriterEngine({
     modes[0] ?? "article"
   );
   const [mode, setMode] = useState<Mode>(constrainedMode);
-  const [model, setModelState] = useState<Model>(() =>
-    typeof localStorage !== "undefined"
-      ? (localStorage.getItem(MODEL_STORAGE_KEY) as Model) || "auto"
-      : "auto"
-  );
-  const setModel = useCallback((m: Model) => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(MODEL_STORAGE_KEY, m);
-    }
-    setModelState(m);
-  }, []);
-
   const ctxModel = useContextModel(context, pageFields);
   useMemoryAutosave(ctxModel.memoryText, context.repoId);
 
@@ -228,7 +215,6 @@ export function WriterEngine({
       .map((f) => ({ label: f.label, value: f.value }));
     const base = {
       enabledFiles: Array.from(ctxModel.enabledFiles),
-      model,
       includeTranscript: transcriptEnabled,
       enabledSections: Array.from(ctxModel.enabledSections),
       courseStructure:
@@ -260,7 +246,6 @@ export function WriterEngine({
     ctxModel.enabledFiles,
     ctxModel.enabledFields,
     pageFields,
-    model,
     ctxModel.includeCourseStructure,
     courseStructure,
     ctxModel.memoryEnabled,
@@ -366,7 +351,6 @@ export function WriterEngine({
   const toolbarProps: WriteToolbarProps = useMemo(
     () => ({
       mode,
-      model,
       status,
       isCopied,
       messagesLength: messages.length,
@@ -379,7 +363,6 @@ export function WriterEngine({
       writeToReadmeFetcherState: "idle" as const,
       hasUnresolvedScreenshots: hasUnresolvedScreenshots(document ?? ""),
       onModeChange: handleModeChange,
-      onModelChange: (m: Model) => setModel(m),
       onCopyToClipboard: () => {
         const text = isDocumentMode
           ? (document ?? "")
@@ -399,7 +382,6 @@ export function WriterEngine({
     }),
     [
       mode,
-      model,
       status,
       isCopied,
       messages.length,
@@ -503,8 +485,6 @@ export function WriterEngine({
         {/* Settings overlay */}
         {view === "settings" && (
           <SettingsView
-            model={model}
-            onModelChange={(m) => setModel(m as Model)}
             banned={bannedPhrases.map((p) => p.readable)}
             onAddPhrase={(s) => addBannedPhrase(s, s, false)}
             onRemovePhrase={removeBannedPhrase}

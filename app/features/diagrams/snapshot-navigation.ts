@@ -1,5 +1,5 @@
 /**
- * Stepping through a Diagram's timeline with Ctrl-[ (older) and Ctrl-] (newer).
+ * Stepping around a Diagram's timeline with Ctrl-[ (older) and Ctrl-] (newer).
  *
  * The timeline has no cursor of its own. "Where am I?" is derived from the
  * head's content hash, because **Restore to Head** copies a snapshot's scene
@@ -80,8 +80,20 @@ function distinctStops(snapshots: readonly Snapshot[]): Snapshot[] {
 }
 
 /**
- * The snapshot one step older/newer than the current head, or `null` at the
- * ends of the timeline.
+ * The snapshot one step older/newer than the current head, or `null` when the
+ * timeline holds nowhere else to go.
+ *
+ * The timeline is a ring: stepping past the newest stop comes back on the
+ * oldest and vice versa. Histories are short and walked repeatedly, so an end
+ * that stops dead — and toasts to say so — just means reversing the chord all
+ * the way back to reach the other side.
+ *
+ * `null` is therefore only for a timeline with no other place to stand: no
+ * snapshots at all, or a single stop the head is already on, where wrapping
+ * would restore the canvas onto itself.
+ *
+ * Stops holding the head's own content are stepped over rather than landed on,
+ * for the reason `distinctStops` collapses adjacent ones — see below.
  *
  * @param snapshots Oldest first, as `/api/diagrams/:id/snapshots/list` returns.
  * @param headContentHash The head's hash; `null` when the diagram has no head.
@@ -99,6 +111,7 @@ export function snapshotAtStep(
   lastVisitedId: string | null
 ): Snapshot | null {
   const stops = distinctStops(snapshots);
+  if (stops.length === 0) return null;
 
   let index = -1;
   if (lastVisitedId) {
@@ -112,9 +125,29 @@ export function snapshotAtStep(
   }
   // Unrecognised head: there are edits that live nowhere on the timeline, so
   // the author is standing just past its newest entry. One step back therefore
-  // lands ON the newest snapshot rather than skipping it, and there is nothing
-  // newer to step to.
+  // lands ON the newest snapshot rather than skipping it, and one step forward
+  // is already off the end — so it wraps to the oldest, like the newest stop
+  // itself does.
   if (index === -1) index = stops.length;
 
-  return stops[step === "older" ? index - 1 : index + 1] ?? null;
+  const direction = step === "older" ? -1 : 1;
+  let target = index + direction;
+  // One lap at most. The head's own stop is always the last candidate, so a
+  // ring holding nothing but the head's content runs out here.
+  for (let tried = 0; tried < stops.length; tried++) {
+    // Clamped rather than `%`: the unsaved place sits at `stops.length`, so a
+    // forward step from it reaches one *past* the end, which modulo would land
+    // on the second-oldest stop instead of the oldest.
+    if (target < 0) target = stops.length - 1;
+    else if (target >= stops.length) target = 0;
+
+    // Restoring content the head already holds leaves the canvas exactly as it
+    // is, so the chord reads as dead. That is `distinctStops`' rule applied to
+    // copies that are *not* adjacent: the head's hash cannot say which of them
+    // the author is looking at, so a wrap can otherwise aim straight at the
+    // copy they are already standing on.
+    if (stops[target]!.contentHash !== headContentHash) return stops[target]!;
+    target += direction;
+  }
+  return null;
 }

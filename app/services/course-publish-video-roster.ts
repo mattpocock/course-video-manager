@@ -8,6 +8,16 @@ import {
 } from "./export-hash";
 import { VersionOperationsService } from "./db-version-operations.server";
 
+// The summed source span of a Video's Clips. Shorter than the exported file,
+// which also carries FINAL_VIDEO_PADDING and a pause per `long` Clip.
+const clipsDurationSeconds = (
+  clips: ReadonlyArray<{ sourceStartTime: number; sourceEndTime: number }>
+): number =>
+  clips.reduce(
+    (total, clip) => total + (clip.sourceEndTime - clip.sourceStartTime),
+    0
+  );
+
 /**
  * The shared walk behind batchExport and publish: which Videos a Course
  * Version ships under the given to-do toggle, titled
@@ -21,7 +31,8 @@ import { VersionOperationsService } from "./db-version-operations.server";
  *   per-Video tasks are drawn from this, because a Video a previous run already
  *   encoded still has to be uploaded.
  * - `unexportedVideos` — the subset with no export file on disk yet, which is
- *   what the export pool actually has work for.
+ *   what the export pool actually has work for. Ordered longest Video first,
+ *   because this is where that queue is built.
  *
  * Same walk and same titles either way, so a Video's export task and its upload
  * task are one task.
@@ -44,7 +55,11 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
   );
 
   const shippingVideos: Array<{ id: string; title: string }> = [];
-  const unexportedVideos: Array<{ id: string; title: string }> = [];
+  const unexportedVideos: Array<{
+    id: string;
+    title: string;
+    durationSeconds: number;
+  }> = [];
 
   for (const section of effectiveSections) {
     for (const lesson of section.lessons) {
@@ -66,10 +81,24 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
           courseId,
           hash
         );
-        if (!(yield* effectFs.exists(filePath))) unexportedVideos.push(entry);
+        if (!(yield* effectFs.exists(filePath)))
+          unexportedVideos.push({
+            ...entry,
+            durationSeconds: clipsDurationSeconds(video.clips),
+          });
       }
     }
   }
+
+  // The queue's running order: longest Video first. The export loop runs
+  // MAX_CONCURRENT_EXPORTS at a time, so whichever Videos start last decide
+  // when the whole run finishes — starting the longest first keeps a slow Video
+  // from being picked up at the end and stretching the tail on its own.
+  // `durationSeconds` is a proxy: it omits the padding ffmpeg adds, which can
+  // flip two Videos of near-equal length. That costs nothing, since near-equal
+  // Videos are interchangeable here. Exact ties keep the walk order
+  // (section → lesson → title), as sort is stable.
+  unexportedVideos.sort((a, b) => b.durationSeconds - a.durationSeconds);
 
   return { courseId, shippingVideos, unexportedVideos };
 });

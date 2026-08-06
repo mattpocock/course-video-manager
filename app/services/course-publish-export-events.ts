@@ -75,6 +75,10 @@ export const extractErrorMessage = (e: unknown, fallback: string): string =>
 // export with its ffmpeg stage wiring, retry twice per Video, emit
 // `complete`/`error` per Video, and return the ids that still failed.
 //
+// The queue runs in the order it is handed over — announced, queued, and
+// started front to back — so the caller that builds the list decides which
+// Videos begin first.
+//
 // `onVideoSettled` is the HANDOFF out of the export pool: it fires once a
 // Video's export has finally succeeded or failed, and is what lets a
 // downstream pool (the Dropbox upload pool) start on that one Video while its
