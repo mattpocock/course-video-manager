@@ -4,11 +4,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { AUTOFILL_OWNED_WARNING_KINDS } from "@/services/video-warnings";
+import { autofillFieldClearing } from "@/services/video-warnings";
 import { LESSON_WARNING_LABELS } from "@/features/course-view/lesson-warning-labels";
 import { VIDEO_WARNING_LABELS } from "@/features/course-view/video-warning-labels";
+import { autofillVideoKey } from "@/services/autofill-candidates";
 import type { CourseViewLint } from "@/services/lesson-warnings";
-import type { AutofillSkipReason } from "@/services/autofill-candidates";
+import type {
+  AutofillCandidate,
+  AutofillSkipReason,
+} from "@/services/autofill-candidates";
 import type {
   IncompleteVideo,
   InvalidLessonCombo,
@@ -28,19 +32,39 @@ export interface PublishBlockerLists {
  * — a missing **Body**, an invalid Lesson role combo — stay in plain sight.
  * Nothing is hidden: every blocker is still listed, and all of them still
  * refuse a release.
+ *
+ * Clearability is read off the **Autofill Candidates** themselves rather than
+ * re-derived from the warning kind, because the two can differ: a Video with
+ * no **Body** raises `missingDescription` and a Video with untranscribed
+ * **Clips** raises `missingChapters`, yet the run touches neither. Deriving it
+ * a second way here would let the accordion promise work the run will not do —
+ * the one rule, in one place, that `selectAutofillCandidates` exists to be.
  */
 export const splitAutofillClearable = (
-  lists: PublishBlockerLists
+  lists: PublishBlockerLists,
+  candidates: readonly AutofillCandidate[]
 ): { clearable: PublishBlockerLists; mine: PublishBlockerLists } => {
-  const clearableLint = (lint: CourseViewLint) =>
-    lint.scope === "video" &&
-    (AUTOFILL_OWNED_WARNING_KINDS as readonly string[]).includes(lint.kind);
+  const fieldsByVideo = new Map(
+    candidates.map((candidate) => [candidate.title, candidate.fields])
+  );
+  const willWrite = (
+    video: { sectionPath: string; lessonPath: string; videoTitle: string },
+    field: "description" | "chapters"
+  ) => !!fieldsByVideo.get(autofillVideoKey(video))?.includes(field);
 
-  // A Video missing only its description is one press away. One missing its
-  // Body or its Clips is not, and a Video missing both is Matt's.
+  const clearableLint = (lint: CourseViewLint) => {
+    if (lint.scope !== "video") return false;
+    const field = autofillFieldClearing(lint.kind);
+    return field !== undefined && willWrite(lint, field);
+  };
+
+  // A Video missing only its description is one press away — but only if the
+  // run will actually write it. One missing its Body or its Clips is not, and
+  // a Video missing both is Matt's.
   const clearableVideo = (video: IncompleteVideo) =>
     video.missing.length > 0 &&
-    video.missing.every((field) => field === "description");
+    video.missing.every((field) => field === "description") &&
+    willWrite(video, "description");
 
   return {
     clearable: {
@@ -88,8 +112,14 @@ function BlockerPanel({
  * each one can be found and fixed — with the ones the **Autofill** would clear
  * folded away, so what stays in plain sight is the work only Matt can do.
  */
-export function PublishBlockers({ lists }: { lists: PublishBlockerLists }) {
-  const { clearable, mine } = splitAutofillClearable(lists);
+export function PublishBlockers({
+  lists,
+  candidates,
+}: {
+  lists: PublishBlockerLists;
+  candidates: readonly AutofillCandidate[];
+}) {
+  const { clearable, mine } = splitAutofillClearable(lists, candidates);
   const clearableCount = countBlockers(clearable);
 
   return (

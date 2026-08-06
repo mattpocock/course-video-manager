@@ -25,9 +25,15 @@ export const loader = makeLoader({
       const abortController = new AbortController();
       const encoder = new TextEncoder();
 
+      // Aborting on cancel does not stop the in-flight Chapter callbacks
+      // synchronously, so a disconnect leaves sends racing a closed
+      // controller — which throws. Nothing may be enqueued once it is shut.
+      let closed = false;
+
       const stream = new ReadableStream<Uint8Array>({
         async start(controller) {
           const send = (event: string, payload: unknown) => {
+            if (closed) return;
             controller.enqueue(
               encoder.encode(
                 `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`
@@ -64,9 +70,10 @@ export const loader = makeLoader({
                   : "Unknown error",
             });
           }
-          controller.close();
+          if (!closed) controller.close();
         },
         cancel() {
+          closed = true;
           abortController.abort();
         },
       });

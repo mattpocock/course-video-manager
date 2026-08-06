@@ -3,8 +3,8 @@ import {
   TextGenerationError,
   TextGenerationService,
   type AutofillChapterProposal,
-  type AutofillChaptersInput,
-  type AutofillDescriptionInput,
+  type AutofillChaptersRequest,
+  type AutofillDescriptionRequest,
 } from "@/services/text-generation-service";
 
 /** How the fake answers one call for one field. */
@@ -37,10 +37,10 @@ export const createFakeTextGeneration = (opts?: {
   /** Keyed by the marker the test plants in the Video's body / first clip. */
   readonly descriptionOutcomes?: Record<string, FakeTextGenerationOutcome>;
   readonly chapterOutcomes?: Record<string, FakeTextGenerationOutcome>;
-  readonly describe?: (input: AutofillDescriptionInput) => string;
+  readonly describe?: (input: AutofillDescriptionRequest) => string;
 }) => {
-  const descriptionCalls: AutofillDescriptionInput[] = [];
-  const chapterCalls: AutofillChaptersInput[] = [];
+  const descriptionCalls: AutofillDescriptionRequest[] = [];
+  const chapterCalls: AutofillChaptersRequest[] = [];
   const attempts = { description: 0, chapters: 0 };
 
   const rateLimited = new Map<string, number>();
@@ -91,7 +91,7 @@ export const createFakeTextGeneration = (opts?: {
   // the same Effect value: bookkeeping done while BUILDING it would count one
   // call and replay one verdict forever, and a rate limit would never clear.
   const layer = Layer.succeed(TextGenerationService, {
-    autofillDescription: (input: AutofillDescriptionInput) =>
+    autofillDescription: (input: AutofillDescriptionRequest) =>
       Effect.suspend(() => {
         descriptionCalls.push(input);
         attempts.description += 1;
@@ -105,7 +105,7 @@ export const createFakeTextGeneration = (opts?: {
         );
       }),
 
-    autofillChapters: (input: AutofillChaptersInput) =>
+    autofillChapters: (input: AutofillChaptersRequest) =>
       Effect.suspend(() => {
         chapterCalls.push(input);
         attempts.chapters += 1;

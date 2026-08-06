@@ -3,6 +3,10 @@ import {
   splitAutofillClearable,
   type PublishBlockerLists,
 } from "./publish-blockers";
+import type { AutofillCandidate } from "@/services/autofill-candidates";
+
+const SECTION = "01-intro";
+const LESSON = "01.01-welcome";
 
 const lists = (
   overrides: Partial<PublishBlockerLists> = {}
@@ -14,24 +18,37 @@ const lists = (
 });
 
 const videoLint = (
-  kind: "missingChapters" | "missingDescription" | "missingBody"
+  kind: "missingChapters" | "missingDescription" | "missingBody",
+  videoTitle = "Explainer"
 ) => ({
   scope: "video" as const,
-  sectionPath: "01-intro",
-  lessonPath: "01.01-welcome",
-  videoTitle: "Explainer",
+  sectionPath: SECTION,
+  lessonPath: LESSON,
+  videoTitle,
   kind,
 });
 
+/** A Video the Autofill will act on, named the way the run names it. */
+const candidate = (
+  fields: AutofillCandidate["fields"],
+  videoTitle = "Explainer",
+  lessonPath = LESSON
+): AutofillCandidate => ({
+  videoId: `${lessonPath}/${videoTitle}`,
+  title: `${SECTION}/${lessonPath}/${videoTitle}`,
+  fields,
+});
+
 describe("grouping the publish page's blockers", () => {
-  it("folds away the two signals the Autofill owns", () => {
+  it("folds away the two signals the Autofill will write", () => {
     const { clearable, mine } = splitAutofillClearable(
       lists({
         courseViewLints: [
           videoLint("missingChapters"),
           videoLint("missingDescription"),
         ],
-      })
+      }),
+      [candidate(["description", "chapters"])]
     );
 
     expect(clearable.courseViewLints).toHaveLength(2);
@@ -45,19 +62,20 @@ describe("grouping the publish page's blockers", () => {
           videoLint("missingBody"),
           {
             scope: "lesson",
-            sectionPath: "01-intro",
-            lessonPath: "01.01-welcome",
+            sectionPath: SECTION,
+            lessonPath: LESSON,
             kind: "duplicateRoles",
           },
         ],
         invalidLessonCombos: [
           {
-            sectionPath: "01-intro",
-            lessonPath: "01.01-welcome",
+            sectionPath: SECTION,
+            lessonPath: LESSON,
             videoTitles: ["Explainer", "Problem"],
           },
         ],
-      })
+      }),
+      []
     );
 
     expect(clearable.courseViewLints).toHaveLength(0);
@@ -66,30 +84,81 @@ describe("grouping the publish page's blockers", () => {
     expect(mine.invalidLessonCombos).toHaveLength(1);
   });
 
-  it("only folds away an incomplete Video whose one gap is its description", () => {
+  // The accordion is a promise that one press clears what is inside it, so it
+  // must be read off the candidates themselves. A Video can raise both signals
+  // and still be no candidate at all — and then the press does nothing for it.
+  it("keeps a Video with no Body in plain sight, though it raises both signals", () => {
+    const { clearable, mine } = splitAutofillClearable(
+      lists({
+        courseViewLints: [
+          videoLint("missingBody"),
+          videoLint("missingDescription"),
+          videoLint("missingChapters"),
+        ],
+        incompleteVideos: [
+          {
+            sectionPath: SECTION,
+            lessonPath: LESSON,
+            videoTitle: "Explainer",
+            missing: ["description"],
+          },
+        ],
+      }),
+      // No Body means no candidate at all — the run skips this Video entirely.
+      []
+    );
+
+    expect(clearable.courseViewLints).toHaveLength(0);
+    expect(clearable.incompleteVideos).toHaveLength(0);
+    expect(mine.courseViewLints).toHaveLength(3);
+    expect(mine.incompleteVideos).toHaveLength(1);
+  });
+
+  it("folds away only the field the run will write for a partly-ready Video", () => {
+    const { clearable, mine } = splitAutofillClearable(
+      lists({
+        courseViewLints: [
+          videoLint("missingDescription"),
+          videoLint("missingChapters"),
+        ],
+      }),
+      // Untranscribed Clips: the description is written, the Chapters are not.
+      [candidate(["description"])]
+    );
+
+    expect(clearable.courseViewLints.map((l) => l.kind)).toEqual([
+      "missingDescription",
+    ]);
+    expect(mine.courseViewLints.map((l) => l.kind)).toEqual([
+      "missingChapters",
+    ]);
+  });
+
+  it("only folds away an incomplete Video whose one gap the run will fill", () => {
     const { clearable, mine } = splitAutofillClearable(
       lists({
         incompleteVideos: [
           {
-            sectionPath: "01-intro",
-            lessonPath: "01.01-welcome",
+            sectionPath: SECTION,
+            lessonPath: LESSON,
             videoTitle: "One press away",
             missing: ["description"],
           },
           {
-            sectionPath: "01-intro",
+            sectionPath: SECTION,
             lessonPath: "01.02-next",
             videoTitle: "Needs a body too",
             missing: ["body", "description"],
           },
           {
-            sectionPath: "01-intro",
+            sectionPath: SECTION,
             lessonPath: "01.03-later",
             videoTitle: "Not even filmed",
             missing: ["clips"],
           },
         ],
-      })
+      }),
+      [candidate(["description"], "One press away")]
     );
 
     expect(clearable.incompleteVideos.map((v) => v.videoTitle)).toEqual([
@@ -101,26 +170,46 @@ describe("grouping the publish page's blockers", () => {
     ]);
   });
 
+  it("does not let one Video's candidacy fold away another's blocker", () => {
+    const titles = (lints: PublishBlockerLists["courseViewLints"]) =>
+      lints.map((lint) => (lint.scope === "video" ? lint.videoTitle : "—"));
+
+    const { clearable, mine } = splitAutofillClearable(
+      lists({
+        courseViewLints: [
+          videoLint("missingDescription", "Explainer"),
+          videoLint("missingDescription", "Problem"),
+        ],
+      }),
+      [candidate(["description"], "Explainer")]
+    );
+
+    expect(titles(clearable.courseViewLints)).toEqual(["Explainer"]);
+    expect(titles(mine.courseViewLints)).toEqual(["Problem"]);
+  });
+
   it("loses no blocker: every one is still listed somewhere", () => {
     const all = lists({
       courseViewLints: [videoLint("missingChapters"), videoLint("missingBody")],
       incompleteVideos: [
         {
-          sectionPath: "01-intro",
-          lessonPath: "01.01-welcome",
+          sectionPath: SECTION,
+          lessonPath: LESSON,
           videoTitle: "Explainer",
           missing: ["description"],
         },
       ],
       invalidLessonCombos: [
         {
-          sectionPath: "01-intro",
+          sectionPath: SECTION,
           lessonPath: "01.02-next",
           videoTitles: ["Explainer", "Problem"],
         },
       ],
     });
-    const { clearable, mine } = splitAutofillClearable(all);
+    const { clearable, mine } = splitAutofillClearable(all, [
+      candidate(["description", "chapters"]),
+    ]);
 
     const count = (l: PublishBlockerLists) =>
       l.courseViewLints.length +

@@ -45,7 +45,7 @@ export function EditorSidePanel(props: {
   }) => void;
   onEditReferenceChapterName: (chapterId: string, name: string) => void;
   onDeleteReferenceChapter: (chapterId: string) => void;
-  onGenerateReferenceChapters: () => void;
+  onAutofillReferenceChapters: () => void;
 }) {
   return (
     <div className="border rounded-lg bg-muted/30 flex flex-col min-h-0 h-full">
@@ -115,7 +115,7 @@ export function EditorSidePanel(props: {
           onAddChapterAt={props.onAddReferenceChapterAt}
           onEditChapterName={props.onEditReferenceChapterName}
           onDeleteChapter={props.onDeleteReferenceChapter}
-          onAutofillChapters={props.onGenerateReferenceChapters}
+          onAutofillChapters={props.onAutofillReferenceChapters}
         />
       ) : null}
     </div>

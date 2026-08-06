@@ -125,10 +125,11 @@ const makeAutofillService = (
           );
         }
         if (input.chapters !== null) {
+          const chapters = input.chapters;
           yield* Effect.promise(() =>
             replaceVideoChapters(tx, {
               videoId: input.videoId,
-              proposals: input.chapters!,
+              proposals: chapters,
             })
           );
         }
@@ -176,33 +177,30 @@ const makeAutofillService = (
         { concurrency: "unbounded" }
       );
 
+      // TextGeneration is a boundary, so what comes back through it is not
+      // trusted: an id the model invented is refused here rather than written.
+      // A set that validates to nothing is a failure, not an instruction to
+      // archive the Chapters already there.
+      let validChapters: AutofillChapterProposal[] | null = null;
       if (chapters !== null) {
-        // Nothing reviews this output, so an id the model invented is refused
-        // here rather than written. A set that validates to nothing is a
-        // failure, not an instruction to archive the Chapters already there.
         const clipIds = new Set(payload.clips.map((clip) => clip.id));
-        const valid = chapters.filter((chapter) =>
+        validChapters = chapters.filter((chapter) =>
           clipIds.has(chapter.beforeClipId)
         );
-        if (valid.length === 0) {
+        if (validChapters.length === 0) {
           return yield* Effect.fail(
             new Error(
               "the model proposed no Chapter naming a clip of this video"
             )
           );
         }
-        yield* commitVideo({
-          videoId: candidate.videoId,
-          description,
-          chapters: valid,
-        });
-      } else {
-        yield* commitVideo({
-          videoId: candidate.videoId,
-          description,
-          chapters: null,
-        });
       }
+
+      yield* commitVideo({
+        videoId: candidate.videoId,
+        description,
+        chapters: validChapters,
+      });
 
       return {
         videoId: candidate.videoId,

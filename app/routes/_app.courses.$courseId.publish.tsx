@@ -362,6 +362,7 @@ export default function Component(props: Route.ComponentProps) {
             incompleteVideos,
             invalidLessonCombos,
           }}
+          candidates={autofill.candidates}
         />
 
         {/* One button, two labels: "Autofill N Videos" while the Autofill has

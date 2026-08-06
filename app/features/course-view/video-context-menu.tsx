@@ -150,10 +150,6 @@ export function VideoContextMenuItems({
           >
             <Sparkles className="w-4 h-4" />
             Autofill description
-            <MissingContentWarning
-              warnings={video.warnings}
-              kind="missingDescription"
-            />
           </ContextMenuItem>
           {canAutofillChapters && (
             <ContextMenuItem
@@ -166,10 +162,6 @@ export function VideoContextMenuItems({
             >
               <ListTree className="w-4 h-4" />
               Autofill chapters
-              <MissingContentWarning
-                warnings={video.warnings}
-                kind="missingChapters"
-              />
             </ContextMenuItem>
           )}
 

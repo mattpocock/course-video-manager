@@ -29,7 +29,7 @@ export const EditorModals = (props: {
   beatCount: number;
   hasScript: boolean;
   onCreateVideoFromSelection: (title: string, mode: "copy" | "move") => void;
-  /** The AI Chapter-generation modal, owned by useAutofillChaptersModal. */
+  /** The **Autofill chapters** modal, owned by useAutofillChaptersModal. */
   autofillChaptersModal: ReactNode;
 }) => {
   const revalidator = useRevalidator();

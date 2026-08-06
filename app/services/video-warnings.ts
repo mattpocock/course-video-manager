@@ -12,16 +12,36 @@ export type VideoWarningKind =
 export type VideoWarning = { kind: VideoWarningKind };
 
 /**
- * The warnings the **Autofill** owns. They stay exactly as blocking inside
- * **Publish Readiness** — a Video whose Autofill failed still cannot ship —
- * but they are no longer authoring tasks, so the authoring surfaces (the
- * course view, the **Section Workbench**, the video editor) do not nag about
- * them. Only where they are shown changes; what they mean does not.
+ * The warnings the **Autofill** owns, each paired with the field one press
+ * writes to clear it. They stay exactly as blocking inside **Publish
+ * Readiness** — a Video whose Autofill failed still cannot ship — but they are
+ * no longer authoring tasks, so the authoring surfaces (the course view, the
+ * **Section Workbench**, the video editor) do not nag about them. Only where
+ * they are shown changes; what they mean does not.
+ *
+ * The pairing lives here so that "which warnings are the Autofill's" and
+ * "which field clears each" are one fact, read by the authoring filter below
+ * and by the publish page's accordion.
  */
-export const AUTOFILL_OWNED_WARNING_KINDS = [
-  "missingChapters",
-  "missingDescription",
-] as const satisfies readonly VideoWarningKind[];
+export const AUTOFILL_OWNED_WARNINGS = {
+  missingChapters: "chapters",
+  missingDescription: "description",
+} as const satisfies Partial<Record<VideoWarningKind, string>>;
+
+/** The two fields the Autofill owns. */
+export type AutofillField =
+  (typeof AUTOFILL_OWNED_WARNINGS)[keyof typeof AUTOFILL_OWNED_WARNINGS];
+
+/**
+ * The field one Autofill press writes to clear this warning, or `undefined`
+ * for the kinds no Autofill can clear.
+ */
+export const autofillFieldClearing = (
+  kind: VideoWarningKind
+): AutofillField | undefined =>
+  (AUTOFILL_OWNED_WARNINGS as Partial<Record<VideoWarningKind, AutofillField>>)[
+    kind
+  ];
 
 /**
  * The subset of a Video's warnings that is still Matt's work. Every other kind
@@ -32,10 +52,7 @@ export const authoringVideoWarnings = (
   warnings: readonly VideoWarning[]
 ): VideoWarning[] =>
   warnings.filter(
-    (warning) =>
-      !(AUTOFILL_OWNED_WARNING_KINDS as readonly VideoWarningKind[]).includes(
-        warning.kind
-      )
+    (warning) => autofillFieldClearing(warning.kind) === undefined
   );
 
 /** Clips and Chapters both sit on the video timeline, ordered by fractional index. */

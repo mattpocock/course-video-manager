@@ -1,13 +1,8 @@
 import { chapters, clips, videos } from "@/db/schema";
 import type { Database } from "@/services/drizzle-service.server";
+import type { AutofillChapterProposal } from "@/services/text-generation-service";
 import { eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
-
-/** A Chapter the model proposed: a title, and the **Clip** it opens on. */
-export type ProposedChapter = {
-  readonly beforeClipId: string;
-  readonly title: string;
-};
 
 export type WrittenChapter = typeof chapters.$inferSelect & {
   beforeClipId: string;
@@ -29,7 +24,7 @@ export type WrittenChapter = typeof chapters.$inferSelect & {
  */
 export const replaceVideoChapters = async (
   db: Database,
-  input: { videoId: string; proposals: readonly ProposedChapter[] }
+  input: { videoId: string; proposals: readonly AutofillChapterProposal[] }
 ): Promise<WrittenChapter[]> => {
   const { videoId } = input;
 

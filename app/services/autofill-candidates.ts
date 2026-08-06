@@ -1,5 +1,5 @@
 import { computeEffectiveSections } from "@/packages/course-json";
-import { computeVideoWarnings } from "./video-warnings";
+import { computeVideoWarnings, type AutofillField } from "./video-warnings";
 
 /**
  * AUTOFILL CANDIDATES — "which Videos has the Autofill got work for?".
@@ -27,8 +27,7 @@ import { computeVideoWarnings } from "./video-warnings";
  * run's list is about work, not about exclusions.
  */
 
-/** The two fields the Autofill owns. */
-export type AutofillField = "description" | "chapters";
+export type { AutofillField };
 
 export type AutofillCandidate = {
   readonly videoId: string;
@@ -87,6 +86,18 @@ export type AutofillSelection = {
 };
 
 /**
+ * The `section/lesson/title` path a Video is known by across the Autofill's
+ * surfaces. The publish page's blocker lists carry those three parts
+ * separately, so this is what lets a blocker be lined up with the candidate
+ * that would clear it — derived the same way in both places, never twice.
+ */
+export const autofillVideoKey = (parts: {
+  readonly sectionPath: string;
+  readonly lessonPath: string;
+  readonly videoTitle: string;
+}): string => `${parts.sectionPath}/${parts.lessonPath}/${parts.videoTitle}`;
+
+/**
  * Walks the effective output — the exact Videos this **Publish** would ship
  * under the given to-do setting — and splits them into what the Autofill will
  * do and what it is leaving behind.
@@ -105,7 +116,11 @@ export const selectAutofillCandidates = (
     for (const lesson of section.lessons) {
       for (const video of lesson.videos) {
         if (video.archived) continue;
-        const title = `${section.path ?? ""}/${lesson.path ?? ""}/${video.title}`;
+        const title = autofillVideoKey({
+          sectionPath: section.path ?? "",
+          lessonPath: lesson.path ?? "",
+          videoTitle: video.title,
+        });
 
         const warnings = computeVideoWarnings({
           clips: [...video.clips],

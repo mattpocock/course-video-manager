@@ -513,7 +513,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           }
           revalidator.revalidate();
         } catch (error) {
-          console.error("Failed to regenerate chapters", error);
+          console.error("Failed to autofill chapters", error);
           throw error;
         }
       }}

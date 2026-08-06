@@ -12,9 +12,14 @@ import type { Route } from "./+types/api.courses.$courseId.autofill-sse";
  * nothing else when it settles, and its failures reach nothing else. The
  * publish pipeline is not touched by this route.
  */
+/**
+ * `includeTodoLessons` is required, not defaulted. It decides which Videos the
+ * run acts on, so a caller that omits it would silently get a wider candidate
+ * set than the button it pressed had counted.
+ */
 const autofillSchema = Schema.Struct({
   versionId: Schema.String,
-  includeTodoLessons: Schema.optional(Schema.Boolean),
+  includeTodoLessons: Schema.Boolean,
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -29,7 +34,7 @@ export const action = async (args: Route.ActionArgs) => {
 
         const result = yield* autofill.autofillCourseVersion({
           versionId: parsed.versionId,
-          includeTodoLessons: parsed.includeTodoLessons ?? true,
+          includeTodoLessons: parsed.includeTodoLessons,
           // The roster, announced before any work starts. Only candidates are
           // named: a Video the Autofill has no work for gets no row.
           onCandidates: (selection) => {

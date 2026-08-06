@@ -1,6 +1,6 @@
 import { Data, Effect } from "effect";
 import { anthropic } from "@ai-sdk/anthropic";
-import { APICallError, generateText, streamObject } from "ai";
+import { APICallError, RetryError, generateText, streamObject } from "ai";
 import { z } from "zod";
 import {
   autofillChaptersSystemPrompt,
@@ -24,7 +24,7 @@ import type { GlobalLink } from "@/prompts/link-instructions";
  * regression. Changing either is a deliberate, separate act.
  */
 export const AUTOFILL_DESCRIPTION_MODEL = "claude-haiku-4-5-20251001";
-export const AUTOFILL_CHAPTERS_MODEL = "claude-sonnet-4-5";
+export const AUTOFILL_CHAPTERS_MODEL = "claude-sonnet-4-5-20250929";
 
 /**
  * Anything the provider refused. `retryable` marks the refusals that say
@@ -39,11 +39,26 @@ export class TextGenerationError extends Data.TaggedError(
   readonly cause?: unknown;
 }> {}
 
+/**
+ * What the provider actually refused with.
+ *
+ * The AI SDK runs its own backoff first, and once that is spent it does NOT
+ * rethrow the provider's error — it wraps it in a `RetryError` carrying the
+ * attempts in `errors`. A rate limit therefore arrives here as a `RetryError`,
+ * never as an `APICallError`, so classifying without unwrapping would mark
+ * every 429 non-retryable and burn the Video's one attempt.
+ */
+const unwrapProviderError = (error: unknown): unknown =>
+  RetryError.isInstance(error)
+    ? (error.lastError ?? error.errors.at(-1) ?? error)
+    : error;
+
 /** A 429 or a 5xx is worth another attempt; a malformed request is not. */
-const isRetryableProviderError = (error: unknown): boolean => {
-  if (!APICallError.isInstance(error)) return false;
-  if (error.isRetryable) return true;
-  const status = error.statusCode;
+export const isRetryableProviderError = (error: unknown): boolean => {
+  const provider = unwrapProviderError(error);
+  if (!APICallError.isInstance(provider)) return false;
+  if (provider.isRetryable) return true;
+  const status = provider.statusCode;
   return status === 429 || (status !== undefined && status >= 500);
 };
 
@@ -74,13 +89,13 @@ const isCompleteProposal = (value: unknown): value is AutofillChapterProposal =>
   typeof (value as AutofillChapterProposal).beforeClipId === "string" &&
   typeof (value as AutofillChapterProposal).title === "string";
 
-export interface AutofillDescriptionInput {
+export interface AutofillDescriptionRequest {
   /** The lesson **Body**. The description is written from this and nothing else. */
   readonly body: string;
   readonly links: readonly GlobalLink[];
 }
 
-export interface AutofillChaptersInput {
+export interface AutofillChaptersRequest {
   readonly clips: ReadonlyArray<{
     readonly id: string;
     readonly order: string;
@@ -102,14 +117,14 @@ export interface AutofillChaptersInput {
 
 export interface TextGeneration {
   readonly autofillDescription: (
-    input: AutofillDescriptionInput
+    input: AutofillDescriptionRequest
   ) => Effect.Effect<string, TextGenerationError>;
   readonly autofillChapters: (
-    input: AutofillChaptersInput
+    input: AutofillChaptersRequest
   ) => Effect.Effect<AutofillChapterProposal[], TextGenerationError>;
 }
 
-const autofillDescription = (input: AutofillDescriptionInput) =>
+const autofillDescription = (input: AutofillDescriptionRequest) =>
   Effect.tryPromise({
     try: () =>
       generateText({
@@ -129,7 +144,7 @@ const autofillDescription = (input: AutofillDescriptionInput) =>
  * is the one thing here nobody reviews, so an id it invented must never reach
  * the timeline.
  */
-const autofillChapters = (input: AutofillChaptersInput) =>
+const autofillChapters = (input: AutofillChaptersRequest) =>
   Effect.tryPromise({
     try: async () => {
       const validIds = new Set(input.clips.map((clip) => clip.id));

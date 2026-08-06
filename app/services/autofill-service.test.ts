@@ -2,7 +2,6 @@ import { describe, expect, it } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect } from "effect";
 import {
-  AUTOFILL_CONCURRENCY,
   AutofillService,
   type AutofillVideoResult,
 } from "@/services/autofill-service";
@@ -12,7 +11,7 @@ import {
   readVideo,
   seedCourseVersion,
   type LessonSpec,
-} from "@/services/autofill-service-test-setup";
+} from "@/test-utils/autofill-service-test-setup";
 import { createFakeTextGeneration } from "@/test-utils/fake-text-generation";
 import {
   createTestDb,
@@ -63,10 +62,6 @@ const runAutofill = async (
 };
 
 describe("AutofillService — candidate rules", () => {
-  it("runs six Videos at a time, from a named constant", () => {
-    expect(AUTOFILL_CONCURRENCY).toBe(6);
-  });
-
   it("is not a candidate at all when the Video has no Body", async () => {
     const { videoIds, result } = await runAutofill([
       { path: "01-no-body", videos: [{ body: null, description: null }] },

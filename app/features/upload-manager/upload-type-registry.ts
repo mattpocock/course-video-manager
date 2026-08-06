@@ -1,4 +1,5 @@
 import type { uploadReducer } from "./upload-reducer";
+import { autofillConfig } from "./upload-type-autofill";
 import { startSSEAiHeroPost } from "./sse-ai-hero-client";
 import { startSSEExport } from "./sse-export-client";
 import { startSSEPublish } from "./sse-publish-client";
@@ -695,8 +696,6 @@ const renderVerticalConfig: UploadTypeConfig<
 
   supportsDependsOn: false,
 };
-
-import { autofillConfig } from "./upload-type-autofill";
 
 export const uploadTypeRegistry: Record<
   uploadReducer.UploadType,

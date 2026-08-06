@@ -206,7 +206,7 @@ export const VideoEditor = (props: {
 
   const {
     openForMain: onOpenAutofillChaptersModal,
-    openForReference: onOpenGenerateForReference,
+    openForReference: onOpenAutofillForReference,
     modal: autofillChaptersModal,
   } = useAutofillChaptersModal({
     mainVideoId: props.videoId,
@@ -623,8 +623,8 @@ export const VideoEditor = (props: {
           onAddReferenceChapterAt={props.onAddReferenceChapterAt}
           onEditReferenceChapterName={props.onEditReferenceChapterName}
           onDeleteReferenceChapter={props.onDeleteReferenceChapter}
-          onGenerateReferenceChapters={() => {
-            if (activeReference) onOpenGenerateForReference(activeReference);
+          onAutofillReferenceChapters={() => {
+            if (activeReference) onOpenAutofillForReference(activeReference);
           }}
         />
       </div>
