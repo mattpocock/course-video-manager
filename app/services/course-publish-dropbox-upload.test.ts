@@ -511,3 +511,131 @@ describe("Dropbox publish upload — transient failures", () => {
     expect(remoteBundleVideoPaths()).toHaveLength(2);
   }, 20_000);
 });
+
+// ── Reuse from the previously Published Bundle ──────────────────────────────
+// A new Course Version means a new Bundle address, so nothing of the previous
+// release is already at the new path. But the Videos themselves are unchanged:
+// same Clips, so the same Export Hash, so the same bytes. Those come from the
+// old Bundle by server-side copy rather than from this machine.
+
+/** Take the current Draft to a frozen Version, so it can be committed. */
+const freezeLatestVersion = (
+  course: { id: string },
+  run: <A, E>(effect: Effect.Effect<A, E, any>) => Promise<A>
+) =>
+  run(
+    Effect.gen(function* () {
+      const versionOps = yield* VersionOperationsService;
+      const latest = yield* versionOps.getLatestCourseVersion(course.id);
+      yield* versionOps.freezeAndCloneVersion({
+        sourceVersionId: latest!.id,
+        repoId: course.id,
+        newVersionName: "",
+        sourceName: "second release",
+        sourceDescription: "",
+      });
+      return latest!.id;
+    })
+  );
+
+const videoUploadCount = () =>
+  fakeDropbox.fetchCalls.filter((call) =>
+    isVideoUploadRequest(call.url, call.init)
+  ).length;
+
+const copyBatchCount = () =>
+  fakeDropbox.fetchCalls.filter((call) =>
+    call.url.includes("/2/files/copy_batch_v2")
+  ).length;
+
+describe("Dropbox publish upload — reuse from the previous Bundle", () => {
+  it("copies an unchanged Video inside Dropbox rather than sending its bytes again", async () => {
+    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+
+    // First release. Every Video is uploaded, and the Commit receipt names
+    // the Bundle they landed in.
+    await sync();
+    const uploadsAfterFirstRelease = videoUploadCount();
+    expect(uploadsAfterFirstRelease).toBe(2);
+    expect(remoteBundleDirs()).toHaveLength(1);
+
+    const secondVersionId = await freezeLatestVersion(course, run);
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        return yield* svc.syncFrozenVersionToDropbox(
+          course.id,
+          secondVersionId,
+          true
+        );
+      })
+    );
+
+    // A second Bundle exists and holds both Videos — but not one further byte
+    // left this machine to put them there.
+    expect(remoteBundleDirs()).toHaveLength(2);
+    expect(remoteBundleVideoPaths()).toHaveLength(4);
+    expect(videoUploadCount()).toBe(uploadsAfterFirstRelease);
+    expect(copyBatchCount()).toBe(1);
+  }, 30_000);
+
+  it("takes the manifest's sha256 and bytes from the previous manifest, reading no file", async () => {
+    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+
+    await sync();
+    const firstManifestVideos = manifestVideos(receiptManifest());
+
+    const secondVersionId = await freezeLatestVersion(course, run);
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        return yield* svc.syncFrozenVersionToDropbox(
+          course.id,
+          secondVersionId,
+          true
+        );
+      })
+    );
+
+    const secondManifestVideos = manifestVideos(receiptManifest());
+    const digestOf = (videos: any[]) =>
+      videos
+        .map((video) => `${video.hash}:${video.sha256}:${video.bytes}`)
+        .sort();
+
+    // Same recipe, same bytes, same numbers — carried across releases rather
+    // than re-derived from a local read.
+    expect(digestOf(secondManifestVideos)).toEqual(
+      digestOf(firstManifestVideos)
+    );
+  }, 30_000);
+
+  it("uploads after all when the previous Bundle's file has gone", async () => {
+    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+
+    await sync();
+    const uploadsAfterFirstRelease = videoUploadCount();
+
+    // Course Builder has archived the Bundle past its 90-day TTL: the receipt
+    // still promises the files, and they are no longer there.
+    for (const key of Array.from(fakeDropbox.files.keys())) {
+      if (key.endsWith(".mp4")) fakeDropbox.files.delete(key);
+    }
+
+    const secondVersionId = await freezeLatestVersion(course, run);
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        return yield* svc.syncFrozenVersionToDropbox(
+          course.id,
+          secondVersionId,
+          true
+        );
+      })
+    );
+
+    // The Publish stands. It just paid for it.
+    expect(videoUploadCount()).toBe(uploadsAfterFirstRelease + 2);
+    expect(remoteBundleVideoPaths()).toHaveLength(2);
+  }, 30_000);
+});

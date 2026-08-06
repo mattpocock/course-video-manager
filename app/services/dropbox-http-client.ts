@@ -434,6 +434,161 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
 );
 
 /**
+ * One file's server-side move within Dropbox. No bytes cross the wire: the
+ * source and destination both live in Dropbox, so the transfer is theirs.
+ */
+export type DropboxCopyEntry = { fromPath: string; toPath: string };
+
+/**
+ * Per-entry, because `copy_batch_v2` reports per entry rather than failing
+ * wholesale. One unreachable source must not send its 89 siblings over the
+ * wire.
+ */
+export type DropboxCopyResult =
+  | { ok: true; toPath: string; metadata: DropboxFileMetadata }
+  | { ok: false; toPath: string; message: string };
+
+/** Dropbox's documented ceiling for a batch route. */
+const COPY_BATCH_MAX_ENTRIES = 1000;
+
+const POLL_INITIAL_MS = 1_000;
+const POLL_CEILING_MS = 10_000;
+/** How often a still-running job says so, so a long copy is never silent. */
+const POLL_REPORT_INTERVAL_MS = 30_000;
+
+type RawCopyEntry =
+  | { ".tag": "success"; success: DropboxFileMetadata }
+  | { ".tag": "failure"; failure: unknown };
+
+type RawBatchResponse =
+  | { ".tag": "complete"; entries: RawCopyEntry[] }
+  | { ".tag": "async_job_id"; async_job_id: string }
+  | { ".tag": "in_progress" }
+  | { ".tag": "other" };
+
+const postJson = Effect.fn("dropboxPostJson")(function* (opts: {
+  accessToken: string;
+  endpoint: string;
+  body: unknown;
+}) {
+  const response = yield* fetchWithRetry(
+    `https://api.dropboxapi.com/2/${opts.endpoint}`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(opts.accessToken),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(opts.body),
+    },
+    opts.endpoint
+  );
+  return yield* Effect.tryPromise({
+    try: () => response.json() as Promise<RawBatchResponse>,
+    catch: (e) =>
+      new DropboxApiError({
+        message: `Failed to parse ${opts.endpoint} response: ${e}`,
+        endpoint: opts.endpoint,
+      }),
+  });
+});
+
+const readBatchEntries = (
+  entries: RawCopyEntry[],
+  chunk: DropboxCopyEntry[]
+): DropboxCopyResult[] =>
+  chunk.map((entry, index) => {
+    const result = entries[index];
+    if (result?.[".tag"] === "success") {
+      return { ok: true, toPath: entry.toPath, metadata: result.success };
+    }
+    return {
+      ok: false,
+      toPath: entry.toPath,
+      message:
+        result === undefined
+          ? "Dropbox returned no result for this entry"
+          : `Copy failed: ${JSON.stringify(result.failure)}`,
+    };
+  });
+
+/**
+ * Copy files inside Dropbox, in as few calls as the entry ceiling allows.
+ *
+ * The route is asynchronous even for a single entry — verified against the
+ * live API — so polling is unconditional rather than a fallback. Waits grow
+ * from one second to a ten-second ceiling, which keeps a short job responsive
+ * without hammering a long one.
+ *
+ * Missing destination folders are NOT this caller's problem: Dropbox creates
+ * the intermediate parents itself, also verified live, so a bundle's whole
+ * section/lesson tree materialises from the copy alone.
+ */
+export const copyBatch = Effect.fn("dropboxCopyBatch")(function* (opts: {
+  accessToken: string;
+  entries: DropboxCopyEntry[];
+  /** Fires while a job is still running, so a slow copy stays observable. */
+  onStillRunning?: (elapsedMs: number) => void;
+}) {
+  const results: DropboxCopyResult[] = [];
+
+  for (
+    let start = 0;
+    start < opts.entries.length;
+    start += COPY_BATCH_MAX_ENTRIES
+  ) {
+    const chunk = opts.entries.slice(start, start + COPY_BATCH_MAX_ENTRIES);
+
+    let response = yield* postJson({
+      accessToken: opts.accessToken,
+      endpoint: "files/copy_batch_v2",
+      body: {
+        entries: chunk.map((entry) => ({
+          from_path: entry.fromPath,
+          to_path: entry.toPath,
+        })),
+        autorename: false,
+      },
+    });
+
+    if (response[".tag"] === "async_job_id") {
+      const jobId = response.async_job_id;
+      let waitMs = POLL_INITIAL_MS;
+      let elapsedMs = 0;
+      let nextReportMs = POLL_REPORT_INTERVAL_MS;
+
+      while (true) {
+        yield* Effect.sleep(Duration.millis(waitMs));
+        elapsedMs += waitMs;
+        waitMs = Math.min(waitMs * 2, POLL_CEILING_MS);
+
+        response = yield* postJson({
+          accessToken: opts.accessToken,
+          endpoint: "files/copy_batch/check_v2",
+          body: { async_job_id: jobId },
+        });
+        if (response[".tag"] !== "in_progress") break;
+
+        if (elapsedMs >= nextReportMs) {
+          opts.onStillRunning?.(elapsedMs);
+          nextReportMs += POLL_REPORT_INTERVAL_MS;
+        }
+      }
+    }
+
+    if (response[".tag"] !== "complete") {
+      return yield* new DropboxApiError({
+        message: `copy_batch_v2 ended as "${response[".tag"]}"`,
+        endpoint: "files/copy_batch_v2",
+      });
+    }
+    results.push(...readBatchEntries(response.entries, chunk));
+  }
+
+  return results;
+});
+
+/**
  * Download a file's content.
  */
 export const download = Effect.fn("dropboxDownload")(function* (opts: {

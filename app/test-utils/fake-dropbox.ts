@@ -29,6 +29,7 @@ type InjectedFailure = {
 export const createFakeDropbox = () => {
   const files = new Map<string, StoredFile>();
   const sessions = new Map<string, { chunks: Buffer[] }>();
+  const copyJobs = new Map<string, unknown[]>();
   const fetchCalls: Array<{ url: string; init: RequestInit }> = [];
   let sessionCounter = 0;
 
@@ -224,6 +225,42 @@ export const createFakeDropbox = () => {
       store(apiArg.commit.path, fullContent);
       return new Response(
         JSON.stringify(fileMetadata(get(apiArg.commit.path)!))
+      );
+    }
+
+    // Copy batch — always answered asynchronously, exactly as the real route
+    // behaves even for a single entry. The copy itself happens server-side
+    // here too: no request body ever carries the bytes.
+    if (urlStr.includes("/2/files/copy_batch_v2")) {
+      const body = JSON.parse(reqInit.body as string);
+      const entries = (body.entries as Array<any>).map((entry) => {
+        const source = get(entry.from_path);
+        if (!source) {
+          return {
+            ".tag": "failure",
+            failure: { ".tag": "relocation_error", reason: "not_found" },
+          };
+        }
+        store(entry.to_path, source.content);
+        return {
+          ".tag": "success",
+          success: fileMetadata(get(entry.to_path)!),
+        };
+      });
+      const jobId = `copy-job-${++sessionCounter}`;
+      copyJobs.set(jobId, entries);
+      return new Response(
+        JSON.stringify({ ".tag": "async_job_id", async_job_id: jobId })
+      );
+    }
+
+    if (urlStr.includes("/2/files/copy_batch/check_v2")) {
+      const body = JSON.parse(reqInit.body as string);
+      return new Response(
+        JSON.stringify({
+          ".tag": "complete",
+          entries: copyJobs.get(body.async_job_id) ?? [],
+        })
       );
     }
 

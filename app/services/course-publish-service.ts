@@ -13,6 +13,7 @@ import {
   toExportClips,
 } from "./export-hash";
 import { garbageCollect } from "./export-hash.server";
+import { digestNewExport } from "./export-sha256-sidecar";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import { resolveVideoFormat } from "@/features/videos/video-format";
 import { DoesNotExistOnDbError } from "./publish-to-dropbox";
@@ -25,8 +26,11 @@ import {
 } from "./course-publish-errors";
 import {
   noExportPhase,
+  resolveDropboxCourseDir,
   syncFrozenCourseVersionToDropbox,
 } from "./course-publish-dropbox";
+import { EMPTY_REUSE_PLAN, planBundleReuse } from "./course-publish-reuse-plan";
+import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 import {
   runObservedExportLoop,
   type EmitPublishDetailEvent,
@@ -186,6 +190,12 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           `${videoId}.mp4`
         );
         yield* effectFs.rename(videoIdPath, targetPath);
+
+        // Digest it now, while it is the newest thing on the disk. A later
+        // Publish that copies this Video inside Dropbox rather than uploading
+        // it never streams the bytes, so this is the only moment they are
+        // guaranteed to pass through our hands.
+        yield* digestNewExport(effectFs, targetPath);
 
         return { targetPath, owner };
       });
@@ -348,9 +358,34 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // Export Hash is untouched by Submit: the clone copies Clip
         // filenames, source timings and order verbatim and never mutates the
         // source rows, so this walk sees exactly what validation saw.
-        const { unexportedVideos, shippingVideos } = yield* findShippingVideos(
-          latestVersion.id,
-          includeTodoLessons
+        const {
+          unexportedVideos: rosterUnexportedVideos,
+          shippingVideos,
+          courseName: dropboxCourseName,
+        } = yield* findShippingVideos(latestVersion.id, includeTodoLessons);
+
+        // ── The reuse plan, drawn before the GPU is touched ─────────────────
+        // A Video the previously Published Bundle already holds is copied
+        // inside Dropbox, so it needs neither an upload nor an ENCODE. Drawing
+        // the plan here — rather than inside the commit, where the copying
+        // happens — is what lets it cancel work in the export pool.
+        //
+        // Any failure at all yields an empty plan. Reuse is an optimisation,
+        // and a Publish must never fail because the optimisation could not be
+        // worked out.
+        const reusePlan = yield* Effect.gen(function* () {
+          const accessToken = yield* getValidDropboxAccessToken;
+          const dropboxCourseDir =
+            yield* resolveDropboxCourseDir(dropboxCourseName);
+          return yield* planBundleReuse({ accessToken, dropboxCourseDir });
+        }).pipe(Effect.catchAll(() => Effect.succeed(EMPTY_REUSE_PLAN)));
+
+        // Videos whose bytes Dropbox can produce on its own never enter the
+        // export queue. This is the case that hurts most today: a re-Publish
+        // after the garbage collector has reclaimed an export currently
+        // re-encodes the whole Video only to upload bytes Dropbox already had.
+        const unexportedVideos = rosterUnexportedVideos.filter(
+          (video) => !reusePlan.has(video.exportHash)
         );
 
         // Announce the whole roster before either pool starts, so every Video
@@ -454,6 +489,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             includeTodoLessons,
             onDetailEvent,
             awaitVideoReady,
+            // The same plan the export roster was filtered against. Handing it
+            // over rather than letting the commit redraw it keeps the two
+            // decisions identical — a Video dropped from the export queue is
+            // exactly a Video the commit will copy.
+            reusePlan,
           }).pipe(Effect.retry(Schedule.recurs(1)))
         );
 

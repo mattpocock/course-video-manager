@@ -23,8 +23,14 @@ import {
   uploadFileFromDisk,
   getMetadata,
   listFolder,
+  copyBatch,
   type DropboxFileMetadata,
 } from "./dropbox-http-client";
+import {
+  planBundleReuse,
+  type ReusePlan,
+  type ReusableSource,
+} from "./course-publish-reuse-plan";
 import { DropboxContentHasher } from "./dropbox-content-hash";
 import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
@@ -78,6 +84,15 @@ const hashFileLocally = Effect.fn("hashFileLocally")(function* (
 export const noExportPhase = (): Effect.Effect<void, ExportError> =>
   Effect.void;
 
+/**
+ * Where a Course's Bundles live. Exported because the reuse plan has to be
+ * drawn BEFORE the export pool starts, which is upstream of this module.
+ */
+export const resolveDropboxCourseDir = (courseName: string) =>
+  Config.string("DROPBOX_REMOTE_PATH").pipe(
+    Effect.map((remotePath) => `${remotePath}/${courseName}`)
+  );
+
 export const syncFrozenCourseVersionToDropbox = Effect.fn(
   "syncFrozenCourseVersionToDropbox"
 )(function* (input: {
@@ -101,6 +116,16 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
    * `noExportPhase`.
    */
   awaitVideoReady: (videoId: string) => Effect.Effect<void, ExportError>;
+  /**
+   * Which Videos already exist in the previously Published Bundle, keyed by
+   * Export Hash. The caller computes this when it wants to act on it BEFORE
+   * the export pool starts — a reused Video needs no encoding, so a Publish
+   * that knows the plan up front can drop it from the export roster entirely.
+   *
+   * Omitted by the manual re-sync, which has no export phase to inform and so
+   * simply lets this function work the plan out for itself.
+   */
+  reusePlan?: ReusePlan;
 }) {
   const effectFs = yield* FileSystem.FileSystem;
   const versionOps = yield* VersionOperationsService;
@@ -222,6 +247,49 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const remoteVideoPath = (entry: VideoEntry) =>
     `${remoteBundleDir}/${entry.relativeAssetPath}`;
 
+  // ── The reuse plan ────────────────────────────────────────────────────────
+  // What the previously Published Bundle can hand this one for free. Videos
+  // matched here are copied inside Dropbox rather than sent from this machine.
+  const reusePlan =
+    input.reusePlan ??
+    (yield* planBundleReuse({ accessToken, dropboxCourseDir }));
+
+  const reusableByVideoId = new Map<
+    string,
+    { entry: VideoEntry; source: ReusableSource }
+  >();
+  for (const entry of videoEntries) {
+    // A Video with no Clips has no Export Hash and no file anywhere. Nothing
+    // identifies its bytes, so nothing can be reused for it.
+    if (!entry.exportHash) continue;
+    // Precedence: a file already at this Publish's own address needs nothing
+    // at all, so the resume listing wins over the plan.
+    if (remoteFilesByPath.has(remoteVideoPath(entry).toLowerCase())) continue;
+    const source = reusePlan.get(entry.exportHash);
+    if (!source) continue;
+    reusableByVideoId.set(entry.videoId, { entry, source });
+  }
+
+  // Everything the upload pool is still responsible for. A reused Video is not
+  // in here, so it neither waits for an export nor occupies an upload slot.
+  const uploadingEntries = videoEntries.filter(
+    (entry) => !reusableByVideoId.has(entry.videoId)
+  );
+
+  // Announced before a frame is encoded or a byte moves, so the size of the
+  // saving is visible in the first second of the Publish rather than at the
+  // end of it.
+  if (reusableByVideoId.size > 0) {
+    input.onDetailEvent?.({
+      event: "upload-videos-reused",
+      data: {
+        videos: Array.from(reusableByVideoId.values()).map(
+          ({ entry, source }) => ({ id: entry.videoId, bytes: source.bytes })
+        ),
+      },
+    });
+  }
+
   // Sizes come from stat, not from a read, and only once a Video's export has
   // landed — so under pipelining they arrive one at a time rather than upfront.
   const videoByteSizes = new Map<string, number>();
@@ -229,8 +297,11 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   // Byte-weighted progress across every Video in the bundle. Uploads report
   // interleaved once several are in flight, so the aggregate is recomputed
   // from the per-Video counters rather than accumulated as they complete.
+  // Reused Videos are deliberately absent: their bytes never cross the wire,
+  // so counting them would make the percentage describe work nobody is doing.
+  // A Video whose copy fails is added back here when it rejoins the queue.
   const uploadedByVideo = new Map<string, number>(
-    videoEntries.map((entry) => [entry.videoId, 0])
+    uploadingEntries.map((entry) => [entry.videoId, 0])
   );
   let lastReportedPercentage = 0;
   const reportProgress = () => {
@@ -244,7 +315,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     // exactly the byte-weighted total.
     const meanKnown = knownTotal / knownSizes.length;
     const denominator =
-      knownTotal + (videoEntries.length - knownSizes.length) * meanKnown;
+      knownTotal + (uploadedByVideo.size - knownSizes.length) * meanKnown;
     if (denominator <= 0) return;
     let uploaded = 0;
     for (const bytes of uploadedByVideo.values()) uploaded += bytes;
@@ -424,20 +495,98 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
       })
   );
 
-  const receipts = yield* Effect.forEach(videoEntries, shipVideo, {
-    concurrency: uploadConcurrencyLimit,
+  /** Receipts owed to the manifest by Videos that were copied, not sent. */
+  const copyReceipts = new Map<string, { sha256: string; bytes: number }>();
+
+  /**
+   * Ask Dropbox to duplicate every reusable Video inside its own storage.
+   *
+   * One batch call for the whole bundle. The route is asynchronous even for a
+   * single entry, so the wait is unconditional — but it is a wait on Dropbox's
+   * own block copy, not on 25 GB leaving this machine.
+   *
+   * Returns the Videos that must be uploaded after all. A source that vanished
+   * between the plan and the copy is ordinary and falls back quietly; a copy
+   * whose content hash does not match its source is an identity failure and
+   * fails the Publish, exactly as a mismatched adoption does.
+   */
+  const copyPhase = Effect.fn("copyReusedVideos")(function* () {
+    const shipments = Array.from(reusableByVideoId.values());
+    if (shipments.length === 0) return [] as VideoEntry[];
+
+    const results = yield* copyBatch({
+      accessToken,
+      entries: shipments.map((shipment) => ({
+        fromPath: shipment.source.fromPath,
+        toPath: remoteVideoPath(shipment.entry),
+      })),
+    }).pipe(
+      // A batch that could not be launched or polled at all leaves every Video
+      // in it to the upload pool. Nothing is lost but the saving.
+      Effect.catchTag("DropboxApiError", () => Effect.succeed(null))
+    );
+    if (results === null) return shipments.map((shipment) => shipment.entry);
+
+    const fallbacks: VideoEntry[] = [];
+    for (const [index, shipment] of shipments.entries()) {
+      const result = results[index];
+      if (!result?.ok) {
+        fallbacks.push(shipment.entry);
+        continue;
+      }
+      if (result.metadata.content_hash !== shipment.source.contentHash) {
+        return yield* new ExportError({
+          message: `Copy verification failed for video ${shipment.entry.videoId}: content_hash mismatch`,
+        });
+      }
+      copyReceipts.set(shipment.entry.videoId, {
+        sha256: shipment.source.sha256,
+        bytes: shipment.source.bytes,
+      });
+      input.onDetailEvent?.({
+        event: "upload-video-reused",
+        data: {
+          videoId: shipment.entry.videoId,
+          bytes: shipment.source.bytes,
+        },
+      });
+    }
+    return fallbacks;
   });
+
+  // The copy runs FIRST, and on its own. It is a wait on Dropbox duplicating
+  // its own blocks — seconds — where the upload pool is a wait on tens of
+  // gigabytes, so there is nothing to gain by overlapping them and one real
+  // thing to lose: a Video whose copy fails has to reach the upload pool, and
+  // that pool must not already have finished. Running them in order also
+  // leaves every copied file in place before the first upload starts, so an
+  // interrupted Publish resumes against a bundle that is further along.
+  const fallbackEntries = yield* copyPhase();
+
+  // A Video whose copy failed now joins the byte-weighted denominator it was
+  // excluded from, because it is about to move real bytes after all.
+  for (const entry of fallbackEntries) uploadedByVideo.set(entry.videoId, 0);
+
+  const receipts = yield* Effect.forEach(
+    [...uploadingEntries, ...fallbackEntries],
+    shipVideo,
+    { concurrency: uploadConcurrencyLimit }
+  );
 
   if (missingVideos.length > 0) return { missingVideos };
 
-  const videoAssets = new Map(
-    receipts
+  const videoAssets = new Map([
+    ...copyReceipts,
+    ...receipts
       .filter((receipt) => receipt !== null)
-      .map((receipt) => [
-        receipt.videoId,
-        { sha256: receipt.sha256, bytes: receipt.bytes },
-      ])
-  );
+      .map(
+        (receipt) =>
+          [
+            receipt.videoId,
+            { sha256: receipt.sha256, bytes: receipt.bytes },
+          ] as const
+      ),
+  ]);
 
   // The manifest is built last because it carries every Video's SHA256 and
   // byte count, and those are only known once the bytes have gone past.

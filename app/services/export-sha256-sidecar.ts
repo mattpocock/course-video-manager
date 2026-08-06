@@ -1,5 +1,7 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
+import { createHash } from "node:crypto";
+import { DropboxContentHasher } from "./dropbox-content-hash";
 
 /**
  * The digest of an Exported Video, cached on disk beside the export itself.
@@ -73,6 +75,50 @@ export const readExportDigest = (
   fs.readFileString(sidecarPath(exportPath)).pipe(
     Effect.map((raw) => parseDigest(raw, expectedBytes)),
     Effect.catchAll(() => Effect.succeed(null))
+  );
+
+/** Read an Exported Video once and derive both digests from the one pass. */
+export const computeExportDigest = (
+  fs: FileSystem.FileSystem,
+  exportPath: string
+): Effect.Effect<ExportDigest, never, never> =>
+  Effect.gen(function* () {
+    const sha256Hash = createHash("sha256");
+    const contentHasher = new DropboxContentHasher();
+    const bytes = yield* fs.stream(exportPath).pipe(
+      Stream.runFold(0, (total, chunk) => {
+        sha256Hash.update(chunk);
+        contentHasher.update(chunk);
+        return total + chunk.byteLength;
+      })
+    );
+    return {
+      sha256: sha256Hash.digest("hex"),
+      bytes,
+      contentHash: contentHasher.digest(),
+    };
+  }).pipe(Effect.orDie);
+
+/**
+ * Digest an export the moment it is produced, and bank it beside the file.
+ *
+ * Sidecars used to be written only by an upload, which was sound while every
+ * Publish uploaded everything. Once a Publish can COPY an unchanged Video
+ * inside Dropbox instead, no upload happens — so a sidecar written at upload
+ * time would never be written again, and the coverage that verification
+ * depends on would freeze wherever it stood.
+ *
+ * Writing at export time inverts that: every Exported Video carries its digest
+ * from birth, so the immutability check is free and grows to cover everything.
+ * Best-effort, exactly like the write it replaces.
+ */
+export const digestNewExport = (
+  fs: FileSystem.FileSystem,
+  exportPath: string
+): Effect.Effect<void> =>
+  computeExportDigest(fs, exportPath).pipe(
+    Effect.flatMap((digest) => writeExportDigest(fs, exportPath, digest)),
+    Effect.ignore
   );
 
 /**
