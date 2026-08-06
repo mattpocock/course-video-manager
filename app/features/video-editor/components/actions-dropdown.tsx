@@ -91,16 +91,16 @@ export const ActionsDropdown = (props: {
   onShowBeatPanel: () => void;
   /** Activate the Script tab in the side panel */
   onShowScriptPanel: () => void;
-  /** Open the AI-driven Chapter generation modal */
-  onGenerateChaptersClick: () => void;
+  /** Open the AI-driven Chapter Autofill modal */
+  onAutofillChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
   onOpenDiagramPlayground: () => void;
   /** Open the teleprompter window, which follows whatever video is open here */
   onOpenTeleprompter: () => void;
   /** Open the AI Writer on the lesson body (only when lesson-bound) */
   onEditLessonBodyClick: () => void;
-  /** Open the Generate SEO Description modal (only when lesson-bound) */
-  onGenerateSeoDescriptionClick: () => void;
+  /** Open the Autofill description modal (only when lesson-bound) */
+  onAutofillDescriptionClick: () => void;
 }) => {
   const navigate = useNavigate();
 
@@ -131,15 +131,15 @@ export const ActionsDropdown = (props: {
       </Tooltip>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuItem
-          onSelect={props.onGenerateChaptersClick}
+          onSelect={props.onAutofillChaptersClick}
           disabled={!props.allClipsHaveText}
         >
           <Sparkles className="w-4 h-4 mr-2" />
           <div className="flex flex-col">
-            <span className="font-medium">Generate Chapters</span>
+            <span className="font-medium">Autofill chapters</span>
             <span className="text-xs text-muted-foreground">
               {props.allClipsHaveText
-                ? "AI-propose Chapters from clip transcripts"
+                ? "Fill in Chapters from the clip transcripts"
                 : "Waiting for transcription to complete"}
             </span>
           </div>
@@ -156,12 +156,12 @@ export const ActionsDropdown = (props: {
                 </span>
               </div>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={props.onGenerateSeoDescriptionClick}>
+            <DropdownMenuItem onSelect={props.onAutofillDescriptionClick}>
               <Sparkles className="w-4 h-4 mr-2" />
               <div className="flex flex-col">
-                <span className="font-medium">Generate SEO Description</span>
+                <span className="font-medium">Autofill description</span>
                 <span className="text-xs text-muted-foreground">
-                  AI-generate an SEO description from the body
+                  Fill in an SEO description from the body
                 </span>
               </div>
             </DropdownMenuItem>

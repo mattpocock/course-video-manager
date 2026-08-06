@@ -1,25 +1,25 @@
-import { GenerateChaptersModal } from "@/features/video-editor/components/generate-chapters-modal";
+import { AutofillChaptersModal } from "@/features/video-editor/components/autofill-chapters-modal";
 import { createHttpClipService } from "@/services/clip-service";
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRevalidator } from "react-router";
 
 type OpenInput = { videoId: string; videoLabel: string };
 
-const GenerateChaptersContext = createContext<
+const AutofillChaptersContext = createContext<
   ((input: OpenInput) => void) | null
 >(null);
 
-export const useGenerateChaptersAction = (): ((input: OpenInput) => void) => {
-  const ctx = useContext(GenerateChaptersContext);
+export const useAutofillChaptersAction = (): ((input: OpenInput) => void) => {
+  const ctx = useContext(AutofillChaptersContext);
   if (!ctx) {
     throw new Error(
-      "useGenerateChaptersAction must be used inside GenerateChaptersProvider"
+      "useAutofillChaptersAction must be used inside AutofillChaptersProvider"
     );
   }
   return ctx;
 };
 
-export const GenerateChaptersProvider = ({
+export const AutofillChaptersProvider = ({
   children,
 }: {
   children: React.ReactNode;
@@ -32,17 +32,17 @@ export const GenerateChaptersProvider = ({
   }, []);
 
   return (
-    <GenerateChaptersContext.Provider value={handleOpen}>
+    <AutofillChaptersContext.Provider value={handleOpen}>
       {children}
       {open && (
-        <GenerateChaptersModal
+        <AutofillChaptersModal
           open={true}
           videoId={open.videoId}
           videoLabel={open.videoLabel}
           onClose={() => setOpen(null)}
           onConfirm={async (sections) => {
             const clipService = createHttpClipService();
-            await clipService.regenerateChapters({
+            await clipService.autofillChapters({
               videoId: open.videoId,
               sections,
             });
@@ -51,6 +51,6 @@ export const GenerateChaptersProvider = ({
           }}
         />
       )}
-    </GenerateChaptersContext.Provider>
+    </AutofillChaptersContext.Provider>
   );
 };

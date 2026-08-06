@@ -34,7 +34,7 @@ import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId._index";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { ActionsDropdown } from "@/features/course-view/actions-menu";
-import { GenerateChaptersProvider } from "@/features/course-view/generate-chapters-context";
+import { AutofillChaptersProvider } from "@/features/course-view/autofill-chapters-context";
 import { SectionGrid } from "@/features/course-view/section-grid";
 import {
   FilterBar,
@@ -271,7 +271,7 @@ export default function Component(props: Route.ComponentProps) {
   }, [displaySections, dispatch]);
 
   return (
-    <GenerateChaptersProvider>
+    <AutofillChaptersProvider>
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-1 min-w-0 flex-col bg-background text-foreground">
           <div className="flex-1 overflow-y-auto">
@@ -490,6 +490,6 @@ export default function Component(props: Route.ComponentProps) {
           />
         </div>
       </div>
-    </GenerateChaptersProvider>
+    </AutofillChaptersProvider>
   );
 }

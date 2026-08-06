@@ -12,7 +12,7 @@ import { resolveBeatTab } from "./beat-tab";
 import { courseEditorFetcherKeyForEvent } from "@/features/course-view/optimistic-applier";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import type { BeatListBeat } from "@/features/beats/beat-list";
-import { useGenerateChaptersModal } from "./hooks/use-generate-chapters-modal";
+import { useAutofillChaptersModal } from "./hooks/use-autofill-chapters-modal";
 import {
   useDiagramPin,
   type UpdateClipDiagramPinFn,
@@ -117,7 +117,7 @@ export const VideoEditor = (props: {
   }) => void;
   onEditReferenceChapterName: (chapterId: string, name: string) => void;
   onDeleteReferenceChapter: (chapterId: string) => void;
-  onRegenerateChapters: (
+  onAutofillChapters: (
     videoId: string,
     sections: Array<{ beforeClipId: string; title: string }>
   ) => Promise<void>;
@@ -205,15 +205,15 @@ export const VideoEditor = (props: {
   const [isCreateVideoModalOpen, setIsCreateVideoModalOpen] = useState(false);
 
   const {
-    openForMain: onOpenGenerateChaptersModal,
+    openForMain: onOpenAutofillChaptersModal,
     openForReference: onOpenGenerateForReference,
-    modal: generateChaptersModal,
-  } = useGenerateChaptersModal({
+    modal: autofillChaptersModal,
+  } = useAutofillChaptersModal({
     mainVideoId: props.videoId,
     mainVideoTitle: props.videoTitle,
     clips,
     referenceCandidates: props.referenceCandidates,
-    onRegenerateChapters: props.onRegenerateChapters,
+    onAutofillChapters: props.onAutofillChapters,
   });
 
   // Suggestion state for sharing between SuggestionsPanel and ClipTimeline
@@ -493,7 +493,7 @@ export const VideoEditor = (props: {
       suggestionState,
       setSuggestionState,
 
-      onOpenGenerateChaptersModal,
+      onOpenAutofillChaptersModal,
 
       // Diagram pin
       onUnpinDiagram,
@@ -573,7 +573,7 @@ export const VideoEditor = (props: {
       onAddChapterBefore,
       onAddChapterAfter,
       generateDefaultChapterName,
-      onOpenGenerateChaptersModal,
+      onOpenAutofillChaptersModal,
       onUnpinDiagram,
       onRemoveWebLink,
     ]
@@ -594,7 +594,7 @@ export const VideoEditor = (props: {
       beatCount={props.beats.length}
       hasScript={props.hasScript}
       onCreateVideoFromSelection={handleCreateVideoFromSelection}
-      generateChaptersModal={generateChaptersModal}
+      autofillChaptersModal={autofillChaptersModal}
     />
   );
 

@@ -115,7 +115,7 @@ export function EditorSidePanel(props: {
           onAddChapterAt={props.onAddReferenceChapterAt}
           onEditChapterName={props.onEditReferenceChapterName}
           onDeleteChapter={props.onDeleteReferenceChapter}
-          onGenerateChapters={props.onGenerateReferenceChapters}
+          onAutofillChapters={props.onGenerateReferenceChapters}
         />
       ) : null}
     </div>

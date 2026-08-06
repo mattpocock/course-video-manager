@@ -126,7 +126,7 @@ export const ReferencePanel = (props: {
   }) => void;
   onEditChapterName: (chapterId: string, name: string) => void;
   onDeleteChapter: (chapterId: string) => void;
-  onGenerateChapters: () => void;
+  onAutofillChapters: () => void;
   className?: string;
 }) => {
   const selected =
@@ -203,9 +203,9 @@ export const ReferencePanel = (props: {
                 variant="ghost"
                 size="sm"
                 className="size-6 p-0"
-                onClick={props.onGenerateChapters}
+                onClick={props.onAutofillChapters}
                 disabled={!allTranscribed}
-                aria-label="Generate Chapters with AI"
+                aria-label="Autofill chapters with AI"
               >
                 <Sparkles className="size-3" />
               </Button>

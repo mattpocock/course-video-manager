@@ -254,7 +254,7 @@ export const requireDraftForClipServiceEvent = Effect.fn(
     case "create-chapter-at-insertion-point":
     case "create-chapter-at-position":
     case "create-effect-clip-at-position":
-    case "regenerate-chapters":
+    case "autofill-chapters":
       return yield* requireDraftVersionForVideo(db, event.input.videoId);
     case "create-video-from-selection":
       // Copies always join the source video's lesson (and thus its version);

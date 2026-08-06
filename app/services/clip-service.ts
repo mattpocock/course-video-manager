@@ -20,7 +20,7 @@ import type { SilenceLength } from "@/silence-detection-constants";
 
 export type Clip = InferSelectModel<typeof clips>;
 export type Chapter = InferSelectModel<typeof chapters>;
-export type RegeneratedChapter = Chapter & { beforeClipId: string };
+export type AutofilledChapter = Chapter & { beforeClipId: string };
 export type Video = InferSelectModel<typeof videos>;
 
 // ============================================================================
@@ -278,7 +278,7 @@ export interface CreateEffectClipAtPositionInput {
   pauseType: string;
 }
 
-export interface RegenerateChaptersInput {
+export interface AutofillChaptersInput {
   videoId: string;
   sections: Array<{ beforeClipId: string; title: string }>;
 }
@@ -375,9 +375,7 @@ export interface ClipService {
   ): Promise<Video>;
 
   // AI-driven bulk replace of all Chapters on a Video
-  regenerateChapters(
-    input: RegenerateChaptersInput
-  ): Promise<RegeneratedChapter[]>;
+  autofillChapters(input: AutofillChaptersInput): Promise<AutofilledChapter[]>;
 }
 
 // ============================================================================
@@ -423,8 +421,8 @@ export type ClipServiceEvent =
       input: CreateVideoFromSelectionInput;
     }
   | {
-      type: "regenerate-chapters";
-      input: RegenerateChaptersInput;
+      type: "autofill-chapters";
+      input: AutofillChaptersInput;
     };
 
 // ============================================================================
@@ -553,11 +551,11 @@ export function createClipService(send: ClipServiceTransport): ClipService {
       }) as Promise<Video>;
     },
 
-    async regenerateChapters(input) {
+    async autofillChapters(input) {
       return send({
-        type: "regenerate-chapters",
+        type: "autofill-chapters",
         input,
-      }) as Promise<RegeneratedChapter[]>;
+      }) as Promise<AutofilledChapter[]>;
     },
   };
 }

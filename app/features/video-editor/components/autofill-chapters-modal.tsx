@@ -31,7 +31,7 @@ const initialState: StreamState = {
   errorMessage: null,
 };
 
-export const GenerateChaptersModal = (props: {
+export const AutofillChaptersModal = (props: {
   open: boolean;
   videoId: string;
   videoLabel: string;
@@ -55,7 +55,7 @@ export const GenerateChaptersModal = (props: {
     setConfirming(false);
 
     const source = new EventSource(
-      `/api/videos/${props.videoId}/suggest-chapters`
+      `/api/videos/${props.videoId}/autofill-chapters`
     );
 
     source.addEventListener("clips", (e) => {
@@ -132,10 +132,10 @@ export const GenerateChaptersModal = (props: {
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="size-4" /> Generate Chapters
+            <Sparkles className="size-4" /> Autofill chapters
           </DialogTitle>
           <DialogDescription>
-            Preview AI-proposed Chapters for{" "}
+            Preview the Chapters the Autofill proposes for{" "}
             <span className="font-medium">{props.videoLabel}</span>. Confirming
             replaces all existing Chapters on this video.
           </DialogDescription>
@@ -144,14 +144,14 @@ export const GenerateChaptersModal = (props: {
         <div className="flex-1 overflow-y-auto border rounded-md bg-muted/30 p-3 min-h-[200px]">
           {state.status === "error" && (
             <div className="text-sm text-destructive">
-              Failed to generate: {state.errorMessage ?? "Unknown error"}
+              Autofill failed: {state.errorMessage ?? "Unknown error"}
             </div>
           )}
 
           {state.status !== "error" && isInitialLoading && (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground gap-2">
               <Loader2 className="size-4 animate-spin" />
-              Generating proposals…
+              Autofilling chapters…
             </div>
           )}
 
@@ -159,8 +159,8 @@ export const GenerateChaptersModal = (props: {
             visibleSections.length === 0 &&
             state.errorMessage === null && (
               <div className="text-sm text-muted-foreground italic">
-                AI proposed no Chapters for this video. Confirming will archive
-                any existing ones.
+                The Autofill proposed no Chapters for this video. Confirming
+                will archive any existing ones.
               </div>
             )}
 

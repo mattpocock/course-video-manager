@@ -23,7 +23,7 @@ import { Suspense } from "react";
 import type { useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
 import { copyDeepLink } from "./deep-link";
-import { useGenerateChaptersAction } from "./generate-chapters-context";
+import { useAutofillChaptersAction } from "./autofill-chapters-context";
 import { PurgeExportMenuItem } from "./export-status";
 import { AddBeatSubMenu } from "@/features/beats/beat-menu-items";
 import { useRequestCreateBeat } from "@/features/beats/create-beat-dialog";
@@ -91,10 +91,10 @@ export function VideoContextMenuItems({
   deleteVideoFileFetcher: ReturnType<typeof useFetcher>;
   submitDeleteVideo: (videoId: string) => void;
 }) {
-  const openGenerateChapters = useGenerateChaptersAction();
+  const openAutofillChapters = useAutofillChaptersAction();
   const requestCreateBeat = useRequestCreateBeat();
   const isReadOnly = !data.isLatestVersion;
-  const canGenerateChapters = !isReadOnly && video.clipCount > 0;
+  const canAutofillChapters = !isReadOnly && video.clipCount > 0;
 
   return (
     <ContextMenuContent>
@@ -149,23 +149,23 @@ export function VideoContextMenuItems({
             }}
           >
             <Sparkles className="w-4 h-4" />
-            Generate SEO Description
+            Autofill description
             <MissingContentWarning
               warnings={video.warnings}
               kind="missingDescription"
             />
           </ContextMenuItem>
-          {canGenerateChapters && (
+          {canAutofillChapters && (
             <ContextMenuItem
               onSelect={() => {
-                openGenerateChapters({
+                openAutofillChapters({
                   videoId: video.id,
                   videoLabel: `${section.title}/${lesson.path}/${video.title}`,
                 });
               }}
             >
               <ListTree className="w-4 h-4" />
-              Generate Chapters
+              Autofill chapters
               <MissingContentWarning
                 warnings={video.warnings}
                 kind="missingChapters"

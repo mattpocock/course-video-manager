@@ -106,7 +106,7 @@ export type LogEvent =
       newVideoId: string;
     }
   | {
-      type: "chapters-regenerated";
+      type: "chapters-autofilled";
       count: number;
       titles: string[];
     };

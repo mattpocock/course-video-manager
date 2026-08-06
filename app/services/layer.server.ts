@@ -29,6 +29,7 @@ import { RenderVerticalVideoService } from "./render-vertical-video-service";
 import { VideoPostOperationsService } from "./db-video-post-operations.server";
 import { BufferApiService } from "./buffer-api-service.server";
 import { ObjectStoreService } from "./object-store-service.server";
+import { TextGenerationService } from "./text-generation-service";
 
 const CloudinaryMarkdownLayer = CloudinaryMarkdownService.Default.pipe(
   Layer.provide(CloudinaryService.Default)
@@ -50,6 +51,7 @@ const coreLayer = Layer.mergeAll(
   VideoPostOperationsService.Default,
   BufferApiService.Default,
   ObjectStoreService.Default,
+  TextGenerationService.Default,
   DatabaseDumpService.Default,
   VideoProcessingService.Default,
   BackgroundRemovalService.Default,

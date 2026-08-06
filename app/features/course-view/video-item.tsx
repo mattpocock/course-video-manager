@@ -21,7 +21,7 @@ import {
 import { Suspense } from "react";
 import { Link, useNavigate, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
-import { useGenerateChaptersAction } from "./generate-chapters-context";
+import { useAutofillChaptersAction } from "./autofill-chapters-context";
 import { videoWarningLabel } from "./video-warning-labels";
 import {
   PurgeExportMenuItem,
@@ -52,12 +52,12 @@ export function VideoItem({
   deleteVideoFileFetcher: ReturnType<typeof useFetcher>;
   submitDeleteVideo: (videoId: string) => void;
 }) {
-  const openGenerateChapters = useGenerateChaptersAction();
+  const openAutofillChapters = useAutofillChaptersAction();
   const totalDuration = video.totalDuration;
   const isLatestVersion = data.isLatestVersion;
   const showWarning = isLatestVersion && video.warnings.length > 0;
   const warningLabel = videoWarningLabel(video.warnings);
-  const canGenerateChapters = isLatestVersion && video.clipCount > 0;
+  const canAutofillChapters = isLatestVersion && video.clipCount > 0;
 
   return (
     <ContextMenu>
@@ -122,17 +122,17 @@ export function VideoItem({
           <Combine className="w-4 h-4" />
           Create Concatenated Video
         </ContextMenuItem>
-        {canGenerateChapters && (
+        {canAutofillChapters && (
           <ContextMenuItem
             onSelect={() => {
-              openGenerateChapters({
+              openAutofillChapters({
                 videoId: video.id,
                 videoLabel: `${section.title}/${lesson.path}/${video.title}`,
               });
             }}
           >
             <Sparkles className="w-4 h-4" />
-            Generate Chapters
+            Autofill chapters
           </ContextMenuItem>
         )}
         <ContextMenuItem

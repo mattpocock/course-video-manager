@@ -29,8 +29,8 @@ export const EditorModals = (props: {
   beatCount: number;
   hasScript: boolean;
   onCreateVideoFromSelection: (title: string, mode: "copy" | "move") => void;
-  /** The AI Chapter-generation modal, owned by useGenerateChaptersModal. */
-  generateChaptersModal: ReactNode;
+  /** The AI Chapter-generation modal, owned by useAutofillChaptersModal. */
+  autofillChaptersModal: ReactNode;
 }) => {
   const revalidator = useRevalidator();
 
@@ -123,7 +123,7 @@ export const EditorModals = (props: {
         onOpenChange={setIsCreateVideoModalOpen}
         onSubmit={props.onCreateVideoFromSelection}
       />
-      {props.generateChaptersModal}
+      {props.autofillChaptersModal}
     </>
   );
 };

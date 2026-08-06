@@ -603,7 +603,7 @@ const dispatchClipServiceEvent = Effect.fn("dispatchClipServiceEvent")(
         return yield* handleCreateVideoFromSelection(db, event.input, logger);
       }
 
-      case "regenerate-chapters": {
+      case "autofill-chapters": {
         const { videoId, sections: proposed } = event.input;
 
         const orderedClips = yield* Effect.promise(() =>
@@ -667,7 +667,7 @@ const dispatchClipServiceEvent = Effect.fn("dispatchClipServiceEvent")(
         yield* touchVideoUpdatedAt(db, videoId);
 
         logger.log(videoId, {
-          type: "chapters-regenerated",
+          type: "chapters-autofilled",
           count: inserted.length,
           titles: inserted.map((s) => s.name),
         });

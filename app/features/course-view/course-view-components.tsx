@@ -8,7 +8,7 @@ import { RenameVideoModal } from "@/components/rename-video-modal";
 import { VersionSelectorModal } from "@/components/version-selector-modal";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
 import { ScriptWriterModal } from "@/features/video-editor/script-writer-modal";
-import { GenerateSeoDescriptionModal } from "@/features/lesson-writer/generate-seo-description-modal";
+import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
 import { computeCourseStats } from "@/features/course-view/course-editor-helpers";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 
@@ -509,7 +509,7 @@ export function RouteModals({
       )}
 
       {viewState.seoDescriptionVideoId && (
-        <GenerateSeoDescriptionModal
+        <AutofillDescriptionModal
           videoId={viewState.seoDescriptionVideoId}
           open={true}
           onOpenChange={(open) => {

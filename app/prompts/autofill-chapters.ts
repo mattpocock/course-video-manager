@@ -1,4 +1,4 @@
-export const generateChaptersSystemPrompt = `You generate Chapters (YouTube-chapter-style segment markers) for a recorded video.
+export const autofillChaptersSystemPrompt = `You generate Chapters (YouTube-chapter-style segment markers) for a recorded video.
 
 You are given the video's clips in order. Each clip has an ID and a transcript.
 You may also be given existing Chapters the author placed by hand — use these

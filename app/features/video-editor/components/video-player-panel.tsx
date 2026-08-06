@@ -11,7 +11,7 @@ import {
 } from "./deferred-fs-panels";
 import { ActionsDropdown } from "./actions-dropdown";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
-import { GenerateSeoDescriptionModal } from "@/features/lesson-writer/generate-seo-description-modal";
+import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
 import { VideoPlayerLinksTab } from "./video-player-links-tab";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
@@ -192,9 +192,9 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.onShowScriptPanel
   );
-  const onOpenGenerateChaptersModal = useContextSelector(
+  const onOpenAutofillChaptersModal = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onOpenGenerateChaptersModal
+    (ctx) => ctx.onOpenAutofillChaptersModal
   );
   const isCopied = useContextSelector(
     VideoEditorContext,
@@ -520,13 +520,11 @@ export const VideoPlayerPanel = () => {
               hasBeats={hasBeats}
               onShowBeatPanel={onShowBeatPanel}
               onShowScriptPanel={onShowScriptPanel}
-              onGenerateChaptersClick={onOpenGenerateChaptersModal}
+              onAutofillChaptersClick={onOpenAutofillChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
               onOpenTeleprompter={openTeleprompter}
               onEditLessonBodyClick={() => setIsLessonBodyWriterOpen(true)}
-              onGenerateSeoDescriptionClick={() =>
-                setIsSeoDescriptionOpen(true)
-              }
+              onAutofillDescriptionClick={() => setIsSeoDescriptionOpen(true)}
             />
             <Button variant="secondary" onClick={onAddNoteFromClipboard}>
               <ClipboardIcon className="w-4 h-4 mr-1" />
@@ -626,7 +624,7 @@ export const VideoPlayerPanel = () => {
       )}
 
       {lessonId && isSeoDescriptionOpen && (
-        <GenerateSeoDescriptionModal
+        <AutofillDescriptionModal
           videoId={videoId}
           open={isSeoDescriptionOpen}
           onOpenChange={setIsSeoDescriptionOpen}

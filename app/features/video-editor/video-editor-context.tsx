@@ -148,7 +148,7 @@ export type VideoEditorContextType = {
   setSuggestionState: (state: SuggestionState) => void;
 
   // AI Chapter generation
-  onOpenGenerateChaptersModal: () => void;
+  onOpenAutofillChaptersModal: () => void;
 
   // Diagram pin
   onUnpinDiagram: (clipId: FrontendId) => void;

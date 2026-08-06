@@ -495,9 +495,9 @@ export const ComponentInner = (props: Route.ComponentProps) => {
             console.error("Failed to delete reference chapter", error);
           });
       }}
-      onRegenerateChapters={async (videoId, sections) => {
+      onAutofillChapters={async (videoId, sections) => {
         try {
-          const inserted = await clipService.regenerateChapters({
+          const inserted = await clipService.autofillChapters({
             videoId,
             sections,
           });

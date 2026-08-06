@@ -32,7 +32,7 @@ import {
 import { useEffectReducer } from "use-effect-reducer";
 import type { Route } from "./+types/_app.courses.$courseId.sections.$sectionId";
 import { UploadContext } from "@/features/upload-manager/upload-context";
-import { GenerateChaptersProvider } from "@/features/course-view/generate-chapters-context";
+import { AutofillChaptersProvider } from "@/features/course-view/autofill-chapters-context";
 import { SectionGrid } from "@/features/course-view/section-grid";
 import {
   ReadOnlyBanner,
@@ -136,7 +136,8 @@ export default function Component(props: Route.ComponentProps) {
   // bookmarkable, shareable, and survives refresh and focus-revalidation.
   // Default (absent param) = videos.
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("view") === "scripts" ? "scripts" : "videos";
+  const activeTab =
+    searchParams.get("view") === "scripts" ? "scripts" : "videos";
 
   const submit = useSubmit();
 
@@ -235,7 +236,7 @@ export default function Component(props: Route.ComponentProps) {
   }, [displaySections, dispatch]);
 
   return (
-    <GenerateChaptersProvider>
+    <AutofillChaptersProvider>
       <div className="flex-1 flex flex-col bg-background text-foreground">
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">
@@ -363,6 +364,6 @@ export default function Component(props: Route.ComponentProps) {
           onClose={clearDivergenceReport}
         />
       </div>
-    </GenerateChaptersProvider>
+    </AutofillChaptersProvider>
   );
 }

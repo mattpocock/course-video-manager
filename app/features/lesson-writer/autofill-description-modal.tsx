@@ -20,10 +20,10 @@ type LessonWriterData = {
 
 /**
  * A focused modal for the video's SEO description: shows the current value, a
- * Generate button (driven by the lesson body only), and Save. Mount
+ * Autofill button (driven by the lesson body only), and Save. Mount
  * conditionally so each open starts from a fresh fetch.
  */
-export function GenerateSeoDescriptionModal({
+export function AutofillDescriptionModal({
   videoId,
   open,
   onOpenChange,
@@ -33,7 +33,7 @@ export function GenerateSeoDescriptionModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const dataFetcher = useFetcher<LessonWriterData>();
-  const genFetcher = useFetcher<{ text?: string; error?: string }>();
+  const autofillFetcher = useFetcher<{ text?: string; error?: string }>();
   const saveFetcher = useFetcher();
 
   const [value, setValue] = useState("");
@@ -45,18 +45,18 @@ export function GenerateSeoDescriptionModal({
     }
   }, [open, videoId, dataFetcher]);
 
-  const handleGenerate = useCallback(() => {
-    genFetcher.submit(
+  const handleAutofill = useCallback(() => {
+    autofillFetcher.submit(
       {},
       {
         method: "post",
-        action: `/api/videos/${videoId}/generate-seo-from-body`,
+        action: `/api/videos/${videoId}/autofill-description`,
         encType: "application/json",
       }
     );
-  }, [genFetcher, videoId]);
+  }, [autofillFetcher, videoId]);
 
-  // Auto-trigger generation when the description is empty and the body has content.
+  // Auto-trigger the Autofill when the description is empty and the body has content.
   useEffect(() => {
     if (dataFetcher.data && !seeded) {
       const desc = dataFetcher.data.description ?? "";
@@ -65,20 +65,20 @@ export function GenerateSeoDescriptionModal({
 
       const body = (dataFetcher.data.body ?? "").trim();
       if (!desc.trim() && body) {
-        handleGenerate();
+        handleAutofill();
       }
     }
-  }, [dataFetcher.data, seeded, handleGenerate]);
+  }, [dataFetcher.data, seeded, handleAutofill]);
 
-  // A completed generation always replaces the textarea contents.
+  // A completed Autofill always replaces the textarea contents.
   useEffect(() => {
-    if (genFetcher.data?.text != null) {
-      setValue(genFetcher.data.text);
+    if (autofillFetcher.data?.text != null) {
+      setValue(autofillFetcher.data.text);
     }
-  }, [genFetcher.data]);
+  }, [autofillFetcher.data]);
 
   const isLoading = !dataFetcher.data;
-  const isGenerating = genFetcher.state !== "idle";
+  const isAutofilling = autofillFetcher.state !== "idle";
   const bodyIsEmpty = dataFetcher.data
     ? !(dataFetcher.data.body ?? "").trim()
     : false;
@@ -110,7 +110,7 @@ export function GenerateSeoDescriptionModal({
               onChange={(e) => setValue(e.target.value)}
               placeholder="A short, compelling SEO description…"
               className="min-h-[120px] text-sm"
-              disabled={isGenerating}
+              disabled={isAutofilling}
               autoFocus
             />
             <div className="flex items-center justify-between text-xs">
@@ -126,12 +126,13 @@ export function GenerateSeoDescriptionModal({
 
             {bodyIsEmpty && (
               <p className="text-sm text-destructive">
-                The lesson body is empty. Write a lesson body before generating.
+                The lesson body is empty. Write a lesson body before
+                autofilling.
               </p>
             )}
-            {genFetcher.data?.error && (
+            {autofillFetcher.data?.error && (
               <p className="text-sm text-destructive">
-                {genFetcher.data.error}
+                {autofillFetcher.data.error}
               </p>
             )}
 
@@ -139,15 +140,15 @@ export function GenerateSeoDescriptionModal({
               <Button
                 type="button"
                 variant="secondary"
-                onClick={handleGenerate}
-                disabled={bodyIsEmpty || isGenerating}
+                onClick={handleAutofill}
+                disabled={bodyIsEmpty || isAutofilling}
               >
-                {isGenerating ? (
+                {isAutofilling ? (
                   <Loader2Icon className="mr-1 size-4 animate-spin" />
                 ) : (
                   <SparklesIcon className="mr-1 size-4" />
                 )}
-                Generate
+                Autofill
               </Button>
               <div className="flex gap-2">
                 <Button
@@ -160,7 +161,7 @@ export function GenerateSeoDescriptionModal({
                 <Button
                   type="button"
                   onClick={handleSave}
-                  disabled={isGenerating}
+                  disabled={isAutofilling}
                 >
                   Save
                 </Button>

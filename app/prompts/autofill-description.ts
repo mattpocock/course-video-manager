@@ -2,10 +2,10 @@ import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 
 /**
  * SEO description generated purely from the lesson body (the written lesson
- * markdown), ignoring the transcript. Used by the "Generate SEO Description"
+ * markdown), ignoring the transcript. Used by the "Autofill description"
  * modal, which is driven by the body only.
  */
-export const generateSeoDescriptionFromBodyPrompt = (opts: {
+export const autofillDescriptionPrompt = (opts: {
   body: string;
   links: GlobalLink[];
 }) => {

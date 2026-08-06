@@ -93,7 +93,7 @@ const CreateVideoFromSelectionModeSchema = Schema.Union(
   Schema.Literal("move")
 );
 
-const RegenerateChaptersInputSchema = Schema.Struct({
+const AutofillChaptersInputSchema = Schema.Struct({
   videoId: Schema.String,
   sections: Schema.Array(
     Schema.Struct({
@@ -190,7 +190,7 @@ export const ClipServiceEventSchema = Schema.Union(
     input: CreateVideoFromSelectionInputSchema,
   }),
   Schema.Struct({
-    type: Schema.Literal("regenerate-chapters"),
-    input: RegenerateChaptersInputSchema,
+    type: Schema.Literal("autofill-chapters"),
+    input: AutofillChaptersInputSchema,
   })
 );

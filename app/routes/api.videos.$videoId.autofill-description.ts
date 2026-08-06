@@ -1,15 +1,15 @@
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { generateSeoDescriptionFromBodyPrompt } from "@/prompts/generate-seo-description-from-body";
+import { TextGenerationService } from "@/services/text-generation-service";
 import { Effect } from "effect";
 import { makeAction } from "@/services/route-action.server";
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText } from "ai";
 
 /**
- * Generate an SEO description from the lesson body only (ignoring the
- * transcript). Returns `{ error }` when the body is empty so the modal can
- * surface it without hitting the model.
+ * The per-Video **Autofill description** action: an SEO description written
+ * from the lesson **Body** alone (never the transcript). Returns `{ error }`
+ * when the body is empty so the modal can surface it without hitting the
+ * model — the same precondition the batch Autofill applies when it decides a
+ * Video is not an **Autofill Candidate** at all.
  */
 export const action = makeAction({
   input: "json",
@@ -28,21 +28,11 @@ export const action = makeAction({
       }
 
       const linkAuthOps = yield* LinkAuthOperationsService;
+      const textGeneration = yield* TextGenerationService;
       const links = yield* linkAuthOps.getLinks();
 
-      const systemPrompt = generateSeoDescriptionFromBodyPrompt({
-        body,
-        links,
-      });
+      const text = yield* textGeneration.autofillDescription({ body, links });
 
-      const result = yield* Effect.tryPromise(() =>
-        generateText({
-          model: anthropic("claude-haiku-4-5-20251001"),
-          system: systemPrompt,
-          messages: [{ role: "user", content: "Go" }],
-        })
-      );
-
-      return { text: result.text } as const;
+      return { text } as const;
     }),
 });
