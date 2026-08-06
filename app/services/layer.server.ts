@@ -30,6 +30,7 @@ import { VideoPostOperationsService } from "./db-video-post-operations.server";
 import { BufferApiService } from "./buffer-api-service.server";
 import { ObjectStoreService } from "./object-store-service.server";
 import { TextGenerationService } from "./text-generation-service";
+import { AutofillService } from "./autofill-service";
 
 const CloudinaryMarkdownLayer = CloudinaryMarkdownService.Default.pipe(
   Layer.provide(CloudinaryService.Default)
@@ -73,6 +74,12 @@ const publishLayer = CoursePublishService.Default.pipe(
   Layer.provide(coreLayer)
 );
 
+// The Autofill is a job of its own, not a stage of a Publish (ADR 0024), so
+// it sits beside the publish layer rather than inside it.
+const autofillLayer = AutofillService.DefaultWithoutDependencies.pipe(
+  Layer.provide(coreLayer)
+);
+
 const renderVerticalLayer = RenderVerticalVideoService.Default.pipe(
   Layer.provide(coreLayer)
 );
@@ -80,6 +87,7 @@ const renderVerticalLayer = RenderVerticalVideoService.Default.pipe(
 export const layerLive = Layer.mergeAll(
   coreLayer,
   publishLayer,
+  autofillLayer,
   renderVerticalLayer
 );
 

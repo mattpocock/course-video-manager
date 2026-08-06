@@ -114,6 +114,19 @@ export function showSuccessToast(upload: uploadReducer.UploadEntry): void {
         },
       },
     });
+  } else if (upload.uploadType === "autofill") {
+    // The Autofill never rolls on into a Publish — the second press is the
+    // author's. So the toast carries them back to where that press happens.
+    const publishUrl = `/courses/${upload.courseId}/publish`;
+    toast.success(`${upload.title} finished`, {
+      duration: Infinity,
+      action: {
+        label: "Back to Publish",
+        onClick: () => {
+          window.location.href = publishUrl;
+        },
+      },
+    });
   } else if (upload.uploadType === "publish") {
     const newDraftVersionId = upload.newDraftVersionId;
     const courseId = upload.courseId;

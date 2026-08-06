@@ -30,6 +30,11 @@ const PUBLISH_STAGE_LABELS: Record<uploadReducer.PublishStage, string> = {
   complete: "Finishing up",
 };
 
+const AUTOFILL_STAGE_LABELS: Record<uploadReducer.AutofillStage, string> = {
+  selecting: "Choosing videos",
+  writing: "Writing missing text",
+};
+
 const RENDER_VERTICAL_STAGE_LABELS: Record<
   uploadReducer.RenderVerticalStage,
   string
@@ -63,6 +68,10 @@ export function uploadStageLabel(
     case "publish":
       return upload.publishStage
         ? PUBLISH_STAGE_LABELS[upload.publishStage]
+        : null;
+    case "autofill":
+      return upload.autofillStage
+        ? AUTOFILL_STAGE_LABELS[upload.autofillStage]
         : null;
     case "buffer":
       return upload.bufferStage

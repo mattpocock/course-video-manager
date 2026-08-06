@@ -5,6 +5,7 @@ import type {
 import type { RenderVerticalStage as RenderVerticalServiceStage } from "@/services/render-vertical-video-service";
 import { uploadTypeRegistry } from "./upload-type-registry";
 import {
+  AUTOFILL_STAGE_BANDS,
   BUFFER_STAGE_BANDS,
   PUBLISH_STAGE_BANDS,
   PUBLISH_VIDEO_UPLOAD_BANDS,
@@ -27,6 +28,7 @@ export namespace uploadReducer {
     | "skills-changelog"
     | "export"
     | "publish"
+    | "autofill"
     | "render-vertical";
   export type BufferStage =
     "uploading-blob" | "creating-post" | "polling" | "cleaning-up";
@@ -40,6 +42,10 @@ export namespace uploadReducer {
   export type ExportStage = ExportServiceStage;
   export type RenderVerticalStage = RenderVerticalServiceStage;
   export type PublishStage = PublishServiceStage;
+  // An Autofill only ever does two things: work out which Videos it has work
+  // for, then write their text. The parent passes through both; a per-Video
+  // child is born already writing.
+  export type AutofillStage = "selecting" | "writing";
   // The upload half of a per-Video task under a Publish. It follows the
   // export stages above: encode, then wait for a slot in the upload pool,
   // then move bytes.
@@ -111,6 +117,18 @@ export namespace uploadReducer {
     courseId: string;
   }
 
+  /**
+   * One row of an **Autofill** run: the parent job, or one of its per-Video
+   * children. The same type serves both — a child carries the Video it is
+   * writing and a `parentUploadId`; the parent carries neither and derives its
+   * bar from the children.
+   */
+  export interface AutofillUploadEntry extends BaseUploadEntry {
+    uploadType: "autofill";
+    autofillStage: AutofillStage | null;
+    courseId: string;
+  }
+
   export interface RenderVerticalUploadEntry extends BaseUploadEntry {
     uploadType: "render-vertical";
     renderVerticalStage: RenderVerticalStage | null;
@@ -124,6 +142,7 @@ export namespace uploadReducer {
     | SkillsChangelogUploadEntry
     | ExportUploadEntry
     | PublishUploadEntry
+    | AutofillUploadEntry
     | RenderVerticalUploadEntry;
 
   export interface State {
@@ -182,6 +201,11 @@ export namespace uploadReducer {
         type: "PUBLISH_COMPLETE";
         uploadId: string;
         newDraftVersionId: string;
+      }
+    | {
+        type: "UPDATE_AUTOFILL_STAGE";
+        uploadId: string;
+        stage: AutofillStage;
       }
     | {
         type: "UPDATE_RENDER_VERTICAL_STAGE";
@@ -429,6 +453,29 @@ const reduceUploads = (
           [action.uploadId]: {
             ...upload,
             newDraftVersionId: action.newDraftVersionId,
+          },
+        },
+      };
+    }
+
+    case "UPDATE_AUTOFILL_STAGE": {
+      const upload = state.uploads[action.uploadId];
+      if (!upload || upload.uploadType !== "autofill") return state;
+      // A settled row stays settled: a late stage event must not reopen a
+      // Video that already failed or landed.
+      if (isSettled(upload)) return state;
+
+      return {
+        ...state,
+        uploads: {
+          ...state.uploads,
+          [action.uploadId]: {
+            ...upload,
+            autofillStage: action.stage,
+            progress: Math.max(
+              upload.progress,
+              AUTOFILL_STAGE_BANDS[action.stage].start
+            ),
           },
         },
       };

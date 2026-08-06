@@ -64,6 +64,12 @@ export interface UploadContextType {
     description: string,
     includeTodoLessons: boolean
   ) => string;
+  startAutofill: (
+    courseId: string,
+    courseName: string,
+    versionId: string,
+    includeTodoLessons: boolean
+  ) => string;
   dismissUpload: (uploadId: string) => void;
 }
 
@@ -482,6 +488,41 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const startAutofill = useCallback(
+    (
+      courseId: string,
+      courseName: string,
+      versionId: string,
+      includeTodoLessons: boolean
+    ) => {
+      const uploadId = generateUploadId();
+
+      const params = { courseId, versionId, includeTodoLessons };
+      paramsMapRef.current.set(uploadId, { type: "autofill", params });
+
+      const action = {
+        type: "START_UPLOAD" as const,
+        uploadId,
+        videoId: "",
+        title: `Autofill ${courseName}`,
+        uploadType: "autofill" as const,
+        courseId,
+      };
+      dispatch(action);
+
+      initiateFromRegistry(
+        "autofill",
+        action,
+        params,
+        dispatch,
+        abortControllersRef.current
+      );
+
+      return uploadId;
+    },
+    []
+  );
+
   const dismissUpload = useCallback((uploadId: string) => {
     const abortController = abortControllersRef.current.get(uploadId);
     if (abortController) {
@@ -564,6 +605,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         startRenderVerticalUpload,
         startBatchExportUpload,
         startPublish,
+        startAutofill,
         dismissUpload,
       }}
     >

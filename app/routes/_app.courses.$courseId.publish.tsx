@@ -11,27 +11,22 @@ import {
   ZERO_SEMVER,
   type BumpLevel,
 } from "@/lib/semver";
-import { LESSON_WARNING_LABELS } from "@/features/course-view/lesson-warning-labels";
-import { VIDEO_WARNING_LABELS } from "@/features/course-view/video-warning-labels";
+import { decidePublishAction } from "@/features/publish/publish-action";
+import {
+  AutofillSkipList,
+  PublishBlockers,
+} from "@/features/publish/publish-blockers";
+import { PendingRecoveryBanner } from "@/features/publish/pending-recovery-banner";
+import { selectAutofillCandidates } from "@/services/autofill-candidates";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import {
-  classifyPendingRecovery,
-  type PendingRecovery,
-} from "@/services/pending-recovery.server";
+import { classifyPendingRecovery } from "@/services/pending-recovery.server";
 import { makeAction, makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
-import { ArrowLeft, AlertTriangle, ChevronRight } from "lucide-react";
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { data, Link, useFetcher, useNavigate } from "react-router";
+import { ArrowLeft, ChevronRight, Sparkles } from "lucide-react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { data, Link, useNavigate, useRevalidator } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.publish";
 
 export const loader = makeLoader({
@@ -64,6 +59,23 @@ export const loader = makeLoader({
       const { withTodo, withoutTodo } =
         yield* publishService.validatePublishability(latestVersion.id);
 
+      // The Autofill's candidate rule, read for BOTH toggle positions on the
+      // same terms as the readiness lists — so the button's count is the same
+      // rule the run itself uses (see selectAutofillCandidates). Deliberately
+      // NOT folded into Publish Readiness: the Autofill is a UI-only feature
+      // for now, and `cvm course readiness` must not grow a field for it.
+      const versionTree = yield* versionOps.getVersionWithSections(
+        latestVersion.id
+      );
+      const autofillWithTodo = selectAutofillCandidates(
+        versionTree.sections,
+        true
+      );
+      const autofillWithoutTodo = selectAutofillCandidates(
+        versionTree.sections,
+        false
+      );
+
       // Reconcile-on-load (#1404): detect a crash-stranded Pending Version and
       // classify it against the Dropbox course.json receipt. Read-only — the
       // Promote / Discard transitions run in this route's action.
@@ -83,12 +95,14 @@ export const loader = makeLoader({
           courseViewLints: withTodo.courseViewLints,
           invalidLessonCombos: withTodo.invalidLessonCombos,
           incompleteVideos: withTodo.incompleteVideos,
+          autofill: autofillWithTodo,
         },
         withoutTodo: {
           courseViewLintCount: withoutTodo.courseViewLintCount,
           courseViewLints: withoutTodo.courseViewLints,
           invalidLessonCombos: withoutTodo.invalidLessonCombos,
           incompleteVideos: withoutTodo.incompleteVideos,
+          autofill: autofillWithoutTodo,
         },
       };
     }),
@@ -130,11 +144,13 @@ export default function Component(props: Route.ComponentProps) {
     course,
     pendingRecovery,
     previousVersionName,
+    latestVersion,
     withTodo,
     withoutTodo,
   } = props.loaderData;
   const navigate = useNavigate();
-  const { uploads, startPublish } = useContext(UploadContext);
+  const revalidator = useRevalidator();
+  const { uploads, startPublish, startAutofill } = useContext(UploadContext);
 
   // The version name is never free-typed: it is a lowercase-'v' semver computed
   // from the previous published version by a patch/minor/major bump, so the UI
@@ -156,16 +172,31 @@ export default function Component(props: Route.ComponentProps) {
   const [includeTodoLessons, setIncludeTodoLessons] = useState(true);
   const [publishStarted, setPublishStarted] = useState(false);
 
+  const [autofillUploadId, setAutofillUploadId] = useState<string | null>(null);
+
+  const isLive = (status: string) =>
+    status === "uploading" || status === "waiting" || status === "retrying";
+
   const hasActivePublish = Object.values(uploads).some(
-    (u) =>
-      u.uploadType === "publish" &&
-      (u.status === "uploading" ||
-        u.status === "waiting" ||
-        u.status === "retrying")
+    (u) => u.uploadType === "publish" && isLive(u.status)
   );
-  const isOperationInProgress = hasActivePublish;
+  // Only THIS page's run: an Autofill started elsewhere is watched in the
+  // upload surface, not held against this button.
+  const activeAutofill = autofillUploadId
+    ? uploads[autofillUploadId]
+    : undefined;
+  const hasActiveAutofill = !!activeAutofill && isLive(activeAutofill.status);
 
   useFocusRevalidate({ enabled: !publishStarted });
+
+  // When the run settles the page re-reads Publish Readiness and re-evaluates
+  // the button — which is how the same button comes back reading "Publish".
+  // It never rolls on into a Publish: the second press is the author's.
+  useEffect(() => {
+    if (!activeAutofill || isLive(activeAutofill.status)) return;
+    setAutofillUploadId(null);
+    revalidator.revalidate();
+  }, [activeAutofill, revalidator]);
 
   // The warnings and the publish button reflect whichever toggle position is
   // currently selected — flipping the toggle switches them instantly, with no
@@ -179,16 +210,36 @@ export default function Component(props: Route.ComponentProps) {
   const hasCourseViewLints = courseViewLintCount > 0;
   const hasInvalidLessonCombos = invalidLessonCombos.length > 0;
   const hasIncompleteVideos = incompleteVideos.length > 0;
-  const canPublish =
-    description.trim().length > 0 &&
-    !hasCourseViewLints &&
-    !hasInvalidLessonCombos &&
-    !hasIncompleteVideos &&
-    !publishStarted &&
-    !isOperationInProgress &&
-    // A stranded Pending Version blocks publishing until reconciled — a second
-    // Submit would collide with the at-most-one-pending invariant anyway.
-    pendingRecovery === null;
+  const autofill = effective.autofill;
+
+  // One button, two labels. The rule lives in a pure function so it can be
+  // tested across its four cases without rendering this page.
+  const action = decidePublishAction({
+    pendingRecovery: pendingRecovery !== null,
+    autofillCandidateCount: autofill.candidates.length,
+    hasBlockers:
+      hasCourseViewLints || hasInvalidLessonCombos || hasIncompleteVideos,
+    hasVersionDescription: description.trim().length > 0,
+    autofillRunning: hasActiveAutofill,
+    publishRunning: hasActivePublish || publishStarted,
+  });
+
+  const handleAutofill = useCallback(() => {
+    setAutofillUploadId(
+      startAutofill(
+        course.id,
+        course.name,
+        latestVersion.id,
+        includeTodoLessons
+      )
+    );
+  }, [
+    course.id,
+    course.name,
+    latestVersion.id,
+    includeTodoLessons,
+    startAutofill,
+  ]);
 
   const handlePublish = useCallback(() => {
     setPublishStarted(true);
@@ -305,255 +356,46 @@ export default function Component(props: Route.ComponentProps) {
           </div>
         </div>
 
-        {/* Course-view Lints — each warning is listed (not just counted) so it
-            can be found and fixed in the course view. The label wording matches
-            the course view exactly, keeping the two surfaces in lockstep. */}
-        {hasCourseViewLints && (
-          <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <span className="text-sm font-medium text-amber-500">
-                {courseViewLintCount} course warning
-                {courseViewLintCount !== 1 ? "s" : ""} — fix in the course view
-                before publishing
-              </span>
-            </div>
-            <ul className="space-y-1.5">
-              {courseViewLints.map((lint, index) =>
-                lint.scope === "course" ? (
-                  <li
-                    key={`course/${lint.quizId}/${index}`}
-                    className="text-xs text-muted-foreground"
-                  >
-                    <span className="font-medium text-foreground">
-                      {lint.quizId}
-                    </span>{" "}
-                    <span className="text-amber-500">
-                      ({VIDEO_WARNING_LABELS[lint.kind]})
-                    </span>
-                    <span className="block text-muted-foreground/70">
-                      {lint.videoPaths.join(" · ")}
-                    </span>
-                  </li>
-                ) : (
-                  <li
-                    key={`${lint.sectionPath}/${lint.lessonPath}/${
-                      lint.scope === "video" ? lint.videoTitle : "lesson"
-                    }/${lint.kind}/${index}`}
-                    className="text-xs text-muted-foreground"
-                  >
-                    <span className="font-medium text-foreground">
-                      {lint.scope === "video"
-                        ? lint.videoTitle
-                        : lint.lessonPath || "Lesson"}
-                    </span>{" "}
-                    <span className="text-amber-500">
-                      (
-                      {lint.scope === "video"
-                        ? VIDEO_WARNING_LABELS[lint.kind]
-                        : LESSON_WARNING_LABELS[lint.kind]}
-                      )
-                    </span>
-                    <span className="block text-muted-foreground/70">
-                      {lint.sectionPath}
-                      {lint.scope === "video" && lint.lessonPath
-                        ? ` / ${lint.lessonPath}`
-                        : ""}
-                    </span>
-                  </li>
-                )
+        <PublishBlockers
+          lists={{
+            courseViewLints,
+            incompleteVideos,
+            invalidLessonCombos,
+          }}
+        />
+
+        {/* One button, two labels: "Autofill N Videos" while the Autofill has
+            work, "Publish" once it does not. It never rolls on from one to the
+            other — pressing Autofill and walking away is the point, and the
+            second press happens after the readiness lists have been re-read. */}
+        {action.kind !== "hidden" && (
+          <div className="mb-8 space-y-2">
+            <Button
+              onClick={
+                action.kind === "autofill" ? handleAutofill : handlePublish
+              }
+              disabled={!action.enabled}
+              className="w-full"
+              size="lg"
+            >
+              {action.kind === "autofill" && (
+                <Sparkles className="w-4 h-4 mr-2" />
               )}
-            </ul>
+              {action.label}
+            </Button>
+            {action.kind === "autofill" && (
+              <p className="text-xs text-muted-foreground">
+                Fills in every missing SEO description and set of chapters.
+                Watch it in the upload panel — it stops when it is done, and you
+                press Publish yourself.
+              </p>
+            )}
+            {autofill.skipped.length > 0 && (
+              <AutofillSkipList skipped={autofill.skipped} />
+            )}
           </div>
         )}
-
-        {/* Incomplete Videos — a shipping video missing clips, body, or
-            description. Every field in course.json is required, so publishing
-            one would fail the build; block it here (see ADR 0019). */}
-        {hasIncompleteVideos && (
-          <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <span className="text-sm font-medium text-amber-500">
-                {incompleteVideos.length} incomplete video
-                {incompleteVideos.length !== 1 ? "s" : ""} — finish{" "}
-                {incompleteVideos.length !== 1 ? "these" : "this"} before
-                publishing
-              </span>
-            </div>
-            <ul className="space-y-1.5">
-              {incompleteVideos.map((video) => (
-                <li
-                  key={`${video.sectionPath}/${video.lessonPath}/${video.videoTitle}`}
-                  className="text-xs text-muted-foreground"
-                >
-                  <span className="font-medium text-foreground">
-                    {video.videoTitle}
-                  </span>{" "}
-                  <span className="text-amber-500">
-                    (missing {video.missing.join(", ")})
-                  </span>
-                  <span className="block text-muted-foreground/70">
-                    {video.sectionPath} / {video.lessonPath}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Invalid Lesson Role Combos — a lesson whose videos don't form a valid
-            explainer / problem / solution combo. buildCourseJson can't resolve
-            it, so block publish until the roles are fixed in the course view. */}
-        {hasInvalidLessonCombos && (
-          <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <span className="text-sm font-medium text-amber-500">
-                {invalidLessonCombos.length} lesson
-                {invalidLessonCombos.length !== 1 ? "s" : ""} with an invalid
-                video combo — fix in the course view before publishing
-              </span>
-            </div>
-            <ul className="space-y-1.5">
-              {invalidLessonCombos.map((lesson) => (
-                <li
-                  key={`${lesson.sectionPath}/${lesson.lessonPath}`}
-                  className="text-xs text-muted-foreground"
-                >
-                  <span className="font-medium text-foreground">
-                    {lesson.lessonPath}
-                  </span>{" "}
-                  <span className="text-amber-500">
-                    ({lesson.videoTitles.join(", ")})
-                  </span>
-                  <span className="block text-muted-foreground/70">
-                    {lesson.sectionPath}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Publish Button */}
-        <div className="mb-8">
-          <Button
-            onClick={handlePublish}
-            disabled={!canPublish}
-            className="w-full"
-            size="lg"
-          >
-            {hasActivePublish ? "Publishing..." : "Publish"}
-          </Button>
-        </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * The durable recovery surface for a crash-stranded Pending Version (#1404).
- * Receipt committed → the publish is already live externally, so Promote is
- * auto-submitted on render (never discard a committed version) and the banner
- * confirms recovery. Receipt absent → one-click Discard; the operator's edits
- * are safe in the current Draft and they republish normally.
- */
-function PendingRecoveryBanner({
-  recovery,
-}: {
-  recovery: PendingRecovery | null;
-}) {
-  const fetcher = useFetcher();
-  const promoteSubmitted = useRef(false);
-  // Held locally so the "recovered ✓" confirmation survives the revalidation
-  // that clears `recovery` after the Promote lands.
-  const [recoveredName, setRecoveredName] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (recovery?.receiptState === "committed" && !promoteSubmitted.current) {
-      promoteSubmitted.current = true;
-      setRecoveredName(recovery.versionName);
-      fetcher.submit(
-        { intent: "promote-pending", versionId: recovery.versionId },
-        { method: "post" }
-      );
-    }
-  }, [recovery, fetcher]);
-
-  if (recoveredName !== null) {
-    // Recovered only once the Promote actually landed — an errored action
-    // must not read as success.
-    const done =
-      fetcher.state === "idle" &&
-      (fetcher.data as { promotedVersionId?: string } | undefined)
-        ?.promotedVersionId !== undefined;
-    return (
-      <div className="mb-8 rounded-lg border border-green-500/30 bg-green-500/5 p-4 text-sm">
-        <span className="font-medium text-green-500">
-          {done
-            ? `Publish finished — recovered ✓ ${recoveredName} is live.`
-            : `Finalizing your interrupted publish of ${recoveredName}…`}
-        </span>
-        <p className="text-muted-foreground mt-1">
-          The last publish committed to Dropbox but was interrupted before it
-          was recorded here.{" "}
-          {done ? "It is now marked Published." : "Marking it Published…"}
-        </p>
-      </div>
-    );
-  }
-
-  if (!recovery) return null;
-
-  if (recovery.receiptState === "unreadable") {
-    // Never offer Discard on a receipt we could not read — the mount may be
-    // down while the receipt (and a committed publish) actually exists.
-    return (
-      <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="w-5 h-5 text-amber-500" />
-          <span className="text-sm font-medium text-amber-500">
-            An interrupted publish ({recovery.versionName}) needs recovery
-          </span>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          The Dropbox commit receipt (course.json) couldn&apos;t be read, so it
-          is unknown whether that publish committed. Check the Dropbox mount and
-          reload this page.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <AlertTriangle className="w-5 h-5 text-amber-500" />
-        <span className="text-sm font-medium text-amber-500">
-          Your last publish ({recovery.versionName}) didn&apos;t finish
-        </span>
-      </div>
-      <p className="text-sm text-muted-foreground mb-3">
-        It never committed — the course.json receipt was never written, so
-        consumers still see the previous release. Your edits are safe in the
-        current draft. Discard the unfinished version, then publish again
-        normally.
-      </p>
-      <fetcher.Form method="post">
-        <input type="hidden" name="intent" value="discard-pending" />
-        <input type="hidden" name="versionId" value={recovery.versionId} />
-        <Button
-          type="submit"
-          variant="outline"
-          size="sm"
-          disabled={fetcher.state !== "idle"}
-        >
-          {fetcher.state !== "idle"
-            ? "Discarding…"
-            : "Discard unfinished publish"}
-        </Button>
-      </fetcher.Form>
     </div>
   );
 }

@@ -80,6 +80,21 @@ export const PUBLISH_VIDEO_UPLOAD_BANDS: Record<
 export const exportStageBands = (upload: uploadReducer.ExportUploadEntry) =>
   upload.parentUploadId ? PUBLISH_VIDEO_EXPORT_BANDS : EXPORT_STAGE_BANDS;
 
+// An Autofill reports nothing finer than "which Video am I on", so its stages
+// are floors rather than bands. The parent leaves everything above
+// AUTOFILL_WORK_BAND.start to its per-Video children.
+export const AUTOFILL_STAGE_BANDS: Record<
+  uploadReducer.AutofillStage,
+  StageBand
+> = {
+  selecting: { start: 1, width: 0 },
+  writing: { start: 2, width: 0 },
+};
+
+// An Autofill's whole bar is its children: unlike a Publish it has no
+// prologue worth a band of its own. 100 is reserved for the run settling.
+const AUTOFILL_WORK_BAND: StageBand = { start: 2, width: 97 };
+
 export const RENDER_VERTICAL_STAGE_BANDS: Record<
   uploadReducer.RenderVerticalStage,
   StageBand
@@ -120,6 +135,7 @@ export const streamedProgressBand = (
  * cannot collapse to whatever has landed so far.
  */
 const deriveParentProgress = (
+  parent: uploadReducer.UploadEntry,
   children: uploadReducer.UploadEntry[]
 ): number | null => {
   if (children.length === 0) return null;
@@ -147,7 +163,10 @@ const deriveParentProgress = (
   }
   if (total <= 0) return null;
 
-  return fillBand(PUBLISH_WORK_BAND, weighted / total);
+  return fillBand(
+    parent.uploadType === "autofill" ? AUTOFILL_WORK_BAND : PUBLISH_WORK_BAND,
+    weighted / total
+  );
 };
 
 /**
@@ -172,7 +191,7 @@ export const withDerivedParentProgress = (
   for (const [parentId, children] of childrenByParent) {
     const parent = next[parentId];
     if (!parent || isSettled(parent)) continue;
-    const derived = deriveParentProgress(children);
+    const derived = deriveParentProgress(parent, children);
     if (derived === null || derived <= parent.progress) continue;
     next = { ...next, [parentId]: { ...parent, progress: derived } };
   }

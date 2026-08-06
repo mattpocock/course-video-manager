@@ -696,6 +696,8 @@ const renderVerticalConfig: UploadTypeConfig<
   supportsDependsOn: false,
 };
 
+import { autofillConfig } from "./upload-type-autofill";
+
 export const uploadTypeRegistry: Record<
   uploadReducer.UploadType,
   UploadTypeConfig<any, any>
@@ -707,5 +709,6 @@ export const uploadTypeRegistry: Record<
   "ai-hero": aiHeroConfig,
   "skills-changelog": skillsChangelogConfig,
   publish: publishConfig,
+  autofill: autofillConfig,
   "render-vertical": renderVerticalConfig,
 };
