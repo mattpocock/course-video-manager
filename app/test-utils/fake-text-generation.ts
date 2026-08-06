@@ -87,42 +87,48 @@ export const createFakeTextGeneration = (opts?: {
     return Effect.sync(succeed);
   };
 
+  // Everything below is deferred with Effect.suspend, because a retry re-runs
+  // the same Effect value: bookkeeping done while BUILDING it would count one
+  // call and replay one verdict forever, and a rate limit would never clear.
   const layer = Layer.succeed(TextGenerationService, {
-    autofillDescription: (input: AutofillDescriptionInput) => {
-      descriptionCalls.push(input);
-      attempts.description += 1;
-      const outcome = outcomeFor(opts?.descriptionOutcomes, input.body);
-      return applyOutcome(
-        `description:${input.body}`,
-        outcome,
-        () =>
-          opts?.describe?.(input) ?? `Autofilled description for ${input.body}`
-      );
-    },
+    autofillDescription: (input: AutofillDescriptionInput) =>
+      Effect.suspend(() => {
+        descriptionCalls.push(input);
+        attempts.description += 1;
+        const outcome = outcomeFor(opts?.descriptionOutcomes, input.body);
+        return applyOutcome(
+          `description:${input.body}`,
+          outcome,
+          () =>
+            opts?.describe?.(input) ??
+            `Autofilled description for ${input.body}`
+        );
+      }),
 
-    autofillChapters: (input: AutofillChaptersInput) => {
-      chapterCalls.push(input);
-      attempts.chapters += 1;
-      const transcript = input.clips.map((clip) => clip.text).join(" ");
-      const outcome = outcomeFor(opts?.chapterOutcomes, transcript);
-      return applyOutcome(`chapters:${transcript}`, outcome, () => {
-        // An invented id is the one thing the real service refuses to pass on,
-        // so the fake needs to be able to produce one.
-        const proposals: AutofillChapterProposal[] =
-          outcome.kind === "invalid-clip-id"
-            ? [{ beforeClipId: "no-such-clip", title: "Invented" }]
-            : input.clips.length === 0
-              ? []
-              : [
-                  {
-                    beforeClipId: input.clips[0]!.id,
-                    title: "Autofilled opening",
-                  },
-                ];
-        for (const proposal of proposals) input.onChapter?.(proposal);
-        return proposals;
-      });
-    },
+    autofillChapters: (input: AutofillChaptersInput) =>
+      Effect.suspend(() => {
+        chapterCalls.push(input);
+        attempts.chapters += 1;
+        const transcript = input.clips.map((clip) => clip.text).join(" ");
+        const outcome = outcomeFor(opts?.chapterOutcomes, transcript);
+        return applyOutcome(`chapters:${transcript}`, outcome, () => {
+          // An invented id is the one thing the real service refuses to pass on,
+          // so the fake needs to be able to produce one.
+          const proposals: AutofillChapterProposal[] =
+            outcome.kind === "invalid-clip-id"
+              ? [{ beforeClipId: "no-such-clip", title: "Invented" }]
+              : input.clips.length === 0
+                ? []
+                : [
+                    {
+                      beforeClipId: input.clips[0]!.id,
+                      title: "Autofilled opening",
+                    },
+                  ];
+          for (const proposal of proposals) input.onChapter?.(proposal);
+          return proposals;
+        });
+      }),
   } as TextGenerationService);
 
   return {

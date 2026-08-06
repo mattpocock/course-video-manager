@@ -36,6 +36,7 @@ import {
 } from "./clip-service-handler.helpers";
 import type { Database } from "./drizzle-service.server";
 import { withClipServiceWriteClosure } from "./draft-guard.server";
+import { replaceVideoChapters } from "./autofill-chapters-write.server";
 
 export type { VideoProcessingAdapter, LoggerAdapter };
 
@@ -606,65 +607,9 @@ const dispatchClipServiceEvent = Effect.fn("dispatchClipServiceEvent")(
       case "autofill-chapters": {
         const { videoId, sections: proposed } = event.input;
 
-        const orderedClips = yield* Effect.promise(() =>
-          db.query.clips.findMany({
-            where: eq(clips.videoId, videoId),
-            orderBy: (table, { asc }) => asc(table.order),
-          })
+        const inserted = yield* Effect.promise(() =>
+          replaceVideoChapters(db, { videoId, proposals: proposed })
         );
-
-        const activeClips = orderedClips.filter((c) => !c.archived);
-        const clipIndexById = new Map(activeClips.map((c, i) => [c.id, i]));
-
-        const seen = new Set<string>();
-        const validatedProposed = proposed
-          .filter((s) => {
-            if (seen.has(s.beforeClipId)) return false;
-            if (!clipIndexById.has(s.beforeClipId)) return false;
-            seen.add(s.beforeClipId);
-            return true;
-          })
-          .map((s) => ({
-            ...s,
-            clipIndex: clipIndexById.get(s.beforeClipId)!,
-          }))
-          .sort((a, b) => a.clipIndex - b.clipIndex);
-
-        yield* Effect.promise(() =>
-          db
-            .update(chapters)
-            .set({ archived: true })
-            .where(eq(chapters.videoId, videoId))
-        );
-
-        const inserted: Array<
-          typeof chapters.$inferSelect & { beforeClipId: string }
-        > = [];
-        for (const p of validatedProposed) {
-          const targetClip = activeClips[p.clipIndex]!;
-          const prevClip = activeClips[p.clipIndex - 1];
-          const prevOrder = prevClip?.order ?? null;
-          const nextOrder = targetClip.order;
-
-          const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
-
-          const [row] = yield* Effect.promise(() =>
-            db
-              .insert(chapters)
-              .values({
-                videoId,
-                name: p.title,
-                order: order!,
-                archived: false,
-              })
-              .returning()
-          );
-
-          if (!row) throw new Error("Failed to insert Chapter");
-          inserted.push({ ...row, beforeClipId: p.beforeClipId });
-        }
-
-        yield* touchVideoUpdatedAt(db, videoId);
 
         logger.log(videoId, {
           type: "chapters-autofilled",
