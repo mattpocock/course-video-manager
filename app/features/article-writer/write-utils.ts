@@ -68,6 +68,11 @@ export const COURSE_STRUCTURE_STORAGE_KEY =
 export const MEMORY_ENABLED_STORAGE_KEY = "article-writer-memory-enabled";
 export const BEATS_ENABLED_STORAGE_KEY = "article-writer-beats-enabled";
 export const SCRIPT_ENABLED_STORAGE_KEY = "article-writer-script-enabled";
+/**
+ * The links a writer has switched OFF. Stores the disabled ids, not the enabled
+ * ones, so a Link added after the preference was saved still defaults to on.
+ */
+export const LINKS_DISABLED_STORAGE_KEY = "article-writer-links-disabled";
 
 export const getMessagesStorageKey = (videoId: string, mode: Mode) =>
   `article-writer-messages-${videoId}-${mode}`;

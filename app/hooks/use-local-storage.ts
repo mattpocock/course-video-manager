@@ -3,6 +3,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -41,6 +42,43 @@ export function useLocalStorageBoolean(
         const next =
           typeof action === "function" ? action(prev === "true") : action;
         return String(next);
+      });
+    },
+    [setRaw]
+  );
+
+  return [value, setValue];
+}
+
+/** A stored id list that survives a bad or hand-edited value. */
+export function parseStringSet(raw: string): Set<string> {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * A set of ids kept in `localStorage` as a JSON array — the Set-shaped sibling
+ * of {@link useLocalStorageBoolean}, for preferences that name *which* items
+ * are on rather than one on/off.
+ */
+export function useLocalStorageStringSet(
+  key: string
+): [Set<string>, Dispatch<SetStateAction<Set<string>>>] {
+  const [raw, setRaw] = useLocalStorage(key, "[]");
+
+  const value = useMemo(() => parseStringSet(raw), [raw]);
+
+  const setValue: Dispatch<SetStateAction<Set<string>>> = useCallback(
+    (action) => {
+      setRaw((prev) => {
+        const next =
+          typeof action === "function" ? action(parseStringSet(prev)) : action;
+        return JSON.stringify([...next]);
       });
     },
     [setRaw]

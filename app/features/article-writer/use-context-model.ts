@@ -4,12 +4,16 @@ import { useState, useMemo, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { WriterContext } from "./writer-engine";
 import { estimateTokens, type SourceView } from "./inline-context-strip";
-import { useLocalStorageBoolean } from "@/hooks/use-local-storage";
+import {
+  useLocalStorageBoolean,
+  useLocalStorageStringSet,
+} from "@/hooks/use-local-storage";
 import {
   MEMORY_ENABLED_STORAGE_KEY,
   COURSE_STRUCTURE_STORAGE_KEY,
   BEATS_ENABLED_STORAGE_KEY,
   SCRIPT_ENABLED_STORAGE_KEY,
+  LINKS_DISABLED_STORAGE_KEY,
 } from "./write-utils";
 import { formatBeatsContext } from "./format-beats-context";
 
@@ -86,9 +90,10 @@ export function useContextModel(
   );
   const [memoryText, setMemoryText] = useState(context.memory);
   // Links default to on; we track the *disabled* ids so links added after mount
-  // (via revalidation) are included by default.
-  const [disabledLinks, setDisabledLinks] = useState<Set<string>>(
-    () => new Set()
+  // (via revalidation) are included by default. Persisted like the other
+  // source toggles, so switching a link off outlives the open modal.
+  const [disabledLinks, setDisabledLinks] = useLocalStorageStringSet(
+    LINKS_DISABLED_STORAGE_KEY
   );
   const [beatsEnabled, setBeatsEnabled] = useLocalStorageBoolean(
     BEATS_ENABLED_STORAGE_KEY
