@@ -55,6 +55,15 @@ describe("BeatsView", () => {
     expect(render(DESCRIPTION)).toContain(DESCRIPTION);
   });
 
+  // The plan is glanced at from wherever you're standing, in whole rows rather
+  // than word by word, so it is set a step above the script's body type — the
+  // size tuned for reading a line aloud off the glass.
+  it("sets a beat's title above the size the script reads at", () => {
+    expect(fontSizeOf(render(DESCRIPTION), TITLE)).toBeGreaterThan(
+      TYPE.fontSize
+    );
+  });
+
   // The title is the beat you're looking for; the description is the detail you
   // read once you've found it. Same size makes the plan one undifferentiated
   // wall of text at a glance.
