@@ -497,6 +497,88 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         return outputPath;
       });
 
+      /**
+       * Extract many frames at arbitrary timestamps into `outputDir`.
+       *
+       * Unlike `captureFrameAtTime` the height is a parameter, because the
+       * screenshot judge samples cheap small frames to find roughly *when*,
+       * then re-samples full-size frames to pick the exact one.
+       *
+       * Timestamps are seeked independently rather than filtered with `fps=`,
+       * since the frames wanted are scattered across a clip's own range and
+       * a single decode across the gaps between clips would waste most of the
+       * work. Extraction runs concurrently under the existing CPU semaphore.
+       */
+      const captureFramesAtTimes = Effect.fn("captureFramesAtTimes")(function* (
+        inputVideo: string,
+        timestamps: number[],
+        outputDir: string,
+        height: number
+      ) {
+        yield* fs.makeDirectory(outputDir, { recursive: true }).pipe(
+          Effect.mapError(
+            (e) =>
+              new FFmpegError({
+                cause: e,
+                message: `Failed to create frame directory: ${e.message}`,
+              })
+          )
+        );
+
+        return yield* Effect.forEach(
+          timestamps,
+          (timestamp, i) =>
+            Effect.gen(function* () {
+              const outputPath = path.join(outputDir, `frame-${i}.png`);
+              const args = [
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-ss",
+                String(timestamp),
+                "-i",
+                inputVideo,
+                "-vframes",
+                "1",
+                "-vf",
+                `scale=-2:${height}`,
+                "-q:v",
+                "2",
+                outputPath,
+              ];
+
+              yield* cpuSemaphore.withPermits(1)(
+                Effect.gen(function* () {
+                  const code = yield* Command.exitCode(
+                    Command.make("ffmpeg", ...args).pipe(
+                      Command.stdout("inherit"),
+                      Command.stderr("inherit")
+                    )
+                  ).pipe(
+                    Effect.mapError(
+                      (e) =>
+                        new FFmpegError({
+                          cause: e,
+                          message: `Failed to extract frame at ${timestamp}s: ${e.message}`,
+                        })
+                    )
+                  );
+                  if (code !== 0) {
+                    yield* new FFmpegError({
+                      cause: null,
+                      message: `Frame extraction at ${timestamp}s exited with code ${code}`,
+                    });
+                  }
+                })
+              );
+
+              return { timestamp, outputPath };
+            }),
+          { concurrency: 6 }
+        );
+      });
+
       return {
         detectSilence,
         getFPS,
@@ -504,6 +586,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         normalizeAudio,
         compositeOverlay,
         captureFrameAtTime,
+        captureFramesAtTimes,
       };
     }),
     dependencies: [NodeContext.layer],

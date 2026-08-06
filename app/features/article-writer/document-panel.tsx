@@ -21,6 +21,7 @@ import {
   CheckIcon,
   ImageIcon,
   Loader2Icon,
+  SparklesIcon,
   FileTextIcon,
   FileTypeIcon,
   PlusIcon,
@@ -28,6 +29,7 @@ import {
   EyeIcon,
   AlertTriangleIcon,
   ClipboardPasteIcon,
+  ClockIcon,
 } from "lucide-react";
 import type { LintViolation } from "./lint-rules";
 import type { RemoveBlockHandler } from "components/ui/kibo-ui/ai/response";
@@ -63,6 +65,13 @@ export interface DocumentPanelProps {
   onUploadImages?: () => void;
   violations?: LintViolation[];
   onFixLintViolations?: () => void;
+  /** ChooseScreenshot blocks with no candidates yet — what "Find all" would do. */
+  pendingScreenshotCount?: number;
+  /** Blocks with a search in flight, whether started here or from a block. */
+  searchingScreenshotCount?: number;
+  /** Armed mid-stream: the search starts when the article finishes. */
+  isFindAllScreenshotsQueued?: boolean;
+  onFindAllScreenshots?: () => void;
   sessionTimer?: React.ReactNode;
   /**
    * "full" renders the standalone-writer header toolbar (copy / readme /
@@ -94,6 +103,10 @@ export const DocumentPanel = memo(function DocumentPanel({
   onUploadImages,
   violations,
   onFixLintViolations,
+  pendingScreenshotCount = 0,
+  searchingScreenshotCount = 0,
+  isFindAllScreenshotsQueued = false,
+  onFindAllScreenshots,
   sessionTimer,
   variant = "full",
 }: DocumentPanelProps) {
@@ -163,8 +176,9 @@ export const DocumentPanel = memo(function DocumentPanel({
   }, [onDocumentChange]);
 
   // Modal (field-writer) layout: no header toolbar. A floating Edit/Preview
-  // toggle sits over a shared scroll box; copy and lint fixes live in the
-  // modal's bottom bar, so they are intentionally absent here.
+  // toggle sits over a shared scroll box; copy, lint fixes and the screenshot
+  // search live in the modal's bottom bar, so they are intentionally absent
+  // here.
   if (variant === "modal") {
     return (
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -412,6 +426,42 @@ export const DocumentPanel = memo(function DocumentPanel({
                     </p>
                   ))}
                 </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Find every screenshot at once */}
+        {onFindAllScreenshots && pendingScreenshotCount > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  disabled={searchingScreenshotCount > 0}
+                  onClick={onFindAllScreenshots}
+                >
+                  {searchingScreenshotCount > 0 ? (
+                    <Loader2Icon className="h-4 w-4 mr-1 animate-spin" />
+                  ) : isFindAllScreenshotsQueued ? (
+                    <ClockIcon className="h-4 w-4 mr-1 text-primary" />
+                  ) : (
+                    <SparklesIcon className="h-4 w-4 mr-1 text-primary" />
+                  )}
+                  {isFindAllScreenshotsQueued ? "Queued" : "Find"} (
+                  {pendingScreenshotCount})
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {searchingScreenshotCount > 0
+                    ? `Searching ${searchingScreenshotCount} screenshot${searchingScreenshotCount > 1 ? "s" : ""}…`
+                    : isFindAllScreenshotsQueued
+                      ? "Waiting for the article to finish — press again to cancel"
+                      : `Find candidates for ${pendingScreenshotCount} screenshot${pendingScreenshotCount > 1 ? "s" : ""}`}
+                </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

@@ -4,6 +4,7 @@ import {
   updateChooseScreenshotClipIndex,
   removeChooseScreenshot,
   hasUnresolvedScreenshots,
+  listChooseScreenshotTags,
 } from "./choose-screenshot-mutations";
 
 describe("replaceChooseScreenshotWithImage", () => {
@@ -225,5 +226,89 @@ And the second:
 Done.`;
 
     expect(hasUnresolvedScreenshots(document)).toBe(false);
+  });
+});
+
+describe("listChooseScreenshotTags", () => {
+  it("lists every tag in document order", () => {
+    const document = `# Article
+
+<ChooseScreenshot clipIndex={3} alt="the editor" />
+
+Some prose.
+
+<ChooseScreenshot clipIndex={7} alt="the terminal" />`;
+
+    expect(listChooseScreenshotTags(document)).toEqual([
+      { clipIndex: 3, alt: "the editor" },
+      { clipIndex: 7, alt: "the terminal" },
+    ]);
+  });
+
+  it("returns nothing for a document with no tags", () => {
+    expect(listChooseScreenshotTags("# Just prose\n\nNo tags here.")).toEqual(
+      []
+    );
+  });
+
+  it("returns nothing for an empty document", () => {
+    expect(listChooseScreenshotTags("")).toEqual([]);
+  });
+
+  it("ignores resolved screenshots, which are plain images", () => {
+    const document = `![already done](./screenshot-1.png)
+
+<ChooseScreenshot clipIndex={4} alt="still pending" />`;
+
+    expect(listChooseScreenshotTags(document)).toEqual([
+      { clipIndex: 4, alt: "still pending" },
+    ]);
+  });
+
+  // Every mutation here matches with /g and rewrites both copies, so two
+  // identical tags are one thing. Counting twice would promise a search that
+  // only lands once.
+  it("collapses identical tags", () => {
+    const document = `<ChooseScreenshot clipIndex={2} alt="same" />
+
+<ChooseScreenshot clipIndex={2} alt="same" />`;
+
+    expect(listChooseScreenshotTags(document)).toEqual([
+      { clipIndex: 2, alt: "same" },
+    ]);
+  });
+
+  it("keeps tags that share a clip but differ in alt", () => {
+    const document = `<ChooseScreenshot clipIndex={2} alt="first" />
+
+<ChooseScreenshot clipIndex={2} alt="second" />`;
+
+    expect(listChooseScreenshotTags(document)).toEqual([
+      { clipIndex: 2, alt: "first" },
+      { clipIndex: 2, alt: "second" },
+    ]);
+  });
+
+  it("keeps tags that share an alt but differ in clip", () => {
+    const document = `<ChooseScreenshot clipIndex={2} alt="same" />
+
+<ChooseScreenshot clipIndex={9} alt="same" />`;
+
+    expect(listChooseScreenshotTags(document)).toEqual([
+      { clipIndex: 2, alt: "same" },
+      { clipIndex: 9, alt: "same" },
+    ]);
+  });
+
+  it("reads an empty alt", () => {
+    expect(
+      listChooseScreenshotTags('<ChooseScreenshot clipIndex={1} alt="" />')
+    ).toEqual([{ clipIndex: 1, alt: "" }]);
+  });
+
+  it("parses a multi-digit clip index as a number", () => {
+    expect(
+      listChooseScreenshotTags('<ChooseScreenshot clipIndex={142} alt="x" />')
+    ).toEqual([{ clipIndex: 142, alt: "x" }]);
   });
 });

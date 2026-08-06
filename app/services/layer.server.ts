@@ -29,6 +29,7 @@ import { RenderVerticalVideoService } from "./render-vertical-video-service";
 import { VideoPostOperationsService } from "./db-video-post-operations.server";
 import { BufferApiService } from "./buffer-api-service.server";
 import { ObjectStoreService } from "./object-store-service.server";
+import { ScreenshotProposalService } from "./screenshot-proposal.server";
 
 const CloudinaryMarkdownLayer = CloudinaryMarkdownService.Default.pipe(
   Layer.provide(CloudinaryService.Default)
@@ -61,6 +62,7 @@ const coreLayer = Layer.mergeAll(
   CloudinaryMarkdownLayer,
   CourseWriteService.Default,
   FFmpegCommandsService.Default,
+  ScreenshotProposalService.Default,
   NodeContext.layer
 ).pipe(
   Layer.provide(PgDumpRunner.Default),

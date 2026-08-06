@@ -11,8 +11,6 @@ export type { WriterContext };
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { HTMLAttributes } from "react";
-import type { Options } from "react-markdown";
 import { useFetcher } from "react-router";
 import { WriteChat } from "./write-chat";
 import { DocumentPanel } from "./document-panel";
@@ -22,14 +20,9 @@ import { useLint, useLintFix } from "@/hooks/use-lint";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 import { useMessageQueue } from "./use-message-queue";
 import { partsToText } from "./write-utils";
-import {
-  replaceChooseScreenshotWithImage,
-  updateChooseScreenshotClipIndex,
-  removeChooseScreenshot,
-  hasUnresolvedScreenshots,
-} from "./choose-screenshot-mutations";
-import { preprocessChooseScreenshotMarkdown } from "./choose-screenshot-markdown";
-import { ChooseScreenshot } from "./choose-screenshot";
+import { hasUnresolvedScreenshots } from "./choose-screenshot-mutations";
+import { ChooseScreenshotProvider } from "./choose-screenshot-md";
+import { useChooseScreenshotBlocks } from "./use-choose-screenshot-blocks";
 import type { WriteToolbarProps } from "./write-toolbar";
 import type { WriterFieldId } from "./writer-engine-utils";
 import {
@@ -51,6 +44,8 @@ import {
   Settings2Icon,
   AlertTriangleIcon,
   Loader2Icon,
+  SparklesIcon,
+  ClockIcon,
 } from "lucide-react";
 
 export interface WriterEngineProps {
@@ -102,7 +97,6 @@ export function WriterEngine({
   const ctxModel = useContextModel(context, pageFields);
   useMemoryAutosave(ctxModel.memoryText, context.repoId);
 
-  const [docCapturingKey, setDocCapturingKey] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   const isDocumentMode =
@@ -157,113 +151,24 @@ export function WriterEngine({
       onDocumentChange,
     });
 
-  // Screenshot support
-  const handleDocCapture = useCallback(
-    async (
-      clipIndex: number,
-      alt: string,
-      timestamp: number,
-      videoFilename: string
-    ) => {
-      const key = `doc-${clipIndex}-${alt}`;
-      setDocCapturingKey(key);
-      try {
-        const res = await fetch(`/api/videos/${videoId}/capture-screenshot`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ timestamp, videoFilename }),
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Failed to capture screenshot");
-        }
-        const { imagePath } = await res.json();
-        const currentDoc = documentRef.current;
-        if (currentDoc) {
-          updateDocument(
-            replaceChooseScreenshotWithImage(
-              currentDoc,
-              clipIndex,
-              alt,
-              imagePath
-            )
-          );
-        }
-      } catch (err) {
-        console.error("Screenshot capture failed:", err);
-      } finally {
-        setDocCapturingKey(null);
-      }
-    },
-    [videoId, documentRef, updateDocument]
-  );
-
-  const handleDocClipIndexChange = useCallback(
-    (currentIndex: number, newIndex: number, alt: string) => {
-      const currentDoc = documentRef.current;
-      if (currentDoc) {
-        updateDocument(
-          updateChooseScreenshotClipIndex(
-            currentDoc,
-            currentIndex,
-            newIndex,
-            alt
-          )
-        );
-      }
-    },
-    [documentRef, updateDocument]
-  );
-
-  const handleDocRemove = useCallback(
-    (clipIndex: number, alt: string) => {
-      const currentDoc = documentRef.current;
-      if (currentDoc) {
-        updateDocument(removeChooseScreenshot(currentDoc, clipIndex, alt));
-      }
-    },
-    [documentRef, updateDocument]
-  );
-
-  const docExtraComponents = useMemo((): Options["components"] | undefined => {
-    if (indexedClips.length === 0 || !isDocumentMode) return undefined;
-    return {
-      choosescreenshot: ((
-        compProps: HTMLAttributes<HTMLElement> & Record<string, unknown>
-      ) => {
-        const clipIdx = parseInt(compProps.clipindex as string, 10);
-        const altText = (compProps.alt as string) ?? "";
-        const key = `doc-${clipIdx}-${altText}`;
-        return (
-          <ChooseScreenshot
-            clipIndex={clipIdx}
-            alt={altText}
-            clips={indexedClips}
-            onClipIndexChange={(current, next) =>
-              handleDocClipIndexChange(current, next, altText)
-            }
-            onCapture={handleDocCapture}
-            onRemove={handleDocRemove}
-            isCapturing={docCapturingKey === key}
-            isStreaming={isGenerating}
-          />
-        );
-      }) as unknown,
-    } as Options["components"];
-  }, [
+  const {
+    host: chooseScreenshotHost,
+    extraComponents: docExtraComponents,
+    preprocessMarkdown: docPreprocessMarkdown,
+    capturingKey: docCapturingKey,
+    pendingCount: pendingScreenshotCount,
+    searchingCount: searchingScreenshotCount,
+    isFindAllQueued: isFindAllScreenshotsQueued,
+    findAll: handleFindAllScreenshots,
+  } = useChooseScreenshotBlocks({
+    videoId,
     indexedClips,
     isDocumentMode,
-    handleDocClipIndexChange,
-    handleDocCapture,
-    handleDocRemove,
-    docCapturingKey,
     isGenerating,
-  ]);
-
-  const docPreprocessMarkdown = useMemo(() => {
-    if (!docExtraComponents) return undefined;
-    return (md: string) => preprocessChooseScreenshotMarkdown(md);
-  }, [docExtraComponents]);
+    document,
+    documentRef,
+    updateDocument,
+  });
 
   const handleRemoveDocBlock = useRemoveDocumentBlock({
     documentRef,
@@ -543,15 +448,17 @@ export function WriterEngine({
               onToggleItem={ctxModel.toggleItem}
               onOpenPanel={() => onViewChange?.("context")}
             />
-            <DocumentPanel
-              variant="modal"
-              document={document}
-              fullPath={fullPath}
-              extraComponents={docExtraComponents}
-              preprocessMarkdown={docPreprocessMarkdown}
-              onRemoveBlock={handleRemoveDocBlock}
-              onDocumentChange={updateDocument}
-            />
+            <ChooseScreenshotProvider value={chooseScreenshotHost}>
+              <DocumentPanel
+                variant="modal"
+                document={document}
+                fullPath={fullPath}
+                extraComponents={docExtraComponents}
+                preprocessMarkdown={docPreprocessMarkdown}
+                onRemoveBlock={handleRemoveDocBlock}
+                onDocumentChange={updateDocument}
+              />
+            </ChooseScreenshotProvider>
           </div>
         </div>
 
@@ -624,6 +531,37 @@ export function WriterEngine({
                 Fix ({lintCount})
               </Button>
             )}
+            {pendingScreenshotCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                disabled={searchingScreenshotCount > 0}
+                onClick={handleFindAllScreenshots}
+                title={
+                  isGenerating
+                    ? isFindAllScreenshotsQueued
+                      ? "Waiting for the article to finish — press again to cancel"
+                      : "Search every screenshot once the article finishes"
+                    : `Find candidates for ${pendingScreenshotCount} screenshot${
+                        pendingScreenshotCount > 1 ? "s" : ""
+                      }`
+                }
+              >
+                {searchingScreenshotCount > 0 ? (
+                  <Loader2Icon className="size-4 mr-1 animate-spin" />
+                ) : isFindAllScreenshotsQueued ? (
+                  <ClockIcon className="size-4 mr-1 text-primary" />
+                ) : (
+                  <SparklesIcon className="size-4 mr-1 text-primary" />
+                )}
+                {searchingScreenshotCount > 0
+                  ? `Finding ${searchingScreenshotCount}…`
+                  : isFindAllScreenshotsQueued
+                    ? `Queued (${pendingScreenshotCount})`
+                    : `Find (${pendingScreenshotCount})`}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -673,16 +611,22 @@ export function WriterEngine({
         <>
           <WriteChat {...chatProps} className="w-2/5" />
           <div className="w-3/5 flex flex-col border-l">
-            <DocumentPanel
-              document={document}
-              fullPath={fullPath}
-              extraComponents={docExtraComponents}
-              preprocessMarkdown={docPreprocessMarkdown}
-              onRemoveBlock={handleRemoveDocBlock}
-              onDocumentChange={updateDocument}
-              violations={violations}
-              onFixLintViolations={handleFixLintViolations}
-            />
+            <ChooseScreenshotProvider value={chooseScreenshotHost}>
+              <DocumentPanel
+                document={document}
+                fullPath={fullPath}
+                extraComponents={docExtraComponents}
+                preprocessMarkdown={docPreprocessMarkdown}
+                onRemoveBlock={handleRemoveDocBlock}
+                onDocumentChange={updateDocument}
+                violations={violations}
+                onFixLintViolations={handleFixLintViolations}
+                pendingScreenshotCount={pendingScreenshotCount}
+                searchingScreenshotCount={searchingScreenshotCount}
+                isFindAllScreenshotsQueued={isFindAllScreenshotsQueued}
+                onFindAllScreenshots={handleFindAllScreenshots}
+              />
+            </ChooseScreenshotProvider>
           </div>
         </>
       ) : (

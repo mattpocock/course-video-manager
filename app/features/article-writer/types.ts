@@ -65,6 +65,31 @@ export type IndexedClip = {
   text: string | null;
 };
 
+/** One frame the judge is offering, already captured for preview. */
+export interface ScreenshotCandidate {
+  /** Absolute time in the source file. */
+  timestamp: number;
+  /** The clip this frame came from, which need not be the named one. */
+  clipIndex: number;
+  /** Absolute path to the scratch png, served through `/view-image`. */
+  previewPath: string;
+}
+
+/**
+ * The screenshots the judge is offering for one ChooseScreenshot block.
+ *
+ * Held in React state only. Nothing here touches the document: the tag keeps
+ * its original clipIndex however far the candidates roam, and is only replaced
+ * by an image when Matt applies one — at which point the tag stops existing, so
+ * what its clipIndex said never mattered.
+ *
+ * Candidates arrive in the judge's rank order, best first.
+ */
+export type ScreenshotProposal =
+  | { found: true; candidates: ScreenshotCandidate[] }
+  /** Prose only appears here, where there are no images to look at instead. */
+  | { found: false; reason: string };
+
 export interface WriterContext {
   files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
   transcript: string;
