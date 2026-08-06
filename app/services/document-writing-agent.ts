@@ -196,6 +196,8 @@ Never call \`writeDocument\` when a <current-document> tag is present: that woul
 
 When the user asks you to add a screenshot or image from the video, you MUST use the \`<ChooseScreenshot clipIndex={N} alt="description" />\` component — do NOT insert a raw markdown image like \`![alt](url)\`. The ChooseScreenshot component lets the user interactively select the exact frame from the video clip. The clipIndex must reference a valid clip index from the transcript.
 
+A local markdown image in <current-document> — \`![description](./path/to/frame.png)\` — is a screenshot the user has already resolved: they picked that frame themselves, and the component was replaced in place. Treat it as finished work. Keep the image where it is and edit the prose around it.
+
 After calling a tool, you may add a brief conversational message explaining what you did.`;
 
   const memorySection = props.memory
