@@ -64,6 +64,15 @@ describe("BeatsView", () => {
     );
   });
 
+  // The plan is held to a column rather than run to the width of the glass: a
+  // beat set edge to edge on a wide panel is a line too long to take in at a
+  // glance, which is the only way this view is ever read. The width itself is
+  // tuned by eye and deliberately not pinned here — that it is measured in
+  // characters at all is the part that must not quietly disappear.
+  it("lays the plan out on a measure rather than filling the glass", () => {
+    expect(render(DESCRIPTION)).toMatch(/width:\s*[\d.]+ch/);
+  });
+
   // The title is the beat you're looking for; the description is the detail you
   // read once you've found it. Same size makes the plan one undifferentiated
   // wall of text at a glance.

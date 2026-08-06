@@ -41,10 +41,17 @@ export const TYPE = {
    * it. The plan isn't read that way: it's glanced at, a row at a time, behind
    * an icon gutter that takes width off every line. Wide enough that a beat's
    * sentence lands in a line or two rather than a stack of fragments.
+   *
+   * Anchored to the page's type, so it doesn't follow `beatTitleScale`: setting
+   * the plan a step larger buys no extra width, it spends some. Tune the two
+   * together, and judge the result by characters on a line rather than by
+   * either number on its own.
    */
   beatsMeasure: 36,
   /**
-   * Beat type, against the script's body size.
+   * A Beat Title, against the script's body size. The rest of the row — the
+   * icon gutter, and the description under it — is sized from the title, so
+   * this is the one number that scales a beat.
    *
    * The script's size is tuned for reading a line off the glass word by word,
    * from where the lens has you standing. A beat is taken in whole and at a
@@ -53,7 +60,7 @@ export const TYPE = {
    * beats stops fitting on the glass at once, which is the thing the Beats view
    * is for.
    */
-  beatsScale: 1.1,
+  beatTitleScale: 1.1,
   /**
    * A Beat Description, relative to the beat title above it.
    *

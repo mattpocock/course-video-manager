@@ -6,12 +6,11 @@
  * Nothing moves on its own and play/pause does nothing: the whole plan is on
  * the glass at once, every beat showing its description in full — a step
  * smaller than its title, so the titles still carry the shape of the plan when
- * you only glance. The plan as a whole runs wider and a step larger than the
- * script does, because it's taken in at a glance rather than read out line by
- * line. Nothing dims and no row expands or collapses, so the beat
- * you glanced at a second ago is still where you left it, still legible.
- * Position is carried by scroll alone rather than by fading the beats around
- * it.
+ * you only glance. The plan is set a step larger than the script and on a
+ * measure of its own, because it's taken in at a glance rather than read out
+ * line by line. Nothing dims and no row expands or collapses, so the beat you
+ * glanced at a second ago is still where you left it, still legible. Position
+ * is carried by scroll alone rather than by fading the beats around it.
  *
  * Kind icons and labels are imported from the real Beats tab rather than
  * redrawn, so the plan reads the same on the glass as it does in the editor.
@@ -126,7 +125,7 @@ export function BeatsView(props: { beats: TeleprompterBeat[] }) {
             // isn't readable from where you stand. The icon gutter and the
             // description below both take their size from here, so the row
             // scales as one.
-            const titleSize = TYPE.fontSize * TYPE.beatsScale;
+            const titleSize = TYPE.fontSize * TYPE.beatTitleScale;
             const descriptionSize = titleSize * TYPE.beatDescriptionScale;
 
             return (
