@@ -11,6 +11,33 @@ export type VideoWarningKind =
 
 export type VideoWarning = { kind: VideoWarningKind };
 
+/**
+ * The warnings the **Autofill** owns. They stay exactly as blocking inside
+ * **Publish Readiness** — a Video whose Autofill failed still cannot ship —
+ * but they are no longer authoring tasks, so the authoring surfaces (the
+ * course view, the **Section Workbench**, the video editor) do not nag about
+ * them. Only where they are shown changes; what they mean does not.
+ */
+export const AUTOFILL_OWNED_WARNING_KINDS = [
+  "missingChapters",
+  "missingDescription",
+] as const satisfies readonly VideoWarningKind[];
+
+/**
+ * The subset of a Video's warnings that is still Matt's work. Every other kind
+ * — a missing **Body**, the per-**Clip** text-similarity danger — is untouched
+ * and keeps nagging, because no Autofill clears them.
+ */
+export const authoringVideoWarnings = (
+  warnings: readonly VideoWarning[]
+): VideoWarning[] =>
+  warnings.filter(
+    (warning) =>
+      !(AUTOFILL_OWNED_WARNING_KINDS as readonly VideoWarningKind[]).includes(
+        warning.kind
+      )
+  );
+
 /** Clips and Chapters both sit on the video timeline, ordered by fractional index. */
 type TimelineEntry = { order: string; archived: boolean };
 

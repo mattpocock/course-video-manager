@@ -5,7 +5,7 @@ import {
   resolveExportPath,
   type ExportClip,
 } from "./export-hash";
-import { computeVideoWarnings } from "./video-warnings";
+import { authoringVideoWarnings, computeVideoWarnings } from "./video-warnings";
 
 const listFilesRecursive = (
   dir: string,
@@ -130,12 +130,20 @@ export function toSlimVideo<
       0
     ),
     firstClipId: clips[0]?.id ?? null,
-    warnings: computeVideoWarnings({
-      clips,
-      chapters,
-      lessonId: video.lessonId,
-      body: video.body,
-      description: video.description,
-    }),
+    // The authoring surfaces — the course view and the Section Workbench,
+    // which reuse these components — show only the warnings Matt has to clear
+    // himself. The Autofill owns the missing description and the missing
+    // Chapters, so they are dropped HERE rather than in computeVideoWarnings:
+    // Publish Readiness reads the unfiltered set and both still refuse a
+    // release.
+    warnings: authoringVideoWarnings(
+      computeVideoWarnings({
+        clips,
+        chapters,
+        lessonId: video.lessonId,
+        body: video.body,
+        description: video.description,
+      })
+    ),
   };
 }

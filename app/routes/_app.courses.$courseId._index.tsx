@@ -134,10 +134,11 @@ export default function Component(props: Route.ComponentProps) {
 
   const courseWarningCount = useMemo(() => {
     if (!loaderData.isLatestVersion) return 0;
-    // Count every warning (lesson- and video-level, all kinds) so this badge
-    // matches the publish page's course-warning count exactly — see
-    // collectCourseViewLints. Counting a narrower subset here is what let the
-    // two surfaces drift apart.
+    // Count every warning the tree still shows — which is every lesson-level
+    // one and every video-level one the Autofill does not own (see
+    // authoringVideoWarnings). This badge deliberately reads LOWER than the
+    // publish page's blocker count: the missing description and the missing
+    // Chapters are still blocking there, they are just no longer Matt's work.
     let count = 0;
     for (const section of displaySections) {
       for (const lesson of section.lessons) {

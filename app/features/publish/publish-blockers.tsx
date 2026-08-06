@@ -1,4 +1,10 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { AUTOFILL_OWNED_WARNING_KINDS } from "@/services/video-warnings";
 import { LESSON_WARNING_LABELS } from "@/features/course-view/lesson-warning-labels";
 import { VIDEO_WARNING_LABELS } from "@/features/course-view/video-warning-labels";
 import type { CourseViewLint } from "@/services/lesson-warnings";
@@ -13,6 +19,51 @@ export interface PublishBlockerLists {
   readonly incompleteVideos: readonly IncompleteVideo[];
   readonly invalidLessonCombos: readonly InvalidLessonCombo[];
 }
+
+/**
+ * Which blockers one press of the **Autofill** would clear.
+ *
+ * Eight blockers should not read as eight problems when six of them are one
+ * button press, so the clearable ones collapse and the ones only Matt can fix
+ * — a missing **Body**, an invalid Lesson role combo — stay in plain sight.
+ * Nothing is hidden: every blocker is still listed, and all of them still
+ * refuse a release.
+ */
+export const splitAutofillClearable = (
+  lists: PublishBlockerLists
+): { clearable: PublishBlockerLists; mine: PublishBlockerLists } => {
+  const clearableLint = (lint: CourseViewLint) =>
+    lint.scope === "video" &&
+    (AUTOFILL_OWNED_WARNING_KINDS as readonly string[]).includes(lint.kind);
+
+  // A Video missing only its description is one press away. One missing its
+  // Body or its Clips is not, and a Video missing both is Matt's.
+  const clearableVideo = (video: IncompleteVideo) =>
+    video.missing.length > 0 &&
+    video.missing.every((field) => field === "description");
+
+  return {
+    clearable: {
+      courseViewLints: lists.courseViewLints.filter(clearableLint),
+      incompleteVideos: lists.incompleteVideos.filter(clearableVideo),
+      invalidLessonCombos: [],
+    },
+    mine: {
+      courseViewLints: lists.courseViewLints.filter(
+        (lint) => !clearableLint(lint)
+      ),
+      incompleteVideos: lists.incompleteVideos.filter(
+        (video) => !clearableVideo(video)
+      ),
+      invalidLessonCombos: lists.invalidLessonCombos,
+    },
+  };
+};
+
+const countBlockers = (lists: PublishBlockerLists) =>
+  lists.courseViewLints.length +
+  lists.incompleteVideos.length +
+  lists.invalidLessonCombos.length;
 
 function BlockerPanel({
   heading,
@@ -34,10 +85,33 @@ function BlockerPanel({
 
 /**
  * Every reason this Course cannot ship, itemised rather than merely counted so
- * each one can be found and fixed. The label wording matches the course view
- * exactly, keeping the two surfaces in lockstep.
+ * each one can be found and fixed — with the ones the **Autofill** would clear
+ * folded away, so what stays in plain sight is the work only Matt can do.
  */
 export function PublishBlockers({ lists }: { lists: PublishBlockerLists }) {
+  const { clearable, mine } = splitAutofillClearable(lists);
+  const clearableCount = countBlockers(clearable);
+
+  return (
+    <>
+      <BlockerLists lists={mine} />
+      {clearableCount > 0 && (
+        <Collapsible className="mb-8 rounded-lg border border-border p-4">
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full text-left">
+            <ChevronRight className="w-4 h-4 shrink-0 transition-transform data-[state=open]:rotate-90" />
+            {clearableCount} blocker{clearableCount !== 1 ? "s" : ""} the
+            Autofill will clear
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <BlockerLists lists={clearable} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+    </>
+  );
+}
+
+function BlockerLists({ lists }: { lists: PublishBlockerLists }) {
   const { courseViewLints, incompleteVideos, invalidLessonCombos } = lists;
 
   return (

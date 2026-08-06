@@ -102,6 +102,10 @@ OUTPUT (one pretty JSON object)
                         course-scope entry belongs to no single video —
                         { scope: "course", kind: "duplicateQuizId", quizId,
                         videoPaths[] } names every video sharing one quiz id.
+                        Includes the kinds the app's Autofill owns
+                        (missingChapters, missingDescription): they still
+                        refuse a publish, the authoring surfaces just no
+                        longer show them.
   invalidLessonCombos[] Lessons whose Video roles are ambiguous (e.g. a
                         Solution with no Problem).
   incompleteVideos[]    Shipping Videos missing a required field.

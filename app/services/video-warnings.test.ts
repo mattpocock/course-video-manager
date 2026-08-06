@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeVideoWarnings } from "./video-warnings";
+import { authoringVideoWarnings, computeVideoWarnings } from "./video-warnings";
 
 describe("computeVideoWarnings", () => {
   it("returns no warnings for a video with zero clips", () => {
@@ -170,5 +170,36 @@ describe("computeVideoWarnings", () => {
       { kind: "missingBody" },
       { kind: "missingDescription" },
     ]);
+  });
+});
+
+describe("authoringVideoWarnings", () => {
+  it("drops the two signals the Autofill owns", () => {
+    // computeVideoWarnings itself is unchanged — Publish Readiness reads the
+    // full set, and both of these still refuse a release. Only the authoring
+    // surfaces stop nagging about them.
+    expect(
+      authoringVideoWarnings(
+        computeVideoWarnings({
+          clips: [{ order: "a1", archived: false }],
+          chapters: [],
+          lessonId: "lesson-1",
+          body: null,
+          description: null,
+        })
+      )
+    ).toEqual([{ kind: "missingBody" }]);
+  });
+
+  it("leaves every other Video Warning exactly as it was", () => {
+    const warnings = computeVideoWarnings({
+      clips: [{ order: "a1", archived: false }],
+      chapters: [{ order: "a0", archived: false }],
+      lessonId: "lesson-1",
+      body: null,
+      description: "The description.",
+    });
+
+    expect(authoringVideoWarnings(warnings)).toEqual(warnings);
   });
 });
