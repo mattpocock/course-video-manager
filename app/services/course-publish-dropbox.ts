@@ -148,7 +148,6 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const finishedVideosDirectory = yield* Config.string(
     "FINISHED_VIDEOS_DIRECTORY"
   );
-  const dropboxRemotePath = yield* Config.string("DROPBOX_REMOTE_PATH");
   const accessToken = yield* getValidDropboxAccessToken;
 
   const targetVersion = yield* versionOps.getCourseVersionById(
@@ -173,7 +172,9 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     input.includeTodoLessons
   );
 
-  const dropboxCourseDir = `${dropboxRemotePath}/${repoWithSections.name}`;
+  const dropboxCourseDir = yield* resolveDropboxCourseDir(
+    repoWithSections.name
+  );
 
   // The Export Hash is the recipe an Exported Video is addressed by — Clip
   // filenames, source timings, order, Video Format and the Export Version Key —
