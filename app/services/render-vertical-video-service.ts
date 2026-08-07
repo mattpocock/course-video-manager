@@ -56,6 +56,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
                 startTime: clip.sourceStartTime,
                 duration: clip.sourceEndTime - clip.sourceStartTime,
                 pauseType: clip.pauseType as "none" | "long",
+                zoomType: clip.zoomType,
               })),
               // The vertical renderer always produces a 9:16 short — the Remotion
               // subtitle/CTA overlay below is rendered at 1080x1920 to match.

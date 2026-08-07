@@ -100,6 +100,7 @@ export type VideoEditorContextType = {
   onSetInsertionPoint: (mode: "after" | "before", clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
   onTogglePauseForClip: (clipId: FrontendId) => void;
+  onToggleZoomForClip: (clipId: FrontendId) => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
   onAddChapterAt: (

@@ -22,6 +22,7 @@ import {
   isChapterAction,
 } from "./clip-state-reducer-chapters";
 import { DELETED_CLIPS_SESSION_ID } from "./video-editor-selectors";
+import { canZoomClip, type ClipZoomType } from "@/features/videos/clip-zoom";
 
 export namespace clipStateReducer {
   export type State = ClipReducerState;
@@ -335,6 +336,34 @@ export const clipStateReducer: EffectReducer<
         ),
       };
     }
+    case "toggle-zoom-for-clip": {
+      const item = state.items.find((c) => c.frontendId === action.clipId);
+
+      // Only a persisted clip can be zoomed: the write needs a database id,
+      // and the eligibility rule reads the clip's recorded scene.
+      if (!item || item.type !== "on-database" || !canZoomClip(item.scene)) {
+        return state;
+      }
+
+      const newZoomType: ClipZoomType =
+        item.zoomType === "none" ? "subtle" : "none";
+
+      exec({
+        type: "update-zoom",
+        clipId: item.databaseId,
+        zoomType: newZoomType,
+      });
+
+      return {
+        ...state,
+        items: state.items.map((c) =>
+          c.frontendId === action.clipId && c.type === "on-database"
+            ? { ...c, zoomType: newZoomType }
+            : c
+        ),
+      };
+    }
+
     case "move-clip": {
       const clipIndex = state.items.findIndex(
         (c) => c.frontendId === action.clipId
@@ -401,6 +430,9 @@ export const clipStateReducer: EffectReducer<
               profile: item.profile,
               insertionOrder: item.insertionOrder,
               pauseType: item.pauseType,
+              // Effect Clips are white noise — never a camera scene, so never
+              // zoomable. The field exists; the value can only ever be "none".
+              zoomType: "none",
               diagramSnapshotId: null,
               diagramName: null,
               webLinks: [],

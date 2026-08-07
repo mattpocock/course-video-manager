@@ -1,4 +1,5 @@
 import type { PauseType } from "@/services/video-processing-service";
+import { resolveClipZoomType } from "@/features/videos/clip-zoom";
 import { DEFAULT_SILENCE_LENGTH } from "@/silence-detection-constants";
 import { shouldSnapshot } from "@/lib/snapshot-rule";
 import {
@@ -436,6 +437,7 @@ const handleNewDatabaseClips = (
           profile: frontendClip.profile,
           insertionOrder: frontendClip.insertionOrder,
           pauseType: frontendClip.pauseType,
+          zoomType: resolveClipZoomType(databaseClip.zoomType),
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
           webLinks: [],
@@ -461,6 +463,7 @@ const handleNewDatabaseClips = (
           profile: frontendClip.profile,
           insertionOrder: frontendClip.insertionOrder,
           pauseType: frontendClip.pauseType,
+          zoomType: resolveClipZoomType(databaseClip.zoomType),
           diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
           diagramName: null,
           webLinks: [],
@@ -485,6 +488,7 @@ const handleNewDatabaseClips = (
         databaseId: databaseClip.id,
         insertionOrder: state.insertionOrder + 1,
         pauseType: databaseClip.pauseType as PauseType,
+        zoomType: resolveClipZoomType(databaseClip.zoomType),
         diagramSnapshotId: databaseClip.diagramSnapshotId ?? null,
         diagramName: null,
         webLinks: [],

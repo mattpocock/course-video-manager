@@ -137,6 +137,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
           startTime: number;
           duration: number;
           pauseType: PauseType;
+          zoomType: string;
         }[];
         shortsDirectoryOutputName: string | undefined;
         onStageChange?: (

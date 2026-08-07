@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_clip" ADD COLUMN "zoom_type" varchar(255) DEFAULT 'none' NOT NULL;

@@ -157,7 +157,7 @@ _Avoid_: Missing Opening Chapter (the former name), Missing opening section, No 
 ### Video export and hashing
 
 **Export Hash**:
-A SHA256 hash derived from a video's clip filenames, timestamps, clip order, long-pause flags, format, and the Export Version Key; determines whether a video needs re-export. It must name everything the renderer acts on — a clip property that changes the exported bytes but not the hash leaves a stale export addressable, and the Publish ships it.
+A SHA256 hash derived from a video's clip filenames, timestamps, clip order, long-pause flags, **Clip Zoom**, format, and the Export Version Key; determines whether a video needs re-export. It must name everything the renderer acts on — a clip property that changes the exported bytes but not the hash leaves a stale export addressable, and the Publish ships it.
 _Avoid_: Content hash, Video hash
 
 **Exported Video**:
@@ -185,6 +185,10 @@ _Avoid_: Pause Length (former name — reused "Pause", now the clip-level held p
 **Pause**:
 A clip-level marker (`none`/`long`) that inserts a short held pause after a **Clip** in the edit — `long` holds ~0.18s, `none` is an ordinary clip. Toggled per clip, shown as an ellipsis ("…"). An enum, not a boolean, so it can gain more lengths later. Distinct from **Silence Length** (the recording cut threshold).
 _Avoid_: Beat (former `beatType`), Silence Length, Gap, Hold
+
+**Clip Zoom**:
+A clip-level marker (`none`/`subtle`) that renders a **Clip** at 115% of frame — cropped centrally in x, biased above centre in y — so that a run of face-only camera clips has some visual change across its cuts. Legal only where the Clip's recorded `scene` is a camera scene (`Camera` or `TikTok Face`); every other scene, and a Clip with no recorded scene at all, is refused. An enum, not a boolean, so it can gain more levels later — the 115% itself is a constant in one file, deliberately not encoded in the value names, so retuning the shot is not a migration. One shared rect (`app/features/videos/clip-zoom.ts`), expressed as fractions of the frame rather than pixels, is formatted into both the editor preview's CSS transform and the export's ffmpeg `crop`, which is what makes the preview honest about what the **Publish** will ship. The crop is applied before the normalising `scale`, so a source larger than the output frame spends surplus resolution rather than upscaling. Part of the **Export Hash**, emitted only when not `none`. Set per clip in the editor or with `cvm clip update --zoom`.
+_Avoid_: Punch-in, Ken Burns (implies an animated move; this one is static), Scale, Crop
 
 **Insertion Point**:
 The position in a video timeline where new clips or chapters will be added (start, after-clip, after-chapter, end).

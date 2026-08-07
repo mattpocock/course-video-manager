@@ -1,5 +1,6 @@
 import type { DB } from "@/db/schema";
 import type { PauseType } from "@/services/video-processing-service";
+import type { ClipZoomType } from "@/features/videos/clip-zoom";
 import type { SilenceLength } from "@/silence-detection-constants";
 import type { BrowserLinkEvent, CapturedWebLink } from "@/lib/clip-web-link";
 import type { Brand } from "./utils";
@@ -35,6 +36,11 @@ export type ClipOnDatabase = {
   profile: string | null;
   insertionOrder: number | null;
   pauseType: PauseType;
+  /**
+   * Clip Zoom. Only a persisted clip carries one — it is an editorial choice
+   * about the shot, made after the take, not something a recording produces.
+   */
+  zoomType: ClipZoomType;
   diagramSnapshotId: string | null;
   diagramName: string | null;
   /**
@@ -279,6 +285,10 @@ export type ClipReducerAction =
       clipId: FrontendId;
     }
   | {
+      type: "toggle-zoom-for-clip";
+      clipId: FrontendId;
+    }
+  | {
       type: "move-clip";
       clipId: FrontendId;
       direction: "up" | "down";
@@ -391,6 +401,11 @@ export type ClipReducerEffect =
       type: "update-pause";
       clipId: DatabaseId;
       pauseType: PauseType;
+    }
+  | {
+      type: "update-zoom";
+      clipId: DatabaseId;
+      zoomType: ClipZoomType;
     }
   | {
       type: "reorder-clip";

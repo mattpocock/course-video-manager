@@ -126,6 +126,7 @@ export const VideoEditor = (props: {
   onDeleteLatestInsertedClip: () => void;
   onTogglePause: () => void;
   onTogglePauseForClip: (clipId: FrontendId) => void;
+  onToggleZoomForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
@@ -181,6 +182,7 @@ export const VideoEditor = (props: {
     onClipsRemoved: props.onClipsRemoved,
     onClipsRetranscribe: props.onClipsRetranscribe,
     onTogglePauseForClip: props.onTogglePauseForClip,
+    onToggleZoomForClip: props.onToggleZoomForClip,
     onMoveClip: props.onMoveClip,
     onAddChapter: props.onAddChapter,
     onUpdateChapter: props.onUpdateChapter,
@@ -449,6 +451,7 @@ export const VideoEditor = (props: {
       onSetInsertionPoint: props.onSetInsertionPoint,
       onMoveClip: props.onMoveClip,
       onTogglePauseForClip: props.onTogglePauseForClip,
+      onToggleZoomForClip: props.onToggleZoomForClip,
       onAddChapter: props.onAddChapter,
       onUpdateChapter: props.onUpdateChapter,
       onAddChapterAt: props.onAddChapterAt,
@@ -541,6 +544,7 @@ export const VideoEditor = (props: {
       props.onSetInsertionPoint,
       props.onMoveClip,
       props.onTogglePauseForClip,
+      props.onToggleZoomForClip,
       props.onAddChapter,
       props.onUpdateChapter,
       props.onAddChapterAt,

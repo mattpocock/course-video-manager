@@ -49,6 +49,7 @@ export type VideoForExport = {
     sourceStartTime: number;
     sourceEndTime: number;
     pauseType: string;
+    zoomType: string;
     order: string;
   }>;
 };
@@ -183,6 +184,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
                 clip.sourceStartTime +
                 (isFinalClip ? FINAL_VIDEO_PADDING : 0),
               pauseType: (clip.pauseType as PauseType) || "none",
+              zoomType: clip.zoomType,
             };
           }),
           onStageChange: onStage,

@@ -17,6 +17,7 @@ export const useVideoEditor = (props: {
   onClipsRemoved: (clipIds: FrontendId[]) => void;
   onClipsRetranscribe: (clipIds: FrontendId[]) => void;
   onTogglePauseForClip: (clipId: FrontendId) => void;
+  onToggleZoomForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
   onAddChapter: (name: string) => void;
   onUpdateChapter: (chapterId: FrontendId, name: string) => void;
@@ -59,6 +60,9 @@ export const useVideoEditor = (props: {
       },
       "toggle-pause-for-clip": (_state, effect, _dispatch) => {
         props.onTogglePauseForClip(effect.clipId);
+      },
+      "toggle-zoom-for-clip": (_state, effect, _dispatch) => {
+        props.onToggleZoomForClip(effect.clipId);
       },
       "move-clip": (_state, effect, _dispatch) => {
         props.onMoveClip(effect.clipId, effect.direction);

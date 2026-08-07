@@ -419,7 +419,10 @@ export const VideoPlayerPanel = () => {
               )}
               <div
                 className={cn(
-                  "w-full aspect-[16/9]",
+                  // overflow-hidden is what makes a Clip Zoom read as a
+                  // crop rather than as an oversized video: the zoomed
+                  // <video> is scaled past its box and clipped back to frame.
+                  "w-full aspect-[16/9] overflow-hidden",
                   !showVideoPlayer && "hidden"
                 )}
               >

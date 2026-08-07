@@ -206,6 +206,7 @@ export const makeDuplicateCourse = (db: Database) =>
                   scene: clip.scene,
                   profile: clip.profile,
                   pauseType: clip.pauseType,
+                  zoomType: clip.zoomType,
                   diagramSnapshotId: clip.diagramSnapshotId,
                 }))
               )

@@ -87,6 +87,7 @@ const CLIPS = [
     sourceStartTime: 0,
     sourceEndTime: 10,
     pauseType: "none",
+    zoomType: "none",
     order: "a0",
   },
   {
@@ -94,6 +95,7 @@ const CLIPS = [
     sourceStartTime: 15,
     sourceEndTime: 25,
     pauseType: "none",
+    zoomType: "none",
     order: "a1",
   },
 ];

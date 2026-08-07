@@ -261,6 +261,7 @@ export const createCourseOperations = (db: Database) => {
                                 sourceEndTime: true,
                                 // Part of the export address — see export-hash.
                                 pauseType: true,
+                                zoomType: true,
                                 order: true,
                                 archived: true,
                               },

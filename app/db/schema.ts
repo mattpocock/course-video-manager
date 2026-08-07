@@ -290,6 +290,11 @@ export const clips = createTable(
     scene: varchar("scene", { length: 255 }),
     profile: varchar("profile", { length: 255 }),
     pauseType: varchar("pause_type", { length: 255 }).notNull().default("none"),
+    /**
+     * Clip Zoom — "none" or "subtle". Legal only on a camera scene; see
+     * `app/features/videos/clip-zoom.ts` for the rule and for the shot itself.
+     */
+    zoomType: varchar("zoom_type", { length: 255 }).notNull().default("none"),
     diagramSnapshotId: varchar("diagram_snapshot_id", {
       length: 255,
     }).references(() => diagramSnapshots.id, { onDelete: "set null" }),

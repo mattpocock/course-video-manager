@@ -36,6 +36,10 @@ export namespace videoStateReducer {
         clipId: FrontendId;
       }
     | {
+        type: "toggle-zoom-for-clip";
+        clipId: FrontendId;
+      }
+    | {
         type: "move-clip";
         clipId: FrontendId;
         direction: "up" | "down";

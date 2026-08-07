@@ -8,7 +8,13 @@ import {
   emitObject,
   notFound,
   notFoundMany,
+  parseError,
 } from "@/cli/helpers";
+import { withBackupCoordination } from "@/cli/backup-coordinator";
+import {
+  CLIP_ZOOM_TYPES,
+  type ClipZoomType,
+} from "@/features/videos/clip-zoom";
 
 /**
  * clip — a timestamped slice of source footage inside a Video.
@@ -41,6 +47,7 @@ import {
  *   transcribedAt    when `text` was last produced (null = not transcribed)
  *   scene / profile  optional capture metadata
  *   pauseType         held pause after clip; "none" or "long"
+ *   zoomType          Clip Zoom; "none" or "subtle" (camera scenes only)
  *   diagramSnapshotId pinned DiagramSnapshot filmed against this clip, if any
  *   archived         always false in CLI output (archived rows are hidden)
  *   createdAt        row creation timestamp
@@ -48,6 +55,12 @@ import {
  * VERBS:
  *   clip list --video <videoId>   every active clip on a Video, timeline order
  *   clip get <id...>              one or more clips by id (variadic)
+ *   clip update <id> --zoom <t>   set the Clip Zoom (the ONLY writable field)
+ *
+ * `update` is deliberately the narrowest possible write. A Clip's text is
+ * recorded truth (the Transcript is derived from it) and its timings are the
+ * cut — none of that is the CLI's to rewrite. Only the Clip Zoom, an editorial
+ * choice about the shot, is writable here, and only on a camera scene.
  *
  * Clips are leaf timeline rows — there is no `clip tree`. To explore a Video's
  * structure use `video tree`, then resolve ids with `clip get`.
@@ -78,8 +91,30 @@ scoping and archived clips are always hidden (no --archived flag).
 Verbs:
   clip list --video <videoId>   every active clip on a Video, in timeline order (NDJSON)
   clip get <id...>              fetch one or more clips by id (variadic)
+  clip update <id> --zoom <t>   set the Clip Zoom ("none" | "subtle")
 
-There is no 'clip tree' (clips are leaves) — use 'video tree' then 'clip get'.`;
+'update' accepts --zoom and nothing else: a clip's text is recorded truth and its timings are the
+cut, neither of which the CLI rewrites. There is no 'clip tree' (clips are leaves) — use
+'video tree' then 'clip get'.`;
+
+const UPDATE_HELP = `Set a Clip's Clip Zoom.
+
+A Clip Zoom renders the clip slightly tighter than frame, so a run of face-only camera clips has
+some visual change across its cuts. Levels: "none" (as filmed) and "subtle".
+
+Only camera scenes can be zoomed — 'Camera' and 'TikTok Face'. Anything else (a 'Code' clip, or a
+clip filmed before CVM recorded scenes and so having none) is refused with exit 3; the message says
+which of the two it was. The zoom reaches the Export Hash, so setting it marks the Video for
+re-export, and it shows in the editor preview exactly as it will export.
+
+Examples:
+  cvm clip update clip_abc --zoom subtle
+  cvm clip update clip_abc --zoom none
+
+  # Zoom every camera clip on a video:
+  cvm clip list --video vid_123 \
+    | jq -r 'select(.scene == "Camera") | .id' \
+    | xargs -n1 -I{} cvm clip update {} --zoom subtle`;
 
 const LIST_HELP = `List every active (non-archived) Clip on a Video, in timeline order.
 
@@ -158,7 +193,47 @@ const getCmd = Command.make("get", { ids }, ({ ids }) =>
   })
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
+const zoomOpt = Options.choice("zoom", CLIP_ZOOM_TYPES).pipe(
+  Options.withDescription(
+    `Clip Zoom to set: ${CLIP_ZOOM_TYPES.join(" | ")}. Camera scenes only.`
+  )
+);
+
+const idArg = Args.text({ name: "id" });
+
+const updateCmd = Command.make(
+  "update",
+  { id: idArg, zoom: zoomOpt },
+  ({ id, zoom }) =>
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const clipOps = yield* ClipOperationsService;
+
+        // Resolve first, so a bad id is a clean not-found (exit 2) rather than
+        // arriving as a service failure. Archived clips are deleted as far as
+        // this noun is concerned, so they are not-found too.
+        const [existing] = yield* clipOps.getClipsByIds([id]);
+        if (!existing || existing.archived) {
+          return yield* notFound("clip", id);
+        }
+
+        // setClipZoom re-checks eligibility — it is the service that owns the
+        // rule. Translating its failure here is only about the exit code: an
+        // ineligible clip is bad input (exit 3), not an internal fault.
+        const updated = yield* clipOps
+          .setClipZoom(id, zoom satisfies ClipZoomType)
+          .pipe(
+            Effect.catchTag("ClipNotZoomableError", (e) =>
+              parseError(e.message, "clip")
+            )
+          );
+
+        yield* emitObject(updated);
+      })
+    )
+).pipe(Command.withDescription(detail(UPDATE_HELP)));
+
 export const clipCommand = Command.make("clip").pipe(
   Command.withDescription(detail(CLIP_HELP)),
-  Command.withSubcommands([listCmd, getCmd])
+  Command.withSubcommands([listCmd, getCmd, updateCmd])
 );

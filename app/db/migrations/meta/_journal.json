@@ -85,6 +85,13 @@
       "when": 1785332138628,
       "tag": "0011_flimsy_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786112545920,
+      "tag": "0012_add_clip_zoom_type",
+      "breakpoints": true
     }
   ]
 }

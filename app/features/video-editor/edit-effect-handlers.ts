@@ -126,6 +126,16 @@ export function createEditEffectHandlers(
         });
       });
     },
+    "update-zoom": (_state, effect, dispatch) => {
+      clipService.updateZoom(effect.clipId, effect.zoomType).catch((error) => {
+        dispatch({
+          type: "effect-failed",
+          effectType: "update-zoom",
+          message:
+            error instanceof Error ? error.message : "Failed to update zoom",
+        });
+      });
+    },
     "update-pause": (_state, effect, dispatch) => {
       clipService
         .updatePause(effect.clipId, effect.pauseType)

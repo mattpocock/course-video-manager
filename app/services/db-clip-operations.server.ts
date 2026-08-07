@@ -18,6 +18,11 @@ import {
 } from "./draft-guard.server";
 import { transactionalizeWrites } from "./with-db-transaction.server";
 import { compareOrderStrings } from "@/lib/sort-by-order";
+import {
+  checkClipZoomEligibility,
+  clipZoomIneligibilityMessage,
+} from "@/features/videos/clip-zoom";
+import { ClipNotZoomableError } from "@/services/db-service-errors";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -72,6 +77,37 @@ const createClipOperationsUnwrapped = (db: Database) => {
     );
 
     return clip!;
+  });
+
+  /**
+   * Set a Clip's Clip Zoom.
+   *
+   * A dedicated operation rather than another optional field on `updateClip`,
+   * because the write carries a rule `updateClip` has no business knowing:
+   * a zoom is legal only on a camera scene. Enforcing it here means the CLI
+   * and any future caller inherit the rule instead of reimplementing it.
+   */
+  const setClipZoom = Effect.fn("setClipZoom")(function* (
+    clipId: string,
+    zoomType: string
+  ) {
+    const clip = yield* getClipById(clipId);
+
+    const ineligibility = checkClipZoomEligibility(clip.scene);
+    if (ineligibility) {
+      return yield* new ClipNotZoomableError({
+        clipId,
+        scene: clip.scene ?? null,
+        message: clipZoomIneligibilityMessage(ineligibility),
+      });
+    }
+
+    yield* requireDraftVersionForClip(db, clipId);
+    const [updated] = yield* makeDbCall(() =>
+      db.update(clips).set({ zoomType }).where(eq(clips.id, clipId)).returning()
+    );
+
+    return updated!;
   });
 
   const archiveClip = Effect.fn("archiveClip")(function* (clipId: string) {
@@ -718,6 +754,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
     getClipById,
     getClipsByIds,
     updateClip,
+    setClipZoom,
     archiveClip,
     reorderClip,
     createChapter,
@@ -737,6 +774,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
 export const createClipOperations = (db: Database) =>
   transactionalizeWrites(db, createClipOperationsUnwrapped, [
     "updateClip",
+    "setClipZoom",
     "archiveClip",
     "reorderClip",
     "createChapter",

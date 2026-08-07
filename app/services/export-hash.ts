@@ -3,6 +3,10 @@ import path from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { resolveVideoFormat } from "@/features/videos/video-format";
+import {
+  DEFAULT_CLIP_ZOOM_TYPE,
+  resolveClipZoomType,
+} from "@/features/videos/clip-zoom";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -15,6 +19,7 @@ export type ExportClip = {
   sourceStartTime: number;
   sourceEndTime: number;
   pauseType: string;
+  zoomType: string;
 };
 
 /**
@@ -37,6 +42,7 @@ export const toExportClips = (
     sourceStartTime: number;
     sourceEndTime: number;
     pauseType: string;
+    zoomType: string;
   }>
 ): ExportClip[] =>
   clips.map((c) => ({
@@ -44,6 +50,7 @@ export const toExportClips = (
     sourceStartTime: c.sourceStartTime,
     sourceEndTime: c.sourceEndTime,
     pauseType: c.pauseType,
+    zoomType: c.zoomType,
   }));
 
 /**
@@ -62,6 +69,13 @@ export const toExportClips = (
  * flipping a video's format must invalidate its existing export. The raw column
  * is normalised via {@link resolveVideoFormat} so callers can pass it straight
  * from the DB.
+ *
+ * A clip's Clip Zoom (`zoomType`) is part of the address for the same reason
+ * `pauseType` is: the renderer crops a zoomed clip, so it changes the exported
+ * bytes. It is emitted only when it is not "none", so every export made before
+ * Clip Zoom existed keeps the address it already had and nothing re-renders —
+ * the same reasoning that let `pauseType` be added without bumping
+ * EXPORT_VERSION.
  *
  * A clip's `pauseType` is part of the address too, because a long pause makes
  * the renderer hold the clip longer and so changes the exported bytes. It is
@@ -84,6 +98,9 @@ export const computeExportHash = (
       s: c.sourceStartTime,
       e: c.sourceEndTime,
       ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
+      ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
+        ? {}
+        : { z: resolveClipZoomType(c.zoomType) }),
     })),
   };
 

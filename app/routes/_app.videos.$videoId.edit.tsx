@@ -13,6 +13,7 @@ import {
   createFrontendId,
 } from "@/features/video-editor/clip-state-reducer";
 import type { PauseType } from "@/services/video-processing-service";
+import { resolveClipZoomType } from "@/features/videos/clip-zoom";
 import { useOBSConnector } from "@/features/video-editor/obs-connector";
 import { targetProfileForFormat } from "@/features/video-editor/ensure-obs-profile";
 import { useSilenceLength } from "@/features/video-editor/use-silence-length";
@@ -230,6 +231,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
           databaseId: clip.id as DatabaseId,
           insertionOrder: null,
           pauseType: clip.pauseType as PauseType,
+          zoomType: resolveClipZoomType(clip.zoomType),
           diagramSnapshotId: clip.diagramSnapshotId ?? null,
           diagramName: clip.diagramSnapshot?.diagram?.name ?? null,
           webLinks: (clip.webLinks ?? []) as ClipOnDatabase["webLinks"],
@@ -409,6 +411,9 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       }}
       onTogglePauseForClip={(clipId) => {
         dispatch({ type: "toggle-pause-for-clip", clipId });
+      }}
+      onToggleZoomForClip={(clipId) => {
+        dispatch({ type: "toggle-zoom-for-clip", clipId });
       }}
       onMoveClip={(clipId, direction) => {
         dispatch({ type: "move-clip", clipId, direction });

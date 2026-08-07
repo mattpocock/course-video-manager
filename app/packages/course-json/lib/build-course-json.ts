@@ -241,6 +241,7 @@ type InputClip = {
   sourceStartTime: number;
   sourceEndTime: number;
   pauseType: string;
+  zoomType: string;
   order: string;
 };
 

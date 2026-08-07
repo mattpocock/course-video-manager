@@ -271,6 +271,7 @@ export const requireDraftForClipServiceEvent = Effect.fn(
         event.clips.map((c) => c.id)
       );
     case "update-pause":
+    case "update-zoom":
     case "reorder-clip":
       return yield* requireDraftVersionForClip(db, event.clipId);
     case "update-chapter":

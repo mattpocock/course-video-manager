@@ -17,6 +17,7 @@ const makeClip = (
     Pick<ExportClip, "videoFilename" | "sourceStartTime" | "sourceEndTime">
 ): ExportClip => ({
   pauseType: "none",
+  zoomType: "none",
   ...overrides,
 });
 
@@ -203,11 +204,50 @@ describe("export-hash", () => {
               sourceStartTime: 0,
               sourceEndTime: 10,
               pauseType: "none",
+              zoomType: "none",
             }),
           ],
           "landscape"
         )
       ).toBe("ae5332862e6c002c82e975dceadd3cab");
+    });
+
+    it("changing a clip's Clip Zoom changes the address", () => {
+      // The renderer crops a zoomed clip, so it ships different bytes. A zoom
+      // that did not reach the address would leave the un-zoomed export
+      // addressable and the Publish would ship it.
+      const at = (zoomType: string) =>
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              zoomType,
+            }),
+          ],
+          "landscape"
+        );
+
+      expect(at("subtle")).not.toBe(at("none"));
+    });
+
+    it("treats an unrecognised zoom as no zoom", () => {
+      const at = (zoomType: string) =>
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              zoomType,
+            }),
+          ],
+          "landscape"
+        );
+
+      expect(at("wildly-zoomed")).toBe(at("none"));
+      expect(at("")).toBe(at("none"));
     });
 
     it("changing EXPORT_VERSION would change hashes", () => {

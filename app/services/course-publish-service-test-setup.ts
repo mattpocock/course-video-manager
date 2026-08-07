@@ -127,12 +127,14 @@ export const setupPublishableCourse = async (opts?: {
       sourceStartTime: 0,
       sourceEndTime: 10 + index,
       pauseType: "none",
+      zoomType: "none",
     },
     {
       videoFilename: "recording.mp4",
       sourceStartTime: 15,
       sourceEndTime: 25 + index,
       pauseType: "none",
+      zoomType: "none",
     },
   ];
 

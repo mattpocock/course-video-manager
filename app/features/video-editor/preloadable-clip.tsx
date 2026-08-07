@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClipOnDatabase, FrontendId } from "./clip-state-reducer";
 import { cn } from "@/lib/utils";
+import { clipZoomCssStyle } from "@/features/videos/clip-zoom";
 import {
   BEAT_DURATION,
   FINAL_VIDEO_PADDING,
@@ -140,6 +141,10 @@ export const PreloadableClip = (props: {
         props.hidden && "hidden",
         props.profile === "TikTok" && "w-92 aspect-[9/16]"
       )}
+      // The preview half of the Clip Zoom contract. These two properties are
+      // formatted from the same rect the export's ffmpeg crop is built from
+      // (see features/videos/clip-zoom), so what plays here is what ships.
+      style={clipZoomCssStyle(props.clip.zoomType) ?? undefined}
       ref={ref}
     />
   );

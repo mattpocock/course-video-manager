@@ -130,6 +130,7 @@ const setup = async () => {
       order: "a0",
       text: "Hello world",
       pauseType: "none",
+      zoomType: "none",
     },
     {
       videoId: video.id,
@@ -139,6 +140,7 @@ const setup = async () => {
       order: "a1",
       text: "Welcome to the course",
       pauseType: "none",
+      zoomType: "none",
     },
   ]);
 
@@ -148,12 +150,14 @@ const setup = async () => {
       sourceStartTime: 0,
       sourceEndTime: 10,
       pauseType: "none",
+      zoomType: "none",
     },
     {
       videoFilename: "recording.mp4",
       sourceStartTime: 15,
       sourceEndTime: 25,
       pauseType: "none",
+      zoomType: "none",
     },
   ];
   const exportHash = computeExportHash(clips, "landscape")!;

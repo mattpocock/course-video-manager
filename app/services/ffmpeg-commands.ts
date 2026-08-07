@@ -6,6 +6,7 @@ import path from "node:path";
 import { tmpdir } from "os";
 import { registerFfmpegChild } from "./ffmpeg-child-registry";
 import { createFfmpegProgressParser } from "./ffmpeg-progress";
+import { clipZoomCropFilter } from "@/features/videos/clip-zoom";
 
 const GPU_PERMITS = 6;
 const CPU_PERMITS = 12;
@@ -198,6 +199,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           startTime: number;
           duration: number;
           pauseType: "none" | "long";
+          zoomType?: string;
         }[],
         dimensions: { width: number; height: number },
         onProgress?: (percent: number) => void
@@ -242,11 +244,21 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         // video's format: portrait 1080x1920 for shorts (whose 9:16 subtitle
         // overlay must line up), landscape 1920x1080 otherwise. Passing the
         // wrong dimensions here is what previously forced every export portrait.
+        //
+        // A Clip Zoom's crop goes BEFORE that scale, so a source larger than
+        // the output frame is cropped and then scaled DOWN — the zoom spends
+        // surplus resolution rather than upscaling. Cropping after the scale
+        // would discard those pixels first and stretch what remained. The crop
+        // string comes from clipZoomCropFilter, the same rect the editor
+        // preview's CSS transform is formatted from.
         const filterParts: string[] = [];
         const concatInputs: string[] = [];
         for (let i = 0; i < clips.length; i++) {
+          const cropFilter = clipZoomCropFilter(clips[i]!.zoomType);
           filterParts.push(
-            `[${i}:v]setpts=PTS-STARTPTS,scale=${dimensions.width}:${dimensions.height},setsar=1[v${i}]`,
+            `[${i}:v]setpts=PTS-STARTPTS,${
+              cropFilter ? `${cropFilter},` : ""
+            }scale=${dimensions.width}:${dimensions.height},setsar=1[v${i}]`,
             `[${i}:a]asetpts=PTS-STARTPTS,aformat=channel_layouts=stereo[a${i}]`
           );
           concatInputs.push(`[v${i}][a${i}]`);

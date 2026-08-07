@@ -38,6 +38,7 @@ export const batchExportProgram = (
         sourceStartTime: number;
         sourceEndTime: number;
         pauseType: string;
+        zoomType: string;
       }>;
     }> = [];
 
@@ -96,6 +97,7 @@ export const batchExportProgram = (
                   clip.sourceStartTime +
                   (isFinalClip ? FINAL_VIDEO_PADDING : 0),
                 pauseType: clip.pauseType as PauseType,
+                zoomType: clip.zoomType,
               };
             }),
             onStageChange: (stage) => {

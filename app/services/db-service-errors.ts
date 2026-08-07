@@ -103,3 +103,17 @@ export class VideoTitleTakenError extends Data.TaggedError(
   title: string;
   message: string;
 }> {}
+
+/**
+ * A Clip Zoom was asked for on a Clip that cannot carry one — its recorded
+ * scene is not a camera scene, or it has no recorded scene at all (clips
+ * filmed before CVM captured scenes). Carries the human-facing reason built
+ * by clipZoomIneligibilityMessage so every caller reports the same wall.
+ */
+export class ClipNotZoomableError extends Data.TaggedError(
+  "ClipNotZoomableError"
+)<{
+  clipId: string;
+  scene: string | null;
+  message: string;
+}> {}

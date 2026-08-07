@@ -32,6 +32,7 @@ const makeClipOnDatabase = (
   profile: null,
   insertionOrder: null,
   pauseType: "none",
+  zoomType: "none",
   diagramSnapshotId: null,
   diagramName: null,
   webLinks: [],

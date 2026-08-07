@@ -45,6 +45,11 @@ export type LogEvent =
       pauseType: string;
     }
   | {
+      type: "zoom-updated";
+      clipId: string;
+      zoomType: string;
+    }
+  | {
       type: "clip-reordered";
       clipId: string;
       direction: "up" | "down";

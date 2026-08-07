@@ -346,6 +346,11 @@ export interface ClipService {
   unarchiveClips(clipIds: string[]): Promise<void>;
   updateClips(clips: UpdateClipInput[]): Promise<void>;
   updatePause(clipId: string, pauseType: string): Promise<void>;
+  /**
+   * Set a Clip's Clip Zoom. Rejects any clip whose recorded scene is not a
+   * camera scene — see canZoomClip in features/videos/clip-zoom.
+   */
+  updateZoom(clipId: string, zoomType: string): Promise<void>;
   reorderClip(clipId: string, direction: ReorderDirection): Promise<void>;
 
   // Chapter operations
@@ -392,6 +397,7 @@ export type ClipServiceEvent =
   | { type: "unarchive-clips"; clipIds: readonly string[] }
   | { type: "update-clips"; clips: readonly UpdateClipInput[] }
   | { type: "update-pause"; clipId: string; pauseType: string }
+  | { type: "update-zoom"; clipId: string; zoomType: string }
   | { type: "reorder-clip"; clipId: string; direction: ReorderDirection }
   | {
       type: "create-chapter-at-insertion-point";
@@ -492,6 +498,10 @@ export function createClipService(send: ClipServiceTransport): ClipService {
 
     async updatePause(clipId, pauseType) {
       await send({ type: "update-pause", clipId, pauseType });
+    },
+
+    async updateZoom(clipId, zoomType) {
+      await send({ type: "update-zoom", clipId, zoomType });
     },
 
     async reorderClip(clipId, direction) {

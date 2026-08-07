@@ -13,6 +13,10 @@ import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import {
+  checkClipZoomEligibility,
+  clipZoomIneligibilityMessage,
+} from "@/features/videos/clip-zoom";
+import {
   createClipService,
   type ClipService,
   type ClipServiceEvent,
@@ -254,6 +258,41 @@ const dispatchClipServiceEvent = Effect.fn("dispatchClipServiceEvent")(
             pauseType: event.pauseType,
           });
         }
+        return;
+      }
+
+      case "update-zoom": {
+        // The eligibility rule is enforced here, not only at the call sites,
+        // so every caller inherits it. The editor hides the affordance on an
+        // ineligible clip and the CLI pre-checks to report a clean typed
+        // error, but neither of those is what makes the rule hold.
+        const clip = yield* Effect.promise(() =>
+          db.query.clips.findFirst({
+            where: eq(clips.id, event.clipId),
+          })
+        );
+        if (!clip) {
+          throw new Error(`Clip not found: ${event.clipId}`);
+        }
+
+        const ineligibility = checkClipZoomEligibility(clip.scene);
+        if (ineligibility) {
+          throw new Error(clipZoomIneligibilityMessage(ineligibility));
+        }
+
+        yield* Effect.promise(() =>
+          db
+            .update(clips)
+            .set({ zoomType: event.zoomType })
+            .where(eq(clips.id, event.clipId))
+        );
+
+        yield* touchVideoUpdatedAt(db, clip.videoId);
+        logger.log(clip.videoId, {
+          type: "zoom-updated",
+          clipId: event.clipId,
+          zoomType: event.zoomType,
+        });
         return;
       }
 

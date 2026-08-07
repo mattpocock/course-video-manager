@@ -25,6 +25,7 @@ import {
   Trash2Icon,
   Workflow,
   XIcon,
+  ZoomInIcon,
 } from "lucide-react";
 import type { Clip } from "../clip-state-reducer";
 import { VideoEditorContext } from "../video-editor-context";
@@ -41,6 +42,7 @@ import {
 } from "@/features/diagrams/use-diagram-snapshot-scene";
 import { resolveForClip } from "@/lib/diagram-action-resolver";
 import { getWebLinkLabel } from "@/lib/clip-web-link";
+import { canZoomClip } from "@/features/videos/clip-zoom";
 import {
   openPlayground,
   openPlaygroundWithDiagram,
@@ -108,6 +110,10 @@ export const ClipItem = (props: ClipItemProps) => {
   const onTogglePauseForClip = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.onTogglePauseForClip
+  );
+  const onToggleZoomForClip = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.onToggleZoomForClip
   );
   const selectedClipsSet = useContextSelector(
     VideoEditorContext,
@@ -237,6 +243,16 @@ export const ClipItem = (props: ClipItemProps) => {
                 </span>
               )}
             </div>
+
+            {/* Clip Zoom badge — only ever present on a camera scene */}
+            {clip.type === "on-database" && clip.zoomType !== "none" && (
+              <div className="z-10 relative mt-2 flex">
+                <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  <ZoomInIcon className="w-3 h-3 shrink-0" />
+                  Zoomed
+                </span>
+              </div>
+            )}
 
             {/* Diagram pin indicator */}
             {clip.type === "on-database" && clip.diagramSnapshotId && (
@@ -368,6 +384,21 @@ export const ClipItem = (props: ClipItemProps) => {
           <PauseIcon />
           {clip.pauseType === "long" ? "Remove Pause" : "Add Pause"}
         </ContextMenuItem>
+        {/*
+          Offered only where it applies. Roughly nine clips in ten are a Code
+          scene, so a greyed-out entry on every one of them would be noise
+          teaching a rule you already know.
+        */}
+        {clip.type === "on-database" && canZoomClip(clip.scene) && (
+          <ContextMenuItem
+            onSelect={() => {
+              onToggleZoomForClip(clip.frontendId);
+            }}
+          >
+            <ZoomInIcon />
+            {clip.zoomType === "none" ? "Add Zoom" : "Remove Zoom"}
+          </ContextMenuItem>
+        )}
         <ContextMenuItem
           disabled={clip.type !== "on-database"}
           onSelect={() => {

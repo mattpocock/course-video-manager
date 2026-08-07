@@ -94,6 +94,9 @@ describe("duplicateCourse — schema-drift guard", () => {
         "scene",
         "profile",
         "pauseType",
+        // A Clip Zoom is a property of that clip's shot, so a copied clip
+        // should look the same as the one it came from.
+        "zoomType",
         "diagramSnapshotId",
       ],
       notCopied: ["id", "videoId", "archived", "createdAt"],

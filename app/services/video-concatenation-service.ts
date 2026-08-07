@@ -97,6 +97,7 @@ export const concatenateVideos = Effect.fn("concatenateVideos")(
                 scene: clip.scene,
                 profile: clip.profile,
                 pauseType: clip.pauseType,
+                zoomType: clip.zoomType,
               })
             );
           } else {

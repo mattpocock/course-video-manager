@@ -150,6 +150,11 @@ export const ClipServiceEventSchema = Schema.Union(
     pauseType: Schema.String,
   }),
   Schema.Struct({
+    type: Schema.Literal("update-zoom"),
+    clipId: Schema.String,
+    zoomType: Schema.String,
+  }),
+  Schema.Struct({
     type: Schema.Literal("reorder-clip"),
     clipId: Schema.String,
     direction: ReorderDirectionSchema,
