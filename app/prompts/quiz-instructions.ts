@@ -1,9 +1,9 @@
 /**
  * How the Article Writer authors a quiz.
  *
- * The syntax here is one of two live copies — the other is the `quizzes.md`
- * reference in the `creating-content` skill, which holds the same contract for
- * agents drafting outside this app. Change both.
+ * The rules here are one of two live copies — the other is
+ * `.claude/skills/creating-content/quizzes.md` in the personal wiki, which
+ * holds the same contract for agents drafting outside this app. Change both.
  */
 
 export const getQuizInstructions = (existingQuizIds: string[]) => {
@@ -19,12 +19,16 @@ ${existingQuizIds.map((id) => `- ${id}`).join("\n")}
   return `
 ## Quizzes
 
-End the article with one quiz. It goes at the very end of the body, after the last section, and holds two to four questions.
+A quiz is **friction**. It stops a reader who was moving, so it is spent, never sprinkled. Spend it on what the reader paid you to teach — the concepts, the decisions, the way of working. Setup, install and tooling admin are the cost of reaching the teaching rather than the teaching itself, and a reader still getting set up has no attention spare for a question.
+
+Where an article earns a quiz, it holds two to four questions and sits at the very end of the body, after the last section.
 
 A question tests one of two things, and nothing else:
 
 - A **decision** the reader has to make — two ways of working, both of which a real person would try.
 - A **recall** of a fact a later lesson depends on: a flag, a default, a limit. The reader walks back through the article to answer it, and that walk is the point.
+
+An article holding no decision and no load-bearing recall gets no quiz. Report that gap for a human to judge.
 
 Write the choices like this:
 
