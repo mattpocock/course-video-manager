@@ -3,9 +3,11 @@ import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
 import { mkdtempSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
+  ensureExportDigest,
   readExportDigest,
   sidecarPath,
   writeExportDigest,
@@ -114,6 +116,56 @@ describe("export sha256 sidecar", () => {
     );
 
     expect(read).toBeNull();
+  });
+
+  it("gives an export that has no sidecar a true one", async () => {
+    const { exportPath, bytes } = makeExport("video-bytes");
+
+    const read = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* ensureExportDigest(fs, exportPath);
+        return yield* readExportDigest(fs, exportPath, bytes);
+      })
+    );
+
+    expect(read).toMatchObject({
+      sha256: createHash("sha256").update("video-bytes").digest("hex"),
+      bytes,
+    });
+  });
+
+  it("leaves an export that already has a sound sidecar alone", async () => {
+    const { exportPath, bytes } = makeExport();
+
+    // A digest that could not have come from these bytes, so an unconditional
+    // re-digest would overwrite it and this assertion would notice.
+    const read = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* writeExportDigest(fs, exportPath, {
+          sha256: SHA,
+          contentHash: CONTENT_HASH,
+          bytes,
+        });
+        yield* ensureExportDigest(fs, exportPath);
+        return yield* readExportDigest(fs, exportPath, bytes);
+      })
+    );
+
+    expect(read).toEqual({ sha256: SHA, contentHash: CONTENT_HASH, bytes });
+  });
+
+  it("never fails the caller when the export is not there to digest", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* ensureExportDigest(fs, "/nonexistent-directory-for-test/a.mp4");
+        return "did not throw";
+      })
+    );
+
+    expect(result).toBe("did not throw");
   });
 
   it("never fails the caller when the sidecar cannot be written", async () => {

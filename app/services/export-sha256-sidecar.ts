@@ -100,7 +100,7 @@ export const computeExportDigest = (
   }).pipe(Effect.orDie);
 
 /**
- * Digest an export the moment it is produced, and bank it beside the file.
+ * Give an export a sidecar if it does not already have a usable one.
  *
  * Sidecars used to be written only by an upload, which was sound while every
  * Publish uploaded everything. Once a Publish can COPY an unchanged Video
@@ -110,16 +110,26 @@ export const computeExportDigest = (
  *
  * Writing at export time inverts that: every Exported Video carries its digest
  * from birth, so the immutability check is free and grows to cover everything.
- * Best-effort, exactly like the write it replaces.
+ * "Every" includes the export the pool finds already on disk and skips — that
+ * is precisely the old export whose sidecar is still missing, so digesting
+ * only the freshly encoded ones would leave the backlog uncovered for ever.
+ *
+ * The read is therefore conditional, not the write: a file that already has a
+ * sound sidecar costs one stat. Best-effort throughout — a digest that cannot
+ * be taken or written costs the next Publish a re-read and is never a reason
+ * to fail this one.
  */
-export const digestNewExport = (
+export const ensureExportDigest = (
   fs: FileSystem.FileSystem,
   exportPath: string
 ): Effect.Effect<void> =>
-  computeExportDigest(fs, exportPath).pipe(
-    Effect.flatMap((digest) => writeExportDigest(fs, exportPath, digest)),
-    Effect.ignore
-  );
+  Effect.gen(function* () {
+    const size = Number((yield* fs.stat(exportPath)).size);
+    const cached = yield* readExportDigest(fs, exportPath, size);
+    if (cached) return;
+    const digest = yield* computeExportDigest(fs, exportPath);
+    yield* writeExportDigest(fs, exportPath, digest);
+  }).pipe(Effect.ignore);
 
 /**
  * Best-effort: a sidecar that cannot be written costs the next Publish a

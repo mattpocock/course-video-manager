@@ -455,6 +455,16 @@ const POLL_INITIAL_MS = 1_000;
 const POLL_CEILING_MS = 10_000;
 /** How often a still-running job says so, so a long copy is never silent. */
 const POLL_REPORT_INTERVAL_MS = 30_000;
+/**
+ * How long a batch may stay `in_progress` before we stop believing in it.
+ *
+ * A server-side copy of a whole course is seconds of Dropbox's work, so this
+ * is not a deadline the route should ever approach — it is there because a job
+ * that never settles would otherwise hold the Publish open for ever. Giving up
+ * is safe: the caller treats an unfinished batch as one that must be uploaded
+ * instead, which costs the saving and nothing else.
+ */
+const POLL_DEADLINE_MS = 30 * 60_000;
 
 type RawCopyEntry =
   | { ".tag": "success"; success: DropboxFileMetadata }
@@ -527,8 +537,6 @@ const readBatchEntries = (
 export const copyBatch = Effect.fn("dropboxCopyBatch")(function* (opts: {
   accessToken: string;
   entries: DropboxCopyEntry[];
-  /** Fires while a job is still running, so a slow copy stays observable. */
-  onStillRunning?: (elapsedMs: number) => void;
 }) {
   const results: DropboxCopyResult[] = [];
 
@@ -557,7 +565,7 @@ export const copyBatch = Effect.fn("dropboxCopyBatch")(function* (opts: {
       let elapsedMs = 0;
       let nextReportMs = POLL_REPORT_INTERVAL_MS;
 
-      while (true) {
+      while (elapsedMs < POLL_DEADLINE_MS) {
         yield* Effect.sleep(Duration.millis(waitMs));
         elapsedMs += waitMs;
         waitMs = Math.min(waitMs * 2, POLL_CEILING_MS);
@@ -570,7 +578,11 @@ export const copyBatch = Effect.fn("dropboxCopyBatch")(function* (opts: {
         if (response[".tag"] !== "in_progress") break;
 
         if (elapsedMs >= nextReportMs) {
-          opts.onStillRunning?.(elapsedMs);
+          yield* Effect.logInfo(
+            `copy_batch_v2 still running after ${Math.round(
+              elapsedMs / 1_000
+            )}s (${chunk.length} entries)`
+          );
           nextReportMs += POLL_REPORT_INTERVAL_MS;
         }
       }
@@ -578,7 +590,12 @@ export const copyBatch = Effect.fn("dropboxCopyBatch")(function* (opts: {
 
     if (response[".tag"] !== "complete") {
       return yield* new DropboxApiError({
-        message: `copy_batch_v2 ended as "${response[".tag"]}"`,
+        message:
+          response[".tag"] === "in_progress"
+            ? `copy_batch_v2 was still running after ${
+                POLL_DEADLINE_MS / 60_000
+              } minutes`
+            : `copy_batch_v2 ended as "${response[".tag"]}"`,
         endpoint: "files/copy_batch_v2",
       });
     }

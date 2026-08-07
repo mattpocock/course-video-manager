@@ -638,4 +638,30 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
     expect(videoUploadCount()).toBe(uploadsAfterFirstRelease + 2);
     expect(remoteBundleVideoPaths()).toHaveLength(2);
   }, 30_000);
+
+  it("adopts a landed Video whose export has since been collected", async () => {
+    const { videos, sync } = await setupUploads({ videoCount: 2 });
+
+    await sync();
+    const landed = remoteBundleVideoPaths();
+    expect(landed).toHaveLength(2);
+    const uploadsAfterFirstRelease = videoUploadCount();
+
+    // The export garbage collector has been through. Both Videos are still at
+    // their Bundle address; the local files they were made from are not.
+    for (const video of videos) {
+      fs.rmSync(video.exportPath, { force: true });
+      fs.rmSync(`${video.exportPath}.sha256`, { force: true });
+    }
+
+    // Re-syncing the same Version addresses the same Bundle, so nothing is
+    // owed but the manifest's numbers — and the previous manifest has them.
+    // Before the reuse plan could supply those, this read the local file to
+    // recover them and discarded the whole Publish when it had gone.
+    const outcome: any = await sync();
+
+    expect(outcome.missingVideos ?? []).toEqual([]);
+    expect(remoteBundleVideoPaths()).toEqual(landed);
+    expect(videoUploadCount()).toBe(uploadsAfterFirstRelease);
+  }, 30_000);
 });

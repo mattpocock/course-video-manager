@@ -117,15 +117,31 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
    */
   awaitVideoReady: (videoId: string) => Effect.Effect<void, ExportError>;
   /**
-   * Which Videos already exist in the previously Published Bundle, keyed by
-   * Export Hash. The caller computes this when it wants to act on it BEFORE
-   * the export pool starts — a reused Video needs no encoding, so a Publish
-   * that knows the plan up front can drop it from the export roster entirely.
+   * The encodes the caller has ALREADY cancelled on the strength of a reuse
+   * plan, and the means to take that back.
    *
-   * Omitted by the manual re-sync, which has no export phase to inform and so
-   * simply lets this function work the plan out for itself.
+   * A caller that knows the plan before the export pool starts can drop a
+   * reusable Video from the export roster entirely — no GPU time to produce
+   * bytes Dropbox already holds. That is the whole saving, and it is also a
+   * bet: it spends the local copy of a Video before this function has proved
+   * it can get the remote one. Every way the bet can lose — a source that
+   * vanished between the plan and the copy, a batch Dropbox would not run —
+   * ends at a Video with nothing on disk to fall back TO.
+   *
+   * So the plan is not accepted on its own. `restore` encodes one Video the
+   * plan cancelled, and is what makes "fall back to upload" true rather than
+   * merely intended. The pairing is the point: a caller cannot hand over the
+   * cancellation without also handing over the undo.
+   *
+   * Omitted by the manual re-sync, which cancels nothing — it has no export
+   * phase to inform, and simply lets this function draw the plan itself.
    */
-  reusePlan?: ReusePlan;
+  cancelledExports?: {
+    /** Reusable Videos of the previous Bundle, keyed by Export Hash. */
+    plan: ReusePlan;
+    /** Encode a Video this plan cancelled, after all. */
+    restore: (videoId: string) => Effect.Effect<void, ExportError>;
+  };
 }) {
   const effectFs = yield* FileSystem.FileSystem;
   const versionOps = yield* VersionOperationsService;
@@ -251,22 +267,27 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   // What the previously Published Bundle can hand this one for free. Videos
   // matched here are copied inside Dropbox rather than sent from this machine.
   const reusePlan =
-    input.reusePlan ??
+    input.cancelledExports?.plan ??
     (yield* planBundleReuse({ accessToken, dropboxCourseDir }));
+
+  /** A Video's source in the previous Bundle, if the plan found one. */
+  const plannedSourceOf = (entry: VideoEntry): ReusableSource | undefined =>
+    // A Video with no Clips has no Export Hash and no file anywhere. Nothing
+    // identifies its bytes, so nothing can be reused for it.
+    entry.exportHash ? reusePlan.get(entry.exportHash) : undefined;
 
   const reusableByVideoId = new Map<
     string,
     { entry: VideoEntry; source: ReusableSource }
   >();
   for (const entry of videoEntries) {
-    // A Video with no Clips has no Export Hash and no file anywhere. Nothing
-    // identifies its bytes, so nothing can be reused for it.
-    if (!entry.exportHash) continue;
-    // Precedence: a file already at this Publish's own address needs nothing
-    // at all, so the resume listing wins over the plan.
-    if (remoteFilesByPath.has(remoteVideoPath(entry).toLowerCase())) continue;
-    const source = reusePlan.get(entry.exportHash);
+    const source = plannedSourceOf(entry);
     if (!source) continue;
+    // Precedence: a file already at this Publish's own address needs nothing
+    // at all, so the resume listing wins over the plan. It is adopted in
+    // `shipVideo` instead — from the plan's own numbers, which is what lets a
+    // resumed Publish adopt a Video whose export has since been collected.
+    if (remoteFilesByPath.has(remoteVideoPath(entry).toLowerCase())) continue;
     reusableByVideoId.set(entry.videoId, { entry, source });
   }
 
@@ -347,6 +368,48 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
       event: "upload-video-error",
       data: { videoId, message },
     });
+
+  /**
+   * Adopt a landed Video with NO local file to check it against.
+   *
+   * This is the case that used to have no answer: an earlier attempt put the
+   * Video at its address, and the export it was made from has since been
+   * collected — so the manifest's SHA256 could not be recovered and the whole
+   * Publish was discarded. Reuse makes that common rather than rare, because
+   * the plan that put the Video there is the same plan that cancelled its
+   * re-encode.
+   *
+   * The previous Bundle answers it. Its manifest owes the new one this Video's
+   * SHA256 and byte count; its listing gives the content hash the landed file
+   * must carry. One comparison, and not a byte read from disk or wire.
+   *
+   * Weaker than `adoptLandedVideo`, and deliberately second to it: where the
+   * source and destination are the same file — an unchanged re-Publish, which
+   * lands in the same Bundle — the comparison is of a file with itself and
+   * cannot detect tampering. Only local bytes can do that, so wherever they
+   * exist they are used instead.
+   */
+  const adoptFromPlan = Effect.fn("adoptVideoFromReusePlan")(function* (
+    entry: VideoEntry,
+    remoteFile: DropboxFileMetadata,
+    source: ReusableSource
+  ) {
+    // Same Export Hash means identical bytes by construction, so the two
+    // hashes must agree. Disagreement is an immutability violation, exactly
+    // as it is for a locally-checked adoption, and is never overwritten.
+    if (
+      remoteFile.content_hash !== source.contentHash ||
+      remoteFile.size !== source.bytes
+    ) {
+      return yield* new ExportError({
+        message: `Immutable asset bundle conflict for video ${entry.videoId}`,
+      });
+    }
+    videoByteSizes.set(entry.videoId, source.bytes);
+    uploadedByVideo.set(entry.videoId, source.bytes);
+    reportProgress();
+    return { sha256: source.sha256, bytes: source.bytes };
+  });
 
   /**
    * A Video already sitting at its address, put there by a previous attempt.
@@ -445,36 +508,60 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
       // The handoff: this Video's own export, and nothing else's.
       yield* input.awaitVideoReady(entry.videoId);
 
-      if (!(yield* effectFs.exists(entry.localPath))) {
-        missingVideos.push({
-          videoId: entry.videoId,
-          videoTitle: entry.videoTitle,
-          lessonPath: entry.lessonPath,
-        });
-        emitVideoError(entry.videoId, "No exported file to upload");
-        return null;
-      }
-
-      const fileSize = Number((yield* effectFs.stat(entry.localPath)).size);
-      videoByteSizes.set(entry.videoId, fileSize);
-      // This Video has a slot and a size: it is uploading, not queued. The
-      // size rides along from the very first event so a consumer can weight
-      // this Video against its siblings before a byte has moved.
-      input.onDetailEvent?.({
-        event: "upload-video-progress",
-        data: {
-          videoId: entry.videoId,
-          uploadedBytes: 0,
-          totalBytes: fileSize,
-        },
-      });
-
       const remoteFile = remoteFilesByPath.get(
         remoteVideoPath(entry).toLowerCase()
       );
-      const receipt = remoteFile
-        ? yield* adoptLandedVideo(entry, remoteFile, fileSize)
-        : yield* streamVideo(entry, fileSize);
+      const plannedSource = plannedSourceOf(entry);
+
+      let receipt: { sha256: string; bytes: number };
+      let onDisk = yield* effectFs.exists(entry.localPath);
+
+      // The local file is the STRONGER witness, so it is always preferred
+      // where it exists: it was produced from this Video's Clips, whereas the
+      // plan can only report what Dropbox already holds. Adopting from the
+      // plan is the fallback for the case that used to have no answer at all.
+      if (!onDisk && remoteFile && plannedSource) {
+        receipt = yield* adoptFromPlan(entry, remoteFile, plannedSource);
+      } else {
+        // A Video the plan cancelled the encode for has arrived here with no
+        // file and nothing at its address, which means its copy did not
+        // happen — the source vanished, or the batch would not run. Nothing
+        // else will ever produce these bytes, so "fall back to upload" has to
+        // mean encoding it now. Without this the saving would turn a slow
+        // Publish into a failed one.
+        if (!onDisk && plannedSource && input.cancelledExports) {
+          yield* input.cancelledExports.restore(entry.videoId);
+          onDisk = yield* effectFs.exists(entry.localPath);
+        }
+
+        if (!onDisk) {
+          missingVideos.push({
+            videoId: entry.videoId,
+            videoTitle: entry.videoTitle,
+            lessonPath: entry.lessonPath,
+          });
+          emitVideoError(entry.videoId, "No exported file to upload");
+          return null;
+        }
+
+        const fileSize = Number((yield* effectFs.stat(entry.localPath)).size);
+        videoByteSizes.set(entry.videoId, fileSize);
+        // This Video has a slot and a size: it is uploading, not queued. The
+        // size rides along from the very first event so a consumer can weight
+        // this Video against its siblings before a byte has moved.
+        input.onDetailEvent?.({
+          event: "upload-video-progress",
+          data: {
+            videoId: entry.videoId,
+            uploadedBytes: 0,
+            totalBytes: fileSize,
+          },
+        });
+
+        receipt = remoteFile
+          ? yield* adoptLandedVideo(entry, remoteFile, fileSize)
+          : yield* streamVideo(entry, fileSize);
+      }
 
       input.onDetailEvent?.({
         event: "upload-video-complete",
