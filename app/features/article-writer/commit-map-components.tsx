@@ -23,21 +23,38 @@ const DuplicateIdsContext = createContext<ReadonlySet<string>>(new Set());
 
 type SlotProps = HTMLAttributes<HTMLElement> & Record<string, unknown>;
 
-function childIds(children: ReactNode): string[] {
-  return Children.toArray(children)
-    .filter(isValidElement)
-    .map((child) => (child.props as { id?: unknown }).id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
+/**
+ * Every entry's id, however deep.
+ *
+ * A blank line nests the entries inside a wrapper, so a walk of the direct
+ * children alone would miss all but the first — and miss them silently, which
+ * is the worst way for a check to fail.
+ */
+function entryIds(children: ReactNode, into: string[] = []): string[] {
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    if (child.type === CommitEntrySlot) {
+      const id = (child.props as { id?: unknown }).id;
+      if (typeof id === "string" && id.length > 0) into.push(id);
+      return;
+    }
+    entryIds((child.props as { children?: ReactNode }).children, into);
+  });
+  return into;
 }
 
 /**
  * A blank line inside the block makes markdown parse the children early and
  * wrap them in a paragraph. Both shapes render, which is exactly why only one
  * of them is legal — the author cannot see the difference without being told.
+ *
+ * The wrapper is found by what it is *not*: an entry. Testing for a `p` element
+ * would never fire, because the preview maps `p` to its own component, so the
+ * element type is that function and never the string.
  */
-function hasParagraphChild(children: ReactNode): boolean {
+function hasWrappedEntries(children: ReactNode): boolean {
   return Children.toArray(children).some(
-    (child) => isValidElement(child) && child.type === "p"
+    (child) => isValidElement(child) && child.type !== CommitEntrySlot
   );
 }
 
@@ -46,12 +63,12 @@ function CommitMapSlot(props: SlotProps) {
 
   const seen = new Set<string>();
   const duplicates = new Set<string>();
-  for (const id of childIds(children)) {
+  for (const id of entryIds(children)) {
     if (seen.has(id)) duplicates.add(id);
     seen.add(id);
   }
 
-  const problems = hasParagraphChild(children)
+  const problems = hasWrappedEntries(children)
     ? [
         "This map has a blank line inside it. Close the gaps — the whole block must be one run of lines.",
       ]

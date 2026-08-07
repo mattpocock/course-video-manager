@@ -126,11 +126,17 @@ export function findCommitsMissingId(text: string): string[] {
     .map((entry) => entry.openTag);
 }
 
-/** Ids used more than once across the document's commit maps. */
+/**
+ * Ids a single map uses more than once.
+ *
+ * Counted per map rather than per body: two maps in one body may honestly both
+ * start at the same commit, and a lesson that reset to `main` twice would be
+ * told off for it.
+ */
 export function findRepeatedCommitIds(text: string): string[] {
-  const seen = new Set<string>();
   const repeated = new Set<string>();
   for (const block of parseCommitMaps(text)) {
+    const seen = new Set<string>();
     for (const entry of block.entries) {
       if (entry.id === null) continue;
       if (seen.has(entry.id)) repeated.add(entry.id);

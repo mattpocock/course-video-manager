@@ -91,10 +91,10 @@ describe("findRepeatedCommitIds", () => {
     ]);
   });
 
-  it("counts across two maps in one body", () => {
+  it("passes the same id used once in each of two maps", () => {
     const text = `${map(entry("main"))}\n\n${map(entry("main"))}`;
 
-    expect(findRepeatedCommitIds(text)).toEqual(["main"]);
+    expect(findRepeatedCommitIds(text)).toEqual([]);
   });
 
   it("passes distinct ids", () => {

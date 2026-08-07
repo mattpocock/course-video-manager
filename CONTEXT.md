@@ -271,7 +271,7 @@ _Avoid_: Test, Assessment, Question block, Exercise (reserved for the course's p
 
 **Commit Map**:
 The list of commits a lesson uses, at the top of a **Video**'s `body` — `<CommitMap>` wrapping one or more `<Commit id="…">` commit map entries. Each entry's `id` is a slug naming a lesson commit in the course project repo, which the CVM never reads; `main` is the one id that is not a slug. The first entry is where a reader starts the lesson. Stored verbatim and shipped unparsed by **Publish**, like a **Quiz**, but never rewritten for the preview — an `id` is a plain attribute, so the card reads the markup as authored. Authored by hand; the Article Writer writes one only when asked.
-_Avoid_: Reset point, Checkpoint; not **Course Version** `commitState`, which is Dropbox publish state
+_Avoid_: Checkpoint, Commit list, **Course Version** `commitState` (Dropbox publish state, unrelated). "Reset point" names what the first entry is _for_, never an entry in general — a later entry is a cherry-pick target too.
 
 ### Video destinations
 
