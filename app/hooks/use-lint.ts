@@ -27,6 +27,24 @@ import type { Mode } from "@/features/article-writer/types";
  * const plan = planLintFix({ document, violations });
  * ```
  */
+/**
+ * What the rules know beyond the document in front of them.
+ *
+ * Quiz id uniqueness is a fact about the course, which the loader knows and a
+ * regex over one document never could. Streaming is a fact about the text: the
+ * rules about a block's shape wait for it to settle.
+ */
+export function useLintContext(opts: {
+  courseQuizIds: string[] | undefined;
+  isStreaming: boolean;
+}): LintContext {
+  const { courseQuizIds, isStreaming } = opts;
+  return useMemo(
+    () => ({ courseQuizIds: courseQuizIds ?? [], isStreaming }),
+    [courseQuizIds, isStreaming]
+  );
+}
+
 export function useLint(
   text: string | null,
   mode: Mode,
@@ -51,6 +69,12 @@ export function useLint(
     for (const rule of rules) {
       // Skip rules that don't apply to this mode
       if (rule.modes !== null && !rule.modes.includes(mode)) {
+        continue;
+      }
+
+      // A half-written block breaks every rule about its shape. Those rules
+      // read the settled document, so the Fix count means something.
+      if (rule.skipWhileStreaming && context.isStreaming) {
         continue;
       }
 

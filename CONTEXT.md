@@ -269,6 +269,10 @@ _Avoid_: Swap icon, Change icon, Edit icon (an Icon has no edit mode — `canEdi
 A block of questions embedded in a **Video**'s `body`, answered by the reader on aihero.dev. Stored verbatim in the AI Hero authoring contract — `<Quiz>` wrapping one or more `<QuizQuestion data={{ … }} />` tags, each a static object literal — and shipped unparsed by **Publish**, which treats the body as opaque text. The CVM reads it for three jobs only: drawing a static preview card, cutting one question at its exact source range, and linting it. Every question carries an `id` unique across the **Course**, because reader responses are keyed to the id rather than to the question text. Written by the Article Writer in `article` mode; rendered in every preview.
 _Avoid_: Test, Assessment, Question block, Exercise (reserved for the course's practical work)
 
+**Commit Map**:
+The list of commits a lesson uses, at the top of a **Video**'s `body` — `<CommitMap>` wrapping one or more `<Commit id="…">` commit map entries. Each entry's `id` is a slug naming a lesson commit in the course project repo, which the CVM never reads; `main` is the one id that is not a slug. The first entry is where a reader starts the lesson. Stored verbatim and shipped unparsed by **Publish**, like a **Quiz**, but never rewritten for the preview — an `id` is a plain attribute, so the card reads the markup as authored. Authored by hand; the Article Writer writes one only when asked.
+_Avoid_: Reset point, Checkpoint; not **Course Version** `commitState`, which is Dropbox publish state
+
 ### Video destinations
 
 **Skills Changelog**:

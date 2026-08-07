@@ -16,8 +16,7 @@ import { WriteChat } from "./write-chat";
 import { DocumentPanel } from "./document-panel";
 import { useDocumentFlow } from "./use-document-flow";
 import { useRemoveDocumentBlock } from "./use-remove-document-block";
-import { useLint, useLintFix } from "@/hooks/use-lint";
-import type { LintContext } from "./lint-rules";
+import { useLint, useLintContext, useLintFix } from "@/hooks/use-lint";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 import { useMessageQueue } from "./use-message-queue";
 import { partsToText } from "./write-utils";
@@ -32,15 +31,14 @@ import {
   type DocumentPreviewOptions,
 } from "./document-preview-markdown";
 import {
-  CHOOSE_SCREENSHOT_COMPONENTS,
   ChooseScreenshotProvider,
   type ChooseScreenshotRuntime,
 } from "./choose-screenshot-components";
 import {
-  QUIZ_COMPONENTS,
-  QuizProvider,
-  type QuizRuntime,
-} from "./quiz-components";
+  PREVIEW_COMPONENTS,
+  PREVIEW_COMPONENTS_WITH_SCREENSHOTS,
+} from "./preview-component-maps";
+import { QuizProvider, type QuizRuntime } from "./quiz-components";
 import { removeQuizQuestion } from "./quiz-syntax";
 import type { WriteToolbarProps } from "./write-toolbar";
 import type { WriterFieldId } from "./writer-engine-utils";
@@ -239,15 +237,9 @@ export function WriterEngine({
 
   const hasScreenshots = indexedClips.length > 0 && isDocumentMode;
 
-  // Quizzes render in every document preview: a body carrying one shows it
-  // whatever mode wrote it. Screenshot placeholders need clips to resolve to.
-  const docExtraComponents = useMemo(
-    () =>
-      hasScreenshots
-        ? { ...QUIZ_COMPONENTS, ...CHOOSE_SCREENSHOT_COMPONENTS }
-        : QUIZ_COMPONENTS,
-    [hasScreenshots]
-  );
+  const docExtraComponents = hasScreenshots
+    ? PREVIEW_COMPONENTS_WITH_SCREENSHOTS
+    : PREVIEW_COMPONENTS;
 
   // The document is a single scope, so the message id plays no part in its keys.
   const docScreenshotRuntime = useMemo(
@@ -398,12 +390,10 @@ export function WriterEngine({
       .find((m) => m.role === "assistant")?.parts ?? []
   );
 
-  // Quiz id uniqueness is a fact about the course, which the loader knows and
-  // a regex over one document never could.
-  const lintContext = useMemo(
-    (): LintContext => ({ courseQuizIds: context.quizIds ?? [] }),
-    [context.quizIds]
-  );
+  const lintContext = useLintContext({
+    courseQuizIds: context.quizIds,
+    isStreaming: isGenerating,
+  });
 
   const { violations } = useLint(
     isDocumentMode && document ? document : lastAssistantMessageText,

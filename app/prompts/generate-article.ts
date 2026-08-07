@@ -1,3 +1,4 @@
+import { COMMIT_MAP_INSTRUCTIONS } from "./commit-map-instructions";
 import { getImageInstructions } from "./image-instructions";
 import { getQuizInstructions } from "./quiz-instructions";
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
@@ -80,6 +81,8 @@ ${getLinkInstructions(opts.links)}
 ${SCREENSHOT_INSTRUCTIONS}
 
 ${getQuizInstructions(opts.existingQuizIds ?? [])}
+
+${COMMIT_MAP_INSTRUCTIONS}
 
 ## IMPORTANT INSTRUCTIONS
 

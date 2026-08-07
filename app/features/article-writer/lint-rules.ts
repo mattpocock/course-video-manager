@@ -1,3 +1,10 @@
+import {
+  findCommitMapsWithBlankLines,
+  findCommitsMissingId,
+  findCommitsOutsideCommitMap,
+  findRepeatedCommitIds,
+  findUnclosedCommitMaps,
+} from "./commit-map-syntax";
 import { LEADING_HEADING_PATTERN, stripLeadingHeadings } from "./lint-fix";
 import { findTakenQuizIds, fixTakenQuizIds } from "./quiz-lint";
 import type { Mode } from "./types";
@@ -11,9 +18,14 @@ import type { Mode } from "./types";
 export interface LintContext {
   /** Quiz ids owned by other videos in this course. */
   courseQuizIds: string[];
+  /** Whether the text is still arriving from the model. */
+  isStreaming: boolean;
 }
 
-export const EMPTY_LINT_CONTEXT: LintContext = { courseQuizIds: [] };
+export const EMPTY_LINT_CONTEXT: LintContext = {
+  courseQuizIds: [],
+  isStreaming: false,
+};
 
 /**
  * Represents a single lint rule that can be applied to article writer output.
@@ -35,6 +47,15 @@ export interface LintRule {
   required?: boolean;
   /** Optional filter to exclude false-positive matches. Return true to keep the match. */
   matchFilter?: (match: string) => boolean;
+  /**
+   * Skips the rule while the model is still writing.
+   *
+   * A rule about the *shape* of a block is transiently false all the way
+   * through a document being written — an unclosed tag is the normal state of
+   * a tag half-arrived. Reporting it would make the Fix count cry wolf on
+   * every keystroke, so these rules read the settled document only.
+   */
+  skipWhileStreaming?: boolean;
   /**
    * Optional deterministic repair. When present, and when it actually changes
    * the document, the fix is applied directly and the rule's `fixInstruction`
@@ -195,6 +216,66 @@ export const BASE_LINT_RULES: LintRule[] = [
       fixTakenQuizIds(text, context.courseQuizIds),
     fixInstruction: (matches) =>
       `Rename these quiz ids — another lesson in the course already uses them: ${matches.join(", ")}`,
+  },
+  // The commit map rules. All of them read the block's shape, so all of them
+  // wait for the writer to stop. None has a deterministic fix: only the author
+  // knows which slug a broken entry meant.
+  {
+    id: "commit-map-unclosed",
+    name: "Unclosed Commit Map",
+    description:
+      "A <CommitMap> with no closing tag escapes the whole lesson body on the site",
+    modes: null,
+    // Never scanned: `detect` reads the block structure, which a regex cannot.
+    pattern: /(?!)/,
+    skipWhileStreaming: true,
+    detect: (text) => findUnclosedCommitMaps(text),
+    fixInstruction:
+      "Close the <CommitMap> block with </CommitMap>. Left open, the site renders the entire lesson body as escaped text.",
+  },
+  {
+    id: "commit-map-blank-line",
+    name: "Blank Line In Commit Map",
+    description: "A commit map must be one unbroken run of lines",
+    modes: null,
+    pattern: /(?!)/,
+    skipWhileStreaming: true,
+    detect: (text) => findCommitMapsWithBlankLines(text),
+    fixInstruction:
+      "Remove the blank lines inside the <CommitMap> block. The opening tag, every <Commit>, and the closing tag must sit on consecutive lines.",
+  },
+  {
+    id: "commit-missing-id",
+    name: "Commit Without An Id",
+    description: "Every commit map entry names a commit by its slug",
+    modes: null,
+    pattern: /(?!)/,
+    skipWhileStreaming: true,
+    detect: (text) => findCommitsMissingId(text),
+    fixInstruction: (matches) =>
+      `Give these <Commit> entries an id — the slug of the commit they name, or "main" for the course start: ${matches.join(", ")}`,
+  },
+  {
+    id: "commit-id-repeated",
+    name: "Repeated Commit Id",
+    description: "A commit map names each commit once",
+    modes: null,
+    pattern: /(?!)/,
+    skipWhileStreaming: true,
+    detect: (text) => findRepeatedCommitIds(text),
+    fixInstruction: (matches) =>
+      `Remove the duplicate entries — the map names these commits more than once: ${matches.join(", ")}`,
+  },
+  {
+    id: "commit-outside-commit-map",
+    name: "Commit Outside A Commit Map",
+    description: "A <Commit> only means anything inside a <CommitMap>",
+    modes: null,
+    pattern: /(?!)/,
+    skipWhileStreaming: true,
+    detect: (text) => findCommitsOutsideCommitMap(text),
+    fixInstruction: (matches) =>
+      `Move these <Commit> entries inside a <CommitMap> block: ${matches.join(", ")}`,
   },
 ];
 

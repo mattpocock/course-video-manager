@@ -13,7 +13,7 @@ import type { Mode, WriterView } from "./types";
 import type { WriterFieldId } from "./writer-engine-utils";
 import { FIELD_MODES } from "./writer-engine-utils";
 import { WriterModal } from "./writer-modal";
-import { QUIZ_COMPONENTS } from "./quiz-components";
+import { PREVIEW_COMPONENTS } from "./preview-component-maps";
 import { preprocessDocumentPreview } from "./document-preview-markdown";
 import {
   WRITER_URL_UPDATE,
@@ -23,9 +23,9 @@ import {
 } from "./writer-url-state";
 
 /**
- * The inline preview draws quiz cards but resolves no screenshot placeholders —
- * it has no clips to offer. A module constant so the memoised preview keeps its
- * identity across renders.
+ * The inline preview draws quiz and commit map cards but resolves no screenshot
+ * placeholders — it has no clips to offer. A module constant so the memoised
+ * preview keeps its identity across renders.
  */
 const previewQuizzes = (md: string) =>
   preprocessDocumentPreview(md, { screenshots: false });
@@ -200,7 +200,7 @@ export function WritableField({
                 {draft ? (
                   <AIResponse
                     imageBasePath={context.fullPath}
-                    extraComponents={QUIZ_COMPONENTS}
+                    extraComponents={PREVIEW_COMPONENTS}
                     preprocessMarkdown={previewQuizzes}
                   >
                     {draft}
