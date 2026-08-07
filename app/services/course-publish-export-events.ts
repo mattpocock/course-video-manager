@@ -1,5 +1,11 @@
 import { Effect, Schedule } from "effect";
 
+// One Video's encode, stage by stage. `queued` is a position in the pool
+// rather than work, so only the two working stages carry a percentage.
+export type ExportStage =
+  "queued" | "concatenating-clips" | "normalizing-audio";
+export type ExportWorkingStage = Exclude<ExportStage, "queued">;
+
 // The observable surface of a publish/batch-export run. Every emission is a
 // member of this union, so a typo'd event name or a malformed payload fails
 // typecheck instead of silently dropping on the SSE floor.
@@ -10,7 +16,7 @@ export type PublishDetailEvent =
       event: "stage";
       data: {
         videoId: string;
-        stage: "queued" | "concatenating-clips" | "normalizing-audio";
+        stage: ExportStage;
       };
     }
   | { event: "complete"; data: { videoId: string } }
@@ -21,7 +27,7 @@ export type PublishDetailEvent =
       event: "video-progress";
       data: {
         videoId: string;
-        stage: "concatenating-clips" | "normalizing-audio";
+        stage: ExportWorkingStage;
         percent: number;
       };
     }
@@ -102,11 +108,8 @@ export const runObservedExportLoop = <A, E, R>(input: {
   unexportedVideos: Array<{ id: string; title: string }>;
   exportVideo: (
     videoId: string,
-    onStage: (stage: "concatenating-clips" | "normalizing-audio") => void,
-    onProgress: (info: {
-      stage: "concatenating-clips" | "normalizing-audio";
-      percent: number;
-    }) => void
+    onStage: (stage: ExportWorkingStage) => void,
+    onProgress: (info: { stage: ExportWorkingStage; percent: number }) => void
   ) => Effect.Effect<A, E, R>;
   onDetailEvent?: EmitPublishDetailEvent;
   onVideoSettled?: (result: {

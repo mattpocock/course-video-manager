@@ -49,6 +49,9 @@ export const PUBLISH_STAGE_BANDS: Record<
   cloning: { start: 6, width: 0 },
   exporting: { start: 10, width: 0 },
   uploading: { start: 10, width: 0 },
+  // The Promote has landed and the `complete` event is one step behind this
+  // one. 100 stays reserved for that event's UPLOAD_SUCCESS.
+  complete: { start: 99, width: 0 },
 };
 
 // The span of a Publish's bar owned by its per-Video tasks. 100 is reserved

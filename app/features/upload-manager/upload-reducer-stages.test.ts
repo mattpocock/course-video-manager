@@ -424,6 +424,29 @@ describe("UPDATE_PUBLISH_STAGE", () => {
     expect(state.uploads["upload-1"]!.progress).toBe(10);
   });
 
+  // The Publish service emits `complete` as its last stage, one step before
+  // the `complete` event settles the job. The client union used to omit it, so
+  // the band lookup gave undefined and every successful Publish ended in
+  // "Cannot read properties of undefined (reading 'start')".
+  it("should accept the terminal complete stage", () => {
+    const state = reduce(
+      createState({
+        uploads: { "upload-1": createPublishEntry() },
+      }),
+      {
+        type: "UPDATE_PUBLISH_STAGE",
+        uploadId: "upload-1",
+        stage: "complete",
+      }
+    );
+
+    const upload = state.uploads["upload-1"]!;
+    expect(upload.uploadType === "publish" && upload.publishStage).toBe(
+      "complete"
+    );
+    expect(upload.progress).toBe(99);
+  });
+
   it("should not modify state for non-existent upload", () => {
     const initial = createState();
     const state = reduce(initial, {

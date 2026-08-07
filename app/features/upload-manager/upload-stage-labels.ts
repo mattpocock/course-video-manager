@@ -27,6 +27,7 @@ const PUBLISH_STAGE_LABELS: Record<uploadReducer.PublishStage, string> = {
   uploading: "Uploading to Dropbox",
   freezing: "Freezing version",
   cloning: "Creating new draft",
+  complete: "Finishing up",
 };
 
 const RENDER_VERTICAL_STAGE_LABELS: Record<

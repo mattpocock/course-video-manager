@@ -1,3 +1,8 @@
+import type {
+  ExportStage as ExportServiceStage,
+  PublishStage as PublishServiceStage,
+} from "@/services/course-publish-export-events";
+import type { RenderVerticalStage as RenderVerticalServiceStage } from "@/services/render-vertical-video-service";
 import { uploadTypeRegistry } from "./upload-type-registry";
 import {
   BUFFER_STAGE_BANDS,
@@ -25,15 +30,16 @@ export namespace uploadReducer {
     | "render-vertical";
   export type BufferStage =
     "uploading-blob" | "creating-post" | "polling" | "cleaning-up";
-  export type ExportStage =
-    "queued" | "concatenating-clips" | "normalizing-audio";
-  export type RenderVerticalStage =
-    | "concatenating-clips"
-    | "transcribing"
-    | "rendering-overlay"
-    | "compositing";
-  export type PublishStage =
-    "validating" | "exporting" | "uploading" | "freezing" | "cloning";
+  // Every stage union below is the SERVICE's own union, never a restatement of
+  // it. The bands and the labels are total `Record`s over these types, so a
+  // stage the server emits and the client has no band for is a compile error
+  // here rather than an undefined lookup at run time. `PublishStage` was
+  // restated, drifted, and lost `complete` — which the Publish emits after the
+  // Promote, so every successful Publish ended in "Cannot read properties of
+  // undefined (reading 'start')".
+  export type ExportStage = ExportServiceStage;
+  export type RenderVerticalStage = RenderVerticalServiceStage;
+  export type PublishStage = PublishServiceStage;
   // The upload half of a per-Video task under a Publish. It follows the
   // export stages above: encode, then wait for a slot in the upload pool,
   // then move bytes.
