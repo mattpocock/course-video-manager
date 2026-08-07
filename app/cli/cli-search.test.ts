@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import {
   createTestDb,
   truncateAllTables,
@@ -259,6 +260,101 @@ describe("search", () => {
       const err = JSON.parse(stderr);
       expect(err._tag).toBe("NotFoundError");
       expect(err.entity).toBe("lesson");
+    });
+  });
+
+  describe("video body (the shipped article)", () => {
+    /** Author a body onto a video; the seed leaves every body null. */
+    const setBody = (videoId: string, body: string) =>
+      testDb
+        .update(schema.videos)
+        .set({ body })
+        .where(eq(schema.videos.id, videoId));
+
+    it("matches a video's body and returns the VIDEO", async () => {
+      await setBody(s.lessonVideoId, "The satisfies operator narrows a value.");
+
+      const { stdout, stderr, exitCode } = await run(["search", "satisfies"]);
+      expect(exitCode).toBe(0);
+      expect(stderr).toBe("");
+      const hits = ndjson(stdout) as any[];
+      expect(hits).toHaveLength(1);
+      expect(hits[0]).toMatchObject({
+        kind: "video",
+        id: s.lessonVideoId,
+        lessonId: s.lessonId,
+        courseId: s.courseAId,
+        field: "body",
+      });
+      expect(hits[0].snippet).toContain("satisfies");
+    });
+
+    it("body beats transcript for a video's field label", async () => {
+      await setBody(s.lessonVideoId, "we say hello in the article too");
+
+      const { stdout } = await run(["search", "hello"]);
+      const video = (ndjson(stdout) as any[]).find((h) => h.kind === "video");
+      expect(video).toMatchObject({ id: s.lessonVideoId, field: "body" });
+    });
+
+    it("title beats body for a video's field label", async () => {
+      await setBody(s.lessonVideoId, "an intro to the intro");
+
+      const { stdout } = await run(["search", "intro"]);
+      const video = (ndjson(stdout) as any[]).find((h) => h.kind === "video");
+      expect(video).toMatchObject({ id: s.lessonVideoId, field: "title" });
+    });
+
+    it("never returns an archived video's body", async () => {
+      await setBody(s.archivedLessonVideoId, "buried article text");
+
+      const { stdout, exitCode } = await run(["search", "buried"]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe("");
+    });
+
+    it("excludes body hits when --type omits video", async () => {
+      await setBody(s.lessonVideoId, "unique-body-token");
+
+      const { stdout } = await run([
+        "search",
+        "--type",
+        "beat",
+        "unique-body-token",
+      ]);
+      expect(stdout).toBe("");
+    });
+
+    it("finds a body from a scoped lesson search", async () => {
+      await setBody(s.lessonVideoId, "scoped article mentions closures");
+
+      const { stdout, exitCode } = await run([
+        "lesson",
+        "search",
+        s.lessonId,
+        "closures",
+      ]);
+      expect(exitCode).toBe(0);
+      const hits = ndjson(stdout) as any[];
+      expect(hits).toHaveLength(1);
+      expect(hits[0]).toMatchObject({
+        kind: "video",
+        id: s.lessonVideoId,
+        field: "body",
+      });
+    });
+
+    it("excerpts a long body with ellipses around the match", async () => {
+      const long = `${"lorem ipsum ".repeat(20)}BODYNEEDLE${" dolor sit ".repeat(20)}`;
+      await setBody(s.lessonVideoId, long);
+
+      const { stdout } = await run(["search", "BODYNEEDLE"]);
+      const hit = (ndjson(stdout) as any[]).find((h) => h.kind === "video");
+      expect(hit.field).toBe("body");
+      expect(hit.snippet).toContain("BODYNEEDLE");
+      expect(hit.snippet.startsWith("…")).toBe(true);
+      expect(hit.snippet.endsWith("…")).toBe(true);
+      expect(hit.snippet.length).toBeLessThan(long.length);
     });
   });
 

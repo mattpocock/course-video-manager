@@ -102,17 +102,19 @@ WHAT IS SEARCHED (archived records are never returned; Draft Version only)
   course    name, slug
   section   path, description
   lesson    path, title, description
-  video     path, and its TRANSCRIPT (clip text + chapter names)
+  video     title, its BODY (the shipped article), and its TRANSCRIPT
+            (clip text + chapter names)
   beat      title, description
   pitch     title, description, contentPlan, youtubeTitle,
             youtubeThumbnailDescription, newsletterTitle, tweet
 
 RESULTS (NDJSON — one compact hit per line; empty result prints nothing, exit 0)
   Each hit is self-describing: { kind, id, <identity>, <parent ids>, courseId,
-  field, snippet }. 'field' is the matched field (path beats transcript for a
-  video); 'snippet' is an excerpt around the match (the whole value for short
-  fields). One hit per entity. Hits stream in depth-first tree order (course ->
-  sections -> lessons -> videos -> beats), courses in 'course list' order,
+  field, snippet }. 'field' is the matched field (for a video, title beats body,
+  body beats transcript); 'snippet' is an excerpt around the match (the whole
+  value for short fields). One hit per entity. Hits stream in depth-first tree
+  order (course -> sections -> lessons -> videos -> beats), courses in
+  'course list' order,
   pitches last. Use 'cvm <noun> get <id>' for the full record.
 
 --type (repeatable) narrows result kinds; default is every kind above.

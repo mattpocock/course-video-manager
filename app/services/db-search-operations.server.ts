@@ -138,6 +138,8 @@ type BeatNode = {
 type VideoNode = {
   id: string;
   title: string;
+  /** The shipped article. Null until a body is authored. */
+  body: string | null;
   lessonId: string;
   beats: BeatNode[];
 };
@@ -174,7 +176,7 @@ const sectionWith = {
       orderBy: asc(lessons.order),
       with: {
         videos: {
-          columns: { id: true, title: true, lessonId: true },
+          columns: { id: true, title: true, body: true, lessonId: true },
           where: eq(videos.archived, false),
           orderBy: asc(videos.title),
           with: {
@@ -202,9 +204,9 @@ export const createSearchOperations = (db: Database) => {
    *
    * Returns hits in depth-first Draft-tree order (course -> sections -> lessons
    * -> videos -> beats), courses in `course list` order, pitches last. One
-   * hit per entity (first matching field wins, path before transcript). When a
-   * scoped `root` id is missing or archived, returns `null` so the CLI can own
-   * not-found detection.
+   * hit per entity (first matching field wins: for a video, title before body
+   * before transcript). When a scoped `root` id is missing or archived, returns
+   * `null` so the CLI can own not-found detection.
    */
   const search = Effect.fn("search")(function* (params: SearchParams) {
     const { root, query, types } = params;
@@ -432,10 +434,14 @@ export const createSearchOperations = (db: Database) => {
 
     const emitVideo = (v: VideoNode, cid: string) => {
       if (want("video")) {
+        // Title, then the shipped body, then the transcript: the shorter and
+        // more deliberate the text, the stronger the signal it is the reason
+        // this video matched.
         const m =
-          (matches(v.title)
-            ? { field: "title", snippet: snippet(v.title) }
-            : null) ?? transcriptMatch.get(v.id);
+          firstMatch([
+            ["title", v.title],
+            ["body", v.body ?? ""],
+          ]) ?? transcriptMatch.get(v.id);
         if (m)
           hits.push({
             kind: "video",
