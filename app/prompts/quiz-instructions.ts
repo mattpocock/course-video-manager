@@ -30,6 +30,8 @@ A question tests one of two things, and nothing else:
 
 An article holding no decision and no load-bearing recall gets no quiz. Report that gap for a human to judge.
 
+Ask in the reader's world, so the question points at the work: "Your session just passed 150,000 tokens and the work is not finished. What now?" A question pointed at the article — "What does this lesson say about 150,000 tokens?" — tests only whether they read the page, and the same tic in the \`answer\` field turns the explanation into a book report. The answer still comes from the body; the wording never says so.
+
 Write the choices like this:
 
 - Every wrong choice is something a real reader would actually do. A choice nobody would pick makes the question free.
