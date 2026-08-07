@@ -26,6 +26,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:baseline": "tsx scripts/baseline-migrations.ts",
     "db:backfill-search-text": "tsx scripts/backfill-search-text.ts",
+    "zoom:alternate": "tsx scripts/alternate-clip-zoom.ts",
     "gen:lucide-icons": "tsx scripts/generate-lucide-icons.ts",
     "db:studio": "drizzle-kit studio",
     "db:clone-local": "./scripts/clone-db-to-local.sh",

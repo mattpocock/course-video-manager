@@ -55,7 +55,7 @@ import {
  * VERBS:
  *   clip list --video <videoId>   every active clip on a Video, timeline order
  *   clip get <id...>              one or more clips by id (variadic)
- *   clip update <id> --zoom <t>   set the Clip Zoom (the ONLY writable field)
+ *   clip update --zoom <t> <id>   set the Clip Zoom (the ONLY writable field)
  *
  * `update` is deliberately the narrowest possible write. A Clip's text is
  * recorded truth (the Transcript is derived from it) and its timings are the
@@ -91,7 +91,7 @@ scoping and archived clips are always hidden (no --archived flag).
 Verbs:
   clip list --video <videoId>   every active clip on a Video, in timeline order (NDJSON)
   clip get <id...>              fetch one or more clips by id (variadic)
-  clip update <id> --zoom <t>   set the Clip Zoom ("none" | "subtle")
+  clip update --zoom <t> <id>   set the Clip Zoom ("none" | "subtle")
 
 'update' accepts --zoom and nothing else: a clip's text is recorded truth and its timings are the
 cut, neither of which the CLI rewrites. There is no 'clip tree' (clips are leaves) — use
@@ -107,14 +107,19 @@ clip filmed before CVM recorded scenes and so having none) is refused with exit 
 which of the two it was. The zoom reaches the Export Hash, so setting it marks the Video for
 re-export, and it shows in the editor preview exactly as it will export.
 
+NOTE ON FLAG ORDER
+  --zoom must come BEFORE the positional id ('update --zoom subtle <id>', NOT
+  'update <id> --zoom subtle') — a flag placed after the id is rejected with a MissingValue
+  ParseError (exit 3). This is how every verb on every noun parses.
+
 Examples:
-  cvm clip update clip_abc --zoom subtle
-  cvm clip update clip_abc --zoom none
+  cvm clip update --zoom subtle clip_abc
+  cvm clip update --zoom none clip_abc
 
   # Zoom every camera clip on a video:
   cvm clip list --video vid_123 \
     | jq -r 'select(.scene == "Camera") | .id' \
-    | xargs -n1 -I{} cvm clip update {} --zoom subtle`;
+    | xargs -n1 cvm clip update --zoom subtle`;
 
 const LIST_HELP = `List every active (non-archived) Clip on a Video, in timeline order.
 
