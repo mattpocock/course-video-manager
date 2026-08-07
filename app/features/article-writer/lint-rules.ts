@@ -1,5 +1,19 @@
 import { LEADING_HEADING_PATTERN, stripLeadingHeadings } from "./lint-fix";
+import { findTakenQuizIds, fixTakenQuizIds } from "./quiz-lint";
 import type { Mode } from "./types";
+
+/**
+ * What a rule knows beyond the text in front of it.
+ *
+ * A regex sees one document; some rules are about the course around it. The
+ * context carries what the loader could see and the rule could not.
+ */
+export interface LintContext {
+  /** Quiz ids owned by other videos in this course. */
+  courseQuizIds: string[];
+}
+
+export const EMPTY_LINT_CONTEXT: LintContext = { courseQuizIds: [] };
 
 /**
  * Represents a single lint rule that can be applied to article writer output.
@@ -27,7 +41,12 @@ export interface LintRule {
    * is not sent to the model. Only reachable in document modes, where we own
    * the text.
    */
-  deterministicFix?: (text: string) => string;
+  deterministicFix?: (text: string, context: LintContext) => string;
+  /**
+   * Replaces the `pattern` scan for a rule a regex cannot express. Returns one
+   * entry per offending thing found, which become the violation's `matches`.
+   */
+  detect?: (text: string, context: LintContext) => string[];
 }
 
 /**
@@ -162,6 +181,20 @@ export const BASE_LINT_RULES: LintRule[] = [
     fixInstruction:
       "Remove the markdown heading from the start of the content. Do not start with a heading - begin directly with the content.",
     deterministicFix: stripLeadingHeadings,
+  },
+  {
+    id: "quiz-id-taken",
+    name: "Quiz Id Taken",
+    description:
+      "A quiz id must be unique across the course — reader answers are keyed to it",
+    modes: null,
+    // Never scanned: `detect` sees the course, which a regex cannot.
+    pattern: /(?!)/,
+    detect: (text, context) => findTakenQuizIds(text, context.courseQuizIds),
+    deterministicFix: (text, context) =>
+      fixTakenQuizIds(text, context.courseQuizIds),
+    fixInstruction: (matches) =>
+      `Rename these quiz ids — another lesson in the course already uses them: ${matches.join(", ")}`,
   },
 ];
 

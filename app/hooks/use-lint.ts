@@ -1,11 +1,14 @@
 import { useCallback, useMemo, type RefObject } from "react";
 import {
+  EMPTY_LINT_CONTEXT,
   LINT_RULES,
   getLintRulesWithPhrases,
+  type LintContext,
   type LintViolation,
   type BannedPhrase,
 } from "@/features/article-writer/lint-rules";
 import { planLintFix } from "@/features/article-writer/lint-fix";
+import { maskQuizNonProse } from "@/features/article-writer/quiz-lint";
 import type { Mode } from "@/features/article-writer/types";
 
 /**
@@ -27,7 +30,8 @@ import type { Mode } from "@/features/article-writer/types";
 export function useLint(
   text: string | null,
   mode: Mode,
-  customPhrases?: BannedPhrase[]
+  customPhrases?: BannedPhrase[],
+  context: LintContext = EMPTY_LINT_CONTEXT
 ) {
   const rules = useMemo(() => {
     if (customPhrases) {
@@ -40,6 +44,9 @@ export function useLint(
     if (!text) return [];
 
     const results: LintViolation[] = [];
+    // Prose rules read a quiz's question and explanation only — a match on an
+    // id or on the JSX around it would carry a fix that breaks the block.
+    const prose = maskQuizNonProse(text);
 
     for (const rule of rules) {
       // Skip rules that don't apply to this mode
@@ -47,8 +54,16 @@ export function useLint(
         continue;
       }
 
+      if (rule.detect) {
+        const found = rule.detect(text, context);
+        if (found.length > 0) {
+          results.push({ rule, count: found.length, matches: found });
+        }
+        continue;
+      }
+
       // Check for matches
-      let matches = text.match(rule.pattern);
+      let matches = prose.match(rule.pattern);
 
       // Apply optional match filter to remove false positives
       if (matches && rule.matchFilter) {
@@ -78,7 +93,7 @@ export function useLint(
     }
 
     return results;
-  }, [text, mode, rules]);
+  }, [text, mode, rules, context]);
 
   return { violations };
 }
@@ -99,6 +114,7 @@ export function useLintFix(opts: {
   documentRef: RefObject<string | undefined>;
   updateDocument: (document: string) => void;
   submitMessage: (text: string) => void;
+  context?: LintContext;
 }) {
   const {
     violations,
@@ -106,13 +122,22 @@ export function useLintFix(opts: {
     documentRef,
     updateDocument,
     submitMessage,
+    context = EMPTY_LINT_CONTEXT,
   } = opts;
   return useCallback(() => {
     const plan = planLintFix({
       document: isDocumentMode ? documentRef.current : undefined,
       violations,
+      context,
     });
     if (plan.document !== null) updateDocument(plan.document);
     if (plan.message) submitMessage(plan.message);
-  }, [violations, isDocumentMode, documentRef, updateDocument, submitMessage]);
+  }, [
+    violations,
+    isDocumentMode,
+    documentRef,
+    updateDocument,
+    submitMessage,
+    context,
+  ]);
 }

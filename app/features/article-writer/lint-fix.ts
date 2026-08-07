@@ -1,4 +1,8 @@
-import type { LintViolation } from "./lint-rules";
+import {
+  EMPTY_LINT_CONTEXT,
+  type LintContext,
+  type LintViolation,
+} from "./lint-rules";
 
 /**
  * A document that opens with an ATX heading. Shared with the
@@ -57,8 +61,9 @@ export interface LintFixPlan {
 export function planLintFix(opts: {
   document: string | undefined;
   violations: LintViolation[];
+  context?: LintContext;
 }): LintFixPlan {
-  const { document, violations } = opts;
+  const { document, violations, context = EMPTY_LINT_CONTEXT } = opts;
 
   let fixed = document;
   const instructions: string[] = [];
@@ -67,7 +72,7 @@ export function planLintFix(opts: {
     const { deterministicFix, fixInstruction } = violation.rule;
 
     if (deterministicFix && fixed !== undefined) {
-      const repaired = deterministicFix(fixed);
+      const repaired = deterministicFix(fixed, context);
       if (repaired !== fixed) {
         fixed = repaired;
         continue;

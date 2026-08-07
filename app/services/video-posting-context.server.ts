@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { loadOtherVideosQuizIds } from "@/services/course-quiz-ids.server";
 import path from "path";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
@@ -208,6 +209,8 @@ export interface WriterContextData {
   }>;
   /** The video's script — the base Matt improvised from. Empty when unwritten. */
   script: string;
+  /** Quiz ids owned by other videos in this course. */
+  quizIds: string[];
 }
 
 export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
@@ -258,6 +261,7 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
       links: globalLinks,
       beats,
       script: video.script ?? "",
+      quizIds: [],
     } satisfies WriterContextData;
   }
 
@@ -265,6 +269,11 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
   const relLessonDir = yield* versionOps.resolveLessonDir(lesson.id);
   const [currentSectionPath = "", currentLessonPath = ""] =
     relLessonDir.split("/");
+
+  const quizIds = yield* loadOtherVideosQuizIds({
+    versionId: section.repoVersion.id,
+    videoId,
+  });
 
   const [courseStructure, repoWithSections] = yield* Effect.all(
     [
@@ -294,5 +303,6 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
     links: globalLinks,
     beats,
     script: video.script ?? "",
+    quizIds,
   } satisfies WriterContextData;
 });

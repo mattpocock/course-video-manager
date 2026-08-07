@@ -175,6 +175,7 @@ export const action = async (args: Route.ActionArgs) => {
       code: videoContext.textFiles,
       imageFiles: videoContext.imageFiles,
       sectionNames: videoContext.sectionNames,
+      existingQuizIds: videoContext.existingQuizIds,
       links,
       courseStructure: courseStructureText,
       memory: parsed.memory,

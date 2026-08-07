@@ -1,4 +1,5 @@
 import { sortByOrder } from "@/lib/sort-by-order";
+import { loadOtherVideosQuizIds } from "@/services/course-quiz-ids.server";
 import { formatOnScreenLinks } from "@/lib/transcript-builder";
 import { generateArticlePrompt } from "@/prompts/generate-article";
 import { generateArticlePlanPrompt } from "@/prompts/generate-article-plan";
@@ -52,6 +53,8 @@ export const createTextWritingAgent = (props: {
   imageFiles: TextWritingAgentImageFile[];
   youtubeChapters?: { timestamp: string; name: string }[];
   sectionNames?: string[];
+  /** Quiz ids owned by other videos in this course. */
+  existingQuizIds?: string[];
   links?: GlobalLink[];
   courseStructure?: string;
   aiHeroUrl?: string;
@@ -193,6 +196,7 @@ export const createTextWritingAgent = (props: {
           sectionNames: props.sectionNames,
           courseStructure: props.courseStructure,
           links,
+          existingQuizIds: props.existingQuizIds,
         });
     }
   })();
@@ -448,6 +452,15 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
           .filter((section) => enabledSectionIds.has(section.id))
           .map((section) => section.name);
 
+    // The ids already spoken for elsewhere in this course. The writer needs
+    // them to invent a free one; without them a clash only surfaces at publish.
+    const existingQuizIds = lesson
+      ? yield* loadOtherVideosQuizIds({
+          versionId: lesson.section.repoVersionId,
+          videoId: props.videoId,
+        })
+      : [];
+
     return {
       textFiles,
       imageFiles,
@@ -456,6 +469,7 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
       lessonPath,
       youtubeChapters,
       sectionNames,
+      existingQuizIds,
     };
   }
 );

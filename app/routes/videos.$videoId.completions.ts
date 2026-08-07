@@ -129,6 +129,7 @@ export const action = async (args: Route.ActionArgs) => {
       imageFiles: videoContext.imageFiles,
       youtubeChapters: videoContext.youtubeChapters,
       sectionNames: videoContext.sectionNames,
+      existingQuizIds: videoContext.existingQuizIds,
       links,
       courseStructure: courseStructureText,
       aiHeroUrl: parsed.aiHeroUrl,

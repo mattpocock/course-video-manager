@@ -17,6 +17,7 @@ import { DocumentPanel } from "./document-panel";
 import { useDocumentFlow } from "./use-document-flow";
 import { useRemoveDocumentBlock } from "./use-remove-document-block";
 import { useLint, useLintFix } from "@/hooks/use-lint";
+import type { LintContext } from "./lint-rules";
 import { useBannedPhrases } from "@/hooks/use-banned-phrases";
 import { useMessageQueue } from "./use-message-queue";
 import { partsToText } from "./write-utils";
@@ -397,10 +398,18 @@ export function WriterEngine({
       .find((m) => m.role === "assistant")?.parts ?? []
   );
 
+  // Quiz id uniqueness is a fact about the course, which the loader knows and
+  // a regex over one document never could.
+  const lintContext = useMemo(
+    (): LintContext => ({ courseQuizIds: context.quizIds ?? [] }),
+    [context.quizIds]
+  );
+
   const { violations } = useLint(
     isDocumentMode && document ? document : lastAssistantMessageText,
     mode,
-    bannedPhrases
+    bannedPhrases,
+    lintContext
   );
 
   const handleSend = useCallback(
@@ -431,6 +440,7 @@ export function WriterEngine({
     documentRef,
     updateDocument,
     submitMessage: handleSubmit,
+    context: lintContext,
   });
 
   const handleRegenerate = useCallback(() => {

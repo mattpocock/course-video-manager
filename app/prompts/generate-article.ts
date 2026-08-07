@@ -1,4 +1,5 @@
 import { getImageInstructions } from "./image-instructions";
+import { getQuizInstructions } from "./quiz-instructions";
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { SCREENSHOT_INSTRUCTIONS } from "./screenshot-instructions";
 import { ARTICLE_SOURCE_HIERARCHY } from "./source-hierarchy";
@@ -29,6 +30,8 @@ export const generateArticlePrompt = (opts: {
   sectionNames?: string[];
   courseStructure?: string;
   links: GlobalLink[];
+  /** Quiz ids owned by other videos in this course — none of them are free. */
+  existingQuizIds?: string[];
 }) => {
   const transcriptSection = getTranscriptSection(opts.transcript);
 
@@ -75,6 +78,8 @@ ${getImageInstructions(opts.images)}
 ${getLinkInstructions(opts.links)}
 
 ${SCREENSHOT_INSTRUCTIONS}
+
+${getQuizInstructions(opts.existingQuizIds ?? [])}
 
 ## IMPORTANT INSTRUCTIONS
 

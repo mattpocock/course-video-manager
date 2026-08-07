@@ -97,6 +97,8 @@ export type DocumentWritingContext = {
   code: TextWritingAgentCodeFile[];
   imageFiles: TextWritingAgentImageFile[];
   sectionNames?: string[];
+  /** Quiz ids owned by other videos in this course. */
+  existingQuizIds?: string[];
   links?: GlobalLink[];
   courseStructure?: string;
   memory?: string;
@@ -159,6 +161,7 @@ export const buildDocumentWritingSystemMessage = (
           sectionNames: props.sectionNames,
           courseStructure: props.courseStructure,
           links,
+          existingQuizIds: props.existingQuizIds,
         });
     }
   })();

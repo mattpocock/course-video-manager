@@ -508,9 +508,58 @@ export const createCourseOperations = (db: Database) => {
     yield* makeDbCall(() => db.delete(courses).where(eq(courses.id, repoId)));
   });
 
+  /**
+   * Every non-archived video's body in one course version.
+   *
+   * Read by both readers of quiz ids: the writer, which needs to know which ids
+   * are taken before it invents one, and the course lint, which refuses a
+   * publish when two videos share one.
+   */
+  const getCourseVideoBodies = Effect.fn("getCourseVideoBodies")(function* (
+    versionId: string
+  ) {
+    const rows = yield* makeDbCall(() =>
+      db.query.sections.findMany({
+        where: and(
+          eq(sections.repoVersionId, versionId),
+          isNull(sections.archivedAt)
+        ),
+        columns: { id: true, title: true },
+        with: {
+          lessons: {
+            where: eq(lessons.archived, false),
+            columns: { id: true, title: true },
+            with: {
+              videos: {
+                where: eq(videos.archived, false),
+                columns: { id: true, title: true, body: true },
+                orderBy: asc(videos.title),
+              },
+            },
+            orderBy: asc(lessons.order),
+          },
+        },
+        orderBy: asc(sections.order),
+      })
+    );
+
+    return rows.flatMap((section) =>
+      section.lessons.flatMap((lesson) =>
+        lesson.videos.map((video) => ({
+          videoId: video.id,
+          videoTitle: video.title,
+          lessonTitle: lesson.title,
+          sectionTitle: section.title,
+          body: video.body,
+        }))
+      )
+    );
+  });
+
   const duplicateCourse = makeDuplicateCourse(db);
 
   return {
+    getCourseVideoBodies,
     getCourseById,
     getCourseWithSectionsById,
     getCourseStructureById,

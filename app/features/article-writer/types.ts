@@ -88,4 +88,6 @@ export interface WriterContext {
   beats: Array<{ kind: BeatKind; title: string; description: string }>;
   /** The video's script — the base Matt improvised from. Empty when unwritten. */
   script: string;
+  /** Quiz ids owned by other videos in this course — none of them are free. */
+  quizIds?: string[];
 }
