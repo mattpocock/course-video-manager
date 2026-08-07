@@ -1,6 +1,9 @@
 import { useCallback, type MutableRefObject } from "react";
 import type { RemoveBlockHandler } from "components/ui/kibo-ui/ai/response";
-import { mapPreprocessedOffsetToSource } from "./choose-screenshot-markdown";
+import {
+  mapDocumentPreviewOffsetToSource,
+  type DocumentPreviewOptions,
+} from "./document-preview-markdown";
 import { removeMarkdownBlock } from "./remove-markdown-block";
 
 /**
@@ -15,31 +18,40 @@ export function useRemoveDocumentBlock({
   documentRef,
   updateDocument,
   isGenerating,
-  hasScreenshotPreprocessing,
+  previewOptions,
 }: {
   documentRef: MutableRefObject<string | undefined>;
   updateDocument: (content: string) => void;
   isGenerating: boolean;
   /**
-   * Whether the preview parsed `preprocessChooseScreenshotMarkdown(document)`
-   * rather than the document itself — if so the reported offsets need mapping
-   * back before they can index into the stored document.
+   * What the preview rewrote before parsing. The offsets it reports index into
+   * the rewritten string, so they need mapping back before they can cut the
+   * stored document.
    */
-  hasScreenshotPreprocessing: boolean;
+  previewOptions: DocumentPreviewOptions;
 }): RemoveBlockHandler | undefined {
   const removeBlock = useCallback<RemoveBlockHandler>(
     ({ start, end }) => {
       const currentDoc = documentRef.current;
       if (!currentDoc) return;
-      const toSource = (offset: number) =>
-        hasScreenshotPreprocessing
-          ? mapPreprocessedOffsetToSource(currentDoc, offset)
-          : offset;
-      updateDocument(
-        removeMarkdownBlock(currentDoc, toSource(start), toSource(end))
+
+      const from = mapDocumentPreviewOffsetToSource(
+        currentDoc,
+        start,
+        previewOptions
       );
+      const to = mapDocumentPreviewOffsetToSource(
+        currentDoc,
+        end,
+        previewOptions
+      );
+      // Either end landing inside a rewritten span means the block overlaps a
+      // quiz, which is cut by its own control rather than by this one.
+      if (from === undefined || to === undefined) return;
+
+      updateDocument(removeMarkdownBlock(currentDoc, from, to));
     },
-    [documentRef, updateDocument, hasScreenshotPreprocessing]
+    [documentRef, updateDocument, previewOptions]
   );
 
   return isGenerating ? undefined : removeBlock;

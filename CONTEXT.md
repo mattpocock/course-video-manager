@@ -263,6 +263,12 @@ _Avoid_: Glyph, Symbol, Image (icons are deliberately not assets — ADR 0003)
 Pointing an **Icon** already on the canvas at a different glyph, from the **Command Palette** with exactly one Icon selected. Rewrites the shape's `name` and nothing else, so the size it was resized to, its position, rotation, colour, dash, parent frame and bound arrows all survive — the difference from inserting a second Icon and deleting the first. Absent from the palette for any other selection, since two Icons or a mixed selection has no unambiguous target.
 _Avoid_: Swap icon, Change icon, Edit icon (an Icon has no edit mode — `canEdit` is false)
 
+### Lesson body
+
+**Quiz**:
+A block of questions embedded in a **Video**'s `body`, answered by the reader on aihero.dev. Stored verbatim in the AI Hero authoring contract — `<Quiz>` wrapping one or more `<QuizQuestion data={{ … }} />` tags, each a static object literal — and shipped unparsed by **Publish**, which treats the body as opaque text. The CVM reads it for three jobs only: drawing a static preview card, cutting one question at its exact source range, and linting it. Every question carries an `id` unique across the **Course**, because reader responses are keyed to the id rather than to the question text. Written by the Article Writer in `article` mode; rendered in every preview.
+_Avoid_: Test, Assessment, Question block, Exercise (reserved for the course's practical work)
+
 ### Video destinations
 
 **Skills Changelog**:

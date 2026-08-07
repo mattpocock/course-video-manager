@@ -1,5 +1,20 @@
+import {
+  applyPreviewRewrites,
+  mapPreviewOffset,
+  type PreviewRewrite,
+} from "./preview-rewrites";
+
 /** Matches the JSX-style tag the writer agent emits. */
 const CHOOSE_SCREENSHOT_TAG = /<ChooseScreenshot\s+([^>]*?)\/>/g;
+
+/** Each screenshot placeholder as a rewrite the preview applies. */
+export function collectChooseScreenshotRewrites(md: string): PreviewRewrite[] {
+  return [...md.matchAll(CHOOSE_SCREENSHOT_TAG)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    replacement: toHtmlTag(match[1] ?? ""),
+  }));
+}
 
 function toHtmlTag(attrs: string): string {
   const htmlAttrs = attrs
@@ -20,9 +35,7 @@ function toHtmlTag(attrs: string): string {
  * Into:     <choosescreenshot clipindex="1" alt="test"></choosescreenshot>
  */
 export function preprocessChooseScreenshotMarkdown(md: string): string {
-  return md.replace(CHOOSE_SCREENSHOT_TAG, (_match, attrs: string) =>
-    toHtmlTag(attrs)
-  );
+  return applyPreviewRewrites(md, collectChooseScreenshotRewrites(md));
 }
 
 /**
@@ -39,14 +52,5 @@ export function mapPreprocessedOffsetToSource(
   md: string,
   offset: number
 ): number {
-  let shift = 0;
-  for (const match of md.matchAll(CHOOSE_SCREENSHOT_TAG)) {
-    const sourceLength = match[0].length;
-    const renderedLength = toHtmlTag(match[1] ?? "").length;
-    const renderedStart = match.index + shift;
-    // The offset falls before or inside this tag — no further shift applies.
-    if (renderedStart + renderedLength > offset) break;
-    shift += renderedLength - sourceLength;
-  }
-  return offset - shift;
+  return mapPreviewOffset(collectChooseScreenshotRewrites(md), offset).source;
 }

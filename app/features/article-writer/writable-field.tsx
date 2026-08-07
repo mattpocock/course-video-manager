@@ -13,12 +13,22 @@ import type { Mode, WriterView } from "./types";
 import type { WriterFieldId } from "./writer-engine-utils";
 import { FIELD_MODES } from "./writer-engine-utils";
 import { WriterModal } from "./writer-modal";
+import { QUIZ_COMPONENTS } from "./quiz-components";
+import { preprocessDocumentPreview } from "./document-preview-markdown";
 import {
   WRITER_URL_UPDATE,
   applyWriterUrlState,
   readWriterUrlState,
   type WriterUrlState,
 } from "./writer-url-state";
+
+/**
+ * The inline preview draws quiz cards but resolves no screenshot placeholders —
+ * it has no clips to offer. A module constant so the memoised preview keeps its
+ * identity across renders.
+ */
+const previewQuizzes = (md: string) =>
+  preprocessDocumentPreview(md, { screenshots: false });
 
 interface WritableFieldPropsBase {
   videoId: string;
@@ -188,7 +198,11 @@ export function WritableField({
             <div className="scrollbar scrollbar-track-transparent scrollbar-thumb-muted h-full overflow-y-auto p-4">
               <div className="max-w-[75ch]">
                 {draft ? (
-                  <AIResponse imageBasePath={context.fullPath}>
+                  <AIResponse
+                    imageBasePath={context.fullPath}
+                    extraComponents={QUIZ_COMPONENTS}
+                    preprocessMarkdown={previewQuizzes}
+                  >
                     {draft}
                   </AIResponse>
                 ) : (

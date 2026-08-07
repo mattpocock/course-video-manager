@@ -26,12 +26,21 @@ import {
   removeChooseScreenshot,
   hasUnresolvedScreenshots,
 } from "./choose-screenshot-mutations";
-import { preprocessChooseScreenshotMarkdown } from "./choose-screenshot-markdown";
+import {
+  preprocessDocumentPreview,
+  type DocumentPreviewOptions,
+} from "./document-preview-markdown";
 import {
   CHOOSE_SCREENSHOT_COMPONENTS,
   ChooseScreenshotProvider,
   type ChooseScreenshotRuntime,
 } from "./choose-screenshot-components";
+import {
+  QUIZ_COMPONENTS,
+  QuizProvider,
+  type QuizRuntime,
+} from "./quiz-components";
+import { removeQuizQuestion } from "./quiz-syntax";
 import type { WriteToolbarProps } from "./write-toolbar";
 import type { WriterFieldId } from "./writer-engine-utils";
 import {
@@ -227,10 +236,17 @@ export function WriterEngine({
     [documentRef, updateDocument]
   );
 
-  const docExtraComponents =
-    indexedClips.length === 0 || !isDocumentMode
-      ? undefined
-      : CHOOSE_SCREENSHOT_COMPONENTS;
+  const hasScreenshots = indexedClips.length > 0 && isDocumentMode;
+
+  // Quizzes render in every document preview: a body carrying one shows it
+  // whatever mode wrote it. Screenshot placeholders need clips to resolve to.
+  const docExtraComponents = useMemo(
+    () =>
+      hasScreenshots
+        ? { ...QUIZ_COMPONENTS, ...CHOOSE_SCREENSHOT_COMPONENTS }
+        : QUIZ_COMPONENTS,
+    [hasScreenshots]
+  );
 
   // The document is a single scope, so the message id plays no part in its keys.
   const docScreenshotRuntime = useMemo(
@@ -255,17 +271,36 @@ export function WriterEngine({
     ]
   );
 
-  const docPreprocessMarkdown = useMemo(() => {
-    if (!docExtraComponents) return undefined;
-    return (md: string) => preprocessChooseScreenshotMarkdown(md);
-  }, [docExtraComponents]);
+  const previewOptions = useMemo(
+    (): DocumentPreviewOptions => ({ screenshots: hasScreenshots }),
+    [hasScreenshots]
+  );
+
+  const docPreprocessMarkdown = useMemo(
+    () => (md: string) => preprocessDocumentPreview(md, previewOptions),
+    [previewOptions]
+  );
 
   const handleRemoveDocBlock = useRemoveDocumentBlock({
     documentRef,
     updateDocument,
     isGenerating,
-    hasScreenshotPreprocessing: docPreprocessMarkdown !== undefined,
+    previewOptions,
   });
+
+  const docQuizRuntime = useMemo(
+    (): QuizRuntime => ({
+      // Mid-stream the next chunk would overwrite the cut, so the card's X waits.
+      onRemoveQuestion: isGenerating
+        ? undefined
+        : (questionStart: number) => {
+            const currentDoc = documentRef.current;
+            if (currentDoc)
+              updateDocument(removeQuizQuestion(currentDoc, questionStart));
+          },
+    }),
+    [documentRef, updateDocument, isGenerating]
+  );
 
   // Persist messages on stream completion
   const prevStatusRef = useRef(status);
@@ -539,15 +574,17 @@ export function WriterEngine({
               onOpenPanel={() => onViewChange?.("context")}
             />
             <ChooseScreenshotProvider runtime={docScreenshotRuntime}>
-              <DocumentPanel
-                variant="modal"
-                document={document}
-                fullPath={fullPath}
-                extraComponents={docExtraComponents}
-                preprocessMarkdown={docPreprocessMarkdown}
-                onRemoveBlock={handleRemoveDocBlock}
-                onDocumentChange={updateDocument}
-              />
+              <QuizProvider runtime={docQuizRuntime}>
+                <DocumentPanel
+                  variant="modal"
+                  document={document}
+                  fullPath={fullPath}
+                  extraComponents={docExtraComponents}
+                  preprocessMarkdown={docPreprocessMarkdown}
+                  onRemoveBlock={handleRemoveDocBlock}
+                  onDocumentChange={updateDocument}
+                />
+              </QuizProvider>
             </ChooseScreenshotProvider>
           </div>
         </div>
@@ -671,16 +708,18 @@ export function WriterEngine({
           <WriteChat {...chatProps} className="w-2/5" />
           <div className="w-3/5 flex flex-col border-l">
             <ChooseScreenshotProvider runtime={docScreenshotRuntime}>
-              <DocumentPanel
-                document={document}
-                fullPath={fullPath}
-                extraComponents={docExtraComponents}
-                preprocessMarkdown={docPreprocessMarkdown}
-                onRemoveBlock={handleRemoveDocBlock}
-                onDocumentChange={updateDocument}
-                violations={violations}
-                onFixLintViolations={handleFixLintViolations}
-              />
+              <QuizProvider runtime={docQuizRuntime}>
+                <DocumentPanel
+                  document={document}
+                  fullPath={fullPath}
+                  extraComponents={docExtraComponents}
+                  preprocessMarkdown={docPreprocessMarkdown}
+                  onRemoveBlock={handleRemoveDocBlock}
+                  onDocumentChange={updateDocument}
+                  violations={violations}
+                  onFixLintViolations={handleFixLintViolations}
+                />
+              </QuizProvider>
             </ChooseScreenshotProvider>
           </div>
         </>
