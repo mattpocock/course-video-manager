@@ -7,7 +7,10 @@ import {
   loadLessonFsMaps,
   toSlimVideo,
 } from "@/services/course-loader-fs";
-import { computeLessonWarnings } from "@/services/lesson-warnings";
+import {
+  computeLessonWarnings,
+  findCourseQuizIdCollisions,
+} from "@/services/lesson-warnings";
 import { toExportClips } from "@/services/export-hash";
 import { runtimeLive } from "@/services/layer.server";
 
@@ -82,6 +85,15 @@ export function courseViewEffect(input: {
     const slimCourse = selectedCourse
       ? (() => {
           const { versions, sections, ...courseRest } = selectedCourse;
+          // A duplicate quiz id belongs to no single video, so it cannot come
+          // out of computeVideoWarnings. One walk of the course names every
+          // video in a clash, and each of them carries the warning on its row —
+          // the pair is only fixable when both ends are visible.
+          const videosInQuizIdClash = new Set(
+            findCourseQuizIdCollisions(sections).flatMap((collision) =>
+              collision.uses.map((use) => use.videoId)
+            )
+          );
           return {
             ...courseRest,
             sections: sections.map((section) => {
@@ -92,7 +104,18 @@ export function courseViewEffect(input: {
                   const { videos, ...lessonRest } = lesson;
                   return {
                     ...lessonRest,
-                    videos: videos.map(toSlimVideo),
+                    videos: videos.map((video) => {
+                      const slim = toSlimVideo(video);
+                      return videosInQuizIdClash.has(video.id)
+                        ? {
+                            ...slim,
+                            warnings: [
+                              ...slim.warnings,
+                              { kind: "duplicateQuizId" as const },
+                            ],
+                          }
+                        : slim;
+                    }),
                     lessonWarnings: computeLessonWarnings({ videos }),
                   };
                 }),

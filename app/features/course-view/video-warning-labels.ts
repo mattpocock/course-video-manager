@@ -4,6 +4,7 @@ export const VIDEO_WARNING_LABELS: Record<VideoWarning["kind"], string> = {
   missingChapters: "Missing chapters",
   missingBody: "Missing lesson body",
   missingDescription: "Missing SEO description",
+  duplicateQuizId: "Duplicate quiz id",
 };
 
 export function videoWarningLabel(warnings: VideoWarning[]): string {

@@ -1,5 +1,13 @@
 export type VideoWarningKind =
-  "missingChapters" | "missingBody" | "missingDescription";
+  | "missingChapters"
+  | "missingBody"
+  | "missingDescription"
+  /**
+   * A quiz id this video shares with another. Unlike its siblings this one is
+   * not computable from the video alone — see collectCourseViewLints, which
+   * raises it from the whole-course walk.
+   */
+  | "duplicateQuizId";
 
 export type VideoWarning = { kind: VideoWarningKind };
 

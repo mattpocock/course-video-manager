@@ -325,3 +325,86 @@ describe("collectCourseViewLints", () => {
     });
   });
 });
+
+describe("course-scope quiz id lints", () => {
+  const quiz = (id: string) => `<Quiz>
+  <QuizQuestion data={{
+    id: "${id}",
+    question: "Which one?",
+    type: "multiple-choice",
+    choices: [
+      { answer: "a", label: "One" },
+      { answer: "b", label: "Two" }
+    ],
+    correct: "a",
+    answer: "Because."
+  }} />
+</Quiz>`;
+
+  const videoWith = (title: string, body: string) => ({
+    id: title,
+    title,
+    body,
+    description: "A description.",
+    lessonId: "lesson-1",
+    clips: [{ order: "a1", archived: false }],
+    chapters: [{ order: "a0", archived: false }],
+  });
+
+  const course = (bodies: [string, string][]) => [
+    {
+      path: "01-intro",
+      lessons: [
+        {
+          path: "01-a",
+          videos: bodies.map(([title, body]) => videoWith(title, body)),
+        },
+      ],
+    },
+  ];
+
+  it("raises one lint naming both videos that share an id", () => {
+    const lints = collectCourseViewLints(
+      course([
+        ["Explainer", quiz("shared")],
+        ["Solution", quiz("shared")],
+      ])
+    ).filter((lint) => lint.scope === "course");
+
+    expect(lints).toEqual([
+      {
+        scope: "course",
+        kind: "duplicateQuizId",
+        quizId: "shared",
+        videoPaths: ["01-intro/01-a/Explainer", "01-intro/01-a/Solution"],
+      },
+    ]);
+  });
+
+  it("raises nothing when every id is unique", () => {
+    expect(
+      collectCourseViewLints(
+        course([
+          ["Explainer", quiz("first")],
+          ["Solution", quiz("second")],
+        ])
+      ).filter((lint) => lint.scope === "course")
+    ).toEqual([]);
+  });
+
+  it("blocks a publish by counting toward the course-view lints", () => {
+    const clean = computeCourseViewLintCount(
+      course([
+        ["Explainer", quiz("first")],
+        ["Solution", quiz("second")],
+      ])
+    );
+    const clashing = computeCourseViewLintCount(
+      course([
+        ["Explainer", quiz("shared")],
+        ["Solution", quiz("shared")],
+      ])
+    );
+    expect(clashing).toBe(clean + 1);
+  });
+});

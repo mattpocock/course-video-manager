@@ -98,7 +98,10 @@ OUTPUT (one pretty JSON object)
                         "<sectionPath>/<lessonPath>/<title>".
   courseViewLints[]     Lesson Warnings + Video Warnings on the effective
                         output, itemised: { scope, sectionPath, lessonPath,
-                        kind } plus videoTitle when scope is "video".
+                        kind } plus videoTitle when scope is "video". A
+                        course-scope entry belongs to no single video —
+                        { scope: "course", kind: "duplicateQuizId", quizId,
+                        videoPaths[] } names every video sharing one quiz id.
   invalidLessonCombos[] Lessons whose Video roles are ambiguous (e.g. a
                         Solution with no Problem).
   incompleteVideos[]    Shipping Videos missing a required field.

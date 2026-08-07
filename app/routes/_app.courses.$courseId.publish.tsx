@@ -319,33 +319,50 @@ export default function Component(props: Route.ComponentProps) {
               </span>
             </div>
             <ul className="space-y-1.5">
-              {courseViewLints.map((lint, index) => (
-                <li
-                  key={`${lint.sectionPath}/${lint.lessonPath}/${
-                    lint.scope === "video" ? lint.videoTitle : "lesson"
-                  }/${lint.kind}/${index}`}
-                  className="text-xs text-muted-foreground"
-                >
-                  <span className="font-medium text-foreground">
-                    {lint.scope === "video"
-                      ? lint.videoTitle
-                      : lint.lessonPath || "Lesson"}
-                  </span>{" "}
-                  <span className="text-amber-500">
-                    (
-                    {lint.scope === "video"
-                      ? VIDEO_WARNING_LABELS[lint.kind]
-                      : LESSON_WARNING_LABELS[lint.kind]}
-                    )
-                  </span>
-                  <span className="block text-muted-foreground/70">
-                    {lint.sectionPath}
-                    {lint.scope === "video" && lint.lessonPath
-                      ? ` / ${lint.lessonPath}`
-                      : ""}
-                  </span>
-                </li>
-              ))}
+              {courseViewLints.map((lint, index) =>
+                lint.scope === "course" ? (
+                  <li
+                    key={`course/${lint.quizId}/${index}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    <span className="font-medium text-foreground">
+                      {lint.quizId}
+                    </span>{" "}
+                    <span className="text-amber-500">
+                      ({VIDEO_WARNING_LABELS[lint.kind]})
+                    </span>
+                    <span className="block text-muted-foreground/70">
+                      {lint.videoPaths.join(" · ")}
+                    </span>
+                  </li>
+                ) : (
+                  <li
+                    key={`${lint.sectionPath}/${lint.lessonPath}/${
+                      lint.scope === "video" ? lint.videoTitle : "lesson"
+                    }/${lint.kind}/${index}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    <span className="font-medium text-foreground">
+                      {lint.scope === "video"
+                        ? lint.videoTitle
+                        : lint.lessonPath || "Lesson"}
+                    </span>{" "}
+                    <span className="text-amber-500">
+                      (
+                      {lint.scope === "video"
+                        ? VIDEO_WARNING_LABELS[lint.kind]
+                        : LESSON_WARNING_LABELS[lint.kind]}
+                      )
+                    </span>
+                    <span className="block text-muted-foreground/70">
+                      {lint.sectionPath}
+                      {lint.scope === "video" && lint.lessonPath
+                        ? ` / ${lint.lessonPath}`
+                        : ""}
+                    </span>
+                  </li>
+                )
+              )}
             </ul>
           </div>
         )}

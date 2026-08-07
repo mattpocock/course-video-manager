@@ -1,4 +1,9 @@
 import { computeVideoWarnings, type VideoWarningKind } from "./video-warnings";
+import {
+  collectCourseQuizIdUses,
+  findQuizIdCollisions,
+  type VideoBody,
+} from "@/features/article-writer/quiz-ids";
 
 export type LessonWarningKind =
   | "solutionWithoutProblem"
@@ -80,6 +85,7 @@ export const computeLessonWarnings = (input: {
 };
 
 type LintVideo = {
+  id?: string;
   title: string;
   archived?: boolean;
   lessonId?: string | null;
@@ -99,6 +105,19 @@ type LintSection = { path?: string; lessons: LintLesson[] };
  * body, or SEO description).
  */
 export type CourseViewLint =
+  | {
+      /**
+       * A problem belonging to no single video — the first lint of this shape.
+       * A duplicate quiz id is a property of a *pair* of videos, so it is
+       * reported once, naming both, rather than half-reported on each.
+       */
+      scope: "course";
+      kind: "duplicateQuizId";
+      /** The id two or more videos share. */
+      quizId: string;
+      /** Every video using it, as `section/lesson/title`. */
+      videoPaths: string[];
+    }
   | {
       scope: "lesson";
       sectionPath: string;
@@ -159,7 +178,41 @@ export function collectCourseViewLints(
       }
     }
   }
+
+  for (const collision of findCourseQuizIdCollisions(sections)) {
+    lints.push({
+      scope: "course",
+      kind: "duplicateQuizId",
+      quizId: collision.id,
+      videoPaths: collision.uses.map((use) => use.videoTitle),
+    });
+  }
+
   return lints;
+}
+
+/**
+ * Quiz ids shared by two or more videos anywhere in the course.
+ *
+ * Shared with the course view, which flags each offending video row: one walk
+ * so a row and the publish gate can never disagree about what clashes.
+ */
+export function findCourseQuizIdCollisions(sections: LintSection[]) {
+  const bodies: VideoBody[] = [];
+  for (const section of sections) {
+    for (const lesson of section.lessons) {
+      for (const video of lesson.videos) {
+        if (video.archived) continue;
+        bodies.push({
+          videoId: video.id ?? video.title,
+          // The full path, so a lint names a video the reader can find.
+          videoTitle: `${section.path ?? ""}/${lesson.path ?? ""}/${video.title}`,
+          body: video.body ?? null,
+        });
+      }
+    }
+  }
+  return findQuizIdCollisions(collectCourseQuizIdUses(bodies));
 }
 
 export function computeCourseViewLintCount(sections: LintSection[]): number {
