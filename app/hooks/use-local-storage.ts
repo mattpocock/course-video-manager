@@ -7,12 +7,28 @@ import {
   useState,
 } from "react";
 
+/**
+ * Guards every `localStorage` access on the server. `typeof localStorage !==
+ * "undefined"` alone isn't enough: Node now ships a global `localStorage`
+ * stub (Web Storage API, unflagged since Node 22) whose methods throw
+ * "is not a function" unless the process was started with
+ * `--localstorage-file`. SSR (`renderToStaticMarkup` et al) never sets that
+ * flag, so this also checks that `getItem` actually exists before use.
+ */
+function hasLocalStorage(): boolean {
+  return (
+    typeof localStorage !== "undefined" &&
+    typeof localStorage.getItem === "function" &&
+    typeof localStorage.setItem === "function"
+  );
+}
+
 export function useLocalStorage(
   key: string,
   fallback = ""
 ): [string, Dispatch<SetStateAction<string>>] {
   const [value, setValue] = useState(() => {
-    if (typeof localStorage !== "undefined") {
+    if (hasLocalStorage()) {
       const stored = localStorage.getItem(key);
       if (stored !== null) return stored;
     }
@@ -20,7 +36,7 @@ export function useLocalStorage(
   });
 
   useEffect(() => {
-    if (typeof localStorage !== "undefined") {
+    if (hasLocalStorage()) {
       localStorage.setItem(key, value);
     }
   }, [key, value]);

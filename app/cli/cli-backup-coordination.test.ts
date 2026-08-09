@@ -92,9 +92,9 @@ describe("unhealthy server blocks writes", () => {
     expect(stderr).toContain("BackupCoordinatorError");
   });
 
-  it("segment add is blocked", async () => {
+  it("beat add is blocked", async () => {
     const { stdout, stderr, exitCode } = await run([
-      "segment",
+      "beat",
       "add",
       "--video",
       s.lessonVideoId,
@@ -191,9 +191,9 @@ describe("healthy server allows writes and fires dump", () => {
     expect(dumpCount).toBe(1);
   });
 
-  it("segment add succeeds and fires dump once", async () => {
+  it("beat add succeeds and fires dump once", async () => {
     const { stdout, exitCode } = await run([
-      "segment",
+      "beat",
       "add",
       "--video",
       s.lessonVideoId,
@@ -226,9 +226,9 @@ describe("read verbs bypass backup coordination", () => {
     expect(stderr).toBe("");
   });
 
-  it("segment list works with unhealthy server", async () => {
+  it("beat list works with unhealthy server", async () => {
     const { exitCode, stderr } = await run([
-      "segment",
+      "beat",
       "list",
       "--video",
       s.lessonVideoId,
