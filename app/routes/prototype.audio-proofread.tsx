@@ -27,13 +27,13 @@ import { cn } from "@/lib/utils";
 import { formatSecondsToTimeCode } from "@/services/utils";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
+import { ClipAudioProofreadService } from "@/services/clip-audio-proofread.server";
 import {
-  ClipAudioProofreadService,
   DEFAULT_PROOFREAD_OPTIONS,
   type ProofreadOptions,
   type ProofreadSpan,
   type ProofreadSpanType,
-} from "@/services/clip-audio-proofread";
+} from "@/services/clip-audio-proofread-shared";
 import { makeLoader, makeAction } from "@/services/route-action.server";
 import { Loader2Icon, PlayIcon, RotateCcwIcon } from "lucide-react";
 import type { Route } from "./+types/prototype.audio-proofread";

@@ -12,7 +12,7 @@ import { CloudinaryService } from "./cloudinary-service";
 import { CloudinaryMarkdownService } from "./cloudinary-markdown-service";
 import { CourseWriteService } from "./course-write-service";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
-import { ClipAudioProofreadService } from "./clip-audio-proofread";
+import { ClipAudioProofreadService } from "./clip-audio-proofread.server";
 import { CoursePublishService } from "./course-publish-service";
 import { ClipOperationsService } from "./db-clip-operations.server";
 import { CourseOperationsService } from "./db-course-operations.server";

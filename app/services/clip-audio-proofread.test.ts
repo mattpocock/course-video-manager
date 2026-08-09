@@ -10,7 +10,7 @@ import {
   classifyPerClipSpans,
   classifyBoundarySpan,
   DEFAULT_PROOFREAD_OPTIONS,
-} from "./clip-audio-proofread";
+} from "./clip-audio-proofread-shared";
 
 describe("computeClipVideoOffsets", () => {
   it("returns cumulative offsets, ignoring source gaps between clips", () => {
