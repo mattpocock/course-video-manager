@@ -164,6 +164,74 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         );
       });
 
+      /**
+       * Silence-detects across a clip-to-clip join: two independently
+       * trimmed segments (possibly from different source files, since
+       * consecutive clips can come from different recordings) are stitched
+       * with the same audio-only `concat` the exporter uses (no crossfade),
+       * then `silencedetect` runs once over the stitched audio. Built for
+       * the audio-proofread prototype's boundary check — a straight-cut
+       * join can click or dip in level even when both clips look clean on
+       * their own, which is invisible to either clip's individual pass.
+       *
+       * Returned timestamps are relative to the stitched window (0 = start
+       * of `segmentA`'s trimmed audio); the caller knows `segmentA`'s
+       * trimmed duration and so knows where the join itself falls.
+       */
+      const detectSilenceAcrossJoin = Effect.fn("detectSilenceAcrossJoin")(
+        function* (
+          segmentA: { file: string; startTime: number; duration: number },
+          segmentB: { file: string; startTime: number; duration: number },
+          opts: { threshold: number | string; silenceDuration: number | string }
+        ) {
+          const args: string[] = [
+            "-hide_banner",
+            "-ss",
+            String(segmentA.startTime),
+            "-t",
+            String(segmentA.duration),
+            "-i",
+            segmentA.file,
+            "-ss",
+            String(segmentB.startTime),
+            "-t",
+            String(segmentB.duration),
+            "-i",
+            segmentB.file,
+            "-filter_complex",
+            `[0:a]asetpts=PTS-STARTPTS[a0];[1:a]asetpts=PTS-STARTPTS[a1];` +
+              `[a0][a1]concat=n=2:v=0:a=1,` +
+              `silencedetect=n=${opts.threshold}dB:d=${opts.silenceDuration}[out]`,
+            "-map",
+            "[out]",
+            "-f",
+            "null",
+            "-",
+          ];
+
+          return yield* cpuSemaphore.withPermits(1)(
+            Effect.scoped(
+              Effect.gen(function* () {
+                const process = yield* Command.start(
+                  Command.make("ffmpeg", ...args)
+                );
+                // Same as detectSilence: ffmpeg exits non-zero with -f null,
+                // but silencedetect writes its info to stderr regardless.
+                const [stdout, stderr] = yield* Effect.all(
+                  [
+                    process.stdout.pipe(Stream.decodeText(), Stream.mkString),
+                    process.stderr.pipe(Stream.decodeText(), Stream.mkString),
+                  ],
+                  { concurrency: 2 }
+                );
+                yield* process.exitCode.pipe(Effect.ignore);
+                return stdout + stderr;
+              })
+            )
+          );
+        }
+      );
+
       const getFPS = Effect.fn("getFPS")(function* (inputVideo: string) {
         const command = Command.make(
           "ffprobe",
@@ -511,6 +579,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
 
       return {
         detectSilence,
+        detectSilenceAcrossJoin,
         getFPS,
         createAndConcatenateVideoClipsSinglePass,
         normalizeAudio,
