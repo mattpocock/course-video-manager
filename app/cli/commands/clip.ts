@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import {
@@ -9,12 +9,14 @@ import {
   notFound,
   notFoundMany,
   parseError,
+  rejectBothFlags,
 } from "@/cli/helpers";
 import { withBackupCoordination } from "@/cli/backup-coordinator";
 import {
   CLIP_ZOOM_TYPES,
   type ClipZoomType,
 } from "@/features/videos/clip-zoom";
+import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
 
 /**
  * clip — a timestamped slice of source footage inside a Video.
@@ -34,7 +36,8 @@ import {
  *   Clips are CHILDREN of a Video, addressed only by id. There is no version
  *   scoping here — clips belong to the live recorded timeline of one Video.
  *   Archived clips are treated as deleted: they are ALWAYS filtered out and
- *   never surfaced (no --archived flag on this noun).
+ *   never surfaced (no --archived flag on this noun, and no restore verb —
+ *   same one-way convention as `beat delete`).
  *
  * OUTPUT FIELDS:
  *   id               clip id (use with `clip get`)
@@ -53,17 +56,25 @@ import {
  *   createdAt        row creation timestamp
  *
  * VERBS:
- *   clip list --video <videoId>   every active clip on a Video, timeline order
- *   clip get <id...>              one or more clips by id (variadic)
- *   clip update <id> --zoom <t>   set the Clip Zoom (the ONLY writable field)
+ *   clip list --video <videoId>          every active clip on a Video, timeline order
+ *   clip get <id...>                     one or more clips by id (variadic)
+ *   clip update <id> [flags]             set --zoom and/or retime --start/--end
+ *   clip move <id> --before/--after <id> reposition within the Video's timeline
+ *   clip delete <id>                     archive (soft delete; no restore)
  *
- * `update` is deliberately the narrowest possible write. A Clip's text is
- * recorded truth (the Transcript is derived from it) and its timings are the
- * cut — none of that is the CLI's to rewrite. Only the Clip Zoom, an editorial
- * choice about the shot, is writable here, and only on a camera scene.
+ * `update`'s --start/--end retime the cut WITHOUT touching `text`/`transcribedAt` — there is no
+ * re-transcription step, so a retimed clip's text can drift out of sync with its new audio range
+ * until something re-transcribes it. This was a deliberate v1 tradeoff, not an oversight: there
+ * is no "what changed" signal to retranscribe from yet (see issue #1532, audio introspection).
  *
- * Clips are leaf timeline rows — there is no `clip tree`. To explore a Video's
- * structure use `video tree`, then resolve ids with `clip get`.
+ * All writes here are IMMEDIATE — no confirmation, no dry-run (this is an agent-facing tool, same
+ * convention as `beat`/`file`). The real safety net is version scoping: every write requires the
+ * owning CourseVersion to be a draft, so published content can't be clobbered from here.
+ *
+ * Clips are leaf timeline rows — there is no `clip tree`. To explore a Video's structure use
+ * `video tree`, then resolve ids with `clip get`. There is no `clip add`: every existing creator
+ * (OBS capture append, "create video from selection") needs a real footage file + time range on
+ * disk, so manual single-clip creation doesn't have anywhere to hang off yet.
  *
  * EXAMPLES:
  *   # All clips on a video, in timeline order (NDJSON):
@@ -86,35 +97,76 @@ A Clip is one captured segment of source footage, defined by a source filename a
 window into it (sourceStartTime/sourceEndTime, seconds). Clips and Chapters share one fractional
 'order' space; interleaving them in order is what forms the Video's Transcript. A clip's 'text' is
 its spoken transcription. Clips are children of a Video, addressed by id only; there is no version
-scoping and archived clips are always hidden (no --archived flag).
+scoping and archived clips are always hidden (no --archived flag, no restore verb).
 
 Verbs:
-  clip list --video <videoId>   every active clip on a Video, in timeline order (NDJSON)
-  clip get <id...>              fetch one or more clips by id (variadic)
-  clip update <id> --zoom <t>   set the Clip Zoom ("none" | "subtle")
+  clip list --video <videoId>          every active clip on a Video, in timeline order (NDJSON)
+  clip get <id...>                     fetch one or more clips by id (variadic)
+  clip update <id> [flags]             set --zoom and/or retime --start/--end
+  clip move <id> --before/--after <id> reposition within the timeline
+  clip delete <id>                     archive the clip (soft delete; irreversible from the CLI)
 
-'update' accepts --zoom and nothing else: a clip's text is recorded truth and its timings are the
-cut, neither of which the CLI rewrites. There is no 'clip tree' (clips are leaves) — use
-'video tree' then 'clip get'.`;
+All writes are immediate — no confirmation, no dry-run (agent-facing tool). There is no 'clip tree'
+(clips are leaves) — use 'video tree' then 'clip get'. There is no 'clip add': creating a clip needs
+a real footage file + time range, which no CLI-facing creator exists for yet.`;
 
-const UPDATE_HELP = `Set a Clip's Clip Zoom.
+const UPDATE_HELP = `Update a Clip: set its Clip Zoom and/or retime its cut.
 
-A Clip Zoom renders the clip slightly tighter than frame, so a run of face-only camera clips has
-some visual change across its cuts. Levels: "none" (as filmed) and "subtle".
+At least one of --zoom / --start / --end is required.
 
-Only camera scenes can be zoomed — 'Camera' and 'TikTok Face'. Anything else (a 'Code' clip, or a
-clip filmed before CVM recorded scenes and so having none) is refused with exit 3; the message says
-which of the two it was. The zoom reaches the Export Hash, so setting it marks the Video for
-re-export, and it shows in the editor preview exactly as it will export.
+--zoom <t>: "none" (as filmed) or "subtle", rendering the clip slightly tighter so a run of
+face-only camera clips has some visual change across its cuts. Only camera scenes can be zoomed —
+'Camera' and 'TikTok Face'. Anything else (a 'Code' clip, or a clip filmed before CVM recorded
+scenes) is refused with exit 3. Reaches the Export Hash, so setting it marks the Video for
+re-export.
+
+--start / --end <seconds>: move the in/out point into the source file. Either can be passed alone
+(the other keeps its current value) or both together. Rejected with exit 3 if the resulting range
+has start >= end, or is shorter than the ${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length.
+
+IMPORTANT: retiming does NOT touch 'text' or 'transcribedAt' — the transcript is not
+re-generated for the new range. A retimed clip's text can be stale until something re-transcribes
+it; there is currently no CLI signal for "this text no longer matches this range" (only the
+pre-existing "never transcribed" signal, transcribedAt == null).
 
 Examples:
   cvm clip update clip_abc --zoom subtle
-  cvm clip update clip_abc --zoom none
+  cvm clip update clip_abc --start 12.4 --end 18.9
+  cvm clip update clip_abc --end 18.9 --zoom none
 
   # Zoom every camera clip on a video:
   cvm clip list --video vid_123 \
     | jq -r 'select(.scene == "Camera") | .id' \
     | xargs -n1 -I{} cvm clip update {} --zoom subtle`;
+
+const MOVE_HELP = `Reposition a Clip within its Video's timeline.
+
+Requires exactly one of --before / --after <id>, where <id> is another active clip on the SAME
+video (a clip cannot move across videos via this command). Clips and Chapters share one fractional
+order space, so the new position is computed against both — landing a clip "after" the last clip
+before a Chapter is well-defined even though the anchor id is a clip.
+
+This jumps straight to an arbitrary position in one call, unlike a step-by-step up/down nudge.
+
+Immediate — there is no confirmation prompt (this is an agent-facing tool).
+
+Examples:
+  cvm clip move clip_abc --before clip_def   # clip_abc lands immediately before clip_def
+  cvm clip move clip_abc --after clip_def    # clip_abc lands immediately after clip_def`;
+
+const DELETE_HELP = `Archive (soft-delete) a Clip.
+
+Sets 'archived: true'. Archived clips are ALWAYS filtered out everywhere (no --archived flag, no
+'clip get' access, no restore verb) — same one-way convention as 'beat delete'. The row still
+exists in the database (unlike 'file delete', which is a real unlink), but nothing in this CLI can
+bring it back.
+
+Immediately, no confirmation prompt (this is an agent-facing tool). Only its ClipWebLinks cascade
+on delete at the database level; nothing else references a Clip by foreign key, so deleting one
+does not orphan any Beat, Script, or Deliverable.
+
+Examples:
+  cvm clip delete clip_abc`;
 
 const LIST_HELP = `List every active (non-archived) Clip on a Video, in timeline order.
 
@@ -196,44 +248,212 @@ const getCmd = Command.make("get", { ids }, ({ ids }) =>
 const zoomOpt = Options.choice("zoom", CLIP_ZOOM_TYPES).pipe(
   Options.withDescription(
     `Clip Zoom to set: ${CLIP_ZOOM_TYPES.join(" | ")}. Camera scenes only.`
-  )
+  ),
+  Options.optional
+);
+
+const startOpt = Options.float("start").pipe(
+  Options.withDescription(
+    "New sourceStartTime, in seconds (in-point into the source file)."
+  ),
+  Options.optional
+);
+
+const endOpt = Options.float("end").pipe(
+  Options.withDescription(
+    "New sourceEndTime, in seconds (out-point into the source file)."
+  ),
+  Options.optional
+);
+
+const beforeOpt = Options.text("before").pipe(
+  Options.withDescription(
+    "Place immediately before this clip id (mutually exclusive with --after)."
+  ),
+  Options.optional
+);
+
+const afterOpt = Options.text("after").pipe(
+  Options.withDescription(
+    "Place immediately after this clip id (mutually exclusive with --before)."
+  ),
+  Options.optional
 );
 
 const idArg = Args.text({ name: "id" });
 
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve + gate a clip for a write: a bad id is a clean not-found (exit 2)
+ * rather than arriving as a service failure, and archived clips are deleted
+ * as far as this noun is concerned, so they are not-found too.
+ */
+const requireActiveClip = (id: string) =>
+  Effect.gen(function* () {
+    const clipOps = yield* ClipOperationsService;
+    const [existing] = yield* clipOps.getClipsByIds([id]);
+    if (!existing || existing.archived) {
+      return yield* notFound("clip", id);
+    }
+    return existing;
+  });
+
+/**
+ * Resolve `clip move`'s --before/--after into the single "anchor id" the
+ * service positions against (mirrors `beat move`'s resolveBeforeBeatId, but
+ * over the merged clip+chapter order space since clips and chapters share
+ * one fractional order key). --after X resolves to whatever item currently
+ * follows X — which may legitimately be a Chapter id, since the service's
+ * `moveClipToPosition` positions against either.
+ */
+const resolveBeforeItemId = (params: {
+  readonly videoId: string;
+  readonly before: Option.Option<string>;
+  readonly after: Option.Option<string>;
+  readonly excludeId: string;
+}) =>
+  Effect.gen(function* () {
+    const before = Option.getOrUndefined(params.before);
+    const after = Option.getOrUndefined(params.after);
+
+    yield* rejectBothFlags({
+      a: before,
+      b: after,
+      flags: ["--before", "--after"],
+      entity: "clip",
+    });
+    if (before === undefined && after === undefined) {
+      return yield* parseError("move needs one of --before / --after", "clip");
+    }
+
+    const clipOps = yield* ClipOperationsService;
+    const items = (yield* clipOps.listTimelineOrder(params.videoId)).filter(
+      (item) => item.id !== params.excludeId
+    );
+
+    if (before !== undefined) {
+      if (!items.some((item) => item.type === "clip" && item.id === before)) {
+        return yield* notFound("clip", before);
+      }
+      return before;
+    }
+
+    const idx = items.findIndex(
+      (item) => item.type === "clip" && item.id === after
+    );
+    if (idx === -1) {
+      return yield* notFound("clip", after!);
+    }
+    return items[idx + 1]?.id ?? null;
+  });
+
+// ---------------------------------------------------------------------------
+// Verbs
+// ---------------------------------------------------------------------------
+
 const updateCmd = Command.make(
   "update",
-  { id: idArg, zoom: zoomOpt },
-  ({ id, zoom }) =>
+  { id: idArg, zoom: zoomOpt, start: startOpt, end: endOpt },
+  ({ id, zoom, start, end }) =>
     withBackupCoordination(
       Effect.gen(function* () {
-        const clipOps = yield* ClipOperationsService;
+        const z = Option.getOrUndefined(zoom);
+        const s = Option.getOrUndefined(start);
+        const e = Option.getOrUndefined(end);
 
-        // Resolve first, so a bad id is a clean not-found (exit 2) rather than
-        // arriving as a service failure. Archived clips are deleted as far as
-        // this noun is concerned, so they are not-found too.
-        const [existing] = yield* clipOps.getClipsByIds([id]);
-        if (!existing || existing.archived) {
-          return yield* notFound("clip", id);
+        if (z === undefined && s === undefined && e === undefined) {
+          return yield* parseError(
+            "update needs at least one of --zoom / --start / --end",
+            "clip"
+          );
+        }
+
+        const clipOps = yield* ClipOperationsService;
+        let row = yield* requireActiveClip(id);
+
+        if (s !== undefined || e !== undefined) {
+          const newStart = s ?? row.sourceStartTime;
+          const newEnd = e ?? row.sourceEndTime;
+          if (newStart >= newEnd) {
+            return yield* parseError(
+              `--start (${newStart}) must be before --end (${newEnd})`,
+              "clip"
+            );
+          }
+          if (newEnd - newStart < MINIMUM_CLIP_LENGTH_SECONDS) {
+            return yield* parseError(
+              `clip would be ${(newEnd - newStart).toFixed(3)}s, below the ` +
+                `${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length`,
+              "clip"
+            );
+          }
+          row = yield* clipOps.updateClip(id, {
+            sourceStartTime: newStart,
+            sourceEndTime: newEnd,
+          });
         }
 
         // setClipZoom re-checks eligibility — it is the service that owns the
         // rule. Translating its failure here is only about the exit code: an
         // ineligible clip is bad input (exit 3), not an internal fault.
-        const updated = yield* clipOps
-          .setClipZoom(id, zoom satisfies ClipZoomType)
-          .pipe(
-            Effect.catchTag("ClipNotZoomableError", (e) =>
-              parseError(e.message, "clip")
-            )
-          );
+        if (z !== undefined) {
+          row = yield* clipOps
+            .setClipZoom(id, z satisfies ClipZoomType)
+            .pipe(
+              Effect.catchTag("ClipNotZoomableError", (e) =>
+                parseError(e.message, "clip")
+              )
+            );
+        }
 
-        yield* emitObject(updated);
+        yield* emitObject(row);
       })
     )
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
+const moveCmd = Command.make(
+  "move",
+  { id: idArg, before: beforeOpt, after: afterOpt },
+  ({ id, before, after }) =>
+    withBackupCoordination(
+      Effect.gen(function* () {
+        const existing = yield* requireActiveClip(id);
+        const beforeItemId = yield* resolveBeforeItemId({
+          videoId: existing.videoId,
+          before,
+          after,
+          excludeId: id,
+        });
+
+        const clipOps = yield* ClipOperationsService;
+        const moved = yield* clipOps
+          .moveClipToPosition(id, beforeItemId)
+          .pipe(
+            Effect.catchTag("NotFoundError", (e) =>
+              notFound("clip", (e.params as { clipId?: string }).clipId ?? id)
+            )
+          );
+        yield* emitObject(moved);
+      })
+    )
+).pipe(Command.withDescription(detail(MOVE_HELP)));
+
+const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
+  withBackupCoordination(
+    Effect.gen(function* () {
+      yield* requireActiveClip(id);
+      const clipOps = yield* ClipOperationsService;
+      yield* clipOps.archiveClip(id);
+      const [archived] = yield* clipOps.getClipsByIds([id]);
+      yield* emitObject(archived);
+    })
+  )
+).pipe(Command.withDescription(detail(DELETE_HELP)));
+
 export const clipCommand = Command.make("clip").pipe(
   Command.withDescription(detail(CLIP_HELP)),
-  Command.withSubcommands([listCmd, getCmd, updateCmd])
+  Command.withSubcommands([listCmd, getCmd, updateCmd, moveCmd, deleteCmd])
 );
