@@ -1,6 +1,6 @@
 import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Data, Effect, Stream } from "effect";
+import { Chunk, Data, Effect, Stream } from "effect";
 import crypto from "node:crypto";
 import path from "node:path";
 import { tmpdir } from "os";
@@ -165,72 +165,110 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
       });
 
       /**
-       * Silence-detects across a clip-to-clip join: two independently
-       * trimmed segments (possibly from different source files, since
-       * consecutive clips can come from different recordings) are stitched
-       * with the same audio-only `concat` the exporter uses (no crossfade),
-       * then `silencedetect` runs once over the stitched audio. Built for
-       * the audio-proofread prototype's boundary check — a straight-cut
-       * join can click or dip in level even when both clips look clean on
-       * their own, which is invisible to either clip's individual pass.
+       * Renders a single-frame waveform PNG for a window of an input file's
+       * audio, via `showwavespic`. Built for the waveform-proofread
+       * prototype, which draws one of these per clip so Matt can eyeball a
+       * lesson's audio directly instead of trusting a thresholded detector.
        *
-       * Returned timestamps are relative to the stitched window (0 = start
-       * of `segmentA`'s trimmed audio); the caller knows `segmentA`'s
-       * trimmed duration and so knows where the join itself falls.
+       * Unlike `detectSilence`, stdout here IS the payload (the PNG bytes),
+       * not throwaway text — so it's collected as raw bytes via
+       * `Stream.runCollect` instead of `Stream.decodeText()`. `stderr` is
+       * drained concurrently (and discarded on success, logged on failure)
+       * purely so it can't fill its pipe buffer and block ffmpeg — nothing
+       * useful comes through it here since silencedetect isn't in play.
+       *
+       * Also unlike `detectSilence`, the exit code IS checked: a single-frame
+       * image write legitimately exits 0 on success, so a non-zero code here
+       * means something actually went wrong (bad seek, no audio stream,
+       * etc.), not the `-f null` false-negative `detectSilence` has to
+       * tolerate.
        */
-      const detectSilenceAcrossJoin = Effect.fn("detectSilenceAcrossJoin")(
-        function* (
-          segmentA: { file: string; startTime: number; duration: number },
-          segmentB: { file: string; startTime: number; duration: number },
-          opts: { threshold: number | string; silenceDuration: number | string }
-        ) {
-          const args: string[] = [
-            "-hide_banner",
-            "-ss",
-            String(segmentA.startTime),
-            "-t",
-            String(segmentA.duration),
-            "-i",
-            segmentA.file,
-            "-ss",
-            String(segmentB.startTime),
-            "-t",
-            String(segmentB.duration),
-            "-i",
-            segmentB.file,
-            "-filter_complex",
-            `[0:a]asetpts=PTS-STARTPTS[a0];[1:a]asetpts=PTS-STARTPTS[a1];` +
-              `[a0][a1]concat=n=2:v=0:a=1,` +
-              `silencedetect=n=${opts.threshold}dB:d=${opts.silenceDuration}[out]`,
-            "-map",
-            "[out]",
-            "-f",
-            "null",
-            "-",
-          ];
-
-          return yield* cpuSemaphore.withPermits(1)(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const process = yield* Command.start(
-                  Command.make("ffmpeg", ...args)
-                );
-                // Same as detectSilence: ffmpeg exits non-zero with -f null,
-                // but silencedetect writes its info to stderr regardless.
-                const [stdout, stderr] = yield* Effect.all(
-                  [
-                    process.stdout.pipe(Stream.decodeText(), Stream.mkString),
-                    process.stderr.pipe(Stream.decodeText(), Stream.mkString),
-                  ],
-                  { concurrency: 2 }
-                );
-                yield* process.exitCode.pipe(Effect.ignore);
-                return stdout + stderr;
-              })
-            )
-          );
+      const generateWaveformPng = Effect.fn("generateWaveformPng")(function* (
+        file: string,
+        opts: {
+          startTime: number;
+          duration: number;
+          width: number;
+          height: number;
+          /** `showwavespic` color, e.g. "0x38bdf8". Defaults to a light gray. */
+          color?: string;
         }
-      );
+      ) {
+        const args: string[] = [
+          "-hide_banner",
+          "-ss",
+          String(opts.startTime),
+          "-t",
+          String(opts.duration),
+          "-i",
+          file,
+          "-filter_complex",
+          `[0:a]aformat=channel_layouts=mono,showwavespic=s=${opts.width}x${
+            opts.height
+          }:colors=${opts.color ?? "0xd4d4d8"}[out]`,
+          "-map",
+          "[out]",
+          "-frames:v",
+          "1",
+          "-f",
+          "image2pipe",
+          "-vcodec",
+          "png",
+          "pipe:1",
+        ];
+
+        return yield* cpuSemaphore.withPermits(1)(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const process = yield* Command.start(
+                Command.make("ffmpeg", ...args)
+              ).pipe(
+                Effect.mapError(
+                  (e) =>
+                    new FFmpegError({
+                      cause: e,
+                      message: `Failed to start ffmpeg for waveform: ${e.message}`,
+                    })
+                )
+              );
+
+              const [pngChunks, stderr] = yield* Effect.all(
+                [
+                  Stream.runCollect(process.stdout),
+                  process.stderr.pipe(Stream.decodeText(), Stream.mkString),
+                ],
+                { concurrency: 2 }
+              ).pipe(
+                Effect.mapError(
+                  (e) =>
+                    new FFmpegError({
+                      cause: e,
+                      message: `Failed to read ffmpeg waveform output: ${e.message}`,
+                    })
+                )
+              );
+
+              const code = yield* process.exitCode.pipe(
+                Effect.mapError(
+                  (e) =>
+                    new FFmpegError({
+                      cause: e,
+                      message: `Failed to read ffmpeg waveform exit code: ${e.message}`,
+                    })
+                )
+              );
+              if (code !== 0) {
+                yield* new FFmpegError({
+                  cause: null,
+                  message: `Failed to generate waveform, exit code: ${code}. stderr: ${stderr}`,
+                });
+              }
+
+              return Buffer.concat(Chunk.toReadonlyArray(pngChunks));
+            })
+          )
+        );
+      });
 
       const getFPS = Effect.fn("getFPS")(function* (inputVideo: string) {
         const command = Command.make(
@@ -579,7 +617,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
 
       return {
         detectSilence,
-        detectSilenceAcrossJoin,
+        generateWaveformPng,
         getFPS,
         createAndConcatenateVideoClipsSinglePass,
         normalizeAudio,

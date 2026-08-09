@@ -20,15 +20,20 @@ interface SpeakingClip {
 }
 
 /**
- * Pure function that parses raw ffmpeg `silencedetect` stdout/stderr into a
- * flat list of silence periods (start/end in seconds, relative to whatever
- * seek point the ffmpeg invocation used — see `findSilenceInVideo` for how
- * that offset gets added back). Shared by the speaking-clip derivation below
- * and by the audio-proofread prototype's per-clip and boundary passes.
+ * Pure function that parses ffmpeg silencedetect output into speaking clip boundaries.
+ * No side effects — takes raw ffmpeg stdout and returns clip boundaries.
  */
-export function parseSilencePeriods(
-  rawOutput: string
-): { start: number; end: number }[] {
+export function getClipsOfSpeakingFromFFmpeg(
+  rawOutput: string,
+  opts: {
+    startPadding: number;
+    endPadding: number;
+    fps: number;
+  }
+): SpeakingClip[] {
+  const { startPadding, endPadding, fps } = opts;
+
+  // Parse silence periods from ffmpeg output
   const silencePeriods: { start: number; end: number }[] = [];
   const lines = rawOutput.split("\n");
 
@@ -57,25 +62,6 @@ export function parseSilencePeriods(
       currentSilenceStart = null;
     }
   }
-
-  return silencePeriods;
-}
-
-/**
- * Pure function that parses ffmpeg silencedetect output into speaking clip boundaries.
- * No side effects — takes raw ffmpeg stdout and returns clip boundaries.
- */
-export function getClipsOfSpeakingFromFFmpeg(
-  rawOutput: string,
-  opts: {
-    startPadding: number;
-    endPadding: number;
-    fps: number;
-  }
-): SpeakingClip[] {
-  const { startPadding, endPadding, fps } = opts;
-
-  const silencePeriods = parseSilencePeriods(rawOutput);
 
   if (silencePeriods.length === 0) {
     return [];
