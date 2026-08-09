@@ -6,6 +6,10 @@ import {
   spansFromPeriods,
   computeJoinWindow,
   findJoinHits,
+  sanitizeProofreadOptions,
+  classifyPerClipSpans,
+  classifyBoundarySpan,
+  DEFAULT_PROOFREAD_OPTIONS,
 } from "./clip-audio-proofread";
 
 describe("computeClipVideoOffsets", () => {
@@ -209,5 +213,121 @@ describe("findJoinHits", () => {
   it("drops a period entirely inside one clip's own trimmed second, away from the join", () => {
     const periods = [{ start: 0.1, end: 0.3 }];
     expect(findJoinHits(periods, 1, 0.2)).toEqual([]);
+  });
+
+  it("a tighter tolerance drops a hit a looser one would keep — proves the knob changes behavior", () => {
+    const periods = [{ start: 1.15, end: 1.3 }];
+    expect(findJoinHits(periods, 1, 0.2)).toEqual(periods);
+    expect(findJoinHits(periods, 1, 0.05)).toEqual([]);
+  });
+});
+
+describe("sanitizeProofreadOptions", () => {
+  it("falls back to the documented defaults when no overrides are given", () => {
+    expect(sanitizeProofreadOptions(undefined)).toEqual(
+      DEFAULT_PROOFREAD_OPTIONS
+    );
+    expect(sanitizeProofreadOptions(null)).toEqual(DEFAULT_PROOFREAD_OPTIONS);
+    expect(sanitizeProofreadOptions({})).toEqual(DEFAULT_PROOFREAD_OPTIONS);
+  });
+
+  it("applies a partial set of overrides, leaving the rest at their defaults", () => {
+    const result = sanitizeProofreadOptions({
+      longPauseMinSeconds: 1.2,
+      joinToleranceSeconds: 0.5,
+    });
+
+    expect(result).toEqual({
+      ...DEFAULT_PROOFREAD_OPTIONS,
+      longPauseMinSeconds: 1.2,
+      joinToleranceSeconds: 0.5,
+    });
+  });
+
+  it("ignores non-finite or wrongly-typed values and falls back to the default", () => {
+    const result = sanitizeProofreadOptions({
+      longPauseMinSeconds: Number.NaN,
+      shortCutoutMinSeconds: "0.3" as unknown as number,
+      joinWindowSeconds: undefined,
+    });
+
+    expect(result).toEqual(DEFAULT_PROOFREAD_OPTIONS);
+  });
+
+  it("clamps a negative duration-like override to zero, but leaves silenceThresholdDb (normally negative) alone", () => {
+    const result = sanitizeProofreadOptions({
+      longPauseMinSeconds: -5,
+      silenceThresholdDb: -50,
+    });
+
+    expect(result.longPauseMinSeconds).toBe(0);
+    expect(result.silenceThresholdDb).toBe(-50);
+  });
+});
+
+describe("classifyPerClipSpans", () => {
+  const clip = { id: "clip-1", sourceStartTime: 0, sourceEndTime: 10 };
+
+  // A single real 1.5s pause. ffmpeg's `d=` option is a MINIMUM, so which of
+  // the two passes actually reports it depends on where `longPauseMinSeconds`
+  // sits relative to 1.5s — that's exactly what the service asks ffmpeg for
+  // (see `proofreadPerClipSpans`), simulated here by handing this function
+  // the raw output each pass would have produced at a given floor.
+  const rawWithPeriod = [
+    "[silencedetect @ 0x1] silence_start: 4",
+    "[silencedetect @ 0x1] silence_end: 5.5 | silence_duration: 1.5",
+  ].join("\n");
+  const rawEmpty = "";
+
+  it("classifies the 1.5s pause as short-cutout under the default 2.0s long-pause floor", () => {
+    // At d=2.0 ffmpeg's long pass wouldn't report a 1.5s period at all; at
+    // d=0.15 the short pass does.
+    const spans = classifyPerClipSpans(rawEmpty, rawWithPeriod, clip, 0, {
+      longPauseMinSeconds: DEFAULT_PROOFREAD_OPTIONS.longPauseMinSeconds,
+    });
+
+    expect(spans).toHaveLength(1);
+    expect(spans[0]!.type).toBe("short-cutout");
+  });
+
+  it("reclassifies the SAME 1.5s pause as long-pause once longPauseMinSeconds is lowered below it — proves the knob flows through", () => {
+    // At d=1.0 the long pass now reports it too; the short-pass duplicate is
+    // filtered back out by excludeLongPeriods so it isn't double-counted.
+    const spans = classifyPerClipSpans(rawWithPeriod, rawWithPeriod, clip, 0, {
+      longPauseMinSeconds: 1.0,
+    });
+
+    expect(spans).toHaveLength(1);
+    expect(spans[0]!.type).toBe("long-pause");
+  });
+});
+
+describe("classifyBoundarySpan", () => {
+  // Sits just after the join point (1.0), not straddling it — only a loose
+  // enough tolerance should count it as a boundary artifact.
+  const rawOutput = [
+    "[silencedetect @ 0x1] silence_start: 1.15",
+    "[silencedetect @ 0x1] silence_end: 1.3 | silence_duration: 0.15",
+  ].join("\n");
+  const clipB = { id: "clip-b" };
+
+  it("flags a boundary span when the tolerance reaches the detected period", () => {
+    const spans = classifyBoundarySpan(rawOutput, 1, clipB, 42, 0.2);
+
+    expect(spans).toEqual([
+      {
+        type: "boundary",
+        videoTimestampSeconds: 42,
+        clipId: "clip-b",
+        clipRelativeOffsetSeconds: 0,
+        durationSeconds: 0.15,
+      },
+    ]);
+  });
+
+  it("the SAME raw output produces no span once the tolerance is tightened — proves the knob flows through", () => {
+    const spans = classifyBoundarySpan(rawOutput, 1, clipB, 42, 0.02);
+
+    expect(spans).toEqual([]);
   });
 });

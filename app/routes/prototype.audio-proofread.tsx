@@ -15,6 +15,7 @@ import { useFetcher } from "react-router";
 import { data } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -28,11 +29,13 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import {
   ClipAudioProofreadService,
+  DEFAULT_PROOFREAD_OPTIONS,
+  type ProofreadOptions,
   type ProofreadSpan,
   type ProofreadSpanType,
 } from "@/services/clip-audio-proofread";
 import { makeLoader, makeAction } from "@/services/route-action.server";
-import { Loader2Icon, PlayIcon } from "lucide-react";
+import { Loader2Icon, PlayIcon, RotateCcwIcon } from "lucide-react";
 import type { Route } from "./+types/prototype.audio-proofread";
 
 // ─── Data ────────────────────────────────────────────────────────────────
@@ -120,10 +123,20 @@ export const action = makeAction({
           })
         );
       }
-      const { videoId } = payload as { videoId: string };
+      const { videoId, options } = payload as {
+        videoId: string;
+        options?: unknown;
+      };
 
+      // Left loose on purpose — `ClipAudioProofreadService.proofreadVideo`
+      // sanitizes every field itself (falls back to the default for
+      // anything missing/NaN/wrongly-typed, clamps negatives), so this route
+      // doesn't need to duplicate that validation.
       const proofreadService = yield* ClipAudioProofreadService;
-      const result = yield* proofreadService.proofreadVideo(videoId);
+      const result = yield* proofreadService.proofreadVideo(
+        videoId,
+        options as Partial<Record<keyof ProofreadOptions, unknown>> | undefined
+      );
       return data({ result });
     }),
 });
@@ -257,10 +270,99 @@ interface AnalyzeResult {
   videoId: string;
   title: string;
   totalDurationSeconds: number;
+  options: ProofreadOptions;
   spans: ProofreadSpan[];
 }
 
 type AnalyzeResponse = { result: AnalyzeResult };
+
+// ─── Detection-parameter knobs ─────────────────────────────────────────────
+
+const PARAM_FIELDS: {
+  key: keyof ProofreadOptions;
+  label: string;
+  step: string;
+  min?: number;
+}[] = [
+  {
+    key: "silenceThresholdDb",
+    label: "Silence threshold (dB)",
+    step: "1",
+  },
+  {
+    key: "longPauseMinSeconds",
+    label: "Long-pause minimum (s)",
+    step: "0.1",
+    min: 0,
+  },
+  {
+    key: "shortCutoutMinSeconds",
+    label: "Short-cutout minimum (s)",
+    step: "0.05",
+    min: 0,
+  },
+  {
+    key: "joinWindowSeconds",
+    label: "Join window (s)",
+    step: "0.1",
+    min: 0,
+  },
+  {
+    key: "joinToleranceSeconds",
+    label: "Join tolerance (s)",
+    step: "0.05",
+    min: 0,
+  },
+];
+
+function ParamsPanel({
+  options,
+  onChange,
+  onReset,
+}: {
+  options: ProofreadOptions;
+  onChange: (key: keyof ProofreadOptions, value: number) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-border p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Detection parameters
+        </span>
+        <Button size="sm" variant="ghost" onClick={onReset} type="button">
+          <RotateCcwIcon className="size-3" />
+          Reset to defaults
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {PARAM_FIELDS.map((field) => (
+          <label
+            key={field.key}
+            className="flex flex-col gap-1 text-xs text-muted-foreground"
+          >
+            {field.label}
+            <Input
+              type="number"
+              step={field.step}
+              min={field.min}
+              value={
+                Number.isFinite(options[field.key]) ? options[field.key] : ""
+              }
+              onChange={(e) =>
+                onChange(
+                  field.key,
+                  e.target.value === "" ? Number.NaN : Number(e.target.value)
+                )
+              }
+              className="w-32"
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function PrototypeAudioProofread({
   loaderData,
@@ -268,6 +370,9 @@ export default function PrototypeAudioProofread({
   const { videoOptions } = loaderData;
   const [selectedVideoId, setSelectedVideoId] = useState<string>(
     videoOptions[0]?.id ?? ""
+  );
+  const [params, setParams] = useState<ProofreadOptions>(
+    DEFAULT_PROOFREAD_OPTIONS
   );
   const fetcher = useFetcher<AnalyzeResponse>();
 
@@ -277,8 +382,11 @@ export default function PrototypeAudioProofread({
   const runAnalysis = () => {
     if (!selectedVideoId) return;
     fetcher.submit(
-      { videoId: selectedVideoId },
-      { method: "post", encType: "application/json" }
+      JSON.stringify({ videoId: selectedVideoId, options: params }),
+      {
+        method: "post",
+        encType: "application/json",
+      }
     );
   };
 
@@ -322,6 +430,14 @@ export default function PrototypeAudioProofread({
           </Button>
         </div>
 
+        <ParamsPanel
+          options={params}
+          onChange={(key, value) =>
+            setParams((prev) => ({ ...prev, [key]: value }))
+          }
+          onReset={() => setParams(DEFAULT_PROOFREAD_OPTIONS)}
+        />
+
         {videoOptions.length === 0 && (
           <p className="text-sm text-muted-foreground">
             No videos with clips found.
@@ -344,6 +460,13 @@ export default function PrototypeAudioProofread({
                 {formatSecondsToTimeCode(result.totalDurationSeconds)} total ·{" "}
                 {result.spans.length} candidate spot
                 {result.spans.length === 1 ? "" : "s"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                Applied: {result.options.silenceThresholdDb}dB · long ≥
+                {result.options.longPauseMinSeconds}s · short ≥
+                {result.options.shortCutoutMinSeconds}s · join window{" "}
+                {result.options.joinWindowSeconds}s · join tolerance{" "}
+                {result.options.joinToleranceSeconds}s
               </p>
             </div>
 

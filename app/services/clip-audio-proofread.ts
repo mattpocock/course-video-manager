@@ -27,28 +27,76 @@ import {
   SILENCE_LENGTH_LONG_SECONDS,
 } from "@/silence-detection-constants";
 
-// ─── Tunable constants (starting points — retune against real footage) ─────
+// ─── Tunable options (starting-point defaults — the UI lets Matt override
+// these per run instead of editing code; see DEFAULT_PROOFREAD_OPTIONS) ─────
 
-/** Same dB floor the live auto-editor uses; audio below this counts as silence. */
-export const PROOFREAD_SILENCE_THRESHOLD_DB = SILENCE_THRESHOLD_DB;
+export interface ProofreadOptions {
+  /** dB floor below which audio counts as silence. Same default the live auto-editor uses. */
+  silenceThresholdDb: number;
+  /** A pause at least this long is flagged as "long-pause". Defaults to the existing long-silence-length constant. */
+  longPauseMinSeconds: number;
+  /**
+   * A gap at least this long is flagged as "short-cutout". Deliberately NOT
+   * defaulted to the `SILENCE_LENGTH_SHORT_SECONDS` (0.8s) floor from
+   * `silence-detection-constants.ts` — that constant is tuned for live
+   * auto-editing cut points, not for catching a brief mid-sentence audio
+   * dropout, which is what "(5:39) The audio cuts out very briefly" describes.
+   */
+  shortCutoutMinSeconds: number;
+  /** How much of each clip's source range to pull for the boundary check, on either side of the join. */
+  joinWindowSeconds: number;
+  /** How close a detected silence period has to sit to the exact join point to count as a boundary artifact. */
+  joinToleranceSeconds: number;
+}
 
-/** A pause at least this long is flagged as "long-pause" — reuses the existing long-silence-length constant. */
-export const LONG_PAUSE_MIN_SECONDS = SILENCE_LENGTH_LONG_SECONDS;
+export const DEFAULT_PROOFREAD_OPTIONS: ProofreadOptions = {
+  silenceThresholdDb: SILENCE_THRESHOLD_DB,
+  longPauseMinSeconds: SILENCE_LENGTH_LONG_SECONDS,
+  shortCutoutMinSeconds: 0.15,
+  joinWindowSeconds: 1,
+  joinToleranceSeconds: 0.2,
+};
 
 /**
- * A gap at least this long is flagged as "short-cutout". Deliberately NOT the
- * `SILENCE_LENGTH_SHORT_SECONDS` (0.8s) floor from `silence-detection-constants.ts`
- * — that constant is tuned for live auto-editing cut points, not for catching
- * a brief mid-sentence audio dropout, which is what "(5:39) The audio cuts
- * out very briefly" describes.
+ * Merges a (possibly partial, possibly untrusted — e.g. straight off a JSON
+ * request body) set of overrides onto the defaults. Non-finite/non-number
+ * values fall back to the default rather than erroring, since this is a
+ * throwaway prototype form, not a validated API. Duration-like fields are
+ * clamped to zero; `silenceThresholdDb` is left alone since negative values
+ * are the normal case.
  */
-export const SHORT_CUTOUT_MIN_SECONDS = 0.15;
+export function sanitizeProofreadOptions(
+  input?: Partial<Record<keyof ProofreadOptions, unknown>> | null
+): ProofreadOptions {
+  const finite = (value: unknown): number | undefined =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
-/** How much of each clip's source range to pull for the boundary check, on either side of the join. */
-export const JOIN_WINDOW_SECONDS = 1;
+  const merged: ProofreadOptions = {
+    silenceThresholdDb:
+      finite(input?.silenceThresholdDb) ??
+      DEFAULT_PROOFREAD_OPTIONS.silenceThresholdDb,
+    longPauseMinSeconds:
+      finite(input?.longPauseMinSeconds) ??
+      DEFAULT_PROOFREAD_OPTIONS.longPauseMinSeconds,
+    shortCutoutMinSeconds:
+      finite(input?.shortCutoutMinSeconds) ??
+      DEFAULT_PROOFREAD_OPTIONS.shortCutoutMinSeconds,
+    joinWindowSeconds:
+      finite(input?.joinWindowSeconds) ??
+      DEFAULT_PROOFREAD_OPTIONS.joinWindowSeconds,
+    joinToleranceSeconds:
+      finite(input?.joinToleranceSeconds) ??
+      DEFAULT_PROOFREAD_OPTIONS.joinToleranceSeconds,
+  };
 
-/** How close a detected silence period has to sit to the exact join point to count as a boundary artifact. */
-export const JOIN_TOLERANCE_SECONDS = 0.2;
+  return {
+    ...merged,
+    longPauseMinSeconds: Math.max(0, merged.longPauseMinSeconds),
+    shortCutoutMinSeconds: Math.max(0, merged.shortCutoutMinSeconds),
+    joinWindowSeconds: Math.max(0, merged.joinWindowSeconds),
+    joinToleranceSeconds: Math.max(0, merged.joinToleranceSeconds),
+  };
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -223,6 +271,59 @@ export function findJoinHits(
   );
 }
 
+/**
+ * Turns a clip's two raw `silencedetect` passes (long-pause floor, then
+ * short-cutout floor) into report spans. The single option this reads is
+ * `longPauseMinSeconds` — it's what decides whether a period surviving the
+ * short-cutout pass is actually a duplicate of a long pause (see
+ * `excludeLongPeriods`). The thresholds fed to ffmpeg to produce `longRaw`
+ * and `shortRaw` in the first place are the service's job, not this
+ * function's — see `proofreadPerClipSpans` below.
+ */
+export function classifyPerClipSpans(
+  longRaw: string,
+  shortRaw: string,
+  clip: Pick<ProofreadClip, "id" | "sourceStartTime" | "sourceEndTime">,
+  videoStartSeconds: number,
+  options: Pick<ProofreadOptions, "longPauseMinSeconds">
+): ProofreadSpan[] {
+  const longPeriods = absoluteSilencePeriodsWithinClip(longRaw, clip);
+  const shortPeriods = excludeLongPeriods(
+    absoluteSilencePeriodsWithinClip(shortRaw, clip),
+    options.longPauseMinSeconds
+  );
+
+  return [
+    ...spansFromPeriods(longPeriods, clip, videoStartSeconds, "long-pause"),
+    ...spansFromPeriods(shortPeriods, clip, videoStartSeconds, "short-cutout"),
+  ];
+}
+
+/**
+ * Turns a stitched join window's raw `silencedetect` output into `boundary`
+ * spans, filtering to periods that actually sit at the join
+ * (`toleranceSeconds`) rather than being incidental silence inside either
+ * clip's own trimmed second.
+ */
+export function classifyBoundarySpan(
+  rawOutput: string,
+  joinPointSeconds: number,
+  clipB: Pick<ProofreadClip, "id">,
+  clipBVideoStartSeconds: number,
+  toleranceSeconds: number
+): ProofreadSpan[] {
+  const periods = parseSilencePeriods(rawOutput);
+  const hits = findJoinHits(periods, joinPointSeconds, toleranceSeconds);
+
+  return hits.map((hit): ProofreadSpan => ({
+    type: "boundary",
+    videoTimestampSeconds: round2(clipBVideoStartSeconds),
+    clipId: clipB.id,
+    clipRelativeOffsetSeconds: 0,
+    durationSeconds: round2(Math.max(0, hit.end - hit.start)),
+  }));
+}
+
 function consecutivePairs<T>(items: readonly T[]): [T, T][] {
   const pairs: [T, T][] = [];
   for (let i = 0; i < items.length - 1; i++) {
@@ -241,55 +342,47 @@ export class ClipAudioProofreadService extends Effect.Service<ClipAudioProofread
       const ffmpeg = yield* FFmpegCommandsService;
 
       const proofreadPerClipSpans = Effect.fn("proofreadPerClipSpans")(
-        function* (clip: ProofreadClip, videoStartSeconds: number) {
+        function* (
+          clip: ProofreadClip,
+          videoStartSeconds: number,
+          options: ProofreadOptions
+        ) {
           const [longRaw, shortRaw] = yield* Effect.all(
             [
               ffmpeg.detectSilence(clip.videoFilename, {
-                threshold: PROOFREAD_SILENCE_THRESHOLD_DB,
-                silenceDuration: LONG_PAUSE_MIN_SECONDS,
+                threshold: options.silenceThresholdDb,
+                silenceDuration: options.longPauseMinSeconds,
                 startTime: clip.sourceStartTime,
               }),
               ffmpeg.detectSilence(clip.videoFilename, {
-                threshold: PROOFREAD_SILENCE_THRESHOLD_DB,
-                silenceDuration: SHORT_CUTOUT_MIN_SECONDS,
+                threshold: options.silenceThresholdDb,
+                silenceDuration: options.shortCutoutMinSeconds,
                 startTime: clip.sourceStartTime,
               }),
             ],
             { concurrency: 2 }
           );
 
-          const longPeriods = absoluteSilencePeriodsWithinClip(longRaw, clip);
-          const shortPeriods = excludeLongPeriods(
-            absoluteSilencePeriodsWithinClip(shortRaw, clip),
-            LONG_PAUSE_MIN_SECONDS
+          return classifyPerClipSpans(
+            longRaw,
+            shortRaw,
+            clip,
+            videoStartSeconds,
+            options
           );
-
-          return [
-            ...spansFromPeriods(
-              longPeriods,
-              clip,
-              videoStartSeconds,
-              "long-pause"
-            ),
-            ...spansFromPeriods(
-              shortPeriods,
-              clip,
-              videoStartSeconds,
-              "short-cutout"
-            ),
-          ];
         }
       );
 
       const proofreadBoundary = Effect.fn("proofreadBoundary")(function* (
         clipA: ProofreadClip,
         clipB: ProofreadClip,
-        clipBVideoStartSeconds: number
+        clipBVideoStartSeconds: number,
+        options: ProofreadOptions
       ) {
         const { segmentA, segmentB, joinPointSeconds } = computeJoinWindow(
           clipA,
           clipB,
-          JOIN_WINDOW_SECONDS
+          options.joinWindowSeconds
         );
 
         if (segmentA.durationSeconds <= 0 || segmentB.durationSeconds <= 0) {
@@ -308,30 +401,26 @@ export class ClipAudioProofreadService extends Effect.Service<ClipAudioProofread
             duration: segmentB.durationSeconds,
           },
           {
-            threshold: PROOFREAD_SILENCE_THRESHOLD_DB,
-            silenceDuration: SHORT_CUTOUT_MIN_SECONDS,
+            threshold: options.silenceThresholdDb,
+            silenceDuration: options.shortCutoutMinSeconds,
           }
         );
 
-        const periods = parseSilencePeriods(rawOutput);
-        const hits = findJoinHits(
-          periods,
+        return classifyBoundarySpan(
+          rawOutput,
           joinPointSeconds,
-          JOIN_TOLERANCE_SECONDS
+          clipB,
+          clipBVideoStartSeconds,
+          options.joinToleranceSeconds
         );
-
-        return hits.map((hit): ProofreadSpan => ({
-          type: "boundary",
-          videoTimestampSeconds: round2(clipBVideoStartSeconds),
-          clipId: clipB.id,
-          clipRelativeOffsetSeconds: 0,
-          durationSeconds: round2(Math.max(0, hit.end - hit.start)),
-        }));
       });
 
       const proofreadVideo = Effect.fn("proofreadVideo")(function* (
-        videoId: string
+        videoId: string,
+        overrides?: Partial<Record<keyof ProofreadOptions, unknown>> | null
       ) {
+        const options = sanitizeProofreadOptions(overrides);
+
         const video = yield* videoOps.getVideoWithClipsById(videoId);
         const clips: ProofreadClip[] = video.clips.map((c) => ({
           id: c.id,
@@ -352,14 +441,23 @@ export class ClipAudioProofreadService extends Effect.Service<ClipAudioProofread
         const perClipSpans = yield* Effect.forEach(
           clips,
           (clip) =>
-            proofreadPerClipSpans(clip, videoStartByClipId.get(clip.id)!),
+            proofreadPerClipSpans(
+              clip,
+              videoStartByClipId.get(clip.id)!,
+              options
+            ),
           { concurrency: 4 }
         );
 
         const boundarySpans = yield* Effect.forEach(
           consecutivePairs(clips),
           ([clipA, clipB]) =>
-            proofreadBoundary(clipA, clipB, videoStartByClipId.get(clipB.id)!),
+            proofreadBoundary(
+              clipA,
+              clipB,
+              videoStartByClipId.get(clipB.id)!,
+              options
+            ),
           { concurrency: 4 }
         );
 
@@ -371,6 +469,7 @@ export class ClipAudioProofreadService extends Effect.Service<ClipAudioProofread
           videoId: video.id,
           title: video.title,
           totalDurationSeconds: round2(totalDurationSeconds),
+          options,
           spans,
         };
       });
