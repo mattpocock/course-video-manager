@@ -1,15 +1,17 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { eq } from "drizzle-orm";
+import { Pool } from "pg";
 import * as schema from "../app/db/schema";
+import { resolveDatabaseUrl } from "../app/db/database-url";
 import { extractSceneText } from "../app/packages/extract-scene-text";
 
-const url = process.env.DATABASE_URL;
+const url = resolveDatabaseUrl();
 if (!url) {
   console.error("DATABASE_URL is not set");
   process.exit(1);
 }
 
-const db = drizzle(url, { schema });
+const db = drizzle(new Pool({ connectionString: url }), { schema });
 
 let snapshotCount = 0;
 const snapshots = await db

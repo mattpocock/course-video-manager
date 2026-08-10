@@ -1,28 +1,32 @@
-import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import type { PostgresJsTransaction } from "drizzle-orm/postgres-js";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
+import { Pool } from "pg";
 import * as schema from "@/db/schema";
+import { resolveDatabaseUrl } from "@/db/database-url";
 import { Effect } from "effect";
 
-export type DrizzleDB = PostgresJsDatabase<typeof schema>;
+export type DrizzleDB = NodePgDatabase<typeof schema>;
 
 export type Database =
   | DrizzleDB
-  | PostgresJsTransaction<
-      typeof schema,
-      ExtractTablesWithRelations<typeof schema>
-    >;
+  | NodePgTransaction<typeof schema, ExtractTablesWithRelations<typeof schema>>;
 
 export class DrizzleService extends Effect.Service<DrizzleService>()(
   "DrizzleService",
   {
     effect: Effect.gen(function* () {
-      if (!process.env.DATABASE_URL) {
+      // The pooled connection string. Migrations use the direct one instead —
+      // see @/db/database-url.
+      const url = resolveDatabaseUrl();
+      if (!url) {
         return yield* Effect.die(
           new Error("DATABASE_URL is not set in environment variables")
         );
       }
-      return drizzle(process.env.DATABASE_URL, { schema }) as DrizzleDB;
+      return drizzle(new Pool({ connectionString: url }), {
+        schema,
+      }) as DrizzleDB;
     }),
   }
 ) {}
