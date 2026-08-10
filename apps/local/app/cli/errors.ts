@@ -5,11 +5,11 @@ import { Data } from "effect";
  * `_tag` to a STDERR JSON object + a process exit code. STDOUT always stays
  * pure data.
  *
- * Exit-code contract:
- *   NotFoundError         -> 2
- *   ParseError            -> 3 (invalid input / parse)
- *   DatabaseError         -> 4 (db / internal)
- *   LocalOnlyCommandError -> 7 (this command needs the author's machine)
+ * THE EXIT-CODE CONTRACT LIVES IN ./render.ts, in `EXIT_CODES`, and only
+ * there. It covers more tags than this file declares — the wire adds
+ * AuthenticationError and SchemaVersionMismatchError, and domain tags leak
+ * through — so a summary here would be a second, always-partial copy of a
+ * table that decides what an agent does next.
  *
  * These tags are part of the public CLI output contract — do NOT rename them.
  * NOTE: there is also a DOMAIN `NotFoundError` in @/services/db-service-errors

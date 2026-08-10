@@ -1,4 +1,4 @@
-import { Layer } from "effect";
+import { Context, Layer } from "effect";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
@@ -43,14 +43,15 @@ import {
  *   the ARGUMENTS  `rpcMethod` forwards them variadically, so there is nowhere
  *                  for a hand-written call to reorder or drop one.
  *
- * THE ONE CAST. Each object reaches `Layer.succeed` through `as unknown as`,
+ * THE ONE CAST, and it is literally one — see `remoteLayer` at the bottom of
+ * this file. An RPC-backed service reaches `Layer.succeed` through a cast,
  * because over HTTP every method's failure channel also carries
  * AuthenticationError and TransportError, and Effect's error channel does not
  * widen on assignment. The CLI renderer dispatches on `_tag` and handles an
- * unknown tag defensively, so the mismatch is contained to these casts rather
- * than rippling through every command signature. That is the price of the
- * services keeping their tags across the move to HTTP, and it is worth paying:
- * no command handler changed.
+ * unknown tag defensively, so the mismatch is contained to that one line
+ * rather than rippling through every command signature. That is the price of
+ * the services keeping their tags across the move to HTTP, and it is worth
+ * paying: no command handler changed.
  */
 
 const courseService = (client: RpcClient) =>
@@ -292,51 +293,39 @@ export type RemoteServices =
   | DeliverableOperationsService
   | CourseWriteService;
 
+/**
+ * One RPC-backed service, as the layer that hands it out under the tag the
+ * command handlers already ask for.
+ *
+ * This is where the cast the doc block above describes lives, and it is the
+ * only one in the file: `satisfies RemoteService<T>` on each service object has
+ * already checked every method against the service's own declaration, so all
+ * that is left here is widening a failure channel Effect will not widen by
+ * itself. Written once, it cannot drift between the ten call sites — and a
+ * service object handed to the wrong tag is still a compile error, because
+ * `build` is typed by the tag it is given.
+ */
+const remoteLayer = <I, S>(
+  tag: Context.Tag<I, S>,
+  build: (client: RpcClient) => RemoteService<S>,
+  client: RpcClient
+): Layer.Layer<I> => Layer.succeed(tag, build(client) as S);
+
 export const makeRemoteLayer = (
   config: RpcClientConfig
 ): Layer.Layer<RemoteServices> => {
   const client = makeRpcClient(config);
 
   return Layer.mergeAll(
-    Layer.succeed(
-      SearchOperationsService,
-      searchService(client) as unknown as SearchOperationsService
-    ),
-    Layer.succeed(
-      CourseOperationsService,
-      courseService(client) as unknown as CourseOperationsService
-    ),
-    Layer.succeed(
-      VersionOperationsService,
-      versionService(client) as unknown as VersionOperationsService
-    ),
-    Layer.succeed(
-      LessonSectionOperationsService,
-      lessonSectionService(client) as unknown as LessonSectionOperationsService
-    ),
-    Layer.succeed(
-      VideoOperationsService,
-      videoService(client) as unknown as VideoOperationsService
-    ),
-    Layer.succeed(
-      ClipOperationsService,
-      clipService(client) as unknown as ClipOperationsService
-    ),
-    Layer.succeed(
-      BeatOperationsService,
-      beatService(client) as unknown as BeatOperationsService
-    ),
-    Layer.succeed(
-      PitchOperationsService,
-      pitchService(client) as unknown as PitchOperationsService
-    ),
-    Layer.succeed(
-      DeliverableOperationsService,
-      deliverableService(client) as unknown as DeliverableOperationsService
-    ),
-    Layer.succeed(
-      CourseWriteService,
-      courseWriteService(client) as unknown as CourseWriteService
-    )
+    remoteLayer(SearchOperationsService, searchService, client),
+    remoteLayer(CourseOperationsService, courseService, client),
+    remoteLayer(VersionOperationsService, versionService, client),
+    remoteLayer(LessonSectionOperationsService, lessonSectionService, client),
+    remoteLayer(VideoOperationsService, videoService, client),
+    remoteLayer(ClipOperationsService, clipService, client),
+    remoteLayer(BeatOperationsService, beatService, client),
+    remoteLayer(PitchOperationsService, pitchService, client),
+    remoteLayer(DeliverableOperationsService, deliverableService, client),
+    remoteLayer(CourseWriteService, courseWriteService, client)
   );
 };

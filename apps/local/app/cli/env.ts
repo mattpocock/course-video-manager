@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 /**
  * Resolve DATABASE_URL anchored to the INSTALL LOCATION (this repo), not the
@@ -45,15 +44,44 @@ const findRepoRoot = (start: string): string | undefined => {
   }
 };
 
-/** Minimal KEY=VALUE .env parser — extracts a single key. */
-const readEnvValue = (envPath: string, key: string): string | undefined => {
+/**
+ * The repo-root `.env`, located from THIS MODULE rather than the working
+ * directory — the globally-linked `cvm` bin imports this file from inside the
+ * repo, so the walk lands on the repo root wherever `cvm` was invoked from.
+ *
+ * `undefined` when there is no workspace root above this module or no `.env` in
+ * it, which is the ordinary case on a Remote Box: there, every setting is a
+ * real environment variable and the walk is expected to find nothing.
+ */
+const repoEnvPath = (): string | undefined => {
+  const repoRoot = findRepoRoot(import.meta.dirname);
+  if (repoRoot === undefined) return undefined;
+
+  const envPath = join(repoRoot, ".env");
+  return existsSync(envPath) ? envPath : undefined;
+};
+
+/**
+ * Minimal KEY=VALUE `.env` parse: every assignment in the file, in order,
+ * comments and blank lines skipped and one layer of matching quotes stripped.
+ *
+ * ONE parser, because the two callers below read the same file and any
+ * disagreement between them about what a line means is a setting that is
+ * visible to `cvm publish` and invisible to everything else (or the reverse).
+ */
+function* envEntries(envPath: string): Generator<readonly [string, string]> {
   const contents = readFileSync(envPath, "utf8");
+
   for (const rawLine of contents.split("\n")) {
     const line = rawLine.trim();
     if (line === "" || line.startsWith("#")) continue;
+
     const eq = line.indexOf("=");
     if (eq === -1) continue;
-    if (line.slice(0, eq).trim() !== key) continue;
+
+    const key = line.slice(0, eq).trim();
+    if (key === "") continue;
+
     let value = line.slice(eq + 1).trim();
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
@@ -61,7 +89,15 @@ const readEnvValue = (envPath: string, key: string): string | undefined => {
     ) {
       value = value.slice(1, -1);
     }
-    return value;
+
+    yield [key, value];
+  }
+}
+
+/** The first value `key` is assigned in the `.env` file at `envPath`. */
+const readEnvValue = (envPath: string, key: string): string | undefined => {
+  for (const [candidate, value] of envEntries(envPath)) {
+    if (candidate === key) return value;
   }
   return undefined;
 };
@@ -91,12 +127,8 @@ const resolveEnvKey = (key: string): string | undefined => {
   const existing = process.env[key];
   if (existing != null && existing !== "") return existing;
 
-  const moduleDir = dirname(fileURLToPath(import.meta.url));
-  const repoRoot = findRepoRoot(moduleDir);
-  if (repoRoot === undefined) return undefined;
-
-  const envPath = join(repoRoot, ".env");
-  if (!existsSync(envPath)) return undefined;
+  const envPath = repoEnvPath();
+  if (envPath === undefined) return undefined;
 
   const value = readEnvValue(envPath, key);
   return value === "" ? undefined : value;
@@ -161,8 +193,7 @@ export const ensureDatabaseUrl = (): EnsureDatabaseUrlResult => {
     return { ok: true, databaseUrl: existing };
   }
 
-  const moduleDir = dirname(fileURLToPath(import.meta.url));
-  const repoRoot = findRepoRoot(moduleDir);
+  const repoRoot = findRepoRoot(import.meta.dirname);
   if (repoRoot === undefined) {
     return {
       ok: false,
@@ -216,34 +247,15 @@ export const ensureDatabaseUrl = (): EnsureDatabaseUrlResult => {
  * absent surfaces as its own Config error when Publish actually reads it.
  */
 export const loadRepoEnv = (): void => {
-  const moduleDir = dirname(fileURLToPath(import.meta.url));
-  const repoRoot = findRepoRoot(moduleDir);
-  if (repoRoot === undefined) return;
+  const envPath = repoEnvPath();
+  if (envPath === undefined) return;
 
-  const envPath = join(repoRoot, ".env");
-  if (!existsSync(envPath)) return;
-
-  let contents: string;
   try {
-    contents = readFileSync(envPath, "utf8");
-  } catch {
-    return;
-  }
-
-  for (const rawLine of contents.split("\n")) {
-    const line = rawLine.trim();
-    if (line === "" || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
-    if (eq === -1) continue;
-    const key = line.slice(0, eq).trim();
-    if (key === "" || process.env[key] != null) continue;
-    let value = line.slice(eq + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
+    for (const [key, value] of envEntries(envPath)) {
+      if (process.env[key] == null) process.env[key] = value;
     }
-    process.env[key] = value;
+  } catch {
+    // Best-effort: an unreadable `.env` leaves every setting to surface as its
+    // own Config error when Publish actually reads it.
   }
 };

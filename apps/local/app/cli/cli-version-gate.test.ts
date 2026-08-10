@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@cvm/core/rpc/schema-version";
+import type { SchemaVersionClaim } from "./rpc-client";
 import * as schema from "@/db/schema";
 import {
   createTestDb,
@@ -25,8 +26,8 @@ import {
 
 let testDb: TestDb;
 
-/** A `cvm` that claims to have been built against `version` migrations. */
-const runAt = (schemaVersion: number | null) =>
+/** A `cvm` that claims to have been built against `schemaVersion` migrations. */
+const runAt = (schemaVersion: SchemaVersionClaim) =>
   makeRun(buildWriteLayer(testDb, { schemaVersion }));
 
 /** The suite's default run(): a CLI from this very checkout. */
@@ -77,7 +78,7 @@ describe("a CLI built against a different schema", () => {
   });
 
   it("is refused when it states no version at all", async () => {
-    const result = await runAt(null)(["video", "get", videoId]);
+    const result = await runAt("unstated")(["video", "get", videoId]);
 
     expect(result.exitCode).toBe(6);
     expect(failureOf(result)._tag).toBe("SchemaVersionMismatchError");

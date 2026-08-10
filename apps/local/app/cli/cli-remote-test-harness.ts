@@ -5,6 +5,7 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import * as schema from "@/db/schema";
 import { Layer, ManagedRuntime } from "effect";
 import type { TestDb } from "@/test-utils/pglite";
+import type { SchemaVersionClaim } from "./rpc-client";
 import { makeRemoteLayer, type RemoteServices } from "./rpc-layer";
 
 /**
@@ -87,11 +88,11 @@ export interface RemoteHarnessOptions {
   readonly token?: string;
   /**
    * Claim to have been built against this schema version instead of this
-   * checkout's own. The version-gate tests pass an older, a newer and no
-   * version at all; every other suite leaves it alone and is therefore a CLI
-   * and an API cut from the same commit, which is what production is.
+   * checkout's own. The version-gate tests pass an older, a newer and
+   * `"unstated"`; every other suite leaves it alone and is therefore a CLI and
+   * an API cut from the same commit, which is what production is.
    */
-  readonly schemaVersion?: number | null;
+  readonly schemaVersion?: SchemaVersionClaim;
 }
 
 /** Build the CLI's HTTP-backed services against `db`. */
@@ -103,7 +104,5 @@ export const buildRemoteLayer = (
     baseUrl: TEST_API_BASE_URL,
     token: options.token ?? HARNESS_TOKEN.secret,
     fetch: makeAppFetch(db, options.token === undefined),
-    ...(options.schemaVersion === undefined
-      ? {}
-      : { schemaVersion: options.schemaVersion }),
+    schemaVersion: options.schemaVersion,
   });

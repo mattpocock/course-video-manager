@@ -36,23 +36,32 @@ export interface RpcClientConfig {
    */
   readonly fetch?: typeof globalThis.fetch;
   /**
-   * The schema version this checkout was built against. Defaults to THIS
-   * checkout's, which is the only value production ever uses.
+   * What this client claims it was built against. Omitted — the only thing
+   * production ever does — it claims THIS checkout's schema version.
    *
    * It is settable only so a test can be an older or newer checkout than the
-   * app it is calling — in the monorepo both ends read the same journal, so
+   * app it is calling: in the monorepo both ends read the same journal, so
    * every request would otherwise match and the gate would never be exercised.
-   * `null` states nothing at all, the way a CLI built before the gate existed
-   * would.
    */
-  readonly schemaVersion?: number | null;
+  readonly schemaVersion?: SchemaVersionClaim;
 }
+
+/**
+ * What a client says about the schema it was built against: a version, or
+ * `"unstated"` — the way a `cvm` built before the gate existed says nothing at
+ * all, and the case the gate must still refuse.
+ *
+ * A named union rather than `number | null | undefined`, because that spelling
+ * put THREE meanings on one optional field ("this checkout", "nothing at all",
+ * "this number") and left every reader of it comparing against `undefined` to
+ * work out which was meant.
+ */
+export type SchemaVersionClaim = number | "unstated";
 
 export type RpcClient = ReturnType<typeof hc<RemoteApp>>;
 
 export const makeRpcClient = (config: RpcClientConfig): RpcClient => {
-  const schemaVersion =
-    config.schemaVersion === undefined ? SCHEMA_VERSION : config.schemaVersion;
+  const claim: SchemaVersionClaim = config.schemaVersion ?? SCHEMA_VERSION;
 
   return hc<RemoteApp>(config.baseUrl, {
     ...(config.fetch ? { fetch: config.fetch } : {}),
@@ -61,9 +70,9 @@ export const makeRpcClient = (config: RpcClientConfig): RpcClient => {
       // Stated on EVERY request rather than negotiated once: there is no
       // session here, and a per-request header is what lets a deploy that
       // lands mid-command be caught by the next one.
-      ...(schemaVersion === null
+      ...(claim === "unstated"
         ? {}
-        : { [SCHEMA_VERSION_HEADER]: String(schemaVersion) }),
+        : { [SCHEMA_VERSION_HEADER]: String(claim) }),
     },
   });
 };

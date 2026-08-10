@@ -1,5 +1,6 @@
 import { SchemaVersionMismatchError } from "@cvm/core/rpc/rpc-errors";
 import {
+  parseSchemaVersionHeader,
   SCHEMA_VERSION,
   SCHEMA_VERSION_HEADER,
   schemaVersionMismatchMessage,
@@ -29,9 +30,9 @@ import type { MiddlewareHandler } from "hono";
  */
 export const requireSchemaVersion =
   (): MiddlewareHandler => async (c, next) => {
-    const raw = c.req.header(SCHEMA_VERSION_HEADER);
-    const parsed = raw === undefined ? Number.NaN : Number(raw);
-    const cliVersion = Number.isInteger(parsed) ? parsed : null;
+    const cliVersion = parseSchemaVersionHeader(
+      c.req.header(SCHEMA_VERSION_HEADER)
+    );
 
     if (cliVersion === SCHEMA_VERSION) return next();
 
