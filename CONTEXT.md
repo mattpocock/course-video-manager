@@ -335,3 +335,13 @@ _Avoid_: Broken dependency, Invalid order
 **Dependency Group**:
 A maximal run of _contiguous_ lessons within one **Section**, in display order, chained by **Lesson Dependencies**: walking top-to-bottom, a lesson joins the group iff it directly depends on a lesson already in it. Purely within-section, contiguous, directed-backward — gap-spanning or forward (**Order Violation**) dependencies are not represented. Shown as dashed lines between adjacent lesson icons (a group of one shows none); suppressed while a search/filter is active. Read-only visual grouping, distinct from **Section**.
 _Avoid_: Dependency block, Cluster, Chain, Lesson group
+
+### Remote access
+
+**API Token**:
+A bearer credential the author mints from the local UI so that a machine other than theirs can reach the domain data through `cvm`. Carries a human **name** (which box it is on), an **expiry** (default 90 days), and a **revocation** the author can apply at any moment; its **last used** timestamp is what makes a forgotten token findable. Only its SHA-256 is stored — the secret is shown once, at mint time, and the copy on the box is then the only one in existence. Unscoped in version one: a token grants every operation the RPC surface exposes.
+_Avoid_: API key, Password, Secret (unqualified)
+
+**Remote Box**:
+Any machine that is not the author's, running `cvm` against the deployed API with an **API Token** and no database connection string. It reaches whichever verbs the RPC surface has grown so far, and can never do anything that needs the author's machine — the finished videos directory, the Video Files directory, ffmpeg, OBS.
+_Avoid_: Server, Agent machine
