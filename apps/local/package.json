@@ -21,13 +21,10 @@
     "start:stream-deck-forwarder": "tsx stream-deck-forwarder/run-stream-deck-forwarder.ts",
     "typecheck": "react-router typegen && tsgo",
     "lint:boundaries": "depcruise app/packages",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
     "db:baseline": "tsx scripts/baseline-migrations.ts",
     "db:verify-features": "tsx scripts/verify-schema-features.ts",
     "db:backfill-search-text": "tsx scripts/backfill-search-text.ts",
     "gen:lucide-icons": "tsx scripts/generate-lucide-icons.ts",
-    "db:studio": "drizzle-kit studio",
     "db:clone-local": "./scripts/clone-db-to-local.sh"
   },
   "dependencies": {

@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsgo",
-    "lint:boundaries": "depcruise app.ts auth.ts index.ts runtime.ts routes"
+    "lint:boundaries": "depcruise app.ts auth.ts index.ts runtime.ts version.ts routes",
+    "vercel-build": "pnpm --filter @cvm/core run db:migrate"
   },
   "dependencies": {
     "@cvm/core": "workspace:*",

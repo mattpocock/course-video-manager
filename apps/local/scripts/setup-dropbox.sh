@@ -259,19 +259,13 @@ strip_env DROPBOX_PATH        # renamed → DROPBOX_REMOTE_PATH
 strip_env PUBLISH_STAGING_DIR # removed with the FS-transport staging machinery
 pause
 
-# ── Stage 4: run the DB migration for the token table ──────────────────────
-stage "Run the dropbox_auth migration" 1
-say "The OAuth tokens are stored in a new 'dropbox_auth' table (migration 0007)."
-step "This runs: pnpm db:migrate   (in $CVM_DIR)"
-if confirm "Run the migration now?"; then
-  ( cd "$CVM_DIR" && pnpm db:migrate ) \
-    && printf '  %s✓ migration applied%s\n' "$GREEN" "$RESET" \
-    || { warn "migration failed — run 'pnpm db:migrate' by hand in $CVM_DIR"; \
-         SKIPPED+=("run 'pnpm db:migrate' in $CVM_DIR"); }
-else
-  note "skipped — run 'pnpm db:migrate' yourself before publishing."
-  SKIPPED+=("run 'pnpm db:migrate' in $CVM_DIR")
-fi
+# ── Stage 4: the dropbox_auth migration ────────────────────────────────────
+stage "The dropbox_auth migration" 0
+say "The OAuth tokens are stored in a 'dropbox_auth' table (migration 0007)."
+note "Nothing to do here. The database is hosted, and migrations are applied by"
+note "the apps/remote deploy and by nothing else — two writers racing to alter"
+note "the production schema is exactly what that rule prevents. If this table is"
+note "somehow missing, deploy apps/remote rather than migrating from here."
 pause
 
 # ── Stage 5: connect the Dropbox account via OAuth ─────────────────────────

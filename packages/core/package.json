@@ -11,7 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsgo",
-    "lint:boundaries": "depcruise db lib features services test-utils"
+    "lint:boundaries": "depcruise db lib features rpc services test-utils",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.3",

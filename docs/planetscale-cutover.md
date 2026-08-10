@@ -10,11 +10,11 @@ alongside for at least a week — reverting is one environment variable.
 
 Two, not one:
 
-| Variable              | Points at              | Used by                          |
-| --------------------- | ---------------------- | -------------------------------- |
-| `DATABASE_URL`        | the pooler (PgBouncer) | every application query          |
-| `DIRECT_DATABASE_URL` | the primary            | `db:migrate`, `db:baseline`, and |
-|                       |                        | `db:verify-features`             |
+| Variable              | Points at              | Used by                             |
+| --------------------- | ---------------------- | ----------------------------------- |
+| `DATABASE_URL`        | the pooler (PgBouncer) | every application query             |
+| `DIRECT_DATABASE_URL` | the primary            | the deploy's migrate step,          |
+|                       |                        | `db:baseline`, `db:verify-features` |
 
 A transaction-mode pooler cannot carry session-level DDL state, so migrations
 must bypass it. `DIRECT_DATABASE_URL` is optional and falls back to
@@ -27,10 +27,12 @@ must bypass it. `DIRECT_DATABASE_URL` is optional and falls back to
    retained 30 days. Daily, not weekly: a weekly schedule means replaying up to
    seven days of WAL on restore, which takes hours.
 
-2. **Run the migrations** against the new branch with `DIRECT_DATABASE_URL` set:
+2. **Run the migrations** against the new branch with `DIRECT_DATABASE_URL` set.
+   This is the one time they are applied by hand — from here on it is the
+   `apps/remote` deploy's `vercel-build` step and nothing else:
 
    ```sh
-   pnpm run db:migrate
+   pnpm --filter @cvm/core run db:migrate
    ```
 
 3. **Verify the risky schema features by hand.** PlanetScale documents

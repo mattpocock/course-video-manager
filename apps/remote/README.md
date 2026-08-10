@@ -15,6 +15,7 @@ revoke in one click, not full database credentials.
 | `index.ts`   | The Vercel entry point. Default-exports the app; nothing else.                                                                 |
 | `app.ts`     | The verb groups, mounted. `RemoteApp` is the type the CLI's client is built from.                                              |
 | `auth.ts`    | Bearer authentication. One answer for every way a token can be no good.                                                        |
+| `version.ts` | The version gate: a caller built against another schema is refused outright, with both numbers and the word "pull".            |
 | `runtime.ts` | The single module-scope `ManagedRuntime`.                                                                                      |
 | `rpc.ts`     | The Effect/HTTP boundary: an Effect's two channels become the envelope, and `forward`, which is every route.                   |
 | `routes/`    | One file per domain noun: `course`, `version`, `section`, `lesson`, `video`, `clip`, `beat`, `pitch`, `deliverable`, `search`. |
@@ -46,6 +47,17 @@ copy of a signature TypeScript already checks twice is the copy that drifts.
 `routes/search.ts` is the one exception: its `types` parameter is a `Set`, and a
 `Set` is not JSON.
 
+**This app runs the migrations, and nothing else does.** `vercel-build` applies
+them through `DIRECT_DATABASE_URL` before the functions are built, so there is
+exactly one writer against the production schema — the deploy. Nothing above
+`packages/core` wires `db:migrate` up; generating a migration stays an authoring
+step on the author's machine (`pnpm db:generate`).
+
+The consequence is a rule, not a preference: **migrations are additive-only**.
+No dropped or renamed column without a two-step release, because a `cvm` command
+may be in flight on some box while a deploy lands. The version gate is what
+catches that box's NEXT command; it does nothing for the one already running.
+
 **Routes stay chained, groups stay mounted.** Each `routes/*.ts` returns one
 chained `new Hono()...` expression, and `app.ts` mounts it with `.route()`,
 because that is what carries the route types out through `RemoteApp`.
@@ -63,6 +75,9 @@ adapter, no `api/` directory and no Vercel adapter package in `package.json`.
 Set no Ignored Build Step: Vercel's built-in unaffected-project skipping is what
 stops a filming-related commit in `apps/local` triggering an API deploy, and
 unlike `turbo-ignore` it does not consume a concurrent build slot.
+
+The `vercel-build` script takes precedence over the preset's own build command,
+and it is where the migrations run.
 
 Environment: `DATABASE_URL` (the pooled PlanetScale string) and
 `DIRECT_DATABASE_URL` (direct to primary, for migrations).

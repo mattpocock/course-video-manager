@@ -48,13 +48,15 @@ build slot. If a custom step is ever needed it is `turbo query affected`.
 
 ## Database migrations
 
-Schema changes are managed with **drizzle-kit generate / migrate** (versioned SQL files), not `push`.
+Schema changes are managed with **drizzle-kit generate / migrate** (versioned SQL files), not `push`. The schema, the migrations and the drizzle config all live in `packages/core`.
 
 ### Making a schema change
 
 1. Edit `packages/core/db/schema.ts`.
 2. `pnpm db:generate` — creates a new numbered `.sql` file under `packages/core/db/migrations/`.
-3. `pnpm db:migrate` — applies any pending migrations to the local database.
+3. Commit it and deploy `apps/remote`. **Applying migrations is the deploy's job and nobody else's** — there is deliberately no `pnpm db:migrate`, because two writers altering the production schema at once is the failure that rule prevents. See `apps/remote/README.md`.
+
+Migrations are **additive-only**: no dropped or renamed columns without a two-step release. A `cvm` invocation may be in flight while a deploy lands, and it is the additive rule — not the version gate — that keeps that from breaking. The version gate refuses the box's _next_ command, naming both migration counts and telling it to pull (`packages/core/rpc/schema-version.ts`).
 
 ### First-time setup on an existing database
 
@@ -64,14 +66,13 @@ If the database was originally created via `drizzle-kit push` and has never run 
 pnpm db:baseline
 ```
 
-This registers the `0000` baseline migration as already-applied so `db:migrate` won't replay the initial `CREATE TABLE` statements.
+This registers the `0000` baseline migration as already-applied so the deploy's migrate step won't replay the initial `CREATE TABLE` statements.
 
 ### Scripts
 
 | Script             | Description                                          |
 | ------------------ | ---------------------------------------------------- |
 | `pnpm db:generate` | Generate a new migration from schema changes         |
-| `pnpm db:migrate`  | Apply pending migrations to the database             |
 | `pnpm db:baseline` | Mark the `0000` baseline as applied (one-time setup) |
 | `pnpm db:studio`   | Open Drizzle Studio                                  |
 
