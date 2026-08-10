@@ -506,6 +506,7 @@ export const coursesRelations = relations(courses, ({ many }) => ({
 }));
 
 export { youtubeAuth, aiHeroAuth, dropboxAuth } from "./schema-auth";
+export { apiTokens } from "./schema-api-token";
 
 // Global links table for article writing
 export const links = createTable("link", {
