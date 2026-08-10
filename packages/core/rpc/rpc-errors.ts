@@ -25,6 +25,23 @@ export class TransportError extends Data.TaggedError("TransportError")<{
   readonly message: string;
 }> {}
 
+/**
+ * The CLI's checkout and the deployed app were built against different
+ * schemas. Its own tag, not folded into TransportError: a transport failure
+ * says "try again later, same everything", and this says "this box is out of
+ * date and will keep failing until it is updated". Carries both numbers as
+ * fields as well as in the message, so a caller can act on either.
+ */
+export class SchemaVersionMismatchError extends Data.TaggedError(
+  "SchemaVersionMismatchError"
+)<{
+  readonly message: string;
+  /** What the caller said it was built against; null when it said nothing. */
+  readonly cliVersion: number | null;
+  /** What the deployed app is on. */
+  readonly apiVersion: number;
+}> {}
+
 /** The CLI has no API base URL / token to work with. */
 export class ConfigurationError extends Data.TaggedError("ConfigurationError")<{
   readonly message: string;

@@ -2,6 +2,7 @@ import * as DomainErrors from "../services/db-service-errors";
 import {
   AuthenticationError,
   ConfigurationError,
+  SchemaVersionMismatchError,
   TransportError,
 } from "./rpc-errors";
 
@@ -41,6 +42,7 @@ const ERROR_CONSTRUCTORS: Record<
   AuthenticationError,
   TransportError,
   ConfigurationError,
+  SchemaVersionMismatchError,
   NotFoundError: DomainErrors.NotFoundError,
   UnknownDBServiceError: DomainErrors.UnknownDBServiceError,
   NotLatestVersionError: DomainErrors.NotLatestVersionError,

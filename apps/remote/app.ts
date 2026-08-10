@@ -11,6 +11,7 @@ import { sectionRoutes } from "./routes/section";
 import { versionRoutes } from "./routes/version";
 import { videoRoutes } from "./routes/video";
 import { remoteRuntime, type RemoteRuntime } from "./runtime";
+import { requireSchemaVersion } from "./version";
 
 /**
  * The deployed RPC API.
@@ -33,9 +34,13 @@ export const createApp = (runtime: RemoteRuntime) =>
     // Unauthenticated on purpose: it answers nothing about the domain, and a
     // weekly ping is what stops Vercel archiving the function.
     .get("/health", (c) => c.json({ ok: true as const }))
-    // Registered BEFORE the groups so it covers every one of them, including
+    // Registered BEFORE the groups so they cover every one of them, including
     // any added later — which is what the wildcard is for.
+    //
+    // Authentication comes FIRST: a caller that cannot prove who it is learns
+    // nothing at all, not even which schema this app is on.
     .use("/rpc/*", authenticate(runtime))
+    .use("/rpc/*", requireSchemaVersion())
     .route("/rpc/search", searchRoutes(runtime))
     .route("/rpc/course", courseRoutes(runtime))
     .route("/rpc/version", versionRoutes(runtime))

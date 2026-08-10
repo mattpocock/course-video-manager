@@ -2,8 +2,13 @@ import type { RemoteApp } from "@cvm/remote/app";
 import {
   AUTHENTICATION_FAILED_MESSAGE,
   AuthenticationError,
+  SchemaVersionMismatchError,
   TransportError,
 } from "@cvm/core/rpc/rpc-errors";
+import {
+  SCHEMA_VERSION,
+  SCHEMA_VERSION_HEADER,
+} from "@cvm/core/rpc/schema-version";
 import { decodeRpcError, isRpcFailure } from "@cvm/core/rpc/wire";
 import { Effect } from "effect";
 import { hc } from "hono/client";
@@ -30,20 +35,43 @@ export interface RpcClientConfig {
    * auth, Effect service, database — runs with no server and no port.
    */
   readonly fetch?: typeof globalThis.fetch;
+  /**
+   * The schema version this checkout was built against. Defaults to THIS
+   * checkout's, which is the only value production ever uses.
+   *
+   * It is settable only so a test can be an older or newer checkout than the
+   * app it is calling — in the monorepo both ends read the same journal, so
+   * every request would otherwise match and the gate would never be exercised.
+   * `null` states nothing at all, the way a CLI built before the gate existed
+   * would.
+   */
+  readonly schemaVersion?: number | null;
 }
 
 export type RpcClient = ReturnType<typeof hc<RemoteApp>>;
 
-export const makeRpcClient = (config: RpcClientConfig): RpcClient =>
-  hc<RemoteApp>(config.baseUrl, {
+export const makeRpcClient = (config: RpcClientConfig): RpcClient => {
+  const schemaVersion =
+    config.schemaVersion === undefined ? SCHEMA_VERSION : config.schemaVersion;
+
+  return hc<RemoteApp>(config.baseUrl, {
     ...(config.fetch ? { fetch: config.fetch } : {}),
-    headers: { authorization: `Bearer ${config.token}` },
+    headers: {
+      authorization: `Bearer ${config.token}`,
+      // Stated on EVERY request rather than negotiated once: there is no
+      // session here, and a per-request header is what lets a deploy that
+      // lands mid-command be caught by the next one.
+      ...(schemaVersion === null
+        ? {}
+        : { [SCHEMA_VERSION_HEADER]: String(schemaVersion) }),
+    },
   });
+};
 
 /**
  * A domain service's method, as it behaves once it is a network call away.
  *
- * Same arguments, same success value, same domain failures — plus the two the
+ * Same arguments, same success value, same domain failures — plus the three the
  * wire adds. Building each RPC-backed method against this (`satisfies
  * RemoteService<T>` in ./rpc-layer.ts) is what makes a service signature
  * changing in `@cvm/core` a COMPILE ERROR in the CLI's client, rather than an
@@ -52,8 +80,12 @@ export const makeRpcClient = (config: RpcClientConfig): RpcClient =>
 type RemoteMethod<F> = F extends (
   ...args: infer A
 ) => Effect.Effect<infer R, infer E, infer _C>
-  ? (...args: A) => Effect.Effect<R, E | AuthenticationError | TransportError>
+  ? (...args: A) => Effect.Effect<R, E | WireError>
   : F;
+
+/** What talking over a wire adds to every domain method's failure channel. */
+type WireError =
+  AuthenticationError | SchemaVersionMismatchError | TransportError;
 
 /**
  * The RPC-backed shape of a domain service. PARTIAL on purpose: the API
@@ -98,21 +130,24 @@ const wireArgs = (args: ReadonlyArray<unknown>): ReadonlyArray<unknown> => {
  * Turn one client call into an Effect, restoring the failure channel the
  * service had when it ran in-process.
  *
- * Three failure shapes, three tags, deliberately kept apart:
+ * Four failure shapes, four tags, deliberately kept apart:
  *   - the API could not be reached / did not answer JSON -> TransportError
  *   - the API rejected the credentials (401)             -> AuthenticationError
+ *   - the API is on another schema (409)                 -> SchemaVersionMismatchError
  *   - the domain said no                                 -> its own tag, rebuilt
  *
- * That separation is the point: "your token expired" and "that Video does not
- * exist" need completely different actions, and an agent that confuses them
- * retries forever.
+ * That separation is the point: "your token expired", "this box is out of date"
+ * and "that Video does not exist" need completely different actions, and an
+ * agent that confuses them retries forever. Only the 401 needs special-casing
+ * here — its body is deliberately uninformative — while the version mismatch
+ * arrives as an ordinary tagged failure and rebuilds itself like any other.
  */
 export const callRpc = <A>(
   send: (
     json: ReadonlyArray<unknown>
   ) => Promise<ClientResponse<unknown, number, "json">>,
   ...args: ReadonlyArray<unknown>
-): Effect.Effect<A, AuthenticationError | TransportError> =>
+): Effect.Effect<A, WireError> =>
   Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
       try: () => send(wireArgs(args)),

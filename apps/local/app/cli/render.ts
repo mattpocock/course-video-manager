@@ -11,10 +11,11 @@ import { CliOutput } from "./output";
  * VALUE — process.exit happens only at the bin edge (see ./bin.mjs).
  *
  * Tag -> exit code:
- *   NotFoundError        -> 2
- *   ParseError           -> 3
- *   DatabaseError        -> 4
- *   AuthenticationError  -> 5
+ *   NotFoundError               -> 2
+ *   ParseError                  -> 3
+ *   DatabaseError               -> 4
+ *   AuthenticationError         -> 5
+ *   SchemaVersionMismatchError  -> 6
  *   (@effect/cli ValidationError, bad input) -> 3
  *   (defect / unknown tag / die)             -> 4 (rendered as DatabaseError)
  *
@@ -48,6 +49,10 @@ const EXIT_CODES: Record<string, number> = {
   // The API could not be reached, or answered with something unreadable —
   // an internal failure like any other, so exit 4.
   TransportError: 4,
+  // This checkout and the deployed API were built against different schemas.
+  // Its own code because the fix is neither "retry" nor "get a new token": it
+  // is `git pull` on this box, and the message says so with both numbers in it.
+  SchemaVersionMismatchError: 6,
   // CVM_API_URL / CVM_API_TOKEN are missing. Same class as a missing
   // DATABASE_URL always was: exit 4.
   ConfigurationError: 4,

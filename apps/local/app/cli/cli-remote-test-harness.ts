@@ -85,6 +85,13 @@ export interface RemoteHarnessOptions {
    * tokens sees only the ones it minted.
    */
   readonly token?: string;
+  /**
+   * Claim to have been built against this schema version instead of this
+   * checkout's own. The version-gate tests pass an older, a newer and no
+   * version at all; every other suite leaves it alone and is therefore a CLI
+   * and an API cut from the same commit, which is what production is.
+   */
+  readonly schemaVersion?: number | null;
 }
 
 /** Build the CLI's HTTP-backed services against `db`. */
@@ -96,4 +103,7 @@ export const buildRemoteLayer = (
     baseUrl: TEST_API_BASE_URL,
     token: options.token ?? HARNESS_TOKEN.secret,
     fetch: makeAppFetch(db, options.token === undefined),
+    ...(options.schemaVersion === undefined
+      ? {}
+      : { schemaVersion: options.schemaVersion }),
   });
