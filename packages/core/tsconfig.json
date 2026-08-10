@@ -1,0 +1,20 @@
+{
+  "include": ["**/*"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": ["node"],
+    "target": "ESNext",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}

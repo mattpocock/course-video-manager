@@ -1,0 +1,84 @@
+{
+  "include": [
+    "**/*",
+    "**/.server/**/*",
+    "**/.client/**/*",
+    ".react-router/types/**/*"
+  ],
+  "exclude": ["node_modules", "standalone-video-files", "video-files", "build"],
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "types": ["node", "vite/client"],
+    "target": "ESNext",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "noUncheckedIndexedAccess": true,
+    "jsx": "react-jsx",
+    "rootDirs": [".", "./.react-router/types"],
+    "paths": {
+      "@cvm/core/*": ["../../packages/core/*"],
+
+      // The domain database lives in `packages/core` now. Rather than rewrite
+      // ~160 import lines, the aliases the app has always imported through are
+      // repointed at the package: this was a file move, not a semantic change.
+      // TypeScript picks the LONGEST matching prefix, so these win over the
+      // `@/*` catch-all below. Anything in core with no alias here is reached
+      // as `@cvm/core/...`.
+      "@/db/*": ["../../packages/core/db/*"],
+      "@/services/db-*": ["../../packages/core/services/db-*"],
+      "@/services/drizzle-service.server": [
+        "../../packages/core/services/drizzle-service.server"
+      ],
+      "@/services/with-db-transaction.server": [
+        "../../packages/core/services/with-db-transaction.server"
+      ],
+      "@/services/draft-guard.server": [
+        "../../packages/core/services/draft-guard.server"
+      ],
+      "@/services/diagram-thumbnail-store": [
+        "../../packages/core/services/diagram-thumbnail-store"
+      ],
+      "@/services/path-projection": [
+        "../../packages/core/services/path-projection"
+      ],
+      "@/services/lesson-path-service": [
+        "../../packages/core/services/lesson-path-service"
+      ],
+      "@/services/section-path-service": [
+        "../../packages/core/services/section-path-service"
+      ],
+      "@/services/lesson-authoring-status": [
+        "../../packages/core/services/lesson-authoring-status"
+      ],
+      "@/services/version-not-draft-message": [
+        "../../packages/core/services/version-not-draft-message"
+      ],
+      "@/services/path-uniqueness-test-helpers": [
+        "../../packages/core/services/path-uniqueness-test-helpers"
+      ],
+      "@/lib/sort-by-order": ["../../packages/core/lib/sort-by-order"],
+      "@/lib/scene-hash": ["../../packages/core/lib/scene-hash"],
+      "@/lib/transcript-builder": [
+        "../../packages/core/lib/transcript-builder"
+      ],
+      "@/features/videos/video-format": [
+        "../../packages/core/features/videos/video-format"
+      ],
+      "@/features/videos/clip-zoom": [
+        "../../packages/core/features/videos/clip-zoom"
+      ],
+      "@/test-utils/pglite": ["../../packages/core/test-utils/pglite"],
+
+      "@/*": ["./app/*"],
+      "*": ["./*"]
+    },
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}

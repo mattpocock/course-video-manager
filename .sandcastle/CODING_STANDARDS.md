@@ -6,7 +6,7 @@ Optional parameters passed to functions should be scrutinised extremely carefull
 
 ---
 
-All files in `./app/routes` will be exposed publicly as routes. Do not include test files or utility files there.
+All files in `apps/local/app/routes` will be exposed publicly as routes. Do not include test files or utility files there.
 
 ---
 

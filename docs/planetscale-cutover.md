@@ -19,7 +19,7 @@ Two, not one:
 A transaction-mode pooler cannot carry session-level DDL state, so migrations
 must bypass it. `DIRECT_DATABASE_URL` is optional and falls back to
 `DATABASE_URL` — a local container has no pooler, so it stays unset there
-(`app/db/database-url.ts`).
+(`packages/core/db/database-url.ts`).
 
 ## Steps
 

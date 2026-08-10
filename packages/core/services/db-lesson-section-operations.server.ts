@@ -1,0 +1,517 @@
+import { DrizzleService, type Database } from "./drizzle-service.server";
+import { lessons, sections, videos } from "../db/schema";
+import {
+  NotFoundError,
+  UnknownDBServiceError,
+  SectionPathTakenError,
+  LessonPathTakenError,
+} from "./db-service-errors";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { Effect } from "effect";
+import type { AuthoringStatus } from "./lesson-authoring-status";
+import { parseLessonPath } from "./lesson-path-service";
+import { parseSectionPath } from "./section-path-service";
+import {
+  requireDraftVersion,
+  requireDraftVersionForLesson,
+  requireDraftVersionForLessons,
+  requireDraftVersionForSection,
+  requireDraftVersionForSections,
+} from "./draft-guard.server";
+import { transactionalizeWrites } from "./with-db-transaction.server";
+
+const makeDbCall = <T>(fn: () => Promise<T>) => {
+  return Effect.tryPromise({
+    try: fn,
+    catch: (e) => new UnknownDBServiceError({ cause: e }),
+  });
+};
+
+/**
+ * Recovers a title from a freshly-created section/lesson directory name so the
+ * title-driven path projection can reproduce that folder on read. A numbered
+ * path ("01-intro" / "01.03-hooks") yields its slug segment ("intro" /
+ * "hooks"); a raw name ("My Section") is kept verbatim.
+ * Mirrors the section-title backfill for rows created after that ran.
+ */
+const titleFromSectionPathWithNumber = (pathWithNumber: string): string =>
+  parseSectionPath(pathWithNumber)?.slug ?? pathWithNumber;
+
+const titleFromLessonPathWithNumber = (pathWithNumber: string): string =>
+  parseLessonPath(pathWithNumber)?.slug ?? pathWithNumber;
+
+const createLessonSectionOperationsUnwrapped = (db: Database) => {
+  const getLessonById = Effect.fn("getLessonById")(function* (id: string) {
+    const lesson = yield* makeDbCall(() =>
+      db.query.lessons.findFirst({
+        where: eq(lessons.id, id),
+        with: {
+          videos: {
+            orderBy: asc(videos.title),
+          },
+        },
+      })
+    );
+
+    if (!lesson) {
+      return yield* new NotFoundError({
+        type: "getLessonById",
+        params: { id },
+      });
+    }
+
+    return lesson;
+  });
+
+  const getLessonsBySectionId = Effect.fn("getLessonsBySectionId")(function* (
+    sectionId: string
+  ) {
+    return yield* makeDbCall(() =>
+      db.query.lessons.findMany({
+        where: and(
+          eq(lessons.sectionId, sectionId),
+          eq(lessons.archived, false)
+        ),
+        orderBy: asc(lessons.order),
+      })
+    );
+  });
+
+  const getLessonWithHierarchyById = Effect.fn("getLessonWithHierarchyById")(
+    function* (id: string) {
+      const lesson = yield* makeDbCall(() =>
+        db.query.lessons.findFirst({
+          where: eq(lessons.id, id),
+          with: {
+            section: {
+              with: {
+                repoVersion: {
+                  with: {
+                    repo: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+      );
+
+      if (!lesson) {
+        return yield* new NotFoundError({
+          type: "getLessonWithHierarchyById",
+          params: { id },
+        });
+      }
+
+      return lesson;
+    }
+  );
+
+  const getSectionWithHierarchyById = Effect.fn("getSectionWithHierarchyById")(
+    function* (id: string) {
+      const section = yield* makeDbCall(() =>
+        db.query.sections.findFirst({
+          where: eq(sections.id, id),
+          with: {
+            repoVersion: {
+              with: {
+                repo: true,
+              },
+            },
+          },
+        })
+      );
+
+      if (!section) {
+        return yield* new NotFoundError({
+          type: "getSectionWithHierarchyById",
+          params: { id },
+        });
+      }
+
+      return section;
+    }
+  );
+
+  const createSections = Effect.fn("createSections")(function* ({
+    sections: newSections,
+    repoVersionId,
+  }: {
+    sections: {
+      sectionPathWithNumber: string;
+      sectionNumber: number;
+    }[];
+    repoVersionId: string;
+  }) {
+    yield* requireDraftVersion(db, repoVersionId);
+    const seen = new Set<string>();
+    for (const section of newSections) {
+      if (seen.has(section.sectionPathWithNumber)) {
+        return yield* new SectionPathTakenError({
+          path: section.sectionPathWithNumber,
+          message: `Section name "${section.sectionPathWithNumber}" is already taken in this version`,
+        });
+      }
+      seen.add(section.sectionPathWithNumber);
+    }
+
+    const sectionResult = yield* makeDbCall(() =>
+      db
+        .insert(sections)
+        .values(
+          newSections.map((section) => ({
+            repoVersionId,
+            title: titleFromSectionPathWithNumber(
+              section.sectionPathWithNumber
+            ),
+            order: section.sectionNumber,
+          }))
+        )
+        .returning()
+    );
+
+    return sectionResult;
+  });
+
+  const createLessons = Effect.fn("createLessons")(function* (
+    sectionId: string,
+    newLessons: {
+      lessonPathWithNumber: string;
+      lessonNumber: number;
+    }[]
+  ) {
+    yield* requireDraftVersionForSection(db, sectionId);
+    const seen = new Set<string>();
+    for (const lesson of newLessons) {
+      if (seen.has(lesson.lessonPathWithNumber)) {
+        return yield* new LessonPathTakenError({
+          path: lesson.lessonPathWithNumber,
+          message: `Lesson name "${lesson.lessonPathWithNumber}" is already taken in this section`,
+        });
+      }
+      seen.add(lesson.lessonPathWithNumber);
+    }
+
+    const lessonResult = yield* makeDbCall(() =>
+      db
+        .insert(lessons)
+        .values(
+          newLessons.map((lesson) => ({
+            sectionId,
+            // Seed title from the folder name so the derived path reproduces it.
+            title: titleFromLessonPathWithNumber(lesson.lessonPathWithNumber),
+            order: lesson.lessonNumber,
+            authoringStatus: "todo" satisfies AuthoringStatus,
+          }))
+        )
+        .returning()
+    );
+
+    return lessonResult;
+  });
+
+  const createLesson = Effect.fn("createLesson")(function* (
+    sectionId: string,
+    opts: {
+      title: string;
+      order: number;
+    }
+  ) {
+    yield* requireDraftVersionForSection(db, sectionId);
+    const lessonResult = yield* makeDbCall(() =>
+      db
+        .insert(lessons)
+        .values({
+          sectionId,
+          title: opts.title,
+          order: opts.order,
+          authoringStatus: "todo",
+        })
+        .returning()
+    );
+
+    return lessonResult;
+  });
+
+  const updateLesson = Effect.fn("updateLesson")(function* (
+    lessonId: string,
+    lesson: {
+      sectionId?: string;
+      lessonNumber?: number;
+      title?: string;
+      description?: string;
+      dependencies?: string[];
+      icon?: string | null;
+      priority?: number;
+      authoringStatus?: string | null;
+    }
+  ) {
+    yield* requireDraftVersionForLesson(db, lessonId);
+    const lessonResult = yield* makeDbCall(() =>
+      db
+        .update(lessons)
+        .set({
+          sectionId: lesson.sectionId,
+          order: lesson.lessonNumber,
+          title: lesson.title,
+          description: lesson.description,
+          dependencies: lesson.dependencies,
+          icon: lesson.icon,
+          priority: lesson.priority,
+          authoringStatus: lesson.authoringStatus,
+        })
+        .where(eq(lessons.id, lessonId))
+    );
+
+    return lessonResult;
+  });
+
+  const deleteLesson = Effect.fn("deleteLesson")(function* (lessonId: string) {
+    yield* requireDraftVersionForLesson(db, lessonId);
+    const lessonResult = yield* makeDbCall(() =>
+      db.update(lessons).set({ archived: true }).where(eq(lessons.id, lessonId))
+    );
+
+    return lessonResult;
+  });
+
+  const deleteSection = Effect.fn("deleteSection")(function* (
+    sectionId: string
+  ) {
+    yield* requireDraftVersionForSection(db, sectionId);
+    const sectionResult = yield* makeDbCall(() =>
+      db.delete(sections).where(eq(sections.id, sectionId))
+    );
+
+    return sectionResult;
+  });
+
+  const archiveSection = Effect.fn("archiveSection")(function* (
+    sectionId: string
+  ) {
+    yield* requireDraftVersionForSection(db, sectionId);
+    return yield* makeDbCall(() =>
+      db
+        .update(sections)
+        .set({ archivedAt: new Date() })
+        .where(eq(sections.id, sectionId))
+    );
+  });
+
+  const updateSectionOrder = Effect.fn("updateSectionOrder")(function* (
+    sectionId: string,
+    order: number
+  ) {
+    yield* requireDraftVersionForSection(db, sectionId);
+    return yield* makeDbCall(() =>
+      db.update(sections).set({ order }).where(eq(sections.id, sectionId))
+    );
+  });
+
+  const updateSectionTitle = Effect.fn("updateSectionTitle")(function* (
+    sectionId: string,
+    title: string
+  ) {
+    yield* requireDraftVersionForSection(db, sectionId);
+    return yield* makeDbCall(() =>
+      db.update(sections).set({ title }).where(eq(sections.id, sectionId))
+    );
+  });
+
+  const updateSectionDescription = Effect.fn("updateSectionDescription")(
+    function* (sectionId: string, description: string) {
+      yield* requireDraftVersionForSection(db, sectionId);
+      return yield* makeDbCall(() =>
+        db
+          .update(sections)
+          .set({ description })
+          .where(eq(sections.id, sectionId))
+      );
+    }
+  );
+
+  const getSectionsByIds = Effect.fn("getSectionsByIds")(function* (
+    ids: readonly string[]
+  ) {
+    if (ids.length === 0) return [];
+    return yield* makeDbCall(() =>
+      db.query.sections.findMany({
+        where: inArray(sections.id, ids as string[]),
+        with: { lessons: { where: eq(lessons.archived, false) } },
+      })
+    );
+  });
+
+  const getSectionsByRepoVersionId = Effect.fn("getSectionsByRepoVersionId")(
+    function* (repoVersionId: string) {
+      return yield* makeDbCall(() =>
+        db.query.sections.findMany({
+          where: and(
+            eq(sections.repoVersionId, repoVersionId),
+            isNull(sections.archivedAt)
+          ),
+          orderBy: asc(sections.order),
+        })
+      );
+    }
+  );
+
+  /**
+   * Like getSectionsByRepoVersionId, but each section carries its lessons.
+   * Used to determine whether a
+   * section contains at least one lesson — never from its path prefix.
+   */
+  const getSectionsWithLessonsByRepoVersionId = Effect.fn(
+    "getSectionsWithLessonsByRepoVersionId"
+  )(function* (repoVersionId: string) {
+    return yield* makeDbCall(() =>
+      db.query.sections.findMany({
+        where: and(
+          eq(sections.repoVersionId, repoVersionId),
+          isNull(sections.archivedAt)
+        ),
+        orderBy: asc(sections.order),
+        with: { lessons: { where: eq(lessons.archived, false) } },
+      })
+    );
+  });
+
+  const updateLessonOrder = Effect.fn("updateLessonOrder")(function* (
+    lessonId: string,
+    order: number
+  ) {
+    yield* requireDraftVersionForLesson(db, lessonId);
+    return yield* makeDbCall(() =>
+      db.update(lessons).set({ order }).where(eq(lessons.id, lessonId))
+    );
+  });
+
+  /**
+   * Updates the order of multiple lessons in a single SQL query using a
+   * CASE WHEN expression. Much faster than N sequential updateLessonOrder
+   * calls — critical when reordering many lessons, where DB round trips
+   * are the only work being done.
+   */
+  const batchUpdateLessonOrders = Effect.fn("batchUpdateLessonOrders")(
+    function* (updates: { id: string; order: number }[]) {
+      if (updates.length === 0) return;
+      const ids = updates.map((u) => u.id);
+      // Guard every distinct owning version — a mixed-version batch must not
+      // slip past a first-element check.
+      yield* requireDraftVersionForLessons(db, ids);
+
+      yield* makeDbCall(() =>
+        db
+          .update(lessons)
+          .set({ order: sql`-1 * ${lessons.order} - 1` })
+          .where(inArray(lessons.id, ids))
+      );
+
+      const orderExpr = sql`case ${sql.join(
+        updates.map(
+          ({ id, order }) =>
+            sql`when ${lessons.id} = ${id} then ${order}::float8`
+        ),
+        sql` `
+      )} end`;
+      return yield* makeDbCall(() =>
+        db
+          .update(lessons)
+          .set({ order: orderExpr })
+          .where(inArray(lessons.id, ids))
+      );
+    }
+  );
+
+  /**
+   * Updates the order of multiple sections in a single SQL query using a
+   * CASE WHEN expression. Equivalent to batchUpdateLessonOrders but for
+   * sections.
+   *
+   * Two-phase update: the unique index on (repoVersionId, order) is checked
+   * per-row in PGlite, so shifting orders through each other in one statement
+   * would violate the constraint. Moving all affected rows to negative
+   * temporaries first avoids the collision.
+   */
+  const batchUpdateSectionOrders = Effect.fn("batchUpdateSectionOrders")(
+    function* (updates: { id: string; order: number }[]) {
+      if (updates.length === 0) return;
+      const ids = updates.map((u) => u.id);
+      // Guard every distinct owning version — a mixed-version batch must not
+      // slip past a first-element check.
+      yield* requireDraftVersionForSections(db, ids);
+
+      yield* makeDbCall(() =>
+        db
+          .update(sections)
+          .set({ order: sql`-1 * ${sections.order} - 1` })
+          .where(inArray(sections.id, ids))
+      );
+
+      const orderExpr = sql`case ${sql.join(
+        updates.map(
+          ({ id, order }) =>
+            sql`when ${sections.id} = ${id} then ${order}::float8`
+        ),
+        sql` `
+      )} end`;
+      return yield* makeDbCall(() =>
+        db
+          .update(sections)
+          .set({ order: orderExpr })
+          .where(inArray(sections.id, ids))
+      );
+    }
+  );
+
+  return {
+    getLessonById,
+    getLessonsBySectionId,
+    getLessonWithHierarchyById,
+    getSectionWithHierarchyById,
+    createSections,
+    createLessons,
+    createLesson,
+    updateLesson,
+    deleteLesson,
+    deleteSection,
+    archiveSection,
+    updateSectionOrder,
+    updateSectionTitle,
+    updateSectionDescription,
+    getSectionsByIds,
+    getSectionsByRepoVersionId,
+    getSectionsWithLessonsByRepoVersionId,
+    updateLessonOrder,
+    batchUpdateLessonOrders,
+    batchUpdateSectionOrders,
+  };
+};
+
+/** Each write runs in one txn with its draft-guard's version-row lock (#1403). */
+export const createLessonSectionOperations = (db: Database) =>
+  transactionalizeWrites(db, createLessonSectionOperationsUnwrapped, [
+    "createSections",
+    "createLessons",
+    "createLesson",
+    "updateLesson",
+    "deleteLesson",
+    "deleteSection",
+    "archiveSection",
+    "updateSectionOrder",
+    "updateSectionTitle",
+    "updateSectionDescription",
+    "updateLessonOrder",
+    "batchUpdateLessonOrders",
+    "batchUpdateSectionOrders",
+  ]);
+
+export class LessonSectionOperationsService extends Effect.Service<LessonSectionOperationsService>()(
+  "LessonSectionOperationsService",
+  {
+    effect: Effect.gen(function* () {
+      const db = yield* DrizzleService;
+      return createLessonSectionOperations(db);
+    }),
+  }
+) {}

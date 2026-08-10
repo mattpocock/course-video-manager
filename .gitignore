@@ -3,8 +3,11 @@ node_modules
 .claude/worktrees/
 
 # React Router
-/.react-router/
-/build/
+.react-router/
+build/
+
+# Turborepo
+.turbo/
 
 .env
 .pnpm-store/
@@ -16,9 +19,9 @@ plans-backup.json
 .data/
 
 # Generated assets
-/assets/
+assets/
 
 # Local diagram thumbnail store (fallback path when DIAGRAM_THUMBNAILS_DIR is unset)
-/diagram-thumbnails/
+diagram-thumbnails/
 video-files
 .worktrees

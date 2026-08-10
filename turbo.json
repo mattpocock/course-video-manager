@@ -1,0 +1,39 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": [".env", "tsconfig.json"],
+  "globalEnv": ["CI", "DATABASE_URL", "DIRECT_DATABASE_URL"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["build/**", "assets/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint:boundaries": {},
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "//#test:root": {
+      "inputs": [".sandcastle/**", "vitest.config.ts"],
+      "outputs": []
+    },
+    "//#typecheck:root": {
+      "inputs": [".sandcastle/**", "tests/**", "tsconfig.json"]
+    }
+  }
+}

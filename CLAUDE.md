@@ -12,10 +12,14 @@ Canonical defaults, except `ready-for-agent` is spelled `Sandcastle` in this rep
 
 Single-context layout: `CONTEXT.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.
 
+### Repository layout
+
+A Turborepo monorepo: `apps/local` is today's application, `packages/core` is the domain database (the schema, the `DrizzleService` and every `db-*` service) and holds every piece of SQL. `packages/core` may not import anything filesystem-bound — see the README.
+
 ### Deep-module packages
 
-Packages under `app/packages/` are deep modules — import only through a package's entry points (its root files); everything in `lib/`/`tests/` is private. See [app/packages/README.md](./app/packages/README.md) before adding or importing one. `pnpm run lint:boundaries` enforces it (runs in pre-commit alongside `typecheck`).
+Packages under `apps/local/app/packages/` are deep modules — import only through a package's entry points (its root files); everything in `lib/`/`tests/` is private. See [apps/local/app/packages/README.md](./apps/local/app/packages/README.md) before adding or importing one. `pnpm run lint:boundaries` enforces it (runs in pre-commit alongside `typecheck`), and the same command enforces that `packages/core` stays filesystem-free.
 
 ### cvm CLI
 
-`cvm` is a read-mostly CLI (source in `app/cli/`) that exposes this project's domain data to agents, reusing the Effect services. Most nouns are read-only; the write-capable ones are `beat` (add/update/move/delete), `lesson` (create/update/move), `video` (create/move/update), `file` (add/delete), `pitch` (create/update), `deliverable` (create/update/archive — the deadline surface, ADR 0022) and `course` (publish), each reusing its operations service's write methods. Writes are immediate (no confirmation/dry-run) and flags come before the positional `<id>`. More nouns may gain writes over time. Its `--help` text is a domain-teaching document written in ubiquitous-language terms drawn from `CONTEXT.md`. **Keep the cvm help text and `CONTEXT.md` in sync manually** — when domain vocabulary or entity fields change in `CONTEXT.md`, update the corresponding noun/verb help in `app/cli/commands/*.ts` and the root help in `app/cli/index.ts`.
+`cvm` is a read-mostly CLI (source in `apps/local/app/cli/`) that exposes this project's domain data to agents, reusing the Effect services. Most nouns are read-only; the write-capable ones are `beat` (add/update/move/delete), `lesson` (create/update/move), `video` (create/move/update), `file` (add/delete), `pitch` (create/update), `deliverable` (create/update/archive — the deadline surface, ADR 0022) and `course` (publish), each reusing its operations service's write methods. Writes are immediate (no confirmation/dry-run) and flags come before the positional `<id>`. More nouns may gain writes over time. Its `--help` text is a domain-teaching document written in ubiquitous-language terms drawn from `CONTEXT.md`. **Keep the cvm help text and `CONTEXT.md` in sync manually** — when domain vocabulary or entity fields change in `CONTEXT.md`, update the corresponding noun/verb help in `apps/local/app/cli/commands/*.ts` and the root help in `apps/local/app/cli/index.ts`.

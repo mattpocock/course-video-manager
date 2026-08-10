@@ -2,14 +2,58 @@
 
 A tool for managing course video publishing workflows — editing metadata, generating descriptions, creating thumbnails, and posting to social platforms.
 
+## Repository layout
+
+A Turborepo monorepo over the pnpm workspace:
+
+| Directory                            | What it is                                                                                                                                                           |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/local`                         | The application as it runs on the author's machine: the React Router app, the Video Editor, the Diagram Playground, the Publish flow, ffmpeg, OBS, and the `cvm` CLI |
+| `packages/core`                      | The domain database — the Drizzle schema, the `DrizzleService` and every `db-*` operations service. Every piece of SQL in the repo lives here                        |
+| `packages/subtitle-overlay-renderer` | The standalone Remotion renderer, with its own toolchain                                                                                                             |
+
+`packages/core` has **no filesystem access, no `child_process` and no git
+coupling**, so it can be deployed as well as run locally. `pnpm lint:boundaries`
+enforces that — anything that needs a machine is injected from `apps/local`
+(see `packages/core/services/diagram-thumbnail-store.ts` for the shape).
+
+`.env` lives at the workspace root: one file for the whole monorepo, which is
+also where `cvm` looks for it (`apps/local/app/cli/env.ts`).
+
+### Commands
+
+Run these from the workspace root; Turborepo fans them out and re-runs only what
+changed.
+
+| Script                 | Description                    |
+| ---------------------- | ------------------------------ |
+| `pnpm typecheck`       | Typecheck every package        |
+| `pnpm test`            | Run every suite once           |
+| `pnpm test:watch`      | Run every suite in watch mode  |
+| `pnpm lint:boundaries` | Enforce the package boundaries |
+| `pnpm dev`             | Start the local application    |
+| `pnpm build`           | Build the local application    |
+
+Each of these filters out `@cvm/subtitle-overlay-renderer`: it ships its own
+toolchain (Remotion, and a Chromium download) and has never been part of the
+application's checks. Run it with `pnpm --filter @cvm/subtitle-overlay-renderer`.
+
+### Deploys
+
+Vercel gets one project per deployable directory, each with its own Root
+Directory, and relies on Vercel's **built-in unaffected-project skipping** to
+decide what to deploy. There is deliberately **no Ignored Build Step**:
+`turbo-ignore` is deprecated, and native skipping does not consume a concurrent
+build slot. If a custom step is ever needed it is `turbo query affected`.
+
 ## Database migrations
 
 Schema changes are managed with **drizzle-kit generate / migrate** (versioned SQL files), not `push`.
 
 ### Making a schema change
 
-1. Edit `app/db/schema.ts`.
-2. `pnpm db:generate` — creates a new numbered `.sql` file under `app/db/migrations/`.
+1. Edit `packages/core/db/schema.ts`.
+2. `pnpm db:generate` — creates a new numbered `.sql` file under `packages/core/db/migrations/`.
 3. `pnpm db:migrate` — applies any pending migrations to the local database.
 
 ### First-time setup on an existing database

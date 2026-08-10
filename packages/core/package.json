@@ -1,0 +1,35 @@
+{
+  "name": "@cvm/core",
+  "version": "1.0.0",
+  "description": "The domain database: the Drizzle schema, the DrizzleService and every db-* operations service. No filesystem, no child_process, no git — so it can be deployed as well as run locally.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsgo",
+    "lint:boundaries": "depcruise db lib features services test-utils"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.3",
+    "effect": "^3.17.1",
+    "fractional-indexing": "^3.2.0",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "^0.27.0",
+    "@electric-sql/pglite": "^0.3.15",
+    "@types/node": "^20",
+    "@types/pg": "^8.21.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260304.1",
+    "dependency-cruiser": "^18.0.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.8.3",
+    "vite": "^7.3.1",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^3"
+  }
+}

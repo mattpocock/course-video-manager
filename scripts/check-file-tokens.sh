@@ -9,19 +9,19 @@ EXCLUDE_PATTERNS=(
   "pnpm-lock.yaml"
   "docs/*"
   "progress.txt"
-  "public/*"
-  "app/db/migrations/*"
+  "apps/local/public/*"
+  "packages/core/db/migrations/*"
   # Vendored, generated, append-only icon data. It is committed on purpose
-  # (see app/packages/lucide-icons/README.md) and is never hand-edited, so the
+  # (see apps/local/app/packages/lucide-icons/README.md) and is never hand-edited, so the
   # "split this into smaller modules" advice does not apply.
-  "app/packages/lucide-icons/lib/generated/*"
+  "apps/local/app/packages/lucide-icons/lib/generated/*"
   # The ubiquitous-language document, same category as docs/* above. It was
   # already over the limit before this exclusion existed.
   "CONTEXT.md"
   # The drizzle schema registry. drizzle-kit and `import * as schema` both
   # consume it as ONE module, so it grows by one table at a time and cannot be
   # split the way application code can.
-  "app/db/schema.ts"
+  "packages/core/db/schema.ts"
 )
 
 should_skip() {

@@ -20,7 +20,7 @@ dist
 
 # Vendored, generated, append-only lucide geometry — never hand-edited, and
 # reformatting 400KB of it on every commit helps nobody.
-app/packages/lucide-icons/lib/generated
+apps/local/app/packages/lucide-icons/lib/generated
 
 # Coverage
 coverage
