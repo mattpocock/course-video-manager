@@ -1,6 +1,6 @@
 import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Data, Effect, Stream } from "effect";
+import { Chunk, Data, Effect, Stream } from "effect";
 import crypto from "node:crypto";
 import path from "node:path";
 import { tmpdir } from "os";
@@ -159,6 +159,131 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
               );
               yield* process.exitCode.pipe(Effect.ignore);
               return stdout + stderr;
+            })
+          )
+        );
+      });
+
+      /**
+       * Renders a single-frame waveform PNG for a window of an input file's
+       * audio, via `showwavespic`. Built for the waveform-proofread
+       * prototype, which draws one of these per clip so Matt can eyeball a
+       * lesson's audio directly instead of trusting a thresholded detector.
+       *
+       * Unlike `detectSilence`, stdout here IS the payload (the PNG bytes),
+       * not throwaway text — so it's collected as raw bytes via
+       * `Stream.runCollect` instead of `Stream.decodeText()`. `stderr` is
+       * drained concurrently (and discarded on success, logged on failure)
+       * purely so it can't fill its pipe buffer and block ffmpeg — nothing
+       * useful comes through it here since silencedetect isn't in play.
+       *
+       * Also unlike `detectSilence`, the exit code IS checked: a single-frame
+       * image write legitimately exits 0 on success, so a non-zero code here
+       * means something actually went wrong (bad seek, no audio stream,
+       * etc.), not the `-f null` false-negative `detectSilence` has to
+       * tolerate.
+       *
+       * `showwavespic` maps sample amplitude linearly onto image height by
+       * default (`scale=lin`, the full -1.0..1.0 digital-scale range —
+       * `scale=cbrt` doesn't touch the samples at all, it's a display-only
+       * remap of `showwavespic`'s own output, so it can't introduce
+       * clipping or amplify true digital silence). `gainDb` (applied as a
+       * `volume=<N>dB` filter, upstream of `showwavespic`) is the second,
+       * separate lever — it DOES change the actual sample values, which is
+       * why it's caller-supplied rather than hardcoded: talking-head source
+       * levels vary clip to clip (different mics, different gain staging),
+       * so a fixed gain would be too much for some clips and not enough for
+       * others. True digital silence (exact 0) stays silent at any gain
+       * (0 × anything is 0); real content pushed past 0dBFS by the gain
+       * doesn't error, it just renders pinned to the image edge, same as a
+       * real waveform view showing "this clipped."
+       */
+      const generateWaveformPng = Effect.fn("generateWaveformPng")(function* (
+        file: string,
+        opts: {
+          startTime: number;
+          duration: number;
+          width: number;
+          height: number;
+          /** `showwavespic` color, e.g. "0x38bdf8". Defaults to a light gray. */
+          color?: string;
+          /** Gain applied via `volume=<N>dB` before rendering. 0 = no gain. */
+          gainDb: number;
+        }
+      ) {
+        const args: string[] = [
+          "-hide_banner",
+          "-ss",
+          String(opts.startTime),
+          "-t",
+          String(opts.duration),
+          "-i",
+          file,
+          "-filter_complex",
+          `[0:a]aformat=channel_layouts=mono,volume=${
+            opts.gainDb
+          }dB,showwavespic=s=${opts.width}x${opts.height}:colors=${
+            opts.color ?? "0xd4d4d8"
+          }:scale=cbrt[out]`,
+          "-map",
+          "[out]",
+          "-frames:v",
+          "1",
+          "-f",
+          "image2pipe",
+          "-vcodec",
+          "png",
+          "pipe:1",
+        ];
+
+        return yield* cpuSemaphore.withPermits(1)(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const process = yield* Command.start(
+                Command.make("ffmpeg", ...args)
+              ).pipe(
+                Effect.mapError(
+                  (e) =>
+                    new FFmpegError({
+                      cause: e,
+                      message: `Failed to start ffmpeg for waveform: ${e.message}`,
+                    })
+                )
+              );
+
+              const [pngChunks, stderr] = yield* Effect.all(
+                [
+                  Stream.runCollect(process.stdout),
+                  process.stderr.pipe(Stream.decodeText(), Stream.mkString),
+                ],
+                { concurrency: 2 }
+              ).pipe(
+                Effect.mapError(
+                  (e) =>
+                    new FFmpegError({
+                      cause: e,
+                      message: `Failed to read ffmpeg waveform output: ${e.message}`,
+                    })
+                )
+              );
+
+              const code = yield* process.exitCode.pipe(
+                Effect.mapError(
+                  (e) =>
+                    new FFmpegError({
+                      cause: e,
+                      message: `Failed to read ffmpeg waveform exit code: ${e.message}`,
+                    })
+                )
+              );
+              if (code !== 0) {
+                yield* new FFmpegError({
+                  cause: null,
+                  message: `Failed to generate waveform, exit code: ${code}. stderr: ${stderr}`,
+                });
+              }
+
+              return Buffer.concat(Chunk.toReadonlyArray(pngChunks));
             })
           )
         );
@@ -511,6 +636,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
 
       return {
         detectSilence,
+        generateWaveformPng,
         getFPS,
         createAndConcatenateVideoClipsSinglePass,
         normalizeAudio,

@@ -12,6 +12,7 @@ import { CloudinaryService } from "./cloudinary-service";
 import { CloudinaryMarkdownService } from "./cloudinary-markdown-service";
 import { CourseWriteService } from "./course-write-service";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
+import { ClipWaveformService } from "./clip-waveform.server";
 import { CoursePublishService } from "./course-publish-service";
 import { ClipOperationsService } from "./db-clip-operations.server";
 import { CourseOperationsService } from "./db-course-operations.server";
@@ -64,6 +65,7 @@ const coreLayer = Layer.mergeAll(
   CloudinaryMarkdownLayer,
   CourseWriteService.Default,
   FFmpegCommandsService.Default,
+  ClipWaveformService.Default,
   NodeContext.layer
 ).pipe(
   Layer.provide(PgDumpRunner.Default),
