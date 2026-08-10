@@ -345,3 +345,11 @@ _Avoid_: API key, Password, Secret (unqualified)
 **Remote Box**:
 Any machine that is not the author's, running `cvm` against the deployed API with an **API Token** and no database connection string. It reaches every domain noun `cvm` exposes — Course, Course Version, Section, Lesson, Video, Clip, Beat, Pitch, Deliverable and search — so it can find work, read and write a **Script** and a **Body**, author and reorder **Beats**, draft **Pitches**, restructure the **Draft Version** and maintain the **Deliverables Calendar**. It can never do anything that needs the author's machine — the finished videos directory, the Video Files directory, ffmpeg, OBS.
 _Avoid_: Server, Agent machine
+
+**Local-only Command**:
+A `cvm` command that needs the author's **machine** rather than the domain data, and so can never run on a **Remote Box**: `cvm file` (the Video Files directory), `cvm course readiness` (the finished videos directory, from which exportedness is derived) and `cvm course publish` (both, plus ffmpeg). Each refuses at the front of the command, before any work, naming what it would have needed — a refusal an agent stops on, where a filesystem error is one it retries. Refusing before any work is also what stops a **Course** being left half-changed. The author's machine declares itself with `CVM_LOCAL_MACHINE`; a box that says nothing is treated as remote.
+_Avoid_: Offline command, Machine command, Disabled command
+
+**Schema Version**:
+The number of Drizzle migrations a checkout was built against, stated by `cvm` on every request and compared by the deployed API against its own. Any difference is refused outright, naming both numbers and telling the caller to pull — an out-of-date box cannot write against a schema it does not understand. Migrations are applied by the `apps/remote` deploy alone, and are additive-only, so a `cvm` already in flight when one lands keeps working.
+_Avoid_: API version, Migration number, Protocol version

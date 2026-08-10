@@ -66,7 +66,8 @@ OUTPUT CONTRACT
   'get' => NDJSON (one compact object per line). Empty list => no output, exit 0.
   Errors => a JSON object on STDERR carrying the Effect error _tag. STDOUT is
   always pure data. Exit codes: 0 ok, 2 not-found, 3 invalid-input, 4 db/internal,
-  5 authentication (see WHERE THE DATA LIVES).
+  5 authentication, 6 out-of-date checkout, 7 needs the author's machine (the
+  last three are explained in WHERE THE DATA LIVES and WHAT NEEDS A MACHINE).
 
 WHERE THE DATA LIVES
   cvm does not hold a database connection. It talks to the deployed Course
@@ -81,6 +82,24 @@ WHERE THE DATA LIVES
   unknown, expired or revoked; it deliberately never says which. That is NOT a
   "not found": do not retry it, ask for a new token.
 
+  cvm also runs from a git checkout, and that checkout can fall behind the
+  deployed API. Every request states which schema version it was built against
+  and a mismatch is refused outright: exit 6, _tag
+  "SchemaVersionMismatchError", naming both numbers. The fix is 'git pull' in
+  this repo on this box — retrying as-is will keep failing.
+
+WHAT NEEDS A MACHINE
+  Three commands need the AUTHOR'S MACHINE rather than the data, because they
+  read and write its disk:
+    cvm file …              the Video Files directory
+    cvm course readiness    the finished videos directory (exportedness)
+    cvm course publish      the same, plus ffmpeg
+  Anywhere else they are refused before doing any work — exit 7, _tag
+  "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
+  a retry: no token, no pull and no repeat will make them work, and nothing is
+  left half-changed. Everything else — every read, and every write verb listed
+  below — works from any box with a token.
+
 WRITES
   Write verbs hit the database immediately — no confirmation prompt, no dry-run —
   and each echoes the affected row as one pretty JSON object. Flags come BEFORE
@@ -94,7 +113,9 @@ WRITES
     file    add/delete               attach scratch files to a Video (writer
                                      context); delete is a real unlink, and
                                      these are the only writes that do NOT
-                                     need the CVM server running
+                                     need the CVM server running — but they
+                                     DO need the author's machine (exit 7
+                                     anywhere else, see WHAT NEEDS A MACHINE)
     pitch   create/update            create a Pitch (--title required) or patch
                                      its copy/ranking fields
     deliverable
