@@ -343,5 +343,5 @@ A bearer credential the author mints from the local UI so that a machine other t
 _Avoid_: API key, Password, Secret (unqualified)
 
 **Remote Box**:
-Any machine that is not the author's, running `cvm` against the deployed API with an **API Token** and no database connection string. It reaches whichever verbs the RPC surface has grown so far, and can never do anything that needs the author's machine — the finished videos directory, the Video Files directory, ffmpeg, OBS.
+Any machine that is not the author's, running `cvm` against the deployed API with an **API Token** and no database connection string. It reaches every domain noun `cvm` exposes — Course, Course Version, Section, Lesson, Video, Clip, Beat, Pitch, Deliverable and search — so it can find work, read and write a **Script** and a **Body**, author and reorder **Beats**, draft **Pitches**, restructure the **Draft Version** and maintain the **Deliverables Calendar**. It can never do anything that needs the author's machine — the finished videos directory, the Video Files directory, ffmpeg, OBS.
 _Avoid_: Server, Agent machine
