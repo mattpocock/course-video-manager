@@ -14,6 +14,7 @@ import { CliOutput } from "./output";
  *   NotFoundError        -> 2
  *   ParseError           -> 3
  *   DatabaseError        -> 4
+ *   AuthenticationError  -> 5
  *   (@effect/cli ValidationError, bad input) -> 3
  *   (defect / unknown tag / die)             -> 4 (rendered as DatabaseError)
  *
@@ -38,6 +39,18 @@ const EXIT_CODES: Record<string, number> = {
   VersionNotDraftError: 3,
   // Defensive: domain error tags that could leak through a command.
   UnknownDBServiceError: 4,
+  // The deployed API rejected the token — unknown, expired or revoked; it
+  // never says which. This gets a code of its OWN because "your token expired"
+  // and "that Video does not exist" are fixed by completely different actions,
+  // and an agent that cannot tell them apart retries a credential failure
+  // forever. Everything an agent must do about it is in the message.
+  AuthenticationError: 5,
+  // The API could not be reached, or answered with something unreadable —
+  // an internal failure like any other, so exit 4.
+  TransportError: 4,
+  // CVM_API_URL / CVM_API_TOKEN are missing. Same class as a missing
+  // DATABASE_URL always was: exit 4.
+  ConfigurationError: 4,
 };
 
 const exitCodeForTag = (tag: string): number => EXIT_CODES[tag] ?? 4;
@@ -56,6 +69,14 @@ const serializeError = (tag: string, source: unknown): string => {
       }
       obj[key] = value;
     }
+
+    // `message` has to be asked for by name. Every Data.TaggedError extends
+    // Error, which makes an assigned message a non-enumerable OWN property, and
+    // a computed one (VersionNotDraftError) a prototype getter — Object.entries
+    // sees neither. Reading it off the object catches both, and the message is
+    // the only part of a failure that tells an agent what to DO about it.
+    const message = (source as { message?: unknown }).message;
+    if (typeof message === "string" && message !== "") obj.message = message;
   }
   return JSON.stringify(obj);
 };

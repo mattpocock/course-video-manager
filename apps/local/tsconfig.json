@@ -18,6 +18,11 @@
     "paths": {
       "@cvm/core/*": ["../../packages/core/*"],
 
+      // The deployed API. The CLI imports its APP TYPE and nothing else (see
+      // app/cli/rpc-client.ts); the test harness additionally imports
+      // `createApp` so it can call the real app with no server and no port.
+      "@cvm/remote/*": ["../../apps/remote/*"],
+
       // The domain database lives in `packages/core` now. Rather than rewrite
       // ~160 import lines, the aliases the app has always imported through are
       // repointed at the package: this was a file move, not a semantic change.

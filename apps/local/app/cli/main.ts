@@ -2,7 +2,7 @@ import { CliConfig, Command } from "@effect/cli";
 import { NodeContext } from "@effect/platform-node";
 import { Effect } from "effect";
 import * as Console from "effect/Console";
-import { ensureDatabaseUrl } from "./env";
+import { ensureApiConfig, ensureDatabaseUrl } from "./env";
 import { rootCommand } from "./index";
 import { cliRuntime, type CliServices } from "./layer";
 import { CliOutput } from "./output";
@@ -112,16 +112,26 @@ export const buildProgram = (
   );
 
 /**
- * Production entry point. Resolves DATABASE_URL from the install location,
- * then runs the program through the shared runtime with the real output
- * streams. Returns the exit code. process.exit happens only at the bin edge.
+ * Production entry point.
+ *
+ * The API base URL and token are REQUIRED, because every `cvm` invocation —
+ * the author's and an agent's alike — reaches the domain data over HTTP.
+ * Missing configuration is reported the same way a missing DATABASE_URL always
+ * was: one contract JSON on stderr and exit 4, never a raw Effect defect.
+ *
+ * DATABASE_URL is resolved BEST-EFFORT. The verb groups still wired in-process
+ * need it (see ./layer.ts) and will fail on their own if it is absent, but a
+ * machine with nothing but a token must still be able to run the verbs that
+ * have moved to the API — so its absence is not fatal here.
  */
 export const runCli = (argv: ReadonlyArray<string>): Promise<number> => {
-  const env = ensureDatabaseUrl();
-  if (!env.ok) {
-    process.stderr.write(JSON.stringify(env.error) + "\n");
+  const api = ensureApiConfig();
+  if (!api.ok) {
+    process.stderr.write(JSON.stringify(api.error) + "\n");
     return Promise.resolve(4);
   }
+
+  ensureDatabaseUrl();
 
   return cliRuntime.runPromise(
     buildProgram(argv).pipe(Effect.provide(CliOutput.Default))

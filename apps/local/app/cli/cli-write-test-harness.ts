@@ -11,12 +11,15 @@ import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
 import type { TestDb } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import { buildProgram } from "@/cli/main";
 import { makeTestCliOutput } from "@/cli/output";
+import {
+  buildRemoteLayer,
+  type RemoteHarnessOptions,
+} from "./cli-remote-test-harness";
 
 /**
  * Shared harness for the `cvm` WRITE-verb integration tests. Mirrors the layer
@@ -32,19 +35,29 @@ export interface RunResult {
   readonly exitCode: number;
 }
 
-export const buildWriteLayer = (db: TestDb) =>
+/**
+ * Mirrors ./layer.ts: the verb groups that have moved to the deployed API are
+ * provided over HTTP, the rest still in-process. When a group moves, it moves
+ * in both files.
+ */
+export const buildWriteLayer = (
+  db: TestDb,
+  options: RemoteHarnessOptions = {}
+) =>
   Layer.mergeAll(
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default,
-    VideoOperationsService.Default,
-    ClipOperationsService.Default,
-    BeatOperationsService.Default,
-    PitchOperationsService.Default,
-    DeliverableOperationsService.Default,
-    SearchOperationsService.Default,
-    CourseWriteService.Default
-  ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)));
+    buildRemoteLayer(db, options),
+    Layer.mergeAll(
+      CourseOperationsService.Default,
+      VersionOperationsService.Default,
+      LessonSectionOperationsService.Default,
+      VideoOperationsService.Default,
+      ClipOperationsService.Default,
+      BeatOperationsService.Default,
+      PitchOperationsService.Default,
+      DeliverableOperationsService.Default,
+      CourseWriteService.Default
+    ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)))
+  );
 
 /** A run() bound to a specific captured-output layer. */
 export const makeRun =

@@ -66,6 +66,69 @@ const readEnvValue = (envPath: string, key: string): string | undefined => {
   return undefined;
 };
 
+/**
+ * The two values `cvm` needs to reach the deployed API. Same resolution rules
+ * as DATABASE_URL: an already-set environment variable wins, otherwise the
+ * repo-root `.env` found by walking up from THIS MODULE — so `cvm` keeps
+ * working from any working directory, including on a box where the only thing
+ * checked out is the repo itself.
+ *
+ * On a remote box neither of these lives in a file: they are set as real
+ * environment variables and the `.env` walk simply finds nothing.
+ */
+export type EnsureApiConfigResult =
+  | { readonly ok: true; readonly baseUrl: string; readonly token: string }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly _tag: "ConfigurationError";
+        readonly message: string;
+      };
+    };
+
+/** Resolve one key from process.env, falling back to the repo-root `.env`. */
+const resolveEnvKey = (key: string): string | undefined => {
+  const existing = process.env[key];
+  if (existing != null && existing !== "") return existing;
+
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  const repoRoot = findRepoRoot(moduleDir);
+  if (repoRoot === undefined) return undefined;
+
+  const envPath = join(repoRoot, ".env");
+  if (!existsSync(envPath)) return undefined;
+
+  const value = readEnvValue(envPath, key);
+  return value === "" ? undefined : value;
+};
+
+export const API_URL_ENV_KEY = "CVM_API_URL";
+export const API_TOKEN_ENV_KEY = "CVM_API_TOKEN";
+
+export const ensureApiConfig = (): EnsureApiConfigResult => {
+  const baseUrl = resolveEnvKey(API_URL_ENV_KEY);
+  const token = resolveEnvKey(API_TOKEN_ENV_KEY);
+
+  const missing = [
+    baseUrl == null ? API_URL_ENV_KEY : undefined,
+    token == null ? API_TOKEN_ENV_KEY : undefined,
+  ].filter((key): key is string => key !== undefined);
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: {
+        _tag: "ConfigurationError",
+        message: `${missing.join(" and ")} ${missing.length === 1 ? "is" : "are"} not set. cvm reaches the domain data over HTTP: set ${API_URL_ENV_KEY} to the deployed Course Video Manager API and ${API_TOKEN_ENV_KEY} to a token minted from its UI.`,
+      },
+    };
+  }
+
+  process.env[API_URL_ENV_KEY] = baseUrl;
+  process.env[API_TOKEN_ENV_KEY] = token;
+  return { ok: true, baseUrl: baseUrl!, token: token! };
+};
+
 export const ensureDatabaseUrl = (): EnsureDatabaseUrlResult => {
   const existing = process.env.DATABASE_URL;
   if (existing != null && existing !== "") {

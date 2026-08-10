@@ -8,8 +8,9 @@
  * the `@/*` path aliases from whatever tsconfig it discovers from the current
  * working directory, so without this pin `cvm` only works when invoked from
  * inside the repo. Anchoring TSX_TSCONFIG_PATH to this file's location makes the
- * aliases resolve no matter where `cvm` is run from. DATABASE_URL is resolved
- * inside runCli, anchored to this install location.
+ * aliases resolve no matter where `cvm` is run from. CVM_API_URL /
+ * CVM_API_TOKEN (and, while some verbs are still wired in-process,
+ * DATABASE_URL) are resolved inside runCli, anchored to this install location.
  */
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";

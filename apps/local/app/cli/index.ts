@@ -65,7 +65,21 @@ OUTPUT CONTRACT
   Raw JSON, no envelope. 'get' of one id => one JSON object. 'list' and multi-id
   'get' => NDJSON (one compact object per line). Empty list => no output, exit 0.
   Errors => a JSON object on STDERR carrying the Effect error _tag. STDOUT is
-  always pure data. Exit codes: 0 ok, 2 not-found, 3 invalid-input, 4 db/internal.
+  always pure data. Exit codes: 0 ok, 2 not-found, 3 invalid-input, 4 db/internal,
+  5 authentication (see WHERE THE DATA LIVES).
+
+WHERE THE DATA LIVES
+  cvm does not hold a database connection. It talks to the deployed Course
+  Video Manager API over HTTP, so it runs on any machine — the author's, or a
+  box you were handed. Two environment variables, read from the environment or
+  from the repo-root .env (found by walking up from the install location, so
+  cvm works from any working directory):
+    CVM_API_URL     the deployed API's base URL
+    CVM_API_TOKEN   a token minted from the "API Tokens" page in the local UI
+  A token is unscoped, expires (90 days by default), and can be revoked at any
+  moment. Exit 5 with _tag "AuthenticationError" means the API refused it —
+  unknown, expired or revoked; it deliberately never says which. That is NOT a
+  "not found": do not retry it, ask for a new token.
 
 WRITES
   Write verbs hit the database immediately — no confirmation prompt, no dry-run —

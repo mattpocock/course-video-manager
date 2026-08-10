@@ -14,6 +14,7 @@ import type { TestDb } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import { buildProgram } from "@/cli/main";
 import { makeTestCliOutput } from "@/cli/output";
+import { buildRemoteLayer } from "./cli-remote-test-harness";
 
 export interface RunResult {
   readonly stdout: string;
@@ -35,19 +36,26 @@ export type ReadLayer = Layer.Layer<
   | CourseWriteService
 >;
 
+/**
+ * Mirrors ./layer.ts: the verb groups that have moved to the deployed API are
+ * provided over HTTP, the rest still in-process. When a group moves, it moves
+ * in both files.
+ */
 export const buildReadLayer = (db: TestDb): ReadLayer =>
   Layer.mergeAll(
-    CourseOperationsService.Default,
-    VersionOperationsService.Default,
-    LessonSectionOperationsService.Default,
-    VideoOperationsService.Default,
-    ClipOperationsService.Default,
-    BeatOperationsService.Default,
-    PitchOperationsService.Default,
-    DeliverableOperationsService.Default,
-    SearchOperationsService.Default,
-    CourseWriteService.Default
-  ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)));
+    buildRemoteLayer(db),
+    Layer.mergeAll(
+      CourseOperationsService.Default,
+      VersionOperationsService.Default,
+      LessonSectionOperationsService.Default,
+      VideoOperationsService.Default,
+      ClipOperationsService.Default,
+      BeatOperationsService.Default,
+      PitchOperationsService.Default,
+      DeliverableOperationsService.Default,
+      CourseWriteService.Default
+    ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)))
+  );
 
 export const makeReadRun =
   (layer: ReadLayer) =>
