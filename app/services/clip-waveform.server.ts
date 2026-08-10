@@ -61,24 +61,53 @@ export interface WaveformOptions {
   pxPerSecond: number;
   /** Rendered waveform image height, in pixels. */
   height: number;
+  /**
+   * Gain in dB applied before rendering (ffmpeg `volume=<N>dB`), on top of
+   * `showwavespic`'s own `scale=cbrt` display remap (see
+   * `generateWaveformPng`'s doc comment in `ffmpeg-commands.ts`).
+   *
+   * Exposed as a per-video knob, not hardcoded, because measured against a
+   * range of test tones (-45dBFS through -1dBFS true peak): the default
+   * `scale=lin` `showwavespic` mapping renders a typical quiet
+   * talking-head recording (peaking well below 0dBFS — see
+   * `SILENCE_THRESHOLD_DB` in `silence-detection-constants.ts`, a -38dB
+   * *silence* floor, meaning normal speech sits somewhere above that but
+   * still nowhere near 0dBFS) as 1-7% of the image height — exactly Matt's
+   * "too quiet to detect anything" report. `scale=cbrt` alone helps
+   * (~15-39% for -45..-20dBFS) but source gain varies clip to clip
+   * (different mics/gain staging), so a single fixed multiplier can't be
+   * simultaneously enough for a quiet clip and safe (non-clipping) for a
+   * loud one — hence a caller-supplied knob rather than a baked-in
+   * constant. +12dB was chosen as the default because at that level a
+   * -20dBFS clip (a plausible quiet-talking-head peak) renders at ~63% of
+   * image height, while true near-0dBFS content still renders at ~90-97%
+   * (not pinned flat at 100%, so louder passages stay visually
+   * distinguishable from each other) and true digital silence stays
+   * silent regardless of gain (0 × anything is still 0).
+   */
+  gainDb: number;
 }
 
 const DEFAULT_WAVEFORM_OPTIONS: WaveformOptions = {
   pxPerSecond: 40,
   height: 64,
+  gainDb: 12,
 };
 
 const MIN_PX_PER_SECOND = 2;
 const MAX_PX_PER_SECOND = 400;
 const MIN_HEIGHT = 16;
 const MAX_HEIGHT = 400;
+const MIN_GAIN_DB = -24;
+const MAX_GAIN_DB = 48;
 
 /**
- * Sanitizes the two render knobs off a (possibly untrusted, straight off a
+ * Sanitizes the render knobs off a (possibly untrusted, straight off a
  * JSON request body) action payload: falls back to the default for
  * anything missing/non-finite/wrongly-typed, then clamps into a sane
- * positive range so a stray huge/negative/zero value can't make ffmpeg spend
- * forever (or error) rendering a degenerate image.
+ * range so a stray huge/negative/zero value can't make ffmpeg spend
+ * forever (or error) rendering a degenerate image, or apply a gain wild
+ * enough to be pointless.
  */
 export function sanitizeWaveformOptions(
   input?: Partial<Record<keyof WaveformOptions, unknown>> | null
@@ -99,6 +128,11 @@ export function sanitizeWaveformOptions(
       finite(input?.height) ?? DEFAULT_WAVEFORM_OPTIONS.height,
       MIN_HEIGHT,
       MAX_HEIGHT
+    ),
+    gainDb: clamp(
+      finite(input?.gainDb) ?? DEFAULT_WAVEFORM_OPTIONS.gainDb,
+      MIN_GAIN_DB,
+      MAX_GAIN_DB
     ),
   };
 }
@@ -147,6 +181,7 @@ export class ClipWaveformService extends Effect.Service<ClipWaveformService>()(
           duration: durationSeconds,
           width: widthPx,
           height: options.height,
+          gainDb: options.gainDb,
         });
 
         return {

@@ -120,13 +120,14 @@ export const action = makeAction({
           })
         );
       }
-      const { videoId, pxPerSecond, height } = payload as {
+      const { videoId, pxPerSecond, height, gainDb } = payload as {
         videoId: string;
         pxPerSecond?: unknown;
         height?: unknown;
+        gainDb?: unknown;
       };
 
-      const options = sanitizeWaveformOptions({ pxPerSecond, height });
+      const options = sanitizeWaveformOptions({ pxPerSecond, height, gainDb });
 
       const waveformService = yield* ClipWaveformService;
       const result = yield* waveformService.getWaveforms(videoId, options);
@@ -156,6 +157,14 @@ type RenderResponse = { result: WaveformResultData };
 
 const DEFAULT_PX_PER_SECOND = 40;
 const DEFAULT_HEIGHT = 64;
+// Talking-head recordings peak well below 0dBFS, and showwavespic maps
+// amplitude onto image height with no auto-gain — without this, normal
+// speech renders as a near-invisible sliver regardless of zoom/height. +12dB
+// was measured (see ffmpeg-commands.ts's generateWaveformPng doc comment) to
+// make a typical quiet clip use most of the image height without pinning
+// louder passages flat. Source levels vary clip to clip, so it's a knob, not
+// a constant.
+const DEFAULT_GAIN_DB = 12;
 
 function WaveformStrip({
   clips,
@@ -213,6 +222,7 @@ export default function PrototypeWaveform({
   );
   const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const [gainDb, setGainDb] = useState(DEFAULT_GAIN_DB);
   const fetcher = useFetcher<RenderResponse>();
 
   const isRendering = fetcher.state !== "idle";
@@ -221,7 +231,7 @@ export default function PrototypeWaveform({
   const runRender = () => {
     if (!selectedVideoId) return;
     fetcher.submit(
-      JSON.stringify({ videoId: selectedVideoId, pxPerSecond, height }),
+      JSON.stringify({ videoId: selectedVideoId, pxPerSecond, height, gainDb }),
       {
         method: "post",
         encType: "application/json",
@@ -278,6 +288,18 @@ export default function PrototypeWaveform({
               max={400}
               value={height}
               onChange={(e) => setHeight(Number(e.target.value))}
+              className="w-28"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Gain (dB)
+            <Input
+              type="number"
+              min={-24}
+              max={48}
+              value={gainDb}
+              onChange={(e) => setGainDb(Number(e.target.value))}
               className="w-28"
             />
           </label>

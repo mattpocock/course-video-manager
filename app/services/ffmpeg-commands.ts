@@ -182,6 +182,21 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
        * means something actually went wrong (bad seek, no audio stream,
        * etc.), not the `-f null` false-negative `detectSilence` has to
        * tolerate.
+       *
+       * `showwavespic` maps sample amplitude linearly onto image height by
+       * default (`scale=lin`, the full -1.0..1.0 digital-scale range —
+       * `scale=cbrt` doesn't touch the samples at all, it's a display-only
+       * remap of `showwavespic`'s own output, so it can't introduce
+       * clipping or amplify true digital silence). `gainDb` (applied as a
+       * `volume=<N>dB` filter, upstream of `showwavespic`) is the second,
+       * separate lever — it DOES change the actual sample values, which is
+       * why it's caller-supplied rather than hardcoded: talking-head source
+       * levels vary clip to clip (different mics, different gain staging),
+       * so a fixed gain would be too much for some clips and not enough for
+       * others. True digital silence (exact 0) stays silent at any gain
+       * (0 × anything is 0); real content pushed past 0dBFS by the gain
+       * doesn't error, it just renders pinned to the image edge, same as a
+       * real waveform view showing "this clipped."
        */
       const generateWaveformPng = Effect.fn("generateWaveformPng")(function* (
         file: string,
@@ -192,6 +207,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           height: number;
           /** `showwavespic` color, e.g. "0x38bdf8". Defaults to a light gray. */
           color?: string;
+          /** Gain applied via `volume=<N>dB` before rendering. 0 = no gain. */
+          gainDb: number;
         }
       ) {
         const args: string[] = [
@@ -203,9 +220,11 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           "-i",
           file,
           "-filter_complex",
-          `[0:a]aformat=channel_layouts=mono,showwavespic=s=${opts.width}x${
-            opts.height
-          }:colors=${opts.color ?? "0xd4d4d8"}[out]`,
+          `[0:a]aformat=channel_layouts=mono,volume=${
+            opts.gainDb
+          }dB,showwavespic=s=${opts.width}x${opts.height}:colors=${
+            opts.color ?? "0xd4d4d8"
+          }:scale=cbrt[out]`,
           "-map",
           "[out]",
           "-frames:v",

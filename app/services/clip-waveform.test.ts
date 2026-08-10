@@ -70,21 +70,27 @@ describe("sanitizeWaveformOptions", () => {
     expect(sanitizeWaveformOptions(undefined)).toEqual({
       pxPerSecond: 40,
       height: 64,
+      gainDb: 12,
     });
     expect(sanitizeWaveformOptions(null)).toEqual({
       pxPerSecond: 40,
       height: 64,
+      gainDb: 12,
     });
     expect(sanitizeWaveformOptions({})).toEqual({
       pxPerSecond: 40,
       height: 64,
+      gainDb: 12,
     });
   });
 
   it("applies valid overrides", () => {
-    expect(sanitizeWaveformOptions({ pxPerSecond: 80, height: 120 })).toEqual({
+    expect(
+      sanitizeWaveformOptions({ pxPerSecond: 80, height: 120, gainDb: 20 })
+    ).toEqual({
       pxPerSecond: 80,
       height: 120,
+      gainDb: 20,
     });
   });
 
@@ -93,17 +99,31 @@ describe("sanitizeWaveformOptions", () => {
       sanitizeWaveformOptions({
         pxPerSecond: Number.NaN,
         height: "64" as unknown as number,
+        gainDb: undefined,
       })
-    ).toEqual({ pxPerSecond: 40, height: 64 });
+    ).toEqual({ pxPerSecond: 40, height: 64, gainDb: 12 });
   });
 
   it("clamps an out-of-range override into the sane positive range instead of passing it straight to ffmpeg", () => {
     expect(
       sanitizeWaveformOptions({ pxPerSecond: -50, height: 100000 })
-    ).toEqual({ pxPerSecond: 2, height: 400 });
+    ).toEqual({ pxPerSecond: 2, height: 400, gainDb: 12 });
 
     expect(
       sanitizeWaveformOptions({ pxPerSecond: 100000, height: -50 })
-    ).toEqual({ pxPerSecond: 400, height: 16 });
+    ).toEqual({ pxPerSecond: 400, height: 16, gainDb: 12 });
+  });
+
+  it("clamps gainDb into its own range independently of the other knobs — negative gain (attenuation) is allowed, but bounded", () => {
+    expect(sanitizeWaveformOptions({ gainDb: -100 })).toEqual({
+      pxPerSecond: 40,
+      height: 64,
+      gainDb: -24,
+    });
+    expect(sanitizeWaveformOptions({ gainDb: 1000 })).toEqual({
+      pxPerSecond: 40,
+      height: 64,
+      gainDb: 48,
+    });
   });
 });
