@@ -10,6 +10,10 @@ import { VideoProcessingService } from "@/services/video-processing-service";
 import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { loadRepoEnv } from "@/cli/env";
+import {
+  NEEDS_FINISHED_VIDEOS_AND_FFMPEG,
+  requireLocalMachine,
+} from "@/cli/local-only";
 import { detail, emitObject, notFound, parseError } from "@/cli/helpers";
 
 /**
@@ -111,6 +115,12 @@ bundle's address is knowable before any encoding starts. The published
 snapshot is immutable and can never be deleted; a failed export or Commit
 auto-Discards the Pending Version (see FAILURE HANDLING).
 
+LOCAL-ONLY
+  Publish renders with ffmpeg and mirrors the finished videos directory to
+  Dropbox, so it needs the author's machine. On any other box it is refused
+  before anything happens — _tag "LocalOnlyCommandError", exit 7, no Pending
+  Version, nothing half-done. Stop rather than retry.
+
 CONCURRENCY
   Export and upload are separate pools with separate budgets, connected by a
   per-Video handoff: encoding stays six-way concurrent (GPU-bound) while
@@ -188,12 +198,26 @@ export const publishCmd = Command.make(
   ({ courseId, name, description, excludeTodo }) => {
     const includeTodoLessons = !excludeTodo;
 
-    // Shape gate FIRST, outside the provided layer: a malformed name fails fast
+    // MACHINE GATE FIRST, ahead of even the name check: Publish renders with
+    // ffmpeg and mirrors the finished videos directory to Dropbox, so on a
+    // Remote Box a perfectly-formed name would not have helped. Refusing here
+    // also means the Draft is never Submitted — a Publish that stopped halfway
+    // would strand a Pending Version.
+    const machine = requireLocalMachine(
+      "cvm course publish",
+      NEEDS_FINISHED_VIDEOS_AND_FFMPEG
+    );
+
+    // Shape gate SECOND, outside the provided layer: a malformed name fails fast
     // (exit 3) without building the heavy publish stack or reading .env config.
     if (!isValidPublishVersionName(name)) {
-      return parseError(
-        `--name must be a lowercase-'v' semver (e.g. v1.2.0), got "${name}"`,
-        "course"
+      return machine.pipe(
+        Effect.zipRight(
+          parseError(
+            `--name must be a lowercase-'v' semver (e.g. v1.2.0), got "${name}"`,
+            "course"
+          )
+        )
       );
     }
 
@@ -242,7 +266,8 @@ export const publishCmd = Command.make(
     // loadRepoEnv MUST run before publishLayer is built: VideoProcessingService
     // reads OPENAI_API_KEY at build time and the sync reads DROPBOX_REMOTE_PATH /
     // FINISHED_VIDEOS_DIRECTORY at runtime, all from process.env.
-    return Effect.sync(() => loadRepoEnv()).pipe(
+    return machine.pipe(
+      Effect.zipRight(Effect.sync(() => loadRepoEnv())),
       Effect.zipRight(
         run.pipe(
           Effect.provide(publishLayer),

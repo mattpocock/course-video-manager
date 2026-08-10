@@ -16,6 +16,7 @@ import { CliOutput } from "./output";
  *   DatabaseError               -> 4
  *   AuthenticationError         -> 5
  *   SchemaVersionMismatchError  -> 6
+ *   LocalOnlyCommandError       -> 7
  *   (@effect/cli ValidationError, bad input) -> 3
  *   (defect / unknown tag / die)             -> 4 (rendered as DatabaseError)
  *
@@ -53,6 +54,10 @@ const EXIT_CODES: Record<string, number> = {
   // Its own code because the fix is neither "retry" nor "get a new token": it
   // is `git pull` on this box, and the message says so with both numbers in it.
   SchemaVersionMismatchError: 6,
+  // The command needs the author's machine and this is not it. Its own code
+  // because the only correct response is to STOP: no retry, no new token, no
+  // pull will make `cvm file` work on a box with no Video Files directory.
+  LocalOnlyCommandError: 7,
   // CVM_API_URL / CVM_API_TOKEN are missing. Same class as a missing
   // DATABASE_URL always was: exit 4.
   ConfigurationError: 4,

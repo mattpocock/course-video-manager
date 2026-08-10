@@ -105,6 +105,32 @@ const resolveEnvKey = (key: string): string | undefined => {
 export const API_URL_ENV_KEY = "CVM_API_URL";
 export const API_TOKEN_ENV_KEY = "CVM_API_TOKEN";
 
+/**
+ * How a machine says it is the author's — the one with the finished videos
+ * directory, the Video Files directory, ffmpeg and OBS on it.
+ *
+ * It is DECLARED rather than detected. Every candidate signal is a proxy that
+ * is wrong in the dangerous direction: `VIDEO_FILES_DIR` falls back to a path
+ * inside the checkout, so a Remote Box would quietly scatter files into
+ * whatever repo it had; `DATABASE_URL` is a thing this CLI no longer uses; and
+ * probing for ffmpeg answers a question nobody asked. A declaration is also the
+ * safe default — a box that has said nothing is treated as remote, so the worst
+ * case of forgetting it is a refusal that names itself, not a half-changed
+ * Course.
+ */
+export const LOCAL_MACHINE_ENV_KEY = "CVM_LOCAL_MACHINE";
+
+/**
+ * Whether this is the author's machine, resolved the same way every other
+ * `cvm` setting is: the environment first, then the repo-root `.env` found by
+ * walking up from the install location — so it holds from any working
+ * directory, and a Remote Box that sets nothing simply is not local.
+ */
+export const isLocalMachine = (): boolean => {
+  const value = resolveEnvKey(LOCAL_MACHINE_ENV_KEY)?.trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+};
+
 export const ensureApiConfig = (): EnsureApiConfigResult => {
   const baseUrl = resolveEnvKey(API_URL_ENV_KEY);
   const token = resolveEnvKey(API_TOKEN_ENV_KEY);

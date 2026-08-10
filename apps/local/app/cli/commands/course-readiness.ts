@@ -7,6 +7,10 @@ import {
   validatePublishability,
 } from "@/services/course-publish-readiness";
 import { loadRepoEnv } from "@/cli/env";
+import {
+  NEEDS_FINISHED_VIDEOS_DIRECTORY,
+  requireLocalMachine,
+} from "@/cli/local-only";
 import { detail, emitObject, notFound, resolveVersionId } from "@/cli/helpers";
 
 /**
@@ -80,6 +84,12 @@ EXPORT IS FILESYSTEM-DERIVED
   filenames, timestamps, clip order and the Export Version Key. An UNEXPORTED
   VIDEO is one whose current hash matches no file on disk. This is read straight
   off disk; the dev server does NOT need to be running.
+
+LOCAL-ONLY
+  Because that disk is the author's, this verb is refused on any other machine
+  before it does anything: _tag "LocalOnlyCommandError", exit 7. Stop rather
+  than retry — there is no answer to give from a box with no finished videos
+  directory, and an empty one would read as "nothing is exported".
 
 OUTPUT (one pretty JSON object)
   courseId              The Course measured.
@@ -201,7 +211,15 @@ export const readinessCmd = Command.make(
     // existence checks need a real filesystem — hence NodeContext here rather
     // than in the shared cliLayer. Unlike `course publish`, this pulls in no
     // VideoProcessingService, so no OPENAI_API_KEY is demanded.
-    return Effect.sync(() => loadRepoEnv()).pipe(
+    //
+    // LOCAL-ONLY, and checked FIRST: exportedness is a fact about this
+    // machine's disk, so on a Remote Box there is no answer to give — only an
+    // ENOENT that would read as "no videos are exported" if anyone caught it.
+    return requireLocalMachine(
+      "cvm course readiness",
+      NEEDS_FINISHED_VIDEOS_DIRECTORY
+    ).pipe(
+      Effect.zipRight(Effect.sync(() => loadRepoEnv())),
       Effect.zipRight(
         run.pipe(
           Effect.provide(NodeContext.layer),

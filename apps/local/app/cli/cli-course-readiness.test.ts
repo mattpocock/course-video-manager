@@ -13,6 +13,7 @@ import {
   resolveExportPath,
   toExportClips,
 } from "@/services/export-hash";
+import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
   buildReadLayer,
   makeReadRun,
@@ -28,12 +29,17 @@ import {
 // reads EXPORTEDNESS OFF THE FILESYSTEM, with no CVM server running. Each test
 // points FINISHED_VIDEOS_DIRECTORY at a temp dir and controls whether the
 // `{courseId}-{exportHash}.mp4` file exists.
+//
+// Reading that directory is what makes the verb LOCAL-ONLY, so the suite
+// declares the machine local the way the author's .env does; the refusal on a
+// Remote Box lives in ./cli-local-only.test.ts.
 // ===========================================================================
 
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let finishedDir: string;
 const originalFinishedDir = process.env.FINISHED_VIDEOS_DIRECTORY;
+const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
 
 beforeAll(async () => {
   const result = await createTestDb();
@@ -41,6 +47,7 @@ beforeAll(async () => {
   run = makeReadRun(buildReadLayer(testDb));
   finishedDir = mkdtempSync(path.join(tmpdir(), "cvm-readiness-"));
   process.env.FINISHED_VIDEOS_DIRECTORY = finishedDir;
+  process.env[LOCAL_MACHINE_ENV_KEY] = "true";
 });
 
 afterAll(() => {
@@ -48,6 +55,11 @@ afterAll(() => {
     delete process.env.FINISHED_VIDEOS_DIRECTORY;
   } else {
     process.env.FINISHED_VIDEOS_DIRECTORY = originalFinishedDir;
+  }
+  if (originalLocalMachine === undefined) {
+    delete process.env[LOCAL_MACHINE_ENV_KEY];
+  } else {
+    process.env[LOCAL_MACHINE_ENV_KEY] = originalLocalMachine;
   }
   rmSync(finishedDir, { recursive: true, force: true });
 });

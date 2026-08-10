@@ -6,9 +6,10 @@ import { Data } from "effect";
  * pure data.
  *
  * Exit-code contract:
- *   NotFoundError -> 2
- *   ParseError    -> 3 (invalid input / parse)
- *   DatabaseError -> 4 (db / internal)
+ *   NotFoundError         -> 2
+ *   ParseError            -> 3 (invalid input / parse)
+ *   DatabaseError         -> 4 (db / internal)
+ *   LocalOnlyCommandError -> 7 (this command needs the author's machine)
  *
  * These tags are part of the public CLI output contract — do NOT rename them.
  * NOTE: there is also a DOMAIN `NotFoundError` in @/services/db-service-errors
@@ -36,8 +37,27 @@ export class DatabaseError extends Data.TaggedError("DatabaseError")<{
   readonly message: string;
 }> {}
 
+/**
+ * A command that needs the AUTHOR'S MACHINE was run somewhere else.
+ *
+ * Its own tag, and its own exit code, because none of the others describe it:
+ * nothing is missing (2), the input was fine (3), and nothing broke (4). The
+ * only correct response is to stop — this command can never work on this box —
+ * and a tag is what lets an agent tell that apart from a failure worth retrying.
+ */
+export class LocalOnlyCommandError extends Data.TaggedError(
+  "LocalOnlyCommandError"
+)<{
+  /** The refused invocation, e.g. "cvm course publish". */
+  readonly command: string;
+  /** What it needs, in plain words — the reason it can never work here. */
+  readonly reason: string;
+  readonly message: string;
+}> {}
+
 /** Union of every error a CLI command handler is allowed to fail with. */
-export type CliError = NotFoundError | ParseError | DatabaseError;
+export type CliError =
+  NotFoundError | ParseError | DatabaseError | LocalOnlyCommandError;
 
 /** Construct a single-id not-found error (exit 2). */
 export const notFound = (entity: string, id: string): NotFoundError =>

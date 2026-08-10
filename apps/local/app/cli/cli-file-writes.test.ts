@@ -7,6 +7,7 @@ import {
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/pglite";
+import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
   buildWriteLayer,
   makeRun,
@@ -24,12 +25,18 @@ import {
 // These verbs touch the DISK rather than the database, so the suite points
 // VIDEO_FILES_DIR at a temp dir (buildProgram provides the real FileSystem —
 // without it these tests would write into the repo's own ./video-files).
+//
+// Touching the disk is also what makes them LOCAL-ONLY, so the suite declares
+// the machine local the way the author's .env does. Every assertion below is
+// therefore about the author's machine; the refusals live in
+// ./cli-local-only.test.ts.
 // ===========================================================================
 
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let videoFiles: ReturnType<typeof makeTempVideoFilesDir>;
 let sourceDir: string;
+const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
 
 beforeAll(async () => {
   const result = await createTestDb();
@@ -37,11 +44,17 @@ beforeAll(async () => {
   run = makeRun(buildWriteLayer(testDb));
   videoFiles = makeTempVideoFilesDir();
   sourceDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-file-src-"));
+  process.env[LOCAL_MACHINE_ENV_KEY] = "true";
 });
 
 afterAll(() => {
   videoFiles.cleanup();
   nodeFs.rmSync(sourceDir, { recursive: true, force: true });
+  if (originalLocalMachine === undefined) {
+    delete process.env[LOCAL_MACHINE_ENV_KEY];
+  } else {
+    process.env[LOCAL_MACHINE_ENV_KEY] = originalLocalMachine;
+  }
 });
 
 let s: WriteSeed;

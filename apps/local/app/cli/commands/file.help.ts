@@ -38,6 +38,13 @@ every other cvm noun there is no archive and no restore, the bytes are gone.
 Unlike other write verbs, file does NOT require the CVM server to be running
 (there is no database mutation to back up).
 
+LOCAL-ONLY. The store is a directory on the author's machine, so every verb
+here needs that machine and none of them can work anywhere else. On any other
+box the command is refused before it does anything, with _tag
+"LocalOnlyCommandError" and exit 7, naming what it would have needed. That is
+a full stop, not a retry: no token, no pull and no repeat will make it work.
+Read a Video's Transcript, Script or Beats instead — those are on the API.
+
 Verbs (flags come BEFORE the positional args — a flag after them exits 3):
   list   --video <id>                    Every file, recursively
   add    --video <id> [flags] <path…>    Copy local files in

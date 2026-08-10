@@ -119,10 +119,12 @@ export const buildProgram = (
  * Missing configuration is reported the same way a missing DATABASE_URL always
  * was: one contract JSON on stderr and exit 4, never a raw Effect defect.
  *
- * DATABASE_URL is resolved BEST-EFFORT. The verb groups still wired in-process
- * need it (see ./layer.ts) and will fail on their own if it is absent, but a
- * machine with nothing but a token must still be able to run the verbs that
- * have moved to the API — so its absence is not fatal here.
+ * DATABASE_URL is resolved BEST-EFFORT. No verb group needs it — every one of
+ * them is on the API — but `cvm course publish` builds the publish pipeline
+ * in-process on the author's machine and does. A box with nothing but a token
+ * must still run everything else, so its absence is not fatal here; on that box
+ * `publish` is refused by its local-only guard long before the connection
+ * string would have been missed.
  */
 export const runCli = (argv: ReadonlyArray<string>): Promise<number> => {
   const api = ensureApiConfig();

@@ -27,6 +27,8 @@ import { makeRemoteLayer } from "./rpc-layer";
  * this layer and touch local disk themselves. `publish` additionally builds a
  * database-backed layer inside its own handler, because CoursePublishService
  * pulls in ffmpeg and an OPENAI_API_KEY no read command should have to satisfy.
+ * All three are LOCAL-ONLY: they refuse on any other machine, at the front of
+ * the command, before any of the above happens (see ./local-only.ts).
  *
  * NOTE: CliOutput is NOT in this layer. It is provided per-run at the program
  * edge so tests can swap in a captured implementation (see ./output.ts and

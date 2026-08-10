@@ -21,6 +21,10 @@ import {
   parseError,
   type ParseError,
 } from "@/cli/helpers";
+import {
+  NEEDS_VIDEO_FILES_DIRECTORY,
+  requireLocalMachine,
+} from "@/cli/local-only";
 import { HELP, LIST_HELP, ADD_HELP, GET_HELP, DELETE_HELP } from "./file.help";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +52,17 @@ const filePathArg = Args.text({ name: "path" });
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Video Files are on DISK, so every verb here is local-only. Each subcommand
+ * yields this first, before its arguments are looked at and before a row is
+ * read: on a Remote Box `add` and `delete` could otherwise scatter files into
+ * whatever checkout happened to be there, invisibly to everything else.
+ */
+const requireLocalFileStore = requireLocalMachine(
+  "cvm file",
+  NEEDS_VIDEO_FILES_DIRECTORY
+);
 
 /**
  * Files hang off a Video's `lineageId`, not its id — resolve one to the other,
@@ -87,6 +102,7 @@ const entryFor = (relativePath: string, size: number) => ({
 
 const listCmd = Command.make("list", { video: videoOption }, ({ video }) =>
   Effect.gen(function* () {
+    yield* requireLocalFileStore;
     const row = yield* requireActiveVideo(video);
     const entries = yield* listVideoFiles(row.lineageId);
     yield* emitNdjson(entries);
@@ -103,6 +119,7 @@ const addCmd = Command.make(
   },
   ({ video, as, force, paths }) =>
     Effect.gen(function* () {
+      yield* requireLocalFileStore;
       const fs = yield* FileSystem.FileSystem;
       const rename = Option.getOrUndefined(as);
 
@@ -159,6 +176,7 @@ const getCmd = Command.make(
   { video: videoOption, path: filePathArg },
   ({ video, path: filePath }) =>
     Effect.gen(function* () {
+      yield* requireLocalFileStore;
       const row = yield* requireActiveVideo(video);
 
       const exists = yield* asParseError(
@@ -185,6 +203,7 @@ const deleteCmd = Command.make(
   { video: videoOption, path: filePathArg },
   ({ video, path: filePath }) =>
     Effect.gen(function* () {
+      yield* requireLocalFileStore;
       const row = yield* requireActiveVideo(video);
 
       const exists = yield* asParseError(
