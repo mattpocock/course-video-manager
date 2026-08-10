@@ -1,12 +1,11 @@
 import { createApp } from "@cvm/remote/app";
 import { domainServicesLayer } from "@cvm/core/layer";
 import { generateApiToken } from "@cvm/core/lib/api-token";
-import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import * as schema from "@/db/schema";
 import { Layer, ManagedRuntime } from "effect";
 import type { TestDb } from "@/test-utils/pglite";
-import { makeRemoteLayer } from "./rpc-layer";
+import { makeRemoteLayer, type RemoteServices } from "./rpc-layer";
 
 /**
  * The transport, wired end to end, with no server and no port.
@@ -56,6 +55,12 @@ const makeAppFetch = (
 
   return (async (input, init) => {
     if (ensureHarnessToken) {
+      // Swallowed on purpose: a database too broken to accept the token row is
+      // a database too broken to answer the request, and the app is the thing
+      // that should say so. Letting this throw would turn every server-side
+      // database failure into a TransportError before the request was ever
+      // made — the CLI would report "could not reach the API" for an API that
+      // is up.
       await db
         .insert(schema.apiTokens)
         .values({
@@ -64,7 +69,8 @@ const makeAppFetch = (
           name: "cli test harness",
           expiresAt: new Date(Date.now() + 60 * 60 * 1000),
         })
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .catch(() => undefined);
     }
     return app.fetch(new Request(input as string, init));
   }) as typeof globalThis.fetch;
@@ -85,7 +91,7 @@ export interface RemoteHarnessOptions {
 export const buildRemoteLayer = (
   db: TestDb,
   options: RemoteHarnessOptions = {}
-): Layer.Layer<SearchOperationsService> =>
+): Layer.Layer<RemoteServices> =>
   makeRemoteLayer({
     baseUrl: TEST_API_BASE_URL,
     token: options.token ?? HARNESS_TOKEN.secret,

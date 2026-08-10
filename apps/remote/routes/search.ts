@@ -1,24 +1,33 @@
+import { SearchOperationsService } from "@cvm/core/services/db-search-operations.server";
 import type {
-  SearchHit,
   SearchKind,
   SearchRoot,
 } from "@cvm/core/services/db-search-operations.server";
+import { TransportError } from "@cvm/core/rpc/rpc-errors";
+import { encodeRpcError, type RpcResponse } from "@cvm/core/rpc/wire";
+import { Effect } from "effect";
+import { Hono } from "hono";
+import { runRpc } from "../rpc";
+import type { RemoteRuntime } from "../runtime";
 
 /**
- * The `search` verb group's request body.
+ * The `search` verb group: `cvm search`, and the scoped
+ * `cvm course|section|lesson search`.
  *
- * `types` is an array on the wire and a `ReadonlySet` in the service, which is
- * the only shape difference between the two sides of the call. Everything else
- * is the service's own parameter object.
+ * THE ONE HAND-WRITTEN ROUTE. Every other verb goes through `forward`, which
+ * spreads the request body's argument array straight into the service method —
+ * but `search` takes a `ReadonlySet` of kinds, and a Set is not JSON. So the
+ * set travels as an array and this route is where it becomes a Set again. If
+ * another verb ever grows a parameter JSON cannot carry, it joins this file;
+ * until then this is the exception that shows why the rule holds elsewhere.
  */
+
+/** The `search` verb group's single argument, as JSON can carry it. */
 export interface SearchRequest {
   readonly root: SearchRoot;
   readonly query: string;
   readonly types: ReadonlyArray<SearchKind>;
 }
-
-/** The service answers `null` for a scoped root that is missing or archived. */
-export type SearchResponse = ReadonlyArray<SearchHit> | null;
 
 const KINDS: ReadonlyArray<SearchKind> = [
   "course",
@@ -51,8 +60,10 @@ const parseRoot = (value: unknown): SearchRoot | undefined => {
  * it is the guard that keeps a malformed body from reaching a query builder.
  */
 export const parseSearchRequest = (body: unknown): SearchRequest | null => {
-  if (typeof body !== "object" || body === null) return null;
-  const { root, query, types } = body as Record<string, unknown>;
+  if (!Array.isArray(body)) return null;
+  const params: unknown = body[0];
+  if (typeof params !== "object" || params === null) return null;
+  const { root, query, types } = params as Record<string, unknown>;
 
   if (typeof query !== "string") return null;
   if (!Array.isArray(types) || !types.every(isKind)) return null;
@@ -62,3 +73,29 @@ export const parseSearchRequest = (body: unknown): SearchRequest | null => {
 
   return { root: parsedRoot, query, types: types as ReadonlyArray<SearchKind> };
 };
+
+export const searchRoutes = (runtime: RemoteRuntime) =>
+  new Hono().post("/search", async (c) => {
+    const request = parseSearchRequest(await c.req.json().catch(() => null));
+    if (request === null) {
+      const body: RpcResponse<never> = {
+        ok: false,
+        error: encodeRpcError(
+          new TransportError({ message: "malformed search request" })
+        ),
+      };
+      return c.json(body, 400);
+    }
+
+    const body: RpcResponse<unknown> = await runRpc(
+      runtime,
+      Effect.flatMap(SearchOperationsService, (svc) =>
+        svc.search({
+          root: request.root,
+          query: request.query,
+          types: new Set(request.types),
+        })
+      )
+    );
+    return c.json(body);
+  });

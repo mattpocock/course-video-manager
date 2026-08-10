@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/pglite";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
+import { DrizzleService } from "@/services/drizzle-service.server";
 import {
   buildWriteLayer,
   makeRun,
@@ -28,14 +29,22 @@ import {
 // ===========================================================================
 
 let testDb: TestDb;
-let layer: ReturnType<typeof buildWriteLayer>;
+/**
+ * Fixtures reach the database DIRECTLY, the way `seedWrite` does — `cvm` has
+ * no clip-creating verb, so `appendClips` has no endpoint on the deployed API
+ * and must not gain one just to seed a test. The commands under test still go
+ * over HTTP; only the arranging does not.
+ */
+let seedLayer: Layer.Layer<ClipOperationsService>;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  layer = buildWriteLayer(testDb);
-  run = makeRun(layer);
+  seedLayer = ClipOperationsService.Default.pipe(
+    Layer.provide(Layer.succeed(DrizzleService, testDb as never))
+  );
+  run = makeRun(buildWriteLayer(testDb));
 });
 
 let s: WriteSeed;
@@ -88,7 +97,7 @@ const seedClip = (
       })) as unknown as ClipRow;
     }
     return clip as unknown as ClipRow;
-  }).pipe(Effect.provide(layer), Effect.runPromise);
+  }).pipe(Effect.provide(seedLayer), Effect.runPromise);
 
 describe("clip writes (update / move / delete)", () => {
   describe("update --start / --end", () => {

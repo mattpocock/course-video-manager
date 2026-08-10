@@ -1,6 +1,15 @@
 import { Layer } from "effect";
 import { ApiTokenOperationsService } from "./services/db-api-token-operations.server";
+import { BeatOperationsService } from "./services/db-beat-operations.server";
+import { ClipOperationsService } from "./services/db-clip-operations.server";
+import { CourseOperationsService } from "./services/db-course-operations.server";
+import { CourseWriteService } from "./services/course-write-service";
+import { DeliverableOperationsService } from "./services/db-deliverable-operations.server";
+import { LessonSectionOperationsService } from "./services/db-lesson-section-operations.server";
+import { PitchOperationsService } from "./services/db-pitch-operations.server";
 import { SearchOperationsService } from "./services/db-search-operations.server";
+import { VersionOperationsService } from "./services/db-version-operations.server";
+import { VideoOperationsService } from "./services/db-video-operations.server";
 
 /**
  * Every domain service the RPC surface is allowed to expose, as ONE layer.
@@ -17,7 +26,16 @@ import { SearchOperationsService } from "./services/db-search-operations.server"
  */
 export const domainServicesLayer = Layer.mergeAll(
   ApiTokenOperationsService.Default,
-  SearchOperationsService.Default
+  SearchOperationsService.Default,
+  CourseOperationsService.Default,
+  VersionOperationsService.Default,
+  LessonSectionOperationsService.Default,
+  VideoOperationsService.Default,
+  ClipOperationsService.Default,
+  BeatOperationsService.Default,
+  PitchOperationsService.Default,
+  DeliverableOperationsService.Default,
+  CourseWriteService.Default
 );
 
 /** The services `domainServicesLayer` provides. */

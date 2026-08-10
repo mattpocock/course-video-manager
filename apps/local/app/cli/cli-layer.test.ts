@@ -1,7 +1,15 @@
 import { Effect } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SearchOperationsService } from "@/services/db-search-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
+import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
+import { CourseWriteService } from "@/services/course-write-service";
+import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
+import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import { SearchOperationsService } from "@/services/db-search-operations.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { cliLayer } from "./layer";
 
 // ===========================================================================
@@ -9,7 +17,7 @@ import { cliLayer } from "./layer";
 //
 // The rest of the cli-* suites provide their own layer, so this is the one
 // place `cliLayer` itself is exercised. What it proves is the whole point of
-// the transport: `cvm` reaches the domain data with NO connection string
+// the transport: `cvm` reaches EVERY verb group with NO connection string
 // anywhere near the box.
 // ===========================================================================
 
@@ -31,37 +39,28 @@ afterAll(() => {
   }
 });
 
+/** One representative method per service — enough to prove it is wired. */
+const GROUPS = [
+  ["search", SearchOperationsService, "search"],
+  ["course", CourseOperationsService, "getCourses"],
+  ["version", VersionOperationsService, "getCourseVersions"],
+  ["section / lesson", LessonSectionOperationsService, "getLessonsBySectionId"],
+  ["lesson move", CourseWriteService, "moveToSection"],
+  ["video", VideoOperationsService, "getVideoRowById"],
+  ["clip", ClipOperationsService, "getClipsByIds"],
+  ["beat", BeatOperationsService, "listBeatsByVideoId"],
+  ["pitch", PitchOperationsService, "listPitches"],
+  ["deliverable", DeliverableOperationsService, "listDeliverables"],
+] as const;
+
 describe("with a token and no DATABASE_URL", () => {
-  it("builds, and hands out the services that live behind the API", async () => {
-    const search = await Effect.runPromise(
-      Effect.provide(SearchOperationsService, cliLayer)
+  it.each(GROUPS)("hands out the %s verb group", async (_, tag, method) => {
+    const service = await Effect.runPromise(
+      Effect.provide(tag as never, cliLayer)
     );
 
-    expect(typeof search.search).toBe("function");
-  });
-
-  it("still builds the verb groups that are wired in-process", async () => {
-    // They construct fine — a database is only needed to ANSWER, and each one
-    // reports that for itself. Dying while the layer was built would have taken
-    // `cvm search` down alongside them.
-    const courses = await Effect.runPromise(
-      Effect.provide(CourseOperationsService, cliLayer)
+    expect(typeof (service as Record<string, unknown>)[method]).toBe(
+      "function"
     );
-
-    expect(typeof courses.getCourses).toBe("function");
-  });
-
-  it("fails an in-process verb with a cause that names the missing DATABASE_URL", async () => {
-    // The CLI still renders this as the usual DatabaseError / exit 4 — it
-    // never leaks internals — but whoever reads the logs gets told the actual
-    // reason instead of a connection refusal to nowhere.
-    const courses = await Effect.runPromise(
-      Effect.provide(CourseOperationsService, cliLayer)
-    );
-
-    const error = await Effect.runPromise(Effect.flip(courses.getCourses()));
-
-    expect(error._tag).toBe("UnknownDBServiceError");
-    expect(String(error.cause)).toContain("no DATABASE_URL");
   });
 });

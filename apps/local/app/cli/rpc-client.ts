@@ -41,6 +41,60 @@ export const makeRpcClient = (config: RpcClientConfig): RpcClient =>
   });
 
 /**
+ * A domain service's method, as it behaves once it is a network call away.
+ *
+ * Same arguments, same success value, same domain failures — plus the two the
+ * wire adds. Building each RPC-backed method against this (`satisfies
+ * RemoteService<T>` in ./rpc-layer.ts) is what makes a service signature
+ * changing in `@cvm/core` a COMPILE ERROR in the CLI's client, rather than an
+ * argument silently arriving as `undefined` on a box nobody is watching.
+ */
+type RemoteMethod<F> = F extends (
+  ...args: infer A
+) => Effect.Effect<infer R, infer E, infer _C>
+  ? (...args: A) => Effect.Effect<R, E | AuthenticationError | TransportError>
+  : F;
+
+/**
+ * The RPC-backed shape of a domain service. PARTIAL on purpose: the API
+ * exposes what `cvm` asks for and nothing more, so a service's methods that no
+ * command calls have no endpoint and belong in no client.
+ */
+export type RemoteService<S> = {
+  readonly [K in keyof S]?: RemoteMethod<S[K]>;
+};
+
+/**
+ * One RPC-backed service method: name the endpoint, and the method's OWN
+ * arguments become the request body, in order, untouched.
+ *
+ * They are forwarded variadically rather than listed, so there is no place for
+ * a client to reorder or drop an argument on its way to the wire — the only
+ * thing a call site states is which endpoint it is. `F` comes from the
+ * contextual type (`satisfies RemoteService<T>` at the call site), so the
+ * method's signature is still the service's own.
+ */
+export const rpcMethod = <F>(
+  send: (
+    json: ReadonlyArray<unknown>
+  ) => Promise<ClientResponse<unknown, number, "json">>
+): F => ((...args: ReadonlyArray<unknown>) => callRpc(send, ...args)) as F;
+
+/**
+ * Trailing `undefined` arguments are DROPPED rather than serialised.
+ *
+ * `JSON.stringify([opts])` turns an omitted optional argument into `null`, and
+ * a service that checks `opts?.format` behaves differently from one handed a
+ * `null`. Dropping the tail is exactly what calling the method with fewer
+ * arguments does, which is what the caller meant.
+ */
+const wireArgs = (args: ReadonlyArray<unknown>): ReadonlyArray<unknown> => {
+  let end = args.length;
+  while (end > 0 && args[end - 1] === undefined) end--;
+  return args.slice(0, end);
+};
+
+/**
  * Turn one client call into an Effect, restoring the failure channel the
  * service had when it ran in-process.
  *
@@ -54,11 +108,14 @@ export const makeRpcClient = (config: RpcClientConfig): RpcClient =>
  * retries forever.
  */
 export const callRpc = <A>(
-  send: () => Promise<ClientResponse<unknown, number, "json">>
+  send: (
+    json: ReadonlyArray<unknown>
+  ) => Promise<ClientResponse<unknown, number, "json">>,
+  ...args: ReadonlyArray<unknown>
 ): Effect.Effect<A, AuthenticationError | TransportError> =>
   Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
-      try: send,
+      try: () => send(wireArgs(args)),
       catch: (cause) =>
         new TransportError({
           message: `could not reach the Course Video Manager API: ${String(cause)}`,
