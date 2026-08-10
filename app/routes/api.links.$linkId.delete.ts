@@ -3,7 +3,6 @@ import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.se
 import { makeAction } from "@/services/route-action.server";
 
 export const action = makeAction({
-  dump: false,
   effect: ({ params }) =>
     Effect.gen(function* () {
       const linkAuthOps = yield* LinkAuthOperationsService;

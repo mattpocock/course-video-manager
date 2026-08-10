@@ -16,7 +16,6 @@ import {
   rejectBothFlags,
   withName,
 } from "@/cli/helpers";
-import { withBackupCoordination } from "@/cli/backup-coordinator";
 import {
   LESSON_HELP,
   LIST_HELP,
@@ -213,56 +212,54 @@ const createCmd = Command.make(
     after: afterOption,
   },
   ({ section, title, before, after }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const b = Option.getOrUndefined(before);
-        const a = Option.getOrUndefined(after);
-        yield* rejectBothFlags({
-          a: b,
-          b: a,
-          flags: ["--before", "--after"],
-          entity: "lesson",
-        });
+    Effect.gen(function* () {
+      const b = Option.getOrUndefined(before);
+      const a = Option.getOrUndefined(after);
+      yield* rejectBothFlags({
+        a: b,
+        b: a,
+        flags: ["--before", "--after"],
+        entity: "lesson",
+      });
 
-        const svc = yield* LessonSectionOperationsService;
+      const svc = yield* LessonSectionOperationsService;
 
-        const targetSection = yield* svc
-          .getSectionWithHierarchyById(section)
-          .pipe(
-            Effect.catchTag("NotFoundError", () => notFound("section", section))
-          );
+      const targetSection = yield* svc
+        .getSectionWithHierarchyById(section)
+        .pipe(
+          Effect.catchTag("NotFoundError", () => notFound("section", section))
+        );
 
-        yield* assertDraftVersion({
-          repoId: targetSection.repoVersion.repoId,
-          versionId: targetSection.repoVersionId,
-        });
+      yield* assertDraftVersion({
+        repoId: targetSection.repoVersion.repoId,
+        versionId: targetSection.repoVersionId,
+      });
 
-        const siblings = yield* svc.getLessonsBySectionId(section);
-        const maxOrder =
-          siblings.length > 0 ? Math.max(...siblings.map((l) => l.order)) : 0;
-        let insertOrder = maxOrder + 1;
+      const siblings = yield* svc.getLessonsBySectionId(section);
+      const maxOrder =
+        siblings.length > 0 ? Math.max(...siblings.map((l) => l.order)) : 0;
+      let insertOrder = maxOrder + 1;
 
-        const anchorId = b ?? a;
-        if (anchorId !== undefined) {
-          const adjIdx = siblings.findIndex((l) => l.id === anchorId);
-          if (adjIdx === -1) {
-            return yield* notFound("lesson", anchorId);
-          }
-          const idx = a !== undefined ? adjIdx + 1 : adjIdx;
-          yield* svc.batchUpdateLessonOrders(
-            siblings.slice(idx).map((l) => ({ id: l.id, order: l.order + 1 }))
-          );
-          insertOrder = siblings[idx] ? siblings[idx]!.order : maxOrder + 1;
+      const anchorId = b ?? a;
+      if (anchorId !== undefined) {
+        const adjIdx = siblings.findIndex((l) => l.id === anchorId);
+        if (adjIdx === -1) {
+          return yield* notFound("lesson", anchorId);
         }
+        const idx = a !== undefined ? adjIdx + 1 : adjIdx;
+        yield* svc.batchUpdateLessonOrders(
+          siblings.slice(idx).map((l) => ({ id: l.id, order: l.order + 1 }))
+        );
+        insertOrder = siblings[idx] ? siblings[idx]!.order : maxOrder + 1;
+      }
 
-        const [lesson] = yield* svc.createLesson(section, {
-          title,
-          order: insertOrder,
-        });
+      const [lesson] = yield* svc.createLesson(section, {
+        title,
+        order: insertOrder,
+      });
 
-        yield* emitObject(lesson);
-      })
-    )
+      yield* emitObject(lesson);
+    })
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 // ---------------------------------------------------------------------------
@@ -305,52 +302,45 @@ const updateCmd = Command.make(
     authoringStatus: updateAuthoringStatus,
   },
   ({ id, title, description, authoringStatus }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const titleValue = Option.getOrUndefined(title);
-        const descriptionValue = Option.getOrUndefined(description);
-        const statusValue = Option.getOrUndefined(authoringStatus);
+    Effect.gen(function* () {
+      const titleValue = Option.getOrUndefined(title);
+      const descriptionValue = Option.getOrUndefined(description);
+      const statusValue = Option.getOrUndefined(authoringStatus);
 
-        if (
-          titleValue === undefined &&
-          descriptionValue === undefined &&
-          statusValue === undefined
-        ) {
-          return yield* parseError(
-            "update needs at least one of --title, --description or --authoring-status",
-            "lesson"
-          );
-        }
-        if (titleValue !== undefined && titleValue.trim().length === 0) {
-          return yield* parseError(
-            "update needs a non-empty --title",
-            "lesson"
-          );
-        }
+      if (
+        titleValue === undefined &&
+        descriptionValue === undefined &&
+        statusValue === undefined
+      ) {
+        return yield* parseError(
+          "update needs at least one of --title, --description or --authoring-status",
+          "lesson"
+        );
+      }
+      if (titleValue !== undefined && titleValue.trim().length === 0) {
+        return yield* parseError("update needs a non-empty --title", "lesson");
+      }
 
-        const svc = yield* LessonSectionOperationsService;
+      const svc = yield* LessonSectionOperationsService;
 
-        const lesson = yield* svc
-          .getLessonWithHierarchyById(id)
-          .pipe(Effect.catchTag("NotFoundError", () => notFound("lesson", id)));
-        if (lesson.archived) return yield* notFound("lesson", id);
+      const lesson = yield* svc
+        .getLessonWithHierarchyById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("lesson", id)));
+      if (lesson.archived) return yield* notFound("lesson", id);
 
-        yield* assertDraftLesson(lesson);
+      yield* assertDraftLesson(lesson);
 
-        yield* svc.updateLesson(id, {
-          ...(titleValue !== undefined ? { title: titleValue } : {}),
-          ...(descriptionValue !== undefined
-            ? { description: descriptionValue }
-            : {}),
-          ...(statusValue !== undefined
-            ? { authoringStatus: statusValue }
-            : {}),
-        });
+      yield* svc.updateLesson(id, {
+        ...(titleValue !== undefined ? { title: titleValue } : {}),
+        ...(descriptionValue !== undefined
+          ? { description: descriptionValue }
+          : {}),
+        ...(statusValue !== undefined ? { authoringStatus: statusValue } : {}),
+      });
 
-        const updated = yield* svc.getLessonWithHierarchyById(id);
-        yield* emitObject(updated);
-      })
-    )
+      const updated = yield* svc.getLessonWithHierarchyById(id);
+      yield* emitObject(updated);
+    })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 // ---------------------------------------------------------------------------
@@ -381,86 +371,83 @@ const moveCmd = Command.make(
   "move",
   { id: moveId, section: moveSection, before: moveBefore, after: moveAfter },
   ({ id, section, before, after }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const b = Option.getOrUndefined(before);
-        const a = Option.getOrUndefined(after);
-        yield* rejectBothFlags({
-          a: b,
-          b: a,
-          flags: ["--before", "--after"],
-          entity: "lesson",
-        });
-        const anchorId = b ?? a;
+    Effect.gen(function* () {
+      const b = Option.getOrUndefined(before);
+      const a = Option.getOrUndefined(after);
+      yield* rejectBothFlags({
+        a: b,
+        b: a,
+        flags: ["--before", "--after"],
+        entity: "lesson",
+      });
+      const anchorId = b ?? a;
 
-        const svc = yield* LessonSectionOperationsService;
-        const writes = yield* CourseWriteService;
+      const svc = yield* LessonSectionOperationsService;
+      const writes = yield* CourseWriteService;
 
-        const lesson = yield* svc
-          .getLessonWithHierarchyById(id)
-          .pipe(Effect.catchTag("NotFoundError", () => notFound("lesson", id)));
-        if (lesson.archived) return yield* notFound("lesson", id);
-        yield* assertDraftLesson(lesson);
+      const lesson = yield* svc
+        .getLessonWithHierarchyById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("lesson", id)));
+      if (lesson.archived) return yield* notFound("lesson", id);
+      yield* assertDraftLesson(lesson);
 
-        if (anchorId === id) {
-          return yield* parseError(
-            "a lesson cannot be moved relative to itself",
-            "lesson"
+      if (anchorId === id) {
+        return yield* parseError(
+          "a lesson cannot be moved relative to itself",
+          "lesson"
+        );
+      }
+
+      const currentSectionId = lesson.sectionId;
+      const targetSectionId =
+        Option.getOrUndefined(section) ?? currentSectionId;
+
+      if (targetSectionId !== currentSectionId) {
+        const target = yield* svc
+          .getSectionWithHierarchyById(targetSectionId)
+          .pipe(
+            Effect.catchTag("NotFoundError", () =>
+              notFound("section", targetSectionId)
+            )
           );
+        if (
+          target.archivedAt !== null ||
+          target.repoVersionId !== lesson.section.repoVersionId
+        ) {
+          return yield* notFound("section", targetSectionId);
         }
+      }
 
-        const currentSectionId = lesson.sectionId;
-        const targetSectionId =
-          Option.getOrUndefined(section) ?? currentSectionId;
-
-        if (targetSectionId !== currentSectionId) {
-          const target = yield* svc
-            .getSectionWithHierarchyById(targetSectionId)
-            .pipe(
-              Effect.catchTag("NotFoundError", () =>
-                notFound("section", targetSectionId)
-              )
-            );
-          if (
-            target.archivedAt !== null ||
-            target.repoVersionId !== lesson.section.repoVersionId
-          ) {
-            return yield* notFound("section", targetSectionId);
-          }
+      if (targetSectionId === currentSectionId) {
+        const siblings = yield* svc.getLessonsBySectionId(currentSectionId);
+        const rest = siblings.filter((l) => l.id !== id);
+        let insertAt = rest.length;
+        if (anchorId !== undefined) {
+          const idx = rest.findIndex((l) => l.id === anchorId);
+          if (idx === -1) return yield* notFound("lesson", anchorId);
+          insertAt = a !== undefined ? idx + 1 : idx;
         }
-
-        if (targetSectionId === currentSectionId) {
-          const siblings = yield* svc.getLessonsBySectionId(currentSectionId);
-          const rest = siblings.filter((l) => l.id !== id);
-          let insertAt = rest.length;
-          if (anchorId !== undefined) {
-            const idx = rest.findIndex((l) => l.id === anchorId);
-            if (idx === -1) return yield* notFound("lesson", anchorId);
-            insertAt = a !== undefined ? idx + 1 : idx;
-          }
-          const newOrderIds = [
-            ...rest.slice(0, insertAt).map((l) => l.id),
-            id,
-            ...rest.slice(insertAt).map((l) => l.id),
-          ];
-          yield* writes.reorderLessons(currentSectionId, newOrderIds);
-        } else {
-          const targetLessons =
-            yield* svc.getLessonsBySectionId(targetSectionId);
-          let beforeLessonId: string | null = null;
-          if (anchorId !== undefined) {
-            const idx = targetLessons.findIndex((l) => l.id === anchorId);
-            if (idx === -1) return yield* notFound("lesson", anchorId);
-            beforeLessonId =
-              a !== undefined ? (targetLessons[idx + 1]?.id ?? null) : anchorId;
-          }
-          yield* writes.moveToSection(id, targetSectionId, beforeLessonId);
+        const newOrderIds = [
+          ...rest.slice(0, insertAt).map((l) => l.id),
+          id,
+          ...rest.slice(insertAt).map((l) => l.id),
+        ];
+        yield* writes.reorderLessons(currentSectionId, newOrderIds);
+      } else {
+        const targetLessons = yield* svc.getLessonsBySectionId(targetSectionId);
+        let beforeLessonId: string | null = null;
+        if (anchorId !== undefined) {
+          const idx = targetLessons.findIndex((l) => l.id === anchorId);
+          if (idx === -1) return yield* notFound("lesson", anchorId);
+          beforeLessonId =
+            a !== undefined ? (targetLessons[idx + 1]?.id ?? null) : anchorId;
         }
+        yield* writes.moveToSection(id, targetSectionId, beforeLessonId);
+      }
 
-        const moved = yield* svc.getLessonWithHierarchyById(id);
-        yield* emitObject(moved);
-      })
-    )
+      const moved = yield* svc.getLessonWithHierarchyById(id);
+      yield* emitObject(moved);
+    })
 ).pipe(Command.withDescription(detail(MOVE_HELP)));
 
 // ---------------------------------------------------------------------------

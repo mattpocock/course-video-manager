@@ -13,7 +13,6 @@ const RequestSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "json",
-  dump: false,
   errors: { NotFoundError: 404, FFmpegError: 500 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {

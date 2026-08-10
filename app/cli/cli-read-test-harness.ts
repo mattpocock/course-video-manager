@@ -10,7 +10,6 @@ import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
-import { BackupCoordinator } from "@/cli/backup-coordinator";
 import type { TestDb } from "@/test-utils/pglite";
 import * as schema from "@/db/schema";
 import { buildProgram } from "@/cli/main";
@@ -34,7 +33,6 @@ export type ReadLayer = Layer.Layer<
   | DeliverableOperationsService
   | SearchOperationsService
   | CourseWriteService
-  | BackupCoordinator
 >;
 
 export const buildReadLayer = (db: TestDb): ReadLayer =>
@@ -48,11 +46,7 @@ export const buildReadLayer = (db: TestDb): ReadLayer =>
     PitchOperationsService.Default,
     DeliverableOperationsService.Default,
     SearchOperationsService.Default,
-    CourseWriteService.Default,
-    Layer.succeed(BackupCoordinator, {
-      ensureServerHealthy: Effect.void,
-      requestDump: Effect.void,
-    } as unknown as BackupCoordinator)
+    CourseWriteService.Default
   ).pipe(Layer.provideMerge(Layer.succeed(DrizzleService, db as never)));
 
 export const makeReadRun =

@@ -17,7 +17,6 @@ const SpacedeskOpenPayload = Schema.Struct({
 });
 
 export const action = makeAction({
-  dump: false,
   input: "json",
   effect: ({ payload }) =>
     Effect.gen(function* () {

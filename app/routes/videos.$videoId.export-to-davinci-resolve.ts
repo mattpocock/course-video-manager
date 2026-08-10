@@ -4,7 +4,6 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { runtimeLive } from "@/services/layer.server";
-import { withDatabaseDump } from "@/services/dump-service";
 import { data } from "react-router";
 
 export const action = async (args: Route.ActionArgs) => {
@@ -41,7 +40,6 @@ export const action = async (args: Route.ActionArgs) => {
       success: true,
     };
   }).pipe(
-    withDatabaseDump,
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
     Effect.catchTag("NotFoundError", () => {
       return Effect.die(data("Video not found", { status: 404 }));

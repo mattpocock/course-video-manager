@@ -3,7 +3,6 @@ import { CoursePublishService } from "@/services/course-publish-service";
 import { makeAction } from "@/services/route-action.server";
 
 export const action = makeAction({
-  dump: false,
   errors: { NotFoundError: 404 },
   effect: ({ params }) =>
     Effect.gen(function* () {

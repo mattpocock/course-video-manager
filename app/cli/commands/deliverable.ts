@@ -13,7 +13,6 @@ import {
   rejectBothFlags,
   withName,
 } from "@/cli/helpers";
-import { withBackupCoordination } from "@/cli/backup-coordinator";
 import {
   DELIVERABLE_HELP,
   LIST_HELP,
@@ -211,9 +210,7 @@ const getCmd = Command.make("get", { ids }, ({ ids }) =>
         svc
           .getDeliverableById(id)
           .pipe(
-            Effect.map((row) =>
-              row && !row.archived ? shape(row) : undefined
-            )
+            Effect.map((row) => (row && !row.archived ? shape(row) : undefined))
           )
       ),
   })
@@ -243,34 +240,30 @@ const createCmd = Command.make(
     pitch: pitchOption,
   },
   ({ title, date, notes, status, course, pitch }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        yield* requireNonBlankTitle(title);
-        yield* requireIsoDate(date);
-        // Validate links BEFORE the insert so a bad id leaves nothing behind.
-        const links = yield* resolveLinks({
-          courseIds: course,
-          pitchIds: pitch,
-        });
+    Effect.gen(function* () {
+      yield* requireNonBlankTitle(title);
+      yield* requireIsoDate(date);
+      // Validate links BEFORE the insert so a bad id leaves nothing behind.
+      const links = yield* resolveLinks({
+        courseIds: course,
+        pitchIds: pitch,
+      });
 
-        const svc = yield* DeliverableOperationsService;
-        const created = yield* svc.createDeliverable({
-          title,
-          date,
-          notes: Option.getOrUndefined(notes),
-          status: Option.getOrUndefined(status) as
-            | DeliverableStatus
-            | undefined,
-          courseIds: links.courseIds,
-          pitchIds: links.pitchIds,
-        });
+      const svc = yield* DeliverableOperationsService;
+      const created = yield* svc.createDeliverable({
+        title,
+        date,
+        notes: Option.getOrUndefined(notes),
+        status: Option.getOrUndefined(status) as DeliverableStatus | undefined,
+        courseIds: links.courseIds,
+        pitchIds: links.pitchIds,
+      });
 
-        // Echo what the DATABASE now holds, not what we sent it: every verb
-        // re-reads through the same shape() so `create` output is byte-for-byte
-        // what a following `get` returns, links included.
-        yield* emitObject(shape(yield* requireActiveDeliverable(created.id)));
-      })
-    )
+      // Echo what the DATABASE now holds, not what we sent it: every verb
+      // re-reads through the same shape() so `create` output is byte-for-byte
+      // what a following `get` returns, links included.
+      yield* emitObject(shape(yield* requireActiveDeliverable(created.id)));
+    })
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 const updateCmd = Command.make(
@@ -303,100 +296,94 @@ const updateCmd = Command.make(
     clearCourses,
     clearPitches,
   }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const t = Option.getOrUndefined(title);
-        const d = Option.getOrUndefined(date);
-        const n = Option.getOrUndefined(notes);
-        const s = Option.getOrUndefined(status) as
-          | DeliverableStatus
-          | undefined;
+    Effect.gen(function* () {
+      const t = Option.getOrUndefined(title);
+      const d = Option.getOrUndefined(date);
+      const n = Option.getOrUndefined(notes);
+      const s = Option.getOrUndefined(status) as DeliverableStatus | undefined;
 
-        yield* rejectBothFlags({
-          a: course.length > 0 ? course : undefined,
-          b: clearCourses ? true : undefined,
-          flags: ["--course", "--clear-courses"],
-          entity: "deliverable",
-        });
-        yield* rejectBothFlags({
-          a: pitch.length > 0 ? pitch : undefined,
-          b: clearPitches ? true : undefined,
-          flags: ["--pitch", "--clear-pitches"],
-          entity: "deliverable",
-        });
+      yield* rejectBothFlags({
+        a: course.length > 0 ? course : undefined,
+        b: clearCourses ? true : undefined,
+        flags: ["--course", "--clear-courses"],
+        entity: "deliverable",
+      });
+      yield* rejectBothFlags({
+        a: pitch.length > 0 ? pitch : undefined,
+        b: clearPitches ? true : undefined,
+        flags: ["--pitch", "--clear-pitches"],
+        entity: "deliverable",
+      });
 
-        const touchesLinks =
-          course.length > 0 || pitch.length > 0 || clearCourses || clearPitches;
-        if (
-          t === undefined &&
-          d === undefined &&
-          n === undefined &&
-          s === undefined &&
-          !touchesLinks
-        ) {
-          return yield* parseError(
-            "update needs at least one flag (e.g. --date / --status / --title)",
-            "deliverable"
-          );
-        }
+      const touchesLinks =
+        course.length > 0 || pitch.length > 0 || clearCourses || clearPitches;
+      if (
+        t === undefined &&
+        d === undefined &&
+        n === undefined &&
+        s === undefined &&
+        !touchesLinks
+      ) {
+        return yield* parseError(
+          "update needs at least one flag (e.g. --date / --status / --title)",
+          "deliverable"
+        );
+      }
 
-        if (t !== undefined) yield* requireNonBlankTitle(t);
-        if (d !== undefined) yield* requireIsoDate(d);
+      if (t !== undefined) yield* requireNonBlankTitle(t);
+      if (d !== undefined) yield* requireIsoDate(d);
 
-        // Existence + active guard (archived == deleted == not addressable).
-        const existing = yield* requireActiveDeliverable(id);
-        const links = yield* resolveLinks({
-          courseIds: course,
-          pitchIds: pitch,
-        });
+      // Existence + active guard (archived == deleted == not addressable).
+      const existing = yield* requireActiveDeliverable(id);
+      const links = yield* resolveLinks({
+        courseIds: course,
+        pitchIds: pitch,
+      });
 
-        // undefined => leave that noun's links untouched; [] => clear them.
-        const courseIds = clearCourses
-          ? []
-          : course.length > 0
-            ? links.courseIds
-            : undefined;
-        const pitchIds = clearPitches
-          ? []
-          : pitch.length > 0
-            ? links.pitchIds
-            : undefined;
+      // undefined => leave that noun's links untouched; [] => clear them.
+      const courseIds = clearCourses
+        ? []
+        : course.length > 0
+          ? links.courseIds
+          : undefined;
+      const pitchIds = clearPitches
+        ? []
+        : pitch.length > 0
+          ? links.pitchIds
+          : undefined;
 
-        const svc = yield* DeliverableOperationsService;
-        // updateDeliverable is a whole-row write, so merge the untouched fields
-        // back in from the row we just read: this verb is a PATCH.
-        yield* svc.updateDeliverable({
-          id,
-          title: t ?? existing.title,
-          date: d ?? existing.date,
-          notes: n ?? existing.notes ?? undefined,
-          status: s ?? (existing.status as DeliverableStatus),
-          courseIds,
-          pitchIds,
-        });
+      const svc = yield* DeliverableOperationsService;
+      // updateDeliverable is a whole-row write, so merge the untouched fields
+      // back in from the row we just read: this verb is a PATCH.
+      yield* svc.updateDeliverable({
+        id,
+        title: t ?? existing.title,
+        date: d ?? existing.date,
+        notes: n ?? existing.notes ?? undefined,
+        status: s ?? (existing.status as DeliverableStatus),
+        courseIds,
+        pitchIds,
+      });
 
-        yield* emitObject(shape(yield* requireActiveDeliverable(id)));
-      })
-    )
+      yield* emitObject(shape(yield* requireActiveDeliverable(id)));
+    })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 const archiveCmd = Command.make("archive", { id: idArg }, ({ id }) =>
-  withBackupCoordination(
-    Effect.gen(function* () {
-      // Read the links first — once archived the row is unreachable through
-      // listDeliverables, so this is the last chance to echo them back.
-      const existing = yield* requireActiveDeliverable(id);
-      const svc = yield* DeliverableOperationsService;
-      const archived = yield* svc.archiveDeliverable(id);
-      yield* emitObject(
-        shape({
-          ...archived,
-          deliverablesCourses: existing.deliverablesCourses,
-          deliverablesPitches: existing.deliverablesPitches,
-        })
-      );
-    })
-  )
+  Effect.gen(function* () {
+    // Read the links first — once archived the row is unreachable through
+    // listDeliverables, so this is the last chance to echo them back.
+    const existing = yield* requireActiveDeliverable(id);
+    const svc = yield* DeliverableOperationsService;
+    const archived = yield* svc.archiveDeliverable(id);
+    yield* emitObject(
+      shape({
+        ...archived,
+        deliverablesCourses: existing.deliverablesCourses,
+        deliverablesPitches: existing.deliverablesPitches,
+      })
+    );
+  })
 ).pipe(Command.withDescription(detail(ARCHIVE_HELP)));
 
 // ---------------------------------------------------------------------------

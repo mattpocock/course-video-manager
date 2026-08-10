@@ -23,7 +23,6 @@ export const action = async (args: {
   }
 
   return makeAction({
-    dump: false,
     effect: () =>
       Effect.gen(function* () {
         const result = yield* findOrCreateShortLink({ url, description });

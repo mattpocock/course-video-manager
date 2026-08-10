@@ -14,7 +14,6 @@ import { data } from "react-router";
  */
 export const action = makeAction({
   input: "json",
-  dump: false,
   errors: { InvalidComponentError: 400 },
   effect: ({ payload }) =>
     Effect.gen(function* () {

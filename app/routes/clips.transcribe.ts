@@ -2,7 +2,6 @@ import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { Console, Effect, Schema } from "effect";
 import type { Route } from "./+types/clips.transcribe";
-import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
 import { data } from "react-router";
 
@@ -46,7 +45,6 @@ export const action = async (args: Route.ActionArgs) => {
 
     return updatedClips;
   }).pipe(
-    withDatabaseDump,
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
     Effect.catchTag("ParseError", () => {
       return Effect.die(data("Invalid request", { status: 400 }));

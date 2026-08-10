@@ -33,7 +33,6 @@ const revealInExplorer = (windowsPath: string): Effect.Effect<void, Error> => {
 };
 
 export const action = makeAction({
-  dump: false,
   effect: ({ params }) =>
     Effect.gen(function* () {
       const publishService = yield* CoursePublishService;

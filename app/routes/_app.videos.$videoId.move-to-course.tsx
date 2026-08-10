@@ -14,7 +14,6 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
-import { withDatabaseDump } from "@/services/dump-service";
 import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Console, Effect, Schema } from "effect";
@@ -96,7 +95,6 @@ export const action = async (args: Route.ActionArgs) => {
       })
     );
   }).pipe(
-    withDatabaseDump,
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
     Effect.catchTag("ParseError", () => {
       return Effect.die(data("Invalid request", { status: 400 }));

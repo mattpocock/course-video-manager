@@ -5,7 +5,6 @@ import { CoursePublishService } from "@/services/course-publish-service";
 import { makeAction } from "@/services/route-action.server";
 
 export const action = makeAction({
-  dump: false,
   effect: ({ params }) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

@@ -12,7 +12,6 @@ export const action = async (args: Route.ActionArgs) => {
       : true;
 
   return makeAction({
-    dump: false,
     errors: { NotFoundError: 404 },
     effect: ({ params }) =>
       Effect.gen(function* () {

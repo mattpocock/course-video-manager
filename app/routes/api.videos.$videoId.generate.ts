@@ -49,7 +49,6 @@ const requestSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "json",
-  dump: false,
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
       const parsed = yield* Schema.decodeUnknown(requestSchema)(payload);

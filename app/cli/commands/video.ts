@@ -14,7 +14,6 @@ import {
   rejectBothFlags,
   withName,
 } from "@/cli/helpers";
-import { withBackupCoordination } from "@/cli/backup-coordinator";
 import { VIDEO_FORMATS } from "@/features/videos/video-format";
 import {
   formatProseTranscript,
@@ -237,63 +236,61 @@ const createCmd = Command.make(
     format: createFormatOption,
   },
   ({ name, lesson, pitch, format }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        if (name.trim() === "") {
-          return yield* parseError("--name must not be empty", "video");
-        }
-        const lessonId = Option.getOrUndefined(lesson);
-        const pitchId = Option.getOrUndefined(pitch);
-        const videoFormat = Option.getOrUndefined(format);
-        yield* rejectBothFlags({
-          a: lessonId,
-          b: pitchId,
-          flags: ["--lesson", "--pitch"],
-          entity: "video",
-        });
+    Effect.gen(function* () {
+      if (name.trim() === "") {
+        return yield* parseError("--name must not be empty", "video");
+      }
+      const lessonId = Option.getOrUndefined(lesson);
+      const pitchId = Option.getOrUndefined(pitch);
+      const videoFormat = Option.getOrUndefined(format);
+      yield* rejectBothFlags({
+        a: lessonId,
+        b: pitchId,
+        flags: ["--lesson", "--pitch"],
+        entity: "video",
+      });
 
-        if (lessonId !== undefined && videoFormat !== undefined) {
-          return yield* parseError(
-            "--format is not applicable with --lesson (lesson videos are " +
-              "always landscape; Shorts are always standalone)",
-            "video"
+      if (lessonId !== undefined && videoFormat !== undefined) {
+        return yield* parseError(
+          "--format is not applicable with --lesson (lesson videos are " +
+            "always landscape; Shorts are always standalone)",
+          "video"
+        );
+      }
+
+      const svc = yield* VideoOperationsService;
+
+      if (lessonId !== undefined) {
+        yield* requireLesson(lessonId);
+        const created = yield* svc
+          .createVideo(lessonId, { title: name, originalFootagePath: "" })
+          .pipe(
+            Effect.catchTag("VideoTitleTakenError", (e) =>
+              parseError(e.message, "video")
+            )
           );
-        }
+        return yield* emitObject(created);
+      }
 
-        const svc = yield* VideoOperationsService;
-
-        if (lessonId !== undefined) {
-          yield* requireLesson(lessonId);
-          const created = yield* svc
-            .createVideo(lessonId, { title: name, originalFootagePath: "" })
-            .pipe(
-              Effect.catchTag("VideoTitleTakenError", (e) =>
-                parseError(e.message, "video")
-              )
-            );
-          return yield* emitObject(created);
-        }
-
-        if (pitchId !== undefined) {
-          yield* requirePitch(pitchId);
-          const created = yield* svc.createStandaloneVideo({
-            title: name,
-            format: videoFormat,
-          });
-          const linked = yield* svc.linkVideoToPitch({
-            videoId: created.id,
-            pitchId,
-          });
-          return yield* emitObject(linked);
-        }
-
+      if (pitchId !== undefined) {
+        yield* requirePitch(pitchId);
         const created = yield* svc.createStandaloneVideo({
           title: name,
           format: videoFormat,
         });
-        yield* emitObject(created);
-      })
-    )
+        const linked = yield* svc.linkVideoToPitch({
+          videoId: created.id,
+          pitchId,
+        });
+        return yield* emitObject(linked);
+      }
+
+      const created = yield* svc.createStandaloneVideo({
+        title: name,
+        format: videoFormat,
+      });
+      yield* emitObject(created);
+    })
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
 const moveId = Args.text({ name: "id" });
@@ -302,48 +299,46 @@ const moveCmd = Command.make(
   "move",
   { id: moveId, lesson: lessonOption, pitch: pitchOption },
   ({ id, lesson, pitch }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const lessonId = Option.getOrUndefined(lesson);
-        const pitchId = Option.getOrUndefined(pitch);
-        yield* rejectBothFlags({
-          a: lessonId,
-          b: pitchId,
-          flags: ["--lesson", "--pitch"],
-          entity: "video",
-        });
-        if (lessonId === undefined && pitchId === undefined) {
-          return yield* parseError(
-            "move needs one of --lesson / --pitch",
-            "video"
+    Effect.gen(function* () {
+      const lessonId = Option.getOrUndefined(lesson);
+      const pitchId = Option.getOrUndefined(pitch);
+      yield* rejectBothFlags({
+        a: lessonId,
+        b: pitchId,
+        flags: ["--lesson", "--pitch"],
+        entity: "video",
+      });
+      if (lessonId === undefined && pitchId === undefined) {
+        return yield* parseError(
+          "move needs one of --lesson / --pitch",
+          "video"
+        );
+      }
+
+      const svc = yield* VideoOperationsService;
+      yield* svc
+        .getVideoRowById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+
+      if (lessonId !== undefined) {
+        yield* requireLesson(lessonId);
+        const moved = yield* svc
+          .moveVideoToLesson({ videoId: id, lessonId })
+          .pipe(
+            Effect.catchTag("VideoTitleTakenError", (e) =>
+              parseError(e.message, "video")
+            )
           );
-        }
+        return yield* emitObject(moved);
+      }
 
-        const svc = yield* VideoOperationsService;
-        yield* svc
-          .getVideoRowById(id)
-          .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
-
-        if (lessonId !== undefined) {
-          yield* requireLesson(lessonId);
-          const moved = yield* svc
-            .moveVideoToLesson({ videoId: id, lessonId })
-            .pipe(
-              Effect.catchTag("VideoTitleTakenError", (e) =>
-                parseError(e.message, "video")
-              )
-            );
-          return yield* emitObject(moved);
-        }
-
-        yield* requirePitch(pitchId!);
-        const moved = yield* svc.linkVideoToPitch({
-          videoId: id,
-          pitchId: pitchId!,
-        });
-        yield* emitObject(moved);
-      })
-    )
+      yield* requirePitch(pitchId!);
+      const moved = yield* svc.linkVideoToPitch({
+        videoId: id,
+        pitchId: pitchId!,
+      });
+      yield* emitObject(moved);
+    })
 ).pipe(Command.withDescription(detail(MOVE_HELP)));
 
 const updateId = Args.text({ name: "id" });
@@ -402,9 +397,7 @@ const readFileSource = (source: string, flag: string) =>
     try: () => readFileSync(source === "-" ? 0 : source, "utf8"),
     catch: () =>
       parseError(
-        `could not read ${flag} ${
-          source === "-" ? "(stdin)" : `"${source}"`
-        }`,
+        `could not read ${flag} ${source === "-" ? "(stdin)" : `"${source}"`}`,
         "video"
       ),
   });
@@ -422,92 +415,90 @@ const updateCmd = Command.make(
     format: updateFormatOption,
   },
   ({ id, name, body, bodyFile, description, script, scriptFile, format }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const newName = Option.getOrUndefined(name);
-        const inlineBody = Option.getOrUndefined(body);
-        const bodyFilePath = Option.getOrUndefined(bodyFile);
-        const newDescription = Option.getOrUndefined(description);
-        const inlineScript = Option.getOrUndefined(script);
-        const scriptFilePath = Option.getOrUndefined(scriptFile);
-        const newFormat = Option.getOrUndefined(format);
+    Effect.gen(function* () {
+      const newName = Option.getOrUndefined(name);
+      const inlineBody = Option.getOrUndefined(body);
+      const bodyFilePath = Option.getOrUndefined(bodyFile);
+      const newDescription = Option.getOrUndefined(description);
+      const inlineScript = Option.getOrUndefined(script);
+      const scriptFilePath = Option.getOrUndefined(scriptFile);
+      const newFormat = Option.getOrUndefined(format);
 
-        yield* rejectBothFlags({
-          a: inlineBody,
-          b: bodyFilePath,
-          flags: ["--body", "--body-file"],
-          entity: "video",
-        });
-        yield* rejectBothFlags({
-          a: inlineScript,
-          b: scriptFilePath,
-          flags: ["--script", "--script-file"],
-          entity: "video",
-        });
+      yield* rejectBothFlags({
+        a: inlineBody,
+        b: bodyFilePath,
+        flags: ["--body", "--body-file"],
+        entity: "video",
+      });
+      yield* rejectBothFlags({
+        a: inlineScript,
+        b: scriptFilePath,
+        flags: ["--script", "--script-file"],
+        entity: "video",
+      });
 
-        if (
-          newName === undefined &&
-          inlineBody === undefined &&
-          bodyFilePath === undefined &&
-          newDescription === undefined &&
-          inlineScript === undefined &&
-          scriptFilePath === undefined &&
-          newFormat === undefined
-        ) {
-          return yield* parseError(
-            "update needs at least one of --name / --body / --body-file / --description / --script / --script-file / --format",
-            "video"
-          );
-        }
+      if (
+        newName === undefined &&
+        inlineBody === undefined &&
+        bodyFilePath === undefined &&
+        newDescription === undefined &&
+        inlineScript === undefined &&
+        scriptFilePath === undefined &&
+        newFormat === undefined
+      ) {
+        return yield* parseError(
+          "update needs at least one of --name / --body / --body-file / --description / --script / --script-file / --format",
+          "video"
+        );
+      }
 
-        if (newName !== undefined && newName.trim() === "") {
-          return yield* parseError("--name must not be empty", "video");
-        }
+      if (newName !== undefined && newName.trim() === "") {
+        return yield* parseError("--name must not be empty", "video");
+      }
 
-        const newBody =
-          bodyFilePath !== undefined
-            ? yield* readFileSource(bodyFilePath, "--body-file")
-            : inlineBody;
+      const newBody =
+        bodyFilePath !== undefined
+          ? yield* readFileSource(bodyFilePath, "--body-file")
+          : inlineBody;
 
-        const newScript =
-          scriptFilePath !== undefined
-            ? yield* readFileSource(scriptFilePath, "--script-file")
-            : inlineScript;
+      const newScript =
+        scriptFilePath !== undefined
+          ? yield* readFileSource(scriptFilePath, "--script-file")
+          : inlineScript;
 
-        const svc = yield* VideoOperationsService;
+      const svc = yield* VideoOperationsService;
+      yield* svc
+        .getVideoRowById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+
+      if (newName !== undefined) {
         yield* svc
-          .getVideoRowById(id)
-          .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+          .updateVideoTitle({ videoId: id, title: newName })
+          .pipe(
+            Effect.catchTag("VideoTitleTakenError", (e) =>
+              parseError(e.message, "video")
+            )
+          );
+      }
+      if (newBody !== undefined) {
+        yield* svc.updateVideoBody({ videoId: id, body: newBody });
+      }
+      if (newDescription !== undefined) {
+        yield* svc.updateVideoDescription({
+          videoId: id,
+          description: newDescription,
+        });
+      }
+      if (newScript !== undefined) {
+        yield* svc.updateVideoScript({ videoId: id, script: newScript });
+      }
+      if (newFormat !== undefined) {
+        yield* svc.updateVideoFormat({ videoId: id, format: newFormat });
+      }
 
-        if (newName !== undefined) {
-          yield* svc
-            .updateVideoTitle({ videoId: id, title: newName })
-            .pipe(
-              Effect.catchTag("VideoTitleTakenError", (e) =>
-                parseError(e.message, "video")
-              )
-            );
-        }
-        if (newBody !== undefined) {
-          yield* svc.updateVideoBody({ videoId: id, body: newBody });
-        }
-        if (newDescription !== undefined) {
-          yield* svc.updateVideoDescription({
-            videoId: id,
-            description: newDescription,
-          });
-        }
-        if (newScript !== undefined) {
-          yield* svc.updateVideoScript({ videoId: id, script: newScript });
-        }
-        if (newFormat !== undefined) {
-          yield* svc.updateVideoFormat({ videoId: id, format: newFormat });
-        }
-
-        const updated = yield* svc.getVideoRowById(id);
-        yield* emitObject(updated);
-      })
-    )
+      const updated = yield* svc.getVideoRowById(id);
+      yield* emitObject(updated);
+    })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 // ---------------------------------------------------------------------------

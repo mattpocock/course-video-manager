@@ -1,7 +1,6 @@
 import { Console, Effect, type ManagedRuntime } from "effect";
 import { data } from "react-router";
 import { runtimeLive } from "./layer.server";
-import { withDatabaseDump } from "./dump-service";
 
 type ErrorTags<E> = E extends { readonly _tag: infer T extends string }
   ? T
@@ -9,7 +8,6 @@ type ErrorTags<E> = E extends { readonly _tag: infer T extends string }
 
 interface MakeActionConfig<A, E, R> {
   input?: "json" | "formData" | "none";
-  dump?: boolean;
   errors?: { [K in ErrorTags<E>]?: number };
   effect: (ctx: {
     params: Record<string, string | undefined>;
@@ -116,14 +114,10 @@ export function makeAction<A, E, R>(
       payload = Object.fromEntries(formData);
     }
 
-    let effect: Effect.Effect<A, E, R> = config.effect({
+    const effect: Effect.Effect<A, E, R> = config.effect({
       params: args.params,
       payload,
     });
-
-    if (config.dump !== false) {
-      effect = effect.pipe(withDatabaseDump) as typeof effect;
-    }
 
     return runtime.runPromise(
       buildErrorPipeline(effect, errorMap, config.errors)

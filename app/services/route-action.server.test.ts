@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Cause, Data, Effect, Layer, ManagedRuntime, Runtime } from "effect";
 import { makeAction, makeLoader } from "./route-action.server";
-import { DatabaseDumpService } from "./dump-service";
 
 function extractDieDefect(error: unknown): unknown {
   if (!Runtime.isFiberFailure(error)) throw error;
@@ -10,20 +9,12 @@ function extractDieDefect(error: unknown): unknown {
   return defects[0];
 }
 
-let dumpCalled: boolean;
-
-function makeMockDumpLayer() {
-  dumpCalled = false;
-  return Layer.succeed(DatabaseDumpService, {
-    requestDump: Effect.sync(() => {
-      dumpCalled = true;
-    }),
-  } as any);
-}
-
-function makeTestRuntime() {
-  const layer = makeMockDumpLayer();
-  return ManagedRuntime.make(layer);
+/**
+ * makeAction/makeLoader provide nothing of their own, so the empty layer is
+ * enough for every effect below — none of them ask for a service.
+ */
+function makeTestRuntime(): ManagedRuntime.ManagedRuntime<any, any> {
+  return ManagedRuntime.make(Layer.empty as unknown as Layer.Layer<any, any>);
 }
 
 function mockRequest(
@@ -55,10 +46,6 @@ function mockRequest(
 class NotFoundError extends Data.TaggedError("NotFoundError")<{
   message: string;
 }> {}
-
-beforeEach(() => {
-  dumpCalled = false;
-});
 
 describe("makeAction", () => {
   it("returns success value when effect succeeds", async () => {
@@ -337,8 +324,10 @@ describe("makeAction", () => {
     });
   });
 
-  describe("database dump", () => {
-    it("triggers dump on success by default", async () => {
+  describe("no backup coupling", () => {
+    // Point-in-time recovery on the hosted database replaced the per-action
+    // pg_dump, so an action's only requirement is its own effect's.
+    it("runs an action whose effect needs no services on an empty runtime", async () => {
       const runtime = makeTestRuntime();
 
       const action = makeAction(
@@ -348,23 +337,9 @@ describe("makeAction", () => {
         runtime
       );
 
-      await action({ request: mockRequest(), params: {} });
-      expect(dumpCalled).toBe(true);
-    });
-
-    it("does not trigger dump when dump is false", async () => {
-      const runtime = makeTestRuntime();
-
-      const action = makeAction(
-        {
-          dump: false,
-          effect: () => Effect.succeed({ ok: true }),
-        },
-        runtime
-      );
-
-      await action({ request: mockRequest(), params: {} });
-      expect(dumpCalled).toBe(false);
+      await expect(
+        action({ request: mockRequest(), params: {} })
+      ).resolves.toEqual({ ok: true });
     });
   });
 
@@ -565,9 +540,7 @@ describe("makeLoader", () => {
       const runtime = makeTestRuntime();
 
       type E =
-        | { _tag: "ParseError" }
-        | NotFoundError
-        | { _tag: "SomeCustomError" };
+        { _tag: "ParseError" } | NotFoundError | { _tag: "SomeCustomError" };
       const loader = makeLoader(
         {
           errors: { SomeCustomError: 409 },

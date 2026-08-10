@@ -1,6 +1,5 @@
 import { Layer, ManagedRuntime } from "effect";
 import { DrizzleService } from "./drizzle-service.server";
-import { DatabaseDumpService, PgDumpRunner } from "./dump-service";
 import { NodeContext } from "@effect/platform-node";
 import { VideoProcessingService } from "./video-processing-service";
 import { BackgroundRemovalService } from "./background-removal-service";
@@ -53,7 +52,6 @@ const coreLayer = Layer.mergeAll(
   BufferApiService.Default,
   ObjectStoreService.Default,
   TextGenerationService.Default,
-  DatabaseDumpService.Default,
   VideoProcessingService.Default,
   BackgroundRemovalService.Default,
   VideoEditorLoggerService.Default,
@@ -65,10 +63,7 @@ const coreLayer = Layer.mergeAll(
   CourseWriteService.Default,
   FFmpegCommandsService.Default,
   NodeContext.layer
-).pipe(
-  Layer.provide(PgDumpRunner.Default),
-  Layer.provideMerge(DrizzleService.Default)
-);
+).pipe(Layer.provideMerge(DrizzleService.Default));
 
 const publishLayer = CoursePublishService.Default.pipe(
   Layer.provide(coreLayer)

@@ -3,7 +3,6 @@ import { requestDeviceCode } from "@/services/ai-hero-auth-service";
 import { makeAction } from "@/services/route-action.server";
 
 export const action = makeAction({
-  dump: false,
   effect: () =>
     Effect.gen(function* () {
       const result = yield* requestDeviceCode;

@@ -51,6 +51,9 @@ Consequences of that framing, made explicit in the CLI surface:
 - **Writes are backup-coordinated** like every other `cvm` write: the server
   must be up, and a dump is requested afterwards. Agent authorship gets no
   weaker durability guarantee than human authorship.
+  _(Superseded: the domain database is hosted and backup coordination was
+  deleted — durability is now the host's point-in-time recovery, and a `cvm`
+  write no longer needs the server up. See issue #1536.)_
 - **Archive is exposed even though it is a one-way door.** Nothing un-archives a
   Deliverable anywhere in the product — no CLI verb, no HTTP route, no UI
   action — so `cvm deliverable archive` hands an agent an irreversible hide.

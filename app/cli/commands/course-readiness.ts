@@ -24,8 +24,7 @@ import { detail, emitObject, notFound, resolveVersionId } from "@/cli/helpers";
  * `{courseId}-{exportHash}.mp4` in FINISHED_VIDEOS_DIRECTORY — see CONTEXT.md),
  * so this needs a filesystem, not an HTTP round-trip. The same numbers are
  * reachable over HTTP at /api/courseVersions/:versionId/unexported-videos, but
- * `cvm` reads must keep working with the dev server stopped — unlike the write
- * verbs, which health-check it via BackupCoordinator. The computation lives in
+ * `cvm` must keep working with the dev server stopped. The computation lives in
  * CoursePublishService's readiness module, so the CLI and the publish gate can
  * never disagree.
  */

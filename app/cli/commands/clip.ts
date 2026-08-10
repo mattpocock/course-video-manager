@@ -11,7 +11,6 @@ import {
   parseError,
   rejectBothFlags,
 } from "@/cli/helpers";
-import { withBackupCoordination } from "@/cli/backup-coordinator";
 import {
   CLIP_ZOOM_TYPES,
   type ClipZoomType,
@@ -358,99 +357,93 @@ const updateCmd = Command.make(
   "update",
   { id: idArg, zoom: zoomOpt, start: startOpt, end: endOpt },
   ({ id, zoom, start, end }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const z = Option.getOrUndefined(zoom);
-        const s = Option.getOrUndefined(start);
-        const e = Option.getOrUndefined(end);
+    Effect.gen(function* () {
+      const z = Option.getOrUndefined(zoom);
+      const s = Option.getOrUndefined(start);
+      const e = Option.getOrUndefined(end);
 
-        if (z === undefined && s === undefined && e === undefined) {
+      if (z === undefined && s === undefined && e === undefined) {
+        return yield* parseError(
+          "update needs at least one of --zoom / --start / --end",
+          "clip"
+        );
+      }
+
+      const clipOps = yield* ClipOperationsService;
+      let row = yield* requireActiveClip(id);
+
+      if (s !== undefined || e !== undefined) {
+        const newStart = s ?? row.sourceStartTime;
+        const newEnd = e ?? row.sourceEndTime;
+        if (newStart >= newEnd) {
           return yield* parseError(
-            "update needs at least one of --zoom / --start / --end",
+            `--start (${newStart}) must be before --end (${newEnd})`,
             "clip"
           );
         }
-
-        const clipOps = yield* ClipOperationsService;
-        let row = yield* requireActiveClip(id);
-
-        if (s !== undefined || e !== undefined) {
-          const newStart = s ?? row.sourceStartTime;
-          const newEnd = e ?? row.sourceEndTime;
-          if (newStart >= newEnd) {
-            return yield* parseError(
-              `--start (${newStart}) must be before --end (${newEnd})`,
-              "clip"
-            );
-          }
-          if (newEnd - newStart < MINIMUM_CLIP_LENGTH_SECONDS) {
-            return yield* parseError(
-              `clip would be ${(newEnd - newStart).toFixed(3)}s, below the ` +
-                `${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length`,
-              "clip"
-            );
-          }
-          row = yield* clipOps.updateClip(id, {
-            sourceStartTime: newStart,
-            sourceEndTime: newEnd,
-          });
+        if (newEnd - newStart < MINIMUM_CLIP_LENGTH_SECONDS) {
+          return yield* parseError(
+            `clip would be ${(newEnd - newStart).toFixed(3)}s, below the ` +
+              `${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length`,
+            "clip"
+          );
         }
+        row = yield* clipOps.updateClip(id, {
+          sourceStartTime: newStart,
+          sourceEndTime: newEnd,
+        });
+      }
 
-        // setClipZoom re-checks eligibility — it is the service that owns the
-        // rule. Translating its failure here is only about the exit code: an
-        // ineligible clip is bad input (exit 3), not an internal fault.
-        if (z !== undefined) {
-          row = yield* clipOps
-            .setClipZoom(id, z satisfies ClipZoomType)
-            .pipe(
-              Effect.catchTag("ClipNotZoomableError", (e) =>
-                parseError(e.message, "clip")
-              )
-            );
-        }
+      // setClipZoom re-checks eligibility — it is the service that owns the
+      // rule. Translating its failure here is only about the exit code: an
+      // ineligible clip is bad input (exit 3), not an internal fault.
+      if (z !== undefined) {
+        row = yield* clipOps
+          .setClipZoom(id, z satisfies ClipZoomType)
+          .pipe(
+            Effect.catchTag("ClipNotZoomableError", (e) =>
+              parseError(e.message, "clip")
+            )
+          );
+      }
 
-        yield* emitObject(row);
-      })
-    )
+      yield* emitObject(row);
+    })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 const moveCmd = Command.make(
   "move",
   { id: idArg, before: beforeOpt, after: afterOpt },
   ({ id, before, after }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const existing = yield* requireActiveClip(id);
-        const beforeItemId = yield* resolveBeforeItemId({
-          videoId: existing.videoId,
-          before,
-          after,
-          excludeId: id,
-        });
+    Effect.gen(function* () {
+      const existing = yield* requireActiveClip(id);
+      const beforeItemId = yield* resolveBeforeItemId({
+        videoId: existing.videoId,
+        before,
+        after,
+        excludeId: id,
+      });
 
-        const clipOps = yield* ClipOperationsService;
-        const moved = yield* clipOps
-          .moveClipToPosition(id, beforeItemId)
-          .pipe(
-            Effect.catchTag("NotFoundError", (e) =>
-              notFound("clip", (e.params as { clipId?: string }).clipId ?? id)
-            )
-          );
-        yield* emitObject(moved);
-      })
-    )
+      const clipOps = yield* ClipOperationsService;
+      const moved = yield* clipOps
+        .moveClipToPosition(id, beforeItemId)
+        .pipe(
+          Effect.catchTag("NotFoundError", (e) =>
+            notFound("clip", (e.params as { clipId?: string }).clipId ?? id)
+          )
+        );
+      yield* emitObject(moved);
+    })
 ).pipe(Command.withDescription(detail(MOVE_HELP)));
 
 const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
-  withBackupCoordination(
-    Effect.gen(function* () {
-      yield* requireActiveClip(id);
-      const clipOps = yield* ClipOperationsService;
-      yield* clipOps.archiveClip(id);
-      const [archived] = yield* clipOps.getClipsByIds([id]);
-      yield* emitObject(archived);
-    })
-  )
+  Effect.gen(function* () {
+    yield* requireActiveClip(id);
+    const clipOps = yield* ClipOperationsService;
+    yield* clipOps.archiveClip(id);
+    const [archived] = yield* clipOps.getClipsByIds([id]);
+    yield* emitObject(archived);
+  })
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 
 export const clipCommand = Command.make("clip").pipe(

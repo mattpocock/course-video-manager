@@ -5,7 +5,6 @@ import { makeAction } from "@/services/route-action.server";
 import { getVideoFilePath } from "@/services/video-files";
 
 export const action = makeAction({
-  dump: false,
   errors: { NotFoundError: 404 },
   effect: ({ params }) =>
     Effect.gen(function* () {

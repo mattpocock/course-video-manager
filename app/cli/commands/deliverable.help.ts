@@ -120,7 +120,6 @@ export const CREATE_HELP = `WRITE. Create a Deliverable — a new dated entry on
 
 Writes immediately (no confirmation, no dry-run) and echoes the created
 Deliverable as one pretty JSON object, shaped exactly like 'get' output.
-Requires the CVM server to be running (writes are backup-coordinated).
 
 FLAGS
   --title <text>       Required. The Deliverable's headline; must not be blank.
@@ -151,7 +150,6 @@ export const UPDATE_HELP = `WRITE. Patch an existing Deliverable (flags BEFORE t
 Every flag is optional but at least one is required — passing none is an
 invalid input (exit 3), never a no-op write. Fields you do not pass are left
 exactly as they were. Echoes the updated Deliverable, shaped like 'get'.
-Requires the CVM server to be running (writes are backup-coordinated).
 
 This verb covers status changes too — there is no separate 'update-status':
 'cvm deliverable update --status done <id>' is the whole of it.
@@ -187,7 +185,6 @@ Sets archived = true. The Deliverable drops out of the calendar, out of the
 history disclosure, and out of this CLI entirely: it stops appearing in 'list',
 'get' returns not-found, and 'update'/'archive' can no longer address it. Echoes
 the archived row (shaped like 'get', with archived: true) one last time.
-Requires the CVM server to be running (writes are backup-coordinated).
 
 ONE-WAY DOOR. Nothing in this product un-archives a Deliverable — there is no
 CLI verb, no HTTP route and no UI action, so archiving is effectively a delete

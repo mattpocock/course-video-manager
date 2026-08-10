@@ -11,7 +11,6 @@ import {
   parseError,
   rejectBothFlags,
 } from "@/cli/helpers";
-import { withBackupCoordination } from "@/cli/backup-coordinator";
 import {
   HELP,
   LIST_HELP,
@@ -211,25 +210,23 @@ const addCmd = Command.make(
     after: afterOption,
   },
   ({ video, pitch, kind, title, description, before, after }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const videoId = yield* resolveTargetVideoId({ video, pitch });
-        const beforeBeatId = yield* resolveBeforeBeatId({
-          videoId,
-          before,
-          after,
-        });
-        const svc = yield* BeatOperationsService;
-        const beat = yield* svc.createBeat(
-          videoId,
-          Option.getOrUndefined(kind) ?? DEFAULT_BEAT_KIND,
-          beforeBeatId,
-          Option.getOrUndefined(title) ?? "",
-          Option.getOrUndefined(description) ?? ""
-        );
-        yield* emitObject(beat);
-      })
-    )
+    Effect.gen(function* () {
+      const videoId = yield* resolveTargetVideoId({ video, pitch });
+      const beforeBeatId = yield* resolveBeforeBeatId({
+        videoId,
+        before,
+        after,
+      });
+      const svc = yield* BeatOperationsService;
+      const beat = yield* svc.createBeat(
+        videoId,
+        Option.getOrUndefined(kind) ?? DEFAULT_BEAT_KIND,
+        beforeBeatId,
+        Option.getOrUndefined(title) ?? "",
+        Option.getOrUndefined(description) ?? ""
+      );
+      yield* emitObject(beat);
+    })
 ).pipe(Command.withDescription(detail(ADD_HELP)));
 
 const updateCmd = Command.make(
@@ -241,27 +238,25 @@ const updateCmd = Command.make(
     kind: kindOption,
   },
   ({ id, title, description, kind }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const t = Option.getOrUndefined(title);
-        const d = Option.getOrUndefined(description);
-        const k = Option.getOrUndefined(kind);
+    Effect.gen(function* () {
+      const t = Option.getOrUndefined(title);
+      const d = Option.getOrUndefined(description);
+      const k = Option.getOrUndefined(kind);
 
-        if (t === undefined && d === undefined && k === undefined) {
-          return yield* parseError(
-            "update needs at least one of --title / --description / --kind",
-            "beat"
-          );
-        }
+      if (t === undefined && d === undefined && k === undefined) {
+        return yield* parseError(
+          "update needs at least one of --title / --description / --kind",
+          "beat"
+        );
+      }
 
-        const svc = yield* BeatOperationsService;
-        let row = yield* requireActiveBeat(id);
-        if (t !== undefined) row = yield* svc.renameBeat(id, t);
-        if (d !== undefined) row = yield* svc.setBeatDescription(id, d);
-        if (k !== undefined) row = yield* svc.setBeatKind(id, k);
-        yield* emitObject(row);
-      })
-    )
+      const svc = yield* BeatOperationsService;
+      let row = yield* requireActiveBeat(id);
+      if (t !== undefined) row = yield* svc.renameBeat(id, t);
+      if (d !== undefined) row = yield* svc.setBeatDescription(id, d);
+      if (k !== undefined) row = yield* svc.setBeatKind(id, k);
+      yield* emitObject(row);
+    })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 const moveCmd = Command.make(
@@ -273,40 +268,36 @@ const moveCmd = Command.make(
     after: afterOption,
   },
   ({ id, video, before, after }) =>
-    withBackupCoordination(
-      Effect.gen(function* () {
-        const svc = yield* BeatOperationsService;
-        yield* requireActiveBeat(id);
-        const beforeBeatId = yield* resolveBeforeBeatId({
-          videoId: video,
-          before,
-          after,
-          excludeId: id,
-        });
-        const moved = yield* svc
-          .moveBeat(id, video, beforeBeatId)
-          .pipe(
-            Effect.catchTag("NotFoundError", (e) =>
-              notFound("beat", (e.params as { id?: string }).id ?? id)
-            )
-          );
-        yield* emitObject(moved);
-      })
-    )
-).pipe(Command.withDescription(detail(MOVE_HELP)));
-
-const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
-  withBackupCoordination(
     Effect.gen(function* () {
       const svc = yield* BeatOperationsService;
       yield* requireActiveBeat(id);
-      yield* svc.deleteBeat(id);
-      const archived = yield* svc
-        .getBeatById(id)
-        .pipe(Effect.catchTag("NotFoundError", () => notFound("beat", id)));
-      yield* emitObject(archived);
+      const beforeBeatId = yield* resolveBeforeBeatId({
+        videoId: video,
+        before,
+        after,
+        excludeId: id,
+      });
+      const moved = yield* svc
+        .moveBeat(id, video, beforeBeatId)
+        .pipe(
+          Effect.catchTag("NotFoundError", (e) =>
+            notFound("beat", (e.params as { id?: string }).id ?? id)
+          )
+        );
+      yield* emitObject(moved);
     })
-  )
+).pipe(Command.withDescription(detail(MOVE_HELP)));
+
+const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
+  Effect.gen(function* () {
+    const svc = yield* BeatOperationsService;
+    yield* requireActiveBeat(id);
+    yield* svc.deleteBeat(id);
+    const archived = yield* svc
+      .getBeatById(id)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("beat", id)));
+    yield* emitObject(archived);
+  })
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 
 export const beatCommand = Command.make("beat").pipe(

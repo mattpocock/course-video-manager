@@ -17,7 +17,6 @@ const writeReadmeSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "json",
-  dump: false,
   errors: { NotFoundError: 404 },
   effect: ({ payload }) =>
     Effect.gen(function* () {

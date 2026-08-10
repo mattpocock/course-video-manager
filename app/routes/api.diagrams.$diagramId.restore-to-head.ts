@@ -5,7 +5,6 @@ import { data } from "react-router";
 
 export const action = makeAction({
   input: "json",
-  dump: false,
   errors: { NotFoundError: 404 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {

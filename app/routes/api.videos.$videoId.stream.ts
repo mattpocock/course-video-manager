@@ -62,7 +62,6 @@ export const loader = async (args: Route.LoaderArgs) => {
 };
 
 const innerAction = makeAction({
-  dump: false,
   errors: { NotFoundError: 404 },
   effect: ({ params }) =>
     Effect.gen(function* () {

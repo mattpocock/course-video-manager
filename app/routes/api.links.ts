@@ -26,7 +26,6 @@ export const loader = makeLoader({
 
 export const action = makeAction({
   input: "formData",
-  dump: false,
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const parsed = yield* Schema.decodeUnknown(CreateLinkSchema)(

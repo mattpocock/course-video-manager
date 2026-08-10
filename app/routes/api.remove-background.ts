@@ -26,7 +26,6 @@ function uint8ArrayToBase64DataUrl(bytes: Uint8Array): string {
 
 export const action = makeAction({
   input: "json",
-  dump: false,
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const { imageDataUrl } = payload as any;
