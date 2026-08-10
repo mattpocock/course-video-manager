@@ -7,7 +7,7 @@
  */
 
 import { Effect } from "effect";
-import { CourseWriteService } from "./course-write-service";
+import { CourseWriteService } from "@/services/course-write-service";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import {

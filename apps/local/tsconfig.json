@@ -61,6 +61,15 @@
       "@/services/path-uniqueness-test-helpers": [
         "../../packages/core/services/path-uniqueness-test-helpers"
       ],
+      "@/services/course-write-service": [
+        "../../packages/core/services/course-write-service"
+      ],
+      "@/services/course-write-service.types": [
+        "../../packages/core/services/course-write-service.types"
+      ],
+      "@/services/lesson-move-planner": [
+        "../../packages/core/services/lesson-move-planner"
+      ],
       "@/lib/sort-by-order": ["../../packages/core/lib/sort-by-order"],
       "@/lib/scene-hash": ["../../packages/core/lib/scene-hash"],
       "@/lib/transcript-builder": [

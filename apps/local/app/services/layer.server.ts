@@ -9,7 +9,7 @@ import { OpenFolderService } from "./open-folder-service";
 import { SpacedeskService } from "./spacedesk-service";
 import { CloudinaryService } from "./cloudinary-service";
 import { CloudinaryMarkdownService } from "./cloudinary-markdown-service";
-import { CourseWriteService } from "./course-write-service";
+import { CourseWriteService } from "@/services/course-write-service";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { CoursePublishService } from "./course-publish-service";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";

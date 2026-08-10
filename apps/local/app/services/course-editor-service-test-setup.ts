@@ -16,7 +16,7 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
-import { CourseWriteService } from "./course-write-service";
+import { CourseWriteService } from "@/services/course-write-service";
 import * as schema from "@/db/schema";
 
 export let testDb: TestDb;

@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { toSlug } from "@/services/lesson-path-service";
+import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
+import { toSlug } from "./lesson-path-service";
 import { createMoveOps } from "./course-write-move-ops";
 export { CourseWriteError } from "./course-write-service.types";
 
