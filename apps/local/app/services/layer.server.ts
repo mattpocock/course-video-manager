@@ -24,6 +24,7 @@ import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { ApiTokenOperationsService } from "@/services/db-api-token-operations.server";
 import { RenderVerticalVideoService } from "./render-vertical-video-service";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
 import { BufferApiService } from "./buffer-api-service.server";
@@ -49,6 +50,7 @@ const coreLayer = Layer.mergeAll(
   DeliverableOperationsService.Default,
   ThumbnailOperationsService.Default,
   LinkAuthOperationsService.Default,
+  ApiTokenOperationsService.Default,
   VideoPostOperationsService.Default,
   BufferApiService.Default,
   ObjectStoreService.Default,

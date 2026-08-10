@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Clapperboard,
   FolderGit2,
+  KeyRound,
   Lightbulb,
   Menu,
   MonitorSmartphone,
@@ -227,6 +228,13 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         icon={<MonitorSmartphone className="w-4 h-4 text-muted-foreground" />}
         label="Space Desk"
         onClick={() => setIsSpacedeskOpen(true)}
+      />
+
+      <EntityCard
+        icon={<KeyRound className="w-4 h-4 text-muted-foreground" />}
+        label="API Tokens"
+        href="/api-tokens"
+        active={location.pathname.startsWith("/api-tokens")}
       />
     </div>
   );
