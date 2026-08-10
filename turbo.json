@@ -2,7 +2,13 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
   "globalDependencies": [".env", "tsconfig.json"],
-  "globalEnv": ["CI", "DATABASE_URL", "DIRECT_DATABASE_URL"],
+  "globalEnv": [
+    "CI",
+    "DATABASE_URL",
+    "DIRECT_DATABASE_URL",
+    "CVM_API_URL",
+    "CVM_API_TOKEN"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

@@ -1,0 +1,23 @@
+{
+  "include": ["**/*"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "types": ["node"],
+    "target": "ESNext",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@cvm/core/*": ["../../packages/core/*"]
+    },
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}

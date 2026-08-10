@@ -18,6 +18,7 @@ const REPO_ROOT = join(import.meta.dirname, "..");
 
 const WORKSPACE_PACKAGES = [
   "apps/local",
+  "apps/remote",
   "packages/core",
   "packages/subtitle-overlay-renderer",
 ] as const;
@@ -51,6 +52,47 @@ describe("workspace layout", () => {
     };
 
     expect(declared[core.name!]).toBe("workspace:*");
+  });
+
+  it("has apps/remote declare its dependency on the core package", () => {
+    const remote = readPackageJson("apps/remote");
+    const core = readPackageJson("packages/core");
+
+    const declared = {
+      ...remote.dependencies,
+      ...remote.devDependencies,
+    };
+
+    expect(declared[core.name!]).toBe("workspace:*");
+  });
+
+  it("has apps/local declare the remote app it derives its CLI client from", () => {
+    // The CLI's HTTP client is typed from `RemoteApp`. Reaching into a sibling
+    // through a path alias without declaring the dependency would leave the
+    // edge invisible to Vercel's graph.
+    const local = readPackageJson("apps/local");
+    const remote = readPackageJson("apps/remote");
+
+    const declared = {
+      ...local.dependencies,
+      ...local.devDependencies,
+    };
+
+    expect(declared[remote.name!]).toBe("workspace:*");
+  });
+
+  it("keeps apps/remote free of any dependency on apps/local", () => {
+    // The deployed app must never be able to reach ffmpeg, OBS or the finished
+    // videos directory. `packages/core` is the only thing the two share.
+    const remote = readPackageJson("apps/remote");
+    const declared = Object.keys({
+      ...remote.dependencies,
+      ...remote.devDependencies,
+    });
+
+    expect(declared.filter((name) => name.startsWith("@cvm/local"))).toEqual(
+      []
+    );
   });
 
   it("keeps the core package free of dependencies on the apps", () => {

@@ -1,0 +1,28 @@
+{
+  "name": "@cvm/remote",
+  "version": "1.0.0",
+  "description": "The deployed RPC API: a Hono app that exposes the domain operations to a cvm running anywhere, authenticated with a bearer token. No filesystem, no ffmpeg, no OBS — it is the transport and nothing else.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo",
+    "lint:boundaries": "depcruise app.ts auth.ts index.ts runtime.ts routes"
+  },
+  "dependencies": {
+    "@cvm/core": "workspace:*",
+    "drizzle-orm": "^0.44.3",
+    "effect": "^3.17.1",
+    "hono": "^4.13.1",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.21.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260304.1",
+    "dependency-cruiser": "^18.0.0",
+    "typescript": "^5.8.3"
+  }
+}
