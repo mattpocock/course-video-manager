@@ -23,6 +23,7 @@ export interface WaveformSourceClip {
   videoFilename: string;
   sourceStartTime: number;
   sourceEndTime: number;
+  text: string;
 }
 
 /**
@@ -56,11 +57,69 @@ export function computeClipOffsets(clips: readonly WaveformSourceClip[]): {
   });
 }
 
+export interface WaveformContextWindow {
+  file: string;
+  startTime: number;
+  duration: number;
+}
+
+/**
+ * Computes the seek window for a join-context sliver: the last
+ * `contextSeconds` of the PREVIOUS clip's source range ("tail", shown dimmed
+ * at the start of a row's waveform) or the first `contextSeconds` of the
+ * NEXT clip's source range ("head", shown dimmed at the end), so each row
+ * can show both cuts around it without cross-referencing another row.
+ *
+ * Returns `null` when there's nothing to show: no neighbor (first clip has
+ * no tail, last clip has no head), a degenerate (non-positive-duration)
+ * neighbor, or `contextSeconds <= 0`. Never throws — every input here can
+ * legitimately happen at a real clip-list boundary.
+ *
+ * A neighbor SHORTER than `contextSeconds` is clamped to its own full
+ * duration rather than reading past its bounds (which would either error at
+ * the source file's edge or, worse, silently read into whatever audio
+ * happens to follow it in that source file — not this neighbor's own
+ * audio).
+ */
+export function computeContextWindow(
+  neighbor:
+    | Pick<
+        WaveformSourceClip,
+        "videoFilename" | "sourceStartTime" | "sourceEndTime"
+      >
+    | undefined,
+  contextSeconds: number,
+  side: "tail" | "head"
+): WaveformContextWindow | null {
+  if (!neighbor) return null;
+
+  const neighborDuration = Math.max(
+    0,
+    neighbor.sourceEndTime - neighbor.sourceStartTime
+  );
+  const duration = Math.min(Math.max(0, contextSeconds), neighborDuration);
+  if (duration <= 0) return null;
+
+  const startTime =
+    side === "tail"
+      ? neighbor.sourceEndTime - duration
+      : neighbor.sourceStartTime;
+
+  return { file: neighbor.videoFilename, startTime, duration };
+}
+
 export interface WaveformOptions {
   /** Horizontal zoom level: rendered pixels per second of audio. */
   pxPerSecond: number;
   /** Rendered waveform image height, in pixels. */
   height: number;
+  /**
+   * How much of the adjacent clip's audio to show, dimmed, at each end of a
+   * row's waveform — the previous clip's tail at the start, the next clip's
+   * head at the end — so a join artifact is visible without cross-referencing
+   * another row. Matt's ask was "the first five seconds", hence the default.
+   */
+  contextSeconds: number;
   /**
    * Gain in dB applied before rendering (ffmpeg `volume=<N>dB`), on top of
    * `showwavespic`'s own `scale=cbrt` display remap (see
@@ -91,6 +150,7 @@ export interface WaveformOptions {
 const DEFAULT_WAVEFORM_OPTIONS: WaveformOptions = {
   pxPerSecond: 40,
   height: 64,
+  contextSeconds: 5,
   gainDb: 12,
 };
 
@@ -98,6 +158,8 @@ const MIN_PX_PER_SECOND = 2;
 const MAX_PX_PER_SECOND = 400;
 const MIN_HEIGHT = 16;
 const MAX_HEIGHT = 400;
+const MIN_CONTEXT_SECONDS = 0;
+const MAX_CONTEXT_SECONDS = 30;
 const MIN_GAIN_DB = -24;
 const MAX_GAIN_DB = 48;
 
@@ -129,6 +191,11 @@ export function sanitizeWaveformOptions(
       MIN_HEIGHT,
       MAX_HEIGHT
     ),
+    contextSeconds: clamp(
+      finite(input?.contextSeconds) ?? DEFAULT_WAVEFORM_OPTIONS.contextSeconds,
+      MIN_CONTEXT_SECONDS,
+      MAX_CONTEXT_SECONDS
+    ),
     gainDb: clamp(
       finite(input?.gainDb) ?? DEFAULT_WAVEFORM_OPTIONS.gainDb,
       MIN_GAIN_DB,
@@ -139,13 +206,24 @@ export function sanitizeWaveformOptions(
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
+export interface WaveformContextImage {
+  durationSeconds: number;
+  widthPx: number;
+  imageDataUrl: string;
+}
+
 export interface WaveformClip {
   clipId: string;
   order: number;
   videoStartSeconds: number;
   durationSeconds: number;
+  text: string;
   widthPx: number;
   imageDataUrl: string;
+  /** Dimmed tail of the PREVIOUS clip, rendered at the start of the row. `null` for the first clip, or when `contextSeconds` is 0. */
+  leadIn: WaveformContextImage | null;
+  /** Dimmed head of the NEXT clip, rendered at the end of the row. `null` for the last clip, or when `contextSeconds` is 0. */
+  leadOut: WaveformContextImage | null;
 }
 
 export interface WaveformResult {
@@ -164,33 +242,94 @@ export class ClipWaveformService extends Effect.Service<ClipWaveformService>()(
       const videoOps = yield* VideoOperationsService;
       const ffmpeg = yield* FFmpegCommandsService;
 
-      const renderClipWaveform = Effect.fn("renderClipWaveform")(function* (
+      const toDataUrl = (png: Buffer) =>
+        `data:image/png;base64,${png.toString("base64")}`;
+
+      const renderContextImage = Effect.fn("renderContextImage")(function* (
+        window: WaveformContextWindow,
+        options: WaveformOptions
+      ) {
+        const widthPx = Math.max(
+          1,
+          Math.round(window.duration * options.pxPerSecond)
+        );
+        const png = yield* ffmpeg.generateWaveformPng(window.file, {
+          startTime: window.startTime,
+          duration: window.duration,
+          width: widthPx,
+          height: options.height,
+          gainDb: options.gainDb,
+        });
+        return {
+          durationSeconds: window.duration,
+          widthPx,
+          imageDataUrl: toDataUrl(png),
+        } satisfies WaveformContextImage;
+      });
+
+      /**
+       * Renders one row: the clip's own waveform plus, on each side, a
+       * dimmed sliver of the adjacent clip's audio so a bad cut is visible
+       * without cross-referencing another row (see `computeContextWindow`).
+       * All three images (main + up to 2 context) are rendered concurrently
+       * — each individually goes through `FFmpegCommandsService`'s own
+       * `cpuSemaphore`, which already caps total concurrent ffmpeg
+       * processes across the whole app, so nesting concurrency here just
+       * queues rather than over-spawning.
+       */
+      const renderClipRow = Effect.fn("renderClipRow")(function* (
         clip: WaveformSourceClip,
         order: number,
         videoStartSeconds: number,
         durationSeconds: number,
+        prevClip: WaveformSourceClip | undefined,
+        nextClip: WaveformSourceClip | undefined,
         options: WaveformOptions
       ) {
         const widthPx = Math.max(
           1,
           Math.round(durationSeconds * options.pxPerSecond)
         );
+        const leadInWindow = computeContextWindow(
+          prevClip,
+          options.contextSeconds,
+          "tail"
+        );
+        const leadOutWindow = computeContextWindow(
+          nextClip,
+          options.contextSeconds,
+          "head"
+        );
 
-        const png = yield* ffmpeg.generateWaveformPng(clip.videoFilename, {
-          startTime: clip.sourceStartTime,
-          duration: durationSeconds,
-          width: widthPx,
-          height: options.height,
-          gainDb: options.gainDb,
-        });
+        const [mainPng, leadIn, leadOut] = yield* Effect.all(
+          [
+            ffmpeg.generateWaveformPng(clip.videoFilename, {
+              startTime: clip.sourceStartTime,
+              duration: durationSeconds,
+              width: widthPx,
+              height: options.height,
+              gainDb: options.gainDb,
+            }),
+            leadInWindow
+              ? renderContextImage(leadInWindow, options)
+              : Effect.succeed(null),
+            leadOutWindow
+              ? renderContextImage(leadOutWindow, options)
+              : Effect.succeed(null),
+          ],
+          { concurrency: 3 }
+        );
 
         return {
           clipId: clip.id,
           order,
           videoStartSeconds,
           durationSeconds,
+          text: clip.text,
           widthPx,
-          imageDataUrl: `data:image/png;base64,${png.toString("base64")}`,
+          imageDataUrl: toDataUrl(mainPng),
+          leadIn,
+          leadOut,
         } satisfies WaveformClip;
       });
 
@@ -204,6 +343,7 @@ export class ClipWaveformService extends Effect.Service<ClipWaveformService>()(
           videoFilename: c.videoFilename,
           sourceStartTime: c.sourceStartTime,
           sourceEndTime: c.sourceEndTime,
+          text: c.text,
         }));
 
         const offsets = computeClipOffsets(clips);
@@ -217,11 +357,13 @@ export class ClipWaveformService extends Effect.Service<ClipWaveformService>()(
           ({ clip, order, videoStartSeconds, durationSeconds }) =>
             durationSeconds <= 0
               ? Effect.succeed(null)
-              : renderClipWaveform(
+              : renderClipRow(
                   clip,
                   order,
                   videoStartSeconds,
                   durationSeconds,
+                  order > 0 ? clips[order - 1] : undefined,
+                  order < clips.length - 1 ? clips[order + 1] : undefined,
                   options
                 ),
           { concurrency: 4 }

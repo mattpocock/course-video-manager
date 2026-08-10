@@ -4,10 +4,11 @@
 // thresholds auto-flagging candidate pauses/dropouts/joins). Matt's
 // feedback on that design: "this feels quite a lot worse than just seeing
 // a waveform" — a thresholded detector is a worse proofreading tool than
-// his own eyes on the actual audio. So instead: pick a video, render its
-// waveform (one image per clip, at the zoom/height you choose), and look at
-// it yourself. Clip boundaries are marked with a vertical divider so a
-// click or level-jump right at a join is easy to spot.
+// his own eyes on the actual audio. So instead: pick a video, render one
+// row per clip — timecode, transcript, and waveform, so Matt can scan down
+// the list quickly — with a dimmed sliver of each neighboring clip's audio
+// at the start/end of the row and a vertical divider at each cut, so a bad
+// join is visible without cross-referencing another row.
 //
 // No detection, no flagging, no thresholds — a picture, nothing else.
 
@@ -120,14 +121,21 @@ export const action = makeAction({
           })
         );
       }
-      const { videoId, pxPerSecond, height, gainDb } = payload as {
-        videoId: string;
-        pxPerSecond?: unknown;
-        height?: unknown;
-        gainDb?: unknown;
-      };
+      const { videoId, pxPerSecond, height, contextSeconds, gainDb } =
+        payload as {
+          videoId: string;
+          pxPerSecond?: unknown;
+          height?: unknown;
+          contextSeconds?: unknown;
+          gainDb?: unknown;
+        };
 
-      const options = sanitizeWaveformOptions({ pxPerSecond, height, gainDb });
+      const options = sanitizeWaveformOptions({
+        pxPerSecond,
+        height,
+        contextSeconds,
+        gainDb,
+      });
 
       const waveformService = yield* ClipWaveformService;
       const result = yield* waveformService.getWaveforms(videoId, options);
@@ -137,13 +145,22 @@ export const action = makeAction({
 
 // ─── Presentation ────────────────────────────────────────────────────────
 
+interface WaveformContextImage {
+  durationSeconds: number;
+  widthPx: number;
+  imageDataUrl: string;
+}
+
 interface WaveformClip {
   clipId: string;
   order: number;
   videoStartSeconds: number;
   durationSeconds: number;
+  text: string;
   widthPx: number;
   imageDataUrl: string;
+  leadIn: WaveformContextImage | null;
+  leadOut: WaveformContextImage | null;
 }
 
 interface WaveformResultData {
@@ -165,8 +182,73 @@ const DEFAULT_HEIGHT = 64;
 // louder passages flat. Source levels vary clip to clip, so it's a knob, not
 // a constant.
 const DEFAULT_GAIN_DB = 12;
+// "the first five seconds" — Matt's own words for how much of the adjacent
+// clip's audio should show, dimmed, on each side of a row.
+const DEFAULT_CONTEXT_SECONDS = 5;
 
-function WaveformStrip({
+function WaveformRow({ clip, height }: { clip: WaveformClip; height: number }) {
+  return (
+    <div className="rounded-md border border-border bg-card p-3 space-y-2">
+      <div className="flex items-baseline gap-2">
+        <span className="text-xs font-mono text-muted-foreground tabular-nums shrink-0">
+          #{clip.order + 1} · {formatSecondsToTimeCode(clip.videoStartSeconds)}
+        </span>
+      </div>
+      <p className="text-sm leading-snug">
+        {clip.text.trim() || (
+          <span className="text-muted-foreground italic">(no transcript)</span>
+        )}
+      </p>
+      <div className="overflow-x-auto">
+        <div className="flex items-end w-max">
+          {clip.leadIn && (
+            <img
+              src={clip.leadIn.imageDataUrl}
+              alt={`End of clip ${clip.order}`}
+              width={clip.leadIn.widthPx}
+              height={height}
+              className="block opacity-35"
+              title="Previous clip's tail — context only"
+            />
+          )}
+          {clip.leadIn && (
+            <div
+              className="w-0.5 shrink-0 bg-sky-400"
+              style={{ height }}
+              title="Cut: previous clip → this clip"
+            />
+          )}
+          <img
+            src={clip.imageDataUrl}
+            alt={`Waveform for clip ${clip.order + 1}`}
+            width={clip.widthPx}
+            height={height}
+            className="block"
+          />
+          {clip.leadOut && (
+            <div
+              className="w-0.5 shrink-0 bg-sky-400"
+              style={{ height }}
+              title="Cut: this clip → next clip"
+            />
+          )}
+          {clip.leadOut && (
+            <img
+              src={clip.leadOut.imageDataUrl}
+              alt={`Start of clip ${clip.order + 2}`}
+              width={clip.leadOut.widthPx}
+              height={height}
+              className="block opacity-35"
+              title="Next clip's head — context only"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WaveformList({
   clips,
   height,
 }: {
@@ -182,31 +264,10 @@ function WaveformStrip({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-border bg-card">
-      <div className="flex items-end w-max">
-        {clips.map((clip) => (
-          <div
-            key={clip.clipId}
-            className="group relative shrink-0 border-r-2 border-sky-400"
-            style={{ width: clip.widthPx, height }}
-            title={`Clip #${clip.order + 1} · starts ${formatSecondsToTimeCode(
-              clip.videoStartSeconds
-            )} · ${clip.durationSeconds.toFixed(2)}s`}
-          >
-            <img
-              src={clip.imageDataUrl}
-              alt={`Waveform for clip ${clip.order + 1}`}
-              width={clip.widthPx}
-              height={height}
-              className="block"
-            />
-            <div className="absolute inset-x-0 bottom-0 translate-y-full pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap text-[10px] text-muted-foreground tabular-nums">
-              #{clip.order + 1} ·{" "}
-              {formatSecondsToTimeCode(clip.videoStartSeconds)}
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="flex flex-col gap-3">
+      {clips.map((clip) => (
+        <WaveformRow key={clip.clipId} clip={clip} height={height} />
+      ))}
     </div>
   );
 }
@@ -222,6 +283,7 @@ export default function PrototypeWaveform({
   );
   const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const [contextSeconds, setContextSeconds] = useState(DEFAULT_CONTEXT_SECONDS);
   const [gainDb, setGainDb] = useState(DEFAULT_GAIN_DB);
   const fetcher = useFetcher<RenderResponse>();
 
@@ -231,7 +293,13 @@ export default function PrototypeWaveform({
   const runRender = () => {
     if (!selectedVideoId) return;
     fetcher.submit(
-      JSON.stringify({ videoId: selectedVideoId, pxPerSecond, height, gainDb }),
+      JSON.stringify({
+        videoId: selectedVideoId,
+        pxPerSecond,
+        height,
+        contextSeconds,
+        gainDb,
+      }),
       {
         method: "post",
         encType: "application/json",
@@ -244,9 +312,10 @@ export default function PrototypeWaveform({
       <div className="border-b border-border px-6 py-3">
         <h1 className="text-sm font-semibold">Audio Waveform (prototype)</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Renders a rendered lesson's audio as a waveform, one image per clip,
-          with a vertical divider at every clip boundary — proofread by looking,
-          not by trusting a detector.
+          One row per clip — timecode, transcript, waveform — with a dimmed
+          sliver of each neighboring clip's audio and a vertical divider at
+          every cut, so a bad join is visible without cross-referencing another
+          row. Proofread by looking, not by trusting a detector.
         </p>
       </div>
 
@@ -293,6 +362,18 @@ export default function PrototypeWaveform({
           </label>
 
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Join context (s)
+            <Input
+              type="number"
+              min={0}
+              max={30}
+              value={contextSeconds}
+              onChange={(e) => setContextSeconds(Number(e.target.value))}
+              className="w-28"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             Gain (dB)
             <Input
               type="number"
@@ -325,8 +406,9 @@ export default function PrototypeWaveform({
 
         {isRendering && (
           <p className="text-sm text-muted-foreground">
-            Rendering one waveform image per clip — this shells out to ffmpeg
-            once per clip, so it can take a while on a long video.
+            Rendering up to three waveform images per clip (its own audio, plus
+            join context from each neighbor) — this shells out to ffmpeg several
+            times per clip, so it can take a while on a long video.
           </p>
         )}
 
@@ -341,7 +423,7 @@ export default function PrototypeWaveform({
               </p>
             </div>
 
-            <WaveformStrip clips={result.clips} height={height} />
+            <WaveformList clips={result.clips} height={height} />
           </div>
         )}
       </div>
