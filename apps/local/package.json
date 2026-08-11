@@ -120,7 +120,6 @@
     "@typescript/native-preview": "^7.0.0-dev.20260304.1",
     "dependency-cruiser": "^18.0.0",
     "drizzle-kit": "^0.31.10",
-    "evalite": "^1.0.0-beta.16",
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4.1.11",
     "tw-animate-css": "^1.3.5",

@@ -38,6 +38,14 @@
       "@ai-sdk/react": "3.0.118",
       "ai": "6.0.116",
       "@types/hast": "3.0.4"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "better-sqlite3": "0.0.0"
+      },
+      "ignoreMissing": [
+        "better-sqlite3"
+      ]
     }
   },
   "lint-staged": {
