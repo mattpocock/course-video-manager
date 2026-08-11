@@ -254,12 +254,19 @@ pause "Press Enter to continue"
 # ── 2 ─────────────────────────────────────────────────────────────────────
 stage "PlanetScale — create the database"
 
-say "PS-5, London, Postgres. The spec's sizing: the whole database is ~81 MB."
+say "PS-5, London, Postgres 17. The spec's sizing: the whole database is ~81 MB."
 open_url "https://app.planetscale.com/"
 step "Create a new Postgres database."
 step "Cluster size PS-5. Region: London (eu-west-2)."
+step "Postgres version: 17. CHANGE THIS — the dropdown defaults to the newest."
 step "Once it is up, open Settings → Backups."
 step "Set the backup schedule to DAILY, retained 30 days."
+printf '\n'
+note "17 because the local container is 17.0 and this wizard restores a dump"
+note "taken by its pg_dump. A dump from 18 cannot be restored INTO a 17 server,"
+note "so choosing 18 would weld shut the revert path the next week depends on."
+note "PlanetScale has no in-place major upgrade, but at 81 MB moving to 18 later"
+note "is a minute of data and a calm afternoon — not this irreversible step."
 printf '\n'
 note "Daily, not weekly, and this is the one setting worth being fussy about:"
 note "a 30-day window over WEEKLY backups means replaying up to seven days of"
@@ -294,6 +301,31 @@ if [[ "$PS_POOLED_URL" == "$PS_DIRECT_URL" ]]; then
   warn "those two are identical — check you copied the pooled and the direct one."
 fi
 printf '  %s✓%s held in memory. They are written to .env at stage 7, not before.\n' "$GREEN" "$RESET"
+
+# The dump waiting on disk was written by pg_dump 17. Restoring it into a
+# server OLDER than that is unsupported, and into a NEWER one costs the way
+# back — a dump taken there could never return to the local 17 container.
+# Cheap to check now; expensive to discover at stage 6.
+printf '\n'
+if command -v psql >/dev/null 2>&1; then
+  PS_VERSION="$(psql "$PS_DIRECT_URL" -tAc 'show server_version;' 2>/dev/null | cut -d. -f1 || true)"
+  if [[ -z "$PS_VERSION" ]]; then
+    warn "could not reach the database with that direct string — check it before going on."
+  elif [[ "$PS_VERSION" == "17" ]]; then
+    printf '  %s✓ PlanetScale is Postgres %s — matches the local container%s\n' "$GREEN" "$PS_VERSION" "$RESET"
+  else
+    warn "PlanetScale is Postgres $PS_VERSION; the local container is 17."
+    note "  Newer: the restore will work, but a dump taken there can never go"
+    note "  back into your local 17 container — the revert path loses its data."
+    note "  Older: the restore will likely fail outright at stage 6."
+    note "  There is no in-place major upgrade, so this is decided now."
+    confirm "Go on with Postgres $PS_VERSION anyway?" \
+      || die "Recreate the database on Postgres 17 and re-run."
+  fi
+else
+  note "no psql on this machine — skipping the version check. Confirm by eye"
+  note "that the database you created is Postgres 17."
+fi
 pause "Press Enter to continue"
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
