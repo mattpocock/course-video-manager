@@ -61,3 +61,21 @@ export type RemoteApp = ReturnType<typeof createApp>;
 
 /** The production app, on the production runtime. */
 export const app = createApp(remoteRuntime);
+
+/**
+ * The same app again, as the default export.
+ *
+ * `index.ts` was written to be the entry point and is still a valid one — but
+ * Vercel's Hono preset chooses the entry itself, and it chooses THIS file:
+ *
+ *   Invalid export found in module "/var/task/apps/remote/app.js".
+ *   The default export must be a function or server.
+ *
+ * That was the whole failure. Not a bad route and not a bad query: the platform
+ * loaded the module it had picked and found nothing there it could serve.
+ *
+ * So both candidates default-export the app. Which one the preset selects then
+ * stops being a thing this repo has to be right about, and a change to that
+ * detection cannot take the API down again.
+ */
+export default app;
