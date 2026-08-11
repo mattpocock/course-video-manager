@@ -308,28 +308,70 @@ printf '\n'
 confirm "Both roles created?" || die "Come back when they exist."
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
-stage "PlanetScale — the two connection strings"
+stage "PlanetScale — connection strings, and the port that pools them"
 
-say "A hosted Postgres hands out two kinds, and this repo uses both differently:"
+say "PlanetScale shows you ONE connection string per role, and that is all it"
+say "will ever show you. Do not go looking for a second, 'pooled' one."
 printf '\n'
-step "DATABASE_URL        — POOLER (PgBouncer), as cvm-app. Every query."
-step "DIRECT_DATABASE_URL — PRIMARY, as cvm-migrate. Migrations only."
+note "The pooler is the SAME string on a different PORT. Every PlanetScale"
+note "Postgres database runs a PgBouncer on the primary's own node, already on,"
+note "nothing to enable:"
 printf '\n'
-note "Migrations cannot go through a transaction-mode pooler: it cannot carry"
-note "session state that DDL needs — advisory locks, SET, prepared statements."
+printf '    %s5432%s  straight to Postgres  → migrations\n' "$BOLD" "$RESET"
+printf '    %s6432%s  through PgBouncer     → every application query\n' "$BOLD" "$RESET"
 printf '\n'
-step "In the PlanetScale dashboard: Connect → Postgres/psql format."
-step "Choose role cvm-app, then copy its POOLED connection string."
-ask_secret PS_POOLED_URL "Paste the POOLED (cvm-app) connection string:"
-[[ -n "$PS_POOLED_URL" ]] || die "no pooled connection string given."
-step "Now switch to role cvm-migrate and copy its DIRECT connection string."
-ask_secret PS_DIRECT_URL "Paste the DIRECT (cvm-migrate) connection string:"
-[[ -n "$PS_DIRECT_URL" ]] || die "no direct connection string given."
+note "The dialog hands you the 5432 form. This wizard makes the pooled one for"
+note "you by changing the port, so you paste what you are actually shown."
+printf '\n'
+note "Migrations must take 5432: PlanetScale's PgBouncer runs in transaction"
+note "mode only, which cannot carry the session state DDL needs — advisory"
+note "locks, SET outliving a statement, prepared statements."
+printf '\n'
+step "PlanetScale dashboard → Connect."
+step "Set the format dropdown to the URI / connection string form — the one"
+step "  starting postgresql://  — NOT the 'psql host=... port=...' form."
+step "Select role cvm-app and copy its connection string."
+ask_secret PS_APP_URL "Paste the cvm-app connection string:"
+[[ -n "$PS_APP_URL" ]] || die "no cvm-app connection string given."
+step "Now select role cvm-migrate and copy its connection string."
+ask_secret PS_DIRECT_URL "Paste the cvm-migrate connection string:"
+[[ -n "$PS_DIRECT_URL" ]] || die "no cvm-migrate connection string given."
 
-PS_POOLED_URL="$(unquote "$PS_POOLED_URL")"
+PS_APP_URL="$(unquote "$PS_APP_URL")"
 PS_DIRECT_URL="$(unquote "$PS_DIRECT_URL")"
-if [[ "$PS_POOLED_URL" == "$PS_DIRECT_URL" ]]; then
-  warn "those two are identical — check you copied the pooled and the direct one."
+
+for u in "$PS_APP_URL" "$PS_DIRECT_URL"; do
+  [[ "$u" == postgres://* || "$u" == postgresql://* ]] || die \
+    "that is not a postgresql:// URI. Switch the dashboard's format dropdown to the URI form and re-run."
+done
+
+# to_pooled URL — the same credentials, aimed at PgBouncer instead of Postgres.
+# A URI with no port means 5432 by implication, so name 6432 rather than leave
+# the default to be guessed by whatever reads it next.
+to_pooled() {
+  local url="$1"
+  case "$url" in
+    *:6432*) printf '%s' "$url" ;;
+    *:5432*) printf '%s' "${url/:5432/:6432}" ;;
+    *)       printf '%s' "$url" | sed -E 's#^(postgres(ql)?://[^/?]+)#\1:6432#' ;;
+  esac
+}
+# mask_url URL — safe to print: the password becomes ****.
+mask_url() { printf '%s' "$1" | sed -E 's#(://[^:]+:)[^@]*(@)#\1****\2#'; }
+
+PS_POOLED_URL="$(to_pooled "$PS_APP_URL")"
+printf '\n'
+if [[ "$PS_POOLED_URL" == "$PS_APP_URL" ]]; then
+  warn "could not find a port to change in the cvm-app string."
+  note "  Derived: $(mask_url "$PS_POOLED_URL")"
+  note "  It should end in :6432. Fix it by hand in .env after this run."
+else
+  printf '  %s✓ pooled string derived%s\n' "$GREEN" "$RESET"
+  note "  $(mask_url "$PS_POOLED_URL")"
+fi
+if [[ "$PS_DIRECT_URL" == *:6432* ]]; then
+  warn "the cvm-migrate string points at 6432, the pooler. Migrations need 5432."
+  confirm "Go on anyway?" || die "Re-copy the cvm-migrate string on port 5432."
 fi
 printf '  %s✓%s held in memory. They are written to .env at stage 8, not before.\n' "$GREEN" "$RESET"
 
