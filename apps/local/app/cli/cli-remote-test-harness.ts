@@ -1,6 +1,6 @@
 import { createApp } from "@cvm/remote/app";
 import { domainServicesLayer } from "@cvm/core/layer";
-import { generateApiToken } from "@cvm/core/lib/api-token";
+import { generateApiToken } from "@cvm/core/lib/api-token.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import * as schema from "@/db/schema";
 import { Layer, ManagedRuntime } from "effect";

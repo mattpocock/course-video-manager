@@ -5,7 +5,7 @@ import {
   ApiTokenOperationsService,
   type ApiTokenSummary,
 } from "@/services/db-api-token-operations.server";
-import { API_TOKEN_DEFAULT_EXPIRY_DAYS } from "@cvm/core/lib/api-token";
+import { API_TOKEN_DEFAULT_EXPIRY_DAYS } from "@cvm/core/lib/api-token-constants";
 import { makeAction, makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { Ban, Copy, KeyRound } from "lucide-react";

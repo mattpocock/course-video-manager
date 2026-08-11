@@ -6,7 +6,7 @@ import {
   generateApiToken,
   parseApiToken,
   tokenHashesMatch,
-} from "../lib/api-token";
+} from "../lib/api-token.server";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
 import { DrizzleService, type Database } from "./drizzle-service.server";
 

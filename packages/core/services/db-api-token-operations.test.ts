@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 import { beforeAll, beforeEach, describe, expect } from "vitest";
 import { DrizzleService } from "./drizzle-service.server";
 import { ApiTokenOperationsService } from "./db-api-token-operations.server";
-import { API_TOKEN_DEFAULT_EXPIRY_DAYS } from "../lib/api-token";
+import { API_TOKEN_DEFAULT_EXPIRY_DAYS } from "../lib/api-token-constants";
 import {
   createTestDb,
   truncateAllTables,

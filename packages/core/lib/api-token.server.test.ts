@@ -5,7 +5,7 @@ import {
   hashApiToken,
   parseApiToken,
   tokenHashesMatch,
-} from "./api-token";
+} from "./api-token.server";
 
 describe("generateApiToken", () => {
   it("issues a secret of the form cvm_<id>_<random>", () => {

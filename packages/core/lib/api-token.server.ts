@@ -1,7 +1,14 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+import { API_TOKEN_ID_PREFIX } from "./api-token-constants";
+
 /**
  * The shape of an API token, and nothing else — no database, no Effect.
+ *
+ * `node:crypto` makes this module server-only, hence the `.server` name. A
+ * browser bundle cannot resolve that import, so anything a route component
+ * needs — the id prefix, the default expiry — lives in `api-token-constants.ts`
+ * and is only re-exported here for callers that already run on the server.
  *
  * A token is `cvm_<id>_<32 random bytes, base64url>`. The `cvm_<id>` head is
  * PUBLIC: it is the primary key of the row, so a presented token is resolved
@@ -14,11 +21,10 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  * query ever scans on a user-supplied hash.
  */
 
-/** Every token id starts with this, so a leaked string is recognisable as ours. */
-export const API_TOKEN_ID_PREFIX = "cvm_";
-
-/** How long a freshly minted token lives unless the author says otherwise. */
-export const API_TOKEN_DEFAULT_EXPIRY_DAYS = 90;
+export {
+  API_TOKEN_DEFAULT_EXPIRY_DAYS,
+  API_TOKEN_ID_PREFIX,
+} from "./api-token-constants";
 
 export interface GeneratedApiToken {
   /** The public prefix, e.g. `cvm_a1b2c3d4`. Stored as the row's primary key. */
