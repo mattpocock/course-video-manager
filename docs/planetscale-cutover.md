@@ -23,7 +23,7 @@ Two, not one:
 | Variable              | Points at              | Used by                             |
 | --------------------- | ---------------------- | ----------------------------------- |
 | `DATABASE_URL`        | the pooler (PgBouncer) | every application query             |
-| `DIRECT_DATABASE_URL` | the primary            | the deploy's migrate step,          |
+| `DIRECT_DATABASE_URL` | the primary            | `pnpm db:migrate`,                  |
 |                       |                        | `db:baseline`, `db:verify-features` |
 
 A transaction-mode pooler cannot carry session-level DDL state, so migrations
@@ -38,11 +38,11 @@ must bypass it. `DIRECT_DATABASE_URL` is optional and falls back to
    seven days of WAL on restore, which takes hours.
 
 2. **Run the migrations** against the new branch with `DIRECT_DATABASE_URL` set.
-   This is the one time they are applied by hand — from here on it is the
-   `apps/remote` deploy's `vercel-build` step and nothing else:
+   This is applied by hand, and stays that way — see
+   [ADR 0026](adr/0026-migrations-applied-by-hand.md):
 
    ```sh
-   pnpm --filter @cvm/core run db:migrate
+   pnpm db:migrate
    ```
 
 3. **Verify the risky schema features by hand.** PlanetScale documents

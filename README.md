@@ -54,7 +54,7 @@ Schema changes are managed with **drizzle-kit generate / migrate** (versioned SQ
 
 1. Edit `packages/core/db/schema.ts`.
 2. `pnpm db:generate` — creates a new numbered `.sql` file under `packages/core/db/migrations/`.
-3. Commit it and deploy `apps/remote`. **Applying migrations is the deploy's job and nobody else's** — there is deliberately no `pnpm db:migrate`, because two writers altering the production schema at once is the failure that rule prevents. See `apps/remote/README.md`.
+3. Commit it, then `pnpm db:migrate` — run by hand, against `DIRECT_DATABASE_URL` — before or as part of deploying `apps/remote`. Applying migrations used to be the deploy's job exclusively; it moved to a manual step because that ran on every Vercel build, previews included, and could land an unmerged migration on the production schema. See `apps/remote/README.md` and [ADR 0026](docs/adr/0026-migrations-applied-by-hand.md).
 
 Migrations are **additive-only**: no dropped or renamed columns without a two-step release. A `cvm` invocation may be in flight while a deploy lands, and it is the additive rule — not the version gate — that keeps that from breaking. The version gate refuses the box's _next_ command, naming both migration counts and telling it to pull (`packages/core/rpc/schema-version.ts`).
 
@@ -66,15 +66,16 @@ If the database was originally created via `drizzle-kit push` and has never run 
 pnpm db:baseline
 ```
 
-This registers the `0000` baseline migration as already-applied so the deploy's migrate step won't replay the initial `CREATE TABLE` statements.
+This registers the `0000` baseline migration as already-applied so the next `pnpm db:migrate` won't replay the initial `CREATE TABLE` statements.
 
 ### Scripts
 
-| Script             | Description                                          |
-| ------------------ | ---------------------------------------------------- |
-| `pnpm db:generate` | Generate a new migration from schema changes         |
-| `pnpm db:baseline` | Mark the `0000` baseline as applied (one-time setup) |
-| `pnpm db:studio`   | Open Drizzle Studio                                  |
+| Script             | Description                                                   |
+| ------------------ | ------------------------------------------------------------- |
+| `pnpm db:generate` | Generate a new migration from schema changes                  |
+| `pnpm db:migrate`  | Apply pending migrations by hand (deploy no longer does this) |
+| `pnpm db:baseline` | Mark the `0000` baseline as applied (one-time setup)          |
+| `pnpm db:studio`   | Open Drizzle Studio                                           |
 
 ## Zapier Webhook Setup (Buffer Integration)
 

@@ -20,6 +20,7 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "db:generate": "pnpm --filter @cvm/core run db:generate",
+    "db:migrate": "pnpm --filter @cvm/core run db:migrate",
     "db:baseline": "pnpm --filter @cvm/local run db:baseline",
     "db:verify-features": "pnpm --filter @cvm/local run db:verify-features",
     "db:backfill-search-text": "pnpm --filter @cvm/local run db:backfill-search-text",

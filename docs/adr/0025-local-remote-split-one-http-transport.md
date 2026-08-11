@@ -34,7 +34,7 @@ Access is an **API Token**: an opaque bearer credential minted from a page in th
 
 The remote box runs `cvm` from a git checkout that is deployed separately from the API, so the two drift by themselves. Every request states the **Schema Version** it was built against — the length of the Drizzle migration journal — and `apps/remote` refuses any difference outright, naming both numbers and telling the caller to pull. An agent that reads that fixes it without asking a human; one that reads a column-not-found error retries.
 
-The gate protects the **next** command a box runs, not the one already in flight. What protects that one is a rule: **migrations are additive-only** — no dropped or renamed column without a two-step release — and they are applied by the `apps/remote` deploy and by nothing else, so two writers can never race to alter the production schema. There is deliberately no `pnpm db:migrate`.
+The gate protects the **next** command a box runs, not the one already in flight. What protects that one is a rule: **migrations are additive-only** — no dropped or renamed column without a two-step release. (Migrations were originally applied by the `apps/remote` deploy and by nothing else, with deliberately no `pnpm db:migrate`, so two writers could never race to alter the production schema; [ADR 0026](0026-migrations-applied-by-hand.md) moved applying them to a manual `pnpm db:migrate`, run by hand, because the deploy ran on every preview build too. The additive-only rule is what keeps that safe.)
 
 ## Local-only commands are refused, not ported
 

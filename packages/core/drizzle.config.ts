@@ -7,10 +7,11 @@ import { resolveMigrationDatabaseUrl } from "./db/database-url.js";
  * the schema; it no longer holds either.
  *
  * Generating a migration (`db:generate`) is authoring, done on the author's
- * machine. APPLYING one (`db:migrate`) is the `apps/remote` deploy's job and
- * nobody else's — two writers racing to alter the production schema is the
- * failure this arrangement exists to prevent, so no script above this one wires
- * `db:migrate` up. See apps/remote/README.md.
+ * machine. APPLYING one (`db:migrate`) is also done by hand, from the root
+ * (`pnpm db:migrate`) — the `apps/remote` deploy no longer runs it, because
+ * that ran on every Vercel build, previews included, and could land an
+ * unmerged migration on the production schema. See ADR 0026 and
+ * apps/remote/README.md.
  */
 export default defineConfig({
   dialect: "postgresql",

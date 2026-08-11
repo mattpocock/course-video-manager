@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "tsgo",
     "lint:boundaries": "depcruise app.ts auth.ts index.ts runtime.ts version.ts routes",
-    "vercel-build": "pnpm --filter @cvm/core run build && pnpm --filter @cvm/core run db:migrate"
+    "vercel-build": "pnpm --filter @cvm/core run build"
   },
   "dependencies": {
     "@cvm/core": "workspace:*",

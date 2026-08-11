@@ -47,16 +47,20 @@ copy of a signature TypeScript already checks twice is the copy that drifts.
 `routes/search.ts` is the one exception: its `types` parameter is a `Set`, and a
 `Set` is not JSON.
 
-**This app runs the migrations, and nothing else does.** `vercel-build` applies
-them through `DIRECT_DATABASE_URL` before the functions are built, so there is
-exactly one writer against the production schema — the deploy. Nothing above
-`packages/core` wires `db:migrate` up; generating a migration stays an authoring
-step on the author's machine (`pnpm db:generate`).
+**This app does not run the migrations.** `vercel-build` only builds
+`@cvm/core` — it used to also apply migrations through `DIRECT_DATABASE_URL`,
+but that ran on every Vercel build, including a preview build for an unmerged
+PR, which could land an unreviewed migration on the production schema. Applying
+one is now a manual step, `pnpm db:migrate` from the repo root, run by hand
+whenever the author chooses — same as generating one already was
+(`pnpm db:generate`). See [ADR 0026](../../docs/adr/0026-migrations-applied-by-hand.md).
 
 The consequence is a rule, not a preference: **migrations are additive-only**.
 No dropped or renamed column without a two-step release, because a `cvm` command
 may be in flight on some box while a deploy lands. The version gate is what
 catches that box's NEXT command; it does nothing for the one already running.
+It is also what keeps a hand-run migration safe to apply ahead of its deploy:
+old code simply ignores a column it doesn't know about yet.
 
 **Routes stay chained, groups stay mounted.** Each `routes/*.ts` returns one
 chained `new Hono()...` expression, and `app.ts` mounts it with `.route()`,
@@ -77,7 +81,7 @@ stops a filming-related commit in `apps/local` triggering an API deploy, and
 unlike `turbo-ignore` it does not consume a concurrent build slot.
 
 The `vercel-build` script takes precedence over the preset's own build command.
-It does two things: it BUILDS `@cvm/core`, and it runs the migrations.
+It BUILDS `@cvm/core` — nothing else.
 
 The build is not optional, and the reason is worth stating because the failure
 it prevents is silent. Vercel does not bundle — it transpiles each file it can
@@ -98,8 +102,9 @@ which is what removes the disagreement instead of picking a side.
 tsconfig `paths` and reads the source directly, so `dist/` is a deployment
 artefact and never part of the local loop.
 
-Environment: `DATABASE_URL` (the pooled PlanetScale string) and
-`DIRECT_DATABASE_URL` (direct to primary, for migrations).
+Environment: `DATABASE_URL` (the pooled PlanetScale string). This deploy does
+not need `DIRECT_DATABASE_URL` — that's for `pnpm db:migrate`, run by hand from
+the author's machine, not from Vercel.
 
 ## Testing
 
