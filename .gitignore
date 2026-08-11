@@ -29,3 +29,5 @@ video-files
 # The cutover wizard's working directory: full database dumps and the .env it
 # backed up before it wrote to it. Never commit either.
 .cutover/
+packages/core/dist/
+.vercel

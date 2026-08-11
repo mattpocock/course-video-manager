@@ -76,8 +76,27 @@ Set no Ignored Build Step: Vercel's built-in unaffected-project skipping is what
 stops a filming-related commit in `apps/local` triggering an API deploy, and
 unlike `turbo-ignore` it does not consume a concurrent build slot.
 
-The `vercel-build` script takes precedence over the preset's own build command,
-and it is where the migrations run.
+The `vercel-build` script takes precedence over the preset's own build command.
+It does two things: it BUILDS `@cvm/core`, and it runs the migrations.
+
+The build is not optional, and the reason is worth stating because the failure
+it prevents is silent. Vercel does not bundle — it transpiles each file it can
+trace and leaves every import specifier untouched. It traces against the SOURCE
+tree, where core is all `.ts`, but the function then runs against the OUTPUT
+tree, where the same files are `.js`. A single `exports` map cannot describe
+both trees, and either choice breaks one end: point it at `.ts` and the package
+is traced, shipped, and then fails to load; point it at `.js` and it is never
+traced, so it ships empty. Both present identically — every route, including
+`/health`, returns `FUNCTION_INVOCATION_FAILED` because the function dies on
+import.
+
+So core emits real JavaScript into `dist/` and its `exports` map points there.
+That file exists before the trace and is the same file Node loads afterwards,
+which is what removes the disagreement instead of picking a side.
+
+`apps/local` is untouched by any of this: it resolves `@cvm/core/*` through
+tsconfig `paths` and reads the source directly, so `dist/` is a deployment
+artefact and never part of the local loop.
 
 Environment: `DATABASE_URL` (the pooled PlanetScale string) and
 `DIRECT_DATABASE_URL` (direct to primary, for migrations).

@@ -1,0 +1,36 @@
+// The build that makes this package deployable.
+//
+// apps/local reads this package straight from source, through tsconfig `paths`
+// and Vite — so for a week of local work nothing here is used at all. It exists
+// for apps/remote, which is deployed.
+//
+// Vercel does not bundle: it transpiles each file it can trace and leaves the
+// specifiers alone. Tracing happens against the SOURCE tree, where every file
+// is `.ts`, but the function then runs against the OUTPUT tree, where every
+// file is `.js`. One `exports` map cannot describe both, and whichever
+// extension it names, the other end breaks — `.ts` traces and then fails to
+// load, `.js` loads and is never traced, so the package ships empty.
+//
+// Emitting real JavaScript here removes the disagreement rather than picking a
+// side: `exports` points at `dist/*.js`, which exists before the trace and is
+// the same file Node loads afterwards.
+{
+  "extends": "./tsconfig.json",
+  "include": ["**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "test-utils/**",
+    "vitest.config.ts",
+    "drizzle.config.ts"
+  ],
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "outDir": "dist"
+  }
+}
