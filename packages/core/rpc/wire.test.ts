@@ -4,10 +4,10 @@ import {
   NotFoundError,
   UnknownDBServiceError,
   VersionNotDraftError,
-} from "../services/db-service-errors";
-import { VERSION_NOT_DRAFT_MESSAGE } from "../services/version-not-draft-message";
-import { AuthenticationError } from "./rpc-errors";
-import { decodeRpcError, encodeRpcError, isRpcFailure } from "./wire";
+} from "../services/db-service-errors.js";
+import { VERSION_NOT_DRAFT_MESSAGE } from "../services/version-not-draft-message.js";
+import { AuthenticationError } from "./rpc-errors.js";
+import { decodeRpcError, encodeRpcError, isRpcFailure } from "./wire.js";
 
 describe("the error round trip", () => {
   it("rebuilds a domain NotFoundError as the same tagged error", () => {

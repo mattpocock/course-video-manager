@@ -1,5 +1,5 @@
-import type { Database } from "./drizzle-service.server";
-import { UnknownDBServiceError } from "./db-service-errors";
+import type { Database } from "./drizzle-service.server.js";
+import { UnknownDBServiceError } from "./db-service-errors.js";
 import { Cause, Effect, Exit } from "effect";
 
 export const withDbTransaction = <A, E>(

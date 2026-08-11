@@ -1,7 +1,7 @@
 import { LessonSectionOperationsService } from "@cvm/core/services/db-lesson-section-operations.server";
 import { Hono } from "hono";
-import { forward } from "../rpc";
-import type { RemoteRuntime } from "../runtime";
+import { forward } from "../rpc.js";
+import type { RemoteRuntime } from "../runtime.js";
 
 /**
  * The `section` verb group: `cvm section list | get | tree`.

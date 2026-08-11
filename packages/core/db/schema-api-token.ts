@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { text, timestamp, varchar } from "drizzle-orm/pg-core";
-import { createTable } from "./table-creator";
+import { createTable } from "./table-creator.js";
 
 /**
  * The bearer tokens the deployed API authenticates against.

@@ -1,4 +1,4 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import {
   chapters,
   clips,
@@ -9,8 +9,8 @@ import {
   sections,
   beats,
   videos,
-} from "../db/schema";
-import { UnknownDBServiceError } from "./db-service-errors";
+} from "../db/schema.js";
+import { UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 

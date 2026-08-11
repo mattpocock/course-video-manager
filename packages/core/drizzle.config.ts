@@ -1,5 +1,5 @@
 import { defineConfig } from "drizzle-kit";
-import { resolveMigrationDatabaseUrl } from "./db/database-url";
+import { resolveMigrationDatabaseUrl } from "./db/database-url.js";
 
 /**
  * The schema, the migrations and the tooling that reads them live TOGETHER, in

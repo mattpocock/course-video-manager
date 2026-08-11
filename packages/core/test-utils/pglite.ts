@@ -1,9 +1,9 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { sql } from "drizzle-orm";
-import * as schema from "../db/schema";
+import * as schema from "../db/schema.js";
 import { readFileSync } from "node:fs";
-import "./pglite-snapshot";
+import "./pglite-snapshot.js";
 
 export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
 

@@ -1,10 +1,10 @@
-import { type Database } from "./drizzle-service.server";
-import { courseVersions } from "../db/schema";
+import { type Database } from "./drizzle-service.server.js";
+import { courseVersions } from "../db/schema.js";
 import {
   NotFoundError,
   UnknownDBServiceError,
   VersionNotPendingError,
-} from "./db-service-errors";
+} from "./db-service-errors.js";
 import { and, desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 

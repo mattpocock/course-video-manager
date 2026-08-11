@@ -1,17 +1,17 @@
 import { Hono } from "hono";
-import { authenticate } from "./auth";
-import { beatRoutes } from "./routes/beat";
-import { clipRoutes } from "./routes/clip";
-import { courseRoutes } from "./routes/course";
-import { deliverableRoutes } from "./routes/deliverable";
-import { lessonRoutes } from "./routes/lesson";
-import { pitchRoutes } from "./routes/pitch";
-import { searchRoutes } from "./routes/search";
-import { sectionRoutes } from "./routes/section";
-import { versionRoutes } from "./routes/version";
-import { videoRoutes } from "./routes/video";
-import { remoteRuntime, type RemoteRuntime } from "./runtime";
-import { requireSchemaVersion } from "./version";
+import { authenticate } from "./auth.js";
+import { beatRoutes } from "./routes/beat.js";
+import { clipRoutes } from "./routes/clip.js";
+import { courseRoutes } from "./routes/course.js";
+import { deliverableRoutes } from "./routes/deliverable.js";
+import { lessonRoutes } from "./routes/lesson.js";
+import { pitchRoutes } from "./routes/pitch.js";
+import { searchRoutes } from "./routes/search.js";
+import { sectionRoutes } from "./routes/section.js";
+import { versionRoutes } from "./routes/version.js";
+import { videoRoutes } from "./routes/video.js";
+import { remoteRuntime, type RemoteRuntime } from "./runtime.js";
+import { requireSchemaVersion } from "./version.js";
 
 /**
  * The deployed RPC API.

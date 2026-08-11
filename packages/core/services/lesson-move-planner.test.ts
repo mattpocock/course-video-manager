@@ -4,7 +4,7 @@ import {
   planLessonsMove,
   type FsOp,
   type PlannerSection,
-} from "./lesson-move-planner";
+} from "./lesson-move-planner.js";
 
 /** Compact builder for a lesson. */
 const real = (id: string, path: string, order: number) => ({

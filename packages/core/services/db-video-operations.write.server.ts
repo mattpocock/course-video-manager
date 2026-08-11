@@ -1,17 +1,17 @@
-import { type Database } from "./drizzle-service.server";
-import { videos } from "../db/schema";
+import { type Database } from "./drizzle-service.server.js";
+import { videos } from "../db/schema.js";
 import {
   NotFoundError,
   UnknownDBServiceError,
   VideoTitleTakenError,
-} from "./db-service-errors";
+} from "./db-service-errors.js";
 import { and, eq, ne } from "drizzle-orm";
 import { Effect } from "effect";
-import type { VideoFormat } from "../features/videos/video-format";
+import type { VideoFormat } from "../features/videos/video-format.js";
 import {
   requireDraftVersionForLesson,
   requireDraftVersionForVideo,
-} from "./draft-guard.server";
+} from "./draft-guard.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({

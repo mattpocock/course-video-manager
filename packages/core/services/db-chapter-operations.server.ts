@@ -1,14 +1,14 @@
-import type { Database } from "./drizzle-service.server";
-import { clips, chapters } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import type { Database } from "./drizzle-service.server.js";
+import { clips, chapters } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import {
   requireDraftVersionForChapter,
   requireDraftVersionForVideo,
-} from "./draft-guard.server";
-import { compareOrderStrings } from "../lib/sort-by-order";
+} from "./draft-guard.server.js";
+import { compareOrderStrings } from "../lib/sort-by-order.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({

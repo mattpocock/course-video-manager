@@ -1,7 +1,7 @@
 import { CourseOperationsService } from "@cvm/core/services/db-course-operations.server";
 import { Hono } from "hono";
-import { forward } from "../rpc";
-import type { RemoteRuntime } from "../runtime";
+import { forward } from "../rpc.js";
+import type { RemoteRuntime } from "../runtime.js";
 
 /**
  * The `course` verb group: `cvm course list | get | tree | transcripts`.

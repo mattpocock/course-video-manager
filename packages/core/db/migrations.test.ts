@@ -7,7 +7,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { pushSchema } from "drizzle-kit/api";
 import { describe, expect, it } from "vitest";
-import * as schema from "./schema";
+import * as schema from "./schema.js";
 
 const MIGRATIONS_FOLDER = join(import.meta.dirname, "migrations");
 

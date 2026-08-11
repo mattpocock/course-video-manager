@@ -4,7 +4,7 @@ import {
   deriveSectionPath,
   parseSectionPath,
   computeSectionRenumberingPlan,
-} from "./section-path-service";
+} from "./section-path-service.js";
 
 describe("buildSectionPath", () => {
   it("produces NN-slug format", () => {

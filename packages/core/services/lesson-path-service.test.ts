@@ -6,7 +6,7 @@ import {
   parseLessonPath,
   computeRenumberingPlan,
   computeInsertionPlan,
-} from "./lesson-path-service";
+} from "./lesson-path-service.js";
 
 describe("toSlug", () => {
   it("converts spaces to dashes", () => {

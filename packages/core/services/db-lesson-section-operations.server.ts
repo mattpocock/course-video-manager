@@ -1,24 +1,24 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { lessons, sections, videos } from "../db/schema";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { lessons, sections, videos } from "../db/schema.js";
 import {
   NotFoundError,
   UnknownDBServiceError,
   SectionPathTakenError,
   LessonPathTakenError,
-} from "./db-service-errors";
+} from "./db-service-errors.js";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
-import type { AuthoringStatus } from "./lesson-authoring-status";
-import { parseLessonPath } from "./lesson-path-service";
-import { parseSectionPath } from "./section-path-service";
+import type { AuthoringStatus } from "./lesson-authoring-status.js";
+import { parseLessonPath } from "./lesson-path-service.js";
+import { parseSectionPath } from "./section-path-service.js";
 import {
   requireDraftVersion,
   requireDraftVersionForLesson,
   requireDraftVersionForLessons,
   requireDraftVersionForSection,
   requireDraftVersionForSections,
-} from "./draft-guard.server";
-import { transactionalizeWrites } from "./with-db-transaction.server";
+} from "./draft-guard.server.js";
+import { transactionalizeWrites } from "./with-db-transaction.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({

@@ -1,7 +1,7 @@
-import { courses } from "../db/schema";
+import { courses } from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { courseNameToSlug } from "./course-slug";
-import type { DrizzleDB } from "./drizzle-service.server";
+import { courseNameToSlug } from "./course-slug.js";
+import type { DrizzleDB } from "./drizzle-service.server.js";
 
 export async function backfillCourseSlugs(db: DrizzleDB) {
   const allCourses = await db

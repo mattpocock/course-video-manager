@@ -1,16 +1,16 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Data, Effect, Exit } from "effect";
-import { withDbTransaction } from "./with-db-transaction.server";
-import { createBeatOperations } from "./db-beat-operations.server";
-import { beats, videos } from "../db/schema";
+import { withDbTransaction } from "./with-db-transaction.server.js";
+import { createBeatOperations } from "./db-beat-operations.server.js";
+import { beats, videos } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
-import type { Database } from "./drizzle-service.server";
+} from "../test-utils/pglite.js";
+import type { Database } from "./drizzle-service.server.js";
 
 class ForcedTestError extends Data.TaggedError("ForcedTestError")<{
   message: string;

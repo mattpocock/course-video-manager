@@ -1,14 +1,14 @@
 import { it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { beforeAll, beforeEach, describe, expect } from "vitest";
-import { DrizzleService } from "./drizzle-service.server";
-import { ApiTokenOperationsService } from "./db-api-token-operations.server";
-import { API_TOKEN_DEFAULT_EXPIRY_DAYS } from "../lib/api-token-constants";
+import { DrizzleService } from "./drizzle-service.server.js";
+import { ApiTokenOperationsService } from "./db-api-token-operations.server.js";
+import { API_TOKEN_DEFAULT_EXPIRY_DAYS } from "../lib/api-token-constants.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
+} from "../test-utils/pglite.js";
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<ApiTokenOperationsService>;

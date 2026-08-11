@@ -4,9 +4,9 @@ import {
   sections,
   lessons,
   videos,
-} from "../db/schema";
+} from "../db/schema.js";
 import { sql } from "drizzle-orm";
-import type { TestDb } from "../test-utils/pglite";
+import type { TestDb } from "../test-utils/pglite.js";
 
 export async function dropUniqueIndexes(testDb: TestDb) {
   await testDb.execute(sql`DROP INDEX IF EXISTS "section_version_order_uniq"`);

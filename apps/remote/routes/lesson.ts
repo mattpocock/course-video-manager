@@ -1,8 +1,8 @@
 import { CourseWriteService } from "@cvm/core/services/course-write-service";
 import { LessonSectionOperationsService } from "@cvm/core/services/db-lesson-section-operations.server";
 import { Hono } from "hono";
-import { forward } from "../rpc";
-import type { RemoteRuntime } from "../runtime";
+import { forward } from "../rpc.js";
+import type { RemoteRuntime } from "../runtime.js";
 
 /**
  * The `lesson` verb group: `cvm lesson list | get | tree | create | update |

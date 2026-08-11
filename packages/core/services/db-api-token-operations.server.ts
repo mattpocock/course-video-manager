@@ -1,14 +1,14 @@
 import { desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
-import { apiTokens } from "../db/schema-api-token";
+import { apiTokens } from "../db/schema-api-token.js";
 import {
   API_TOKEN_DEFAULT_EXPIRY_DAYS,
   generateApiToken,
   parseApiToken,
   tokenHashesMatch,
-} from "../lib/api-token.server";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
-import { DrizzleService, type Database } from "./drizzle-service.server";
+} from "../lib/api-token.server.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
 
 const tryDb = <A>(fn: () => Promise<A>) =>
   Effect.tryPromise({

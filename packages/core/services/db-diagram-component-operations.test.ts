@@ -1,14 +1,14 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { DiagramComponentOperationsService } from "./db-diagram-component-operations.server";
-import { DrizzleService } from "./drizzle-service.server";
-import { DiagramThumbnailStore } from "./diagram-thumbnail-store";
+import { DiagramComponentOperationsService } from "./db-diagram-component-operations.server.js";
+import { DrizzleService } from "./drizzle-service.server.js";
+import { DiagramThumbnailStore } from "./diagram-thumbnail-store.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
+} from "../test-utils/pglite.js";
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<DiagramComponentOperationsService>;

@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { VideoOperationsService } from "./db-video-operations.server";
-import { CourseOperationsService } from "./db-course-operations.server";
-import { DrizzleService } from "./drizzle-service.server";
+import { VideoOperationsService } from "./db-video-operations.server.js";
+import { CourseOperationsService } from "./db-course-operations.server.js";
+import { DrizzleService } from "./drizzle-service.server.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
-import * as schema from "../db/schema";
-import { VersionOperationsService } from "./db-version-operations.server";
+} from "../test-utils/pglite.js";
+import * as schema from "../db/schema.js";
+import { VersionOperationsService } from "./db-version-operations.server.js";
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<VideoOperationsService | VersionOperationsService>;

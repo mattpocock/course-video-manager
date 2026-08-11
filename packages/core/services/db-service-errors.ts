@@ -1,5 +1,5 @@
 import { Data } from "effect";
-import { VERSION_NOT_DRAFT_MESSAGE } from "./version-not-draft-message";
+import { VERSION_NOT_DRAFT_MESSAGE } from "./version-not-draft-message.js";
 
 export class NotFoundError extends Data.TaggedError("NotFoundError")<{
   type: string;

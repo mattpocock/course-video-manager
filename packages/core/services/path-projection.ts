@@ -1,8 +1,11 @@
-import { sectionHasLessons, deriveSectionPath } from "./section-path-service";
-import { deriveLessonPath } from "./lesson-path-service";
+import {
+  sectionHasLessons,
+  deriveSectionPath,
+} from "./section-path-service.js";
+import { deriveLessonPath } from "./lesson-path-service.js";
 
-export { deriveLessonPath } from "./lesson-path-service";
-export { deriveSectionPath } from "./section-path-service";
+export { deriveLessonPath } from "./lesson-path-service.js";
+export { deriveSectionPath } from "./section-path-service.js";
 
 export type DerivedPath = string;
 

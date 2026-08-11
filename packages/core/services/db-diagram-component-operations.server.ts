@@ -8,15 +8,15 @@
  * "a Component is not a Diagram" holds at the code seam and not just in prose.
  */
 
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { diagramComponents } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { diagramComponents } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { desc, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import {
   DiagramThumbnailStore,
   type DiagramThumbnailStoreApi,
-} from "./diagram-thumbnail-store";
+} from "./diagram-thumbnail-store.js";
 
 /** A 400: the caller sent something a Component cannot be built from. */
 export class InvalidComponentError extends Data.TaggedError(

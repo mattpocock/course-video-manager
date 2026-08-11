@@ -7,8 +7,8 @@ import { TransportError } from "@cvm/core/rpc/rpc-errors";
 import { encodeRpcError, type RpcResponse } from "@cvm/core/rpc/wire";
 import { Effect } from "effect";
 import { Hono } from "hono";
-import { runRpc } from "../rpc";
-import type { RemoteRuntime } from "../runtime";
+import { runRpc } from "../rpc.js";
+import type { RemoteRuntime } from "../runtime.js";
 
 /**
  * The `search` verb group: `cvm search`, and the scoped

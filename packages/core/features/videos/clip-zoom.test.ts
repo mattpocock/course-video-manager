@@ -9,7 +9,7 @@ import {
   clipZoomRect,
   resolveClipZoomType,
   ZOOMABLE_SCENES,
-} from "./clip-zoom";
+} from "./clip-zoom.js";
 
 /**
  * Resolve what an ffmpeg `crop=w:h:x:y` expression actually evaluates to for a

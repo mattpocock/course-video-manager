@@ -1,7 +1,10 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { beats } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
-import { DEFAULT_BEAT_KIND, type BeatKind } from "../features/beats/beat-kinds";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { beats } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
+import {
+  DEFAULT_BEAT_KIND,
+  type BeatKind,
+} from "../features/beats/beat-kinds.js";
 import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";

@@ -2,8 +2,8 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import { Pool } from "pg";
-import * as schema from "../db/schema";
-import { resolveDatabaseUrl } from "../db/database-url";
+import * as schema from "../db/schema.js";
+import { resolveDatabaseUrl } from "../db/database-url.js";
 import { Effect } from "effect";
 
 export type DrizzleDB = NodePgDatabase<typeof schema>;

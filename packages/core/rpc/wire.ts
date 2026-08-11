@@ -1,10 +1,10 @@
-import * as DomainErrors from "../services/db-service-errors";
+import * as DomainErrors from "../services/db-service-errors.js";
 import {
   AuthenticationError,
   ConfigurationError,
   SchemaVersionMismatchError,
   TransportError,
-} from "./rpc-errors";
+} from "./rpc-errors.js";
 
 /**
  * The wire format the deployed API answers in, and the CLI reads.

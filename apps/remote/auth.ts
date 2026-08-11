@@ -6,7 +6,7 @@ import {
 import { encodeRpcError } from "@cvm/core/rpc/wire";
 import { Effect, Exit } from "effect";
 import type { MiddlewareHandler } from "hono";
-import type { RemoteRuntime } from "./runtime";
+import type { RemoteRuntime } from "./runtime.js";
 
 /**
  * Bearer authentication for every RPC route.

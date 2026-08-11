@@ -1,4 +1,6 @@
-import journal from "../db/migrations/meta/_journal.json";
+// The import attribute is not decoration: Node's ESM loader refuses a JSON
+// import without it, and this module is loaded on every deployed request.
+import journal from "../db/migrations/meta/_journal.json" with { type: "json" };
 
 /**
  * The one number the two ends of the wire compare.

@@ -4,8 +4,8 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import * as schema from "./schema";
-import { SCHEMA_FEATURE_PROBES } from "./schema-feature-probes";
+import * as schema from "./schema.js";
+import { SCHEMA_FEATURE_PROBES } from "./schema-feature-probes.js";
 
 const MIGRATIONS_FOLDER = join(import.meta.dirname, "migrations");
 

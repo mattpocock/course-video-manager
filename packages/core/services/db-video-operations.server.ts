@@ -1,25 +1,25 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { CourseOperationsService } from "./db-course-operations.server";
-import { clips, chapters, videos, clipWebLinks } from "../db/schema";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { CourseOperationsService } from "./db-course-operations.server.js";
+import { clips, chapters, videos, clipWebLinks } from "../db/schema.js";
 import {
   CannotArchiveLessonVideoError,
   NotFoundError,
   UnknownDBServiceError,
   VideoTitleTakenError,
-} from "./db-service-errors";
+} from "./db-service-errors.js";
 import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
-import { copyVideoImpl } from "./db-video-operations.copy.server";
+import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import {
   createVideoWriteOps,
   videoWriteMethods,
-} from "./db-video-operations.write.server";
-import { transactionalizeWrites } from "./with-db-transaction.server";
-import type { VideoFormat } from "../features/videos/video-format";
+} from "./db-video-operations.write.server.js";
+import { transactionalizeWrites } from "./with-db-transaction.server.js";
+import type { VideoFormat } from "../features/videos/video-format.js";
 import {
   requireDraftVersionForLesson,
   requireDraftVersionForVideo,
-} from "./draft-guard.server";
+} from "./draft-guard.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({

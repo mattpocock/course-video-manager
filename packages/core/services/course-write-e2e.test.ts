@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
-import { CourseOperationsService } from "./db-course-operations.server";
-import { VersionOperationsService } from "./db-version-operations.server";
-import { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
-import { DrizzleService } from "./drizzle-service.server";
-import { CourseWriteService } from "./course-write-service";
+import { CourseOperationsService } from "./db-course-operations.server.js";
+import { VersionOperationsService } from "./db-version-operations.server.js";
+import { LessonSectionOperationsService } from "./db-lesson-section-operations.server.js";
+import { DrizzleService } from "./drizzle-service.server.js";
+import { CourseWriteService } from "./course-write-service.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
+} from "../test-utils/pglite.js";
 
 let testDb: TestDb;
 

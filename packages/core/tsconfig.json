@@ -5,8 +5,16 @@
     "lib": ["ESNext"],
     "types": ["node"],
     "target": "ESNext",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
+    // `nodenext`, not `bundler`. This package is consumed two ways: bundled by
+    // Vite for apps/local, and copied file-by-file onto Vercel for apps/remote,
+    // where plain Node's ESM loader reads the specifiers as written. Node
+    // resolves no extensions, so an extensionless `./foo` becomes a runtime
+    // ERR_MODULE_NOT_FOUND that no bundler ever shows you — the function dies
+    // on import, before any route runs. `nodenext` makes the typechecker refuse
+    // the specifier Node refuses, which is the only place that failure can be
+    // caught before it ships.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,

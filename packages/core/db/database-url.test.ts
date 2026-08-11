@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolveDatabaseUrl,
   resolveMigrationDatabaseUrl,
-} from "./database-url";
+} from "./database-url.js";
 
 const POOLED = "postgresql://user:pw@pooler.host/db";
 const DIRECT = "postgresql://user:pw@direct.host/db";

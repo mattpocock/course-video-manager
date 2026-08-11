@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canonicalize, hashScene } from "./scene-hash";
+import { canonicalize, hashScene } from "./scene-hash.js";
 
 describe("canonicalize", () => {
   it("produces identical output regardless of key insertion order", () => {

@@ -1,16 +1,16 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { CourseOperationsService } from "./db-course-operations.server";
-import { DrizzleService } from "./drizzle-service.server";
-import { courses } from "../db/schema";
-import { courseNameToSlug } from "./course-slug";
-import { backfillCourseSlugs } from "./course-slug-backfill";
+import { CourseOperationsService } from "./db-course-operations.server.js";
+import { DrizzleService } from "./drizzle-service.server.js";
+import { courses } from "../db/schema.js";
+import { courseNameToSlug } from "./course-slug.js";
+import { backfillCourseSlugs } from "./course-slug-backfill.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
+} from "../test-utils/pglite.js";
 import { eq } from "drizzle-orm";
 
 let testDb: TestDb;

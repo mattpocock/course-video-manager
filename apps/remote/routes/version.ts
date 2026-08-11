@@ -1,7 +1,7 @@
 import { VersionOperationsService } from "@cvm/core/services/db-version-operations.server";
 import { Hono } from "hono";
-import { forward } from "../rpc";
-import type { RemoteRuntime } from "../runtime";
+import { forward } from "../rpc.js";
+import type { RemoteRuntime } from "../runtime.js";
 
 /**
  * The `version` verb group: `cvm version list | get | tree`, plus the Draft

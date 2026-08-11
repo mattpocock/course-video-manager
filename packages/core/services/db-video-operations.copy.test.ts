@@ -3,15 +3,15 @@ import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
-import * as schema from "../db/schema";
-import { copyVideoImpl } from "./db-video-operations.copy.server";
+} from "../test-utils/pglite.js";
+import * as schema from "../db/schema.js";
+import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import {
   createCourseAndVersion,
   createLesson,
   createSection,
-} from "./path-uniqueness-test-helpers";
-import type { Database } from "./drizzle-service.server";
+} from "./path-uniqueness-test-helpers.js";
+import type { Database } from "./drizzle-service.server.js";
 import { Effect } from "effect";
 
 let testDb: TestDb;

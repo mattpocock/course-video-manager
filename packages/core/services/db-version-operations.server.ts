@@ -1,4 +1,4 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import {
   clips,
   chapters,
@@ -9,27 +9,27 @@ import {
   beats,
   thumbnails,
   videos,
-} from "../db/schema";
+} from "../db/schema.js";
 import {
   CannotUpdatePublishedVersionError,
   NotFoundError,
   NotLatestVersionError,
   UnknownDBServiceError,
   VersionNotDraftError,
-} from "./db-service-errors";
+} from "./db-service-errors.js";
 import { asc, and, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
-import { toTranscriptItems } from "../lib/transcript-builder";
-import { projectVersionPaths, attachDerivedPaths } from "./path-projection";
-import { requireDraftVersion } from "./draft-guard.server";
-import { withDbTransaction } from "./with-db-transaction.server";
+import { toTranscriptItems } from "../lib/transcript-builder.js";
+import { projectVersionPaths, attachDerivedPaths } from "./path-projection.js";
+import { requireDraftVersion } from "./draft-guard.server.js";
+import { withDbTransaction } from "./with-db-transaction.server.js";
 import {
   freezeAndCloneVersion as freezeAndCloneVersionTransaction,
   lockCourseForVersionMutation,
   type CopyVersionStructureInput,
-} from "./db-version-mutation.server";
-import { createVersionLifecycleOps } from "./db-version-lifecycle.server";
-import { createVersionPathOps } from "./db-version-paths.server";
+} from "./db-version-mutation.server.js";
+import { createVersionLifecycleOps } from "./db-version-lifecycle.server.js";
+import { createVersionPathOps } from "./db-version-paths.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({

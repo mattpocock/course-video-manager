@@ -1,13 +1,13 @@
-import { courses, courseVersions } from "../db/schema";
-import type { Database } from "./drizzle-service.server";
+import { courses, courseVersions } from "../db/schema.js";
+import type { Database } from "./drizzle-service.server.js";
 import {
   NotLatestVersionError,
   PendingVersionExistsError,
   UnknownDBServiceError,
   VersionNotDraftError,
-} from "./db-service-errors";
-import { requireDraftVersion } from "./draft-guard.server";
-import { withDbTransaction } from "./with-db-transaction.server";
+} from "./db-service-errors.js";
+import { requireDraftVersion } from "./draft-guard.server.js";
+import { withDbTransaction } from "./with-db-transaction.server.js";
 import { and, eq, sql } from "drizzle-orm";
 import { Effect } from "effect";
 

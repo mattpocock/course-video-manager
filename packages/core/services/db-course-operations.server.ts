@@ -1,4 +1,4 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import {
   clips,
   chapters,
@@ -8,21 +8,21 @@ import {
   lessons,
   beats,
   videos,
-} from "../db/schema";
+} from "../db/schema.js";
 import {
   CourseNameTakenError,
   NotFoundError,
   UnknownDBServiceError,
-} from "./db-service-errors";
+} from "./db-service-errors.js";
 import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
-import { courseNameToSlug } from "./course-slug";
+import { courseNameToSlug } from "./course-slug.js";
 import {
   formatProseTranscript,
   toTranscriptItems,
-} from "../lib/transcript-builder";
-import { makeDuplicateCourse } from "./db-course-duplicate.server";
-import { attachDerivedPaths } from "./path-projection";
+} from "../lib/transcript-builder.js";
+import { makeDuplicateCourse } from "./db-course-duplicate.server.js";
+import { attachDerivedPaths } from "./path-projection.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({

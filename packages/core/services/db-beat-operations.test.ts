@@ -1,16 +1,16 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { BeatOperationsService } from "./db-beat-operations.server";
-import { DrizzleService } from "./drizzle-service.server";
-import { beats, videos } from "../db/schema";
+import { BeatOperationsService } from "./db-beat-operations.server.js";
+import { DrizzleService } from "./drizzle-service.server.js";
+import { beats, videos } from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { compareOrderStrings } from "../lib/sort-by-order";
+import { compareOrderStrings } from "../lib/sort-by-order.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
+} from "../test-utils/pglite.js";
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<BeatOperationsService>;

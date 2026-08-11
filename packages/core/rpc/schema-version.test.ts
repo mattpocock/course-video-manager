@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseSchemaVersionHeader,
   schemaVersionMismatchMessage,
-} from "./schema-version";
+} from "./schema-version.js";
 
 // ===========================================================================
 // What a caller is taken to have CLAIMED about its schema.

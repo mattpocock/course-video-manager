@@ -1,7 +1,7 @@
 import { BeatOperationsService } from "@cvm/core/services/db-beat-operations.server";
 import { Hono } from "hono";
-import { forward } from "../rpc";
-import type { RemoteRuntime } from "../runtime";
+import { forward } from "../rpc.js";
+import type { RemoteRuntime } from "../runtime.js";
 
 /**
  * The `beat` verb group: `cvm beat list | add | update | move | delete`.

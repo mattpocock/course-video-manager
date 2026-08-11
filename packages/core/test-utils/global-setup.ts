@@ -1,12 +1,12 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { pushSchema } from "drizzle-kit/api";
-import * as schema from "../db/schema";
+import * as schema from "../db/schema.js";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestProject } from "vitest/node";
-import "./pglite-snapshot";
+import "./pglite-snapshot.js";
 
 let snapshotPath: string | undefined;
 

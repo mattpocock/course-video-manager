@@ -4,7 +4,7 @@ import { Cause, Context, Effect, Exit } from "effect";
 import type { Context as HonoContext } from "hono";
 import type { DomainServices } from "@cvm/core/layer";
 import type { DrizzleService } from "@cvm/core/services/drizzle-service.server";
-import type { RemoteRuntime } from "./runtime";
+import type { RemoteRuntime } from "./runtime.js";
 
 /**
  * Run one domain Effect and turn BOTH of its channels into the wire envelope.

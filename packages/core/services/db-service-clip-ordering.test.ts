@@ -1,15 +1,15 @@
 import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { ClipOperationsService } from "./db-clip-operations.server";
-import { VideoOperationsService } from "./db-video-operations.server";
-import { DrizzleService } from "./drizzle-service.server";
-import { sortByOrder } from "../lib/sort-by-order";
+import { ClipOperationsService } from "./db-clip-operations.server.js";
+import { VideoOperationsService } from "./db-video-operations.server.js";
+import { DrizzleService } from "./drizzle-service.server.js";
+import { sortByOrder } from "../lib/sort-by-order.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
+} from "../test-utils/pglite.js";
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<ClipOperationsService | VideoOperationsService>;

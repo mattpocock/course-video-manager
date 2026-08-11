@@ -1,6 +1,6 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { clips, diagrams, diagramSnapshots } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clips, diagrams, diagramSnapshots } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import {
   and,
   asc,
@@ -14,12 +14,12 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { Effect } from "effect";
-import { hashScene } from "../lib/scene-hash";
-import { extractSceneText } from "../lib/extract-scene-text";
+import { hashScene } from "../lib/scene-hash.js";
+import { extractSceneText } from "../lib/extract-scene-text/index.js";
 import {
   DiagramThumbnailStore,
   type DiagramThumbnailStoreApi,
-} from "./diagram-thumbnail-store";
+} from "./diagram-thumbnail-store.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({

@@ -1,4 +1,4 @@
-import type { DatabaseId } from "./ids";
+import type { DatabaseId } from "./ids.js";
 import { relations, sql, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
@@ -14,8 +14,8 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
-import { createTable } from "./table-creator";
-export { createTable } from "./table-creator";
+import { createTable } from "./table-creator.js";
+export { createTable } from "./table-creator.js";
 
 const varcharCollateC = customType<{
   data: string;
@@ -505,8 +505,8 @@ export const coursesRelations = relations(courses, ({ many }) => ({
   deliverablesCourses: many(deliverablesCourses),
 }));
 
-export { youtubeAuth, aiHeroAuth, dropboxAuth } from "./schema-auth";
-export { apiTokens } from "./schema-api-token";
+export { youtubeAuth, aiHeroAuth, dropboxAuth } from "./schema-auth.js";
+export { apiTokens } from "./schema-api-token.js";
 
 // Global links table for article writing
 export const links = createTable("link", {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSceneText, flattenRichText } from "../index";
+import { extractSceneText, flattenRichText } from "../index.js";
 
 // Helper: build a ProseMirror doc from paragraphs of text nodes
 function doc(

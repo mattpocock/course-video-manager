@@ -1,5 +1,5 @@
-import { sortByOrder } from "./sort-by-order";
-import type { IndexedClip, SectionWithWordCount } from "./transcript-types";
+import { sortByOrder } from "./sort-by-order.js";
+import type { IndexedClip, SectionWithWordCount } from "./transcript-types.js";
 
 export interface TranscriptWebLink {
   url: string;

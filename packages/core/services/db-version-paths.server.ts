@@ -1,9 +1,9 @@
-import { type Database } from "./drizzle-service.server";
-import { lessons, sections } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import { type Database } from "./drizzle-service.server.js";
+import { lessons, sections } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
-import { projectVersionPaths } from "./path-projection";
+import { projectVersionPaths } from "./path-projection.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({

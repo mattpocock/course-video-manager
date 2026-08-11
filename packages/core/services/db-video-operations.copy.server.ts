@@ -5,12 +5,12 @@
  * the repo's 5500-token pre-commit limit.
  */
 
-import { clips, chapters, videos, beats } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import { clips, chapters, videos, beats } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
-import type { Database } from "./drizzle-service.server";
+import type { Database } from "./drizzle-service.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({

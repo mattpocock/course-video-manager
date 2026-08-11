@@ -1,6 +1,6 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { clips, chapters, clipWebLinks } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clips, chapters, clipWebLinks } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
@@ -8,15 +8,15 @@ import {
   requireDraftVersionForClip,
   requireDraftVersionForClipWebLink,
   requireDraftVersionForVideo,
-} from "./draft-guard.server";
-import { transactionalizeWrites } from "./with-db-transaction.server";
-import { compareOrderStrings } from "../lib/sort-by-order";
+} from "./draft-guard.server.js";
+import { transactionalizeWrites } from "./with-db-transaction.server.js";
+import { compareOrderStrings } from "../lib/sort-by-order.js";
 import {
   checkClipZoomEligibility,
   clipZoomIneligibilityMessage,
-} from "../features/videos/clip-zoom";
-import { ClipNotZoomableError } from "./db-service-errors";
-import { createChapterOperationsUnwrapped } from "./db-chapter-operations.server";
+} from "../features/videos/clip-zoom.js";
+import { ClipNotZoomableError } from "./db-service-errors.js";
+import { createChapterOperationsUnwrapped } from "./db-chapter-operations.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({

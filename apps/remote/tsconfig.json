@@ -5,12 +5,12 @@
     "lib": ["ESNext", "DOM"],
     "types": ["node"],
     "target": "ESNext",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
+    // See packages/core/tsconfig.json. This app is not bundled at all: Vercel
+    // transpiles each file and Node's own ESM loader links them, so every
+    // relative specifier needs its extension. `nodenext` is what enforces it.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "noUncheckedIndexedAccess": true,
-    "paths": {
-      "@cvm/core/*": ["../../packages/core/*"]
-    },
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,

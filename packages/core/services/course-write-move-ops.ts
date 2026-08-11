@@ -1,12 +1,12 @@
 import { Effect } from "effect";
-import type { LessonSectionOperationsService } from "./db-lesson-section-operations.server";
+import type { LessonSectionOperationsService } from "./db-lesson-section-operations.server.js";
 import {
   planLessonMove,
   planLessonsMove,
   type LessonMovePlan,
-} from "./lesson-move-planner";
-import { projectVersionPaths } from "./path-projection";
-import { toSlug } from "./lesson-path-service";
+} from "./lesson-move-planner.js";
+import { projectVersionPaths } from "./path-projection.js";
+import { toSlug } from "./lesson-path-service.js";
 
 type DbSection = {
   id: string;

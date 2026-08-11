@@ -5,7 +5,7 @@
  *   NN = section number (zero-padded to match existing width)
  */
 
-import { toSlug } from "./lesson-path-service";
+import { toSlug } from "./lesson-path-service.js";
 
 export type ParsedSectionPath = {
   sectionNumber: number;

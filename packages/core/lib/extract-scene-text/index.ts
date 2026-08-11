@@ -4,7 +4,7 @@
 //
 // Extracts flattened, searchable text from a diagram scene's tldraw store.
 
-import { extractShapeText, flattenRichText } from "./lib/impl";
+import { extractShapeText, flattenRichText } from "./lib/impl.js";
 
 /** Flatten a ProseMirror rich-text doc to plain text. Tolerant of malformed input. */
 export { flattenRichText };

@@ -24,13 +24,13 @@ import {
   buildLessonPath,
   computeInsertionPlan,
   parseLessonPath,
-} from "./lesson-path-service";
+} from "./lesson-path-service.js";
 import {
   buildSectionPath,
   parseSectionPath,
   sectionHasLessons,
   sectionSlugFromPath,
-} from "./section-path-service";
+} from "./section-path-service.js";
 
 /**
  * Title-cases a slug for the in-model path of a section that dematerialized

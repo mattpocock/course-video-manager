@@ -5,7 +5,7 @@ import {
   deriveLessonPath,
   projectVersionPaths,
   attachDerivedPaths,
-} from "./path-projection";
+} from "./path-projection.js";
 
 describe("rankByOrder", () => {
   it("assigns contiguous 1-based ranks sorted by order asc", () => {

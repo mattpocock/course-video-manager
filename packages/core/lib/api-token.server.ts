@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
-import { API_TOKEN_ID_PREFIX } from "./api-token-constants";
+import { API_TOKEN_ID_PREFIX } from "./api-token-constants.js";
 
 /**
  * The shape of an API token, and nothing else — no database, no Effect.
@@ -24,7 +24,7 @@ import { API_TOKEN_ID_PREFIX } from "./api-token-constants";
 export {
   API_TOKEN_DEFAULT_EXPIRY_DAYS,
   API_TOKEN_ID_PREFIX,
-} from "./api-token-constants";
+} from "./api-token-constants.js";
 
 export interface GeneratedApiToken {
   /** The public prefix, e.g. `cvm_a1b2c3d4`. Stored as the row's primary key. */

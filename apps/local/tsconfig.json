@@ -10,7 +10,11 @@
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "types": ["node", "vite/client"],
     "target": "ESNext",
-    "module": "ES2022",
+    // ESNext rather than ES2022 only so that import attributes — `with { type:
+    // "json" }` — are accepted. This app reads @cvm/core's source directly, and
+    // core needs those attributes to survive Node's ESM loader on Vercel. Vite
+    // bundles this app, so the newer module target costs it nothing.
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "noUncheckedIndexedAccess": true,
     "jsx": "react-jsx",

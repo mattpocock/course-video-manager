@@ -2,14 +2,14 @@ import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { eq } from "drizzle-orm";
-import { PitchOperationsService } from "./db-pitch-operations.server";
-import { DrizzleService } from "./drizzle-service.server";
-import * as schema from "../db/schema";
+import { PitchOperationsService } from "./db-pitch-operations.server.js";
+import { DrizzleService } from "./drizzle-service.server.js";
+import * as schema from "../db/schema.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
-} from "../test-utils/pglite";
+} from "../test-utils/pglite.js";
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<PitchOperationsService>;

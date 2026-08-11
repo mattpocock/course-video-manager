@@ -1,6 +1,6 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { clips, pitches, beats, videos } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clips, pitches, beats, videos } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 

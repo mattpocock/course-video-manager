@@ -1,6 +1,6 @@
-import { DrizzleService, type Database } from "./drizzle-service.server";
-import { thumbnails } from "../db/schema";
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors";
+import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { thumbnails } from "../db/schema.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 

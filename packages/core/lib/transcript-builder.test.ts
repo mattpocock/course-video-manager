@@ -5,8 +5,8 @@ import {
   formatProseTranscript,
   toDiffArray,
   toTranscriptItems,
-} from "./transcript-builder";
-import type { ClipInput, ChapterInput } from "./transcript-builder";
+} from "./transcript-builder.js";
+import type { ClipInput, ChapterInput } from "./transcript-builder.js";
 
 const makeClip = (
   order: string,
