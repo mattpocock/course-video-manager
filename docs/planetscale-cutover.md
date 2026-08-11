@@ -6,6 +6,16 @@ against real infrastructure; the code side of it is already merged.
 Each step is reversible until the last, and the local Postgres container stays
 alongside for at least a week — reverting is one environment variable.
 
+`scripts/cutover-wizard.sh` walks the whole of it — this database move, then the
+`apps/remote` deploy and the first API token — opening each page, running each
+command and writing each value into `.env` as it goes. This document stays the
+account of WHY each step is what it is; the script is the account of what to do
+next. Run it from the repository root:
+
+```sh
+./scripts/cutover-wizard.sh
+```
+
 ## Connection strings
 
 Two, not one:
