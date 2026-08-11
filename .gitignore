@@ -9,7 +9,12 @@ build/
 # Turborepo
 .turbo/
 
+# `.env` alone matched only that exact name, so `vercel pull` — which writes
+# `apps/remote/.env.local` — put a Vercel OIDC token into a commit. Match every
+# local variant everywhere instead: no env file but `.env.example` is committed.
 .env
+.env.local
+.env.*.local
 .pnpm-store/
 
 # Plans backup file (stored in repo but not committed)
