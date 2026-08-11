@@ -345,6 +345,43 @@ for u in "$PS_APP_URL" "$PS_DIRECT_URL"; do
     "that is not a postgresql:// URI. Switch the dashboard's format dropdown to the URI form and re-run."
 done
 
+# strip_sslrootcert URL — drop `sslrootcert=system`.
+#
+# PlanetScale hands out a string ending `sslrootcert=system`, which is libpq
+# saying "verify against the operating system's trust store". node-postgres
+# does not speak that dialect: it reads sslrootcert as a FILE PATH and calls
+# readFileSync('system'), so every connection dies with ENOENT before a packet
+# is sent. psql, being libpq, connects perfectly — which is what makes this
+# worth stripping rather than diagnosing twice.
+#
+# Removing it does not weaken anything. `sslmode=verify-full` stays, and Node
+# then verifies against its own bundled CA list, which contains the public
+# authority PlanetScale's certificate comes from.
+strip_sslrootcert() {
+  local u="$1"
+  u="${u//&sslrootcert=system/}"
+  u="${u//\?sslrootcert=system&/?}"
+  u="${u//\?sslrootcert=system/}"
+  printf '%s' "$u"
+}
+
+# psql is libpq and WANTS sslrootcert=system; node-postgres chokes on it. So
+# both forms are kept, and each tool is handed the one it understands. Dropping
+# it for psql would be worse than useless: with sslmode=verify-full and no root
+# certificate named, libpq falls back to ~/.postgresql/root.crt, which does not
+# exist, and refuses the connection.
+PS_DIRECT_URL_LIBPQ="$PS_DIRECT_URL"
+
+if [[ "$PS_APP_URL" == *sslrootcert=system* || "$PS_DIRECT_URL" == *sslrootcert=system* ]]; then
+  PS_APP_URL="$(strip_sslrootcert "$PS_APP_URL")"
+  PS_DIRECT_URL="$(strip_sslrootcert "$PS_DIRECT_URL")"
+  printf '\n'
+  note "dropped 'sslrootcert=system' for everything that runs through Node —"
+  note "that is libpq syntax for the OS trust store, and node-postgres reads it"
+  note "as a filename. sslmode=verify-full stays, and Node verifies against its"
+  note "own CA list. psql keeps the original string, because libpq needs it."
+fi
+
 # to_pooled URL — the same credentials, aimed at PgBouncer instead of Postgres.
 # A URI with no port means 5432 by implication, so name 6432 rather than leave
 # the default to be guessed by whatever reads it next.
@@ -380,33 +417,68 @@ printf '  %s✓%s held in memory. They are written to .env at stage 8, not befor
 # back — a dump taken there could never return to the local 17 container.
 # Cheap to check now; expensive to discover at stage 7.
 printf '\n'
-if command -v psql >/dev/null 2>&1; then
-  # The pooled string is the one every query will use for the next year, and
-  # it is the easiest of the two to paste from the wrong role. Prove it logs in
-  # while a bad paste still costs nothing.
-  if psql "$PS_POOLED_URL" -tAc 'select 1' >/dev/null 2>&1; then
-    printf '  %s✓ the pooled (cvm-app) string connects%s\n' "$GREEN" "$RESET"
-  else
-    warn "the POOLED string does not connect — check the role and re-copy it."
-    confirm "Go on anyway?" || die "Stopped: fix the pooled connection string."
-  fi
-  PS_VERSION="$(psql "$PS_DIRECT_URL" -tAc 'show server_version;' 2>/dev/null | cut -d. -f1 || true)"
-  if [[ -z "$PS_VERSION" ]]; then
-    warn "could not reach the database with that direct string — check it before going on."
-  elif [[ "$PS_VERSION" == "17" ]]; then
-    printf '  %s✓ PlanetScale is Postgres %s — matches the local container%s\n' "$GREEN" "$PS_VERSION" "$RESET"
-  else
-    warn "PlanetScale is Postgres $PS_VERSION; the local container is 17."
-    note "  Newer: the restore will work, but a dump taken there can never go"
-    note "  back into your local 17 container — the revert path loses its data."
-    note "  Older: the restore will likely fail outright at stage 7."
-    note "  There is no in-place major upgrade, so this is decided now."
-    confirm "Go on with Postgres $PS_VERSION anyway?" \
-      || die "Recreate the database on Postgres 17 and re-run."
-  fi
+
+# pg_probe URL — connect, and say plainly what happened. Prints "OK <version>"
+# or "ERR <message>".
+#
+# Deliberately node-postgres and not psql. psql is libpq, and libpq accepts
+# connection strings node-postgres refuses — so a psql-shaped check reports a
+# healthy database right up until drizzle-kit, which is node-postgres, fails on
+# the same string and swallows the reason inside its spinner. This probe tests
+# the stack that actually runs.
+pg_probe() {
+  NODE_PATH="$REPO_ROOT/node_modules" node -e '
+    const fail = (e) => { console.log("ERR " + (e && e.message ? e.message : e)); process.exit(0); };
+    (async () => {
+      let Client;
+      try { Client = require("pg").Client; }
+      catch { return fail("cannot load the pg module — run pnpm install first"); }
+      let client;
+      // new Client() parses the connection string, and a bad one throws HERE,
+      // synchronously, before any promise exists to reject.
+      try { client = new Client({ connectionString: process.argv[1] }); }
+      catch (e) { return fail(e); }
+      try {
+        await client.connect();
+        const r = await client.query("show server_version");
+        console.log("OK " + r.rows[0].server_version);
+        await client.end();
+      } catch (e) { return fail(e); }
+    })();
+  ' "$1" 2>&1 | tail -n1
+}
+
+# The pooled string is the one every query will use from here on, and the
+# easiest of the two to paste from the wrong role. Prove it while a bad paste
+# still costs nothing.
+APP_PROBE="$(pg_probe "$PS_POOLED_URL" || true)"
+if [[ "$APP_PROBE" == OK* ]]; then
+  printf '  %s✓ the pooled (cvm-app) string connects on 6432%s\n' "$GREEN" "$RESET"
 else
-  note "no psql on this machine — skipping the version check. Confirm by eye"
-  note "that the database you created is Postgres 17."
+  warn "the POOLED string did not connect:"
+  note "  ${APP_PROBE#ERR }"
+  confirm "Go on anyway?" || die "Stopped: fix the pooled connection string."
+fi
+
+DIRECT_PROBE="$(pg_probe "$PS_DIRECT_URL" || true)"
+if [[ "$DIRECT_PROBE" != OK* ]]; then
+  warn "the DIRECT (cvm-migrate) string did not connect:"
+  note "  ${DIRECT_PROBE#ERR }"
+  die "Stopped: migrations cannot run. Fix the cvm-migrate string and re-run."
+fi
+PS_VERSION="$(printf '%s' "${DIRECT_PROBE#OK }" | cut -d. -f1)"
+if [[ -z "$PS_VERSION" ]]; then
+  warn "could not read the server version — check it before going on."
+elif [[ "$PS_VERSION" == "17" ]]; then
+  printf '  %s✓ PlanetScale is Postgres %s — matches the local container%s\n' "$GREEN" "$PS_VERSION" "$RESET"
+else
+  warn "PlanetScale is Postgres $PS_VERSION; the local container is 17."
+  note "  Newer: the restore will work, but a dump taken there can never go"
+  note "  back into your local 17 container — the revert path loses its data."
+  note "  Older: the restore will likely fail outright at stage 7."
+  note "  There is no in-place major upgrade, so this is decided now."
+  confirm "Go on with Postgres $PS_VERSION anyway?" \
+    || die "Recreate the database on Postgres 17 and re-run."
 fi
 pause "Press Enter to continue"
 
@@ -476,11 +548,11 @@ confirm "Drop the PlanetScale schema and restore the dump?" || die "Stopped befo
 # the dump came from, so it is preferred; but the container may have no route
 # out, in which case the host's client does the job just as well — psql only
 # sends SQL, so its version matters far less than pg_dump's did.
-if docker exec -i "$LOCAL_CONTAINER" psql "$PS_DIRECT_URL" -c 'select 1' >/dev/null 2>&1; then
-  psql_ps() { docker exec -i "$LOCAL_CONTAINER" psql "$PS_DIRECT_URL" "$@"; }
+if docker exec -i "$LOCAL_CONTAINER" psql "$PS_DIRECT_URL_LIBPQ" -c 'select 1' >/dev/null 2>&1; then
+  psql_ps() { docker exec -i "$LOCAL_CONTAINER" psql "$PS_DIRECT_URL_LIBPQ" "$@"; }
   note "reaching PlanetScale through the container's psql"
-elif command -v psql >/dev/null 2>&1 && psql "$PS_DIRECT_URL" -c 'select 1' >/dev/null 2>&1; then
-  psql_ps() { psql "$PS_DIRECT_URL" "$@"; }
+elif command -v psql >/dev/null 2>&1 && psql "$PS_DIRECT_URL_LIBPQ" -c 'select 1' >/dev/null 2>&1; then
+  psql_ps() { psql "$PS_DIRECT_URL_LIBPQ" "$@"; }
   note "the container has no route out — using this machine's psql instead"
 else
   die "Nothing here can reach PlanetScale with psql. Check the direct string."
