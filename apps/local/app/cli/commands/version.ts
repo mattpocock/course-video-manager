@@ -40,6 +40,10 @@ OUTPUT FIELDS
   createdAt    When the version was created.
   commitState  "draft" | "pending" | "published" — the authoritative state.
   isDraft      true for the single Draft Version of the course (list only).
+  hasChanges   true once a section/lesson/video/clip write has landed on this
+               Draft since it was created (cloned drafts start false) — "does
+               this Draft need a Publish?" without diffing against the last
+               Published Version. Meaningless on a Pending/Published Version.
 
 VERBS
   list --course <courseId>     All versions of a course, newest first (NDJSON).
@@ -64,7 +68,8 @@ const LIST_HELP = `List every CourseVersion of a course, newest first.
 Requires --course <courseId>. Output is NDJSON (one compact version object per
 line), identity-rich so you can map a publish name -> version id in one call.
 Each row carries commitState plus an isDraft convenience flag
-(commitState === "draft").
+(commitState === "draft") and hasChanges (true once the Draft has an
+unpublished write; see the noun help for details).
 A course with no versions prints nothing and exits 0.
 
 EXAMPLES
@@ -126,6 +131,7 @@ const listCmd = Command.make("list", { course: courseOpt }, ({ course }) =>
         createdAt: v.createdAt,
         // The commit state is authoritative — no positional inference.
         isDraft: v.commitState === "draft",
+        hasChanges: v.hasChanges,
       }))
     );
   })
@@ -157,6 +163,8 @@ const getCmd = Command.make("get", { ids }, ({ ids }) =>
                 name: version.name,
                 description: version.description,
                 createdAt: version.createdAt,
+                commitState: version.commitState,
+                hasChanges: version.hasChanges,
                 sections: version.sections.map((s) => ({
                   id: s.id,
                   path: s.path,

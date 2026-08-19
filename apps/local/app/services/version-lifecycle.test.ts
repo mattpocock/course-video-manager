@@ -120,6 +120,30 @@ describe("CourseVersion lifecycle (Draft → Pending → Published)", () => {
     expect(draft).toMatchObject({ name: "", commitState: "draft" });
   });
 
+  it("Submit clones a fresh Draft with hasChanges reset to false", async () => {
+    const { course, version, section, run } = await setup();
+
+    const versions = await run(
+      Effect.gen(function* () {
+        const lsOps = yield* LessonSectionOperationsService;
+        // A guarded write on the source Draft flips its hasChanges flag —
+        // this is what a real Draft looks like right before it is Submitted.
+        yield* lsOps.createLessons(section.id, [
+          { lessonPathWithNumber: "01.02-second", lessonNumber: 2 },
+        ]);
+
+        yield* submit({ sourceVersionId: version.id, repoId: course.id });
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.getCourseVersions(course.id);
+      })
+    );
+
+    const pending = versions.find((v) => v.id === version.id);
+    const draft = versions.find((v) => v.id !== version.id);
+    expect(pending?.hasChanges).toBe(true);
+    expect(draft?.hasChanges).toBe(false);
+  });
+
   it("Submit refuses while a Pending Version already exists", async () => {
     const { course, version, run } = await setup();
 

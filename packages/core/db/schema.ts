@@ -87,6 +87,16 @@ export const courseVersions = createTable(
       .$type<CourseVersionCommitState>()
       .notNull()
       .default("draft"),
+    // Set true the moment a Draft accepts a section/lesson/video/clip write
+    // (see draft-guard.server.ts's lockAndAssertDraft, the single choke point
+    // every such write passes through). Answers "does this Draft need a
+    // Publish?" without diffing against the last Published Version. Reset to
+    // its column default on every fresh Draft — Submit clones a new version
+    // row that never copies this flag forward. Meaningless on a Pending or
+    // Published Version (both immutable): never read there. Existing rows
+    // predate this column and read `false` regardless of prior edits — no
+    // backfill, by design.
+    hasChanges: boolean("has_changes").notNull().default(false),
     createdAt: timestamp("created_at", {
       mode: "date",
       withTimezone: true,

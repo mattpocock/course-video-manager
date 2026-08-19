@@ -36,6 +36,13 @@ import { Effect } from "effect";
  *   raises its own NotFoundError, exactly as before the guard existed.
  * - A Video with no Lesson (standalone / pitch-bound) belongs to no
  *   CourseVersion, so no closure applies and the guard passes.
+ *
+ * Because every section/lesson/video/clip write funnels through one of these
+ * guards before it is allowed to proceed, this is also where the Draft's
+ * `hasChanges` flag is set: a Draft that passes the assertion is about to be
+ * written to, so it is marked changed in the same transaction as the write
+ * (see the schema.ts doc comment on `courseVersions.hasChanges`). A rejected
+ * write (non-Draft target) never reaches the flip.
  */
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
@@ -45,8 +52,8 @@ const makeDbCall = <T>(fn: () => Promise<T>) =>
   });
 
 /**
- * Lock the version row FOR UPDATE and assert it is a Draft. A missing row
- * passes through (see resolution rules above).
+ * Lock the version row FOR UPDATE, assert it is a Draft, and mark it changed.
+ * A missing row passes through (see resolution rules above).
  */
 const lockAndAssertDraft = Effect.fn("lockAndAssertDraft")(function* (
   db: Database,
@@ -57,18 +64,32 @@ const lockAndAssertDraft = Effect.fn("lockAndAssertDraft")(function* (
       .select({
         id: courseVersions.id,
         commitState: courseVersions.commitState,
+        hasChanges: courseVersions.hasChanges,
       })
       .from(courseVersions)
       .where(eq(courseVersions.id, versionId))
       .for("update")
   );
-  if (version && version.commitState !== "draft") {
+  if (!version) return;
+  if (version.commitState !== "draft") {
     return yield* new VersionNotDraftError({
       versionId: version.id,
       commitState: version.commitState,
     });
   }
+  if (!version.hasChanges) {
+    yield* markVersionChanged(db, version.id);
+  }
 });
+
+/** Flip a Draft's `hasChanges` flag on, once, inside the caller's transaction. */
+const markVersionChanged = (db: Database, versionId: string) =>
+  makeDbCall(() =>
+    db
+      .update(courseVersions)
+      .set({ hasChanges: true })
+      .where(eq(courseVersions.id, versionId))
+  );
 
 /** Guard a write scoped directly to a CourseVersion id. */
 export const requireDraftVersion = (db: Database, versionId: string) =>

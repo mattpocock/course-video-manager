@@ -28,6 +28,10 @@ _Avoid_: Version (too vague), Revision
 The single mutable CourseVersion being edited — the only state accepting section/lesson/video/clip writes. Exactly one per course; no name or description.
 _Avoid_: Current version, Working version
 
+**Has Changes**:
+A Draft Version's `hasChanges` flag: set the moment any section/lesson/video/clip write lands on it, answering "does this Draft need a **Publish**?" without diffing against the last **Published Version**. Set once per Draft's lifetime — never cleared back to false while still a Draft. Reset by construction: **Submit**'s freshly cloned Draft starts unset, since it has no writes yet of its own. Meaningless on a Pending or Published Version (both immutable) and never read there.
+_Avoid_: Dirty, Modified, Needs publish (flag name is `hasChanges`, not a computed status)
+
 **Pending Version**:
 A Submitted CourseVersion whose Dropbox commit receipt has not yet landed. Immutable, named, short-lived: either Promoted (receipt landed) or Discarded (commit failed). At most one per course; one at rest means a crash between receipt and Promote — the publish page reconciles it on load: Promote if the receipt committed, else one-click Discard.
 _Avoid_: Frozen version (ambiguous with Published), In-flight version

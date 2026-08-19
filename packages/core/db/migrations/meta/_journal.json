@@ -99,6 +99,13 @@
       "when": 1786380742231,
       "tag": "0013_api_token",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787172872280,
+      "tag": "0014_add_course_version_has_changes",
+      "breakpoints": true
     }
   ]
 }

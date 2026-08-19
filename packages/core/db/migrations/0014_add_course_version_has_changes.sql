@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_course_version" ADD COLUMN "has_changes" boolean DEFAULT false NOT NULL;
