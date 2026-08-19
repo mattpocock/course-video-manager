@@ -1,6 +1,6 @@
 import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Data, Effect, Stream } from "effect";
+import { Data, Effect, Ref, Stream } from "effect";
 import crypto from "node:crypto";
 import path from "node:path";
 import { tmpdir } from "os";
@@ -91,7 +91,11 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           args: string[];
           totalDurationSeconds: number;
           onProgress: ((percent: number) => void) | undefined;
-          onLog?: (info: FfmpegLogInfo) => void;
+          // Required, not optional: an omitted onLog silently drops the
+          // per-video log this function exists to feed — see the
+          // "optional parameters" note in .sandcastle/CODING_STANDARDS.md.
+          // A caller with nothing to do about it passes a no-op explicitly.
+          onLog: (info: FfmpegLogInfo) => void;
           errorPrefix: string;
         }) {
           const commandLine = ["ffmpeg", ...opts.args];
@@ -146,29 +150,41 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
               );
 
               // Tee stderr to our own stderr (so a developer watching the
-              // terminal sees what they always have) while folding a bounded
-              // tail for the error message and the per-video log.
+              // terminal sees what they always have) while accumulating a
+              // bounded tail for the error message and the per-video log.
+              // Written into a Ref rather than folded through the stream's
+              // own return value: a Ref keeps whatever was captured so far
+              // even if the stream itself dies partway (a decode error, a
+              // closed fd) — the same per-chunk containment as stdout above,
+              // so one bad chunk can't cost the whole tail.
+              const stderrTailRef = yield* Ref.make("");
               const drainStderr = child.stderr.pipe(
                 Stream.decodeText(),
-                Stream.runFoldEffect("", (tail, chunk) =>
+                Stream.runForEach((chunk) =>
                   Effect.sync(() => {
                     try {
                       process.stderr.write(chunk);
                     } catch {
                       // Best-effort tee only; never let a closed fd stop capture.
                     }
-                    return appendBoundedTail(tail, chunk);
-                  })
+                  }).pipe(
+                    Effect.zipRight(
+                      Ref.update(stderrTailRef, (tail) =>
+                        appendBoundedTail(tail, chunk)
+                      )
+                    ),
+                    Effect.catchAllCause(() => Effect.void)
+                  )
                 ),
-                Effect.orElseSucceed(() => "")
+                Effect.ignore
               );
 
-              const [, stderrTail] = yield* Effect.all(
-                [drainStdout, drainStderr],
-                { concurrency: 2 }
-              );
+              yield* Effect.all([drainStdout, drainStderr], {
+                concurrency: 2,
+              });
+              const stderrTail = yield* Ref.get(stderrTailRef);
 
-              opts.onLog?.({ command: commandLine, stderrTail });
+              opts.onLog({ command: commandLine, stderrTail });
 
               const code = yield* child.exitCode.pipe(
                 Effect.mapError((e) => toError(e, `: ${e.message}`, stderrTail))
@@ -263,8 +279,15 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           zoomType?: string;
         }[],
         dimensions: { width: number; height: number },
-        onProgress?: (percent: number) => void,
-        onLog?: (info: FfmpegLogInfo) => void
+        // A single required object rather than stacking positional optionals:
+        // onProgress may reasonably be skipped (progress reporting is a UI
+        // nicety), but onLog must not be — an omitted logger silently drops
+        // the per-video log this function exists to feed. See the "optional
+        // parameters" note in .sandcastle/CODING_STANDARDS.md.
+        extras: {
+          onProgress?: (percent: number) => void;
+          onLog: (info: FfmpegLogInfo) => void;
+        }
       ) {
         const LONG_PAUSE_DURATION = 0.18;
 
@@ -377,8 +400,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           runFfmpegWithProgress({
             args,
             totalDurationSeconds: expectedOutputDuration,
-            onProgress,
-            onLog,
+            onProgress: extras.onProgress,
+            onLog: extras.onLog,
             errorPrefix: "Failed to create concatenated video",
           })
         );
@@ -388,8 +411,10 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
 
       const normalizeAudio = Effect.fn("normalizeAudio")(function* (
         inputVideo: string,
-        onProgress?: (percent: number) => void,
-        onLog?: (info: FfmpegLogInfo) => void
+        extras: {
+          onProgress?: (percent: number) => void;
+          onLog: (info: FfmpegLogInfo) => void;
+        }
       ) {
         const outputDir = path.join(tmpdir(), "video-processing");
         yield* fs.makeDirectory(outputDir, { recursive: true });
@@ -456,8 +481,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
             args,
             // Video is stream-copied, so the output duration is the input's.
             totalDurationSeconds: videoDuration,
-            onProgress,
-            onLog,
+            onProgress: extras.onProgress,
+            onLog: extras.onLog,
             errorPrefix: "Failed to normalize audio",
           })
         );
@@ -469,7 +494,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         videoPath: string,
         overlayPath: string,
         outputPath: string,
-        onLog?: (info: FfmpegLogInfo) => void
+        // Required, not optional — see the note on runFfmpegWithProgress.
+        onLog: (info: FfmpegLogInfo) => void
       ) {
         const args = [
           "-y",
@@ -502,10 +528,10 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         // Scoped (so an interrupted fiber kills the child) and registered
         // with the parent-death backstop (so a dev-server restart mid-render
         // doesn't orphan it) — this was previously the one ffmpeg call in the
-        // service missing both, despite being the final, often longest step
-        // of a Short's render (libx264 "slow"). Only stderr is piped: stdout
-        // carries no progress data here, so inheriting it is exempt from the
-        // drain-or-block hazard documented on runFfmpegWithProgress.
+        // export path missing both, despite being the final, often longest
+        // step of a Short's render (libx264 "slow"). Only stderr is piped:
+        // stdout carries no progress data here, so inheriting it is exempt
+        // from the drain-or-block hazard documented on runFfmpegWithProgress.
         yield* gpuSemaphore.withPermits(1)(
           Effect.scoped(
             Effect.gen(function* () {
@@ -526,22 +552,34 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
                 (unregister) => Effect.sync(unregister)
               );
 
-              const stderrTail = yield* child.stderr.pipe(
+              // Same Ref-backed, per-chunk-contained capture as
+              // runFfmpegWithProgress's stderr drain — see its comment for
+              // why a Ref (not the stream's own fold result) is what
+              // survives a mid-stream failure.
+              const stderrTailRef = yield* Ref.make("");
+              yield* child.stderr.pipe(
                 Stream.decodeText(),
-                Stream.runFoldEffect("", (tail, chunk) =>
+                Stream.runForEach((chunk) =>
                   Effect.sync(() => {
                     try {
                       process.stderr.write(chunk);
                     } catch {
                       // Best-effort tee only; never let a closed fd stop capture.
                     }
-                    return appendBoundedTail(tail, chunk);
-                  })
+                  }).pipe(
+                    Effect.zipRight(
+                      Ref.update(stderrTailRef, (tail) =>
+                        appendBoundedTail(tail, chunk)
+                      )
+                    ),
+                    Effect.catchAllCause(() => Effect.void)
+                  )
                 ),
-                Effect.orElseSucceed(() => "")
+                Effect.ignore
               );
+              const stderrTail = yield* Ref.get(stderrTailRef);
 
-              onLog?.({ command: commandLine, stderrTail });
+              onLog({ command: commandLine, stderrTail });
 
               const code = yield* child.exitCode.pipe(
                 Effect.mapError(

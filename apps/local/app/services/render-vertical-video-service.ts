@@ -8,6 +8,7 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VideoProcessingService } from "./video-processing-service";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
+import { makeFfmpegLogger } from "./ffmpeg-video-logger";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 
 export type RenderVerticalStage =
@@ -52,21 +53,9 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
           // `.data/logs/{videoId}.log` (the "cli-output" event, on both
           // success and failure) — see the matching comment in
           // video-processing-service.ts's exportVideoClips.
-          const logCliOutput =
-            (stage: "concat" | "normalize-audio" | "composite-overlay") =>
-            (info: { command: string[]; stderrTail: string }) => {
-              try {
-                Effect.runSync(
-                  videoEditorLogger.log(opts.videoId, {
-                    type: "cli-output",
-                    command: `[short:${stage}] ${info.command.join(" ")}`,
-                    stderr: info.stderrTail,
-                  })
-                );
-              } catch {
-                // Logging is best-effort — never let it fail the render.
-              }
-            };
+          const logCliOutput = (
+            stage: "concat" | "normalize-audio" | "composite-overlay"
+          ) => makeFfmpegLogger(videoEditorLogger, opts.videoId, `short:${stage}`);
 
           // Step 1: Concatenate clips → temp file (not the final output path,
           // since the composite step will write the final .mp4)
@@ -83,13 +72,11 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
               // The vertical renderer always produces a 9:16 short — the Remotion
               // subtitle/CTA overlay below is rendered at 1080x1920 to match.
               VIDEO_FORMAT_DIMENSIONS.short,
-              undefined,
-              logCliOutput("concat")
+              { onLog: logCliOutput("concat") }
             );
           const concatenatedPath = yield* ffmpegCommands.normalizeAudio(
             rawConcatenatedPath,
-            undefined,
-            logCliOutput("normalize-audio")
+            { onLog: logCliOutput("normalize-audio") }
           );
 
           // Clean up raw concatenated file
