@@ -154,9 +154,6 @@ importers:
       '@shikijs/transformers':
         specifier: ^3.8.1
         version: 3.23.0
-      '@tldraw/tlschema':
-        specifier: 5.2.4
-        version: 5.2.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@total-typescript/shoehorn':
         specifier: ^0.1.2
         version: 0.1.2
@@ -302,6 +299,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.2.1
         version: 4.3.2(vite@7.3.6(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
+      '@tldraw/tlschema':
+        specifier: 5.2.4
+        version: 5.2.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@types/hast':
         specifier: 3.0.4
         version: 3.0.4

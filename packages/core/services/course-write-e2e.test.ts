@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
-import { eq } from "drizzle-orm";
 import { CourseOperationsService } from "./db-course-operations.server.js";
 import { VersionOperationsService } from "./db-version-operations.server.js";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server.js";
@@ -11,7 +10,6 @@ import {
   truncateAllTables,
   type TestDb,
 } from "../test-utils/pglite.js";
-import * as schema from "../db/schema.js";
 
 let testDb: TestDb;
 
@@ -106,13 +104,12 @@ const setup = async () => {
       return yield* lsOps.getLessonsBySectionId(sectionId);
     }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
-  const getVersionHasChanges = async () => {
-    const [row] = await testDb
-      .select({ hasChanges: schema.courseVersions.hasChanges })
-      .from(schema.courseVersions)
-      .where(eq(schema.courseVersions.id, version.id));
-    return row!.hasChanges;
-  };
+  const getVersionHasChanges = () =>
+    Effect.gen(function* () {
+      const versionOps = yield* VersionOperationsService;
+      const found = yield* versionOps.getCourseVersionById(version.id);
+      return found.hasChanges;
+    }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
   return {
     run,

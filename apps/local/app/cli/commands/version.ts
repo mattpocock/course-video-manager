@@ -163,7 +163,6 @@ const getCmd = Command.make("get", { ids }, ({ ids }) =>
                 name: version.name,
                 description: version.description,
                 createdAt: version.createdAt,
-                commitState: version.commitState,
                 hasChanges: version.hasChanges,
                 sections: version.sections.map((s) => ({
                   id: s.id,

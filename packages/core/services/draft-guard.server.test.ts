@@ -486,13 +486,22 @@ describe("transactional atomicity of the flip", () => {
       .returning()
       .then((r) => r[0]!);
 
+    // Composed explicitly as two sequential SINGULAR guard calls, draft
+    // first, rather than one requireDraftVersionForLessons([draftLesson,
+    // publishedLesson]) batch call: the batch resolves its distinct owning
+    // versions via `db.query.lessons.findMany` with no ORDER BY, so which
+    // lesson it visits first is unspecified. Sequencing it explicitly here
+    // still exercises the exact code both share (lockAndAssertDraft) while
+    // guaranteeing the draft's flip actually lands before the rejection —
+    // otherwise this test could pass vacuously (nothing ever flipped, so
+    // "unflipped after rollback" proves nothing) depending on row order.
     await expect(
       testDb.transaction(async (tx) =>
         Effect.runPromise(
-          requireDraftVersionForLessons(tx as any, [
-            draftLesson.id,
-            publishedLesson.id,
-          ])
+          Effect.gen(function* () {
+            yield* requireDraftVersionForLesson(tx as any, draftLesson.id);
+            yield* requireDraftVersionForLesson(tx as any, publishedLesson.id);
+          })
         )
       )
     ).rejects.toBeTruthy();
