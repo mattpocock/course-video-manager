@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { Effect, Layer } from "effect";
+import { createHash } from "node:crypto";
 import nodeFs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
@@ -58,24 +59,32 @@ afterAll(() => {
 });
 
 /**
- * Write a fake footage transcript sidecar (the format `footage transcribe`
- * produces) and return the source PATH `clip add --source` should point at.
- * The source file itself need not exist — `clip add` only reads the sidecar.
+ * Write a fake footage source file AND its transcript sidecar, returning the
+ * source PATH `clip add --source` points at. `clip add` re-hashes the source to
+ * confirm the cache is FRESH, so the source must exist and its hash must match
+ * the sidecar's — `{ staleHash: true }` seeds a mismatch (footage re-recorded
+ * after transcribing), which `clip add` must refuse.
  */
 const seedFootageTranscript = (
   name: string,
   transcript: {
     words: Array<{ start: number; end: number; text: string }>;
     segments: Array<{ start: number; end: number; text: string }>;
-  }
+  },
+  opts: { staleHash?: boolean } = {}
 ): string => {
   const source = nodePath.join(sourceDir, name);
+  const content = `fake footage bytes for ${name}`;
+  nodeFs.writeFileSync(source, content);
+  const sourceHash = opts.staleHash
+    ? "0".repeat(64)
+    : createHash("sha256").update(content).digest("hex");
   nodeFs.writeFileSync(
     source + ".transcript.json",
     JSON.stringify({
       version: 1,
       sourcePath: source,
-      sourceHash: "0".repeat(64),
+      sourceHash,
       transcribedAt: new Date().toISOString(),
       ...transcript,
     })
@@ -114,6 +123,28 @@ interface ClipRow {
 
 const list = async (videoId: string): Promise<ClipRow[]> =>
   ndjson((await run(["clip", "list", "--video", videoId])).stdout) as ClipRow[];
+
+interface ChapterRow {
+  id: string;
+  videoId: string;
+  name: string;
+}
+
+/** Add a Chapter via the CLI (a legit --before/--after anchor for clip add/move). */
+const addChapter = async (
+  videoId: string,
+  title: string
+): Promise<ChapterRow> =>
+  one<ChapterRow>(
+    (await run(["chapter", "add", "--video", videoId, "--title", title])).stdout
+  );
+
+/** The merged clip+chapter timeline, as ids in order (clip `list` is clips-only). */
+const timelineIds = (videoId: string): Promise<string[]> =>
+  Effect.gen(function* () {
+    const clipOps = yield* ClipOperationsService;
+    return (yield* clipOps.listTimelineOrder(videoId)).map((i) => i.id);
+  }).pipe(Effect.provide(seedLayer), Effect.runPromise);
 
 /**
  * Seed a clip directly through the service — clip has no CLI `add` verb.
@@ -393,6 +424,31 @@ describe("clip writes (update / move / delete)", () => {
       ]);
       expect(exitCode).toBe(2);
     });
+
+    it("--after a CHAPTER anchor positions the clip after it (shared order space)", async () => {
+      const a = await seedClip(s.standaloneActiveId, { start: 0, end: 1 });
+      const b = await seedClip(s.standaloneActiveId, {
+        start: 1,
+        end: 2,
+        after: a.id,
+      });
+      const ch = await addChapter(s.standaloneActiveId, "Part Two");
+      // Timeline is [a, b, ch]; move a to immediately after the chapter.
+      expect(await timelineIds(s.standaloneActiveId)).toEqual([
+        a.id,
+        b.id,
+        ch.id,
+      ]);
+      const moved = one<ClipRow>(
+        (await run(["clip", "move", "--after", ch.id, a.id])).stdout
+      );
+      expect(moved.id).toBe(a.id);
+      expect(await timelineIds(s.standaloneActiveId)).toEqual([
+        b.id,
+        ch.id,
+        a.id,
+      ]);
+    });
   });
 });
 
@@ -509,6 +565,99 @@ describe("clip add", () => {
       added.id,
       b.id,
     ]);
+  });
+
+  it("positions with --after a CHAPTER anchor (clips and chapters share one order space)", async () => {
+    const source = seedFootageTranscript("take.mkv", SAMPLE_TRANSCRIPT);
+    const a = await seedClip(s.standaloneActiveId, { start: 0, end: 1 });
+    const ch = await addChapter(s.standaloneActiveId, "Part Two");
+    // Timeline is [a, ch]; --after the chapter should land the new clip last.
+    expect(await timelineIds(s.standaloneActiveId)).toEqual([a.id, ch.id]);
+
+    const added = one<ClipRow>(
+      (
+        await run([
+          "clip",
+          "add",
+          "--video",
+          s.standaloneActiveId,
+          "--source",
+          source,
+          "--start",
+          "2",
+          "--end",
+          "4",
+          "--after",
+          ch.id,
+        ])
+      ).stdout
+    );
+
+    // Words overlapping [2, 4): "quick" (2–4).
+    expect(added.text).toBe("quick");
+    expect(await timelineIds(s.standaloneActiveId)).toEqual([
+      a.id,
+      ch.id,
+      added.id,
+    ]);
+  });
+
+  it("positions with --before a CHAPTER anchor", async () => {
+    const source = seedFootageTranscript("take.mkv", SAMPLE_TRANSCRIPT);
+    const a = await seedClip(s.standaloneActiveId, { start: 0, end: 1 });
+    const ch = await addChapter(s.standaloneActiveId, "Part Two");
+    expect(await timelineIds(s.standaloneActiveId)).toEqual([a.id, ch.id]);
+
+    const added = one<ClipRow>(
+      (
+        await run([
+          "clip",
+          "add",
+          "--video",
+          s.standaloneActiveId,
+          "--source",
+          source,
+          "--start",
+          "2",
+          "--end",
+          "4",
+          "--before",
+          ch.id,
+        ])
+      ).stdout
+    );
+
+    // Lands between the clip and the chapter.
+    expect(await timelineIds(s.standaloneActiveId)).toEqual([
+      a.id,
+      added.id,
+      ch.id,
+    ]);
+  });
+
+  it("refuses a STALE cached transcript (source re-recorded since transcribe), exit 3", async () => {
+    // Sidecar hash no longer matches the source bytes: clip add must not slice
+    // from the stale cache; it fails exactly like a missing transcript.
+    const source = seedFootageTranscript("restale.mkv", SAMPLE_TRANSCRIPT, {
+      staleHash: true,
+    });
+    const { stdout, stderr, exitCode } = await run([
+      "clip",
+      "add",
+      "--video",
+      s.standaloneActiveId,
+      "--source",
+      source,
+      "--start",
+      "2",
+      "--end",
+      "6",
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
+      "ParseError"
+    );
   });
 
   it("fails cleanly (exit 3) when the source has no cached transcript", async () => {

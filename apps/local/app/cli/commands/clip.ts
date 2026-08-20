@@ -9,14 +9,14 @@ import {
   notFound,
   notFoundMany,
   parseError,
-  rejectBothFlags,
 } from "@/cli/helpers";
+import { resolveBeforeItemId } from "./timeline-position";
 import {
   CLIP_ZOOM_TYPES,
   type ClipZoomType,
 } from "@/features/videos/clip-zoom";
 import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
-import { readFootageSidecar } from "@/services/footage-cache";
+import { readFootageTranscript } from "@/services/footage-cache";
 import { sliceTranscriptText } from "@/services/footage-chunking";
 import {
   CLIP_HELP,
@@ -223,60 +223,9 @@ const requireActiveClip = (id: string) =>
     return existing;
   });
 
-/**
- * Resolve `clip move`/`clip add`'s --before/--after into the single "anchor id"
- * the service positions against (mirrors `beat move`'s resolveBeforeBeatId, but
- * over the merged clip+chapter order space since clips and chapters share
- * one fractional order key). --after X resolves to whatever item currently
- * follows X — which may legitimately be a Chapter id, since the service's
- * `moveClipToPosition`/`createClip` positions against either.
- *
- * Neither flag returns `null` — "append to the end" for `add`. `clip move`
- * requires exactly one and rejects the neither case at its own call site (a move
- * that keeps a clip where it is would be a silent no-op, not an append).
- * `excludeId` is the clip being MOVED (skipped so it never anchors to itself);
- * `add` omits it, since the new clip is not on the timeline yet.
- */
-const resolveBeforeItemId = (params: {
-  readonly videoId: string;
-  readonly before: Option.Option<string>;
-  readonly after: Option.Option<string>;
-  readonly excludeId?: string;
-}) =>
-  Effect.gen(function* () {
-    const before = Option.getOrUndefined(params.before);
-    const after = Option.getOrUndefined(params.after);
-
-    yield* rejectBothFlags({
-      a: before,
-      b: after,
-      flags: ["--before", "--after"],
-      entity: "clip",
-    });
-    if (before === undefined && after === undefined) {
-      return null;
-    }
-
-    const clipOps = yield* ClipOperationsService;
-    const items = (yield* clipOps.listTimelineOrder(params.videoId)).filter(
-      (item) => item.id !== params.excludeId
-    );
-
-    if (before !== undefined) {
-      if (!items.some((item) => item.type === "clip" && item.id === before)) {
-        return yield* notFound("clip", before);
-      }
-      return before;
-    }
-
-    const idx = items.findIndex(
-      (item) => item.type === "clip" && item.id === after
-    );
-    if (idx === -1) {
-      return yield* notFound("clip", after!);
-    }
-    return items[idx + 1]?.id ?? null;
-  });
+// `resolveBeforeItemId` (the --before/--after anchor resolver) is shared with
+// `chapter` in ./timeline-position — clips and chapters share one order space,
+// so the resolution is identical and an anchor may be a Clip OR a Chapter.
 
 // ---------------------------------------------------------------------------
 // Verbs
@@ -317,11 +266,14 @@ const addCmd = Command.make(
         .pipe(Effect.catchTag("NotFoundError", () => notFound("video", video)));
 
       // Text is SLICED FROM THE CACHED footage transcript — never a live Whisper
-      // call. No cache -> tell the agent to transcribe the footage first.
-      const sidecar = yield* readFootageSidecar(source);
+      // call. `readFootageTranscript` re-hashes the source and treats a cache
+      // whose hash no longer matches (the footage was re-recorded/replaced) as
+      // absent, so a STALE transcript is refused exactly like a missing one —
+      // never silently sliced. Either way: tell the agent to transcribe first.
+      const sidecar = yield* readFootageTranscript(source);
       if (sidecar === null) {
         return yield* parseError(
-          `no cached transcript for ${source} — run ` +
+          `no fresh cached transcript for ${source} — run ` +
             `'cvm footage transcribe ${source}' first`,
           "clip"
         );
@@ -329,6 +281,7 @@ const addCmd = Command.make(
       const text = sliceTranscriptText(sidecar, start, end);
 
       const beforeItemId = yield* resolveBeforeItemId({
+        entity: "clip",
         videoId: video,
         before,
         after,
@@ -418,6 +371,7 @@ const moveCmd = Command.make(
         );
       }
       const beforeItemId = yield* resolveBeforeItemId({
+        entity: "clip",
         videoId: existing.videoId,
         before,
         after,

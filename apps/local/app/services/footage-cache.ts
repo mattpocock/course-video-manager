@@ -1,8 +1,7 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
-import crypto from "node:crypto";
-import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type { FootageTranscript } from "./footage-chunking";
 
@@ -44,24 +43,32 @@ export const sidecarPathFor = (sourcePath: string): string =>
 /**
  * SHA-256 of a file's contents, streamed rather than read whole — raw footage
  * can be many gigabytes, and hashing it must not pull it all into memory.
+ *
+ * Streams through Effect's `FileSystem` (not raw `node:fs`) so the read is
+ * DI-injectable and its I/O failures land in the typed error channel as a
+ * `PlatformError`, consistent with the rest of this module (see
+ * CODING_STANDARDS.md — prefer Effect primitives over promises/callbacks).
  */
 export const computeFileContentHash = (
   sourcePath: string
-): Effect.Effect<string> =>
-  Effect.async<string>((resume) => {
-    const hash = crypto.createHash("sha256");
-    const stream = fs.createReadStream(sourcePath);
-    stream.on("error", (error) => resume(Effect.die(error)));
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resume(Effect.succeed(hash.digest("hex"))));
+): Effect.Effect<string, PlatformError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fsvc = yield* FileSystem.FileSystem;
+    const hash = createHash("sha256");
+    yield* fsvc
+      .stream(sourcePath)
+      .pipe(
+        Stream.runForEach((chunk) => Effect.sync(() => hash.update(chunk)))
+      );
+    return hash.digest("hex");
   });
 
 /**
  * Read and parse the sidecar next to `sourcePath`, WITHOUT checking it against
  * the source file — `null` if there is no sidecar, it is malformed, or it is a
- * version this build does not understand. This is what `cvm clip add` uses: it
- * only needs the cached words, and re-hashing (possibly gigabytes of) source on
- * every clip would be wasteful and would require the source present at all.
+ * version this build does not understand. The raw primitive underneath
+ * `readFootageTranscript`, which layers the freshness (hash) check on top; not
+ * used on its own by any caller that could be served a stale transcript.
  */
 export const readFootageSidecar = (
   sourcePath: string

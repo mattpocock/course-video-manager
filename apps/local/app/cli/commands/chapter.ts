@@ -9,8 +9,8 @@ import {
   notFound,
   notFoundMany,
   parseError,
-  rejectBothFlags,
 } from "@/cli/helpers";
+import { resolveBeforeItemId } from "./timeline-position";
 import {
   HELP,
   LIST_HELP,
@@ -54,51 +54,9 @@ const ids = Args.text({ name: "id" }).pipe(Args.repeated);
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Resolve --before/--after into the single "anchor id" the chapter service
- * positions against, over the MERGED clip+chapter order space (the same one
- * `clip move` uses). The anchor may be a Clip OR a Chapter, since they share one
- * fractional order key. Neither flag returns `null` — "append to the end" for
- * `add`; `move` requires exactly one and rejects the neither case itself.
- */
-const resolveBeforeItemId = (params: {
-  readonly videoId: string;
-  readonly before: Option.Option<string>;
-  readonly after: Option.Option<string>;
-  readonly excludeId?: string;
-}) =>
-  Effect.gen(function* () {
-    const before = Option.getOrUndefined(params.before);
-    const after = Option.getOrUndefined(params.after);
-
-    yield* rejectBothFlags({
-      a: before,
-      b: after,
-      flags: ["--before", "--after"],
-      entity: "chapter",
-    });
-    if (before === undefined && after === undefined) {
-      return null;
-    }
-
-    const clipOps = yield* ClipOperationsService;
-    const items = (yield* clipOps.listTimelineOrder(params.videoId)).filter(
-      (item) => item.id !== params.excludeId
-    );
-
-    if (before !== undefined) {
-      if (!items.some((item) => item.id === before)) {
-        return yield* notFound("chapter", before);
-      }
-      return before;
-    }
-
-    const idx = items.findIndex((item) => item.id === after);
-    if (idx === -1) {
-      return yield* notFound("chapter", after!);
-    }
-    return items[idx + 1]?.id ?? null;
-  });
+// `resolveBeforeItemId` (the --before/--after anchor resolver) is shared with
+// `clip` in ./timeline-position — clips and chapters share one order space, so
+// the resolution is identical and an anchor may be a Clip OR a Chapter.
 
 /**
  * Resolve + gate a chapter for a write: a bad id is a clean not-found (exit 2),
@@ -174,6 +132,7 @@ const addCmd = Command.make(
     Effect.gen(function* () {
       yield* requireVideo(video);
       const beforeItemId = yield* resolveBeforeItemId({
+        entity: "chapter",
         videoId: video,
         before,
         after,
@@ -213,6 +172,7 @@ const moveCmd = Command.make(
         );
       }
       const beforeItemId = yield* resolveBeforeItemId({
+        entity: "chapter",
         videoId: existing.videoId,
         before,
         after,

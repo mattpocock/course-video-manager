@@ -10,7 +10,10 @@ import {
   requireDraftVersionForVideo,
 } from "./draft-guard.server.js";
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
-import { compareOrderStrings } from "../lib/sort-by-order.js";
+import {
+  compareOrderStrings,
+  orderKeyBeforeItem,
+} from "../lib/sort-by-order.js";
 import {
   checkClipZoomEligibility,
   clipZoomIneligibilityMessage,
@@ -268,27 +271,16 @@ const createClipOperationsUnwrapped = (db: Database) => {
       (item) => item.id !== clipId
     );
 
-    let prevOrder: string | null;
-    let nextOrder: string | null;
-    if (beforeItemId === null) {
-      prevOrder = items.at(-1)?.order ?? null;
-      nextOrder = null;
-    } else {
-      const idx = items.findIndex((item) => item.id === beforeItemId);
-      if (idx === -1) {
-        return yield* new NotFoundError({
-          type: "moveClipToPosition",
-          params: { clipId: beforeItemId },
-        });
-      }
-      prevOrder = items[idx - 1]?.order ?? null;
-      nextOrder = items[idx]!.order;
+    const order = orderKeyBeforeItem(items, beforeItemId);
+    if (order === null) {
+      return yield* new NotFoundError({
+        type: "moveClipToPosition",
+        params: { clipId: beforeItemId },
+      });
     }
 
-    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
-
     yield* makeDbCall(() =>
-      db.update(clips).set({ order: order! }).where(eq(clips.id, clipId))
+      db.update(clips).set({ order }).where(eq(clips.id, clipId))
     );
 
     return yield* getClipById(clipId);
@@ -318,24 +310,13 @@ const createClipOperationsUnwrapped = (db: Database) => {
 
     const items = yield* listTimelineOrder(opts.videoId);
 
-    let prevOrder: string | null;
-    let nextOrder: string | null;
-    if (opts.beforeItemId === null) {
-      prevOrder = items.at(-1)?.order ?? null;
-      nextOrder = null;
-    } else {
-      const idx = items.findIndex((item) => item.id === opts.beforeItemId);
-      if (idx === -1) {
-        return yield* new NotFoundError({
-          type: "createClip",
-          params: { videoId: opts.videoId, beforeItemId: opts.beforeItemId },
-        });
-      }
-      prevOrder = items[idx - 1]?.order ?? null;
-      nextOrder = items[idx]!.order;
+    const order = orderKeyBeforeItem(items, opts.beforeItemId);
+    if (order === null) {
+      return yield* new NotFoundError({
+        type: "createClip",
+        params: { videoId: opts.videoId, beforeItemId: opts.beforeItemId },
+      });
     }
-
-    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
     const [clip] = yield* makeDbCall(() =>
       db
@@ -345,7 +326,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
           videoFilename: opts.videoFilename,
           sourceStartTime: opts.sourceStartTime,
           sourceEndTime: opts.sourceEndTime,
-          order: order!,
+          order,
           archived: false,
           text: opts.text,
         })

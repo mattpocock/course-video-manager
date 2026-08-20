@@ -8,7 +8,10 @@ import {
   requireDraftVersionForChapter,
   requireDraftVersionForVideo,
 } from "./draft-guard.server.js";
-import { compareOrderStrings } from "../lib/sort-by-order.js";
+import {
+  compareOrderStrings,
+  orderKeyBeforeItem,
+} from "../lib/sort-by-order.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -483,29 +486,18 @@ export const createChapterOperationsUnwrapped = (db: Database) => {
     yield* requireDraftVersionForVideo(db, videoId);
     const items = yield* mergedTimeline(videoId);
 
-    let prevOrder: string | null;
-    let nextOrder: string | null;
-    if (beforeItemId === null) {
-      prevOrder = items.at(-1)?.order ?? null;
-      nextOrder = null;
-    } else {
-      const idx = items.findIndex((item) => item.id === beforeItemId);
-      if (idx === -1) {
-        return yield* new NotFoundError({
-          type: "createChapterAtItem",
-          params: { videoId, beforeItemId },
-        });
-      }
-      prevOrder = items[idx - 1]?.order ?? null;
-      nextOrder = items[idx]!.order;
+    const order = orderKeyBeforeItem(items, beforeItemId);
+    if (order === null) {
+      return yield* new NotFoundError({
+        type: "createChapterAtItem",
+        params: { videoId, beforeItemId },
+      });
     }
-
-    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
     const [chapter] = yield* makeDbCall(() =>
       db
         .insert(chapters)
-        .values({ videoId, name, order: order!, archived: false })
+        .values({ videoId, name, order, archived: false })
         .returning()
     );
     if (!chapter) {
@@ -533,30 +525,16 @@ export const createChapterOperationsUnwrapped = (db: Database) => {
       (item) => item.id !== chapterId
     );
 
-    let prevOrder: string | null;
-    let nextOrder: string | null;
-    if (beforeItemId === null) {
-      prevOrder = items.at(-1)?.order ?? null;
-      nextOrder = null;
-    } else {
-      const idx = items.findIndex((item) => item.id === beforeItemId);
-      if (idx === -1) {
-        return yield* new NotFoundError({
-          type: "moveChapterToPosition",
-          params: { chapterId: beforeItemId },
-        });
-      }
-      prevOrder = items[idx - 1]?.order ?? null;
-      nextOrder = items[idx]!.order;
+    const order = orderKeyBeforeItem(items, beforeItemId);
+    if (order === null) {
+      return yield* new NotFoundError({
+        type: "moveChapterToPosition",
+        params: { chapterId: beforeItemId },
+      });
     }
 
-    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
-
     yield* makeDbCall(() =>
-      db
-        .update(chapters)
-        .set({ order: order! })
-        .where(eq(chapters.id, chapterId))
+      db.update(chapters).set({ order }).where(eq(chapters.id, chapterId))
     );
 
     return yield* getChapterById(chapterId);
