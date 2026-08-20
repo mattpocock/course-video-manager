@@ -82,6 +82,13 @@ export const ROOT_ACTIONS: RootAction[] = [
     opens: "diagrams",
   },
   {
+    id: "recentre-diagram",
+    label: "Recentre diagram",
+    hint: "Snap the camera back to the tuned, face-cam-aware centre (Cmd/Ctrl+Home)",
+    group: "Navigate",
+    icon: "crosshair",
+  },
+  {
     id: "preserve-snapshot",
     label: "Preserve current as snapshot",
     hint: "Pin this state to the timeline",

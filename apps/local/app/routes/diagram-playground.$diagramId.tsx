@@ -527,6 +527,7 @@ export default function DiagramPlaygroundActive({
             handleCopyDiagramContents={handleCopyDiagramContents}
             handleCreateDiagram={handleCreateDiagram}
             reloadScene={loadDiagramScene}
+            recentreDiagram={recentreDiagram}
           />
         )}
         <ConnectionStatusIndicator

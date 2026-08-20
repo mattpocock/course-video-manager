@@ -36,6 +36,21 @@ function seedSettings(settings: Partial<CenteringSettings>) {
 }
 
 /**
+ * `window` is a system boundary too, same rule as `localStorage` above —
+ * stubbed the same way `recent-icons.test.ts` stubs it, and always torn back
+ * down so a test that forgets to call this still runs in the no-window
+ * environment every other test in this file relies on.
+ */
+function withWindowWidth<T>(innerWidth: number, fn: () => T): T {
+  (globalThis as { window?: unknown }).window = { innerWidth };
+  try {
+    return fn();
+  } finally {
+    delete (globalThis as { window?: unknown }).window;
+  }
+}
+
+/**
  * A stand-in for tldraw's `Editor` — a third-party boundary. Only the camera
  * call matters here, so the fake records it rather than simulating it.
  */
@@ -123,5 +138,69 @@ describe("centreCameraOnContent", () => {
     const { editor, calls } = fakeEditor({ bounds: undefined });
     centreCameraOnContent(editor);
     expect(calls).toHaveLength(0);
+  });
+
+  describe("sidebar independence", () => {
+    it("lands the diagram in exactly the same spot whether or not the Snapshot Timeline / Diagram Rail sidebar is eating the reserved strip", () => {
+      // The sidebar (800px of canvas left, out of a 1000px window) happens to
+      // be exactly as wide as the reserved face-cam strip: the canvas can't
+      // reach any of the strip, so nothing extra needs reserving from ITS
+      // edge — the sidebar is already doing that job.
+      seedSettings({ faceCamWidth: 200 });
+      const { editor: withSidebar, calls: withSidebarCalls } = fakeEditor({
+        bounds: { x: 0, y: 0, w: 100, h: 100 },
+        viewport: { x: 0, y: 0, w: 800, h: 800 },
+      });
+      withWindowWidth(1000, () => centreCameraOnContent(withSidebar));
+      // safeWidth = 800 - 0 = 800, safeHeight = 800
+      // fit zoom = min(800/100, 800/100) = 8, capped at baseZoom 1
+      // x = -0 + (0 + (800 - 100)/2)/1 = 350
+      expect(withSidebarCalls[0]!.point).toMatchObject({
+        x: 350,
+        y: 350,
+        z: 1,
+      });
+
+      // No sidebar (Focus Mode, or Playground Home): same window, same
+      // content, the canvas now spans it and reserves the strip itself.
+      const { editor: noSidebar, calls: noSidebarCalls } = fakeEditor({
+        bounds: { x: 0, y: 0, w: 100, h: 100 },
+        viewport: { x: 0, y: 0, w: 1000, h: 800 },
+      });
+      withWindowWidth(1000, () => centreCameraOnContent(noSidebar));
+      // safeWidth = 1000 - 200 = 800, safeHeight = 800 — identical to above.
+      expect(noSidebarCalls[0]!.point).toMatchObject({ x: 350, y: 350, z: 1 });
+    });
+
+    it("still reserves whatever the sidebar doesn't already cover", () => {
+      // The sidebar only eats 100px of a 200px strip — the canvas has to
+      // leave the other 100px clear itself.
+      seedSettings({ faceCamWidth: 200 });
+      const { editor, calls } = fakeEditor({
+        bounds: { x: 0, y: 0, w: 100, h: 100 },
+        viewport: { x: 0, y: 0, w: 900, h: 800 },
+      });
+      withWindowWidth(1000, () => centreCameraOnContent(editor));
+      // right inset = max(200 - 100, 0) = 100
+      // safeWidth = 900 - 100 = 800, safeHeight = 800
+      // fit zoom = min(800/100, 800/100) = 8, capped at baseZoom 1
+      // x = -0 + (0 + (800 - 100)/2)/1 = 350
+      expect(calls[0]!.point).toMatchObject({ x: 350, y: 350, z: 1 });
+    });
+
+    it("falls back to reserving the full strip from the viewport's own edge without a window (SSR/tests)", () => {
+      // No `window` stubbed — every other test in this file runs this way,
+      // and it used to be the only way this function ran at all.
+      seedSettings({ faceCamWidth: 200 });
+      const { editor, calls } = fakeEditor({
+        bounds: { x: 0, y: 0, w: 100, h: 100 },
+        viewport: { x: 0, y: 0, w: 800, h: 800 },
+      });
+      centreCameraOnContent(editor);
+      // safeWidth = 800 - 200 = 600, safeHeight = 800
+      // fit zoom = min(600/100, 800/100) = 6, capped at baseZoom 1
+      // x = -0 + (0 + (600 - 100)/2)/1 = 250
+      expect(calls[0]!.point).toMatchObject({ x: 250, y: 350, z: 1 });
+    });
   });
 });

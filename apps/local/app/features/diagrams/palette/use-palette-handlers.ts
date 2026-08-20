@@ -26,6 +26,8 @@ export function usePaletteHandlers(opts: {
   handleCreateDiagram: () => Promise<void>;
   /** Re-reads head from the server and loads it into the editor. */
   reloadScene: (id: string) => Promise<void>;
+  /** The same camera move the manual Cmd/Ctrl+Home shortcut runs. */
+  recentreDiagram: () => void;
 }): PaletteHandlers {
   const {
     diagramId,
@@ -35,6 +37,7 @@ export function usePaletteHandlers(opts: {
     handleCopyDiagramContents,
     handleCreateDiagram,
     reloadScene,
+    recentreDiagram,
   } = opts;
 
   const navigate = useNavigate();
@@ -43,6 +46,8 @@ export function usePaletteHandlers(opts: {
   return useMemo(
     () => ({
       onPreserveSnapshot: preserveSnapshot,
+
+      onRecentreDiagram: recentreDiagram,
 
       onRestoreToHead: async () => {
         // "Discard changes since the last snapshot" — the same restore the
@@ -132,6 +137,7 @@ export function usePaletteHandlers(opts: {
       handleCopyDiagramContents,
       handleCreateDiagram,
       reloadScene,
+      recentreDiagram,
       navigate,
       revalidator,
     ]

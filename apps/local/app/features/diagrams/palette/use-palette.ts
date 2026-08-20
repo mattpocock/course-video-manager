@@ -63,6 +63,8 @@ export type PaletteHandlers = {
   onCopyContents: () => void | Promise<void>;
   onRenameDiagram: (name: string) => void | Promise<void>;
   onNewDiagram: () => void | Promise<void>;
+  /** The same camera move the manual Cmd/Ctrl+Home shortcut runs. */
+  onRecentreDiagram: () => void;
   /**
    * Navigating away flushes the pending save first — see the call site. A
    * snapshot hit is restored on the way, so the author arrives at the state
@@ -186,6 +188,9 @@ export function usePalette(opts: {
           break;
         case "new-diagram":
           void handlers.onNewDiagram();
+          break;
+        case "recentre-diagram":
+          handlers.onRecentreDiagram();
           break;
       }
       setOpen(false);

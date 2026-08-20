@@ -19,6 +19,8 @@ export function DiagramCommandPalette(props: {
   handleCopyDiagramContents: (id: string) => Promise<void>;
   handleCreateDiagram: () => Promise<void>;
   reloadScene: (id: string) => Promise<void>;
+  /** The same camera move the manual Cmd/Ctrl+Home shortcut runs. */
+  recentreDiagram: () => void;
 }) {
   const handlers = usePaletteHandlers(props);
   return <CommandPalette editorRef={props.editorRef} handlers={handlers} />;

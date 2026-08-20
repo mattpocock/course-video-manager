@@ -81,16 +81,47 @@ export interface SafeAreaInsets {
 }
 
 /**
+ * How much of the *window's* right edge the visible tldraw canvas does not
+ * reach right now — e.g. because the Snapshot Timeline / Diagram Rail
+ * sidebar is open (Focus Mode hides it, which is when this is zero).
+ *
+ * The face-cam is composited by OBS onto the window (ADR 0004), not onto
+ * whatever fraction of it tldraw happens to be rendering into — so the strip
+ * reserved for it has to be measured from the window's edge, and this is the
+ * piece of that measurement `getViewportScreenBounds()` alone can't give,
+ * because it only describes the canvas.
+ */
+export function getRightOffscreenWidth(
+  viewport: { x: number; w: number },
+  windowWidth: number
+): number {
+  return Math.max(windowWidth - (viewport.x + viewport.w), 0);
+}
+
+/**
  * The single definition of "the area the diagram is allowed to occupy":
  * padding on the left/top/bottom, and the reserved face-cam strip plus
  * padding on the right. `centreCameraOnContent` turns this into a camera
  * move; the debug panel's guide-box overlay renders it directly as CSS
  * insets — both read the same four numbers, so they can't drift apart.
+ *
+ * `rightOffscreenWidth` (see `getRightOffscreenWidth`) is subtracted from
+ * `faceCamWidth` before padding is added, so a sidebar that already covers
+ * part — or all — of the reserved strip doesn't make the canvas reserve it a
+ * second time on top. That's what pins the diagram's centred position to the
+ * same spot on the window whether the sidebar is open or Focus Mode has
+ * hidden it: the strip's own position never moves, only how much of it the
+ * *canvas* still has to leave clear does.
  */
-export function getSafeAreaInsets(settings: CenteringSettings): SafeAreaInsets {
+export function getSafeAreaInsets(
+  settings: CenteringSettings,
+  rightOffscreenWidth = 0
+): SafeAreaInsets {
   return {
     left: settings.paddingX,
-    right: settings.faceCamWidth + settings.paddingX,
+    right:
+      Math.max(settings.faceCamWidth - rightOffscreenWidth, 0) +
+      settings.paddingX,
     top: settings.paddingY,
     bottom: settings.paddingY,
   };

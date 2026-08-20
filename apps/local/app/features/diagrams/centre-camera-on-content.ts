@@ -1,6 +1,7 @@
 import type { Editor } from "tldraw";
 import {
   getCenteringSettings,
+  getRightOffscreenWidth,
   getSafeAreaInsets,
 } from "./diagram-centering-settings";
 
@@ -25,6 +26,15 @@ import {
  * restore, palette search, the manual recentre hotkey, and the debug panel's
  * live preview) agrees on where "centred" means.
  *
+ * The strip is pinned to the *window's* right edge, not the tldraw
+ * viewport's: `getViewportScreenBounds()` shrinks whenever the Snapshot
+ * Timeline / Diagram Rail sidebar is showing, and reserving `faceCamWidth`
+ * from ITS edge would double-reserve — once for the sidebar, again for the
+ * strip — so the diagram's "centred" position would jump every time the
+ * sidebar opened or closed, or Focus Mode toggled it away. Subtracting
+ * `getRightOffscreenWidth` before insetting keeps that position fixed to the
+ * window regardless.
+ *
  * `targetZoom` is a *cap*, not a target: a large diagram still zooms out to
  * fit, while a single small shape is centred at 100% instead of being blown
  * up past it. This mirrors tldraw's own `zoomToBounds`, whose fit-and-clamp
@@ -36,8 +46,16 @@ export function centreCameraOnContent(editor: Editor): void {
   if (!bounds) return;
 
   const settings = getCenteringSettings();
-  const insets = getSafeAreaInsets(settings);
   const viewport = editor.getViewportScreenBounds();
+  // No `window` in SSR/tests — falls back to the viewport's own width, i.e.
+  // "nothing is off-canvas", the same as this function's behaviour before
+  // the sidebar was accounted for.
+  const windowWidth =
+    typeof window !== "undefined" ? window.innerWidth : viewport.x + viewport.w;
+  const insets = getSafeAreaInsets(
+    settings,
+    getRightOffscreenWidth(viewport, windowWidth)
+  );
 
   // The rectangle (in screen pixels) the diagram is allowed to occupy: the
   // viewport, inset on every side by `insets` — the same insets the debug

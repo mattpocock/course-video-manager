@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { centreCameraOnContent } from "./centre-camera-on-content";
 import {
+  getRightOffscreenWidth,
   getSafeAreaInsets,
   useCenteringSetting,
 } from "./diagram-centering-settings";
@@ -33,8 +34,22 @@ export function DiagramCenteringDebug({
   const [paddingY, setPaddingY] = useCenteringSetting("paddingY");
   // Same insets `centreCameraOnContent` computes the camera move from — the
   // guide boxes below render them directly as CSS, so they can't drift from
-  // where the diagram actually lands.
-  const insets = getSafeAreaInsets({ faceCamWidth, paddingX, paddingY });
+  // where the diagram actually lands. Read fresh on every render (rather than
+  // cached in state) so a sidebar/Focus Mode toggle — which re-renders this
+  // component as a side effect of its parent's own re-render — recomputes it
+  // too; see `getRightOffscreenWidth` for why the sidebar matters here at all.
+  const viewport = editorRef.current?.getViewportScreenBounds();
+  const windowWidth =
+    typeof window !== "undefined"
+      ? window.innerWidth
+      : (viewport?.x ?? 0) + (viewport?.w ?? 0);
+  const rightOffscreen = viewport
+    ? getRightOffscreenWidth(viewport, windowWidth)
+    : 0;
+  const insets = getSafeAreaInsets(
+    { faceCamWidth, paddingX, paddingY },
+    rightOffscreen
+  );
 
   // Live-update: every persisted change re-runs the same recentre the rest
   // of the app uses, so the debug panel never drifts from real behaviour.
@@ -61,10 +76,13 @@ export function DiagramCenteringDebug({
       {open && (
         <>
           {/* Reserved face-cam strip — a full-height zone on the right the
-              diagram is kept clear of. */}
+              diagram is kept clear of. Drawn at whatever's left of it after
+              the sidebar's own width: the strip is pinned to the window's
+              edge, so a sidebar wide enough to cover it needs no red shown
+              here at all. */}
           <div
             className="pointer-events-none absolute right-0 top-0 z-40 h-full border-l-2 border-red-500/70 bg-red-500/10"
-            style={{ width: Math.max(faceCamWidth, 0) }}
+            style={{ width: Math.max(faceCamWidth - rightOffscreen, 0) }}
           />
           {/* The padded safe rect the diagram is actually fit-and-centred
               into — the same `getSafeAreaInsets` `centreCameraOnContent`
