@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
-import type { Editor } from "tldraw";
+import { useValue, type Editor } from "tldraw";
 import { SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { centreCameraOnContent } from "./centre-camera-on-content";
@@ -58,6 +58,25 @@ export function DiagramCenteringDebug({
     if (ed) centreCameraOnContent(ed);
   }, [faceCamWidth, paddingX, paddingY, editorRef]);
 
+  // centreCameraOnContent has no ceiling of its own any more — past the
+  // padded edges, the only thing stopping a small diagram from zooming in
+  // arbitrarily far is the camera's own `zoomSteps` range (see its history).
+  // Nothing here picks a saner cap yet; this is how "how far does it
+  // actually go" gets watched live while tuning, the same way the guide
+  // boxes above are, before that number gets chosen.
+  //
+  // `[editorRef.current]` (not `[editorRef]`) is deliberate: `useValue`
+  // builds its reactive subscription once per identity in the deps array,
+  // and the ref OBJECT never changes, only what it points at. Keying on the
+  // object would leave this watching a `computed` built before the editor
+  // ever mounted, permanently stuck reading `null` off a signal it never
+  // wired up.
+  const zoom = useValue(
+    "centering-debug-zoom",
+    () => editorRef.current?.getZoomLevel() ?? null,
+    [editorRef.current]
+  );
+
   return (
     <>
       <button
@@ -100,6 +119,12 @@ export function DiagramCenteringDebug({
           <div className="absolute bottom-52 right-2 z-50 w-56 rounded-md border border-zinc-700 bg-zinc-900/95 p-3 shadow-lg">
             <div className="mb-2 text-xs font-semibold text-zinc-300">
               Diagram centering (debug)
+            </div>
+            <div className="mb-2 flex items-center justify-between text-xs text-zinc-400">
+              <span>Zoom</span>
+              <span className="font-mono text-zinc-100">
+                {zoom === null ? "—" : `${Math.round(zoom * 100)}%`}
+              </span>
             </div>
             <NumberField
               label="Face-cam width"
