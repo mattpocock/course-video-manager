@@ -1,5 +1,8 @@
 import type { Editor } from "tldraw";
-import { getCenteringSettings } from "./diagram-centering-settings";
+import {
+  getCenteringSettings,
+  getSafeAreaInsets,
+} from "./diagram-centering-settings";
 
 /**
  * Bring the whole page into view, centred within whatever space is left
@@ -10,10 +13,11 @@ import { getCenteringSettings } from "./diagram-centering-settings";
  * empty space, which reads as "the restore did nothing". Every load of a
  * scene calls this so the content is always where the author is looking.
  *
- * The face-cam itself is composited on top of the recording by external
- * software — this window has no visibility into it (ADR 0004) — so how much
- * room to leave for it is not something that can be computed, only tuned by
- * eye. `diagram-centering-settings` is that tuned, persisted answer: a
+ * This window doubles as the literal screen-recording surface (ADR 0004),
+ * and the presenter's face-cam is composited on top of that recording by
+ * external software — invisible to tldraw/CVM entirely. So how much room to
+ * leave for it is not something that can be computed, only tuned by eye.
+ * `diagram-centering-settings` is that tuned, persisted answer: a
  * full-height strip of `faceCamWidth` screen pixels is reserved on the
  * right, and the diagram is fit-and-centred within what's left, inset by
  * `paddingX`/`paddingY` on every side. This is the one function that turns
@@ -31,14 +35,15 @@ export function centreCameraOnContent(editor: Editor): void {
   const bounds = editor.getCurrentPageBounds();
   if (!bounds) return;
 
-  const { faceCamWidth, paddingX, paddingY } = getCenteringSettings();
+  const settings = getCenteringSettings();
+  const insets = getSafeAreaInsets(settings);
   const viewport = editor.getViewportScreenBounds();
 
   // The rectangle (in screen pixels) the diagram is allowed to occupy: the
-  // viewport minus the reserved face-cam strip on the right, inset by the
-  // padding on every side.
-  const safeWidth = Math.max(viewport.w - faceCamWidth - paddingX * 2, 1);
-  const safeHeight = Math.max(viewport.h - paddingY * 2, 1);
+  // viewport, inset on every side by `insets` — the same insets the debug
+  // panel's guide-box overlay renders directly as CSS.
+  const safeWidth = Math.max(viewport.w - insets.left - insets.right, 1);
+  const safeHeight = Math.max(viewport.h - insets.top - insets.bottom, 1);
 
   const { zoomSteps } = editor.getCameraOptions();
   const baseZoom = editor.getBaseZoom();
@@ -51,8 +56,8 @@ export function centreCameraOnContent(editor: Editor): void {
 
   editor.setCamera(
     {
-      x: -bounds.x + (paddingX + (safeWidth - bounds.w * zoom) / 2) / zoom,
-      y: -bounds.y + (paddingY + (safeHeight - bounds.h * zoom) / 2) / zoom,
+      x: -bounds.x + (insets.left + (safeWidth - bounds.w * zoom) / 2) / zoom,
+      y: -bounds.y + (insets.top + (safeHeight - bounds.h * zoom) / 2) / zoom,
       z: zoom,
     },
     { immediate: true }

@@ -1,13 +1,39 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { Editor } from "tldraw";
 import { centreCameraOnContent } from "./centre-camera-on-content";
-import { getCenteringSettings } from "./diagram-centering-settings";
+import {
+  CENTERING_STORAGE_KEYS,
+  type CenteringSettings,
+} from "./diagram-centering-settings";
 
-vi.mock("./diagram-centering-settings", () => ({
-  getCenteringSettings: vi.fn(),
-}));
+/**
+ * `localStorage` is a system boundary, so it is the one thing here worth
+ * faking — `getCenteringSettings` runs for real, through the settings
+ * module's own reads, the same way `recent-icons.test.ts` fakes it for the
+ * palette rather than mocking the module that wraps it.
+ */
+let store: Map<string, string>;
 
-const mockGetCenteringSettings = vi.mocked(getCenteringSettings);
+beforeEach(() => {
+  store = new Map();
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+  };
+});
+
+afterEach(() => {
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+});
+
+function seedSettings(settings: Partial<CenteringSettings>) {
+  for (const [key, value] of Object.entries(settings)) {
+    store.set(
+      CENTERING_STORAGE_KEYS[key as keyof typeof CENTERING_STORAGE_KEYS],
+      String(value)
+    );
+  }
+}
 
 /**
  * A stand-in for tldraw's `Editor` — a third-party boundary. Only the camera
@@ -39,14 +65,6 @@ function fakeEditor(opts: {
 }
 
 describe("centreCameraOnContent", () => {
-  beforeEach(() => {
-    mockGetCenteringSettings.mockReturnValue({
-      faceCamWidth: 0,
-      paddingX: 0,
-      paddingY: 0,
-    });
-  });
-
   it("frames the page's content dead-centre when no face-cam room is reserved", () => {
     const { editor, calls } = fakeEditor({
       bounds: { x: 100, y: 200, w: 400, h: 300 },
@@ -61,11 +79,7 @@ describe("centreCameraOnContent", () => {
   });
 
   it("reserves a full-height strip on the right for the face-cam", () => {
-    mockGetCenteringSettings.mockReturnValue({
-      faceCamWidth: 200,
-      paddingX: 0,
-      paddingY: 0,
-    });
+    seedSettings({ faceCamWidth: 200 });
     const { editor, calls } = fakeEditor({
       bounds: { x: 0, y: 0, w: 100, h: 100 },
     });
@@ -78,11 +92,7 @@ describe("centreCameraOnContent", () => {
   });
 
   it("insets the diagram by paddingX/paddingY on every side", () => {
-    mockGetCenteringSettings.mockReturnValue({
-      faceCamWidth: 0,
-      paddingX: 50,
-      paddingY: 20,
-    });
+    seedSettings({ paddingX: 50, paddingY: 20 });
     const { editor, calls } = fakeEditor({
       bounds: { x: 0, y: 0, w: 100, h: 100 },
     });

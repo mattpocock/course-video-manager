@@ -15,7 +15,7 @@ import {
  * `--localstorage-file`. SSR (`renderToStaticMarkup` et al) never sets that
  * flag, so this also checks that `getItem` actually exists before use.
  */
-function hasLocalStorage(): boolean {
+export function hasLocalStorage(): boolean {
   return (
     typeof localStorage !== "undefined" &&
     typeof localStorage.getItem === "function" &&

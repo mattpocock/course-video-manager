@@ -1,4 +1,4 @@
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { hasLocalStorage, useLocalStorage } from "@/hooks/use-local-storage";
 
 /**
  * The presenter's face-cam is composited onto the recording by external
@@ -41,13 +41,6 @@ export interface CenteringSettings {
   paddingY: number;
 }
 
-function hasLocalStorage(): boolean {
-  return (
-    typeof localStorage !== "undefined" &&
-    typeof localStorage.getItem === "function"
-  );
-}
-
 function readStoredNumber(key: string, fallback: number): number {
   if (!hasLocalStorage()) return fallback;
   const raw = localStorage.getItem(key);
@@ -76,6 +69,30 @@ export function getCenteringSettings(): CenteringSettings {
       CENTERING_STORAGE_KEYS.paddingY,
       CENTERING_DEFAULTS.paddingY
     ),
+  };
+}
+
+/** How far the diagram's safe area is inset from each edge of the viewport. */
+export interface SafeAreaInsets {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * The single definition of "the area the diagram is allowed to occupy":
+ * padding on the left/top/bottom, and the reserved face-cam strip plus
+ * padding on the right. `centreCameraOnContent` turns this into a camera
+ * move; the debug panel's guide-box overlay renders it directly as CSS
+ * insets — both read the same four numbers, so they can't drift apart.
+ */
+export function getSafeAreaInsets(settings: CenteringSettings): SafeAreaInsets {
+  return {
+    left: settings.paddingX,
+    right: settings.faceCamWidth + settings.paddingX,
+    top: settings.paddingY,
+    bottom: settings.paddingY,
   };
 }
 

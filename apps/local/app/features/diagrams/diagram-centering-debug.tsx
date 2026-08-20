@@ -3,7 +3,10 @@ import type { Editor } from "tldraw";
 import { SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { centreCameraOnContent } from "./centre-camera-on-content";
-import { useCenteringSetting } from "./diagram-centering-settings";
+import {
+  getSafeAreaInsets,
+  useCenteringSetting,
+} from "./diagram-centering-settings";
 
 /**
  * A prototype tuning UI (see `docs/adr` — none written yet on purpose: this
@@ -28,6 +31,10 @@ export function DiagramCenteringDebug({
   const [faceCamWidth, setFaceCamWidth] = useCenteringSetting("faceCamWidth");
   const [paddingX, setPaddingX] = useCenteringSetting("paddingX");
   const [paddingY, setPaddingY] = useCenteringSetting("paddingY");
+  // Same insets `centreCameraOnContent` computes the camera move from — the
+  // guide boxes below render them directly as CSS, so they can't drift from
+  // where the diagram actually lands.
+  const insets = getSafeAreaInsets({ faceCamWidth, paddingX, paddingY });
 
   // Live-update: every persisted change re-runs the same recentre the rest
   // of the app uses, so the debug panel never drifts from real behaviour.
@@ -60,14 +67,15 @@ export function DiagramCenteringDebug({
             style={{ width: Math.max(faceCamWidth, 0) }}
           />
           {/* The padded safe rect the diagram is actually fit-and-centred
-              into — same geometry as `centreCameraOnContent`. */}
+              into — the same `getSafeAreaInsets` `centreCameraOnContent`
+              uses, rendered directly as CSS insets. */}
           <div
             className="pointer-events-none absolute z-40 border-2 border-dashed border-sky-400/70"
             style={{
-              left: Math.max(paddingX, 0),
-              right: Math.max(faceCamWidth, 0) + Math.max(paddingX, 0),
-              top: Math.max(paddingY, 0),
-              bottom: Math.max(paddingY, 0),
+              left: Math.max(insets.left, 0),
+              right: Math.max(insets.right, 0),
+              top: Math.max(insets.top, 0),
+              bottom: Math.max(insets.bottom, 0),
             }}
           />
 
