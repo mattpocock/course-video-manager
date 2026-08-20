@@ -35,11 +35,19 @@ import {
  * `getRightOffscreenWidth` before insetting keeps that position fixed to the
  * window regardless.
  *
- * `targetZoom` is a *cap*, not a target: a large diagram still zooms out to
- * fit, while a single small shape is centred at 100% instead of being blown
- * up past it. This mirrors tldraw's own `zoomToBounds`, whose fit-and-clamp
- * math this reimplements by hand — `zoomToBounds` only fits into the full
- * viewport, centred, and can't target an off-centre sub-region of it.
+ * The fit always exactly fills the padded box on its constraining axis — a
+ * small diagram is zoomed IN past 100% rather than left floating in the
+ * middle of a mostly-empty frame, because the whole point of tuning padding
+ * by eye is that the diagram's edge then sits exactly on the line that was
+ * tuned. (Earlier this capped at the editor's own 100% — `baseZoom` — the
+ * same way tldraw's `zoomToBounds` does. That reads as "never blow up a tiny
+ * shape", but in practice it meant the fit only ever engaged for diagrams
+ * already bigger than the safe area, and everything else just sat centred
+ * in whatever gap was left, ignoring the padding entirely.) The only clamp
+ * left is `zoomSteps` — the editor's own min/max zoom — same as
+ * `zoomToBounds`, whose fit-and-clamp math this reimplements by hand because
+ * it only fits into the full viewport, centred, and can't target an
+ * off-centre sub-region of it.
  */
 export function centreCameraOnContent(editor: Editor): void {
   const bounds = editor.getCurrentPageBounds();
@@ -69,8 +77,7 @@ export function centreCameraOnContent(editor: Editor): void {
   const zoomMax = (zoomSteps?.[zoomSteps.length - 1] ?? 1) * baseZoom;
 
   const fitZoom = Math.min(safeWidth / bounds.w, safeHeight / bounds.h);
-  const clampedZoom = Math.min(Math.max(fitZoom, zoomMin), zoomMax);
-  const zoom = Math.min(baseZoom, clampedZoom);
+  const zoom = Math.min(Math.max(fitZoom, zoomMin), zoomMax);
 
   editor.setCamera(
     {

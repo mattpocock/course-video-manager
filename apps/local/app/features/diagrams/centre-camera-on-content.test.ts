@@ -86,10 +86,11 @@ describe("centreCameraOnContent", () => {
     });
     centreCameraOnContent(editor);
     expect(calls).toHaveLength(1);
-    // zoom = min(1000/400, 800/300) = 2.5, capped at baseZoom 1
-    // x = -100 + (0 + (1000 - 400*1)/2)/1 = 200
-    // y = -200 + (0 + (800 - 300*1)/2)/1 = 50
-    expect(calls[0]!.point).toMatchObject({ x: 200, y: 50, z: 1 });
+    // zoom = min(1000/400, 800/300) = 2.5 — width is the constraining axis,
+    // so it fills exactly; height has 50px of slack split above and below.
+    // x = -100 + (0 + (1000 - 400*2.5)/2)/2.5 = -100
+    // y = -200 + (0 + (800 - 300*2.5)/2)/2.5 = -190
+    expect(calls[0]!.point).toMatchObject({ x: -100, y: -190, z: 2.5 });
     expect(calls[0]!.opts).toMatchObject({ immediate: true });
   });
 
@@ -100,36 +101,40 @@ describe("centreCameraOnContent", () => {
     });
     centreCameraOnContent(editor);
     // safeWidth = 1000 - 200 = 800, safeHeight = 800 (full height, unaffected)
-    // fit zoom = min(800/100, 800/100) = 8, capped at baseZoom 1
-    // x = -0 + (0 + (800 - 100*1)/2)/1 = 350
-    // y = -0 + (0 + (800 - 100*1)/2)/1 = 350
-    expect(calls[0]!.point).toMatchObject({ x: 350, y: 350, z: 1 });
+    // fit zoom = min(800/100, 800/100) = 8 — both axes fill exactly.
+    // x = -0 + (0 + (800 - 100*8)/2)/8 = 0
+    // y = -0 + (0 + (800 - 100*8)/2)/8 = 0
+    expect(calls[0]!.point).toMatchObject({ x: 0, y: 0, z: 8 });
   });
 
-  it("insets the diagram by paddingX/paddingY on every side", () => {
-    seedSettings({ paddingX: 50, paddingY: 20 });
+  it("insets the diagram by paddingX/paddingY on every side — the fitted edge lands exactly on the padding line", () => {
+    seedSettings({ paddingX: 100, paddingY: 100 });
     const { editor, calls } = fakeEditor({
-      bounds: { x: 0, y: 0, w: 100, h: 100 },
+      bounds: { x: 0, y: 0, w: 200, h: 100 },
     });
     centreCameraOnContent(editor);
-    // safeWidth = 1000 - 100 = 900, safeHeight = 800 - 40 = 760
-    // fit zoom = min(900/100, 760/100) = 7.6, capped at baseZoom 1
-    // x = -0 + (50 + (900 - 100*1)/2)/1 = 450
-    // y = -0 + (20 + (760 - 100*1)/2)/1 = 350
-    expect(calls[0]!.point).toMatchObject({ x: 450, y: 350, z: 1 });
+    // safeWidth = 1000 - 200 = 800, safeHeight = 800 - 200 = 600
+    // fit zoom = min(800/200, 600/100) = 4 — width is the constraining axis.
+    // x = -0 + (100 + (800 - 200*4)/2)/4 = 25 — and 25 * 4 = 100 = paddingX
+    //     exactly: the left edge of the content lands ON the padding line,
+    //     not floating somewhere inside it (the bug this test used to hide,
+    //     back when zoom capped at 100% and left a diagram this small just
+    //     sitting in the middle of a much bigger gap).
+    // y = -0 + (100 + (600 - 100*4)/2)/4 = 50
+    expect(calls[0]!.point).toMatchObject({ x: 25, y: 50, z: 4 });
   });
 
-  it("never zooms in past the editor's own 100%", () => {
-    // `targetZoom` is a cap in tldraw, not a target: a big diagram still zooms
-    // out to fit, but a single small shape does not fill the screen at 8x. The
-    // cap is whatever this editor calls 100% — not a hardcoded 1, which camera
-    // constraints can move.
+  it("zooms in past 100% to fill the safe area, clamped only by the camera's own zoom ceiling", () => {
+    // No cap at the editor's "100%" (`baseZoom`) any more: a diagram this
+    // small would ask for 80x (min(1000/10, 800/10)) to fill the frame, which
+    // is past even this editor's own zoom ceiling (zoomSteps top * baseZoom =
+    // 8 * 2 = 16) — so the ceiling is what actually stops it, not 100%.
     const { editor, calls } = fakeEditor({
       bounds: { x: 0, y: 0, w: 10, h: 10 },
       baseZoom: 2,
     });
     centreCameraOnContent(editor);
-    expect(calls[0]!.point).toMatchObject({ z: 2 });
+    expect(calls[0]!.point).toMatchObject({ z: 16 });
   });
 
   it("leaves the camera alone when the page is empty", () => {
@@ -153,13 +158,9 @@ describe("centreCameraOnContent", () => {
       });
       withWindowWidth(1000, () => centreCameraOnContent(withSidebar));
       // safeWidth = 800 - 0 = 800, safeHeight = 800
-      // fit zoom = min(800/100, 800/100) = 8, capped at baseZoom 1
-      // x = -0 + (0 + (800 - 100)/2)/1 = 350
-      expect(withSidebarCalls[0]!.point).toMatchObject({
-        x: 350,
-        y: 350,
-        z: 1,
-      });
+      // fit zoom = min(800/100, 800/100) = 8 — both axes fill exactly.
+      // x = -0 + (0 + (800 - 100*8)/2)/8 = 0
+      expect(withSidebarCalls[0]!.point).toMatchObject({ x: 0, y: 0, z: 8 });
 
       // No sidebar (Focus Mode, or Playground Home): same window, same
       // content, the canvas now spans it and reserves the strip itself.
@@ -169,7 +170,7 @@ describe("centreCameraOnContent", () => {
       });
       withWindowWidth(1000, () => centreCameraOnContent(noSidebar));
       // safeWidth = 1000 - 200 = 800, safeHeight = 800 — identical to above.
-      expect(noSidebarCalls[0]!.point).toMatchObject({ x: 350, y: 350, z: 1 });
+      expect(noSidebarCalls[0]!.point).toMatchObject({ x: 0, y: 0, z: 8 });
     });
 
     it("still reserves whatever the sidebar doesn't already cover", () => {
@@ -183,9 +184,9 @@ describe("centreCameraOnContent", () => {
       withWindowWidth(1000, () => centreCameraOnContent(editor));
       // right inset = max(200 - 100, 0) = 100
       // safeWidth = 900 - 100 = 800, safeHeight = 800
-      // fit zoom = min(800/100, 800/100) = 8, capped at baseZoom 1
-      // x = -0 + (0 + (800 - 100)/2)/1 = 350
-      expect(calls[0]!.point).toMatchObject({ x: 350, y: 350, z: 1 });
+      // fit zoom = min(800/100, 800/100) = 8 — both axes fill exactly.
+      // x = -0 + (0 + (800 - 100*8)/2)/8 = 0
+      expect(calls[0]!.point).toMatchObject({ x: 0, y: 0, z: 8 });
     });
 
     it("falls back to reserving the full strip from the viewport's own edge without a window (SSR/tests)", () => {
@@ -193,14 +194,14 @@ describe("centreCameraOnContent", () => {
       // and it used to be the only way this function ran at all.
       seedSettings({ faceCamWidth: 200 });
       const { editor, calls } = fakeEditor({
-        bounds: { x: 0, y: 0, w: 100, h: 100 },
+        bounds: { x: 0, y: 0, w: 75, h: 100 },
         viewport: { x: 0, y: 0, w: 800, h: 800 },
       });
       centreCameraOnContent(editor);
       // safeWidth = 800 - 200 = 600, safeHeight = 800
-      // fit zoom = min(600/100, 800/100) = 6, capped at baseZoom 1
-      // x = -0 + (0 + (600 - 100)/2)/1 = 250
-      expect(calls[0]!.point).toMatchObject({ x: 250, y: 350, z: 1 });
+      // fit zoom = min(600/75, 800/100) = 8 — both axes fill exactly.
+      // x = -0 + (0 + (600 - 75*8)/2)/8 = 0
+      expect(calls[0]!.point).toMatchObject({ x: 0, y: 0, z: 8 });
     });
   });
 });
