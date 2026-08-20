@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { Effect, Layer } from "effect";
+import nodeFs from "node:fs";
+import os from "node:os";
+import nodePath from "node:path";
 import {
   createTestDb,
   truncateAllTables,
@@ -37,6 +40,8 @@ let testDb: TestDb;
  */
 let seedLayer: Layer.Layer<ClipOperationsService>;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
+/** Temp dir for the fake footage sidecar caches `clip add` reads. */
+let sourceDir: string;
 
 beforeAll(async () => {
   const result = await createTestDb();
@@ -45,7 +50,48 @@ beforeAll(async () => {
     Layer.provide(Layer.succeed(DrizzleService, testDb as never))
   );
   run = makeRun(buildWriteLayer(testDb));
+  sourceDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-clip-src-"));
 });
+
+afterAll(() => {
+  nodeFs.rmSync(sourceDir, { recursive: true, force: true });
+});
+
+/**
+ * Write a fake footage transcript sidecar (the format `footage transcribe`
+ * produces) and return the source PATH `clip add --source` should point at.
+ * The source file itself need not exist — `clip add` only reads the sidecar.
+ */
+const seedFootageTranscript = (
+  name: string,
+  transcript: {
+    words: Array<{ start: number; end: number; text: string }>;
+    segments: Array<{ start: number; end: number; text: string }>;
+  }
+): string => {
+  const source = nodePath.join(sourceDir, name);
+  nodeFs.writeFileSync(
+    source + ".transcript.json",
+    JSON.stringify({
+      version: 1,
+      sourcePath: source,
+      sourceHash: "0".repeat(64),
+      transcribedAt: new Date().toISOString(),
+      ...transcript,
+    })
+  );
+  return source;
+};
+
+const SAMPLE_TRANSCRIPT = {
+  words: [
+    { start: 0, end: 2, text: "the" },
+    { start: 2, end: 4, text: "quick" },
+    { start: 4, end: 6, text: "brown" },
+    { start: 6, end: 8, text: "fox" },
+  ],
+  segments: [{ start: 0, end: 8, text: " the quick brown fox" }],
+};
 
 let s: WriteSeed;
 beforeEach(async () => {
@@ -347,5 +393,178 @@ describe("clip writes (update / move / delete)", () => {
       ]);
       expect(exitCode).toBe(2);
     });
+  });
+});
+
+describe("clip add", () => {
+  it("slices text from the cached transcript and appends to the end by default", async () => {
+    const source = seedFootageTranscript("take.mkv", SAMPLE_TRANSCRIPT);
+    // Seed one existing clip so "append to end" is observable.
+    const existing = await seedClip(s.standaloneActiveId, { start: 0, end: 1 });
+
+    const added = one<ClipRow>(
+      (
+        await run([
+          "clip",
+          "add",
+          "--video",
+          s.standaloneActiveId,
+          "--source",
+          source,
+          "--start",
+          "2",
+          "--end",
+          "6",
+        ])
+      ).stdout
+    );
+
+    expect(added.videoId).toBe(s.standaloneActiveId);
+    expect(added.sourceStartTime).toBe(2);
+    expect(added.sourceEndTime).toBe(6);
+    // Words overlapping [2, 6): "quick" (2–4) and "brown" (4–6).
+    expect(added.text).toBe("quick brown");
+    expect((added as unknown as { videoFilename: string }).videoFilename).toBe(
+      source
+    );
+
+    expect((await list(s.standaloneActiveId)).map((r) => r.id)).toEqual([
+      existing.id,
+      added.id,
+    ]);
+  });
+
+  it("positions with --after (and behaves like any other clip afterwards)", async () => {
+    const source = seedFootageTranscript("take.mkv", SAMPLE_TRANSCRIPT);
+    const a = await seedClip(s.standaloneActiveId, { start: 0, end: 1 });
+    const b = await seedClip(s.standaloneActiveId, {
+      start: 1,
+      end: 2,
+      after: a.id,
+    });
+
+    const added = one<ClipRow>(
+      (
+        await run([
+          "clip",
+          "add",
+          "--video",
+          s.standaloneActiveId,
+          "--source",
+          source,
+          "--start",
+          "2",
+          "--end",
+          "4",
+          "--after",
+          a.id,
+        ])
+      ).stdout
+    );
+
+    expect((await list(s.standaloneActiveId)).map((r) => r.id)).toEqual([
+      a.id,
+      added.id,
+      b.id,
+    ]);
+
+    // No second-class type: the new clip moves/deletes like any other.
+    await run(["clip", "delete", added.id]);
+    expect((await list(s.standaloneActiveId)).map((r) => r.id)).toEqual([
+      a.id,
+      b.id,
+    ]);
+  });
+
+  it("positions with --before", async () => {
+    const source = seedFootageTranscript("take.mkv", SAMPLE_TRANSCRIPT);
+    const a = await seedClip(s.standaloneActiveId, { start: 0, end: 1 });
+    const b = await seedClip(s.standaloneActiveId, {
+      start: 1,
+      end: 2,
+      after: a.id,
+    });
+
+    const added = one<ClipRow>(
+      (
+        await run([
+          "clip",
+          "add",
+          "--video",
+          s.standaloneActiveId,
+          "--source",
+          source,
+          "--start",
+          "2",
+          "--end",
+          "4",
+          "--before",
+          b.id,
+        ])
+      ).stdout
+    );
+
+    expect((await list(s.standaloneActiveId)).map((r) => r.id)).toEqual([
+      a.id,
+      added.id,
+      b.id,
+    ]);
+  });
+
+  it("fails cleanly (exit 3) when the source has no cached transcript", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "clip",
+      "add",
+      "--video",
+      s.standaloneActiveId,
+      "--source",
+      nodePath.join(sourceDir, "never-transcribed.mkv"),
+      "--start",
+      "2",
+      "--end",
+      "6",
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
+      "ParseError"
+    );
+  });
+
+  it("an unknown video => NotFoundError, exit 2", async () => {
+    const source = seedFootageTranscript("take.mkv", SAMPLE_TRANSCRIPT);
+    const { exitCode, stderr } = await run([
+      "clip",
+      "add",
+      "--video",
+      "video_nope",
+      "--source",
+      source,
+      "--start",
+      "2",
+      "--end",
+      "6",
+    ]);
+    expect(exitCode).toBe(2);
+    const err = JSON.parse(stderr.trim()) as { _tag: string; entity: string };
+    expect(err._tag).toBe("NotFoundError");
+    expect(err.entity).toBe("video");
+  });
+
+  it("start >= end => invalid input, exit 3", async () => {
+    const source = seedFootageTranscript("take.mkv", SAMPLE_TRANSCRIPT);
+    const { exitCode } = await run([
+      "clip",
+      "add",
+      "--video",
+      s.standaloneActiveId,
+      "--source",
+      source,
+      "--start",
+      "6",
+      "--end",
+      "6",
+    ]);
+    expect(exitCode).toBe(3);
   });
 });

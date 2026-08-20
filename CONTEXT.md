@@ -108,8 +108,12 @@ A **Video** with `format: "short"`: a vertical, short-form video (the kind poste
 _Avoid_: TikTok (reserved for the actual TikTok platform — the OBS recording profile and Buffer posting destinations — and NOT the canonical name for a Short)
 
 **Clip**:
-A timestamped segment of source footage within a video, defined by start/end times and a source filename.
+A timestamped segment of **Footage** within a video, defined by start/end times and a source filename (`videoFilename`, a bare path with no foreign key). Captured by OBS append or "create video from selection", or cut by hand with `cvm clip add`, which slices the new Clip's `text` from the source Footage's cached transcript.
 _Avoid_: Segment, Cut, Take
+
+**Footage**:
+A raw source video FILE on disk (an OBS capture, a screen recording) before it is cut into **Clips** — the input to editing, not a product of it. UNLIKE EVERY OTHER NOUN IN THE DOMAIN MODEL, Footage has no database row: its identity is its filesystem path, and its whole-file **Transcription** is cached in a sidecar file beside it (`<path>.transcript.json`), keyed by a content hash so replacing/re-recording the file re-transcribes rather than serving stale words — the same "the filesystem **is** the state" convention as a **Video File**. Transcribed whole-file and speaker-agnostic (mono audio, Whisper word + segment timestamps, NO diarization; a file over Whisper's 25MB upload cap is split into chunks cut at detected silence and merged back onto one timeline). Managed with `cvm footage` (list / transcribe / transcript), all LOCAL-ONLY (it lives on the author's disk); `cvm clip add` reads the cached transcript to give a new **Clip** its text. A Clip's `videoFilename` points at the Footage it was cut from.
+_Avoid_: Raw footage (informal prose ok), Source video
 
 **Effect Clip**:
 A special clip for non-speech content (white noise, transitions) manually inserted into the timeline.
@@ -135,7 +139,7 @@ The ordered text projection of a **Video** — its **Clips** and **Chapters** in
 _Avoid_: Clip text (only covers Clips), Joined clips, Caption (reserved for the per-clip transcription product)
 
 **Video File**:
-A plain file on disk attached to a **Video**, under `{VIDEO_FILES_DIR}/{lineageId}/` and addressed relative to it. Not a database row — the directory listing **is** the state; deleting is a real unlink (no `archived`, no restore). Belongs to the Video, never the Lesson; lesson-bound and **Standalone Videos** behave identically. Purpose: **writer context** — the Article Writer reads a Video's **Transcript**, **Script**, **Beats**, and text Video Files. Those sources are ranked by the fidelity ladder (see **Script**): the Transcript alone sets what the article may claim, and text Video Files are supporting material showing what was on screen (code samples, notes, session logs) that the writer draws detail and evidence from, never a source of claims in their own right. Extensions `ts/tsx/js/jsx/json/md/mdx/txt/csv` are ticked by default in the writer's picker; others start unticked; images pass as images. Subdirectories allowed; dotfiles and `node_modules` ignored. Managed from the editor UI or `cvm file`.
+A plain file on disk attached to a **Video**, under `{VIDEO_FILES_DIR}/{lineageId}/` and addressed relative to it. Not a database row — the directory listing **is** the state; deleting is a real unlink (no `archived`, no restore). Shares that filesystem-is-the-state convention with **Footage** (which caches its transcript in a sidecar on disk), though the two are unrelated: a Video File is writer context, Footage is raw recording. Belongs to the Video, never the Lesson; lesson-bound and **Standalone Videos** behave identically. Purpose: **writer context** — the Article Writer reads a Video's **Transcript**, **Script**, **Beats**, and text Video Files. Those sources are ranked by the fidelity ladder (see **Script**): the Transcript alone sets what the article may claim, and text Video Files are supporting material showing what was on screen (code samples, notes, session logs) that the writer draws detail and evidence from, never a source of claims in their own right. Extensions `ts/tsx/js/jsx/json/md/mdx/txt/csv` are ticked by default in the writer's picker; others start unticked; images pass as images. Subdirectories allowed; dotfiles and `node_modules` ignored. Managed from the editor UI or `cvm file`.
 _Avoid_: Attachment, Asset (reserved for exported/published artifacts), Standalone file / Lesson file (the old UI-era split, now one concept)
 
 ### Video planning

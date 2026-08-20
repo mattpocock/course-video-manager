@@ -83,6 +83,29 @@ describe("on a box that is not the author's", () => {
     }
   });
 
+  it("refuses every cvm footage verb", async () => {
+    const invocations: ReadonlyArray<ReadonlyArray<string>> = [
+      ["footage", "list"],
+      ["footage", "list", "--dir", "/tmp/whatever"],
+      ["footage", "transcribe", "/tmp/whatever.mkv"],
+      ["footage", "transcript", "/tmp/whatever.mkv"],
+    ];
+
+    for (const argv of invocations) {
+      const result = await run(argv);
+
+      expect(result.exitCode, argv.join(" ")).toBe(7);
+      expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+      expect(result.stdout).toBe("");
+    }
+  });
+
+  it("names footage as the resource cvm footage would have needed", async () => {
+    const footage = failureOf(await run(["footage", "list"]));
+    expect(footage.command).toBe("cvm footage");
+    expect(footage.message).toContain("raw footage");
+  });
+
   it("refuses cvm course readiness", async () => {
     const result = await run(["course", "readiness", await courseIdOf()]);
 

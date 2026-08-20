@@ -8,6 +8,7 @@ import { homedir, tmpdir } from "os";
 import OpenAI from "openai";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { findSilenceInVideo } from "./silence-detection";
+import { transcribeFootage } from "./footage-transcription";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import { makeFfmpegLogger } from "./ffmpeg-video-logger";
 import type { SilenceLength } from "@/silence-detection-constants";
@@ -414,6 +415,17 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         return transcription;
       });
 
+      /**
+       * Transcribe a whole raw FOOTAGE file (see CONTEXT.md "Footage"): a file on
+       * disk that is not — and never becomes — a database row. The ffmpeg +
+       * silence-chunking orchestration lives in {@link transcribeFootage} (split
+       * out only for the file-size budget); it reuses THIS service's
+       * {@link transcribeAudioFile} per chunk, so faking VideoProcessingService
+       * still fakes all of footage transcription. No diarization, ever.
+       */
+      const transcribeFootageFile = (inputVideo: string) =>
+        transcribeFootage({ ffmpegCommands, transcribeAudioFile }, inputVideo);
+
       const getLastFrame = Effect.fn("getLastFrame")(function* (
         inputVideo: string,
         seekTo: number
@@ -617,6 +629,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         exportVideoClips,
         transcribeClips,
         transcribeVideoFile,
+        transcribeFootageFile,
         getLastFrame,
         getFirstFrame,
         sendClipsToDavinciResolve,

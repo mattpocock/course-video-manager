@@ -1,7 +1,7 @@
 import type { Database } from "./drizzle-service.server.js";
 import { clips, chapters } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import {
@@ -410,13 +410,169 @@ export const createChapterOperationsUnwrapped = (db: Database) => {
     return { success: true };
   });
 
+  /**
+   * Non-archived clips and chapters of a Video, merged and sorted by the shared
+   * fractional `order` key — the same view db-clip-operations.server.ts builds,
+   * assembled here too so `chapter add`/`chapter move` can position against both
+   * without reaching back into the Clip ops (which would re-couple the split).
+   */
+  const mergedTimeline = Effect.fn("mergedTimeline")(function* (
+    videoId: string
+  ) {
+    const allClips = yield* makeDbCall(() =>
+      db.query.clips.findMany({
+        where: and(eq(clips.videoId, videoId), eq(clips.archived, false)),
+        orderBy: asc(clips.order),
+      })
+    );
+    const allChapters = yield* makeDbCall(() =>
+      db.query.chapters.findMany({
+        where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
+        orderBy: asc(chapters.order),
+      })
+    );
+    return [
+      ...allClips.map((c) => ({
+        type: "clip" as const,
+        id: c.id,
+        order: c.order,
+      })),
+      ...allChapters.map((c) => ({
+        type: "chapter" as const,
+        id: c.id,
+        order: c.order,
+      })),
+    ].sort((a, b) => compareOrderStrings(a.order, b.order));
+  });
+
+  /** Active chapters of a Video, in timeline order — backs `chapter list`. */
+  const listChaptersByVideoId = Effect.fn("listChaptersByVideoId")(function* (
+    videoId: string
+  ) {
+    return yield* makeDbCall(() =>
+      db.query.chapters.findMany({
+        where: and(eq(chapters.videoId, videoId), eq(chapters.archived, false)),
+        orderBy: asc(chapters.order),
+      })
+    );
+  });
+
+  /** Fetch chapters by id (any archived state) — backs `chapter get`. */
+  const getChaptersByIds = Effect.fn("getChaptersByIds")(function* (
+    chapterIds: readonly string[]
+  ) {
+    return yield* makeDbCall(() =>
+      db.query.chapters.findMany({
+        where: inArray(chapters.id, chapterIds),
+      })
+    );
+  });
+
+  /**
+   * Create a Chapter positioned against the shared clip/chapter order space,
+   * anchored immediately before `beforeItemId` (a Clip OR Chapter id) — `null`
+   * appends to the end. The `cvm chapter add` primitive, symmetric with the
+   * Clip ops' `createClip`; the UI's autofill keeps using
+   * `createChapterAtInsertionPoint`/`createChapterAtPosition`.
+   */
+  const createChapterAtItem = Effect.fn("createChapterAtItem")(function* (
+    videoId: string,
+    name: string,
+    beforeItemId: string | null
+  ) {
+    yield* requireDraftVersionForVideo(db, videoId);
+    const items = yield* mergedTimeline(videoId);
+
+    let prevOrder: string | null;
+    let nextOrder: string | null;
+    if (beforeItemId === null) {
+      prevOrder = items.at(-1)?.order ?? null;
+      nextOrder = null;
+    } else {
+      const idx = items.findIndex((item) => item.id === beforeItemId);
+      if (idx === -1) {
+        return yield* new NotFoundError({
+          type: "createChapterAtItem",
+          params: { videoId, beforeItemId },
+        });
+      }
+      prevOrder = items[idx - 1]?.order ?? null;
+      nextOrder = items[idx]!.order;
+    }
+
+    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
+
+    const [chapter] = yield* makeDbCall(() =>
+      db
+        .insert(chapters)
+        .values({ videoId, name, order: order!, archived: false })
+        .returning()
+    );
+    if (!chapter) {
+      return yield* new UnknownDBServiceError({
+        cause: "No chapter was returned from the database",
+      });
+    }
+    return chapter;
+  });
+
+  /**
+   * Reposition a Chapter to an explicit point in its Video's timeline, anchored
+   * immediately before `beforeItemId` (a Clip OR Chapter id) — `null` appends to
+   * the end. Mirrors the Clip ops' `moveClipToPosition`; `reorderChapter` is the
+   * one-slot nudge, this is the jump-to-position the `chapter move` CLI needs.
+   */
+  const moveChapterToPosition = Effect.fn("moveChapterToPosition")(function* (
+    chapterId: string,
+    beforeItemId: string | null
+  ) {
+    yield* requireDraftVersionForChapter(db, chapterId);
+    const chapter = yield* getChapterById(chapterId);
+
+    const items = (yield* mergedTimeline(chapter.videoId)).filter(
+      (item) => item.id !== chapterId
+    );
+
+    let prevOrder: string | null;
+    let nextOrder: string | null;
+    if (beforeItemId === null) {
+      prevOrder = items.at(-1)?.order ?? null;
+      nextOrder = null;
+    } else {
+      const idx = items.findIndex((item) => item.id === beforeItemId);
+      if (idx === -1) {
+        return yield* new NotFoundError({
+          type: "moveChapterToPosition",
+          params: { chapterId: beforeItemId },
+        });
+      }
+      prevOrder = items[idx - 1]?.order ?? null;
+      nextOrder = items[idx]!.order;
+    }
+
+    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
+
+    yield* makeDbCall(() =>
+      db
+        .update(chapters)
+        .set({ order: order! })
+        .where(eq(chapters.id, chapterId))
+    );
+
+    return yield* getChapterById(chapterId);
+  });
+
   return {
     createChapter,
     createChapterAtInsertionPoint,
     createChapterAtPosition,
+    createChapterAtItem,
     getChapterById,
+    getChaptersByIds,
+    listChaptersByVideoId,
     updateChapter,
     archiveChapter,
     reorderChapter,
+    moveChapterToPosition,
   };
 };

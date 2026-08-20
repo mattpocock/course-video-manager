@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { authenticate } from "./auth.js";
 import { beatRoutes } from "./routes/beat.js";
+import { chapterRoutes } from "./routes/chapter.js";
 import { clipRoutes } from "./routes/clip.js";
 import { courseRoutes } from "./routes/course.js";
 import { deliverableRoutes } from "./routes/deliverable.js";
@@ -48,6 +49,7 @@ export const createApp = (runtime: RemoteRuntime) =>
     .route("/rpc/lesson", lessonRoutes(runtime))
     .route("/rpc/video", videoRoutes(runtime))
     .route("/rpc/clip", clipRoutes(runtime))
+    .route("/rpc/chapter", chapterRoutes(runtime))
     .route("/rpc/beat", beatRoutes(runtime))
     .route("/rpc/pitch", pitchRoutes(runtime))
     .route("/rpc/deliverable", deliverableRoutes(runtime));

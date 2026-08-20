@@ -16,6 +16,17 @@ import {
   type ClipZoomType,
 } from "@/features/videos/clip-zoom";
 import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
+import { readFootageSidecar } from "@/services/footage-cache";
+import { sliceTranscriptText } from "@/services/footage-chunking";
+import {
+  CLIP_HELP,
+  LIST_HELP,
+  GET_HELP,
+  ADD_HELP,
+  UPDATE_HELP,
+  MOVE_HELP,
+  DELETE_HELP,
+} from "./clip.help";
 
 /**
  * clip — a timestamped slice of source footage inside a Video.
@@ -57,6 +68,8 @@ import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
  * VERBS:
  *   clip list --video <videoId>          every active clip on a Video, timeline order
  *   clip get <id...>                     one or more clips by id (variadic)
+ *   clip add --video <id> --source <p>   cut a new clip, text sliced from the
+ *     --start <t> --end <t>              cached footage transcript
  *   clip update <id> [flags]             set --zoom and/or retime --start/--end
  *   clip move <id> --before/--after <id> reposition within the Video's timeline
  *   clip delete <id>                     archive (soft delete; no restore)
@@ -71,9 +84,9 @@ import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
  * owning CourseVersion to be a draft, so published content can't be clobbered from here.
  *
  * Clips are leaf timeline rows — there is no `clip tree`. To explore a Video's structure use
- * `video tree`, then resolve ids with `clip get`. There is no `clip add`: every existing creator
- * (OBS capture append, "create video from selection") needs a real footage file + time range on
- * disk, so manual single-clip creation doesn't have anywhere to hang off yet.
+ * `video tree`, then resolve ids with `clip get`. A clip is normally captured by OBS append or
+ * "create video from selection", but `clip add` also creates one by hand from a footage file and a
+ * time range, taking its text from that footage's cached transcript (see `cvm footage transcribe`).
  *
  * EXAMPLES:
  *   # All clips on a video, in timeline order (NDJSON):
@@ -90,115 +103,6 @@ import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
  *     | jq -r '.. | objects | select(.kind=="clip") | .id' \
  *     | xargs cvm clip get
  */
-const CLIP_HELP = `clip — a timestamped slice of source footage on a Video's recorded timeline.
-
-A Clip is one captured segment of source footage, defined by a source filename and an in/out
-window into it (sourceStartTime/sourceEndTime, seconds). Clips and Chapters share one fractional
-'order' space; interleaving them in order is what forms the Video's Transcript. A clip's 'text' is
-its spoken transcription. Clips are children of a Video, addressed by id only; there is no version
-scoping and archived clips are always hidden (no --archived flag, no restore verb).
-
-Verbs:
-  clip list --video <videoId>          every active clip on a Video, in timeline order (NDJSON)
-  clip get <id...>                     fetch one or more clips by id (variadic)
-  clip update <id> [flags]             set --zoom and/or retime --start/--end
-  clip move <id> --before/--after <id> reposition within the timeline
-  clip delete <id>                     archive the clip (soft delete; irreversible from the CLI)
-
-All writes are immediate — no confirmation, no dry-run (agent-facing tool). There is no 'clip tree'
-(clips are leaves) — use 'video tree' then 'clip get'. There is no 'clip add': creating a clip needs
-a real footage file + time range, which no CLI-facing creator exists for yet.`;
-
-const UPDATE_HELP = `Update a Clip: set its Clip Zoom and/or retime its cut.
-
-At least one of --zoom / --start / --end is required.
-
---zoom <t>: "none" (as filmed) or "subtle", rendering the clip slightly tighter so a run of
-face-only camera clips has some visual change across its cuts. Only camera scenes can be zoomed —
-'Camera' and 'TikTok Face'. Anything else (a 'Code' clip, or a clip filmed before CVM recorded
-scenes) is refused with exit 3. Reaches the Export Hash, so setting it marks the Video for
-re-export.
-
---start / --end <seconds>: move the in/out point into the source file. Either can be passed alone
-(the other keeps its current value) or both together. Rejected with exit 3 if the resulting range
-has start >= end, or is shorter than the ${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length.
-
-IMPORTANT: retiming does NOT touch 'text' or 'transcribedAt' — the transcript is not
-re-generated for the new range. A retimed clip's text can be stale until something re-transcribes
-it; there is currently no CLI signal for "this text no longer matches this range" (only the
-pre-existing "never transcribed" signal, transcribedAt == null).
-
-Examples:
-  cvm clip update clip_abc --zoom subtle
-  cvm clip update clip_abc --start 12.4 --end 18.9
-  cvm clip update clip_abc --end 18.9 --zoom none
-
-  # Zoom every camera clip on a video:
-  cvm clip list --video vid_123 \
-    | jq -r 'select(.scene == "Camera") | .id' \
-    | xargs -n1 -I{} cvm clip update {} --zoom subtle`;
-
-const MOVE_HELP = `Reposition a Clip within its Video's timeline.
-
-Requires exactly one of --before / --after <id>, where <id> is another active clip on the SAME
-video (a clip cannot move across videos via this command). Clips and Chapters share one fractional
-order space, so the new position is computed against both — landing a clip "after" the last clip
-before a Chapter is well-defined even though the anchor id is a clip.
-
-This jumps straight to an arbitrary position in one call, unlike a step-by-step up/down nudge.
-
-Immediate — there is no confirmation prompt (this is an agent-facing tool).
-
-Examples:
-  cvm clip move clip_abc --before clip_def   # clip_abc lands immediately before clip_def
-  cvm clip move clip_abc --after clip_def    # clip_abc lands immediately after clip_def`;
-
-const DELETE_HELP = `Archive (soft-delete) a Clip.
-
-Sets 'archived: true'. Archived clips are ALWAYS filtered out everywhere (no --archived flag, no
-'clip get' access, no restore verb) — same one-way convention as 'beat delete'. The row still
-exists in the database (unlike 'file delete', which is a real unlink), but nothing in this CLI can
-bring it back.
-
-Immediately, no confirmation prompt (this is an agent-facing tool). Only its ClipWebLinks cascade
-on delete at the database level; nothing else references a Clip by foreign key, so deleting one
-does not orphan any Beat, Script, or Deliverable.
-
-Examples:
-  cvm clip delete clip_abc`;
-
-const LIST_HELP = `List every active (non-archived) Clip on a Video, in timeline order.
-
-Requires --video <videoId>: the parent Video whose clips to source. Derived from the Video's
-clip set (getVideoWithClipsById), already ordered by the shared clip/chapter 'order' key, so the
-output reflects the recorded timeline. Output is NDJSON — one compact clip object per line; an
-empty video prints nothing and exits 0. An unknown video id is a not-found error (exit 2).
-
-Each line is identity-rich (id, videoId, order, text) so an agent can map content to ids in one
-call, then drill in with 'clip get'.
-
-Examples:
-  cvm clip list --video vid_123
-  cvm clip list --video vid_123 | jq -r '.text'
-  cvm clip list --video vid_123 | jq 'select(.transcribedAt==null) | .id'`;
-
-const GET_HELP = `Fetch one or more Clips by id. Variadic: 'clip get <id> [<id> ...]'.
-
-Backed by the native multi-id getter (getClipsByIds), so many ids resolve in a single query.
-
-Output contract:
-  - one id, found     -> a single pretty-printed JSON object (exit 0)
-  - one id, missing   -> NotFoundError on stderr, exit 2
-  - many ids          -> NDJSON of the FOUND clips on stdout; if any id is missing, those ids are
-                         reported on stderr and the process exits 2 (stdout stays pure data)
-
-Args are ids ONLY (never names/paths). Find ids first with 'clip list --video <id>' or 'video tree'.
-
-Examples:
-  cvm clip get clip_abc
-  cvm clip get clip_abc clip_def clip_ghi
-  cvm clip get clip_abc | jq '{id, text, start: .sourceStartTime, end: .sourceEndTime}'`;
-
 const videoOpt = Options.text("video").pipe(
   Options.withDescription("Parent Video id whose clips to list")
 );
@@ -281,6 +185,25 @@ const afterOpt = Options.text("after").pipe(
 
 const idArg = Args.text({ name: "id" });
 
+const videoAddOpt = Options.text("video").pipe(
+  Options.withDescription("The Video id to add the clip to (required).")
+);
+
+const sourceOpt = Options.text("source").pipe(
+  Options.withDescription(
+    "Path to the source footage file the clip is cut from (required). Its " +
+      "cached transcript (from 'cvm footage transcribe') supplies the clip text."
+  )
+);
+
+const addStartOpt = Options.float("start").pipe(
+  Options.withDescription("In-point into the source file, seconds (required).")
+);
+
+const addEndOpt = Options.float("end").pipe(
+  Options.withDescription("Out-point into the source file, seconds (required).")
+);
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -301,18 +224,24 @@ const requireActiveClip = (id: string) =>
   });
 
 /**
- * Resolve `clip move`'s --before/--after into the single "anchor id" the
- * service positions against (mirrors `beat move`'s resolveBeforeBeatId, but
+ * Resolve `clip move`/`clip add`'s --before/--after into the single "anchor id"
+ * the service positions against (mirrors `beat move`'s resolveBeforeBeatId, but
  * over the merged clip+chapter order space since clips and chapters share
  * one fractional order key). --after X resolves to whatever item currently
  * follows X — which may legitimately be a Chapter id, since the service's
- * `moveClipToPosition` positions against either.
+ * `moveClipToPosition`/`createClip` positions against either.
+ *
+ * Neither flag returns `null` — "append to the end" for `add`. `clip move`
+ * requires exactly one and rejects the neither case at its own call site (a move
+ * that keeps a clip where it is would be a silent no-op, not an append).
+ * `excludeId` is the clip being MOVED (skipped so it never anchors to itself);
+ * `add` omits it, since the new clip is not on the timeline yet.
  */
 const resolveBeforeItemId = (params: {
   readonly videoId: string;
   readonly before: Option.Option<string>;
   readonly after: Option.Option<string>;
-  readonly excludeId: string;
+  readonly excludeId?: string;
 }) =>
   Effect.gen(function* () {
     const before = Option.getOrUndefined(params.before);
@@ -325,7 +254,7 @@ const resolveBeforeItemId = (params: {
       entity: "clip",
     });
     if (before === undefined && after === undefined) {
-      return yield* parseError("move needs one of --before / --after", "clip");
+      return null;
     }
 
     const clipOps = yield* ClipOperationsService;
@@ -352,6 +281,71 @@ const resolveBeforeItemId = (params: {
 // ---------------------------------------------------------------------------
 // Verbs
 // ---------------------------------------------------------------------------
+
+const addCmd = Command.make(
+  "add",
+  {
+    video: videoAddOpt,
+    source: sourceOpt,
+    start: addStartOpt,
+    end: addEndOpt,
+    before: beforeOpt,
+    after: afterOpt,
+  },
+  ({ video, source, start, end, before, after }) =>
+    Effect.gen(function* () {
+      if (start >= end) {
+        return yield* parseError(
+          `--start (${start}) must be before --end (${end})`,
+          "clip"
+        );
+      }
+      if (end - start < MINIMUM_CLIP_LENGTH_SECONDS) {
+        return yield* parseError(
+          `clip would be ${(end - start).toFixed(3)}s, below the ` +
+            `${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length`,
+          "clip"
+        );
+      }
+
+      // The video must exist. `createClip`'s draft-guard passes a missing video
+      // straight through (the insert would then fail on the FK), so confirm here
+      // for a clean not-found (exit 2) instead.
+      const videoOps = yield* VideoOperationsService;
+      yield* videoOps
+        .getVideoWithClipsById(video)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", video)));
+
+      // Text is SLICED FROM THE CACHED footage transcript — never a live Whisper
+      // call. No cache -> tell the agent to transcribe the footage first.
+      const sidecar = yield* readFootageSidecar(source);
+      if (sidecar === null) {
+        return yield* parseError(
+          `no cached transcript for ${source} — run ` +
+            `'cvm footage transcribe ${source}' first`,
+          "clip"
+        );
+      }
+      const text = sliceTranscriptText(sidecar, start, end);
+
+      const beforeItemId = yield* resolveBeforeItemId({
+        videoId: video,
+        before,
+        after,
+      });
+
+      const clipOps = yield* ClipOperationsService;
+      const clip = yield* clipOps.createClip({
+        videoId: video,
+        videoFilename: source,
+        sourceStartTime: start,
+        sourceEndTime: end,
+        text,
+        beforeItemId,
+      });
+      yield* emitObject(clip);
+    })
+).pipe(Command.withDescription(detail(ADD_HELP)));
 
 const updateCmd = Command.make(
   "update",
@@ -417,6 +411,12 @@ const moveCmd = Command.make(
   ({ id, before, after }) =>
     Effect.gen(function* () {
       const existing = yield* requireActiveClip(id);
+      if (Option.isNone(before) && Option.isNone(after)) {
+        return yield* parseError(
+          "move needs one of --before / --after",
+          "clip"
+        );
+      }
       const beforeItemId = yield* resolveBeforeItemId({
         videoId: existing.videoId,
         before,
@@ -448,5 +448,12 @@ const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
 
 export const clipCommand = Command.make("clip").pipe(
   Command.withDescription(detail(CLIP_HELP)),
-  Command.withSubcommands([listCmd, getCmd, updateCmd, moveCmd, deleteCmd])
+  Command.withSubcommands([
+    listCmd,
+    getCmd,
+    addCmd,
+    updateCmd,
+    moveCmd,
+    deleteCmd,
+  ])
 );

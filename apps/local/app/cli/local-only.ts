@@ -30,6 +30,8 @@ export const NEEDS_FINISHED_VIDEOS_DIRECTORY =
   "it reads the finished videos directory on this machine's disk to work out which Videos are exported";
 export const NEEDS_FINISHED_VIDEOS_AND_FFMPEG =
   "it renders Videos with ffmpeg and reads the finished videos directory on this machine's disk";
+export const NEEDS_FOOTAGE_ON_DISK =
+  "it reads raw footage files on this machine's disk (with ffmpeg) and caches their transcripts beside them";
 
 /**
  * Refuse `command` unless this is the author's machine.

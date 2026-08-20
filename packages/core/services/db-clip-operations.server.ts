@@ -294,6 +294,67 @@ const createClipOperationsUnwrapped = (db: Database) => {
     return yield* getClipById(clipId);
   });
 
+  /**
+   * Create ONE Clip on a Video's timeline, positioned against the shared
+   * clip/chapter order space exactly like `moveClipToPosition`: anchored
+   * immediately before `beforeItemId` (a Clip OR Chapter id), or appended to the
+   * end when it is `null`.
+   *
+   * Unlike `appendClips` (the OBS-capture / create-from-selection bulk path,
+   * which always writes empty `text`), this carries the `text` the caller has
+   * already sliced from the cached Footage transcript — the manual
+   * `cvm clip add` path. It goes through the SAME draft-version write-closure
+   * guard as every other clip write (a non-Draft owning version is refused).
+   */
+  const createClip = Effect.fn("createClip")(function* (opts: {
+    videoId: string;
+    videoFilename: string;
+    sourceStartTime: number;
+    sourceEndTime: number;
+    text: string;
+    beforeItemId: string | null;
+  }) {
+    yield* requireDraftVersionForVideo(db, opts.videoId);
+
+    const items = yield* listTimelineOrder(opts.videoId);
+
+    let prevOrder: string | null;
+    let nextOrder: string | null;
+    if (opts.beforeItemId === null) {
+      prevOrder = items.at(-1)?.order ?? null;
+      nextOrder = null;
+    } else {
+      const idx = items.findIndex((item) => item.id === opts.beforeItemId);
+      if (idx === -1) {
+        return yield* new NotFoundError({
+          type: "createClip",
+          params: { videoId: opts.videoId, beforeItemId: opts.beforeItemId },
+        });
+      }
+      prevOrder = items[idx - 1]?.order ?? null;
+      nextOrder = items[idx]!.order;
+    }
+
+    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
+
+    const [clip] = yield* makeDbCall(() =>
+      db
+        .insert(clips)
+        .values({
+          videoId: opts.videoId,
+          videoFilename: opts.videoFilename,
+          sourceStartTime: opts.sourceStartTime,
+          sourceEndTime: opts.sourceEndTime,
+          order: order!,
+          archived: false,
+          text: opts.text,
+        })
+        .returning()
+    );
+
+    return clip!;
+  });
+
   const chapterOps = createChapterOperationsUnwrapped(db);
 
   const appendClips = Effect.fn("addClips")(function* (opts: {
@@ -459,6 +520,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
     reorderClip,
     listTimelineOrder,
     moveClipToPosition,
+    createClip,
     ...chapterOps,
     appendClips,
     createClipWebLinks,
@@ -474,12 +536,15 @@ export const createClipOperations = (db: Database) =>
     "archiveClip",
     "reorderClip",
     "moveClipToPosition",
+    "createClip",
     "createChapter",
     "createChapterAtInsertionPoint",
     "createChapterAtPosition",
+    "createChapterAtItem",
     "updateChapter",
     "archiveChapter",
     "reorderChapter",
+    "moveChapterToPosition",
     "appendClips",
     "createClipWebLinks",
     "deleteClipWebLink",

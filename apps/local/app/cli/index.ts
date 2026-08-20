@@ -5,8 +5,10 @@ import { sectionCommand } from "./commands/section";
 import { lessonCommand } from "./commands/lesson";
 import { videoCommand } from "./commands/video";
 import { clipCommand } from "./commands/clip";
+import { chapterCommand } from "./commands/chapter";
 import { beatCommand } from "./commands/beat";
 import { fileCommand } from "./commands/file";
+import { footageCommand } from "./commands/footage";
 import { pitchCommand } from "./commands/pitch";
 import { deliverableCommand } from "./commands/deliverable";
 import { searchCommand } from "./commands/search";
@@ -20,10 +22,11 @@ import { searchCommand } from "./commands/search";
 const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager project's domain data.
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
-'beat' (add/update/move/delete), 'lesson' (create/update/move), 'video'
-(create/move/update), 'file' (add/delete), 'pitch' (create/update),
-'deliverable' (create/update/archive) and 'course' (publish). Every
-other verb is read-only, and each verb's own --help is authoritative about
+'beat' (add/update/move/delete), 'clip' (add/update/move/delete), 'chapter'
+(add/update/move/delete), 'lesson' (create/update/move), 'video'
+(create/move/update), 'file' (add/delete), 'footage' (transcribe), 'pitch'
+(create/update), 'deliverable' (create/update/archive) and 'course' (publish).
+Every other verb is read-only, and each verb's own --help is authoritative about
 whether it reads or writes.
 
 DOMAIN MODEL
@@ -89,9 +92,10 @@ WHERE THE DATA LIVES
   this repo on this box — retrying as-is will keep failing.
 
 WHAT NEEDS A MACHINE
-  Three commands need the AUTHOR'S MACHINE rather than the data, because they
+  A few commands need the AUTHOR'S MACHINE rather than the data, because they
   read and write its disk:
     cvm file …              the Video Files directory
+    cvm footage …           raw footage files on disk (transcribed with ffmpeg)
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
   Anywhere else they are refused before doing any work — exit 7, _tag
@@ -106,6 +110,12 @@ WRITES
   any positional <id> (a flag after it exits 3). The write surface:
     beat    add/update/move/delete   author a Video's Beat plan
                                      (add --pitch <id> targets a pitch's video)
+    clip    add/update/move/delete   cut/retime/reorder/archive a Clip ('add'
+                                     needs a footage file transcribed first)
+    chapter add/update/move/delete   author a Video's Chapters (timeline
+                                     dividers that group its Clips)
+    footage transcribe               cache a raw footage file's transcript on
+                                     disk (LOCAL-ONLY; feeds 'clip add')
     lesson  create/update/move       create a lesson, rename its title,
                                      or reorder / re-home it
     video   create/move/update       create a Video, re-home it to a lesson/
@@ -133,7 +143,8 @@ WRITES
   (Dropbox) and reads publish-only config from the repo .env.
 
 NOUNS
-  course version section lesson video clip beat file pitch deliverable
+  course version section lesson video clip chapter beat file footage pitch
+  deliverable
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -155,8 +166,10 @@ export const rootCommand = Command.make("cvm").pipe(
     lessonCommand,
     videoCommand,
     clipCommand,
+    chapterCommand,
     beatCommand,
     fileCommand,
+    footageCommand,
     pitchCommand,
     deliverableCommand,
     searchCommand,

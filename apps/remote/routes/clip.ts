@@ -4,10 +4,11 @@ import { forward } from "../rpc.js";
 import type { RemoteRuntime } from "../runtime.js";
 
 /**
- * The `clip` verb group: `cvm clip list | get | update | move | delete`.
+ * The `clip` verb group: `cvm clip list | get | add | update | move | delete`.
  *
- * `listTimelineOrder` is what `move` positions against — Clips and Chapters
- * share one fractional order key, so the anchor an agent names may be either.
+ * `listTimelineOrder` is what `move` and `add` position against — Clips and
+ * Chapters share one fractional order key, so the anchor an agent names may be
+ * either.
  */
 export const clipRoutes = (runtime: RemoteRuntime) =>
   new Hono()
@@ -15,6 +16,7 @@ export const clipRoutes = (runtime: RemoteRuntime) =>
       "/getClipsByIds",
       forward(runtime, ClipOperationsService, "getClipsByIds")
     )
+    .post("/createClip", forward(runtime, ClipOperationsService, "createClip"))
     .post(
       "/listTimelineOrder",
       forward(runtime, ClipOperationsService, "listTimelineOrder")

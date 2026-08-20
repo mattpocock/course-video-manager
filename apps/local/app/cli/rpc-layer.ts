@@ -192,6 +192,7 @@ const clipService = (client: RpcClient) =>
     listTimelineOrder: rpcMethod((json) =>
       client.rpc.clip.listTimelineOrder.$post({ json })
     ),
+    createClip: rpcMethod((json) => client.rpc.clip.createClip.$post({ json })),
     updateClip: rpcMethod((json) => client.rpc.clip.updateClip.$post({ json })),
     setClipZoom: rpcMethod((json) =>
       client.rpc.clip.setClipZoom.$post({ json })
@@ -201,6 +202,27 @@ const clipService = (client: RpcClient) =>
     ),
     archiveClip: rpcMethod((json) =>
       client.rpc.clip.archiveClip.$post({ json })
+    ),
+    // Chapters live on this same service (ClipOperationsService merges the
+    // chapter ops in), so `cvm chapter`'s verbs are RPC methods here too, backed
+    // by the /rpc/chapter route group.
+    getChaptersByIds: rpcMethod((json) =>
+      client.rpc.chapter.getChaptersByIds.$post({ json })
+    ),
+    listChaptersByVideoId: rpcMethod((json) =>
+      client.rpc.chapter.listChaptersByVideoId.$post({ json })
+    ),
+    createChapterAtItem: rpcMethod((json) =>
+      client.rpc.chapter.createChapterAtItem.$post({ json })
+    ),
+    updateChapter: rpcMethod((json) =>
+      client.rpc.chapter.updateChapter.$post({ json })
+    ),
+    moveChapterToPosition: rpcMethod((json) =>
+      client.rpc.chapter.moveChapterToPosition.$post({ json })
+    ),
+    archiveChapter: rpcMethod((json) =>
+      client.rpc.chapter.archiveChapter.$post({ json })
     ),
   }) satisfies RemoteService<ClipOperationsService>;
 
