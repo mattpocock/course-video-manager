@@ -84,7 +84,7 @@ export const ROOT_ACTIONS: RootAction[] = [
   {
     id: "recentre-diagram",
     label: "Recentre diagram",
-    hint: "Snap the camera back to the tuned, face-cam-aware centre (Cmd/Ctrl+Home)",
+    hint: "Snap the camera back to the tuned, face-cam-aware centre (Cmd/Ctrl+0)",
     group: "Navigate",
     icon: "crosshair",
   },

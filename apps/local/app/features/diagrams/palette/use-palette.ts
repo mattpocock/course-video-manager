@@ -63,7 +63,7 @@ export type PaletteHandlers = {
   onCopyContents: () => void | Promise<void>;
   onRenameDiagram: (name: string) => void | Promise<void>;
   onNewDiagram: () => void | Promise<void>;
-  /** The same camera move the manual Cmd/Ctrl+Home shortcut runs. */
+  /** The same camera move the manual Cmd/Ctrl+0 shortcut runs. */
   onRecentreDiagram: () => void;
   /**
    * Navigating away flushes the pending save first — see the call site. A

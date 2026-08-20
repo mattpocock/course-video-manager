@@ -26,7 +26,7 @@ export function usePaletteHandlers(opts: {
   handleCreateDiagram: () => Promise<void>;
   /** Re-reads head from the server and loads it into the editor. */
   reloadScene: (id: string) => Promise<void>;
-  /** The same camera move the manual Cmd/Ctrl+Home shortcut runs. */
+  /** The same camera move the manual Cmd/Ctrl+0 shortcut runs. */
   recentreDiagram: () => void;
 }): PaletteHandlers {
   const {

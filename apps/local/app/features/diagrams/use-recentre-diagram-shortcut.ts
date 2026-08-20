@@ -2,26 +2,25 @@ import { useEffect } from "react";
 import { isTextEntryTarget, type ShortcutTarget } from "./snapshot-navigation";
 
 /**
- * NOT Cmd/Ctrl+0. That reads as the common "reset view" convention, but it's
- * also Chrome/Firefox/Safari's own "reset zoom level to 100%" shortcut,
- * reserved at the browser-chrome level — `preventDefault()` on the keydown
- * event cannot stop it (unlike, say, Cmd/Ctrl+F, which this route also
- * rebinds and which the browser lets a page override). A handler bound to it
- * simply never runs; the browser changes its own zoom instead, and the
- * camera — which was never touched — looks like it "ignored" the tuned
- * padding, when really it was never asked to move at all.
+ * Cmd/Ctrl+0 — the common "reset view" convention (browsers, maps apps).
+ * Free in tldraw's own keymap (which binds `shift+0`/`shift+1`/`shift+2` for
+ * zoom, never a bare 0) and in this route's other shortcuts
+ * (Cmd/Ctrl+S/K/F/[/]).
  *
- * Cmd/Ctrl+Home keeps the "back to the start" convention without landing on
- * a combo the browser owns. Free in tldraw's own keymap (which binds
- * `shift+0`/`shift+1`/`shift+2` for zoom, never Home) and in this route's
- * other shortcuts (Cmd/Ctrl+S/K/F/[/]).
+ * Turned out NOT to be a dead binding — swapping it for Cmd/Ctrl+Home
+ * changed nothing, which ruled out the browser's reserved "reset zoom"
+ * shortcut as the cause of "recentre doesn't respect the padding I've
+ * chosen". The actual bug was in `centreCameraOnContent`'s fit math (it
+ * capped zoom at 100%, so a small diagram never reached the padding edges
+ * regardless of which key triggered the recentre) — see its history. This
+ * stays on the conventional key.
  */
 export function isRecentreShortcut(e: {
   ctrlKey: boolean;
   metaKey: boolean;
   key: string;
 }): boolean {
-  return (e.ctrlKey || e.metaKey) && e.key === "Home";
+  return (e.ctrlKey || e.metaKey) && e.key === "0";
 }
 
 /**
