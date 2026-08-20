@@ -12,10 +12,11 @@ import {
 /**
  * A prototype tuning UI (see `docs/adr` — none written yet on purpose: this
  * is deliberately a debug tool, not a finished setting screen). It's how the
- * three numbers `centreCameraOnContent` reads get found in the first place:
- * open it, drag the values until the guide boxes and the diagram look right
- * against your actual camera setup, close it. Nothing here needs to be
- * pretty — it needs to be legible enough to tune live while sat in frame.
+ * four numbers `centreCameraOnContent` reads get found in the first place:
+ * open it, drag the values until the guide boxes, the zoom readout, and the
+ * diagram itself all look right against your actual camera setup, close it.
+ * Nothing here needs to be pretty — it needs to be legible enough to tune
+ * live while sat in frame.
  *
  * Deliberately independent of Focus Mode: Focus Mode hides the Snapshot
  * Timeline / Diagram Rail panel on the right, and tuning has to work with
@@ -32,6 +33,8 @@ export function DiagramCenteringDebug({
   const [faceCamWidth, setFaceCamWidth] = useCenteringSetting("faceCamWidth");
   const [paddingX, setPaddingX] = useCenteringSetting("paddingX");
   const [paddingY, setPaddingY] = useCenteringSetting("paddingY");
+  const [maxZoomPercent, setMaxZoomPercent] =
+    useCenteringSetting("maxZoomPercent");
   // Same insets `centreCameraOnContent` computes the camera move from — the
   // guide boxes below render them directly as CSS, so they can't drift from
   // where the diagram actually lands. Read fresh on every render (rather than
@@ -56,14 +59,12 @@ export function DiagramCenteringDebug({
   useEffect(() => {
     const ed = editorRef.current;
     if (ed) centreCameraOnContent(ed);
-  }, [faceCamWidth, paddingX, paddingY, editorRef]);
+  }, [faceCamWidth, paddingX, paddingY, maxZoomPercent, editorRef]);
 
-  // centreCameraOnContent has no ceiling of its own any more — past the
-  // padded edges, the only thing stopping a small diagram from zooming in
-  // arbitrarily far is the camera's own `zoomSteps` range (see its history).
-  // Nothing here picks a saner cap yet; this is how "how far does it
-  // actually go" gets watched live while tuning, the same way the guide
-  // boxes above are, before that number gets chosen.
+  // The live counterpart to `maxZoomPercent` above: past the padded edges,
+  // this is what a small diagram's fit zoom actually comes out to, tuned
+  // against in real time rather than guessed at — drag the field, watch
+  // this move, stop where it looks right.
   //
   // `[editorRef.current]` (not `[editorRef]`) is deliberate: `useValue`
   // builds its reactive subscription once per identity in the deps array,
@@ -141,6 +142,12 @@ export function DiagramCenteringDebug({
               value={paddingY}
               onChange={setPaddingY}
             />
+            <NumberField
+              label="Max zoom %"
+              value={maxZoomPercent}
+              onChange={setMaxZoomPercent}
+              step={25}
+            />
           </div>
         </>
       )}
@@ -152,17 +159,21 @@ function NumberField({
   label,
   value,
   onChange,
+  step = 4,
 }: {
   label: string;
   value: number;
   onChange: (next: number) => void;
+  /** Pixel-sized fields (padding, face-cam width) move in fine steps; a
+   * percentage field wants coarser ones. */
+  step?: number;
 }) {
   return (
     <label className="mb-2 flex items-center justify-between gap-2 text-xs text-zinc-400 last:mb-0">
       <span>{label}</span>
       <Input
         type="number"
-        step={4}
+        step={step}
         value={value}
         onChange={(e) => {
           const next = Number(e.target.value);

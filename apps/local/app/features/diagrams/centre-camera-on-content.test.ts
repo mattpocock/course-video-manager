@@ -95,7 +95,10 @@ describe("centreCameraOnContent", () => {
   });
 
   it("reserves a full-height strip on the right for the face-cam", () => {
-    seedSettings({ faceCamWidth: 200 });
+    // maxZoomPercent set high to isolate this test from the default 300%
+    // cap below — this test is about the face-cam reservation, not the
+    // zoom ceiling.
+    seedSettings({ faceCamWidth: 200, maxZoomPercent: 800 });
     const { editor, calls } = fakeEditor({
       bounds: { x: 0, y: 0, w: 100, h: 100 },
     });
@@ -108,7 +111,7 @@ describe("centreCameraOnContent", () => {
   });
 
   it("insets the diagram by paddingX/paddingY on every side — the fitted edge lands exactly on the padding line", () => {
-    seedSettings({ paddingX: 100, paddingY: 100 });
+    seedSettings({ paddingX: 100, paddingY: 100, maxZoomPercent: 800 });
     const { editor, calls } = fakeEditor({
       bounds: { x: 0, y: 0, w: 200, h: 100 },
     });
@@ -125,6 +128,9 @@ describe("centreCameraOnContent", () => {
   });
 
   it("zooms in past 100% to fill the safe area, clamped only by the camera's own zoom ceiling", () => {
+    // maxZoomPercent set effectively unlimited, so zoomSteps is the only
+    // thing left to demonstrate here.
+    seedSettings({ maxZoomPercent: 100_000 });
     // No cap at the editor's "100%" (`baseZoom`) any more: a diagram this
     // small would ask for 80x (min(1000/10, 800/10)) to fill the frame, which
     // is past even this editor's own zoom ceiling (zoomSteps top * baseZoom =
@@ -145,13 +151,48 @@ describe("centreCameraOnContent", () => {
     expect(calls).toHaveLength(0);
   });
 
+  describe("maxZoomPercent", () => {
+    it("defaults to capping the fit zoom at 300% of the editor's own 100%", () => {
+      // Nothing seeded: CENTERING_DEFAULTS.maxZoomPercent is 300.
+      const { editor, calls } = fakeEditor({
+        bounds: { x: 0, y: 0, w: 10, h: 10 },
+      });
+      centreCameraOnContent(editor);
+      // fit zoom would be min(1000/10, 800/10) = 80 — far past both the
+      // default cap (3 * baseZoom 1 = 3) and zoomSteps' own max (8), and the
+      // cap is the more restrictive of the two, so it wins.
+      expect(calls[0]!.point).toMatchObject({ z: 3 });
+    });
+
+    it("honours a configured value in place of the default", () => {
+      seedSettings({ maxZoomPercent: 150 });
+      const { editor, calls } = fakeEditor({
+        bounds: { x: 0, y: 0, w: 10, h: 10 },
+      });
+      centreCameraOnContent(editor);
+      expect(calls[0]!.point).toMatchObject({ z: 1.5 });
+    });
+
+    it("still yields to zoomSteps' own max when that's the more restrictive of the two", () => {
+      seedSettings({ maxZoomPercent: 100_000 });
+      const { editor, calls } = fakeEditor({
+        bounds: { x: 0, y: 0, w: 10, h: 10 },
+        zoomSteps: [0.1, 2],
+      });
+      centreCameraOnContent(editor);
+      expect(calls[0]!.point).toMatchObject({ z: 2 });
+    });
+  });
+
   describe("sidebar independence", () => {
     it("lands the diagram in exactly the same spot whether or not the Snapshot Timeline / Diagram Rail sidebar is eating the reserved strip", () => {
       // The sidebar (800px of canvas left, out of a 1000px window) happens to
       // be exactly as wide as the reserved face-cam strip: the canvas can't
       // reach any of the strip, so nothing extra needs reserving from ITS
-      // edge — the sidebar is already doing that job.
-      seedSettings({ faceCamWidth: 200 });
+      // edge — the sidebar is already doing that job. maxZoomPercent is set
+      // high to isolate this from the default 300% cap — this test is about
+      // the sidebar, not the zoom ceiling.
+      seedSettings({ faceCamWidth: 200, maxZoomPercent: 800 });
       const { editor: withSidebar, calls: withSidebarCalls } = fakeEditor({
         bounds: { x: 0, y: 0, w: 100, h: 100 },
         viewport: { x: 0, y: 0, w: 800, h: 800 },
@@ -176,7 +217,7 @@ describe("centreCameraOnContent", () => {
     it("still reserves whatever the sidebar doesn't already cover", () => {
       // The sidebar only eats 100px of a 200px strip — the canvas has to
       // leave the other 100px clear itself.
-      seedSettings({ faceCamWidth: 200 });
+      seedSettings({ faceCamWidth: 200, maxZoomPercent: 800 });
       const { editor, calls } = fakeEditor({
         bounds: { x: 0, y: 0, w: 100, h: 100 },
         viewport: { x: 0, y: 0, w: 900, h: 800 },
@@ -192,7 +233,7 @@ describe("centreCameraOnContent", () => {
     it("falls back to reserving the full strip from the viewport's own edge without a window (SSR/tests)", () => {
       // No `window` stubbed — every other test in this file runs this way,
       // and it used to be the only way this function ran at all.
-      seedSettings({ faceCamWidth: 200 });
+      seedSettings({ faceCamWidth: 200, maxZoomPercent: 800 });
       const { editor, calls } = fakeEditor({
         bounds: { x: 0, y: 0, w: 75, h: 100 },
         viewport: { x: 0, y: 0, w: 800, h: 800 },

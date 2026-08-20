@@ -35,19 +35,25 @@ import {
  * `getRightOffscreenWidth` before insetting keeps that position fixed to the
  * window regardless.
  *
- * The fit always exactly fills the padded box on its constraining axis — a
- * small diagram is zoomed IN past 100% rather than left floating in the
- * middle of a mostly-empty frame, because the whole point of tuning padding
- * by eye is that the diagram's edge then sits exactly on the line that was
- * tuned. (Earlier this capped at the editor's own 100% — `baseZoom` — the
- * same way tldraw's `zoomToBounds` does. That reads as "never blow up a tiny
- * shape", but in practice it meant the fit only ever engaged for diagrams
- * already bigger than the safe area, and everything else just sat centred
- * in whatever gap was left, ignoring the padding entirely.) The only clamp
- * left is `zoomSteps` — the editor's own min/max zoom — same as
- * `zoomToBounds`, whose fit-and-clamp math this reimplements by hand because
- * it only fits into the full viewport, centred, and can't target an
- * off-centre sub-region of it.
+ * The fit fills the padded box on its constraining axis — a small diagram is
+ * zoomed IN past 100% rather than left floating in the middle of a
+ * mostly-empty frame, because the whole point of tuning padding by eye is
+ * that the diagram's edge then sits exactly on the line that was tuned.
+ * (Earlier this capped at the editor's own 100% — `baseZoom` — the same way
+ * tldraw's `zoomToBounds` does. That reads as "never blow up a tiny shape",
+ * but in practice it meant the fit only ever engaged for diagrams already
+ * bigger than the safe area, and everything else just sat centred in
+ * whatever gap was left, ignoring the padding entirely.) `zoomSteps` — the
+ * editor's own min/max zoom, same as `zoomToBounds` — still floors it, and
+ * `maxZoomPercent` (tuned the same way as the insets, watched live via the
+ * debug panel's zoom readout) now ceilings it: past that percentage, a
+ * small enough diagram stops filling the box and is centred within it
+ * instead, the same "don't blow it up further" idea `baseZoom` used to
+ * enforce unconditionally, just at wherever the author decided actually
+ * looks right rather than hardcoded to 100%. `zoomToBounds`'s own
+ * fit-and-clamp math is reimplemented by hand here because it only fits
+ * into the full viewport, centred, and can't target an off-centre
+ * sub-region of it.
  */
 export function centreCameraOnContent(editor: Editor): void {
   const bounds = editor.getCurrentPageBounds();
@@ -74,7 +80,13 @@ export function centreCameraOnContent(editor: Editor): void {
   const { zoomSteps } = editor.getCameraOptions();
   const baseZoom = editor.getBaseZoom();
   const zoomMin = (zoomSteps?.[0] ?? 1) * baseZoom;
-  const zoomMax = (zoomSteps?.[zoomSteps.length - 1] ?? 1) * baseZoom;
+  // The lower of the camera's own zoom ceiling and the tuned `maxZoomPercent`
+  // — whichever is more restrictive wins, so a low `zoomSteps` max still
+  // applies even if `maxZoomPercent` is set higher than it.
+  const zoomMax = Math.min(
+    (zoomSteps?.[zoomSteps.length - 1] ?? 1) * baseZoom,
+    (settings.maxZoomPercent / 100) * baseZoom
+  );
 
   const fitZoom = Math.min(safeWidth / bounds.w, safeHeight / bounds.h);
   const zoom = Math.min(Math.max(fitZoom, zoomMin), zoomMax);

@@ -6,12 +6,20 @@ import { hasLocalStorage, useLocalStorage } from "@/hooks/use-local-storage";
  * no visibility into it at all (ADR 0004: the diagram playground doubles as
  * the recording surface, but the camera itself lives outside tldraw/CVM).
  *
- * These three numbers are how `centreCameraOnContent` knows how much room to
- * leave for it: a full-height strip reserved on the right, plus breathing
- * room (padding) around the diagram within whatever's left. There's no way
- * to derive them — they depend on the physical size of the author's camera
- * bubble and how it feels once composited — so they're tuned by eye via the
- * debug panel (`diagram-centering-debug.tsx`) rather than computed.
+ * The first three of these four numbers are how `centreCameraOnContent`
+ * knows how much room to leave for it: a full-height strip reserved on the
+ * right, plus breathing room (padding) around the diagram within whatever's
+ * left. There's no way to derive them — they depend on the physical size of
+ * the author's camera bubble and how it feels once composited — so they're
+ * tuned by eye via the debug panel (`diagram-centering-debug.tsx`) rather
+ * than computed.
+ *
+ * `maxZoomPercent` is a different kind of number: with no ceiling of its
+ * own, a small enough diagram would zoom in to fill the padded box no
+ * matter how far that takes it — fine geometrically, but past some point it
+ * just looks wrong (blown-up strokes, a page-filling icon). There's no way
+ * to derive a "correct" value here either, so it's tuned the same way, and
+ * the debug panel's live zoom readout is what it gets tuned against.
  *
  * Stored globally, not per-diagram: the camera setup is a property of the
  * recording rig, not of any one diagram.
@@ -20,25 +28,33 @@ export const CENTERING_STORAGE_KEYS = {
   faceCamWidth: "diagram-centering:face-cam-width",
   paddingX: "diagram-centering:padding-x",
   paddingY: "diagram-centering:padding-y",
+  maxZoomPercent: "diagram-centering:max-zoom-percent",
 } as const;
 
 export type CenteringSettingKey = keyof typeof CENTERING_STORAGE_KEYS;
 
 /**
- * Defaults to zero so an untuned install behaves like the old
- * dead-centre-of-the-whole-viewport camera: no reserved strip, no padding.
- * The debug panel is where these actually become non-zero.
+ * The spatial three default to zero so an untuned install behaves like the
+ * old dead-centre-of-the-whole-viewport camera: no reserved strip, no
+ * padding. `maxZoomPercent` can't default to zero the same way — that would
+ * cap every diagram at no zoom at all — so it defaults to 300%, a starting
+ * guess at "past here a small diagram looks blown up rather than fitted".
+ * The debug panel is where all four actually get tuned.
  */
 export const CENTERING_DEFAULTS: Record<CenteringSettingKey, number> = {
   faceCamWidth: 0,
   paddingX: 0,
   paddingY: 0,
+  maxZoomPercent: 300,
 };
 
 export interface CenteringSettings {
   faceCamWidth: number;
   paddingX: number;
   paddingY: number;
+  /** A cap on `centreCameraOnContent`'s fit zoom, as a percent of the
+   * editor's own 100% (`baseZoom`) — see `CENTERING_DEFAULTS`. */
+  maxZoomPercent: number;
 }
 
 function readStoredNumber(key: string, fallback: number): number {
@@ -68,6 +84,10 @@ export function getCenteringSettings(): CenteringSettings {
     paddingY: readStoredNumber(
       CENTERING_STORAGE_KEYS.paddingY,
       CENTERING_DEFAULTS.paddingY
+    ),
+    maxZoomPercent: readStoredNumber(
+      CENTERING_STORAGE_KEYS.maxZoomPercent,
+      CENTERING_DEFAULTS.maxZoomPercent
     ),
   };
 }
@@ -112,9 +132,15 @@ export function getRightOffscreenWidth(
  * same spot on the window whether the sidebar is open or Focus Mode has
  * hidden it: the strip's own position never moves, only how much of it the
  * *canvas* still has to leave clear does.
+ *
+ * Takes only the spatial three settings, not the full {@link CenteringSettings}
+ * — `maxZoomPercent` has nothing to do with "the area the diagram occupies",
+ * only with how far it gets zoomed once fitted into it, so callers that only
+ * have those three (the debug panel's live guide-box render, this file's own
+ * tests) don't need to fake a fourth field just to satisfy the type.
  */
 export function getSafeAreaInsets(
-  settings: CenteringSettings,
+  settings: Pick<CenteringSettings, "faceCamWidth" | "paddingX" | "paddingY">,
   rightOffscreenWidth = 0
 ): SafeAreaInsets {
   return {
