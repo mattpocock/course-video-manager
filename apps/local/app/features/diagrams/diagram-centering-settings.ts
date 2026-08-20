@@ -9,43 +9,53 @@ import { hasLocalStorage, useLocalStorage } from "@/hooks/use-local-storage";
  * The first three of these four numbers are how `centreCameraOnContent`
  * knows how much room to leave for it: a full-height strip reserved on the
  * right, plus breathing room (padding) around the diagram within whatever's
- * left. There's no way to derive them — they depend on the physical size of
- * the author's camera bubble and how it feels once composited — so they're
- * tuned by eye via the debug panel (`diagram-centering-debug.tsx`) rather
- * than computed.
- *
- * `maxZoomPercent` is a different kind of number: with no ceiling of its
- * own, a small enough diagram would zoom in to fill the padded box no
+ * left. `maxZoomPercent` is a different kind of number: with no ceiling of
+ * its own, a small enough diagram would zoom in to fill the padded box no
  * matter how far that takes it — fine geometrically, but past some point it
- * just looks wrong (blown-up strokes, a page-filling icon). There's no way
- * to derive a "correct" value here either, so it's tuned the same way, and
- * the debug panel's live zoom readout is what it gets tuned against.
+ * just looks wrong (blown-up strokes, a page-filling icon).
+ *
+ * All four were tuned by eye against the actual recording rig, via the debug
+ * panel (`diagram-centering-debug.tsx`) — there's no way to derive any of
+ * them, only watch the guide boxes and the live zoom readout and adjust
+ * until it looks right. `CENTERING_DEFAULTS` below is that answer, shipped
+ * as the starting point for every install; the debug panel stays in the
+ * build so it can be re-tuned if the rig ever changes.
  *
  * Stored globally, not per-diagram: the camera setup is a property of the
  * recording rig, not of any one diagram.
+ *
+ * The key names carry a `:v2` generation marker. Bumping it is how a change
+ * to `CENTERING_DEFAULTS` actually reaches an install that already has
+ * something written under the old keys — `localStorage` always wins over a
+ * default (see `readStoredNumber`), so changing the constant alone would
+ * leave anyone who ever opened the debug panel before this pinned to
+ * whatever they'd last poked it to, forever. A version bump orphans the old
+ * keys (dead, harmless, never read again) and starts every install fresh
+ * from the new numbers — future re-tuning through the debug panel still
+ * works exactly as before, it just writes under the new name.
  */
 export const CENTERING_STORAGE_KEYS = {
-  faceCamWidth: "diagram-centering:face-cam-width",
-  paddingX: "diagram-centering:padding-x",
-  paddingY: "diagram-centering:padding-y",
-  maxZoomPercent: "diagram-centering:max-zoom-percent",
+  faceCamWidth: "diagram-centering:face-cam-width:v2",
+  paddingX: "diagram-centering:padding-x:v2",
+  paddingY: "diagram-centering:padding-y:v2",
+  maxZoomPercent: "diagram-centering:max-zoom-percent:v2",
 } as const;
 
 export type CenteringSettingKey = keyof typeof CENTERING_STORAGE_KEYS;
 
 /**
- * The spatial three default to zero so an untuned install behaves like the
- * old dead-centre-of-the-whole-viewport camera: no reserved strip, no
- * padding. `maxZoomPercent` can't default to zero the same way — that would
- * cap every diagram at no zoom at all — so it defaults to 300%, a starting
- * guess at "past here a small diagram looks blown up rather than fitted".
- * The debug panel is where all four actually get tuned.
+ * Matt's actual recording rig, as of the last time these were tuned: a
+ * face-cam bubble reserving 492px on the right, 150/120px of breathing room
+ * around the diagram within what's left, and a diagram never zoomed in past
+ * 225% to fill it. Not derived from anything — see the module doc above —
+ * so if the rig changes, these are the numbers to re-tune via the debug
+ * panel, not guess at again from scratch.
  */
 export const CENTERING_DEFAULTS: Record<CenteringSettingKey, number> = {
-  faceCamWidth: 0,
-  paddingX: 0,
-  paddingY: 0,
-  maxZoomPercent: 300,
+  faceCamWidth: 492,
+  paddingX: 150,
+  paddingY: 120,
+  maxZoomPercent: 225,
 };
 
 export interface CenteringSettings {
