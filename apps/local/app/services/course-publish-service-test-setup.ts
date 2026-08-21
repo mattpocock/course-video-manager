@@ -7,6 +7,10 @@
  * code path against a seeded auth row — with exactly two fakes: the video
  * processing service (so no encoding occurs) and global fetch (the in-memory
  * Dropbox fake).
+ *
+ * The fake renderer can be steered per run — see `renderBytes` and
+ * `renderDurationInSeconds` — because the interesting Publish defects are about
+ * what a renderer PRODUCED, not about what it was asked for.
  */
 
 import { afterEach, beforeAll } from "vitest";
@@ -47,6 +51,21 @@ export let fakeDropbox: ReturnType<typeof createFakeDropbox>;
 
 export const DROPBOX_REMOTE_PATH = "/Courses";
 
+/** What the fake renderer writes when a test does not say otherwise. */
+export const DEFAULT_RENDERED_BYTES = "dummy-video-content";
+
+/** One run of the fake renderer, as seen by the test that is steering it. */
+export type FakeRenderRun = {
+  videoId: string;
+  /** 1 on this Video's first export, 2 on its next, and so on. */
+  runNumber: number;
+  /**
+   * The total duration this Video's Clips ask for, in seconds — what an honest
+   * encode would produce, including the final-clip padding.
+   */
+  requestedDurationInSeconds: number;
+};
+
 /** Register the shared database and fake-Dropbox lifecycle hooks. */
 export function setupPublishServiceTests() {
   beforeAll(async () => {
@@ -69,6 +88,22 @@ export const setupPublishableCourse = async (opts?: {
   mockVideoProcessing?: Layer.Layer<VideoProcessingService>;
   videoCount?: number;
   config?: Record<string, string>;
+  /**
+   * The bytes the fake renderer writes. Called once per export, so a Video can
+   * be re-exported into DIFFERENT bytes without any of its Clips changing —
+   * which is the whole of a re-export.
+   *
+   * Default: the same fixed string on every run of every Video.
+   */
+  renderBytes?: (run: FakeRenderRun) => string;
+  /**
+   * The duration the fake renderer reports for the file it just wrote, in
+   * seconds. Returning less than `requestedDurationInSeconds` is a truncated
+   * export — the file ffmpeg left behind is shorter than its Clips ask for.
+   *
+   * Default: exactly what the Clips asked for, i.e. an honest encode.
+   */
+  renderDurationInSeconds?: (run: FakeRenderRun) => number;
 }) => {
   const videoCount = opts?.videoCount ?? 1;
   await truncateAllTables(testDb);
@@ -198,21 +233,42 @@ export const setupPublishableCourse = async (opts?: {
   const video = videos[0]!;
   const exportHash = video.exportHash;
 
+  // How many times each Video has been rendered, so a fake renderer can answer
+  // differently on a later run.
+  const runNumbers = new Map<string, number>();
+
   const defaultMockVideoProcessing = Layer.succeed(VideoProcessingService, {
     exportVideoClips: (exportOpts: any) =>
       Effect.sync(() => {
-        const outputPath = path.join(
-          finishedVideosDir,
-          `${exportOpts.videoId}.mp4`
-        );
+        const videoId: string = exportOpts.videoId;
+        const runNumber = (runNumbers.get(videoId) ?? 0) + 1;
+        runNumbers.set(videoId, runNumber);
+
+        const run: FakeRenderRun = {
+          videoId,
+          runNumber,
+          requestedDurationInSeconds: (
+            exportOpts.clips as Array<{ duration: number }>
+          ).reduce((total, clip) => total + clip.duration, 0),
+        };
+
+        const outputPath = path.join(finishedVideosDir, `${videoId}.mp4`);
         fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-        fs.writeFileSync(outputPath, "dummy-video-content");
+        fs.writeFileSync(
+          outputPath,
+          opts?.renderBytes?.(run) ?? DEFAULT_RENDERED_BYTES
+        );
         exportOpts.onStageChange?.("concatenating-clips");
         exportOpts.onProgress?.({ stage: "concatenating-clips", percent: 50 });
         exportOpts.onProgress?.({ stage: "concatenating-clips", percent: 99 });
         exportOpts.onStageChange?.("normalizing-audio");
         exportOpts.onProgress?.({ stage: "normalizing-audio", percent: 50 });
-        return outputPath;
+        return {
+          outputPath,
+          durationInSeconds:
+            opts?.renderDurationInSeconds?.(run) ??
+            run.requestedDurationInSeconds,
+        };
       }),
   } as any);
   const mockVideoProcessing =

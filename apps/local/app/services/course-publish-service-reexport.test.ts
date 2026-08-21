@@ -1,13 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import fs from "node:fs";
-import path from "node:path";
 import { createHash } from "node:crypto";
 import { CoursePublishService } from "@/services/course-publish-service";
-import { VideoProcessingService } from "@/services/video-processing-service";
 import {
   fakeDropbox,
-  finishedVideosDir,
   setupPublishServiceTests,
   setupPublishableCourse as setup,
 } from "./course-publish-service-test-setup";
@@ -29,26 +26,11 @@ setupPublishServiceTests();
  * Publish shipping the OLD bytes.
  */
 
-/** The content the fake renderer will write on its next run. */
-let renderedBytes = "first-export";
-
 /**
- * A renderer whose OUTPUT can change while its INPUTS do not — which is the
- * whole of a re-export. The shared setup's default fake always writes the same
- * string, so it can never express this case.
+ * The content the fake renderer will write on its next run. A renderer whose
+ * OUTPUT can change while its INPUTS do not is the whole of a re-export.
  */
-const rerenderableVideoProcessing = Layer.succeed(VideoProcessingService, {
-  exportVideoClips: (exportOpts: any) =>
-    Effect.sync(() => {
-      const outputPath = path.join(
-        finishedVideosDir,
-        `${exportOpts.videoId}.mp4`
-      );
-      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-      fs.writeFileSync(outputPath, renderedBytes);
-      return outputPath;
-    }),
-} as any);
+let renderedBytes = "first-export";
 
 const publish = (courseId: string, versionName: string) =>
   Effect.gen(function* () {
@@ -115,7 +97,7 @@ describe("CoursePublishService — when a Video is re-exported", () => {
     renderedBytes = "first-export";
     const { course, video, run } = await setup({
       videoCount: 1,
-      mockVideoProcessing: rerenderableVideoProcessing,
+      renderBytes: () => renderedBytes,
     });
 
     await run(publish(course.id, "v1.0"));
@@ -141,7 +123,7 @@ describe("CoursePublishService — when a Video is re-exported", () => {
     renderedBytes = "first-export";
     const { course, video, run } = await setup({
       videoCount: 1,
-      mockVideoProcessing: rerenderableVideoProcessing,
+      renderBytes: () => renderedBytes,
     });
 
     await run(publish(course.id, "v1.0"));
