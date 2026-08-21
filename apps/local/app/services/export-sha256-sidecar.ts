@@ -25,6 +25,15 @@ export type ExportDigest = {
   contentHash: string;
   /** Size in bytes, used to detect a sidecar that has fallen out of step. */
   bytes: number;
+  /**
+   * The export's measured duration in seconds, so the truncation check costs
+   * one ffprobe the first time and nothing afterwards.
+   *
+   * `null` when this digest was taken from a byte stream that never passed
+   * through ffprobe — an upload, or a file read back off disk. The duration is
+   * then simply not known yet, and whoever needs it measures it.
+   */
+  durationInSeconds: number | null;
 };
 
 export const SIDECAR_SUFFIX = ".sha256";
@@ -53,7 +62,10 @@ const parseDigest = (
   }
   if (typeof parsed !== "object" || parsed === null) return null;
 
-  const { sha256, contentHash, bytes } = parsed as Record<string, unknown>;
+  const { sha256, contentHash, bytes, durationInSeconds } = parsed as Record<
+    string,
+    unknown
+  >;
   if (typeof sha256 !== "string" || !HEX_64.test(sha256)) return null;
   if (typeof contentHash !== "string" || !HEX_64.test(contentHash)) return null;
   if (typeof bytes !== "number" || !Number.isInteger(bytes) || bytes < 0) {
@@ -62,8 +74,17 @@ const parseDigest = (
   // The one thing that could make a sidecar lie: bytes on disk that are not the
   // bytes it describes. Cheap to check, since the caller has already stat'd.
   if (bytes !== expectedBytes) return null;
+  // A sidecar written before durations were recorded has no such field. It is
+  // treated as absent rather than as an error, so it is simply replaced.
+  if (durationInSeconds !== null) {
+    if (typeof durationInSeconds !== "number") return null;
+    if (!Number.isFinite(durationInSeconds) || durationInSeconds < 0) {
+      return null;
+    }
+    return { sha256, contentHash, bytes, durationInSeconds };
+  }
 
-  return { sha256, contentHash, bytes };
+  return { sha256, contentHash, bytes, durationInSeconds: null };
 };
 
 /** The cached digest for an export, or `null` if there isn't a usable one. */
@@ -80,7 +101,8 @@ export const readExportDigest = (
 /** Read an Exported Video once and derive both digests from the one pass. */
 export const computeExportDigest = (
   fs: FileSystem.FileSystem,
-  exportPath: string
+  exportPath: string,
+  durationInSeconds: number | null
 ): Effect.Effect<ExportDigest, never, never> =>
   Effect.gen(function* () {
     const sha256Hash = createHash("sha256");
@@ -96,6 +118,7 @@ export const computeExportDigest = (
       sha256: sha256Hash.digest("hex"),
       bytes,
       contentHash: contentHasher.digest(),
+      durationInSeconds,
     };
   }).pipe(Effect.orDie);
 
@@ -121,13 +144,26 @@ export const computeExportDigest = (
  */
 export const ensureExportDigest = (
   fs: FileSystem.FileSystem,
-  exportPath: string
+  exportPath: string,
+  durationInSeconds: number | null
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
     const size = Number((yield* fs.stat(exportPath)).size);
     const cached = yield* readExportDigest(fs, exportPath, size);
-    if (cached) return;
-    const digest = yield* computeExportDigest(fs, exportPath);
+    if (cached) {
+      // A sound sidecar that is only missing the duration is worth one small
+      // rewrite; re-reading the whole file to learn a number the caller
+      // already holds is not.
+      if (cached.durationInSeconds !== null || durationInSeconds === null) {
+        return;
+      }
+      yield* writeExportDigest(fs, exportPath, {
+        ...cached,
+        durationInSeconds,
+      });
+      return;
+    }
+    const digest = yield* computeExportDigest(fs, exportPath, durationInSeconds);
     yield* writeExportDigest(fs, exportPath, digest);
   }).pipe(Effect.ignore);
 

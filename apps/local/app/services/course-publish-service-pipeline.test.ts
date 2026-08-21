@@ -11,6 +11,7 @@ import {
   setupPublishServiceTests,
   setupPublishableCourse as setup,
 } from "./course-publish-service-test-setup";
+import { honestRenderedDurationInSeconds } from "@/test-utils/fake-video-processing";
 
 setupPublishServiceTests();
 
@@ -115,7 +116,10 @@ describe("CoursePublishService — export/upload pipelining", () => {
     // Resolved after setup, before the publish that first calls the mock.
     let doomedVideoId = "";
     const partiallyFailingProcessing = Layer.succeed(VideoProcessingService, {
-      exportVideoClips: (opts: { videoId: string }) =>
+      exportVideoClips: (opts: {
+        videoId: string;
+        clips?: ReadonlyArray<{ duration: number; pauseType?: string }>;
+      }) =>
         opts.videoId === doomedVideoId
           ? Effect.fail(new Error("ffmpeg crashed"))
           : Effect.sync(() => {
@@ -124,7 +128,10 @@ describe("CoursePublishService — export/upload pipelining", () => {
                 `${opts.videoId}.mp4`
               );
               fs.writeFileSync(outputPath, `dummy-${opts.videoId}`);
-              return outputPath;
+              return {
+                outputPath,
+                durationInSeconds: honestRenderedDurationInSeconds(opts),
+              };
             }),
     } as any);
 

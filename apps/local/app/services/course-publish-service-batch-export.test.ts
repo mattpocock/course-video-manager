@@ -22,6 +22,7 @@ import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
 import { clips as clipsTable } from "@/db/schema";
+import { honestRenderedDurationInSeconds } from "@/test-utils/fake-video-processing";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
@@ -59,7 +60,10 @@ const setup = async () => {
         opts.onProgress?.({ stage: "concatenating-clips", percent: 50 });
         opts.onStageChange?.("normalizing-audio");
         opts.onProgress?.({ stage: "normalizing-audio", percent: 50 });
-        return outputPath;
+        return {
+          outputPath,
+          durationInSeconds: honestRenderedDurationInSeconds(opts),
+        };
       }),
   } as any);
 

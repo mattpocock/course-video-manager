@@ -2,6 +2,25 @@ import { Effect, Layer } from "effect";
 import fs from "node:fs";
 import path from "node:path";
 import { VideoProcessingService } from "@/services/video-processing-service";
+import { expectedExportDurationInSeconds } from "@/services/export-duration-check";
+
+/**
+ * What an honest renderer reports for the file it just wrote: exactly the
+ * duration the Clips asked for.
+ *
+ * Every fake renderer owes the export step a duration now, because the export
+ * step refuses a short file. A fake that is not about truncation should say
+ * this, so that the truncation check stays invisible to it.
+ */
+export const honestRenderedDurationInSeconds = (exportOpts: {
+  clips?: ReadonlyArray<{ duration: number; pauseType?: string }>;
+}): number =>
+  expectedExportDurationInSeconds(
+    (exportOpts.clips ?? []).map((clip) => ({
+      duration: clip.duration,
+      pauseType: clip.pauseType ?? "none",
+    }))
+  );
 
 /**
  * A VideoProcessingService fake with CONTROLLABLE COMPLETION: an encode can be
@@ -74,7 +93,10 @@ export const createControllableVideoProcessing = (opts: {
   const encodingCount = () => started.size - finished.size;
 
   const layer = Layer.succeed(VideoProcessingService, {
-    exportVideoClips: (exportOpts: { videoId: string }) =>
+    exportVideoClips: (exportOpts: {
+      videoId: string;
+      clips?: ReadonlyArray<{ duration: number; pauseType?: string }>;
+    }) =>
       Effect.promise(async () => {
         const { videoId } = exportOpts;
         started.add(videoId);
@@ -90,7 +112,10 @@ export const createControllableVideoProcessing = (opts: {
           opts.content?.(videoId) ?? `dummy-video-content-${videoId}`
         );
         finished.add(videoId);
-        return outputPath;
+        return {
+          outputPath,
+          durationInSeconds: honestRenderedDurationInSeconds(exportOpts),
+        };
       }),
   } as any);
 

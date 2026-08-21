@@ -8,6 +8,7 @@ import { registerFfmpegChild } from "./ffmpeg-child-registry";
 import { createFfmpegProgressParser } from "./ffmpeg-progress";
 import { appendBoundedTail, withStderrTail } from "./ffmpeg-log-capture";
 import { clipZoomCropFilter } from "@/features/videos/clip-zoom";
+import { clipExportDurationInSeconds } from "./export-duration-check";
 
 /** Emitted once a command has run (success or failure) so a caller that
  * knows the domain object (a videoId) can tee it into a durable, agent- and
@@ -268,6 +269,32 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         return Number(trimmed);
       });
 
+      /**
+       * The container duration of a finished file, in seconds.
+       *
+       * Container rather than stream duration: it is what a player reports and
+       * what the truncation check compares against, and it is the measure that
+       * found the three short exports on disk.
+       */
+      const getVideoDurationInSeconds = Effect.fn("getVideoDurationInSeconds")(
+        function* (inputVideo: string) {
+          const command = Command.make(
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            inputVideo
+          );
+          const result = yield* cpuSemaphore.withPermits(1)(
+            Command.string(command)
+          );
+          return Number(result.trim());
+        }
+      );
+
       const createAndConcatenateVideoClipsSinglePass = Effect.fn(
         "createAndConcatenateVideoClipsSinglePass"
       )(function* (
@@ -289,8 +316,6 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           onLog: (info: FfmpegLogInfo) => void;
         }
       ) {
-        const LONG_PAUSE_DURATION = 0.18;
-
         const outputDir = path.join(tmpdir(), "video-processing");
         yield* fs.makeDirectory(outputDir, { recursive: true });
 
@@ -307,10 +332,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         const inputArgs: string[] = [];
         let expectedOutputDuration = 0;
         for (const clip of clips) {
-          const duration =
-            clip.pauseType === "long"
-              ? clip.duration + LONG_PAUSE_DURATION
-              : clip.duration;
+          const duration = clipExportDurationInSeconds(clip);
           expectedOutputDuration += duration;
           inputArgs.push(
             "-ss",
@@ -661,6 +683,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
       return {
         detectSilence,
         getFPS,
+        getVideoDurationInSeconds,
         createAndConcatenateVideoClipsSinglePass,
         normalizeAudio,
         compositeOverlay,

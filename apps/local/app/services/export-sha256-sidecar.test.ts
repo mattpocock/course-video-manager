@@ -44,6 +44,7 @@ describe("export sha256 sidecar", () => {
           sha256: SHA,
           contentHash: CONTENT_HASH,
           bytes,
+          durationInSeconds: 12.5,
         });
         return yield* readExportDigest(fs, exportPath, bytes);
       })
@@ -53,6 +54,7 @@ describe("export sha256 sidecar", () => {
       sha256: SHA,
       contentHash: CONTENT_HASH,
       bytes,
+      durationInSeconds: 12.5,
     });
   });
 
@@ -79,6 +81,7 @@ describe("export sha256 sidecar", () => {
           sha256: SHA,
           contentHash: CONTENT_HASH,
           bytes: bytes + 1,
+          durationInSeconds: 12.5,
         });
         return yield* readExportDigest(fs, exportPath, bytes);
       })
@@ -91,18 +94,35 @@ describe("export sha256 sidecar", () => {
   it.each([
     ["torn JSON", '{"sha256":"aaa'],
     ["not an object", '"a string"'],
-    ["missing contentHash", `{"sha256":"${SHA}","bytes":11}`],
+    [
+      "missing contentHash",
+      `{"sha256":"${SHA}","bytes":11,"durationInSeconds":12.5}`,
+    ],
     [
       "a non-hex sha256",
-      `{"sha256":"zzz","contentHash":"${CONTENT_HASH}","bytes":11}`,
+      `{"sha256":"zzz","contentHash":"${CONTENT_HASH}","bytes":11,"durationInSeconds":12.5}`,
     ],
     [
       "a short sha256",
-      `{"sha256":"abc","contentHash":"${CONTENT_HASH}","bytes":11}`,
+      `{"sha256":"abc","contentHash":"${CONTENT_HASH}","bytes":11,"durationInSeconds":12.5}`,
     ],
     [
       "a fractional byte count",
-      `{"sha256":"${SHA}","contentHash":"${CONTENT_HASH}","bytes":1.5}`,
+      `{"sha256":"${SHA}","contentHash":"${CONTENT_HASH}","bytes":1.5,"durationInSeconds":12.5}`,
+    ],
+    // Every sidecar written before the truncation check has this shape. It is
+    // replaced rather than trusted, so the duration is never simply absent.
+    [
+      "a sidecar written before durations were recorded",
+      `{"sha256":"${SHA}","contentHash":"${CONTENT_HASH}","bytes":11}`,
+    ],
+    [
+      "a non-numeric duration",
+      `{"sha256":"${SHA}","contentHash":"${CONTENT_HASH}","bytes":11,"durationInSeconds":"12.5"}`,
+    ],
+    [
+      "a negative duration",
+      `{"sha256":"${SHA}","contentHash":"${CONTENT_HASH}","bytes":11,"durationInSeconds":-1}`,
     ],
   ])("treats %s as a cache miss rather than an error", async (_label, raw) => {
     const { exportPath, bytes } = makeExport();
@@ -124,7 +144,7 @@ describe("export sha256 sidecar", () => {
     const read = await run(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        yield* ensureExportDigest(fs, exportPath);
+        yield* ensureExportDigest(fs, exportPath, 12.5);
         return yield* readExportDigest(fs, exportPath, bytes);
       })
     );
@@ -132,6 +152,7 @@ describe("export sha256 sidecar", () => {
     expect(read).toMatchObject({
       sha256: createHash("sha256").update("video-bytes").digest("hex"),
       bytes,
+      durationInSeconds: 12.5,
     });
   });
 
@@ -147,20 +168,57 @@ describe("export sha256 sidecar", () => {
           sha256: SHA,
           contentHash: CONTENT_HASH,
           bytes,
+          durationInSeconds: 12.5,
         });
-        yield* ensureExportDigest(fs, exportPath);
+        yield* ensureExportDigest(fs, exportPath, 99);
         return yield* readExportDigest(fs, exportPath, bytes);
       })
     );
 
-    expect(read).toEqual({ sha256: SHA, contentHash: CONTENT_HASH, bytes });
+    expect(read).toEqual({
+      sha256: SHA,
+      contentHash: CONTENT_HASH,
+      bytes,
+      durationInSeconds: 12.5,
+    });
+  });
+
+  it("adds a duration to a sound sidecar that predates the truncation check", async () => {
+    const { exportPath, bytes } = makeExport();
+
+    // A digest that could not have come from these bytes: if the duration were
+    // added by re-reading the file rather than by a rewrite, these would change.
+    const read = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* writeExportDigest(fs, exportPath, {
+          sha256: SHA,
+          contentHash: CONTENT_HASH,
+          bytes,
+          durationInSeconds: null,
+        });
+        yield* ensureExportDigest(fs, exportPath, 42);
+        return yield* readExportDigest(fs, exportPath, bytes);
+      })
+    );
+
+    expect(read).toEqual({
+      sha256: SHA,
+      contentHash: CONTENT_HASH,
+      bytes,
+      durationInSeconds: 42,
+    });
   });
 
   it("never fails the caller when the export is not there to digest", async () => {
     const result = await run(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        yield* ensureExportDigest(fs, "/nonexistent-directory-for-test/a.mp4");
+        yield* ensureExportDigest(
+          fs,
+          "/nonexistent-directory-for-test/a.mp4",
+          12.5
+        );
         return "did not throw";
       })
     );
@@ -181,6 +239,7 @@ describe("export sha256 sidecar", () => {
           sha256: SHA,
           contentHash: CONTENT_HASH,
           bytes: 1,
+          durationInSeconds: 12.5,
         });
         return "did not throw";
       })

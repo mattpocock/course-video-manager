@@ -208,6 +208,13 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         // (e.g. /tmp on tmpfs → /mnt/d on NTFS via WSL2)
         yield* effectFs.copyFile(normalizedPath, outputPath);
 
+        // Measure what was actually produced. ffmpeg exiting zero says only
+        // that it stopped without complaining, not that it wrote every frame
+        // it was asked for — so the caller, which knows what the Clips asked
+        // for, is handed the real number and refuses a short file.
+        const durationInSeconds =
+          yield* ffmpegCommands.getVideoDurationInSeconds(outputPath);
+
         // Clean up intermediate files
         yield* effectFs
           .remove(normalizedPath)
@@ -216,7 +223,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
           .remove(concatenatedPath)
           .pipe(Effect.catchAll(() => Effect.void));
 
-        return outputPath;
+        return { outputPath, durationInSeconds };
       });
 
       /**

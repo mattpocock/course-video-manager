@@ -51,6 +51,9 @@ const hashFileLocally = Effect.fn("hashFileLocally")(function* (
     sha256: sha256Hash.digest("hex"),
     bytes,
     contentHash: contentHasher.digest(),
+    // Bytes alone cannot say how long a file plays for. Whoever needs the
+    // duration measures it; this read is not the place to shell out to ffprobe.
+    durationInSeconds: null,
   };
 });
 
@@ -222,10 +225,18 @@ export function createShipVideo(deps: {
       });
     }
 
+    // Carry forward any duration measured when this file was exported: it is
+    // the truncation check's cache, and nothing in an upload can re-derive it.
+    const measured = yield* readExportDigest(
+      effectFs,
+      entry.localPath,
+      fileSize
+    );
     const digest = {
       sha256: sha256Hash.digest("hex"),
       contentHash,
       bytes: streamedBytes,
+      durationInSeconds: measured?.durationInSeconds ?? null,
     };
     // These numbers were free this time — they came off the upload stream. Bank
     // them so a resumed or unchanged re-Publish, which sends nothing and so

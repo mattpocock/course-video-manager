@@ -14,6 +14,10 @@ import {
 } from "./export-hash";
 import { garbageCollect } from "./export-hash.server";
 import { ensureExportDigest } from "./export-sha256-sidecar";
+import {
+  expectedExportDurationInSeconds,
+  isExportUnacceptablyShort,
+} from "./export-duration-check";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import { resolveVideoFormat } from "@/features/videos/video-format";
 import { DoesNotExistOnDbError } from "./publish-to-dropbox";
@@ -165,44 +169,77 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // never gets encoded again, so this path is the only one that can
         // ever close the gap.
         if (yield* effectFs.exists(targetPath)) {
-          yield* ensureExportDigest(effectFs, targetPath);
+          yield* ensureExportDigest(effectFs, targetPath, null);
           return { targetPath, owner };
         }
 
+        // What the Clips ask for. Built here because this is where the
+        // renderer is told what to do — the final-clip padding is added at
+        // this level, the long-Pause extension one level lower, and
+        // expectedExportDurationInSeconds knows about both.
+        const renderClips = video.clips.map((clip, index, array) => {
+          const isFinalClip = index === array.length - 1;
+          return {
+            inputVideo: clip.videoFilename,
+            startTime: clip.sourceStartTime,
+            duration:
+              clip.sourceEndTime -
+              clip.sourceStartTime +
+              (isFinalClip ? FINAL_VIDEO_PADDING : 0),
+            pauseType: (clip.pauseType as PauseType) || "none",
+            zoomType: clip.zoomType,
+          };
+        });
+
         // Export via ffmpeg → writes to {videoId}.mp4
-        yield* videoProcessing.exportVideoClips({
+        const rendered = yield* videoProcessing.exportVideoClips({
           videoId,
           format: resolveVideoFormat(video.format),
           shortsDirectoryOutputName: undefined,
-          clips: video.clips.map((clip, index, array) => {
-            const isFinalClip = index === array.length - 1;
-            return {
-              inputVideo: clip.videoFilename,
-              startTime: clip.sourceStartTime,
-              duration:
-                clip.sourceEndTime -
-                clip.sourceStartTime +
-                (isFinalClip ? FINAL_VIDEO_PADDING : 0),
-              pauseType: (clip.pauseType as PauseType) || "none",
-              zoomType: clip.zoomType,
-            };
-          }),
+          clips: renderClips,
           onStageChange: onStage,
           onProgress,
         });
 
-        // Move from {videoId}.mp4 to content-addressed path
         const videoIdPath = path.join(
           FINISHED_VIDEOS_DIRECTORY,
           `${videoId}.mp4`
         );
+
+        // Check the export against its own Clips BEFORE the rename. A file
+        // that never reaches its content-addressed path never becomes an
+        // Exported Video, so nothing downstream can address it and the next
+        // attempt re-encodes rather than skipping.
+        const expectedDurationInSeconds =
+          expectedExportDurationInSeconds(renderClips);
+        if (
+          isExportUnacceptablyShort({
+            expectedDurationInSeconds,
+            actualDurationInSeconds: rendered.durationInSeconds,
+          })
+        ) {
+          yield* effectFs
+            .remove(videoIdPath)
+            .pipe(Effect.catchAll(() => Effect.void));
+          return yield* Effect.fail(
+            new ExportError({
+              message: `Export for video "${video.title}" (${videoId}) is short: its clips ask for ${expectedDurationInSeconds.toFixed(1)}s but the file is ${rendered.durationInSeconds.toFixed(1)}s`,
+            })
+          );
+        }
+
+        // Move from {videoId}.mp4 to content-addressed path
         yield* effectFs.rename(videoIdPath, targetPath);
 
         // Digest it now, while it is the newest thing on the disk. A later
         // Publish that copies this Video inside Dropbox rather than uploading
         // it never streams the bytes, so this is the only moment they are
         // guaranteed to pass through our hands.
-        yield* ensureExportDigest(effectFs, targetPath);
+        yield* ensureExportDigest(
+          effectFs,
+          targetPath,
+          rendered.durationInSeconds
+        );
 
         return { targetPath, owner };
       });
