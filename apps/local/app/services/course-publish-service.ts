@@ -3,10 +3,7 @@ import { FileSystem } from "@effect/platform";
 import path from "node:path";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import {
-  VideoProcessingService,
-  type PauseType,
-} from "./video-processing-service";
+import { VideoProcessingService } from "./video-processing-service";
 import {
   computeExportHash,
   resolveExportPath as resolveExportPathPure,
@@ -176,7 +173,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           inputVideo: clip.videoFilename,
           startTime: clip.sourceStartTime,
           duration: clipDurations[index]!.duration,
-          pauseType: clipDurations[index]!.pauseType as PauseType,
+          pauseType: clipDurations[index]!.pauseType,
           zoomType: clip.zoomType,
         }));
 

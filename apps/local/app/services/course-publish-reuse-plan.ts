@@ -177,5 +177,8 @@ export const planBundleReuse = Effect.fn("planBundleReuse")(function* (input: {
     if (!plan.has(remote.hash)) plan.set(remote.hash, source);
   }
 
-  return plan satisfies ReusePlan;
+  // Widened on the way out, so no caller can add to, or take from, a plan
+  // that describes a Bundle already written.
+  const reusePlan: ReusePlan = plan;
+  return reusePlan;
 });

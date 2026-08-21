@@ -3,7 +3,10 @@ import { Effect, Layer } from "effect";
 import fs from "node:fs";
 import path from "node:path";
 import { CoursePublishService } from "@/services/course-publish-service";
-import { VideoProcessingService } from "@/services/video-processing-service";
+import {
+  VideoProcessingService,
+  type PauseType,
+} from "@/services/video-processing-service";
 import { createControllableVideoProcessing } from "@/test-utils/fake-video-processing";
 import {
   fakeDropbox,
@@ -121,7 +124,7 @@ describe("CoursePublishService — export/upload pipelining", () => {
     const partiallyFailingProcessing = Layer.succeed(VideoProcessingService, {
       exportVideoClips: (opts: {
         videoId: string;
-        clips?: ReadonlyArray<{ duration: number; pauseType?: string }>;
+        clips?: ReadonlyArray<{ duration: number; pauseType?: PauseType }>;
       }) =>
         opts.videoId === doomedVideoId
           ? Effect.fail(new Error("ffmpeg crashed"))

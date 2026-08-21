@@ -181,11 +181,11 @@ The digest of an **Exported Video**'s actual bytes — the result, where the **E
 _Avoid_: Content hash (only one of its two encodings), SHA256 (likewise), Export Hash (that addresses the file; this decides the send), File hash, Output hash
 
 **Exported Video**:
-A rendered `.mp4` file on disk named `{courseId}-{exportHash}.mp4` in the finished videos directory.
+A rendered `.mp4` file on disk named `{courseId}-{exportHash}.mp4` in the finished videos directory, whose duration this machine has vouched for. A file at the address is not enough: ffmpeg exiting zero says only that it stopped without complaining, so an export is measured against the duration its **Clips** ask for, and one that falls more than a second short is a truncation and is refused rather than kept. The measurement is recorded in the Export Digest sidecar beside the file, together with the **Byte Hash**, so the file is measured once and every later **Publish** reads the verdict instead of re-deriving it.
 _Avoid_: Finished video, Output video
 
 **Unexported Video**:
-A video whose current Export Hash does not match any file on disk; blocks publishing.
+A **Video** with no **Exported Video** at its current **Export Hash**'s address — either nothing on disk there at all, or a file this machine cannot vouch for, because its recorded duration falls more than a second short of what its **Clips** ask for or because it has no recorded duration yet. Blocks publishing only in the sense that the **Publish** renders it: the export step measures what it finds, keeps a sound file, and re-renders a short one.
 _Avoid_: Dirty video, Stale video
 
 **Purge**:

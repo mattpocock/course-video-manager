@@ -99,7 +99,7 @@ export const readExportDigest = (
   );
 
 /** Read an Exported Video once and derive both digests from the one pass. */
-export const computeExportDigest = (
+const computeExportDigest = (
   fs: FileSystem.FileSystem,
   exportPath: string,
   durationInSeconds: number | null
@@ -123,7 +123,9 @@ export const computeExportDigest = (
   }).pipe(Effect.orDie);
 
 /**
- * Give an export a sidecar if it does not already have a usable one.
+ * The digest of the export on disk, taking it — and writing the sidecar that
+ * caches it — if this machine does not already hold one. `null` when there is
+ * nothing to digest: no file at that path, or a file that cannot be read.
  *
  * Sidecars used to be written only by an upload, which was sound while every
  * Publish uploaded everything. Once a Publish can COPY an unchanged Video
@@ -131,41 +133,28 @@ export const computeExportDigest = (
  * time would never be written again, and the coverage that verification
  * depends on would freeze wherever it stood.
  *
- * Writing at export time inverts that: every Exported Video carries its digest
- * from birth, so the immutability check is free and grows to cover everything.
- * "Every" includes the export the pool finds already on disk and skips — that
- * is precisely the old export whose sidecar is still missing, so digesting
- * only the freshly encoded ones would leave the backlog uncovered for ever.
+ * Ensuring it at export time inverts that: every Exported Video carries its
+ * digest from birth, so the immutability check is free and grows to cover
+ * everything. "Every" includes the export the pool finds already on disk and
+ * skips — that is precisely the old export whose sidecar is still missing, so
+ * digesting only the freshly encoded ones would leave the backlog uncovered
+ * for ever. The read is therefore conditional, not the write: a file that
+ * already has a sound sidecar costs one stat.
  *
- * The read is therefore conditional, not the write: a file that already has a
- * sound sidecar costs one stat. Best-effort throughout — a digest that cannot
- * be taken or written costs the next Publish a re-read and is never a reason
- * to fail this one.
- */
-export const ensureExportDigest = (
-  fs: FileSystem.FileSystem,
-  exportPath: string,
-  durationInSeconds: number | null
-): Effect.Effect<void> =>
-  loadExportDigest(fs, exportPath, durationInSeconds).pipe(Effect.asVoid);
-
-/**
- * The digest of the export on disk, or `null` if this machine has no usable
- * one — no file at that path, or a file it cannot read.
- *
- * This is `ensureExportDigest` with its answer kept rather than thrown away,
- * and it is what lets a Publish decide by BYTES. A Video's Byte Hash is the
- * only thing that can say whether the file this machine holds is the file
- * Dropbox already has, and the sidecar is where that hash lives.
- *
- * `null` therefore means "this machine cannot vouch for any bytes", never
- * "the bytes are different" — the caller falls back rather than concluding.
+ * Keeping the answer is what lets a Publish decide by BYTES. A Video's Byte
+ * Hash is the only thing that can say whether the file this machine holds is
+ * the file Dropbox already has, and the sidecar is where that hash lives.
+ * `null` therefore means "this machine cannot vouch for any bytes", never "the
+ * bytes are different" — the caller falls back rather than concluding. A
+ * caller with no use for the answer can simply discard it; best-effort
+ * throughout, so a digest that cannot be taken or written costs the next
+ * Publish a re-read and is never a reason to fail this one.
  *
  * `durationInSeconds` is what the caller has just measured, or `null` when it
  * has measured nothing. It is only ever written down, never compared: a
  * caller that holds no duration still gets the digest it asked for.
  */
-export const loadExportDigest = (
+export const ensureExportDigest = (
   fs: FileSystem.FileSystem,
   exportPath: string,
   durationInSeconds: number | null
@@ -216,14 +205,19 @@ export const writeExportDigest = (
  * costs one `measure`, and the answer is written down so the next Publish that
  * asks pays nothing. This is what lets the truncation check run on every visit
  * to an export, including the ones the export step finds already on disk.
+ *
+ * `measure` must already have collapsed its own failure to a number — an
+ * export that cannot be probed is not sound, and this is not the place to
+ * decide that. It stays generic in its CONTEXT alone, because the one measure
+ * that matters shells out to ffprobe and so carries a CommandExecutor.
  */
-export const ensureExportDuration = <E, R>(
+export const ensureExportDuration = <R>(
   fs: FileSystem.FileSystem,
   exportPath: string,
-  measure: Effect.Effect<number, E, R>
-): Effect.Effect<number, E, R> =>
+  measure: Effect.Effect<number, never, R>
+): Effect.Effect<number, never, R> =>
   Effect.gen(function* () {
-    const cached = yield* loadExportDigest(fs, exportPath, null);
+    const cached = yield* ensureExportDigest(fs, exportPath, null);
     if (cached?.durationInSeconds != null) return cached.durationInSeconds;
     const measured = yield* measure;
     yield* ensureExportDigest(fs, exportPath, measured);
