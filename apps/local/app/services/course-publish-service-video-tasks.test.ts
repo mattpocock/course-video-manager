@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { writeAlreadyExportedVideo } from "@/test-utils/exported-video-fixture";
 import { Effect } from "effect";
-import fs from "node:fs";
 import path from "node:path";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { createControllableVideoProcessing } from "@/test-utils/fake-video-processing";
@@ -44,7 +44,7 @@ describe("CoursePublishService — per-Video upload tasks", () => {
     // One Video is already on disk, so the export roster will omit it — but it
     // still has to be uploaded, so it must still get a task of its own.
     const alreadyExported = videos[0]!;
-    fs.writeFileSync(
+    writeAlreadyExportedVideo(
       path.join(
         finishedVideosDir,
         `${course.id}-${alreadyExported.exportHash}.mp4`
@@ -117,7 +117,7 @@ describe("CoursePublishService — per-Video upload tasks", () => {
     });
     const ready = videos[0]!;
     const encoding = videos[1]!;
-    fs.writeFileSync(
+    writeAlreadyExportedVideo(
       path.join(finishedVideosDir, `${course.id}-${ready.exportHash}.mp4`),
       "already exported"
     );
@@ -179,7 +179,7 @@ describe("CoursePublishService — per-Video upload tasks", () => {
   it("emits per-Video upload events even when nothing needs exporting", async () => {
     const { course, videos, run } = await setup({ videoCount: 2 });
     for (const video of videos) {
-      fs.writeFileSync(
+      writeAlreadyExportedVideo(
         path.join(finishedVideosDir, `${course.id}-${video.exportHash}.mp4`),
         `already exported ${video.id}`
       );

@@ -18,7 +18,10 @@ import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
 import { clips as clipsTable } from "@/db/schema";
-import { honestRenderedDurationInSeconds } from "@/test-utils/fake-video-processing";
+import {
+  honestRenderedDurationInSeconds,
+  soundExportDurationProbe,
+} from "@/test-utils/fake-video-processing";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
@@ -61,6 +64,7 @@ const setup = async () => {
           durationInSeconds: honestRenderedDurationInSeconds(opts),
         };
       }),
+    getVideoDurationInSeconds: soundExportDurationProbe,
   } as any);
 
   const configLayer = Layer.setConfigProvider(

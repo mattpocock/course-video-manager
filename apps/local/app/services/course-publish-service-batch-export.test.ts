@@ -3,6 +3,7 @@
 // seeded fixture below is the same one, kept local per this repo's per-file
 // test-harness convention (see course-publish-service-publish.test.ts).
 import { describe, it, expect, beforeAll } from "vitest";
+import { writeAlreadyExportedVideo } from "@/test-utils/exported-video-fixture";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import fs from "node:fs";
@@ -22,7 +23,10 @@ import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
 import { clips as clipsTable } from "@/db/schema";
-import { honestRenderedDurationInSeconds } from "@/test-utils/fake-video-processing";
+import {
+  honestRenderedDurationInSeconds,
+  soundExportDurationProbe,
+} from "@/test-utils/fake-video-processing";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
@@ -65,6 +69,7 @@ const setup = async () => {
           durationInSeconds: honestRenderedDurationInSeconds(opts),
         };
       }),
+    getVideoDurationInSeconds: soundExportDurationProbe,
   } as any);
 
   const configLayer = Layer.setConfigProvider(
@@ -321,7 +326,7 @@ describe("CoursePublishService", () => {
       const { course, exportHash } = context;
 
       // Pre-create the exported file
-      fs.writeFileSync(
+      writeAlreadyExportedVideo(
         path.join(finishedVideosDir, `${course.id}-${exportHash}.mp4`),
         "data"
       );

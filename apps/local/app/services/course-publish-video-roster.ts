@@ -7,6 +7,13 @@ import {
   toExportClips,
 } from "./export-hash";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
+import { readExportDurationInSeconds } from "./export-sha256-sidecar";
+import {
+  expectedExportDurationInSeconds,
+  isExportUnacceptablyShort,
+  paddedClipDurationsInSeconds,
+  type SourceClipDuration,
+} from "./export-duration-check";
 
 // The summed source span of a Video's Clips. Shorter than the exported file,
 // which also carries FINAL_VIDEO_PADDING and a pause per `long` Clip.
@@ -17,6 +24,40 @@ const clipsDurationSeconds = (
     (total, clip) => total + (clip.sourceEndTime - clip.sourceStartTime),
     0
   );
+
+/**
+ * Is there an export at this address that this machine ALREADY KNOWS is sound?
+ *
+ * A file at the address used to be the whole answer, and that is how three
+ * truncated exports survived every later Publish. The export step now checks a
+ * file it finds on disk against the duration its Clips ask for — so this walk
+ * has to hand it every export whose duration it cannot vouch for, not only the
+ * ones that are missing.
+ *
+ * Only the recorded duration is consulted, never ffprobe: this runs once per
+ * Video of a whole Course, before anything else has begun. An export with a
+ * duration in its Export Digest is decided here for nothing; an export without
+ * one is visited by the export step, which measures it once and records it, so
+ * the question is free from then on.
+ */
+const isKnownSoundExport = Effect.fn("isKnownSoundExport")(function* (
+  effectFs: FileSystem.FileSystem,
+  exportPath: string,
+  clips: ReadonlyArray<SourceClipDuration>
+) {
+  if (!(yield* effectFs.exists(exportPath))) return false;
+  const actualDurationInSeconds = yield* readExportDurationInSeconds(
+    effectFs,
+    exportPath
+  );
+  if (actualDurationInSeconds === null) return false;
+  return !isExportUnacceptablyShort({
+    expectedDurationInSeconds: expectedExportDurationInSeconds(
+      paddedClipDurationsInSeconds(clips)
+    ),
+    actualDurationInSeconds,
+  });
+});
 
 /**
  * The shared walk behind batchExport and publish: which Videos a Course
@@ -85,12 +126,13 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
           courseId,
           hash
         );
-        if (!(yield* effectFs.exists(filePath)))
-          unexportedVideos.push({
-            ...entry,
-            durationSeconds: clipsDurationSeconds(video.clips),
-            exportHash: hash,
-          });
+        if (yield* isKnownSoundExport(effectFs, filePath, video.clips))
+          continue;
+        unexportedVideos.push({
+          ...entry,
+          durationSeconds: clipsDurationSeconds(video.clips),
+          exportHash: hash,
+        });
       }
     }
   }

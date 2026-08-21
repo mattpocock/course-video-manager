@@ -11,6 +11,8 @@
  * refusing live at the one decision point that owns the export.
  */
 
+import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
+
 /**
  * A long Pause extends the Clip it belongs to by this much, added by the
  * concat pass rather than by the caller that supplies the Clip durations.
@@ -30,6 +32,31 @@ export const LONG_PAUSE_DURATION_IN_SECONDS = 0.18;
  * container rounding must never fail a good release.
  */
 export const EXPORT_DURATION_TOLERANCE_IN_SECONDS = 1;
+
+/** A Clip as the database holds it, before any padding is applied. */
+export type SourceClipDuration = {
+  sourceStartTime: number;
+  sourceEndTime: number;
+  pauseType: string | null;
+};
+
+/**
+ * What each Clip asks the renderer for, in the order the renderer gets them:
+ * its span of source, plus the padding the final Clip carries.
+ *
+ * The export step feeds these to the renderer AND to the prediction below, so
+ * the file that is asked for and the file that is checked for cannot differ.
+ */
+export const paddedClipDurationsInSeconds = (
+  clips: readonly SourceClipDuration[]
+): ExportClipDuration[] =>
+  clips.map((clip, index, array) => ({
+    duration:
+      clip.sourceEndTime -
+      clip.sourceStartTime +
+      (index === array.length - 1 ? FINAL_VIDEO_PADDING : 0),
+    pauseType: clip.pauseType || "none",
+  }));
 
 /** A Clip as the export step describes it to the renderer. */
 export type ExportClipDuration = {

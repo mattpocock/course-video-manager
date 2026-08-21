@@ -23,6 +23,19 @@ export const honestRenderedDurationInSeconds = (exportOpts: {
   );
 
 /**
+ * What a fake probe reports for an export it did not render.
+ *
+ * A fake renderer writes a few bytes of text, so there is no real duration to
+ * measure from the file. A test that is not about truncation wants such a file
+ * treated as sound, and this is longer than any test's Clips ask for.
+ */
+export const SOUND_FAKE_EXPORT_DURATION_IN_SECONDS = 24 * 60 * 60;
+
+/** The duration probe of a fake renderer that never produces a short file. */
+export const soundExportDurationProbe = (): Effect.Effect<number> =>
+  Effect.succeed(SOUND_FAKE_EXPORT_DURATION_IN_SECONDS);
+
+/**
  * A VideoProcessingService fake with CONTROLLABLE COMPLETION: an encode can be
  * held open until the test releases it by name.
  *
@@ -117,6 +130,7 @@ export const createControllableVideoProcessing = (opts: {
           durationInSeconds: honestRenderedDurationInSeconds(exportOpts),
         };
       }),
+    getVideoDurationInSeconds: soundExportDurationProbe,
   } as any);
 
   return {

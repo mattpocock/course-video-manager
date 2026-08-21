@@ -13,12 +13,16 @@ import {
   toExportClips,
 } from "./export-hash";
 import { garbageCollect } from "./export-hash.server";
-import { ensureExportDigest } from "./export-sha256-sidecar";
+import {
+  ensureExportDigest,
+  ensureExportDuration,
+  sidecarPath,
+} from "./export-sha256-sidecar";
 import {
   expectedExportDurationInSeconds,
   isExportUnacceptablyShort,
+  paddedClipDurationsInSeconds,
 } from "./export-duration-check";
-import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
 import { resolveVideoFormat } from "@/features/videos/video-format";
 import { DoesNotExistOnDbError } from "./publish-to-dropbox";
 import { validatePublishability as validatePublishabilityCore } from "./course-publish-readiness";
@@ -135,6 +139,10 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         return yield* effectFs.exists(exportPath);
       });
 
+      /** Deleting a file we are replacing is never a reason to fail. */
+      const removeQuietly = (filePath: string) =>
+        effectFs.remove(filePath).pipe(Effect.catchAll(() => Effect.void));
+
       const exportVideoCore = Effect.fn("exportVideoCore")(function* (
         videoId: string,
         onStage?: (stage: "concatenating-clips" | "normalizing-audio") => void,
@@ -164,32 +172,48 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           hash
         );
 
-        // Skip if already exported — but not before making sure it carries a
-        // digest. An export that predates sidecars is exactly the one that
-        // never gets encoded again, so this path is the only one that can
-        // ever close the gap.
-        if (yield* effectFs.exists(targetPath)) {
-          yield* ensureExportDigest(effectFs, targetPath, null);
-          return { targetPath, owner };
-        }
+        // What the Clips ask for, and what the renderer is told to make: one
+        // list of padded durations, used for both, so the file asked for and
+        // the file checked for cannot differ.
+        const clipDurations = paddedClipDurationsInSeconds(video.clips);
+        const renderClips = video.clips.map((clip, index) => ({
+          inputVideo: clip.videoFilename,
+          startTime: clip.sourceStartTime,
+          duration: clipDurations[index]!.duration,
+          pauseType: clipDurations[index]!.pauseType as PauseType,
+          zoomType: clip.zoomType,
+        }));
 
-        // What the Clips ask for. Built here because this is where the
-        // renderer is told what to do — the final-clip padding is added at
-        // this level, the long-Pause extension one level lower, and
-        // expectedExportDurationInSeconds knows about both.
-        const renderClips = video.clips.map((clip, index, array) => {
-          const isFinalClip = index === array.length - 1;
-          return {
-            inputVideo: clip.videoFilename,
-            startTime: clip.sourceStartTime,
-            duration:
-              clip.sourceEndTime -
-              clip.sourceStartTime +
-              (isFinalClip ? FINAL_VIDEO_PADDING : 0),
-            pauseType: (clip.pauseType as PauseType) || "none",
-            zoomType: clip.zoomType,
-          };
-        });
+        const expectedDurationInSeconds =
+          expectedExportDurationInSeconds(clipDurations);
+
+        // An export already at its address is skipped, but only after it has
+        // answered for its duration. An export truncated before this check
+        // existed would otherwise be skipped for ever and shipped every time;
+        // a short one is removed with its sidecar and falls through to be
+        // re-encoded, which repairs the backlog without touching the exports
+        // that are sound.
+        if (yield* effectFs.exists(targetPath)) {
+          const durationInSeconds = yield* ensureExportDuration(
+            effectFs,
+            targetPath,
+            // An export that cannot be probed at all is no more trustworthy
+            // than one measured short, and is refused the same way.
+            videoProcessing
+              .getVideoDurationInSeconds(targetPath)
+              .pipe(Effect.orElseSucceed(() => Number.NaN))
+          );
+          if (
+            !isExportUnacceptablyShort({
+              expectedDurationInSeconds,
+              actualDurationInSeconds: durationInSeconds,
+            })
+          ) {
+            return { targetPath, owner };
+          }
+          yield* removeQuietly(targetPath);
+          yield* removeQuietly(sidecarPath(targetPath));
+        }
 
         // Export via ffmpeg → writes to {videoId}.mp4
         const rendered = yield* videoProcessing.exportVideoClips({
@@ -210,17 +234,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // that never reaches its content-addressed path never becomes an
         // Exported Video, so nothing downstream can address it and the next
         // attempt re-encodes rather than skipping.
-        const expectedDurationInSeconds =
-          expectedExportDurationInSeconds(renderClips);
         if (
           isExportUnacceptablyShort({
             expectedDurationInSeconds,
             actualDurationInSeconds: rendered.durationInSeconds,
           })
         ) {
-          yield* effectFs
-            .remove(videoIdPath)
-            .pipe(Effect.catchAll(() => Effect.void));
+          yield* removeQuietly(videoIdPath);
           return yield* Effect.fail(
             new ExportError({
               message: `Export for video "${video.title}" (${videoId}) is short: its clips ask for ${expectedDurationInSeconds.toFixed(1)}s but the file is ${rendered.durationInSeconds.toFixed(1)}s`,

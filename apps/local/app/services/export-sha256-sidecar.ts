@@ -186,7 +186,11 @@ export const loadExportDigest = (
     }
     // A sidecar that is missing, torn, or disagrees with the file on disk is
     // an absent one. Replacing it costs one read, once.
-    const digest = yield* computeExportDigest(fs, exportPath, durationInSeconds);
+    const digest = yield* computeExportDigest(
+      fs,
+      exportPath,
+      durationInSeconds
+    );
     yield* writeExportDigest(fs, exportPath, digest);
     return digest;
   }).pipe(Effect.catchAll(() => Effect.succeed(null)));
@@ -203,3 +207,44 @@ export const writeExportDigest = (
   fs
     .writeFileString(sidecarPath(exportPath), JSON.stringify(digest))
     .pipe(Effect.ignore);
+
+/**
+ * The export's duration in seconds, measured at most once in its lifetime.
+ *
+ * A sidecar that already records a duration answers immediately. Anything else
+ * — no sidecar, a torn one, or one written before durations were recorded —
+ * costs one `measure`, and the answer is written down so the next Publish that
+ * asks pays nothing. This is what lets the truncation check run on every visit
+ * to an export, including the ones the export step finds already on disk.
+ */
+export const ensureExportDuration = <E, R>(
+  fs: FileSystem.FileSystem,
+  exportPath: string,
+  measure: Effect.Effect<number, E, R>
+): Effect.Effect<number, E, R> =>
+  Effect.gen(function* () {
+    const cached = yield* loadExportDigest(fs, exportPath, null);
+    if (cached?.durationInSeconds != null) return cached.durationInSeconds;
+    const measured = yield* measure;
+    yield* ensureExportDigest(fs, exportPath, measured);
+    return measured;
+  });
+
+/**
+ * The duration this machine has already recorded for an export, or `null` when
+ * it has recorded none — no file, no sidecar, or a sidecar that disagrees with
+ * the file on disk.
+ *
+ * Cheap on purpose: a stat and a small read, never a pass over the export
+ * itself. It answers "do I already know this export is sound?", which is a
+ * question a walk over a whole Course has to be able to ask.
+ */
+export const readExportDurationInSeconds = (
+  fs: FileSystem.FileSystem,
+  exportPath: string
+): Effect.Effect<number | null> =>
+  Effect.gen(function* () {
+    const size = Number((yield* fs.stat(exportPath)).size);
+    const digest = yield* readExportDigest(fs, exportPath, size);
+    return digest?.durationInSeconds ?? null;
+  }).pipe(Effect.catchAll(() => Effect.succeed(null)));

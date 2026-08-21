@@ -33,7 +33,10 @@ import {
 } from "@/db/schema";
 import { fromPartial } from "@total-typescript/shoehorn";
 import { eq } from "drizzle-orm";
-import { honestRenderedDurationInSeconds } from "@/test-utils/fake-video-processing";
+import {
+  honestRenderedDurationInSeconds,
+  soundExportDurationProbe,
+} from "@/test-utils/fake-video-processing";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
@@ -86,6 +89,7 @@ const setupSync = async () => {
             durationInSeconds: honestRenderedDurationInSeconds(opts),
           };
         }),
+      getVideoDurationInSeconds: soundExportDurationProbe,
     })
   );
 

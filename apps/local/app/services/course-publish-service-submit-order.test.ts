@@ -13,7 +13,10 @@ import {
   setupPublishableCourse as setup,
   testDb,
 } from "./course-publish-service-test-setup";
-import { honestRenderedDurationInSeconds } from "@/test-utils/fake-video-processing";
+import {
+  honestRenderedDurationInSeconds,
+  soundExportDurationProbe,
+} from "@/test-utils/fake-video-processing";
 
 setupPublishServiceTests();
 
@@ -84,6 +87,7 @@ describe("CoursePublishService — Submit before export", () => {
             durationInSeconds: honestRenderedDurationInSeconds(exportOpts),
           };
         }),
+      getVideoDurationInSeconds: soundExportDurationProbe,
     } as any);
 
     const { course, run } = await setup({ mockVideoProcessing: observingMock });

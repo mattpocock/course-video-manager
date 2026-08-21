@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { writeAlreadyExportedVideo } from "@/test-utils/exported-video-fixture";
 import { Effect, Layer } from "effect";
 import fs from "node:fs";
 import path from "node:path";
@@ -51,7 +52,7 @@ describe("CoursePublishService — publish", () => {
   it("skips exporting stage when all videos are already exported", async () => {
     const { course, exportHash, run } = await setup();
 
-    fs.writeFileSync(
+    writeAlreadyExportedVideo(
       path.join(finishedVideosDir, `${course.id}-${exportHash}.mp4`),
       "data"
     );
@@ -193,7 +194,7 @@ describe("CoursePublishService — publish", () => {
   it("Discards immediately on missing assets, naming the missing videos", async () => {
     const { course, video, exportHash, run } = await setup();
 
-    fs.writeFileSync(
+    writeAlreadyExportedVideo(
       path.join(finishedVideosDir, `${course.id}-${exportHash}.mp4`),
       "data"
     );

@@ -37,6 +37,7 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
+import { SOUND_FAKE_EXPORT_DURATION_IN_SECONDS } from "@/test-utils/fake-video-processing";
 import {
   clips as clipsTable,
   chapters as chaptersTable,
@@ -104,6 +105,15 @@ export const setupPublishableCourse = async (opts?: {
    * Default: exactly what the Clips asked for, i.e. an honest encode.
    */
   renderDurationInSeconds?: (run: FakeRenderRun) => number;
+  /**
+   * What the fake probe reports for an export ALREADY on disk, in seconds —
+   * the file the export step finds at its address and would otherwise skip.
+   * Returning less than the Video's Clips ask for is an export that was
+   * truncated before anything checked.
+   *
+   * Default: a duration no test's Clips can exceed, i.e. a sound file.
+   */
+  measureExportDurationInSeconds?: (probe: { exportPath: string }) => number;
 }) => {
   const videoCount = opts?.videoCount ?? 1;
   await truncateAllTables(testDb);
@@ -270,6 +280,12 @@ export const setupPublishableCourse = async (opts?: {
             run.requestedDurationInSeconds,
         };
       }),
+    getVideoDurationInSeconds: (exportPath: string) =>
+      Effect.sync(
+        () =>
+          opts?.measureExportDurationInSeconds?.({ exportPath }) ??
+          SOUND_FAKE_EXPORT_DURATION_IN_SECONDS
+      ),
   } as any);
   const mockVideoProcessing =
     opts?.mockVideoProcessing ?? defaultMockVideoProcessing;

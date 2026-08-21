@@ -634,6 +634,15 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
       return {
         getLatestOBSVideoClips,
         exportVideoClips,
+        /**
+         * The container duration of a finished file, in seconds.
+         *
+         * The export step needs this for a file it did not just render — the
+         * export it finds already on disk and would otherwise skip. It has to
+         * come through this service rather than from ffprobe directly, because
+         * this is the seam a Publish test replaces.
+         */
+        getVideoDurationInSeconds: ffmpegCommands.getVideoDurationInSeconds,
         transcribeClips,
         transcribeVideoFile,
         transcribeFootageFile,
