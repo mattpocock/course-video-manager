@@ -655,6 +655,73 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
     expect(remoteBundleVideoPaths()).toHaveLength(2);
   }, 30_000);
 
+  it("reports byte-weighted progress for a Video that was copied, not sent", async () => {
+    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+
+    await sync();
+
+    const secondVersionId = await freezeLatestVersion(course, run);
+    const percentages: number[] = [];
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        return yield* svc.syncFrozenVersionToDropbox(
+          course.id,
+          secondVersionId,
+          true,
+          (_event, data) => percentages.push(data.percentage)
+        );
+      })
+    );
+
+    // Every Video is in the byte-weighted denominator, whether it turns out to
+    // be copyable or not — so a Publish that copies the whole bundle has to
+    // COMPLETE every one of them as its copy lands. Left at zero, a release
+    // that sent nothing would sit at 0% until the receipt jumped it to 100.
+    expect(copyBatchCount()).toBe(1);
+    expect(percentages.at(-1)).toBe(100);
+    expect(percentages.filter((percentage) => percentage < 100)).not.toEqual(
+      []
+    );
+    expect([...percentages].sort((a, b) => a - b)).toEqual(percentages);
+  }, 30_000);
+
+  it("issues the copy batch while an upload is still in flight", async () => {
+    const { course, videos, run, sync } = await setupUploads({ videoCount: 2 });
+
+    await sync();
+
+    // One Video is re-encoded, so this machine holds bytes Dropbox does not
+    // and it must upload. The other is untouched, so it is copyable.
+    fs.writeFileSync(videos[1]!.exportPath, `re-encoded-${"z".repeat(64)}`);
+
+    // Deterministic: the barrier only trips if the copy batch and an upload
+    // are genuinely in flight together. A copy batch issued after the UPLOAD
+    // pool drains — rather than after the export pool does — hangs here
+    // instead of passing.
+    fakeDropbox.holdUntilInFlight(
+      2,
+      (url, init) =>
+        isVideoUploadRequest(url, init) ||
+        url.includes("/2/files/copy_batch_v2")
+    );
+
+    const secondVersionId = await freezeLatestVersion(course, run);
+    await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        return yield* svc.syncFrozenVersionToDropbox(
+          course.id,
+          secondVersionId,
+          true
+        );
+      })
+    );
+
+    expect(copyBatchCount()).toBe(1);
+    expect(remoteBundleVideoPaths()).toHaveLength(4);
+  }, 30_000);
+
   it("adopts a landed Video whose export has since been collected", async () => {
     const { videos, sync } = await setupUploads({ videoCount: 2 });
 

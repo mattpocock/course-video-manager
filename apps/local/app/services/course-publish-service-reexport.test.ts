@@ -57,6 +57,51 @@ const reExport = (videoId: string, bytes: string) =>
     return yield* svc.exportVideo(videoId);
   });
 
+/** The bytes two Videos of the identical-bytes test both end up holding. */
+const SHARED_BYTES = "bytes-both-videos-share";
+
+/**
+ * Purge and export again, leaving the bytes to whatever the fake renderer has
+ * been told to write for that Video this time.
+ */
+const reRender = (videoId: string) =>
+  Effect.gen(function* () {
+    const svc = yield* CoursePublishService;
+    const exportPath = yield* svc.resolveExportPath(videoId);
+    fs.rmSync(exportPath!, { force: true });
+    return yield* svc.exportVideo(videoId);
+  });
+
+/** Only the `.mp4` uploads inside a bundle. */
+const isVideoUploadRequest = (url: string, init: RequestInit) => {
+  if (!url.includes("/2/files/upload") || url.includes("session")) return false;
+  const arg = (init.headers as Record<string, string> | undefined)?.[
+    "Dropbox-API-Arg"
+  ];
+  return Boolean(arg && JSON.parse(arg).path.endsWith(".mp4"));
+};
+
+const videoUploadCount = () =>
+  fakeDropbox.fetchCalls.filter((call) =>
+    isVideoUploadRequest(call.url, call.init)
+  ).length;
+
+/** How many Video uploads carried exactly these bytes. */
+const uploadsCarrying = (content: string) =>
+  fakeDropbox.fetchCalls.filter(
+    (call) =>
+      isVideoUploadRequest(call.url, call.init) &&
+      Buffer.from(call.init.body as Uint8Array).toString("utf-8") === content
+  ).length;
+
+/** Every entry of every `copy_batch_v2` call this test has made. */
+const copyBatchEntries = () =>
+  fakeDropbox.fetchCalls
+    .filter((call) => call.url.includes("/2/files/copy_batch_v2"))
+    .flatMap(
+      (call) => JSON.parse(call.init.body as string).entries as Array<any>
+    );
+
 /** Every `.mp4` Dropbox holds, keyed by its bundle directory. */
 const bundledVideos = () => {
   const byBundle = new Map<string, Array<{ path: string; content: Buffer }>>();
@@ -139,5 +184,49 @@ describe("CoursePublishService — when a Video is re-exported", () => {
     const shipped = manifestVideos(readCommitReceipt("test-course"));
     expect(shipped).toHaveLength(1);
     expect(shipped[0]!.sha256).toBe(expected);
+  }, 60_000);
+});
+
+/**
+ * The reuse plan is indexed by BYTE HASH, not by Export Hash — so a Video is
+ * copyable from ANY identical file in the previous Bundle, not only from the
+ * one at its own address.
+ */
+describe("CoursePublishService — when two Videos hold identical bytes", () => {
+  it("costs one upload between them", async () => {
+    const bytesByVideo = new Map<string, string>();
+    const { course, videos, run } = await setup({
+      videoCount: 2,
+      renderBytes: (render) => bytesByVideo.get(render.videoId)!,
+    });
+    bytesByVideo.set(videos[0]!.id, SHARED_BYTES);
+    bytesByVideo.set(videos[1]!.id, "second-video-own-bytes");
+
+    await run(publish(course.id, "v1.0"));
+    expect(videoUploadCount()).toBe(2);
+
+    // The second Video is re-exported and comes out byte-identical to the
+    // first — the same footage cut the same way, which is an everyday thing
+    // in a course. Its Export Hash is untouched and still its own.
+    bytesByVideo.set(videos[1]!.id, SHARED_BYTES);
+    await run(reRender(videos[1]!.id));
+
+    await run(publish(course.id, "v2.0"));
+
+    // Not one further byte left this machine: both Videos of the new Bundle
+    // were copied, and BOTH were copied from the single file in the previous
+    // Bundle that holds those bytes — the first Video's, at an address the
+    // second Video's Export Hash would never have found.
+    expect(videoUploadCount()).toBe(2);
+    expect(copyBatchEntries()).toHaveLength(2);
+    const sources = new Set(
+      copyBatchEntries().map((entry) => entry.from_path as string)
+    );
+    expect(sources.size).toBe(1);
+    expect([...sources][0]).toContain(videos[0]!.relativeAssetPath);
+
+    // Which is what "one upload between them" means: those bytes crossed the
+    // wire exactly once, for the pair.
+    expect(uploadsCarrying(SHARED_BYTES)).toBe(1);
   }, 60_000);
 });
