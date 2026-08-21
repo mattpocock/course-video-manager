@@ -69,12 +69,22 @@ export function createShipVideo(deps: {
   effectFs: FileSystem.FileSystem;
   accessToken: string;
   onDetailEvent?: EmitPublishDetailEvent;
-  cancelledExports?: {
-    restore: (videoId: string) => Effect.Effect<void, ExportError>;
-  };
   remoteFilesByPath: Map<string, DropboxFileMetadata>;
   remoteVideoPath: (entry: VideoEntry) => string;
-  plannedSourceOf: (entry: VideoEntry) => ReusableSource | undefined;
+  /**
+   * The previous Bundle's numbers for a landed file, found by the Byte Hash
+   * Dropbox reports for it. See `adoptFromPlan`.
+   */
+  plannedSourceOf: (
+    remoteFile: DropboxFileMetadata
+  ) => ReusableSource | undefined;
+  /**
+   * Offer a Video with its export on disk to the copy batch, and answer
+   * whether the batch took it. A Video it took sends nothing from here: the
+   * caller issues one `copy_batch_v2` for the whole bundle once every export
+   * has landed, and marks this Video complete when its copy does.
+   */
+  offerToCopyBatch: (entry: VideoEntry) => Effect.Effect<boolean>;
   videoByteSizes: Map<string, number>;
   uploadedByVideo: Map<string, number>;
   reportProgress: () => void;
@@ -89,10 +99,10 @@ export function createShipVideo(deps: {
     effectFs,
     accessToken,
     onDetailEvent,
-    cancelledExports,
     remoteFilesByPath,
     remoteVideoPath,
     plannedSourceOf,
+    offerToCopyBatch,
     videoByteSizes,
     uploadedByVideo,
     reportProgress,
@@ -111,36 +121,24 @@ export function createShipVideo(deps: {
    * This is the case that used to have no answer: an earlier attempt put the
    * Video at its address, and the export it was made from has since been
    * collected — so the manifest's SHA256 could not be recovered and the whole
-   * Publish was discarded. Reuse makes that common rather than rare, because
-   * the plan that put the Video there is the same plan that cancelled its
-   * re-encode.
+   * Publish was discarded. It arises only where no export phase runs in front
+   * of this one, i.e. the manual re-sync of an already-Published Version.
    *
-   * The previous Bundle answers it. Its manifest owes the new one this Video's
-   * SHA256 and byte count; its listing gives the content hash the landed file
-   * must carry. One comparison, and not a byte read from disk or wire.
+   * The previous Bundle answers it. The landed file's own Byte Hash finds the
+   * previous manifest's entry for those exact bytes, and that entry owes the
+   * new manifest their SHA256. One lookup, and not a byte read from disk or
+   * wire.
    *
-   * Weaker than `adoptLandedVideo`, and deliberately second to it: where the
-   * source and destination are the same file — an unchanged re-Publish, which
-   * lands in the same Bundle — the comparison is of a file with itself and
-   * cannot detect tampering. Only local bytes can do that, so wherever they
+   * Weaker than `adoptLandedVideo`, and deliberately second to it: matching by
+   * Byte Hash says only that some earlier manifest described these bytes, and
+   * where the source and destination are the same file that is a comparison of
+   * a file with itself. Only local bytes can detect tampering, so wherever they
    * exist they are used instead.
    */
   const adoptFromPlan = Effect.fn("adoptVideoFromReusePlan")(function* (
     entry: VideoEntry,
-    remoteFile: DropboxFileMetadata,
     source: ReusableSource
   ) {
-    // Same Export Hash means identical bytes by construction, so the two
-    // hashes must agree. Disagreement is an immutability violation, exactly
-    // as it is for a locally-checked adoption, and is never overwritten.
-    if (
-      remoteFile.content_hash !== source.contentHash ||
-      remoteFile.size !== source.bytes
-    ) {
-      return yield* new ExportError({
-        message: `Immutable asset bundle conflict for video ${entry.videoId}`,
-      });
-    }
     videoByteSizes.set(entry.videoId, source.bytes);
     uploadedByVideo.set(entry.videoId, source.bytes);
     reportProgress();
@@ -258,29 +256,20 @@ export function createShipVideo(deps: {
       const remoteFile = remoteFilesByPath.get(
         remoteVideoPath(entry).toLowerCase()
       );
-      const plannedSource = plannedSourceOf(entry);
+      const plannedSource = remoteFile
+        ? plannedSourceOf(remoteFile)
+        : undefined;
 
       let receipt: { sha256: string; bytes: number };
-      let onDisk = yield* effectFs.exists(entry.localPath);
+      const onDisk = yield* effectFs.exists(entry.localPath);
 
       // The local file is the STRONGER witness, so it is always preferred
       // where it exists: it was produced from this Video's Clips, whereas the
       // plan can only report what Dropbox already holds. Adopting from the
       // plan is the fallback for the case that used to have no answer at all.
-      if (!onDisk && remoteFile && plannedSource) {
-        receipt = yield* adoptFromPlan(entry, remoteFile, plannedSource);
+      if (!onDisk && plannedSource) {
+        receipt = yield* adoptFromPlan(entry, plannedSource);
       } else {
-        // A Video the plan cancelled the encode for has arrived here with no
-        // file and nothing at its address, which means its copy did not
-        // happen — the source vanished, or the batch would not run. Nothing
-        // else will ever produce these bytes, so "fall back to upload" has to
-        // mean encoding it now. Without this the saving would turn a slow
-        // Publish into a failed one.
-        if (!onDisk && plannedSource && cancelledExports) {
-          yield* cancelledExports.restore(entry.videoId);
-          onDisk = yield* effectFs.exists(entry.localPath);
-        }
-
         if (!onDisk) {
           missingVideos.push({
             videoId: entry.videoId,
@@ -293,6 +282,15 @@ export function createShipVideo(deps: {
 
         const fileSize = Number((yield* effectFs.stat(entry.localPath)).size);
         videoByteSizes.set(entry.videoId, fileSize);
+
+        // Dropbox may already hold these exact bytes, in which case this
+        // Video's trip ends here: it is collected into the copy batch and
+        // completed when that batch lands. A Video already at its own address
+        // is not offered — it needs nothing at all, and is adopted below.
+        if (!remoteFile && (yield* offerToCopyBatch(entry))) {
+          return null;
+        }
+
         // This Video has a slot and a size: it is uploading, not queued. The
         // size rides along from the very first event so a consumer can weight
         // this Video against its siblings before a byte has moved.
