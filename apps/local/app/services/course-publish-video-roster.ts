@@ -100,10 +100,6 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
     id: string;
     title: string;
     durationSeconds: number;
-    // Carried out of the walk so a caller can ask the previously Published
-    // Bundle whether this Video is already there. One that can be copied
-    // inside Dropbox needs no encoding, so it needs no place in this queue.
-    exportHash: string;
   }> = [];
 
   for (const section of effectiveSections) {
@@ -131,7 +127,6 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
         unexportedVideos.push({
           ...entry,
           durationSeconds: clipsDurationSeconds(video.clips),
-          exportHash: hash,
         });
       }
     }

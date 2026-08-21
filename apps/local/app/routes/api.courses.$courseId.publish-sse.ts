@@ -22,7 +22,6 @@ const DETAIL_EVENT_WIRE_NAMES = {
   "upload-video-progress": "video-upload-progress",
   "upload-video-complete": "video-upload-complete",
   "upload-video-error": "video-upload-error",
-  "upload-videos-reused": "publish-videos-reused",
   "upload-video-reused": "video-reused",
 } satisfies Record<PublishDetailEvent["event"], string>;
 

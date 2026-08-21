@@ -55,15 +55,11 @@ export type PublishDetailEvent =
   | { event: "upload-video-complete"; data: { videoId: string; bytes: number } }
   | { event: "upload-video-error"; data: { videoId: string; message: string } }
   // ── Reuse from the previously Published Bundle ───────────────────────────
-  // The reuse plan, announced the moment it is known — before a frame is
-  // encoded or a byte moves. These Videos already exist on Dropbox and will be
-  // copied there server-side, so they never enter the byte-weighted
-  // denominator: counting bytes that never cross the wire would make the
-  // upload percentage meaningless.
-  | {
-      event: "upload-videos-reused";
-      data: { videos: Array<{ id: string; bytes: number }> };
-    }
+  // There is no upfront announcement of the reusable set. Which Videos Dropbox
+  // can copy from its own storage is decided by their BYTES, and a Video's
+  // bytes are not known until its own export has landed, so the set only
+  // exists one Video at a time (issue #1562).
+  //
   // One Video's copy has landed and its content hash matched its source. A
   // Video that fails to copy never reaches here — it emits an ordinary upload
   // task instead, because it has rejoined the upload queue.
