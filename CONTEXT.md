@@ -173,8 +173,12 @@ _Avoid_: Missing Opening Chapter (the former name), Missing opening section, No 
 ### Video export and hashing
 
 **Export Hash**:
-A SHA256 hash derived from a video's clip filenames, timestamps, clip order, long-pause flags, **Clip Zoom**, format, and the Export Version Key; determines whether a video needs re-export. It must name everything the renderer acts on — a clip property that changes the exported bytes but not the hash leaves a stale export addressable, and the Publish ships it.
-_Avoid_: Content hash, Video hash
+A SHA256 hash derived from a video's clip filenames, timestamps, clip order, long-pause flags, **Clip Zoom**, format, and the Export Version Key; determines whether a video needs re-export, names the **Exported Video** on disk, and addresses the **Bundle** (ADR 0023). It names what the renderer was asked to do, never what the renderer produced, so it must still name everything the renderer acts on: a clip property that changes the exported bytes but not the hash leaves a stale export addressable, and no **Publish** will re-render it. What such an export can no longer do is reach the site. The send is decided by the **Byte Hash**, so once the author Purges the stale file and re-exports it, the new bytes are uploaded rather than the old ones copied forward (ADR 0027).
+_Avoid_: Content hash (that is an encoding of the **Byte Hash**, not of this), Video hash, Byte Hash (the recipe and the result are different things)
+
+**Byte Hash**:
+The digest of an **Exported Video**'s actual bytes — the result, where the **Export Hash** is the recipe. It has two encodings, and both are written into the Export Digest sidecar that sits beside the export: a SHA256, which the published `manifest.json` owes the downstream consumer, and Dropbox's own block content hash, which is what a remote listing reports and is therefore what the comparison is made on. The Byte Hash decides whether a **Video** is sent: a Video whose local Byte Hash matches a file the previous **Bundle** already holds is copied inside Dropbox and nothing crosses the wire, and every other Video is uploaded from this machine. The reuse plan is one map keyed on the Byte Hash, so a Video can be copied from any identical file in the previous Bundle, not only from the one at its own Export Hash. The two hashes must not be merged: the Bundle address has to be knowable before any encoding begins, and a Byte Hash is knowable only after it (ADR 0027).
+_Avoid_: Content hash (only one of its two encodings), SHA256 (likewise), Export Hash (that addresses the file; this decides the send), File hash, Output hash
 
 **Exported Video**:
 A rendered `.mp4` file on disk named `{courseId}-{exportHash}.mp4` in the finished videos directory.
