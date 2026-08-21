@@ -29,7 +29,7 @@ import {
 import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
 import { createShipVideo, type VideoEntry } from "./course-publish-ship-video";
-import { loadExportDigest } from "./export-sha256-sidecar";
+import { ensureExportDigest } from "./export-sha256-sidecar";
 
 /**
  * The handoff for a sync with no export phase in front of it — the manual
@@ -236,7 +236,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     // The Byte Hash of the export on THIS machine. A Video that has been
     // re-exported hashes differently from the file the previous Bundle holds
     // at the same Export Hash, and so is not copyable.
-    const local = yield* loadExportDigest(effectFs, entry.localPath, null);
+    const local = yield* ensureExportDigest(effectFs, entry.localPath, null);
     if (!local) return false;
     const source = reusePlan.get(local.contentHash);
     if (!source) return false;

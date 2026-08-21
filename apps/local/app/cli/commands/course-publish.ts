@@ -151,14 +151,19 @@ VALIDATION
 FAILURE HANDLING
   Submit freezes the Draft as a Pending Version and clones a fresh Draft;
   Publish then exports any Unexported Video and the Dropbox Commit uploads it,
-  ending in the atomic course.json rename (the commit receipt). A failed export
-  auto-Discards the Pending Version and exits 3 with PublishValidationError. A
-  caught Commit failure likewise auto-Discards: a sync failure is retried once
-  in-flight first; missing asset files Discard immediately, naming the missing
-  videos. Either way the command exits 4 with PublishCommitFailedError — nothing
-  is lost, your edits are safe in the new Draft, so fix the cause and publish
-  again. The upload is content-addressed, so a re-publish re-uploads nothing that
-  already landed, and a Publish interrupted partway resumes rather than failing.
+  ending in the atomic course.json rename (the commit receipt). An export is
+  measured when it is made: a file more than a second shorter than its Clips ask
+  for is a truncated encode, so that export FAILS rather than shipping — and a
+  failed export auto-Discards the Pending Version and exits 3 with
+  PublishValidationError. A short file already sitting at the export address is
+  treated the same way: it is re-rendered rather than trusted, and only a second
+  short encode fails the Publish. A caught Commit failure likewise auto-Discards:
+  a sync failure is retried once in-flight first; missing asset files Discard
+  immediately, naming the missing videos. Either way the command exits 4 with
+  PublishCommitFailedError — nothing is lost, your edits are safe in the new
+  Draft, so fix the cause and publish again. The upload is content-addressed, so
+  a re-publish re-uploads nothing that already landed, and a Publish interrupted
+  partway resumes rather than failing.
 
   Edits racing a publish are safe: a write serializes with Submit and either
   lands before the freeze (carried into the new Draft) or is refused with

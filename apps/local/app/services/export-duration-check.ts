@@ -12,6 +12,7 @@
  */
 
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
+import type { PauseType } from "./video-processing-service";
 
 /**
  * A long Pause extends the Clip it belongs to by this much, added by the
@@ -33,12 +34,22 @@ export const LONG_PAUSE_DURATION_IN_SECONDS = 0.18;
  */
 export const EXPORT_DURATION_TOLERANCE_IN_SECONDS = 1;
 
-/** A Clip as the database holds it, before any padding is applied. */
+/**
+ * A Clip as the database holds it, before any padding is applied.
+ *
+ * `pauseType` is the raw column: a `varchar` that predates the enum and can
+ * hold anything. It is narrowed to a **Pause Type** exactly once, on the way
+ * into the export, by {@link paddedClipDurationsInSeconds}.
+ */
 export type SourceClipDuration = {
   sourceStartTime: number;
   sourceEndTime: number;
   pauseType: string | null;
 };
+
+/** The one value the renderer acts on; everything else renders as "none". */
+const toPauseType = (rawPauseType: string | null): PauseType =>
+  rawPauseType === "long" ? "long" : "none";
 
 /**
  * What each Clip asks the renderer for, in the order the renderer gets them:
@@ -55,14 +66,14 @@ export const paddedClipDurationsInSeconds = (
       clip.sourceEndTime -
       clip.sourceStartTime +
       (index === array.length - 1 ? FINAL_VIDEO_PADDING : 0),
-    pauseType: clip.pauseType || "none",
+    pauseType: toPauseType(clip.pauseType),
   }));
 
 /** A Clip as the export step describes it to the renderer. */
 export type ExportClipDuration = {
   /** Seconds of source, including the final-clip padding where it applies. */
   duration: number;
-  pauseType: string;
+  pauseType: PauseType;
 };
 
 /** The seconds one Clip contributes to the output, long Pause included. */

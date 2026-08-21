@@ -1,7 +1,10 @@
 import { Effect, Layer } from "effect";
 import fs from "node:fs";
 import path from "node:path";
-import { VideoProcessingService } from "@/services/video-processing-service";
+import {
+  VideoProcessingService,
+  type PauseType,
+} from "@/services/video-processing-service";
 import { expectedExportDurationInSeconds } from "@/services/export-duration-check";
 
 /**
@@ -13,7 +16,7 @@ import { expectedExportDurationInSeconds } from "@/services/export-duration-chec
  * this, so that the truncation check stays invisible to it.
  */
 export const honestRenderedDurationInSeconds = (exportOpts: {
-  clips?: ReadonlyArray<{ duration: number; pauseType?: string }>;
+  clips?: ReadonlyArray<{ duration: number; pauseType?: PauseType }>;
 }): number =>
   expectedExportDurationInSeconds(
     (exportOpts.clips ?? []).map((clip) => ({
@@ -108,7 +111,7 @@ export const createControllableVideoProcessing = (opts: {
   const layer = Layer.succeed(VideoProcessingService, {
     exportVideoClips: (exportOpts: {
       videoId: string;
-      clips?: ReadonlyArray<{ duration: number; pauseType?: string }>;
+      clips?: ReadonlyArray<{ duration: number; pauseType?: PauseType }>;
     }) =>
       Effect.promise(async () => {
         const { videoId } = exportOpts;

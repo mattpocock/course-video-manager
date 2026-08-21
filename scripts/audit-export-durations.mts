@@ -13,40 +13,42 @@
  *   cd apps/local
  *   DATABASE_URL=... npx tsx ../../scripts/audit-export-durations.mts <courseId>
  *
- * It runs from `apps/local` because that is where `pg` is installed.
+ * It runs from `apps/local` because that is where `pg` is installed, and
+ * because the `@/` alias in the modules below resolves against that tsconfig.
+ *
+ * The export address and the expected duration are IMPORTED, never restated
+ * here. This script's whole worth is that it agrees with the Publish about
+ * which file a Video lives in and how long that file should play for; a second
+ * copy of either rule would drift and start reporting fiction.
  */
 import { Client } from "pg";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import {
+  computeExportHash,
+  resolveExportPath,
+} from "../apps/local/app/services/export-hash.js";
+import {
+  expectedExportDurationInSeconds,
+  paddedClipDurationsInSeconds,
+} from "../apps/local/app/services/export-duration-check.js";
 
 const FINISHED =
   process.env.FINISHED_VIDEOS_DIRECTORY ?? "/mnt/d/finished-videos";
 const COURSE = process.argv[2]!;
-const EXPORT_VERSION = 1;
-const LONG_PAUSE_DURATION = 0.18;
-const FINAL_VIDEO_PADDING = 0.5 - 0.08;
 
-const hashOf = (clips: any[], format: string | null) => {
-  if (clips.length === 0) return null;
-  const payload = {
-    v: EXPORT_VERSION,
-    fmt: format === "short" ? "short" : "landscape",
-    clips: clips.map((c) => ({
-      f: c.video_filename,
-      s: c.source_start_time,
-      e: c.source_end_time,
-      ...(c.pause_type === "long" ? { p: "long" } : {}),
-      ...(c.zoom_type && c.zoom_type !== "none" ? { z: c.zoom_type } : {}),
+const hashOf = (clips: any[], format: string | null) =>
+  computeExportHash(
+    clips.map((c) => ({
+      videoFilename: c.video_filename,
+      sourceStartTime: c.source_start_time,
+      sourceEndTime: c.source_end_time,
+      pauseType: c.pause_type,
+      zoomType: c.zoom_type,
     })),
-  };
-  return crypto
-    .createHash("sha256")
-    .update(JSON.stringify(payload))
-    .digest("hex")
-    .slice(0, 32);
-};
+    format
+  );
 
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 await client.connect();
@@ -100,17 +102,18 @@ for (const [videoId, clips] of byVideo) {
   const hash = hashOf(clips, m.format);
   if (!hash || seen.has(hash)) continue;
   seen.add(hash);
-  const file = path.join(FINISHED, `${COURSE}-${hash}.mp4`);
+  const file = resolveExportPath(FINISHED, COURSE, hash);
   if (!fs.existsSync(file)) continue;
   checked++;
-  const expected =
-    clips.reduce(
-      (sum, c) =>
-        sum +
-        (c.source_end_time - c.source_start_time) +
-        (c.pause_type === "long" ? LONG_PAUSE_DURATION : 0),
-      0
-    ) + FINAL_VIDEO_PADDING;
+  const expected = expectedExportDurationInSeconds(
+    paddedClipDurationsInSeconds(
+      clips.map((c) => ({
+        sourceStartTime: c.source_start_time,
+        sourceEndTime: c.source_end_time,
+        pauseType: c.pause_type,
+      }))
+    )
+  );
   const actual = probe(file);
   const drift = actual - expected;
   if (Math.abs(drift) > 1) {
