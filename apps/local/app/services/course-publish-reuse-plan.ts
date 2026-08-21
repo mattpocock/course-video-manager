@@ -3,11 +3,15 @@ import { download, listFolder } from "./dropbox-http-client";
 
 /**
  * A file in the previously Published Bundle that a Video of THIS Publish can
- * take verbatim, because both were produced from the same Export Hash.
+ * take verbatim, because Dropbox already holds exactly its bytes.
  *
- * `sha256` and `bytes` are owed to the new manifest and come straight out of
- * the old one, so a reused Video costs no local read at all. `contentHash` is
- * what the copy is checked against once Dropbox reports it back.
+ * `contentHash` is the file's Byte Hash as Dropbox reports it, and is both the
+ * key the plan is indexed by and what the copy is checked against once Dropbox
+ * reports it back. `sha256` and `bytes` come out of the previous manifest and
+ * are owed to the new one ONLY on the fallback path below — a Video whose
+ * bytes this machine no longer holds. Everywhere else the manifest's SHA256
+ * comes from the local Export Digest, so that the receipt describes the bytes
+ * actually shipped rather than the bytes some earlier release shipped.
  */
 export type ReusableSource = {
   /** Full Dropbox path of the file inside the previous Bundle. */
@@ -19,10 +23,33 @@ export type ReusableSource = {
   bytes: number;
 };
 
-/** Keyed by Export Hash — the only key that identifies a Video's bytes. */
-export type ReusePlan = ReadonlyMap<string, ReusableSource>;
+/**
+ * What the previous Bundle can hand this one, indexed two ways.
+ *
+ * `byContentHash` is the real one. A Video is copyable when the Byte Hash of
+ * the export on THIS machine matches a file Dropbox already holds — which is
+ * the only comparison that can tell a re-export apart from an unchanged one,
+ * because the Export Hash names what the renderer was asked to do and says
+ * nothing about what it produced. Indexing by bytes also means a Video can be
+ * copied from ANY identical file in the previous Bundle, not only from the one
+ * at its own Export Hash.
+ *
+ * `byExportHash` is the fallback for a Video with no export on disk at all:
+ * with no local bytes to hash there is nothing to compare, so the recipe is
+ * all that is left to go on. It is the last place the Export Hash decides what
+ * Dropbox receives.
+ */
+export type ReusePlan = {
+  /** Byte Hash → the file in the previous Bundle carrying those bytes. */
+  readonly byContentHash: ReadonlyMap<string, ReusableSource>;
+  /** Export Hash → source, for a Video this machine cannot hash. */
+  readonly byExportHash: ReadonlyMap<string, ReusableSource>;
+};
 
-export const EMPTY_REUSE_PLAN: ReusePlan = new Map();
+export const EMPTY_REUSE_PLAN: ReusePlan = {
+  byContentHash: new Map(),
+  byExportHash: new Map(),
+};
 
 /**
  * The manifest is walked structurally rather than decoded against the Schema.
@@ -96,8 +123,9 @@ const bundleDirOf = (relativePath: string): string | null => {
  * with every release ever made, for a hit rate that barely moves.
  *
  * TWO reads, because they carry different halves of the answer. The manifest
- * knows each file's Export Hash and SHA256; only a listing knows its Dropbox
- * content hash, which is what the copy is later verified against.
+ * knows which files the previous Bundle holds and where; only a listing knows
+ * each file's Byte Hash, which is both what this plan is indexed by and what
+ * the copy is later verified against.
  *
  * This NEVER fails. An absent receipt, an unparseable manifest, a Bundle that
  * Course Builder has already archived past its 90-day TTL — each simply yields
@@ -142,11 +170,9 @@ export const planBundleReuse = Effect.fn("planBundleReuse")(function* (input: {
     });
   }
 
-  const plan = new Map<string, ReusableSource>();
+  const byContentHash = new Map<string, ReusableSource>();
+  const byExportHash = new Map<string, ReusableSource>();
   for (const video of manifestVideos) {
-    // Two Videos can share an Export Hash — same Clips, same Video Format.
-    // Either copy serves, because the bytes are identical by construction.
-    if (plan.has(video.hash)) continue;
     const fromPath = `${input.dropboxCourseDir}/${video.relativePath}`;
     const remote = contentHashByPath.get(fromPath.toLowerCase());
     // Listed but gone, or never listed: the manifest promised a file that is
@@ -155,13 +181,18 @@ export const planBundleReuse = Effect.fn("planBundleReuse")(function* (input: {
     // The manifest and the listing must agree about the file before it is
     // worth copying. Disagreement means the Bundle was tampered with.
     if (remote.size !== video.bytes) continue;
-    plan.set(video.hash, {
+    const source: ReusableSource = {
       fromPath,
       contentHash: remote.hash,
       sha256: video.sha256,
       bytes: video.bytes,
-    });
+    };
+    // Several files can carry one Byte Hash, and several Videos one Export
+    // Hash. Any copy serves in either case, because the bytes are the same
+    // bytes — so the first entry wins and the rest are redundant.
+    if (!byContentHash.has(remote.hash)) byContentHash.set(remote.hash, source);
+    if (!byExportHash.has(video.hash)) byExportHash.set(video.hash, source);
   }
 
-  return plan as ReusePlan;
+  return { byContentHash, byExportHash } satisfies ReusePlan;
 });
