@@ -122,14 +122,34 @@ export const computeExportDigest = (
 export const ensureExportDigest = (
   fs: FileSystem.FileSystem,
   exportPath: string
-): Effect.Effect<void> =>
+): Effect.Effect<void> => loadExportDigest(fs, exportPath).pipe(Effect.asVoid);
+
+/**
+ * The digest of the export on disk, or `null` if this machine has no usable
+ * one — no file at that path, or a file it cannot read.
+ *
+ * This is `ensureExportDigest` with its answer kept rather than thrown away,
+ * and it is what lets a Publish decide by BYTES. A Video's Byte Hash is the
+ * only thing that can say whether the file this machine holds is the file
+ * Dropbox already has, and the sidecar is where that hash lives.
+ *
+ * `null` therefore means "this machine cannot vouch for any bytes", never
+ * "the bytes are different" — the caller falls back rather than concluding.
+ */
+export const loadExportDigest = (
+  fs: FileSystem.FileSystem,
+  exportPath: string
+): Effect.Effect<ExportDigest | null> =>
   Effect.gen(function* () {
     const size = Number((yield* fs.stat(exportPath)).size);
     const cached = yield* readExportDigest(fs, exportPath, size);
-    if (cached) return;
+    if (cached) return cached;
+    // A sidecar that is missing, torn, or disagrees with the file on disk is
+    // an absent one. Replacing it costs one read, once.
     const digest = yield* computeExportDigest(fs, exportPath);
     yield* writeExportDigest(fs, exportPath, digest);
-  }).pipe(Effect.ignore);
+    return digest;
+  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
 /**
  * Best-effort: a sidecar that cannot be written costs the next Publish a

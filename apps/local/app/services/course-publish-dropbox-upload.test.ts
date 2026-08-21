@@ -580,11 +580,22 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
     expect(copyBatchCount()).toBe(1);
   }, 30_000);
 
-  it("takes the manifest's sha256 and bytes from the previous manifest, reading no file", async () => {
-    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+  it("takes the manifest's sha256 from the local export, not from the previous manifest", async () => {
+    const { course, videos, run, sync } = await setupUploads({ videoCount: 2 });
 
     await sync();
-    const firstManifestVideos = manifestVideos(receiptManifest());
+
+    // Poison every digest in the previous Commit receipt. A copy is still
+    // made — the plan matches on Dropbox's own content hash, which the
+    // listing reports and the manifest cannot lie about — but any code that
+    // carried the old manifest's SHA256 forward now writes a digest that
+    // describes no file at all.
+    const receiptPath = `${DROPBOX_REMOTE_PATH}/test-course/course.json`;
+    const poisoned = receiptManifest();
+    for (const video of manifestVideos(poisoned)) {
+      video.sha256 = "0".repeat(64);
+    }
+    fakeDropbox.store(receiptPath, Buffer.from(JSON.stringify(poisoned)));
 
     const secondVersionId = await freezeLatestVersion(course, run);
     await run(
@@ -598,17 +609,21 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
       })
     );
 
-    const secondManifestVideos = manifestVideos(receiptManifest());
-    const digestOf = (videos: any[]) =>
-      videos
-        .map((video) => `${video.hash}:${video.sha256}:${video.bytes}`)
-        .sort();
-
-    // Same recipe, same bytes, same numbers — carried across releases rather
-    // than re-derived from a local read.
-    expect(digestOf(secondManifestVideos)).toEqual(
-      digestOf(firstManifestVideos)
-    );
+    // Nothing crossed the wire, and the receipt still describes the bytes on
+    // this machine — the Byte Hash decided the copy, the local export decided
+    // the digest.
+    expect(copyBatchCount()).toBe(1);
+    const expected = videos
+      .map((video) => {
+        const bytes = fs.readFileSync(video.exportPath);
+        return `${createHash("sha256").update(bytes).digest("hex")}:${bytes.length}`;
+      })
+      .sort();
+    expect(
+      manifestVideos(receiptManifest())
+        .map((video) => `${video.sha256}:${video.bytes}`)
+        .sort()
+    ).toEqual(expected);
   }, 30_000);
 
   it("uploads after all when the previous Bundle's file has gone", async () => {

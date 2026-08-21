@@ -30,6 +30,7 @@ import {
 import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
 import { createShipVideo, type VideoEntry } from "./course-publish-ship-video";
+import { loadExportDigest } from "./export-sha256-sidecar";
 
 /**
  * The handoff for a sync with no export phase in front of it — the manual
@@ -221,30 +222,76 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
 
   // ── The reuse plan ────────────────────────────────────────────────────────
   // What the previously Published Bundle can hand this one for free. Videos
-  // matched here are copied inside Dropbox rather than sent from this machine.
+  // matched here are copied inside Dropbox rather than sent from this machine
+  // — matched by BYTE HASH, so a re-export is never mistaken for the file it
+  // replaces.
   const reusePlan =
     input.cancelledExports?.plan ??
     (yield* planBundleReuse({ accessToken, dropboxCourseDir }));
 
-  /** A Video's source in the previous Bundle, if the plan found one. */
+  /**
+   * A Video's source in the previous Bundle for a Video this machine cannot
+   * hash — no export on disk, so no Byte Hash, so nothing to compare but the
+   * recipe. Also what `shipVideo` adopts from when a Video is already at this
+   * Publish's address with its export since collected.
+   *
+   * A Video with no Clips has no Export Hash and no file anywhere. Nothing
+   * identifies its bytes, so nothing can be reused for it.
+   */
   const plannedSourceOf = (entry: VideoEntry): ReusableSource | undefined =>
-    // A Video with no Clips has no Export Hash and no file anywhere. Nothing
-    // identifies its bytes, so nothing can be reused for it.
-    entry.exportHash ? reusePlan.get(entry.exportHash) : undefined;
+    entry.exportHash ? reusePlan.byExportHash.get(entry.exportHash) : undefined;
 
+  /**
+   * Which Videos Dropbox can produce from its own storage, and the numbers the
+   * new manifest is owed for each.
+   *
+   * The receipt is deliberately separate from the source. The source says
+   * WHERE to copy from; the receipt says WHICH BYTES the release carries, and
+   * wherever this machine holds the export that answer comes from the local
+   * Export Digest rather than from the previous manifest. That is what makes a
+   * re-export reach Dropbox: the bytes on disk decide, and the receipt then
+   * describes the bytes actually shipped.
+   */
   const reusableByVideoId = new Map<
     string,
-    { entry: VideoEntry; source: ReusableSource }
+    {
+      entry: VideoEntry;
+      source: ReusableSource;
+      receipt: { sha256: string; bytes: number };
+    }
   >();
   for (const entry of videoEntries) {
-    const source = plannedSourceOf(entry);
-    if (!source) continue;
     // Precedence: a file already at this Publish's own address needs nothing
     // at all, so the resume listing wins over the plan. It is adopted in
-    // `shipVideo` instead — from the plan's own numbers, which is what lets a
-    // resumed Publish adopt a Video whose export has since been collected.
+    // `shipVideo` instead — against local bytes where they exist, which is
+    // what keeps the immutability check honest.
     if (remoteFilesByPath.has(remoteVideoPath(entry).toLowerCase())) continue;
-    reusableByVideoId.set(entry.videoId, { entry, source });
+
+    // The Byte Hash of the export on THIS machine, if it holds one. A Video
+    // that has been re-exported hashes differently from the file the previous
+    // Bundle holds at the same Export Hash, and so is not copyable.
+    const local = yield* loadExportDigest(effectFs, entry.localPath);
+    if (local) {
+      const source = reusePlan.byContentHash.get(local.contentHash);
+      if (!source) continue;
+      reusableByVideoId.set(entry.videoId, {
+        entry,
+        source,
+        receipt: { sha256: local.sha256, bytes: local.bytes },
+      });
+      continue;
+    }
+
+    // No local bytes to hash — the export was collected, or its encode was
+    // cancelled on the strength of this plan. The Export Hash is all that is
+    // left, and the previous manifest is the only source of the SHA256.
+    const source = plannedSourceOf(entry);
+    if (!source) continue;
+    reusableByVideoId.set(entry.videoId, {
+      entry,
+      source,
+      receipt: { sha256: source.sha256, bytes: source.bytes },
+    });
   }
 
   // Everything the upload pool is still responsible for. A reused Video is not
@@ -261,7 +308,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
       event: "upload-videos-reused",
       data: {
         videos: Array.from(reusableByVideoId.values()).map(
-          ({ entry, source }) => ({ id: entry.videoId, bytes: source.bytes })
+          ({ entry, receipt }) => ({ id: entry.videoId, bytes: receipt.bytes })
         ),
       },
     });
@@ -352,6 +399,10 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
    * between the plan and the copy is ordinary and falls back quietly; a copy
    * whose content hash does not match its source is an identity failure and
    * fails the Publish, exactly as a mismatched adoption does.
+   *
+   * The manifest receipt for each copy was settled when the plan was drawn,
+   * from the local Export Digest wherever this machine holds the export. The
+   * previous Bundle's SHA256 is never copied forward on that path.
    */
   const copyPhase = Effect.fn("copyReusedVideos")(function* () {
     const shipments = Array.from(reusableByVideoId.values());
@@ -382,15 +433,12 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
           message: `Copy verification failed for video ${shipment.entry.videoId}: content_hash mismatch`,
         });
       }
-      copyReceipts.set(shipment.entry.videoId, {
-        sha256: shipment.source.sha256,
-        bytes: shipment.source.bytes,
-      });
+      copyReceipts.set(shipment.entry.videoId, shipment.receipt);
       input.onDetailEvent?.({
         event: "upload-video-reused",
         data: {
           videoId: shipment.entry.videoId,
-          bytes: shipment.source.bytes,
+          bytes: shipment.receipt.bytes,
         },
       });
     }

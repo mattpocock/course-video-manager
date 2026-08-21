@@ -395,8 +395,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // export queue. This is the case that hurts most today: a re-Publish
         // after the garbage collector has reclaimed an export currently
         // re-encodes the whole Video only to upload bytes Dropbox already had.
+        //
+        // These are Unexported Videos, so this machine has no bytes to hash
+        // for them and the Export Hash is the only key available. A Video that
+        // IS on disk is decided by its Byte Hash instead, once the sync has
+        // read its Export Digest.
         const unexportedVideos = rosterUnexportedVideos.filter(
-          (video) => !reusePlan.has(video.exportHash)
+          (video) => !reusePlan.byExportHash.has(video.exportHash)
         );
 
         // Announce the whole roster before either pool starts, so every Video
