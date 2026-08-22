@@ -116,7 +116,7 @@ A raw source video FILE on disk (an OBS capture, a screen recording) before it i
 _Avoid_: Raw footage (informal prose ok), Source video
 
 **Effect Clip**:
-A special clip for non-speech content (white noise, transitions) manually inserted into the timeline.
+A special clip for non-speech content (white noise, transitions) manually inserted into the timeline. Superseded by **Transition**, which anchors to a boundary between two Clips instead of occupying a fake Clip slot of its own; retained here until that migration ships.
 _Avoid_: Filler, Spacer
 
 **Chapter**:
@@ -207,8 +207,8 @@ A clip-level marker (`none`/`long`) that inserts a short held pause after a **Cl
 _Avoid_: Beat (former `beatType`), Silence Length, Gap, Hold
 
 **Clip Zoom**:
-A clip-level marker (`none`/`subtle`) that renders a **Clip** at 115% of frame — cropped centrally in x, biased above centre in y — so that a run of face-only camera clips has some visual change across its cuts. Legal only where the Clip's recorded `scene` is a camera scene (`Camera` or `TikTok Face`); every other scene, and a Clip with no recorded scene at all, is refused. An enum, not a boolean, so it can gain more levels later — the 115% itself is a constant in one file, deliberately not encoded in the value names, so retuning the shot is not a migration. One shared rect (`packages/core/features/videos/clip-zoom.ts`), expressed as fractions of the frame rather than pixels, is formatted into both the editor preview's CSS transform and the export's ffmpeg `crop`, which is what makes the preview honest about what the **Publish** will ship. The crop is applied before the normalising `scale`, so a source larger than the output frame spends surplus resolution rather than upscaling. Part of the **Export Hash**, emitted only when not `none`. Set per clip in the editor or with `cvm clip update --zoom`.
-_Avoid_: Punch-in, Ken Burns (implies an animated move; this one is static), Scale, Crop
+A clip-level marker (`none`/`subtle`) that renders a **Clip** at 115% of frame — cropped centrally in x, biased above centre in y — so that a run of face-only camera clips has some visual change across its cuts. Legal only where the Clip's recorded `scene` is a camera scene (`Camera` or `TikTok Face`); every other scene, and a Clip with no recorded scene at all, is refused. An enum, not a boolean, so it can gain more levels later — the 115% itself is a constant in one file, deliberately not encoded in the value names, so retuning the shot is not a migration. One shared rect (`packages/core/features/videos/clip-zoom.ts`), expressed as fractions of the frame rather than pixels, is formatted into both the editor preview's CSS transform and the export's ffmpeg `crop`, which is what makes the preview honest about what the **Publish** will ship. The crop is applied before the normalising `scale`, so a source larger than the output frame spends surplus resolution rather than upscaling. Part of the **Export Hash**, emitted only when not `none`. Set per clip in the editor or with `cvm clip update --zoom`. Superseded by **Transform**, which generalizes this same fractional-rect approach to an animated move that can span across Clips; retained here until that migration ships.
+_Avoid_: Punch-in, Ken Burns (implies an animated move; this one is static — reserved as an informal synonym for **Transform** instead), Scale, Crop
 
 **Insertion Point**:
 The position in a video timeline where new clips or chapters will be added (start, after-clip, after-chapter, end).
@@ -221,12 +221,20 @@ _Avoid_: Caption, Subtitle
 ### Overlays and transitions
 
 **Overlay**:
-A rendered visual layer composited on top of a Video's footage. Anchored by a start point within a specific **Clip** — so trimming or reordering earlier Clips carries the Overlay's start along with them — but its duration is independent of that Clip's own length: an Overlay commonly runs past the end of its anchor Clip and on across however many further Clips it takes to fill its length, truncated to the Video's own end if it would otherwise run past the last Clip. Distinct from **Clip Zoom**, which transforms a single Clip's own frame and never spans across Clips, and from a **Transition**, which replaces footage at a cut rather than sitting on top of it. At most one Overlay is ever visible at a given moment across the whole Video — no tracks, no simultaneous layering — so Overlays are sequential across the Video's timeline as a whole, not merely within one Clip.
+A rendered visual layer composited on top of a Video's footage. Anchored by a start point within a specific **Clip** — so trimming or reordering earlier Clips carries the Overlay's start along with them — but its duration is independent of that Clip's own length: an Overlay commonly runs past the end of its anchor Clip and on across however many further Clips it takes to fill its length, truncated to the Video's own end if it would otherwise run past the last Clip. Distinct from a **Transition**, which replaces footage at a cut rather than sitting on top of it. May carry a **Transform**, its own visible content, or both — a plain camera move with nothing on top is just an Overlay with no content. At most one Overlay is ever visible at a given moment across the whole Video — no tracks, no simultaneous layering — so Overlays are sequential across the Video's timeline as a whole, not merely within one Clip.
 _Avoid_: Layer, Track, Effect
 
 **Overlay Template**:
-A named, reusable Overlay (or small group of them) that an agent picks from and applies to a run of Clips, rather than designing one from scratch each time.
+A named, reusable Overlay (or small group of them) that an agent picks from and applies to a run of Clips, rather than designing one from scratch each time. Owns its own **Transform**, if any — applying a Template is what gives an Overlay its Transform.
 _Avoid_: Treatment, Preset, Style
+
+**Transition**:
+A rendered effect anchored to the boundary between two adjacent **Clips**, replacing footage at the cut rather than compositing on top of existing footage like an **Overlay** does. Supersedes the transition-styling use of **Effect Clip**.
+_Avoid_: Effect Clip (see that entry), Bumper, Wipe (a specific Transition style, not the category)
+
+**Transform**:
+An Overlay Template's pan/zoom move on the underlying footage — an ordered sequence of framing keyframes (fractions of frame, following **Clip Zoom**'s convention, not pixels), interpolated in order across the owning **Overlay**'s duration. Independent of whatever content the Overlay carries, if any: a Transform can move the frame with nothing on top, or ride alongside a Card or Diagram to make room for it. Rendered by ffmpeg as a crop/pan filter across the Overlay's span — never by re-encoding footage through Remotion, which is reserved for compositing an Overlay's own visible content. Supersedes **Clip Zoom**, which expressed only a single static crop and could not span across Clips.
+_Avoid_: Framing, Clip Zoom (see that entry), Ken Burns, Pan
 
 ### Pitches
 
