@@ -220,6 +220,8 @@ _Avoid_: Caption, Subtitle
 
 ### Overlays and transitions
 
+_Not yet implemented._ This section is a design in progress, worked out ahead of any code — `Overlay`, `Overlay Template`, `Transition`, and `Transform` describe the intended replacement for today's `Effect Clip` and `Clip Zoom`, not something `cvm` or the editor currently exposes. Treat every term below as proposed until this note is removed.
+
 **Overlay**:
 A rendered visual layer composited on top of a Video's footage. Anchored by a start point within a specific **Clip** — so trimming or reordering earlier Clips carries the Overlay's start along with them — but its duration is independent of that Clip's own length: an Overlay commonly runs past the end of its anchor Clip and on across however many further Clips it takes to fill its length, truncated to the Video's own end if it would otherwise run past the last Clip. Distinct from a **Transition**, which replaces footage at a cut rather than sitting on top of it. May carry a **Transform**, its own visible content, or both — a plain camera move with nothing on top is just an Overlay with no content. At most one Overlay is ever visible at a given moment across the whole Video — no tracks, no simultaneous layering — so Overlays are sequential across the Video's timeline as a whole, not merely within one Clip.
 _Avoid_: Layer, Track, Effect
