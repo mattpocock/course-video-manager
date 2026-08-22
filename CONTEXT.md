@@ -221,8 +221,12 @@ _Avoid_: Caption, Subtitle
 ### Overlays and transitions
 
 **Overlay**:
-A rendered visual layer composited on top of a single **Clip**'s footage, carrying its own start time and duration within that Clip's span. Distinct from **Clip Zoom**, which transforms the Clip's own frame rather than adding a layer on top of it, and distinct from a **Transition**, which replaces footage at a cut rather than sitting on top of it. A Clip may hold several Overlays end to end, but never two at once — there are no tracks, so Overlays on a Clip are strictly sequential, not layered on each other. Dragging an Overlay can retime it within its Clip or hand it to a different Clip.
+A rendered visual layer composited on top of a Video's footage. Anchored by a start point within a specific **Clip** — so trimming or reordering earlier Clips carries the Overlay's start along with them — but its duration is independent of that Clip's own length: an Overlay commonly runs past the end of its anchor Clip and on across however many further Clips it takes to fill its length, truncated to the Video's own end if it would otherwise run past the last Clip. Distinct from **Clip Zoom**, which transforms a single Clip's own frame and never spans across Clips, and from a **Transition**, which replaces footage at a cut rather than sitting on top of it. At most one Overlay is ever visible at a given moment across the whole Video — no tracks, no simultaneous layering — so Overlays are sequential across the Video's timeline as a whole, not merely within one Clip.
 _Avoid_: Layer, Track, Effect
+
+**Overlay Template**:
+A named, reusable Overlay (or small group of them) that an agent picks from and applies to a run of Clips, rather than designing one from scratch each time.
+_Avoid_: Treatment, Preset, Style
 
 ### Pitches
 
