@@ -218,6 +218,12 @@ _Avoid_: Cursor, Drop target
 The process of populating a clip's `text` field from its audio, tracked by `transcribedAt`.
 _Avoid_: Caption, Subtitle
 
+### Overlays and transitions
+
+**Overlay**:
+A rendered visual layer composited on top of a single **Clip**'s footage, carrying its own start time and duration within that Clip's span. Distinct from **Clip Zoom**, which transforms the Clip's own frame rather than adding a layer on top of it, and distinct from a **Transition**, which replaces footage at a cut rather than sitting on top of it. A Clip may hold several Overlays end to end, but never two at once — there are no tracks, so Overlays on a Clip are strictly sequential, not layered on each other. Dragging an Overlay can retime it within its Clip or hand it to a different Clip.
+_Avoid_: Layer, Track, Effect
+
 ### Pitches
 
 **Pitch**:
