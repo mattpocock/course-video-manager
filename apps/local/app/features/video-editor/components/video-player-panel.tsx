@@ -14,6 +14,7 @@ import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writ
 import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
 import { VideoPlayerLinksTab } from "./video-player-links-tab";
 import { PreloadableClipManager } from "../preloadable-clip";
+import { toOverlaySpillClips } from "../overlay-spill";
 import {
   getLastTranscribedClipId as getLastTranscribedClipIdSelector,
   getChapters as getChaptersSelector,
@@ -105,6 +106,10 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.overlays
   );
+  // The whole Video, measured — an Overlay may outlive its anchor Clip and
+  // keep showing over the Clips that follow, including Clips the player has
+  // not preloaded yet and so does not pass to the manager below.
+  const timelineClips = useMemo(() => toOverlaySpillClips(clips), [clips]);
   const insertionPoint = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.insertionPoint
@@ -425,6 +430,7 @@ export const VideoPlayerPanel = () => {
                   playbackRate={playbackRate}
                   scrubSeekTime={scrubSeekTime}
                   overlays={overlays}
+                  timelineClips={timelineClips}
                 />
               </div>
             </>

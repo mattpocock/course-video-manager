@@ -12,6 +12,11 @@ import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
  * `packages/core/services/db-overlay-operations.server.ts`), shaped for the
  * client. `at`/`durationInSeconds` are already Clip-relative — this is a
  * client-side echo of the DB row, not a new coordinate system.
+ *
+ * One exception: `groupOverlaysByClip` hands a Clip that an Overlay SPILLS
+ * onto a copy of that Overlay whose `at` is negative, meaning "this card
+ * started that many seconds before this Clip did". `clipId` still names the
+ * anchor Clip, and `durationInSeconds` is still the card's own full length.
  */
 export type ClipOverlay = {
   id: string;
@@ -43,8 +48,10 @@ const DEFINITION_CARD_FPS = 60;
 
 /**
  * The frame of `overlay`'s own card timeline that `currentTime` names, clamped
- * into the card's own duration. `currentTime` and `at` are both Clip-relative,
- * so the difference between them is the card's own elapsed time.
+ * into the card's own duration. `currentTime` and `at` are both relative to
+ * the same Clip, so the difference between them is the card's own elapsed
+ * time — including when `at` is negative because the card began on an earlier
+ * Clip, which simply makes that difference larger.
  */
 const overlayFrameAt = (overlay: ClipOverlay, currentTime: number) =>
   Math.max(
@@ -55,13 +62,26 @@ const overlayFrameAt = (overlay: ClipOverlay, currentTime: number) =>
     )
   );
 
-/** The Overlay active at `currentTime`, or `undefined` if none is. */
-const findActiveOverlay = (overlays: ClipOverlay[], currentTime: number) =>
-  overlays.find(
-    (overlay) =>
+/**
+ * The Overlay active at `currentTime`, or `undefined` if none is.
+ *
+ * Searched from the end, so that where two Overlays overlap — a card spilling
+ * off an earlier Clip and a card anchored to this one — the later of the two
+ * wins. That is the one the export draws on top: `compositeOverlaysOntoExport`
+ * chains the cards in timeline order, so each composites over the one before.
+ */
+const findActiveOverlay = (overlays: ClipOverlay[], currentTime: number) => {
+  for (let index = overlays.length - 1; index >= 0; index--) {
+    const overlay = overlays[index]!;
+    if (
       currentTime >= overlay.at &&
       currentTime < overlay.at + overlay.durationInSeconds
-  );
+    ) {
+      return overlay;
+    }
+  }
+  return undefined;
+};
 
 /**
  * The overlay preview for one Clip: at most one Definition Card, rendered by
@@ -70,9 +90,13 @@ const findActiveOverlay = (overlays: ClipOverlay[], currentTime: number) =>
  * top and keeps its own playback untouched).
  *
  * Read-only — there is no in-UI authoring here, only a preview of what `cvm
- * overlay` has already created. If more than one Overlay somehow overlaps at
- * `currentTime` (not something `cvm overlay` guards against today), the first
- * one found wins; that is a rare edge case not worth solving elegantly.
+ * overlay` has already created. At most one card is drawn at a time: where two
+ * overlap, the later one wins (see `findActiveOverlay`), which is the one the
+ * export puts on top but is not the two-card stack the export would show.
+ *
+ * `overlays` is not only the Overlays anchored to this Clip — it is every
+ * Overlay this Clip must DRAW, which `groupOverlaysByClip` widens to include
+ * cards that started on an earlier Clip and are still running.
  *
  * The `<Player>` never plays on its own clock. It is held paused and seeked to
  * the frame `currentTime` names, so the card is a pure function of the Clip's

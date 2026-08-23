@@ -7,6 +7,7 @@ import { StudioActionsDropdown } from "./studio-actions-dropdown";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
 import type { ClipOverlay } from "../overlay-preview";
+import type { OverlaySpillClip } from "../overlay-spill";
 import {
   getIsOBSActive as getIsOBSActiveSelector,
   getShowCenterLine as getShowCenterLineSelector,
@@ -247,6 +248,7 @@ export const PortraitStudioPanel = () => {
                 // `DEFINITION_CARD_FRAME` in `overlay-render-cache.ts`); the
                 // Shorts studio has no overlay preview of its own yet.
                 overlays={NO_OVERLAYS}
+                timelineClips={NO_TIMELINE_CLIPS}
               />
             </div>
 
@@ -338,3 +340,6 @@ export const PortraitStudioPanel = () => {
 
 /** A stable empty array — the Shorts studio has no overlay preview yet. */
 const NO_OVERLAYS: ClipOverlay[] = [];
+
+/** Nothing to measure, because there is nothing to spill (see `NO_OVERLAYS`). */
+const NO_TIMELINE_CLIPS: OverlaySpillClip[] = [];

@@ -10,6 +10,7 @@ import {
 import { useAudioBoost } from "./use-audio-boost";
 import type { RunningState } from "./video-state-reducer";
 import { OverlayPreview, type ClipOverlay } from "./overlay-preview";
+import { groupOverlaysByClip, type OverlaySpillClip } from "./overlay-spill";
 
 const PRELOAD_PLAY_AMOUNT = 0.1;
 
@@ -24,7 +25,11 @@ export const PreloadableClip = (props: {
   onUpdateCurrentTime: (time: number) => void;
   profile: string | undefined;
   scrubSeekTime: number | undefined;
-  /** This Clip's own Overlays only — already filtered by `clip_id` upstream. */
+  /**
+   * Every Overlay this Clip must draw — already selected upstream. Not the
+   * same as the Overlays anchored to it: a card anchored to an earlier Clip
+   * that is still running is in here too, with a negative `at`.
+   */
   overlays: ClipOverlay[];
 }) => {
   const [preloadState, setPreloadState] = useState<"preloading" | "finished">(
@@ -213,24 +218,22 @@ export const PreloadableClipManager = (props: {
   onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
   scrubSeekTime: number | undefined;
-  /** Every Overlay on this Video — grouped below by `clip_id` per Clip. */
+  /** Every Overlay on this Video — grouped below into the Clips that draw it. */
   overlays: ClipOverlay[];
+  /**
+   * Every Clip on this Video in playback order — NOT only the preloaded ones
+   * in `clips` above. An Overlay may outlive its anchor Clip and keep showing
+   * over the Clips that follow, and working out how far it reaches means
+   * measuring those Clips, whether or not they are preloaded yet.
+   */
+  timelineClips: OverlaySpillClip[];
 }) => {
-  // Grouped once per `overlays` change rather than `.filter()`-ed per Clip
-  // per render — this Video may have many Clips, each re-rendering on every
-  // playhead tick.
-  const overlaysByClipId = useMemo(() => {
-    const map = new Map<string, ClipOverlay[]>();
-    for (const overlay of props.overlays) {
-      const forClip = map.get(overlay.clipId);
-      if (forClip) {
-        forClip.push(overlay);
-      } else {
-        map.set(overlay.clipId, [overlay]);
-      }
-    }
-    return map;
-  }, [props.overlays]);
+  // Grouped once per change rather than re-walked per Clip per render — this
+  // Video may have many Clips, each re-rendering on every playhead tick.
+  const overlaysByClipId = useMemo(
+    () => groupOverlaysByClip(props.timelineClips, props.overlays),
+    [props.timelineClips, props.overlays]
+  );
 
   return (
     <div className="">
