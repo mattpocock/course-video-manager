@@ -38,6 +38,7 @@ import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
 import { SOUND_FAKE_EXPORT_DURATION_IN_SECONDS } from "@/test-utils/fake-video-processing";
+import { createFakeOverlayRenderCache } from "@/test-utils/fake-overlay-render-cache";
 import {
   clips as clipsTable,
   chapters as chaptersTable,
@@ -85,6 +86,23 @@ export function setupPublishServiceTests() {
  * of them. Clip timings differ per Video, so each has its own Export Hash and
  * therefore its own file in the bundle.
  */
+/** One run of the fake compositing pass, as the test that steers it sees it. */
+export type FakeCompositeRun = {
+  videoId: string;
+  videoPath: string;
+  overlays: ReadonlyArray<{
+    overlayPath: string;
+    startInSeconds: number;
+    endInSeconds: number;
+  }>;
+};
+
+/**
+ * What the fake compositing pass appends to an export it composites onto, so a
+ * test can tell a composited export from an untouched one by its bytes alone.
+ */
+export const COMPOSITED_BYTES_MARKER = "+overlays";
+
 export const setupPublishableCourse = async (opts?: {
   mockVideoProcessing?: Layer.Layer<VideoProcessingService>;
   videoCount?: number;
@@ -249,6 +267,12 @@ export const setupPublishableCourse = async (opts?: {
   // differently on a later run.
   const runNumbers = new Map<string, number>();
 
+  // Every run of the fake compositing pass, in order — the seam that proves a
+  // Video with no Overlays never asks ffmpeg for a second encode.
+  const compositeRuns: FakeCompositeRun[] = [];
+
+  const overlayRenderCache = createFakeOverlayRenderCache();
+
   const defaultMockVideoProcessing = Layer.succeed(VideoProcessingService, {
     exportVideoClips: (exportOpts: any) =>
       Effect.sync(() => {
@@ -282,6 +306,12 @@ export const setupPublishableCourse = async (opts?: {
             run.requestedDurationInSeconds,
         };
       }),
+    compositeOverlaysOntoExport: (compositeOpts: FakeCompositeRun) =>
+      Effect.sync(() => {
+        compositeRuns.push(compositeOpts);
+        fs.appendFileSync(compositeOpts.videoPath, COMPOSITED_BYTES_MARKER);
+        return compositeOpts.videoPath;
+      }),
     getVideoDurationInSeconds: (exportPath: string) =>
       Effect.sync(
         () =>
@@ -308,6 +338,7 @@ export const setupPublishableCourse = async (opts?: {
     VersionOperationsService.Default,
     LinkAuthOperationsService.Default,
     mockVideoProcessing,
+    overlayRenderCache.layer,
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
 
@@ -321,5 +352,16 @@ export const setupPublishableCourse = async (opts?: {
       effect.pipe(Effect.provide(testLayer) as any)
     ) as Promise<A>;
 
-  return { course, version, video, videos, exportHash, run };
+  return {
+    course,
+    version,
+    video,
+    videos,
+    exportHash,
+    run,
+    /** Every Definition Card the export step asked to be rendered. */
+    cardRenderRequests: overlayRenderCache.requests,
+    /** Every run of the compositing pass. Empty means it never ran. */
+    compositeRuns,
+  };
 };

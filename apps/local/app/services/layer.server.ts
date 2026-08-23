@@ -11,6 +11,7 @@ import { CloudinaryService } from "./cloudinary-service";
 import { CloudinaryMarkdownService } from "./cloudinary-markdown-service";
 import { CourseWriteService } from "@/services/course-write-service";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
+import { OverlayRenderCacheService } from "./overlay-render-cache.server";
 import { CoursePublishService } from "./course-publish-service";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
@@ -65,6 +66,7 @@ const coreLayer = Layer.mergeAll(
   CloudinaryMarkdownLayer,
   CourseWriteService.Default,
   FFmpegCommandsService.Default,
+  OverlayRenderCacheService.Default,
   NodeContext.layer
 ).pipe(
   Layer.provideMerge(DrizzleService.Default),
