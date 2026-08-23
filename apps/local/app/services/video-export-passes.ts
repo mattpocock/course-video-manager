@@ -9,6 +9,7 @@ import {
   type VideoFormat,
 } from "@/features/videos/video-format";
 import type { PauseType } from "./video-processing-service";
+import type { RenderedOverlay } from "./overlay-compositing";
 
 /**
  * The ffmpeg passes that turn one Video's Clips into a finished file: the
@@ -37,7 +38,6 @@ export const makeVideoExportPasses = (deps: {
       pauseType: PauseType;
       zoomType: string;
     }[];
-    shortsDirectoryOutputName: string | undefined;
     onStageChange?: (
       stage: "concatenating-clips" | "normalizing-audio"
     ) => void;
@@ -139,11 +139,7 @@ export const makeVideoExportPasses = (deps: {
       videoId: string;
       /** The exported file, composited over and replaced. */
       videoPath: string;
-      overlays: ReadonlyArray<{
-        overlayPath: string;
-        startInSeconds: number;
-        endInSeconds: number;
-      }>;
+      overlays: ReadonlyArray<RenderedOverlay>;
       /** What the Clips ask for — the progress denominator. */
       totalDurationSeconds: number;
       onProgress?: (percent: number) => void;
