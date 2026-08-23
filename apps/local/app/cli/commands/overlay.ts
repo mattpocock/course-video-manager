@@ -1,4 +1,4 @@
-import { Args, Command, Options } from "@effect/cli";
+import { Command } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
@@ -12,15 +12,32 @@ import {
   parseError,
 } from "@/cli/helpers";
 import {
-  OVERLAY_KINDS,
   resolveOverlayKind,
   DEFAULT_OVERLAY_KIND,
 } from "@/features/videos/overlay-kind";
+import {
+  videoOpt,
+  clipFilterOpt,
+  clipAddOpt,
+  clipUpdateOpt,
+  atAddOpt,
+  atUpdateOpt,
+  durationAddOpt,
+  durationUpdateOpt,
+  kindOpt,
+  titleAddOpt,
+  titleUpdateOpt,
+  descriptionAddOpt,
+  descriptionUpdateOpt,
+  idArg,
+  idsArg,
+} from "./overlay.options";
 import {
   bulletPanelOpts,
   hasBulletPanelFlags,
   resolveBulletPanelPatch,
 } from "./overlay.bullets";
+import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
 import {
   clipExportDurationInSeconds,
   paddedClipDurationsInSeconds,
@@ -48,6 +65,11 @@ import {
  *   there is no shared glossary entity. A Bullet Panel's content is a `title`
  *   (the panel's heading) and up to four `bullets`, each an icon, a line of
  *   text and its own `revealAt` — seconds after the Overlay's own start.
+ *
+ *   The `kind` also decides whether the FOOTAGE moves: a `bulletPanel` carries
+ *   a Transform, a kind-derived pan/zoom over its own window, which is why one
+ *   is refused on a Clip that already has a Clip Zoom — see
+ *   `overlay.clip-zoom-guard.ts`.
  *
  *   At most ONE Overlay is visible at a given moment across the whole Video,
  *   so an Overlay whose window overlaps another's — of either kind, on any
@@ -79,97 +101,6 @@ import {
  * There is deliberately no `overlay move`: an Overlay's position IS its anchor
  * Clip plus its offset, so moving one is `update --clip` and/or `--at`.
  */
-
-// ---------------------------------------------------------------------------
-// Options / Args
-// ---------------------------------------------------------------------------
-
-const videoOpt = Options.text("video").pipe(
-  Options.withDescription("The Video id whose Overlays to list (required).")
-);
-
-const clipFilterOpt = Options.text("clip").pipe(
-  Options.withDescription(
-    "Narrow the listing to the Overlays anchored to this Clip id."
-  ),
-  Options.optional
-);
-
-const clipAddOpt = Options.text("clip").pipe(
-  Options.withDescription("The anchor Clip id (required).")
-);
-
-const clipUpdateOpt = Options.text("clip").pipe(
-  Options.withDescription(
-    "Re-anchor the Overlay to this Clip id, which must be in the SAME Video " +
-      "(the offset stays Clip-relative)."
-  ),
-  Options.optional
-);
-
-const atAddOpt = Options.float("at").pipe(
-  Options.withDescription(
-    "Offset from the anchor Clip's own start, seconds (required, >= 0 and " +
-      "less than that Clip's own length)."
-  )
-);
-
-const atUpdateOpt = Options.float("at").pipe(
-  Options.withDescription(
-    "New offset from the anchor Clip's own start, seconds (>= 0 and less " +
-      "than the anchor Clip's own length)."
-  ),
-  Options.optional
-);
-
-const durationAddOpt = Options.float("duration").pipe(
-  Options.withDescription(
-    "How long the Overlay stays on screen, seconds (required, > 0). Not " +
-      "bounded by the anchor Clip's own length."
-  )
-);
-
-const durationUpdateOpt = Options.float("duration").pipe(
-  Options.withDescription("New on-screen length, seconds (> 0)."),
-  Options.optional
-);
-
-const kindOpt = Options.choice("kind", OVERLAY_KINDS).pipe(
-  Options.withDescription(
-    `Which content-kind the Overlay carries: ${OVERLAY_KINDS.join(
-      " | "
-    )}. Omitted on 'add' means "definitionCard".`
-  ),
-  Options.optional
-);
-
-const titleAddOpt = Options.text("title").pipe(
-  Options.withDescription(
-    "The Definition Card's heading — the term being defined (required)."
-  )
-);
-
-const titleUpdateOpt = Options.text("title").pipe(
-  Options.withDescription("New Definition Card heading."),
-  Options.optional
-);
-
-const descriptionAddOpt = Options.text("description").pipe(
-  Options.withDescription(
-    "The Definition Card's body — the definition itself. Required for a " +
-      "definitionCard Overlay, refused for a bulletPanel (whose content is " +
-      "--bullets-json)."
-  ),
-  Options.optional
-);
-
-const descriptionUpdateOpt = Options.text("description").pipe(
-  Options.withDescription("New Definition Card body."),
-  Options.optional
-);
-
-const idArg = Args.text({ name: "id" });
-const idsArg = Args.text({ name: "id" }).pipe(Args.repeated);
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -451,6 +382,13 @@ const addCmd = Command.make(
         at,
         durationInSeconds: duration,
       });
+      yield* requireNoClipZoomUnderTransform({
+        videoId: anchor.videoId,
+        clipId: clip,
+        at,
+        durationInSeconds: duration,
+        kind: Option.getOrUndefined(kind),
+      });
 
       const overlayOps = yield* OverlayOperationsService;
       const created = yield* overlayOps.createOverlay({
@@ -547,6 +485,23 @@ const updateCmd = Command.make(
           at: a ?? overlay.at,
           durationInSeconds: d ?? overlay.durationInSeconds,
           exclude: id,
+        });
+      }
+
+      // A change of KIND can newly collide too, even standing still: an
+      // Overlay that moved no camera yesterday moves one today.
+      if (
+        c !== undefined ||
+        a !== undefined ||
+        d !== undefined ||
+        k !== undefined
+      ) {
+        yield* requireNoClipZoomUnderTransform({
+          videoId: anchor.videoId,
+          clipId: anchor.id,
+          at: a ?? overlay.at,
+          durationInSeconds: d ?? overlay.durationInSeconds,
+          kind: k ?? resolveOverlayKind(overlay.kind),
         });
       }
 

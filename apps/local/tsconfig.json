@@ -91,6 +91,9 @@
       "@/features/videos/bullet-panel": [
         "../../packages/core/features/videos/bullet-panel"
       ],
+      "@/features/videos/overlay-transform": [
+        "../../packages/core/features/videos/overlay-transform"
+      ],
 
       // Same move, same reasoning: the vendored lucide icon-node table is a
       // top-level workspace package now, because packages/overlay-renderer

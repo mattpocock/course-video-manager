@@ -40,11 +40,11 @@ export const overlayExportRelation = {
     at: true,
     durationInSeconds: true,
     kind: true,
+    disableEnterAnimation: true,
+    disableExitAnimation: true,
     title: true,
     description: true,
     bullets: true,
-    disableEnterAnimation: true,
-    disableExitAnimation: true,
   },
 } as const;
 
@@ -61,11 +61,11 @@ const overlayColumns = {
   at: overlays.at,
   durationInSeconds: overlays.durationInSeconds,
   kind: overlays.kind,
+  disableEnterAnimation: overlays.disableEnterAnimation,
+  disableExitAnimation: overlays.disableExitAnimation,
   title: overlays.title,
   description: overlays.description,
   bullets: overlays.bullets,
-  disableEnterAnimation: overlays.disableEnterAnimation,
-  disableExitAnimation: overlays.disableExitAnimation,
 };
 
 const createOverlayOperationsUnwrapped = (db: Database) => {
@@ -118,12 +118,14 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
     durationInSeconds: number;
     /** Omitted means the default, `definitionCard` — see overlay-kind.ts. */
     kind?: OverlayKind;
+    /** Cut in / cut out instead of easing. Omitted means ease — see
+     * `features/videos/overlay-transform.ts`. */
+    disableEnterAnimation?: boolean;
+    disableExitAnimation?: boolean;
     title: string;
     description: string;
     /** The Bullet Panel's content — already validated. Omitted for other kinds. */
     bullets?: BulletPanelBullet[] | null;
-    disableEnterAnimation?: boolean;
-    disableExitAnimation?: boolean;
   }) {
     yield* requireDraftVersionForClip(db, overlay.clipId);
     const [created] = yield* makeDbCall(() =>
@@ -149,11 +151,11 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
       at?: number;
       durationInSeconds?: number;
       kind?: OverlayKind;
+      disableEnterAnimation?: boolean;
+      disableExitAnimation?: boolean;
       title?: string;
       description?: string;
       bullets?: BulletPanelBullet[] | null;
-      disableEnterAnimation?: boolean;
-      disableExitAnimation?: boolean;
     }
   ) {
     yield* requireDraftVersionForOverlay(db, overlayId);
