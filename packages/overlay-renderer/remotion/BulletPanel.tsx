@@ -32,6 +32,25 @@ const PANEL_MAX_WIDTH = 620;
 /** How far the panel travels as it arrives and leaves — a short lateral slide. */
 const SLIDE_DISTANCE = 48;
 
+/**
+ * The dark ground the panel is read against, and how much of the frame it
+ * covers.
+ *
+ * It covers the panel's OWN COLUMN and no more: the left gutter, the widest
+ * line the panel can hold (the "allotted width" the four-bullet cap exists to
+ * protect), then the same gutter again on its right. That is 812 of 1920 — the
+ * left third-and-a-bit that the paired camera Transform clears — so the ground
+ * stops where the footage the Transform kept begins, instead of dimming the
+ * presenter.
+ *
+ * Its right edge is feathered rather than cut, because a hard vertical line
+ * across live footage reads as a rendering fault. The feather lies OUTSIDE the
+ * covered column, so no word ever sits on the fade.
+ */
+const GROUND_WIDTH = PANEL_LEFT + PANEL_MAX_WIDTH + PANEL_LEFT;
+const GROUND_FEATHER = 96;
+const GROUND_COLOR = "rgba(12, 10, 9, 0.82)";
+
 /** Amber-200 / amber-400, the same two brand ambers the Definition Card uses. */
 const ACCENT_COLOR = "#FDE68A";
 const ICON_COLOR = "#FBBF24";
@@ -119,67 +138,85 @@ const Panel = ({ panel }: { panel: BulletPanel }) => {
   const enter = ramp(frame, 0, animationFrames, panel.disableEnterAnimation);
 
   return (
-    <AbsoluteFill
-      className="flex flex-col justify-center items-start"
-      style={{
-        fontFamily,
-        paddingLeft: PANEL_LEFT * scale,
-        opacity: 1 - exit,
-        transform: `translateX(${-exit * SLIDE_DISTANCE * scale}px)`,
-      }}
-    >
-      <div
-        className="flex flex-col"
+    <>
+      {/*
+        The ground is a SIBLING of the words rather than their parent, so the
+        lateral slide moves the words alone: a sliding edge over live footage
+        wobbles, a fading one does not. It arrives on the same ramp as the
+        title and leaves with the whole panel.
+      */}
+      <AbsoluteFill style={{ opacity: enter * (1 - exit) }}>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: (GROUND_WIDTH + GROUND_FEATHER) * scale,
+            background: `linear-gradient(to right, ${GROUND_COLOR} 0px, ${GROUND_COLOR} ${GROUND_WIDTH * scale}px, rgba(12, 10, 9, 0) 100%)`,
+          }}
+        />
+      </AbsoluteFill>
+
+      <AbsoluteFill
+        className="flex flex-col justify-center items-start"
         style={{
-          maxWidth: PANEL_MAX_WIDTH * scale,
-          gap: 28 * scale,
-          // A soft shadow rather than a card: the panel sits directly on the
-          // footage, so it needs separation from it without a box around it.
-          filter: `drop-shadow(0 ${6 * scale}px ${18 * scale}px rgba(28,25,23,0.55))`,
+          fontFamily,
+          paddingLeft: PANEL_LEFT * scale,
+          opacity: 1 - exit,
+          transform: `translateX(${-exit * SLIDE_DISTANCE * scale}px)`,
         }}
       >
         <div
-          className="flex items-center"
+          className="flex flex-col"
           style={{
-            gap: 20 * scale,
-            opacity: enter,
-            transform: `translateX(${(enter - 1) * SLIDE_DISTANCE * scale}px)`,
+            maxWidth: PANEL_MAX_WIDTH * scale,
+            gap: 28 * scale,
           }}
         >
           <div
+            className="flex items-center"
             style={{
-              width: 8 * scale,
-              height: 44 * scale,
-              borderRadius: 8 * scale,
-              background: ACCENT_COLOR,
-              flexShrink: 0,
+              gap: 20 * scale,
+              opacity: enter,
+              transform: `translateX(${(enter - 1) * SLIDE_DISTANCE * scale}px)`,
             }}
-          />
-          <p
-            className="font-bold leading-tight text-white"
-            style={{ fontSize: 44 * scale }}
           >
-            {panel.title}
-          </p>
-        </div>
-
-        <div className="flex flex-col" style={{ gap: 24 * scale }}>
-          {panel.bullets.map((bullet, index) => (
-            <Bullet
-              key={index}
-              bullet={bullet}
-              scale={scale}
-              // Its own reveal, from its own authored second. The Sequence
-              // already starts where the Overlay does, so `revealAt` needs
-              // nothing but a multiplication by the frame rate.
-              revealFrame={bullet.revealAt * fps}
-              animationFrames={animationFrames}
-              instant={panel.disableEnterAnimation}
+            <div
+              style={{
+                width: 8 * scale,
+                height: 44 * scale,
+                borderRadius: 8 * scale,
+                background: ACCENT_COLOR,
+                flexShrink: 0,
+              }}
             />
-          ))}
+            <p
+              className="font-bold leading-tight text-white"
+              style={{ fontSize: 44 * scale }}
+            >
+              {panel.title}
+            </p>
+          </div>
+
+          <div className="flex flex-col" style={{ gap: 24 * scale }}>
+            {panel.bullets.map((bullet, index) => (
+              <Bullet
+                key={index}
+                bullet={bullet}
+                scale={scale}
+                // Its own reveal, from its own authored second. The Sequence
+                // already starts where the Overlay does, so `revealAt` needs
+                // nothing but a multiplication by the frame rate.
+                revealFrame={bullet.revealAt * fps}
+                animationFrames={animationFrames}
+                instant={panel.disableEnterAnimation}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-    </AbsoluteFill>
+      </AbsoluteFill>
+    </>
   );
 };
 
