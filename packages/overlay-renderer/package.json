@@ -10,7 +10,8 @@
   },
   "exports": {
     ".": "./src/render.ts",
-    "./card": "./src/card.tsx"
+    "./card": "./src/card.tsx",
+    "./props": "./src/props.ts"
   },
   "scripts": {
     "studio": "remotion studio remotion/index.ts",

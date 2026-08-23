@@ -12,7 +12,10 @@ import {
   testDb,
 } from "./course-publish-service-test-setup";
 import { LONG_PAUSE_DURATION_IN_SECONDS } from "./export-duration-check";
-import { computeDefinitionCardContentHash } from "./overlay-render-cache";
+import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
+import type { OverlayKind } from "@/features/videos/overlay-kind";
+import { computeOverlayContentHash } from "./overlay-render-cache";
+import { buildOverlayCompositeFilterGraph } from "./overlay-compositing";
 
 setupPublishServiceTests();
 
@@ -35,7 +38,7 @@ const exportVideo = (videoId: string) =>
     return yield* svc.exportVideo(videoId);
   });
 
-/** Give a Video's `index`-th Clip an Overlay carrying a Definition Card. */
+/** Give a Video's `index`-th Clip an Overlay. Defaults to a Definition Card. */
 const addOverlay = async (
   videoId: string,
   clipIndex: number,
@@ -43,7 +46,11 @@ const addOverlay = async (
     at: number;
     durationInSeconds: number;
     title: string;
-    description: string;
+    description?: string;
+    kind?: OverlayKind;
+    bullets?: BulletPanelBullet[];
+    disableEnterAnimation?: boolean;
+    disableExitAnimation?: boolean;
   }
 ) => {
   const videoClips = await testDb
@@ -51,10 +58,33 @@ const addOverlay = async (
     .from(clipsTable)
     .where(eq(clipsTable.videoId, videoId))
     .orderBy(asc(clipsTable.order));
-  await testDb
-    .insert(overlaysTable)
-    .values({ clipId: videoClips[clipIndex]!.id, ...overlay });
+  await testDb.insert(overlaysTable).values({
+    clipId: videoClips[clipIndex]!.id,
+    ...overlay,
+    // A Bullet Panel has no description; the column is NOT NULL, so it holds
+    // the empty string exactly as `cvm overlay add --kind bulletPanel` writes.
+    description: overlay.description ?? "",
+  });
 };
+
+/** Give a Video's `index`-th Clip an Overlay carrying a Bullet Panel. */
+const addBulletPanel = (
+  videoId: string,
+  clipIndex: number,
+  overlay: {
+    at: number;
+    durationInSeconds: number;
+    title: string;
+    bullets: BulletPanelBullet[];
+    disableEnterAnimation?: boolean;
+    disableExitAnimation?: boolean;
+  }
+) => addOverlay(videoId, clipIndex, { kind: "bulletPanel", ...overlay });
+
+const BULLETS: BulletPanelBullet[] = [
+  { icon: "circle-check", text: "Runs on the server", revealAt: 0.5 },
+  { icon: "database", text: "Reaches the database", revealAt: 2 },
+];
 
 describe("Definition Cards in a course export", () => {
   it("renders each card and composites them all in one pass", async () => {
@@ -173,7 +203,7 @@ describe("Definition Cards in a course export", () => {
 
     expect(cardRenderRequests[0]!.courseId).toBe(course.id);
     expect(cardRenderRequests[0]!.renderPath).toContain(
-      `${course.id}-${computeDefinitionCardContentHash(content)}.mov`
+      `${course.id}-${computeOverlayContentHash({ kind: "definitionCard", ...content })}.mov`
     );
   });
 
@@ -260,7 +290,7 @@ describe("Definition Cards in a course export", () => {
       expect(failures).toHaveLength(1);
       expect(failures[0]!.videoId).toBe(video.id);
       // Which stage the export never got past.
-      expect(failures[0]!.stage).toBe("export:render-definition-cards");
+      expect(failures[0]!.stage).toBe("export:render-overlays");
       // The detail the export's own ExportError throws away.
       expect(failures[0]!.cause).toContain("Chromium could not start");
     });
@@ -297,6 +327,216 @@ describe("Definition Cards in a course export", () => {
       await run(exportVideo(video.id));
 
       expect(videoLog.ofType("export-stage-failed")).toEqual([]);
+    });
+  });
+});
+
+/**
+ * Bullet Panels in a real course export — the whole feature end to end.
+ *
+ * The point of these is that ONE export pass produces both halves of a Bullet
+ * Panel: the rendered panel (its own `.mov`, addressed by its bullets) and the
+ * camera move under it (a `crop` node in the same filtergraph). Everything
+ * between the two fakes is real — the Overlay rows, the Export Hash, the
+ * timeline placement, the content address, and the filtergraph itself.
+ */
+describe("Bullet Panels in a course export", () => {
+  it("renders the panel and pans the camera in one pass, gated to one window", async () => {
+    const { video, run, cardRenderRequests, compositeRuns } = await setup();
+
+    // On the second Clip, which starts at 10s on the flattened timeline.
+    await addBulletPanel(video.id, 1, {
+      at: 1,
+      durationInSeconds: 6,
+      title: "What a Server Component does",
+      bullets: BULLETS,
+    });
+
+    await run(exportVideo(video.id));
+
+    // ONE render, ONE composite pass — the panel and the camera are not two
+    // trips through ffmpeg.
+    expect(cardRenderRequests).toHaveLength(1);
+    expect(compositeRuns).toHaveLength(1);
+
+    const placed = compositeRuns[0]!.overlays[0]!;
+    expect(placed.startInSeconds).toBe(11);
+    expect(placed.endInSeconds).toBe(17);
+
+    const graph = buildOverlayCompositeFilterGraph(compositeRuns[0]!.overlays)!;
+    // The camera move: a time-varying crop on the footage itself...
+    expect(graph).toContain("crop=w=");
+    expect(graph).toContain("enable='between(t,11.000000,17.000000)'");
+    // ...and the panel drawn on top of it, over the very same window.
+    expect(graph).toContain("[1:v]setpts=PTS-STARTPTS+11.000/TB[ovl0]");
+    expect(graph).toContain(
+      "overlay=x=0:y=0:format=auto:eof_action=pass:repeatlast=0" +
+        ":enable='between(t,11.000,17.000)'"
+    );
+    // The crop runs BEFORE the graphic chain: the footage slides out from
+    // under a panel that is itself standing still.
+    expect(graph.indexOf("crop=w=")).toBeLessThan(graph.indexOf("overlay=x=0"));
+  });
+
+  it("asks the cache for the panel's own content, bullets and all", async () => {
+    const { course, video, run, cardRenderRequests } = await setup();
+
+    await addBulletPanel(video.id, 0, {
+      at: 2,
+      durationInSeconds: 6,
+      title: "What a Server Component does",
+      bullets: BULLETS,
+    });
+
+    await run(exportVideo(video.id));
+
+    const content = {
+      kind: "bulletPanel",
+      title: "What a Server Component does",
+      bullets: BULLETS,
+      durationInSeconds: 6,
+      disableEnterAnimation: false,
+      disableExitAnimation: false,
+    } as const;
+
+    expect(cardRenderRequests[0]!.content).toEqual(content);
+    expect(cardRenderRequests[0]!.courseId).toBe(course.id);
+    expect(cardRenderRequests[0]!.renderPath).toContain(
+      `${course.id}-${computeOverlayContentHash(content)}.mov`
+    );
+  });
+
+  it("gives a Definition Card and a Bullet Panel of the same title different renders", async () => {
+    const { video, run, cardRenderRequests } = await setup();
+
+    await addOverlay(video.id, 0, {
+      at: 1,
+      durationInSeconds: 4,
+      title: "Server Components",
+      description: "",
+    });
+    await addBulletPanel(video.id, 1, {
+      at: 1,
+      durationInSeconds: 4,
+      title: "Server Components",
+      bullets: [],
+    });
+
+    await run(exportVideo(video.id));
+
+    expect(cardRenderRequests[0]!.renderPath).not.toBe(
+      cardRenderRequests[1]!.renderPath
+    );
+  });
+
+  describe("editing a panel invalidates both caches", () => {
+    /**
+     * Two caches govern a re-export and BOTH have to notice an edit: the
+     * whole-video Export Hash (which names the `.mp4` and decides whether
+     * ffmpeg runs at all) and the Overlay Render Cache's content address
+     * (which names the panel's `.mov` and decides whether Chromium runs).
+     * A test that watched only one would pass while the other served stale.
+     */
+    /**
+     * Export once, and report BOTH addresses it landed on: the `.mp4` the
+     * Export Hash named, and the `.mov` the Overlay Render Cache named. The
+     * render address is read from the LAST request the fake recorded — a
+     * second export that reuses its cached `.mp4` never asks for a render at
+     * all, and "the address did not move" is exactly what that means.
+     */
+    const exportAddresses = async (
+      videoId: string,
+      run: (effect: ReturnType<typeof exportVideo>) => Promise<string>,
+      cardRenderRequests: ReadonlyArray<{ renderPath: string }>
+    ) => ({
+      exportPath: await run(exportVideo(videoId)),
+      renderPath: cardRenderRequests.at(-1)!.renderPath,
+    });
+
+    const editCases: ReadonlyArray<
+      [string, Partial<{ bullets: BulletPanelBullet[]; title: string }>]
+    > = [
+      [
+        "a bullet's text",
+        {
+          bullets: [{ ...BULLETS[0]!, text: "Runs on the edge" }, BULLETS[1]!],
+        },
+      ],
+      [
+        "a bullet's icon",
+        { bullets: [{ ...BULLETS[0]!, icon: "server" }, BULLETS[1]!] },
+      ],
+      [
+        "a bullet's revealAt",
+        { bullets: [{ ...BULLETS[0]!, revealAt: 1.25 }, BULLETS[1]!] },
+      ],
+      ["the panel's heading", { title: "What a Server Component is" }],
+    ];
+
+    for (const [what, edit] of editCases) {
+      it(`re-exports to a new address when ${what} is edited`, async () => {
+        const { video, run, cardRenderRequests, compositeRuns } = await setup();
+
+        await addBulletPanel(video.id, 0, {
+          at: 2,
+          durationInSeconds: 6,
+          title: "What a Server Component does",
+          bullets: BULLETS,
+        });
+
+        const first = await exportAddresses(video.id, run, cardRenderRequests);
+
+        await testDb.update(overlaysTable).set(edit);
+
+        const second = await exportAddresses(video.id, run, cardRenderRequests);
+
+        // The Export Hash saw the edit: a new `.mp4` address...
+        expect(second.exportPath).not.toBe(first.exportPath);
+        // ...the Overlay Render Cache saw it too: a new `.mov` address...
+        expect(second.renderPath).not.toBe(first.renderPath);
+        // ...and the pass really ran again rather than reusing the old file.
+        expect(compositeRuns).toHaveLength(2);
+        expect(fs.existsSync(second.exportPath)).toBe(true);
+      });
+    }
+
+    it("re-exports to a new address when an Animation Toggle is set", async () => {
+      const { video, run, cardRenderRequests } = await setup();
+
+      await addBulletPanel(video.id, 0, {
+        at: 2,
+        durationInSeconds: 6,
+        title: "What a Server Component does",
+        bullets: BULLETS,
+      });
+
+      const first = await exportAddresses(video.id, run, cardRenderRequests);
+
+      await testDb.update(overlaysTable).set({ disableEnterAnimation: true });
+
+      const second = await exportAddresses(video.id, run, cardRenderRequests);
+
+      // A toggle cuts the camera AND the panel's own animation, so both the
+      // composited video and the rendered panel are different bytes.
+      expect(second.exportPath).not.toBe(first.exportPath);
+      expect(second.renderPath).not.toBe(first.renderPath);
+    });
+
+    it("reuses both addresses when nothing about the panel changed", async () => {
+      const { video, run, cardRenderRequests } = await setup();
+
+      await addBulletPanel(video.id, 0, {
+        at: 2,
+        durationInSeconds: 6,
+        title: "What a Server Component does",
+        bullets: BULLETS,
+      });
+
+      const first = await exportAddresses(video.id, run, cardRenderRequests);
+      const second = await exportAddresses(video.id, run, cardRenderRequests);
+
+      expect(second.exportPath).toBe(first.exportPath);
+      expect(second.renderPath).toBe(first.renderPath);
     });
   });
 });
