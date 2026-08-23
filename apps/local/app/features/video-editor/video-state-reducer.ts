@@ -117,6 +117,11 @@ export namespace videoStateReducer {
         clipId: FrontendId;
       }
     | {
+        /** Re-transcribe a whole Video's worth of Clips in one pass (#1571). */
+        type: "retranscribe-clips";
+        clipIds: FrontendId[];
+      }
+    | {
         type: "pause-toggle-key-pressed";
       }
     | {
@@ -594,6 +599,15 @@ export const makeVideoEditorReducer =
               ? "paused"
               : state.runningState,
         });
+      }
+      case "retranscribe-clips": {
+        // The Video-wide re-transcribe (#1571). The caller names the Clips
+        // because only it can tell which of them are on the database — this
+        // reducer holds ids, not Clips.
+        if (action.clipIds.length > 0) {
+          exec({ type: "retranscribe-clips", clipIds: action.clipIds });
+        }
+        return state;
       }
       case "retranscribe-clip": {
         exec({
