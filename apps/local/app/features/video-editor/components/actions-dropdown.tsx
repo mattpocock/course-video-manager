@@ -24,7 +24,6 @@ import {
   FilmIcon,
   ListTree,
   Loader2,
-  RefreshCwIcon,
   MonitorSpeaker,
   Plus,
   ScrollText,
@@ -40,6 +39,7 @@ import {
   RenameVideoItem,
   RevealInFileSystemItem,
 } from "./shared-action-items";
+import { RetranscribeAllClipsItem } from "./transcript-word-actions";
 
 export const ActionsDropdown = (props: {
   /** Whether silence detection has completed for all clips */
@@ -92,8 +92,6 @@ export const ActionsDropdown = (props: {
   onShowBeatPanel: () => void;
   /** Activate the Script tab in the side panel */
   onShowScriptPanel: () => void;
-  /** Re-transcribe every Clip in THIS Video, in one pass (#1571) */
-  onRetranscribeAllClips: () => void;
   /** Open the AI-driven Chapter Autofill modal */
   onAutofillChaptersClick: () => void;
   /** Open diagram playground resolved for the current video context */
@@ -148,15 +146,7 @@ export const ActionsDropdown = (props: {
           </div>
         </DropdownMenuItem>
 
-        <DropdownMenuItem onSelect={props.onRetranscribeAllClips}>
-          <RefreshCwIcon className="w-4 h-4 mr-2" />
-          <div className="flex flex-col">
-            <span className="font-medium">Re-transcribe all clips</span>
-            <span className="text-xs text-muted-foreground">
-              Transcribe every clip in this video again, with word timing
-            </span>
-          </div>
-        </DropdownMenuItem>
+        <RetranscribeAllClipsItem />
 
         {props.lessonId && (
           <>

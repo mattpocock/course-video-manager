@@ -184,6 +184,38 @@ describe("overlay add", () => {
     expect(tagOf(stderr)).toBe("ParseError");
   });
 
+  it("refuses an offset at or past the anchor Clip's own end", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 4, end: 10 });
+
+    const { exitCode, stdout, stderr } = await run([
+      "overlay",
+      "add",
+      "--clip",
+      clip.id,
+      "--at",
+      "6",
+      "--duration",
+      "5",
+      "--title",
+      "t",
+      "--description",
+      "d",
+    ]);
+
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect(tagOf(stderr)).toBe("ParseError");
+    expect(stderr).toContain(clip.id);
+  });
+
+  it("allows an offset in the anchor Clip's last moments", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 4, end: 10 });
+
+    const overlay = await addOverlay(clip.id, { at: "5.9" });
+
+    expect(overlay.at).toBe(5.9);
+  });
+
   it("reports an unknown anchor Clip as not-found", async () => {
     const { exitCode, stdout, stderr } = await run([
       "overlay",
@@ -381,6 +413,68 @@ describe("overlay update", () => {
     );
 
     expect(updated).toMatchObject({ clipId: second.id, at: 0.5 });
+  });
+
+  it("refuses a re-anchor that lands past the new Clip's end", async () => {
+    const first = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
+    const second = await seedClip(s.standaloneActiveId, {
+      start: 10,
+      end: 13,
+      after: first.id,
+    });
+    const created = await addOverlay(first.id, { at: "8" });
+
+    const { exitCode, stderr } = await run([
+      "overlay",
+      "update",
+      "--clip",
+      second.id,
+      created.id,
+    ]);
+
+    expect(exitCode).toBe(3);
+    expect(tagOf(stderr)).toBe("ParseError");
+  });
+
+  it("refuses an offset past the anchor Clip's own end", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
+    const created = await addOverlay(clip.id);
+
+    const { exitCode, stderr } = await run([
+      "overlay",
+      "update",
+      "--at",
+      "10",
+      created.id,
+    ]);
+
+    expect(exitCode).toBe(3);
+    expect(tagOf(stderr)).toBe("ParseError");
+  });
+
+  it("refuses a re-anchor into a different Video", async () => {
+    const mine = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
+    const theirs = await seedClip(s.lessonVideoId, { start: 0, end: 10 });
+    const created = await addOverlay(mine.id, { at: "2" });
+
+    const { exitCode, stderr } = await run([
+      "overlay",
+      "update",
+      "--clip",
+      theirs.id,
+      "--at",
+      "1",
+      created.id,
+    ]);
+
+    expect(exitCode).toBe(3);
+    expect(tagOf(stderr)).toBe("ParseError");
+
+    // Still where it was, and still in the Video it was listed under.
+    const rows = ndjson(
+      (await run(["overlay", "list", "--video", s.standaloneActiveId])).stdout
+    ) as OverlayRow[];
+    expect(rows.map((r) => r.clipId)).toEqual([mine.id]);
   });
 
   it("refuses an update that names no field", async () => {

@@ -44,6 +44,41 @@ export const BITEXACT_ARGS = [
   "+bitexact",
 ];
 
+/**
+ * How a landscape/course Video's picture is encoded — one answer, shared by
+ * every pass in that export path.
+ *
+ * A course export is written twice when it carries Definition Cards: the
+ * concat-and-scale pass makes the file, and the Overlay compositing pass
+ * re-encodes it. If those two passes disagreed about the encoder, a Video with
+ * an Overlay would ship with different characteristics from every Video
+ * without one, and the second write would be a CPU re-encode of a
+ * GPU-encoded 40-minute file. They read this constant so they cannot.
+ *
+ * The vertical Shorts pipeline deliberately does NOT use it. Its subtitle
+ * burn-in is libx264 at CRF 18, and its bytes must not move.
+ */
+export const LANDSCAPE_VIDEO_ENCODE_ARGS = [
+  "-c:v",
+  "h264_nvenc",
+  "-preset",
+  "slow",
+  "-rc:v",
+  "vbr",
+  "-cq:v",
+  "19",
+  "-b:v",
+  "15387k",
+  "-maxrate",
+  "20000k",
+  "-bufsize",
+  "30000k",
+  "-fps_mode",
+  "cfr",
+  "-r",
+  "60",
+];
+
 export class FFmpegError extends Data.TaggedError("FFmpegError")<{
   cause: unknown;
   message: string;

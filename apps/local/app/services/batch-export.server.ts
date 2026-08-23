@@ -86,7 +86,6 @@ export const batchExportProgram = (
           .exportVideoClips({
             videoId: video.id,
             format: video.format,
-            shortsDirectoryOutputName: undefined,
             clips: video.clips.map((clip, index, array) => {
               const isFinalClip = index === array.length - 1;
               return {

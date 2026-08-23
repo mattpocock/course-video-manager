@@ -76,20 +76,23 @@ const clipAddOpt = Options.text("clip").pipe(
 
 const clipUpdateOpt = Options.text("clip").pipe(
   Options.withDescription(
-    "Re-anchor the Overlay to this Clip id (the offset stays Clip-relative)."
+    "Re-anchor the Overlay to this Clip id, which must be in the SAME Video " +
+      "(the offset stays Clip-relative)."
   ),
   Options.optional
 );
 
 const atAddOpt = Options.float("at").pipe(
   Options.withDescription(
-    "Offset from the anchor Clip's own start, seconds (required, >= 0)."
+    "Offset from the anchor Clip's own start, seconds (required, >= 0 and " +
+      "less than that Clip's own length)."
   )
 );
 
 const atUpdateOpt = Options.float("at").pipe(
   Options.withDescription(
-    "New offset from the anchor Clip's own start, seconds (>= 0)."
+    "New offset from the anchor Clip's own start, seconds (>= 0 and less " +
+      "than the anchor Clip's own length)."
   ),
   Options.optional
 );
@@ -142,11 +145,20 @@ const idsArg = Args.text({ name: "id" }).pipe(Args.repeated);
  * Archived clips are deleted as far as the timeline is concerned, so they are
  * not-found too — nothing may be anchored to one.
  */
-const requireActiveClip = (id: string) =>
+const requireClip = (id: string) =>
   Effect.gen(function* () {
     const clipOps = yield* ClipOperationsService;
     const [existing] = yield* clipOps.getClipsByIds([id]);
-    if (!existing || existing.archived) {
+    if (!existing) {
+      return yield* notFound("clip", id);
+    }
+    return existing;
+  });
+
+const requireActiveClip = (id: string) =>
+  Effect.gen(function* () {
+    const existing = yield* requireClip(id);
+    if (existing.archived) {
       return yield* notFound("clip", id);
     }
     return existing;
@@ -177,6 +189,52 @@ const requirePositiveDuration = (duration: number) =>
   duration > 0
     ? Effect.void
     : parseError(`--duration (${duration}) must be greater than 0`, "overlay");
+
+/** A Clip's own length: what `at` is an offset into. */
+type AnchorClip = {
+  id: string;
+  videoId: string;
+  sourceStartTime: number;
+  sourceEndTime: number;
+};
+
+/**
+ * `at` addresses a moment INSIDE the anchor Clip.
+ *
+ * Only the DURATION is free to outrun the Clip (an Overlay may keep showing
+ * over the Clips that follow) — the anchor is not. An `at` at or past the
+ * Clip's own length points at footage that belongs to a LATER Clip, and the
+ * export composites the card there without complaint, so it is refused here.
+ */
+const requireAtWithinClip = (at: number, clip: AnchorClip) => {
+  const clipDuration = clip.sourceEndTime - clip.sourceStartTime;
+  return at < clipDuration
+    ? Effect.void
+    : parseError(
+        `--at (${at}) is at or past the end of Clip ${clip.id}, which is ` +
+          `${clipDuration}s long. An Overlay's anchor must fall inside its ` +
+          `own Clip — anchor it to the later Clip instead, or lower --at.`,
+        "overlay"
+      );
+};
+
+/**
+ * Re-anchoring moves an Overlay along ONE Video's timeline, never between
+ * Videos.
+ *
+ * An Overlay parked on another Video's Clip disappears from `overlay list
+ * --video <original>` with nothing said, and silently changes a second Video's
+ * Export Hash — so the cross-Video re-anchor is refused rather than performed.
+ */
+const requireSameVideo = (from: AnchorClip, to: AnchorClip) =>
+  from.videoId === to.videoId
+    ? Effect.void
+    : parseError(
+        `--clip ${to.id} belongs to Video ${to.videoId}, but this Overlay is ` +
+          `anchored in Video ${from.videoId}. An Overlay cannot be re-anchored ` +
+          `into another Video; delete it and add one there instead.`,
+        "overlay"
+      );
 
 // ---------------------------------------------------------------------------
 // Verbs
@@ -242,7 +300,8 @@ const addCmd = Command.make(
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
-      yield* requireActiveClip(clip);
+      const anchor = yield* requireActiveClip(clip);
+      yield* requireAtWithinClip(at, anchor);
 
       const overlayOps = yield* OverlayOperationsService;
       const created = yield* overlayOps.createOverlay({
@@ -290,8 +349,19 @@ const updateCmd = Command.make(
       if (a !== undefined) yield* requireNonNegativeAt(a);
       if (d !== undefined) yield* requirePositiveDuration(d);
 
-      yield* requireOverlay(id);
-      if (c !== undefined) yield* requireActiveClip(c);
+      const overlay = yield* requireOverlay(id);
+
+      // Whichever of the anchor's two halves this update touches, it is the
+      // RESULTING pair — new Clip or old, new offset or old — that has to be a
+      // real moment inside one Clip of one Video.
+      if (c !== undefined) {
+        const target = yield* requireActiveClip(c);
+        const current = yield* requireClip(overlay.clipId);
+        yield* requireSameVideo(current, target);
+        yield* requireAtWithinClip(a ?? overlay.at, target);
+      } else if (a !== undefined) {
+        yield* requireAtWithinClip(a, yield* requireClip(overlay.clipId));
+      }
 
       const overlayOps = yield* OverlayOperationsService;
       const updated = yield* overlayOps.updateOverlay(id, {

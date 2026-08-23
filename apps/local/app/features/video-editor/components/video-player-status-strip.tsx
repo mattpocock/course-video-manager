@@ -2,6 +2,7 @@ import { formatSecondsToTimeCode } from "@/services/utils";
 import { AlertTriangleIcon } from "lucide-react";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
+import { MissingWordTimingBadge } from "./transcript-word-actions";
 
 /**
  * The one-line strip under the player: what this Video is, how long it runs,
@@ -22,10 +23,6 @@ export const VideoPlayerStatusStrip = () => {
     VideoEditorContext,
     (ctx) => ctx.areAnyClipsDangerous
   );
-  const anyClipsMissingTranscriptWords = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.anyClipsMissingTranscriptWords
-  );
 
   return (
     <div className="flex items-center gap-2 mb-2">
@@ -39,15 +36,7 @@ export const VideoPlayerStatusStrip = () => {
           Possible duplicates
         </span>
       )}
-      {anyClipsMissingTranscriptWords && (
-        <span
-          className="text-amber-500 text-xs font-medium inline-flex items-center"
-          title="Clips transcribed before word-level timing existed are never backfilled. Run 'Re-transcribe all clips' from the Actions menu to add it."
-        >
-          <AlertTriangleIcon className="size-3.5 mr-1" />
-          Missing word timing
-        </span>
-      )}
+      <MissingWordTimingBadge />
     </div>
   );
 };

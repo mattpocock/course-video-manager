@@ -21,7 +21,10 @@ import {
   requireDraftVersionForVideo,
 } from "./draft-guard.server.js";
 import { overlayExportRelation } from "./db-overlay-operations.server.js";
-import { createVideoNavigationOps } from "./db-video-navigation.server.js";
+import {
+  createVideoNavigationOps,
+  type VideoNavigationDeps,
+} from "./db-video-navigation.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -30,9 +33,8 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-type VideoOpsDeps = {
-  getCourseNavigationData: (id: string) => Effect.Effect<any, any>;
-};
+/** The Course navigation reader is only here to be handed onward. */
+type VideoOpsDeps = VideoNavigationDeps;
 
 const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
   const { getCourseNavigationData } = deps;

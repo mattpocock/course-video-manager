@@ -11,19 +11,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  ChevronDown,
-  DownloadIcon,
-  FilmIcon,
-  RefreshCwIcon,
-  SendIcon,
-} from "lucide-react";
+import { ChevronDown, DownloadIcon, FilmIcon, SendIcon } from "lucide-react";
 import {
   CopySubmenu,
   CopyVideoItem,
   RenameVideoItem,
   RevealInFileSystemItem,
 } from "./shared-action-items";
+import { RetranscribeAllClipsItem } from "./transcript-word-actions";
 
 export const StudioActionsDropdown = (props: {
   allClipsHaveSilenceDetected: boolean;
@@ -39,8 +34,6 @@ export const StudioActionsDropdown = (props: {
   youtubeChapters: { timestamp: string; name: string }[];
   isChaptersCopied: boolean;
   copyYoutubeChaptersToClipboard: () => void;
-  /** Re-transcribe every Clip in THIS Video, in one pass (#1571) */
-  onRetranscribeAllClips: () => void;
   onRenameVideoClick: () => void;
   onCopyVideoClick: () => void;
   onRevealInFileSystem?: () => void;
@@ -70,15 +63,7 @@ export const StudioActionsDropdown = (props: {
         )}
       </Tooltip>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuItem onSelect={props.onRetranscribeAllClips}>
-          <RefreshCwIcon className="w-4 h-4 mr-2" />
-          <div className="flex flex-col">
-            <span className="font-medium">Re-transcribe all clips</span>
-            <span className="text-xs text-muted-foreground">
-              Transcribe every clip in this video again, with word timing
-            </span>
-          </div>
-        </DropdownMenuItem>
+        <RetranscribeAllClipsItem />
 
         {props.onRenderVertical && (
           <DropdownMenuItem onSelect={props.onRenderVertical}>

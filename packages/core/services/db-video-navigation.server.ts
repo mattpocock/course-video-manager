@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import type { CourseNavigationData } from "./db-course-operations.server.js";
 
 /**
  * "Where does the author go next?" — the Video-to-Video and Video-to-empty-
@@ -9,106 +10,88 @@ import { Effect } from "effect";
  * dependency and live apart from the Video table's own operations.
  */
 export type VideoNavigationDeps = {
-  getCourseNavigationData: (id: string) => Effect.Effect<any, any>;
+  getCourseNavigationData: (
+    id: string
+  ) => Effect.Effect<CourseNavigationData, unknown>;
 };
+
+/** The Video the walks start from, and the slice of it they read. */
+type VideoWithLesson = {
+  id: string;
+  lesson: {
+    id: string;
+    videos: Array<{ id: string; title: string }>;
+    section: { repoVersion: { repo: { id: string } } };
+  } | null;
+};
+
+/**
+ * Which way along the Course a walk travels.
+ *
+ * "next" and "previous" are the same walk read in opposite directions — step
+ * one Video along inside the current Lesson, and when that runs out, step one
+ * Lesson along and take the Video at the near end of it. The two directions
+ * differ only in the sign of the step and which end of a Lesson's Videos is
+ * "near", so they are that pair rather than two copies of the walk.
+ */
+const DIRECTIONS = {
+  next: { step: 1, nearEnd: <T>(videos: T[]) => videos[0] },
+  previous: {
+    step: -1,
+    nearEnd: <T>(videos: T[]) => videos[videos.length - 1],
+  },
+} as const;
+
+/** Videos inside a Lesson are ordered by title, everywhere a walk looks. */
+const byTitle = <T extends { title: string }>(videos: ReadonlyArray<T>): T[] =>
+  [...videos].sort((a, b) => a.title.localeCompare(b.title));
 
 export const createVideoNavigationOps = (deps: VideoNavigationDeps) => {
   const { getCourseNavigationData } = deps;
 
-  const getNextVideoId = Effect.fn("getNextVideoId")(function* (currentVideo: {
-    id: string;
-    lesson: {
-      id: string;
-      videos: Array<{ id: string; title: string }>;
-      section: { repoVersion: { repo: { id: string } } };
-    } | null;
-  }) {
-    const currentLesson = currentVideo.lesson;
-    if (!currentLesson) return null; // Standalone videos have no next/prev
-    const repo = currentLesson.section.repoVersion.repo;
+  const adjacentVideoId = (direction: keyof typeof DIRECTIONS) =>
+    Effect.fn(`get${direction === "next" ? "Next" : "Previous"}VideoId`)(
+      function* (currentVideo: VideoWithLesson) {
+        const { step, nearEnd } = DIRECTIONS[direction];
 
-    const videosInLesson = [...currentLesson.videos].sort((a, b) =>
-      a.title.localeCompare(b.title)
-    );
-    const currentVideoIndex = videosInLesson.findIndex(
-      (v) => v.id === currentVideo.id
-    );
+        const currentLesson = currentVideo.lesson;
+        if (!currentLesson) return null; // Standalone videos have no next/prev
+        const repo = currentLesson.section.repoVersion.repo;
 
-    if (currentVideoIndex < videosInLesson.length - 1) {
-      return videosInLesson[currentVideoIndex + 1]?.id ?? null;
-    }
-
-    const courseNav = yield* getCourseNavigationData(repo.id);
-    const latestVersionSections = courseNav.versions[0]?.sections ?? [];
-
-    const allRealLessons = latestVersionSections.flatMap(
-      (s: (typeof latestVersionSections)[number]) => s.lessons
-    );
-
-    const currentIndex = allRealLessons.findIndex(
-      (l: (typeof allRealLessons)[number]) => l.id === currentLesson.id
-    );
-
-    for (let i = currentIndex + 1; i < allRealLessons.length; i++) {
-      const nextLesson = allRealLessons[i]!;
-      const firstVideo = nextLesson.videos.sort(
-        (a: { title: string }, b: { title: string }) =>
-          a.title.localeCompare(b.title)
-      )[0];
-      if (firstVideo) return firstVideo.id;
-    }
-
-    return null;
-  });
-
-  const getPreviousVideoId = Effect.fn("getPreviousVideoId")(
-    function* (currentVideo: {
-      id: string;
-      lesson: {
-        id: string;
-        videos: Array<{ id: string; title: string }>;
-        section: { repoVersion: { repo: { id: string } } };
-      } | null;
-    }) {
-      const currentLesson = currentVideo.lesson;
-      if (!currentLesson) return null; // Standalone videos have no next/prev
-      const repo = currentLesson.section.repoVersion.repo;
-
-      const videosInLesson = [...currentLesson.videos].sort((a, b) =>
-        a.title.localeCompare(b.title)
-      );
-      const currentVideoIndex = videosInLesson.findIndex(
-        (v) => v.id === currentVideo.id
-      );
-
-      if (currentVideoIndex > 0) {
-        return videosInLesson[currentVideoIndex - 1]?.id ?? null;
-      }
-
-      const courseNav = yield* getCourseNavigationData(repo.id);
-      const latestVersionSections = courseNav.versions[0]?.sections ?? [];
-
-      const allRealLessons = latestVersionSections.flatMap(
-        (s: (typeof latestVersionSections)[number]) => s.lessons
-      );
-
-      const currentIndex = allRealLessons.findIndex(
-        (l: (typeof allRealLessons)[number]) => l.id === currentLesson.id
-      );
-
-      for (let i = currentIndex - 1; i >= 0; i--) {
-        const prevLesson = allRealLessons[i]!;
-        const videos = prevLesson.videos.sort(
-          (a: { title: string }, b: { title: string }) =>
-            a.title.localeCompare(b.title)
+        // The obvious step first: the neighbouring Video in this same Lesson.
+        const videosInLesson = byTitle(currentLesson.videos);
+        const currentVideoIndex = videosInLesson.findIndex(
+          (v) => v.id === currentVideo.id
         );
-        const lastVideo = videos[videos.length - 1];
-        if (lastVideo) return lastVideo.id;
-      }
+        const sibling = videosInLesson[currentVideoIndex + step];
+        if (sibling) return sibling.id;
 
-      return null;
-    }
-  );
+        // Off the end of this Lesson, so walk the Course's Lessons the same
+        // way and take the first one that has a Video at all — an empty Lesson
+        // in between is stepped over, not stopped at.
+        const courseNav = yield* getCourseNavigationData(repo.id);
+        const lessons = (courseNav.versions[0]?.sections ?? []).flatMap(
+          (section) => section.lessons
+        );
+        const currentIndex = lessons.findIndex(
+          (l) => l.id === currentLesson.id
+        );
+
+        for (
+          let i = currentIndex + step;
+          i >= 0 && i < lessons.length;
+          i += step
+        ) {
+          const video = nearEnd(byTitle(lessons[i]!.videos));
+          if (video) return video.id;
+        }
+
+        return null;
+      }
+    );
+
+  const getNextVideoId = adjacentVideoId("next");
+  const getPreviousVideoId = adjacentVideoId("previous");
 
   /**
    * Gets the next lesson that has no videos, starting from the current video's lesson.

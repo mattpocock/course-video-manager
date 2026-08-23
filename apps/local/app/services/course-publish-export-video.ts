@@ -20,7 +20,10 @@ import {
 } from "./export-duration-check";
 import { resolveVideoFormat } from "@/features/videos/video-format";
 import { OverlayRenderCacheService } from "./overlay-render-cache.server";
-import { placeOverlaysOnTimeline } from "./overlay-compositing";
+import {
+  placeOverlaysOnTimeline,
+  withRenderedCard,
+} from "./overlay-compositing";
 import { ExportError } from "./course-publish-errors";
 
 /**
@@ -134,7 +137,6 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
     const rendered = yield* videoProcessing.exportVideoClips({
       videoId,
       format: resolveVideoFormat(video.format),
-      shortsDirectoryOutputName: undefined,
       clips: renderClips,
       onStageChange: onStage,
       onProgress,
@@ -177,11 +179,9 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
                 content: placed.content,
               })
               .pipe(
-                Effect.map((overlayPath) => ({
-                  overlayPath,
-                  startInSeconds: placed.startInSeconds,
-                  endInSeconds: placed.endInSeconds,
-                }))
+                Effect.map((overlayPath) =>
+                  withRenderedCard(placed, overlayPath)
+                )
               )
         );
 

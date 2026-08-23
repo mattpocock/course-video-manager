@@ -16,7 +16,6 @@ import { VideoPlayerLinksTab } from "./video-player-links-tab";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
   getLastTranscribedClipId as getLastTranscribedClipIdSelector,
-  getRetranscribableClipIds,
   getChapters as getChaptersSelector,
   getHasSections as getHasSectionsSelector,
   getIsOBSActive as getIsOBSActiveSelector,
@@ -451,12 +450,6 @@ export const VideoPlayerPanel = () => {
 
           <div className="flex gap-2 mt-4">
             <ActionsDropdown
-              onRetranscribeAllClips={() =>
-                dispatch({
-                  type: "retranscribe-clips",
-                  clipIds: getRetranscribableClipIds(clips),
-                })
-              }
               allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
               allClipsHaveText={allClipsHaveText}
               onExport={() => startExportUpload(videoId, videoTitle)}

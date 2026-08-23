@@ -14,21 +14,8 @@ import {
   type ExportClipDuration,
 } from "./export-duration-check";
 import type { DefinitionCardContent } from "./overlay-render-cache";
-
-/**
- * One Overlay as the export address and the compositing pass both see it: a
- * Clip-relative anchor, a duration of its own, and the Definition Card content
- * to show. Structurally identical to `ExportOverlay`, and named separately
- * because this file asks a different question of it (where does it land?) than
- * the hash does (what does it say?).
- */
-export type AnchoredOverlay = {
-  /** Seconds from the start of the Clip this Overlay is anchored to. */
-  at: number;
-  durationInSeconds: number;
-  title: string;
-  description: string;
-};
+import type { ExportOverlay } from "./export-hash";
+import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-run";
 
 /**
  * One Overlay placed on the Video's own timeline: the seconds at which it
@@ -48,6 +35,34 @@ export type PlacedOverlay = {
 };
 
 /**
+ * A {@link PlacedOverlay} once its Definition Card has actually been rendered:
+ * the span it occupies, and the `.mov` to composite over that span. This is
+ * everything the ffmpeg pass needs and nothing it does not — the card's content
+ * has already done its job by naming the file.
+ */
+export type RenderedOverlay = {
+  overlayPath: string;
+  startInSeconds: number;
+  endInSeconds: number;
+};
+
+/**
+ * Pair a placed Overlay with the render the Overlay Render Cache handed back.
+ *
+ * It sits here, next to the type it reads, so the export step never has to
+ * unpick a `PlacedOverlay`'s fields itself: adding a field to a placement is
+ * this file's business, not the caller's.
+ */
+export const withRenderedCard = (
+  placed: PlacedOverlay,
+  overlayPath: string
+): RenderedOverlay => ({
+  overlayPath,
+  startInSeconds: placed.startInSeconds,
+  endInSeconds: placed.endInSeconds,
+});
+
+/**
  * Convert every Overlay's Clip-relative anchor into an absolute offset on the
  * finished Video's timeline.
  *
@@ -64,7 +79,7 @@ export type PlacedOverlay = {
  * than composited into a span that does not exist.
  */
 export const placeOverlaysOnTimeline = (
-  clips: ReadonlyArray<{ overlays: ReadonlyArray<AnchoredOverlay> }>,
+  clips: ReadonlyArray<{ overlays: ReadonlyArray<ExportOverlay> }>,
   clipDurations: ReadonlyArray<ExportClipDuration>
 ): PlacedOverlay[] => {
   const videoEndInSeconds = expectedExportDurationInSeconds(clipDurations);
@@ -145,4 +160,50 @@ export const buildOverlayCompositeFilterGraph = (
   });
 
   return [...shifts, ...chain].join(";");
+};
+
+/**
+ * The whole ffmpeg command line for the compositing pass, minus the program
+ * name: the video, one input per rendered card, the graph that places them, and
+ * the settings the finished file is written with.
+ *
+ * It encodes with {@link LANDSCAPE_VIDEO_ENCODE_ARGS} — what the concat pass
+ * that MADE this file already used — rather than the Shorts burn-in's libx264,
+ * so a course video carrying a Definition Card comes out with the same
+ * characteristics as one that does not. The audio is stream-copied: the
+ * normalize pass has already had its say, and re-encoding it here would only
+ * lose a generation.
+ *
+ * Returns `null` when there is nothing to composite, for exactly the reason
+ * {@link buildOverlayCompositeFilterGraph} does: the pass must be skipped, not
+ * run over a video it would change nothing about.
+ */
+export const buildOverlayCompositeArgs = (
+  videoPath: string,
+  overlays: ReadonlyArray<RenderedOverlay>,
+  outputPath: string
+): string[] | null => {
+  const filterGraph = buildOverlayCompositeFilterGraph(overlays);
+  if (!filterGraph) return null;
+
+  return [
+    "-y",
+    "-hide_banner",
+    "-i",
+    videoPath,
+    ...overlays.flatMap((overlay) => ["-i", overlay.overlayPath]),
+    "-filter_complex",
+    filterGraph,
+    "-map",
+    "[outv]",
+    "-map",
+    "0:a",
+    ...LANDSCAPE_VIDEO_ENCODE_ARGS,
+    "-c:a",
+    "copy",
+    "-movflags",
+    "+faststart",
+    ...BITEXACT_ARGS,
+    outputPath,
+  ];
 };
