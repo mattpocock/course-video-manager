@@ -7,6 +7,7 @@ import {
   mergeChunkTranscripts,
   planChunkBoundaries,
   sliceTranscriptText,
+  sliceTranscriptWords,
 } from "./footage-chunking";
 
 /**
@@ -161,6 +162,44 @@ describe("mergeChunkTranscripts", () => {
     ]);
     expect(merged.words).toEqual([{ start: 3, end: 4, text: "x" }]);
     expect(merged.segments).toEqual([]);
+  });
+});
+
+describe("sliceTranscriptWords", () => {
+  const transcript = {
+    words: [
+      { start: 10, end: 11, text: "the" },
+      { start: 11, end: 12, text: "quick" },
+      { start: 12, end: 13, text: "brown" },
+      { start: 13, end: 14, text: "fox" },
+    ],
+    segments: [{ start: 10, end: 14, text: " the quick brown fox" }],
+  };
+
+  it("re-bases the overlapping words so 0 is the window's start", () => {
+    expect(sliceTranscriptWords(transcript, 11, 13)).toEqual([
+      { start: 0, end: 1, text: "quick" },
+      { start: 1, end: 2, text: "brown" },
+    ]);
+  });
+
+  it("clamps a word straddling an edge into the window", () => {
+    // [11.5, 12.5) overlaps "quick" (11-12) and "brown" (12-13); neither may
+    // report an offset outside the 1s window.
+    expect(sliceTranscriptWords(transcript, 11.5, 12.5)).toEqual([
+      { start: 0, end: 0.5, text: "quick" },
+      { start: 0.5, end: 1, text: "brown" },
+    ]);
+  });
+
+  it("has no words when the transcript has only segments", () => {
+    expect(
+      sliceTranscriptWords({ words: [], segments: transcript.segments }, 10, 14)
+    ).toEqual([]);
+  });
+
+  it("is empty when the window overlaps nothing", () => {
+    expect(sliceTranscriptWords(transcript, 100, 200)).toEqual([]);
   });
 });
 

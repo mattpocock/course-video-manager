@@ -167,3 +167,37 @@ export const sliceTranscriptText = (
     .filter((t) => t.length > 0)
     .join(" ");
 };
+
+/**
+ * The **Transcript Words** of a Footage transcript sliced to the window
+ * `[startTime, endTime)` — every word that OVERLAPS the window, re-expressed
+ * as CLIP-RELATIVE offsets (`0` = `startTime`). The word-level sibling of
+ * `sliceTranscriptText`: the same overlap rule, the same call site
+ * (`cvm clip add`), but keeping the timing that `sliceTranscriptText` throws
+ * away by joining to a flat string.
+ *
+ * A word straddling a boundary is CLAMPED into `[0, endTime - startTime]`
+ * rather than dropped or left poking out of the Clip: it IS audible in the
+ * Clip, so it belongs in its words, and every offset a reader gets back
+ * addresses a moment that actually exists inside the Clip.
+ *
+ * There is no segment fallback (unlike `sliceTranscriptText`) — a segment is a
+ * sentence-ish span, so passing one off as a word would be inventing timing
+ * that Whisper never reported. A transcript with no words yields no words.
+ */
+export const sliceTranscriptWords = (
+  transcript: FootageTranscript,
+  startTime: number,
+  endTime: number
+): TranscriptWord[] => {
+  const duration = endTime - startTime;
+
+  return transcript.words
+    .filter((w) => w.start < endTime && w.end > startTime)
+    .map((w) => ({
+      start: Math.min(Math.max(w.start - startTime, 0), duration),
+      end: Math.min(Math.max(w.end - startTime, 0), duration),
+      text: w.text.trim(),
+    }))
+    .filter((w) => w.text.length > 0);
+};

@@ -203,6 +203,12 @@ const clipService = (client: RpcClient) =>
     archiveClip: rpcMethod((json) =>
       client.rpc.clip.archiveClip.$post({ json })
     ),
+    listTranscriptWords: rpcMethod((json) =>
+      client.rpc.clip.listTranscriptWords.$post({ json })
+    ),
+    replaceTranscriptWords: rpcMethod((json) =>
+      client.rpc.clip.replaceTranscriptWords.$post({ json })
+    ),
     // Chapters live on this same service (ClipOperationsService merges the
     // chapter ops in), so `cvm chapter`'s verbs are RPC methods here too, backed
     // by the /rpc/chapter route group.

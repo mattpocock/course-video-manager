@@ -17,7 +17,10 @@ import {
 } from "@/features/videos/clip-zoom";
 import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
 import { readFootageTranscript } from "@/services/footage-cache";
-import { sliceTranscriptText } from "@/services/footage-chunking";
+import {
+  sliceTranscriptText,
+  sliceTranscriptWords,
+} from "@/services/footage-chunking";
 import {
   CLIP_HELP,
   LIST_HELP,
@@ -26,6 +29,7 @@ import {
   UPDATE_HELP,
   MOVE_HELP,
   DELETE_HELP,
+  WORDS_HELP,
 } from "./clip.help";
 
 /**
@@ -73,6 +77,7 @@ import {
  *   clip update <id> [flags]             set --zoom and/or retime --start/--end
  *   clip move <id> --before/--after <id> reposition within the Video's timeline
  *   clip delete <id>                     archive (soft delete; no restore)
+ *   clip words <id>                      the Clip's Transcript Words (NDJSON)
  *
  * `update`'s --start/--end retime the cut WITHOUT touching `text`/`transcribedAt` — there is no
  * re-transcription step, so a retimed clip's text can drift out of sync with its new audio range
@@ -279,6 +284,9 @@ const addCmd = Command.make(
         );
       }
       const text = sliceTranscriptText(sidecar, start, end);
+      // The same slice, keeping the per-word timing — a Clip cut here is
+      // readable by `clip words` immediately, with no re-transcribe.
+      const transcriptWords = sliceTranscriptWords(sidecar, start, end);
 
       const beforeItemId = yield* resolveBeforeItemId({
         entity: "clip",
@@ -294,6 +302,7 @@ const addCmd = Command.make(
         sourceStartTime: start,
         sourceEndTime: end,
         text,
+        transcriptWords,
         beforeItemId,
       });
       yield* emitObject(clip);
@@ -400,6 +409,27 @@ const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
   })
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 
+/**
+ * The Clip's Transcript Words — Whisper's per-word timing, at CLIP-RELATIVE
+ * offsets. A never-transcribed Clip has none; that prints nothing and exits 0,
+ * because "no words yet" is an ordinary state, not a failure. Read-only, and
+ * reachable from the Remote Box like every other clip verb.
+ */
+const wordsCmd = Command.make("words", { id: idArg }, ({ id }) =>
+  Effect.gen(function* () {
+    yield* requireActiveClip(id);
+    const clipOps = yield* ClipOperationsService;
+    const words = yield* clipOps.listTranscriptWords(id);
+    yield* emitNdjson(
+      words.map((word) => ({
+        start: word.start,
+        end: word.end,
+        text: word.text,
+      }))
+    );
+  })
+).pipe(Command.withDescription(detail(WORDS_HELP)));
+
 export const clipCommand = Command.make("clip").pipe(
   Command.withDescription(detail(CLIP_HELP)),
   Command.withSubcommands([
@@ -409,5 +439,6 @@ export const clipCommand = Command.make("clip").pipe(
     updateCmd,
     moveCmd,
     deleteCmd,
+    wordsCmd,
   ])
 );

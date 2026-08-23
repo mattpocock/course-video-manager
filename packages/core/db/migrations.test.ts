@@ -36,6 +36,7 @@ describe("drizzle migrations", () => {
       expect(tableNames).toContain("course-video-manager_video");
       expect(tableNames).toContain("course-video-manager_diagram");
       expect(tableNames).toContain("course-video-manager_diagram_snapshot");
+      expect(tableNames).toContain("course-video-manager_clip_transcript_word");
 
       await pglite.close();
     },
