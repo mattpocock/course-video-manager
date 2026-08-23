@@ -48,7 +48,3 @@ export const createFakeOverlayRenderCache = (opts?: {
 
   return { layer, requests };
 };
-
-/** The same fake, for a test that only needs the wiring to exist. */
-export const fakeOverlayRenderCacheLayer = () =>
-  createFakeOverlayRenderCache().layer;

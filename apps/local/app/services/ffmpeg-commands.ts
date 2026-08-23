@@ -8,13 +8,17 @@ import { registerFfmpegChild } from "./ffmpeg-child-registry";
 import { appendBoundedTail, withStderrTail } from "./ffmpeg-log-capture";
 import {
   BITEXACT_ARGS,
+  LANDSCAPE_VIDEO_ENCODE_ARGS,
   FFmpegError,
   runFfmpegWithProgress,
   type FfmpegLogInfo,
 } from "./ffmpeg-run";
 import { clipZoomCropFilter } from "@/features/videos/clip-zoom";
 import { clipExportDurationInSeconds } from "./export-duration-check";
-import { buildOverlayCompositeFilterGraph } from "./overlay-compositing";
+import {
+  buildOverlayCompositeArgs,
+  type RenderedOverlay,
+} from "./overlay-compositing";
 
 export type { FfmpegLogInfo };
 
@@ -217,24 +221,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           "[outv]",
           "-map",
           "[outa]",
-          "-c:v",
-          "h264_nvenc",
-          "-preset",
-          "slow",
-          "-rc:v",
-          "vbr",
-          "-cq:v",
-          "19",
-          "-b:v",
-          "15387k",
-          "-maxrate",
-          "20000k",
-          "-bufsize",
-          "30000k",
-          "-fps_mode",
-          "cfr",
-          "-r",
-          "60",
+          ...LANDSCAPE_VIDEO_ENCODE_ARGS,
           "-c:a",
           "aac",
           "-ar",
@@ -467,22 +454,24 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
        * single pass, each shown only for its own span of the timeline.
        *
        * Deliberately NOT a widening of `compositeOverlay`: that one is the
-       * vertical Shorts pipeline's single, full-length subtitle track, and its
-       * bytes must not move. This one is the landscape/course export's sparse,
-       * time-gated overlays. They share the encode settings and nothing else.
+       * vertical Shorts pipeline's single, full-length subtitle track, encoded
+       * with libx264, and its bytes must not move. This one is the
+       * landscape/course export's sparse, time-gated overlays, and it re-encodes
+       * a file the concat pass has already written — so it takes its picture
+       * settings from {@link LANDSCAPE_VIDEO_ENCODE_ARGS}, the same ones that
+       * pass used, rather than from the Shorts burn-in it resembles. A course
+       * video with a Definition Card is otherwise a second-generation CPU
+       * re-encode with different characteristics from every course video
+       * without one.
        *
-       * The graph itself is built — and tested — by
-       * {@link buildOverlayCompositeFilterGraph}.
+       * The command line itself is built — and tested — by
+       * {@link buildOverlayCompositeArgs}.
        */
       const compositeOverlaysAtOffsets = Effect.fn(
         "compositeOverlaysAtOffsets"
       )(function* (
         videoPath: string,
-        overlays: ReadonlyArray<{
-          overlayPath: string;
-          startInSeconds: number;
-          endInSeconds: number;
-        }>,
+        overlays: ReadonlyArray<RenderedOverlay>,
         outputPath: string,
         extras: {
           /** What the caller's Clips ask for — the progress denominator. */
@@ -492,8 +481,8 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           onLog: (info: FfmpegLogInfo) => void;
         }
       ) {
-        const filterGraph = buildOverlayCompositeFilterGraph(overlays);
-        if (!filterGraph) {
+        const args = buildOverlayCompositeArgs(videoPath, overlays, outputPath);
+        if (!args) {
           // A caller with nothing to composite must skip the pass, not ask
           // for one: re-encoding a video to change none of it would move its
           // bytes for no reason.
@@ -502,32 +491,6 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
             message: "Cannot composite overlays: no overlays were given",
           });
         }
-
-        const args = [
-          "-y",
-          "-hide_banner",
-          "-i",
-          videoPath,
-          ...overlays.flatMap((overlay) => ["-i", overlay.overlayPath]),
-          "-filter_complex",
-          filterGraph,
-          "-map",
-          "[outv]",
-          "-map",
-          "0:a",
-          "-c:v",
-          "libx264",
-          "-preset",
-          "slow",
-          "-crf",
-          "18",
-          "-c:a",
-          "copy",
-          "-movflags",
-          "+faststart",
-          ...BITEXACT_ARGS,
-          outputPath,
-        ];
 
         yield* gpuSemaphore.withPermits(1)(
           runFfmpegWithProgress({

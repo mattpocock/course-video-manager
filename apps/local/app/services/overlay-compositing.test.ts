@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildOverlayCompositeArgs,
   buildOverlayCompositeFilterGraph,
   placeOverlaysOnTimeline,
-  type AnchoredOverlay,
 } from "./overlay-compositing";
 import {
   LONG_PAUSE_DURATION_IN_SECONDS,
   type ExportClipDuration,
 } from "./export-duration-check";
+import type { ExportOverlay } from "./export-hash";
 
-const card = (overrides?: Partial<AnchoredOverlay>): AnchoredOverlay => ({
+const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   at: 0,
   durationInSeconds: 5,
   title: "Monomorphism",
@@ -192,5 +193,52 @@ describe("buildOverlayCompositeFilterGraph", () => {
 
     expect(graph).not.toMatch(/e[+-]\d/);
     expect(graph).toContain("enable='between(t,0.000,1234567.500)'");
+  });
+});
+
+describe("buildOverlayCompositeArgs", () => {
+  const card = {
+    overlayPath: "/cache/a.mov",
+    startInSeconds: 1,
+    endInSeconds: 4,
+  };
+
+  it("feeds ffmpeg the video first and one input per card", () => {
+    const args = buildOverlayCompositeArgs(
+      "/in.mp4",
+      [card, { ...card, overlayPath: "/cache/b.mov" }],
+      "/out.mp4"
+    )!;
+
+    const inputs = args.flatMap((arg, i) =>
+      arg === "-i" ? [args[i + 1]] : []
+    );
+    expect(inputs).toEqual(["/in.mp4", "/cache/a.mov", "/cache/b.mov"]);
+    expect(args.at(-1)).toBe("/out.mp4");
+  });
+
+  it("encodes the picture the way the landscape export does, not the way a Short does", () => {
+    const args = buildOverlayCompositeArgs("/in.mp4", [card], "/out.mp4")!;
+
+    // The concat pass that produced /in.mp4 encodes on the GPU at a set
+    // bitrate. This pass re-encodes the same file, so a course video with a
+    // Definition Card must not come out of a second-generation CPU encode
+    // with different characteristics from every course video without one.
+    expect(args).toContain("h264_nvenc");
+    expect(args).not.toContain("libx264");
+    expect(args).not.toContain("-crf");
+  });
+
+  it("leaves the already-normalized audio alone", () => {
+    const args = buildOverlayCompositeArgs("/in.mp4", [card], "/out.mp4")!;
+
+    expect(args.slice(args.indexOf("-c:a"), args.indexOf("-c:a") + 2)).toEqual([
+      "-c:a",
+      "copy",
+    ]);
+  });
+
+  it("has no command line at all for a video with no cards", () => {
+    expect(buildOverlayCompositeArgs("/in.mp4", [], "/out.mp4")).toBeNull();
   });
 });
