@@ -91,7 +91,10 @@ an Overlay with no anchor, no length or no words is not a thing worth having.
   --clip <id>          the anchor Clip. Unknown or archived is a not-found
                        (exit 2).
   --at <seconds>       offset from that Clip's OWN start, in seconds. 0 is the
-                       Clip's first frame. Must be >= 0 (exit 3 otherwise).
+                       Clip's first frame. Must be >= 0 and LESS than that
+                       Clip's own length (exit 3 otherwise) — the anchor is a
+                       moment inside the Clip, so an offset past its end would
+                       show the card over a later Clip instead.
                        Read a precise spoken moment off the Clip's transcript
                        rather than guessing.
   --duration <seconds> how long the card stays on screen. Must be > 0. NOT
@@ -112,13 +115,17 @@ Example:
 export const UPDATE_HELP = `Patch a single Overlay by id. At least one flag is required (an update with no
 fields is an invalid-input error, exit 3). Only the flags you pass change.
 
-  --clip <id>          RE-ANCHOR the Overlay to a different Clip. This is how an
-                       Overlay is moved — there is no 'overlay move' verb,
-                       because an Overlay's position is just its anchor Clip
-                       plus '--at'. Note the offset is Clip-relative, so
-                       re-anchoring WITHOUT also passing --at keeps the old
-                       number against the new Clip's start.
-  --at <seconds>       new Clip-relative offset. Must be >= 0.
+  --clip <id>          RE-ANCHOR the Overlay to a different Clip in the SAME
+                       Video. This is how an Overlay is moved — there is no
+                       'overlay move' verb, because an Overlay's position is
+                       just its anchor Clip plus '--at'. Note the offset is
+                       Clip-relative, so re-anchoring WITHOUT also passing --at
+                       keeps the old number against the new Clip's start (and
+                       is refused, exit 3, if it does not fit there). A Clip in
+                       ANOTHER Video is refused (exit 3): an Overlay cannot
+                       cross Videos — delete it and add one there instead.
+  --at <seconds>       new Clip-relative offset. Must be >= 0 and less than the
+                       anchor Clip's own length.
   --duration <seconds> new on-screen length in seconds. Must be > 0.
   --title <text>       new card heading (the term).
   --description <text> new card body (the definition).
