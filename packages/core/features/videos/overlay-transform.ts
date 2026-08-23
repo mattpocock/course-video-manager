@@ -428,12 +428,14 @@ export const overlayTransformVideoFilter = (
     `color=${SLIDE_BACKGROUND_COLOR}`,
   ].join(":");
 
+  // NO `eval=` OPTION. ffmpeg 6.0 removed it from `crop` and evaluates `x`
+  // and `y` on every frame instead, so asking for `eval=frame` is not merely
+  // needless — it is refused, and the whole compositing pass dies with it.
   const crop = [
     `crop=w='${sourceWidth}'`,
     `h='ih'`,
     `x='${prelude}(${sourceWidth})*(${fmt(padLeft)}-ld(3))'`,
     `y='0'`,
-    `eval=frame`,
   ].join(":");
 
   return `${pad},${crop}`;
