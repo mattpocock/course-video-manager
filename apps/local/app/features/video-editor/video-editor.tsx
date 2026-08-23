@@ -53,6 +53,7 @@ import {
   type SuggestionState,
 } from "./video-editor-context";
 import type { VideoFormat } from "@/features/videos/video-format";
+import type { ClipOverlay } from "./overlay-preview";
 import {
   getClipsToAggressivelyPreload,
   getTotalDuration,
@@ -110,6 +111,8 @@ export const VideoEditor = (props: {
   }>;
   videoCount: number;
   beats: BeatListBeat[];
+  /** Every Overlay on this Video — the loader's own read, no in-UI authoring. */
+  overlays: ClipOverlay[];
   /** Does this video have a teleprompter script? Enables "Copy script". */
   hasScript: boolean;
   referenceCandidates: ReferenceCandidate[];
@@ -427,6 +430,7 @@ export const VideoEditor = (props: {
       anyClipsMissingTranscriptWords: props.anyClipsMissingTranscriptWords,
       items: timelineItems,
       allItems: props.items,
+      overlays: props.overlays,
       sessions: props.sessions,
       sessionPanels,
       videoTitle: props.videoTitle,
@@ -525,6 +529,7 @@ export const VideoEditor = (props: {
       props.videoFormat,
       props.anyClipsMissingTranscriptWords,
       props.items,
+      props.overlays,
       props.videoTitle,
       props.videoId,
       props.repoName,

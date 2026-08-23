@@ -9,7 +9,8 @@
     "render-overlay": "./bin.mjs"
   },
   "exports": {
-    ".": "./src/render.ts"
+    ".": "./src/render.ts",
+    "./card": "./src/card.tsx"
   },
   "scripts": {
     "studio": "remotion studio remotion/index.ts",
@@ -23,8 +24,8 @@
     "@remotion/google-fonts": "4.0.347",
     "@remotion/renderer": "4.0.347",
     "@remotion/tailwind-v4": "4.0.347",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "remotion": "4.0.347",
     "tailwindcss": "4.1.1",
     "zod": "^3.25.46"

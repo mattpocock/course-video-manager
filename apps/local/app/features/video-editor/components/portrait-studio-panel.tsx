@@ -6,6 +6,7 @@ import { RecordingSignalIndicator } from "./timeline-indicators";
 import { StudioActionsDropdown } from "./studio-actions-dropdown";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
+import type { ClipOverlay } from "../overlay-preview";
 import {
   getIsOBSActive as getIsOBSActiveSelector,
   getShowCenterLine as getShowCenterLineSelector,
@@ -241,6 +242,11 @@ export const PortraitStudioPanel = () => {
                 onUpdateCurrentTime={onUpdateCurrentTime}
                 playbackRate={playbackRate}
                 scrubSeekTime={scrubSeekTime}
+                // Definition Cards — the only Overlay content-kind this PR
+                // previews — are a landscape/course-video feature (see
+                // `DEFINITION_CARD_FRAME` in `overlay-render-cache.ts`); the
+                // Shorts studio has no overlay preview of its own yet.
+                overlays={NO_OVERLAYS}
               />
             </div>
 
@@ -329,3 +335,6 @@ export const PortraitStudioPanel = () => {
     </div>
   );
 };
+
+/** A stable empty array — the Shorts studio has no overlay preview yet. */
+const NO_OVERLAYS: ClipOverlay[] = [];

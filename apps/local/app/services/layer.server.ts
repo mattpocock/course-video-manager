@@ -22,6 +22,7 @@ import { DiagramOperationsService } from "@/services/db-diagram-operations.serve
 import { DiagramComponentOperationsService } from "@/services/db-diagram-component-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
+import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
@@ -48,6 +49,7 @@ const coreLayer = Layer.mergeAll(
   DiagramComponentOperationsService.Default,
   PitchOperationsService.Default,
   BeatOperationsService.Default,
+  OverlayOperationsService.Default,
   DeliverableOperationsService.Default,
   ThumbnailOperationsService.Default,
   LinkAuthOperationsService.Default,

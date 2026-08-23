@@ -3,6 +3,16 @@
 @plugin "tailwind-scrollbar";
 @plugin "@tailwindcss/typography";
 
+/*
+ * Tailwind v4's automatic content detection only walks this app's own
+ * source tree. The overlay preview (`overlay-preview.tsx`) renders
+ * `DefinitionCards` straight from `@cvm/overlay-renderer`'s `./card` export
+ * — a sibling workspace package outside this tree — so its utility class
+ * names (`bg-white`, `text-stone-900`, …) would otherwise never be scanned
+ * and would be missing from the built CSS.
+ */
+@source "../../../packages/overlay-renderer/remotion";
+
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClipOnDatabase, FrontendId } from "./clip-state-reducer";
 import { cn } from "@/lib/utils";
 import { clipZoomCssStyle } from "@/features/videos/clip-zoom";
@@ -9,6 +9,7 @@ import {
 } from "./constants";
 import { useAudioBoost } from "./use-audio-boost";
 import type { RunningState } from "./video-state-reducer";
+import { OverlayPreview, type ClipOverlay } from "./overlay-preview";
 
 const PRELOAD_PLAY_AMOUNT = 0.1;
 
@@ -23,10 +24,18 @@ export const PreloadableClip = (props: {
   onUpdateCurrentTime: (time: number) => void;
   profile: string | undefined;
   scrubSeekTime: number | undefined;
+  /** This Clip's own Overlays only — already filtered by `clip_id` upstream. */
+  overlays: ClipOverlay[];
 }) => {
   const [preloadState, setPreloadState] = useState<"preloading" | "finished">(
     "preloading"
   );
+  // The overlay preview's own clip-relative playhead. Mirrors what
+  // `onUpdateCurrentTime` below sends up to the reducer's `currentTimeInClip`,
+  // but kept local too: `OverlayPreview` needs it on every frame this Clip is
+  // the one playing, and re-deriving it from context would mean threading
+  // context into an otherwise prop-only component.
+  const [overlayCurrentTime, setOverlayCurrentTime] = useState(0);
   const ref = useRef<HTMLVideoElement>(null);
   useAudioBoost(ref, PREVIEW_AUDIO_BOOST_DB);
 
@@ -110,7 +119,11 @@ export const PreloadableClip = (props: {
         return;
       }
 
-      props.onUpdateCurrentTime(currentTime - props.clip.sourceStartTime);
+      const clipRelativeTime = currentTime - props.clip.sourceStartTime;
+      props.onUpdateCurrentTime(clipRelativeTime);
+      if (props.overlays.length > 0) {
+        setOverlayCurrentTime(clipRelativeTime);
+      }
 
       animationId = requestAnimationFrame(checkCurrentTime);
     };
@@ -130,23 +143,34 @@ export const PreloadableClip = (props: {
     props.clip.sourceStartTime,
     preloadTo,
     props.onUpdateCurrentTime,
+    props.overlays.length,
   ]);
 
   return (
-    <video
-      key={props.clip.frontendId}
-      src={`/view-video?videoPath=${props.clip.videoFilename}#t=${preloadFrom},${modifiedEndTime}`}
-      className={cn(
-        "w-full",
-        props.hidden && "hidden",
-        props.profile === "TikTok" && "w-92 aspect-[9/16]"
+    <div className={cn("relative w-full", props.hidden && "hidden")}>
+      <video
+        key={props.clip.frontendId}
+        src={`/view-video?videoPath=${props.clip.videoFilename}#t=${preloadFrom},${modifiedEndTime}`}
+        className={cn(
+          "w-full",
+          props.profile === "TikTok" && "w-92 aspect-[9/16]"
+        )}
+        // The preview half of the Clip Zoom contract. These two properties are
+        // formatted from the same rect the export's ffmpeg crop is built from
+        // (see features/videos/clip-zoom), so what plays here is what ships.
+        style={clipZoomCssStyle(props.clip.zoomType) ?? undefined}
+        ref={ref}
+      />
+      {/* Only mounted for the Clip actually on screen — every other Clip in
+          the manager is preloading off-screen (`hidden`), and there is no
+          reason to run an extra `<Player>` per one of those. */}
+      {!props.hidden && props.overlays.length > 0 && (
+        <OverlayPreview
+          overlays={props.overlays}
+          currentTime={overlayCurrentTime}
+        />
       )}
-      // The preview half of the Clip Zoom contract. These two properties are
-      // formatted from the same rect the export's ffmpeg crop is built from
-      // (see features/videos/clip-zoom), so what plays here is what ships.
-      style={clipZoomCssStyle(props.clip.zoomType) ?? undefined}
-      ref={ref}
-    />
+    </div>
   );
 };
 
@@ -161,7 +185,25 @@ export const PreloadableClipManager = (props: {
   onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
   scrubSeekTime: number | undefined;
+  /** Every Overlay on this Video — grouped below by `clip_id` per Clip. */
+  overlays: ClipOverlay[];
 }) => {
+  // Grouped once per `overlays` change rather than `.filter()`-ed per Clip
+  // per render — this Video may have many Clips, each re-rendering on every
+  // playhead tick.
+  const overlaysByClipId = useMemo(() => {
+    const map = new Map<string, ClipOverlay[]>();
+    for (const overlay of props.overlays) {
+      const forClip = map.get(overlay.clipId);
+      if (forClip) {
+        forClip.push(overlay);
+      } else {
+        map.set(overlay.clipId, [overlay]);
+      }
+    }
+    return map;
+  }, [props.overlays]);
+
   return (
     <div className="">
       {props.clips.map((clip) => {
@@ -209,6 +251,7 @@ export const PreloadableClipManager = (props: {
               scrubSeekTime={
                 isCurrentlyPlaying ? props.scrubSeekTime : undefined
               }
+              overlays={overlaysByClipId.get(clip.databaseId) ?? EMPTY_OVERLAYS}
             />
           </div>
         );
@@ -216,3 +259,7 @@ export const PreloadableClipManager = (props: {
     </div>
   );
 };
+
+/** A stable empty array, so a Clip with no Overlays gets the same reference
+ * on every render instead of a fresh `[]` retriggering its effects. */
+const EMPTY_OVERLAYS: ClipOverlay[] = [];

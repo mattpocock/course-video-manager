@@ -22,6 +22,7 @@ import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-ha
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
+import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
@@ -80,6 +81,7 @@ export const loader = makeLoader({
       const videoOps = yield* VideoOperationsService;
       const beatOps = yield* BeatOperationsService;
       const clipOps = yield* ClipOperationsService;
+      const overlayOps = yield* OverlayOperationsService;
       const video = yield* videoOps.getVideoWithClipsById(videoId);
 
       // This video's own Beat plan, shown (and edited, when idle) in the
@@ -92,6 +94,22 @@ export const loader = makeLoader({
         title: s.title,
         description: s.description,
         order: s.order,
+      }));
+
+      // Overlays anchored to this Video's Clips, for the in-editor overlay
+      // preview (a read — the Overlay itself is authored only via `cvm
+      // overlay`). `null` asks for the whole Video, not one Clip.
+      const overlayRows = yield* overlayOps.listOverlaysByVideoId(
+        videoId,
+        null
+      );
+      const overlays = overlayRows.map((o) => ({
+        id: o.id,
+        clipId: o.clipId,
+        at: o.at,
+        durationInSeconds: o.durationInSeconds,
+        title: o.title,
+        description: o.description,
       }));
 
       const referenceCandidates = video.lesson
@@ -160,6 +178,7 @@ export const loader = makeLoader({
         fsData,
         referenceCandidates,
         beats,
+        overlays,
       };
     }),
 });
@@ -475,6 +494,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       videoCount={props.loaderData.videoCount}
       referenceCandidates={props.loaderData.referenceCandidates}
       beats={props.loaderData.beats}
+      overlays={props.loaderData.overlays}
       hasScript={props.loaderData.hasScript}
       onAddReferenceChapterAt={({
         videoId,

@@ -18,6 +18,7 @@ import type { ClipComputedProps } from "./types";
 import type { ReferenceCandidate } from "./components/reference-panel";
 import type { FetcherWithComponents } from "react-router";
 import type { VideoFormat } from "@/features/videos/video-format";
+import type { ClipOverlay } from "./overlay-preview";
 
 export type FileMetadata = {
   path: string;
@@ -66,6 +67,8 @@ export type VideoEditorContextType = {
   anyClipsMissingTranscriptWords: boolean;
   items: TimelineItem[];
   allItems: TimelineItem[];
+  /** Every Overlay on this Video, across all of its Clips (see overlay-preview.tsx). */
+  overlays: ClipOverlay[];
   sessions: RecordingSession[];
   sessionPanels: SessionPanelData[];
   videoTitle: string;

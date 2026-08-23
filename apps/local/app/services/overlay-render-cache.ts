@@ -36,9 +36,14 @@ export const DEFINITION_CARD_FPS = 60;
  * render stays valid.
  *
  * It lives here, in `apps/local`, rather than in the renderer package, because
- * the renderer is not a workspace dependency of this app — the subprocess is
- * the only coupling and importing across it would drag Remotion into every
- * root check. Whoever changes the renderer bumps this by hand.
+ * the *render* path (`@cvm/overlay-renderer`'s `"."` export — `@remotion/bundler`
+ * + `@remotion/renderer` + Chromium) is still not a workspace dependency of this
+ * app; the subprocess (`overlay-renderer-bin.ts`) is the only coupling to it and
+ * importing across it would drag Remotion's Node/Chromium toolchain into every
+ * root check. This app does now depend on the package's separate `"./card"`
+ * export (a plain browser-safe component, for the in-editor overlay preview —
+ * see `overlay-preview.tsx`), which carries none of that. Whoever changes the
+ * renderer bumps this by hand.
  */
 export const OVERLAY_RENDERER_VERSION = 1;
 
