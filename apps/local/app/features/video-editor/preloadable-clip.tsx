@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ClipOnDatabase, FrontendId } from "./clip-state-reducer";
 import { cn } from "@/lib/utils";
 import { clipZoomCssStyle } from "@/features/videos/clip-zoom";
@@ -10,7 +10,6 @@ import {
 import { useAudioBoost } from "./use-audio-boost";
 import type { RunningState } from "./video-state-reducer";
 import { OverlayPreview, type ClipOverlay } from "./overlay-preview";
-import { groupOverlaysByClip, type OverlaySpillClip } from "./overlay-spill";
 
 const PRELOAD_PLAY_AMOUNT = 0.1;
 
@@ -218,23 +217,14 @@ export const PreloadableClipManager = (props: {
   onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
   scrubSeekTime: number | undefined;
-  /** Every Overlay on this Video — grouped below into the Clips that draw it. */
-  overlays: ClipOverlay[];
   /**
-   * Every Clip on this Video in playback order — NOT only the preloaded ones
-   * in `clips` above. An Overlay may outlive its anchor Clip and keep showing
-   * over the Clips that follow, and working out how far it reaches means
-   * measuring those Clips, whether or not they are preloaded yet.
+   * Every Overlay each Clip must draw, keyed by Clip database id. Grouped for
+   * the whole Video upstream rather than here, because an Overlay may outlive
+   * its anchor Clip and keep showing over the Clips that follow — a walk that
+   * needs every Clip's length, not only the preloaded Clips in `clips` above.
    */
-  timelineClips: OverlaySpillClip[];
+  overlaysByClipId: Map<string, ClipOverlay[]>;
 }) => {
-  // Grouped once per change rather than re-walked per Clip per render — this
-  // Video may have many Clips, each re-rendering on every playhead tick.
-  const overlaysByClipId = useMemo(
-    () => groupOverlaysByClip(props.timelineClips, props.overlays),
-    [props.timelineClips, props.overlays]
-  );
-
   return (
     <div className="">
       {props.clips.map((clip) => {
@@ -282,7 +272,9 @@ export const PreloadableClipManager = (props: {
               scrubSeekTime={
                 isCurrentlyPlaying ? props.scrubSeekTime : undefined
               }
-              overlays={overlaysByClipId.get(clip.databaseId) ?? EMPTY_OVERLAYS}
+              overlays={
+                props.overlaysByClipId.get(clip.databaseId) ?? EMPTY_OVERLAYS
+              }
             />
           </div>
         );

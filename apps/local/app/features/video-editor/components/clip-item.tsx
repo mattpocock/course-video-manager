@@ -17,6 +17,7 @@ import {
   ChevronRightIcon,
   FilmIcon,
   ImageIcon,
+  LayersIcon,
   Link2Icon,
   Loader2,
   PauseIcon,
@@ -130,6 +131,14 @@ export const ClipItem = (props: ClipItemProps) => {
   const onUnpinDiagram = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.onUnpinDiagram
+  );
+  // Every Overlay that COVERS this Clip, anchored to it or spilling onto it
+  // from an earlier one — the same grouping the player preview draws from, so
+  // a Clip carries a badge exactly when a card is on screen over it.
+  const coveringOverlays = useContextSelector(VideoEditorContext, (ctx) =>
+    clip.type === "on-database"
+      ? ctx.overlaysByClipId.get(clip.databaseId)
+      : undefined
   );
   const percentComplete = getClipPercentComplete(clip, currentTimeInClip);
 
@@ -251,6 +260,39 @@ export const ClipItem = (props: ClipItemProps) => {
                   <ZoomInIcon className="w-3 h-3 shrink-0" />
                   Zoomed
                 </span>
+              </div>
+            )}
+
+            {/* Overlays covering this Clip. Definition Card is the only
+                content-kind there is today (see the `overlays` table, which
+                deliberately has no `kind` column), so the kind is spelled out
+                here rather than read off the row. A card anchored to an
+                earlier Clip is listed too, because it is still on screen
+                here — `at` is negative for those. */}
+            {coveringOverlays && coveringOverlays.length > 0 && (
+              <div className="z-10 relative mt-2 flex flex-wrap gap-1">
+                {coveringOverlays.map((overlay) => (
+                  <span
+                    key={overlay.id}
+                    title={
+                      overlay.at < 0
+                        ? `Definition Card, continuing from an earlier Clip: ${overlay.title}`
+                        : `Definition Card, ${overlay.at}s into this Clip for ${overlay.durationInSeconds}s: ${overlay.title}`
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground max-w-[16rem]",
+                      // Dimmed where the card only carries over from an
+                      // earlier Clip, so the Clip that OWNS it still reads as
+                      // the one to edit.
+                      overlay.at < 0 && "opacity-60"
+                    )}
+                  >
+                    <LayersIcon className="w-3 h-3 shrink-0" />
+                    <span className="truncate">
+                      Definition Card · {overlay.title}
+                    </span>
+                  </span>
+                ))}
               </div>
             )}
 

@@ -69,6 +69,12 @@ export type VideoEditorContextType = {
   allItems: TimelineItem[];
   /** Every Overlay on this Video, across all of its Clips (see overlay-preview.tsx). */
   overlays: ClipOverlay[];
+  /**
+   * Every Overlay each Clip COVERS, keyed by Clip database id — wider than
+   * `overlays` grouped by `clipId`, because an Overlay may outlive its anchor
+   * Clip and keep covering the Clips that follow. See `overlay-spill.ts`.
+   */
+  overlaysByClipId: Map<string, ClipOverlay[]>;
   sessions: RecordingSession[];
   sessionPanels: SessionPanelData[];
   videoTitle: string;

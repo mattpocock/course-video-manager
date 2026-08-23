@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { Clip } from "./clip-state-reducer";
 import { BEAT_DURATION } from "./constants";
 import type { ClipOverlay } from "./overlay-preview";
@@ -114,3 +115,20 @@ export const groupOverlaysByClip = (
 
   return byClip;
 };
+
+/**
+ * `groupOverlaysByClip` for a whole Video, held steady between renders.
+ *
+ * Worked out once, at the editor's root, and read from `VideoEditorContext`
+ * by both the player preview and the Clip list — which must agree about the
+ * Clips a card covers, or a Clip would carry a badge for a card that never
+ * appears over it.
+ */
+export const useOverlaysByClipId = (
+  clips: readonly Clip[],
+  overlays: readonly ClipOverlay[]
+) =>
+  useMemo(
+    () => groupOverlaysByClip(toOverlaySpillClips(clips), overlays),
+    [clips, overlays]
+  );

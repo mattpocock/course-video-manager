@@ -54,6 +54,7 @@ import {
 } from "./video-editor-context";
 import type { VideoFormat } from "@/features/videos/video-format";
 import type { ClipOverlay } from "./overlay-preview";
+import { useOverlaysByClipId } from "./overlay-spill";
 import {
   getClipsToAggressivelyPreload,
   getTotalDuration,
@@ -171,6 +172,7 @@ export const VideoEditor = (props: {
   // exactly what a Copy Video duplicates — clips on the database that aren't on
   // their way to the archive — so its length is what the Copy Video modal shows.
   const clips = useMemo(() => timelineItems.filter(isClip), [timelineItems]);
+  const overlaysByClipId = useOverlaysByClipId(clips, props.overlays);
 
   // Derive session panel data for RecordingSessionPanel components
   const sessionPanels = useMemo(
@@ -431,6 +433,7 @@ export const VideoEditor = (props: {
       items: timelineItems,
       allItems: props.items,
       overlays: props.overlays,
+      overlaysByClipId,
       sessions: props.sessions,
       sessionPanels,
       videoTitle: props.videoTitle,
@@ -530,6 +533,7 @@ export const VideoEditor = (props: {
       props.anyClipsMissingTranscriptWords,
       props.items,
       props.overlays,
+      overlaysByClipId,
       props.videoTitle,
       props.videoId,
       props.repoName,
