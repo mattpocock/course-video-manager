@@ -220,21 +220,25 @@ _Avoid_: Caption, Subtitle
 
 ### Overlays and transitions
 
-_Not yet implemented._ This section is a design in progress, worked out ahead of any code — `Overlay`, `Overlay Template`, `Transition`, and `Transform` describe the intended replacement for today's `Effect Clip` and `Clip Zoom`, not something `cvm` or the editor currently exposes. Treat every term below as proposed until this note is removed.
+`Overlay` and `Definition Card` are implemented as domain data: an agent authors them with `cvm overlay add|list|get|update|delete`, and there is no editor UI. `Overlay Template`, `Transition` and `Transform` are **not yet implemented** — they remain a design in progress, worked out ahead of any code as the intended replacement for today's `Effect Clip` and `Clip Zoom`, so treat those three terms as proposed until this note names them differently.
 
 **Overlay**:
-A rendered visual layer composited on top of a Video's footage. Anchored by a start point within a specific **Clip** — so trimming or reordering earlier Clips carries the Overlay's start along with them — but its duration is independent of that Clip's own length: an Overlay commonly runs past the end of its anchor Clip and on across however many further Clips it takes to fill its length, truncated to the Video's own end if it would otherwise run past the last Clip. Distinct from a **Transition**, which replaces footage at a cut rather than sitting on top of it. May carry a **Transform**, its own visible content, or both — a plain camera move with nothing on top is just an Overlay with no content. At most one Overlay is ever visible at a given moment across the whole Video — no tracks, no simultaneous layering — so Overlays are sequential across the Video's timeline as a whole, not merely within one Clip.
+A rendered visual layer composited on top of a Video's footage. Anchored by a start point within a specific **Clip** — a plain Clip-relative offset in seconds (`at`, where 0 is the Clip's first frame), so trimming or reordering earlier Clips carries the Overlay's start along with them — but its duration is independent of that Clip's own length: an Overlay commonly runs past the end of its anchor Clip and on across however many further Clips it takes to fill its length, truncated to the Video's own end if it would otherwise run past the last Clip. Distinct from a **Transition**, which replaces footage at a cut rather than sitting on top of it. May carry a **Transform**, its own visible content, or both — a plain camera move with nothing on top is just an Overlay with no content; today the only content it can carry is a **Definition Card**, and it never carries a Transform, because Transform is unimplemented. At most one Overlay is ever visible at a given moment across the whole Video — no tracks, no simultaneous layering — so Overlays are sequential across the Video's timeline as a whole, not merely within one Clip. Unlike a **Clip**, an Overlay is HARD deleted: it carries no `archived` flag and there is no restore, because nothing else in the schema refers to one.
 _Avoid_: Layer, Track, Effect
 
-**Overlay Template**:
+**Definition Card**:
+An **Overlay**'s visible content: a small, AI-Hero-branded on-screen card defining a term at the moment it is spoken, whose content is exactly a `title` (the term) and a `description` (the definition). Written inline on the Overlay itself — there is no shared glossary or dictionary entity to pick a definition from, and no deduplication between placements, so two Overlays defining the same term each carry their own copy of the words. The ONLY content-kind an Overlay can carry today, which is why an Overlay has no kind discriminator.
+_Avoid_: Term, Definition, Glossary Entry, Card (reserved for an eventual family of card-shaped content-kinds), Tooltip
+
+**Overlay Template** (not yet implemented):
 A named, reusable Overlay (or small group of them) that an agent picks from and applies to a run of Clips, rather than designing one from scratch each time. Owns its own **Transform**, if any — applying a Template is what gives an Overlay its Transform.
 _Avoid_: Treatment, Preset, Style
 
-**Transition**:
+**Transition** (not yet implemented):
 A rendered effect anchored to the boundary between two adjacent **Clips**, replacing footage at the cut rather than compositing on top of existing footage like an **Overlay** does. Supersedes the transition-styling use of **Effect Clip**.
 _Avoid_: Effect Clip (see that entry), Bumper, Wipe (a specific Transition style, not the category)
 
-**Transform**:
+**Transform** (not yet implemented):
 An Overlay Template's pan/zoom move on the underlying footage — an ordered sequence of framing keyframes (fractions of frame, following **Clip Zoom**'s convention, not pixels), interpolated in order across the owning **Overlay**'s duration. Independent of whatever content the Overlay carries, if any: a Transform can move the frame with nothing on top, or ride alongside a Card or Diagram to make room for it. Rendered by ffmpeg as a crop/pan filter across the Overlay's span — never by re-encoding footage through Remotion, which is reserved for compositing an Overlay's own visible content. Supersedes **Clip Zoom**, which expressed only a single static crop and could not span across Clips.
 _Avoid_: Framing, Clip Zoom (see that entry), Ken Burns, Pan
 
