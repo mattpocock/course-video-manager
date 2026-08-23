@@ -69,10 +69,20 @@ export const MAX_BULLET_PANEL_BULLETS = 4;
 
 /**
  * How long one bullet takes to ease in, and how long the whole panel takes to
- * leave — the same ~0.35s curve the subtitles rise on, so nothing on screen
- * moves at its own private speed.
+ * leave.
+ *
+ * It is the CAMERA's ease as well. The panel slides in as the presenter's face
+ * moves right, and those are one move seen twice — a panel that has arrived
+ * while the camera is still travelling is the one result nobody wants.
+ *
+ * This package cannot import the domain's copy (`packages/core`'s
+ * `OVERLAY_TRANSFORM_EASE_IN_SECONDS`, which the exported `crop` and the
+ * editor's preview are both formatted from), because the renderer must not
+ * depend on the domain database. So the number is repeated here and held equal
+ * by a test in `apps/local`, which depends on both. Change one and that test
+ * fails; change neither by accident and it cannot happen at all.
  */
-export const BULLET_PANEL_ANIMATION_IN_SECONDS = 0.35;
+export const BULLET_PANEL_ANIMATION_IN_SECONDS = 0.8;
 
 /** One bullet of a Bullet Panel: an icon, its line of text, and when it appears. */
 export const bulletPanelBulletSchema = z.object({
@@ -99,7 +109,8 @@ export type BulletPanelBullet = z.infer<typeof bulletPanelBulletSchema>;
  * time it is used.
  *
  * Each bullet eases in at its OWN `revealAt`, so the list keeps pace with what
- * is being said. The whole panel leaves in ONE un-staggered movement, so the
+ * is being said — except one authored at `0`, which arrives with the panel
+ * rather than easing in on top of the panel's own arrival. The whole panel leaves in ONE un-staggered movement, so the
  * exit stays as quick with four bullets as with one.
  */
 export const bulletPanelSchema = z.object({

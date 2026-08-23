@@ -9,6 +9,15 @@ import {
   type ExportClipDuration,
 } from "./export-duration-check";
 import type { ExportOverlay } from "./export-hash";
+import { OVERLAY_TRANSFORM_EASE_IN_SECONDS } from "@/features/videos/overlay-transform";
+
+/**
+ * The ease, spelled as the filter graph spells it. Read from the constant
+ * rather than typed out, because retuning the speed of the move is meant to be
+ * a one-line edit in `overlay-transform.ts` — a test that hardcodes the old
+ * number turns that one line into four.
+ */
+const EASE = OVERLAY_TRANSFORM_EASE_IN_SECONDS.toFixed(6);
 
 const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   at: 0,
@@ -355,11 +364,11 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
     );
   });
 
-  it("eases in and out over 0.35s, symmetrically", () => {
+  it("eases in and out over the same span at both ends", () => {
     const graph = buildOverlayCompositeFilterGraph([panel()])!;
 
-    expect(graph).toContain("clip((t-1.500000)/0.350000,0,1)");
-    expect(graph).toContain("clip((4.500000-t)/0.350000,0,1)");
+    expect(graph).toContain(`clip((t-1.500000)/${EASE},0,1)`);
+    expect(graph).toContain(`clip((4.500000-t)/${EASE},0,1)`);
     // Eased, not linear: the sampled curve is past a third of the way there
     // by an eighth of the ramp.
     expect(graph).toContain("lerp(0.000000,0.136888,");
@@ -382,7 +391,7 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
 
     // No ramp at the start at all — the camera is already there — while the
     // exit still eases.
-    expect(graph).toContain("min(1.000000,clip((4.500000-t)/0.350000,0,1))");
+    expect(graph).toContain(`min(1.000000,clip((4.500000-t)/${EASE},0,1))`);
     expect(graph).not.toContain("clip((t-1.500000)");
   });
 
@@ -391,7 +400,7 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
       panel({ disableExitAnimation: true }),
     ])!;
 
-    expect(graph).toContain("min(clip((t-1.500000)/0.350000,0,1),1.000000)");
+    expect(graph).toContain(`min(clip((t-1.500000)/${EASE},0,1),1.000000)`);
     expect(graph).not.toContain("clip((4.500000-t)");
   });
 

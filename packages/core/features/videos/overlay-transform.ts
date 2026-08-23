@@ -65,14 +65,32 @@ export const overlayTransform = (
 ): OverlayTransform | null => OVERLAY_TRANSFORMS[resolveOverlayKind(kind)];
 
 /**
- * How long the camera takes to arrive, and to leave again: long enough to read
- * as a deliberate move rather than a jump cut, short enough that the panel's
- * first bullet is not waiting on it.
+ * How long the camera takes to arrive, and to leave again.
  *
- * Shared with the panel content's own enter/exit in the renderer, so the two
- * halves of the same moment cannot desync.
+ * THE one number for the speed of the whole moment. The panel sliding in and
+ * the presenter's face moving right are not two animations that happen to
+ * agree — they are one move seen twice, so they are one constant. Everything
+ * that has to keep step with it derives from here:
+ *
+ * - the exported `crop`, formatted below;
+ * - the editor player's CSS, formatted below from the same rect;
+ * - the panel's own slide and its bullets' reveal, through
+ *   `BULLET_PANEL_ANIMATION_IN_SECONDS` in `./bullet-panel.ts`, which is this
+ *   constant under the name that file's callers know it by;
+ * - the renderer's copy in `packages/overlay-renderer/src/props.ts`, which
+ *   cannot import this one (the renderer must not depend on the domain
+ *   database) and is instead held equal to it by a test in `apps/local` that
+ *   imports both.
+ *
+ * Retuning the speed is therefore this line, and the renderer's, and nothing
+ * else — and forgetting the renderer's fails a test rather than shipping a
+ * panel that arrives before the camera does.
+ *
+ * TUNING: brought down by eye, against a real render. It started at two
+ * seconds — long enough to watch the move rather than glimpse it — and came
+ * down through one to 800ms.
  */
-export const OVERLAY_TRANSFORM_EASE_IN_SECONDS = 0.35;
+export const OVERLAY_TRANSFORM_EASE_IN_SECONDS = 0.8;
 
 /**
  * The easing curve, as control points: `cubic-bezier(0.25, 0.1, 0.25, 1)` —

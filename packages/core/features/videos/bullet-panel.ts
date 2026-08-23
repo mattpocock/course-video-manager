@@ -19,6 +19,8 @@
  * than at render time.
  */
 
+import { OVERLAY_TRANSFORM_EASE_IN_SECONDS } from "./overlay-transform.js";
+
 /** One bullet: an icon, its line of text, and when it appears. */
 export interface BulletPanelBullet {
   /** A lucide icon name, e.g. `"circle-check"`. Validated at write time. */
@@ -37,16 +39,21 @@ export const MAX_BULLET_PANEL_BULLETS = 4;
 
 /**
  * How long one bullet takes to ease in, and how long the whole panel takes to
- * ease out — the same ~0.35s the Subtitle overlay content and the camera
- * Transform use, so nothing on screen moves at its own private speed. ONE
- * constant because it is one curve used at both ends; the renderer spells it
- * the same way (`BULLET_PANEL_ANIMATION_IN_SECONDS` in
- * `packages/overlay-renderer/src/props.ts`).
+ * ease out.
+ *
+ * It IS the camera's ease — the same constant, not a number that matches it.
+ * The panel slides in as the presenter's face moves right, and those are one
+ * move seen twice: a panel that has arrived while the camera is still
+ * travelling is the one result nobody wants, and a second constant is how that
+ * happens. Retuning the speed is therefore one edit, in
+ * {@link OVERLAY_TRANSFORM_EASE_IN_SECONDS}.
  *
  * It is a validation input as well as a render constant — see
- * {@link lastBulletRevealAtInSeconds}.
+ * {@link lastBulletRevealAtInSeconds} — which is why the panel's speed is
+ * reachable from here at all.
  */
-export const BULLET_PANEL_ANIMATION_IN_SECONDS = 0.35;
+export const BULLET_PANEL_ANIMATION_IN_SECONDS =
+  OVERLAY_TRANSFORM_EASE_IN_SECONDS;
 
 /**
  * The latest moment a bullet may be revealed at, for a panel of

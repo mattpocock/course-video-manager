@@ -50,12 +50,18 @@ export const OVERLAY_RENDER_FPS = 60;
  * + `@remotion/renderer` + Chromium) is still not a workspace dependency of this
  * app; the subprocess (`overlay-renderer-bin.ts`) is the only coupling to it and
  * importing across it would drag Remotion's Node/Chromium toolchain into every
- * root check. This app does now depend on the package's separate `"./card"`
- * export (a plain browser-safe component, for the in-editor overlay preview —
+ * root check. This app does now depend on the package's separate `"./preview"`
+ * export (plain browser-safe components, for the in-editor overlay preview —
  * see `overlay-preview.tsx`), which carries none of that. Whoever changes the
  * renderer bumps this by hand.
+ *
+ * Version 2: the Bullet Panel gained its opaque ground and the AI Hero mark,
+ * lost its accent bar and its amber icons, and had its type re-spaced. Every
+ * Bullet Panel drawn by version 1 is wrong now; every Definition Card is
+ * untouched, but the version is the renderer's and not one kind's, so those
+ * re-render too.
  */
-export const OVERLAY_RENDERER_VERSION = 1;
+export const OVERLAY_RENDERER_VERSION = 2;
 
 /**
  * Everything about a Definition Card that its rendered `.mov` depends on.

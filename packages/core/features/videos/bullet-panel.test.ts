@@ -46,43 +46,63 @@ describe("lastBulletRevealAtInSeconds", () => {
 });
 
 describe("a bullet must finish appearing before the panel starts leaving", () => {
-  // REGRESSION. The bound used to be `duration - 0.35`, which accepted the
-  // precise case it existed to reject: a bullet starting to ease in on the
+  // Both bounds are DERIVED, never typed out. The ease is a tuning knob — it
+  // is the camera's speed as much as the panel's, see
+  // `OVERLAY_TRANSFORM_EASE_IN_SECONDS` — so a test that spells its own
+  // arithmetic out in decimals turns every retune into a test edit, and stops
+  // saying which rule it is checking.
+  const PANEL = 20;
+  const EASED_LIMIT = PANEL - 2 * BULLET_PANEL_ANIMATION_IN_SECONDS;
+  const CUT_LIMIT = PANEL - BULLET_PANEL_ANIMATION_IN_SECONDS;
+
+  // REGRESSION. The bound used to be one ease before the end, which accepted
+  // the precise case it existed to reject: a bullet starting to ease in on the
   // same frame the panel starts easing out.
   it("refuses a bullet revealed as the panel's exit begins", () => {
-    const result = parse([bullet(4.65)], { durationInSeconds: 5 });
+    const result = parse([bullet(CUT_LIMIT)], { durationInSeconds: PANEL });
 
     expect(result.ok).toBe(false);
-    expect(messageOf(result)).toContain("4.3");
+    expect(messageOf(result)).toContain(`${EASED_LIMIT}`);
   });
 
   it("accepts the last reveal time that does fit", () => {
-    expect(parse([bullet(4.3)], { durationInSeconds: 5 }).ok).toBe(true);
+    expect(parse([bullet(EASED_LIMIT)], { durationInSeconds: PANEL }).ok).toBe(
+      true
+    );
   });
 
   it("accepts a whole ease later when the exit is a cut", () => {
     expect(
-      parse([bullet(4.65)], {
-        durationInSeconds: 5,
+      parse([bullet(CUT_LIMIT)], {
+        durationInSeconds: PANEL,
         disableExitAnimation: true,
       }).ok
     ).toBe(true);
     expect(
-      parse([bullet(4.7)], { durationInSeconds: 5, disableExitAnimation: true })
-        .ok
+      parse([bullet(CUT_LIMIT + 0.05)], {
+        durationInSeconds: PANEL,
+        disableExitAnimation: true,
+      }).ok
     ).toBe(false);
   });
 
   it("says what the limit is and why", () => {
-    const eased = messageOf(parse([bullet(9)], { durationInSeconds: 5 }));
+    const late = PANEL + 1;
+
+    const eased = messageOf(
+      parse([bullet(late)], { durationInSeconds: PANEL })
+    );
     expect(eased).toContain("easing out");
-    expect(eased).toContain("4.3s");
+    expect(eased).toContain(`${EASED_LIMIT}s`);
 
     const cut = messageOf(
-      parse([bullet(9)], { durationInSeconds: 5, disableExitAnimation: true })
+      parse([bullet(late)], {
+        durationInSeconds: PANEL,
+        disableExitAnimation: true,
+      })
     );
     expect(cut).toContain("exit is a cut");
-    expect(cut).toContain("4.65s");
+    expect(cut).toContain(`${CUT_LIMIT}s`);
   });
 });
 

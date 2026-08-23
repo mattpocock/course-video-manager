@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { overlayPropsSchema } from "@cvm/overlay-renderer/props";
+import {
+  overlayPropsSchema,
+  BULLET_PANEL_ANIMATION_IN_SECONDS as RENDERER_EASE,
+} from "@cvm/overlay-renderer/props";
+import { OVERLAY_TRANSFORM_EASE_IN_SECONDS } from "@/features/videos/overlay-transform";
 import { overlayRenderProps } from "@/services/overlay-content-renderer";
 import {
   OVERLAY_RENDER_FPS,
@@ -26,6 +30,24 @@ const panel: BulletPanelContent = {
   disableEnterAnimation: false,
   disableExitAnimation: false,
 };
+
+/**
+ * The one place the panel's speed and the camera's speed can be compared.
+ *
+ * `packages/core` owns the number; `packages/overlay-renderer` repeats it,
+ * because the renderer must not depend on the domain database. This app is the
+ * only package that depends on BOTH, so this is where the repetition stops
+ * being a comment and starts being enforced.
+ *
+ * If this fails, the panel has been retuned without the camera or the other
+ * way round — which ships a panel that arrives while the face is still moving.
+ * Fix the two constants, not this test.
+ */
+describe("the panel and the camera move at one speed", () => {
+  it("holds the renderer's ease equal to the domain's", () => {
+    expect(RENDERER_EASE).toBe(OVERLAY_TRANSFORM_EASE_IN_SECONDS);
+  });
+});
 
 describe("overlayRenderProps", () => {
   describe("Definition Cards", () => {

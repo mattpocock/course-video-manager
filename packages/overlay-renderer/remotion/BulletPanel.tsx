@@ -35,6 +35,31 @@ const PANEL_MAX_WIDTH = 620;
 const SLIDE_DISTANCE = 48;
 
 /**
+ * How far what the ground CARRIES slides, IN THE FRAME, and which way.
+ *
+ * The words and the mark hold almost still while the ground sweeps in from the
+ * left and its leading edge wipes across them. This is the whole short move
+ * they make of their own.
+ *
+ * The SIGN is the direction:
+ *
+ * - POSITIVE — they start to the right of where they finish and travel left,
+ *   AGAINST the ground.
+ * - NEGATIVE — they start to the left and travel right, WITH the ground, a
+ *   long way behind it.
+ *
+ * Measured against the frame, not against the ground. The contents cancel the
+ * ground's whole travel first (see `contentSlide`), so this is the entire
+ * distance the eye sees them cover. A move stated against the ground instead
+ * is swamped: a few dozen px inside an 812px sweep still reads as riding along
+ * with it.
+ *
+ * TUNING: by eye, against the Studio. It went 72 -> 56 against the ground,
+ * then over to -35 with it.
+ */
+const COUNTER_SLIDE_DISTANCE = -35;
+
+/**
  * The dark ground the panel is read against, and how much of the frame it
  * covers.
  *
@@ -182,91 +207,130 @@ const Panel = ({ panel }: { panel: BulletPanel }) => {
   );
   const enter = ramp(frame, 0, animationFrames, panel.disableEnterAnimation);
 
-  return (
-    <>
-      {/*
-        The ground and its mark are ONE surface, and a SIBLING of the words
-        rather than their parent. It travels its own full width, so it enters
-        from off the left edge of frame and leaves the same way, at FULL
-        OPACITY throughout: the panel is a surface that moved into place, never
-        one that faded up. The words then slide their own short distance on top
-        of it.
-      */}
-      <AbsoluteFill
-        style={{
-          transform: `translateX(${(enter - 1 - exit) * GROUND_WIDTH * scale}px)`,
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            left: 0,
-            width: GROUND_WIDTH * scale,
-            background: GROUND_COLOR,
-          }}
-        />
-        <Img
-          src={staticFile("/ai-hero-logo.svg")}
-          style={{
-            position: "absolute",
-            top: PANEL_LEFT * scale,
-            left: PANEL_LEFT * scale,
-            width: LOGO_SIZE * scale,
-            height: LOGO_SIZE * scale,
-          }}
-        />
-      </AbsoluteFill>
+  // -1 off frame, 0 in place, back to -1 on the way out. ONE number for the
+  // whole panel's position, so the surface and what it carries cannot fall out
+  // of step.
+  const slide = enter - 1 - exit;
 
-      <AbsoluteFill
-        className="flex flex-col justify-center items-start"
+  // The ground's own travel: its whole width, in from off the left edge.
+  const groundSlide = slide * GROUND_WIDTH * scale;
+
+  // What it carries, in the ground's coordinates. It UNDOES the ground's
+  // travel — so the words stay where they are in the frame and the surface
+  // wipes across them — and then adds its own short move the OTHER way. Both
+  // terms come off `slide`, so the two can only ever oppose.
+  const contentSlide = -groundSlide - slide * COUNTER_SLIDE_DISTANCE * scale;
+
+  return (
+    <AbsoluteFill style={{ fontFamily }}>
+      {/*
+        ONE surface, arriving as one thing — the ground's whole width, in from
+        off the left edge of frame and out the same way, at full opacity
+        throughout. Nothing on the panel fades in on its own account, so
+        nothing appears while the panel is still arriving.
+
+        The words and the mark do NOT ride the surface. They hold their place
+        in the frame while the ground's leading edge wipes across them, and
+        they move a short way of their own — the OTHER way, against the
+        ground. See `COUNTER_SLIDE_DISTANCE`.
+
+        The ground CLIPS what it carries. The words are already in their final
+        places when the panel is still off frame, and the ground's leading edge
+        wipes across them as it comes: the title is revealed by the surface
+        arriving, rather than fading up on top of it. Clipping is also what
+        keeps a long line inside the dark column instead of hanging over the
+        footage.
+      */}
+      <div
         style={{
-          fontFamily,
-          paddingLeft: PANEL_LEFT * scale,
-          opacity: 1 - exit,
-          transform: `translateX(${-exit * SLIDE_DISTANCE * scale}px)`,
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: GROUND_WIDTH * scale,
+          background: GROUND_COLOR,
+          overflow: "hidden",
+          transform: `translateX(${groundSlide}px)`,
         }}
       >
+        {/*
+          Everything the ground carries, counter-sliding as ONE piece — the
+          mark, the title and the bullets with their icons. Held on a single
+          wrapper rather than repeated on each of them, so no part of the panel
+          can drift against another part.
+        */}
         <div
-          className="flex flex-col"
           style={{
-            maxWidth: PANEL_MAX_WIDTH * scale,
-            gap: 44 * scale,
+            position: "absolute",
+            inset: 0,
+            transform: `translateX(${contentSlide}px)`,
           }}
         >
-          {/* No accent bar. The title starts on the panel's own left edge, the
-              same vertical the icons below it start on, so ONE left edge runs
-              down the whole panel. */}
-          <p
-            className="font-bold leading-tight text-white"
+          <Img
+            src={staticFile("/ai-hero-logo.svg")}
             style={{
-              fontSize: 44 * scale,
-              opacity: enter,
-              transform: `translateX(${(enter - 1) * SLIDE_DISTANCE * scale}px)`,
+              position: "absolute",
+              top: PANEL_LEFT * scale,
+              left: PANEL_LEFT * scale,
+              width: LOGO_SIZE * scale,
+              height: LOGO_SIZE * scale,
+            }}
+          />
+
+          <div
+            className="absolute inset-0 flex flex-col justify-center items-start"
+            style={{
+              paddingLeft: PANEL_LEFT * scale,
+              paddingRight: PANEL_LEFT * scale,
             }}
           >
-            {panel.title}
-          </p>
+            <div
+              className="flex flex-col"
+              style={{
+                maxWidth: PANEL_MAX_WIDTH * scale,
+                gap: 44 * scale,
+              }}
+            >
+              {/* No accent bar, and no entrance of its own. The title starts on
+                the panel's own left edge, the same vertical the icons below it
+                start on, so ONE left edge runs down the whole panel. */}
+              <p
+                className="font-bold leading-tight text-white"
+                style={{ fontSize: 44 * scale }}
+              >
+                {panel.title}
+              </p>
 
-          <div className="flex flex-col" style={{ gap: 36 * scale }}>
-            {panel.bullets.map((bullet, index) => (
-              <Bullet
-                key={index}
-                bullet={bullet}
-                scale={scale}
-                // Its own reveal, from its own authored second. The Sequence
-                // already starts where the Overlay does, so `revealAt` needs
-                // nothing but a multiplication by the frame rate.
-                revealFrame={bullet.revealAt * fps}
-                animationFrames={animationFrames}
-                instant={panel.disableEnterAnimation}
-              />
-            ))}
+              <div className="flex flex-col" style={{ gap: 36 * scale }}>
+                {panel.bullets.map((bullet, index) => (
+                  <Bullet
+                    key={index}
+                    bullet={bullet}
+                    scale={scale}
+                    // Its own reveal, from its own authored second — the ONE
+                    // thing on the panel that still animates separately, because
+                    // a staggered list is what a Bullet Panel is for. The
+                    // Sequence already starts where the Overlay does, so
+                    // `revealAt` needs nothing but a multiplication by the frame
+                    // rate.
+                    revealFrame={bullet.revealAt * fps}
+                    animationFrames={animationFrames}
+                    // A bullet authored at ZERO has nothing to ease in from.
+                    // It is spoken as the Overlay opens, so it belongs to the
+                    // panel's ARRIVAL: it is already in place when the ground
+                    // wipes past, with the title. Easing it in on top of that
+                    // is the second animation this panel is meant not to have.
+                    instant={
+                      panel.disableEnterAnimation || bullet.revealAt === 0
+                    }
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </AbsoluteFill>
-    </>
+      </div>
+    </AbsoluteFill>
   );
 };
 

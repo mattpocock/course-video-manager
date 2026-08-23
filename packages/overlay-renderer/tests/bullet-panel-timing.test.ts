@@ -17,7 +17,14 @@ describe("bulletPanelAnimationFrames", () => {
   });
 
   it("never rounds down to nothing", () => {
-    expect(bulletPanelAnimationFrames(1)).toBe(1);
+    // A frame rate low enough that the ease rounds to ZERO frames. It is
+    // derived from the ease rather than typed out, so the guard keeps being
+    // exercised whatever the ease is retuned to — at 60fps no ease anyone
+    // would choose comes near this.
+    const fps = 0.4 / BULLET_PANEL_ANIMATION_IN_SECONDS;
+
+    expect(Math.round(BULLET_PANEL_ANIMATION_IN_SECONDS * fps)).toBe(0);
+    expect(bulletPanelAnimationFrames(fps)).toBe(1);
   });
 });
 
