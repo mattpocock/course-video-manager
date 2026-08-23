@@ -12,9 +12,9 @@ EXCLUDE_PATTERNS=(
   "apps/local/public/*"
   "packages/core/db/migrations/*"
   # Vendored, generated, append-only icon data. It is committed on purpose
-  # (see apps/local/app/packages/lucide-icons/README.md) and is never hand-edited, so the
+  # (see packages/lucide-icons/README.md) and is never hand-edited, so the
   # "split this into smaller modules" advice does not apply.
-  "apps/local/app/packages/lucide-icons/lib/generated/*"
+  "packages/lucide-icons/lib/generated/*"
   # The ubiquitous-language document, same category as docs/* above. It was
   # already over the limit before this exclusion existed.
   "CONTEXT.md"

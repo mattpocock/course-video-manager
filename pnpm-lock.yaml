@@ -61,6 +61,9 @@ importers:
       '@cvm/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@cvm/lucide-icons':
+        specifier: workspace:*
+        version: link:../../packages/lucide-icons
       '@cvm/overlay-renderer':
         specifier: workspace:*
         version: link:../../packages/overlay-renderer
@@ -440,8 +443,29 @@ importers:
         specifier: ^3
         version: 3.2.7(@types/debug@4.1.13)(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
 
+  packages/lucide-icons:
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      '@typescript/native-preview':
+        specifier: ^7.0.0-dev.20260304.1
+        version: 7.0.0-dev.20260707.2
+      tldraw:
+        specifier: 5.2.4
+        version: 5.2.4(@floating-ui/dom@1.8.0)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
+
   packages/overlay-renderer:
     dependencies:
+      '@cvm/lucide-icons':
+        specifier: workspace:*
+        version: link:../lucide-icons
       '@remotion/bundler':
         specifier: 4.0.347
         version: 4.0.347(lightningcss@1.32.0)(postcss@8.5.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

@@ -19,6 +19,7 @@ const shortsSampleProps: OverlayProps = {
   ],
   cta: { variant: "ai", durationInFrames: 120 },
   definitionCards: [],
+  bulletPanels: [],
 };
 
 /**
@@ -40,6 +41,37 @@ const definitionCardSampleProps: OverlayProps = {
         "One shared vocabulary for a domain, used identically in conversation and in code.",
       startFrame: 0,
       durationInFrames: 180,
+    },
+  ],
+  bulletPanels: [],
+};
+
+/**
+ * The landscape course-video pipeline again, this time a Bullet Panel: the
+ * bullets arrive one at a time on their own authored seconds, and the whole
+ * panel leaves together.
+ */
+const bulletPanelSampleProps: OverlayProps = {
+  width: 1920,
+  height: 1080,
+  fps: 60,
+  durationInFrames: 300,
+  subtitles: [],
+  cta: null,
+  definitionCards: [],
+  bulletPanels: [
+    {
+      title: "What a spec has to answer",
+      bullets: [
+        { icon: "target", text: "The problem, in one paragraph", revealAt: 0 },
+        { icon: "route", text: "The decisions already made", revealAt: 1.2 },
+        { icon: "flask-conical", text: "How it will be tested", revealAt: 2.4 },
+        { icon: "scissors", text: "What is out of scope", revealAt: 3.6 },
+      ],
+      startFrame: 0,
+      durationInFrames: 300,
+      disableEnterAnimation: false,
+      disableExitAnimation: false,
     },
   ],
 };
@@ -65,7 +97,7 @@ export const RemotionRoot: React.FC = () => {
         width={shortsSampleProps.width}
         height={shortsSampleProps.height}
       />
-      {/* Studio-only preview. The render always selects COMPOSITION_ID. */}
+      {/* Studio-only previews. The render always selects COMPOSITION_ID. */}
       <Composition
         id="DefinitionCard"
         component={Overlay}
@@ -75,6 +107,16 @@ export const RemotionRoot: React.FC = () => {
         fps={definitionCardSampleProps.fps}
         width={definitionCardSampleProps.width}
         height={definitionCardSampleProps.height}
+      />
+      <Composition
+        id="BulletPanel"
+        component={Overlay}
+        defaultProps={bulletPanelSampleProps}
+        calculateMetadata={metadata}
+        durationInFrames={bulletPanelSampleProps.durationInFrames}
+        fps={bulletPanelSampleProps.fps}
+        width={bulletPanelSampleProps.width}
+        height={bulletPanelSampleProps.height}
       />
     </>
   );

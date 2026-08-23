@@ -1,0 +1,250 @@
+import {
+  AbsoluteFill,
+  Easing,
+  interpolate,
+  Sequence,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
+import { loadFont } from "@remotion/google-fonts/DMSans";
+import { getIconNode } from "@cvm/lucide-icons";
+import {
+  BULLET_PANEL_ANIMATION_IN_SECONDS,
+  type BulletPanel,
+  type BulletPanelBullet,
+} from "../src/props";
+
+// DM Sans is AI Hero's brand typeface, the same one the Definition Card uses.
+const { fontFamily } = loadFont();
+
+/** The reference frame the panel's pixel sizes are authored against. */
+const DESIGN_WIDTH = 1920;
+
+/**
+ * The panel is ALWAYS on the left. It is not a prop and not a stored field:
+ * the paired camera Transform shifts the footage to the right by a fixed
+ * amount, so a panel on the other side would sit on the presenter's face.
+ */
+const PANEL_LEFT = 96;
+const PANEL_MAX_WIDTH = 620;
+
+/** How far the panel travels as it arrives and leaves — a short lateral slide. */
+const SLIDE_DISTANCE = 48;
+
+/** Amber-200 / amber-400, the same two brand ambers the Definition Card uses. */
+const ACCENT_COLOR = "#FDE68A";
+const ICON_COLOR = "#FBBF24";
+
+/**
+ * The shared easing curve. The subtitles rise on it and the camera Transform
+ * pans on it, so the panel, the words and the framing all accelerate alike.
+ */
+const EASE = Easing.bezier(0.25, 0.1, 0.25, 1);
+
+/**
+ * Bullet Panels: a heading plus up to four icon bullets down the LEFT of frame,
+ * shown while the camera Transform holds the footage over to the right.
+ *
+ * Each bullet arrives at its OWN authored `revealAt`, so the list keeps pace
+ * with the narration instead of landing in one generic wave. The panel LEAVES
+ * in a single un-staggered movement — a four-bullet exit takes exactly as long
+ * as a one-bullet exit, which is what stops a long panel dribbling off screen.
+ */
+export const BulletPanels = ({ panels }: { panels: BulletPanel[] }) => (
+  <>
+    {panels.map((panel, index) => (
+      <Sequence
+        key={index}
+        from={panel.startFrame}
+        // Remotion requires a positive duration; a zero-length panel would
+        // otherwise throw rather than simply not being seen.
+        durationInFrames={Math.max(1, panel.durationInFrames)}
+      >
+        <Panel panel={panel} />
+      </Sequence>
+    ))}
+  </>
+);
+
+/**
+ * 0 -> 1 over `duration` frames from `startFrame`, on the shared curve.
+ *
+ * `instant` is what the `disable*Animation` flags collapse this to: the value
+ * still changes at exactly the same frame, it just gets there in one step. That
+ * is why a disabled enter animation does NOT change a bullet's reveal timing.
+ */
+const ramp = (
+  frame: number,
+  startFrame: number,
+  duration: number,
+  instant: boolean
+): number => {
+  if (instant) return frame >= startFrame ? 1 : 0;
+  return interpolate(frame, [startFrame, startFrame + duration], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: EASE,
+  });
+};
+
+const Panel = ({ panel }: { panel: BulletPanel }) => {
+  const frame = useCurrentFrame();
+  const { width, fps } = useVideoConfig();
+  const scale = width / DESIGN_WIDTH;
+  const duration = Math.max(1, panel.durationInFrames);
+  const animationFrames = Math.max(
+    1,
+    Math.round(BULLET_PANEL_ANIMATION_IN_SECONDS * fps)
+  );
+
+  // The exit is the whole panel's, so it lives on the outermost element and
+  // covers the title and every bullet at once, whatever each one is doing.
+  const exit = ramp(
+    frame,
+    duration - animationFrames,
+    animationFrames,
+    panel.disableExitAnimation
+  );
+  const enter = ramp(frame, 0, animationFrames, panel.disableEnterAnimation);
+
+  return (
+    <AbsoluteFill
+      className="flex flex-col justify-center items-start"
+      style={{
+        fontFamily,
+        paddingLeft: PANEL_LEFT * scale,
+        opacity: 1 - exit,
+        transform: `translateX(${-exit * SLIDE_DISTANCE * scale}px)`,
+      }}
+    >
+      <div
+        className="flex flex-col"
+        style={{
+          maxWidth: PANEL_MAX_WIDTH * scale,
+          gap: 28 * scale,
+          // A soft shadow rather than a card: the panel sits directly on the
+          // footage, so it needs separation from it without a box around it.
+          filter: `drop-shadow(0 ${6 * scale}px ${18 * scale}px rgba(28,25,23,0.55))`,
+        }}
+      >
+        <div
+          className="flex items-center"
+          style={{
+            gap: 20 * scale,
+            opacity: enter,
+            transform: `translateX(${(enter - 1) * SLIDE_DISTANCE * scale}px)`,
+          }}
+        >
+          <div
+            style={{
+              width: 8 * scale,
+              height: 44 * scale,
+              borderRadius: 8 * scale,
+              background: ACCENT_COLOR,
+              flexShrink: 0,
+            }}
+          />
+          <p
+            className="font-bold leading-tight text-white"
+            style={{ fontSize: 44 * scale }}
+          >
+            {panel.title}
+          </p>
+        </div>
+
+        <div className="flex flex-col" style={{ gap: 24 * scale }}>
+          {panel.bullets.map((bullet, index) => (
+            <Bullet
+              key={index}
+              bullet={bullet}
+              scale={scale}
+              // Its own reveal, from its own authored second. The Sequence
+              // already starts where the Overlay does, so `revealAt` needs
+              // nothing but a multiplication by the frame rate.
+              revealFrame={bullet.revealAt * fps}
+              animationFrames={animationFrames}
+              instant={panel.disableEnterAnimation}
+            />
+          ))}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+const Bullet = ({
+  bullet,
+  scale,
+  revealFrame,
+  animationFrames,
+  instant,
+}: {
+  bullet: BulletPanelBullet;
+  scale: number;
+  revealFrame: number;
+  animationFrames: number;
+  instant: boolean;
+}) => {
+  const frame = useCurrentFrame();
+  const reveal = ramp(frame, revealFrame, animationFrames, instant);
+
+  return (
+    <div
+      className="flex items-start"
+      style={{
+        gap: 18 * scale,
+        opacity: reveal,
+        transform: `translateX(${(reveal - 1) * SLIDE_DISTANCE * scale}px)`,
+      }}
+    >
+      <IconGlyph name={bullet.icon} size={36 * scale} />
+      <p
+        className="font-medium leading-snug text-white"
+        style={{ fontSize: 32 * scale }}
+      >
+        {bullet.text}
+      </p>
+    </div>
+  );
+};
+
+/**
+ * A lucide icon as an inline SVG, drawn straight from the vendored icon-node
+ * table (`@cvm/lucide-icons`) — the same frozen data the diagram palette draws
+ * from. Vector, so it stays crisp at any export resolution, and no
+ * `lucide-react` dependency is added to this package for it.
+ *
+ * An unknown name draws nothing rather than throwing: by the time a name
+ * reaches a render it has already been validated at authoring time, so a miss
+ * here means the table moved under a stored name, and losing one glyph is
+ * cheaper than losing the export.
+ */
+const IconGlyph = ({ name, size }: { name: string; size: number }) => {
+  const node = getIconNode(name);
+  if (!node) return null;
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={ICON_COLOR}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+      aria-hidden="true"
+    >
+      {node.map(([tag, attrs], index) => {
+        // lucide's own vocabulary maps 1:1 onto SVG elements and its attribute
+        // names are already SVG's, so they pass straight through.
+        const Tag = tag as "path";
+        return (
+          <Tag key={index} {...(attrs as Record<string, string | number>)} />
+        );
+      })}
+    </svg>
+  );
+};

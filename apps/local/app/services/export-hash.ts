@@ -11,6 +11,7 @@ import {
   DEFAULT_OVERLAY_KIND,
   resolveOverlayKind,
 } from "@/features/videos/overlay-kind";
+import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -32,6 +33,10 @@ export type ExportOverlay = {
   kind: string;
   title: string;
   description: string;
+  /** A Bullet Panel's bullets; null for every other content-kind. */
+  bullets: BulletPanelBullet[] | null;
+  disableEnterAnimation: boolean;
+  disableExitAnimation: boolean;
 };
 
 export type ExportClip = {
@@ -70,6 +75,9 @@ export const toExportClips = (
       kind: string;
       title: string;
       description: string;
+      bullets: BulletPanelBullet[] | null;
+      disableEnterAnimation: boolean;
+      disableExitAnimation: boolean;
     }>;
   }>
 ): ExportClip[] =>
@@ -85,6 +93,9 @@ export const toExportClips = (
       kind: o.kind,
       title: o.title,
       description: o.description,
+      bullets: o.bullets,
+      disableEnterAnimation: o.disableEnterAnimation,
+      disableExitAnimation: o.disableExitAnimation,
     })),
   }));
 
@@ -110,6 +121,23 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
         : { k: resolveOverlayKind(o.kind) }),
       t: o.title,
       x: o.description,
+      // The Bullet Panel fields join `k` in being emitted only when they say
+      // something: an Overlay with no bullets and both animations on hashes
+      // exactly as it did before these columns existed, so no export written
+      // before this feature is re-addressed. Each bullet is spelled out —
+      // editing its text, its icon or its reveal time all move the address,
+      // because all three change the rendered frames.
+      ...(o.bullets && o.bullets.length > 0
+        ? {
+            b: o.bullets.map((bullet) => ({
+              i: bullet.icon,
+              t: bullet.text,
+              r: bullet.revealAt,
+            })),
+          }
+        : {}),
+      ...(o.disableEnterAnimation ? { ne: true } : {}),
+      ...(o.disableExitAnimation ? { nx: true } : {}),
     }))
     .sort((left, right) =>
       JSON.stringify(left) < JSON.stringify(right) ? -1 : 1
