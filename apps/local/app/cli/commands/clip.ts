@@ -344,10 +344,19 @@ const updateCmd = Command.make(
             "clip"
           );
         }
-        row = yield* clipOps.updateClip(id, {
-          sourceStartTime: newStart,
-          sourceEndTime: newEnd,
-        });
+        // retimeClip, not updateClip: a recut moves the footage out from
+        // under every Clip-relative offset stored against the Clip, so the
+        // service cascades over its Transcript Words (shifted, dropped when
+        // they no longer fit) and its Overlays (shifted, clamped, never
+        // deleted) in the same transaction. Doing that here would be two round
+        // trips and two transactions, either of which could leave the Clip
+        // half-cascaded.
+        row = yield* clipOps
+          .retimeClip(id, {
+            sourceStartTime: newStart,
+            sourceEndTime: newEnd,
+          })
+          .pipe(Effect.catchTag("NotFoundError", () => notFound("clip", id)));
       }
 
       // setClipZoom re-checks eligibility — it is the service that owns the
