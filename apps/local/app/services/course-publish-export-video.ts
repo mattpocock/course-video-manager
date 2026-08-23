@@ -19,6 +19,8 @@ import {
   paddedClipDurationsInSeconds,
 } from "./export-duration-check";
 import { resolveVideoFormat } from "@/features/videos/video-format";
+import { OverlayRenderCacheService } from "./overlay-render-cache.server";
+import { placeOverlaysOnTimeline } from "./overlay-compositing";
 import { ExportError } from "./course-publish-errors";
 
 /**
@@ -52,6 +54,7 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
     const FINISHED_VIDEOS_DIRECTORY = opts.finishedVideosDirectory;
     const videoOps = yield* VideoOperationsService;
     const videoProcessing = yield* VideoProcessingService;
+    const overlayRenderCache = yield* OverlayRenderCacheService;
     const effectFs = yield* FileSystem.FileSystem;
 
     /** Deleting a file we are replacing is never a reason to fail. */
@@ -122,6 +125,11 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
       yield* removeQuietly(sidecarPath(targetPath));
     }
 
+    // Where every Overlay on this Video lands on the flattened timeline. The
+    // Clips are in playback order with the archived ones already gone, so a
+    // Clip's start is the sum of what the Clips before it contribute.
+    const placedOverlays = placeOverlaysOnTimeline(video.clips, clipDurations);
+
     // Export via ffmpeg → writes to {videoId}.mp4
     const rendered = yield* videoProcessing.exportVideoClips({
       videoId,
@@ -149,6 +157,55 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
         new ExportError({
           message: `Export for video "${video.title}" (${videoId}) is short: its clips ask for ${expectedDurationInSeconds.toFixed(1)}s but the file is ${rendered.durationInSeconds.toFixed(1)}s`,
         })
+      );
+    }
+
+    // Composite the Definition Cards on, once the export is known to be a
+    // whole one. A Video with no Overlays never runs this pass at all, so its
+    // bytes are exactly what they were before Overlays existed — which is
+    // also what keeps its Byte Hash, and so its place in Dropbox, unmoved.
+    if (placedOverlays.length > 0) {
+      yield* Effect.gen(function* () {
+        // Every card is rendered (or found already rendered) before ffmpeg is
+        // asked for anything, so one failed render costs no encode.
+        const renderedOverlays = yield* Effect.forEach(
+          placedOverlays,
+          (placed) =>
+            overlayRenderCache
+              .renderDefinitionCard({
+                courseId: namespace,
+                content: placed.content,
+              })
+              .pipe(
+                Effect.map((overlayPath) => ({
+                  overlayPath,
+                  startInSeconds: placed.startInSeconds,
+                  endInSeconds: placed.endInSeconds,
+                }))
+              )
+        );
+
+        yield* videoProcessing.compositeOverlaysOntoExport({
+          videoId,
+          videoPath: videoIdPath,
+          overlays: renderedOverlays,
+          totalDurationSeconds: expectedDurationInSeconds,
+        });
+      }).pipe(
+        // A card that will not render, and an ffmpeg pass that will not run,
+        // are both simply "this Video did not export": the file never reaches
+        // its address, so nothing downstream can ship it and the next attempt
+        // starts over.
+        Effect.tapError((cause) =>
+          Effect.logError("Overlay compositing failed", cause)
+        ),
+        Effect.mapError(
+          () =>
+            new ExportError({
+              message: `Failed to composite Overlays onto video "${video.title}" (${videoId})`,
+            })
+        ),
+        Effect.tapError(() => removeQuietly(videoIdPath))
       );
     }
 

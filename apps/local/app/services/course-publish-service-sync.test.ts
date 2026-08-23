@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
+import { fakeOverlayRenderCacheLayer } from "@/test-utils/fake-overlay-render-cache";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -225,6 +226,7 @@ const setupSync = async () => {
     VersionOperationsService.Default,
     LinkAuthOperationsService.Default,
     mockVideoProcessing,
+    fakeOverlayRenderCacheLayer(),
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
 

@@ -3,6 +3,7 @@ import { FileSystem } from "@effect/platform";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoProcessingService } from "./video-processing-service";
+import { OverlayRenderCacheService } from "./overlay-render-cache.server";
 import {
   computeExportHash,
   type ExportOverlay,
@@ -126,7 +127,10 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
       // can be read — and grown — on its own. Its deps are closed over here so
       // callers of this service don't inherit them.
       const exportContext = yield* Effect.context<
-        VideoOperationsService | VideoProcessingService | FileSystem.FileSystem
+        | VideoOperationsService
+        | VideoProcessingService
+        | OverlayRenderCacheService
+        | FileSystem.FileSystem
       >();
       const exportVideoCore = Effect.fn("exportVideoCore")(function* (
         videoId: string,

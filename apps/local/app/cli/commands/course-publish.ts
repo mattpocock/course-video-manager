@@ -8,6 +8,7 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
+import { OverlayRenderCacheService } from "@/services/overlay-render-cache.server";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { loadRepoEnv } from "@/cli/env";
 import {
@@ -67,6 +68,7 @@ const publishDeps = Layer.mergeAll(
   LinkAuthOperationsService.Default,
   VideoProcessingService.Default,
   FFmpegCommandsService.Default,
+  OverlayRenderCacheService.Default,
   NodeContext.layer
 ).pipe(Layer.provideMerge(DrizzleService.Default));
 
