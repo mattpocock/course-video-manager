@@ -8,11 +8,12 @@ import {
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/DMSans";
 import { getIconNode } from "@cvm/lucide-icons";
+import { type BulletPanel, type BulletPanelBullet } from "../src/props";
 import {
-  BULLET_PANEL_ANIMATION_IN_SECONDS,
-  type BulletPanel,
-  type BulletPanelBullet,
-} from "../src/props";
+  bulletPanelAnimationFrames,
+  bulletPanelExitStartFrame,
+  bulletPanelRampProgress,
+} from "../src/bullet-panel-timing";
 
 // DM Sans is AI Hero's brand typeface, the same one the Definition Card uses.
 const { fontFamily } = loadFont();
@@ -69,9 +70,9 @@ export const BulletPanels = ({ panels }: { panels: BulletPanel[] }) => (
 /**
  * 0 -> 1 over `duration` frames from `startFrame`, on the shared curve.
  *
- * `instant` is what the `disable*Animation` flags collapse this to: the value
- * still changes at exactly the same frame, it just gets there in one step. That
- * is why a disabled enter animation does NOT change a bullet's reveal timing.
+ * WHEN it moves is `bulletPanelRampProgress`'s business (pure, and tested
+ * without a render); HOW it moves is this file's. An instant ramp is not
+ * eased at all — it is already at one end or the other.
  */
 const ramp = (
   frame: number,
@@ -79,8 +80,14 @@ const ramp = (
   duration: number,
   instant: boolean
 ): number => {
-  if (instant) return frame >= startFrame ? 1 : 0;
-  return interpolate(frame, [startFrame, startFrame + duration], [0, 1], {
+  const progress = bulletPanelRampProgress({
+    frame,
+    startFrame,
+    duration,
+    instant,
+  });
+  if (instant) return progress;
+  return interpolate(progress, [0, 1], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: EASE,
@@ -92,16 +99,20 @@ const Panel = ({ panel }: { panel: BulletPanel }) => {
   const { width, fps } = useVideoConfig();
   const scale = width / DESIGN_WIDTH;
   const duration = Math.max(1, panel.durationInFrames);
-  const animationFrames = Math.max(
-    1,
-    Math.round(BULLET_PANEL_ANIMATION_IN_SECONDS * fps)
-  );
+  const animationFrames = bulletPanelAnimationFrames(fps);
 
   // The exit is the whole panel's, so it lives on the outermost element and
-  // covers the title and every bullet at once, whatever each one is doing.
+  // covers the title and every bullet at once, whatever each one is doing. A
+  // disabled exit fires at the window's END rather than one ease before it, so
+  // the panel leaves on the same frame the camera does — see
+  // `bulletPanelExitStartFrame`.
   const exit = ramp(
     frame,
-    duration - animationFrames,
+    bulletPanelExitStartFrame({
+      durationInFrames: duration,
+      animationFrames,
+      disableExitAnimation: panel.disableExitAnimation,
+    }),
     animationFrames,
     panel.disableExitAnimation
   );

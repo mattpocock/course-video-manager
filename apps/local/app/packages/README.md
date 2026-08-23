@@ -40,5 +40,23 @@ just adding a root file — no barrel needed.
 pnpm run lint:boundaries
 ```
 
-It runs in the pre-commit hook alongside `typecheck`. Config lives in
-`.dependency-cruiser.cjs` at the repo root; the only knob is `PACKAGES_ROOT`.
+It runs in the pre-commit hook alongside `typecheck`. From the repo root it
+fans out through turbo to every workspace package's own `lint:boundaries`
+script. The config for the packages described here lives in
+`apps/local/.dependency-cruiser.cjs`; the only knob is `PACKAGES_ROOT`, which
+points at `app/packages`.
+
+## Deep modules that are also workspace packages
+
+The rules above are about `apps/local/app/packages/` — packages that are plain
+directories reached through the app's `@/*` tsconfig alias, with no
+`package.json` of their own. Present members: `course-json`, `example`.
+
+A deep module with consumers OUTSIDE `apps/local` cannot live here, because
+nothing outside the app can resolve the `@/*` alias. It is promoted to a
+top-level workspace package under `packages/` instead, and takes the same four
+rules with it in its own `.dependency-cruiser.cjs` plus its own
+`lint:boundaries` script — a promotion is a move, not an escape from the
+boundary. `packages/lucide-icons` is the worked example: its entry points are
+`index.ts`, `generator.ts` and `tldraw.ts`, which are exactly the three
+`exports` in its `package.json`, and `lib/`/`tests/` stay private.

@@ -11,7 +11,10 @@ import {
   DEFAULT_OVERLAY_KIND,
   resolveOverlayKind,
 } from "@/features/videos/overlay-kind";
-import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
+import {
+  bulletPanelHashPayload,
+  type BulletPanelBullet,
+} from "@/features/videos/bullet-panel";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -132,17 +135,11 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       // The Bullet Panel's bullets join `k` in being emitted only when they
       // say something: an Overlay with no bullets hashes exactly as it did
       // before the column existed, so no export written before this feature
-      // is re-addressed. Each bullet is spelled out —
-      // editing its text, its icon or its reveal time all move the address,
-      // because all three change the rendered frames.
+      // is re-addressed. The bullets themselves are spelled out by
+      // `bulletPanelHashPayload` — the SAME encoder the Overlay Render Cache's
+      // content hash uses, so the two addresses cannot drift apart.
       ...(o.bullets && o.bullets.length > 0
-        ? {
-            b: o.bullets.map((bullet) => ({
-              i: bullet.icon,
-              t: bullet.text,
-              r: bullet.revealAt,
-            })),
-          }
+        ? { b: bulletPanelHashPayload(o.bullets) }
         : {}),
     }))
     .sort((left, right) =>

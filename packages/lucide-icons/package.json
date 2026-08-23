@@ -12,7 +12,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsgo"
+    "typecheck": "tsgo",
+    "lint:boundaries": "depcruise index.ts generator.ts tldraw.ts lib tests"
   },
   "peerDependencies": {
     "tldraw": "^5.2.4"
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^20",
     "@typescript/native-preview": "^7.0.0-dev.20260304.1",
+    "dependency-cruiser": "^18.0.0",
     "tldraw": "5.2.4",
     "typescript": "^5.8.3",
     "vitest": "^3"

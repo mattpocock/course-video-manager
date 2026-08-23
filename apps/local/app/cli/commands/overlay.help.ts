@@ -27,8 +27,11 @@ its own content flags. Passing the other kind's is refused, not ignored.
 
 'revealAt' is SECONDS AFTER THE OVERLAY'S OWN START, so an authoring agent
 derives it straight from the transcript as 'wordStartTime - overlayAt'. Bullets
-must be listed in the order they are revealed, none may be negative, and each
-needs 0.35s of room to ease in before the Overlay's own exit begins.
+must be listed in STRICTLY ascending reveal order — no two share a moment — and
+none may be negative. Each also needs 0.7s of room at the end: 0.35s to ease in
+plus the 0.35s the panel spends easing out, so a 5s panel's last bullet may be
+revealed at 4.3s. '--disable-exit-animation true' gives the second 0.35s back
+(4.65s), because a cut exit holds the panel to the very last frame.
 
 Icons are lucide names, kebab-case ("circle-check", "triangle-alert"). Any
 lucide name works; one that is not a lucide name is refused at authoring time,
@@ -166,8 +169,11 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
                        refused here rather than at render time. 'revealAt' is
                        seconds after THIS OVERLAY's start — derive it as
                        'wordStartTime - overlayAt'. Bullets must be listed in
-                       reveal order, none may be negative, and each needs 0.35s
-                       to ease in before the Overlay's exit begins.
+                       strictly ascending reveal order (no ties), none may be
+                       negative, and the last may be revealed no later than
+                       duration - 0.7s — its own 0.35s ease plus the 0.35s the
+                       panel spends leaving. '--disable-exit-animation true'
+                       makes that duration - 0.35s.
   --disable-enter-animation <true|false>
   --disable-exit-animation <true|false>
                        hard-cut in/out instead of easing. Governs the panel
@@ -203,7 +209,12 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
                        cross Videos — delete it and add one there instead.
   --at <seconds>       new Clip-relative offset. Must be >= 0 and less than the
                        anchor Clip's own length.
-  --duration <seconds> new on-screen length in seconds. Must be > 0.
+  --duration <seconds> new on-screen length in seconds. Must be > 0. SHORTENING
+                       a Bullet Panel is refused (exit 3) if the bullets it
+                       already carries would no longer fit the new window —
+                       pass --bullets-json with new reveal times in the same
+                       command, or leave the duration alone. Nothing is
+                       clamped.
   --kind <kind>        new content-kind: 'definitionCard' or 'bulletPanel'.
                        Changing it must bring the NEW kind's content with it in
                        the same command, and the old kind's content is dropped.
@@ -218,7 +229,10 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
   --disable-enter-animation <true|false>
   --disable-exit-animation <true|false>
                        turn a hard-cut on or off. Omitting one leaves it as it
-                       was, which is why the value is spelled out.
+                       was, which is why the value is spelled out. Turning
+                       --disable-exit-animation back to false shortens the room
+                       a bullet has, so it is refused (exit 3) on the same terms
+                       --duration is.
 
 A move or a resize (--clip / --at / --duration) that would put this Overlay on
 screen at the same moment as another one on the Video is refused (exit 3);

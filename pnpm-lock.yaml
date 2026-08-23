@@ -451,6 +451,9 @@ importers:
       '@typescript/native-preview':
         specifier: ^7.0.0-dev.20260304.1
         version: 7.0.0-dev.20260707.2
+      dependency-cruiser:
+        specifier: ^18.0.0
+        version: 18.1.0
       tldraw:
         specifier: 5.2.4
         version: 5.2.4(@floating-ui/dom@1.8.0)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

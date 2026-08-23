@@ -4,6 +4,7 @@ import { Effect, Option } from "effect";
 import { parseError, type ParseError } from "@/cli/helpers";
 import { getIconNode } from "@/packages/lucide-icons";
 import {
+  checkBulletPanelBulletsFit,
   MAX_BULLET_PANEL_BULLETS,
   parseBulletPanelBullets,
   type BulletPanelBullet,
@@ -106,13 +107,15 @@ const readFileSource = (source: string) =>
  * Read and validate a `--bullets-json <path|->` payload for an Overlay of
  * `durationInSeconds`.
  *
- * The duration is a validation input, not decoration: a bullet revealed too
- * near the end would still be easing in as the panel leaves, so it is refused
- * here rather than discovered in a render.
+ * The window is a validation input, not decoration: a bullet revealed too near
+ * the end would still be easing in as the panel starts leaving, so it is
+ * refused here rather than discovered in a render. Both halves of the window
+ * matter — the exit toggle buys a bullet one more ease of room, because a cut
+ * exit begins at the very end instead of one ease before it.
  */
 export const readBulletsJson = (
   source: string,
-  durationInSeconds: number
+  window: { durationInSeconds: number; disableExitAnimation: boolean }
 ): Effect.Effect<BulletPanelBullet[], ParseError> =>
   Effect.gen(function* () {
     const text = yield* readFileSource(source);
@@ -127,7 +130,8 @@ export const readBulletsJson = (
         ),
     });
     const parsed = parseBulletPanelBullets(raw, {
-      durationInSeconds,
+      durationInSeconds: window.durationInSeconds,
+      disableExitAnimation: window.disableExitAnimation,
       // The vendored lucide table is the same one the diagram palette draws
       // from, so a name that works there works here — and a typo fails now
       // rather than rendering as a blank square.
@@ -202,6 +206,9 @@ export const resolveBulletPanelPatch = (params: {
   kind: OverlayKind;
   needsContent: boolean;
   durationInSeconds: number;
+  /** The stored toggle a patch leaves alone. Absent on a create: `add` starts
+   * from an eased exit, so an unmentioned flag means `false`. */
+  currentDisableExitAnimation?: boolean;
   description: string | undefined;
   flags: BulletPanelFlags;
 }) =>
@@ -213,18 +220,54 @@ export const resolveBulletPanelPatch = (params: {
       description: params.description,
       bulletsJson,
     });
+    const disableExitAnimation = toggleValue(
+      Option.getOrUndefined(params.flags.disableExitAnimation)
+    );
     return {
       // Read only after the kind has accepted the flag, so the complaint the
-      // caller sees is the first thing actually wrong.
+      // caller sees is the first thing actually wrong. The bullets are checked
+      // against the window this write LEAVES BEHIND — the new duration, and
+      // whichever exit toggle survives it.
       bullets:
         bulletsJson === undefined
           ? undefined
-          : yield* readBulletsJson(bulletsJson, params.durationInSeconds),
+          : yield* readBulletsJson(bulletsJson, {
+              durationInSeconds: params.durationInSeconds,
+              disableExitAnimation:
+                disableExitAnimation ??
+                params.currentDisableExitAnimation ??
+                false,
+            }),
       disableEnterAnimation: toggleValue(
         Option.getOrUndefined(params.flags.disableEnterAnimation)
       ),
-      disableExitAnimation: toggleValue(
-        Option.getOrUndefined(params.flags.disableExitAnimation)
-      ),
+      disableExitAnimation,
     };
   });
+
+/**
+ * Re-ask the fit question of the bullets a Bullet Panel ALREADY carries.
+ *
+ * `overlay update --duration 1` on a panel whose last bullet is revealed at 4s
+ * is the same mistake as authoring that bullet in the first place, and gets the
+ * same refusal rather than a silently clipped reveal. Nothing is clamped: the
+ * stored reveal times are the author's, and only the author can retime them.
+ */
+export const requireStoredBulletsStillFit = (params: {
+  bullets: ReadonlyArray<BulletPanelBullet>;
+  durationInSeconds: number;
+  disableExitAnimation: boolean;
+}) => {
+  const checked = checkBulletPanelBulletsFit(params.bullets, {
+    durationInSeconds: params.durationInSeconds,
+    disableExitAnimation: params.disableExitAnimation,
+  });
+  return checked.ok
+    ? Effect.void
+    : parseError(
+        `${checked.message} These are the bullets already stored on this ` +
+          `Overlay — pass --bullets-json with reveal times that fit the new ` +
+          `window, or leave the window as it was.`,
+        "overlay"
+      );
+};
