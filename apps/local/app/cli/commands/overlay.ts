@@ -11,7 +11,16 @@ import {
   notFoundMany,
   parseError,
 } from "@/cli/helpers";
-import { OVERLAY_KINDS } from "@/features/videos/overlay-kind";
+import {
+  OVERLAY_KINDS,
+  resolveOverlayKind,
+  DEFAULT_OVERLAY_KIND,
+} from "@/features/videos/overlay-kind";
+import {
+  bulletPanelOpts,
+  hasBulletPanelFlags,
+  resolveBulletPanelPatch,
+} from "./overlay.bullets";
 import {
   clipExportDurationInSeconds,
   paddedClipDurationsInSeconds,
@@ -36,7 +45,9 @@ import {
  *   and what every Overlay written before the discriminator existed is) or
  *   `bulletPanel`. A Definition Card's content is a `title` (the term) and a
  *   `description` (the definition), written inline on the Overlay itself;
- *   there is no shared glossary entity.
+ *   there is no shared glossary entity. A Bullet Panel's content is a `title`
+ *   (the panel's heading) and up to four `bullets`, each an icon, a line of
+ *   text and its own `revealAt` — seconds after the Overlay's own start.
  *
  *   At most ONE Overlay is visible at a given moment across the whole Video,
  *   so an Overlay whose window overlaps another's — of either kind, on any
@@ -52,13 +63,16 @@ import {
  *   at                offset from the anchor Clip's start, seconds (float)
  *   durationInSeconds how long it stays on screen, seconds (float)
  *   kind              which content-kind it carries (definitionCard default)
- *   title             the Definition Card's heading — the term
+ *   title             the heading — the term, or the Bullet Panel's own title
  *   description       the Definition Card's body — the definition
+ *   bullets           the Bullet Panel's bullets, or null for other kinds
+ *   disableEnterAnimation / disableExitAnimation  hard-cut instead of easing
  *
  * VERBS:
  *   overlay list --video <id> [--clip <id>]  a Video's Overlays, timeline order
  *   overlay get <id...>                      one or more Overlays by id
- *   overlay add --clip <id> --at <s> --duration <s> --title <t> --description <d>
+ *   overlay add --clip <id> --at <s> --duration <s> [--kind <k>] --title <t>
+ *               (--description <d> | --bullets-json <path|->)
  *   overlay update <id> [flags]              re-anchor and/or edit in place
  *   overlay delete <id>                      hard-delete (no restore)
  *
@@ -142,8 +156,11 @@ const titleUpdateOpt = Options.text("title").pipe(
 
 const descriptionAddOpt = Options.text("description").pipe(
   Options.withDescription(
-    "The Definition Card's body — the definition itself (required)."
-  )
+    "The Definition Card's body — the definition itself. Required for a " +
+      "definitionCard Overlay, refused for a bulletPanel (whose content is " +
+      "--bullets-json)."
+  ),
+  Options.optional
 );
 
 const descriptionUpdateOpt = Options.text("description").pipe(
@@ -408,11 +425,24 @@ const addCmd = Command.make(
     kind: kindOpt,
     title: titleAddOpt,
     description: descriptionAddOpt,
+    ...bulletPanelOpts,
   },
-  ({ clip, at, duration, kind, title, description }) =>
+  ({ clip, at, duration, kind, title, description, ...flags }) =>
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
+
+      // Resolved before the anchor is looked up: a content mistake is a typo
+      // in the command, and saying so needs no database round trip.
+      const desc = Option.getOrUndefined(description);
+      const panel = yield* resolveBulletPanelPatch({
+        kind: Option.getOrUndefined(kind) ?? DEFAULT_OVERLAY_KIND,
+        needsContent: true,
+        durationInSeconds: duration,
+        description: desc,
+        flags,
+      });
+
       const anchor = yield* requireActiveClip(clip);
       yield* requireAtWithinClip(at, anchor);
       yield* requireNoOverlappingOverlay({
@@ -429,7 +459,12 @@ const addCmd = Command.make(
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
         title,
-        description,
+        // A Bullet Panel has no `description`, but the column is NOT NULL —
+        // it stores the empty string rather than the caller inventing one.
+        description: desc ?? "",
+        bullets: panel.bullets ?? null,
+        disableEnterAnimation: panel.disableEnterAnimation ?? false,
+        disableExitAnimation: panel.disableExitAnimation ?? false,
       });
       yield* emitObject(created);
     })
@@ -445,8 +480,9 @@ const updateCmd = Command.make(
     kind: kindOpt,
     title: titleUpdateOpt,
     description: descriptionUpdateOpt,
+    ...bulletPanelOpts,
   },
-  ({ id, clip, at, duration, kind, title, description }) =>
+  ({ id, clip, at, duration, kind, title, description, ...flags }) =>
     Effect.gen(function* () {
       const c = Option.getOrUndefined(clip);
       const a = Option.getOrUndefined(at);
@@ -454,18 +490,19 @@ const updateCmd = Command.make(
       const k = Option.getOrUndefined(kind);
       const t = Option.getOrUndefined(title);
       const desc = Option.getOrUndefined(description);
-
       if (
         c === undefined &&
         a === undefined &&
         d === undefined &&
         k === undefined &&
         t === undefined &&
-        desc === undefined
+        desc === undefined &&
+        !hasBulletPanelFlags(flags)
       ) {
         return yield* parseError(
           "update needs at least one of --clip / --at / --duration / " +
-            "--kind / --title / --description",
+            "--kind / --title / --description / --bullets-json / " +
+            "--disable-enter-animation / --disable-exit-animation",
           "overlay"
         );
       }
@@ -473,6 +510,18 @@ const updateCmd = Command.make(
       if (d !== undefined) yield* requirePositiveDuration(d);
 
       const overlay = yield* requireOverlay(id);
+
+      // Content is checked against the kind the Overlay will BE once this
+      // lands, so a switch of kind and its new content go in together.
+      const wasKind = resolveOverlayKind(overlay.kind);
+      const willBeKind = k ?? wasKind;
+      const panel = yield* resolveBulletPanelPatch({
+        kind: willBeKind,
+        needsContent: willBeKind !== wasKind,
+        durationInSeconds: d ?? overlay.durationInSeconds,
+        description: desc,
+        flags,
+      });
 
       // Whichever of the anchor's two halves this update touches, it is the
       // RESULTING pair — new Clip or old, new offset or old — that has to be a
@@ -509,6 +558,18 @@ const updateCmd = Command.make(
         ...(k === undefined ? {} : { kind: k }),
         ...(t === undefined ? {} : { title: t }),
         ...(desc === undefined ? {} : { description: desc }),
+        ...(panel.bullets === undefined ? {} : { bullets: panel.bullets }),
+        // Leaving a Bullet Panel's bullets on a row that is no longer one
+        // would leave content nothing renders and the Export Hash still sees.
+        ...(willBeKind === "bulletPanel" || wasKind !== "bulletPanel"
+          ? {}
+          : { bullets: null }),
+        ...(panel.disableEnterAnimation === undefined
+          ? {}
+          : { disableEnterAnimation: panel.disableEnterAnimation }),
+        ...(panel.disableExitAnimation === undefined
+          ? {}
+          : { disableExitAnimation: panel.disableExitAnimation }),
       });
       if (!updated) {
         return yield* notFound("overlay", id);

@@ -15,6 +15,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { createTable } from "./table-creator.js";
+import type { BulletPanelBullet } from "../features/videos/bullet-panel.js";
 export { createTable } from "./table-creator.js";
 
 const varcharCollateC = customType<{
@@ -406,7 +407,17 @@ export const clipTranscriptWords = createTable(
  * existed before the column did, so every pre-existing row keeps rendering
  * exactly as it always has and no backfill is needed.
  *
- * `title` + `description` are the Definition Card content.
+ * `title` is the heading of whichever content-kind this is — the term for a
+ * Definition Card, the panel's own heading for a Bullet Panel. `description` is
+ * the Definition Card's body and is empty for every other kind; `bullets` is
+ * the Bullet Panel's content and is null for every other kind. Kind-specific
+ * columns rather than one opaque `content` blob, so a query can still read a
+ * heading without knowing which kind it is looking at.
+ *
+ * `disableEnterAnimation` / `disableExitAnimation` sit on the Overlay itself
+ * rather than inside any one kind's content: they govern the panel content AND
+ * the kind-derived camera Transform together, which is what stops the camera
+ * cutting while the content is still easing in.
  *
  * Diverges from the Clip soft-delete convention on purpose: an Overlay is HARD
  * deleted (no `archived` flag), because nothing in the schema references an
@@ -434,6 +445,20 @@ export const overlays = createTable(
     kind: varchar("kind", { length: 255 }).notNull().default("definitionCard"),
     title: text("title").notNull(),
     description: text("description").notNull(),
+    /**
+     * The Bullet Panel's bullets, in display order — null for every other
+     * content-kind. Read through `parseBulletPanelBullets` on the way IN; by
+     * the time a row is written the array is already validated.
+     */
+    bullets: jsonb("bullets").$type<BulletPanelBullet[]>(),
+    /** Hard-cut into the Overlay instead of easing the panel and camera in. */
+    disableEnterAnimation: boolean("disable_enter_animation")
+      .notNull()
+      .default(false),
+    /** Hard-cut out of the Overlay instead of easing the panel and camera out. */
+    disableExitAnimation: boolean("disable_exit_animation")
+      .notNull()
+      .default(false),
   },
   (table) => [
     // "Every Overlay on this Video" resolves Clip-by-Clip, so this FK column is

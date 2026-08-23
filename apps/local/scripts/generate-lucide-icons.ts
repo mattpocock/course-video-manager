@@ -12,7 +12,7 @@
  *   2. --lucide 0.525.0 --only <BACKFILL_NAMES>         (the 19 permanent removals)
  *
  * Running it again against any version can only ADD names — see `appendIcons`
- * in `app/packages/lucide-icons/generator.ts`, which is where that invariant
+ * in `packages/lucide-icons/generator.ts`, which is where that invariant
  * lives and where it is tested. This file is only I/O.
  *
  * `--synonyms` additionally rewrites the alias map, which carries no
@@ -29,12 +29,13 @@ import {
   serialiseIconTable,
   type IconTable,
   type SynonymTable,
-} from "../app/packages/lucide-icons/generator";
+} from "../../../packages/lucide-icons/generator";
 
 const GENERATED_DIR = path.join(
   import.meta.dirname,
   "..",
-  "app",
+  "..",
+  "..",
   "packages",
   "lucide-icons",
   "lib",

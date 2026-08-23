@@ -16,6 +16,9 @@ const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   kind: "definitionCard",
   title: "Monomorphism",
   description: "A function that never collapses two inputs into one output.",
+  bullets: null,
+  disableEnterAnimation: false,
+  disableExitAnimation: false,
   ...overrides,
 });
 
