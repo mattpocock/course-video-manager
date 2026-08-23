@@ -33,14 +33,25 @@ export const action = async (args: Route.ActionArgs) => {
 
     const updatedClips = yield* Effect.forEach(
       transcribedClips,
-      (transcribedClip) => {
-        return clipOps.updateClip(transcribedClip.id, {
+      Effect.fn(function* (transcribedClip) {
+        const updated = yield* clipOps.updateClip(transcribedClip.id, {
           text: transcribedClip.segments
             .map((segment) => segment.text)
             .join(" "),
           transcribedAt: new Date(),
         });
-      }
+
+        // Whisper's word timing is CLIP-RELATIVE here already (the audio was
+        // extracted for this clip's range), so it is stored as-is. Every
+        // transcription replaces the clip's Transcript Words wholesale, so a
+        // re-transcribe never leaves words from the previous take behind.
+        yield* clipOps.replaceTranscriptWords(
+          transcribedClip.id,
+          transcribedClip.words
+        );
+
+        return updated;
+      })
     );
 
     return updatedClips;
