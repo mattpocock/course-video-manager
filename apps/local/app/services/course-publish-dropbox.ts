@@ -133,14 +133,14 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   );
 
   const schemaJson = JSON.stringify(buildCourseJsonSchema(), null, 2);
-  // The bundle is addressed by its RECIPE, not by its bytes: each Video
-  // contributes its Export Hash rather than a SHA256 of the encoded file. Every
-  // ingredient is therefore database state, so the destination path is known
-  // before any encoding or reading happens — which is what lets export and
-  // upload overlap. Two files at one address are asserted identical because
-  // they came from identical Clips and Video Format; the Export Version Key is
-  // the manual lever for invalidating that assertion (see ADR on bundle
-  // addressing).
+  // Addressed by its RECIPE, not its bytes: each Video contributes its Export
+  // Hash, not a SHA256 of the encoded file. Every ingredient is database
+  // state, so the path is known before any encoding — which is what lets
+  // export and upload overlap. Two files at one address are asserted
+  // identical: same Clips, same Video Format. The Export Version Key
+  // invalidates that by hand (see ADR on bundle addressing). TWO fingerprints
+  // below: the version one names WHICH CourseVersion, the asset one WHAT IS
+  // IN IT.
   const assetFingerprint = createHash("sha256")
     .update(
       JSON.stringify({

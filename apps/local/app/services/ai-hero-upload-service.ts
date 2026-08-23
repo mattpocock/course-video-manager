@@ -448,6 +448,13 @@ const publishPost = (opts: {
 /**
  * Create a Skills Changelog entry on AI Hero with all article + newsletter fields,
  * published immediately. Returns the final (server-prefixed) slug and resource id.
+ *
+ * What happens on the far side, recorded here because no file in THIS repo
+ * owns it: publishing fires the `skill-changelog/published` event, which
+ * creates a Kit newsletter draft from template `5176054`, from
+ * `matt@aihero.dev`. Drafts only — nothing is ever sent by this call. Treat
+ * these as the AI Hero app's to change; they are noted so the behaviour is not
+ * a mystery from this end.
  */
 const createSkillsChangelog = (opts: {
   baseUrl: string;
