@@ -159,6 +159,7 @@ const setup = async () => {
       sourceEndTime: 10,
       pauseType: "none",
       zoomType: "none",
+      overlays: [],
     },
     {
       videoFilename: "recording.mp4",
@@ -166,6 +167,7 @@ const setup = async () => {
       sourceEndTime: 25,
       pauseType: "none",
       zoomType: "none",
+      overlays: [],
     },
   ];
   const exportHash = computeExportHash(clips, "landscape")!;

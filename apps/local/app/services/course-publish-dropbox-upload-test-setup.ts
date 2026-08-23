@@ -196,6 +196,7 @@ export const setupUploads = async (opts?: {
       sourceEndTime: clip.sourceEndTime,
       pauseType: "none",
       zoomType: "none",
+      overlays: [],
     }));
     const exportHash = computeExportHash(clips, "landscape")!;
     const exportPath = resolveExportPath(

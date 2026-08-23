@@ -3,6 +3,7 @@ import { clips, pitches, beats, videos } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import { Effect } from "effect";
+import { overlayExportRelation } from "./db-overlay-operations.server.js";
 
 export type PitchState = "idle" | "scheduled" | "shipped";
 
@@ -146,6 +147,7 @@ export const createPitchOperations = (db: Database) => {
                 clips: {
                   orderBy: asc(clips.order),
                   where: eq(clips.archived, false),
+                  with: { overlays: overlayExportRelation },
                 },
               },
             },
@@ -205,6 +207,7 @@ export const createPitchOperations = (db: Database) => {
               clips: {
                 orderBy: asc(clips.order),
                 where: eq(clips.archived, false),
+                with: { overlays: overlayExportRelation },
               },
               beats: {
                 columns: {

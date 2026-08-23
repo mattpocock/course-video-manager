@@ -23,6 +23,7 @@ import {
 } from "../lib/transcript-builder.js";
 import { makeDuplicateCourse } from "./db-course-duplicate.server.js";
 import { attachDerivedPaths } from "./path-projection.js";
+import { overlayExportRelation } from "./db-overlay-operations.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -264,6 +265,7 @@ export const createCourseOperations = (db: Database) => {
                               },
                               orderBy: asc(clips.order),
                               where: eq(clips.archived, false),
+                              with: { overlays: overlayExportRelation },
                             },
                             chapters: {
                               columns: {

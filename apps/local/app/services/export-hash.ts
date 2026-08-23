@@ -14,12 +14,27 @@ import {
  */
 export const EXPORT_VERSION = 1;
 
+/**
+ * One Overlay as the export address sees it. The Overlay's `id` is deliberately
+ * absent — it is a database identity, not a rendered byte — and its `clipId` is
+ * carried structurally, by which {@link ExportClip} the Overlay hangs off, so
+ * re-anchoring an Overlay to another Clip still moves it in the payload and so
+ * still changes the address.
+ */
+export type ExportOverlay = {
+  at: number;
+  durationInSeconds: number;
+  title: string;
+  description: string;
+};
+
 export type ExportClip = {
   videoFilename: string;
   sourceStartTime: number;
   sourceEndTime: number;
   pauseType: string;
   zoomType: string;
+  overlays: ExportOverlay[];
 };
 
 /**
@@ -43,6 +58,12 @@ export const toExportClips = (
     sourceEndTime: number;
     pauseType: string;
     zoomType: string;
+    overlays: ReadonlyArray<{
+      at: number;
+      durationInSeconds: number;
+      title: string;
+      description: string;
+    }>;
   }>
 ): ExportClip[] =>
   clips.map((c) => ({
@@ -51,7 +72,33 @@ export const toExportClips = (
     sourceEndTime: c.sourceEndTime,
     pauseType: c.pauseType,
     zoomType: c.zoomType,
+    overlays: c.overlays.map((o) => ({
+      at: o.at,
+      durationInSeconds: o.durationInSeconds,
+      title: o.title,
+      description: o.description,
+    })),
   }));
+
+/**
+ * The Overlays of one Clip, in an order the database cannot influence.
+ *
+ * Overlays carry no order of their own — each one is anchored to a moment, and
+ * two Overlays on the same Clip render the same whichever row came back first.
+ * Sorting them here keeps the address a fact about the video and not about the
+ * query plan that fetched it.
+ */
+const toOverlayPayload = (overlays: ExportOverlay[]) =>
+  overlays
+    .map((o) => ({
+      a: o.at,
+      d: o.durationInSeconds,
+      t: o.title,
+      x: o.description,
+    }))
+    .sort((left, right) =>
+      JSON.stringify(left) < JSON.stringify(right) ? -1 : 1
+    );
 
 /**
  * Compute the content-addressed export hash for a set of clips.
@@ -77,6 +124,13 @@ export const toExportClips = (
  * the same reasoning that let `pauseType` be added without bumping
  * EXPORT_VERSION.
  *
+ * A clip's Overlays are part of the address because the export composites them
+ * onto the footage: changing a Definition Card's `title`/`description`, moving
+ * its anchor, changing how long it stays up, or adding/removing one all change
+ * the exported bytes. They are emitted only for a clip that actually has one,
+ * so every video with no Overlays — which is every video exported before
+ * Overlays existed — keeps the address it already had and nothing re-exports.
+ *
  * A clip's `pauseType` is part of the address too, because a long pause makes
  * the renderer hold the clip longer and so changes the exported bytes. It is
  * emitted only when it is "long": a clip that renders exactly as it always did
@@ -101,6 +155,7 @@ export const computeExportHash = (
       ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
         ? {}
         : { z: resolveClipZoomType(c.zoomType) }),
+      ...(c.overlays.length === 0 ? {} : { o: toOverlayPayload(c.overlays) }),
     })),
   };
 

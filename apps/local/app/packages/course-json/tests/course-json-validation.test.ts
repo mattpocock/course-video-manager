@@ -89,6 +89,7 @@ const CLIPS = [
     pauseType: "none",
     zoomType: "none",
     order: "a0",
+    overlays: [],
   },
   {
     videoFilename: "rec.mp4",
@@ -97,6 +98,7 @@ const CLIPS = [
     pauseType: "none",
     zoomType: "none",
     order: "a1",
+    overlays: [],
   },
 ];
 

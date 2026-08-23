@@ -173,6 +173,7 @@ export const setupPublishableCourse = async (opts?: {
       sourceEndTime: 10 + index,
       pauseType: "none",
       zoomType: "none",
+      overlays: [],
     },
     {
       videoFilename: "recording.mp4",
@@ -180,6 +181,7 @@ export const setupPublishableCourse = async (opts?: {
       sourceEndTime: 25 + index,
       pauseType: "none",
       zoomType: "none",
+      overlays: [],
     },
   ];
 
