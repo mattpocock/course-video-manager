@@ -23,6 +23,24 @@ import { transactionalizeWrites } from "./with-db-transaction.server.js";
  * `get` of a mix of live and dead ids can still emit what it found.
  */
 
+/**
+ * The Overlay fields the Export Hash is derived from, as a relational-query
+ * fragment: `with: { clips: { with: { overlays: overlayExportRelation } } }`.
+ *
+ * Every query whose Clips end up in `computeExportHash` must include this, or
+ * that Video's address would claim it has no Overlays and a Definition Card
+ * edit would publish stale video. It lives here, next to the table's own
+ * operations, so the four queries that need it cannot drift apart.
+ */
+export const overlayExportRelation = {
+  columns: {
+    at: true,
+    durationInSeconds: true,
+    title: true,
+    description: true,
+  },
+} as const;
+
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
     try: fn,

@@ -22,6 +22,7 @@ import { Effect } from "effect";
 import { toTranscriptItems } from "../lib/transcript-builder.js";
 import { projectVersionPaths, attachDerivedPaths } from "./path-projection.js";
 import { requireDraftVersion } from "./draft-guard.server.js";
+import { overlayExportRelation } from "./db-overlay-operations.server.js";
 import { withDbTransaction } from "./with-db-transaction.server.js";
 import {
   freezeAndCloneVersion as freezeAndCloneVersionTransaction,
@@ -117,6 +118,7 @@ export const createVersionOperations = (db: Database) => {
                   clips: {
                     orderBy: asc(clips.order),
                     where: eq(clips.archived, false),
+                    with: { overlays: overlayExportRelation },
                   },
                   chapters: {
                     orderBy: asc(chapters.order),
@@ -212,6 +214,7 @@ export const createVersionOperations = (db: Database) => {
                       clips: {
                         orderBy: asc(clips.order),
                         where: eq(clips.archived, false),
+                        with: { overlays: overlayExportRelation },
                       },
                       chapters: {
                         orderBy: asc(chapters.order),
