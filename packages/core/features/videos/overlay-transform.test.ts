@@ -118,8 +118,11 @@ const panelWindow: OverlayTransformWindow & { kind: string } = {
   endInSeconds: 20,
 };
 
-/** The arrived offset, as a fraction of frame width: the panel's own ground. */
-const PANEL_OFFSET = 812 / 1920;
+/**
+ * The arrived offset, as a fraction of frame width: HALF the panel's own ground,
+ * which is what puts the presenter in the middle of the block the panel leaves.
+ */
+const PANEL_OFFSET = 812 / 2 / 1920;
 
 describe("overlay transform", () => {
   describe("which kinds move the camera", () => {

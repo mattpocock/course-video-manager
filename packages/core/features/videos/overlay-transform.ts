@@ -53,17 +53,27 @@ export type OverlayTransform = {
 const CENTERED: OverlayFraming = { offsetX: 0 };
 
 /**
- * How far a Bullet Panel slides the footage right: the exact width of the
- * panel's own opaque ground, 812 of 1920 (`GROUND_WIDTH` in the renderer's
- * `BulletPanel.tsx`).
+ * How far a Bullet Panel slides the footage right: HALF the width of the panel's
+ * own opaque ground, 406 of 1920 (the ground is 812 — `GROUND_WIDTH` in the
+ * renderer's `BulletPanel.tsx`).
  *
- * It is that width and not a rounder number because the two edges are meant to
- * meet. The footage's left edge arrives exactly where the panel's right edge
- * is, so the panel covers empty frame rather than the presenter, and no part of
- * the shot is hidden behind it. Slide less and the panel eats into the face;
- * slide more and a band of dead frame opens between the two.
+ * Half, because the thing that must end up centred is the PRESENTER, in the
+ * block of frame the panel leaves. Slide by half of what you cover and the
+ * source's own middle lands in the middle of what is left, at any panel width:
+ * the block runs from the panel's right edge to the frame's, so its centre sits
+ * half a panel to the right of the frame's centre, which is exactly how far the
+ * footage has come.
+ *
+ * So the panel DOES stand on the footage rather than beside it, and that is
+ * intended. Sliding the whole 812 makes the two edges meet and hides no pixel
+ * of the shot, but it throws the face out to the right of the space it has —
+ * the earlier framing, and the one this replaces. The ground is opaque, so what
+ * it stands on costs nothing.
+ *
+ * TUNING: by eye, against the Studio. It went from the full ground width to
+ * half of it.
  */
-const BULLET_PANEL_OFFSET_X = 812 / 1920;
+const BULLET_PANEL_OFFSET_X = 812 / 2 / 1920;
 
 /**
  * The move each content-kind asks for, or `null` for a kind that draws over
