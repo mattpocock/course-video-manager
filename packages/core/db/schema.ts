@@ -381,6 +381,51 @@ export const clipTranscriptWords = createTable(
   ]
 );
 
+/**
+ * An Overlay — a rendered visual layer composited on top of a Video's footage
+ * (CONTEXT.md, "Overlays and transitions").
+ *
+ * Anchored to ONE Clip at `at`, a plain Clip-relative offset in seconds, so
+ * retiming or reordering earlier Clips carries the anchor with them. Its
+ * `durationInSeconds` is INDEPENDENT of that Clip's own length: an Overlay
+ * commonly runs on past the end of its anchor Clip and across however many
+ * further Clips it takes to fill its length.
+ *
+ * `title` + `description` are the Definition Card content — the only
+ * content-kind there is, which is why there is deliberately NO `kind`
+ * discriminator column. Add one when a second content-kind actually exists,
+ * not before.
+ *
+ * Diverges from the Clip soft-delete convention on purpose: an Overlay is HARD
+ * deleted (no `archived` flag), because nothing in the schema references an
+ * overlay row in either direction, so a delete can leave nothing dangling.
+ * Same reasoning as `diagram_component`.
+ */
+export const overlays = createTable(
+  "overlay",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    clipId: varchar("clip_id", { length: 255 })
+      .references(() => clips.id, { onDelete: "cascade" })
+      .notNull(),
+    /** Clip-relative anchor offset, seconds. 0 = the Clip's own start. */
+    at: doublePrecision("at").notNull(),
+    /** How long the Overlay stays on screen, seconds. Not bounded by the Clip. */
+    durationInSeconds: doublePrecision("duration_in_seconds").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+  },
+  (table) => [
+    // "Every Overlay on this Video" resolves Clip-by-Clip, so this FK column is
+    // read on every export and every `overlay list`. Postgres does not index
+    // FKs automatically (see the clip/video tables above for the same note).
+    index("overlay_clip_id_idx").on(table.clipId),
+  ]
+);
+
 export const videoPosts = createTable("video_post", {
   id: varchar("id", { length: 255 })
     .notNull()
@@ -474,6 +519,14 @@ export namespace DB {
     id: DatabaseId;
     clipId: DatabaseId;
   }
+
+  export interface Overlay extends Omit<
+    InferSelectModel<typeof overlays>,
+    "id" | "clipId"
+  > {
+    id: DatabaseId;
+    clipId: DatabaseId;
+  }
 }
 
 export const clipsRelations = relations(clips, ({ one, many }) => ({
@@ -484,6 +537,14 @@ export const clipsRelations = relations(clips, ({ one, many }) => ({
   }),
   webLinks: many(clipWebLinks),
   transcriptWords: many(clipTranscriptWords),
+  overlays: many(overlays),
+}));
+
+export const overlaysRelations = relations(overlays, ({ one }) => ({
+  clip: one(clips, {
+    fields: [overlays.clipId],
+    references: [clips.id],
+  }),
 }));
 
 export const clipWebLinksRelations = relations(clipWebLinks, ({ one }) => ({

@@ -10,6 +10,7 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { CourseWriteService } from "@/services/course-write-service";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
@@ -139,6 +140,14 @@ const GROUPS = [
     args: [["clip_1", "clip_2"]],
     path: "/rpc/clip/getClipsByIds",
     body: [["clip_1", "clip_2"]],
+  },
+  {
+    group: "overlay",
+    tag: OverlayOperationsService,
+    method: "listOverlaysByVideoId",
+    args: ["video_1", null],
+    path: "/rpc/overlay/listOverlaysByVideoId",
+    body: ["video_1", null],
   },
   {
     group: "beat",

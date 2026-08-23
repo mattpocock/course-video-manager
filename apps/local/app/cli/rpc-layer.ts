@@ -5,6 +5,7 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { CourseWriteService } from "@/services/course-write-service";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
@@ -232,6 +233,26 @@ const clipService = (client: RpcClient) =>
     ),
   }) satisfies RemoteService<ClipOperationsService>;
 
+const overlayService = (client: RpcClient) =>
+  ({
+    _tag: "OverlayOperationsService",
+    listOverlaysByVideoId: rpcMethod((json) =>
+      client.rpc.overlay.listOverlaysByVideoId.$post({ json })
+    ),
+    getOverlaysByIds: rpcMethod((json) =>
+      client.rpc.overlay.getOverlaysByIds.$post({ json })
+    ),
+    createOverlay: rpcMethod((json) =>
+      client.rpc.overlay.createOverlay.$post({ json })
+    ),
+    updateOverlay: rpcMethod((json) =>
+      client.rpc.overlay.updateOverlay.$post({ json })
+    ),
+    deleteOverlay: rpcMethod((json) =>
+      client.rpc.overlay.deleteOverlay.$post({ json })
+    ),
+  }) satisfies RemoteService<OverlayOperationsService>;
+
 const beatService = (client: RpcClient) =>
   ({
     _tag: "BeatOperationsService",
@@ -316,6 +337,7 @@ export type RemoteServices =
   | LessonSectionOperationsService
   | VideoOperationsService
   | ClipOperationsService
+  | OverlayOperationsService
   | BeatOperationsService
   | PitchOperationsService
   | DeliverableOperationsService
@@ -351,6 +373,7 @@ export const makeRemoteLayer = (
     remoteLayer(LessonSectionOperationsService, lessonSectionService, client),
     remoteLayer(VideoOperationsService, videoService, client),
     remoteLayer(ClipOperationsService, clipService, client),
+    remoteLayer(OverlayOperationsService, overlayService, client),
     remoteLayer(BeatOperationsService, beatService, client),
     remoteLayer(PitchOperationsService, pitchService, client),
     remoteLayer(DeliverableOperationsService, deliverableService, client),

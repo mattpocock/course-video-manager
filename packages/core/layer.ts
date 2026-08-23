@@ -6,6 +6,7 @@ import { CourseOperationsService } from "./services/db-course-operations.server.
 import { CourseWriteService } from "./services/course-write-service.js";
 import { DeliverableOperationsService } from "./services/db-deliverable-operations.server.js";
 import { LessonSectionOperationsService } from "./services/db-lesson-section-operations.server.js";
+import { OverlayOperationsService } from "./services/db-overlay-operations.server.js";
 import { PitchOperationsService } from "./services/db-pitch-operations.server.js";
 import { SearchOperationsService } from "./services/db-search-operations.server.js";
 import { VersionOperationsService } from "./services/db-version-operations.server.js";
@@ -32,6 +33,7 @@ export const domainServicesLayer = Layer.mergeAll(
   LessonSectionOperationsService.Default,
   VideoOperationsService.Default,
   ClipOperationsService.Default,
+  OverlayOperationsService.Default,
   BeatOperationsService.Default,
   PitchOperationsService.Default,
   DeliverableOperationsService.Default,
