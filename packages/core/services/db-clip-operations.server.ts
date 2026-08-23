@@ -25,6 +25,7 @@ import {
   writeTranscriptWords,
   type TranscriptWordInput,
 } from "./db-transcript-word-operations.server.js";
+import { createClipRetimeOperationsUnwrapped } from "./db-clip-retime.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -349,6 +350,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
 
   const chapterOps = createChapterOperationsUnwrapped(db);
   const transcriptWordOps = createTranscriptWordOperationsUnwrapped(db);
+  const retimeOps = createClipRetimeOperationsUnwrapped(db);
 
   const appendClips = Effect.fn("addClips")(function* (opts: {
     videoId: string;
@@ -519,6 +521,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
     createClipWebLinks,
     deleteClipWebLink,
     ...transcriptWordOps,
+    ...retimeOps,
   };
 };
 
@@ -543,6 +546,7 @@ export const createClipOperations = (db: Database) =>
     "createClipWebLinks",
     "deleteClipWebLink",
     "replaceTranscriptWords",
+    "retimeClip",
   ]);
 
 export class ClipOperationsService extends Effect.Service<ClipOperationsService>()(

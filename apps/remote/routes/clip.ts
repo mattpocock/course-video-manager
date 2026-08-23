@@ -23,6 +23,7 @@ export const clipRoutes = (runtime: RemoteRuntime) =>
       forward(runtime, ClipOperationsService, "listTimelineOrder")
     )
     .post("/updateClip", forward(runtime, ClipOperationsService, "updateClip"))
+    .post("/retimeClip", forward(runtime, ClipOperationsService, "retimeClip"))
     .post(
       "/setClipZoom",
       forward(runtime, ClipOperationsService, "setClipZoom")
