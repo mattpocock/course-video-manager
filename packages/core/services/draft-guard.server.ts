@@ -5,6 +5,7 @@ import {
   clipWebLinks,
   courseVersions,
   lessons,
+  overlays,
   sections,
   videos,
 } from "../db/schema.js";
@@ -256,4 +257,18 @@ export const requireDraftVersionForClipWebLink = Effect.fn(
   );
   if (!link) return;
   yield* requireDraftVersionForClip(db, link.clipId);
+});
+
+/** Guard a write scoped to an Overlay (resolved through its anchor Clip). */
+export const requireDraftVersionForOverlay = Effect.fn(
+  "requireDraftVersionForOverlay"
+)(function* (db: Database, overlayId: string) {
+  const overlay = yield* makeDbCall(() =>
+    db.query.overlays.findFirst({
+      where: eq(overlays.id, overlayId),
+      columns: { id: true, clipId: true },
+    })
+  );
+  if (!overlay) return;
+  yield* requireDraftVersionForClip(db, overlay.clipId);
 });
