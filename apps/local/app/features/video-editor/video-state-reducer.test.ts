@@ -394,4 +394,48 @@ describe("videoStateReducer", () => {
       });
     });
   });
+
+  describe("re-transcribing a whole video's clips (#1571)", () => {
+    it("asks for exactly the clips it was given, in one effect", () => {
+      const clip1 = "clip-1" as FrontendId;
+      const clip2 = "clip-2" as FrontendId;
+      const tester = new ReducerTester(
+        makeVideoEditorReducer([clip1, clip2], [clip1, clip2]),
+        createInitialState()
+      );
+
+      tester.send({ type: "retranscribe-clips", clipIds: [clip1, clip2] });
+
+      expect(tester.getExec()).toHaveBeenCalledExactlyOnceWith({
+        type: "retranscribe-clips",
+        clipIds: [clip1, clip2],
+      });
+    });
+
+    it("does nothing for a video with no transcribable clip", () => {
+      const tester = new ReducerTester(
+        makeVideoEditorReducer([], []),
+        createInitialState()
+      );
+
+      tester.send({ type: "retranscribe-clips", clipIds: [] });
+
+      expect(tester.getExec()).not.toHaveBeenCalled();
+    });
+
+    it("leaves playback alone — a re-transcribe is not a timeline edit", () => {
+      const clip1 = "clip-1" as FrontendId;
+      const tester = new ReducerTester(
+        makeVideoEditorReducer([clip1], [clip1]),
+        createInitialState({ runningState: "playing", currentClipId: clip1 })
+      );
+
+      const state = tester
+        .send({ type: "retranscribe-clips", clipIds: [clip1] })
+        .getState();
+
+      expect(state.runningState).toBe("playing");
+      expect(state.currentClipId).toBe(clip1);
+    });
+  });
 });

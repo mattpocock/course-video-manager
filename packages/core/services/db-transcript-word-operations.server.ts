@@ -1,7 +1,7 @@
 import type { Database } from "./drizzle-service.server.js";
-import { clipTranscriptWords } from "../db/schema.js";
+import { clips, clipTranscriptWords } from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { requireDraftVersionForClip } from "./draft-guard.server.js";
 
@@ -97,5 +97,39 @@ export const createTranscriptWordOperationsUnwrapped = (db: Database) => {
     return yield* listTranscriptWords(clipId);
   });
 
-  return { listTranscriptWords, replaceTranscriptWords };
+  /**
+   * Whether at least one live Clip of this Video has no Transcript Words.
+   *
+   * Already-transcribed Clips are deliberately never backfilled (spec #1567),
+   * so a Video edited before Transcript Words existed keeps Clips with none
+   * until somebody re-transcribes it. This is the flag behind the edit page's
+   * alert, so it answers with a boolean and stops at the first such Clip
+   * rather than counting or listing them.
+   */
+  const anyClipsMissingTranscriptWords = Effect.fn(
+    "anyClipsMissingTranscriptWords"
+  )(function* (videoId: string) {
+    const rows = yield* makeDbCall(() =>
+      db
+        .select({ id: clips.id })
+        .from(clips)
+        .leftJoin(clipTranscriptWords, eq(clipTranscriptWords.clipId, clips.id))
+        .where(
+          and(
+            eq(clips.videoId, videoId),
+            eq(clips.archived, false),
+            isNull(clipTranscriptWords.clipId)
+          )
+        )
+        .limit(1)
+    );
+
+    return rows.length > 0;
+  });
+
+  return {
+    listTranscriptWords,
+    replaceTranscriptWords,
+    anyClipsMissingTranscriptWords,
+  };
 };

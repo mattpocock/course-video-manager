@@ -253,6 +253,18 @@ export const getAllClipsHaveText = (clips: Clip[]): boolean => {
   return clips.every((clip) => clip.type === "on-database" && clip.text);
 };
 
+/**
+ * Every Clip a re-transcribe can actually be asked for — the ones that already
+ * have a database row. An optimistically-added Clip is still being written, so
+ * the transcribe endpoint has no id to name it by; asking for it would fail the
+ * whole batch.
+ */
+export const getRetranscribableClipIds = (clips: Clip[]): FrontendId[] => {
+  return clips
+    .filter((clip) => clip.type === "on-database")
+    .map((clip) => clip.frontendId);
+};
+
 export const getClipComputedProps = (clips: Clip[]): ClipComputedProps => {
   let timecode = 0;
   const map: ClipComputedProps = new Map();
