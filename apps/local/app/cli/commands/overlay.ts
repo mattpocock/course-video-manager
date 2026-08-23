@@ -11,7 +11,11 @@ import {
   notFoundMany,
   parseError,
 } from "@/cli/helpers";
-import { OVERLAY_KINDS } from "@/features/videos/overlay-kind";
+import {
+  OVERLAY_KINDS,
+  resolveOverlayKind,
+} from "@/features/videos/overlay-kind";
+import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
 import {
   clipExportDurationInSeconds,
   paddedClipDurationsInSeconds,
@@ -37,6 +41,11 @@ import {
  *   `bulletPanel`. A Definition Card's content is a `title` (the term) and a
  *   `description` (the definition), written inline on the Overlay itself;
  *   there is no shared glossary entity.
+ *
+ *   The `kind` also decides whether the FOOTAGE moves: a `bulletPanel` carries
+ *   a Transform, a kind-derived pan/zoom over its own window, which is why one
+ *   is refused on a Clip that already has a Clip Zoom — see
+ *   `overlay.clip-zoom-guard.ts`.
  *
  *   At most ONE Overlay is visible at a given moment across the whole Video,
  *   so an Overlay whose window overlaps another's — of either kind, on any
@@ -421,6 +430,13 @@ const addCmd = Command.make(
         at,
         durationInSeconds: duration,
       });
+      yield* requireNoClipZoomUnderTransform({
+        videoId: anchor.videoId,
+        clipId: clip,
+        at,
+        durationInSeconds: duration,
+        kind: Option.getOrUndefined(kind),
+      });
 
       const overlayOps = yield* OverlayOperationsService;
       const created = yield* overlayOps.createOverlay({
@@ -498,6 +514,23 @@ const updateCmd = Command.make(
           at: a ?? overlay.at,
           durationInSeconds: d ?? overlay.durationInSeconds,
           exclude: id,
+        });
+      }
+
+      // A change of KIND can newly collide too, even standing still: an
+      // Overlay that moved no camera yesterday moves one today.
+      if (
+        c !== undefined ||
+        a !== undefined ||
+        d !== undefined ||
+        k !== undefined
+      ) {
+        yield* requireNoClipZoomUnderTransform({
+          videoId: anchor.videoId,
+          clipId: anchor.id,
+          at: a ?? overlay.at,
+          durationInSeconds: d ?? overlay.durationInSeconds,
+          kind: k ?? resolveOverlayKind(overlay.kind),
         });
       }
 

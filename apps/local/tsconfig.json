@@ -88,6 +88,9 @@
       "@/features/videos/overlay-kind": [
         "../../packages/core/features/videos/overlay-kind"
       ],
+      "@/features/videos/overlay-transform": [
+        "../../packages/core/features/videos/overlay-transform"
+      ],
       "@/test-utils/pglite": ["../../packages/core/test-utils/pglite"],
 
       "@/*": ["./app/*"],

@@ -38,6 +38,8 @@ export const overlayExportRelation = {
     at: true,
     durationInSeconds: true,
     kind: true,
+    disableEnterAnimation: true,
+    disableExitAnimation: true,
     title: true,
     description: true,
   },
@@ -56,6 +58,8 @@ const overlayColumns = {
   at: overlays.at,
   durationInSeconds: overlays.durationInSeconds,
   kind: overlays.kind,
+  disableEnterAnimation: overlays.disableEnterAnimation,
+  disableExitAnimation: overlays.disableExitAnimation,
   title: overlays.title,
   description: overlays.description,
 };
@@ -110,6 +114,10 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
     durationInSeconds: number;
     /** Omitted means the default, `definitionCard` — see overlay-kind.ts. */
     kind?: OverlayKind;
+    /** Cut in / cut out instead of easing. Omitted means ease — see
+     * `features/videos/overlay-transform.ts`. */
+    disableEnterAnimation?: boolean;
+    disableExitAnimation?: boolean;
     title: string;
     description: string;
   }) {
@@ -137,6 +145,8 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
       at?: number;
       durationInSeconds?: number;
       kind?: OverlayKind;
+      disableEnterAnimation?: boolean;
+      disableExitAnimation?: boolean;
       title?: string;
       description?: string;
     }

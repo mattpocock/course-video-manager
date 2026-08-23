@@ -15,6 +15,8 @@ import {
 } from "./export-duration-check";
 import type { DefinitionCardContent } from "./overlay-render-cache";
 import type { ExportOverlay } from "./export-hash";
+import { overlayTransformCropFilter } from "@/features/videos/overlay-transform";
+import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-run";
 
 /**
@@ -32,6 +34,19 @@ export type PlacedOverlay = {
   startInSeconds: number;
   /** Never past the end of the Video — a card that runs off the end is cut. */
   endInSeconds: number;
+} & OverlayCameraMove;
+
+/**
+ * What the footage underneath an Overlay does while it is on screen.
+ *
+ * `kind` is carried, not the Transform itself, because the move is DERIVED
+ * from the kind (`features/videos/overlay-transform.ts`) and never authored —
+ * so there is nothing here for a caller to get wrong or to hold stale.
+ */
+export type OverlayCameraMove = {
+  kind: string;
+  disableEnterAnimation: boolean;
+  disableExitAnimation: boolean;
 };
 
 /**
@@ -44,7 +59,7 @@ export type RenderedOverlay = {
   overlayPath: string;
   startInSeconds: number;
   endInSeconds: number;
-};
+} & OverlayCameraMove;
 
 /**
  * Pair a placed Overlay with the render the Overlay Render Cache handed back.
@@ -60,6 +75,9 @@ export const withRenderedCard = (
   overlayPath,
   startInSeconds: placed.startInSeconds,
   endInSeconds: placed.endInSeconds,
+  kind: placed.kind,
+  disableEnterAnimation: placed.disableEnterAnimation,
+  disableExitAnimation: placed.disableExitAnimation,
 });
 
 /**
@@ -103,6 +121,9 @@ export const placeOverlaysOnTimeline = (
         },
         startInSeconds,
         endInSeconds,
+        kind: overlay.kind,
+        disableEnterAnimation: overlay.disableEnterAnimation,
+        disableExitAnimation: overlay.disableExitAnimation,
       });
     }
     clipStartInSeconds += duration ? clipExportDurationInSeconds(duration) : 0;
@@ -121,6 +142,18 @@ export const placeOverlaysOnTimeline = (
 const formatSeconds = (seconds: number): string => seconds.toFixed(3);
 
 /**
+ * What puts the frame back to the size the rest of the graph expects.
+ *
+ * A time-varying `crop` is the only node here that changes the frame size, and
+ * it changes it every frame — so the picture is resampled back to the export's
+ * own resolution before a rendered Overlay (itself rendered at that
+ * resolution) is drawn on top of it. Landscape, because this pass IS the
+ * landscape course export: it encodes with LANDSCAPE_VIDEO_ENCODE_ARGS, and
+ * Overlays exist only on course videos.
+ */
+const NORMALIZE_FILTER = `scale=${VIDEO_FORMAT_DIMENSIONS.landscape.width}:${VIDEO_FORMAT_DIMENSIONS.landscape.height}`;
+
+/**
  * The `-filter_complex` graph that composites N Definition Cards onto one
  * video in a SINGLE ffmpeg pass.
  *
@@ -135,11 +168,23 @@ const formatSeconds = (seconds: number): string => seconds.toFixed(3);
  * appear; `eof_action=pass` and `repeatlast=0` then let the video run on
  * untouched once the card's own frames are spent.
  *
+ * Ahead of that chain sits the camera: an Overlay whose `kind` carries a
+ * Transform (`features/videos/overlay-transform.ts`) also gets a time-varying
+ * `crop` on the video itself, gated to the same window by the same
+ * `enable='between(t,…)'`, so the footage pans and zooms out from under the
+ * graphic and back again. An Overlay whose kind carries none — every Definition
+ * Card — adds no crop node at all, so its graph is what it always was.
+ *
  * Returns `null` for no Overlays at all — the signal to skip the pass entirely,
  * which is what leaves a Video without Overlays byte-for-byte as it was.
  */
 export const buildOverlayCompositeFilterGraph = (
-  overlays: ReadonlyArray<{ startInSeconds: number; endInSeconds: number }>
+  overlays: ReadonlyArray<
+    {
+      startInSeconds: number;
+      endInSeconds: number;
+    } & Partial<OverlayCameraMove>
+  >
 ): string | null => {
   if (overlays.length === 0) return null;
 
@@ -149,6 +194,28 @@ export const buildOverlayCompositeFilterGraph = (
   );
 
   let current = "[0:v]";
+
+  // The camera moves BEFORE anything is drawn on top of it: the panel is meant
+  // to sit still in frame while the footage slides out from under it.
+  const moves = overlays.flatMap((overlay, index) => {
+    const crop = overlayTransformCropFilter(overlay);
+    return crop === null ? [] : [{ index, crop }];
+  });
+  const cropNodes = moves.map(({ index, crop }, position) => {
+    const output = `[tf${index}]`;
+    // Only the LAST crop is normalized, and only because a crop is what
+    // changes the frame size in the first place: chaining a second crop onto a
+    // frame the first one is currently shrinking would compound them. It never
+    // happens — two Overlays are never on screen at once (`cvm overlay add`
+    // refuses it), so at most one of these nodes is enabled at any moment, and
+    // whichever it is sees a full-size frame.
+    const normalize =
+      position === moves.length - 1 ? `,${NORMALIZE_FILTER}` : "";
+    const node = `${current}${crop}${normalize}${output}`;
+    current = output;
+    return node;
+  });
+
   const chain = overlays.map((overlay, index) => {
     const isLast = index === overlays.length - 1;
     const output = isLast ? "[outv]" : `[comp${index}]`;
@@ -159,7 +226,7 @@ export const buildOverlayCompositeFilterGraph = (
     return node;
   });
 
-  return [...shifts, ...chain].join(";");
+  return [...shifts, ...cropNodes, ...chain].join(";");
 };
 
 /**

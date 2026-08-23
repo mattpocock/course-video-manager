@@ -134,6 +134,13 @@
       "when": 1787490909187,
       "tag": "0018_add_overlay_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787491974582,
+      "tag": "0019_add_overlay_animation_toggles",
+      "breakpoints": true
     }
   ]
 }

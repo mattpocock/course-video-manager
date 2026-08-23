@@ -23,6 +23,16 @@ glossary or dictionary entity to pick from, and no deduplication between
 placements — two Overlays that define the same term each carry their own copy
 of the words.
 
+THE CAMERA — derived, never authored. An Overlay's kind decides whether the
+footage underneath it MOVES. A 'bulletPanel' pans and zooms the camera from its
+centred framing to a right-shifted one for exactly the Overlay's window, and
+back again — there is no flag for the move, and no keyframes to write: making it
+a 'bulletPanel' is what gets it. A 'definitionCard' moves nothing. Because that
+move is a crop, and a Clip Zoom is ALSO a crop that is already baked into the
+footage by then, a camera-moving Overlay whose window lands on any Clip with a
+Clip Zoom is refused (exit 3) rather than compounding the two — clear that
+Clip's zoom ('cvm clip update --zoom none <id>'), or move the Overlay off it.
+
 ONE AT A TIME. At most one Overlay is ever on screen at a given moment across
 the whole Video — there are no tracks and no layering. An 'add' or an 'update'
 whose window would overlap another Overlay's is refused (exit 3), whatever the
@@ -112,13 +122,16 @@ with no anchor, no length or no words is not a thing worth having.
                        the Clip's end and across the Clips that follow.
   --kind <kind>        which content-kind to carry: 'definitionCard' (the
                        default, applied when the flag is omitted) or
-                       'bulletPanel'.
+                       'bulletPanel', which also moves the camera for the
+                       Overlay's own window.
   --title <text>       the term being defined — the card's heading.
   --description <text> the definition itself — the card's body.
 
 Refused (exit 3) if the Overlay's window would overlap one already on this
 Video, of either kind and on any Clip — only one Overlay is ever on screen at a
-time. 'cvm overlay list --video <id>' shows what is already placed.
+time. 'cvm overlay list --video <id>' shows what is already placed. Also refused
+(exit 3) if a camera-moving kind's window lands on a Clip that already has a
+Clip Zoom: the two crops compound rather than compose.
 
 Echoes the created Overlay row, including its new id, as one pretty JSON object.
 
@@ -142,6 +155,8 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
                        anchor Clip's own length.
   --duration <seconds> new on-screen length in seconds. Must be > 0.
   --kind <kind>        new content-kind: 'definitionCard' or 'bulletPanel'.
+                       Changing TO a camera-moving kind is refused (exit 3) if
+                       the Overlay's window lands on a zoomed Clip.
   --title <text>       new card heading (the term).
   --description <text> new card body (the definition).
 

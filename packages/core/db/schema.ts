@@ -432,6 +432,18 @@ export const overlays = createTable(
      * "bulletPanel". Read through `resolveOverlayKind`, never raw.
      */
     kind: varchar("kind", { length: 255 }).notNull().default("definitionCard"),
+    /**
+     * Cut into the Overlay instead of easing into it, and cut out of it
+     * instead of easing out. They sit on the Overlay rather than inside its
+     * content because they govern the kind-derived camera Transform AND the
+     * content's own animation together — the two must never desync.
+     */
+    disableEnterAnimation: boolean("disable_enter_animation")
+      .notNull()
+      .default(false),
+    disableExitAnimation: boolean("disable_exit_animation")
+      .notNull()
+      .default(false),
     title: text("title").notNull(),
     description: text("description").notNull(),
   },

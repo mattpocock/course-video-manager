@@ -14,6 +14,8 @@ const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   at: 0,
   durationInSeconds: 5,
   kind: "definitionCard",
+  disableEnterAnimation: false,
+  disableExitAnimation: false,
   title: "Monomorphism",
   description: "A function that never collapses two inputs into one output.",
   ...overrides,
@@ -133,6 +135,30 @@ describe("placeOverlaysOnTimeline", () => {
     ]);
   });
 
+  it("carries what the footage under an Overlay has to do", () => {
+    const placed = placeOverlaysOnTimeline(
+      [
+        {
+          overlays: [
+            card({
+              at: 1,
+              kind: "bulletPanel",
+              disableEnterAnimation: true,
+              disableExitAnimation: false,
+            }),
+          ],
+        },
+      ],
+      [clip(10)]
+    );
+
+    // The KIND travels, not a Transform: the move is looked up from it, so
+    // there is nothing here to hold a stale copy of.
+    expect(placed[0]!.kind).toBe("bulletPanel");
+    expect(placed[0]!.disableEnterAnimation).toBe(true);
+    expect(placed[0]!.disableExitAnimation).toBe(false);
+  });
+
   it("finds nothing on a Video with no Overlays", () => {
     expect(
       placeOverlaysOnTimeline(
@@ -197,11 +223,167 @@ describe("buildOverlayCompositeFilterGraph", () => {
   });
 });
 
+describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
+  const panel = (
+    overrides: Partial<{
+      startInSeconds: number;
+      endInSeconds: number;
+      kind: string;
+      disableEnterAnimation: boolean;
+      disableExitAnimation: boolean;
+    }> = {}
+  ) => ({
+    startInSeconds: 1.5,
+    endInSeconds: 4.5,
+    kind: "bulletPanel",
+    disableEnterAnimation: false,
+    disableExitAnimation: false,
+    ...overrides,
+  });
+
+  it("leaves the footage alone for a Definition Card", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ kind: "definitionCard" }),
+    ])!;
+
+    expect(graph).not.toContain("crop=");
+    expect(graph).not.toContain("scale=");
+    // Byte-for-byte the graph a Definition Card has always produced.
+    expect(graph).toBe(
+      "[1:v]setpts=PTS-STARTPTS+1.500/TB[ovl0];" +
+        "[0:v][ovl0]overlay=x=0:y=0:format=auto:eof_action=pass:repeatlast=0" +
+        ":enable='between(t,1.500,4.500)'[outv]"
+    );
+  });
+
+  it("reads an Overlay written before the kind column the same way", () => {
+    expect(
+      buildOverlayCompositeFilterGraph([{ ...panel(), kind: "" }])
+    ).not.toContain("crop=");
+  });
+
+  it("moves the camera under a bulletPanel, before anything is drawn on it", () => {
+    const graph = buildOverlayCompositeFilterGraph([panel()])!;
+
+    // The crop takes the video, and the graphic chain takes the crop's output.
+    expect(graph).toContain("[0:v]crop=");
+    expect(graph).toContain("[tf0][ovl0]overlay=");
+  });
+
+  it("gates the move to the Overlay's own window on the Video's timeline", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ startInSeconds: 12, endInSeconds: 20 }),
+    ])!;
+
+    expect(graph).toContain(
+      ":eval=frame:enable='between(t,12.000000,20.000000)'"
+    );
+  });
+
+  it("crops to the kind's own default Transform, which nobody authored", () => {
+    const graph = buildOverlayCompositeFilterGraph([panel()])!;
+
+    // Centred (scale 1, origin 0.5/0.5) to right-shifted and slightly up.
+    expect(graph).toContain("st(3,lerp(1.000000,1.300000,ld(2)))");
+    expect(graph).toContain("(iw-iw/ld(3))*lerp(0.500000,0.620000,ld(2))");
+    expect(graph).toContain("(ih-ih/ld(3))*lerp(0.500000,0.400000,ld(2))");
+    // Clip Zoom's own crop arithmetic, so the two cannot disagree on framing.
+    expect(graph).toContain("crop=w='");
+    expect(graph).toContain("iw/ld(3)'");
+    expect(graph).toContain("ih/ld(3)'");
+  });
+
+  it("puts the frame back to the export's own size once it has moved", () => {
+    expect(buildOverlayCompositeFilterGraph([panel()])!).toContain(
+      ",scale=1920:1080[tf0]"
+    );
+  });
+
+  it("eases in and out over 0.35s, symmetrically", () => {
+    const graph = buildOverlayCompositeFilterGraph([panel()])!;
+
+    expect(graph).toContain("clip((t-1.500000)/0.350000,0,1)");
+    expect(graph).toContain("clip((4.500000-t)/0.350000,0,1)");
+    // Eased, not linear: the sampled curve is past a third of the way there
+    // by an eighth of the ramp.
+    expect(graph).toContain("lerp(0.000000,0.136888,");
+    expect(graph).toContain("lerp(0.136888,0.408511,");
+  });
+
+  it("splits what it has when the Overlay is shorter than two eases", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ startInSeconds: 0, endInSeconds: 0.4 }),
+    ])!;
+
+    expect(graph).toContain("clip((t-0.000000)/0.200000,0,1)");
+    expect(graph).toContain("clip((0.400000-t)/0.200000,0,1)");
+  });
+
+  it("cuts into the shifted framing when the enter animation is off", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ disableEnterAnimation: true }),
+    ])!;
+
+    // No ramp at the start at all — the camera is already there — while the
+    // exit still eases.
+    expect(graph).toContain("min(1.000000,clip((4.500000-t)/0.350000,0,1))");
+    expect(graph).not.toContain("clip((t-1.500000)");
+  });
+
+  it("cuts out of it when the exit animation is off", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ disableExitAnimation: true }),
+    ])!;
+
+    expect(graph).toContain("min(clip((t-1.500000)/0.350000,0,1),1.000000)");
+    expect(graph).not.toContain("clip((4.500000-t)");
+  });
+
+  it("holds one framing throughout when both are off", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ disableEnterAnimation: true, disableExitAnimation: true }),
+    ])!;
+
+    // Progress is pinned at 1: a hard cut to the shifted framing at the start
+    // of the window and a hard cut back at the end, done by the gate alone.
+    expect(graph).toContain("st(2,1.000000);");
+    expect(graph).not.toContain("clip(");
+    expect(graph).not.toContain("lerp(0.000000,0.136888,");
+  });
+
+  it("moves the camera only for the Overlays whose kind asks for it", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ kind: "definitionCard", startInSeconds: 1, endInSeconds: 2 }),
+      panel({ startInSeconds: 10, endInSeconds: 14 }),
+    ])!;
+
+    // One crop, for the second Overlay, and the whole graphic chain runs off
+    // its output — the Definition Card is drawn on untouched footage because
+    // the crop is bypassed everywhere outside 10s..14s.
+    expect(graph.match(/crop=/g)).toHaveLength(1);
+    expect(graph).toContain("[0:v]crop=");
+    expect(graph).toContain("[tf1][ovl0]overlay=");
+    expect(graph).toContain("[comp0][ovl1]overlay=");
+    expect(graph.match(/scale=1920:1080/g)).toHaveLength(1);
+  });
+
+  it("spells every number so ffmpeg's expression parser cannot misread it", () => {
+    const graph = buildOverlayCompositeFilterGraph([
+      panel({ startInSeconds: 0.0000001, endInSeconds: 1234567.5 }),
+    ])!;
+
+    expect(graph).not.toMatch(/e[+-]\d/);
+  });
+});
+
 describe("buildOverlayCompositeArgs", () => {
   const card = {
     overlayPath: "/cache/a.mov",
     startInSeconds: 1,
     endInSeconds: 4,
+    kind: "definitionCard",
+    disableEnterAnimation: false,
+    disableExitAnimation: false,
   };
 
   it("feeds ffmpeg the video first and one input per card", () => {

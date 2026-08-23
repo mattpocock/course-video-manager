@@ -30,6 +30,9 @@ export type ExportOverlay = {
   durationInSeconds: number;
   /** The raw `kind` column; narrowed by `resolveOverlayKind` on the way in. */
   kind: string;
+  /** Cut in / cut out instead of easing — see `overlay-transform.ts`. */
+  disableEnterAnimation: boolean;
+  disableExitAnimation: boolean;
   title: string;
   description: string;
 };
@@ -68,6 +71,8 @@ export const toExportClips = (
       at: number;
       durationInSeconds: number;
       kind: string;
+      disableEnterAnimation: boolean;
+      disableExitAnimation: boolean;
       title: string;
       description: string;
     }>;
@@ -83,6 +88,8 @@ export const toExportClips = (
       at: o.at,
       durationInSeconds: o.durationInSeconds,
       kind: o.kind,
+      disableEnterAnimation: o.disableEnterAnimation,
+      disableExitAnimation: o.disableExitAnimation,
       title: o.title,
       description: o.description,
     })),
@@ -108,6 +115,12 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       ...(resolveOverlayKind(o.kind) === DEFAULT_OVERLAY_KIND
         ? {}
         : { k: resolveOverlayKind(o.kind) }),
+      // Same rule for the animation toggles: they change the rendered bytes,
+      // so they belong in the address, but only when set. Every Overlay
+      // written before the columns existed eases both ways, so omitting the
+      // `false` leaves every existing export address exactly where it was.
+      ...(o.disableEnterAnimation ? { ne: true } : {}),
+      ...(o.disableExitAnimation ? { nx: true } : {}),
       t: o.title,
       x: o.description,
     }))
