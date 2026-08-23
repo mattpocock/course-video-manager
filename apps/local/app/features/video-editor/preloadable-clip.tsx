@@ -45,6 +45,34 @@ export const PreloadableClip = (props: {
 
   const isPlaying = !props.hidden && props.state === "playing";
 
+  // Keeps the overlay playhead in step with the `<video>` while it is NOT
+  // playing. The rAF loop below stops on pause and never runs before the first
+  // play, so on its own it leaves `overlayCurrentTime` at 0 — a paused or
+  // scrubbed Clip would show no Definition Card at all, however far into an
+  // Overlay the playhead sits.
+  useEffect(() => {
+    const video = ref.current;
+    if (!video || props.hidden || props.overlays.length === 0) {
+      return;
+    }
+
+    const sync = () =>
+      setOverlayCurrentTime(video.currentTime - props.clip.sourceStartTime);
+
+    sync();
+    video.addEventListener("seeked", sync);
+    video.addEventListener("timeupdate", sync);
+    return () => {
+      video.removeEventListener("seeked", sync);
+      video.removeEventListener("timeupdate", sync);
+    };
+  }, [
+    ref.current,
+    props.hidden,
+    props.overlays.length,
+    props.clip.sourceStartTime,
+  ]);
+
   useEffect(() => {
     if (!ref.current) {
       return;

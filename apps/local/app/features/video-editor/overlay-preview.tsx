@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Player } from "@remotion/player";
+import { useEffect, useMemo, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
 import {
   DefinitionCardPreview,
   type DefinitionCard as DefinitionCardInputProps,
@@ -41,6 +41,20 @@ const { width: COMPOSITION_WIDTH, height: COMPOSITION_HEIGHT } =
  */
 const DEFINITION_CARD_FPS = 60;
 
+/**
+ * The frame of `overlay`'s own card timeline that `currentTime` names, clamped
+ * into the card's own duration. `currentTime` and `at` are both Clip-relative,
+ * so the difference between them is the card's own elapsed time.
+ */
+const overlayFrameAt = (overlay: ClipOverlay, currentTime: number) =>
+  Math.max(
+    0,
+    Math.min(
+      Math.ceil(overlay.durationInSeconds * DEFINITION_CARD_FPS) - 1,
+      Math.round((currentTime - overlay.at) * DEFINITION_CARD_FPS)
+    )
+  );
+
 /** The Overlay active at `currentTime`, or `undefined` if none is. */
 const findActiveOverlay = (overlays: ClipOverlay[], currentTime: number) =>
   overlays.find(
@@ -60,21 +74,41 @@ const findActiveOverlay = (overlays: ClipOverlay[], currentTime: number) =>
  * `currentTime` (not something `cvm overlay` guards against today), the first
  * one found wins; that is a rare edge case not worth solving elegantly.
  *
+ * The `<Player>` never plays on its own clock. It is held paused and seeked to
+ * the frame `currentTime` names, so the card is a pure function of the Clip's
+ * playhead — exactly as the export composites it. A free-running `<Player>`
+ * would show nothing at all until playback happened to cross the Overlay's
+ * `at`, and would then drift away from the footage on pause, on scrub and at
+ * any playback rate other than 1x.
+ *
  * Keyed by the active Overlay's `id` so switching from one Overlay to another
- * remounts the `<Player>` — a fresh render from frame 0 — rather than trying
- * to seek an existing one to a new composition.
+ * remounts the `<Player>` on the new card, rather than trying to reuse a
+ * `<Player>` that is already mounted on a different composition.
  */
 export const OverlayPreview = (props: {
   overlays: ClipOverlay[];
   /** This Clip's own current playback position, in seconds. */
   currentTime: number;
 }) => {
+  const playerRef = useRef<PlayerRef>(null);
   const active = useMemo(
     () => findActiveOverlay(props.overlays, props.currentTime),
     [props.overlays, props.currentTime]
   );
 
-  if (!active) {
+  // The frame of the card that `currentTime` names. `undefined` when no
+  // Overlay covers the playhead — computed before the early return below so
+  // the seek effect keeps a stable hook order.
+  const frame = active ? overlayFrameAt(active, props.currentTime) : undefined;
+
+  useEffect(() => {
+    if (frame === undefined) {
+      return;
+    }
+    playerRef.current?.seekTo(frame);
+  }, [frame]);
+
+  if (!active || frame === undefined) {
     return null;
   }
 
@@ -93,6 +127,7 @@ export const OverlayPreview = (props: {
     <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
       <Player
         key={active.id}
+        ref={playerRef}
         component={DefinitionCardPreview}
         inputProps={inputProps}
         fps={DEFINITION_CARD_FPS}
@@ -100,7 +135,9 @@ export const OverlayPreview = (props: {
         compositionWidth={COMPOSITION_WIDTH}
         compositionHeight={COMPOSITION_HEIGHT}
         style={{ width: "100%", height: "100%" }}
-        autoPlay
+        // Mounted on the frame the playhead already sits on, so a card the
+        // playhead lands in the middle of does not flash its entrance.
+        initialFrame={frame}
         loop={false}
         controls={false}
       />
