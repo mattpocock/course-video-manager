@@ -10,7 +10,7 @@
   },
   "exports": {
     ".": "./src/render.ts",
-    "./card": "./src/card.tsx",
+    "./preview": "./src/preview.tsx",
     "./props": "./src/props.ts"
   },
   "scripts": {

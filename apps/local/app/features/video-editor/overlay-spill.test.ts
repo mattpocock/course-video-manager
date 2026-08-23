@@ -33,6 +33,13 @@ const overlay = (props: {
   clipId: props.clipId,
   at: props.at,
   durationInSeconds: props.durationInSeconds,
+  // The spill is the same walk whatever the Overlay Kind is — it measures a
+  // window against Clip durations and never looks at the content — so the
+  // Kind here is only the default one, spelled out to satisfy the shape.
+  kind: "definitionCard",
+  bullets: null,
+  disableEnterAnimation: false,
+  disableExitAnimation: false,
   title: "A Definition Card",
   description: "What it means.",
 });

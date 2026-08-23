@@ -18,6 +18,7 @@ import { useOBSConnector } from "@/features/video-editor/obs-connector";
 import { targetProfileForFormat } from "@/features/video-editor/ensure-obs-profile";
 import { useSilenceLength } from "@/features/video-editor/use-silence-length";
 import { VideoEditor } from "@/features/video-editor/video-editor";
+import { toClipOverlay } from "@/features/video-editor/clip-overlay-row";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
@@ -103,14 +104,7 @@ export const loader = makeLoader({
         videoId,
         null
       );
-      const overlays = overlayRows.map((o) => ({
-        id: o.id,
-        clipId: o.clipId,
-        at: o.at,
-        durationInSeconds: o.durationInSeconds,
-        title: o.title,
-        description: o.description,
-      }));
+      const overlays = overlayRows.map(toClipOverlay);
 
       const referenceCandidates = video.lesson
         ? yield* videoOps.getReferenceVideoCandidates({

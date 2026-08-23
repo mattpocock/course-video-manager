@@ -191,6 +191,54 @@ export const overlayTransformProgressAt = (
 };
 
 // ---------------------------------------------------------------------------
+// The preview half of the contract
+// ---------------------------------------------------------------------------
+
+/**
+ * The framing an Overlay's camera move asks for at one moment, as CSS for the
+ * Clip's `<video>` — or `null` for an Overlay whose kind moves no camera, and
+ * for a moment outside the Overlay's own window.
+ *
+ * The exact twin of {@link overlayTransformCropFilter}, exactly as
+ * `clipZoomCssStyle` is the twin of `clipZoomCropFilter`: both read the
+ * same rect from {@link OVERLAY_TRANSFORMS} and both put it through the same
+ * eased progress, so the editor preview cannot disagree with what the Publish
+ * ships. The filter varies with `t` inside ONE node; the preview is re-asked
+ * once per playhead update instead, which is why the moment is a parameter
+ * here rather than a variable in an expression.
+ *
+ * `timeInSeconds` is read on whatever clock the window is stated on. The
+ * export states both on the flattened Video timeline; the editor states both
+ * against the Clip that is playing, including the negative `startInSeconds` an
+ * Overlay spilling from an earlier Clip has. Only the difference between the
+ * two is ever used, so either clock gives the same framing.
+ */
+export const overlayTransformCssStyleAt = (
+  overlay: OverlayTransformWindow & { readonly kind?: string | null },
+  timeInSeconds: number
+): { transform: string; transformOrigin: string } | null => {
+  const transform = overlayTransform(overlay.kind);
+  if (!transform) return null;
+  if (!(overlay.endInSeconds > overlay.startInSeconds)) return null;
+  if (
+    timeInSeconds < overlay.startInSeconds ||
+    timeInSeconds > overlay.endInSeconds
+  ) {
+    return null;
+  }
+
+  const rect = overlayTransformRectAt(
+    transform,
+    overlayTransformProgressAt(overlay, timeInSeconds)
+  );
+
+  return {
+    transform: `scale(${rect.scale})`,
+    transformOrigin: `${rect.originX * 100}% ${rect.originY * 100}%`,
+  };
+};
+
+// ---------------------------------------------------------------------------
 // The ffmpeg half of the contract
 // ---------------------------------------------------------------------------
 

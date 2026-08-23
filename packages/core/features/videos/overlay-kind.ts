@@ -39,3 +39,23 @@ export const resolveOverlayKind = (
   (OVERLAY_KINDS as readonly string[]).includes(kind ?? "")
     ? (kind as OverlayKind)
     : DEFAULT_OVERLAY_KIND;
+
+/**
+ * What each Kind is CALLED — the words CONTEXT.md uses for it, so a surface
+ * naming an Overlay's Kind to the author says "Bullet Panel" and never
+ * `bulletPanel`.
+ *
+ * A `Record<OverlayKind, …>` keyed off {@link OVERLAY_KINDS}, so a third kind
+ * is a compile error here until somebody says what to call it.
+ */
+const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
+  definitionCard: "Definition Card",
+  bulletPanel: "Bullet Panel",
+};
+
+/**
+ * The display name of a raw `kind` column, coerced through
+ * {@link resolveOverlayKind} like every other reading of it.
+ */
+export const overlayKindLabel = (kind: string | null | undefined): string =>
+  OVERLAY_KIND_LABELS[resolveOverlayKind(kind)];

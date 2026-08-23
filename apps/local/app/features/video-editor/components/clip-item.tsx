@@ -45,6 +45,10 @@ import { resolveForClip } from "@/lib/diagram-action-resolver";
 import { getWebLinkLabel } from "@/lib/clip-web-link";
 import { canZoomClip } from "@/features/videos/clip-zoom";
 import {
+  overlayKindLabel,
+  resolveOverlayKind,
+} from "@/features/videos/overlay-kind";
+import {
   openPlayground,
   openPlaygroundWithDiagram,
 } from "@/lib/diagram-window";
@@ -263,36 +267,47 @@ export const ClipItem = (props: ClipItemProps) => {
               </div>
             )}
 
-            {/* Overlays covering this Clip. Definition Card is the only
-                content-kind there is today (see the `overlays` table, which
-                deliberately has no `kind` column), so the kind is spelled out
-                here rather than read off the row. A card anchored to an
-                earlier Clip is listed too, because it is still on screen
-                here — `at` is negative for those. */}
+            {/* Overlays covering this Clip. Each badge names its own Overlay
+                Kind, read off the row through `overlayKindLabel` — an Overlay
+                written before the `kind` column existed reads as a Definition
+                Card, exactly as it renders. An Overlay anchored to an earlier
+                Clip is listed too, because it is still on screen here — `at`
+                is negative for those. */}
             {coveringOverlays && coveringOverlays.length > 0 && (
               <div className="z-10 relative mt-2 flex flex-wrap gap-1">
-                {coveringOverlays.map((overlay) => (
-                  <span
-                    key={overlay.id}
-                    title={
-                      overlay.at < 0
-                        ? `Definition Card, continuing from an earlier Clip: ${overlay.title}`
-                        : `Definition Card, ${overlay.at}s into this Clip for ${overlay.durationInSeconds}s: ${overlay.title}`
-                    }
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground max-w-[16rem]",
-                      // Dimmed where the card only carries over from an
-                      // earlier Clip, so the Clip that OWNS it still reads as
-                      // the one to edit.
-                      overlay.at < 0 && "opacity-60"
-                    )}
-                  >
-                    <LayersIcon className="w-3 h-3 shrink-0" />
-                    <span className="truncate">
-                      Definition Card · {overlay.title}
+                {coveringOverlays.map((overlay) => {
+                  const kindLabel = overlayKindLabel(overlay.kind);
+                  // A Bullet Panel also moves the camera under it, so its
+                  // badge carries the zoom mark the Clip Zoom badge uses —
+                  // the two are the same kind of thing to the eye, and never
+                  // both on one Clip.
+                  const OverlayIcon =
+                    resolveOverlayKind(overlay.kind) === "bulletPanel"
+                      ? ZoomInIcon
+                      : LayersIcon;
+                  return (
+                    <span
+                      key={overlay.id}
+                      title={
+                        overlay.at < 0
+                          ? `${kindLabel}, continuing from an earlier Clip: ${overlay.title}`
+                          : `${kindLabel}, ${overlay.at}s into this Clip for ${overlay.durationInSeconds}s: ${overlay.title}`
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground max-w-[16rem]",
+                        // Dimmed where the Overlay only carries over from an
+                        // earlier Clip, so the Clip that OWNS it still reads
+                        // as the one to edit.
+                        overlay.at < 0 && "opacity-60"
+                      )}
+                    >
+                      <OverlayIcon className="w-3 h-3 shrink-0" />
+                      <span className="truncate">
+                        {kindLabel} · {overlay.title}
+                      </span>
                     </span>
-                  </span>
-                ))}
+                  );
+                })}
               </div>
             )}
 

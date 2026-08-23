@@ -9,7 +9,11 @@ import {
 } from "./constants";
 import { useAudioBoost } from "./use-audio-boost";
 import type { RunningState } from "./video-state-reducer";
-import { OverlayPreview, type ClipOverlay } from "./overlay-preview";
+import {
+  OverlayPreview,
+  overlayTransformStyle,
+  type ClipOverlay,
+} from "./overlay-preview";
 
 const PRELOAD_PLAY_AMOUNT = 0.1;
 
@@ -178,6 +182,14 @@ export const PreloadableClip = (props: {
     props.overlays.length,
   ]);
 
+  // The camera move the Overlay on screen asks for, re-read at this Clip's own
+  // playhead — `null` for a Clip with no Overlay over it, and for an Overlay
+  // whose Kind moves no camera. It takes precedence over the Clip Zoom below,
+  // which the write path has already made sure cannot also be present.
+  const overlayCameraStyle = props.hidden
+    ? null
+    : overlayTransformStyle(props.overlays, overlayCurrentTime);
+
   return (
     <div className={cn("relative w-full", props.hidden && "hidden")}>
       <video
@@ -187,10 +199,16 @@ export const PreloadableClip = (props: {
           "w-full",
           props.profile === "TikTok" && "w-92 aspect-[9/16]"
         )}
-        // The preview half of the Clip Zoom contract. These two properties are
-        // formatted from the same rect the export's ffmpeg crop is built from
-        // (see features/videos/clip-zoom), so what plays here is what ships.
-        style={clipZoomCssStyle(props.clip.zoomType) ?? undefined}
+        // The preview half of two contracts that are the same shape and never
+        // both in force: the Overlay's kind-derived Transform, and the Clip's
+        // own Clip Zoom. Each is formatted from the same rect the export's
+        // ffmpeg crop is built from (features/videos/overlay-transform and
+        // features/videos/clip-zoom), so what plays here is what ships.
+        style={
+          overlayCameraStyle ??
+          clipZoomCssStyle(props.clip.zoomType) ??
+          undefined
+        }
         ref={ref}
       />
       {/* Only mounted for the Clip actually on screen — every other Clip in
