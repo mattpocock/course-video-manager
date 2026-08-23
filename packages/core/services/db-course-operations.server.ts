@@ -578,6 +578,21 @@ export const createCourseOperations = (db: Database) => {
   };
 };
 
+/**
+ * The Course's navigation tree — its latest version's Sections, their Lessons,
+ * and each Lesson's Videos — exactly as {@link createCourseOperations}'s
+ * `getCourseNavigationData` returns it.
+ *
+ * Exported so the readers that take that query as their one dependency can name
+ * what they are handed, instead of taking `any` and losing every field name in
+ * the walk that follows.
+ */
+export type CourseNavigationData = Effect.Effect.Success<
+  ReturnType<
+    ReturnType<typeof createCourseOperations>["getCourseNavigationData"]
+  >
+>;
+
 export class CourseOperationsService extends Effect.Service<CourseOperationsService>()(
   "CourseOperationsService",
   {
