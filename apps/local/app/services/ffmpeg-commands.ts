@@ -22,6 +22,9 @@ import {
 
 export type { FfmpegLogInfo };
 
+// How much work may run at once, by the resource it contends for. GPU work is
+// encoding and is the scarcer of the two; CPU work (probing, muxing, silence
+// detection) is cheap enough to run at twice the width.
 const GPU_PERMITS = 6;
 const CPU_PERMITS = 12;
 
