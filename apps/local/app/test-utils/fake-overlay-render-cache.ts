@@ -2,14 +2,14 @@ import { Effect, Layer } from "effect";
 import path from "node:path";
 import { OverlayRenderCacheService } from "@/services/overlay-render-cache.server";
 import {
-  computeDefinitionCardContentHash,
-  type DefinitionCardContent,
+  computeOverlayContentHash,
+  type OverlayContent,
 } from "@/services/overlay-render-cache";
 
 /** One thing the export step asked the Overlay Render Cache to hand it. */
-export type FakeCardRenderRequest = {
+export type FakeOverlayRenderRequest = {
   courseId: string;
-  content: DefinitionCardContent;
+  content: OverlayContent;
   /** The `.mov` path the fake answered with. */
   renderPath: string;
 };
@@ -22,7 +22,9 @@ export type FakeCardRenderRequest = {
  * This is the boundary a test is allowed to fake — a real render is a real
  * browser, which no test in this repo may drive (see
  * `.sandcastle/CODING_STANDARDS.md`). Everything on this side of it — which
- * cards are asked for, and where they land — stays real.
+ * content is asked for, and where it lands — stays real. It uses the REAL
+ * {@link computeOverlayContentHash}, so a test asserting the answered path is
+ * asserting the address a real export would have used.
  */
 export const createFakeOverlayRenderCache = (opts?: {
   /** Where the pretend renders live. Default: a fixed, obviously-fake dir. */
@@ -36,17 +38,14 @@ export const createFakeOverlayRenderCache = (opts?: {
   failWith?: unknown;
 }) => {
   const directory = opts?.directory ?? "/fake-overlay-render-cache";
-  const requests: FakeCardRenderRequest[] = [];
+  const requests: FakeOverlayRenderRequest[] = [];
 
   const layer = Layer.succeed(OverlayRenderCacheService, {
-    renderDefinitionCard: (request: {
-      courseId: string;
-      content: DefinitionCardContent;
-    }) =>
+    renderOverlay: (request: { courseId: string; content: OverlayContent }) =>
       Effect.suspend(() => {
         const renderPath = path.join(
           directory,
-          `${request.courseId}-${computeDefinitionCardContentHash(request.content)}.mov`
+          `${request.courseId}-${computeOverlayContentHash(request.content)}.mov`
         );
         requests.push({ ...request, renderPath });
         return opts?.failWith === undefined

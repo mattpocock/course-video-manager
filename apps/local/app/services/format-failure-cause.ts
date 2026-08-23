@@ -2,7 +2,7 @@
  * Render an unknown failure as one string a human can read in a log file.
  *
  * Export failures arrive as tagged errors that wrap other errors: a
- * `DefinitionCardRenderError` holds the subprocess failure, which holds the
+ * `OverlayContentRenderError` holds the subprocess failure, which holds the
  * spawn error. `String(cause)` shows only the outermost layer, and
  * `JSON.stringify` shows `{}` for anything extending `Error`, so both throw
  * away the one line that says what actually went wrong. This walks the chain

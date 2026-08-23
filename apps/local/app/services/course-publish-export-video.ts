@@ -22,7 +22,7 @@ import { resolveVideoFormat } from "@/features/videos/video-format";
 import { OverlayRenderCacheService } from "./overlay-render-cache.server";
 import {
   placeOverlaysOnTimeline,
-  withRenderedCard,
+  withRenderedContent,
 } from "./overlay-compositing";
 import { ExportError } from "./course-publish-errors";
 import { formatFailureCause } from "./format-failure-cause";
@@ -191,28 +191,28 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
     // also what keeps its Byte Hash, and so its place in Dropbox, unmoved.
     if (placedOverlays.length > 0) {
       yield* Effect.gen(function* () {
-        // Every card is rendered (or found already rendered) before ffmpeg is
-        // asked for anything, so one failed render costs no encode.
+        // Every Overlay's content is rendered (or found already rendered)
+        // before ffmpeg is asked for anything, so one failed render costs no
+        // encode.
         const renderedOverlays = yield* Effect.forEach(
           placedOverlays,
           (placed) =>
             overlayRenderCache
-              .renderDefinitionCard({
+              .renderOverlay({
                 courseId: namespace,
                 content: placed.content,
               })
               .pipe(
                 Effect.map((overlayPath) =>
-                  withRenderedCard(placed, overlayPath)
+                  withRenderedContent(placed, overlayPath)
                 )
               )
           // The render stage is named apart from the compositing stage on
           // purpose: the two fail for unrelated reasons — a Chromium render
           // versus an ffmpeg filtergraph — and the log should say which one
-          // the export never got past.
-        ).pipe(
-          Effect.tapError(recordStageFailure("export:render-definition-cards"))
-        );
+          // the export never got past. It is named for Overlays and not for
+          // Definition Cards because every Overlay Kind renders through it.
+        ).pipe(Effect.tapError(recordStageFailure("export:render-overlays")));
 
         yield* videoProcessing
           .compositeOverlaysOntoExport({
@@ -225,7 +225,7 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
             Effect.tapError(recordStageFailure("export:composite-overlays"))
           );
       }).pipe(
-        // A card that will not render, and an ffmpeg pass that will not run,
+        // Content that will not render, and an ffmpeg pass that will not run,
         // are both simply "this Video did not export": the file never reaches
         // its address, so nothing downstream can ship it and the next attempt
         // starts over.

@@ -244,7 +244,7 @@ export const PortraitStudioPanel = () => {
                 scrubSeekTime={scrubSeekTime}
                 // Definition Cards — the only Overlay content-kind this PR
                 // previews — are a landscape/course-video feature (see
-                // `DEFINITION_CARD_FRAME` in `overlay-render-cache.ts`); the
+                // `OVERLAY_RENDER_FRAME` in `overlay-render-cache.ts`); the
                 // Shorts studio has no overlay preview of its own yet.
                 overlays={NO_OVERLAYS}
               />

@@ -109,10 +109,65 @@ describe("placeOverlaysOnTimeline", () => {
     );
 
     expect(placed[0]!.content).toEqual({
+      kind: "definitionCard",
       title: "Functor",
       description: "Maps structure.",
       durationInSeconds: 5,
     });
+  });
+
+  it("carries a Bullet Panel's bullets and toggles through, and no description", () => {
+    const bullets = [
+      { icon: "circle-check", text: "Runs on the server", revealAt: 0.5 },
+    ];
+    const placed = placeOverlaysOnTimeline(
+      [
+        {
+          overlays: [
+            card({
+              at: 1,
+              kind: "bulletPanel",
+              title: "What it does",
+              // A Bullet Panel has no description; the column holds "".
+              description: "",
+              bullets,
+              disableEnterAnimation: true,
+            }),
+          ],
+        },
+      ],
+      [clip(10)]
+    );
+
+    expect(placed[0]!.content).toEqual({
+      kind: "bulletPanel",
+      title: "What it does",
+      bullets,
+      durationInSeconds: 5,
+      disableEnterAnimation: true,
+      disableExitAnimation: false,
+    });
+  });
+
+  it("treats a Bullet Panel with no bullets as a panel, not as a card", () => {
+    const placed = placeOverlaysOnTimeline(
+      [{ overlays: [card({ kind: "bulletPanel", bullets: null })] }],
+      [clip(10)]
+    );
+
+    expect(placed[0]!.content).toMatchObject({
+      kind: "bulletPanel",
+      bullets: [],
+    });
+  });
+
+  it("reads an unknown kind as a Definition Card, the way the column does", () => {
+    const placed = placeOverlaysOnTimeline(
+      [{ overlays: [card({ kind: "somethingNobodyShipped" })] }],
+      [clip(10)]
+    );
+
+    expect(placed[0]!.content.kind).toBe("definitionCard");
   });
 
   it("orders Overlays by Clip, then by the order the Clip holds them", () => {

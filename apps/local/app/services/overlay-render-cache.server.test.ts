@@ -6,15 +6,16 @@ import path from "node:path";
 import { NodeContext } from "@effect/platform-node";
 import { ConfigProvider, Effect, Layer } from "effect";
 import {
-  DefinitionCardRenderError,
-  DefinitionCardRendererService,
-} from "@/services/definition-card-renderer";
+  OverlayContentRenderError,
+  OverlayContentRendererService,
+} from "@/services/overlay-content-renderer";
 import {
-  definitionCardContentHashAtVersion,
-  definitionCardFilename,
-  computeDefinitionCardContentHash,
+  overlayContentHashAtVersion,
+  overlayRenderFilename,
+  computeOverlayContentHash,
   OVERLAY_RENDERER_VERSION,
   type DefinitionCardContent,
+  type OverlayContent,
 } from "@/services/overlay-render-cache";
 import { OverlayRenderCacheService } from "@/services/overlay-render-cache.server";
 
@@ -37,6 +38,7 @@ afterEach(async () => {
 const card = (
   overrides: Partial<DefinitionCardContent> = {}
 ): DefinitionCardContent => ({
+  kind: "definitionCard",
   title: "Hydration",
   description: "Attaching React to server-rendered HTML.",
   durationInSeconds: 4,
@@ -49,29 +51,26 @@ const card = (
  * render would have written, and remembers that it was asked.
  */
 const fakeRenderer = () => {
-  const renders: { content: DefinitionCardContent; outputPath: string }[] = [];
-  const layer = Layer.succeed(DefinitionCardRendererService, {
-    renderDefinitionCard: (
-      content: DefinitionCardContent,
-      outputPath: string
-    ) =>
+  const renders: { content: OverlayContent; outputPath: string }[] = [];
+  const layer = Layer.succeed(OverlayContentRendererService, {
+    renderOverlayContent: (content: OverlayContent, outputPath: string) =>
       Effect.promise(async () => {
         renders.push({ content, outputPath });
         await fs.writeFile(outputPath, `rendered:${content.title}`);
       }),
-  } as unknown as DefinitionCardRendererService);
+  } as unknown as OverlayContentRendererService);
   return { renders, layer };
 };
 
 const renderCard = (
   cacheDir: string,
-  rendererLayer: Layer.Layer<DefinitionCardRendererService>,
-  opts: { courseId: string; content: DefinitionCardContent }
+  rendererLayer: Layer.Layer<OverlayContentRendererService>,
+  opts: { courseId: string; content: OverlayContent }
 ) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const cache = yield* OverlayRenderCacheService;
-      return yield* cache.renderDefinitionCard(opts);
+      return yield* cache.renderOverlay(opts);
     }).pipe(
       Effect.provide(
         OverlayRenderCacheService.DefaultWithoutDependencies.pipe(
@@ -101,10 +100,7 @@ describe("OverlayRenderCacheService", () => {
     expect(renderedPath).toBe(
       path.join(
         cacheDir,
-        definitionCardFilename(
-          "course-1",
-          computeDefinitionCardContentHash(card())
-        )
+        overlayRenderFilename("course-1", computeOverlayContentHash(card()))
       )
     );
     expect(existsSync(renderedPath)).toBe(true);
@@ -151,6 +147,7 @@ describe("OverlayRenderCacheService", () => {
     const anotherPlacement = await renderCard(cacheDir, renderer.layer, {
       courseId: "course-1",
       content: {
+        kind: card().kind,
         title: card().title,
         description: card().description,
         durationInSeconds: card().durationInSeconds,
@@ -205,9 +202,9 @@ describe("OverlayRenderCacheService", () => {
 
     const stalePath = path.join(
       cacheDir,
-      definitionCardFilename(
+      overlayRenderFilename(
         "course-1",
-        definitionCardContentHashAtVersion(card(), OVERLAY_RENDERER_VERSION - 1)
+        overlayContentHashAtVersion(card(), OVERLAY_RENDERER_VERSION - 1)
       )
     );
     await fs.writeFile(stalePath, "rendered by an older renderer");
@@ -241,10 +238,7 @@ describe("OverlayRenderCacheService", () => {
     expect(scratchPath).not.toBe(
       path.join(
         cacheDir,
-        definitionCardFilename(
-          "course-1",
-          computeDefinitionCardContentHash(card())
-        )
+        overlayRenderFilename("course-1", computeOverlayContentHash(card()))
       )
     );
   });
@@ -252,22 +246,19 @@ describe("OverlayRenderCacheService", () => {
   it("leaves nothing behind at the cached address when a render fails", async () => {
     const cacheDir = await makeCacheDir();
     // A renderer that dies halfway: some bytes on disk, no finished render.
-    const failing = Layer.succeed(DefinitionCardRendererService, {
-      renderDefinitionCard: (
-        _content: DefinitionCardContent,
-        outputPath: string
-      ) =>
+    const failing = Layer.succeed(OverlayContentRendererService, {
+      renderOverlayContent: (_content: OverlayContent, outputPath: string) =>
         Effect.promise(() => fs.writeFile(outputPath, "half a mov")).pipe(
           Effect.andThen(
             Effect.fail(
-              new DefinitionCardRenderError({
+              new OverlayContentRenderError({
                 cause: null,
                 message: "the overlay renderer exited with code 1",
               })
             )
           )
         ),
-    } as unknown as DefinitionCardRendererService);
+    } as unknown as OverlayContentRendererService);
 
     await expect(
       renderCard(cacheDir, failing, { courseId: "course-1", content: card() })
