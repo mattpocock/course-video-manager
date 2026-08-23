@@ -1,8 +1,20 @@
 # lucide-icons
 
 The vendored lucide icon set, plus the transpiler that turns one into tldraw
-geometry. A deep module: see [../README.md](../README.md) for the entry-point
-rules.
+geometry.
+
+A top-level workspace package, not an app-internal one, because it has two
+consumers on opposite sides of the repo: `apps/local` (the diagram palette and
+the `cvm overlay` write path, still importing it at its historical
+`@/packages/lucide-icons` path through a tsconfig alias) and
+`packages/overlay-renderer` (the Bullet Panel's icon glyphs, which resolve
+through the workspace dependency). The second is why the table lives here: the
+renderer draws lucide icons WITHOUT taking a dependency on `lucide-react`.
+
+Its entry points are its root files — `index.ts`, `tldraw.ts`, `generator.ts` —
+and everything under `lib/` is private. `tldraw` is an OPTIONAL peer
+dependency: only the `./tldraw` entry point needs it, so a consumer of the data
+half never installs it.
 
 ## Entry points
 

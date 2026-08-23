@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import {
@@ -37,7 +40,20 @@ beforeAll(async () => {
     Layer.provide(Layer.succeed(DrizzleService, testDb as never))
   );
   run = makeRun(buildWriteLayer(testDb));
+  bulletsPath = join(mkdtempSync(join(tmpdir(), "cvm-kind-")), "bullets.json");
+  writeFileSync(
+    bulletsPath,
+    JSON.stringify([{ icon: "target", text: "A point", revealAt: 0 }]),
+    "utf8"
+  );
 });
+
+/**
+ * A Bullet Panel's content, on disk. Every kind here is one of exactly two, and
+ * each brings its own required content flag — see
+ * cli-overlay-bullet-panel-writes.test.ts for what makes a payload valid.
+ */
+let bulletsPath: string;
 
 let s: WriteSeed;
 
@@ -101,8 +117,14 @@ const addOverlay = async (
     ...(overrides.kind === undefined ? [] : ["--kind", overrides.kind]),
     "--title",
     overrides.title ?? "Hydration",
-    "--description",
-    overrides.description ?? "Attaching handlers to server HTML.",
+    // Each kind carries its own content, and passing the other kind's is
+    // refused — so the helper supplies whichever one this kind requires.
+    ...(overrides.kind === "bulletPanel"
+      ? ["--bullets-json", bulletsPath]
+      : [
+          "--description",
+          overrides.description ?? "Attaching handlers to server HTML.",
+        ]),
   ]);
   expect(result.exitCode).toBe(0);
   return one<OverlayRow>(result.stdout);
@@ -156,10 +178,19 @@ describe("an Overlay's kind", () => {
     const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
     const created = await addOverlay(clip.id);
 
-    // --kind alone satisfies the "name at least one field" rule.
+    // A change of kind brings the new kind's content in with it.
     const updated = one<OverlayRow>(
-      (await run(["overlay", "update", "--kind", "bulletPanel", created.id]))
-        .stdout
+      (
+        await run([
+          "overlay",
+          "update",
+          "--kind",
+          "bulletPanel",
+          "--bullets-json",
+          bulletsPath,
+          created.id,
+        ])
+      ).stdout
     );
 
     expect(updated).toMatchObject({

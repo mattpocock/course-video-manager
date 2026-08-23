@@ -258,8 +258,11 @@ describe("export-hash", () => {
       at: 2,
       durationInSeconds: 4,
       kind: "definitionCard",
+      disableEnterAnimation: false,
+      disableExitAnimation: false,
       title: "Hydration",
       description: "Attaching handlers to server-rendered HTML.",
+      bullets: null,
       ...overrides,
     });
 

@@ -20,6 +20,7 @@ describe("parseOverlayProps", () => {
     expect(props.subtitles).toEqual([]);
     expect(props.cta).toBeNull();
     expect(props.definitionCards).toEqual([]);
+    expect(props.bulletPanels).toEqual([]);
   });
 
   it("leaves the Shorts pipeline's existing props untouched", () => {
@@ -35,6 +36,7 @@ describe("parseOverlayProps", () => {
     });
 
     expect(props.definitionCards).toEqual([]);
+    expect(props.bulletPanels).toEqual([]);
   });
 
   it("keeps explicit dimensions and a CTA", () => {
@@ -130,5 +132,107 @@ describe("parseOverlayProps", () => {
 
   it("requires durationInFrames", () => {
     expect(() => parseOverlayProps({ subtitles: [] })).toThrow();
+  });
+
+  // ── Bullet Panels ────────────────────────────────────────────────────
+
+  const panel = (overrides: Record<string, unknown> = {}) => ({
+    title: "What a spec answers",
+    bullets: [
+      { icon: "target", text: "Name the problem", revealAt: 0 },
+      { icon: "route", text: "Name the decisions", revealAt: 1.5 },
+    ],
+    durationInFrames: 300,
+    ...overrides,
+  });
+
+  it("keeps a Bullet Panel's title, icons, text and reveal times verbatim", () => {
+    const props = parseOverlayProps({
+      durationInFrames: 300,
+      bulletPanels: [panel()],
+    });
+
+    const parsed = props.bulletPanels[0];
+    expect(parsed?.title).toBe("What a spec answers");
+    expect(parsed?.bullets).toEqual([
+      { icon: "target", text: "Name the problem", revealAt: 0 },
+      { icon: "route", text: "Name the decisions", revealAt: 1.5 },
+    ]);
+  });
+
+  it("defaults a Bullet Panel to the overlay's start with both animations on", () => {
+    const props = parseOverlayProps({
+      durationInFrames: 300,
+      bulletPanels: [panel()],
+    });
+
+    expect(props.bulletPanels[0]?.startFrame).toBe(0);
+    expect(props.bulletPanels[0]?.disableEnterAnimation).toBe(false);
+    expect(props.bulletPanels[0]?.disableExitAnimation).toBe(false);
+  });
+
+  it("keeps an explicit Bullet Panel start frame and animation toggles", () => {
+    const props = parseOverlayProps({
+      durationInFrames: 600,
+      bulletPanels: [
+        panel({
+          startFrame: 120,
+          disableEnterAnimation: true,
+          disableExitAnimation: true,
+        }),
+      ],
+    });
+
+    expect(props.bulletPanels[0]).toMatchObject({
+      startFrame: 120,
+      disableEnterAnimation: true,
+      disableExitAnimation: true,
+    });
+  });
+
+  it("rejects a fifth bullet — the panel holds four", () => {
+    expect(() =>
+      parseOverlayProps({
+        durationInFrames: 300,
+        bulletPanels: [
+          panel({
+            bullets: [0, 1, 2, 3, 4].map((n) => ({
+              icon: "target",
+              text: `Point ${n}`,
+              revealAt: n,
+            })),
+          }),
+        ],
+      })
+    ).toThrow();
+  });
+
+  it("rejects a bullet missing its icon or its reveal time", () => {
+    expect(() =>
+      parseOverlayProps({
+        durationInFrames: 300,
+        bulletPanels: [panel({ bullets: [{ text: "No glyph", revealAt: 0 }] })],
+      })
+    ).toThrow();
+    expect(() =>
+      parseOverlayProps({
+        durationInFrames: 300,
+        bulletPanels: [panel({ bullets: [{ icon: "target", text: "When?" }] })],
+      })
+    ).toThrow();
+  });
+
+  it("leaves a Definition-Card-only caller's props parsing unchanged", () => {
+    // Back-compat: the landscape pipeline sent no `bulletPanels` before this
+    // content-kind existed, and its props must still be complete without it.
+    const props = parseOverlayProps({
+      durationInFrames: 180,
+      definitionCards: [
+        { title: "Clip", description: "A span.", durationInFrames: 180 },
+      ],
+    });
+
+    expect(props.bulletPanels).toEqual([]);
+    expect(props.definitionCards).toHaveLength(1);
   });
 });

@@ -93,6 +93,8 @@ export {
   subtitleSchema,
   ctaSchema,
   definitionCardSchema,
+  bulletPanelSchema,
+  bulletPanelBulletSchema,
 } from "./props";
 export type {
   OverlayProps,
@@ -100,4 +102,6 @@ export type {
   Subtitle,
   Cta,
   DefinitionCard,
+  BulletPanel,
+  BulletPanelBullet,
 } from "./props";

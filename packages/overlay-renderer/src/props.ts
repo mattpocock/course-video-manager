@@ -64,6 +64,65 @@ export const definitionCardSchema = z.object({
 
 export type DefinitionCard = z.infer<typeof definitionCardSchema>;
 
+/** Four is what fits the panel's width at a readable size. */
+export const MAX_BULLET_PANEL_BULLETS = 4;
+
+/**
+ * How long one bullet takes to ease in, and how long the whole panel takes to
+ * leave — the same ~0.35s curve the subtitles rise on, so nothing on screen
+ * moves at its own private speed.
+ */
+export const BULLET_PANEL_ANIMATION_IN_SECONDS = 0.35;
+
+/** One bullet of a Bullet Panel: an icon, its line of text, and when it appears. */
+export const bulletPanelBulletSchema = z.object({
+  /** A lucide icon name, e.g. `"circle-check"`. Validated at authoring time. */
+  icon: z.string(),
+  /** The line of text shown beside the icon. */
+  text: z.string(),
+  /**
+   * SECONDS after this panel's own start at which the bullet appears — not
+   * frames, and not frames since the composition's start. It is authored
+   * against the Overlay's own clock (`wordStartTime - overlayAt`), and the
+   * panel is drawn inside a Sequence that starts where the Overlay does, so
+   * the number arrives here needing no conversion at all.
+   */
+  revealAt: z.number(),
+});
+
+export type BulletPanelBullet = z.infer<typeof bulletPanelBulletSchema>;
+
+/**
+ * One Bullet Panel: a heading plus up to four icon bullets, drawn down the LEFT
+ * of frame while the camera Transform shifts the footage right to clear room
+ * for it. The side is not a prop — it is fixed, so the layout is the same every
+ * time it is used.
+ *
+ * Each bullet eases in at its OWN `revealAt`, so the list keeps pace with what
+ * is being said. The whole panel leaves in ONE un-staggered movement, so the
+ * exit stays as quick with four bullets as with one.
+ */
+export const bulletPanelSchema = z.object({
+  /** The panel's heading. */
+  title: z.string(),
+  /** The bullets, in display order. Their `revealAt`s ascend. */
+  bullets: z.array(bulletPanelBulletSchema).max(MAX_BULLET_PANEL_BULLETS),
+  /** First frame the panel is visible on. Defaults to the overlay's start. */
+  startFrame: z.number().default(0),
+  /** How many frames the panel stays on screen. */
+  durationInFrames: z.number(),
+  /**
+   * Hard-cut in: the panel appears fully formed instead of easing in. Bullets
+   * still appear at their own `revealAt` — the timing holds, only the motion
+   * goes.
+   */
+  disableEnterAnimation: z.boolean().default(false),
+  /** Hard-cut out: the panel vanishes instead of easing out. */
+  disableExitAnimation: z.boolean().default(false),
+});
+
+export type BulletPanel = z.infer<typeof bulletPanelSchema>;
+
 export const overlayPropsSchema = z.object({
   /** Overlay width in px. Defaults to the vertical 9:16 frame. */
   width: z.number().default(1080),
@@ -82,6 +141,13 @@ export const overlayPropsSchema = z.object({
    * pipeline keeps sending its existing props unchanged.
    */
   definitionCards: z.array(definitionCardSchema).default([]),
+  /**
+   * Bullet Panels to draw. Its own array rather than a branch of
+   * `definitionCards`, because one composition draws every content-kind it is
+   * given at once — and because defaulting to none leaves every existing
+   * caller's props valid unchanged.
+   */
+  bulletPanels: z.array(bulletPanelSchema).default([]),
 });
 
 /** Parsed props (all defaults applied) — what the composition receives. */

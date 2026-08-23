@@ -11,6 +11,7 @@ import {
   DEFAULT_OVERLAY_KIND,
   resolveOverlayKind,
 } from "@/features/videos/overlay-kind";
+import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -30,8 +31,13 @@ export type ExportOverlay = {
   durationInSeconds: number;
   /** The raw `kind` column; narrowed by `resolveOverlayKind` on the way in. */
   kind: string;
+  /** Cut in / cut out instead of easing — see `overlay-transform.ts`. */
+  disableEnterAnimation: boolean;
+  disableExitAnimation: boolean;
   title: string;
   description: string;
+  /** A Bullet Panel's bullets; null for every other content-kind. */
+  bullets: BulletPanelBullet[] | null;
 };
 
 export type ExportClip = {
@@ -68,8 +74,11 @@ export const toExportClips = (
       at: number;
       durationInSeconds: number;
       kind: string;
+      disableEnterAnimation: boolean;
+      disableExitAnimation: boolean;
       title: string;
       description: string;
+      bullets: BulletPanelBullet[] | null;
     }>;
   }>
 ): ExportClip[] =>
@@ -83,8 +92,11 @@ export const toExportClips = (
       at: o.at,
       durationInSeconds: o.durationInSeconds,
       kind: o.kind,
+      disableEnterAnimation: o.disableEnterAnimation,
+      disableExitAnimation: o.disableExitAnimation,
       title: o.title,
       description: o.description,
+      bullets: o.bullets,
     })),
   }));
 
@@ -108,8 +120,30 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       ...(resolveOverlayKind(o.kind) === DEFAULT_OVERLAY_KIND
         ? {}
         : { k: resolveOverlayKind(o.kind) }),
+      // Same rule for the animation toggles: they change the rendered bytes —
+      // both the panel's own animation and the kind-derived camera Transform —
+      // so they belong in the address, but only when set. Every Overlay
+      // written before the columns existed eases both ways, so omitting the
+      // `false` leaves every existing export address exactly where it was.
+      ...(o.disableEnterAnimation ? { ne: true } : {}),
+      ...(o.disableExitAnimation ? { nx: true } : {}),
       t: o.title,
       x: o.description,
+      // The Bullet Panel's bullets join `k` in being emitted only when they
+      // say something: an Overlay with no bullets hashes exactly as it did
+      // before the column existed, so no export written before this feature
+      // is re-addressed. Each bullet is spelled out —
+      // editing its text, its icon or its reveal time all move the address,
+      // because all three change the rendered frames.
+      ...(o.bullets && o.bullets.length > 0
+        ? {
+            b: o.bullets.map((bullet) => ({
+              i: bullet.icon,
+              t: bullet.text,
+              r: bullet.revealAt,
+            })),
+          }
+        : {}),
     }))
     .sort((left, right) =>
       JSON.stringify(left) < JSON.stringify(right) ? -1 : 1

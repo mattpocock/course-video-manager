@@ -88,6 +88,19 @@
       "@/features/videos/overlay-kind": [
         "../../packages/core/features/videos/overlay-kind"
       ],
+      "@/features/videos/bullet-panel": [
+        "../../packages/core/features/videos/bullet-panel"
+      ],
+      "@/features/videos/overlay-transform": [
+        "../../packages/core/features/videos/overlay-transform"
+      ],
+
+      // Same move, same reasoning: the vendored lucide icon-node table is a
+      // top-level workspace package now, because packages/overlay-renderer
+      // needs to resolve icon names too and cannot reach inside this app.
+      // The app keeps importing it at the path it always has.
+      "@/packages/lucide-icons": ["../../packages/lucide-icons/index"],
+      "@/packages/lucide-icons/tldraw": ["../../packages/lucide-icons/tldraw"],
       "@/test-utils/pglite": ["../../packages/core/test-utils/pglite"],
 
       "@/*": ["./app/*"],

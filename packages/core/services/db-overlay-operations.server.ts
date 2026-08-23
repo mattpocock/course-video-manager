@@ -9,6 +9,7 @@ import {
 } from "./draft-guard.server.js";
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
 import type { OverlayKind } from "../features/videos/overlay-kind.js";
+import type { BulletPanelBullet } from "../features/videos/bullet-panel.js";
 
 /**
  * Overlays — the visual layers composited on top of a Video's footage, each
@@ -30,7 +31,8 @@ import type { OverlayKind } from "../features/videos/overlay-kind.js";
  *
  * Every query whose Clips end up in `computeExportHash` must include this, or
  * that Video's address would claim it has no Overlays and a Definition Card
- * edit — or a change of `kind` — would publish stale video. It lives here, next to the table's own
+ * edit — or a change of `kind`, of a Bullet Panel's bullets, or of either
+ * animation toggle — would publish stale video. It lives here, next to the table's own
  * operations, so the four queries that need it cannot drift apart.
  */
 export const overlayExportRelation = {
@@ -38,8 +40,11 @@ export const overlayExportRelation = {
     at: true,
     durationInSeconds: true,
     kind: true,
+    disableEnterAnimation: true,
+    disableExitAnimation: true,
     title: true,
     description: true,
+    bullets: true,
   },
 } as const;
 
@@ -56,8 +61,11 @@ const overlayColumns = {
   at: overlays.at,
   durationInSeconds: overlays.durationInSeconds,
   kind: overlays.kind,
+  disableEnterAnimation: overlays.disableEnterAnimation,
+  disableExitAnimation: overlays.disableExitAnimation,
   title: overlays.title,
   description: overlays.description,
+  bullets: overlays.bullets,
 };
 
 const createOverlayOperationsUnwrapped = (db: Database) => {
@@ -110,8 +118,14 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
     durationInSeconds: number;
     /** Omitted means the default, `definitionCard` — see overlay-kind.ts. */
     kind?: OverlayKind;
+    /** Cut in / cut out instead of easing. Omitted means ease — see
+     * `features/videos/overlay-transform.ts`. */
+    disableEnterAnimation?: boolean;
+    disableExitAnimation?: boolean;
     title: string;
     description: string;
+    /** The Bullet Panel's content — already validated. Omitted for other kinds. */
+    bullets?: BulletPanelBullet[] | null;
   }) {
     yield* requireDraftVersionForClip(db, overlay.clipId);
     const [created] = yield* makeDbCall(() =>
@@ -137,8 +151,11 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
       at?: number;
       durationInSeconds?: number;
       kind?: OverlayKind;
+      disableEnterAnimation?: boolean;
+      disableExitAnimation?: boolean;
       title?: string;
       description?: string;
+      bullets?: BulletPanelBullet[] | null;
     }
   ) {
     yield* requireDraftVersionForOverlay(db, overlayId);
