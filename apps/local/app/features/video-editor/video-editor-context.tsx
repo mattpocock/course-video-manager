@@ -62,6 +62,8 @@ export type VideoEditorContextType = {
 
   // Route-level props
   videoFormat: VideoFormat;
+  /** At least one Clip of this Video has no Transcript Words (#1571). */
+  anyClipsMissingTranscriptWords: boolean;
   items: TimelineItem[];
   allItems: TimelineItem[];
   sessions: RecordingSession[];

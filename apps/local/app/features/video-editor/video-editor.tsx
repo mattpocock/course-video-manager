@@ -72,6 +72,11 @@ import {
 
 export const VideoEditor = (props: {
   videoFormat: VideoFormat;
+  /**
+   * Whether at least one of this Video's Clips has no Transcript Words —
+   * computed by the loader, since word rows themselves never reach the client.
+   */
+  anyClipsMissingTranscriptWords: boolean;
   obsConnectorState: OBSConnectionOuterState;
   items: TimelineItem[];
   sessions: RecordingSession[];
@@ -419,6 +424,7 @@ export const VideoEditor = (props: {
 
       // Route-level props
       videoFormat: props.videoFormat,
+      anyClipsMissingTranscriptWords: props.anyClipsMissingTranscriptWords,
       items: timelineItems,
       allItems: props.items,
       sessions: props.sessions,
@@ -517,6 +523,7 @@ export const VideoEditor = (props: {
       areAnyClipsDangerous,
       databaseClipToShowLastFrameOf,
       props.videoFormat,
+      props.anyClipsMissingTranscriptWords,
       props.items,
       props.videoTitle,
       props.videoId,

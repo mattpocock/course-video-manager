@@ -7,12 +7,13 @@ import { StudioActionsDropdown } from "./studio-actions-dropdown";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
   getIsOBSActive as getIsOBSActiveSelector,
+  getRetranscribableClipIds,
   getShowCenterLine as getShowCenterLineSelector,
   getShowRecordingSignal as getShowRecordingSignalSelector,
   getShowScrubSlider as getShowScrubSliderSelector,
 } from "../video-editor-selectors";
 import { formatSecondsToTimeCode } from "@/services/utils";
-import { SendIcon, VideoOffIcon } from "lucide-react";
+import { AlertTriangleIcon, SendIcon, VideoOffIcon } from "lucide-react";
 import { useFetcher } from "react-router";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
@@ -67,6 +68,10 @@ export const PortraitStudioPanel = () => {
     (ctx) => ctx.clipsToAggressivelyPreload
   );
   const clips = useContextSelector(VideoEditorContext, (ctx) => ctx.clips);
+  const anyClipsMissingTranscriptWords = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.anyClipsMissingTranscriptWords
+  );
   const clipIdsPreloaded = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.clipIdsPreloaded
@@ -275,8 +280,20 @@ export const PortraitStudioPanel = () => {
           {videoTitle}
           {" · " + formatSecondsToTimeCode(totalDuration)}
         </span>
+        {anyClipsMissingTranscriptWords && (
+          <span className="text-amber-500 text-xs font-medium inline-flex items-center shrink-0">
+            <AlertTriangleIcon className="size-3.5 mr-1" />
+            Missing word timing
+          </span>
+        )}
         <div className="flex gap-1 shrink-0">
           <StudioActionsDropdown
+            onRetranscribeAllClips={() =>
+              dispatch({
+                type: "retranscribe-clips",
+                clipIds: getRetranscribableClipIds(clips),
+              })
+            }
             allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
             allClipsHaveText={allClipsHaveText}
             onExport={() => startExportUpload(videoId, videoTitle)}

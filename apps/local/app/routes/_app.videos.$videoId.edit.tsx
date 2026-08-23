@@ -21,6 +21,7 @@ import { VideoEditor } from "@/features/video-editor/video-editor";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
+import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { makeLoader } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
@@ -78,6 +79,7 @@ export const loader = makeLoader({
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
       const beatOps = yield* BeatOperationsService;
+      const clipOps = yield* ClipOperationsService;
       const video = yield* videoOps.getVideoWithClipsById(videoId);
 
       // This video's own Beat plan, shown (and edited, when idle) in the
@@ -129,6 +131,13 @@ export const loader = makeLoader({
       } = video;
       const hasScript = script != null && script !== "";
 
+      // Clips transcribed before Transcript Words existed are never backfilled
+      // (#1567), so the editor shows an alert and offers a re-transcribe pass
+      // scoped to this Video. Asked as one boolean rather than shipping every
+      // word to the client, which the editor has no other use for.
+      const anyClipsMissingTranscriptWords =
+        yield* clipOps.anyClipsMissingTranscriptWords(videoId);
+
       const whiteNoiseAssetPath = path.join(
         process.cwd(),
         "assets",
@@ -143,6 +152,7 @@ export const loader = makeLoader({
       return {
         video: slimVideo,
         hasScript,
+        anyClipsMissingTranscriptWords,
         items: sortedItems,
         waveformData: undefined,
         videoCount: lesson?.videos.length ?? 1,
@@ -349,6 +359,9 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   return (
     <VideoEditor
       videoFormat={props.loaderData.video.format as "landscape" | "short"}
+      anyClipsMissingTranscriptWords={
+        props.loaderData.anyClipsMissingTranscriptWords
+      }
       navigation={navigation}
       onClipsRemoved={(clipIds) => {
         dispatch({ type: "clips-deleted", clipIds: clipIds });
@@ -383,6 +396,10 @@ export const ComponentInner = (props: Route.ComponentProps) => {
                 text: clip.text,
               })),
             });
+            // A transcription rewrites the clip's Transcript Words, so the
+            // loader's missing-words flag is now stale — re-run it or the
+            // alert stays up until the page is reloaded.
+            revalidator.revalidate();
           })
           .catch((error) => {
             dispatch({
