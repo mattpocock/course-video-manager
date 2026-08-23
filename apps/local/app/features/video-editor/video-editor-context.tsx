@@ -73,6 +73,8 @@ export type VideoEditorContextType = {
   repoName?: string;
   lessonPath?: string;
   repoId?: string;
+  /** The Section this Video's Lesson sits in; absent for a standalone Video. */
+  sectionId?: string;
   lessonId?: string;
   fsData: Promise<{
     hasExplainerFolder: boolean;

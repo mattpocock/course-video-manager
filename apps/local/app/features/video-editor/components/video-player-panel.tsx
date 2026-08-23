@@ -52,6 +52,7 @@ import {
   openPlaygroundWithDiagram,
 } from "@/lib/diagram-window";
 import { openTeleprompter } from "@/lib/teleprompter-window";
+import { videoDeepLinkTarget } from "@/features/course-view/deep-link";
 
 export const VideoPlayerPanel = () => {
   const videoTitle = useContextSelector(
@@ -160,6 +161,18 @@ export const VideoPlayerPanel = () => {
     (ctx) => ctx.exportToDavinciResolveFetcher
   );
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
+  const repoId = useContextSelector(VideoEditorContext, (ctx) => ctx.repoId);
+  const sectionId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.sectionId
+  );
+  // The address an agent can be handed to reopen this exact Video. Null for a
+  // standalone Video, which hangs off no Section — see `videoDeepLinkTarget`.
+  const deepLinkTarget = useMemo(
+    () => videoDeepLinkTarget({ courseId: repoId, sectionId, videoId }),
+    [repoId, sectionId, videoId]
+  );
+
   const referenceCandidates = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.referenceCandidates
@@ -459,6 +472,7 @@ export const VideoPlayerPanel = () => {
               exportToDavinciResolveFetcher={exportToDavinciResolveFetcher}
               videoId={videoId}
               lessonId={lessonId}
+              deepLinkTarget={deepLinkTarget}
               isCopied={isCopied}
               copyTranscriptToClipboard={copyTranscriptToClipboard}
               youtubeChapters={youtubeChapters}

@@ -460,6 +460,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       items={clipState.items}
       sessions={clipState.sessions}
       repoId={props.loaderData.video.lesson?.section.repoVersion.repo.id}
+      sectionId={props.loaderData.video.lesson?.section.id}
       lessonId={props.loaderData.video.lesson?.id}
       videoTitle={props.loaderData.video.title}
       lessonPath={props.loaderData.video.lesson?.title}

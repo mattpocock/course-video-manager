@@ -14,9 +14,39 @@ import {
   CopyIcon,
   CopyPlusIcon,
   FolderOpen,
+  Link2,
   PencilLineIcon,
   ScrollTextIcon,
 } from "lucide-react";
+import {
+  copyDeepLink,
+  type VideoDeepLinkTarget,
+} from "@/features/course-view/deep-link";
+
+/**
+ * Copies the Video's own deep link — the same address the course view's
+ * right-click menu hands out, so an agent can be pointed at this Video without
+ * leaving the editor. Renders nothing for a standalone Video, which has no
+ * Section or Course to be addressed through.
+ */
+export const CopyDeepLinkItem = (props: {
+  deepLinkTarget: VideoDeepLinkTarget | null;
+}) => {
+  const target = props.deepLinkTarget;
+  if (!target) return null;
+
+  return (
+    <DropdownMenuItem onSelect={() => copyDeepLink(target)}>
+      <Link2 className="w-4 h-4 mr-2" />
+      <div className="flex flex-col">
+        <span className="font-medium">Copy Deep Link</span>
+        <span className="text-xs text-muted-foreground">
+          Copy this video's deep link to clipboard
+        </span>
+      </div>
+    </DropdownMenuItem>
+  );
+};
 
 export const CopySubmenu = (props: {
   allClipsHaveText: boolean;
@@ -27,6 +57,8 @@ export const CopySubmenu = (props: {
   copyYoutubeChaptersToClipboard: () => void;
   isLogPathCopied: boolean;
   copyLogPathToClipboard: () => void;
+  /** This Video's deep-link target, or null when it is standalone. */
+  deepLinkTarget: VideoDeepLinkTarget | null;
 }) => (
   <DropdownMenuSub>
     <DropdownMenuSubTrigger>
@@ -91,6 +123,8 @@ export const CopySubmenu = (props: {
           </span>
         </div>
       </DropdownMenuItem>
+
+      <CopyDeepLinkItem deepLinkTarget={props.deepLinkTarget} />
     </DropdownMenuSubContent>
   </DropdownMenuSub>
 );

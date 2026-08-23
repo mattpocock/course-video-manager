@@ -84,6 +84,8 @@ export const VideoEditor = (props: {
   lessonPath?: string;
   repoName?: string;
   repoId?: string;
+  /** The Section this Video's Lesson sits in; absent for a standalone Video. */
+  sectionId?: string;
   lessonId?: string;
   navigation?: {
     backButtonUrl: string;
@@ -434,6 +436,7 @@ export const VideoEditor = (props: {
       repoName: props.repoName,
       lessonPath: props.lessonPath,
       repoId: props.repoId,
+      sectionId: props.sectionId,
       lessonId: props.lessonId,
       fsData: props.fsData,
       videoCount: props.videoCount,
@@ -530,6 +533,7 @@ export const VideoEditor = (props: {
       props.repoName,
       props.lessonPath,
       props.repoId,
+      props.sectionId,
       props.lessonId,
       props.fsData,
       props.videoCount,

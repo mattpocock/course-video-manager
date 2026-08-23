@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDeepLink } from "./deep-link";
+import { buildDeepLink, videoDeepLinkTarget } from "./deep-link";
 
 describe("buildDeepLink", () => {
   const courseId = "course-abc";
@@ -30,5 +30,34 @@ describe("buildDeepLink", () => {
     expect(buildDeepLink({ courseId, sectionId, videoId, beatId })).toBe(
       "course:course-abc/section:section-def/video:video-jkl/beat:beat-mno"
     );
+  });
+});
+
+describe("videoDeepLinkTarget", () => {
+  it("addresses a lesson-bound video through its course and section", () => {
+    const target = videoDeepLinkTarget({
+      courseId: "course-abc",
+      sectionId: "section-def",
+      videoId: "video-jkl",
+    });
+
+    expect(target).toEqual({
+      courseId: "course-abc",
+      sectionId: "section-def",
+      videoId: "video-jkl",
+    });
+    expect(buildDeepLink(target!)).toBe(
+      "course:course-abc/section:section-def/video:video-jkl"
+    );
+  });
+
+  it("is null for a standalone video, which sits under no section", () => {
+    expect(
+      videoDeepLinkTarget({
+        courseId: undefined,
+        sectionId: undefined,
+        videoId: "video-jkl",
+      })
+    ).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   type ChangeEvent,
 } from "react";
 import { UploadContext } from "@/features/upload-manager/upload-context";
@@ -29,6 +30,7 @@ import {
   ShortsPostingModal,
   type ShortsPostingMode,
 } from "@/features/video-posting/shorts-posting-modal";
+import { videoDeepLinkTarget } from "@/features/course-view/deep-link";
 
 export const PortraitStudioPanel = () => {
   const videoTitle = useContextSelector(
@@ -119,6 +121,17 @@ export const PortraitStudioPanel = () => {
   const { startExportUpload, startRenderVerticalUpload } =
     useContext(UploadContext);
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
+  const repoId = useContextSelector(VideoEditorContext, (ctx) => ctx.repoId);
+  const sectionId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.sectionId
+  );
+  // The address an agent can be handed to reopen this exact Video. Null for a
+  // standalone Video, which hangs off no Section — see `videoDeepLinkTarget`.
+  const deepLinkTarget = useMemo(
+    () => videoDeepLinkTarget({ courseId: repoId, sectionId, videoId }),
+    [repoId, sectionId, videoId]
+  );
   const isCopied = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.isCopied
@@ -289,6 +302,7 @@ export const PortraitStudioPanel = () => {
             onPostYoutube={() => openPostingModal("youtube")}
             onPostTiktok={() => openPostingModal("tiktok")}
             videoId={videoId}
+            deepLinkTarget={deepLinkTarget}
             isCopied={isCopied}
             copyTranscriptToClipboard={copyTranscriptToClipboard}
             youtubeChapters={youtubeChapters}

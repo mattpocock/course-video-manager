@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ChevronDown, DownloadIcon, FilmIcon, SendIcon } from "lucide-react";
+import type { VideoDeepLinkTarget } from "@/features/course-view/deep-link";
 import {
   CopySubmenu,
   CopyVideoItem,
@@ -39,6 +40,8 @@ export const StudioActionsDropdown = (props: {
   onRevealInFileSystem?: () => void;
   isLogPathCopied: boolean;
   copyLogPathToClipboard: () => void;
+  /** This Video's deep-link target, or null when it is standalone */
+  deepLinkTarget: VideoDeepLinkTarget | null;
 }) => {
   return (
     <DropdownMenu>
@@ -127,6 +130,7 @@ export const StudioActionsDropdown = (props: {
           copyYoutubeChaptersToClipboard={props.copyYoutubeChaptersToClipboard}
           isLogPathCopied={props.isLogPathCopied}
           copyLogPathToClipboard={props.copyLogPathToClipboard}
+          deepLinkTarget={props.deepLinkTarget}
         />
 
         <DropdownMenuItem onSelect={props.onExport}>

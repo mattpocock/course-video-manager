@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import type { ReferenceCandidate } from "./reference-panel";
 import { type FetcherWithComponents, useNavigate } from "react-router";
+import type { VideoDeepLinkTarget } from "@/features/course-view/deep-link";
 import {
   CopySubmenu,
   CopyVideoItem,
@@ -76,6 +77,8 @@ export const ActionsDropdown = (props: {
   onRevealInFileSystem?: () => void;
   /** Callback to open repo in VS Code (hidden when no repo) */
   onOpenInVSCode?: () => void;
+  /** This Video's deep-link target, or null when it is standalone */
+  deepLinkTarget: VideoDeepLinkTarget | null;
   /** Whether log path has been copied (shows checkmark) */
   isLogPathCopied: boolean;
   /** Callback to copy log path to clipboard */
@@ -242,6 +245,7 @@ export const ActionsDropdown = (props: {
           copyYoutubeChaptersToClipboard={props.copyYoutubeChaptersToClipboard}
           isLogPathCopied={props.isLogPathCopied}
           copyLogPathToClipboard={props.copyLogPathToClipboard}
+          deepLinkTarget={props.deepLinkTarget}
         />
 
         <DropdownMenuSub>

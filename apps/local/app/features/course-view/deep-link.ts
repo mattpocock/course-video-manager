@@ -30,6 +30,31 @@ type DeepLinkTarget =
       lessonId?: undefined;
     };
 
+export type VideoDeepLinkTarget = {
+  courseId: string;
+  sectionId: string;
+  videoId: string;
+};
+
+/**
+ * The deep-link target that addresses one Video, or null when the Video is
+ * standalone — a Video with no Lesson sits under no Section and no Course, so
+ * there is no address to copy. Lets a surface that only knows the video's own
+ * route data (the editor's Actions menu) decide whether to offer the action.
+ */
+export function videoDeepLinkTarget(input: {
+  courseId: string | undefined;
+  sectionId: string | undefined;
+  videoId: string;
+}): VideoDeepLinkTarget | null {
+  if (!input.courseId || !input.sectionId) return null;
+  return {
+    courseId: input.courseId,
+    sectionId: input.sectionId,
+    videoId: input.videoId,
+  };
+}
+
 export function buildDeepLink(target: DeepLinkTarget): string {
   let link = `course:${target.courseId}/section:${target.sectionId}`;
   if (target.lessonId) {
