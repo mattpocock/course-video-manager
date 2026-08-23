@@ -1,5 +1,9 @@
 import { Data, Effect, JSONSchema, Schema } from "effect";
-import { computeExportHash, toExportClips } from "@/services/export-hash";
+import {
+  computeExportHash,
+  toExportClips,
+  type ExportOverlay,
+} from "@/services/export-hash";
 import { computeEffectiveSections } from "./effective-sections";
 import {
   computeLessonWarnings,
@@ -243,6 +247,7 @@ type InputClip = {
   pauseType: string;
   zoomType: string;
   order: string;
+  overlays: ExportOverlay[];
 };
 
 type InputChapter = {

@@ -191,6 +191,7 @@ const setupSync = async () => {
     sourceEndTime: c.sourceEndTime,
     pauseType: "none",
     zoomType: "none",
+    overlays: [],
     order: c.order,
   }));
   const exportHash = computeExportHash(clips, "landscape")!;

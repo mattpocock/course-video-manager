@@ -88,6 +88,7 @@ const CLIPS = [
     pauseType: "none",
     zoomType: "none",
     order: "a0",
+    overlays: [],
   },
   {
     videoFilename: "rec.mp4",
@@ -96,6 +97,7 @@ const CLIPS = [
     pauseType: "none",
     zoomType: "none",
     order: "a1",
+    overlays: [],
   },
 ];
 
@@ -447,6 +449,7 @@ describe("buildCourseJson", () => {
                       pauseType: "none",
                       zoomType: "none",
                       order: "a0",
+                      overlays: [],
                     },
                     {
                       videoFilename: "rec.mp4",
@@ -455,6 +458,7 @@ describe("buildCourseJson", () => {
                       pauseType: "none",
                       zoomType: "none",
                       order: "a2",
+                      overlays: [],
                     },
                   ],
                   chapters: [{ order: "a1", name: "Setup" }],

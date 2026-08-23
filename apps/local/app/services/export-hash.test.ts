@@ -9,6 +9,7 @@ import {
   isExported,
   EXPORT_VERSION,
   type ExportClip,
+  type ExportOverlay,
 } from "@/services/export-hash";
 import { garbageCollect } from "@/services/export-hash.server";
 
@@ -18,6 +19,7 @@ const makeClip = (
 ): ExportClip => ({
   pauseType: "none",
   zoomType: "none",
+  overlays: [],
   ...overrides,
 });
 
@@ -248,6 +250,117 @@ describe("export-hash", () => {
 
       expect(at("wildly-zoomed")).toBe(at("none"));
       expect(at("")).toBe(at("none"));
+    });
+
+    // ── Overlays ──────────────────────────────────────────────────────
+
+    const card = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
+      at: 2,
+      durationInSeconds: 4,
+      title: "Hydration",
+      description: "Attaching handlers to server-rendered HTML.",
+      ...overrides,
+    });
+
+    const withOverlays = (...overlays: ExportOverlay[]) =>
+      computeExportHash(
+        [
+          makeClip({
+            videoFilename: "rec.mp4",
+            sourceStartTime: 0,
+            sourceEndTime: 10,
+            overlays,
+          }),
+        ],
+        "landscape"
+      );
+
+    it("changing a Definition Card's title changes the address", () => {
+      expect(withOverlays(card({ title: "Hydration" }))).not.toBe(
+        withOverlays(card({ title: "Rehydration" }))
+      );
+    });
+
+    it("changing a Definition Card's description changes the address", () => {
+      expect(withOverlays(card({ description: "One thing" }))).not.toBe(
+        withOverlays(card({ description: "Another thing" }))
+      );
+    });
+
+    it("moving an Overlay's anchor changes the address", () => {
+      expect(withOverlays(card({ at: 2 }))).not.toBe(
+        withOverlays(card({ at: 2.5 }))
+      );
+    });
+
+    it("changing how long an Overlay stays up changes the address", () => {
+      expect(withOverlays(card({ durationInSeconds: 4 }))).not.toBe(
+        withOverlays(card({ durationInSeconds: 6 }))
+      );
+    });
+
+    it("adding an Overlay changes the address", () => {
+      expect(withOverlays()).not.toBe(withOverlays(card()));
+    });
+
+    it("deleting one of two Overlays changes the address", () => {
+      expect(withOverlays(card(), card({ at: 7, title: "Suspense" }))).not.toBe(
+        withOverlays(card())
+      );
+    });
+
+    it("re-anchoring an Overlay to another clip changes the address", () => {
+      // An Overlay's anchor Clip is carried by which clip it rides on, so
+      // `overlay update --clip` has to move it in the payload.
+      const twoClips = (first: ExportOverlay[], second: ExportOverlay[]) =>
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              overlays: first,
+            }),
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 20,
+              sourceEndTime: 30,
+              overlays: second,
+            }),
+          ],
+          "landscape"
+        );
+
+      expect(twoClips([card()], [])).not.toBe(twoClips([], [card()]));
+    });
+
+    it("does not read an order into a clip's Overlays", () => {
+      // Overlays are anchored to moments, not sequenced, so the order the
+      // database hands them back must not move the address.
+      const a = card({ at: 1, title: "A" });
+      const b = card({ at: 6, title: "B" });
+      expect(withOverlays(a, b)).toBe(withOverlays(b, a));
+    });
+
+    // Regression guard, exactly like the long-pause one above: Overlays were
+    // added to the address after the whole catalogue was already exported.
+    // A clip with no Overlays contributes nothing, so every one of those files
+    // stayed addressable and nothing re-exported. Changing this constant means
+    // re-exporting and re-publishing the entire catalogue.
+    it("leaves the address of a clip with no Overlays untouched", () => {
+      expect(
+        computeExportHash(
+          [
+            makeClip({
+              videoFilename: "rec.mp4",
+              sourceStartTime: 0,
+              sourceEndTime: 10,
+              overlays: [],
+            }),
+          ],
+          "landscape"
+        )
+      ).toBe("ae5332862e6c002c82e975dceadd3cab");
     });
 
     it("changing EXPORT_VERSION would change hashes", () => {

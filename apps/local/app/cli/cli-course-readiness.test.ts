@@ -78,7 +78,12 @@ beforeEach(async () => {
 const markSeededVideoExported = async () => {
   const video = await testDb.query.videos.findFirst({
     where: (v, { eq }) => eq(v.id, s.lessonVideoId),
-    with: { clips: { where: (c, { eq }) => eq(c.archived, false) } },
+    with: {
+      clips: {
+        where: (c, { eq }) => eq(c.archived, false),
+        with: { overlays: true },
+      },
+    },
   });
   const hash = computeExportHash(toExportClips(video!.clips), video!.format);
   writeFileSync(resolveExportPath(finishedDir, s.courseAId, hash!), "");
@@ -149,6 +154,31 @@ describe("course readiness", () => {
     expect(out.unexportedVideos).toEqual([]);
     expect(out.progress.videos.exported).toBe(1);
     expect(out.progress.videos.unexported).toBe(0);
+  });
+
+  it("asks for the export again once an Overlay is added", async () => {
+    // The file on disk is addressed by what the Video contained when it was
+    // made. A Definition Card placed since then is not in it, so the Video is
+    // unexported again — the whole reason Overlays reach the Export Hash.
+    await markSeededVideoExported();
+
+    const clip = await testDb.query.clips.findFirst({
+      where: (c, { eq, and }) =>
+        and(eq(c.videoId, s.lessonVideoId), eq(c.archived, false)),
+    });
+    await testDb.insert(schema.overlays).values({
+      clipId: clip!.id,
+      at: 1,
+      durationInSeconds: 4,
+      title: "Hydration",
+      description: "Attaching handlers to server-rendered HTML.",
+    });
+
+    const res = await run(["course", "readiness", s.courseAId]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out.counts.unexportedVideos).toBe(1);
+    expect(out.progress.videos.exported).toBe(0);
   });
 
   it("counts authoring progress over the whole draft tree", async () => {
