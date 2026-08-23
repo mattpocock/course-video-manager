@@ -46,6 +46,22 @@ re-generated for the new range. A retimed clip's text can be stale until somethi
 it; there is currently no CLI signal for "this text no longer matches this range" (only the
 pre-existing "never transcribed" signal, transcribedAt == null).
 
+Retiming DOES cascade to everything positioned relative to the clip's start, in the same
+transaction as the recut itself, because moving the in-point moves the footage out from under
+every stored offset:
+
+  Transcript Words ('cvm clip words') are shifted by the same delta as the recut. A word the new,
+  shorter range no longer contains — either end outside [0, duration] — is DROPPED. Words are
+  read-side data, reproducible by re-transcribing, and one claiming a moment the clip no longer
+  holds is worse than no word at all.
+
+  Overlays ('cvm overlay list') anchored to the clip have their 'at' shifted by that same delta,
+  and an anchor pushed out of the new range is CLAMPED back inside it — to 0, or to the clip's new
+  end (which for the video's final clip is the video's last frame). An Overlay is NEVER deleted by
+  a retime, and its title/description are never touched: an unrelated trim must not be able to
+  destroy hand-authored content. Check 'cvm overlay list --clip <id>' after a big retime — a
+  clamped Definition Card is in the wrong place until you move it.
+
 Examples:
   cvm clip update clip_abc --zoom subtle
   cvm clip update clip_abc --start 12.4 --end 18.9
