@@ -227,27 +227,56 @@ describe("overlay add --kind bulletPanel", () => {
   it("refuses a reveal time with no room left to ease in", async () => {
     const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 20 });
 
-    // The Overlay is 5s long and a bullet takes 0.35s to arrive, so 4.9s
-    // would still be animating in as the whole panel animates out.
+    // The Overlay is 5s long, a bullet takes 0.35s to arrive and the panel
+    // spends its last 0.35s leaving, so anything after 4.3s is still easing in
+    // as the panel eases out.
     expectRefused(
       await addPanel(
         clip.id,
-        [{ icon: "target", text: "Too late", revealAt: 4.9 }],
+        [{ icon: "target", text: "Too late", revealAt: 4.65 }],
         [],
         "5"
       )
     );
-    // The last frame that does fit is accepted.
+    // The last moment that does fit is accepted.
     expect(
       (
         await addPanel(
           clip.id,
-          [{ icon: "target", text: "Just fits", revealAt: 4.65 }],
+          [{ icon: "target", text: "Just fits", revealAt: 4.3 }],
           [],
           "5"
         )
       ).exitCode
     ).toBe(0);
+  });
+
+  it("gives a bullet a whole extra ease when the exit is a cut", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 20 });
+
+    // A cut exit holds the panel to the window's very end, so the bullet has
+    // only its own ease to fit.
+    expect(
+      (
+        await addPanel(
+          clip.id,
+          [{ icon: "target", text: "Still fits", revealAt: 4.65 }],
+          ["--disable-exit-animation", "true"],
+          "5"
+        )
+      ).exitCode
+    ).toBe(0);
+  });
+
+  it("refuses two bullets revealed at the same moment", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 20 });
+
+    expectRefused(
+      await addPanel(clip.id, [
+        { icon: "target", text: "One", revealAt: 2 },
+        { icon: "route", text: "Two", revealAt: 2 },
+      ])
+    );
   });
 
   it("refuses a payload that is not a JSON array of bullets", async () => {
@@ -438,6 +467,73 @@ describe("overlay update --bullets-json", () => {
         created.id,
       ])
     );
+  });
+
+  // REGRESSION. `--duration` used to re-validate only the bullets it was
+  // handed: shortening an Overlay without touching its bullets left reveal
+  // times stranded past the end of the panel, and said nothing.
+  it("re-validates the bullets ALREADY stored when the duration shrinks", async () => {
+    const created = await seedPanel();
+
+    const result = await run([
+      "overlay",
+      "update",
+      "--duration",
+      "1",
+      created.id,
+    ]);
+
+    expectRefused(result);
+    // And the row is untouched, not half-written.
+    expect(
+      one<OverlayRow>((await run(["overlay", "get", created.id])).stdout)
+        .durationInSeconds
+    ).toBe(10);
+  });
+
+  it("re-validates them when the exit animation is turned back on", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 20 });
+    // 4.65s fits a 5s panel only while its exit is a cut.
+    const created = one<OverlayRow>(
+      (
+        await addPanel(
+          clip.id,
+          [{ icon: "target", text: "Late", revealAt: 4.65 }],
+          ["--disable-exit-animation", "true"],
+          "5"
+        )
+      ).stdout
+    );
+
+    expectRefused(
+      await run([
+        "overlay",
+        "update",
+        "--disable-exit-animation",
+        "false",
+        created.id,
+      ])
+    );
+  });
+
+  it("leaves a shorter duration alone when the stored bullets still fit", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 20 });
+    const created = one<OverlayRow>(
+      (
+        await addPanel(
+          clip.id,
+          [{ icon: "target", text: "Early", revealAt: 0 }],
+          [],
+          "10"
+        )
+      ).stdout
+    );
+
+    const updated = one<OverlayRow>(
+      (await run(["overlay", "update", "--duration", "2", created.id])).stdout
+    );
+
+    expect(updated.durationInSeconds).toBe(2);
   });
 
   it("refuses --bullets-json on an Overlay that is a Definition Card", async () => {

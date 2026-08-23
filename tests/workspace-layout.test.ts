@@ -24,8 +24,16 @@ const WORKSPACE_PACKAGES = [
   "packages/overlay-renderer",
 ] as const;
 
+/**
+ * `packages/overlay-renderer` is excluded from every root turbo filter
+ * (`--filter=!@cvm/overlay-renderer`), so a boundary script there would never
+ * be run from the root; its own scripts are run from its own directory.
+ */
+const PACKAGES_OUTSIDE_THE_ROOT_FILTERS = ["packages/overlay-renderer"];
+
 interface PackageJson {
   readonly name?: string;
+  readonly scripts?: Record<string, string>;
   readonly dependencies?: Record<string, string>;
   readonly devDependencies?: Record<string, string>;
 }
@@ -110,6 +118,18 @@ describe("workspace layout", () => {
         ...readPackageJson(dir).devDependencies,
       };
       expect(declared[icons.name!]).toBe("workspace:*");
+    }
+  });
+
+  it("has every package the root check fans out to define its own boundary script", () => {
+    // `turbo run lint:boundaries` visits a package only if it declares the
+    // script. A deep-module package moved OUT of `apps/local/app/packages/`
+    // (where one config covered it) and into `packages/` therefore leaves the
+    // check's reach entirely unless it brings its own — which is exactly what
+    // happened to `packages/lucide-icons`.
+    for (const dir of WORKSPACE_PACKAGES) {
+      if (PACKAGES_OUTSIDE_THE_ROOT_FILTERS.includes(dir)) continue;
+      expect(readPackageJson(dir).scripts?.["lint:boundaries"]).toBeTruthy();
     }
   });
 

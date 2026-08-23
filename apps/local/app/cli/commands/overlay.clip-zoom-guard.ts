@@ -17,10 +17,7 @@ import {
   DEFAULT_CLIP_ZOOM_TYPE,
   resolveClipZoomType,
 } from "@/features/videos/clip-zoom";
-import {
-  clipExportDurationInSeconds,
-  paddedClipDurationsInSeconds,
-} from "@/services/export-duration-check";
+import { clipTimelineSpans } from "@/services/clip-timeline";
 
 /**
  * A Clip Zoom and an Overlay Transform are two crops of the same footage, and
@@ -56,14 +53,9 @@ export const requireNoClipZoomUnderTransform = (params: {
         )
       );
 
-    const durations = paddedClipDurationsInSeconds(video.clips);
-    let cursor = 0;
-    const spans = video.clips.map((clip, index) => {
-      const from = cursor;
-      const duration = durations[index];
-      cursor += duration ? clipExportDurationInSeconds(duration) : 0;
-      return { clip, from, to: cursor };
-    });
+    // The same flattening `requireNoOverlappingOverlay` uses, from the same
+    // module, so the two guards cannot disagree about where a Clip sits.
+    const spans = clipTimelineSpans(video.clips);
 
     const anchor = spans.find((span) => span.clip.id === params.clipId);
     // Not on this Video's timeline at all is somebody else's refusal to make.

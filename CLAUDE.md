@@ -14,11 +14,17 @@ Single-context layout: `CONTEXT.md` at the repo root, ADRs under `docs/adr/`. Se
 
 ### Repository layout
 
-A Turborepo monorepo: `apps/local` is today's application, `apps/remote` is the deployed RPC API (a Hono app on Vercel — see [apps/remote/README.md](./apps/remote/README.md)), and `packages/core` is the domain database (the schema, the `DrizzleService`, every `db-*` service and `CourseWriteService`) and holds every piece of SQL. Neither `packages/core` nor `apps/remote` may import anything filesystem-bound — see their READMEs.
+A Turborepo monorepo. Two apps: `apps/local` is today's application, and `apps/remote` is the deployed RPC API (a Hono app on Vercel — see [apps/remote/README.md](./apps/remote/README.md)). Three workspace packages under `packages/`:
+
+- `packages/core` — the domain database (the schema, the `DrizzleService`, every `db-*` service and `CourseWriteService`), and every piece of SQL in the repo. Also holds the pure domain logic both apps share, under `features/` (Clip Zoom, Overlay Kind, Bullet Panel, Overlay Transform); `apps/local` reaches those through one-off `@/features/videos/*` aliases in its tsconfig.
+- `packages/lucide-icons` — the vendored, append-only lucide icon-node table, plus the tldraw path transpiler behind its own entry point. A top-level package because it has consumers on both sides of the repo: `apps/local` and `packages/overlay-renderer`.
+- `packages/overlay-renderer` — the standalone Remotion renderer for Overlay content (Definition Cards, Bullet Panels) and the vertical Shorts overlay. `apps/local` shells out to its built `bin.mjs` rather than importing its render path, so it is EXCLUDED from every root turbo filter (`--filter=!@cvm/overlay-renderer`) and has its own `test`/`typecheck` scripts to run from its own directory.
+
+Neither `packages/core` nor `apps/remote` may import anything filesystem-bound — see their READMEs.
 
 ### Deep-module packages
 
-Packages under `apps/local/app/packages/` are deep modules — import only through a package's entry points (its root files); everything in `lib/`/`tests/` is private. See [apps/local/app/packages/README.md](./apps/local/app/packages/README.md) before adding or importing one. `pnpm run lint:boundaries` enforces it (runs in pre-commit alongside `typecheck`), and the same command enforces that `packages/core` stays filesystem-free.
+Packages under `apps/local/app/packages/` are deep modules — import only through a package's entry points (its root files); everything in `lib/`/`tests/` is private. See [apps/local/app/packages/README.md](./apps/local/app/packages/README.md) before adding or importing one. `packages/lucide-icons` is the same idea promoted to a workspace package: its entry points are `index.ts`, `generator.ts` and `tldraw.ts` (exactly its `exports` map), and it carries its own `.dependency-cruiser.cjs`. `pnpm run lint:boundaries` fans out to every package's own check (it runs in pre-commit alongside `typecheck`), so it enforces all of that plus `packages/core` staying filesystem-free.
 
 ### cvm CLI
 

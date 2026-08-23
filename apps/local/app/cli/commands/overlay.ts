@@ -35,13 +35,11 @@ import {
 import {
   bulletPanelOpts,
   hasBulletPanelFlags,
+  requireStoredBulletsStillFit,
   resolveBulletPanelPatch,
 } from "./overlay.bullets";
 import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
-import {
-  clipExportDurationInSeconds,
-  paddedClipDurationsInSeconds,
-} from "@/services/export-duration-check";
+import { clipTimelineStarts } from "@/services/clip-timeline";
 import {
   OVERLAY_HELP,
   LIST_HELP,
@@ -204,36 +202,6 @@ const requireSameVideo = (from: AnchorClip, to: AnchorClip) =>
         "overlay"
       );
 
-/** A Clip as the timeline sees it: what it contributes to the flattened Video. */
-type TimelineClip = {
-  id: string;
-  sourceStartTime: number;
-  sourceEndTime: number;
-  pauseType: string | null;
-};
-
-/**
- * Where each Clip starts on the flattened Video timeline, keyed by Clip id.
- *
- * The export concatenates the Clips end to end, so a Clip's start is the sum of
- * what every preceding Clip contributes — which is exactly what the export step
- * computes, and is reused from it here rather than recomputed, so this check and
- * the composited output can never disagree about where an Overlay lands.
- */
-const clipStartsOnTimeline = (
-  clips: ReadonlyArray<TimelineClip>
-): Map<string, number> => {
-  const durations = paddedClipDurationsInSeconds(clips);
-  const starts = new Map<string, number>();
-  let startInSeconds = 0;
-  clips.forEach((clip, index) => {
-    starts.set(clip.id, startInSeconds);
-    const duration = durations[index];
-    startInSeconds += duration ? clipExportDurationInSeconds(duration) : 0;
-  });
-  return starts;
-};
-
 /**
  * At most ONE Overlay is ever visible at a given moment across the whole Video
  * (CONTEXT.md, "Overlays and transitions") — no tracks, no layering.
@@ -262,7 +230,7 @@ const requireNoOverlappingOverlay = (params: {
         )
       );
 
-    const starts = clipStartsOnTimeline(video.clips);
+    const starts = clipTimelineStarts(video.clips);
     const anchorStart = starts.get(params.clipId);
     // An anchor that is not on this Video's timeline at all is somebody else's
     // refusal to make — requireActiveClip/requireSameVideo already made it.
@@ -422,19 +390,19 @@ const updateCmd = Command.make(
   },
   ({ id, clip, at, duration, kind, title, description, ...flags }) =>
     Effect.gen(function* () {
-      const c = Option.getOrUndefined(clip);
-      const a = Option.getOrUndefined(at);
-      const d = Option.getOrUndefined(duration);
-      const k = Option.getOrUndefined(kind);
-      const t = Option.getOrUndefined(title);
-      const desc = Option.getOrUndefined(description);
+      const newClipId = Option.getOrUndefined(clip);
+      const newAt = Option.getOrUndefined(at);
+      const newDuration = Option.getOrUndefined(duration);
+      const newKind = Option.getOrUndefined(kind);
+      const newTitle = Option.getOrUndefined(title);
+      const newDescription = Option.getOrUndefined(description);
       if (
-        c === undefined &&
-        a === undefined &&
-        d === undefined &&
-        k === undefined &&
-        t === undefined &&
-        desc === undefined &&
+        newClipId === undefined &&
+        newAt === undefined &&
+        newDuration === undefined &&
+        newKind === undefined &&
+        newTitle === undefined &&
+        newDescription === undefined &&
         !hasBulletPanelFlags(flags)
       ) {
         return yield* parseError(
@@ -444,46 +412,77 @@ const updateCmd = Command.make(
           "overlay"
         );
       }
-      if (a !== undefined) yield* requireNonNegativeAt(a);
-      if (d !== undefined) yield* requirePositiveDuration(d);
+      if (newAt !== undefined) yield* requireNonNegativeAt(newAt);
+      if (newDuration !== undefined)
+        yield* requirePositiveDuration(newDuration);
 
       const overlay = yield* requireOverlay(id);
 
       // Content is checked against the kind the Overlay will BE once this
       // lands, so a switch of kind and its new content go in together.
       const wasKind = resolveOverlayKind(overlay.kind);
-      const willBeKind = k ?? wasKind;
+      const willBeKind = newKind ?? wasKind;
+      // What the Overlay's window will BE, which is what a bullet's reveal
+      // time has to fit inside — not what it is now.
+      const nextDuration = newDuration ?? overlay.durationInSeconds;
       const panel = yield* resolveBulletPanelPatch({
         kind: willBeKind,
         needsContent: willBeKind !== wasKind,
-        durationInSeconds: d ?? overlay.durationInSeconds,
-        description: desc,
+        durationInSeconds: nextDuration,
+        currentDisableExitAnimation: overlay.disableExitAnimation,
+        description: newDescription,
         flags,
       });
+      const nextDisableExitAnimation =
+        panel.disableExitAnimation ?? overlay.disableExitAnimation;
+
+      // The bullets ALREADY stored were accepted against the window this
+      // Overlay had when they were written. Shortening it, or turning its exit
+      // animation back on, asks that question again — and the answer can now be
+      // no, so it is asked here rather than discovered as a bullet clipped
+      // mid-reveal in a render.
+      const fitInputsChanged =
+        nextDuration !== overlay.durationInSeconds ||
+        nextDisableExitAnimation !== overlay.disableExitAnimation;
+      if (
+        willBeKind === "bulletPanel" &&
+        panel.bullets === undefined &&
+        fitInputsChanged
+      ) {
+        yield* requireStoredBulletsStillFit({
+          bullets: overlay.bullets ?? [],
+          durationInSeconds: nextDuration,
+          disableExitAnimation: nextDisableExitAnimation,
+        });
+      }
 
       // Whichever of the anchor's two halves this update touches, it is the
       // RESULTING pair — new Clip or old, new offset or old — that has to be a
       // real moment inside one Clip of one Video.
       const current = yield* requireClip(overlay.clipId);
       let anchor = current;
-      if (c !== undefined) {
-        const target = yield* requireActiveClip(c);
+      if (newClipId !== undefined) {
+        const target = yield* requireActiveClip(newClipId);
         yield* requireSameVideo(current, target);
-        yield* requireAtWithinClip(a ?? overlay.at, target);
+        yield* requireAtWithinClip(newAt ?? overlay.at, target);
         anchor = target;
-      } else if (a !== undefined) {
-        yield* requireAtWithinClip(a, current);
+      } else if (newAt !== undefined) {
+        yield* requireAtWithinClip(newAt, current);
       }
 
       // Only a move or a resize can newly collide; editing the words of an
       // Overlay leaves its window exactly where it already was, and must not
       // be refused on account of data that predates this check.
-      if (c !== undefined || a !== undefined || d !== undefined) {
+      if (
+        newClipId !== undefined ||
+        newAt !== undefined ||
+        newDuration !== undefined
+      ) {
         yield* requireNoOverlappingOverlay({
           videoId: anchor.videoId,
           clipId: anchor.id,
-          at: a ?? overlay.at,
-          durationInSeconds: d ?? overlay.durationInSeconds,
+          at: newAt ?? overlay.at,
+          durationInSeconds: nextDuration,
           exclude: id,
         });
       }
@@ -491,34 +490,40 @@ const updateCmd = Command.make(
       // A change of KIND can newly collide too, even standing still: an
       // Overlay that moved no camera yesterday moves one today.
       if (
-        c !== undefined ||
-        a !== undefined ||
-        d !== undefined ||
-        k !== undefined
+        newClipId !== undefined ||
+        newAt !== undefined ||
+        newDuration !== undefined ||
+        newKind !== undefined
       ) {
         yield* requireNoClipZoomUnderTransform({
           videoId: anchor.videoId,
           clipId: anchor.id,
-          at: a ?? overlay.at,
-          durationInSeconds: d ?? overlay.durationInSeconds,
-          kind: k ?? resolveOverlayKind(overlay.kind),
+          at: newAt ?? overlay.at,
+          durationInSeconds: nextDuration,
+          kind: willBeKind,
         });
       }
 
       const overlayOps = yield* OverlayOperationsService;
+      // Bullets left on a row that is no longer a Bullet Panel would be
+      // content nothing renders and the Export Hash still sees, so leaving the
+      // kind clears them.
+      const isLeavingBulletPanel =
+        wasKind === "bulletPanel" && willBeKind !== "bulletPanel";
+
       const updated = yield* overlayOps.updateOverlay(id, {
-        ...(c === undefined ? {} : { clipId: c }),
-        ...(a === undefined ? {} : { at: a }),
-        ...(d === undefined ? {} : { durationInSeconds: d }),
-        ...(k === undefined ? {} : { kind: k }),
-        ...(t === undefined ? {} : { title: t }),
-        ...(desc === undefined ? {} : { description: desc }),
-        ...(panel.bullets === undefined ? {} : { bullets: panel.bullets }),
-        // Leaving a Bullet Panel's bullets on a row that is no longer one
-        // would leave content nothing renders and the Export Hash still sees.
-        ...(willBeKind === "bulletPanel" || wasKind !== "bulletPanel"
+        ...(newClipId === undefined ? {} : { clipId: newClipId }),
+        ...(newAt === undefined ? {} : { at: newAt }),
+        ...(newDuration === undefined
           ? {}
-          : { bullets: null }),
+          : { durationInSeconds: newDuration }),
+        ...(newKind === undefined ? {} : { kind: newKind }),
+        ...(newTitle === undefined ? {} : { title: newTitle }),
+        ...(newDescription === undefined
+          ? {}
+          : { description: newDescription }),
+        ...(panel.bullets === undefined ? {} : { bullets: panel.bullets }),
+        ...(isLeavingBulletPanel ? { bullets: null } : {}),
         ...(panel.disableEnterAnimation === undefined
           ? {}
           : { disableEnterAnimation: panel.disableEnterAnimation }),

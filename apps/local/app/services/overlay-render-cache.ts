@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
-import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
+import {
+  bulletPanelHashPayload,
+  type BulletPanelBullet,
+} from "@/features/videos/bullet-panel";
 import type { OverlayKind } from "@/features/videos/overlay-kind";
 
 /**
@@ -145,16 +148,15 @@ const hashPayload = (content: OverlayContent, v: number) => {
     case "bulletPanel":
       // Every bullet is spelled out: editing its text, its icon or its reveal
       // time all change the rendered frames, so all three move the address.
+      // The encoding is `bulletPanelHashPayload`'s, shared with the Export
+      // Hash: one encoder, so the two addresses agree by construction rather
+      // than by two people remembering the same three keys.
       return {
         v,
         k: content.kind,
         t: content.title,
         d: content.durationInSeconds,
-        b: content.bullets.map((bullet) => ({
-          i: bullet.icon,
-          t: bullet.text,
-          r: bullet.revealAt,
-        })),
+        b: bulletPanelHashPayload(content.bullets),
         ne: content.disableEnterAnimation,
         nx: content.disableExitAnimation,
       };
