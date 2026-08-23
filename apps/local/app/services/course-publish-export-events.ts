@@ -76,6 +76,15 @@ export type PublishStage =
   | "cloning"
   | "complete";
 
+/**
+ * How many Videos a **Publish** encodes at once.
+ *
+ * Exporting is GPU-bound, so this is the GPU's limit and not the network's.
+ * Uploading runs at the same time on a limit of its own (see
+ * `dropbox-upload-config.ts`), because the two contend for nothing: a Video
+ * starts uploading the moment its own export finishes rather than waiting for
+ * the rest of the batch.
+ */
 export const MAX_CONCURRENT_EXPORTS = 6;
 
 export const extractErrorMessage = (e: unknown, fallback: string): string =>

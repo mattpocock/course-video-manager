@@ -12,6 +12,8 @@ import {
 } from "@/features/videos/video-format";
 import path from "node:path";
 
+/** How many Videos are encoded at once — the GPU's limit. Kept equal to the
+ *  Publish path's own constant of the same name. */
 const MAX_CONCURRENT_EXPORTS = 6;
 
 export const batchExportProgram = (
