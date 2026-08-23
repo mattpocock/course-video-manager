@@ -14,13 +14,22 @@ Its '--duration' is INDEPENDENT of the anchor Clip's length. An Overlay
 commonly runs on past the end of its anchor Clip and across however many
 further Clips it takes to fill its length, truncated at the Video's own end.
 
-CONTENT — the Definition Card. An Overlay's visible content is exactly a
-'--title' plus a '--description': a small, branded on-screen card defining a
-term at the moment it is spoken. That is the only content-kind there is, which
-is why there is no --kind flag. The text is written inline on each Overlay;
-there is no shared glossary or dictionary entity to pick from, and no
-deduplication between placements — two Overlays that define the same term each
-carry their own copy of the words.
+CONTENT — the '--kind'. An Overlay carries one content-kind: 'definitionCard'
+(the default, and what every Overlay authored before the flag existed is) or
+'bulletPanel'. A Definition Card's content is exactly a '--title' plus a
+'--description': a small, branded on-screen card defining a term at the moment
+it is spoken. The text is written inline on each Overlay; there is no shared
+glossary or dictionary entity to pick from, and no deduplication between
+placements — two Overlays that define the same term each carry their own copy
+of the words.
+
+ONE AT A TIME. At most one Overlay is ever on screen at a given moment across
+the whole Video — there are no tracks and no layering. An 'add' or an 'update'
+whose window would overlap another Overlay's is refused (exit 3), whatever the
+two kinds are and whichever Clips they are anchored to. The comparison is on
+the VIDEO's flattened timeline, because an Overlay's duration is free to outrun
+its anchor Clip. Windows that merely touch — one Overlay starting exactly where
+the last one ended — are fine.
 
 Overlays are a WRITE surface with no editor UI: 'cvm overlay' is the only way
 to author one. Writes are immediate — no confirmation, no dry-run — and each
@@ -31,12 +40,13 @@ flag: 'overlay delete' removes the row outright and there is no restore. Its
 title and description are gone with it.
 
 Output fields: id, clipId (the anchor Clip), at (Clip-relative seconds),
-durationInSeconds, title, description.
+durationInSeconds, kind, title, description.
 
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   list   --video <id> [--clip <id>]   every Overlay on a Video, timeline order
   get    <id...>                      one or more Overlays by id (variadic)
-  add    --clip <id> --at <s> --duration <s> --title <t> --description <d>
+  add    --clip <id> --at <s> --duration <s> [--kind <k>] --title <t>
+         --description <d>
   update [flags] <id>                 re-anchor and/or edit in place
   delete <id>                         hard-delete (no archive, no restore)
 
@@ -60,7 +70,7 @@ listed — an archived Clip is off the timeline and so are its Overlays.
                  must belong to --video; one that does not simply matches
                  nothing (empty output, exit 0).
 
-Each line carries: id, clipId, at, durationInSeconds, title, description.
+Each line carries: id, clipId, at, durationInSeconds, kind, title, description.
 
 An unknown --video id is a not-found (exit 2). Find a video id with
 'cvm video list'; find its clip ids with 'cvm clip list --video <id>'.
@@ -79,14 +89,14 @@ A single unknown id is a not-found (exit 2). With several ids the found ones are
 still emitted on STDOUT and the MISSING ids are reported on STDERR with exit 2,
 so a partly-stale list of ids still tells you everything it can.
 
-Fields: id, clipId, at, durationInSeconds, title, description.
+Fields: id, clipId, at, durationInSeconds, kind, title, description.
 
 Examples:
   cvm overlay get ovl_456
   cvm overlay get ovl_456 ovl_789`;
 
-export const ADD_HELP = `Place a new Overlay — a Definition Card — on a Clip. Every flag is required:
-an Overlay with no anchor, no length or no words is not a thing worth having.
+export const ADD_HELP = `Place a new Overlay on a Clip. Every flag but '--kind' is required: an Overlay
+with no anchor, no length or no words is not a thing worth having.
 
   --clip <id>          the anchor Clip. Unknown or archived is a not-found
                        (exit 2).
@@ -100,11 +110,15 @@ an Overlay with no anchor, no length or no words is not a thing worth having.
   --duration <seconds> how long the card stays on screen. Must be > 0. NOT
                        bounded by the anchor Clip: an Overlay may run on past
                        the Clip's end and across the Clips that follow.
+  --kind <kind>        which content-kind to carry: 'definitionCard' (the
+                       default, applied when the flag is omitted) or
+                       'bulletPanel'.
   --title <text>       the term being defined — the card's heading.
   --description <text> the definition itself — the card's body.
 
-Nothing stops two Overlays overlapping in time; the export pipeline, not this
-verb, decides what that means.
+Refused (exit 3) if the Overlay's window would overlap one already on this
+Video, of either kind and on any Clip — only one Overlay is ever on screen at a
+time. 'cvm overlay list --video <id>' shows what is already placed.
 
 Echoes the created Overlay row, including its new id, as one pretty JSON object.
 
@@ -127,8 +141,14 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
   --at <seconds>       new Clip-relative offset. Must be >= 0 and less than the
                        anchor Clip's own length.
   --duration <seconds> new on-screen length in seconds. Must be > 0.
+  --kind <kind>        new content-kind: 'definitionCard' or 'bulletPanel'.
   --title <text>       new card heading (the term).
   --description <text> new card body (the definition).
+
+A move or a resize (--clip / --at / --duration) that would put this Overlay on
+screen at the same moment as another one on the Video is refused (exit 3);
+editing only the content leaves the window where it is and is never refused for
+that reason.
 
 An unknown overlay id, or an unknown/archived --clip, is a not-found (exit 2).
 Echoes the updated row. Flags must come BEFORE the <id> (a flag after it

@@ -400,10 +400,13 @@ export const clipTranscriptWords = createTable(
  * commonly runs on past the end of its anchor Clip and across however many
  * further Clips it takes to fill its length.
  *
- * `title` + `description` are the Definition Card content — the only
- * content-kind there is, which is why there is deliberately NO `kind`
- * discriminator column. Add one when a second content-kind actually exists,
- * not before.
+ * `kind` names which content-kind the Overlay carries — see
+ * `features/videos/overlay-kind.ts` for the vocabulary and the coercion every
+ * reader goes through. It defaults to `definitionCard`, the only kind that
+ * existed before the column did, so every pre-existing row keeps rendering
+ * exactly as it always has and no backfill is needed.
+ *
+ * `title` + `description` are the Definition Card content.
  *
  * Diverges from the Clip soft-delete convention on purpose: an Overlay is HARD
  * deleted (no `archived` flag), because nothing in the schema references an
@@ -424,6 +427,11 @@ export const overlays = createTable(
     at: doublePrecision("at").notNull(),
     /** How long the Overlay stays on screen, seconds. Not bounded by the Clip. */
     durationInSeconds: doublePrecision("duration_in_seconds").notNull(),
+    /**
+     * Which content-kind this Overlay carries — "definitionCard" or
+     * "bulletPanel". Read through `resolveOverlayKind`, never raw.
+     */
+    kind: varchar("kind", { length: 255 }).notNull().default("definitionCard"),
     title: text("title").notNull(),
     description: text("description").notNull(),
   },

@@ -7,6 +7,10 @@ import {
   DEFAULT_CLIP_ZOOM_TYPE,
   resolveClipZoomType,
 } from "@/features/videos/clip-zoom";
+import {
+  DEFAULT_OVERLAY_KIND,
+  resolveOverlayKind,
+} from "@/features/videos/overlay-kind";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -24,6 +28,8 @@ export const EXPORT_VERSION = 1;
 export type ExportOverlay = {
   at: number;
   durationInSeconds: number;
+  /** The raw `kind` column; narrowed by `resolveOverlayKind` on the way in. */
+  kind: string;
   title: string;
   description: string;
 };
@@ -61,6 +67,7 @@ export const toExportClips = (
     overlays: ReadonlyArray<{
       at: number;
       durationInSeconds: number;
+      kind: string;
       title: string;
       description: string;
     }>;
@@ -75,6 +82,7 @@ export const toExportClips = (
     overlays: c.overlays.map((o) => ({
       at: o.at,
       durationInSeconds: o.durationInSeconds,
+      kind: o.kind,
       title: o.title,
       description: o.description,
     })),
@@ -93,6 +101,13 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
     .map((o) => ({
       a: o.at,
       d: o.durationInSeconds,
+      // Emitted only when it is NOT the default, exactly as `z`/`p` are below:
+      // every Overlay written before `kind` existed is a Definition Card, so
+      // omitting the default leaves every existing export address untouched
+      // while a change of kind still moves the address.
+      ...(resolveOverlayKind(o.kind) === DEFAULT_OVERLAY_KIND
+        ? {}
+        : { k: resolveOverlayKind(o.kind) }),
       t: o.title,
       x: o.description,
     }))

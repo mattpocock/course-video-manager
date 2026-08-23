@@ -8,6 +8,7 @@ import {
   requireDraftVersionForOverlay,
 } from "./draft-guard.server.js";
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
+import type { OverlayKind } from "../features/videos/overlay-kind.js";
 
 /**
  * Overlays — the visual layers composited on top of a Video's footage, each
@@ -29,13 +30,14 @@ import { transactionalizeWrites } from "./with-db-transaction.server.js";
  *
  * Every query whose Clips end up in `computeExportHash` must include this, or
  * that Video's address would claim it has no Overlays and a Definition Card
- * edit would publish stale video. It lives here, next to the table's own
+ * edit — or a change of `kind` — would publish stale video. It lives here, next to the table's own
  * operations, so the four queries that need it cannot drift apart.
  */
 export const overlayExportRelation = {
   columns: {
     at: true,
     durationInSeconds: true,
+    kind: true,
     title: true,
     description: true,
   },
@@ -53,6 +55,7 @@ const overlayColumns = {
   clipId: overlays.clipId,
   at: overlays.at,
   durationInSeconds: overlays.durationInSeconds,
+  kind: overlays.kind,
   title: overlays.title,
   description: overlays.description,
 };
@@ -105,6 +108,8 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
     clipId: string;
     at: number;
     durationInSeconds: number;
+    /** Omitted means the default, `definitionCard` — see overlay-kind.ts. */
+    kind?: OverlayKind;
     title: string;
     description: string;
   }) {
@@ -131,6 +136,7 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
       clipId?: string;
       at?: number;
       durationInSeconds?: number;
+      kind?: OverlayKind;
       title?: string;
       description?: string;
     }
