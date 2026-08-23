@@ -13,6 +13,7 @@ import type { ExportOverlay } from "./export-hash";
 const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   at: 0,
   durationInSeconds: 5,
+  kind: "definitionCard",
   title: "Monomorphism",
   description: "A function that never collapses two inputs into one output.",
   ...overrides,

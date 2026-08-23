@@ -257,6 +257,7 @@ describe("export-hash", () => {
     const card = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
       at: 2,
       durationInSeconds: 4,
+      kind: "definitionCard",
       title: "Hydration",
       description: "Attaching handlers to server-rendered HTML.",
       ...overrides,
@@ -296,6 +297,21 @@ describe("export-hash", () => {
     it("changing how long an Overlay stays up changes the address", () => {
       expect(withOverlays(card({ durationInSeconds: 4 }))).not.toBe(
         withOverlays(card({ durationInSeconds: 6 }))
+      );
+    });
+
+    it("changing an Overlay's kind changes the address", () => {
+      expect(withOverlays(card({ kind: "definitionCard" }))).not.toBe(
+        withOverlays(card({ kind: "bulletPanel" }))
+      );
+    });
+
+    it("leaves the address alone for an Overlay written before kind existed", () => {
+      // Those rows read as "definitionCard", and the default is omitted from
+      // the payload, so every export addressed before the column existed keeps
+      // the address it already had.
+      expect(withOverlays(card({ kind: "definitionCard" }))).toBe(
+        withOverlays(card({ kind: "" }))
       );
     });
 

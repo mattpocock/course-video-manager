@@ -11,6 +11,11 @@ import {
   notFoundMany,
   parseError,
 } from "@/cli/helpers";
+import { OVERLAY_KINDS } from "@/features/videos/overlay-kind";
+import {
+  clipExportDurationInSeconds,
+  paddedClipDurationsInSeconds,
+} from "@/services/export-duration-check";
 import {
   OVERLAY_HELP,
   LIST_HELP,
@@ -27,10 +32,15 @@ import {
  *   An Overlay is anchored to ONE Clip at `at`, a plain Clip-relative offset in
  *   seconds, and carries its own `durationInSeconds` — independent of that
  *   Clip's length, so an Overlay may run on across the Clips that follow. Its
- *   visible content is a Definition Card: a `title` (the term) and a
- *   `description` (the definition), written inline on the Overlay itself.
- *   There is no shared glossary entity and no `kind` discriminator, because
- *   Definition Card is the only content-kind there is.
+ *   `kind` says which content-kind it carries — `definitionCard` (the default,
+ *   and what every Overlay written before the discriminator existed is) or
+ *   `bulletPanel`. A Definition Card's content is a `title` (the term) and a
+ *   `description` (the definition), written inline on the Overlay itself;
+ *   there is no shared glossary entity.
+ *
+ *   At most ONE Overlay is visible at a given moment across the whole Video,
+ *   so an Overlay whose window overlaps another's — of either kind, on any
+ *   Clip of the same Video — is refused rather than authored.
  *
  *   Overlays are CHILDREN of a Clip, addressed only by id, with no version
  *   scoping. Unlike every other write noun here, delete is a HARD delete: an
@@ -41,6 +51,7 @@ import {
  *   clipId            the anchor Clip
  *   at                offset from the anchor Clip's start, seconds (float)
  *   durationInSeconds how long it stays on screen, seconds (float)
+ *   kind              which content-kind it carries (definitionCard default)
  *   title             the Definition Card's heading — the term
  *   description       the Definition Card's body — the definition
  *
@@ -106,6 +117,15 @@ const durationAddOpt = Options.float("duration").pipe(
 
 const durationUpdateOpt = Options.float("duration").pipe(
   Options.withDescription("New on-screen length, seconds (> 0)."),
+  Options.optional
+);
+
+const kindOpt = Options.choice("kind", OVERLAY_KINDS).pipe(
+  Options.withDescription(
+    `Which content-kind the Overlay carries: ${OVERLAY_KINDS.join(
+      " | "
+    )}. Omitted on 'add' means "definitionCard".`
+  ),
   Options.optional
 );
 
@@ -236,6 +256,98 @@ const requireSameVideo = (from: AnchorClip, to: AnchorClip) =>
         "overlay"
       );
 
+/** A Clip as the timeline sees it: what it contributes to the flattened Video. */
+type TimelineClip = {
+  id: string;
+  sourceStartTime: number;
+  sourceEndTime: number;
+  pauseType: string | null;
+};
+
+/**
+ * Where each Clip starts on the flattened Video timeline, keyed by Clip id.
+ *
+ * The export concatenates the Clips end to end, so a Clip's start is the sum of
+ * what every preceding Clip contributes — which is exactly what the export step
+ * computes, and is reused from it here rather than recomputed, so this check and
+ * the composited output can never disagree about where an Overlay lands.
+ */
+const clipStartsOnTimeline = (
+  clips: ReadonlyArray<TimelineClip>
+): Map<string, number> => {
+  const durations = paddedClipDurationsInSeconds(clips);
+  const starts = new Map<string, number>();
+  let startInSeconds = 0;
+  clips.forEach((clip, index) => {
+    starts.set(clip.id, startInSeconds);
+    const duration = durations[index];
+    startInSeconds += duration ? clipExportDurationInSeconds(duration) : 0;
+  });
+  return starts;
+};
+
+/**
+ * At most ONE Overlay is ever visible at a given moment across the whole Video
+ * (CONTEXT.md, "Overlays and transitions") — no tracks, no layering.
+ *
+ * The comparison is on the VIDEO's timeline, not within one Clip: an Overlay's
+ * duration is free to outrun its anchor Clip, so two Overlays on different
+ * Clips can still be on screen together. Touching windows are fine — one
+ * Overlay ending exactly where the next begins shows only ever one at a time.
+ *
+ * `exclude` is the Overlay being updated: it may of course overlap itself.
+ */
+const requireNoOverlappingOverlay = (params: {
+  videoId: string;
+  clipId: string;
+  at: number;
+  durationInSeconds: number;
+  exclude?: string;
+}) =>
+  Effect.gen(function* () {
+    const videoOps = yield* VideoOperationsService;
+    const video = yield* videoOps
+      .getVideoWithClipsById(params.videoId)
+      .pipe(
+        Effect.catchTag("NotFoundError", () =>
+          notFound("video", params.videoId)
+        )
+      );
+
+    const starts = clipStartsOnTimeline(video.clips);
+    const anchorStart = starts.get(params.clipId);
+    // An anchor that is not on this Video's timeline at all is somebody else's
+    // refusal to make — requireActiveClip/requireSameVideo already made it.
+    if (anchorStart === undefined) return;
+
+    const startInSeconds = anchorStart + params.at;
+    const endInSeconds = startInSeconds + params.durationInSeconds;
+
+    const overlayOps = yield* OverlayOperationsService;
+    const siblings = yield* overlayOps.listOverlaysByVideoId(
+      params.videoId,
+      null
+    );
+
+    for (const sibling of siblings) {
+      if (sibling.id === params.exclude) continue;
+      const siblingClipStart = starts.get(sibling.clipId);
+      if (siblingClipStart === undefined) continue;
+      const siblingStart = siblingClipStart + sibling.at;
+      const siblingEnd = siblingStart + sibling.durationInSeconds;
+      if (startInSeconds < siblingEnd && siblingStart < endInSeconds) {
+        return yield* parseError(
+          `this Overlay would be on screen from ${startInSeconds}s to ` +
+            `${endInSeconds}s on the Video's timeline, where Overlay ` +
+            `${sibling.id} is already showing (${siblingStart}s to ` +
+            `${siblingEnd}s). At most one Overlay is visible at a time — ` +
+            `move or shorten one of them, or delete ${sibling.id}.`,
+          "overlay"
+        );
+      }
+    }
+  });
+
 // ---------------------------------------------------------------------------
 // Verbs
 // ---------------------------------------------------------------------------
@@ -293,21 +405,29 @@ const addCmd = Command.make(
     clip: clipAddOpt,
     at: atAddOpt,
     duration: durationAddOpt,
+    kind: kindOpt,
     title: titleAddOpt,
     description: descriptionAddOpt,
   },
-  ({ clip, at, duration, title, description }) =>
+  ({ clip, at, duration, kind, title, description }) =>
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
       const anchor = yield* requireActiveClip(clip);
       yield* requireAtWithinClip(at, anchor);
+      yield* requireNoOverlappingOverlay({
+        videoId: anchor.videoId,
+        clipId: clip,
+        at,
+        durationInSeconds: duration,
+      });
 
       const overlayOps = yield* OverlayOperationsService;
       const created = yield* overlayOps.createOverlay({
         clipId: clip,
         at,
         durationInSeconds: duration,
+        kind: Option.getOrUndefined(kind),
         title,
         description,
       });
@@ -322,14 +442,16 @@ const updateCmd = Command.make(
     clip: clipUpdateOpt,
     at: atUpdateOpt,
     duration: durationUpdateOpt,
+    kind: kindOpt,
     title: titleUpdateOpt,
     description: descriptionUpdateOpt,
   },
-  ({ id, clip, at, duration, title, description }) =>
+  ({ id, clip, at, duration, kind, title, description }) =>
     Effect.gen(function* () {
       const c = Option.getOrUndefined(clip);
       const a = Option.getOrUndefined(at);
       const d = Option.getOrUndefined(duration);
+      const k = Option.getOrUndefined(kind);
       const t = Option.getOrUndefined(title);
       const desc = Option.getOrUndefined(description);
 
@@ -337,12 +459,13 @@ const updateCmd = Command.make(
         c === undefined &&
         a === undefined &&
         d === undefined &&
+        k === undefined &&
         t === undefined &&
         desc === undefined
       ) {
         return yield* parseError(
           "update needs at least one of --clip / --at / --duration / " +
-            "--title / --description",
+            "--kind / --title / --description",
           "overlay"
         );
       }
@@ -354,13 +477,28 @@ const updateCmd = Command.make(
       // Whichever of the anchor's two halves this update touches, it is the
       // RESULTING pair — new Clip or old, new offset or old — that has to be a
       // real moment inside one Clip of one Video.
+      const current = yield* requireClip(overlay.clipId);
+      let anchor = current;
       if (c !== undefined) {
         const target = yield* requireActiveClip(c);
-        const current = yield* requireClip(overlay.clipId);
         yield* requireSameVideo(current, target);
         yield* requireAtWithinClip(a ?? overlay.at, target);
+        anchor = target;
       } else if (a !== undefined) {
-        yield* requireAtWithinClip(a, yield* requireClip(overlay.clipId));
+        yield* requireAtWithinClip(a, current);
+      }
+
+      // Only a move or a resize can newly collide; editing the words of an
+      // Overlay leaves its window exactly where it already was, and must not
+      // be refused on account of data that predates this check.
+      if (c !== undefined || a !== undefined || d !== undefined) {
+        yield* requireNoOverlappingOverlay({
+          videoId: anchor.videoId,
+          clipId: anchor.id,
+          at: a ?? overlay.at,
+          durationInSeconds: d ?? overlay.durationInSeconds,
+          exclude: id,
+        });
       }
 
       const overlayOps = yield* OverlayOperationsService;
@@ -368,6 +506,7 @@ const updateCmd = Command.make(
         ...(c === undefined ? {} : { clipId: c }),
         ...(a === undefined ? {} : { at: a }),
         ...(d === undefined ? {} : { durationInSeconds: d }),
+        ...(k === undefined ? {} : { kind: k }),
         ...(t === undefined ? {} : { title: t }),
         ...(desc === undefined ? {} : { description: desc }),
       });

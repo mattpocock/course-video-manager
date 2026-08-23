@@ -53,6 +53,7 @@ interface OverlayRow {
   clipId: string;
   at: number;
   durationInSeconds: number;
+  kind: string;
   title: string;
   description: string;
 }
@@ -85,6 +86,7 @@ const addOverlay = async (
   overrides: Partial<{
     at: string;
     duration: string;
+    kind: string;
     title: string;
     description: string;
   }> = {}
@@ -98,6 +100,7 @@ const addOverlay = async (
     overrides.at ?? "2",
     "--duration",
     overrides.duration ?? "5",
+    ...(overrides.kind === undefined ? [] : ["--kind", overrides.kind]),
     "--title",
     overrides.title ?? "Hydration",
     "--description",
@@ -246,9 +249,11 @@ describe("overlay list", () => {
       end: 20,
       after: first.id,
     });
-    await addOverlay(second.id, { at: "1", title: "Third" });
-    await addOverlay(first.id, { at: "8", title: "Second" });
-    await addOverlay(first.id, { at: "2", title: "First" });
+    // Durations kept short: two Overlays may never be on screen at once, and
+    // the second Clip starts at 10s on the Video's own timeline.
+    await addOverlay(second.id, { at: "1", duration: "1", title: "Third" });
+    await addOverlay(first.id, { at: "8", duration: "1", title: "Second" });
+    await addOverlay(first.id, { at: "2", duration: "1", title: "First" });
 
     const rows = ndjson(
       (await run(["overlay", "list", "--video", s.standaloneActiveId])).stdout
@@ -322,8 +327,8 @@ describe("overlay get", () => {
 
   it("returns several Overlays as NDJSON", async () => {
     const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
-    const a = await addOverlay(clip.id, { at: "1", title: "A" });
-    const b = await addOverlay(clip.id, { at: "2", title: "B" });
+    const a = await addOverlay(clip.id, { at: "1", duration: "1", title: "A" });
+    const b = await addOverlay(clip.id, { at: "2", duration: "1", title: "B" });
 
     const rows = ndjson(
       (await run(["overlay", "get", a.id, b.id])).stdout

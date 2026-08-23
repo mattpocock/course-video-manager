@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_overlay" ADD COLUMN "kind" varchar(255) DEFAULT 'definitionCard' NOT NULL;
