@@ -196,6 +196,14 @@ _Avoid_: Dirty video, Stale video
 The deliberate deletion of an Exported Video's `.mp4` file from disk, transitioning it back to an Unexported Video; reversible via re-export.
 _Avoid_: Clear, Delete from file system, Unexport
 
+**Overlay Render Cache**:
+The persistent directory of rendered **Definition Cards** — one transparent `.mov` per distinct piece of card content, named `{courseId}-{contentHash}.mov`, where the content hash covers the card's `title`, `description` and duration plus the **Overlay Renderer Version**. It is a second, smaller cache sitting under the **Export Hash**'s whole-export one, and the split is the point: a Video is re-exported whenever any **Clip** of it moves, and re-rendering every card through Chromium on each of those exports is what the cache exists to avoid. Because the address is the card's content and nothing else, two Overlays defining the same term share one render — anywhere in the same course, in any Video. The `{courseId}` prefix scopes nothing but the file name; it is there so a course's renders can be swept up on their own later, at the price of rendering shared content once per course. Every file in it is derivable from the database, so deleting the whole directory costs only render time.
+_Avoid_: Overlay cache (it holds renders, not **Overlays**), Definition Card cache, Render directory
+
+**Overlay Renderer Version**:
+A hardcoded constant in the codebase (`OVERLAY_RENDERER_VERSION`) that, when bumped, invalidates every render in the **Overlay Render Cache** and forces each **Definition Card** to be rendered again. The sibling of the **Export Version Key**, and deliberately not the same constant: a branding or encoding change to the card renderer should re-render the cards and leave every exported video alone, and an ffmpeg-settings change should re-export the videos and leave every cached card render alone.
+_Avoid_: Renderer version, Export Version Key (that addresses the export; this addresses the card render)
+
 ### Recording
 
 **Recording Session**:
