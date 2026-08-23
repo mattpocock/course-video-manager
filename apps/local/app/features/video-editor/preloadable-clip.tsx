@@ -190,8 +190,17 @@ export const PreloadableClip = (props: {
     ? null
     : overlayTransformStyle(props.overlays, overlayCurrentTime);
 
+  // `overflow-hidden` and the ground colour are the frame the Overlay
+  // Transform slides INSIDE: the move is a translate, so without a clip the
+  // footage would spill over whatever sits beside it, and the space it vacates
+  // would show the page rather than the panel's own ground.
   return (
-    <div className={cn("relative w-full", props.hidden && "hidden")}>
+    <div
+      className={cn(
+        "relative w-full overflow-hidden bg-[#101011]",
+        props.hidden && "hidden"
+      )}
+    >
       <video
         key={props.clip.frontendId}
         src={`/view-video?videoPath=${props.clip.videoFilename}#t=${preloadFrom},${modifiedEndTime}`}
@@ -199,11 +208,12 @@ export const PreloadableClip = (props: {
           "w-full",
           props.profile === "TikTok" && "w-92 aspect-[9/16]"
         )}
-        // The preview half of two contracts that are the same shape and never
-        // both in force: the Overlay's kind-derived Transform, and the Clip's
-        // own Clip Zoom. Each is formatted from the same rect the export's
-        // ffmpeg crop is built from (features/videos/overlay-transform and
-        // features/videos/clip-zoom), so what plays here is what ships.
+        // The preview half of two contracts that are never both in force: the
+        // Overlay's kind-derived Transform (a sideways translate) and the
+        // Clip's own Clip Zoom (a scale). Each is formatted from the same
+        // numbers the export's ffmpeg filter is built from
+        // (features/videos/overlay-transform and features/videos/clip-zoom),
+        // so what plays here is what ships.
         style={
           overlayCameraStyle ??
           clipZoomCssStyle(props.clip.zoomType) ??

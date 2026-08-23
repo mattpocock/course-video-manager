@@ -103,7 +103,7 @@ const findActiveOverlay = (overlays: ClipOverlay[], currentTime: number) => {
  * the Clip's own `<video>` — `null` when no Overlay covers the playhead, and
  * when the one that does carries no move (every Definition Card).
  *
- * The preview half of the contract `overlayTransformCropFilter` is the export
+ * The preview half of the contract `overlayTransformVideoFilter` is the export
  * half of, read at exactly the Overlay `OverlayPreview` draws, so the footage
  * and the graphic on top of it can never move at different moments.
  *
@@ -114,13 +114,17 @@ const findActiveOverlay = (overlays: ClipOverlay[], currentTime: number) => {
  *
  * Clip Zoom is not composed with this, and does not need to be: an Overlay
  * carrying a Transform is refused on a zoomed Clip when it is written (see
- * `cli/commands/overlay.clip-zoom-guard.ts`), so at most one of the two crops
- * is ever in force over one Clip.
+ * `cli/commands/overlay.clip-zoom-guard.ts`), so at most one of the two is
+ * ever in force over one Clip.
+ *
+ * The move is a pure sideways `translateX` — a Transform never scales the
+ * footage — so the wrapper in `preloadable-clip.tsx` clips the overflow and
+ * carries the colour the vacated frame shows.
  */
 export const overlayTransformStyle = (
   overlays: ClipOverlay[],
   currentTime: number
-): { transform: string; transformOrigin: string } | null => {
+): { transform: string } | null => {
   const active = findActiveOverlay(overlays, currentTime);
   if (!active) {
     return null;

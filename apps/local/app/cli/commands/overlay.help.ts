@@ -23,7 +23,7 @@ its own content flags. Passing the other kind's is refused, not ignored.
   bulletPanel: '--title' (the panel's own heading) plus '--bullets-json', a
     JSON file of at most 4 bullets, each an icon, a line of text and its own
     'revealAt'. The panel is drawn down the LEFT of frame — the side is fixed,
-    not a choice — while the camera pans and zooms to clear room for it.
+    not a choice — while the footage slides right to clear room for it.
 
 'revealAt' is SECONDS AFTER THE OVERLAY'S OWN START, so an authoring agent
 derives it straight from the transcript as 'wordStartTime - overlayAt'. Bullets
@@ -48,14 +48,19 @@ the enter animation off, bullets still appear at their own 'revealAt' — the
 timing holds, only the motion goes.
 
 THE CAMERA — derived, never authored. An Overlay's kind decides whether the
-footage underneath it MOVES. A 'bulletPanel' pans and zooms the camera from its
-centred framing to a right-shifted one for exactly the Overlay's window, and
-back again — there is no flag for the move, and no keyframes to write: making it
-a 'bulletPanel' is what gets it. A 'definitionCard' moves nothing. Because that
-move is a crop, and a Clip Zoom is ALSO a crop that is already baked into the
-footage by then, a camera-moving Overlay whose window lands on any Clip with a
-Clip Zoom is refused (exit 3) rather than compounding the two — clear that
-Clip's zoom ('cvm clip update --zoom none <id>'), or move the Overlay off it.
+footage underneath it MOVES. A 'bulletPanel' SLIDES the footage right — by
+exactly the panel's own width, so the shot ends up beside the panel rather than
+behind it — for the Overlay's window, then slides it back. There is no flag for
+the move and no keyframes to write: making it a 'bulletPanel' is what gets it.
+A 'definitionCard' moves nothing.
+
+The slide NEVER ZOOMS. The footage keeps the scale it was filmed at and only
+travels sideways; the frame it vacates is filled with the panel's own ground
+colour. A Clip Zoom is the opposite — a crop that magnifies, baked into the
+footage by then — so a camera-moving Overlay whose window lands on any Clip
+with a Clip Zoom is still refused (exit 3) rather than mixing the two ideas.
+Clear that Clip's zoom ('cvm clip update --zoom none <id>'), or move the
+Overlay off it.
 
 ONE AT A TIME. At most one Overlay is ever on screen at a given moment across
 the whole Video — there are no tracks and no layering. An 'add' or an 'update'

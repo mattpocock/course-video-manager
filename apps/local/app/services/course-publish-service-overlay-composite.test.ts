@@ -336,12 +336,12 @@ describe("Definition Cards in a course export", () => {
  *
  * The point of these is that ONE export pass produces both halves of a Bullet
  * Panel: the rendered panel (its own `.mov`, addressed by its bullets) and the
- * camera move under it (a `crop` node in the same filtergraph). Everything
+ * camera move under it (a `pad`/`crop` pair in the same filtergraph). Everything
  * between the two fakes is real — the Overlay rows, the Export Hash, the
  * timeline placement, the content address, and the filtergraph itself.
  */
 describe("Bullet Panels in a course export", () => {
-  it("renders the panel and pans the camera in one pass, gated to one window", async () => {
+  it("renders the panel and slides the camera in one pass, over one window", async () => {
     const { video, run, cardRenderRequests, compositeRuns } = await setup();
 
     // On the second Clip, which starts at 10s on the flattened timeline.
@@ -364,18 +364,22 @@ describe("Bullet Panels in a course export", () => {
     expect(placed.endInSeconds).toBe(17);
 
     const graph = buildOverlayCompositeFilterGraph(compositeRuns[0]!.overlays)!;
-    // The camera move: a time-varying crop on the footage itself...
+    // The camera move: a widened canvas and a time-varying window taken back
+    // out of it, so the footage slides without ever being magnified. Its own
+    // window lives in the ramps, not in an `enable=`.
+    expect(graph).toContain("pad=w=");
     expect(graph).toContain("crop=w=");
-    expect(graph).toContain("enable='between(t,11.000000,17.000000)'");
+    expect(graph).toContain("clip((t-11.000000)/");
+    expect(graph).toContain("clip((17.000000-t)/");
     // ...and the panel drawn on top of it, over the very same window.
     expect(graph).toContain("[1:v]setpts=PTS-STARTPTS+11.000/TB[ovl0]");
     expect(graph).toContain(
       "overlay=x=0:y=0:format=auto:eof_action=pass:repeatlast=0" +
         ":enable='between(t,11.000,17.000)'"
     );
-    // The crop runs BEFORE the graphic chain: the footage slides out from
+    // The move runs BEFORE the graphic chain: the footage slides out from
     // under a panel that is itself standing still.
-    expect(graph.indexOf("crop=w=")).toBeLessThan(graph.indexOf("overlay=x=0"));
+    expect(graph.indexOf("pad=w=")).toBeLessThan(graph.indexOf("overlay=x=0"));
   });
 
   it("asks the cache for the panel's own content, bullets and all", async () => {

@@ -330,32 +330,44 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
   it("moves the camera under a bulletPanel, before anything is drawn on it", () => {
     const graph = buildOverlayCompositeFilterGraph([panel()])!;
 
-    // The crop takes the video, and the graphic chain takes the crop's output.
-    expect(graph).toContain("[0:v]crop=");
+    // The pad/crop pair takes the video, and the graphic chain takes its
+    // output.
+    expect(graph).toContain("[0:v]pad=");
     expect(graph).toContain("[tf0][ovl0]overlay=");
   });
 
-  it("gates the move to the Overlay's own window on the Video's timeline", () => {
+  it("needs no gate, because the move is an identity outside its window", () => {
     const graph = buildOverlayCompositeFilterGraph([
       panel({ startInSeconds: 12, endInSeconds: 20 }),
     ])!;
 
-    expect(graph).toContain(
-      ":eval=frame:enable='between(t,12.000000,20.000000)'"
-    );
+    // The window is in the ramps rather than in an `enable=`: the pad widens
+    // the canvas for the whole video and the crop takes the picture straight
+    // back out of it wherever the ramps read zero. Gating only the crop would
+    // emit a wider frame than the graph expects, and `pad` has no timeline
+    // support to gate it with.
+    expect(graph).toContain("clip((t-12.000000)/");
+    expect(graph).toContain("clip((20.000000-t)/");
+    // The only `enable=` left in the graph is the graphic overlay's own.
+    expect(graph.match(/enable=/g)).toHaveLength(1);
+    expect(graph).toContain("[ovl0]overlay=");
   });
 
-  it("crops to the kind's own default Transform, which nobody authored", () => {
+  it("slides to the kind's own default Transform, which nobody authored", () => {
     const graph = buildOverlayCompositeFilterGraph([panel()])!;
 
-    // Centred (scale 1, origin 0.5/0.5) to right-shifted and slightly up.
-    expect(graph).toContain("st(3,lerp(1.000000,1.300000,ld(2)))");
-    expect(graph).toContain("(iw-iw/ld(3))*lerp(0.500000,0.620000,ld(2))");
-    expect(graph).toContain("(ih-ih/ld(3))*lerp(0.500000,0.400000,ld(2))");
-    // Clip Zoom's own crop arithmetic, so the two cannot disagree on framing.
-    expect(graph).toContain("crop=w='");
-    expect(graph).toContain("iw/ld(3)'");
-    expect(graph).toContain("ih/ld(3)'");
+    // Unmoved (offset 0) to the panel's own ground width, 812 of 1920.
+    expect(graph).toContain("st(3,lerp(0.000000,0.422917,ld(2)))");
+    // The canvas is widened by exactly that travel, on the left, and the
+    // picture is taken back out of it at its own size — so the source is
+    // never magnified.
+    expect(graph).toContain("pad=w='iw*1.422917':h='ih':x='iw*0.422917':y='0'");
+    expect(graph).toContain("crop=w='iw/1.422917':h='ih'");
+    expect(graph).toContain("(iw/1.422917)*(0.422917-ld(3))");
+    // Nothing divides a dimension by the progress slot any more — that
+    // division WAS the zoom.
+    expect(graph).not.toContain("iw/ld(3)");
+    expect(graph).not.toContain("ih/ld(3)");
   });
 
   it("puts the frame back to the export's own size once it has moved", () => {
@@ -409,8 +421,8 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
       panel({ disableEnterAnimation: true, disableExitAnimation: true }),
     ])!;
 
-    // Progress is pinned at 1: a hard cut to the shifted framing at the start
-    // of the window and a hard cut back at the end, done by the gate alone.
+    // Progress is pinned at 1: the footage is simply at its shifted framing
+    // for the whole of the Overlay's window, with no ramp at either end.
     expect(graph).toContain("st(2,1.000000);");
     expect(graph).not.toContain("clip(");
     expect(graph).not.toContain("lerp(0.000000,0.136888,");
@@ -422,11 +434,12 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
       panel({ startInSeconds: 10, endInSeconds: 14 }),
     ])!;
 
-    // One crop, for the second Overlay, and the whole graphic chain runs off
-    // its output — the Definition Card is drawn on untouched footage because
-    // the crop is bypassed everywhere outside 10s..14s.
+    // One pad/crop pair, for the second Overlay, and the whole graphic chain
+    // runs off its output — the Definition Card is drawn on untouched footage
+    // because the pair is an identity everywhere outside 10s..14s.
     expect(graph.match(/crop=/g)).toHaveLength(1);
-    expect(graph).toContain("[0:v]crop=");
+    expect(graph.match(/pad=/g)).toHaveLength(1);
+    expect(graph).toContain("[0:v]pad=");
     expect(graph).toContain("[tf1][ovl0]overlay=");
     expect(graph).toContain("[comp0][ovl1]overlay=");
     expect(graph.match(/scale=1920:1080/g)).toHaveLength(1);

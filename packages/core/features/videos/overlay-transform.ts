@@ -1,10 +1,18 @@
 /**
  * Overlay Transform — the camera move an Overlay's KIND asks for.
  *
- * A Clip Zoom (see {@link ./clip-zoom.ts}) is one static rect for a whole
- * Clip. A Transform is the other shape of the same idea: a PAIR of rects and a
- * move between them, scoped to one Overlay's own window rather than a Clip, so
- * the footage can pull aside for a panel and come back when the panel goes.
+ * A Clip Zoom (see {@link ./clip-zoom.ts}) is a static CROP of a whole Clip: it
+ * throws source away and magnifies what is left. A Transform is the other
+ * thing entirely — a pure SLIDE. The footage keeps its own scale to the pixel
+ * and simply travels sideways in frame, scoped to one Overlay's own window, so
+ * it can move aside for a panel and come back when the panel goes.
+ *
+ * NO ZOOM, EVER. The source footage is never magnified by a Transform, and
+ * that is the point rather than an accident of the numbers: a presenter shot
+ * that grows when a panel arrives reads as a cut to a different framing. A
+ * shot that slides reads as the frame making room. So a Transform's two ends
+ * are one number each — how far right the footage sits — and there is no
+ * scale, and no origin, to get wrong.
  *
  * Nobody authors it. An Overlay carries no keyframes and the CLI has no flag
  * for them: the move is looked up from the Overlay's `kind`, so creating a
@@ -13,45 +21,63 @@
  * `Record<OverlayKind, …>`, so a third content-kind is a compile error here
  * until somebody says whether it moves the camera.
  *
- * The geometry is deliberately Clip Zoom's — the same fractional
- * {@link ClipZoomRect}, formatted into the same `crop` arithmetic — so the two
- * features cannot drift into disagreeing about what "scale 1.3 around
- * (0.62, 0.4)" frames. The two must never be applied to the same footage
- * though: `cvm overlay add` refuses a Transform-carrying Overlay whose window
- * lands on a zoomed Clip rather than compounding the two crops.
+ * A Transform and a Clip Zoom are still never applied to the same footage:
+ * `cvm overlay add` refuses a Transform-carrying Overlay whose window lands on
+ * a zoomed Clip.
  */
 
-import type { ClipZoomRect } from "./clip-zoom.js";
 import { resolveOverlayKind, type OverlayKind } from "./overlay-kind.js";
 
 /**
- * A camera move: where the framing starts and where it arrives. Both ends are
- * {@link ClipZoomRect}s, fractional and so resolution-independent.
+ * Where the footage sits in frame: `offsetX` is how far RIGHT it has travelled
+ * from where it was filmed, as a fraction of the frame's own width, so it is
+ * resolution-independent. `0` is untouched; `0.25` has the footage a quarter of
+ * a frame to the right, with its left quarter now empty and its right quarter
+ * pushed off the edge.
+ *
+ * One number, because a Transform slides and never zooms. There is deliberately
+ * no `scale` and no vertical partner: adding either would let a Transform do
+ * the thing this feature exists not to do.
  */
-export type OverlayTransform = {
-  readonly from: ClipZoomRect;
-  readonly to: ClipZoomRect;
+export type OverlayFraming = {
+  readonly offsetX: number;
 };
 
-/** How the camera is already framed: the centred shot Matt records. */
-const CENTERED: ClipZoomRect = { scale: 1, originX: 0.5, originY: 0.5 };
+/** A camera move: where the footage starts and where it arrives. */
+export type OverlayTransform = {
+  readonly from: OverlayFraming;
+  readonly to: OverlayFraming;
+};
+
+/** How the camera is already framed: the shot Matt filmed, unmoved. */
+const CENTERED: OverlayFraming = { offsetX: 0 };
+
+/**
+ * How far a Bullet Panel slides the footage right: the exact width of the
+ * panel's own opaque ground, 812 of 1920 (`GROUND_WIDTH` in the renderer's
+ * `BulletPanel.tsx`).
+ *
+ * It is that width and not a rounder number because the two edges are meant to
+ * meet. The footage's left edge arrives exactly where the panel's right edge
+ * is, so the panel covers empty frame rather than the presenter, and no part of
+ * the shot is hidden behind it. Slide less and the panel eats into the face;
+ * slide more and a band of dead frame opens between the two.
+ */
+const BULLET_PANEL_OFFSET_X = 812 / 1920;
 
 /**
  * The move each content-kind asks for, or `null` for a kind that draws over
  * untouched footage (which is every kind but `bulletPanel` today).
  *
- * BALLPARK, NOT FINAL. `bulletPanel`'s end rect — 130% around (0.62, 0.4) —
- * pushes the face right and slightly up to clear the left third of frame for
- * the panel, and was picked by arithmetic rather than by looking at a render.
- * It is expected to be tuned against real footage; that tuning is a one-line
- * edit here, and it moves the preview, the export and nothing else, because
- * every consumer reads the rect from this table and nowhere else.
+ * Tuning is a one-line edit here, and it moves the preview, the export and
+ * nothing else, because every consumer reads the framing from this table and
+ * nowhere else.
  */
 const OVERLAY_TRANSFORMS: Record<OverlayKind, OverlayTransform | null> = {
   definitionCard: null,
   bulletPanel: {
     from: CENTERED,
-    to: { scale: 1.3, originX: 0.62, originY: 0.4 },
+    to: { offsetX: BULLET_PANEL_OFFSET_X },
   },
 };
 
@@ -130,16 +156,15 @@ export const easeOverlayTransformProgress = (ramp: number): number => {
 };
 
 /** The framing partway through a move: `0` is `from`, `1` is `to`. */
-export const overlayTransformRectAt = (
+export const overlayTransformFramingAt = (
   transform: OverlayTransform,
   progress: number
-): ClipZoomRect => {
+): OverlayFraming => {
   const p = Math.min(1, Math.max(0, progress));
-  const mix = (from: number, to: number) => from + (to - from) * p;
   return {
-    scale: mix(transform.from.scale, transform.to.scale),
-    originX: mix(transform.from.originX, transform.to.originX),
-    originY: mix(transform.from.originY, transform.to.originY),
+    offsetX:
+      transform.from.offsetX +
+      (transform.to.offsetX - transform.from.offsetX) * p,
   };
 };
 
@@ -217,13 +242,17 @@ export const overlayTransformProgressAt = (
  * Clip's `<video>` — or `null` for an Overlay whose kind moves no camera, and
  * for a moment outside the Overlay's own window.
  *
- * The exact twin of {@link overlayTransformCropFilter}, exactly as
- * `clipZoomCssStyle` is the twin of `clipZoomCropFilter`: both read the
- * same rect from {@link OVERLAY_TRANSFORMS} and both put it through the same
+ * The exact twin of {@link overlayTransformVideoFilter}: both read the same
+ * framing from {@link OVERLAY_TRANSFORMS} and both put it through the same
  * eased progress, so the editor preview cannot disagree with what the Publish
- * ships. The filter varies with `t` inside ONE node; the preview is re-asked
+ * ships. The filter varies with `t` inside one node; the preview is re-asked
  * once per playhead update instead, which is why the moment is a parameter
  * here rather than a variable in an expression.
+ *
+ * A `translateX` and NOT a `scale`: the percentage is of the element's own
+ * width, which is the whole frame, so it is the same fraction the export
+ * slides by. The `<video>` keeps every pixel at the size it was filmed, and
+ * the space it leaves behind shows whatever the player draws underneath.
  *
  * `timeInSeconds` is read on whatever clock the window is stated on. The
  * export states both on the flattened Video timeline; the editor states both
@@ -234,7 +263,7 @@ export const overlayTransformProgressAt = (
 export const overlayTransformCssStyleAt = (
   overlay: OverlayTransformWindow & { readonly kind?: string | null },
   timeInSeconds: number
-): { transform: string; transformOrigin: string } | null => {
+): { transform: string } | null => {
   const transform = overlayTransform(overlay.kind);
   if (!transform) return null;
   if (!(overlay.endInSeconds > overlay.startInSeconds)) return null;
@@ -245,15 +274,12 @@ export const overlayTransformCssStyleAt = (
     return null;
   }
 
-  const rect = overlayTransformRectAt(
+  const framing = overlayTransformFramingAt(
     transform,
     overlayTransformProgressAt(overlay, timeInSeconds)
   );
 
-  return {
-    transform: `scale(${rect.scale})`,
-    transformOrigin: `${rect.originX * 100}% ${rect.originY * 100}%`,
-  };
+  return { transform: `translateX(${framing.offsetX * 100}%)` };
 };
 
 // ---------------------------------------------------------------------------
@@ -299,12 +325,10 @@ const easeExpression = (argExpr: string): string => {
 };
 
 /**
- * The shared head of all four `crop` expressions: progress into slot 2, and
- * the scale it implies into slot 3.
+ * The head of the `crop` expression: progress into slot 2, and the offset it
+ * implies into slot 3.
  *
- * ffmpeg evaluates each of `w`/`h`/`x`/`y` in its own variable context, so the
- * head has to be repeated in each rather than computed once — which is why the
- * two ends are reduced to ONE ramp before being eased, rather than eased
+ * The two ends are reduced to ONE ramp before being eased, rather than eased
  * separately and then compared. The curve is monotonic, so
  * `min(ease(a), ease(b))` and `ease(min(a, b))` are the same number, and only
  * the second spells the ladder out once.
@@ -333,38 +357,84 @@ const progressPrelude = (
 
   return (
     progress +
-    `st(3,lerp(${fmt(transform.from.scale)},${fmt(transform.to.scale)},ld(2)));`
+    `st(3,lerp(${fmt(transform.from.offsetX)},${fmt(transform.to.offsetX)},ld(2)));`
   );
 };
 
 /**
- * The `crop` filter that performs an Overlay's camera move, or `null` for an
+ * What the empty frame a slide opens up is filled with.
+ *
+ * Near-black rather than pure black, because the Bullet Panel's own ground is
+ * `#101011` and sweeps across exactly this space: for the fraction of a second
+ * during the ease when the footage has moved further than the ground has, the
+ * band between them should read as the panel arriving, not as a hole in the
+ * picture. It is a plain constant and not an import — `packages/core` must not
+ * depend on the renderer — and nothing breaks if the two drift, because both
+ * are near-black on a moving edge.
+ */
+const SLIDE_BACKGROUND_COLOR = "#101011";
+
+/**
+ * The filter chain that performs an Overlay's camera move, or `null` for an
  * Overlay whose kind moves no camera.
  *
- * The geometry is {@link clipZoomCropFilter}'s, in ffmpeg's own `iw`/`ih`
- * terms so it is right for whatever the source is — only every term is now a
- * function of `t`, which is what `eval=frame` asks ffmpeg to honour. The node
- * is gated with the same `enable='between(t,…)'` idiom the graphic overlay
- * chain uses, so outside its window the filter is bypassed entirely and the
- * frame passes through at its own size.
+ * A slide cannot be a crop. A crop can only choose a window INSIDE the source,
+ * so the only way it moves the picture sideways is by first magnifying it to
+ * make room — which is the zoom this feature exists to avoid. So the chain is
+ * two nodes instead:
+ *
+ * 1. a STATIC `pad` that widens the canvas by the move's own travel, putting
+ *    the untouched picture in the middle of a wider frame;
+ * 2. an ANIMATED `crop` that takes an original-sized window back out of it, at
+ *    an `x` that walks left as the footage is meant to travel right.
+ *
+ * The output is the source's own size on every frame, and every pixel of the
+ * picture that survives is at the scale it was filmed at — the pair only ever
+ * copies, never resamples.
+ *
+ * NO `enable=` GATE, deliberately. Outside the Overlay's window the ramps in
+ * {@link progressPrelude} already evaluate to `0`, so the crop lands exactly
+ * on the padded picture and the two nodes compose to an identity. Gating would
+ * have to gate BOTH — a bypassed `crop` behind a live `pad` emits a wider
+ * frame than the graph expects — and `pad` does not support timeline editing
+ * in every ffmpeg build. An identity by construction needs no gate.
  */
-export const overlayTransformCropFilter = (
+export const overlayTransformVideoFilter = (
   overlay: OverlayTransformWindow & { readonly kind?: string | null }
 ): string | null => {
   const transform = overlayTransform(overlay.kind);
   if (!transform) return null;
   if (!(overlay.endInSeconds > overlay.startInSeconds)) return null;
 
-  const prelude = progressPrelude(transform, overlay);
-  const origin = (from: number, to: number) =>
-    `lerp(${fmt(from)},${fmt(to)},ld(2))`;
+  // How much empty frame the move needs on each side, as a fraction of the
+  // SOURCE's width: a rightward slide opens space on the left, a leftward one
+  // on the right, and an end that never leaves centre asks for neither.
+  const offsets = [transform.from.offsetX, transform.to.offsetX];
+  const padLeft = Math.max(0, ...offsets);
+  const padRight = Math.max(0, ...offsets.map((offset) => -offset));
+  // The padded canvas, as a multiple of the source's width. Inside `crop` this
+  // is the divisor that recovers the source's own width from `iw`, because by
+  // then `iw` is the PADDED width.
+  const widened = 1 + padLeft + padRight;
 
-  return [
-    `crop=w='${prelude}iw/ld(3)'`,
-    `h='${prelude}ih/ld(3)'`,
-    `x='${prelude}(iw-iw/ld(3))*${origin(transform.from.originX, transform.to.originX)}'`,
-    `y='${prelude}(ih-ih/ld(3))*${origin(transform.from.originY, transform.to.originY)}'`,
-    `eval=frame`,
-    `enable='between(t,${fmt(overlay.startInSeconds)},${fmt(overlay.endInSeconds)})'`,
+  const prelude = progressPrelude(transform, overlay);
+  const sourceWidth = `iw/${fmt(widened)}`;
+
+  const pad = [
+    `pad=w='iw*${fmt(widened)}'`,
+    `h='ih'`,
+    `x='iw*${fmt(padLeft)}'`,
+    `y='0'`,
+    `color=${SLIDE_BACKGROUND_COLOR}`,
   ].join(":");
+
+  const crop = [
+    `crop=w='${sourceWidth}'`,
+    `h='ih'`,
+    `x='${prelude}(${sourceWidth})*(${fmt(padLeft)}-ld(3))'`,
+    `y='0'`,
+    `eval=frame`,
+  ].join(":");
+
+  return `${pad},${crop}`;
 };

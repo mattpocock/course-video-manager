@@ -16,7 +16,7 @@ import {
 import type { OverlayContent } from "./overlay-render-cache";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportOverlay } from "./export-hash";
-import { overlayTransformCropFilter } from "@/features/videos/overlay-transform";
+import { overlayTransformVideoFilter } from "@/features/videos/overlay-transform";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-run";
 
@@ -173,14 +173,14 @@ const overlayContent = (overlay: ExportOverlay): OverlayContent => {
 const formatSeconds = (seconds: number): string => seconds.toFixed(3);
 
 /**
- * What puts the frame back to the size the rest of the graph expects.
+ * What puts the frame at the size the rest of the graph expects.
  *
- * A time-varying `crop` is the only node here that changes the frame size, and
- * it changes it every frame — so the picture is resampled back to the export's
- * own resolution before a rendered Overlay (itself rendered at that
- * resolution) is drawn on top of it. Landscape, because this pass IS the
- * landscape course export: it encodes with LANDSCAPE_VIDEO_ENCODE_ARGS, and
- * Overlays exist only on course videos.
+ * A rendered Overlay is drawn at the export's own resolution, so the footage
+ * it lands on has to be at that resolution too — and the source seldom is.
+ * The camera move itself no longer changes the frame size (its `pad` and
+ * `crop` cancel), so this is the plain resize it always was underneath.
+ * Landscape, because this pass IS the landscape course export: it encodes
+ * with LANDSCAPE_VIDEO_ENCODE_ARGS, and Overlays exist only on course videos.
  */
 const NORMALIZE_FILTER = `scale=${VIDEO_FORMAT_DIMENSIONS.landscape.width}:${VIDEO_FORMAT_DIMENSIONS.landscape.height}`;
 
@@ -197,17 +197,16 @@ const NORMALIZE_FILTER = `scale=${VIDEO_FORMAT_DIMENSIONS.landscape.width}:${VID
  * Overlay renders start at frame 0 and last only as long as the Overlay, so the
  * `setpts` shift is what puts the first frame at the moment it is meant to
  * appear; `eof_action=pass` and `repeatlast=0` then let the video run on
- * untouched once the render's own frames are spent. That shift and this gate
- * are ALSO what keeps a Bullet Panel on top of its own camera move: the crop
- * node below is gated by the identical `enable=` window, so the panel arrives
- * on the frame the pan starts and leaves on the frame it ends.
+ * untouched once the render's own frames are spent.
  *
  * Ahead of that chain sits the camera: an Overlay whose `kind` carries a
- * Transform (`features/videos/overlay-transform.ts`) also gets a time-varying
- * `crop` on the video itself, gated to the same window by the same
- * `enable='between(t,…)'`, so the footage pans and zooms out from under the
- * graphic and back again. An Overlay whose kind carries none — every Definition
- * Card — adds no crop node at all, so its graph is what it always was.
+ * Transform (`features/videos/overlay-transform.ts`) also gets a `pad`/`crop`
+ * pair on the video itself, which SLIDES the footage sideways — never zooms
+ * it — out from under the graphic and back again. It carries its own window
+ * in its ramps rather than in an `enable=`, and is an identity everywhere
+ * outside it, so the panel and the move still start and end on the same frame.
+ * An Overlay whose kind carries none — every Definition Card — adds no move at
+ * all, so its graph is what it always was.
  *
  * Returns `null` for no Overlays at all — the signal to skip the pass entirely,
  * which is what leaves a Video without Overlays byte-for-byte as it was.
@@ -232,17 +231,16 @@ export const buildOverlayCompositeFilterGraph = (
   // The camera moves BEFORE anything is drawn on top of it: the panel is meant
   // to sit still in frame while the footage slides out from under it.
   const moves = overlays.flatMap((overlay, index) => {
-    const crop = overlayTransformCropFilter(overlay);
+    const crop = overlayTransformVideoFilter(overlay);
     return crop === null ? [] : [{ index, crop }];
   });
   const cropNodes = moves.map(({ index, crop }, position) => {
     const output = `[tf${index}]`;
-    // Only the LAST crop is normalized, and only because a crop is what
-    // changes the frame size in the first place: chaining a second crop onto a
-    // frame the first one is currently shrinking would compound them. It never
-    // happens — two Overlays are never on screen at once (`cvm overlay add`
-    // refuses it), so at most one of these nodes is enabled at any moment, and
-    // whichever it is sees a full-size frame.
+    // Only the LAST move is normalized, because normalizing is a resize and
+    // doing it once is enough. Each move hands on a frame of the size it was
+    // given — its `pad` and `crop` cancel — so chaining them changes nothing
+    // but where the picture sits, and two are never on screen at once anyway
+    // (`cvm overlay add` refuses it).
     const normalize =
       position === moves.length - 1 ? `,${NORMALIZE_FILTER}` : "";
     const node = `${current}${crop}${normalize}${output}`;
