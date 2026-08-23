@@ -10,6 +10,7 @@ import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import { makeFfmpegLogger } from "./ffmpeg-video-logger";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
+import { overlayRendererBinPath } from "./overlay-renderer-bin";
 
 export type RenderVerticalStage =
   "concatenating-clips" | "transcribing" | "rendering-overlay" | "compositing";
@@ -55,7 +56,8 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
           // video-processing-service.ts's exportVideoClips.
           const logCliOutput = (
             stage: "concat" | "normalize-audio" | "composite-overlay"
-          ) => makeFfmpegLogger(videoEditorLogger, opts.videoId, `short:${stage}`);
+          ) =>
+            makeFfmpegLogger(videoEditorLogger, opts.videoId, `short:${stage}`);
 
           // Step 1: Concatenate clips → temp file (not the final output path,
           // since the composite step will write the final .mp4)
@@ -270,10 +272,7 @@ function renderOverlay(
     const propsFile = path.join(propsDir, `${propsHash}.json`);
     yield* effectFs.writeFileString(propsFile, propsJson);
 
-    const binPath = path.resolve(
-      import.meta.dirname,
-      "../../packages/subtitle-overlay-renderer/bin.mjs"
-    );
+    const binPath = overlayRendererBinPath();
 
     const result = yield* Effect.scoped(
       Effect.gen(function* () {

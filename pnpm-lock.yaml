@@ -434,7 +434,7 @@ importers:
         specifier: ^3
         version: 3.2.7(@types/debug@4.1.13)(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/subtitle-overlay-renderer:
+  packages/overlay-renderer:
     dependencies:
       '@remotion/bundler':
         specifier: 4.0.347

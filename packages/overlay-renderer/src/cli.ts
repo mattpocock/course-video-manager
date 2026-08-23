@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { parseOverlayProps } from "./props";
-import { renderSubtitleOverlay } from "./render";
+import { renderOverlay } from "./render";
 
-const USAGE = `Render the subtitle + CTA overlay to a transparent ProRes 4444 .mov.
+const USAGE = `Render a CVM overlay to a transparent ProRes 4444 .mov.
 
 Usage:
-  render-subtitle-overlay --props-file <path.json> --out <path.mov>
-  render-subtitle-overlay --out <path.mov>   # props read from stdin
+  render-overlay --props-file <path.json> --out <path.mov>
+  render-overlay --out <path.mov>   # props read from stdin
 
 Options:
   --props-file <path>  JSON file with the overlay props. If omitted, props are
@@ -16,7 +16,12 @@ Options:
   -h, --help           Show this help.
 
 Props JSON shape (see src/props.ts):
-  { width, height, fps, durationInFrames, subtitles: [{startFrame,endFrame,text}], cta: {variant,durationInFrames}|null }`;
+  { width, height, fps, durationInFrames,
+    subtitles: [{startFrame,endFrame,text}],
+    cta: {variant,durationInFrames}|null,
+    definitionCards: [{title,description,startFrame,durationInFrames}] }
+
+Everything but durationInFrames is optional.`;
 
 const readStdin = async (): Promise<string> => {
   const chunks: Buffer[] = [];
@@ -27,8 +32,12 @@ const readStdin = async (): Promise<string> => {
 };
 
 const parseArgs = (argv: string[]) => {
-  const args: { propsFile?: string; out?: string; quiet: boolean; help: boolean } =
-    { quiet: false, help: false };
+  const args: {
+    propsFile?: string;
+    out?: string;
+    quiet: boolean;
+    help: boolean;
+  } = { quiet: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     switch (arg) {
@@ -68,7 +77,7 @@ export const main = async (argv: string[]): Promise<void> => {
     : await readStdin();
   const props = parseOverlayProps(JSON.parse(rawJson));
 
-  const result = await renderSubtitleOverlay(props, {
+  const result = await renderOverlay(props, {
     outputLocation: args.out,
     onProgress: args.quiet
       ? undefined

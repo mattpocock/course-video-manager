@@ -1,5 +1,5 @@
 import { Composition } from "remotion";
-import { SubtitleOverlay } from "./Composition";
+import { Overlay } from "./Composition";
 import "./index.css";
 import { COMPOSITION_ID, type OverlayProps } from "../src/props";
 
@@ -16,13 +16,22 @@ const sampleProps: OverlayProps = {
     { startFrame: 120, endFrame: 180, text: "that AI can only be" },
   ],
   cta: { variant: "ai", durationInFrames: 120 },
+  definitionCards: [
+    {
+      title: "Ubiquitous Language",
+      description:
+        "One shared vocabulary for a domain, used identically in conversation and in code.",
+      startFrame: 0,
+      durationInFrames: 180,
+    },
+  ],
 };
 
 export const RemotionRoot: React.FC = () => {
   return (
     <Composition
       id={COMPOSITION_ID}
-      component={SubtitleOverlay}
+      component={Overlay}
       defaultProps={sampleProps}
       calculateMetadata={async ({ props }) => ({
         durationInFrames: Math.floor(props.durationInFrames),

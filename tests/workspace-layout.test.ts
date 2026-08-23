@@ -20,7 +20,7 @@ const WORKSPACE_PACKAGES = [
   "apps/local",
   "apps/remote",
   "packages/core",
-  "packages/subtitle-overlay-renderer",
+  "packages/overlay-renderer",
 ] as const;
 
 interface PackageJson {

@@ -1,12 +1,12 @@
 {
-  "name": "@cvm/subtitle-overlay-renderer",
+  "name": "@cvm/overlay-renderer",
   "version": "1.0.0",
-  "description": "Standalone Remotion renderer for the CVM subtitle + CTA caption overlay. Renders a transparent 1080x1920 overlay locally via @remotion/renderer (Chromium). No AWS/Lambda.",
+  "description": "Standalone Remotion renderer for CVM overlays — the subtitle + CTA caption overlay and AI Hero Definition Cards. Renders a transparent overlay at any resolution locally via @remotion/renderer (Chromium). No AWS/Lambda.",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
   "bin": {
-    "render-subtitle-overlay": "./bin.mjs"
+    "render-overlay": "./bin.mjs"
   },
   "exports": {
     ".": "./src/render.ts"
