@@ -21,6 +21,7 @@ Verbs:
   clip update <id> [flags]             set --zoom and/or retime --start/--end
   clip move <id> --before/--after <id> reposition within the timeline
   clip delete <id>                     archive the clip (soft delete; irreversible from the CLI)
+  clip words <id>                      the clip's Transcript Words, in spoken order (NDJSON)
 
 All writes are immediate — no confirmation, no dry-run (agent-facing tool). There is no 'clip tree'
 (clips are leaves) — use 'video tree' then 'clip get'. 'clip add' cuts a single clip from a footage
@@ -81,6 +82,10 @@ words of '<source>'s cached transcript (produced by 'cvm footage transcribe')
 that fall in [start, end) are sliced out as the clip's 'text'. If '<source>' has
 no cached transcript this is refused (exit 3) — run 'cvm footage transcribe
 <source>' first. There is no live Whisper call here.
+
+The SAME slice also populates the clip's Transcript Words (see 'clip words'),
+re-based so 0 is the clip's own start — so a clip cut this way has per-word
+timing straight away, with no re-transcribe step.
 
 --before / --after resolve exactly like 'clip move': the anchor is another item
 on the SAME video, and because clips and chapters share one order space the new
@@ -143,3 +148,28 @@ Examples:
   cvm clip get clip_abc
   cvm clip get clip_abc clip_def clip_ghi
   cvm clip get clip_abc | jq '{id, text, start: .sourceStartTime, end: .sourceEndTime}'`;
+
+export const WORDS_HELP = `A Clip's Transcript Words — the per-word timing of its spoken audio.
+
+One NDJSON object per word, in spoken order:
+
+  { "start": 1.2, "end": 1.5, "text": "overlay" }
+
+'start'/'end' are seconds CLIP-RELATIVE: 0 is the clip's own start, NOT an
+offset into the source footage file and NOT a position in the Video's finished
+timeline. They survive the source footage being re-recorded or moved, because
+they are stored on the clip itself.
+
+Words are written by transcribing the clip (the editor's transcribe action) or,
+for a clip cut with 'clip add', by slicing '<source>'s cached footage transcript.
+A clip that has never been transcribed simply HAS no words: that prints nothing
+and exits 0 — it is an ordinary state, not an error. Clips transcribed before
+Transcript Words existed are in exactly that state and need a re-transcribe.
+
+Read-only: there is no CLI verb that writes or edits an individual word.
+
+Examples:
+  cvm clip words clip_abc
+
+  # When was "overlay" said in this clip?
+  cvm clip words clip_abc | jq 'select(.text == "overlay")'`;
