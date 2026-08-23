@@ -98,6 +98,24 @@ Mock at **system boundaries** only:
 
 Prefer SDK-style interfaces over generic fetchers at boundaries — each function is independently mockable with a single return shape, no conditional logic in test setup.
 
+### Remotion renderer packages
+
+**Never write an automated test against a Remotion renderer package's actual
+render output** — not for the packages that exist today, not for any added
+later. A real render boots Chromium, takes minutes, downloads a browser on a
+cold machine, and asserts on pixels that a deliberate branding change is
+supposed to move; the test then fails for the one reason that is not a bug.
+
+What is still fair game, and where the confidence comes from instead:
+
+- The renderer's **props schema** — pure schema validation, no Chromium. Test
+  it; it is the contract every caller writes against.
+- The **orchestration around the render** — the props a service builds, and the
+  arguments it spawns the renderer with. Test that, with the renderer faked at
+  the process boundary like any other external process.
+- The **look** is checked by a human in Remotion Studio (`pnpm run studio`),
+  not by a test.
+
 ### TDD Workflow: Vertical Slices
 
 Do NOT write all tests first, then all implementation. That produces tests that verify _imagined_ behavior and are insensitive to real changes.

@@ -9,7 +9,7 @@ try {
   await cli.main(process.argv.slice(2));
 } catch (error) {
   process.stderr.write(
-    `\n${error instanceof Error ? error.message : String(error)}\n`,
+    `\n${error instanceof Error ? error.message : String(error)}\n`
   );
   process.exit(1);
 }

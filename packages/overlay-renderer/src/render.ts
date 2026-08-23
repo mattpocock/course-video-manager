@@ -37,7 +37,7 @@ export interface RenderResult {
 
 /**
  * Bundle the Remotion project once so multiple renders can share it. Returns a
- * `serveUrl` to pass back into {@link renderSubtitleOverlay}.
+ * `serveUrl` to pass back into {@link renderOverlay}.
  */
 export const bundleOverlayRenderer = (): Promise<string> =>
   bundle({
@@ -47,15 +47,16 @@ export const bundleOverlayRenderer = (): Promise<string> =>
   });
 
 /**
- * Render the subtitle + CTA overlay to a transparent ProRes 4444 `.mov`.
+ * Render an overlay — subtitles, CTA and/or Definition Cards — to a
+ * transparent ProRes 4444 `.mov`.
  *
  * The overlay carries an alpha channel (pixel format `yuva444p10le`) so CVM can
  * composite it over the source video downstream. Rendering runs entirely
  * locally via Chromium — there is no AWS/Lambda path.
  */
-export const renderSubtitleOverlay = async (
+export const renderOverlay = async (
   input: OverlayProps | OverlayPropsInput,
-  options: RenderOptions,
+  options: RenderOptions
 ): Promise<RenderResult> => {
   const props = overlayPropsSchema.parse(input);
   const serveUrl = options.serveUrl ?? (await bundleOverlayRenderer());
@@ -91,10 +92,12 @@ export {
   parseOverlayProps,
   subtitleSchema,
   ctaSchema,
+  definitionCardSchema,
 } from "./props";
 export type {
   OverlayProps,
   OverlayPropsInput,
   Subtitle,
   Cta,
+  DefinitionCard,
 } from "./props";
