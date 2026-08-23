@@ -84,8 +84,14 @@ const BULLET_ICON_SIZE = 30;
  */
 const BULLET_TEXT_COLOR = "#D6D3D1";
 
-/** Amber-200, the same brand amber the Definition Card's accent bar uses. */
-const ACCENT_COLOR = "#FDE68A";
+/**
+ * The panel carries NO accent bar and no colour of its own.
+ *
+ * The Definition Card is a white card that needs a brand mark on it; this
+ * panel is a dark surface the size of a third of frame, and the only things on
+ * it are the AI Hero mark, a heading and its bullets. Weight and space
+ * separate them, not colour.
+ */
 
 /**
  * The icons are drawn in the same white as the text they label. They are
@@ -229,30 +235,19 @@ const Panel = ({ panel }: { panel: BulletPanel }) => {
             gap: 44 * scale,
           }}
         >
-          <div
-            className="flex items-center"
+          {/* No accent bar. The title starts on the panel's own left edge, the
+              same vertical the icons below it start on, so ONE left edge runs
+              down the whole panel. */}
+          <p
+            className="font-bold leading-tight text-white"
             style={{
-              gap: 20 * scale,
+              fontSize: 44 * scale,
               opacity: enter,
               transform: `translateX(${(enter - 1) * SLIDE_DISTANCE * scale}px)`,
             }}
           >
-            <div
-              style={{
-                width: 8 * scale,
-                height: 44 * scale,
-                borderRadius: 8 * scale,
-                background: ACCENT_COLOR,
-                flexShrink: 0,
-              }}
-            />
-            <p
-              className="font-bold leading-tight text-white"
-              style={{ fontSize: 44 * scale }}
-            >
-              {panel.title}
-            </p>
-          </div>
+            {panel.title}
+          </p>
 
           <div className="flex flex-col" style={{ gap: 36 * scale }}>
             {panel.bullets.map((bullet, index) => (
