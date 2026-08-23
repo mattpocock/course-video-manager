@@ -6,6 +6,7 @@ import { lessonCommand } from "./commands/lesson";
 import { videoCommand } from "./commands/video";
 import { clipCommand } from "./commands/clip";
 import { chapterCommand } from "./commands/chapter";
+import { overlayCommand } from "./commands/overlay";
 import { beatCommand } from "./commands/beat";
 import { fileCommand } from "./commands/file";
 import { footageCommand } from "./commands/footage";
@@ -23,7 +24,8 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'beat' (add/update/move/delete), 'clip' (add/update/move/delete), 'chapter'
-(add/update/move/delete), 'lesson' (create/update/move), 'video'
+(add/update/move/delete), 'overlay' (add/update/delete), 'lesson'
+(create/update/move), 'video'
 (create/move/update), 'file' (add/delete), 'footage' (transcribe), 'pitch'
 (create/update), 'deliverable' (create/update/archive) and 'course' (publish).
 Every other verb is read-only, and each verb's own --help is authoritative about
@@ -37,7 +39,9 @@ DOMAIN MODEL
   A Version contains Sections (directory-backed groupings), each containing
   Lessons. A Lesson contains Videos; a Video is an ordered sequence of Clips
   (recorded timeline) and is planned as an ordered sequence of Beats
-  (intended structure, by job/kind). Pitches are course ideas with a derived
+  (intended structure, by job/kind). An Overlay is a visual layer composited on
+  top of the footage, anchored to a Clip at an offset in seconds and carrying a
+  Definition Card (a title + description shown on screen). Pitches are course ideas with a derived
   Pitch State. Deliverables are calendar entries linking Courses and/or Pitches.
 
 ADDRESSING (output is for agents)
@@ -114,6 +118,10 @@ WRITES
                                      needs a footage file transcribed first)
     chapter add/update/move/delete   author a Video's Chapters (timeline
                                      dividers that group its Clips)
+    overlay add/update/delete        place a Definition Card on top of the
+                                     footage, anchored to a Clip at an offset
+                                     in seconds ('delete' is a HARD delete —
+                                     no archive, no restore)
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
     lesson  create/update/move       create a lesson, rename its title,
@@ -143,8 +151,8 @@ WRITES
   (Dropbox) and reads publish-only config from the repo .env.
 
 NOUNS
-  course version section lesson video clip chapter beat file footage pitch
-  deliverable
+  course version section lesson video clip chapter overlay beat file footage
+  pitch deliverable
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -167,6 +175,7 @@ export const rootCommand = Command.make("cvm").pipe(
     videoCommand,
     clipCommand,
     chapterCommand,
+    overlayCommand,
     beatCommand,
     fileCommand,
     footageCommand,
