@@ -1,8 +1,10 @@
 import {
   AbsoluteFill,
   Easing,
+  Img,
   interpolate,
   Sequence,
+  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
@@ -40,20 +42,57 @@ const SLIDE_DISTANCE = 48;
  * line the panel can hold (the "allotted width" the four-bullet cap exists to
  * protect), then the same gutter again on its right. That is 812 of 1920 — the
  * left third-and-a-bit that the paired camera Transform clears — so the ground
- * stops where the footage the Transform kept begins, instead of dimming the
+ * ends where the footage the Transform kept begins, instead of dimming the
  * presenter.
  *
- * Its right edge is feathered rather than cut, because a hard vertical line
- * across live footage reads as a rendering fault. The feather lies OUTSIDE the
- * covered column, so no word ever sits on the fade.
+ * It is FULLY OPAQUE and its right edge is a clean cut: the panel is a surface
+ * the footage runs beside, not a tint laid over it.
+ *
+ * The colour is tldraw's dark canvas, `hsl(240, 5%, 6.5%)`, the ground the
+ * course diagrams are drawn on. A diagram and a Bullet Panel are the same
+ * lesson's asides, so they share one background rather than each picking a
+ * near-black of its own.
  */
 const GROUND_WIDTH = PANEL_LEFT + PANEL_MAX_WIDTH + PANEL_LEFT;
-const GROUND_FEATHER = 96;
-const GROUND_COLOR = "rgba(12, 10, 9, 0.82)";
+const GROUND_COLOR = "#101011";
 
-/** Amber-200 / amber-400, the same two brand ambers the Definition Card uses. */
+/**
+ * The brand mark in the panel's top-left corner, on the same gutter as the
+ * words below it, so the corner margin is square.
+ *
+ * It is the WHITE mark. The Definition Card takes the dark one because its
+ * card is white; this panel's ground is not.
+ */
+const LOGO_SIZE = 56;
+
+/**
+ * A bullet's own type metrics, named because the ICON is aligned against them.
+ *
+ * The glyph is centred inside a box exactly one line tall, so it sits on the
+ * middle of the FIRST line whether the text runs to one line or three.
+ * Aligning the icon's top edge to the text's instead floats it above the
+ * letters, because a line box is taller than the letters inside it.
+ */
+const BULLET_FONT_SIZE = 32;
+const BULLET_LINE_HEIGHT = 1.45;
+const BULLET_ICON_SIZE = 30;
+
+/**
+ * Stone-300: the bullets sit one step back from the title's white. On a dark
+ * ground, pure white on every line glares and flattens the panel — the heading
+ * should still lead the eye.
+ */
+const BULLET_TEXT_COLOR = "#D6D3D1";
+
+/** Amber-200, the same brand amber the Definition Card's accent bar uses. */
 const ACCENT_COLOR = "#FDE68A";
-const ICON_COLOR = "#FBBF24";
+
+/**
+ * The icons are drawn in the same white as the text they label. They are
+ * punctuation for the line, not a second accent competing with the title's
+ * bar for the eye.
+ */
+const ICON_COLOR = "#FFFFFF";
 
 /**
  * The shared easing curve. The subtitles rise on it and the camera Transform
@@ -140,20 +179,36 @@ const Panel = ({ panel }: { panel: BulletPanel }) => {
   return (
     <>
       {/*
-        The ground is a SIBLING of the words rather than their parent, so the
-        lateral slide moves the words alone: a sliding edge over live footage
-        wobbles, a fading one does not. It arrives on the same ramp as the
-        title and leaves with the whole panel.
+        The ground and its mark are ONE surface, and a SIBLING of the words
+        rather than their parent. It travels its own full width, so it enters
+        from off the left edge of frame and leaves the same way, at FULL
+        OPACITY throughout: the panel is a surface that moved into place, never
+        one that faded up. The words then slide their own short distance on top
+        of it.
       */}
-      <AbsoluteFill style={{ opacity: enter * (1 - exit) }}>
+      <AbsoluteFill
+        style={{
+          transform: `translateX(${(enter - 1 - exit) * GROUND_WIDTH * scale}px)`,
+        }}
+      >
         <div
           style={{
             position: "absolute",
             top: 0,
             bottom: 0,
             left: 0,
-            width: (GROUND_WIDTH + GROUND_FEATHER) * scale,
-            background: `linear-gradient(to right, ${GROUND_COLOR} 0px, ${GROUND_COLOR} ${GROUND_WIDTH * scale}px, rgba(12, 10, 9, 0) 100%)`,
+            width: GROUND_WIDTH * scale,
+            background: GROUND_COLOR,
+          }}
+        />
+        <Img
+          src={staticFile("/ai-hero-logo.svg")}
+          style={{
+            position: "absolute",
+            top: PANEL_LEFT * scale,
+            left: PANEL_LEFT * scale,
+            width: LOGO_SIZE * scale,
+            height: LOGO_SIZE * scale,
           }}
         />
       </AbsoluteFill>
@@ -171,7 +226,7 @@ const Panel = ({ panel }: { panel: BulletPanel }) => {
           className="flex flex-col"
           style={{
             maxWidth: PANEL_MAX_WIDTH * scale,
-            gap: 28 * scale,
+            gap: 44 * scale,
           }}
         >
           <div
@@ -199,7 +254,7 @@ const Panel = ({ panel }: { panel: BulletPanel }) => {
             </p>
           </div>
 
-          <div className="flex flex-col" style={{ gap: 24 * scale }}>
+          <div className="flex flex-col" style={{ gap: 36 * scale }}>
             {panel.bullets.map((bullet, index) => (
               <Bullet
                 key={index}
@@ -245,10 +300,25 @@ const Bullet = ({
         transform: `translateX(${(reveal - 1) * SLIDE_DISTANCE * scale}px)`,
       }}
     >
-      <IconGlyph name={bullet.icon} size={36 * scale} />
+      {/* One line tall, and the glyph centred in it — see the metrics above. */}
+      <div
+        className="flex items-center"
+        style={{
+          height: BULLET_FONT_SIZE * BULLET_LINE_HEIGHT * scale,
+          flexShrink: 0,
+        }}
+      >
+        <IconGlyph name={bullet.icon} size={BULLET_ICON_SIZE * scale} />
+      </div>
       <p
-        className="font-medium leading-snug text-white"
-        style={{ fontSize: 32 * scale }}
+        className="font-normal"
+        style={{
+          fontSize: BULLET_FONT_SIZE * scale,
+          // Stated rather than left to a utility class, because the icon's box
+          // is measured from it: the two must not drift apart.
+          lineHeight: BULLET_LINE_HEIGHT,
+          color: BULLET_TEXT_COLOR,
+        }}
       >
         {bullet.text}
       </p>
