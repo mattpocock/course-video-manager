@@ -6,6 +6,7 @@ import { clipRoutes } from "./routes/clip.js";
 import { courseRoutes } from "./routes/course.js";
 import { deliverableRoutes } from "./routes/deliverable.js";
 import { lessonRoutes } from "./routes/lesson.js";
+import { overlayRoutes } from "./routes/overlay.js";
 import { pitchRoutes } from "./routes/pitch.js";
 import { searchRoutes } from "./routes/search.js";
 import { sectionRoutes } from "./routes/section.js";
@@ -50,6 +51,7 @@ export const createApp = (runtime: RemoteRuntime) =>
     .route("/rpc/video", videoRoutes(runtime))
     .route("/rpc/clip", clipRoutes(runtime))
     .route("/rpc/chapter", chapterRoutes(runtime))
+    .route("/rpc/overlay", overlayRoutes(runtime))
     .route("/rpc/beat", beatRoutes(runtime))
     .route("/rpc/pitch", pitchRoutes(runtime))
     .route("/rpc/deliverable", deliverableRoutes(runtime));
