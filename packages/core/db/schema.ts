@@ -110,6 +110,11 @@ export const courseVersions = createTable(
     uniqueIndex("course_version_one_pending_uniq")
       .on(table.repoId)
       .where(sql`${table.commitState} = 'pending'`),
+    // Postgres does not index FK columns automatically. The pending-only
+    // unique index above doesn't help a general "all versions for this
+    // course" lookup (e.g. resolving the latest Version), which otherwise
+    // scans the whole course_version table.
+    index("course_version_course_id_idx").on(table.repoId),
   ]
 );
 
@@ -314,6 +319,10 @@ export const clips = createTable(
     // renders. Without this the FK column is unindexed (Postgres does not index
     // FKs automatically) and each lookup seq-scans the whole clip table.
     index("clip_diagram_snapshot_id_idx").on(table.diagramSnapshotId),
+    // Same FK-indexing gap as above, but for the far hotter path: resolving a
+    // Video's clips (course structure, transcripts, export) otherwise
+    // seq-scans the whole clip table once per Video.
+    index("clip_video_id_idx").on(table.videoId),
   ]
 );
 
@@ -449,24 +458,32 @@ export const videoPosts = createTable("video_post", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const chapters = createTable("chapter", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  videoId: varchar("video_id", { length: 255 })
-    .references(() => videos.id, { onDelete: "cascade" })
-    .notNull(),
-  name: text("name").notNull(),
-  order: varcharCollateC("order").notNull(),
-  archived: boolean("archived").notNull().default(false),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
+export const chapters = createTable(
+  "chapter",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text("name").notNull(),
+    order: varcharCollateC("order").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    // Same FK-indexing gap as clip.video_id — resolving a Video's chapters
+    // otherwise seq-scans the whole chapter table once per Video.
+    index("chapter_video_id_idx").on(table.videoId),
+  ]
+);
 
 export const beats = createTable("beat", {
   id: varchar("id", { length: 255 })

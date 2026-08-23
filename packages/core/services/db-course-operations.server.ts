@@ -262,6 +262,10 @@ export const createCourseOperations = (db: Database) => {
                                 zoomType: true,
                                 order: true,
                                 archived: true,
+                                // Lets callers derive a transcript from this
+                                // same tree instead of a second 5-level query
+                                // — see courseViewEffect's videoTranscripts.
+                                text: true,
                               },
                               orderBy: asc(clips.order),
                               where: eq(clips.archived, false),
@@ -271,6 +275,8 @@ export const createCourseOperations = (db: Database) => {
                               columns: {
                                 order: true,
                                 archived: true,
+                                // See the clips.text comment above.
+                                name: true,
                               },
                               where: eq(chapters.archived, false),
                             },

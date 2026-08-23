@@ -13,6 +13,10 @@ import {
 } from "@/services/lesson-warnings";
 import { toExportClips } from "@/services/export-hash";
 import { runtimeLive } from "@/services/layer.server";
+import {
+  toTranscriptItems,
+  formatProseTranscript,
+} from "@/lib/transcript-builder";
 
 /**
  * The shared course-view loader Effect, used by both the full course page and
@@ -142,8 +146,28 @@ export function courseViewEffect(input: {
 
     const lessonFsMaps = runtimeLive.runPromise(loadLessonFsMaps({ lessons }));
 
-    const videoTranscripts = runtimeLive.runPromise(
-      courseOps.getVideoTranscripts(selectedCourseId)
+    // Derived in-memory from selectedCourse's already-fetched tree rather
+    // than a second `getVideoTranscripts` round trip — both walk the same
+    // course→versions→sections→lessons→videos→{clips,chapters} shape with
+    // the same filters, so a separate 5-level query here was pure waste.
+    // Still a Promise, matching what `copy-transcript-modal.tsx`'s `use()`
+    // expects.
+    const videoTranscripts = Promise.resolve(
+      Object.fromEntries(
+        (selectedCourse?.versions[0]?.sections ?? []).flatMap((section) =>
+          section.lessons.flatMap((lesson) =>
+            lesson.videos.map(
+              (video) =>
+                [
+                  video.id,
+                  formatProseTranscript(
+                    toTranscriptItems(video.clips, video.chapters)
+                  ),
+                ] as const
+            )
+          )
+        )
+      )
     );
 
     const latestVersion = versions[0];

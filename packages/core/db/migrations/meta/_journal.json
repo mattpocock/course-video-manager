@@ -120,6 +120,13 @@
       "when": 1787470461053,
       "tag": "0016_overlay",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787479605740,
+      "tag": "0017_index_clip_chapter_course_version_fks",
+      "breakpoints": true
     }
   ]
 }
