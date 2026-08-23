@@ -8,7 +8,7 @@
  * them into an opacity and a translate.
  */
 
-import { BULLET_PANEL_ANIMATION_IN_SECONDS } from "./props.js";
+import { BULLET_PANEL_ANIMATION_IN_SECONDS } from "./props";
 
 /** How many frames one ease takes, at the composition's frame rate. */
 export const bulletPanelAnimationFrames = (fps: number): number =>
