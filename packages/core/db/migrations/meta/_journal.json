@@ -141,6 +141,13 @@
       "when": 1787492010647,
       "tag": "0019_add_overlay_bullet_panel_content",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787587641717,
+      "tag": "0020_index_beat_video_id",
+      "breakpoints": true
     }
   ]
 }

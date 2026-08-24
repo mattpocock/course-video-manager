@@ -522,29 +522,38 @@ export const chapters = createTable(
   ]
 );
 
-export const beats = createTable("beat", {
-  id: varchar("id", { length: 255 })
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  // Mutable on purpose: dragging a Beat into another Video reassigns this FK.
-  videoId: varchar("video_id", { length: 255 })
-    .references(() => videos.id, { onDelete: "cascade" })
-    .notNull(),
-  kind: text("kind").notNull().default("definition"),
-  title: text("title").notNull().default(""),
-  // In-app planning note ("what am I going to do/say here"). Never published —
-  // publish skips it exactly as it skips the Beat plan itself.
-  description: text("description").notNull().default(""),
-  order: varcharCollateC("order").notNull(),
-  archived: boolean("archived").notNull().default(false),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
+export const beats = createTable(
+  "beat",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    // Mutable on purpose: dragging a Beat into another Video reassigns this FK.
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    kind: text("kind").notNull().default("definition"),
+    title: text("title").notNull().default(""),
+    // In-app planning note ("what am I going to do/say here"). Never published —
+    // publish skips it exactly as it skips the Beat plan itself.
+    description: text("description").notNull().default(""),
+    order: varcharCollateC("order").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    // Same FK-indexing gap as clip.video_id / chapter.video_id — resolving a
+    // Video's beats (course structure queries) otherwise seq-scans the whole
+    // beat table once per Video.
+    index("beat_video_id_idx").on(table.videoId),
+  ]
+);
 
 export namespace DB {
   export interface Clip extends Omit<InferSelectModel<typeof clips>, "id"> {
