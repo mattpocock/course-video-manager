@@ -85,8 +85,8 @@ const GROUND_COLOR = "#101011";
  * The brand mark in the panel's top-left corner, on the same gutter as the
  * words below it, so the corner margin is square.
  *
- * It is the WHITE mark. The Definition Card takes the dark one because its
- * card is white; this panel's ground is not.
+ * It is the WHITE mark — the same one the Definition Card now takes, since
+ * both panels sit on the same dark ground.
  */
 const LOGO_SIZE = 56;
 
@@ -112,10 +112,10 @@ const BULLET_TEXT_COLOR = "#D6D3D1";
 /**
  * The panel carries NO accent bar and no colour of its own.
  *
- * The Definition Card is a white card that needs a brand mark on it; this
- * panel is a dark surface the size of a third of frame, and the only things on
- * it are the AI Hero mark, a heading and its bullets. Weight and space
- * separate them, not colour.
+ * The Definition Card carries an amber accent bar because it is a small card
+ * that needs one visual anchor; this panel is a dark surface the size of a
+ * third of frame, and the only things on it are the AI Hero mark, a heading
+ * and its bullets. Weight and space separate them, not colour.
  */
 
 /**

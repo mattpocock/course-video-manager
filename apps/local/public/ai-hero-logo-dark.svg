@@ -5,7 +5,11 @@
 
   The source asset flips fill between black and white with a
   `prefers-color-scheme` media query. An overlay is composited over footage
-  with no page behind it, so the mark is flipped per theme. This is the dark mark, for the light Definition Card.
+  with no page behind it, so the mark is flipped per theme. This is the dark
+  mark, for a light surface — the Definition Card was the last consumer,
+  and has since moved to the dark ground every other Overlay surface uses
+  (see `ai-hero-logo.svg`), so this file is currently unused but kept for
+  the next light surface that needs it.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" fill="none" viewBox="0 0 280 280">
   <g clip-path="url(#a)">

@@ -44,12 +44,23 @@ const UNDERLINE_ERASE = UNDERLINE_DRAW;
 const UNDERLINE_HEIGHT = 4;
 /** The gap between the title's baseline box and the rule. */
 const UNDERLINE_GAP = 5;
-/** Amber-400. The accent bar's paler amber is invisible on white. */
+/** Amber-400. Reads as the brand accent on the dark panel same as it did on white. */
 const UNDERLINE_COLOR = "#FBBF24";
 
 /** The brand mark, sized against the 36 px title it stands beside. */
 const LOGO_SIZE = 40;
 const LOGO_OFFSET = 3;
+
+/**
+ * The panel's own ground. Tldraw's dark canvas, `hsl(240, 5%, 6.5%)` — the
+ * same near-black the Bullet Panel's ground and the course diagrams use, so
+ * every dark surface in an Overlay shares one colour rather than each
+ * picking a near-black of its own.
+ */
+const PANEL_COLOR = "#101011";
+/** Stone-300: one step back from the title's white, the same pairing the
+ *  Bullet Panel's body text uses against its own dark ground. */
+const DESCRIPTION_COLOR = "#D6D3D1";
 
 /**
  * The AI-Hero-branded term Definition Card: a `title` + `description` pair
@@ -139,8 +150,9 @@ const Card = ({ card }: { card: DefinitionCard }) => {
         }}
       >
         <div
-          className="relative flex items-start overflow-hidden bg-white"
+          className="relative flex items-start overflow-hidden"
           style={{
+            background: PANEL_COLOR,
             gap: 32 * scale,
             padding: 40 * scale,
             paddingLeft: (40 + 8) * scale,
@@ -154,9 +166,11 @@ const Card = ({ card }: { card: DefinitionCard }) => {
         >
           <AccentBar scale={scale} />
           {/* Sized and nudged down so the mark's centre sits on the title's
-              cap height, not on the top of the title's line box. */}
+              cap height, not on the top of the title's line box. The WHITE
+              mark — this panel is dark now, so it takes the same mark the
+              Bullet Panel's dark ground does. */}
           <Img
-            src={staticFile("/ai-hero-logo-dark.svg")}
+            src={staticFile("/ai-hero-logo.svg")}
             style={{
               width: LOGO_SIZE * scale,
               height: LOGO_SIZE * scale,
@@ -169,7 +183,7 @@ const Card = ({ card }: { card: DefinitionCard }) => {
                 text, not as wide as the column. A column-wide rule reads as a
                 divider instead of an underline. */}
             <p
-              className="relative inline-block font-bold leading-tight text-stone-900"
+              className="relative inline-block font-bold leading-tight text-white"
               style={{
                 fontSize: 36 * scale,
                 paddingBottom: UNDERLINE_GAP * scale,
@@ -189,8 +203,8 @@ const Card = ({ card }: { card: DefinitionCard }) => {
               />
             </p>
             <p
-              className="font-normal leading-snug text-stone-600"
-              style={{ fontSize: 26 * scale }}
+              className="font-normal leading-snug"
+              style={{ fontSize: 26 * scale, color: DESCRIPTION_COLOR }}
             >
               {card.description}
             </p>
