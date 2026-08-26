@@ -72,9 +72,24 @@ export const clipStateReducer: EffectReducer<
     }
     case "clips-retranscribing": {
       const newSet = new Set([...state.clipIdsBeingTranscribed]);
+      const databaseIds: DatabaseId[] = [];
       for (const clipId of action.clipIds) {
+        const item = state.items.find((i) => i.frontendId === clipId);
+        // A Clip still being written has no id the transcribe endpoint could
+        // name it by, so there is nothing to ask for and no spinner to show.
+        if (item?.type !== "on-database") continue;
         newSet.add(clipId);
+        databaseIds.push(item.databaseId);
       }
+
+      // The SAME effect a freshly captured Clip's transcription goes through
+      // (see `new-database-clips`): one path through the editor for every
+      // Transcription, so the words and the loader re-read that follow them
+      // cannot be wired up on one path and forgotten on the other.
+      if (databaseIds.length > 0) {
+        exec({ type: "transcribe-clips", clipIds: databaseIds });
+      }
+
       return {
         ...state,
         clipIdsBeingTranscribed: newSet,

@@ -79,6 +79,52 @@ describe("clipStateReducer", () => {
         text: "Hello",
       });
     });
+
+    it("asks for the transcription itself when clips are re-transcribed", () => {
+      // A re-transcribe is the same Transcription as a freshly captured Clip's
+      // — same endpoint, same words written, same loader to re-read after. The
+      // reducer emits the one effect for both so the two cannot drift apart.
+      const reportEffect = createMockExec();
+
+      const newState = clipStateReducer(
+        createInitialState({
+          items: [
+            fromPartial({
+              type: "on-database",
+              frontendId: "front-1",
+              databaseId: "db-1",
+            }),
+          ],
+        }),
+        { type: "clips-retranscribing", clipIds: fromPartial(["front-1"]) },
+        reportEffect
+      );
+
+      expect(reportEffect).toHaveBeenCalledWith({
+        type: "transcribe-clips",
+        clipIds: ["db-1"],
+      });
+      expect(newState.clipIdsBeingTranscribed).toEqual(new Set(["front-1"]));
+    });
+
+    it("skips a re-transcribed clip that has no database row to name it by", () => {
+      const reportEffect = createMockExec();
+
+      clipStateReducer(
+        createInitialState({
+          items: [
+            fromPartial({
+              type: "optimistically-added",
+              frontendId: "front-1",
+            }),
+          ],
+        }),
+        { type: "clips-retranscribing", clipIds: fromPartial(["front-1"]) },
+        reportEffect
+      );
+
+      expect(reportEffect).not.toHaveBeenCalled();
+    });
   });
 
   describe("Optimistic Clips", () => {

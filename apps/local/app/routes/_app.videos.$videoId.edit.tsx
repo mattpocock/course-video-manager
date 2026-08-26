@@ -380,50 +380,10 @@ export const ComponentInner = (props: Route.ComponentProps) => {
         dispatch({ type: "clips-deleted", clipIds: clipIds });
       }}
       onClipsRetranscribe={(clipIds) => {
+        // The clip reducer takes it from here: it resolves the database ids,
+        // raises the spinner and emits the one transcribe effect every other
+        // Transcription in the editor goes through.
         dispatch({ type: "clips-retranscribing", clipIds });
-
-        const databaseIds = clipIds
-          .map((frontendId) => {
-            const clip = clipState.items.find(
-              (c) => c.frontendId === frontendId
-            );
-            return clip?.type === "on-database" ? clip.databaseId : null;
-          })
-          .filter((id): id is DatabaseId => id !== null);
-
-        fetch("/clips/transcribe", {
-          method: "POST",
-          body: JSON.stringify({ clipIds: databaseIds }),
-        })
-          .then((res) => {
-            if (!res.ok) {
-              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            }
-            return res.json();
-          })
-          .then((clips: DB.Clip[]) => {
-            dispatch({
-              type: "clips-transcribed",
-              clips: clips.map((clip) => ({
-                databaseId: clip.id,
-                text: clip.text,
-              })),
-            });
-            // A transcription rewrites the clip's Transcript Words, so the
-            // loader's missing-words flag is now stale — re-run it or the
-            // alert stays up until the page is reloaded.
-            revalidator.revalidate();
-          })
-          .catch((error) => {
-            dispatch({
-              type: "effect-failed",
-              effectType: "transcribe-clips",
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to transcribe clips",
-            });
-          });
       }}
       insertionPoint={clipState.insertionPoint}
       onSetInsertionPoint={(mode, clipId) => {

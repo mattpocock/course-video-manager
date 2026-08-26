@@ -76,6 +76,11 @@ export function createEditEffectHandlers(
               text: clip.text,
             })),
           });
+          // A transcription writes the clip's Transcript Words as well as its
+          // text, so the loader's missing-words flag is now stale — re-run it
+          // or the "Missing word timing" alert stays up for the rest of the
+          // session, insisting the timing never arrived.
+          revalidate();
         })
         .catch((error) => {
           dispatch({
