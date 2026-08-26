@@ -6,6 +6,7 @@ import type {
   SessionId,
 } from "./clip-state-reducer";
 import { getRetranscribableClipIds } from "./video-editor-selectors";
+import { WHITE_NOISE_DEFAULTS } from "./clip-state-reducer-effect-clip-helpers";
 
 const onDatabase = (frontendId: string): ClipOnDatabase => ({
   type: "on-database",
@@ -56,6 +57,21 @@ describe("getRetranscribableClipIds", () => {
 
   it("names an already-transcribed clip too — a re-transcribe redoes it", () => {
     expect(getRetranscribableClipIds([onDatabase("a")])).toEqual(["a"]);
+  });
+
+  it("skips an Effect Clip, which is white noise with nothing to transcribe", () => {
+    // Sending one to Whisper spends a call on half a second of noise, comes
+    // back with no words at all, and overwrites the Clip's own "*white noise*"
+    // label with whatever the model thought it heard.
+    const effectClip = {
+      ...onDatabase("noise"),
+      scene: WHITE_NOISE_DEFAULTS.scene,
+      text: WHITE_NOISE_DEFAULTS.text,
+    };
+
+    expect(
+      getRetranscribableClipIds([onDatabase("a"), effectClip, onDatabase("b")])
+    ).toEqual(["a", "b"]);
   });
 
   it("is empty for a video with no clips", () => {

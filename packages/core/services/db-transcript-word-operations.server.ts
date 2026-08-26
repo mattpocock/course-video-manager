@@ -1,9 +1,10 @@
 import type { Database } from "./drizzle-service.server.js";
 import { clips, clipTranscriptWords } from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, ne, or } from "drizzle-orm";
 import { Effect } from "effect";
 import { requireDraftVersionForClip } from "./draft-guard.server.js";
+import { EFFECT_CLIP_SCENE } from "../features/videos/effect-clip.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -105,6 +106,10 @@ export const createTranscriptWordOperationsUnwrapped = (db: Database) => {
    * until somebody re-transcribes it. This is the flag behind the edit page's
    * alert, so it answers with a boolean and stops at the first such Clip
    * rather than counting or listing them.
+   *
+   * An **Effect Clip** does not count: it is white noise, so a re-transcribe
+   * cannot give it words and an alert raised for one could never be answered
+   * — it would just sit there saying the word timing never arrived.
    */
   const anyClipsMissingTranscriptWords = Effect.fn(
     "anyClipsMissingTranscriptWords"
@@ -118,6 +123,9 @@ export const createTranscriptWordOperationsUnwrapped = (db: Database) => {
           and(
             eq(clips.videoId, videoId),
             eq(clips.archived, false),
+            // `ne` alone drops a NULL scene, which is what an ordinary
+            // captured Clip has.
+            or(isNull(clips.scene), ne(clips.scene, EFFECT_CLIP_SCENE)),
             isNull(clipTranscriptWords.clipId)
           )
         )

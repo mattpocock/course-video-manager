@@ -8,10 +8,14 @@ import type {
   TimelineItem,
 } from "./clip-state-reducer.types";
 import { createFrontendId } from "./clip-state-reducer.types";
+import { EFFECT_CLIP_SCENE } from "@/features/videos/effect-clip";
 
 export const WHITE_NOISE_DEFAULTS = {
   text: "*white noise*",
-  scene: "white noise",
+  // The one definition of what marks a Clip as an Effect Clip — the database
+  // reads the same constant to keep such a Clip out of the "Missing word
+  // timing" alert (CONTEXT.md, "Effect Clip").
+  scene: EFFECT_CLIP_SCENE,
   pauseType: "none" as const,
   sourceStartTime: 0,
   sourceEndTime: 0.5,

@@ -1,4 +1,5 @@
 import { formatSecondsToTimeCode } from "@/services/utils";
+import { isEffectClipScene } from "@/features/videos/effect-clip";
 import type {
   Clip,
   ClipOnDatabase,
@@ -258,10 +259,16 @@ export const getAllClipsHaveText = (clips: Clip[]): boolean => {
  * have a database row. An optimistically-added Clip is still being written, so
  * the transcribe endpoint has no id to name it by; asking for it would fail the
  * whole batch.
+ *
+ * An **Effect Clip** is left out too, for the opposite reason: it is white
+ * noise, so a transcription cannot give it the word timing this pass exists to
+ * fetch, and running one anyway would overwrite its "*white noise*" label with
+ * whatever Whisper thought it heard.
  */
 export const getRetranscribableClipIds = (clips: Clip[]): FrontendId[] => {
   return clips
     .filter((clip) => clip.type === "on-database")
+    .filter((clip) => !isEffectClipScene(clip.scene))
     .map((clip) => clip.frontendId);
 };
 

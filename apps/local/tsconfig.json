@@ -85,6 +85,9 @@
       "@/features/videos/clip-zoom": [
         "../../packages/core/features/videos/clip-zoom"
       ],
+      "@/features/videos/effect-clip": [
+        "../../packages/core/features/videos/effect-clip"
+      ],
       "@/features/videos/overlay-kind": [
         "../../packages/core/features/videos/overlay-kind"
       ],
