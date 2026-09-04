@@ -103,7 +103,10 @@ describe("course readiness", () => {
     expect(out.exportsRequired).toBe(1);
     expect(out.unexportedVideos).toEqual([
       // The title is the DERIVED section/lesson path, not the raw titles.
-      { id: s.lessonVideoId, title: "01-01-intro/01.01-welcome/intro.mp4" },
+      // The section's literal title happens to be "01-intro" (chosen so the
+      // pre-ADR-0028 double-numbered path — "01-01-intro" — was
+      // distinguishable from a coincidence); its slug is unchanged either way.
+      { id: s.lessonVideoId, title: "01-intro/welcome/intro.mp4" },
     ]);
   });
 

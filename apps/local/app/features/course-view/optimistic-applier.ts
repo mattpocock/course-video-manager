@@ -92,8 +92,8 @@ export function applyOptimisticEvent(
         title: event.title,
       }));
     case "update-lesson-name":
-      return withPatchedLesson(loaderData, event.lessonId, (lesson) => ({
-        path: replaceSlug(lesson.path, event.newSlug),
+      return withPatchedLesson(loaderData, event.lessonId, () => ({
+        path: toSlug(event.newSlug) || "untitled",
       }));
     case "update-lesson-description":
       return withPatchedLesson(loaderData, event.lessonId, () => ({
@@ -112,9 +112,9 @@ export function applyOptimisticEvent(
         authoringStatus: event.status,
       }));
     case "update-section-name":
-      return withPatchedSection(loaderData, event.sectionId, (section) => ({
+      return withPatchedSection(loaderData, event.sectionId, () => ({
         title: event.title,
-        path: replaceSlug(section.path, toSlug(event.title) || "untitled"),
+        path: toSlug(event.title) || "untitled",
       }));
     case "update-section-description":
       return withPatchedSection(loaderData, event.sectionId, () => ({
@@ -151,11 +151,6 @@ export function applyOptimisticEvent(
     default:
       return loaderData;
   }
-}
-
-function replaceSlug(path: string, newSlug: string): string {
-  const match = path.match(/^(\d[\d.]*-)/);
-  return match ? match[1] + newSlug : newSlug;
 }
 
 export function applyOptimisticDeleteVideo(
@@ -317,10 +312,8 @@ function applyReorderLessons(
 function toPlannerSections(course: NonNullable<LoaderData["selectedCourse"]>) {
   return course.sections.map((s) => ({
     id: s.id,
-    path: s.path,
     lessons: s.lessons.map((l) => ({
       id: l.id,
-      path: l.path,
       order: l.order,
     })),
   }));
@@ -375,12 +368,14 @@ function applyMoveLessonsToSection(
 }
 
 /**
- * Replay a move plan onto loader data. The moved lessons are dropped from their
- * current sections and re-inserted as one contiguous block (in
- * `orderedLessonIds` order) at the drop anchor in the target; every other
- * lesson/section is patched per the plan's path/order/renumber deltas.
- * Untouched sections keep their reference so the measured dep-group spine
- * avoids re-measuring. See docs/adr/0011-shared-lesson-move-planner.md and
+ * Replay a move plan onto loader data. The moved lessons are dropped from
+ * their current sections and re-inserted as one contiguous block (in
+ * `orderedLessonIds` order) at the drop anchor in the target. No other
+ * lesson's `order` changes and no section's path is ever touched by a move
+ * (see `lesson-move-planner.ts`) — `attachDerivedPaths` at the end just
+ * re-projects every path fresh from title + membership. Untouched sections
+ * keep their reference so the measured dep-group spine avoids re-measuring.
+ * See docs/adr/0011-shared-lesson-move-planner.md and
  * docs/adr/0012-bulk-lesson-reorder-within-section.md.
  */
 function applyMovePlanToLoader(
@@ -394,9 +389,6 @@ function applyMovePlanToLoader(
   if (!course || plan.noop) return loaderData;
 
   const lessonUpdateById = new Map(plan.lessonUpdates.map((u) => [u.id, u]));
-  const sectionPathById = new Map(
-    plan.sectionUpdates.map((u) => [u.id, u.path])
-  );
 
   // Lessons that actually landed in the target, in insertion order.
   const movedIds = orderedLessonIds.filter(
@@ -418,14 +410,8 @@ function applyMovePlanToLoader(
   const sections = course.sections.map((section) => {
     const hadMoved = section.lessons.some((l) => movedSet.has(l.id));
     const isTarget = section.id === targetSectionId;
-    const newPath = sectionPathById.get(section.id);
-    const hasPatchedLesson = section.lessons.some(
-      (l) => !movedSet.has(l.id) && lessonUpdateById.has(l.id)
-    );
     // Sections the cascade doesn't touch keep their reference.
-    if (!hadMoved && !isTarget && newPath === undefined && !hasPatchedLesson) {
-      return section;
-    }
+    if (!hadMoved && !isTarget) return section;
 
     // Drop the moved lessons from wherever they currently live.
     let lessons = section.lessons.filter((l) => !movedSet.has(l.id));
@@ -443,12 +429,7 @@ function applyMovePlanToLoader(
           : [...lessons.slice(0, idx), ...movedBlock, ...lessons.slice(idx)];
     }
 
-    // Apply path/order patches to the rest (source renumber, target shifts).
-    lessons = lessons.map((l) => (movedSet.has(l.id) ? l : patch(l)));
-
-    return newPath !== undefined
-      ? { ...section, path: newPath, lessons }
-      : { ...section, lessons };
+    return { ...section, lessons };
   });
 
   return {

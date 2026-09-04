@@ -398,8 +398,8 @@ describe("CoursePublishService", () => {
 
       expect(result.incompleteVideos).toMatchObject([
         {
-          sectionPath: "01-intro",
-          lessonPath: "01.01-welcome",
+          sectionPath: "intro",
+          lessonPath: "welcome",
           videoTitle: "Problem",
           missing: ["body", "description"],
         },

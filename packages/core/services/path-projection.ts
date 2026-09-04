@@ -37,6 +37,22 @@ type ProjectableLesson = {
   title: string;
 };
 
+/**
+ * First occurrence of a slug keeps it bare; each repeat gets a `-2`, `-3`, …
+ * suffix, in the order `slugs` is iterated. Titles aren't required to be
+ * unique among siblings (ADR 0018 only enforces `order`), but paths are
+ * used as real directory names in the Dropbox bundle (ADR 0023), so two
+ * same-titled siblings must not collide there.
+ */
+const dedupeSlugs = (slugs: readonly string[]): string[] => {
+  const counts = new Map<string, number>();
+  return slugs.map((slug) => {
+    const n = (counts.get(slug) ?? 0) + 1;
+    counts.set(slug, n);
+    return n === 1 ? slug : `${slug}-${n}`;
+  });
+};
+
 export const projectVersionPaths = (
   sections: readonly ProjectableSection[]
 ): Map<string, DerivedPath> => {
@@ -46,21 +62,28 @@ export const projectVersionPaths = (
     sectionHasLessons(s.lessons)
   );
   const sectionRanks = rankByOrder(sectionsWithLessons);
+  const orderedSections = [...sectionsWithLessons].sort(
+    (a, b) => sectionRanks.get(a.id)! - sectionRanks.get(b.id)!
+  );
 
-  for (const section of sectionsWithLessons) {
-    const sectionNumber = sectionRanks.get(section.id)!;
-    paths.set(section.id, deriveSectionPath(section.title, sectionNumber));
+  const sectionPaths = dedupeSlugs(
+    orderedSections.map((s) => deriveSectionPath(s.title))
+  );
+
+  orderedSections.forEach((section, i) => {
+    paths.set(section.id, sectionPaths[i]!);
 
     const lessonRanks = rankByOrder(section.lessons);
-
-    for (const lesson of section.lessons) {
-      const lessonNumber = lessonRanks.get(lesson.id)!;
-      paths.set(
-        lesson.id,
-        deriveLessonPath(lesson.title, sectionNumber, lessonNumber)
-      );
-    }
-  }
+    const orderedLessons = [...section.lessons].sort(
+      (a, b) => lessonRanks.get(a.id)! - lessonRanks.get(b.id)!
+    );
+    const lessonPaths = dedupeSlugs(
+      orderedLessons.map((l) => deriveLessonPath(l.title))
+    );
+    orderedLessons.forEach((lesson, j) => {
+      paths.set(lesson.id, lessonPaths[j]!);
+    });
+  });
 
   return paths;
 };

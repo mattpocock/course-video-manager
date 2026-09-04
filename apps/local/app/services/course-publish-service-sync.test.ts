@@ -537,7 +537,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     expect(result.missingVideos).toEqual([]);
     const videos = getManifestVideos(getRemoteManifest());
     expect(videos).toHaveLength(1);
-    expect(videos[0]!.relativePath).not.toContain("01.02-setup");
+    expect(videos[0]!.relativePath).not.toContain("setup");
   });
 
   // ── Withholding to-do lessons (includeTodoLessons = false) ──────────
@@ -555,10 +555,10 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     const doc = getRemoteManifest();
     const videos = getManifestVideos(doc);
     expect(videos).toHaveLength(1);
-    expect(videos[0]!.relativePath).toContain("01.01-welcome/Problem.mp4");
+    expect(videos[0]!.relativePath).toContain("welcome/Problem.mp4");
     const fullPath = `${DROPBOX_REMOTE_PATH}/test-course/${videos[0]!.relativePath}`;
     expect(fakeDropbox.get(fullPath)).toBeDefined();
-    expect(videos[0]!.relativePath).not.toContain("01.02-setup");
+    expect(videos[0]!.relativePath).not.toContain("setup");
 
     expect(doc.sections).toHaveLength(1);
     expect(doc.sections[0].lessons).toHaveLength(1);
@@ -576,7 +576,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     );
     const firstDoc = getRemoteManifest();
     const previousTodoVideo = getManifestVideos(firstDoc).find((video) =>
-      video.relativePath.includes("01.02-setup")
+      video.relativePath.includes("setup")
     )!;
     const previousTodoPath = `${DROPBOX_REMOTE_PATH}/test-course/${previousTodoVideo.relativePath}`;
     expect(fakeDropbox.get(previousTodoPath)).toBeDefined();
@@ -591,7 +591,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     const secondDoc = getRemoteManifest();
     expect(
       getManifestVideos(secondDoc).some((video) =>
-        video.relativePath.includes("01.02-setup")
+        video.relativePath.includes("setup")
       )
     ).toBe(false);
     // The prior bundle's files are still in Dropbox.

@@ -303,9 +303,9 @@ describe("CoursePublishService", () => {
 
       // "Problem" is the 20s video seeded by setup().
       expect(announcedTitles(events)).toEqual([
-        "01-intro/01.01-welcome/B Long",
-        "01-intro/01.01-welcome/Problem",
-        "01-intro/01.01-welcome/A Tiny",
+        "intro/welcome/B Long",
+        "intro/welcome/Problem",
+        "intro/welcome/A Tiny",
       ]);
     });
 
@@ -321,9 +321,9 @@ describe("CoursePublishService", () => {
       const events = await runBatchExport(context);
 
       expect(announcedTitles(events)).toEqual([
-        "01-intro/01.01-welcome/Z Many Short",
-        "01-intro/01.01-welcome/A One Long",
-        "01-intro/01.01-welcome/Problem",
+        "intro/welcome/Z Many Short",
+        "intro/welcome/A One Long",
+        "intro/welcome/Problem",
       ]);
     });
 

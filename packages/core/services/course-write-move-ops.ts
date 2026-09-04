@@ -5,32 +5,20 @@ import {
   planLessonsMove,
   type LessonMovePlan,
 } from "./lesson-move-planner.js";
-import { projectVersionPaths } from "./path-projection.js";
-import { toSlug } from "./lesson-path-service.js";
 
 type DbSection = {
   id: string;
-  title: string;
-  order: number;
   lessons: {
     id: string;
-    title: string;
     order: number;
   }[];
 };
 
-const toPlannerSections = (dbSections: DbSection[]) => {
-  const derived = projectVersionPaths(dbSections);
-  return dbSections.map((s) => ({
+const toPlannerSections = (dbSections: DbSection[]) =>
+  dbSections.map((s) => ({
     id: s.id,
-    path: derived.get(s.id) ?? s.title,
-    lessons: s.lessons.map((l) => ({
-      id: l.id,
-      path: derived.get(l.id) ?? (toSlug(l.title) || "untitled"),
-      order: l.order,
-    })),
+    lessons: s.lessons.map((l) => ({ id: l.id, order: l.order })),
   }));
-};
 
 export function createMoveOps(db: LessonSectionOperationsService) {
   const executeMovePlan = Effect.fn("executeMovePlan")(function* (
@@ -48,9 +36,6 @@ export function createMoveOps(db: LessonSectionOperationsService) {
     yield* db.batchUpdateLessonOrders(
       plan.lessonUpdates.map((u) => ({ id: u.id, order: u.order }))
     );
-    for (const u of plan.sectionUpdates) {
-      yield* db.updateSectionTitle(u.id, u.path);
-    }
 
     return { success: true } as const;
   });

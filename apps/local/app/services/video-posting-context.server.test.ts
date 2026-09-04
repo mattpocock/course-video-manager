@@ -286,15 +286,13 @@ describe("loadVideoPostingContext", () => {
 
         expect(ctx.courseStructure).not.toBeNull();
         expect(ctx.courseStructure!.repoName).toBe("test-course");
-        expect(ctx.courseStructure!.currentSectionPath).toBe("01-intro");
-        expect(ctx.courseStructure!.currentLessonPath).toBe(
-          "01.01-getting-started"
-        );
+        expect(ctx.courseStructure!.currentSectionPath).toBe("intro");
+        expect(ctx.courseStructure!.currentLessonPath).toBe("getting-started");
         expect(ctx.courseStructure!.sections).toHaveLength(1);
 
         const sectionResult = ctx.courseStructure!.sections[0]!;
         expect(sectionResult.lessons).toHaveLength(1);
-        expect(sectionResult.lessons[0]!.path).toBe("01.01-getting-started");
+        expect(sectionResult.lessons[0]!.path).toBe("getting-started");
       }).pipe(Effect.provide(testLayer))
     );
 

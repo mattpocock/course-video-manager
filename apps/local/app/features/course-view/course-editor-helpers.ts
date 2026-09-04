@@ -285,7 +285,7 @@ export function computeFlatLessons(sections: Section[]) {
       number: `${sectionIdx + 1}.${lessonIdx + 1}`,
       title: lesson.title || lesson.path,
       sectionId: section.id,
-      sectionTitle: section.path,
+      sectionTitle: section.title,
       sectionNumber: sectionIdx + 1,
     }))
   );

@@ -60,7 +60,7 @@ describe("CoursePublishService — per-Video upload tasks", () => {
       videos.map((v) => v.id).sort()
     );
     for (const video of roster!.data.videos) {
-      expect(video.title).toMatch(/^01-intro\/.+\/Problem$/);
+      expect(video.title).toMatch(/^intro\/.+\/Problem$/);
     }
 
     // The export roster is the strict subset that still needs encoding.

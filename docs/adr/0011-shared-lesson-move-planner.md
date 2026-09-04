@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by 0028-drop-numbered-path-prefix
 ---
 
 # Lesson moves are computed by a shared pure planner, executed server-side and replayed optimistically

@@ -1,0 +1,23 @@
+---
+status: accepted
+---
+
+# Derived path drops its numbered prefix; the lesson-move planner sheds the renumbering cascade it existed to serve
+
+A section/lesson's display path has been derived (never stored) since [ADR 0018](0018-db-only-courses.md), but the derivation still baked the same numbering scheme the old on-disk format used — `NN-slug` for a Section, `NN.MM-slug` for a Lesson — recomputed fresh from rank-by-`order` on every read. Nothing downstream actually needs that number: `course.json` already carries explicit array order plus `title` (ADR 0019), and the Dropbox bundle's Video paths (ADR 0023) only need to be unique on disk, not ordered by name. Meanwhile the numbering had a real cost: [ADR 0011](0011-shared-lesson-move-planner.md)'s move planner treated the number as something that must be kept correct, so moving a Lesson between Sections renumbered siblings, "materialized"/"dematerialized" Section prefixes, and emitted a `sectionUpdates` list of `{ id, path }` pairs. The server executed that list by writing the numbered path straight into `sections.title` (`db.updateSectionTitle(u.id, u.path)`) — a live bug that re-seeded `01-my-section`-style titles into the database every time a Lesson move flipped a Section's real/empty status, undoing manual title cleanups over time.
+
+`deriveSectionPath`/`deriveLessonPath` now take only a `title` and return `toSlug(title) || "untitled"` — no number. Same-titled siblings (title uniqueness is not enforced; only `order` uniqueness per parent is, per ADR 0018) are disambiguated with a `-2`, `-3`, … suffix, assigned in rank order, computed at projection time in `path-projection.ts` and nowhere else.
+
+## Why this shape
+
+- **A path that only depends on title never needs recomputing on a structural change.** Moving a Lesson, reordering a Section, or emptying/filling a Section no longer changes anyone's path — only the moved Lesson's own `order`/`sectionId` changes. That removes the entire reason `lesson-move-planner.ts` computed `sectionUpdates`/`fsOps`: there is nothing left to renumber, so `planLessonMove`/`planLessonsMove` now return just `lessonUpdates`, and `course-write-move-ops.ts`'s `executeMovePlan` no longer writes to `title` at all. The corruption bug is closed by construction, not by a guard.
+- **Fixing the bug without dropping the number would have left the cascade in place.** The renumbering machinery existed only to keep the number correct; patching the one buggy write (`updateSectionTitle`) while leaving `sectionUpdates`/`fsOps`/the materialize-dematerialize cascade computing dead data would keep ~300 lines of pre-ADR-0018 git-repo logic alive for no consumer. Removing the number and the cascade together is the smaller, more honest change.
+- **Reordering no longer perturbs the Dropbox bundle's `assetFingerprint`.** The fingerprint (ADR 0023) hashes each Video's `relativeAssetPath`, which is built from `section.path`/`lesson.path`. Because the old paths embedded rank, reordering a Section changed the path — and therefore the fingerprint — of every Video after it, forcing a full re-address even though no Video's content changed. A title-only path is stable under reordering, so only an actual title/membership change touches a Video's address now.
+- **Collision disambiguation only has to run where it can see all siblings.** `path-projection.ts` is the sole place paths are computed from the full sibling set on every read, so it is the only place a `-2` suffix can be assigned correctly; it was already the single source of truth per ADR 0018, so no new seam was added.
+
+## Consequences
+
+- [ADR 0011](0011-shared-lesson-move-planner.md) is superseded by this ADR: `planLessonMove`/`planLessonsMove` no longer compute or return `sectionUpdates`/`fsOps`, and the optimistic applier (`optimistic-applier.ts`) no longer patches a section's `path` when a Lesson moves — `attachDerivedPaths` re-projects every path fresh from the (unchanged) title.
+- `buildSectionPath`, `buildLessonPath`, `computeSectionRenumberingPlan`, `computeRenumberingPlan`, and `computeInsertionPlan` are deleted; they existed only to build or reshuffle numbered paths. `parseSectionPath`/`parseLessonPath` are kept — they still tolerate a numbered name typed in at Section/Lesson creation, stripping it down to a title.
+- A previously-numbered title cleaned up by hand (or by a future migration) now stays clean permanently: no code path can regenerate a numbered title, because no code path ever computes one.
+- Two same-titled sibling Sections (or sibling Lessons in one Section) now get `slug`/`slug-2` instead of silently colliding on disk; before this change the rank number made that collision impossible by accident. This is new, deliberate behaviour, not a gap.

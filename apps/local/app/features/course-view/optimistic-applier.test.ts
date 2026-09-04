@@ -85,7 +85,7 @@ describe("applyOptimisticEvent", () => {
 
       const result = applyOptimisticEvent(loaderData, event);
 
-      expect(result.selectedCourse!.sections[0]!.path).toBe("01-basics");
+      expect(result.selectedCourse!.sections[0]!.path).toBe("basics");
     });
 
     it("returns loaderData unchanged when section is not found", () => {
@@ -118,7 +118,7 @@ describe("applyOptimisticEvent", () => {
       expect(result.selectedCourse!.sections[0]!.path).toBe("renamed-section");
     });
 
-    it("handles section path with dotted prefix", () => {
+    it("ignores whatever the section's previous path happened to be", () => {
       const section = makeSection({ id: "section-1", path: "01.03-advanced" });
       const loaderData = makeLoaderData([section]);
       const event: CourseEditorEvent = {
@@ -129,7 +129,7 @@ describe("applyOptimisticEvent", () => {
 
       const result = applyOptimisticEvent(loaderData, event);
 
-      expect(result.selectedCourse!.sections[0]!.path).toBe("01.03-expert");
+      expect(result.selectedCourse!.sections[0]!.path).toBe("expert");
     });
 
     it("does not mutate the original loaderData", () => {
@@ -192,7 +192,7 @@ describe("applyOptimisticEvent", () => {
       const result = applyOptimisticEvent(loaderData, event);
 
       expect(result.selectedCourse!.sections[0]!.lessons[0]!.path).toBe(
-        "01-getting-started"
+        "getting-started"
       );
     });
 
@@ -209,7 +209,7 @@ describe("applyOptimisticEvent", () => {
       expect(result).toBe(loaderData);
     });
 
-    it("handles new-format lesson path with dotted prefix", () => {
+    it("ignores whatever the lesson's previous path happened to be", () => {
       const lesson = makeLesson({ id: "lesson-1", path: "01.03-intro" });
       const loaderData = makeLoaderData([makeSection({}, [lesson])]);
       const event: CourseEditorEvent = {
@@ -221,7 +221,7 @@ describe("applyOptimisticEvent", () => {
       const result = applyOptimisticEvent(loaderData, event);
 
       expect(result.selectedCourse!.sections[0]!.lessons[0]!.path).toBe(
-        "01.03-overview"
+        "overview"
       );
     });
 
@@ -241,7 +241,7 @@ describe("applyOptimisticEvent", () => {
       );
     });
 
-    it("preserves prefix when new slug contains hyphens", () => {
+    it("handles a new slug that contains hyphens", () => {
       const loaderData = makeLoaderData();
       const event: CourseEditorEvent = {
         type: "update-lesson-name",
@@ -252,7 +252,7 @@ describe("applyOptimisticEvent", () => {
       const result = applyOptimisticEvent(loaderData, event);
 
       expect(result.selectedCourse!.sections[0]!.lessons[0]!.path).toBe(
-        "01-my-long-slug-name"
+        "my-long-slug-name"
       );
     });
   });

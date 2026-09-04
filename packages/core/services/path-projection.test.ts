@@ -84,63 +84,43 @@ describe("rankByOrder", () => {
 });
 
 describe("deriveSectionPath", () => {
-  it("produces NN-slug format from title", () => {
-    expect(deriveSectionPath("Introduction", 1)).toBe("01-introduction");
+  it("produces a plain slug from title, no ordering number", () => {
+    expect(deriveSectionPath("Introduction")).toBe("introduction");
   });
 
   it("handles title with special characters", () => {
-    expect(deriveSectionPath("What's New?", 3)).toBe("03-whats-new");
+    expect(deriveSectionPath("What's New?")).toBe("whats-new");
   });
 
   it("falls back to 'untitled' for empty title", () => {
-    expect(deriveSectionPath("", 2)).toBe("02-untitled");
+    expect(deriveSectionPath("")).toBe("untitled");
   });
 
   it("falls back to 'untitled' for symbols-only title", () => {
-    expect(deriveSectionPath("!@#$", 1)).toBe("01-untitled");
-  });
-
-  it("zero-pads section number", () => {
-    expect(deriveSectionPath("Basics", 5)).toBe("05-basics");
-  });
-
-  it("handles double-digit section number", () => {
-    expect(deriveSectionPath("Advanced", 12)).toBe("12-advanced");
+    expect(deriveSectionPath("!@#$")).toBe("untitled");
   });
 });
 
 describe("deriveLessonPath", () => {
-  it("produces NN.MM-slug format from title", () => {
-    expect(deriveLessonPath("Getting Started", 1, 3)).toBe(
-      "01.03-getting-started"
-    );
+  it("produces a plain slug from title, no ordering number", () => {
+    expect(deriveLessonPath("Getting Started")).toBe("getting-started");
   });
 
   it("handles title with special characters", () => {
-    expect(deriveLessonPath("What's Up, Doc?", 2, 1)).toBe(
-      "02.01-whats-up-doc"
-    );
+    expect(deriveLessonPath("What's Up, Doc?")).toBe("whats-up-doc");
   });
 
   it("falls back to 'untitled' for empty title", () => {
-    expect(deriveLessonPath("", 1, 1)).toBe("01.01-untitled");
+    expect(deriveLessonPath("")).toBe("untitled");
   });
 
   it("falls back to 'untitled' for symbols-only title", () => {
-    expect(deriveLessonPath("!@#", 3, 2)).toBe("03.02-untitled");
-  });
-
-  it("zero-pads both numbers", () => {
-    expect(deriveLessonPath("Intro", 1, 1)).toBe("01.01-intro");
-  });
-
-  it("handles double-digit numbers", () => {
-    expect(deriveLessonPath("Deep Dive", 12, 15)).toBe("12.15-deep-dive");
+    expect(deriveLessonPath("!@#")).toBe("untitled");
   });
 });
 
 describe("projectVersionPaths", () => {
-  it("derives paths for all sections and lessons", () => {
+  it("derives paths for all sections and lessons from title alone", () => {
     const sections = [
       {
         id: "s1",
@@ -161,53 +141,95 @@ describe("projectVersionPaths", () => {
     const paths = projectVersionPaths(sections);
     expect(paths).toEqual(
       new Map([
-        ["s1", "01-introduction"],
-        ["s2", "02-advanced"],
-        ["l1", "01.01-getting-started"],
-        ["l2", "01.02-next-steps"],
-        ["l3", "02.01-deep-dive"],
+        ["s1", "introduction"],
+        ["s2", "advanced"],
+        ["l1", "getting-started"],
+        ["l2", "next-steps"],
+        ["l3", "deep-dive"],
       ])
     );
   });
 
-  it("same-slug siblings derive distinct paths by number alone", () => {
+  it("reordering sections/lessons never changes any path", () => {
+    const sections = [
+      {
+        id: "s1",
+        order: 5,
+        title: "Introduction",
+        lessons: [{ id: "l1", order: 9, title: "Getting Started" }],
+      },
+      {
+        id: "s2",
+        order: 1,
+        title: "Advanced",
+        lessons: [{ id: "l2", order: 2, title: "Deep Dive" }],
+      },
+    ];
+    const paths = projectVersionPaths(sections);
+    expect(paths.get("s1")).toBe("introduction");
+    expect(paths.get("s2")).toBe("advanced");
+    expect(paths.get("l1")).toBe("getting-started");
+    expect(paths.get("l2")).toBe("deep-dive");
+  });
+
+  it("disambiguates same-titled sibling sections with a numeric suffix, in rank order", () => {
+    const sections = [
+      {
+        id: "s2",
+        order: 2,
+        title: "React",
+        lessons: [{ id: "l1", order: 1, title: "A" }],
+      },
+      {
+        id: "s1",
+        order: 1,
+        title: "React",
+        lessons: [{ id: "l2", order: 1, title: "B" }],
+      },
+    ];
+    const paths = projectVersionPaths(sections);
+    // s1 ranks first (order 1), so it keeps the bare slug; s2 gets the suffix.
+    expect(paths.get("s1")).toBe("react");
+    expect(paths.get("s2")).toBe("react-2");
+  });
+
+  it("disambiguates same-titled sibling lessons within a section, in rank order", () => {
     const sections = [
       {
         id: "s1",
         order: 1,
         title: "React",
         lessons: [
-          { id: "l1", order: 1, title: "React" },
-          { id: "l2", order: 2, title: "React" },
+          { id: "l2", order: 2, title: "Hooks" },
+          { id: "l1", order: 1, title: "Hooks" },
+          { id: "l3", order: 3, title: "Hooks" },
         ],
       },
     ];
     const paths = projectVersionPaths(sections);
-    expect(paths.get("l1")).toBe("01.01-react");
-    expect(paths.get("l2")).toBe("01.02-react");
-    expect(paths.get("s1")).toBe("01-react");
+    expect(paths.get("l1")).toBe("hooks");
+    expect(paths.get("l2")).toBe("hooks-2");
+    expect(paths.get("l3")).toBe("hooks-3");
   });
 
-  it("mid-list fractional insert renumbers correctly", () => {
-    // Simulate a fractional insert between items at order 1 and 2
+  it("lesson slug collisions in different sections don't disambiguate each other", () => {
     const sections = [
       {
         id: "s1",
         order: 1,
-        title: "Section",
-        lessons: [
-          { id: "l1", order: 1, title: "Alpha" },
-          { id: "l-new", order: 1.5, title: "Inserted" },
-          { id: "l2", order: 2, title: "Beta" },
-          { id: "l3", order: 3, title: "Gamma" },
-        ],
+        title: "Basics",
+        lessons: [{ id: "l1", order: 1, title: "Recap" }],
+      },
+      {
+        id: "s2",
+        order: 2,
+        title: "Advanced",
+        lessons: [{ id: "l2", order: 1, title: "Recap" }],
       },
     ];
     const paths = projectVersionPaths(sections);
-    expect(paths.get("l1")).toBe("01.01-alpha");
-    expect(paths.get("l-new")).toBe("01.02-inserted");
-    expect(paths.get("l2")).toBe("01.03-beta");
-    expect(paths.get("l3")).toBe("01.04-gamma");
+    expect(paths.get("l1")).toBe("recap");
+    expect(paths.get("l2")).toBe("recap");
   });
 
   it("returns empty map for empty sections", () => {
@@ -240,8 +262,8 @@ describe("attachDerivedPaths", () => {
       },
     ];
     const result = attachDerivedPaths(sections);
-    expect(result[0]!.path).toBe("01-intro");
-    expect(result[0]!.lessons[0]!.path).toBe("01.01-hello");
+    expect(result[0]!.path).toBe("intro");
+    expect(result[0]!.lessons[0]!.path).toBe("hello");
   });
 
   it("preserves all original fields", () => {
@@ -266,7 +288,7 @@ describe("attachDerivedPaths", () => {
     expect((result[0]!.lessons[0] as any).anotherField).toBe(42);
   });
 
-  it("uses section number from section rank in lesson paths", () => {
+  it("does not couple lesson paths to section rank", () => {
     const sections = [
       {
         id: "s1",
@@ -282,9 +304,9 @@ describe("attachDerivedPaths", () => {
       },
     ];
     const result = attachDerivedPaths(sections);
-    expect(result[0]!.path).toBe("01-first-section");
-    expect(result[0]!.lessons[0]!.path).toBe("01.01-a");
-    expect(result[1]!.path).toBe("02-second-section");
-    expect(result[1]!.lessons[0]!.path).toBe("02.01-b");
+    expect(result[0]!.path).toBe("first-section");
+    expect(result[0]!.lessons[0]!.path).toBe("a");
+    expect(result[1]!.path).toBe("second-section");
+    expect(result[1]!.lessons[0]!.path).toBe("b");
   });
 });

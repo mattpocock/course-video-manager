@@ -223,6 +223,12 @@ export const setupPublishableCourse = async (opts?: {
 
   for (let index = 0; index < videoCount; index++) {
     const lessonPath = `01.${String(index + 1).padStart(2, "0")}-welcome`;
+    // Every lesson's fixture path parses to the same title ("welcome") once
+    // stripped, so the derived path (title-only, no number — see
+    // docs/adr/0028-drop-numbered-path-prefix) disambiguates same-titled
+    // siblings by rank order: bare "welcome" for the first, "welcome-2" for
+    // the second, and so on.
+    const derivedLessonPath = index === 0 ? "welcome" : `welcome-${index + 1}`;
     const lesson = await Effect.gen(function* () {
       const lsOps = yield* LessonSectionOperationsService;
       const lessons = yield* lsOps.createLessons(section.id, [
@@ -265,7 +271,7 @@ export const setupPublishableCourse = async (opts?: {
       title: video.title,
       lessonPath,
       exportHash: computeExportHash(videoClips, "landscape")!,
-      relativeAssetPath: `01-intro/${lessonPath}/${video.title}.mp4`,
+      relativeAssetPath: `intro/${derivedLessonPath}/${video.title}.mp4`,
     });
   }
 
