@@ -263,7 +263,6 @@ export function SectionGrid({
                     dropIndicator={dropIndicator}
                     activeLesson={activeLesson}
                     bulkDragIds={bulkDragIds}
-                    singleColumn={singleColumn}
                   />
                 ))}
               </div>
