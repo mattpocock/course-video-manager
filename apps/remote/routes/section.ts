@@ -1,3 +1,4 @@
+import { CourseWriteService } from "@cvm/core/services/course-write-service";
 import { LessonSectionOperationsService } from "@cvm/core/services/db-lesson-section-operations.server";
 import { Hono } from "hono";
 import { forward } from "../rpc.js";
@@ -10,11 +11,14 @@ import type { RemoteRuntime } from "../runtime.js";
  * Sections and Lessons share one operations service, but they are two nouns to
  * an agent, so they are two groups here.
  *
- * `create`/`rename`/`move`/`archive` all stay on LessonSectionOperationsService
- * primitives (createSections / updateSectionTitle / batchUpdateSectionOrders /
- * archiveSection) rather than CourseWriteService — the CLI command layer does
- * its own order math, the same way `cvm lesson create`/`archive` do. See
- * apps/local/app/cli/commands/section.ts.
+ * `create`/`rename`/`archive` stay on LessonSectionOperationsService primitives
+ * (createSections / updateSectionTitle / archiveSection / batchUpdateSectionOrders
+ * — the last one also shifts siblings for `create`'s --before/--after anchor) —
+ * the CLI command layer does its own order math for `create`, the same way
+ * `cvm lesson create`/`archive` do. `move` is backed by CourseWriteService
+ * instead, same as `cvm lesson move`'s within-section reorder: reordering
+ * renumbers paths across the Version, and that projection lives with the
+ * writes. See apps/local/app/cli/commands/section.ts.
  */
 export const sectionRoutes = (runtime: RemoteRuntime) =>
   new Hono()
@@ -53,4 +57,8 @@ export const sectionRoutes = (runtime: RemoteRuntime) =>
         LessonSectionOperationsService,
         "batchUpdateSectionOrders"
       )
+    )
+    .post(
+      "/reorderSections",
+      forward(runtime, CourseWriteService, "reorderSections")
     );
