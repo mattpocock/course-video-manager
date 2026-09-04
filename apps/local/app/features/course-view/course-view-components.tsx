@@ -11,6 +11,8 @@ import { ScriptWriterModal } from "@/features/video-editor/script-writer-modal";
 import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
 import { computeCourseStats } from "@/features/course-view/course-editor-helpers";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
+import { useCourseViewVisibility } from "@/features/course-view/course-view-visibility";
+import { VisibilitySettingsModal } from "@/features/course-view/visibility-settings-modal";
 
 import {
   ChevronsDownUp,
@@ -22,9 +24,10 @@ import {
   Play,
   Rows3,
   Search,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
-import { Suspense } from "react";
+import { Fragment, Suspense, useEffect, type ReactElement } from "react";
 import { useNavigate } from "react-router";
 import { Input } from "@/components/ui/input";
 import type { LoaderData } from "./course-view-types";
@@ -93,11 +96,67 @@ export function FilterBar({
   sectionCount: number;
   dispatch: (action: courseViewReducer.Action) => void;
 }) {
+  const { effective: visibility } = useCourseViewVisibility();
+
+  const showPriorityFilter = visibility.lessonPriorities;
+  const showIconFilter = visibility.lessonTypes;
+  const showTodoFilter = visibility.todoMarkers;
+
+  // The settings modal hides a filter's control the instant its underlying
+  // field is toggled off — but the filter's own selection can outlive that
+  // (it lives in the course-view reducer, not the visibility prefs), leaving
+  // an invisible filter still narrowing the list with no control left to
+  // clear it. Clear it here instead, the moment its control disappears. See
+  // "Filtering out this UI should also apply to the filters" in the course
+  // view visibility design.
+  useEffect(() => {
+    if (!showPriorityFilter) dispatch({ type: "clear-priority-filter" });
+  }, [showPriorityFilter, dispatch]);
+  useEffect(() => {
+    if (!showIconFilter) dispatch({ type: "clear-icon-filter" });
+  }, [showIconFilter, dispatch]);
+  useEffect(() => {
+    if (!showTodoFilter) dispatch({ type: "clear-todo-filter" });
+  }, [showTodoFilter, dispatch]);
+
   const hasActiveFilters =
     priorityFilter.length > 0 ||
     iconFilter.length > 0 ||
     todoFilter ||
     searchQuery.length > 0;
+
+  const filterGroups = [
+    showPriorityFilter && (
+      <PriorityFilterButtons
+        key="priority"
+        priorityFilter={priorityFilter}
+        dispatch={dispatch}
+      />
+    ),
+    showIconFilter && (
+      <IconFilterButtons
+        key="icon"
+        iconFilter={iconFilter}
+        dispatch={dispatch}
+      />
+    ),
+    showTodoFilter && (
+      <button
+        key="todo"
+        className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors flex items-center gap-1 ${
+          todoFilter
+            ? "bg-muted text-muted-foreground ring-1 ring-current"
+            : "bg-muted text-muted-foreground hover:bg-muted/80"
+        }`}
+        onClick={() => dispatch({ type: "toggle-todo-filter" })}
+        title="Todo"
+      >
+        <ListChecks className="w-3 h-3" />
+        Todo
+        <span className="opacity-60">{todoCount}</span>
+      </button>
+    ),
+  ].filter((group): group is ReactElement => Boolean(group));
 
   return (
     <div className="space-y-3">
@@ -124,89 +183,21 @@ export function FilterBar({
 
       {/* Filter buttons */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-muted-foreground">Filters:</span>
-        {([1, 2, 3] as const).map((priority) => {
-          const isSelected = priorityFilter.includes(priority);
-          const showAsActive = priorityFilter.length === 0 || isSelected;
-          return (
-            <button
-              key={priority}
-              className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors ${
-                showAsActive
-                  ? priority === 1
-                    ? "bg-red-500/20 text-red-600"
-                    : priority === 2
-                      ? "bg-yellow-500/20 text-yellow-600"
-                      : "bg-sky-500/20 text-sky-500"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              } ${isSelected ? "ring-1 ring-current" : ""}`}
-              onClick={() =>
-                dispatch({ type: "toggle-priority-filter", priority })
-              }
-            >
-              P{priority}
-            </button>
-          );
-        })}
-
-        <span className="text-muted-foreground mx-0.5">|</span>
-        {(["code", "discussion", "watch"] as const).map((icon) => {
-          const isSelected = iconFilter.includes(icon);
-          const showAsActive = iconFilter.length === 0 || isSelected;
-          return (
-            <button
-              key={icon}
-              className={`flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
-                icon === "code"
-                  ? showAsActive
-                    ? "bg-yellow-500/20 text-yellow-600"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  : icon === "discussion"
-                    ? showAsActive
-                      ? "bg-green-500/20 text-green-600"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    : showAsActive
-                      ? "bg-purple-500/20 text-purple-600"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-              } ${isSelected ? "ring-1 ring-current" : ""}`}
-              onClick={() => dispatch({ type: "toggle-icon-filter", icon })}
-              title={
-                icon === "code"
-                  ? "Interactive"
-                  : icon === "discussion"
-                    ? "Discussion"
-                    : "Watch"
-              }
-            >
-              {icon === "code" ? (
-                <Code className="w-3 h-3" />
-              ) : icon === "discussion" ? (
-                <MessageCircle className="w-3 h-3" />
-              ) : (
-                <Play className="w-3 h-3" />
-              )}
-            </button>
-          );
-        })}
-
-        <span className="text-muted-foreground mx-0.5">|</span>
-        <button
-          className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors flex items-center gap-1 ${
-            todoFilter
-              ? "bg-muted text-muted-foreground ring-1 ring-current"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => dispatch({ type: "toggle-todo-filter" })}
-          title="Todo"
-        >
-          <ListChecks className="w-3 h-3" />
-          Todo
-          <span className="opacity-60">{todoCount}</span>
-        </button>
+        {filterGroups.length > 0 && (
+          <span className="text-xs text-muted-foreground">Filters:</span>
+        )}
+        {filterGroups.map((group, i) => (
+          <Fragment key={group.key}>
+            {i > 0 && <span className="text-muted-foreground mx-0.5">|</span>}
+            {group}
+          </Fragment>
+        ))}
 
         {hasActiveFilters && (
           <>
-            <span className="text-muted-foreground mx-0.5">|</span>
+            {filterGroups.length > 0 && (
+              <span className="text-muted-foreground mx-0.5">|</span>
+            )}
             <button
               className="text-xs px-2 py-0.5 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => {
@@ -274,9 +265,109 @@ export function FilterBar({
               <Rows3 className="w-4 h-4" />
             )}
           </button>
+          <button
+            className="flex items-center justify-center w-7 h-7 rounded transition-colors text-muted-foreground hover:text-foreground"
+            onClick={() =>
+              dispatch({
+                type: "set-visibility-settings-modal-open",
+                open: true,
+              })
+            }
+            title="Course view display settings"
+            aria-label="Course view display settings"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function PriorityFilterButtons({
+  priorityFilter,
+  dispatch,
+}: {
+  priorityFilter: number[];
+  dispatch: (action: courseViewReducer.Action) => void;
+}) {
+  return (
+    <>
+      {([1, 2, 3] as const).map((priority) => {
+        const isSelected = priorityFilter.includes(priority);
+        const showAsActive = priorityFilter.length === 0 || isSelected;
+        return (
+          <button
+            key={priority}
+            className={`text-xs px-2 py-0.5 rounded-sm font-medium transition-colors ${
+              showAsActive
+                ? priority === 1
+                  ? "bg-red-500/20 text-red-600"
+                  : priority === 2
+                    ? "bg-yellow-500/20 text-yellow-600"
+                    : "bg-sky-500/20 text-sky-500"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            } ${isSelected ? "ring-1 ring-current" : ""}`}
+            onClick={() =>
+              dispatch({ type: "toggle-priority-filter", priority })
+            }
+          >
+            P{priority}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+function IconFilterButtons({
+  iconFilter,
+  dispatch,
+}: {
+  iconFilter: string[];
+  dispatch: (action: courseViewReducer.Action) => void;
+}) {
+  return (
+    <>
+      {(["code", "discussion", "watch"] as const).map((icon) => {
+        const isSelected = iconFilter.includes(icon);
+        const showAsActive = iconFilter.length === 0 || isSelected;
+        return (
+          <button
+            key={icon}
+            className={`flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
+              icon === "code"
+                ? showAsActive
+                  ? "bg-yellow-500/20 text-yellow-600"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                : icon === "discussion"
+                  ? showAsActive
+                    ? "bg-green-500/20 text-green-600"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  : showAsActive
+                    ? "bg-purple-500/20 text-purple-600"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+            } ${isSelected ? "ring-1 ring-current" : ""}`}
+            onClick={() => dispatch({ type: "toggle-icon-filter", icon })}
+            title={
+              icon === "code"
+                ? "Interactive"
+                : icon === "discussion"
+                  ? "Discussion"
+                  : "Watch"
+            }
+          >
+            {icon === "code" ? (
+              <Code className="w-3 h-3" />
+            ) : icon === "discussion" ? (
+              <MessageCircle className="w-3 h-3" />
+            ) : (
+              <Play className="w-3 h-3" />
+            )}
+          </button>
+        );
+      })}
+    </>
   );
 }
 
@@ -305,6 +396,7 @@ export function RouteModals({
     isPurgeExportsModalOpen: boolean;
     isCopyTranscriptModalOpen: boolean;
     isDuplicateCourseModalOpen: boolean;
+    isVisibilitySettingsModalOpen: boolean;
     copySectionTranscriptState: {
       sectionTitle: string;
       sectionDescription: string | undefined;
@@ -338,6 +430,13 @@ export function RouteModals({
 }) {
   return (
     <>
+      <VisibilitySettingsModal
+        open={viewState.isVisibilitySettingsModalOpen}
+        onOpenChange={(open) =>
+          dispatch({ type: "set-visibility-settings-modal-open", open })
+        }
+      />
+
       {currentCourse && (
         <RenameCourseModal
           courseId={currentCourse.id}

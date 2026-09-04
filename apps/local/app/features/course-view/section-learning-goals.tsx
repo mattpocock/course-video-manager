@@ -47,9 +47,14 @@ function PriorityBadge({ priority }: { priority: number }) {
 export function SectionLearningGoals({
   learningGoals,
   defaultOpen = false,
+  showDescriptions = true,
 }: {
   learningGoals: Section["learningGoals"];
   defaultOpen?: boolean;
+  /** Course-view display setting for the Learning Goal Description note —
+   * see `course-view-visibility.tsx`. Defaults to shown, matching today's
+   * behaviour for any caller that doesn't pass it. */
+  showDescriptions?: boolean;
 }) {
   if (learningGoals.length === 0) {
     return null;
@@ -76,7 +81,7 @@ export function SectionLearningGoals({
                 <p className="font-medium text-foreground">
                   {goal.title || "(untitled)"}
                 </p>
-                {goal.description && (
+                {showDescriptions && goal.description && (
                   <p className="text-muted-foreground">{goal.description}</p>
                 )}
               </div>

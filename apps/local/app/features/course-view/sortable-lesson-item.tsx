@@ -17,6 +17,7 @@ import {
 } from "./lesson-title-editor";
 import { LessonContextMenuContent } from "./lesson-context-menu";
 import { LessonBeatTree } from "./lesson-beat-tree";
+import { useCourseViewVisibility } from "./course-view-visibility";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { VideoThumbnailGrid } from "./video-thumbnail-grid";
@@ -163,6 +164,7 @@ export function SortableLessonItem({
   };
 
   const isReadOnly = !data.isLatestVersion;
+  const { effective: visibility } = useCourseViewVisibility();
 
   const currentDescription = lesson.description ?? "";
   const [editingDesc, setEditingDesc] = useState(false);
@@ -311,42 +313,44 @@ export function SortableLessonItem({
                     <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
                 )}
-                <button
-                  data-dep-icon={lesson.id}
-                  className={cn(
-                    "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors",
-                    currentIcon === "code"
-                      ? "bg-yellow-500/20 text-yellow-600"
-                      : currentIcon === "discussion"
-                        ? "bg-green-500/20 text-green-600"
-                        : "bg-purple-500/20 text-purple-600"
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isReadOnly) handleIconCycle();
-                  }}
-                  title={
-                    currentIcon === "code"
-                      ? isReadOnly
-                        ? "Interactive"
-                        : "Interactive (click to change)"
-                      : currentIcon === "discussion"
+                {visibility.lessonTypes && (
+                  <button
+                    data-dep-icon={lesson.id}
+                    className={cn(
+                      "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors",
+                      currentIcon === "code"
+                        ? "bg-yellow-500/20 text-yellow-600"
+                        : currentIcon === "discussion"
+                          ? "bg-green-500/20 text-green-600"
+                          : "bg-purple-500/20 text-purple-600"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isReadOnly) handleIconCycle();
+                    }}
+                    title={
+                      currentIcon === "code"
                         ? isReadOnly
-                          ? "Discussion"
-                          : "Discussion (click to change)"
-                        : isReadOnly
-                          ? "Watch"
-                          : "Watch (click to change)"
-                  }
-                >
-                  {currentIcon === "code" ? (
-                    <Code className="w-3 h-3" />
-                  ) : currentIcon === "discussion" ? (
-                    <MessageCircle className="w-3 h-3" />
-                  ) : (
-                    <Play className="w-3 h-3" />
-                  )}
-                </button>
+                          ? "Interactive"
+                          : "Interactive (click to change)"
+                        : currentIcon === "discussion"
+                          ? isReadOnly
+                            ? "Discussion"
+                            : "Discussion (click to change)"
+                          : isReadOnly
+                            ? "Watch"
+                            : "Watch (click to change)"
+                    }
+                  >
+                    {currentIcon === "code" ? (
+                      <Code className="w-3 h-3" />
+                    ) : currentIcon === "discussion" ? (
+                      <MessageCircle className="w-3 h-3" />
+                    ) : (
+                      <Play className="w-3 h-3" />
+                    )}
+                  </button>
+                )}
                 <LessonTitleEditor
                   lesson={lesson}
                   isReadOnly={isReadOnly}
@@ -363,36 +367,41 @@ export function SortableLessonItem({
                     lessonId: lesson.id,
                   })}
                 />
-                <PrioritySelector
-                  priority={currentPriority}
-                  onSelect={handlePrioritySelect}
-                  readOnly={isReadOnly}
-                />
-                <DependencySelector
-                  lessonId={lesson.id}
-                  dependencies={lessonDeps}
-                  allLessons={allFlatLessons}
-                  onDependenciesChange={handleDependenciesChange}
-                  orderViolations={orderViolations}
-                  priorityViolations={priorityViolations}
-                  lessonPriority={lessonPriority}
-                  dependencyMap={dependencyMap}
-                />
-                {lesson.authoringStatus === "todo" && (
-                  <button
-                    className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-foreground text-background hover:opacity-80 transition-opacity shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      submitEvent({
-                        type: "set-lesson-authoring-status",
-                        lessonId: lesson.id,
-                        status: "done",
-                      });
-                    }}
-                  >
-                    todo
-                  </button>
+                {visibility.lessonPriorities && (
+                  <PrioritySelector
+                    priority={currentPriority}
+                    onSelect={handlePrioritySelect}
+                    readOnly={isReadOnly}
+                  />
                 )}
+                {visibility.dependencies && (
+                  <DependencySelector
+                    lessonId={lesson.id}
+                    dependencies={lessonDeps}
+                    allLessons={allFlatLessons}
+                    onDependenciesChange={handleDependenciesChange}
+                    orderViolations={orderViolations}
+                    priorityViolations={priorityViolations}
+                    lessonPriority={lessonPriority}
+                    dependencyMap={dependencyMap}
+                  />
+                )}
+                {visibility.todoMarkers &&
+                  lesson.authoringStatus === "todo" && (
+                    <button
+                      className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-foreground text-background hover:opacity-80 transition-opacity shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        submitEvent({
+                          type: "set-lesson-authoring-status",
+                          lessonId: lesson.id,
+                          status: "done",
+                        });
+                      }}
+                    >
+                      todo
+                    </button>
+                  )}
                 {!isReadOnly &&
                   lesson.lessonWarnings &&
                   lesson.lessonWarnings.length > 0 && (
@@ -410,7 +419,7 @@ export function SortableLessonItem({
                     </TooltipProvider>
                   )}
               </div>
-              {!compact && (
+              {!compact && visibility.lessonDescriptions && (
                 <div className="ml-5">
                   {!isReadOnly && editingDesc ? (
                     <div className="mt-1 max-w-[65ch]">
@@ -491,7 +500,7 @@ export function SortableLessonItem({
             submitEvent={submitEvent}
           />
         </Suspense>
-        {!compact && (
+        {!compact && visibility.videos && (
           <div className="ml-5 mt-3">
             <VideoThumbnailGrid
               courseId={courseId}
@@ -508,7 +517,7 @@ export function SortableLessonItem({
             />
           </div>
         )}
-        {compact && (
+        {compact && visibility.videos && (
           <LessonBeatTree
             courseId={courseId}
             lesson={lesson}

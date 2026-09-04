@@ -10,6 +10,7 @@ import { SortableSectionItem } from "./sortable-section-item";
 import { SectionDescriptionEditor } from "./section-description-editor";
 import { SectionLearningGoals } from "./section-learning-goals";
 import { SectionTitleRow } from "./section-title-row";
+import { useCourseViewVisibility } from "./course-view-visibility";
 import { SectionContextMenuItems } from "./section-context-menu";
 import {
   filterLessons,
@@ -112,6 +113,8 @@ export function SectionCard({
   activeLesson: LessonDragState["activeLesson"];
   bulkDragIds: LessonDragState["bulkDragIds"];
 }) {
+  const { effective: visibility } = useCourseViewVisibility();
+
   const lessons = section.lessons;
 
   const { filteredLessons, hasActiveFilters } = filterLessons(lessons, {
@@ -125,11 +128,19 @@ export function SectionCard({
 
   // Dependency Group runs + spine pairs. Only in compact view, and
   // suppressed under any active filter (the rendered list no longer
-  // reflects true adjacency). See CONTEXT.md / docs/adr/0010.
+  // reflects true adjacency). See CONTEXT.md / docs/adr/0010. Also
+  // suppressed when Dependencies or Lesson Types are hidden by the
+  // course-view display settings — the spine's dashed lines are measured
+  // off the lesson-type icon's `data-dep-icon` anchor (see
+  // sortable-lesson-item.tsx / dep-group-spine.tsx), so it has nothing to
+  // draw between once that icon stops rendering.
   const { runs, spinePairs, revalidateKey } = computeSectionDependencyRuns(
     lessons,
     filteredLessons,
-    viewMode === "compact" && !hasActiveFilters
+    viewMode === "compact" &&
+      !hasActiveFilters &&
+      visibility.dependencies &&
+      visibility.lessonTypes
   );
 
   return (
@@ -198,86 +209,93 @@ export function SectionCard({
                       </div>
                     </div>
                   </div>
-                  {viewMode === "expanded" && (
-                    <SectionDescriptionEditor
-                      sectionId={section.id}
-                      description={section.description ?? ""}
-                      isReadOnly={isReadOnly}
-                      submitEvent={submitEvent}
-                    />
-                  )}
+                  {viewMode === "expanded" &&
+                    visibility.sectionDescriptions && (
+                      <SectionDescriptionEditor
+                        sectionId={section.id}
+                        description={section.description ?? ""}
+                        isReadOnly={isReadOnly}
+                        submitEvent={submitEvent}
+                      />
+                    )}
                 </div>
-                <SectionLearningGoals
-                  learningGoals={section.learningGoals}
-                  defaultOpen={singleColumn && lessons.length === 0}
-                />
-                {(!collapsedSections.has(section.id) || searchQuery) && (
-                  <CompactLessonList
-                    pairs={spinePairs}
-                    revalidateKey={revalidateKey}
-                    className={viewMode === "compact" ? "px-2 py-1" : "p-2"}
-                  >
-                    <SortableContext
-                      items={lessons.map((l) => l.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {hasActiveFilters && filteredLessons.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-3">
-                          No matching lessons
-                        </p>
-                      )}
-                      {runs.map((run) => (
-                        <div
-                          key={run.lessons[0]!.id}
-                          className={runSpacingClass(run.lessons.length > 1)}
-                        >
-                          {run.lessons.map((lesson, idx) => (
-                            <Fragment key={lesson.id}>
-                              {dropIndicator?.targetSectionId === section.id &&
-                                dropIndicator.beforeLessonId === lesson.id && (
-                                  <DropLine />
-                                )}
-                              <SortableLessonItem
-                                courseId={currentCourse.id}
-                                lesson={lesson}
-                                lessonIndex={run.startIndex + idx}
-                                section={section}
-                                data={data}
-                                navigate={navigate}
-                                allFlatLessons={allFlatLessons}
-                                addVideoToLessonId={addVideoToLessonId}
-                                deleteLessonId={deleteLessonId}
-                                editDescriptionLessonId={
-                                  editDescriptionLessonId
-                                }
-                                dispatch={dispatch}
-                                submitEvent={submitEvent}
-                                startExportUpload={startExportUpload}
-                                revealVideoFetcher={revealVideoFetcher}
-                                deleteVideoFileFetcher={deleteVideoFileFetcher}
-                                submitDeleteVideo={submitDeleteVideo}
-                                allSections={currentCourse.sections}
-                                dependencyMap={dependencyMap}
-                                compact={viewMode === "compact"}
-                                isSelected={
-                                  lessonSelection?.sectionId === section.id &&
-                                  lessonSelection.lessonIds.has(lesson.id)
-                                }
-                                isBulkDragPeer={
-                                  bulkDragIds != null &&
-                                  bulkDragIds.has(lesson.id) &&
-                                  lesson.id !== activeLesson?.id
-                                }
-                              />
-                            </Fragment>
-                          ))}
-                        </div>
-                      ))}
-                      {dropIndicator?.targetSectionId === section.id &&
-                        dropIndicator.beforeLessonId === null && <DropLine />}
-                    </SortableContext>
-                  </CompactLessonList>
+                {visibility.learningGoals && (
+                  <SectionLearningGoals
+                    learningGoals={section.learningGoals}
+                    defaultOpen={singleColumn && lessons.length === 0}
+                    showDescriptions={visibility.learningGoalDescriptions}
+                  />
                 )}
+                {visibility.lessons &&
+                  (!collapsedSections.has(section.id) || searchQuery) && (
+                    <CompactLessonList
+                      pairs={spinePairs}
+                      revalidateKey={revalidateKey}
+                      className={viewMode === "compact" ? "px-2 py-1" : "p-2"}
+                    >
+                      <SortableContext
+                        items={lessons.map((l) => l.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {hasActiveFilters && filteredLessons.length === 0 && (
+                          <p className="text-xs text-muted-foreground text-center py-3">
+                            No matching lessons
+                          </p>
+                        )}
+                        {runs.map((run) => (
+                          <div
+                            key={run.lessons[0]!.id}
+                            className={runSpacingClass(run.lessons.length > 1)}
+                          >
+                            {run.lessons.map((lesson, idx) => (
+                              <Fragment key={lesson.id}>
+                                {dropIndicator?.targetSectionId ===
+                                  section.id &&
+                                  dropIndicator.beforeLessonId ===
+                                    lesson.id && <DropLine />}
+                                <SortableLessonItem
+                                  courseId={currentCourse.id}
+                                  lesson={lesson}
+                                  lessonIndex={run.startIndex + idx}
+                                  section={section}
+                                  data={data}
+                                  navigate={navigate}
+                                  allFlatLessons={allFlatLessons}
+                                  addVideoToLessonId={addVideoToLessonId}
+                                  deleteLessonId={deleteLessonId}
+                                  editDescriptionLessonId={
+                                    editDescriptionLessonId
+                                  }
+                                  dispatch={dispatch}
+                                  submitEvent={submitEvent}
+                                  startExportUpload={startExportUpload}
+                                  revealVideoFetcher={revealVideoFetcher}
+                                  deleteVideoFileFetcher={
+                                    deleteVideoFileFetcher
+                                  }
+                                  submitDeleteVideo={submitDeleteVideo}
+                                  allSections={currentCourse.sections}
+                                  dependencyMap={dependencyMap}
+                                  compact={viewMode === "compact"}
+                                  isSelected={
+                                    lessonSelection?.sectionId === section.id &&
+                                    lessonSelection.lessonIds.has(lesson.id)
+                                  }
+                                  isBulkDragPeer={
+                                    bulkDragIds != null &&
+                                    bulkDragIds.has(lesson.id) &&
+                                    lesson.id !== activeLesson?.id
+                                  }
+                                />
+                              </Fragment>
+                            ))}
+                          </div>
+                        ))}
+                        {dropIndicator?.targetSectionId === section.id &&
+                          dropIndicator.beforeLessonId === null && <DropLine />}
+                      </SortableContext>
+                    </CompactLessonList>
+                  )}
               </div>
             </ContextMenuTrigger>
             <SectionContextMenuItems

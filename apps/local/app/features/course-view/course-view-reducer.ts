@@ -47,6 +47,7 @@ export namespace courseViewReducer {
     isAddStandaloneVideoModalOpen: boolean;
     isCopyTranscriptModalOpen: boolean;
     isDuplicateCourseModalOpen: boolean;
+    isVisibilitySettingsModalOpen: boolean;
     copySectionTranscriptState: {
       sectionTitle: string;
       sectionDescription: string | undefined;
@@ -96,6 +97,7 @@ export namespace courseViewReducer {
     | { type: "set-add-standalone-video-modal-open"; open: boolean }
     | { type: "set-copy-transcript-modal-open"; open: boolean }
     | { type: "set-duplicate-course-modal-open"; open: boolean }
+    | { type: "set-visibility-settings-modal-open"; open: boolean }
     | {
         type: "open-copy-section-transcript";
         sectionTitle: string;
@@ -187,7 +189,12 @@ export namespace courseViewReducer {
     | { type: "toggle-priority-filter"; priority: number }
     | { type: "toggle-icon-filter"; icon: string }
     | { type: "toggle-todo-filter" }
-    | { type: "set-search-query"; query: string };
+    | { type: "set-search-query"; query: string }
+    // Filters cleared because the display-settings modal hid the field they
+    // filter on — see the visibility/filter sync effect in FilterBar.
+    | { type: "clear-priority-filter" }
+    | { type: "clear-icon-filter" }
+    | { type: "clear-todo-filter" };
 
   export type Effect = never;
 }
@@ -202,6 +209,7 @@ export function createInitialCourseViewState(): courseViewReducer.State {
     isAddStandaloneVideoModalOpen: false,
     isCopyTranscriptModalOpen: false,
     isDuplicateCourseModalOpen: false,
+    isVisibilitySettingsModalOpen: false,
     copySectionTranscriptState: null,
     addLessonSectionId: null,
     insertAdjacentLessonId: null,
@@ -258,6 +266,8 @@ export const courseViewReducer: EffectReducer<
       return { ...state, isCopyTranscriptModalOpen: action.open };
     case "set-duplicate-course-modal-open":
       return { ...state, isDuplicateCourseModalOpen: action.open };
+    case "set-visibility-settings-modal-open":
+      return { ...state, isVisibilitySettingsModalOpen: action.open };
     case "open-copy-section-transcript":
       return {
         ...state,
@@ -462,5 +472,17 @@ export const courseViewReducer: EffectReducer<
       return { ...state, todoFilter: !state.todoFilter };
     case "set-search-query":
       return { ...state, searchQuery: action.query };
+    case "clear-priority-filter":
+      return state.priorityFilter.length === 0
+        ? state
+        : { ...state, priorityFilter: [] };
+    case "clear-icon-filter":
+      return state.iconFilter.length === 0
+        ? state
+        : { ...state, iconFilter: [] };
+    case "clear-todo-filter":
+      return state.todoFilter === false
+        ? state
+        : { ...state, todoFilter: false };
   }
 };

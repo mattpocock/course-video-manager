@@ -68,6 +68,7 @@ export function BeatList({
   submitEvent,
   isReadOnly,
   showDescriptions,
+  showAddButton = true,
   courseId,
   sectionId,
   className,
@@ -82,6 +83,13 @@ export function BeatList({
    * ambient context (off on the dense course view, which hides the note).
    */
   showDescriptions?: boolean;
+  /**
+   * Render the "Add beat" dropdown below the rows. Defaults on; the course
+   * view's display settings (see `course-view-visibility.tsx`) turn it off
+   * independently of the Beat rows themselves. Has no effect when
+   * `isReadOnly` — that branch never shows the button either way.
+   */
+  showAddButton?: boolean;
   courseId?: string;
   sectionId?: string;
   className?: string;
@@ -138,7 +146,7 @@ export function BeatList({
         {previewInThisVideo?.beforeBeatId === null && <BeatDropLine />}
       </BeatSortableList>
 
-      <AddBeatButton videoId={video.id} />
+      {showAddButton && <AddBeatButton videoId={video.id} />}
     </div>
   );
 }

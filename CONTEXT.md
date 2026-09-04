@@ -157,7 +157,7 @@ A single film-time planning unit of a **Video**, classified by its **job** for t
 _Avoid_: Chapter (the recorded YouTube grouping), Segment (now only the transcript/silence homonym), Section (course Section), Block, Unit
 
 **Beat Description**:
-A free-text planning note on a **Beat** — "what I'm actually going to do or say here" — distinct from its short **title**. Plain text, edited inline (auto-growing textarea). A purely in-app authoring aid: like the Beat itself, it is never published (Publish skips it). Surfaced and editable on the **Section Workbench** and on the editor's **Beats tab** (the current video's plan, read while recording); deliberately **hidden on the course view**, which is already information-dense.
+A free-text planning note on a **Beat** — "what I'm actually going to do or say here" — distinct from its short **title**. Plain text, edited inline (auto-growing textarea). A purely in-app authoring aid: like the Beat itself, it is never published (Publish skips it). Surfaced and editable on the **Section Workbench** and on the editor's **Beats tab** (the current video's plan, read while recording); hidden by default on the course view, which is already information-dense, but can be switched on there per browser via **Course View Display Settings**.
 _Avoid_: Notes, Summary, Body, Caption
 
 **Script**:
@@ -165,8 +165,12 @@ The high-fidelity, screenplay-style plan of a **Video** — one flowing document
 _Avoid_: Body (the published article), Beat Description (the per-beat note), Transcript (what was actually said), Caption
 
 **Section Workbench**:
-A drill-down authoring surface for one **Section** (`/courses/:courseId/sections/:sectionId`), reached from the course view via a Section header (top) or Lesson title (deep link). An expanded reskin of the compact course view: shows each Lesson's **Videos** and **Beats** with **Beat Descriptions** inline-editable. Its added value is that beat/description layer; structural editing is inherited from the reused course-view components. Sibling sections are not shown — go back through the course view.
+A drill-down authoring surface for one **Section** (`/courses/:courseId/sections/:sectionId`), reached from the course view via a Section header (top) or Lesson title (deep link). An expanded reskin of the compact course view: shows each Lesson's **Videos** and **Beats** with **Beat Descriptions** inline-editable. Its added value is that beat/description layer; structural editing is inherited from the reused course-view components. Sibling sections are not shown — go back through the course view. Always shows everything — it does not read **Course View Display Settings**.
 _Avoid_: Section page, Lesson page (the workbench is section-altitude; there is no lesson-altitude page), Section editor
+
+**Course View Display Settings**:
+A per-browser (not per-course) set of checkboxes, opened from a toolbar button on the course view, that shows or hides individual elements of the tree — **Section** Descriptions, **Learning Goals** (and their Descriptions), **Lesson** Descriptions/Priorities/Types/To-do markers/**Lesson Dependency** selectors, **Video**s, **Beat**s (and their Descriptions and Add-beat button) — so a phase of work that only needs, say, Learning Goals and Beats can hide the rest of the clutter. Some checkboxes depend on another (a Video's Beats checkbox is meaningless with Videos itself hidden); unchecking a parent greys out and suppresses its children without discarding their own setting, so re-checking the parent restores them. Sections themselves are never hidden. The same preferences constrain the course view's filter bar — a filter control (priority, lesson type, to-do) only shows, and only applies, while its field is visible. Stored in `localStorage`, not the database — see `course-view-visibility.tsx`.
+_Avoid_: View mode (that's Compact/Expanded, a different, orthogonal toggle also on the course view)
 
 ### Video warnings
 

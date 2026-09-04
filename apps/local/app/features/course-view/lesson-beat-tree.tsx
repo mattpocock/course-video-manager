@@ -5,6 +5,7 @@ import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { BeatList } from "@/features/beats/beat-list";
 import { VideoContextMenuItems } from "./video-context-menu";
+import { useCourseViewVisibility } from "./course-view-visibility";
 import type { LoaderData, Lesson, Section, Video } from "./course-view-types";
 
 /**
@@ -83,6 +84,8 @@ function VideoBeatNode({
   isReadOnly: boolean;
   submitEvent: (event: CourseEditorEvent) => void;
 } & VideoMenuProps) {
+  const { effective: visibility } = useCourseViewVisibility();
+
   const videoRow = (
     <Link
       to={`/videos/${video.id}/edit`}
@@ -102,14 +105,18 @@ function VideoBeatNode({
           {...videoMenuProps}
         />
       </ContextMenu>
-      <BeatList
-        video={{ id: video.id, beats: video.beats ?? [] }}
-        submitEvent={submitEvent}
-        isReadOnly={isReadOnly}
-        courseId={videoMenuProps.courseId}
-        sectionId={videoMenuProps.section.id}
-        className="mt-0.5"
-      />
+      {visibility.beats && (
+        <BeatList
+          video={{ id: video.id, beats: video.beats ?? [] }}
+          submitEvent={submitEvent}
+          isReadOnly={isReadOnly}
+          showDescriptions={visibility.beatDescriptions}
+          showAddButton={visibility.addBeatButton}
+          courseId={videoMenuProps.courseId}
+          sectionId={videoMenuProps.section.id}
+          className="mt-0.5"
+        />
+      )}
     </div>
   );
 }

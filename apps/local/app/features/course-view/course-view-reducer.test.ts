@@ -502,4 +502,62 @@ describe("courseViewReducer", () => {
       expect(state.videoPlayerState.isOpen).toBe(true);
     });
   });
+
+  describe("Visibility settings modal", () => {
+    it("55. is closed initially", () => {
+      const state = createTester().getState();
+      expect(state.isVisibilitySettingsModalOpen).toBe(false);
+    });
+
+    it("56. set-visibility-settings-modal-open: opens and closes", () => {
+      const tester = createTester().send({
+        type: "set-visibility-settings-modal-open",
+        open: true,
+      });
+      expect(tester.getState().isVisibilitySettingsModalOpen).toBe(true);
+      const closed = tester
+        .send({ type: "set-visibility-settings-modal-open", open: false })
+        .getState();
+      expect(closed.isVisibilitySettingsModalOpen).toBe(false);
+    });
+  });
+
+  describe("Filters cleared by hidden fields", () => {
+    it("57. clear-priority-filter: empties the priority filter", () => {
+      const state = createTester()
+        .send({ type: "toggle-priority-filter", priority: 1 })
+        .send({ type: "toggle-priority-filter", priority: 2 })
+        .send({ type: "clear-priority-filter" })
+        .getState();
+      expect(state.priorityFilter).toEqual([]);
+    });
+
+    it("58. clear-icon-filter: empties the icon filter", () => {
+      const state = createTester()
+        .send({ type: "toggle-icon-filter", icon: "code" })
+        .send({ type: "clear-icon-filter" })
+        .getState();
+      expect(state.iconFilter).toEqual([]);
+    });
+
+    it("59. clear-todo-filter: resets the todo filter to false", () => {
+      const state = createTester()
+        .send({ type: "toggle-todo-filter" })
+        .send({ type: "clear-todo-filter" })
+        .getState();
+      expect(state.todoFilter).toBe(false);
+    });
+
+    it("60. clearing one filter leaves the others untouched", () => {
+      const state = createTester()
+        .send({ type: "toggle-priority-filter", priority: 1 })
+        .send({ type: "toggle-icon-filter", icon: "code" })
+        .send({ type: "toggle-todo-filter" })
+        .send({ type: "clear-priority-filter" })
+        .getState();
+      expect(state.priorityFilter).toEqual([]);
+      expect(state.iconFilter).toEqual(["code"]);
+      expect(state.todoFilter).toBe(true);
+    });
+  });
 });
