@@ -35,10 +35,15 @@ import { UploadContext } from "@/features/upload-manager/upload-context";
 import { AutofillChaptersProvider } from "@/features/course-view/autofill-chapters-context";
 import { SectionGrid } from "@/features/course-view/section-grid";
 import {
+  FilterBar,
   ReadOnlyBanner,
   RouteModals,
 } from "@/features/course-view/course-view-components";
-import { createSectionDragHandler } from "@/features/course-view/course-editor-helpers";
+import { CourseViewVisibilityProvider } from "@/features/course-view/course-view-visibility";
+import {
+  createSectionDragHandler,
+  computeTodoCount,
+} from "@/features/course-view/course-editor-helpers";
 import {
   courseEditorFetcherKeyForEvent,
   deleteVideoFetcherKey,
@@ -48,7 +53,6 @@ import {
   useCourseEditorFailureToast,
 } from "@/features/course-view/use-optimistic-course";
 import { DivergenceReportModal } from "@/features/course-view/divergence-report-modal";
-import { BeatDescriptionsProvider } from "@/features/beats/beat-descriptions-context";
 import { SectionScriptsView } from "@/features/course-view/section-scripts-view";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -178,6 +182,16 @@ export default function Component(props: Route.ComponentProps) {
     searchQuery,
   } = viewState;
 
+  const todoCount = useMemo(
+    () =>
+      computeTodoCount(currentCourse?.sections ?? [], {
+        priorityFilter,
+        iconFilter,
+        searchQuery,
+      }),
+    [currentCourse, priorityFilter, iconFilter, searchQuery]
+  );
+
   const { startExportUpload } = useContext(UploadContext);
 
   useFocusRevalidate({ enabled: true, intervalMs: 5000 });
@@ -236,48 +250,59 @@ export default function Component(props: Route.ComponentProps) {
   }, [displaySections, dispatch]);
 
   return (
-    <AutofillChaptersProvider>
-      <div className="flex-1 flex flex-col bg-background text-foreground">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6">
-            {currentCourse && section ? (
-              <>
-                <Link
-                  to={`/courses/${currentCourse.id}`}
-                  className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  {currentCourse.name}
-                </Link>
+    <CourseViewVisibilityProvider>
+      <AutofillChaptersProvider>
+        <div className="flex-1 flex flex-col bg-background text-foreground">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6">
+              {currentCourse && section ? (
+                <>
+                  <Link
+                    to={`/courses/${currentCourse.id}`}
+                    className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    {currentCourse.name}
+                  </Link>
 
-                <h1 className="text-2xl font-bold mb-4">{section.title}</h1>
+                  <h1 className="text-2xl font-bold mb-4">{section.title}</h1>
 
-                {loaderData.selectedVersion && !loaderData.isLatestVersion && (
-                  <div className="mb-4">
-                    <ReadOnlyBanner />
-                  </div>
-                )}
+                  {loaderData.selectedVersion &&
+                    !loaderData.isLatestVersion && (
+                      <div className="mb-4">
+                        <ReadOnlyBanner />
+                      </div>
+                    )}
 
-                <Tabs
-                  value={activeTab}
-                  onValueChange={(value) =>
-                    setSearchParams(
-                      (prev) => {
-                        if (value === "scripts") prev.set("view", "scripts");
-                        else prev.delete("view");
-                        return prev;
-                      },
-                      { replace: true, preventScrollReset: true }
-                    )
-                  }
-                >
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="videos">Videos</TabsTrigger>
-                    <TabsTrigger value="scripts">Scripts</TabsTrigger>
-                  </TabsList>
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(value) =>
+                      setSearchParams(
+                        (prev) => {
+                          if (value === "scripts") prev.set("view", "scripts");
+                          else prev.delete("view");
+                          return prev;
+                        },
+                        { replace: true, preventScrollReset: true }
+                      )
+                    }
+                  >
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="videos">Videos</TabsTrigger>
+                      <TabsTrigger value="scripts">Scripts</TabsTrigger>
+                    </TabsList>
 
-                  <TabsContent value="videos">
-                    <BeatDescriptionsProvider show>
+                    <TabsContent value="videos">
+                      <div className="mb-4">
+                        <FilterBar
+                          priorityFilter={priorityFilter}
+                          iconFilter={iconFilter}
+                          todoFilter={todoFilter}
+                          todoCount={todoCount}
+                          searchQuery={searchQuery}
+                          dispatch={dispatch}
+                        />
+                      </div>
                       <SectionGrid
                         currentCourse={currentCourse}
                         data={loaderData}
@@ -308,62 +333,62 @@ export default function Component(props: Route.ComponentProps) {
                         deleteVideoFileFetcher={deleteVideoFileFetcher}
                         submitDeleteVideo={submitDeleteVideo}
                       />
-                    </BeatDescriptionsProvider>
-                  </TabsContent>
+                    </TabsContent>
 
-                  <TabsContent value="scripts">
-                    <SectionScriptsView
-                      section={section}
-                      readOnly={Boolean(
-                        loaderData.selectedVersion &&
-                        !loaderData.isLatestVersion
-                      )}
-                    />
-                  </TabsContent>
-                </Tabs>
-              </>
-            ) : (
-              <div className="text-center py-12">
-                <h1 className="text-xl font-semibold mb-2">
-                  Section not found
-                </h1>
-                <p className="text-muted-foreground">
-                  This section may have been archived or deleted.
-                </p>
-                {courseId && (
-                  <Link
-                    to={`/courses/${courseId}`}
-                    className="text-primary hover:underline mt-2 inline-block"
-                  >
-                    Back to course
-                  </Link>
-                )}
-              </div>
-            )}
+                    <TabsContent value="scripts">
+                      <SectionScriptsView
+                        section={section}
+                        readOnly={Boolean(
+                          loaderData.selectedVersion &&
+                          !loaderData.isLatestVersion
+                        )}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <h1 className="text-xl font-semibold mb-2">
+                    Section not found
+                  </h1>
+                  <p className="text-muted-foreground">
+                    This section may have been archived or deleted.
+                  </p>
+                  {courseId && (
+                    <Link
+                      to={`/courses/${courseId}`}
+                      className="text-primary hover:underline mt-2 inline-block"
+                    >
+                      Back to course
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
+
+          <VideoModal
+            videoId={videoPlayerState.videoId}
+            videoTitle={videoPlayerState.videoTitle}
+            isOpen={videoPlayerState.isOpen}
+            onClose={() => dispatch({ type: "close-video-player" })}
+          />
+
+          <RouteModals
+            currentCourse={currentCourse}
+            data={loaderData}
+            selectedCourseId={courseId}
+            viewState={viewState}
+            dispatch={dispatch}
+            navigate={navigate}
+          />
+
+          <DivergenceReportModal
+            report={divergenceReport}
+            onClose={clearDivergenceReport}
+          />
         </div>
-
-        <VideoModal
-          videoId={videoPlayerState.videoId}
-          videoTitle={videoPlayerState.videoTitle}
-          isOpen={videoPlayerState.isOpen}
-          onClose={() => dispatch({ type: "close-video-player" })}
-        />
-
-        <RouteModals
-          currentCourse={currentCourse}
-          data={loaderData}
-          selectedCourseId={courseId}
-          viewState={viewState}
-          dispatch={dispatch}
-          navigate={navigate}
-        />
-
-        <DivergenceReportModal
-          report={divergenceReport}
-          onClose={clearDivergenceReport}
-        />
-      </div>
-    </AutofillChaptersProvider>
+      </AutofillChaptersProvider>
+    </CourseViewVisibilityProvider>
   );
 }

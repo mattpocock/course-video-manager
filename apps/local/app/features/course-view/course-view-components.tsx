@@ -89,11 +89,19 @@ export function FilterBar({
   todoFilter: boolean;
   todoCount: number;
   searchQuery: string;
-  viewMode: "expanded" | "compact";
-  onToggleViewMode: () => void;
-  allSectionsCollapsed: boolean;
-  onToggleAllSections: () => void;
-  sectionCount: number;
+  /**
+   * The expanded/compact toggle and the collapse-all-sections toggle only
+   * make sense on the multi-section course view. Omit all five of
+   * `viewMode`/`onToggleViewMode`/`allSectionsCollapsed`/
+   * `onToggleAllSections`/`sectionCount` on a single-section surface (the
+   * Section Workbench) and FilterBar renders just the search box, the
+   * field filters, and the display-settings button.
+   */
+  viewMode?: "expanded" | "compact";
+  onToggleViewMode?: () => void;
+  allSectionsCollapsed?: boolean;
+  onToggleAllSections?: () => void;
+  sectionCount?: number;
   dispatch: (action: courseViewReducer.Action) => void;
 }) {
   const { effective: visibility } = useCourseViewVisibility();
@@ -225,46 +233,50 @@ export function FilterBar({
         )}
 
         <div className="ml-auto flex items-center gap-1">
-          <button
-            className="flex items-center justify-center w-7 h-7 rounded transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:pointer-events-none"
-            onClick={onToggleAllSections}
-            disabled={sectionCount === 0}
-            title={
-              allSectionsCollapsed
-                ? "Expand all sections"
-                : "Collapse all sections"
-            }
-            aria-label={
-              allSectionsCollapsed
-                ? "Expand all sections"
-                : "Collapse all sections"
-            }
-          >
-            {allSectionsCollapsed ? (
-              <ChevronsUpDown className="w-4 h-4" />
-            ) : (
-              <ChevronsDownUp className="w-4 h-4" />
-            )}
-          </button>
-          <button
-            className={`flex items-center justify-center w-7 h-7 rounded transition-colors ${
-              viewMode === "compact"
-                ? "bg-foreground/10 text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={onToggleViewMode}
-            title={
-              viewMode === "compact"
-                ? "Switch to expanded view"
-                : "Switch to compact view"
-            }
-          >
-            {viewMode === "compact" ? (
-              <List className="w-4 h-4" />
-            ) : (
-              <Rows3 className="w-4 h-4" />
-            )}
-          </button>
+          {onToggleAllSections && sectionCount !== undefined && (
+            <button
+              className="flex items-center justify-center w-7 h-7 rounded transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:pointer-events-none"
+              onClick={onToggleAllSections}
+              disabled={sectionCount === 0}
+              title={
+                allSectionsCollapsed
+                  ? "Expand all sections"
+                  : "Collapse all sections"
+              }
+              aria-label={
+                allSectionsCollapsed
+                  ? "Expand all sections"
+                  : "Collapse all sections"
+              }
+            >
+              {allSectionsCollapsed ? (
+                <ChevronsUpDown className="w-4 h-4" />
+              ) : (
+                <ChevronsDownUp className="w-4 h-4" />
+              )}
+            </button>
+          )}
+          {onToggleViewMode && (
+            <button
+              className={`flex items-center justify-center w-7 h-7 rounded transition-colors ${
+                viewMode === "compact"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={onToggleViewMode}
+              title={
+                viewMode === "compact"
+                  ? "Switch to expanded view"
+                  : "Switch to compact view"
+              }
+            >
+              {viewMode === "compact" ? (
+                <List className="w-4 h-4" />
+              ) : (
+                <Rows3 className="w-4 h-4" />
+              )}
+            </button>
+          )}
           <button
             className="flex items-center justify-center w-7 h-7 rounded transition-colors text-muted-foreground hover:text-foreground"
             onClick={() =>
