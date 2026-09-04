@@ -222,7 +222,7 @@ export function SectionGrid({
                   singleColumn
                     ? "lg:grid-cols-1"
                     : viewMode === "compact"
-                      ? "lg:grid-cols-3"
+                      ? "md:grid-cols-2 xl:grid-cols-3"
                       : "lg:grid-cols-2"
                 )}
                 onClick={handleGridClick}
