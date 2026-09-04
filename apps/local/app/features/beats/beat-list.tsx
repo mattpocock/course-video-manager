@@ -96,9 +96,12 @@ export function BeatList({
   isReadOnly: boolean;
   /**
    * Show the inline Beat Description note under each row. The editor's
-   * Beats tab sets it directly; the Section Workbench turns it on for its
-   * whole subtree via {@link BeatDescriptionsProvider}. Defaults to the
-   * ambient context (off on the dense course view, which hides the note).
+   * Beats tab sets it directly. The course view and Section Workbench both
+   * instead pass the Course View Display Settings value
+   * (`visibility.beatDescriptions`, see `lesson-beat-tree.tsx`) as an
+   * explicit prop, which always wins over the {@link BeatDescriptionsProvider}
+   * ambient fallback below — no current caller actually relies on that
+   * fallback.
    */
   showDescriptions?: boolean;
   /**
