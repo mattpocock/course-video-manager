@@ -105,6 +105,18 @@ const lessonSectionService = (client: RpcClient) =>
     getSectionWithHierarchyById: rpcMethod((json) =>
       client.rpc.section.getSectionWithHierarchyById.$post({ json })
     ),
+    createSections: rpcMethod((json) =>
+      client.rpc.section.createSections.$post({ json })
+    ),
+    updateSectionTitle: rpcMethod((json) =>
+      client.rpc.section.updateSectionTitle.$post({ json })
+    ),
+    archiveSection: rpcMethod((json) =>
+      client.rpc.section.archiveSection.$post({ json })
+    ),
+    batchUpdateSectionOrders: rpcMethod((json) =>
+      client.rpc.section.batchUpdateSectionOrders.$post({ json })
+    ),
     getLessonsBySectionId: rpcMethod((json) =>
       client.rpc.lesson.getLessonsBySectionId.$post({ json })
     ),

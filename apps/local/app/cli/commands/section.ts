@@ -2,18 +2,31 @@ import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { sectionSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
   detail,
   emitGet,
   emitNdjson,
   emitObject,
+  notFound,
   parseError,
+  rejectBothFlags,
   resolveVersionId,
   withName,
 } from "@/cli/helpers";
+import {
+  SECTION_HELP,
+  LIST_HELP,
+  GET_HELP,
+  TREE_HELP,
+  CREATE_HELP,
+  RENAME_HELP,
+  MOVE_HELP,
+  ARCHIVE_HELP,
+} from "./section.help";
 
 /**
- * `cvm section` — read Sections of a Course Version.
+ * `cvm section` — Sections of a Course Version, now with write verbs.
  *
  * A Section is a grouping of Lessons within a Course Version, ordered by a
  * fractional `order` (doublePrecision) index. Sections are version-scoped: the
@@ -25,90 +38,44 @@ import {
  * falls back to its title — and is skipped from the numbered course view; it
  * gains a number once it contains at least one Lesson. A section whose path ends
  * in `ARCHIVE` is an ARCHIVE Section (filtered out of the default course view in
- * the app, but still returned here unless it has been archived/deleted).
+ * the app, but still returned here unless it has been archived/deleted). This is
+ * an entirely different thing from this file's `archive` VERB below: the
+ * `ARCHIVE`-suffix convention is a display filter in the app's UI that leaves
+ * the section fully active and readable everywhere in this CLI, while `archive`
+ * is a destructive, one-way soft-delete (sets `archivedAt`) — the same shape as
+ * `cvm lesson archive`. See SECTION_HELP / ARCHIVE_HELP for the full contrast.
+ *
+ * `create`/`rename`/`move`/`archive` call LessonSectionOperationsService
+ * primitives directly (not CourseWriteService) and do their own order math in
+ * the command handler, the same way `cvm lesson create`/`move`/`archive` do — a
+ * Section's only "parent" is the Course Version itself, so `move` has no
+ * cross-parent re-homing case the way `lesson move` does.
  */
-const SECTION_HELP = `cvm section — Sections of a Course Version.
-
-WHAT IS A SECTION
-  A Section is a grouping of Lessons inside a single Course Version, ordered by a
-  fractional 'order' index. Sections are version-scoped: every read resolves a
-  Version first (the DRAFT by default, or --course-version <id> to pin a
-  Published Version snapshot).
-
-  An empty Section (no Lessons) has no derived numbered path — its path falls back
-  to its title — and is skipped from the numbered view; it gains a number once it
-  contains at least one Lesson. Archived (deleted) sections are ALWAYS filtered
-  out and are never visible — there is no --archived flag for sections.
-
-OUTPUT FIELDS
-  id            section id (use with 'get' / 'tree').
-  path          the section's directory name / display name (e.g. "01-intro").
-  order         fractional sort key within the Version (ascending).
-  description   free-text section description (default "").
-  repoVersionId the Course Version this section belongs to.
-  archivedAt    deletion timestamp; always null in CLI output (archived hidden).
-  lessons       (get only) the section's ACTIVE Lessons.
-
-VERBS
-  list   All sections of a Version (requires --course-version <id> or --course <id>).
-  get    One or more sections by id (variadic), each with its active Lessons.
-  tree   Skeleton of section -> lessons -> videos.
-  search <id> <query>  Substring search down this section's subtree
-                       (--type section|lesson|video|beat).
-
-EXAMPLES
-  # All sections of a course's Draft Version, mapping name -> id:
-  cvm section list --course <courseId> | jq '{id, path}'
-
-  # Sections of a pinned Published Version:
-  cvm section list --course-version <versionId>
-
-  # Inspect one section plus its lessons:
-  cvm section get <sectionId>
-
-  # Walk the structure, then drill into a lesson (flags come BEFORE the id):
-  cvm section tree --depth all <sectionId> | jq '.children[].id'`;
-
-const LIST_HELP = `List ALL Sections of one Course Version (the complete set, never a UI-bounded subset), as NDJSON — one compact JSON object per line, ordered by 'order' ascending. Each line carries the section's identity (id, name, path, order, repoVersionId), so an agent can map a section name to its id in a single call. 'name' is the uniform display label every noun's 'list' carries (for a section it mirrors 'path'), so you never have to guess the label field. Lessons are NOT included — list goes one level deep; use 'section get <id>' or 'lesson list --section <id>' to drill in.
-
-You MUST scope the read to a Version:
-  --course-version <id>   pin a specific Course Version (Draft or Published).
-  --course <id>    resolve the course's DRAFT Version automatically.
-Pass exactly one. Archived (deleted) sections are never included.
-
-EXAMPLES
-  cvm section list --course <courseId>
-  cvm section list --course-version <versionId> | jq '{id, path}'`;
-
-const GET_HELP = `Get one or more Sections BY ID (variadic). A single id prints one pretty JSON object; multiple ids print NDJSON (one compact object per line) of those found. Each section is returned with its parent context (its Course Version and Course) and its ACTIVE Lessons (the section's immediate natural children).
-
-Not-found: a single missing id fails with NotFoundError on stderr (exit 2). With multiple ids, found sections are still emitted to stdout and the missing ids are reported on stderr (exit 2).
-
-EXAMPLES
-  cvm section get <sectionId>
-  cvm section get <id1> <id2> <id3> | jq '{id, path}'`;
-
-const TREE_HELP = `Print a SKELETON tree of a Section's structure: section -> lessons -> videos. Each node is minimal: { id, kind, name|title, children }. No full entity fields — use 'get' for those.
-
-  kind "section"  -> name is the section path
-  kind "lesson"   -> title is the lesson title (may be "")
-  kind "video"    -> name is the video title
-
-DEPTH
-  --depth 1    (default) the section plus its direct children (lessons).
-  --depth 2    also expand each lesson's videos.
-  --depth all  the full subtree (section -> lessons -> videos).
-Archived lessons and videos are excluded.
-
-NOTE ON FLAG ORDER
-  Options must come BEFORE the positional id (e.g. 'tree --depth all <id>', NOT
-  'tree <id> --depth all') — a flag placed after the id is rejected (exit 3).
-
-EXAMPLES
-  cvm section tree <sectionId>
-  cvm section tree --depth all <sectionId> | jq '.children[] | {id, title}'`;
 
 const ops = LessonSectionOperationsService;
+
+/**
+ * Refuse a write that targets a non-Draft (Pending/Published) version.
+ *
+ * Mirrors lesson.ts's `assertDraftVersion`: the version's `commitState` is
+ * authoritative, so a stale id can never edit a snapshot. Rejection is
+ * invalid-input (exit 3), not not-found — the id resolves fine, it just isn't
+ * editable. (The DB-mutation layer enforces the same rule with
+ * VersionNotDraftError; this pre-check just gives a friendlier message.)
+ */
+const assertDraftVersion = (versionId: string) =>
+  Effect.gen(function* () {
+    const versionOps = yield* VersionOperationsService;
+    const version = yield* versionOps.getCourseVersionById(versionId);
+    if (version.commitState !== "draft") {
+      return yield* parseError(
+        "cannot edit a " +
+          version.commitState +
+          " version — edits go to the Draft",
+        "section"
+      );
+    }
+  });
 
 /**
  * Resolve the repoVersionId for a version-scoped section read. Accepts either a
@@ -257,12 +224,225 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
   })
 ).pipe(Command.withDescription(detail(TREE_HELP)));
 
+// ---------------------------------------------------------------------------
+// create --course-version <id>|--course <id> --title <t> [--before|--after <id>]
+// ---------------------------------------------------------------------------
+
+const createTitle = Options.text("title").pipe(
+  Options.withDescription("The section title (also its display path).")
+);
+const createBefore = Options.text("before").pipe(
+  Options.withDescription(
+    "Place immediately before this section id (mutually exclusive with --after)."
+  ),
+  Options.optional
+);
+const createAfter = Options.text("after").pipe(
+  Options.withDescription(
+    "Place immediately after this section id (mutually exclusive with --before)."
+  ),
+  Options.optional
+);
+
+const createCmd = Command.make(
+  "create",
+  {
+    version,
+    course,
+    title: createTitle,
+    before: createBefore,
+    after: createAfter,
+  },
+  ({ version, course, title, before, after }) =>
+    Effect.gen(function* () {
+      const b = Option.getOrUndefined(before);
+      const a = Option.getOrUndefined(after);
+      yield* rejectBothFlags({
+        a: b,
+        b: a,
+        flags: ["--before", "--after"],
+        entity: "section",
+      });
+
+      const repoVersionId = yield* resolveScopedVersion(version, course);
+      yield* assertDraftVersion(repoVersionId);
+
+      const svc = yield* ops;
+      const siblings = yield* svc.getSectionsByRepoVersionId(repoVersionId);
+      const maxOrder =
+        siblings.length > 0 ? Math.max(...siblings.map((s) => s.order)) : 0;
+      let insertOrder = maxOrder + 1;
+
+      const anchorId = b ?? a;
+      if (anchorId !== undefined) {
+        const adjIdx = siblings.findIndex((s) => s.id === anchorId);
+        if (adjIdx === -1) {
+          return yield* notFound("section", anchorId);
+        }
+        const idx = a !== undefined ? adjIdx + 1 : adjIdx;
+        yield* svc.batchUpdateSectionOrders(
+          siblings.slice(idx).map((s) => ({ id: s.id, order: s.order + 1 }))
+        );
+        insertOrder = siblings[idx] ? siblings[idx]!.order : maxOrder + 1;
+      }
+
+      const [section] = yield* svc.createSections({
+        repoVersionId,
+        sections: [
+          { sectionPathWithNumber: title, sectionNumber: insertOrder },
+        ],
+      });
+
+      yield* emitObject(section);
+    })
+).pipe(Command.withDescription(detail(CREATE_HELP)));
+
+// ---------------------------------------------------------------------------
+// rename <id> --title <t>
+// ---------------------------------------------------------------------------
+
+const renameId = Args.text({ name: "id" });
+const renameTitle = Options.text("title").pipe(
+  Options.withDescription("The section's new display title.")
+);
+
+const renameCmd = Command.make(
+  "rename",
+  { id: renameId, title: renameTitle },
+  ({ id, title }) =>
+    Effect.gen(function* () {
+      if (title.trim().length === 0) {
+        return yield* parseError("rename needs a non-empty --title", "section");
+      }
+
+      const svc = yield* ops;
+      const section = yield* svc
+        .getSectionWithHierarchyById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("section", id)));
+      if (section.archivedAt !== null) return yield* notFound("section", id);
+
+      yield* assertDraftVersion(section.repoVersionId);
+
+      yield* svc.updateSectionTitle(id, title);
+
+      const updated = yield* svc.getSectionWithHierarchyById(id);
+      yield* emitObject(updated);
+    })
+).pipe(Command.withDescription(detail(RENAME_HELP)));
+
+// ---------------------------------------------------------------------------
+// move <id> [--before|--after <sectionId>]
+// ---------------------------------------------------------------------------
+
+const moveId = Args.text({ name: "id" });
+const moveBefore = Options.text("before").pipe(
+  Options.withDescription(
+    "Place immediately before this section id (mutually exclusive with --after)."
+  ),
+  Options.optional
+);
+const moveAfter = Options.text("after").pipe(
+  Options.withDescription(
+    "Place immediately after this section id (mutually exclusive with --before)."
+  ),
+  Options.optional
+);
+
+const moveCmd = Command.make(
+  "move",
+  { id: moveId, before: moveBefore, after: moveAfter },
+  ({ id, before, after }) =>
+    Effect.gen(function* () {
+      const b = Option.getOrUndefined(before);
+      const a = Option.getOrUndefined(after);
+      yield* rejectBothFlags({
+        a: b,
+        b: a,
+        flags: ["--before", "--after"],
+        entity: "section",
+      });
+      const anchorId = b ?? a;
+
+      const svc = yield* ops;
+      const section = yield* svc
+        .getSectionWithHierarchyById(id)
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("section", id)));
+      if (section.archivedAt !== null) return yield* notFound("section", id);
+      yield* assertDraftVersion(section.repoVersionId);
+
+      if (anchorId === id) {
+        return yield* parseError(
+          "a section cannot be moved relative to itself",
+          "section"
+        );
+      }
+
+      const siblings = yield* svc.getSectionsByRepoVersionId(
+        section.repoVersionId
+      );
+      const rest = siblings.filter((sec) => sec.id !== id);
+      let insertAt = rest.length;
+      if (anchorId !== undefined) {
+        const idx = rest.findIndex((sec) => sec.id === anchorId);
+        if (idx === -1) return yield* notFound("section", anchorId);
+        insertAt = a !== undefined ? idx + 1 : idx;
+      }
+      const newOrderIds = [
+        ...rest.slice(0, insertAt).map((sec) => sec.id),
+        id,
+        ...rest.slice(insertAt).map((sec) => sec.id),
+      ];
+      yield* svc.batchUpdateSectionOrders(
+        newOrderIds.map((sid, i) => ({ id: sid, order: i }))
+      );
+
+      const moved = yield* svc.getSectionWithHierarchyById(id);
+      yield* emitObject(moved);
+    })
+).pipe(Command.withDescription(detail(MOVE_HELP)));
+
+// ---------------------------------------------------------------------------
+// archive <id>
+// ---------------------------------------------------------------------------
+
+const archiveId = Args.text({ name: "id" });
+
+const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
+  Effect.gen(function* () {
+    const svc = yield* ops;
+
+    // Read the row first — once archived it is deleted-equivalent, so this is
+    // the last chance to fetch it (and the draft guard needs its version id).
+    const section = yield* svc
+      .getSectionWithHierarchyById(id)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("section", id)));
+    if (section.archivedAt !== null) return yield* notFound("section", id);
+    yield* assertDraftVersion(section.repoVersionId);
+
+    const archivedAt = new Date();
+    yield* svc.archiveSection(id);
+
+    // archiveSection does not return the row (a plain UPDATE, no RETURNING), so
+    // echo what we already read with the one field the write actually
+    // changed — shaped the same way `get` would return it.
+    yield* emitObject({ ...section, archivedAt });
+  })
+).pipe(Command.withDescription(detail(ARCHIVE_HELP)));
+
+// ---------------------------------------------------------------------------
+// section (parent)
+// ---------------------------------------------------------------------------
+
 export const sectionCommand = Command.make("section").pipe(
   Command.withDescription(detail(SECTION_HELP)),
   Command.withSubcommands([
     listCmd,
     getCmd.pipe(Command.withDescription(detail(GET_HELP))),
     treeCmd,
+    createCmd,
+    renameCmd,
+    moveCmd,
+    archiveCmd,
     sectionSearchCmd,
   ])
 );

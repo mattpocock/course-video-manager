@@ -24,7 +24,8 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'beat' (add/update/move/delete), 'clip' (add/update/move/delete), 'chapter'
-(add/update/move/delete), 'overlay' (add/update/delete), 'lesson'
+(add/update/move/delete), 'overlay' (add/update/delete), 'section'
+(create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
 (create/move/update), 'file' (add/delete), 'footage' (transcribe), 'pitch'
 (create/update), 'deliverable' (create/update/archive) and 'course' (publish).
@@ -124,6 +125,12 @@ WRITES
                                      no archive, no restore)
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
+    section
+            create/rename/move/      create a section in a Version, rename it,
+            archive                  reorder it, or soft-delete it ('archive'
+                                     is one-way, no restore — do NOT confuse
+                                     with the unrelated 'ARCHIVE'-suffix title
+                                     convention, see 'cvm section --help')
     lesson
             create/update/move/      create a lesson, rename its title,
             archive                  reorder / re-home it, or soft-delete it
