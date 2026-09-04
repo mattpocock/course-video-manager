@@ -78,7 +78,7 @@ export function NextTodoCard({
       </h3>
       <div className="rounded-lg border bg-card">
         <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
-          <h2 className="font-medium text-sm">{bestSection.path}</h2>
+          <h2 className="font-medium text-sm">{bestSection.title}</h2>
           <button
             onClick={onDismiss}
             className="text-muted-foreground hover:text-foreground transition-colors"
