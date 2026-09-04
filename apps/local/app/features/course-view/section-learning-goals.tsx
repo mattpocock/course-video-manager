@@ -35,9 +35,10 @@ function PriorityBadge({ priority }: { priority: number }) {
 
 /**
  * A Section's Learning Goals — the pre-Beat planning artifact — shown as a
- * closed-by-default collapsible (mirrors publish-blockers.tsx's pattern:
- * a ChevronRight that rotates 90deg on open, no `open`/`defaultOpen` prop so
- * Radix defaults to closed).
+ * closed-by-default collapsible (mirrors publish-blockers.tsx's pattern: a
+ * ChevronRight that rotates 90deg on open). `defaultOpen` lets a caller flip
+ * that default: the section page opens it when the Section has no Lessons
+ * yet, since the goals are all there is to look at at that point.
  *
  * Deliberately READ-ONLY: the `cvm learning-goal` CLI is the editing surface
  * (see CONTEXT.md / apps/local/app/cli/commands/learning-goal.ts). Renders
@@ -45,15 +46,20 @@ function PriorityBadge({ priority }: { priority: number }) {
  */
 export function SectionLearningGoals({
   learningGoals,
+  defaultOpen = false,
 }: {
   learningGoals: Section["learningGoals"];
+  defaultOpen?: boolean;
 }) {
   if (learningGoals.length === 0) {
     return null;
   }
 
   return (
-    <Collapsible className="border-b bg-muted/10 px-4 py-2">
+    <Collapsible
+      defaultOpen={defaultOpen}
+      className="border-b bg-muted/10 px-4 py-2"
+    >
       <CollapsibleTrigger className="group flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full text-left">
         <ChevronRight className="w-3.5 h-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
         Learning Goals

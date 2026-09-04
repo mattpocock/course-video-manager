@@ -69,12 +69,20 @@ export function SectionCard({
   dropIndicator,
   activeLesson,
   bulkDragIds,
+  singleColumn = false,
 }: {
   section: NonNullable<LoaderData["selectedCourse"]>["sections"][number];
   currentCourse: NonNullable<LoaderData["selectedCourse"]>;
   data: LoaderData;
   isReadOnly: boolean;
   viewMode: "expanded" | "compact";
+  /**
+   * Mirrors `SectionGrid`'s own `singleColumn` — set only by the section
+   * page's route, never the multi-section course view — so it doubles here
+   * as "is this the section page?" for `SectionLearningGoals`'s default-open
+   * behaviour below.
+   */
+  singleColumn?: boolean;
   priorityFilter: number[];
   iconFilter: string[];
   todoFilter: boolean;
@@ -199,7 +207,10 @@ export function SectionCard({
                     />
                   )}
                 </div>
-                <SectionLearningGoals learningGoals={section.learningGoals} />
+                <SectionLearningGoals
+                  learningGoals={section.learningGoals}
+                  defaultOpen={singleColumn && lessons.length === 0}
+                />
                 {(!collapsedSections.has(section.id) || searchQuery) && (
                   <CompactLessonList
                     pairs={spinePairs}
