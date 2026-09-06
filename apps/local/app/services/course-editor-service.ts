@@ -151,6 +151,12 @@ export type CourseEditorEvent =
       kind: BeatKind;
     }
   | {
+      type: "set-beat-learning-goals";
+      beatId: string;
+      /** Replaces the Beat's full set of Learning Goal ids. */
+      learningGoalIds: string[];
+    }
+  | {
       type: "delete-beat";
       beatId: string;
     }
@@ -280,6 +286,11 @@ export interface CourseEditorService {
   ): Promise<{ success: true }>;
 
   setBeatKind(beatId: string, kind: BeatKind): Promise<{ success: true }>;
+
+  setBeatLearningGoals(
+    beatId: string,
+    learningGoalIds: string[]
+  ): Promise<{ success: true }>;
 
   deleteBeat(beatId: string): Promise<{ success: true }>;
 
@@ -493,6 +504,14 @@ export function createCourseEditorService(
         type: "set-beat-kind",
         beatId,
         kind,
+      }) as Promise<{ success: true }>;
+    },
+
+    async setBeatLearningGoals(beatId, learningGoalIds) {
+      return send({
+        type: "set-beat-learning-goals",
+        beatId,
+        learningGoalIds,
       }) as Promise<{ success: true }>;
     },
 

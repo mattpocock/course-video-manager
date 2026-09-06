@@ -1,5 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
-import { beats } from "../db/schema.js";
+import { beatLearningGoals, beats } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import {
   DEFAULT_BEAT_KIND,
@@ -16,6 +16,20 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
+/**
+ * Flatten a beat row's `beatLearningGoals` join rows into a plain
+ * `learningGoalIds` array — every read below returns this shape rather than
+ * the raw join table, so callers never see the join table itself.
+ */
+const withLearningGoalIds = <
+  T extends { beatLearningGoals: { learningGoalId: string }[] },
+>(
+  row: T
+) => {
+  const { beatLearningGoals: joins, ...rest } = row;
+  return { ...rest, learningGoalIds: joins.map((j) => j.learningGoalId) };
+};
+
 export const createBeatOperations = (db: Database) => {
   /** Non-archived beats of a video, sorted by their fractional `order` key. */
   const listBeatsByVideoId = (videoId: string) =>
@@ -23,8 +37,9 @@ export const createBeatOperations = (db: Database) => {
       db.query.beats.findMany({
         where: and(eq(beats.videoId, videoId), eq(beats.archived, false)),
         orderBy: asc(beats.order),
+        with: { beatLearningGoals: { columns: { learningGoalId: true } } },
       })
-    );
+    ).pipe(Effect.map((rows) => rows.map(withLearningGoalIds)));
 
   /**
    * Create a Beat in the Video's plan, with the given `title` (default
@@ -80,18 +95,22 @@ export const createBeatOperations = (db: Database) => {
       });
     }
 
-    return beat;
+    // A brand-new Beat has no Learning Goal links yet — skip the round trip.
+    return { ...beat, learningGoalIds: [] as string[] };
   });
 
   const requireBeat = (id: string) =>
     Effect.gen(function* () {
-      const [updated] = yield* makeDbCall(() =>
-        db.select().from(beats).where(eq(beats.id, id))
+      const updated = yield* makeDbCall(() =>
+        db.query.beats.findFirst({
+          where: eq(beats.id, id),
+          with: { beatLearningGoals: { columns: { learningGoalId: true } } },
+        })
       );
       if (!updated) {
         return yield* new NotFoundError({ type: "beat", params: { id } });
       }
-      return updated;
+      return withLearningGoalIds(updated);
     });
 
   const renameBeat = Effect.fn("renameBeat")(function* (
@@ -126,6 +145,39 @@ export const createBeatOperations = (db: Database) => {
     yield* makeDbCall(() =>
       db.update(beats).set({ kind }).where(eq(beats.id, id))
     );
+    return yield* requireBeat(id);
+  });
+
+  /**
+   * Replace the full set of Learning Goals a Beat serves (delete-then-insert,
+   * same shape as {@link createDeliverableOperations}'s course/pitch links —
+   * there is no incremental add/remove verb, only "set"). An empty array
+   * clears every link; it is the caller's job (the CLI / editor mutation) to
+   * decide whether that is allowed, since the "every Beat needs >=1 Learning
+   * Goal" rule is a Section-scoped warning, not a DB constraint (a Beat's
+   * Video can be standalone/pitch-bound with no Section, and moving a Beat
+   * across Videos must never fail on this join).
+   */
+  const setBeatLearningGoals = Effect.fn("setBeatLearningGoals")(function* (
+    id: string,
+    learningGoalIds: readonly string[]
+  ) {
+    yield* requireBeat(id);
+    const uniqueIds = [...new Set(learningGoalIds)];
+
+    yield* makeDbCall(() =>
+      db.delete(beatLearningGoals).where(eq(beatLearningGoals.beatId, id))
+    );
+    if (uniqueIds.length > 0) {
+      yield* makeDbCall(() =>
+        db
+          .insert(beatLearningGoals)
+          .values(
+            uniqueIds.map((learningGoalId) => ({ beatId: id, learningGoalId }))
+          )
+      );
+    }
+
     return yield* requireBeat(id);
   });
 
@@ -189,6 +241,7 @@ export const createBeatOperations = (db: Database) => {
     renameBeat,
     setBeatDescription,
     setBeatKind,
+    setBeatLearningGoals,
     deleteBeat,
     moveBeat,
   };

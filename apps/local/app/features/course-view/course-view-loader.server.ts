@@ -11,6 +11,11 @@ import {
   computeLessonWarnings,
   findCourseQuizIdCollisions,
 } from "@/services/lesson-warnings";
+import {
+  computeBeatWarnings,
+  computeLearningGoalWarnings,
+  sectionHasLearningGoals,
+} from "@/services/beat-learning-goal-warnings";
 import { toExportClips } from "@/services/export-hash";
 import { runtimeLive } from "@/services/layer.server";
 import {
@@ -101,28 +106,61 @@ export function courseViewEffect(input: {
           return {
             ...courseRest,
             sections: sections.map((section) => {
-              const { lessons, ...sectionRest } = section;
+              const { lessons, learningGoals, ...sectionRest } = section;
+              // Every Beat is expected to serve >=1 of the Section's Learning
+              // Goals, but ONLY once the Section has any — see
+              // beat-learning-goal-warnings.ts. Known up front, so it can be
+              // baked into each Beat's warnings as the Lessons are slimmed
+              // below, without a second walk.
+              const hasLearningGoals = sectionHasLearningGoals(learningGoals);
+
+              const slimLessons = lessons.map((lesson) => {
+                const { videos, ...lessonRest } = lesson;
+                return {
+                  ...lessonRest,
+                  videos: videos.map((video) => {
+                    const slim = toSlimVideo(video);
+                    const withQuizWarning = videosInQuizIdClash.has(video.id)
+                      ? {
+                          ...slim,
+                          warnings: [
+                            ...slim.warnings,
+                            { kind: "duplicateQuizId" as const },
+                          ],
+                        }
+                      : slim;
+                    return {
+                      ...withQuizWarning,
+                      beats: withQuizWarning.beats.map((beat) => ({
+                        ...beat,
+                        warnings: computeBeatWarnings({
+                          sectionHasLearningGoals: hasLearningGoals,
+                          learningGoalIds: beat.learningGoalIds,
+                        }),
+                      })),
+                    };
+                  }),
+                  lessonWarnings: computeLessonWarnings({ videos }),
+                };
+              });
+
+              // Every Beat across the whole Section (not just one Lesson), so
+              // a Learning Goal served from a different Lesson's Video still
+              // counts — the dependency is Section-scoped, not Lesson-scoped.
+              const allBeats = slimLessons.flatMap((lesson) =>
+                lesson.videos.flatMap((video) => video.beats)
+              );
+
               return {
                 ...sectionRest,
-                lessons: lessons.map((lesson) => {
-                  const { videos, ...lessonRest } = lesson;
-                  return {
-                    ...lessonRest,
-                    videos: videos.map((video) => {
-                      const slim = toSlimVideo(video);
-                      return videosInQuizIdClash.has(video.id)
-                        ? {
-                            ...slim,
-                            warnings: [
-                              ...slim.warnings,
-                              { kind: "duplicateQuizId" as const },
-                            ],
-                          }
-                        : slim;
-                    }),
-                    lessonWarnings: computeLessonWarnings({ videos }),
-                  };
-                }),
+                learningGoals: learningGoals.map((goal) => ({
+                  ...goal,
+                  warnings: computeLearningGoalWarnings({
+                    learningGoalId: goal.id,
+                    beats: allBeats,
+                  }),
+                })),
+                lessons: slimLessons,
               };
             }),
           };

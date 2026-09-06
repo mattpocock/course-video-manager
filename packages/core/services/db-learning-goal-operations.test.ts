@@ -4,10 +4,13 @@ import { Effect, Layer } from "effect";
 import { LearningGoalOperationsService } from "./db-learning-goal-operations.server.js";
 import { DrizzleService } from "./drizzle-service.server.js";
 import {
+  beatLearningGoals,
+  beats,
   courses,
   courseVersions,
   learningGoals,
   sections,
+  videos,
   type CourseVersionCommitState,
 } from "../db/schema.js";
 import { eq } from "drizzle-orm";
@@ -366,6 +369,51 @@ describe("moveLearningGoal", () => {
         .moveLearningGoal(a.id, null)
         .pipe(Effect.either);
       expect(result._tag).toBe("Left");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
+describe("beatIds", () => {
+  /** A Beat, in its own Video, serving the given Learning Goal. */
+  const makeBeatServing = async (beatId: string, learningGoalId: string) => {
+    await testDb.insert(videos).values({
+      id: `${beatId}-video`,
+      title: `${beatId}.mp4`,
+      originalFootagePath: `/footage/${beatId}`,
+    });
+    await testDb
+      .insert(beats)
+      .values({ id: beatId, videoId: `${beatId}-video`, order: "a0" });
+    await testDb.insert(beatLearningGoals).values({ beatId, learningGoalId });
+  };
+
+  it.effect("is empty for a Learning Goal no Beat serves yet", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeSection("section-1"));
+      const svc = yield* LearningGoalOperationsService;
+      const goal = yield* svc.createLearningGoal("section-1");
+
+      expect(goal.beatIds).toEqual([]);
+      const fetched = yield* svc.getLearningGoalById(goal.id);
+      expect(fetched.beatIds).toEqual([]);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("lists every Beat serving the goal, on get and on list", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeSection("section-1"));
+      const svc = yield* LearningGoalOperationsService;
+      const goal = yield* svc.createLearningGoal("section-1");
+      yield* Effect.promise(() => makeBeatServing("beat-1", goal.id));
+      yield* Effect.promise(() => makeBeatServing("beat-2", goal.id));
+
+      const fetched = yield* svc.getLearningGoalById(goal.id);
+      expect(new Set(fetched.beatIds)).toEqual(new Set(["beat-1", "beat-2"]));
+
+      const listed = yield* svc.listLearningGoalsBySectionId("section-1");
+      expect(new Set(listed[0]!.beatIds)).toEqual(
+        new Set(["beat-1", "beat-2"])
+      );
     }).pipe(Effect.provide(testLayer))
   );
 });

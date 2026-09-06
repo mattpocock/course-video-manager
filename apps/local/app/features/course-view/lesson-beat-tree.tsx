@@ -114,6 +114,7 @@ function VideoBeatNode({
           showAddButton={visibility.addBeatButton}
           courseId={videoMenuProps.courseId}
           sectionId={videoMenuProps.section.id}
+          sectionLearningGoals={videoMenuProps.section.learningGoals}
           className="mt-0.5"
         />
       )}

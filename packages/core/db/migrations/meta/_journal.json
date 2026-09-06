@@ -155,6 +155,13 @@
       "when": 1788520321502,
       "tag": "0021_add_learning_goals_table",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788711271063,
+      "tag": "0022_add_beat_learning_goals",
+      "breakpoints": true
     }
   ]
 }

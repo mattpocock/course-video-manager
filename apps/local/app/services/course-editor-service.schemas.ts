@@ -135,6 +135,11 @@ export const CourseEditorEventSchema = Schema.Union(
     kind: beatKind,
   }),
   Schema.Struct({
+    type: Schema.Literal("set-beat-learning-goals"),
+    beatId: nonEmptyString,
+    learningGoalIds: Schema.Array(Schema.String),
+  }),
+  Schema.Struct({
     type: Schema.Literal("delete-beat"),
     beatId: nonEmptyString,
   }),

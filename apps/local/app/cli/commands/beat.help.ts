@@ -30,14 +30,20 @@ Positioning (add & move): pick a place with an anchor, not an index —
   --before <id>  before that beat | --after <id>  after it | (neither) end.
 --before/--after are mutually exclusive; the CLI computes the fractional order.
 
+Every Beat is expected to serve at least one Learning Goal of its Section (see
+'cvm learning-goal --help'): a Section that has any Learning Goals surfaces a
+warning in the UI for a Beat that serves none, and for a Learning Goal no Beat
+yet serves. Attach/detach Learning Goals with 'update --learning-goal' below.
+
 Output fields: id, videoId, kind, title, description (never published), order
-(fractional sort key), archived, createdAt.
+(fractional sort key), learningGoalIds (Learning Goals this Beat serves),
+archived, createdAt.
 
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   list   --video <id>              A Video's full ordered plan (active only)
   add    --video|--pitch <id> [flags]  Create a Beat in a Video's plan
                                    (--pitch targets a pitch's video)
-  update [flags] <id>              Patch title/description/kind
+  update [flags] <id>              Patch title/description/kind/learning goals
   move   --video <id> [flags] <id> Reorder, or move to another Video
   delete <id>                      Archive (delete) a Beat
 
@@ -59,7 +65,8 @@ include them.
 
 Each line carries: id, videoId, kind (definition|walkthrough|playthrough|quest|
 reaction), title, description (in-app planning note; never published), order
-(fractional sort key), archived (always false), createdAt.
+(fractional sort key), learningGoalIds (Learning Goals this Beat serves),
+archived (always false), createdAt.
 
 Find a video id with 'cvm video list' or 'cvm video tree <id>'.
 
@@ -100,23 +107,34 @@ Examples:
   cvm beat add --pitch pit_123 --kind quest --title "Try it"`;
 
 export const UPDATE_HELP = `Patch a single Beat's content by id. At least one of --title / --description
-/ --kind is required (an update with no fields is an invalid-input error, exit 3).
+/ --kind / --learning-goal / --clear-learning-goals is required (an update
+with no fields is an invalid-input error, exit 3).
 
 update ONLY changes content — it never repositions the Beat or moves it
 between Videos (use 'move' for that). Only the flags you pass change; the rest
 are left untouched.
 
 Flags:
-  --title <text>       new short label.
-  --description <text> new planning note (never published).
-  --kind <kind>        definition|walkthrough|playthrough|quest|reaction.
+  --title <text>          new short label.
+  --description <text>    new planning note (never published).
+  --kind <kind>            definition|walkthrough|playthrough|quest|reaction.
+  --learning-goal <id>     attach this Learning Goal (repeatable). REPLACES the
+                           Beat's full set of Learning Goals — this is not an
+                           incremental add, so pass every id the Beat should
+                           serve, not just the new one. Mutually exclusive
+                           with --clear-learning-goals. An unknown or archived
+                           Learning Goal id is a not-found (exit 2).
+  --clear-learning-goals   detach every Learning Goal from this Beat. Mutually
+                           exclusive with --learning-goal.
 
 Echoes the updated Beat row. An unknown or already-deleted id is a not-found
 (exit 2). Flags must come BEFORE the <id> (a flag after it exits 3).
 
 Examples:
   cvm beat update --title "Setup" seg_456
-  cvm beat update --kind walkthrough --description "Step through it" seg_456`;
+  cvm beat update --kind walkthrough --description "Step through it" seg_456
+  cvm beat update --learning-goal goal_1 --learning-goal goal_2 seg_456
+  cvm beat update --clear-learning-goals seg_456`;
 
 export const MOVE_HELP = `Reposition a Beat within its plan, or move it into another Video. Requires
 --video <targetVideoId> (pass the Beat's CURRENT video to reorder in place,

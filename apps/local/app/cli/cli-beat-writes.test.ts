@@ -42,6 +42,7 @@ describe("beat writes (add / update / move / delete)", () => {
     title: string;
     description: string;
     order: string;
+    learningGoalIds: string[];
     archived: boolean;
   }
   const obj = (stdout: string): Seg => JSON.parse(stdout) as Seg;
@@ -55,6 +56,20 @@ describe("beat writes (add / update / move / delete)", () => {
       .values({ title, originalFootagePath: "f.mp4" })
       .returning();
     return v!.id;
+  };
+  const addLearningGoal = async (
+    sectionId: string,
+    title: string
+  ): Promise<string> => {
+    const { stdout } = await run([
+      "learning-goal",
+      "create",
+      "--section",
+      sectionId,
+      "--title",
+      title,
+    ]);
+    return (JSON.parse(stdout) as { id: string }).id;
   };
 
   it("add appends to the end with defaults, echoing the created row", async () => {
@@ -234,6 +249,98 @@ describe("beat writes (add / update / move / delete)", () => {
     const err = JSON.parse(stderr.trim()) as { _tag: string; entity: string };
     expect(err._tag).toBe("NotFoundError");
     expect(err.entity).toBe("beat");
+  });
+
+  it("add echoes an empty learningGoalIds for a brand-new beat", async () => {
+    const seg = await add(s.standaloneActiveId);
+    expect(seg.learningGoalIds).toEqual([]);
+  });
+
+  it("update --learning-goal attaches Learning Goals, replacing the full set", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    const goalB = await addLearningGoal(s.draftSectionId, "Goal B");
+    const created = await add(s.lessonVideoId);
+
+    const first = obj(
+      (await run(["beat", "update", "--learning-goal", goalA, created.id]))
+        .stdout
+    );
+    expect(first.learningGoalIds).toEqual([goalA]);
+
+    const replaced = obj(
+      (await run(["beat", "update", "--learning-goal", goalB, created.id]))
+        .stdout
+    );
+    expect(replaced.learningGoalIds).toEqual([goalB]);
+  });
+
+  it("update --learning-goal (repeated) attaches every id given", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    const goalB = await addLearningGoal(s.draftSectionId, "Goal B");
+    const created = await add(s.lessonVideoId);
+
+    const updated = obj(
+      (
+        await run([
+          "beat",
+          "update",
+          "--learning-goal",
+          goalA,
+          "--learning-goal",
+          goalB,
+          created.id,
+        ])
+      ).stdout
+    );
+    expect(new Set(updated.learningGoalIds)).toEqual(new Set([goalA, goalB]));
+  });
+
+  it("update --clear-learning-goals detaches every Learning Goal", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    const created = await add(s.lessonVideoId);
+    await run(["beat", "update", "--learning-goal", goalA, created.id]);
+
+    const cleared = obj(
+      (await run(["beat", "update", "--clear-learning-goals", created.id]))
+        .stdout
+    );
+    expect(cleared.learningGoalIds).toEqual([]);
+  });
+
+  it("update --learning-goal with both --clear-learning-goals => invalid input, exit 3", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    const created = await add(s.lessonVideoId);
+
+    const { stdout, stderr, exitCode } = await run([
+      "beat",
+      "update",
+      "--learning-goal",
+      goalA,
+      "--clear-learning-goals",
+      created.id,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
+      "ParseError"
+    );
+  });
+
+  it("update --learning-goal with an unknown id => NotFoundError, exit 2", async () => {
+    const created = await add(s.lessonVideoId);
+
+    const { stdout, stderr, exitCode } = await run([
+      "beat",
+      "update",
+      "--learning-goal",
+      "lg_missing",
+      created.id,
+    ]);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe("");
+    const err = JSON.parse(stderr.trim()) as { _tag: string; entity: string };
+    expect(err._tag).toBe("NotFoundError");
+    expect(err.entity).toBe("learningGoal");
   });
 
   it("delete archives the beat, echoes archived:true, hides it from list", async () => {
