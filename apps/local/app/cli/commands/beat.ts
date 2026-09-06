@@ -2,6 +2,7 @@ import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import { LearningGoalOperationsService } from "@/services/db-learning-goal-operations.server";
 import { BEAT_KINDS, DEFAULT_BEAT_KIND } from "@/features/beats/beat-kinds";
 import {
   detail,
@@ -81,6 +82,19 @@ const afterOption = Options.text("after").pipe(
     "Place immediately after this beat id (mutually exclusive with --before)."
   ),
   Options.optional
+);
+
+const learningGoalOption = Options.text("learning-goal").pipe(
+  Options.withDescription(
+    "Attach a Learning Goal by id (repeatable). Replaces the Beat's full set."
+  ),
+  Options.repeated
+);
+
+const clearLearningGoalsOption = Options.boolean("clear-learning-goals").pipe(
+  Options.withDescription(
+    "Detach every Learning Goal from this Beat (mutually exclusive with --learning-goal)."
+  )
 );
 
 const idArg = Args.text({ name: "id" });
@@ -186,6 +200,30 @@ const requireActiveBeat = (id: string) =>
     return row;
   });
 
+/**
+ * Resolve repeated --learning-goal flags into a de-duplicated id list, failing
+ * not-found (exit 2) for any id that does not name an ACTIVE Learning Goal.
+ * Validating up front matters: the join table is FK-constrained, so an
+ * unknown id would otherwise surface as an opaque DatabaseError (exit 4).
+ */
+const resolveLearningGoalIds = (learningGoalIds: readonly string[]) =>
+  Effect.gen(function* () {
+    const ids = [...new Set(learningGoalIds)];
+    const svc = yield* LearningGoalOperationsService;
+    yield* Effect.forEach(
+      ids,
+      (id) =>
+        svc.getLearningGoalById(id).pipe(
+          Effect.catchTag("NotFoundError", () => notFound("learningGoal", id)),
+          Effect.flatMap((goal) =>
+            goal.archived ? notFound("learningGoal", id) : Effect.void
+          )
+        ),
+      { discard: true }
+    );
+    return ids;
+  });
+
 // ---------------------------------------------------------------------------
 // Verbs
 // ---------------------------------------------------------------------------
@@ -236,16 +274,33 @@ const updateCmd = Command.make(
     title: titleOption,
     description: descriptionOption,
     kind: kindOption,
+    learningGoal: learningGoalOption,
+    clearLearningGoals: clearLearningGoalsOption,
   },
-  ({ id, title, description, kind }) =>
+  ({ id, title, description, kind, learningGoal, clearLearningGoals }) =>
     Effect.gen(function* () {
       const t = Option.getOrUndefined(title);
       const d = Option.getOrUndefined(description);
       const k = Option.getOrUndefined(kind);
 
-      if (t === undefined && d === undefined && k === undefined) {
+      yield* rejectBothFlags({
+        a: learningGoal.length > 0 ? learningGoal : undefined,
+        b: clearLearningGoals ? true : undefined,
+        flags: ["--learning-goal", "--clear-learning-goals"],
+        entity: "beat",
+      });
+
+      const touchesLearningGoals =
+        learningGoal.length > 0 || clearLearningGoals;
+      if (
+        t === undefined &&
+        d === undefined &&
+        k === undefined &&
+        !touchesLearningGoals
+      ) {
         return yield* parseError(
-          "update needs at least one of --title / --description / --kind",
+          "update needs at least one of --title / --description / --kind / " +
+            "--learning-goal / --clear-learning-goals",
           "beat"
         );
       }
@@ -255,6 +310,12 @@ const updateCmd = Command.make(
       if (t !== undefined) row = yield* svc.renameBeat(id, t);
       if (d !== undefined) row = yield* svc.setBeatDescription(id, d);
       if (k !== undefined) row = yield* svc.setBeatKind(id, k);
+      if (clearLearningGoals) {
+        row = yield* svc.setBeatLearningGoals(id, []);
+      } else if (learningGoal.length > 0) {
+        const learningGoalIds = yield* resolveLearningGoalIds(learningGoal);
+        row = yield* svc.setBeatLearningGoals(id, learningGoalIds);
+      }
       yield* emitObject(row);
     })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));

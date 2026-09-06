@@ -293,6 +293,9 @@ const beatService = (client: RpcClient) =>
     setBeatKind: rpcMethod((json) =>
       client.rpc.beat.setBeatKind.$post({ json })
     ),
+    setBeatLearningGoals: rpcMethod((json) =>
+      client.rpc.beat.setBeatLearningGoals.$post({ json })
+    ),
     moveBeat: rpcMethod((json) => client.rpc.beat.moveBeat.$post({ json })),
     deleteBeat: rpcMethod((json) => client.rpc.beat.deleteBeat.$post({ json })),
   }) satisfies RemoteService<BeatOperationsService>;

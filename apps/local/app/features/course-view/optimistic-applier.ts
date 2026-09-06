@@ -72,6 +72,7 @@ function entityIdForEvent(event: CourseEditorEvent): string {
     case "rename-beat":
     case "update-beat-description":
     case "set-beat-kind":
+    case "set-beat-learning-goals":
     case "delete-beat":
     case "move-beat":
       return event.beatId;
@@ -143,6 +144,10 @@ export function applyOptimisticEvent(
     case "set-beat-kind":
       return withPatchedBeat(loaderData, event.beatId, () => ({
         kind: event.kind,
+      }));
+    case "set-beat-learning-goals":
+      return withPatchedBeat(loaderData, event.beatId, () => ({
+        learningGoalIds: event.learningGoalIds,
       }));
     case "delete-beat":
       return applyDeleteBeat(loaderData, event.beatId);

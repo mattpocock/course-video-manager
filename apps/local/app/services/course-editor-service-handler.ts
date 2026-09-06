@@ -184,6 +184,14 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
         return { success: true };
       }
 
+      case "set-beat-learning-goals": {
+        yield* beatOps.setBeatLearningGoals(
+          event.beatId,
+          event.learningGoalIds
+        );
+        return { success: true };
+      }
+
       case "delete-beat": {
         yield* beatOps.deleteBeat(event.beatId);
         return { success: true };

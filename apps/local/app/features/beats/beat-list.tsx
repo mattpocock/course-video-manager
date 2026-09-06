@@ -32,6 +32,15 @@ import { BeatContextMenuContent } from "./beat-menu-items";
 import { BeatDescriptionEditor } from "./beat-description-editor";
 import { useShowBeatDescriptions } from "./beat-descriptions-context";
 import { BeatTitleEditor } from "./beat-title-editor";
+import {
+  BeatLearningGoalsPicker,
+  type BeatLearningGoalOption,
+} from "./beat-learning-goals-picker";
+import {
+  BEAT_WARNING_LABELS,
+  type BeatWarning,
+} from "@/services/beat-learning-goal-warnings";
+import { AlertTriangle } from "lucide-react";
 
 /**
  * The shape every surface's Beat rows agree on. A loosened `kind: string`
@@ -46,6 +55,14 @@ export type BeatListBeat = {
   /** In-app planning note. Surfaced only where `showDescriptions` is set. */
   description: string;
   order: string;
+  /**
+   * The Learning Goal(s) this Beat serves. Optional so callers without a join
+   * (e.g. the pitch page's beats, which have no Section) keep compiling —
+   * treated as `[]` wherever it's absent.
+   */
+  learningGoalIds?: string[];
+  /** Computed by the loader (course-view-loader.server.ts); absent == none. */
+  warnings?: BeatWarning[];
 };
 
 /**
@@ -71,6 +88,7 @@ export function BeatList({
   showAddButton = true,
   courseId,
   sectionId,
+  sectionLearningGoals,
   className,
 }: {
   video: { id: string; beats: BeatListBeat[] };
@@ -92,6 +110,14 @@ export function BeatList({
   showAddButton?: boolean;
   courseId?: string;
   sectionId?: string;
+  /**
+   * The parent Section's Learning Goals, as picker options for each row's
+   * `BeatLearningGoalsPicker`. Absent (the video editor's Beats tab, the
+   * pitch page — neither has Section context today) means no picker: the row
+   * still shows a plain warning icon if the beat has one, just not the
+   * editable control.
+   */
+  sectionLearningGoals?: BeatLearningGoalOption[];
   className?: string;
 }) {
   const ambientShowDescriptions = useShowBeatDescriptions();
@@ -114,6 +140,7 @@ export function BeatList({
             submitEvent={submitEvent}
             courseId={courseId}
             sectionId={sectionId}
+            sectionLearningGoals={sectionLearningGoals}
           />
         ))}
       </div>
@@ -139,6 +166,7 @@ export function BeatList({
                 submitEvent={submitEvent}
                 courseId={courseId}
                 sectionId={sectionId}
+                sectionLearningGoals={sectionLearningGoals}
               />
             </SortableBeat>
           </Fragment>
@@ -190,6 +218,7 @@ function BeatRow({
   submitEvent,
   courseId,
   sectionId,
+  sectionLearningGoals,
 }: {
   beat: BeatListBeat;
   nextBeatId: string | null;
@@ -198,6 +227,7 @@ function BeatRow({
   submitEvent: (event: CourseEditorEvent) => void;
   courseId?: string;
   sectionId?: string;
+  sectionLearningGoals?: BeatLearningGoalOption[];
 }) {
   const kind = beat.kind as BeatKind;
   const Icon = BEAT_KIND_ICONS[kind];
@@ -205,6 +235,34 @@ function BeatRow({
   const [completed, setCompleted] = useLocalStorageBoolean(
     `beat-completion:${beat.id}`
   );
+  const warnings = beat.warnings ?? [];
+
+  // Editable picker when the caller has Section context AND editing is
+  // allowed; otherwise (the video editor's Beats tab, the pitch page, or a
+  // capture in progress) fall back to a plain warning icon, so a Beat
+  // serving no Learning Goal is never silent, just not fixable right here.
+  const learningGoalsControl =
+    sectionLearningGoals && !isReadOnly ? (
+      <BeatLearningGoalsPicker
+        selectedIds={beat.learningGoalIds ?? []}
+        options={sectionLearningGoals}
+        warnings={warnings}
+        onChange={(learningGoalIds) =>
+          submitEvent({
+            type: "set-beat-learning-goals",
+            beatId: beat.id,
+            learningGoalIds,
+          })
+        }
+      />
+    ) : warnings.length > 0 ? (
+      <span
+        title={warnings.map((w) => BEAT_WARNING_LABELS[w.kind]).join("; ")}
+        className="shrink-0"
+      >
+        <AlertTriangle className="w-3 h-3 text-amber-600" />
+      </span>
+    ) : null;
 
   const titleRow = (
     <div className="flex items-center gap-1.5 text-sm text-foreground/80 cursor-context-menu">
@@ -223,6 +281,7 @@ function BeatRow({
           submitEvent({ type: "rename-beat", beatId: beat.id, title })
         }
       />
+      {learningGoalsControl}
     </div>
   );
 

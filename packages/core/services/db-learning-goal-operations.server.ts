@@ -15,6 +15,19 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
+/**
+ * Flatten a Learning Goal row's `beatLearningGoals` join rows into a plain
+ * `beatIds` array — the Beats currently serving it. Read-only surface: this
+ * is who serves the goal, not an editable link from this side (a Beat's
+ * Learning Goals are set from the Beat, via BeatOperationsService).
+ */
+const withBeatIds = <T extends { beatLearningGoals: { beatId: string }[] }>(
+  row: T
+) => {
+  const { beatLearningGoals: joins, ...rest } = row;
+  return { ...rest, beatIds: joins.map((j) => j.beatId) };
+};
+
 export interface LearningGoalFields {
   title?: string;
   description?: string;
@@ -68,13 +81,17 @@ export const createLearningGoalOperations = (db: Database) => {
           eq(learningGoals.archived, false)
         ),
         orderBy: asc(learningGoals.order),
+        with: { beatLearningGoals: { columns: { beatId: true } } },
       })
-    );
+    ).pipe(Effect.map((rows) => rows.map(withBeatIds)));
 
   const requireLearningGoal = (id: string) =>
     Effect.gen(function* () {
-      const [row] = yield* makeDbCall(() =>
-        db.select().from(learningGoals).where(eq(learningGoals.id, id))
+      const row = yield* makeDbCall(() =>
+        db.query.learningGoals.findFirst({
+          where: eq(learningGoals.id, id),
+          with: { beatLearningGoals: { columns: { beatId: true } } },
+        })
       );
       if (!row) {
         return yield* new NotFoundError({
@@ -82,7 +99,7 @@ export const createLearningGoalOperations = (db: Database) => {
           params: { id },
         });
       }
-      return row;
+      return withBeatIds(row);
     });
 
   /**
@@ -127,7 +144,8 @@ export const createLearningGoalOperations = (db: Database) => {
       });
     }
 
-    return created;
+    // A brand-new Learning Goal has no Beats serving it yet — skip the round trip.
+    return { ...created, beatIds: [] as string[] };
   });
 
   /**

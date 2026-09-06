@@ -1,10 +1,11 @@
-import { ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { LEARNING_GOAL_WARNING_LABELS } from "@/services/beat-learning-goal-warnings";
 import type { Section } from "./course-view-types";
 
 /**
@@ -74,19 +75,31 @@ export function SectionLearningGoals({
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-2">
         <ul className="space-y-2">
-          {learningGoals.map((goal) => (
-            <li key={goal.id} className="flex items-start gap-2 text-xs">
-              <PriorityBadge priority={goal.priority} />
-              <div className="min-w-0">
-                <p className="font-medium text-foreground">
-                  {goal.title || "(untitled)"}
-                </p>
-                {showDescriptions && goal.description && (
-                  <p className="text-muted-foreground">{goal.description}</p>
-                )}
-              </div>
-            </li>
-          ))}
+          {learningGoals.map((goal) => {
+            const warnings = goal.warnings ?? [];
+            return (
+              <li key={goal.id} className="flex items-start gap-2 text-xs">
+                <PriorityBadge priority={goal.priority} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground flex items-center gap-1">
+                    {goal.title || "(untitled)"}
+                    {warnings.length > 0 && (
+                      <span
+                        title={warnings
+                          .map((w) => LEARNING_GOAL_WARNING_LABELS[w.kind])
+                          .join("; ")}
+                      >
+                        <AlertTriangle className="w-3 h-3 text-amber-600" />
+                      </span>
+                    )}
+                  </p>
+                  {showDescriptions && goal.description && (
+                    <p className="text-muted-foreground">{goal.description}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </CollapsibleContent>
     </Collapsible>

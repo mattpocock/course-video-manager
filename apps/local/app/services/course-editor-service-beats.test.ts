@@ -24,7 +24,7 @@ const db = () => testDb;
 
 async function createBeat() {
   const { version } = await createCourseWithVersion();
-  const { lessons } = await createSectionWithLessons(
+  const { section, lessons } = await createSectionWithLessons(
     version.id,
     "01-intro",
     0,
@@ -42,13 +42,22 @@ async function createBeat() {
     .insert(schema.beats)
     .values({ videoId: video!.id, order: "a0" })
     .returning();
-  return { beat: beat!, video: video! };
+  return { beat: beat!, video: video!, section: section! };
 }
 
 async function getBeat(id: string) {
   return db().query.beats.findFirst({
     where: (s, { eq }) => eq(s.id, id),
   });
+}
+
+let nextLearningGoalOrder = 1;
+async function createLearningGoal(sectionId: string) {
+  const [goal] = await db()
+    .insert(schema.learningGoals)
+    .values({ sectionId, order: nextLearningGoalOrder++ })
+    .returning();
+  return goal!;
 }
 
 describe("CourseEditorService — beats", () => {
@@ -74,6 +83,35 @@ describe("CourseEditorService — beats", () => {
 
       const updated = await getBeat(beat.id);
       expect(updated?.description).toBe("");
+    });
+  });
+
+  describe("set-beat-learning-goals", () => {
+    it("routes the event to setBeatLearningGoals and persists it", async () => {
+      const { beat, section } = await createBeat();
+      const goal = await createLearningGoal(section.id);
+
+      const result = await svc().setBeatLearningGoals(beat.id, [goal.id]);
+      expect(result).toEqual({ success: true });
+
+      const links = await db().query.beatLearningGoals.findMany({
+        where: (s, { eq }) => eq(s.beatId, beat.id),
+      });
+      expect(links.map((l) => l.learningGoalId)).toEqual([goal.id]);
+    });
+
+    it("replaces the full set rather than appending", async () => {
+      const { beat, section } = await createBeat();
+      const goalA = await createLearningGoal(section.id);
+      const goalB = await createLearningGoal(section.id);
+      await svc().setBeatLearningGoals(beat.id, [goalA.id]);
+
+      await svc().setBeatLearningGoals(beat.id, [goalB.id]);
+
+      const links = await db().query.beatLearningGoals.findMany({
+        where: (s, { eq }) => eq(s.beatId, beat.id),
+      });
+      expect(links.map((l) => l.learningGoalId)).toEqual([goalB.id]);
     });
   });
 });

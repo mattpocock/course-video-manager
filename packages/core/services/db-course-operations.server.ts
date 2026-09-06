@@ -33,6 +33,23 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
+/**
+ * Flatten a Beat row's `beatLearningGoals` join rows (as fetched by
+ * {@link getCourseWithSlimClipsById}) into a plain `learningGoalIds` array —
+ * the shape every downstream reader (the course view, Section Workbench)
+ * consumes. Mirrors `withLearningGoalIds` in db-beat-operations.server.ts;
+ * duplicated rather than shared because the two live on different query
+ * shapes (this one is nested three levels deeper).
+ */
+const flattenBeatLearningGoalIds = <
+  T extends { beatLearningGoals: { learningGoalId: string }[] },
+>(
+  beat: T
+) => {
+  const { beatLearningGoals: joins, ...rest } = beat;
+  return { ...rest, learningGoalIds: joins.map((j) => j.learningGoalId) };
+};
+
 export const createCourseOperations = (db: Database) => {
   const assertSlugAvailable = Effect.fn("assertSlugAvailable")(function* (
     name: string,
@@ -301,6 +318,16 @@ export const createCourseOperations = (db: Database) => {
                               },
                               orderBy: asc(beats.order),
                               where: eq(beats.archived, false),
+                              with: {
+                                // The Learning Goal(s) this Beat serves — every
+                                // Beat is expected to serve at least one when
+                                // its Section has any (see
+                                // beat-learning-goal-warnings.ts). Flattened to
+                                // `learningGoalIds` below.
+                                beatLearningGoals: {
+                                  columns: { learningGoalId: true },
+                                },
+                              },
                             },
                           },
                         },
@@ -329,7 +356,18 @@ export const createCourseOperations = (db: Database) => {
         ...course,
         versions: course.versions.map((version) => ({
           ...version,
-          sections: attachDerivedPaths(version.sections),
+          sections: attachDerivedPaths(
+            version.sections.map((section) => ({
+              ...section,
+              lessons: section.lessons.map((lesson) => ({
+                ...lesson,
+                videos: lesson.videos.map((video) => ({
+                  ...video,
+                  beats: video.beats.map(flattenBeatLearningGoalIds),
+                })),
+              })),
+            }))
+          ),
         })),
       };
     }

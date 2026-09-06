@@ -3,7 +3,14 @@ import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { BeatOperationsService } from "./db-beat-operations.server.js";
 import { DrizzleService } from "./drizzle-service.server.js";
-import { beats, videos } from "../db/schema.js";
+import {
+  beats,
+  courses,
+  courseVersions,
+  learningGoals,
+  sections,
+  videos,
+} from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { compareOrderStrings } from "../lib/sort-by-order.js";
 import {
@@ -36,6 +43,25 @@ const makeVideo = async (id: string) => {
   });
 };
 
+/** A Learning Goal in its own freshly-made Section, for join-table tests. */
+const makeLearningGoal = async (id: string, order = 1) => {
+  const [course] = await testDb
+    .insert(courses)
+    .values({ name: `course-${id}` })
+    .returning();
+  const [version] = await testDb
+    .insert(courseVersions)
+    .values({ repoId: course!.id, name: "v1" })
+    .returning();
+  const [section] = await testDb
+    .insert(sections)
+    .values({ repoVersionId: version!.id, order: 1 })
+    .returning();
+  await testDb
+    .insert(learningGoals)
+    .values({ id, sectionId: section!.id, order });
+};
+
 describe("createBeat", () => {
   it.effect("defaults to the definition kind with an empty title", () =>
     Effect.gen(function* () {
@@ -49,6 +75,17 @@ describe("createBeat", () => {
       expect(beat.description).toBe("");
       expect(beat.videoId).toBe("video-1");
       expect(beat.order).toEqual(expect.any(String));
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("starts with no Learning Goals", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      const beatOps = yield* BeatOperationsService;
+
+      const beat = yield* beatOps.createBeat("video-1");
+
+      expect(beat.learningGoalIds).toEqual([]);
     }).pipe(Effect.provide(testLayer))
   );
 
@@ -242,6 +279,99 @@ describe("setBeatKind", () => {
 
       expect(updated.kind).toBe("playthrough");
       expect(updated.title).toBe("Intro");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
+describe("setBeatLearningGoals", () => {
+  it.effect("attaches the given Learning Goals", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      yield* Effect.promise(() => makeLearningGoal("goal-1"));
+      yield* Effect.promise(() => makeLearningGoal("goal-2"));
+      const beatOps = yield* BeatOperationsService;
+      const created = yield* beatOps.createBeat("video-1");
+
+      const updated = yield* beatOps.setBeatLearningGoals(created.id, [
+        "goal-1",
+        "goal-2",
+      ]);
+
+      expect(new Set(updated.learningGoalIds)).toEqual(
+        new Set(["goal-1", "goal-2"])
+      );
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("replaces the full set rather than appending", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      yield* Effect.promise(() => makeLearningGoal("goal-1"));
+      yield* Effect.promise(() => makeLearningGoal("goal-2"));
+      const beatOps = yield* BeatOperationsService;
+      const created = yield* beatOps.createBeat("video-1");
+      yield* beatOps.setBeatLearningGoals(created.id, ["goal-1"]);
+
+      const updated = yield* beatOps.setBeatLearningGoals(created.id, [
+        "goal-2",
+      ]);
+
+      expect(updated.learningGoalIds).toEqual(["goal-2"]);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("an empty array clears every link", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      yield* Effect.promise(() => makeLearningGoal("goal-1"));
+      const beatOps = yield* BeatOperationsService;
+      const created = yield* beatOps.createBeat("video-1");
+      yield* beatOps.setBeatLearningGoals(created.id, ["goal-1"]);
+
+      const cleared = yield* beatOps.setBeatLearningGoals(created.id, []);
+
+      expect(cleared.learningGoalIds).toEqual([]);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("dedupes repeated ids", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      yield* Effect.promise(() => makeLearningGoal("goal-1"));
+      const beatOps = yield* BeatOperationsService;
+      const created = yield* beatOps.createBeat("video-1");
+
+      const updated = yield* beatOps.setBeatLearningGoals(created.id, [
+        "goal-1",
+        "goal-1",
+      ]);
+
+      expect(updated.learningGoalIds).toEqual(["goal-1"]);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("survives a cross-video move (the join keys on beatId)", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      yield* Effect.promise(() => makeVideo("video-2"));
+      yield* Effect.promise(() => makeLearningGoal("goal-1"));
+      const beatOps = yield* BeatOperationsService;
+      const created = yield* beatOps.createBeat("video-1");
+      yield* beatOps.setBeatLearningGoals(created.id, ["goal-1"]);
+
+      const moved = yield* beatOps.moveBeat(created.id, "video-2", null);
+
+      expect(moved.learningGoalIds).toEqual(["goal-1"]);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("fails when the beat does not exist", () =>
+    Effect.gen(function* () {
+      const beatOps = yield* BeatOperationsService;
+      const result = yield* beatOps
+        .setBeatLearningGoals("missing", [])
+        .pipe(Effect.either);
+      expect(result._tag).toBe("Left");
     }).pipe(Effect.provide(testLayer))
   );
 });

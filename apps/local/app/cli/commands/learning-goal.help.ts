@@ -18,8 +18,15 @@ default collapsible, and they are NOT editable there (see 'cvm --help' —
 'learning-goal' is one of the write-capable nouns). The cvm CLI is the primary
 editing surface: create/update/move/delete, in addition to list/get.
 
+Every Beat is expected to serve at least one Learning Goal of its Section: a
+Section that has any Learning Goals surfaces a warning in the UI for a
+Learning Goal no Beat yet serves (empty 'beatIds' below), and for a Beat that
+serves none. Attach a Beat to a Learning Goal from the Beat side — see
+'cvm beat --help', 'update --learning-goal'.
+
 Output fields: id, sectionId, title, description, priority, order (sort key
-within the Section), archived, createdAt.
+within the Section), beatIds (the Beats currently serving this goal —
+read-only here), archived, createdAt.
 
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   list   --section <id>            A Section's Learning Goals, ordered
@@ -45,7 +52,8 @@ Already sorted by 'order' ascending. Archived (deleted) Learning Goals are
 always excluded — there is no flag to include them.
 
 Each line carries: id, sectionId, title, description, priority (integer,
-lower sorts first), order, archived (always false), createdAt.
+lower sorts first), order, beatIds (Beats currently serving this goal),
+archived (always false), createdAt.
 
 Find a section id with 'cvm section list' or 'cvm section tree <id>'.
 

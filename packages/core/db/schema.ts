@@ -592,6 +592,34 @@ export const beats = createTable(
   ]
 );
 
+/**
+ * The Beat <-> Learning Goal dependency: every Beat must serve at least one
+ * Learning Goal of its Section (enforced in the authoring UI/CLI, not by a DB
+ * constraint — a Beat's Video can be standalone/pitch-bound with no Section at
+ * all, and moving a Beat across Videos must never fail on this join). Many-to-
+ * many, mirroring deliverable_course / deliverable_pitch: a plain join table
+ * with a composite primary key, no surrogate id.
+ */
+export const beatLearningGoals = createTable(
+  "beat_learning_goal",
+  {
+    beatId: varchar("beat_id", { length: 255 })
+      .notNull()
+      .references(() => beats.id, { onDelete: "cascade" }),
+    learningGoalId: varchar("learning_goal_id", { length: 255 })
+      .notNull()
+      .references(() => learningGoals.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.beatId, table.learningGoalId] }),
+    // The composite primary key above indexes beatId as its leftmost column
+    // (resolving a Beat's Learning Goals is already fast), but not
+    // learningGoalId — resolving a Learning Goal's Beats (the "which Learning
+    // Goals have no Beat yet" warning) would otherwise seq-scan this table.
+    index("beat_learning_goal_learning_goal_id_idx").on(table.learningGoalId),
+  ]
+);
+
 export namespace DB {
   export interface Clip extends Omit<InferSelectModel<typeof clips>, "id"> {
     id: DatabaseId;
@@ -683,12 +711,27 @@ export const pitchesRelations = relations(pitches, ({ many }) => ({
   deliverablesPitches: many(deliverablesPitches),
 }));
 
-export const beatsRelations = relations(beats, ({ one }) => ({
+export const beatsRelations = relations(beats, ({ one, many }) => ({
   video: one(videos, {
     fields: [beats.videoId],
     references: [videos.id],
   }),
+  beatLearningGoals: many(beatLearningGoals),
 }));
+
+export const beatLearningGoalsRelations = relations(
+  beatLearningGoals,
+  ({ one }) => ({
+    beat: one(beats, {
+      fields: [beatLearningGoals.beatId],
+      references: [beats.id],
+    }),
+    learningGoal: one(learningGoals, {
+      fields: [beatLearningGoals.learningGoalId],
+      references: [learningGoals.id],
+    }),
+  })
+);
 
 export const videosRelations = relations(videos, ({ one, many }) => ({
   lesson: one(lessons, { fields: [videos.lessonId], references: [lessons.id] }),
@@ -708,12 +751,16 @@ export const lessonsRelations = relations(lessons, ({ one, many }) => ({
   videos: many(videos),
 }));
 
-export const learningGoalsRelations = relations(learningGoals, ({ one }) => ({
-  section: one(sections, {
-    fields: [learningGoals.sectionId],
-    references: [sections.id],
-  }),
-}));
+export const learningGoalsRelations = relations(
+  learningGoals,
+  ({ one, many }) => ({
+    section: one(sections, {
+      fields: [learningGoals.sectionId],
+      references: [sections.id],
+    }),
+    beatLearningGoals: many(beatLearningGoals),
+  })
+);
 
 export const sectionsRelations = relations(sections, ({ one, many }) => ({
   repoVersion: one(courseVersions, {
