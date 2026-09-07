@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * The outermost bin edge for the globally-linked `cvm` command. This is the
- * ONLY place process.exit is allowed.
+ * The outermost bin edge for the globally-linked `cvm` command.
  *
  * It is a PLAIN Node launcher (not TypeScript) on purpose: it must run before
  * tsx is initialised so it can pin tsx to THIS project's tsconfig. tsx resolves
@@ -24,13 +23,15 @@ const { tsImport } = await import("tsx/esm/api");
 const { runCli } = await tsImport("./main.ts", import.meta.url);
 
 runCli(process.argv.slice(2)).then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (cause) => {
     // Last-resort guard: runCli is designed never to reject, but if something
     // escapes, render a clean DatabaseError (never a raw stack) and exit 4.
     process.stderr.write(
       JSON.stringify({ _tag: "DatabaseError", message: String(cause) }) + "\n"
     );
-    process.exit(4);
+    process.exitCode = 4;
   }
 );
