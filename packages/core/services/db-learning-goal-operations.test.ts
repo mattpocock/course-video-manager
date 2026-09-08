@@ -298,6 +298,38 @@ describe("deleteLearningGoal", () => {
       expect(result._tag).toBe("Left");
     }).pipe(Effect.provide(testLayer))
   );
+
+  it.effect(
+    "removes its beatLearningGoals join rows (mirrors deleteBeat's own cascade)",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() => makeSection("section-1"));
+        const svc = yield* LearningGoalOperationsService;
+        const created = yield* svc.createLearningGoal("section-1");
+        yield* Effect.promise(async () => {
+          await testDb.insert(videos).values({
+            id: "beat-1-video",
+            title: "beat-1.mp4",
+            originalFootagePath: "/footage/beat-1",
+          });
+          await testDb
+            .insert(beats)
+            .values({ id: "beat-1", videoId: "beat-1-video", order: "a0" });
+          await testDb
+            .insert(beatLearningGoals)
+            .values({ beatId: "beat-1", learningGoalId: created.id });
+        });
+
+        yield* svc.deleteLearningGoal(created.id);
+
+        const joins = yield* Effect.promise(() =>
+          testDb.query.beatLearningGoals.findMany({
+            where: eq(beatLearningGoals.learningGoalId, created.id),
+          })
+        );
+        expect(joins).toHaveLength(0);
+      }).pipe(Effect.provide(testLayer))
+  );
 });
 
 describe("moveLearningGoal", () => {
@@ -414,6 +446,130 @@ describe("beatIds", () => {
       expect(new Set(listed[0]!.beatIds)).toEqual(
         new Set(["beat-1", "beat-2"])
       );
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "excludes an archived Beat's id defensively, even with its join row left in place",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() => makeSection("section-1"));
+        const svc = yield* LearningGoalOperationsService;
+        const goal = yield* svc.createLearningGoal("section-1");
+        yield* Effect.promise(() => makeBeatServing("beat-1", goal.id));
+        yield* Effect.promise(() => makeBeatServing("beat-2", goal.id));
+
+        // Simulate a Beat archived (e.g. by `beat delete`) without its join
+        // row cleaned up — the bug `deleteBeat`'s cascade now fixes, and the
+        // defensive filter here is the backstop for a row missed some other way.
+        yield* Effect.promise(() =>
+          testDb
+            .update(beats)
+            .set({ archived: true })
+            .where(eq(beats.id, "beat-1"))
+        );
+
+        const fetched = yield* svc.getLearningGoalById(goal.id);
+        expect(fetched.beatIds).toEqual(["beat-2"]);
+
+        const listed = yield* svc.listLearningGoalsBySectionId("section-1");
+        expect(listed[0]!.beatIds).toEqual(["beat-2"]);
+      }).pipe(Effect.provide(testLayer))
+  );
+});
+
+describe("unlinkBeat", () => {
+  /** A Beat, in its own Video, serving the given Learning Goal. */
+  const makeBeatServing = async (beatId: string, learningGoalId: string) => {
+    await testDb.insert(videos).values({
+      id: `${beatId}-video`,
+      title: `${beatId}.mp4`,
+      originalFootagePath: `/footage/${beatId}`,
+    });
+    await testDb
+      .insert(beats)
+      .values({ id: beatId, videoId: `${beatId}-video`, order: "a0" });
+    await testDb.insert(beatLearningGoals).values({ beatId, learningGoalId });
+  };
+
+  it.effect("removes just the one Beat's link, leaving others in place", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeSection("section-1"));
+      const svc = yield* LearningGoalOperationsService;
+      const goal = yield* svc.createLearningGoal("section-1");
+      yield* Effect.promise(() => makeBeatServing("beat-1", goal.id));
+      yield* Effect.promise(() => makeBeatServing("beat-2", goal.id));
+
+      const updated = yield* svc.unlinkBeat(goal.id, "beat-1");
+
+      expect(updated.beatIds).toEqual(["beat-2"]);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "is the cleanup path for a Beat that has already been deleted",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() => makeSection("section-1"));
+        const svc = yield* LearningGoalOperationsService;
+        const goal = yield* svc.createLearningGoal("section-1");
+        yield* Effect.promise(() => makeBeatServing("beat-1", goal.id));
+        // The Beat is gone (archived) but its join row was left dangling —
+        // exactly the bug report's scenario.
+        yield* Effect.promise(() =>
+          testDb
+            .update(beats)
+            .set({ archived: true })
+            .where(eq(beats.id, "beat-1"))
+        );
+        expect((yield* svc.getLearningGoalById(goal.id)).beatIds).toEqual([]);
+
+        const updated = yield* svc.unlinkBeat(goal.id, "beat-1");
+
+        expect(updated.beatIds).toEqual([]);
+        const row = yield* Effect.promise(() =>
+          testDb.query.beatLearningGoals.findFirst({
+            where: eq(beatLearningGoals.beatId, "beat-1"),
+          })
+        );
+        expect(row).toBeUndefined();
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("is idempotent when the Beat was never linked", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeSection("section-1"));
+      const svc = yield* LearningGoalOperationsService;
+      const goal = yield* svc.createLearningGoal("section-1");
+
+      const updated = yield* svc.unlinkBeat(goal.id, "never-linked");
+
+      expect(updated.beatIds).toEqual([]);
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("fails when the Learning Goal does not exist", () =>
+    Effect.gen(function* () {
+      const svc = yield* LearningGoalOperationsService;
+      const result = yield* svc
+        .unlinkBeat("missing", "beat-1")
+        .pipe(Effect.either);
+      expect(result._tag).toBe("Left");
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("fails once the owning version is no longer a Draft", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeSection("section-1"));
+      const svc = yield* LearningGoalOperationsService;
+      const goal = yield* svc.createLearningGoal("section-1");
+      yield* Effect.promise(() => makeBeatServing("beat-1", goal.id));
+      yield* Effect.promise(() => publishVersionOf("section-1"));
+
+      const result = yield* svc
+        .unlinkBeat(goal.id, "beat-1")
+        .pipe(Effect.either);
+      expect(result._tag).toBe("Left");
     }).pipe(Effect.provide(testLayer))
   );
 });

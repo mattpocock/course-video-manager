@@ -19,15 +19,28 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 /**
  * Flatten a beat row's `beatLearningGoals` join rows into a plain
  * `learningGoalIds` array — every read below returns this shape rather than
- * the raw join table, so callers never see the join table itself.
+ * the raw join table, so callers never see the join table itself. Joins whose
+ * Learning Goal is archived are dropped defensively (mirrors `withBeatIds` in
+ * db-learning-goal-operations.server.ts) — a deleted Learning Goal is never
+ * hard-deleted either, only flagged, so a stale join row shouldn't surface it.
  */
 const withLearningGoalIds = <
-  T extends { beatLearningGoals: { learningGoalId: string }[] },
+  T extends {
+    beatLearningGoals: {
+      learningGoalId: string;
+      learningGoal: { archived: boolean } | null;
+    }[];
+  },
 >(
   row: T
 ) => {
   const { beatLearningGoals: joins, ...rest } = row;
-  return { ...rest, learningGoalIds: joins.map((j) => j.learningGoalId) };
+  return {
+    ...rest,
+    learningGoalIds: joins
+      .filter((j) => j.learningGoal?.archived === false)
+      .map((j) => j.learningGoalId),
+  };
 };
 
 export const createBeatOperations = (db: Database) => {
@@ -37,7 +50,12 @@ export const createBeatOperations = (db: Database) => {
       db.query.beats.findMany({
         where: and(eq(beats.videoId, videoId), eq(beats.archived, false)),
         orderBy: asc(beats.order),
-        with: { beatLearningGoals: { columns: { learningGoalId: true } } },
+        with: {
+          beatLearningGoals: {
+            columns: { learningGoalId: true },
+            with: { learningGoal: { columns: { archived: true } } },
+          },
+        },
       })
     ).pipe(Effect.map((rows) => rows.map(withLearningGoalIds)));
 
@@ -104,7 +122,12 @@ export const createBeatOperations = (db: Database) => {
       const updated = yield* makeDbCall(() =>
         db.query.beats.findFirst({
           where: eq(beats.id, id),
-          with: { beatLearningGoals: { columns: { learningGoalId: true } } },
+          with: {
+            beatLearningGoals: {
+              columns: { learningGoalId: true },
+              with: { learningGoal: { columns: { archived: true } } },
+            },
+          },
         })
       );
       if (!updated) {
@@ -181,9 +204,21 @@ export const createBeatOperations = (db: Database) => {
     return yield* requireBeat(id);
   });
 
+  /**
+   * Archive a Beat. Also removes its `beatLearningGoals` join rows (same
+   * delete used by {@link setBeatLearningGoals}) so a deleted Beat's id
+   * cannot linger inside a Learning Goal's `beatIds` forever — a Beat is
+   * never hard-deleted, only flagged, so without this the join row would
+   * survive it indefinitely. `withBeatIds` in
+   * db-learning-goal-operations.server.ts also filters archived Beats out of
+   * `beatIds` directly, as defense in depth if a row like this is ever missed.
+   */
   const deleteBeat = Effect.fn("deleteBeat")(function* (id: string) {
     yield* makeDbCall(() =>
       db.update(beats).set({ archived: true }).where(eq(beats.id, id))
+    );
+    yield* makeDbCall(() =>
+      db.delete(beatLearningGoals).where(eq(beatLearningGoals.beatId, id))
     );
     return { success: true as const };
   });

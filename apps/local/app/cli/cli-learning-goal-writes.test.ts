@@ -40,6 +40,7 @@ describe("learning-goal writes (create / update / move / delete)", () => {
     description: string;
     priority: number;
     order: number;
+    beatIds: string[];
     archived: boolean;
   }
   const obj = (stdout: string): Goal => JSON.parse(stdout) as Goal;
@@ -52,6 +53,12 @@ describe("learning-goal writes (create / update / move / delete)", () => {
       (await run(["learning-goal", "create", "--section", sectionId, ...args]))
         .stdout
     );
+  const addBeat = async (videoId: string): Promise<string> =>
+    (
+      JSON.parse((await run(["beat", "add", "--video", videoId])).stdout) as {
+        id: string;
+      }
+    ).id;
 
   it("create appends to the end with defaults, echoing the created row", async () => {
     const { stdout, stderr, exitCode } = await run([
@@ -230,6 +237,101 @@ describe("learning-goal writes (create / update / move / delete)", () => {
       "update",
       "--title",
       "x",
+      "lg_missing",
+    ]);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe("");
+    const err = JSON.parse(stderr.trim()) as { _tag: string; entity: string };
+    expect(err._tag).toBe("NotFoundError");
+    expect(err.entity).toBe("learningGoal");
+  });
+
+  it("update --unlink-beat removes just that one Beat's link", async () => {
+    const goal = await create(s.draftSectionId, "--title", "Goal");
+    const beatA = await addBeat(s.lessonVideoId);
+    const beatB = await addBeat(s.lessonVideoId);
+    await run(["beat", "update", "--learning-goal", goal.id, beatA]);
+    await run(["beat", "update", "--learning-goal", goal.id, beatB]);
+
+    const updated = obj(
+      (await run(["learning-goal", "update", "--unlink-beat", beatA, goal.id]))
+        .stdout
+    );
+
+    expect(updated.beatIds).toEqual([beatB]);
+  });
+
+  it("update --unlink-beat is the cleanup path for an already-deleted Beat", async () => {
+    const goal = await create(s.draftSectionId, "--title", "Goal");
+    const beat = await addBeat(s.lessonVideoId);
+    await run(["beat", "update", "--learning-goal", goal.id, beat]);
+    await run(["beat", "delete", beat]);
+    // The dangling reference is already invisible on read (defense in depth)...
+    expect(
+      (
+        JSON.parse((await run(["learning-goal", "get", goal.id])).stdout) as {
+          beatIds: string[];
+        }
+      ).beatIds
+    ).toEqual([]);
+
+    // ...and --unlink-beat succeeds even though `beat` no longer resolves to
+    // an active Beat, cleaning up the join row for good.
+    const { exitCode, stdout } = await run([
+      "learning-goal",
+      "update",
+      "--unlink-beat",
+      beat,
+      goal.id,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(obj(stdout).beatIds).toEqual([]);
+  });
+
+  it("update --unlink-beat is idempotent when the Beat was never linked", async () => {
+    const goal = await create(s.draftSectionId, "--title", "Goal");
+
+    const { exitCode, stdout } = await run([
+      "learning-goal",
+      "update",
+      "--unlink-beat",
+      "seg_never_linked",
+      goal.id,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(obj(stdout).beatIds).toEqual([]);
+  });
+
+  it("update --unlink-beat combines with a content patch in one call", async () => {
+    const goal = await create(s.draftSectionId, "--title", "Old title");
+    const beat = await addBeat(s.lessonVideoId);
+    await run(["beat", "update", "--learning-goal", goal.id, beat]);
+
+    const updated = obj(
+      (
+        await run([
+          "learning-goal",
+          "update",
+          "--title",
+          "New title",
+          "--unlink-beat",
+          beat,
+          goal.id,
+        ])
+      ).stdout
+    );
+
+    expect(updated.title).toBe("New title");
+    expect(updated.beatIds).toEqual([]);
+  });
+
+  it("update --unlink-beat on an unknown Learning Goal id => NotFoundError, exit 2", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "learning-goal",
+      "update",
+      "--unlink-beat",
+      "seg_1",
       "lg_missing",
     ]);
     expect(exitCode).toBe(2);

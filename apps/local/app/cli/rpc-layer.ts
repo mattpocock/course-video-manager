@@ -318,6 +318,9 @@ const learningGoalService = (client: RpcClient) =>
     moveLearningGoal: rpcMethod((json) =>
       client.rpc["learning-goal"].moveLearningGoal.$post({ json })
     ),
+    unlinkBeat: rpcMethod((json) =>
+      client.rpc["learning-goal"].unlinkBeat.$post({ json })
+    ),
     deleteLearningGoal: rpcMethod((json) =>
       client.rpc["learning-goal"].deleteLearningGoal.$post({ json })
     ),

@@ -4,6 +4,7 @@ import { Effect, Layer } from "effect";
 import { BeatOperationsService } from "./db-beat-operations.server.js";
 import { DrizzleService } from "./drizzle-service.server.js";
 import {
+  beatLearningGoals,
   beats,
   courses,
   courseVersions,
@@ -374,6 +375,29 @@ describe("setBeatLearningGoals", () => {
       expect(result._tag).toBe("Left");
     }).pipe(Effect.provide(testLayer))
   );
+
+  it.effect(
+    "excludes an archived Learning Goal from learningGoalIds defensively, even with its join row left in place",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() => makeVideo("video-1"));
+        yield* Effect.promise(() => makeLearningGoal("goal-1"));
+        const beatOps = yield* BeatOperationsService;
+        const created = yield* beatOps.createBeat("video-1");
+        yield* beatOps.setBeatLearningGoals(created.id, ["goal-1"]);
+
+        // Simulate a Learning Goal archived without its join row cleaned up.
+        yield* Effect.promise(() =>
+          testDb
+            .update(learningGoals)
+            .set({ archived: true })
+            .where(eq(learningGoals.id, "goal-1"))
+        );
+
+        const fetched = yield* beatOps.getBeatById(created.id);
+        expect(fetched.learningGoalIds).toEqual([]);
+      }).pipe(Effect.provide(testLayer))
+  );
 });
 
 describe("deleteBeat", () => {
@@ -413,6 +437,50 @@ describe("deleteBeat", () => {
       expect(listed).toHaveLength(1);
       expect(listed[0]!.id).toBe(b.id);
     }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "removes the beat's beatLearningGoals join rows (no dangling reference left behind)",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() => makeVideo("video-1"));
+        yield* Effect.promise(() => makeLearningGoal("goal-1"));
+        const beatOps = yield* BeatOperationsService;
+        const created = yield* beatOps.createBeat("video-1");
+        yield* beatOps.setBeatLearningGoals(created.id, ["goal-1"]);
+
+        yield* beatOps.deleteBeat(created.id);
+
+        const joins = yield* Effect.promise(() =>
+          testDb.query.beatLearningGoals.findMany({
+            where: eq(beatLearningGoals.beatId, created.id),
+          })
+        );
+        expect(joins).toHaveLength(0);
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "does not disturb another beat's link to the same Learning Goal",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() => makeVideo("video-1"));
+        yield* Effect.promise(() => makeLearningGoal("goal-1"));
+        const beatOps = yield* BeatOperationsService;
+        const a = yield* beatOps.createBeat("video-1");
+        const b = yield* beatOps.createBeat("video-1");
+        yield* beatOps.setBeatLearningGoals(a.id, ["goal-1"]);
+        yield* beatOps.setBeatLearningGoals(b.id, ["goal-1"]);
+
+        yield* beatOps.deleteBeat(a.id);
+
+        const remaining = yield* Effect.promise(() =>
+          testDb.query.beatLearningGoals.findMany({
+            where: eq(beatLearningGoals.learningGoalId, "goal-1"),
+          })
+        );
+        expect(remaining.map((j) => j.beatId)).toEqual([b.id]);
+      }).pipe(Effect.provide(testLayer))
   );
 });
 

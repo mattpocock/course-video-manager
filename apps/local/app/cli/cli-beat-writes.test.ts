@@ -353,6 +353,20 @@ describe("beat writes (add / update / move / delete)", () => {
     );
   });
 
+  it("delete removes the beat's id from its Learning Goals' beatIds (no dangling reference)", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    const created = await add(s.lessonVideoId);
+    await run(["beat", "update", "--learning-goal", goalA, created.id]);
+
+    await run(["beat", "delete", created.id]);
+
+    const goal = JSON.parse(
+      (await run(["learning-goal", "get", goalA])).stdout
+    ) as { beatIds: string[] };
+    expect(goal.beatIds).not.toContain(created.id);
+    expect(goal.beatIds).toEqual([]);
+  });
+
   it("delete an unknown id => NotFoundError, exit 2", async () => {
     const { stdout, stderr, exitCode } = await run([
       "beat",

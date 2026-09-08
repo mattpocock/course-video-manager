@@ -1,5 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
-import { learningGoals } from "../db/schema.js";
+import { beatLearningGoals, learningGoals } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -18,14 +18,32 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 /**
  * Flatten a Learning Goal row's `beatLearningGoals` join rows into a plain
  * `beatIds` array — the Beats currently serving it. Read-only surface: this
- * is who serves the goal, not an editable link from this side (a Beat's
- * Learning Goals are set from the Beat, via BeatOperationsService).
+ * is who serves the goal, not an editable link from this side under normal
+ * operation (a Beat's Learning Goals are set from the Beat, via
+ * BeatOperationsService) — {@link createLearningGoalOperations}'s `unlinkBeat`
+ * is the one deliberate exception, a safety net for a dangling reference left
+ * behind by a Beat that is already gone.
+ *
+ * Joins whose Beat is archived are dropped defensively: a Beat is never
+ * hard-deleted, only flagged (see `deleteBeat` in
+ * db-beat-operations.server.ts, which also deletes its `beatLearningGoals`
+ * rows outright) — this filter is the belt to that suspenders, in case a join
+ * row is ever left behind some other way.
  */
-const withBeatIds = <T extends { beatLearningGoals: { beatId: string }[] }>(
+const withBeatIds = <
+  T extends {
+    beatLearningGoals: { beatId: string; beat: { archived: boolean } | null }[];
+  },
+>(
   row: T
 ) => {
   const { beatLearningGoals: joins, ...rest } = row;
-  return { ...rest, beatIds: joins.map((j) => j.beatId) };
+  return {
+    ...rest,
+    beatIds: joins
+      .filter((j) => j.beat?.archived === false)
+      .map((j) => j.beatId),
+  };
 };
 
 export interface LearningGoalFields {
@@ -81,7 +99,12 @@ export const createLearningGoalOperations = (db: Database) => {
           eq(learningGoals.archived, false)
         ),
         orderBy: asc(learningGoals.order),
-        with: { beatLearningGoals: { columns: { beatId: true } } },
+        with: {
+          beatLearningGoals: {
+            columns: { beatId: true },
+            with: { beat: { columns: { archived: true } } },
+          },
+        },
       })
     ).pipe(Effect.map((rows) => rows.map(withBeatIds)));
 
@@ -90,7 +113,12 @@ export const createLearningGoalOperations = (db: Database) => {
       const row = yield* makeDbCall(() =>
         db.query.learningGoals.findFirst({
           where: eq(learningGoals.id, id),
-          with: { beatLearningGoals: { columns: { beatId: true } } },
+          with: {
+            beatLearningGoals: {
+              columns: { beatId: true },
+              with: { beat: { columns: { archived: true } } },
+            },
+          },
         })
       );
       if (!row) {
@@ -195,6 +223,16 @@ export const createLearningGoalOperations = (db: Database) => {
     return yield* requireLearningGoal(id);
   });
 
+  /**
+   * Archive a Learning Goal. Also removes its `beatLearningGoals` join rows,
+   * the same cascade `deleteBeat` does from the Beat side in
+   * db-beat-operations.server.ts — a Learning Goal is never hard-deleted,
+   * only flagged, so without this the join row would otherwise survive it
+   * indefinitely (a Beat's `learningGoalIds` filters archived Learning Goals
+   * out defensively too — see `withLearningGoalIds` — but cleaning the join
+   * table here means that filter is a backstop, not the only thing standing
+   * between a deleted row and a live id list).
+   */
   const deleteLearningGoal = Effect.fn("deleteLearningGoal")(function* (
     id: string
   ) {
@@ -205,7 +243,42 @@ export const createLearningGoalOperations = (db: Database) => {
         .set({ archived: true })
         .where(eq(learningGoals.id, id))
     );
+    yield* makeDbCall(() =>
+      db
+        .delete(beatLearningGoals)
+        .where(eq(beatLearningGoals.learningGoalId, id))
+    );
     return { success: true as const };
+  });
+
+  /**
+   * Remove one Beat's link to this Learning Goal — a single-link "undo",
+   * distinct from {@link createBeatOperations}'s `setBeatLearningGoals`
+   * (which replaces a Beat's FULL set from the Beat side). This is the
+   * deliberate exception to `withBeatIds`'s "read-only from this side"
+   * rule: it exists as a safety net for exactly the case that motivated it —
+   * a Beat already deleted, leaving a `beatId` in this Learning Goal's
+   * `beatIds` that the Beat side can no longer reach (`beat update
+   * --learning-goal` requires an ACTIVE Beat). Idempotent: unlinking a Beat
+   * that was never linked (or already unlinked) is not an error.
+   */
+  const unlinkBeat = Effect.fn("unlinkBeat")(function* (
+    id: string,
+    beatId: string
+  ) {
+    yield* requireDraftVersionForLearningGoal(db, id);
+    yield* requireLearningGoal(id);
+    yield* makeDbCall(() =>
+      db
+        .delete(beatLearningGoals)
+        .where(
+          and(
+            eq(beatLearningGoals.learningGoalId, id),
+            eq(beatLearningGoals.beatId, beatId)
+          )
+        )
+    );
+    return yield* requireLearningGoal(id);
   });
 
   return {
@@ -214,6 +287,7 @@ export const createLearningGoalOperations = (db: Database) => {
     createLearningGoal,
     updateLearningGoal,
     moveLearningGoal,
+    unlinkBeat,
     deleteLearningGoal,
   };
 };

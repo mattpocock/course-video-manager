@@ -157,7 +157,10 @@ Examples:
 
 export const DELETE_HELP = `Delete (archive) a single Beat by id. For Beats, archived == deleted: the
 Beat is removed from its plan and can never be listed or addressed again
-(there is no restore verb).
+(there is no restore verb). Also removes its links to any Learning Goals it
+served — a deleted Beat's id will not linger in a Learning Goal's 'beatIds'
+(see 'cvm learning-goal --help'; 'update --unlink-beat' is the cleanup verb
+for a stale link left by some other means).
 
 Immediate — there is no confirmation prompt (this is an agent-facing tool).
 Echoes the now-archived row ({ ..., archived: true }). An unknown or

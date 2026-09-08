@@ -22,17 +22,20 @@ Every Beat is expected to serve at least one Learning Goal of its Section: a
 Section that has any Learning Goals surfaces a warning in the UI for a
 Learning Goal no Beat yet serves (empty 'beatIds' below), and for a Beat that
 serves none. Attach a Beat to a Learning Goal from the Beat side — see
-'cvm beat --help', 'update --learning-goal'.
+'cvm beat --help', 'update --learning-goal'. The one exception is
+'update --unlink-beat', a targeted single-link removal for cleaning up a
+stale id left by a Beat that has already been deleted.
 
 Output fields: id, sectionId, title, description, priority, order (sort key
-within the Section), beatIds (the Beats currently serving this goal —
-read-only here), archived, createdAt.
+within the Section), beatIds (the ACTIVE Beats currently serving this goal —
+a deleted Beat's id never lingers here; read-only here apart from
+'update --unlink-beat'), archived, createdAt.
 
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   list   --section <id>            A Section's Learning Goals, ordered
   get    <id>...                   One or more Learning Goals by id
   create --section <id> [flags]    Create a Learning Goal in a Section
-  update [flags] <id>              Patch title/description/priority
+  update [flags] <id>              Patch title/description/priority, or unlink one Beat
   move   [flags] <id>              Reorder within its Section
   delete <id>                      Archive (delete) a Learning Goal
 
@@ -42,6 +45,7 @@ Examples:
   cvm learning-goal list --section sec_123
   cvm learning-goal create --section sec_123 --title "Explain closures" --priority 1
   cvm learning-goal update --description "..." lg_456
+  cvm learning-goal update --unlink-beat beat_789 lg_456
   cvm learning-goal move --after lg_789 lg_456
   cvm learning-goal delete lg_456`;
 
@@ -52,8 +56,9 @@ Already sorted by 'order' ascending. Archived (deleted) Learning Goals are
 always excluded — there is no flag to include them.
 
 Each line carries: id, sectionId, title, description, priority (integer,
-lower sorts first), order, beatIds (Beats currently serving this goal),
-archived (always false), createdAt.
+lower sorts first), order, beatIds (ACTIVE Beats currently serving this
+goal — a deleted Beat's id never lingers here), archived (always false),
+createdAt.
 
 Find a section id with 'cvm section list' or 'cvm section tree <id>'.
 
@@ -92,26 +97,37 @@ Examples:
   cvm learning-goal create --section sec_123 --title "Explain closures" --priority 1 --description "The learner can describe lexical scoping."
   cvm learning-goal create --section sec_123 --title "Set up the repo" --before lg_456`;
 
-export const UPDATE_HELP = `Patch a single Learning Goal's content by id. At least one of --title /
---description / --priority is required (an update with no fields is an
-invalid-input error, exit 3).
+export const UPDATE_HELP = `Patch a single Learning Goal's content by id, and/or unlink one Beat from
+it. At least one of --title / --description / --priority / --unlink-beat is
+required (an update with none of them is an invalid-input error, exit 3).
 
-update ONLY changes content — it never repositions the Learning Goal (use
-'move' for that). Only the flags you pass change; the rest are left
-untouched. Renaming is just --title (also how a UI right-click-rename would
-route through, if ever added).
+update ONLY changes content (and optionally one link) — it never repositions
+the Learning Goal (use 'move' for that). Only the flags you pass change; the
+rest are left untouched. Renaming is just --title (also how a UI
+right-click-rename would route through, if ever added).
 
 Flags:
-  --title <text>        new short label.
-  --description <text>  new free-text statement.
-  --priority <n>         triage rank (integer; lower sorts first).
+  --title <text>          new short label.
+  --description <text>    new free-text statement.
+  --priority <n>           triage rank (integer; lower sorts first).
+  --unlink-beat <beatId>  remove that Beat's link to this Learning Goal.
 
-Echoes the updated Learning Goal row. An unknown or already-deleted id is a
-not-found (exit 2). Flags must come BEFORE the <id> (a flag after it exits 3).
+--unlink-beat is a single-link removal, distinct from 'beat update
+--learning-goal's full-replace-the-set semantics on the Beat side — it exists
+as a safety net for a Beat that has ALREADY been deleted, leaving a stale id
+in this Learning Goal's 'beatIds' with no way to remove it from the Beat side
+('beat update --learning-goal' requires an active Beat). Safe to call even if
+the Beat id no longer resolves to anything, and idempotent if the Beat was
+never linked (or the link was already removed) — neither is an error.
+
+Echoes the updated Learning Goal row. An unknown or already-deleted Learning
+Goal id is a not-found (exit 2); an unknown --unlink-beat id is a silent no-op,
+by design (see above). Flags must come BEFORE the <id> (a flag after it exits 3).
 
 Examples:
   cvm learning-goal update --title "Explain closures" lg_456
-  cvm learning-goal update --priority 1 --description "..." lg_456`;
+  cvm learning-goal update --priority 1 --description "..." lg_456
+  cvm learning-goal update --unlink-beat beat_789 lg_456`;
 
 export const MOVE_HELP = `Reorder a Learning Goal within its Section (it never moves between Sections —
 create a new one in the target Section and delete this one for that).

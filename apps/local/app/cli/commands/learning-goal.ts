@@ -48,6 +48,14 @@ const priorityOption = Options.integer("priority").pipe(
   Options.optional
 );
 
+const unlinkBeatOption = Options.text("unlink-beat").pipe(
+  Options.withDescription(
+    "Remove this Beat id's link to the Learning Goal (a single-link removal, " +
+      "not a content patch)."
+  ),
+  Options.optional
+);
+
 const beforeOption = Options.text("before").pipe(
   Options.withDescription(
     "Place immediately before this Learning Goal (mutually exclusive with --after)."
@@ -186,25 +194,31 @@ const updateCmd = Command.make(
     title: titleOption,
     description: descriptionOption,
     priority: priorityOption,
+    unlinkBeat: unlinkBeatOption,
   },
-  ({ id, title, description, priority }) =>
+  ({ id, title, description, priority, unlinkBeat }) =>
     Effect.gen(function* () {
       const fields: LearningGoalFields = {
         title: Option.getOrUndefined(title),
         description: Option.getOrUndefined(description),
         priority: Option.getOrUndefined(priority),
       };
+      const unlinkBeatId = Option.getOrUndefined(unlinkBeat);
+      const touchesContent = Object.values(fields).some((v) => v !== undefined);
 
-      if (!Object.values(fields).some((v) => v !== undefined)) {
+      if (!touchesContent && unlinkBeatId === undefined) {
         return yield* parseError(
-          "update needs at least one of --title / --description / --priority",
+          "update needs at least one of --title / --description / --priority / --unlink-beat",
           "learningGoal"
         );
       }
 
-      yield* requireActiveLearningGoal(id);
       const svc = yield* LearningGoalOperationsService;
-      const row = yield* svc.updateLearningGoal(id, fields);
+      let row = yield* requireActiveLearningGoal(id);
+      if (touchesContent) row = yield* svc.updateLearningGoal(id, fields);
+      if (unlinkBeatId !== undefined) {
+        row = yield* svc.unlinkBeat(id, unlinkBeatId);
+      }
       yield* emitObject(row);
     })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
