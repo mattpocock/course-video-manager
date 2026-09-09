@@ -211,12 +211,13 @@ export function SectionCard({
                       />
                     )}
                 </div>
-                {visibility.learningGoals && (
-                  <SectionLearningGoals
-                    learningGoals={section.learningGoals}
-                    showDescriptions={visibility.learningGoalDescriptions}
-                  />
-                )}
+                {visibility.learningGoals &&
+                  (!collapsedSections.has(section.id) || searchQuery) && (
+                    <SectionLearningGoals
+                      learningGoals={section.learningGoals}
+                      showDescriptions={visibility.learningGoalDescriptions}
+                    />
+                  )}
                 {visibility.lessons &&
                   (!collapsedSections.has(section.id) || searchQuery) && (
                     <CompactLessonList

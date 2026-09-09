@@ -30,12 +30,13 @@ function PriorityBadge({ priority }: { priority: number }) {
 }
 
 /**
- * A Section's Learning Goals — the pre-Beat planning artifact. Always
- * rendered in full when shown: the course-view display settings
+ * A Section's Learning Goals — the pre-Beat planning artifact. Rendered in
+ * full, with no collapse/expand of its own: the course-view display settings
  * (`course-view-visibility.tsx`) are the surface for hiding Learning Goals
- * altogether, so there's no need for a second, per-Section collapse/expand
- * on top of that — a Learning Goal that's supposed to be on screen is just
- * on screen.
+ * altogether, and `SectionCard` gates the call site on the Section's own
+ * collapsed state (`collapsedSections`, same as it does for the Lesson
+ * list) — so a Learning Goal follows its Section open/closed rather than
+ * needing a second collapse layer here.
  *
  * Deliberately READ-ONLY: the `cvm learning-goal` CLI is the editing surface
  * (see CONTEXT.md / apps/local/app/cli/commands/learning-goal.ts). Renders
