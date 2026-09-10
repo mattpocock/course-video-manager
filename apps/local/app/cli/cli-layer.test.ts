@@ -110,11 +110,27 @@ const GROUPS = [
     body: ["version_1"],
   },
   {
+    group: "section archive",
+    tag: LessonSectionOperationsService,
+    method: "archiveSection",
+    args: ["section_1"],
+    path: "/rpc/section/archiveSection",
+    body: ["section_1"],
+  },
+  {
     group: "lesson",
     tag: LessonSectionOperationsService,
     method: "getLessonById",
     args: ["lesson_1"],
     path: "/rpc/lesson/getLessonById",
+    body: ["lesson_1"],
+  },
+  {
+    group: "lesson delete",
+    tag: LessonSectionOperationsService,
+    method: "deleteLesson",
+    args: ["lesson_1"],
+    path: "/rpc/lesson/deleteLesson",
     body: ["lesson_1"],
   },
   {

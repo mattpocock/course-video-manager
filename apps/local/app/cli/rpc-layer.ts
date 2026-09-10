@@ -47,14 +47,14 @@ import {
  *                  for a hand-written call to reorder or drop one.
  *
  * THE ONE CAST, and it is literally one — see `remoteLayer` at the bottom of
- * this file. The complete, required adapter mapping reaches `Layer.succeed`
- * through a cast only because over HTTP every selected method's failure
- * channel also carries AuthenticationError and TransportError, and Effect's
- * error channel does not widen on assignment. It cannot hide a missing `cvm`
- * call: each adapter's checked mapping requires every exposed method. The CLI
- * renderer dispatches on `_tag` and handles an unknown tag defensively, so the
- * mismatch is contained to that one line rather than rippling through every
- * command signature.
+ * this file. It narrows the existing domain tag to its checked adapter shape;
+ * it never turns the adapter into the full domain service. That is necessary
+ * because over HTTP every selected method's failure channel also carries
+ * AuthenticationError and TransportError, and Effect's error channel does not
+ * widen on assignment. Each adapter's required mapping still rejects an
+ * omitted `cvm` call. The CLI renderer dispatches on `_tag` and handles an
+ * unknown tag defensively, so the mismatch is contained to that one line
+ * rather than rippling through every command signature.
  */
 
 /**
@@ -546,19 +546,24 @@ export type RemoteServices =
  * One RPC-backed service, as the layer that hands it out under the tag the
  * command handlers already ask for.
  *
- * This is where the cast the doc block above describes lives, and it is the
- * only one in the file: `satisfies RemoteService<T>` on each service object has
- * already checked every exposed method against the service's own declaration,
- * so all that is left here is widening a failure channel Effect will not widen
- * by itself. Written once, it cannot drift between the ten call sites — and a
- * service object handed to the wrong tag is still a compile error, because
- * `build` is typed by the tag it is given.
+ * The adapter is required to cover a selected set of the tagged service's
+ * methods. Its service tag is narrowed locally rather than casting the adapter
+ * to the complete domain service: a mapping can therefore never manufacture an
+ * unimplemented domain method merely to satisfy `Layer.succeed`.
  */
-const remoteLayer = <I, S, Adapter extends Partial<S>>(
+const remoteAdapterTag = <I, S, Methods extends keyof S>(
+  tag: Context.Tag<I, S>
+): Context.Tag<I, CvmRemoteAdapter<S, Methods>> =>
+  // Tags are invariant in their service value. This relates the existing tag
+  // to the adapter only; unlike the former cast, it cannot add adapter methods.
+  tag as unknown as Context.Tag<I, CvmRemoteAdapter<S, Methods>>;
+
+const remoteLayer = <I, S, Methods extends keyof S>(
   tag: Context.Tag<I, S>,
-  build: (client: RpcClient) => RemoteService<Adapter>,
+  build: (client: RpcClient) => CvmRemoteAdapter<S, Methods>,
   client: RpcClient
-): Layer.Layer<I> => Layer.succeed(tag, build(client) as S);
+): Layer.Layer<I> =>
+  Layer.succeed(remoteAdapterTag<I, S, Methods>(tag), build(client));
 
 export const makeRemoteLayer = (
   config: RpcClientConfig
