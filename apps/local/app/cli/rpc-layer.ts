@@ -40,21 +40,41 @@ import {
  *   the ENDPOINT   `hc<RemoteApp>` is built from the deployed app's route
  *                  table, so a renamed or missing route is a compile error
  *                  rather than a 404 on a box nobody is watching;
- *   the SIGNATURE  `satisfies RemoteService<T>` checks each method against the
- *                  service's own declaration in `@cvm/core`;
+ *   the SIGNATURE  the required `CvmRemoteAdapter` method set checks each
+ *                  method against the service's own declaration in
+ *                  `@cvm/core`, and rejects an omitted `cvm` call;
  *   the ARGUMENTS  `rpcMethod` forwards them variadically, so there is nowhere
  *                  for a hand-written call to reorder or drop one.
  *
  * THE ONE CAST, and it is literally one — see `remoteLayer` at the bottom of
- * this file. An RPC-backed service reaches `Layer.succeed` through a cast,
- * because over HTTP every method's failure channel also carries
- * AuthenticationError and TransportError, and Effect's error channel does not
- * widen on assignment. The CLI renderer dispatches on `_tag` and handles an
- * unknown tag defensively, so the mismatch is contained to that one line
- * rather than rippling through every command signature. That is the price of
- * the services keeping their tags across the move to HTTP, and it is worth
- * paying: no command handler changed.
+ * this file. The complete, required adapter mapping reaches `Layer.succeed`
+ * through a cast only because over HTTP every selected method's failure
+ * channel also carries AuthenticationError and TransportError, and Effect's
+ * error channel does not widen on assignment. It cannot hide a missing `cvm`
+ * call: each adapter's checked mapping requires every exposed method. The CLI
+ * renderer dispatches on `_tag` and handles an unknown tag defensively, so the
+ * mismatch is contained to that one line rather than rippling through every
+ * command signature.
  */
+
+/**
+ * The required methods one domain service exposes through `cvm`.
+ *
+ * A service's other domain methods need no remote route. `_tag` remains part
+ * of the value handed to Effect's existing service tag.
+ */
+type CvmRemoteAdapter<Service, Methods extends keyof Service> = RemoteService<
+  Pick<Service, Methods | Extract<"_tag", keyof Service>>
+>;
+
+type CourseRemoteAdapter = CvmRemoteAdapter<
+  CourseOperationsService,
+  | "getCourses"
+  | "getArchivedCourses"
+  | "getCourseById"
+  | "getCourseWithSlimClipsById"
+  | "getVideoTranscripts"
+>;
 
 const courseService = (client: RpcClient) =>
   ({
@@ -74,7 +94,15 @@ const courseService = (client: RpcClient) =>
     getVideoTranscripts: rpcMethod((json) =>
       client.rpc.course.getVideoTranscripts.$post({ json })
     ),
-  }) satisfies RemoteService<CourseOperationsService>;
+  }) satisfies CourseRemoteAdapter;
+
+type VersionRemoteAdapter = CvmRemoteAdapter<
+  VersionOperationsService,
+  | "getCourseVersions"
+  | "getCourseVersionById"
+  | "getLatestCourseVersion"
+  | "getVersionWithSections"
+>;
 
 const versionService = (client: RpcClient) =>
   ({
@@ -91,12 +119,29 @@ const versionService = (client: RpcClient) =>
     getVersionWithSections: rpcMethod((json) =>
       client.rpc.version.getVersionWithSections.$post({ json })
     ),
-  }) satisfies RemoteService<VersionOperationsService>;
+  }) satisfies VersionRemoteAdapter;
 
 /**
  * Sections and Lessons are two nouns to an agent but one service here, so this
  * object spans the `/rpc/section` and `/rpc/lesson` groups.
  */
+type LessonSectionRemoteAdapter = CvmRemoteAdapter<
+  LessonSectionOperationsService,
+  | "getSectionsByRepoVersionId"
+  | "getSectionWithHierarchyById"
+  | "createSections"
+  | "updateSectionTitle"
+  | "archiveSection"
+  | "batchUpdateSectionOrders"
+  | "getLessonsBySectionId"
+  | "getLessonById"
+  | "getLessonWithHierarchyById"
+  | "createLesson"
+  | "updateLesson"
+  | "batchUpdateLessonOrders"
+  | "deleteLesson"
+>;
+
 const lessonSectionService = (client: RpcClient) =>
   ({
     _tag: "LessonSectionOperationsService",
@@ -139,12 +184,17 @@ const lessonSectionService = (client: RpcClient) =>
     deleteLesson: rpcMethod((json) =>
       client.rpc.lesson.deleteLesson.$post({ json })
     ),
-  }) satisfies RemoteService<LessonSectionOperationsService>;
+  }) satisfies LessonSectionRemoteAdapter;
 
 /**
  * `cvm lesson move` and `cvm section move` — structural writes, in their
  * respective route groups with the rest of that noun's verbs.
  */
+type CourseWriteRemoteAdapter = CvmRemoteAdapter<
+  CourseWriteService,
+  "reorderLessons" | "moveToSection" | "reorderSections"
+>;
+
 const courseWriteService = (client: RpcClient) =>
   ({
     _tag: "CourseWriteService",
@@ -157,7 +207,25 @@ const courseWriteService = (client: RpcClient) =>
     reorderSections: rpcMethod((json) =>
       client.rpc.section.reorderSections.$post({ json })
     ),
-  }) satisfies RemoteService<CourseWriteService>;
+  }) satisfies CourseWriteRemoteAdapter;
+
+type VideoRemoteAdapter = CvmRemoteAdapter<
+  VideoOperationsService,
+  | "getAllStandaloneVideos"
+  | "getArchivedStandaloneVideos"
+  | "getVideoRowById"
+  | "getVideoWithClipsById"
+  | "getVideoDeepById"
+  | "createVideo"
+  | "createStandaloneVideo"
+  | "linkVideoToPitch"
+  | "moveVideoToLesson"
+  | "updateVideoTitle"
+  | "updateVideoBody"
+  | "updateVideoDescription"
+  | "updateVideoScript"
+  | "updateVideoFormat"
+>;
 
 const videoService = (client: RpcClient) =>
   ({
@@ -204,7 +272,27 @@ const videoService = (client: RpcClient) =>
     updateVideoFormat: rpcMethod((json) =>
       client.rpc.video.updateVideoFormat.$post({ json })
     ),
-  }) satisfies RemoteService<VideoOperationsService>;
+  }) satisfies VideoRemoteAdapter;
+
+type ClipRemoteAdapter = CvmRemoteAdapter<
+  ClipOperationsService,
+  | "getClipsByIds"
+  | "listTimelineOrder"
+  | "createClip"
+  | "updateClip"
+  | "retimeClip"
+  | "setClipZoom"
+  | "moveClipToPosition"
+  | "archiveClip"
+  | "listTranscriptWords"
+  | "replaceTranscriptWords"
+  | "getChaptersByIds"
+  | "listChaptersByVideoId"
+  | "createChapterAtItem"
+  | "updateChapter"
+  | "moveChapterToPosition"
+  | "archiveChapter"
+>;
 
 const clipService = (client: RpcClient) =>
   ({
@@ -254,7 +342,16 @@ const clipService = (client: RpcClient) =>
     archiveChapter: rpcMethod((json) =>
       client.rpc.chapter.archiveChapter.$post({ json })
     ),
-  }) satisfies RemoteService<ClipOperationsService>;
+  }) satisfies ClipRemoteAdapter;
+
+type OverlayRemoteAdapter = CvmRemoteAdapter<
+  OverlayOperationsService,
+  | "listOverlaysByVideoId"
+  | "getOverlaysByIds"
+  | "createOverlay"
+  | "updateOverlay"
+  | "deleteOverlay"
+>;
 
 const overlayService = (client: RpcClient) =>
   ({
@@ -274,7 +371,21 @@ const overlayService = (client: RpcClient) =>
     deleteOverlay: rpcMethod((json) =>
       client.rpc.overlay.deleteOverlay.$post({ json })
     ),
-  }) satisfies RemoteService<OverlayOperationsService>;
+  }) satisfies OverlayRemoteAdapter;
+
+type BeatRemoteAdapter = CvmRemoteAdapter<
+  BeatOperationsService,
+  | "listBeatsByVideoId"
+  | "listBeatsByScope"
+  | "getBeatById"
+  | "createBeat"
+  | "renameBeat"
+  | "setBeatDescription"
+  | "setBeatKind"
+  | "setBeatLearningGoals"
+  | "moveBeat"
+  | "deleteBeat"
+>;
 
 const beatService = (client: RpcClient) =>
   ({
@@ -301,7 +412,18 @@ const beatService = (client: RpcClient) =>
     ),
     moveBeat: rpcMethod((json) => client.rpc.beat.moveBeat.$post({ json })),
     deleteBeat: rpcMethod((json) => client.rpc.beat.deleteBeat.$post({ json })),
-  }) satisfies RemoteService<BeatOperationsService>;
+  }) satisfies BeatRemoteAdapter;
+
+type LearningGoalRemoteAdapter = CvmRemoteAdapter<
+  LearningGoalOperationsService,
+  | "listLearningGoalsBySectionId"
+  | "getLearningGoalById"
+  | "createLearningGoal"
+  | "updateLearningGoal"
+  | "moveLearningGoal"
+  | "unlinkBeat"
+  | "deleteLearningGoal"
+>;
 
 const learningGoalService = (client: RpcClient) =>
   ({
@@ -327,7 +449,17 @@ const learningGoalService = (client: RpcClient) =>
     deleteLearningGoal: rpcMethod((json) =>
       client.rpc["learning-goal"].deleteLearningGoal.$post({ json })
     ),
-  }) satisfies RemoteService<LearningGoalOperationsService>;
+  }) satisfies LearningGoalRemoteAdapter;
+
+type PitchRemoteAdapter = CvmRemoteAdapter<
+  PitchOperationsService,
+  | "listPitches"
+  | "getPitch"
+  | "getPitchWithVideos"
+  | "createPitch"
+  | "updatePitch"
+  | "createVideoFromPitch"
+>;
 
 const pitchService = (client: RpcClient) =>
   ({
@@ -348,7 +480,16 @@ const pitchService = (client: RpcClient) =>
     createVideoFromPitch: rpcMethod((json) =>
       client.rpc.pitch.createVideoFromPitch.$post({ json })
     ),
-  }) satisfies RemoteService<PitchOperationsService>;
+  }) satisfies PitchRemoteAdapter;
+
+type DeliverableRemoteAdapter = CvmRemoteAdapter<
+  DeliverableOperationsService,
+  | "listDeliverables"
+  | "getDeliverableById"
+  | "createDeliverable"
+  | "updateDeliverable"
+  | "archiveDeliverable"
+>;
 
 const deliverableService = (client: RpcClient) =>
   ({
@@ -368,7 +509,9 @@ const deliverableService = (client: RpcClient) =>
     archiveDeliverable: rpcMethod((json) =>
       client.rpc.deliverable.archiveDeliverable.$post({ json })
     ),
-  }) satisfies RemoteService<DeliverableOperationsService>;
+  }) satisfies DeliverableRemoteAdapter;
+
+type SearchRemoteAdapter = CvmRemoteAdapter<SearchOperationsService, "search">;
 
 const searchService = (client: RpcClient) =>
   ({
@@ -382,7 +525,7 @@ const searchService = (client: RpcClient) =>
         query: params.query,
         types: [...params.types],
       }),
-  }) satisfies RemoteService<SearchOperationsService>;
+  }) satisfies SearchRemoteAdapter;
 
 /** Every domain service the `cvm` CLI reaches over HTTP. */
 export type RemoteServices =
@@ -405,15 +548,15 @@ export type RemoteServices =
  *
  * This is where the cast the doc block above describes lives, and it is the
  * only one in the file: `satisfies RemoteService<T>` on each service object has
- * already checked every method against the service's own declaration, so all
- * that is left here is widening a failure channel Effect will not widen by
- * itself. Written once, it cannot drift between the ten call sites — and a
+ * already checked every exposed method against the service's own declaration,
+ * so all that is left here is widening a failure channel Effect will not widen
+ * by itself. Written once, it cannot drift between the ten call sites — and a
  * service object handed to the wrong tag is still a compile error, because
  * `build` is typed by the tag it is given.
  */
-const remoteLayer = <I, S>(
+const remoteLayer = <I, S, Adapter extends Partial<S>>(
   tag: Context.Tag<I, S>,
-  build: (client: RpcClient) => RemoteService<S>,
+  build: (client: RpcClient) => RemoteService<Adapter>,
   client: RpcClient
 ): Layer.Layer<I> => Layer.succeed(tag, build(client) as S);
 

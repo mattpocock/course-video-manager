@@ -97,12 +97,15 @@ type WireError =
   AuthenticationError | SchemaVersionMismatchError | TransportError;
 
 /**
- * The RPC-backed shape of a domain service. PARTIAL on purpose: the API
- * exposes what `cvm` asks for and nothing more, so a service's methods that no
- * command calls have no endpoint and belong in no client.
+ * The RPC-backed shape of the selected domain methods `cvm` exposes.
+ *
+ * Callers pass a `Pick` containing precisely the service methods that have an
+ * endpoint. This mapped type deliberately preserves required properties: an
+ * adapter can omit unrelated domain methods, but it cannot omit a selected
+ * `cvm` call.
  */
 export type RemoteService<S> = {
-  readonly [K in keyof S]?: RemoteMethod<S[K]>;
+  readonly [K in keyof S]: RemoteMethod<S[K]>;
 };
 
 /**

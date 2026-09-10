@@ -142,12 +142,36 @@ const GROUPS = [
     body: [["clip_1", "clip_2"]],
   },
   {
+    group: "clip archive",
+    tag: ClipOperationsService,
+    method: "archiveClip",
+    args: ["clip_1"],
+    path: "/rpc/clip/archiveClip",
+    body: ["clip_1"],
+  },
+  {
+    group: "chapter archive",
+    tag: ClipOperationsService,
+    method: "archiveChapter",
+    args: ["chapter_1"],
+    path: "/rpc/chapter/archiveChapter",
+    body: ["chapter_1"],
+  },
+  {
     group: "overlay",
     tag: OverlayOperationsService,
     method: "listOverlaysByVideoId",
     args: ["video_1", null],
     path: "/rpc/overlay/listOverlaysByVideoId",
     body: ["video_1", null],
+  },
+  {
+    group: "overlay delete",
+    tag: OverlayOperationsService,
+    method: "deleteOverlay",
+    args: ["overlay_1"],
+    path: "/rpc/overlay/deleteOverlay",
+    body: ["overlay_1"],
   },
   {
     group: "beat",
@@ -166,6 +190,14 @@ const GROUPS = [
     body: [{ sectionId: "section_1" }],
   },
   {
+    group: "beat delete",
+    tag: BeatOperationsService,
+    method: "deleteBeat",
+    args: ["beat_1"],
+    path: "/rpc/beat/deleteBeat",
+    body: ["beat_1"],
+  },
+  {
     group: "pitch",
     tag: PitchOperationsService,
     method: "listPitches",
@@ -180,6 +212,14 @@ const GROUPS = [
     args: [],
     path: "/rpc/deliverable/listDeliverables",
     body: [],
+  },
+  {
+    group: "deliverable archive",
+    tag: DeliverableOperationsService,
+    method: "archiveDeliverable",
+    args: ["deliverable_1"],
+    path: "/rpc/deliverable/archiveDeliverable",
+    body: ["deliverable_1"],
   },
 ] as const;
 
