@@ -1,9 +1,11 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { sectionSearchCmd } from "./search";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { CourseWriteService } from "@/services/course-write-service";
+import {
+  CourseWriteService,
+  LessonSectionOperationsService,
+  VersionOperationsService,
+} from "@/cli/rpc-services";
 import {
   detail,
   emitGet,

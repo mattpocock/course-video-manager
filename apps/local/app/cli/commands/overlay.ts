@@ -1,8 +1,10 @@
 import { Command } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
+import {
+  ClipOperationsService,
+  OverlayOperationsService,
+  VideoOperationsService,
+} from "@/cli/rpc-services";
 import {
   detail,
   emitNdjson,

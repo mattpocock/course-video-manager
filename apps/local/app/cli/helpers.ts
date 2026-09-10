@@ -1,7 +1,6 @@
 import { HelpDoc } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
-import type { UnknownDBServiceError } from "@/services/db-service-errors";
+import { VersionOperationsService } from "@/cli/rpc-services";
 import { CliOutput } from "./output";
 import {
   NotFoundError,
@@ -214,11 +213,7 @@ export const emitGet = <A, E, R>(params: {
 export const resolveVersionId = (opts: {
   readonly courseId: string;
   readonly version?: Option.Option<string> | string | undefined;
-}): Effect.Effect<
-  string,
-  NotFoundError | UnknownDBServiceError,
-  VersionOperationsService
-> =>
+}) =>
   Effect.gen(function* () {
     const versionOps = yield* VersionOperationsService;
     const pinned =

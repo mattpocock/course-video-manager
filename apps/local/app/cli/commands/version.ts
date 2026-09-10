@@ -1,6 +1,6 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect } from "effect";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
+import { VersionOperationsService } from "@/cli/rpc-services";
 import {
   detail,
   emitGet,

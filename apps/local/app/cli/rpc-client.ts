@@ -81,10 +81,10 @@ export const makeRpcClient = (config: RpcClientConfig): RpcClient => {
  * A domain service's method, as it behaves once it is a network call away.
  *
  * Same arguments, same success value, same domain failures — plus the three the
- * wire adds. Building each RPC-backed method against this (`satisfies
- * RemoteService<T>` in ./rpc-layer.ts) is what makes a service signature
- * changing in `@cvm/core` a COMPILE ERROR in the CLI's client, rather than an
- * argument silently arriving as `undefined` on a box nobody is watching.
+ * wire adds. `CvmRemoteAdapter` contextualizes each mapped method with this
+ * type in ./rpc-layer.ts, so a service signature changing in `@cvm/core` is a
+ * COMPILE ERROR in the CLI's client rather than an argument silently arriving
+ * as `undefined` on a box nobody is watching.
  */
 type RemoteMethod<F> = F extends (
   ...args: infer A
@@ -97,12 +97,10 @@ type WireError =
   AuthenticationError | SchemaVersionMismatchError | TransportError;
 
 /**
- * The RPC-backed shape of the selected domain methods `cvm` exposes.
+ * The RPC-backed shape a `cvm` adapter selects its domain methods from.
  *
- * Callers pass a `Pick` containing precisely the service methods that have an
- * endpoint. This mapped type deliberately preserves required properties: an
- * adapter can omit unrelated domain methods, but it cannot omit a selected
- * `cvm` call.
+ * `CvmRemoteAdapter` makes this shape partial during contextual type checking,
+ * then its inferred adapter value retains only the methods it actually maps.
  */
 export type RemoteService<S> = {
   readonly [K in keyof S]: RemoteMethod<S[K]>;
@@ -115,14 +113,17 @@ export type RemoteService<S> = {
  * They are forwarded variadically rather than listed, so there is no place for
  * a client to reorder or drop an argument on its way to the wire — the only
  * thing a call site states is which endpoint it is. `F` comes from the
- * contextual type (`satisfies RemoteService<T>` at the call site), so the
- * method's signature is still the service's own.
+ * contextual `CvmRemoteAdapter` type, so the method's signature is still the
+ * service's own. `NonNullable` prevents that adapter's optional mapping key
+ * from making an implemented method possibly undefined in its inferred type.
  */
 export const rpcMethod = <F>(
   send: (
     json: ReadonlyArray<unknown>
   ) => Promise<ClientResponse<unknown, number, "json">>
-): F => ((...args: ReadonlyArray<unknown>) => callRpc(send, ...args)) as F;
+): NonNullable<F> =>
+  ((...args: ReadonlyArray<unknown>) =>
+    callRpc(send, ...args)) as NonNullable<F>;
 
 /**
  * Trailing `undefined` arguments are DROPPED rather than serialised.

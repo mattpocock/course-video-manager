@@ -1,8 +1,10 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import {
+  CourseOperationsService,
+  DeliverableOperationsService,
+  PitchOperationsService,
+} from "@/cli/rpc-services";
 import {
   detail,
   emitGet,

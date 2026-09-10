@@ -10,7 +10,7 @@
 
 import { Effect } from "effect";
 import { notFound, parseError } from "@/cli/helpers";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { VideoOperationsService } from "@/cli/rpc-services";
 import type { OverlayKind } from "@/features/videos/overlay-kind";
 import { overlayTransform } from "@/features/videos/overlay-transform";
 import {

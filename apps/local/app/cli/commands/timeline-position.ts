@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import { ClipOperationsService } from "@/services/db-clip-operations.server";
+import { ClipOperationsService } from "@/cli/rpc-services";
 import { notFound, rejectBothFlags } from "@/cli/helpers";
 
 /**

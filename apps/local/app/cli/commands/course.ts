@@ -3,8 +3,10 @@ import { Effect } from "effect";
 import { courseSearchCmd } from "./search";
 import { publishCmd } from "./course-publish";
 import { readinessCmd } from "./course-readiness";
-import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
+import {
+  CourseOperationsService,
+  VersionOperationsService,
+} from "@/cli/rpc-services";
 import {
   detail,
   emitGet,

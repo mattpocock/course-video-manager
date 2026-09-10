@@ -4,17 +4,19 @@ import {
 } from "@cvm/core/rpc/schema-version";
 import { Effect } from "effect";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { BeatOperationsService } from "@/services/db-beat-operations.server";
-import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { CourseWriteService } from "@/services/course-write-service";
-import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
-import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { SearchOperationsService } from "@/services/db-search-operations.server";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
+import {
+  BeatOperationsService,
+  ClipOperationsService,
+  CourseOperationsService,
+  CourseWriteService,
+  DeliverableOperationsService,
+  LessonSectionOperationsService,
+  OverlayOperationsService,
+  PitchOperationsService,
+  SearchOperationsService,
+  VersionOperationsService,
+  VideoOperationsService,
+} from "./rpc-services";
 import { cliLayer } from "./layer";
 
 // ===========================================================================

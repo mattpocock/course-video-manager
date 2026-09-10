@@ -59,22 +59,36 @@ export type UnexportedVideo = {
   readonly title: string;
 };
 
+type VersionWithSections = Effect.Effect.Success<
+  ReturnType<VersionOperationsService["getVersionWithSections"]>
+>;
+
+type GetVersionWithSections<E, R> = (
+  versionId: string
+) => Effect.Effect<VersionWithSections, E, R>;
+
 /**
  * Validation gates on the effective output — the set of Lessons a publish
  * actually ships. Because the to-do toggle can flip on the publish page with no
  * round-trip, both positions are computed in a single pass: the expensive
  * per-Video existence checks run once, then the pure counters run against the
  * effective Sections for each toggle state.
+ *
+ * The caller supplies the one read this calculation needs. The local publish
+ * graph passes its database service; `cvm course readiness` passes its
+ * RPC-backed service without widening the CLI's dependency to the full tag.
  */
-export const validatePublishability = Effect.fn("validatePublishability")(
-  function* (versionId: string) {
-    const versionOps = yield* VersionOperationsService;
+export const validatePublishabilityWith = <E, R>(
+  versionId: string,
+  getVersionWithSections: GetVersionWithSections<E, R>
+) =>
+  Effect.gen(function* () {
     const effectFs = yield* FileSystem.FileSystem;
     const finishedVideosDirectory = yield* Config.string(
       "FINISHED_VIDEOS_DIRECTORY"
     );
 
-    const version = yield* versionOps.getVersionWithSections(versionId);
+    const version = yield* getVersionWithSections(versionId);
     const courseId = version.repo.id;
 
     // Title lookup for the unexported set, built on the same walk as the
@@ -187,6 +201,16 @@ export const validatePublishability = Effect.fn("validatePublishability")(
       withTodo: evaluate(true),
       withoutTodo: evaluate(false),
     };
+  });
+
+/** Database-backed entry point used by the local publish service. */
+export const validatePublishability = Effect.fn("validatePublishability")(
+  function* (versionId: string) {
+    const versionOps = yield* VersionOperationsService;
+    return yield* validatePublishabilityWith(
+      versionId,
+      versionOps.getVersionWithSections
+    );
   }
 );
 

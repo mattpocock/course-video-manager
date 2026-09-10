@@ -1,10 +1,13 @@
 import { Args, Command, Options } from "@effect/cli";
 import { ConfigProvider, Effect } from "effect";
 import { NodeContext } from "@effect/platform-node";
-import { CourseOperationsService } from "@/services/db-course-operations.server";
+import {
+  CourseOperationsService,
+  VersionOperationsService,
+} from "@/cli/rpc-services";
 import {
   PUBLISH_BLOCKING_LISTS,
-  validatePublishability,
+  validatePublishabilityWith,
 } from "@/services/course-publish-readiness";
 import { loadRepoEnv } from "@/cli/env";
 import {
@@ -164,7 +167,11 @@ export const readinessCmd = Command.make(
       }
 
       const versionId = yield* resolveVersionId({ courseId, version });
-      const readiness = yield* validatePublishability(versionId);
+      const versionOps = yield* VersionOperationsService;
+      const readiness = yield* validatePublishabilityWith(
+        versionId,
+        versionOps.getVersionWithSections
+      );
       const position = includeTodoLessons
         ? readiness.withTodo
         : readiness.withoutTodo;

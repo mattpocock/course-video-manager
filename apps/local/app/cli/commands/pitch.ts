@@ -1,9 +1,9 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import {
-  PitchOperationsService,
-  type PitchState,
-  type PitchFields,
+import { PitchOperationsService } from "@/cli/rpc-services";
+import type {
+  PitchState,
+  PitchFields,
 } from "@/services/db-pitch-operations.server";
 import {
   detail,
