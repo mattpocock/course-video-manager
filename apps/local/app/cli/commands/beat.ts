@@ -26,9 +26,22 @@ import {
 // ---------------------------------------------------------------------------
 
 const videoListOption = Options.text("video").pipe(
+  Options.withDescription("The parent Video id whose Beat plan to list."),
+  Options.optional
+);
+
+const lessonListOption = Options.text("lesson").pipe(
   Options.withDescription(
-    "The parent Video id whose Beat plan to list (required)."
-  )
+    "The parent Lesson id whose Videos' Beat plans to list."
+  ),
+  Options.optional
+);
+
+const sectionListOption = Options.text("section").pipe(
+  Options.withDescription(
+    "The parent Section id whose Lessons' Beat plans to list."
+  ),
+  Options.optional
 );
 
 const videoTargetOption = Options.text("video").pipe(
@@ -228,12 +241,48 @@ const resolveLearningGoalIds = (learningGoalIds: readonly string[]) =>
 // Verbs
 // ---------------------------------------------------------------------------
 
-const listCmd = Command.make("list", { video: videoListOption }, ({ video }) =>
-  Effect.gen(function* () {
-    const svc = yield* BeatOperationsService;
-    const rows = yield* svc.listBeatsByVideoId(video);
-    yield* emitNdjson(rows);
-  })
+const listCmd = Command.make(
+  "list",
+  {
+    video: videoListOption,
+    lesson: lessonListOption,
+    section: sectionListOption,
+  },
+  ({ video, lesson, section }) =>
+    Effect.gen(function* () {
+      const svc = yield* BeatOperationsService;
+      const videoId = Option.getOrUndefined(video);
+      const lessonId = Option.getOrUndefined(lesson);
+      const sectionId = Option.getOrUndefined(section);
+      const scopeCount = [videoId, lessonId, sectionId].filter(
+        (id) => id !== undefined
+      ).length;
+      if (scopeCount !== 1) {
+        return yield* parseError(
+          "beat list needs exactly one of --video / --lesson / --section",
+          "beat"
+        );
+      }
+      const rows =
+        videoId !== undefined
+          ? yield* svc.listBeatsByVideoId(videoId)
+          : lessonId !== undefined
+            ? yield* svc
+                .listBeatsByScope({ lessonId })
+                .pipe(
+                  Effect.catchTag("NotFoundError", () =>
+                    notFound("lesson", lessonId)
+                  )
+                )
+            : yield* svc
+                .listBeatsByScope({ sectionId: sectionId! })
+                .pipe(
+                  Effect.catchTag("NotFoundError", () =>
+                    notFound("section", sectionId!)
+                  )
+                );
+      yield* emitNdjson(rows);
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const addCmd = Command.make(

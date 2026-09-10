@@ -40,7 +40,7 @@ Output fields: id, videoId, kind, title, description (never published), order
 archived, createdAt.
 
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
-  list   --video <id>              A Video's full ordered plan (active only)
+  list   --video|--lesson|--section <id>  An active hierarchy scope's ordered plan
   add    --video|--pitch <id> [flags]  Create a Beat in a Video's plan
                                    (--pitch targets a pitch's video)
   update [flags] <id>              Patch title/description/kind/learning goals
@@ -51,27 +51,35 @@ Every write echoes the affected row as one pretty JSON object.
 
 Examples:
   cvm beat list --video vid_123
+  cvm beat list --lesson les_123
+  cvm beat list --section sec_123
   cvm beat add --video vid_123 --kind quest --title "Try it"
   cvm beat update --title "Setup" --kind walkthrough seg_456
   cvm beat move --video vid_123 --after seg_789 seg_456
   cvm beat delete seg_456`;
 
-export const LIST_HELP = `List a Video's full, ordered Beat plan as NDJSON (one compact JSON object
-per line; empty plan prints nothing). Requires --video <videoId>.
+export const LIST_HELP = `List an active Video, Lesson, or Section's full, ordered Beat plan as NDJSON
+(one compact JSON object per line; empty plan prints nothing). Requires EXACTLY
+ONE of --video <videoId>, --lesson <lessonId>, or --section <sectionId>.
 
-The list is the COMPLETE active plan, already sorted by 'order' ascending (plan
-order). Archived (deleted) Beats are always excluded — there is no flag to
-include them.
+The list is the COMPLETE active plan. A Video's Beats sort by 'order' ascending
+(plan order). A Lesson's Videos sort by title, then their Beats by plan order.
+A Section's Lessons sort by order, then each Lesson's Videos by title, then
+their Beats by plan order. Archived (deleted) Beats and archived hierarchy
+records are always excluded — there is no flag to include them.
 
 Each line carries: id, videoId, kind (definition|walkthrough|playthrough|quest|
 reaction), title, description (in-app planning note; never published), order
 (fractional sort key), learningGoalIds (Learning Goals this Beat serves),
 archived (always false), createdAt.
 
-Find a video id with 'cvm video list' or 'cvm video tree <id>'.
+Find ids with 'cvm video list', 'cvm lesson list --section <id>', or
+'cvm section list --course <id>'.
 
 Examples:
   cvm beat list --video vid_123
+  cvm beat list --lesson les_123
+  cvm beat list --section sec_123
   cvm beat list --video vid_123 | jq -r '.title'
   cvm beat list --video vid_123 | jq -r 'select(.kind=="walkthrough") | .id'`;
 

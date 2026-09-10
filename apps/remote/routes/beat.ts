@@ -17,6 +17,10 @@ export const beatRoutes = (runtime: RemoteRuntime) =>
       forward(runtime, BeatOperationsService, "listBeatsByVideoId")
     )
     .post(
+      "/listBeatsByScope",
+      forward(runtime, BeatOperationsService, "listBeatsByScope")
+    )
+    .post(
       "/getBeatById",
       forward(runtime, BeatOperationsService, "getBeatById")
     )

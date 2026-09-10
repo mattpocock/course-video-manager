@@ -304,6 +304,70 @@ describe("archived filtering", () => {
     expect(rows.every((r) => r.archived === false)).toBe(true);
   });
 
+  it("beat list --section returns its active beats as the existing NDJSON rows", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "beat",
+      "list",
+      "--section",
+      s.draftSectionId,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(ndjson(stdout)).toMatchObject([
+      { videoId: s.lessonVideoId, title: "Active beat", archived: false },
+    ]);
+  });
+
+  it("beat list --lesson returns its active beats as the existing NDJSON rows", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "beat",
+      "list",
+      "--lesson",
+      s.lessonId,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(ndjson(stdout)).toMatchObject([
+      { videoId: s.lessonVideoId, title: "Active beat", archived: false },
+    ]);
+  });
+
+  it("beat list rejects archived section and lesson scopes as not found", async () => {
+    const archivedSection = await run([
+      "beat",
+      "list",
+      "--section",
+      s.archivedSectionId,
+    ]);
+    const archivedLesson = await run([
+      "beat",
+      "list",
+      "--lesson",
+      s.archivedLessonId,
+    ]);
+
+    expect(archivedSection.exitCode).toBe(2);
+    expect(JSON.parse(archivedSection.stderr)).toMatchObject({
+      _tag: "NotFoundError",
+      entity: "section",
+    });
+    expect(archivedLesson.exitCode).toBe(2);
+    expect(JSON.parse(archivedLesson.stderr)).toMatchObject({
+      _tag: "NotFoundError",
+      entity: "lesson",
+    });
+  });
+
+  it("beat list requires exactly one hierarchy scope", async () => {
+    const { stdout, stderr, exitCode } = await run(["beat", "list"]);
+
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect(JSON.parse(stderr)).toMatchObject({ _tag: "ParseError" });
+  });
+
   it("clip get on an archived clip id => NotFoundError, exit 2", async () => {
     const { stdout, stderr, exitCode } = await run([
       "clip",
