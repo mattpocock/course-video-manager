@@ -282,6 +282,9 @@ const beatService = (client: RpcClient) =>
     listBeatsByVideoId: rpcMethod((json) =>
       client.rpc.beat.listBeatsByVideoId.$post({ json })
     ),
+    listBeatsByScope: rpcMethod((json) =>
+      client.rpc.beat.listBeatsByScope.$post({ json })
+    ),
     getBeatById: rpcMethod((json) =>
       client.rpc.beat.getBeatById.$post({ json })
     ),

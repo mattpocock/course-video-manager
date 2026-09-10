@@ -1,11 +1,17 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
-import { beatLearningGoals, beats } from "../db/schema.js";
+import {
+  beatLearningGoals,
+  beats,
+  lessons,
+  sections,
+  videos,
+} from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import {
   DEFAULT_BEAT_KIND,
   type BeatKind,
 } from "../features/beats/beat-kinds.js";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
 
@@ -43,6 +49,14 @@ const withLearningGoalIds = <
   };
 };
 
+export type BeatListScope =
+  { readonly lessonId: string } | { readonly sectionId: string };
+
+const beatLearningGoalsQuery = {
+  columns: { learningGoalId: true },
+  with: { learningGoal: { columns: { archived: true } } },
+} as const;
+
 export const createBeatOperations = (db: Database) => {
   /** Non-archived beats of a video, sorted by their fractional `order` key. */
   const listBeatsByVideoId = (videoId: string) =>
@@ -51,13 +65,78 @@ export const createBeatOperations = (db: Database) => {
         where: and(eq(beats.videoId, videoId), eq(beats.archived, false)),
         orderBy: asc(beats.order),
         with: {
-          beatLearningGoals: {
-            columns: { learningGoalId: true },
-            with: { learningGoal: { columns: { archived: true } } },
-          },
+          beatLearningGoals: beatLearningGoalsQuery,
         },
       })
     ).pipe(Effect.map((rows) => rows.map(withLearningGoalIds)));
+
+  const listBeatsByScope = Effect.fn("listBeatsByScope")(function* (
+    scope: BeatListScope
+  ) {
+    const beatQuery = {
+      where: eq(beats.archived, false),
+      orderBy: asc(beats.order),
+      with: {
+        beatLearningGoals: beatLearningGoalsQuery,
+      },
+    } as const;
+
+    if ("sectionId" in scope) {
+      const section = yield* makeDbCall(() =>
+        db.query.sections.findFirst({
+          where: and(
+            eq(sections.id, scope.sectionId),
+            isNull(sections.archivedAt)
+          ),
+          with: {
+            lessons: {
+              where: eq(lessons.archived, false),
+              orderBy: asc(lessons.order),
+              with: {
+                videos: {
+                  where: eq(videos.archived, false),
+                  orderBy: asc(videos.title),
+                  with: { beats: beatQuery },
+                },
+              },
+            },
+          },
+        })
+      );
+      if (!section) {
+        return yield* new NotFoundError({
+          type: "section",
+          params: { id: scope.sectionId },
+        });
+      }
+      return section.lessons.flatMap((lesson) =>
+        lesson.videos.flatMap((video) => video.beats.map(withLearningGoalIds))
+      );
+    }
+
+    const lesson = yield* makeDbCall(() =>
+      db.query.lessons.findFirst({
+        where: and(eq(lessons.id, scope.lessonId), eq(lessons.archived, false)),
+        with: {
+          section: { columns: { archivedAt: true } },
+          videos: {
+            where: eq(videos.archived, false),
+            orderBy: asc(videos.title),
+            with: { beats: beatQuery },
+          },
+        },
+      })
+    );
+    if (!lesson || lesson.section.archivedAt !== null) {
+      return yield* new NotFoundError({
+        type: "lesson",
+        params: { id: scope.lessonId },
+      });
+    }
+    return lesson.videos.flatMap((video) =>
+      video.beats.map(withLearningGoalIds)
+    );
+  });
 
   /**
    * Create a Beat in the Video's plan, with the given `title` (default
@@ -271,6 +350,7 @@ export const createBeatOperations = (db: Database) => {
 
   return {
     listBeatsByVideoId,
+    listBeatsByScope,
     getBeatById: requireBeat,
     createBeat,
     renameBeat,

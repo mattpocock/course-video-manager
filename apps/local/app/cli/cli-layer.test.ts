@@ -158,6 +158,14 @@ const GROUPS = [
     body: ["video_1"],
   },
   {
+    group: "beat bulk list",
+    tag: BeatOperationsService,
+    method: "listBeatsByScope",
+    args: [{ sectionId: "section_1" }],
+    path: "/rpc/beat/listBeatsByScope",
+    body: [{ sectionId: "section_1" }],
+  },
+  {
     group: "pitch",
     tag: PitchOperationsService,
     method: "listPitches",
