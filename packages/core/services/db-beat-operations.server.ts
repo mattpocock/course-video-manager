@@ -52,6 +52,11 @@ const withLearningGoalIds = <
 export type BeatListScope =
   { readonly lessonId: string } | { readonly sectionId: string };
 
+const beatLearningGoalsQuery = {
+  columns: { learningGoalId: true },
+  with: { learningGoal: { columns: { archived: true } } },
+} as const;
+
 export const createBeatOperations = (db: Database) => {
   /** Non-archived beats of a video, sorted by their fractional `order` key. */
   const listBeatsByVideoId = (videoId: string) =>
@@ -60,10 +65,7 @@ export const createBeatOperations = (db: Database) => {
         where: and(eq(beats.videoId, videoId), eq(beats.archived, false)),
         orderBy: asc(beats.order),
         with: {
-          beatLearningGoals: {
-            columns: { learningGoalId: true },
-            with: { learningGoal: { columns: { archived: true } } },
-          },
+          beatLearningGoals: beatLearningGoalsQuery,
         },
       })
     ).pipe(Effect.map((rows) => rows.map(withLearningGoalIds)));
@@ -75,10 +77,7 @@ export const createBeatOperations = (db: Database) => {
       where: eq(beats.archived, false),
       orderBy: asc(beats.order),
       with: {
-        beatLearningGoals: {
-          columns: { learningGoalId: true },
-          with: { learningGoal: { columns: { archived: true } } },
-        },
+        beatLearningGoals: beatLearningGoalsQuery,
       },
     } as const;
 
