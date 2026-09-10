@@ -306,6 +306,74 @@ describe("archived filtering", () => {
     expect(rows.every((r) => r.archived === false)).toBe(true);
   });
 
+  it("beat list --section returns its active beats as the existing NDJSON rows", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "beat",
+      "list",
+      "--full",
+      "--section",
+      s.draftSectionId,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(ndjson(stdout)).toMatchObject([
+      { videoId: s.lessonVideoId, title: "Active beat", archived: false },
+    ]);
+  });
+
+  it("beat list --lesson returns its active beats as the existing NDJSON rows", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "beat",
+      "list",
+      "--full",
+      "--lesson",
+      s.lessonId,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(ndjson(stdout)).toMatchObject([
+      { videoId: s.lessonVideoId, title: "Active beat", archived: false },
+    ]);
+  });
+
+  it("beat list rejects archived section and lesson scopes as not found", async () => {
+    const archivedSection = await run([
+      "beat",
+      "list",
+      "--full",
+      "--section",
+      s.archivedSectionId,
+    ]);
+    const archivedLesson = await run([
+      "beat",
+      "list",
+      "--full",
+      "--lesson",
+      s.archivedLessonId,
+    ]);
+
+    expect(archivedSection.exitCode).toBe(2);
+    expect(JSON.parse(archivedSection.stderr)).toMatchObject({
+      _tag: "NotFoundError",
+      entity: "section",
+    });
+    expect(archivedLesson.exitCode).toBe(2);
+    expect(JSON.parse(archivedLesson.stderr)).toMatchObject({
+      _tag: "NotFoundError",
+      entity: "lesson",
+    });
+  });
+
+  it("beat list requires exactly one hierarchy scope", async () => {
+    const { stdout, stderr, exitCode } = await run(["beat", "list"]);
+
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect(JSON.parse(stderr)).toMatchObject({ _tag: "ParseError" });
+  });
+
   // Clip's own archived-visibility/restore cases (get --archived, list
   // --archived) live in cli-clip-archived-view.test.ts, split out per the
   // per-file token budget.

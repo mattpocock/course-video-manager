@@ -27,9 +27,22 @@ import {
 // ---------------------------------------------------------------------------
 
 const videoListOption = Options.text("video").pipe(
+  Options.withDescription("The parent Video id whose Beat plan to list."),
+  Options.optional
+);
+
+const lessonListOption = Options.text("lesson").pipe(
   Options.withDescription(
-    "The parent Video id whose Beat plan to list (required)."
-  )
+    "The parent Lesson id whose Videos' Beat plans to list."
+  ),
+  Options.optional
+);
+
+const sectionListOption = Options.text("section").pipe(
+  Options.withDescription(
+    "The parent Section id whose Lessons' Beat plans to list."
+  ),
+  Options.optional
 );
 
 const videoTargetOption = Options.text("video").pipe(
@@ -231,16 +244,50 @@ const resolveLearningGoalIds = (learningGoalIds: readonly string[]) =>
 
 const listCmd = Command.make(
   "list",
-  { video: videoListOption, full: fullOption },
-  ({ video, full }) =>
+  {
+    video: videoListOption,
+    lesson: lessonListOption,
+    section: sectionListOption,
+    full: fullOption,
+  },
+  ({ video, lesson, section, full }) =>
     Effect.gen(function* () {
       const svc = yield* BeatOperationsService;
-      const rows = yield* svc.listBeatsByVideoId(video);
+      const videoId = Option.getOrUndefined(video);
+      const lessonId = Option.getOrUndefined(lesson);
+      const sectionId = Option.getOrUndefined(section);
+      const scopeCount = [videoId, lessonId, sectionId].filter(
+        (id) => id !== undefined
+      ).length;
+      if (scopeCount !== 1) {
+        return yield* parseError(
+          "beat list needs exactly one of --video / --lesson / --section",
+          "beat"
+        );
+      }
+      const rows =
+        videoId !== undefined
+          ? yield* svc.listBeatsByVideoId(videoId)
+          : lessonId !== undefined
+            ? yield* svc
+                .listBeatsByScope({ lessonId })
+                .pipe(
+                  Effect.catchTag("NotFoundError", () =>
+                    notFound("lesson", lessonId)
+                  )
+                )
+            : yield* svc
+                .listBeatsByScope({ sectionId: sectionId! })
+                .pipe(
+                  Effect.catchTag("NotFoundError", () =>
+                    notFound("section", sectionId!)
+                  )
+                );
       // Compact by default: id/kind/title/learningGoalIds is what a planning
       // pass acts on. 'order' is omitted — the NDJSON stream is already
       // sorted by it, so the field would only repeat the row's own position.
-      // --full adds order back plus description, videoId (redundant with
-      // --video), archived and createdAt.
+      // --full adds order back plus description, videoId, archived and
+      // createdAt.
       yield* emitNdjson(
         full
           ? rows
