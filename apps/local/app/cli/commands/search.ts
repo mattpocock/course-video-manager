@@ -1,9 +1,9 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect } from "effect";
-import {
-  SearchOperationsService,
-  type SearchKind,
-  type SearchRoot,
+import { SearchOperationsService } from "@/cli/rpc-services";
+import type {
+  SearchKind,
+  SearchRoot,
 } from "@/services/db-search-operations.server";
 import { detail, emitNdjson, notFound, parseError } from "@/cli/helpers";
 

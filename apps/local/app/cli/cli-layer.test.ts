@@ -4,17 +4,19 @@ import {
 } from "@cvm/core/rpc/schema-version";
 import { Effect } from "effect";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { BeatOperationsService } from "@/services/db-beat-operations.server";
-import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { CourseWriteService } from "@/services/course-write-service";
-import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
-import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { SearchOperationsService } from "@/services/db-search-operations.server";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
+import {
+  BeatOperationsService,
+  ClipOperationsService,
+  CourseOperationsService,
+  CourseWriteService,
+  DeliverableOperationsService,
+  LessonSectionOperationsService,
+  OverlayOperationsService,
+  PitchOperationsService,
+  SearchOperationsService,
+  VersionOperationsService,
+  VideoOperationsService,
+} from "./rpc-services";
 import { cliLayer } from "./layer";
 
 // ===========================================================================
@@ -110,11 +112,27 @@ const GROUPS = [
     body: ["version_1"],
   },
   {
+    group: "section archive",
+    tag: LessonSectionOperationsService,
+    method: "archiveSection",
+    args: ["section_1"],
+    path: "/rpc/section/archiveSection",
+    body: ["section_1"],
+  },
+  {
     group: "lesson",
     tag: LessonSectionOperationsService,
     method: "getLessonById",
     args: ["lesson_1"],
     path: "/rpc/lesson/getLessonById",
+    body: ["lesson_1"],
+  },
+  {
+    group: "lesson delete",
+    tag: LessonSectionOperationsService,
+    method: "deleteLesson",
+    args: ["lesson_1"],
+    path: "/rpc/lesson/deleteLesson",
     body: ["lesson_1"],
   },
   {
@@ -142,12 +160,36 @@ const GROUPS = [
     body: [["clip_1", "clip_2"]],
   },
   {
+    group: "clip archive",
+    tag: ClipOperationsService,
+    method: "archiveClip",
+    args: ["clip_1"],
+    path: "/rpc/clip/archiveClip",
+    body: ["clip_1"],
+  },
+  {
+    group: "chapter archive",
+    tag: ClipOperationsService,
+    method: "archiveChapter",
+    args: ["chapter_1"],
+    path: "/rpc/chapter/archiveChapter",
+    body: ["chapter_1"],
+  },
+  {
     group: "overlay",
     tag: OverlayOperationsService,
     method: "listOverlaysByVideoId",
     args: ["video_1", null],
     path: "/rpc/overlay/listOverlaysByVideoId",
     body: ["video_1", null],
+  },
+  {
+    group: "overlay delete",
+    tag: OverlayOperationsService,
+    method: "deleteOverlay",
+    args: ["overlay_1"],
+    path: "/rpc/overlay/deleteOverlay",
+    body: ["overlay_1"],
   },
   {
     group: "beat",
@@ -166,6 +208,14 @@ const GROUPS = [
     body: [{ sectionId: "section_1" }],
   },
   {
+    group: "beat delete",
+    tag: BeatOperationsService,
+    method: "deleteBeat",
+    args: ["beat_1"],
+    path: "/rpc/beat/deleteBeat",
+    body: ["beat_1"],
+  },
+  {
     group: "pitch",
     tag: PitchOperationsService,
     method: "listPitches",
@@ -180,6 +230,14 @@ const GROUPS = [
     args: [],
     path: "/rpc/deliverable/listDeliverables",
     body: [],
+  },
+  {
+    group: "deliverable archive",
+    tag: DeliverableOperationsService,
+    method: "archiveDeliverable",
+    args: ["deliverable_1"],
+    path: "/rpc/deliverable/archiveDeliverable",
+    body: ["deliverable_1"],
   },
 ] as const;
 

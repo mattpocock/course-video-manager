@@ -1,8 +1,10 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { BeatOperationsService } from "@/services/db-beat-operations.server";
-import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { LearningGoalOperationsService } from "@/services/db-learning-goal-operations.server";
+import {
+  BeatOperationsService,
+  LearningGoalOperationsService,
+  PitchOperationsService,
+} from "@/cli/rpc-services";
 import { BEAT_KINDS, DEFAULT_BEAT_KIND } from "@/features/beats/beat-kinds";
 import {
   detail,

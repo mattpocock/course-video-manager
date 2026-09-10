@@ -13,8 +13,9 @@ import { makeRemoteLayer } from "./rpc-layer";
  * token. That is deliberate: a second in-process path for local use would be
  * the path least exercised, on the machine least watched.
  *
- * The services keep the same TAGS and the same SIGNATURES they had when they
- * ran in-process, so no command handler knows the work happens elsewhere.
+ * Command handlers use CLI-specific RPC tags. Each tag exposes only the
+ * mapped methods, with their domain arguments and results plus wire failures;
+ * database-service tags remain reserved for the local publish graph.
  *
  * WRITES. The CLI is read-mostly, but a handful of write verbs exist (lesson
  * create/update/move, video create/move/update, clip update/move/delete,
@@ -50,7 +51,7 @@ export const cliLayer = Layer.suspend(() => {
  */
 export const cliRuntime = ManagedRuntime.make(cliLayer);
 
-/** The full context the runtime provides (every domain service `cvm` uses). */
+/** The full context of CLI RPC service tags the runtime provides. */
 export type CliServices = ManagedRuntime.ManagedRuntime.Context<
   typeof cliRuntime
 >;

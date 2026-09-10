@@ -1,16 +1,16 @@
 import { Context, Layer } from "effect";
-import { BeatOperationsService } from "@/services/db-beat-operations.server";
-import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { CourseOperationsService } from "@/services/db-course-operations.server";
-import { CourseWriteService } from "@/services/course-write-service";
-import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
-import { LearningGoalOperationsService } from "@/services/db-learning-goal-operations.server";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
-import { PitchOperationsService } from "@/services/db-pitch-operations.server";
-import { SearchOperationsService } from "@/services/db-search-operations.server";
-import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
+import type { BeatOperationsService } from "@/services/db-beat-operations.server";
+import type { ClipOperationsService } from "@/services/db-clip-operations.server";
+import type { CourseOperationsService } from "@/services/db-course-operations.server";
+import type { CourseWriteService } from "@/services/course-write-service";
+import type { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
+import type { LearningGoalOperationsService } from "@/services/db-learning-goal-operations.server";
+import type { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
+import type { OverlayOperationsService } from "@/services/db-overlay-operations.server";
+import type { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import type { SearchOperationsService } from "@/services/db-search-operations.server";
+import type { VersionOperationsService } from "@/services/db-version-operations.server";
+import type { VideoOperationsService } from "@/services/db-video-operations.server";
 import {
   callRpc,
   makeRpcClient,
@@ -24,10 +24,9 @@ import {
  * The CLI's transport layer: the domain services, backed by HTTP instead of a
  * Postgres connection.
  *
- * The services keep their existing TAGS and their existing SIGNATURES, so no
- * command handler knows or cares that the work now happens on another machine —
- * swapping the layer is the whole change, and every `cli-*` test asserts on
- * exactly what it asserted on before.
+ * Each adapter has a CLI-specific TAG whose service type is inferred from its
+ * mapped methods. Commands can ask only for methods with HTTP endpoints, so a
+ * new command cannot compile against an unmapped domain method.
  *
  * THERE IS ONE TRANSPORT. The author's own `cvm` goes through here too. A
  * second in-process path for local use would be the path least exercised, on
@@ -40,21 +39,24 @@ import {
  *   the ENDPOINT   `hc<RemoteApp>` is built from the deployed app's route
  *                  table, so a renamed or missing route is a compile error
  *                  rather than a 404 on a box nobody is watching;
- *   the SIGNATURE  `satisfies RemoteService<T>` checks each method against the
+ *   the SIGNATURE  `CvmRemoteAdapter` checks every mapped method against the
  *                  service's own declaration in `@cvm/core`;
  *   the ARGUMENTS  `rpcMethod` forwards them variadically, so there is nowhere
  *                  for a hand-written call to reorder or drop one.
  *
- * THE ONE CAST, and it is literally one — see `remoteLayer` at the bottom of
- * this file. An RPC-backed service reaches `Layer.succeed` through a cast,
- * because over HTTP every method's failure channel also carries
- * AuthenticationError and TransportError, and Effect's error channel does not
- * widen on assignment. The CLI renderer dispatches on `_tag` and handles an
- * unknown tag defensively, so the mismatch is contained to that one line
- * rather than rippling through every command signature. That is the price of
- * the services keeping their tags across the move to HTTP, and it is worth
- * paying: no command handler changed.
+ * The CLI tags are deliberately distinct from the database service tags.
+ * Their methods include the wire failures an HTTP call can add, while the
+ * database services remain available to the local-only publish graph.
  */
+
+/**
+ * The mapped methods one domain service exposes through `cvm`.
+ *
+ * `Partial` makes a route optional, while `RemoteService` contextualizes each
+ * mapped key with its domain method signature. The inferred object type keeps
+ * only the keys this adapter actually implements.
+ */
+type CvmRemoteAdapter<Service> = Partial<RemoteService<Service>>;
 
 const courseService = (client: RpcClient) =>
   ({
@@ -74,7 +76,7 @@ const courseService = (client: RpcClient) =>
     getVideoTranscripts: rpcMethod((json) =>
       client.rpc.course.getVideoTranscripts.$post({ json })
     ),
-  }) satisfies RemoteService<CourseOperationsService>;
+  }) satisfies CvmRemoteAdapter<CourseOperationsService>;
 
 const versionService = (client: RpcClient) =>
   ({
@@ -91,7 +93,7 @@ const versionService = (client: RpcClient) =>
     getVersionWithSections: rpcMethod((json) =>
       client.rpc.version.getVersionWithSections.$post({ json })
     ),
-  }) satisfies RemoteService<VersionOperationsService>;
+  }) satisfies CvmRemoteAdapter<VersionOperationsService>;
 
 /**
  * Sections and Lessons are two nouns to an agent but one service here, so this
@@ -139,7 +141,7 @@ const lessonSectionService = (client: RpcClient) =>
     deleteLesson: rpcMethod((json) =>
       client.rpc.lesson.deleteLesson.$post({ json })
     ),
-  }) satisfies RemoteService<LessonSectionOperationsService>;
+  }) satisfies CvmRemoteAdapter<LessonSectionOperationsService>;
 
 /**
  * `cvm lesson move` and `cvm section move` — structural writes, in their
@@ -157,7 +159,7 @@ const courseWriteService = (client: RpcClient) =>
     reorderSections: rpcMethod((json) =>
       client.rpc.section.reorderSections.$post({ json })
     ),
-  }) satisfies RemoteService<CourseWriteService>;
+  }) satisfies CvmRemoteAdapter<CourseWriteService>;
 
 const videoService = (client: RpcClient) =>
   ({
@@ -204,7 +206,7 @@ const videoService = (client: RpcClient) =>
     updateVideoFormat: rpcMethod((json) =>
       client.rpc.video.updateVideoFormat.$post({ json })
     ),
-  }) satisfies RemoteService<VideoOperationsService>;
+  }) satisfies CvmRemoteAdapter<VideoOperationsService>;
 
 const clipService = (client: RpcClient) =>
   ({
@@ -254,7 +256,7 @@ const clipService = (client: RpcClient) =>
     archiveChapter: rpcMethod((json) =>
       client.rpc.chapter.archiveChapter.$post({ json })
     ),
-  }) satisfies RemoteService<ClipOperationsService>;
+  }) satisfies CvmRemoteAdapter<ClipOperationsService>;
 
 const overlayService = (client: RpcClient) =>
   ({
@@ -274,7 +276,7 @@ const overlayService = (client: RpcClient) =>
     deleteOverlay: rpcMethod((json) =>
       client.rpc.overlay.deleteOverlay.$post({ json })
     ),
-  }) satisfies RemoteService<OverlayOperationsService>;
+  }) satisfies CvmRemoteAdapter<OverlayOperationsService>;
 
 const beatService = (client: RpcClient) =>
   ({
@@ -301,7 +303,7 @@ const beatService = (client: RpcClient) =>
     ),
     moveBeat: rpcMethod((json) => client.rpc.beat.moveBeat.$post({ json })),
     deleteBeat: rpcMethod((json) => client.rpc.beat.deleteBeat.$post({ json })),
-  }) satisfies RemoteService<BeatOperationsService>;
+  }) satisfies CvmRemoteAdapter<BeatOperationsService>;
 
 const learningGoalService = (client: RpcClient) =>
   ({
@@ -327,7 +329,7 @@ const learningGoalService = (client: RpcClient) =>
     deleteLearningGoal: rpcMethod((json) =>
       client.rpc["learning-goal"].deleteLearningGoal.$post({ json })
     ),
-  }) satisfies RemoteService<LearningGoalOperationsService>;
+  }) satisfies CvmRemoteAdapter<LearningGoalOperationsService>;
 
 const pitchService = (client: RpcClient) =>
   ({
@@ -348,7 +350,7 @@ const pitchService = (client: RpcClient) =>
     createVideoFromPitch: rpcMethod((json) =>
       client.rpc.pitch.createVideoFromPitch.$post({ json })
     ),
-  }) satisfies RemoteService<PitchOperationsService>;
+  }) satisfies CvmRemoteAdapter<PitchOperationsService>;
 
 const deliverableService = (client: RpcClient) =>
   ({
@@ -368,7 +370,7 @@ const deliverableService = (client: RpcClient) =>
     archiveDeliverable: rpcMethod((json) =>
       client.rpc.deliverable.archiveDeliverable.$post({ json })
     ),
-  }) satisfies RemoteService<DeliverableOperationsService>;
+  }) satisfies CvmRemoteAdapter<DeliverableOperationsService>;
 
 const searchService = (client: RpcClient) =>
   ({
@@ -382,40 +384,80 @@ const searchService = (client: RpcClient) =>
         query: params.query,
         types: [...params.types],
       }),
-  }) satisfies RemoteService<SearchOperationsService>;
+  }) satisfies CvmRemoteAdapter<SearchOperationsService>;
 
-/** Every domain service the `cvm` CLI reaches over HTTP. */
+/** The CLI's RPC-only service tags, each exposing its mapped adapter shape. */
+export const CvmSearchOperationsService = Context.GenericTag<
+  "CvmSearchOperationsService",
+  ReturnType<typeof searchService>
+>("CvmSearchOperationsService");
+export const CvmCourseOperationsService = Context.GenericTag<
+  "CvmCourseOperationsService",
+  ReturnType<typeof courseService>
+>("CvmCourseOperationsService");
+export const CvmVersionOperationsService = Context.GenericTag<
+  "CvmVersionOperationsService",
+  ReturnType<typeof versionService>
+>("CvmVersionOperationsService");
+export const CvmLessonSectionOperationsService = Context.GenericTag<
+  "CvmLessonSectionOperationsService",
+  ReturnType<typeof lessonSectionService>
+>("CvmLessonSectionOperationsService");
+export const CvmLearningGoalOperationsService = Context.GenericTag<
+  "CvmLearningGoalOperationsService",
+  ReturnType<typeof learningGoalService>
+>("CvmLearningGoalOperationsService");
+export const CvmVideoOperationsService = Context.GenericTag<
+  "CvmVideoOperationsService",
+  ReturnType<typeof videoService>
+>("CvmVideoOperationsService");
+export const CvmClipOperationsService = Context.GenericTag<
+  "CvmClipOperationsService",
+  ReturnType<typeof clipService>
+>("CvmClipOperationsService");
+export const CvmOverlayOperationsService = Context.GenericTag<
+  "CvmOverlayOperationsService",
+  ReturnType<typeof overlayService>
+>("CvmOverlayOperationsService");
+export const CvmBeatOperationsService = Context.GenericTag<
+  "CvmBeatOperationsService",
+  ReturnType<typeof beatService>
+>("CvmBeatOperationsService");
+export const CvmPitchOperationsService = Context.GenericTag<
+  "CvmPitchOperationsService",
+  ReturnType<typeof pitchService>
+>("CvmPitchOperationsService");
+export const CvmDeliverableOperationsService = Context.GenericTag<
+  "CvmDeliverableOperationsService",
+  ReturnType<typeof deliverableService>
+>("CvmDeliverableOperationsService");
+export const CvmCourseWriteService = Context.GenericTag<
+  "CvmCourseWriteService",
+  ReturnType<typeof courseWriteService>
+>("CvmCourseWriteService");
+
+/** Every CLI RPC service environment the transport layer provides. */
 export type RemoteServices =
-  | SearchOperationsService
-  | CourseOperationsService
-  | VersionOperationsService
-  | LessonSectionOperationsService
-  | LearningGoalOperationsService
-  | VideoOperationsService
-  | ClipOperationsService
-  | OverlayOperationsService
-  | BeatOperationsService
-  | PitchOperationsService
-  | DeliverableOperationsService
-  | CourseWriteService;
+  | Context.Tag.Identifier<typeof CvmSearchOperationsService>
+  | Context.Tag.Identifier<typeof CvmCourseOperationsService>
+  | Context.Tag.Identifier<typeof CvmVersionOperationsService>
+  | Context.Tag.Identifier<typeof CvmLessonSectionOperationsService>
+  | Context.Tag.Identifier<typeof CvmLearningGoalOperationsService>
+  | Context.Tag.Identifier<typeof CvmVideoOperationsService>
+  | Context.Tag.Identifier<typeof CvmClipOperationsService>
+  | Context.Tag.Identifier<typeof CvmOverlayOperationsService>
+  | Context.Tag.Identifier<typeof CvmBeatOperationsService>
+  | Context.Tag.Identifier<typeof CvmPitchOperationsService>
+  | Context.Tag.Identifier<typeof CvmDeliverableOperationsService>
+  | Context.Tag.Identifier<typeof CvmCourseWriteService>;
 
 /**
- * One RPC-backed service, as the layer that hands it out under the tag the
- * command handlers already ask for.
- *
- * This is where the cast the doc block above describes lives, and it is the
- * only one in the file: `satisfies RemoteService<T>` on each service object has
- * already checked every method against the service's own declaration, so all
- * that is left here is widening a failure channel Effect will not widen by
- * itself. Written once, it cannot drift between the ten call sites — and a
- * service object handed to the wrong tag is still a compile error, because
- * `build` is typed by the tag it is given.
+ * One RPC-backed service under its dedicated CLI tag.
  */
-const remoteLayer = <I, S>(
-  tag: Context.Tag<I, S>,
-  build: (client: RpcClient) => RemoteService<S>,
-  client: RpcClient
-): Layer.Layer<I> => Layer.succeed(tag, build(client) as S);
+const remoteLayer = <I, Service>(
+  tag: Context.Tag<I, Service>,
+  service: Service
+): Layer.Layer<I> => Layer.succeed(tag, service);
 
 export const makeRemoteLayer = (
   config: RpcClientConfig
@@ -423,17 +465,20 @@ export const makeRemoteLayer = (
   const client = makeRpcClient(config);
 
   return Layer.mergeAll(
-    remoteLayer(SearchOperationsService, searchService, client),
-    remoteLayer(CourseOperationsService, courseService, client),
-    remoteLayer(VersionOperationsService, versionService, client),
-    remoteLayer(LessonSectionOperationsService, lessonSectionService, client),
-    remoteLayer(LearningGoalOperationsService, learningGoalService, client),
-    remoteLayer(VideoOperationsService, videoService, client),
-    remoteLayer(ClipOperationsService, clipService, client),
-    remoteLayer(OverlayOperationsService, overlayService, client),
-    remoteLayer(BeatOperationsService, beatService, client),
-    remoteLayer(PitchOperationsService, pitchService, client),
-    remoteLayer(DeliverableOperationsService, deliverableService, client),
-    remoteLayer(CourseWriteService, courseWriteService, client)
+    remoteLayer(CvmSearchOperationsService, searchService(client)),
+    remoteLayer(CvmCourseOperationsService, courseService(client)),
+    remoteLayer(CvmVersionOperationsService, versionService(client)),
+    remoteLayer(
+      CvmLessonSectionOperationsService,
+      lessonSectionService(client)
+    ),
+    remoteLayer(CvmLearningGoalOperationsService, learningGoalService(client)),
+    remoteLayer(CvmVideoOperationsService, videoService(client)),
+    remoteLayer(CvmClipOperationsService, clipService(client)),
+    remoteLayer(CvmOverlayOperationsService, overlayService(client)),
+    remoteLayer(CvmBeatOperationsService, beatService(client)),
+    remoteLayer(CvmPitchOperationsService, pitchService(client)),
+    remoteLayer(CvmDeliverableOperationsService, deliverableService(client)),
+    remoteLayer(CvmCourseWriteService, courseWriteService(client))
   );
 };

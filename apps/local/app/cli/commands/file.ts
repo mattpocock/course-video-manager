@@ -2,7 +2,7 @@ import { Args, Command, Options } from "@effect/cli";
 import { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
 import path from "node:path";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { VideoOperationsService } from "@/cli/rpc-services";
 import {
   deleteVideoFile,
   InvalidVideoFilePathError,

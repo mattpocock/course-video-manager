@@ -38,6 +38,11 @@ type MethodsOf<S> = {
   [K in keyof S]: S[K] extends ServiceMethod ? K : never;
 }[keyof S];
 
+/** The selected domain call, retaining its own parameter tuple. */
+type MethodOf<S, K extends MethodsOf<S>> = Extract<S[K], ServiceMethod>;
+
+type MethodArguments<S, K extends MethodsOf<S>> = Parameters<MethodOf<S, K>>;
+
 /**
  * One endpoint: name a service and one of its methods, and the request body's
  * ARGUMENT ARRAY is spread into it.
@@ -79,13 +84,11 @@ export const forward =
 
     const body: RpcResponse<unknown> = await runRpc(
       runtime,
-      Effect.flatMap(tag, (service) =>
-        (
-          service[method] as (
-            ...a: ReadonlyArray<unknown>
-          ) => Effect.Effect<unknown, unknown, never>
-        )(...args)
-      )
+      Effect.flatMap(tag, (service) => {
+        const domainCall = service[method] as MethodOf<S, K>;
+        const domainArgs = args as MethodArguments<S, K>;
+        return domainCall(...domainArgs);
+      })
     );
     return c.json(body);
   };

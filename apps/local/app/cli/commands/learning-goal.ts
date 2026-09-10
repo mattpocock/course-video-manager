@@ -1,9 +1,7 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import {
-  LearningGoalOperationsService,
-  type LearningGoalFields,
-} from "@/services/db-learning-goal-operations.server";
+import { LearningGoalOperationsService } from "@/cli/rpc-services";
+import type { LearningGoalFields } from "@/services/db-learning-goal-operations.server";
 import {
   detail,
   emitGet,

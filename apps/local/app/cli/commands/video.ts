@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
-import { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import {
+  LessonSectionOperationsService,
+  PitchOperationsService,
+  VideoOperationsService,
+} from "@/cli/rpc-services";
 import {
   detail,
   emitGet,
