@@ -19,11 +19,13 @@ export interface BeatLearningGoalOption {
 
 /**
  * A Beat's Learning Goal picker — a checkbox popover, scoped to the Beat's
- * own Section (options come from `SectionLearningGoals`, never cross-Section)
- * mirroring `DependencySelector`'s popover+checkbox shape but without its
+ * own Section (options come from `SectionLearningGoals`, never cross-Section).
+ * It grew out of `DependencySelector`'s popover+checkbox shape, minus its
  * search/drag/cycle machinery, which only make sense across a whole course's
- * Lessons. `onChange` always receives the FULL new set — there is no
- * incremental add/remove call, matching `setBeatLearningGoals`.
+ * Lessons; the two rows have since diverged, because a Learning Goal's title
+ * is a sentence where a Lesson's is a label (see `BeatLearningGoalOptions`).
+ * `onChange` always receives the FULL new set — there is no incremental
+ * add/remove call, matching `setBeatLearningGoals`.
  */
 export function BeatLearningGoalsPicker({
   selectedIds,
@@ -99,14 +101,16 @@ export function BeatLearningGoalsPicker({
 }
 
 /**
- * The popover's body — the list the author actually picks from. Split out of
- * `BeatLearningGoalsPicker` because Radix renders `PopoverContent` in a portal,
- * which static markup can't reach, so this is the testable seam.
+ * The popover's body — the list the author actually picks from.
  *
  * A Learning Goal's title is a whole sentence ("the learner can explain why
  * ..."), so rows wrap to as many lines as they need rather than clipping:
  * choosing between two goals means reading both of them in full. The compact
- * trigger above still truncates — it sits inside a Beat row.
+ * trigger above still truncates, because it sits inline in a Beat row, and
+ * spells the full set out in its `title` tooltip instead.
+ *
+ * Exported so a test can reach it: Radix mounts `PopoverContent` in a portal,
+ * which static markup can't render.
  */
 export function BeatLearningGoalOptions({
   selectedIds,

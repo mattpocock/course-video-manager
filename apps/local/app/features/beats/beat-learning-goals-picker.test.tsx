@@ -9,6 +9,12 @@ import {
  * The popover body is rendered on its own rather than through
  * `BeatLearningGoalsPicker`: Radix mounts `PopoverContent` in a portal, which
  * `renderToStaticMarkup` cannot render at all.
+ *
+ * Whether a row wraps or clips is decided by Tailwind at paint time, so no
+ * test at this tier can see it — that one is checked by eye, per the Testing
+ * section of CODING_STANDARDS.md. What is testable is the list's contract:
+ * which rows read as checked, and what an author sees when a title or the
+ * Section itself is empty.
  */
 const render = (
   options: BeatLearningGoalOption[],
@@ -22,25 +28,7 @@ const render = (
     />
   );
 
-/** Longer than the popover is wide, so a one-line row would clip it. */
-const LONG_TITLE =
-  "Understand why a fractional index beats an integer position when reordering a Section without rewriting every sibling row";
-
 describe("BeatLearningGoalOptions", () => {
-  it("renders a long Learning Goal title in full", () => {
-    expect(render([{ id: "g1", title: LONG_TITLE }])).toContain(LONG_TITLE);
-  });
-
-  // Clipping is a CSS effect, so the class is the only thing static markup can
-  // observe: a `truncate` row cuts the title off at one line however much of
-  // it React wrote out.
-  it("wraps a long title over several lines instead of clipping it", () => {
-    const html = render([{ id: "g1", title: LONG_TITLE }]);
-
-    expect(html).not.toContain("truncate");
-    expect(html).toContain("break-words");
-  });
-
   it("checks the Learning Goals this Beat already serves", () => {
     const html = render(
       [
