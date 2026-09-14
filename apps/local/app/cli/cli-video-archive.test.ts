@@ -10,6 +10,8 @@ import {
   ndjson,
   one,
   seedWrite,
+  videoObj,
+  type CliVideo,
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
@@ -47,14 +49,6 @@ beforeEach(async () => {
 });
 
 describe("video archive", () => {
-  interface Video {
-    id: string;
-    title: string;
-    lessonId: string | null;
-    archived: boolean;
-  }
-  const vobj = (stdout: string): Video => one<Video>(stdout);
-
   it("archives a standalone video, echoing the archived row", async () => {
     const { stdout, stderr, exitCode } = await run([
       "video",
@@ -63,7 +57,7 @@ describe("video archive", () => {
     ]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
-    const archived = vobj(stdout);
+    const archived = videoObj(stdout);
     expect(archived.id).toBe(s.standaloneActiveId);
     expect(archived.archived).toBe(true);
   });
@@ -71,12 +65,12 @@ describe("video archive", () => {
   it("moves the video out of 'list' and into 'list --archived'", async () => {
     await run(["video", "archive", s.standaloneActiveId]);
 
-    const active = ndjson((await run(["video", "list"])).stdout) as Video[];
+    const active = ndjson((await run(["video", "list"])).stdout) as CliVideo[];
     expect(active.map((v) => v.id)).not.toContain(s.standaloneActiveId);
 
     const archive = ndjson(
       (await run(["video", "list", "--archived"])).stdout
-    ) as Video[];
+    ) as CliVideo[];
     expect(archive.map((v) => v.id)).toContain(s.standaloneActiveId);
   });
 
@@ -87,7 +81,7 @@ describe("video archive", () => {
       s.lessonVideoId,
     ]);
     expect(exitCode).toBe(0);
-    expect(vobj(stdout).archived).toBe(true);
+    expect(videoObj(stdout).archived).toBe(true);
 
     const tree = one<{ children?: ReadonlyArray<{ id: string }> }>(
       (await run(["lesson", "tree", s.lessonId])).stdout
@@ -150,7 +144,7 @@ describe("video archive", () => {
 
     // The row is untouched — a refused write leaves nothing half-done.
     expect(
-      vobj((await run(["video", "get", oldVideo!.id])).stdout).archived
+      videoObj((await run(["video", "get", oldVideo!.id])).stdout).archived
     ).toBe(false);
   });
 });

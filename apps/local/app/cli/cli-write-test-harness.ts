@@ -56,6 +56,20 @@ export const ndjson = (stdout: string): unknown[] =>
 export const one = <T = Record<string, unknown>>(stdout: string): T =>
   JSON.parse(stdout) as T;
 
+/** The Video row every `cvm video` write verb echoes, as its tests read it. */
+export interface CliVideo {
+  id: string;
+  title: string;
+  lessonId: string | null;
+  pitchId: string | null;
+  archived: boolean;
+  body: string | null;
+  description: string | null;
+}
+
+/** Parse a `cvm video` write verb's echoed row. */
+export const videoObj = (stdout: string): CliVideo => one<CliVideo>(stdout);
+
 /**
  * Point VIDEO_FILES_DIR at a fresh temp directory for the duration of a suite.
  *
