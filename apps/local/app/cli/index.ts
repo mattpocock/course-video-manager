@@ -29,7 +29,7 @@ Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
-(create/move/update), 'file' (add/delete), 'footage' (transcribe), 'pitch'
+(create/move/update/archive), 'file' (add/delete), 'footage' (transcribe), 'pitch'
 (create/update), 'deliverable' (create/update/archive) and 'course' (publish).
 Every other verb is read-only, and each verb's own --help is authoritative about
 whether it reads or writes.
@@ -144,8 +144,11 @@ WRITES
             create/update/move/      create a lesson, rename its title,
             archive                  reorder / re-home it, or soft-delete it
                                      ('archive' is one-way, no restore)
-    video   create/move/update       create a Video, re-home it to a lesson/
-                                     pitch, or rename it (--name)
+    video
+            create/move/update/      create a Video, re-home it to a lesson/
+            archive                  pitch, rename it (--name), or soft-delete
+                                     it ('archive' works on a standalone OR a
+                                     lesson-bound Video; no restore verb)
     file    add/delete               attach scratch files to a Video (writer
                                      context); delete is a real unlink, and
                                      these are the only writes that do NOT

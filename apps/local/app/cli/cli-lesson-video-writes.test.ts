@@ -20,6 +20,7 @@ import * as schema from "@/db/schema";
 
 // ===========================================================================
 // cvm WRITE verbs — lesson create + video create/move/update
+// ('video archive' has its own file: cli-video-archive.test.ts.)
 // (Split from cli-integration.test.ts to stay under the per-file token budget.)
 // ===========================================================================
 

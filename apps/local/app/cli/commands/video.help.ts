@@ -29,8 +29,10 @@ This command exposes ONLY Standalone Videos for 'list' (the complete set, not
 the UI's recent-5). 'get', 'tree' and 'transcript' accept ANY video id
 (standalone or lesson-bound).
 
-Archived Videos are soft-deleted (hidden from active views). Only Standalone
-Videos have a real viewable archive — pass --archived to 'list' to see them.
+Archived Videos are soft-deleted (hidden from active views); 'archive' is the
+verb that soft-deletes one. Only Standalone Videos have a real viewable archive
+— pass --archived to 'list' to see them. A lesson-bound Video can be archived
+too, it just drops out of its Lesson with nowhere listing it afterwards.
 
 Verbs:
   list                 every Standalone Video (active by default; --archived for the archive)
@@ -41,6 +43,7 @@ Verbs:
   create --name <n>    create a Video (--lesson <id> | --pitch <id> | neither=standalone; --format for standalone) (WRITE)
   move <id>            re-home a Video to a lesson/pitch (--lesson | --pitch) (WRITE)
   update <id>          patch a Video's name / body / SEO description / script / format (WRITE)
+  archive <id>         soft-delete a Video (WRITE)
 
 Worked example (find a video, then read it):
   cvm video list | jq -r '.id'                     # map name -> id
@@ -239,3 +242,29 @@ Examples:
   some-tool | cvm video update --body-file - vid_123
   cvm video update --name "03-final" --description "The finished cut" vid_123
   cvm video update --format short vid_123   # also re-homes to standalone`;
+
+export const ARCHIVE_HELP = `Archive a Video by id — the soft delete. The row stays in the database with
+'archived' flipped to true; nothing is destroyed, and its Clips, Chapters and
+Beats stay attached to it.
+
+Works on ANY Video:
+  Standalone      drops out of 'video list' and appears in 'video list
+                  --archived', which is the only real viewable archive here.
+                  (A Standalone Video packaged by a Pitch is listed by neither —
+                  'list' covers pitch-free Standalone Videos — but it is still
+                  readable by id.)
+  Lesson-bound    drops out of its Lesson (and out of 'lesson tree' /
+                  'lesson get'). Its owning Course Version must be the DRAFT:
+                  archiving a Video in a Pending or Published Version is refused
+                  with VersionNotDraftError (exit 3), same as every other
+                  structural write.
+
+There is NO restore verb — treat this as one-way from the CLI (the app's
+standalone-videos page can still un-archive a Standalone Video). An archived
+Video is still addressable: 'video get <id>' returns it with archived:true,
+which is why re-archiving one is invalid input (exit 3) rather than a not-found.
+An unknown id is a not-found (exit 2). Echoes the archived row.
+
+Examples:
+  cvm video archive vid_123
+  cvm video list --archived | jq -r '.id'   # what is in the archive now`;
