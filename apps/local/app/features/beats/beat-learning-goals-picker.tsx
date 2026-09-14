@@ -83,40 +83,73 @@ export function BeatLearningGoalsPicker({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-72 p-0"
+        className="w-80 p-0"
         align="start"
         collisionPadding={12}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b">
-          Learning Goals
-        </div>
-        <div
-          className="overflow-y-auto p-1"
-          style={{
-            maxHeight: "var(--radix-popover-content-available-height, 300px)",
-          }}
-        >
-          {options.length === 0 ? (
-            <div className="px-3 py-6 text-sm text-muted-foreground text-center">
-              This Section has no Learning Goals yet.
-            </div>
-          ) : (
-            options.map((goal) => (
-              <label
-                key={goal.id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted cursor-pointer"
-              >
-                <Checkbox
-                  checked={selectedIds.includes(goal.id)}
-                  onCheckedChange={() => toggle(goal.id)}
-                />
-                <span className="truncate">{goal.title || "(untitled)"}</span>
-              </label>
-            ))
-          )}
-        </div>
+        <BeatLearningGoalOptions
+          selectedIds={selectedIds}
+          options={options}
+          onToggle={toggle}
+        />
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * The popover's body — the list the author actually picks from. Split out of
+ * `BeatLearningGoalsPicker` because Radix renders `PopoverContent` in a portal,
+ * which static markup can't reach, so this is the testable seam.
+ *
+ * A Learning Goal's title is a whole sentence ("the learner can explain why
+ * ..."), so rows wrap to as many lines as they need rather than clipping:
+ * choosing between two goals means reading both of them in full. The compact
+ * trigger above still truncates — it sits inside a Beat row.
+ */
+export function BeatLearningGoalOptions({
+  selectedIds,
+  options,
+  onToggle,
+}: {
+  selectedIds: readonly string[];
+  options: readonly BeatLearningGoalOption[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <>
+      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b">
+        Learning Goals
+      </div>
+      <div
+        className="overflow-y-auto p-1"
+        style={{
+          maxHeight: "var(--radix-popover-content-available-height, 300px)",
+        }}
+      >
+        {options.length === 0 ? (
+          <div className="px-3 py-6 text-sm text-muted-foreground text-center">
+            This Section has no Learning Goals yet.
+          </div>
+        ) : (
+          options.map((goal) => (
+            <label
+              key={goal.id}
+              className="flex items-start gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted cursor-pointer"
+            >
+              <Checkbox
+                className="mt-0.5"
+                checked={selectedIds.includes(goal.id)}
+                onCheckedChange={() => onToggle(goal.id)}
+              />
+              <span className="min-w-0 flex-1 break-words">
+                {goal.title || "(untitled)"}
+              </span>
+            </label>
+          ))
+        )}
+      </div>
+    </>
   );
 }
