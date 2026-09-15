@@ -78,6 +78,11 @@ Multiple ids => NDJSON of the found lessons. A missing id renders a NotFoundErro
 on STDERR and exits 2 (for multiple ids, found lessons are still emitted to
 STDOUT first, then the missing ids are reported on STDERR). STDOUT stays pure.
 
+The Repo's free-text 'memory' field is STRIPPED from that parent hierarchy by
+default (it can run to 1000+ chars and is rarely what a lesson command's
+caller wants) — pass --include-memory to keep it, or read it directly with
+'cvm course get <courseId>'.
+
 See authoringStatus field meaning in 'cvm lesson --help'.
 
 Examples:

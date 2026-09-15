@@ -63,10 +63,11 @@ The list is the COMPLETE active plan, already sorted by 'order' ascending (plan
 order). Archived (deleted) Beats are always excluded — there is no flag to
 include them.
 
-Each line carries: id, videoId, kind (definition|walkthrough|playthrough|quest|
-reaction), title, description (in-app planning note; never published), order
-(fractional sort key), learningGoalIds (Learning Goals this Beat serves),
-archived (always false), createdAt.
+By DEFAULT each line is the compact projection: id, order (fractional sort
+key), kind (definition|walkthrough|playthrough|quest|reaction), title,
+learningGoalIds (Learning Goals this Beat serves). Pass --full for the
+complete row, which adds description (in-app planning note; never published),
+videoId (redundant with --video), archived (always false) and createdAt.
 
 Find a video id with 'cvm video list' or 'cvm video tree <id>'.
 

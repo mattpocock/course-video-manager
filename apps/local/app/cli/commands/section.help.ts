@@ -75,7 +75,14 @@ EXAMPLES
   cvm section move <sectionId> --before <otherSectionId>
   cvm section archive <sectionId>`;
 
-export const LIST_HELP = `List ALL Sections of one Course Version (the complete set, never a UI-bounded subset), as NDJSON — one compact JSON object per line, ordered by 'order' ascending. Each line carries the section's identity (id, name, path, order, repoVersionId), so an agent can map a section name to its id in a single call. 'name' is the uniform display label every noun's 'list' carries (for a section it mirrors 'path'), so you never have to guess the label field. Lessons are NOT included — list goes one level deep; use 'section get <id>' or 'lesson list --section <id>' to drill in.
+export const LIST_HELP = `List ALL Sections of one Course Version (the complete set, never a UI-bounded subset), as NDJSON — one compact JSON object per line, ordered by 'order' ascending.
+
+By DEFAULT each line is the compact projection { id, order, name } — enough to
+map a section name to its id in a single call. 'name' is the uniform display
+label every noun's 'list' carries (for a section it mirrors 'path'). Pass
+--full for the complete row (description, repoVersionId, lineageId, etc).
+Lessons are NOT included either way — list goes one level deep; use 'section
+get <id>' or 'lesson list --section <id>' to drill in.
 
 You MUST scope the read to a Version:
   --course-version <id>   pin a specific Course Version (Draft or Published).
@@ -84,9 +91,14 @@ Pass exactly one. Archived (deleted) sections are never included.
 
 EXAMPLES
   cvm section list --course <courseId>
-  cvm section list --course-version <versionId> | jq '{id, path}'`;
+  cvm section list --full --course-version <versionId> | jq '{id, path}'`;
 
 export const GET_HELP = `Get one or more Sections BY ID (variadic). A single id prints one pretty JSON object; multiple ids print NDJSON (one compact object per line) of those found. Each section is returned with its parent context (its Course Version and Course) and its ACTIVE Lessons (the section's immediate natural children).
+
+The owning course's free-text 'memory' field is STRIPPED from that parent
+context by default (it can run to 1000+ chars and is rarely what a section
+command's caller wants) — pass --include-memory to keep it, or read it
+directly with 'cvm course get <courseId>'.
 
 Not-found: a single missing id fails with NotFoundError on stderr (exit 2). With multiple ids, found sections are still emitted to stdout and the missing ids are reported on stderr (exit 2).
 

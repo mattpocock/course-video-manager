@@ -93,6 +93,11 @@ Output:
                                 ids are reported on stderr and the exit code is 2
                                 (stdout stays pure data)
 
+The owning course's free-text 'memory' field is STRIPPED from the parent
+context by default (it can run to 1000+ chars and is rarely what a video
+command's caller wants) — pass --include-memory to keep it, or read it
+directly with 'cvm course get <courseId>'.
+
 Selected fields:
   id, title, lessonId, pitchId, archived
   clips[]    { id, order, text, videoFilename, sourceStartTime, sourceEndTime,

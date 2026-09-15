@@ -8,6 +8,7 @@ import {
   detail,
   emitNdjson,
   emitObject,
+  fullOption,
   notFound,
   parseError,
   rejectBothFlags,
@@ -228,12 +229,28 @@ const resolveLearningGoalIds = (learningGoalIds: readonly string[]) =>
 // Verbs
 // ---------------------------------------------------------------------------
 
-const listCmd = Command.make("list", { video: videoListOption }, ({ video }) =>
-  Effect.gen(function* () {
-    const svc = yield* BeatOperationsService;
-    const rows = yield* svc.listBeatsByVideoId(video);
-    yield* emitNdjson(rows);
-  })
+const listCmd = Command.make(
+  "list",
+  { video: videoListOption, full: fullOption },
+  ({ video, full }) =>
+    Effect.gen(function* () {
+      const svc = yield* BeatOperationsService;
+      const rows = yield* svc.listBeatsByVideoId(video);
+      // Compact by default: id/order/kind/title/learningGoalIds is what a
+      // planning pass acts on; --full adds description, videoId (redundant
+      // with --video), archived and createdAt.
+      yield* emitNdjson(
+        full
+          ? rows
+          : rows.map((r) => ({
+              id: r.id,
+              order: r.order,
+              kind: r.kind,
+              title: r.title,
+              learningGoalIds: r.learningGoalIds,
+            }))
+      );
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const addCmd = Command.make(

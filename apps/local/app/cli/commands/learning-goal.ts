@@ -9,6 +9,7 @@ import {
   emitGet,
   emitNdjson,
   emitObject,
+  fullOption,
   notFound,
   parseError,
   rejectBothFlags,
@@ -131,12 +132,25 @@ const requireActiveLearningGoal = (id: string) =>
 
 const listCmd = Command.make(
   "list",
-  { section: sectionOption },
-  ({ section }) =>
+  { section: sectionOption, full: fullOption },
+  ({ section, full }) =>
     Effect.gen(function* () {
       const svc = yield* LearningGoalOperationsService;
       const rows = yield* svc.listLearningGoalsBySectionId(section);
-      yield* emitNdjson(rows);
+      // Compact by default: id/order/priority/title/beatIds is what a triage
+      // or reorder pass actually acts on; --full adds description,
+      // sectionId (redundant with --section) and createdAt.
+      yield* emitNdjson(
+        full
+          ? rows
+          : rows.map((r) => ({
+              id: r.id,
+              order: r.order,
+              priority: r.priority,
+              title: r.title,
+              beatIds: r.beatIds,
+            }))
+      );
     })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 

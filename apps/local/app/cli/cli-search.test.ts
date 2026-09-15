@@ -47,10 +47,12 @@ describe("search", () => {
     expect(hits[0]).toMatchObject({
       kind: "course",
       id: s.courseAId,
-      courseId: s.courseAId,
       name: "Alpha",
       field: "name",
     });
+    // courseId is dropped for a course hit: it always equals `id` (a course
+    // is its own course), so repeating it on the wire is pure waste.
+    expect(hits[0]).not.toHaveProperty("courseId");
   });
 
   it("matches a video's transcript (clip text) and returns the VIDEO", async () => {
@@ -151,11 +153,45 @@ describe("search", () => {
     expect(stderr).toBe("");
   });
 
+  describe("result trimming: --limit and redundant ids", () => {
+    it("--limit caps the printed hits and notes the true total on stderr", async () => {
+      // "intro" matches 2 entities (section, video) per the depth-first-order
+      // test above.
+      const { stdout, stderr, exitCode } = await run([
+        "search",
+        "--limit",
+        "1",
+        "intro",
+      ]);
+      expect(exitCode).toBe(0);
+      const hits = ndjson(stdout) as any[];
+      expect(hits).toHaveLength(1);
+      expect(hits[0].id).toBe(s.draftSectionId);
+      expect(stderr).toContain("showing 1 of 2 matches");
+    });
+
+    it("does not truncate or note anything when under the limit", async () => {
+      const { stdout, stderr, exitCode } = await run(["search", "intro"]);
+      expect(exitCode).toBe(0);
+      expect(ndjson(stdout)).toHaveLength(2);
+      expect(stderr).toBe("");
+    });
+
+    it("--limit 0 or negative => exit 3 ParseError", async () => {
+      const { stderr, exitCode } = await run(["search", "--limit", "0", "x"]);
+      expect(exitCode).toBe(3);
+      expect(JSON.parse(stderr)._tag).toBe("ParseError");
+    });
+  });
+
   describe("scoped: course / section / lesson", () => {
     it("course search confines the walk to that course's subtree", async () => {
       const { stdout } = await run(["course", "search", s.courseAId, "intro"]);
       const hits = ndjson(stdout) as any[];
       expect(hits.map((h) => h.kind)).toEqual(["section", "video"]);
+      // Every hit is inside the course id already passed on the command
+      // line, so courseId is redundant and dropped from all of them.
+      for (const hit of hits) expect(hit).not.toHaveProperty("courseId");
     });
 
     it("section search includes the root section and its descendants", async () => {
@@ -185,6 +221,9 @@ describe("search", () => {
       const hits = ndjson(stdout) as any[];
       expect(hits).toHaveLength(1);
       expect(hits[0]).toMatchObject({ kind: "video", id: s.lessonVideoId });
+      // The hit's lessonId would just echo the lesson id already passed on
+      // the command line, so it's dropped.
+      expect(hits[0]).not.toHaveProperty("lessonId");
     });
 
     it("rejects an out-of-scope --type (exit 3)", async () => {

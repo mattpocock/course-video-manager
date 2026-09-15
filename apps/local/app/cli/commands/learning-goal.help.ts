@@ -55,16 +55,18 @@ object per line; empty list prints nothing). Requires --section <sectionId>.
 Already sorted by 'order' ascending. Archived (deleted) Learning Goals are
 always excluded — there is no flag to include them.
 
-Each line carries: id, sectionId, title, description, priority (integer,
-lower sorts first), order, beatIds (ACTIVE Beats currently serving this
-goal — a deleted Beat's id never lingers here), archived (always false),
-createdAt.
+By DEFAULT each line is the compact projection: id, order, priority (integer,
+lower sorts first), title, beatIds (ACTIVE Beats currently serving this goal
+— a deleted Beat's id never lingers here). Pass --full for the complete row,
+which adds description, sectionId (redundant with --section), archived
+(always false) and createdAt.
 
 Find a section id with 'cvm section list' or 'cvm section tree <id>'.
 
 Examples:
   cvm learning-goal list --section sec_123
-  cvm learning-goal list --section sec_123 | jq -r '.title'`;
+  cvm learning-goal list --section sec_123 | jq -r '.title'
+  cvm learning-goal list --full --section sec_123 | jq -r '.description'`;
 
 export const GET_HELP = `Get one or more Learning Goals by id (ID-only, variadic).
 

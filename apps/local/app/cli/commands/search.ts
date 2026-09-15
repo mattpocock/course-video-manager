@@ -2,10 +2,11 @@ import { Args, Command, Options } from "@effect/cli";
 import { Effect } from "effect";
 import {
   SearchOperationsService,
+  type SearchHit,
   type SearchKind,
   type SearchRoot,
 } from "@/services/db-search-operations.server";
-import { detail, emitNdjson, notFound, parseError } from "@/cli/helpers";
+import { detail, emitNdjson, note, notFound, parseError } from "@/cli/helpers";
 
 // ---------------------------------------------------------------------------
 // Scope -> applicable result kinds
@@ -31,6 +32,44 @@ const ALL_KINDS = new Set<SearchKind>(APPLICABLE.top);
 const isKind = (t: string): t is SearchKind => ALL_KINDS.has(t as SearchKind);
 
 // ---------------------------------------------------------------------------
+// Result trimming: drop redundant id fields, cap the result count
+// ---------------------------------------------------------------------------
+
+/** How a scope's own root id shows up on a hit, when it does. */
+const SCOPE_ID_FIELD: Partial<Record<Scope, string>> = {
+  course: "courseId",
+  section: "sectionId",
+  lesson: "lessonId",
+};
+
+/**
+ * Drop parent-id fields that duplicate information the caller already has:
+ * - A `course`-kind hit's `courseId` always equals its own `id` (a course IS
+ *   its own course) — true regardless of scope.
+ * - Every hit from a SCOPED search shares the scope root's id by
+ *   construction (a `section`-scoped search only ever returns hits inside
+ *   that one section's subtree, etc), so whichever field carries that id is
+ *   just an echo of the id already typed on the command line.
+ */
+const dedupeHit = (
+  hit: SearchHit,
+  scope: Scope,
+  rootId: string
+): Record<string, unknown> => {
+  const out: Record<string, unknown> = { ...hit };
+  if (out.kind === "course" && out.courseId === out.id) {
+    delete out.courseId;
+  }
+  const scopeField = SCOPE_ID_FIELD[scope];
+  if (scopeField !== undefined && out[scopeField] === rootId) {
+    delete out[scopeField];
+  }
+  return out;
+};
+
+const DEFAULT_LIMIT = 50;
+
+// ---------------------------------------------------------------------------
 // Shared handler
 // ---------------------------------------------------------------------------
 
@@ -38,12 +77,19 @@ const runSearch = (
   scope: Scope,
   rootId: string,
   query: string,
-  typeInputs: ReadonlyArray<string>
+  typeInputs: ReadonlyArray<string>,
+  limit: number
 ) =>
   Effect.gen(function* () {
     const q = query.trim();
     if (q.length === 0) {
       return yield* parseError("search query must be non-empty", "search");
+    }
+    if (!Number.isInteger(limit) || limit < 1) {
+      return yield* parseError(
+        `--limit must be a positive integer (got "${limit}")`,
+        "search"
+      );
     }
 
     const applicable = APPLICABLE[scope];
@@ -79,7 +125,15 @@ const runSearch = (
       return yield* notFound(scope, rootId);
     }
 
-    yield* emitNdjson(hits);
+    const deduped = hits.map((h) => dedupeHit(h, scope, rootId));
+    const shown = deduped.slice(0, limit);
+    yield* emitNdjson(shown);
+    if (deduped.length > shown.length) {
+      yield* note(
+        `search: showing ${shown.length} of ${deduped.length} matches — ` +
+          `raise --limit or narrow --type/the query for the rest`
+      );
+    }
   });
 
 // ---------------------------------------------------------------------------
@@ -89,6 +143,15 @@ const runSearch = (
 const query = Args.text({ name: "query" });
 const scopeId = Args.text({ name: "id" });
 const typeOpt = Options.text("type").pipe(Options.repeated);
+const limitOpt = Options.integer("limit").pipe(
+  Options.withDefault(DEFAULT_LIMIT),
+  Options.withDescription(
+    `Cap the number of hits printed (default ${DEFAULT_LIMIT}). Search is ` +
+      "unbounded internally, so a broad query can otherwise return an " +
+      "arbitrarily large NDJSON stream; a truncation note (with the true " +
+      "total) is printed to stderr when the cap is hit."
+  )
+);
 
 // ---------------------------------------------------------------------------
 // Help
@@ -117,11 +180,19 @@ RESULTS (NDJSON — one compact hit per line; empty result prints nothing, exit 
   'course list' order,
   pitches last. Use 'cvm <noun> get <id>' for the full record.
 
+  Parent-id fields that would just echo an id you already know are omitted: a
+  'course' hit never repeats its own id as courseId, and NONE of this
+  command's hits repeat --limit/scope information you didn't pass here
+  (top-level 'search' has no scope to omit, so parent ids are kept in full).
+
 --type (repeatable) narrows result kinds; default is every kind above.
+--limit caps the printed hit count (default ${DEFAULT_LIMIT}); a truncation
+  note with the true total goes to stderr, exit code stays 0.
 
 EXAMPLES
   cvm search "infer keyword"
   cvm search --type video --type beat "generics"
+  cvm search --limit 200 "infer keyword"
   cvm search "typescript" | jq 'select(.kind == "pitch")'`;
 
 const scopedHelp = (noun: Scope, kinds: ReadonlyArray<SearchKind>) =>
@@ -130,12 +201,20 @@ literal substring. Same matching and hit shape as 'cvm search', but confined to
 this ${noun}'s subtree — searchable kinds here: ${kinds.join(", ")}. A --type
 outside that set is rejected (exit 3). Archived records are never returned.
 
+Every hit here is inside the ${noun} you passed, so whichever field would
+just echo that id back (e.g. ${SCOPE_ID_FIELD[noun]} on a matching child) is
+omitted — you already have it.
+
 An unknown or archived ${noun} id exits 2. Empty query exits 3. No matches
 prints nothing (exit 0).
 
+--limit caps the printed hit count (default ${DEFAULT_LIMIT}); a truncation
+  note with the true total goes to stderr, exit code stays 0.
+
 EXAMPLES
   cvm ${noun} search <${noun}Id> "generics"
-  cvm ${noun} search --type video <${noun}Id> "closures"`;
+  cvm ${noun} search --type video <${noun}Id> "closures"
+  cvm ${noun} search --limit 200 <${noun}Id> "closures"`;
 
 // ---------------------------------------------------------------------------
 // Commands: one top-level, three scoped (reused by the noun commands)
@@ -143,8 +222,8 @@ EXAMPLES
 
 export const searchCommand = Command.make(
   "search",
-  { query, type: typeOpt },
-  ({ query, type }) => runSearch("top", "", query, type)
+  { query, type: typeOpt, limit: limitOpt },
+  ({ query, type, limit }) => runSearch("top", "", query, type, limit)
 ).pipe(Command.withDescription(detail(TOP_HELP)));
 
 /**
@@ -156,8 +235,8 @@ export const searchCommand = Command.make(
 const makeScopedSearchCmd = (scope: "course" | "section" | "lesson") =>
   Command.make(
     "search",
-    { id: scopeId, query, type: typeOpt },
-    ({ id, query, type }) => runSearch(scope, id, query, type)
+    { id: scopeId, query, type: typeOpt, limit: limitOpt },
+    ({ id, query, type, limit }) => runSearch(scope, id, query, type, limit)
   ).pipe(Command.withDescription(detail(scopedHelp(scope, APPLICABLE[scope]))));
 
 export const courseSearchCmd = makeScopedSearchCmd("course");

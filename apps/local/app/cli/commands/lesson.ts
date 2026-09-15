@@ -11,6 +11,7 @@ import {
   emitGet,
   emitNdjson,
   emitObject,
+  includeMemoryOption,
   notFound,
   parseError,
   rejectBothFlags,
@@ -82,23 +83,29 @@ const listCmd = Command.make("list", { section }, ({ section }) =>
 
 const ids = Args.text({ name: "id" }).pipe(Args.repeated);
 
-const getCmd = Command.make("get", { ids }, ({ ids }) =>
-  emitGet({
-    entity: "lesson",
-    ids,
-    fetch: (id) =>
-      Effect.flatMap(LessonSectionOperationsService, (svc) =>
-        svc.getLessonWithHierarchyById(id).pipe(
-          // Service throws the DOMAIN NotFoundError for an absent row; the CLI
-          // owns not-found detection, so translate "absent" into undefined and
-          // let emitGet emit the contract's {entity,id} NotFoundError + exit 2.
-          Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)),
-          // Archived lessons are deleted-equivalent (no flag, never visible):
-          // treat an archived row as absent -> NotFoundError + exit 2.
-          Effect.map((lesson) => (lesson?.archived ? undefined : lesson))
-        )
-      ),
-  })
+const getCmd = Command.make(
+  "get",
+  { ids, includeMemory: includeMemoryOption },
+  ({ ids, includeMemory }) =>
+    emitGet({
+      entity: "lesson",
+      ids,
+      includeMemory,
+      fetch: (id) =>
+        Effect.flatMap(LessonSectionOperationsService, (svc) =>
+          svc.getLessonWithHierarchyById(id).pipe(
+            // Service throws the DOMAIN NotFoundError for an absent row; the
+            // CLI owns not-found detection, so translate "absent" into
+            // undefined and let emitGet emit the contract's {entity,id}
+            // NotFoundError + exit 2.
+            Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)),
+            // Archived lessons are deleted-equivalent (no flag, never
+            // visible): treat an archived row as absent -> NotFoundError +
+            // exit 2.
+            Effect.map((lesson) => (lesson?.archived ? undefined : lesson))
+          )
+        ),
+    })
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
 // ---------------------------------------------------------------------------

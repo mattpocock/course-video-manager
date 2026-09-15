@@ -1,4 +1,4 @@
-import { HelpDoc } from "@effect/cli";
+import { HelpDoc, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import type { UnknownDBServiceError } from "@/services/db-service-errors";
@@ -111,14 +111,67 @@ export const rejectBothFlags = (params: {
 // ---------------------------------------------------------------------------
 
 /**
+ * Recursively omit the `memory` field from any embedded `repo` relation
+ * (drizzle's name for the owning Course row: `section.repoVersion.repo`,
+ * `video.lesson.section.repoVersion.repo`, and so on). The hierarchy-walking
+ * `get`/`move`/write-echo commands (section, lesson, video) pull all the way
+ * up to the course row for its `id`/`name`/`slug`, but the course's free-text
+ * `memory` field (authoring notes / style guide) routinely runs 1000+ chars —
+ * dwarfing the rest of the payload — and is almost never what a section/
+ * lesson/video command's caller wants. `cvm course get <id>` is the direct,
+ * deliberate way to read it.
+ *
+ * `repo` is only ever this one relation name in the schema (confirmed: it
+ * appears nowhere else as a key), so stripping by key name alone is safe.
+ * Applied by default in `emitObject`/`emitNdjson`/`emitGet`; pass
+ * `{ includeMemory: true }` to keep it.
+ */
+const stripEmbeddedMemory = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(stripEmbeddedMemory);
+  if (value !== null && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(obj)) {
+      if (
+        key === "repo" &&
+        v !== null &&
+        typeof v === "object" &&
+        !Array.isArray(v) &&
+        "memory" in (v as Record<string, unknown>)
+      ) {
+        const { memory: _memory, ...rest } = v as Record<string, unknown>;
+        out[key] = rest;
+      } else {
+        out[key] = stripEmbeddedMemory(v);
+      }
+    }
+    return out;
+  }
+  return value;
+};
+
+/** Shared opt-in for the emit helpers below. */
+export interface EmitOptions {
+  /** Keep an embedded course `repo.memory` blob instead of stripping it. */
+  readonly includeMemory?: boolean;
+}
+
+/**
  * Emit a SINGLE object (the `get <id>` of one id, version/tree-less reads).
  * Pretty-printed JSON + trailing newline to STDOUT.
  */
 export const emitObject = (
-  value: unknown
+  value: unknown,
+  opts?: EmitOptions
 ): Effect.Effect<void, never, CliOutput> =>
   Effect.flatMap(CliOutput, (out) =>
-    out.stdout(JSON.stringify(value, null, 2) + "\n")
+    out.stdout(
+      JSON.stringify(
+        opts?.includeMemory ? value : stripEmbeddedMemory(value),
+        null,
+        2
+      ) + "\n"
+    )
   );
 
 /**
@@ -126,15 +179,53 @@ export const emitObject = (
  * Empty input prints nothing (exit stays 0). Use for `list` and multi-id `get`.
  */
 export const emitNdjson = (
-  values: Iterable<unknown>
+  values: Iterable<unknown>,
+  opts?: EmitOptions
 ): Effect.Effect<void, never, CliOutput> =>
   Effect.flatMap(CliOutput, (out) =>
     Effect.forEach(
       Array.from(values),
-      (value) => out.stdout(JSON.stringify(value) + "\n"),
+      (value) =>
+        out.stdout(
+          JSON.stringify(
+            opts?.includeMemory ? value : stripEmbeddedMemory(value)
+          ) + "\n"
+        ),
       { discard: true }
     )
   );
+
+/**
+ * Write a plain informational line to STDERR without affecting the exit code
+ * or STDOUT's purity — for notices like search's truncation marker. Not an
+ * error: nothing here should ever change EXIT_CODES in ./render.ts.
+ */
+export const note = (text: string): Effect.Effect<void, never, CliOutput> =>
+  Effect.flatMap(CliOutput, (out) => out.stderr(text + "\n"));
+
+/**
+ * Shared `--full` flag for `list` verbs that default to a compact projection
+ * (learning-goal, beat, section): pass it to opt into the complete row.
+ */
+export const fullOption = Options.boolean("full").pipe(
+  Options.withDescription(
+    "Emit the complete record instead of the compact list projection."
+  )
+);
+
+/**
+ * Shared `--include-memory` flag for `get` verbs (section, lesson, video)
+ * that walk up to the owning Course for its identity: pass it to keep the
+ * Course's `memory` field instead of the default strip (see
+ * {@link stripEmbeddedMemory} above). `cvm course get <id>` is the direct way
+ * to read `memory` without this flag.
+ */
+export const includeMemoryOption = Options.boolean("include-memory").pipe(
+  Options.withDescription(
+    "Keep the owning course's `memory` field (stripped by default here — use " +
+      "'cvm course get <id>' to read it directly)."
+  )
+);
 
 // ---------------------------------------------------------------------------
 // Variadic `get` with multi-id partial-failure handling
@@ -168,9 +259,10 @@ export const emitGet = <A, E, R>(params: {
   readonly entity: string;
   readonly ids: ReadonlyArray<string>;
   readonly fetch: (id: string) => Effect.Effect<A | null | undefined, E, R>;
+  readonly includeMemory?: boolean;
 }): Effect.Effect<void, E | NotFoundError, R | CliOutput> =>
   Effect.gen(function* () {
-    const { entity, ids, fetch } = params;
+    const { entity, ids, fetch, includeMemory } = params;
     const rows = yield* Effect.all(
       ids.map((id) =>
         fetch(id).pipe(Effect.map((row) => ({ id, row: row ?? undefined })))
@@ -183,13 +275,16 @@ export const emitGet = <A, E, R>(params: {
 
     if (ids.length === 1) {
       if (found.length === 1) {
-        yield* emitObject(found[0]!.row);
+        yield* emitObject(found[0]!.row, { includeMemory });
         return;
       }
       return yield* notFound(entity, ids[0]!);
     }
 
-    yield* emitNdjson(found.map((r) => r.row));
+    yield* emitNdjson(
+      found.map((r) => r.row),
+      { includeMemory }
+    );
     if (missing.length > 0) {
       return yield* notFoundMany(entity, missing);
     }
