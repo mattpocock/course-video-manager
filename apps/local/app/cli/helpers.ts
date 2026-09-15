@@ -204,26 +204,18 @@ export const note = (text: string): Effect.Effect<void, never, CliOutput> =>
   Effect.flatMap(CliOutput, (out) => out.stderr(text + "\n"));
 
 /**
- * Shared `--full` flag for `list` verbs that default to a compact projection
- * (learning-goal, beat, section): pass it to opt into the complete row.
+ * Shared `--full` flag: one name for "don't trim this response" everywhere.
+ * - On `list` verbs that default to a compact projection (learning-goal,
+ *   beat, section): emit the complete row instead.
+ * - On `get` verbs that walk up to the owning Course for its identity
+ *   (section, lesson, video): keep the Course's `memory` field instead of
+ *   the default strip (see {@link stripEmbeddedMemory} above). `cvm course
+ *   get <id>` is the direct way to read `memory` without this flag.
  */
 export const fullOption = Options.boolean("full").pipe(
   Options.withDescription(
-    "Emit the complete record instead of the compact list projection."
-  )
-);
-
-/**
- * Shared `--include-memory` flag for `get` verbs (section, lesson, video)
- * that walk up to the owning Course for its identity: pass it to keep the
- * Course's `memory` field instead of the default strip (see
- * {@link stripEmbeddedMemory} above). `cvm course get <id>` is the direct way
- * to read `memory` without this flag.
- */
-export const includeMemoryOption = Options.boolean("include-memory").pipe(
-  Options.withDescription(
-    "Keep the owning course's `memory` field (stripped by default here — use " +
-      "'cvm course get <id>' to read it directly)."
+    "Emit the complete, untrimmed record: the full list projection, and/or " +
+      "the owning course's `memory` field on a get that would otherwise strip it."
   )
 );
 

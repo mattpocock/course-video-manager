@@ -524,7 +524,7 @@ describe("embedded course memory is stripped by default", () => {
       .where(eq(schema.courses.id, s.courseAId));
   });
 
-  it("section get strips repo.memory by default, keeps it with --include-memory", async () => {
+  it("section get strips repo.memory by default, keeps it with --full", async () => {
     const stripped = JSON.parse(
       (await run(["section", "get", s.draftSectionId])).stdout
     );
@@ -532,36 +532,35 @@ describe("embedded course memory is stripped by default", () => {
     expect(stripped.repoVersion.repo.id).toBe(s.courseAId);
 
     const full = JSON.parse(
-      (await run(["section", "get", "--include-memory", s.draftSectionId]))
-        .stdout
+      (await run(["section", "get", "--full", s.draftSectionId])).stdout
     );
     expect(full.repoVersion.repo.memory).toBe(
       "STYLE GUIDE: don't use em-dashes."
     );
   });
 
-  it("lesson get strips repo.memory by default, keeps it with --include-memory", async () => {
+  it("lesson get strips repo.memory by default, keeps it with --full", async () => {
     const stripped = JSON.parse(
       (await run(["lesson", "get", s.lessonId])).stdout
     );
     expect(stripped.section.repoVersion.repo.memory).toBeUndefined();
 
     const full = JSON.parse(
-      (await run(["lesson", "get", "--include-memory", s.lessonId])).stdout
+      (await run(["lesson", "get", "--full", s.lessonId])).stdout
     );
     expect(full.section.repoVersion.repo.memory).toBe(
       "STYLE GUIDE: don't use em-dashes."
     );
   });
 
-  it("video get strips repo.memory by default, keeps it with --include-memory", async () => {
+  it("video get strips repo.memory by default, keeps it with --full", async () => {
     const stripped = JSON.parse(
       (await run(["video", "get", s.lessonVideoId])).stdout
     );
     expect(stripped.lesson.section.repoVersion.repo.memory).toBeUndefined();
 
     const full = JSON.parse(
-      (await run(["video", "get", "--include-memory", s.lessonVideoId])).stdout
+      (await run(["video", "get", "--full", s.lessonVideoId])).stdout
     );
     expect(full.lesson.section.repoVersion.repo.memory).toBe(
       "STYLE GUIDE: don't use em-dashes."
@@ -581,20 +580,21 @@ describe("embedded course memory is stripped by default", () => {
 // ===========================================================================
 
 describe("compact list projections default on, --full opts out", () => {
-  it("section list defaults to { id, order, name }", async () => {
+  it("section list defaults to { id, name } (order omitted — the stream is already ordered)", async () => {
     const rows = ndjson(
       (await run(["section", "list", "--course", s.courseAId])).stdout
     ) as Record<string, unknown>[];
-    expect(Object.keys(rows[0]!).sort()).toEqual(["id", "name", "order"]);
+    expect(Object.keys(rows[0]!).sort()).toEqual(["id", "name"]);
 
     const full = ndjson(
       (await run(["section", "list", "--full", "--course", s.courseAId])).stdout
     ) as Record<string, unknown>[];
+    expect(full[0]).toHaveProperty("order");
     expect(full[0]).toHaveProperty("description");
     expect(full[0]).toHaveProperty("repoVersionId");
   });
 
-  it("learning-goal list defaults to { id, order, priority, title, beatIds }", async () => {
+  it("learning-goal list defaults to { id, priority, title, beatIds } (order omitted)", async () => {
     const created = JSON.parse(
       (
         await run([
@@ -618,7 +618,6 @@ describe("compact list projections default on, --full opts out", () => {
     expect(Object.keys(row).sort()).toEqual([
       "beatIds",
       "id",
-      "order",
       "priority",
       "title",
     ]);
@@ -635,11 +634,12 @@ describe("compact list projections default on, --full opts out", () => {
       ).stdout
     ) as Record<string, unknown>[];
     const fullRow = full.find((r) => r.id === created.id)!;
+    expect(fullRow).toHaveProperty("order");
     expect(fullRow).toHaveProperty("description");
     expect(fullRow).toHaveProperty("sectionId");
   });
 
-  it("beat list defaults to { id, order, kind, title, learningGoalIds }", async () => {
+  it("beat list defaults to { id, kind, title, learningGoalIds } (order omitted)", async () => {
     const rows = ndjson(
       (await run(["beat", "list", "--video", s.lessonVideoId])).stdout
     ) as Record<string, unknown>[];
@@ -647,13 +647,13 @@ describe("compact list projections default on, --full opts out", () => {
       "id",
       "kind",
       "learningGoalIds",
-      "order",
       "title",
     ]);
 
     const full = ndjson(
       (await run(["beat", "list", "--full", "--video", s.lessonVideoId])).stdout
     ) as Record<string, unknown>[];
+    expect(full[0]).toHaveProperty("order");
     expect(full[0]).toHaveProperty("description");
     expect(full[0]).toHaveProperty("videoId");
   });

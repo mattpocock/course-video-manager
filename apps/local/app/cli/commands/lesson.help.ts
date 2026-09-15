@@ -80,7 +80,7 @@ STDOUT first, then the missing ids are reported on STDERR). STDOUT stays pure.
 
 The Repo's free-text 'memory' field is STRIPPED from that parent hierarchy by
 default (it can run to 1000+ chars and is rarely what a lesson command's
-caller wants) — pass --include-memory to keep it, or read it directly with
+caller wants) — pass --full to keep it, or read it directly with
 'cvm course get <courseId>'.
 
 See authoringStatus field meaning in 'cvm lesson --help'.

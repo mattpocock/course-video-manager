@@ -236,15 +236,16 @@ const listCmd = Command.make(
     Effect.gen(function* () {
       const svc = yield* BeatOperationsService;
       const rows = yield* svc.listBeatsByVideoId(video);
-      // Compact by default: id/order/kind/title/learningGoalIds is what a
-      // planning pass acts on; --full adds description, videoId (redundant
-      // with --video), archived and createdAt.
+      // Compact by default: id/kind/title/learningGoalIds is what a planning
+      // pass acts on. 'order' is omitted — the NDJSON stream is already
+      // sorted by it, so the field would only repeat the row's own position.
+      // --full adds order back plus description, videoId (redundant with
+      // --video), archived and createdAt.
       yield* emitNdjson(
         full
           ? rows
           : rows.map((r) => ({
               id: r.id,
-              order: r.order,
               kind: r.kind,
               title: r.title,
               learningGoalIds: r.learningGoalIds,

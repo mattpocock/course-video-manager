@@ -63,11 +63,14 @@ The list is the COMPLETE active plan, already sorted by 'order' ascending (plan
 order). Archived (deleted) Beats are always excluded — there is no flag to
 include them.
 
-By DEFAULT each line is the compact projection: id, order (fractional sort
-key), kind (definition|walkthrough|playthrough|quest|reaction), title,
-learningGoalIds (Learning Goals this Beat serves). Pass --full for the
-complete row, which adds description (in-app planning note; never published),
-videoId (redundant with --video), archived (always false) and createdAt.
+By DEFAULT each line is the compact projection: id, kind
+(definition|walkthrough|playthrough|quest|reaction), title, learningGoalIds
+(Learning Goals this Beat serves). 'order' (the fractional sort key) is
+omitted from this projection: the NDJSON stream is already sorted by it, so
+the field would only repeat each line's own position. Pass --full for the
+complete row, which adds order back plus description (in-app planning note;
+never published), videoId (redundant with --video), archived (always false)
+and createdAt.
 
 Find a video id with 'cvm video list' or 'cvm video tree <id>'.
 

@@ -10,7 +10,6 @@ import {
   emitNdjson,
   emitObject,
   fullOption,
-  includeMemoryOption,
   notFound,
   parseError,
   rejectBothFlags,
@@ -120,44 +119,41 @@ const listCmd = Command.make(
       const repoVersionId = yield* resolveScopedVersion(version, course);
       const sections = yield* svc.getSectionsByRepoVersionId(repoVersionId);
       const named = sections.map(withName);
-      // Compact by default: id/order/name is what a caller almost always
-      // wants (pick a section to act on); --full adds description and the
-      // internal lineage/version-linkage columns.
+      // Compact by default: id/name is what a caller almost always wants
+      // (pick a section to act on); 'order' is omitted — the NDJSON stream is
+      // already sorted by it, so the field would only repeat the row's own
+      // position. --full adds order back plus description and the internal
+      // lineage/version-linkage columns.
       yield* emitNdjson(
-        full
-          ? named
-          : named.map((s) => ({ id: s.id, order: s.order, name: s.name }))
+        full ? named : named.map((s) => ({ id: s.id, name: s.name }))
       );
     })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const ids = Args.text({ name: "id" }).pipe(Args.repeated);
 
-const getCmd = Command.make(
-  "get",
-  { ids, includeMemory: includeMemoryOption },
-  ({ ids, includeMemory }) =>
-    emitGet({
-      entity: "section",
-      ids,
-      includeMemory,
-      fetch: (id) =>
-        Effect.gen(function* () {
-          const svc = yield* ops;
-          const section = yield* svc
-            .getSectionWithHierarchyById(id)
-            .pipe(
-              Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
-            );
-          // Sections have no viewable archive: an archived (archivedAt
-          // non-null) section is treated as absent -> NotFoundError + exit 2.
-          if (section === undefined || section.archivedAt !== null) {
-            return undefined;
-          }
-          const lessons = yield* svc.getLessonsBySectionId(id);
-          return { ...section, lessons };
-        }),
-    })
+const getCmd = Command.make("get", { ids, full: fullOption }, ({ ids, full }) =>
+  emitGet({
+    entity: "section",
+    ids,
+    includeMemory: full,
+    fetch: (id) =>
+      Effect.gen(function* () {
+        const svc = yield* ops;
+        const section = yield* svc
+          .getSectionWithHierarchyById(id)
+          .pipe(
+            Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
+          );
+        // Sections have no viewable archive: an archived (archivedAt
+        // non-null) section is treated as absent -> NotFoundError + exit 2.
+        if (section === undefined || section.archivedAt !== null) {
+          return undefined;
+        }
+        const lessons = yield* svc.getLessonsBySectionId(id);
+        return { ...section, lessons };
+      }),
+  })
 );
 
 const depth = Options.text("depth").pipe(Options.withDefault("1"));

@@ -77,10 +77,12 @@ EXAMPLES
 
 export const LIST_HELP = `List ALL Sections of one Course Version (the complete set, never a UI-bounded subset), as NDJSON — one compact JSON object per line, ordered by 'order' ascending.
 
-By DEFAULT each line is the compact projection { id, order, name } — enough to
-map a section name to its id in a single call. 'name' is the uniform display
-label every noun's 'list' carries (for a section it mirrors 'path'). Pass
---full for the complete row (description, repoVersionId, lineageId, etc).
+By DEFAULT each line is the compact projection { id, name } — enough to map a
+section name to its id in a single call. 'order' is omitted from this
+projection: the NDJSON stream is already sorted by it, so the field would
+only repeat each line's own position. 'name' is the uniform display label
+every noun's 'list' carries (for a section it mirrors 'path'). Pass --full for
+the complete row (order, description, repoVersionId, lineageId, etc).
 Lessons are NOT included either way — list goes one level deep; use 'section
 get <id>' or 'lesson list --section <id>' to drill in.
 
@@ -97,8 +99,8 @@ export const GET_HELP = `Get one or more Sections BY ID (variadic). A single id 
 
 The owning course's free-text 'memory' field is STRIPPED from that parent
 context by default (it can run to 1000+ chars and is rarely what a section
-command's caller wants) — pass --include-memory to keep it, or read it
-directly with 'cvm course get <courseId>'.
+command's caller wants) — pass --full to keep it, or read it directly with
+'cvm course get <courseId>'.
 
 Not-found: a single missing id fails with NotFoundError on stderr (exit 2). With multiple ids, found sections are still emitted to stdout and the missing ids are reported on stderr (exit 2).
 

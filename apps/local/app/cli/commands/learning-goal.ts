@@ -137,15 +137,16 @@ const listCmd = Command.make(
     Effect.gen(function* () {
       const svc = yield* LearningGoalOperationsService;
       const rows = yield* svc.listLearningGoalsBySectionId(section);
-      // Compact by default: id/order/priority/title/beatIds is what a triage
-      // or reorder pass actually acts on; --full adds description,
-      // sectionId (redundant with --section) and createdAt.
+      // Compact by default: id/priority/title/beatIds is what a triage pass
+      // actually acts on. 'order' is omitted — the NDJSON stream is already
+      // sorted by it, so the field would only repeat the row's own position.
+      // --full adds order back plus description, sectionId (redundant with
+      // --section) and createdAt.
       yield* emitNdjson(
         full
           ? rows
           : rows.map((r) => ({
               id: r.id,
-              order: r.order,
               priority: r.priority,
               title: r.title,
               beatIds: r.beatIds,

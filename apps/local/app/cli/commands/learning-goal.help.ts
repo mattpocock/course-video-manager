@@ -55,11 +55,13 @@ object per line; empty list prints nothing). Requires --section <sectionId>.
 Already sorted by 'order' ascending. Archived (deleted) Learning Goals are
 always excluded — there is no flag to include them.
 
-By DEFAULT each line is the compact projection: id, order, priority (integer,
-lower sorts first), title, beatIds (ACTIVE Beats currently serving this goal
-— a deleted Beat's id never lingers here). Pass --full for the complete row,
-which adds description, sectionId (redundant with --section), archived
-(always false) and createdAt.
+By DEFAULT each line is the compact projection: id, priority (integer, lower
+sorts first), title, beatIds (ACTIVE Beats currently serving this goal — a
+deleted Beat's id never lingers here). 'order' is omitted from this
+projection: the NDJSON stream is already sorted by it, so the field would
+only repeat each line's own position. Pass --full for the complete row, which
+adds order back plus description, sectionId (redundant with --section),
+archived (always false) and createdAt.
 
 Find a section id with 'cvm section list' or 'cvm section tree <id>'.
 

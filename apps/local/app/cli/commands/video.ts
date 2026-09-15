@@ -9,7 +9,7 @@ import {
   emitGet,
   emitNdjson,
   emitObject,
-  includeMemoryOption,
+  fullOption,
   notFound,
   parseError,
   rejectBothFlags,
@@ -111,16 +111,13 @@ const listCmd = Command.make(
 
 const ids = Args.text({ name: "id" }).pipe(Args.repeated);
 
-const getCmd = Command.make(
-  "get",
-  { ids, includeMemory: includeMemoryOption },
-  ({ ids, includeMemory }) =>
-    emitGet({
-      entity: "video",
-      ids,
-      includeMemory,
-      fetch: fetchVideoWithClips,
-    })
+const getCmd = Command.make("get", { ids, full: fullOption }, ({ ids, full }) =>
+  emitGet({
+    entity: "video",
+    ids,
+    includeMemory: full,
+    fetch: fetchVideoWithClips,
+  })
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
 const treeId = Args.text({ name: "id" });
