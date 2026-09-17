@@ -48,4 +48,37 @@ describe("LessonDescriptionField", () => {
       render({ description: "", compact: false, isReadOnly: true })
     ).not.toContain("Add description");
   });
+
+  // Read-only is a published version of the course: still worth reading, never
+  // worth clicking, so the text stays and the click-to-edit affordance goes.
+  it("shows a read-only description without the click-to-edit affordance", () => {
+    const html = render({
+      description: "Why routers need a matcher",
+      compact: false,
+      isReadOnly: true,
+    });
+
+    expect(html).toContain("Why routers need a matcher");
+    expect(html).not.toContain("cursor-pointer");
+  });
+
+  it("shows a read-only description in the compact view", () => {
+    expect(
+      render({
+        description: "Why routers need a matcher",
+        compact: true,
+        isReadOnly: true,
+      })
+    ).toContain("Why routers need a matcher");
+  });
+
+  it("renders no editor at all in the compact view", () => {
+    const html = render({
+      description: "Why routers need a matcher",
+      compact: true,
+    });
+
+    expect(html).not.toContain("<textarea");
+    expect(html).not.toContain("Add description");
+  });
 });

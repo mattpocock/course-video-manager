@@ -118,7 +118,7 @@ export function SortableLessonItem({
   dependencyMap,
   allSections,
   hideAnchor,
-  compact,
+  compact = false,
   isSelected,
   isBulkDragPeer,
 }: {
@@ -357,7 +357,7 @@ export function SortableLessonItem({
                   onSave={saveTitle}
                   onStartEditing={startEditingTitle}
                   navigateTo={buildLessonNavigateTo({
-                    compact: !!compact,
+                    compact,
                     courseId: data.selectedCourse?.id,
                     sectionId: section.id,
                     lessonId: lesson.id,
@@ -419,7 +419,7 @@ export function SortableLessonItem({
                 <LessonDescriptionField
                   description={currentDescription}
                   isReadOnly={isReadOnly}
-                  compact={!!compact}
+                  compact={compact}
                   onSave={saveDescription}
                 />
               )}

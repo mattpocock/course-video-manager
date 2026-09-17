@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -25,15 +25,9 @@ export function LessonDescriptionField({
   compact: boolean;
   onSave: (value: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(description);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const save = (next: string) => {
-    setEditing(false);
-    onSave(next);
-  };
-
+  // Two components rather than one branchy one: the compact reading has no
+  // draft to hold, and splitting keeps the editor's hooks out of a branch the
+  // view-mode toggle can flip underneath them.
   if (compact) {
     if (!description) return null;
     return (
@@ -44,53 +38,79 @@ export function LessonDescriptionField({
   }
 
   return (
+    <EditableLessonDescription
+      description={description}
+      isReadOnly={isReadOnly}
+      onSave={onSave}
+    />
+  );
+}
+
+function EditableLessonDescription({
+  description,
+  isReadOnly,
+  onSave,
+}: {
+  description: string;
+  isReadOnly: boolean;
+  onSave: (value: string) => void;
+}) {
+  // `null` means "not editing". One value instead of an `editing` flag beside a
+  // mirrored `value`, so there is no draft left over from a previous edit for
+  // the next one to open on — every way in seeds it explicitly.
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const save = (value: string) => {
+    setDraft(null);
+    onSave(value);
+  };
+
+  if (!isReadOnly && draft !== null) {
+    return (
+      <div className="ml-5 mt-1 max-w-[65ch]">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="What should this lesson teach?"
+          className="text-sm min-h-[60px]"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setDraft(null);
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) save(draft);
+          }}
+          onBlur={() => save(draft)}
+        />
+      </div>
+    );
+  }
+
+  if (description) {
+    return (
+      <div
+        className={cn(
+          "ml-5 text-xs text-muted-foreground mt-1 whitespace-pre-line max-w-[65ch]",
+          !isReadOnly && "cursor-pointer hover:text-foreground/70"
+        )}
+        onClick={() => {
+          if (isReadOnly) return;
+          setDraft(description);
+        }}
+      >
+        {description}
+      </div>
+    );
+  }
+
+  if (isReadOnly) return null;
+
+  return (
     <div className="ml-5">
-      {!isReadOnly && editing ? (
-        <div className="mt-1 max-w-[65ch]">
-          <Textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="What should this lesson teach?"
-            className="text-sm min-h-[60px]"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setValue(description);
-                setEditing(false);
-              }
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                save(value);
-              }
-            }}
-            onBlur={() => save(value)}
-          />
-        </div>
-      ) : description ? (
-        <div
-          className={cn(
-            "text-xs text-muted-foreground mt-1 whitespace-pre-line max-w-[65ch]",
-            !isReadOnly && "cursor-pointer hover:text-foreground/70"
-          )}
-          onClick={() => {
-            if (isReadOnly) return;
-            setValue(description);
-            setEditing(true);
-          }}
-        >
-          {description}
-        </div>
-      ) : !isReadOnly ? (
-        <button
-          className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-          onClick={() => {
-            setValue("");
-            setEditing(true);
-          }}
-        >
-          + Add description
-        </button>
-      ) : null}
+      <button
+        className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        onClick={() => setDraft("")}
+      >
+        + Add description
+      </button>
     </div>
   );
 }
