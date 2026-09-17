@@ -12,13 +12,17 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/pglite";
-import { loadVideoPostingContext } from "@/services/video-posting-context.server";
+import {
+  loadVideoPostingContext,
+  loadWriterContext,
+} from "@/services/video-posting-context.server";
 
 let testDb: TestDb;
 type TestServices =
@@ -28,6 +32,7 @@ type TestServices =
   | VersionOperationsService
   | LessonSectionOperationsService
   | LinkAuthOperationsService
+  | BeatOperationsService
   | DrizzleService
   | FileSystem.FileSystem;
 
@@ -45,6 +50,7 @@ beforeAll(async () => {
     VersionOperationsService.Default,
     LessonSectionOperationsService.Default,
     LinkAuthOperationsService.Default,
+    BeatOperationsService.Default,
     drizzleLayer,
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer));
@@ -354,6 +360,32 @@ describe("loadVideoPostingContext", () => {
 
         expect(ctx.pitchId).toBeNull();
       }).pipe(Effect.provide(testLayer))
+    );
+  });
+});
+
+describe("loadWriterContext", () => {
+  describe("beats", () => {
+    it.effect(
+      "excludes setup beats from the returned beats, keeping other kinds",
+      () =>
+        Effect.gen(function* () {
+          const video = yield* createStandaloneVideoWithClips("test-video", [
+            "text",
+          ]);
+
+          setupVideoDir(video.lineageId);
+
+          const beatOps = yield* BeatOperationsService;
+          yield* beatOps.createBeat(video.id, "setup");
+          yield* beatOps.createBeat(video.id, "definition");
+
+          const ctx = yield* loadWriterContext(video.id);
+
+          expect(ctx.beats).toHaveLength(1);
+          expect(ctx.beats[0]!.kind).toBe("definition");
+          expect(ctx.beats.some((b) => b.kind === "setup")).toBe(false);
+        }).pipe(Effect.provide(testLayer))
     );
   });
 });

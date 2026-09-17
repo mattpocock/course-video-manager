@@ -25,6 +25,7 @@ Beat kinds (the film-time job, from the Mise en Place glossary):
   playthrough  Build something live, start to finish
   quest        Set the viewer a challenge to attempt
   reaction     React to or review code or content
+  setup        Note what the playground repo needs (never published)
 
 Positioning (add & move): pick a place with an anchor, not an index —
   --before <id>  before that beat | --after <id>  after it | (neither) end.
@@ -64,7 +65,7 @@ order). Archived (deleted) Beats are always excluded — there is no flag to
 include them.
 
 By DEFAULT each line is the compact projection: id, kind
-(definition|walkthrough|playthrough|quest|reaction), title, learningGoalIds
+(definition|walkthrough|playthrough|quest|reaction|setup), title, learningGoalIds
 (Learning Goals this Beat serves). 'order' (the fractional sort key) is
 omitted from this projection: the NDJSON stream is already sorted by it, so
 the field would only repeat each line's own position. Pass --full for the
@@ -92,7 +93,7 @@ Flags:
                       than one video it is ambiguous: invalid input (exit 3);
                       target the video directly with --video. An unknown or
                       archived pitch id is a not-found (exit 2).
-  --kind <kind>       one of definition|walkthrough|playthrough|quest|reaction.
+  --kind <kind>       one of definition|walkthrough|playthrough|quest|reaction|setup.
                       Defaults to 'definition'.
   --title <text>      short label (default "").
   --description <text> free-text planning note (default ""; never published).
@@ -121,7 +122,7 @@ are left untouched.
 Flags:
   --title <text>          new short label.
   --description <text>    new planning note (never published).
-  --kind <kind>            definition|walkthrough|playthrough|quest|reaction.
+  --kind <kind>            definition|walkthrough|playthrough|quest|reaction|setup.
   --learning-goal <id>     attach this Learning Goal (repeatable). REPLACES the
                            Beat's full set of Learning Goals — this is not an
                            incremental add, so pass every id the Beat should

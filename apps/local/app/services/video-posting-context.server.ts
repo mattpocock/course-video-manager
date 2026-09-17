@@ -231,11 +231,16 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
     { concurrency: "unbounded" }
   );
 
-  const beats = rawBeats.map((b) => ({
-    kind: b.kind as BeatKind,
-    title: b.title,
-    description: b.description ?? "",
-  }));
+  // Setup beats are production/repo-requirement notes, never viewer-facing —
+  // exclude them here so they never reach the Article Writer's context, same
+  // as they never enter published output (issue #1631).
+  const beats = rawBeats
+    .filter((b) => b.kind !== "setup")
+    .map((b) => ({
+      kind: b.kind as BeatKind,
+      title: b.title,
+      description: b.description ?? "",
+    }));
 
   const { indexedClips, transcript, wordCount, sections } = buildTranscript(
     video.clips,
