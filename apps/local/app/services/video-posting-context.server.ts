@@ -231,16 +231,15 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
     { concurrency: "unbounded" }
   );
 
-  // Setup beats are production/repo-requirement notes, never viewer-facing —
-  // exclude them here so they never reach the Article Writer's context, same
-  // as they never enter published output (issue #1631).
-  const beats = rawBeats
-    .filter((b) => b.kind !== "setup")
-    .map((b) => ({
-      kind: b.kind as BeatKind,
-      title: b.title,
-      description: b.description ?? "",
-    }));
+  // Setup beats DO reach the Article Writer's context: they're not viewer-
+  // facing (they never enter published output), but the Writer's context is
+  // author-facing, not viewer-facing, and knowing what the playground repo
+  // needs at this point is useful context for the author (issue #1631).
+  const beats = rawBeats.map((b) => ({
+    kind: b.kind as BeatKind,
+    title: b.title,
+    description: b.description ?? "",
+  }));
 
   const { indexedClips, transcript, wordCount, sections } = buildTranscript(
     video.clips,

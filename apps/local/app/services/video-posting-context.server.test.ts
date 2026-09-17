@@ -367,7 +367,7 @@ describe("loadVideoPostingContext", () => {
 describe("loadWriterContext", () => {
   describe("beats", () => {
     it.effect(
-      "excludes setup beats from the returned beats, keeping other kinds",
+      "includes setup beats alongside other kinds — the Writer's context is author-facing",
       () =>
         Effect.gen(function* () {
           const video = yield* createStandaloneVideoWithClips("test-video", [
@@ -382,9 +382,11 @@ describe("loadWriterContext", () => {
 
           const ctx = yield* loadWriterContext(video.id);
 
-          expect(ctx.beats).toHaveLength(1);
-          expect(ctx.beats[0]!.kind).toBe("definition");
-          expect(ctx.beats.some((b) => b.kind === "setup")).toBe(false);
+          expect(ctx.beats).toHaveLength(2);
+          expect(ctx.beats.map((b) => b.kind).sort()).toEqual([
+            "definition",
+            "setup",
+          ]);
         }).pipe(Effect.provide(testLayer))
     );
   });
