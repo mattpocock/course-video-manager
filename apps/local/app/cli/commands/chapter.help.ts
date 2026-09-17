@@ -11,7 +11,8 @@ fractional 'order' space — interleaving them in timeline order is exactly what
 forms the Video's Transcript, where each Chapter renders as a '## <title>'
 header. Chapters are children of a Video, addressed by id only; there is no
 version scoping and archived chapters are always hidden (no --archived flag, no
-restore verb — same one-way convention as 'clip delete').
+restore verb — same one-way convention as 'beat delete'; UNLIKE 'clip delete',
+which supports --archived viewing and 'clip restore').
 
 Do NOT confuse a Chapter (the recorded-timeline grouping) with a Beat (the
 pre-recording plan) — see 'cvm beat'.
@@ -97,8 +98,9 @@ export const DELETE_HELP = `Archive (soft-delete) a Chapter.
 
 Sets 'archived: true'. Archived chapters are ALWAYS filtered out (no --archived
 flag, no 'chapter get' access, no restore) — same one-way convention as
-'clip delete'. Immediate, no confirmation (agent-facing tool); needs the owning
-CourseVersion to be a Draft. Echoes the archived row.
+'beat delete' (UNLIKE 'clip delete', which supports --archived viewing and
+'clip restore'). Immediate, no confirmation (agent-facing tool); needs the
+owning CourseVersion to be a Draft. Echoes the archived row.
 
 Example:
   cvm chapter delete chap_abc`;

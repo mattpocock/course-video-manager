@@ -112,7 +112,7 @@ A **Video** with `format: "short"`: a vertical, short-form video (the kind poste
 _Avoid_: TikTok (reserved for the actual TikTok platform — the OBS recording profile and Buffer posting destinations — and NOT the canonical name for a Short)
 
 **Clip**:
-A timestamped segment of **Footage** within a video, defined by start/end times and a source filename (`videoFilename`, a bare path with no foreign key). Captured by OBS append or "create video from selection", or cut by hand with `cvm clip add`, which slices the new Clip's `text` from the source Footage's cached transcript.
+A timestamped segment of **Footage** within a video, defined by start/end times and a source filename (`videoFilename`, a bare path with no foreign key). Captured by OBS append or "create video from selection", or cut by hand with `cvm clip add`, which slices the new Clip's `text` from the source Footage's cached transcript. Deleting one is an **Archive** (`cvm clip delete`), but unlike most other archived nouns a Clip's archive is a REVIEW SURFACE rather than a one-way trapdoor: `cvm clip list`/`cvm clip get` default to active-only but take `--archived` to reveal soft-deleted clips (so a wrongly-deleted one can be found), and `cvm clip restore` undoes the delete.
 _Avoid_: Segment, Cut, Take
 
 **Footage**:
@@ -397,7 +397,7 @@ A string-based ordering value that allows inserting items between existing items
 _Avoid_: Sort order, Position
 
 **Archive**:
-Soft-deletion: hiding an entity from active views while retaining it in the database.
+Soft-deletion: hiding an entity from active views while retaining it in the database. Per-noun behavior varies: most archived nouns (Beat, Chapter, Learning Goal, Section, Lesson) are one-way from the CLI — no `--archived` listing, no restore. Course and Video expose a `--archived` LIST view but no restore verb. Clip is the one noun with a full round trip: `--archived` viewing on both `list` and `get`, plus a `restore` verb — its archive is meant as a review surface for catching a wrongly-deleted clip, not a trapdoor.
 _Avoid_: Delete, Remove
 
 **ARCHIVE Section**:

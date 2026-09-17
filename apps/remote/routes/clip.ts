@@ -5,7 +5,7 @@ import type { RemoteRuntime } from "../runtime.js";
 
 /**
  * The `clip` verb group: `cvm clip list | get | add | update | move | delete |
- * words`.
+ * restore | words`.
  *
  * `listTimelineOrder` is what `move` and `add` position against — Clips and
  * Chapters share one fractional order key, so the anchor an agent names may be
@@ -35,6 +35,10 @@ export const clipRoutes = (runtime: RemoteRuntime) =>
     .post(
       "/archiveClip",
       forward(runtime, ClipOperationsService, "archiveClip")
+    )
+    .post(
+      "/restoreClip",
+      forward(runtime, ClipOperationsService, "restoreClip")
     )
     .post(
       "/listTranscriptWords",

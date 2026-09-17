@@ -11,17 +11,20 @@ A Clip is one captured segment of source footage, defined by a source filename a
 window into it (sourceStartTime/sourceEndTime, seconds). Clips and Chapters share one fractional
 'order' space; interleaving them in order is what forms the Video's Transcript. A clip's 'text' is
 its spoken transcription. Clips are children of a Video, addressed by id only; there is no version
-scoping and archived clips are always hidden (no --archived flag, no restore verb).
+scoping. 'list'/'get' default to ACTIVE clips only, but unlike most other archived nouns a Clip's
+archive is a REVIEW SURFACE, not a one-way trapdoor: pass --archived to either verb to reveal
+soft-deleted clips (so a wrongly-deleted one can be found), and 'clip restore' undoes 'clip delete'.
 
 Verbs:
-  clip list --video <videoId>          every active clip on a Video, in timeline order (NDJSON)
-  clip get <id...>                     fetch one or more clips by id (variadic)
+  clip list --video <videoId> [--archived]   clips on a Video, in timeline order (NDJSON)
+  clip get [--archived] <id...>              fetch one or more clips by id (variadic)
   clip add --video <id> --source <p> --start <t> --end <t>
-                                       cut a new clip, text sliced from <source>'s cached transcript
-  clip update <id> [flags]             set --zoom and/or retime --start/--end
-  clip move <id> --before/--after <id> reposition within the timeline
-  clip delete <id>                     archive the clip (soft delete; irreversible from the CLI)
-  clip words <id>                      the clip's Transcript Words, in spoken order (NDJSON)
+                                             cut a new clip, text sliced from <source>'s cached transcript
+  clip update <id> [flags]                   set --zoom and/or retime --start/--end
+  clip move <id> --before/--after <id>       reposition within the timeline
+  clip delete <id>                           archive the clip (soft delete; see 'clip restore')
+  clip restore <id>                          undo 'clip delete'
+  clip words <id>                            the clip's Transcript Words, in spoken order (NDJSON)
 
 All writes are immediate — no confirmation, no dry-run (agent-facing tool). There is no 'clip tree'
 (clips are leaves) — use 'video tree' then 'clip get'. 'clip add' cuts a single clip from a footage
@@ -121,36 +124,60 @@ Examples:
 
 export const DELETE_HELP = `Archive (soft-delete) a Clip.
 
-Sets 'archived: true'. Archived clips are ALWAYS filtered out everywhere (no --archived flag, no
-'clip get' access, no restore verb) — same one-way convention as 'beat delete'. The row still
-exists in the database (unlike 'file delete', which is a real unlink), but nothing in this CLI can
-bring it back.
+Sets 'archived: true'. Archived clips are filtered out of 'clip list'/'clip get' BY DEFAULT (pass
+--archived to either to see them again) and every other clip write (update/move/words) still
+treats an archived clip as not-found. The row still exists in the database (unlike 'file delete',
+which is a real unlink) — 'clip restore <id>' undoes this, unlike 'beat delete's one-way archive.
 
 Immediately, no confirmation prompt (this is an agent-facing tool). Only its ClipWebLinks cascade
 on delete at the database level; nothing else references a Clip by foreign key, so deleting one
 does not orphan any Beat, Script, or Deliverable.
 
 Examples:
-  cvm clip delete clip_abc`;
+  cvm clip delete clip_abc
+  cvm clip restore clip_abc   # undo`;
 
-export const LIST_HELP = `List every active (non-archived) Clip on a Video, in timeline order.
+export const RESTORE_HELP = `Restore an archived (soft-deleted) Clip back to active. Undoes 'clip delete'.
+
+Sets 'archived: false'. Idempotent: restoring a clip that is already active is a harmless no-op
+success, not an error — only an id matching NO row at all (active or archived) is a not-found
+(exit 2). This is what makes a Clip's archive a REVIEW SURFACE rather than a one-way trapdoor like
+most other archived nouns ('beat delete' has no restore, for contrast): find a wrongly-deleted
+clip with 'clip list --archived' / 'clip get --archived', then bring it back here.
+
+Immediately, no confirmation prompt (this is an agent-facing tool). Like every clip write it needs
+the owning CourseVersion to be a Draft (a non-Draft is refused).
+
+Examples:
+  cvm clip restore clip_abc
+  # Find archived clips on a video first:
+  cvm clip list --video vid_123 --archived | jq 'select(.archived) | .id'`;
+
+export const LIST_HELP = `List Clips on a Video, in timeline order.
 
 Requires --video <videoId>: the parent Video whose clips to source. Derived from the Video's
 clip set (getVideoWithClipsById), already ordered by the shared clip/chapter 'order' key, so the
 output reflects the recorded timeline. Output is NDJSON — one compact clip object per line; an
 empty video prints nothing and exits 0. An unknown video id is a not-found error (exit 2).
 
+Defaults to ACTIVE clips only. Pass --archived to include archived (soft-deleted) clips too,
+interleaved in their original timeline position rather than off in a separate list — this is the
+review surface for "was this clip wrongly deleted?": each row's 'archived' field says which.
+
 Each line is identity-rich (id, videoId, order, text) so an agent can map content to ids in one
 call, then drill in with 'clip get'.
 
 Examples:
   cvm clip list --video vid_123
+  cvm clip list --video vid_123 --archived | jq 'select(.archived)'
   cvm clip list --video vid_123 | jq -r '.text'
   cvm clip list --video vid_123 | jq 'select(.transcribedAt==null) | .id'`;
 
 export const GET_HELP = `Fetch one or more Clips by id. Variadic: 'clip get <id> [<id> ...]'.
 
 Backed by the native multi-id getter (getClipsByIds), so many ids resolve in a single query.
+Defaults to ACTIVE clips only — an archived id is a not-found (exit 2) unless --archived opts into
+seeing it too (safe to combine active and archived ids in one call with the flag set).
 
 Output contract:
   - one id, found     -> a single pretty-printed JSON object (exit 0)
@@ -162,6 +189,7 @@ Args are ids ONLY (never names/paths). Find ids first with 'clip list --video <i
 
 Examples:
   cvm clip get clip_abc
+  cvm clip get --archived clip_abc
   cvm clip get clip_abc clip_def clip_ghi
   cvm clip get clip_abc | jq '{id, text, start: .sourceStartTime, end: .sourceEndTime}'`;
 

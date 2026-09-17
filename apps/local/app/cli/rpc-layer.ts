@@ -227,6 +227,9 @@ const clipService = (client: RpcClient) =>
     archiveClip: rpcMethod((json) =>
       client.rpc.clip.archiveClip.$post({ json })
     ),
+    restoreClip: rpcMethod((json) =>
+      client.rpc.clip.restoreClip.$post({ json })
+    ),
     listTranscriptWords: rpcMethod((json) =>
       client.rpc.clip.listTranscriptWords.$post({ json })
     ),

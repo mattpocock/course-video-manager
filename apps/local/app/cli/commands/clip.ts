@@ -29,6 +29,7 @@ import {
   UPDATE_HELP,
   MOVE_HELP,
   DELETE_HELP,
+  RESTORE_HELP,
   WORDS_HELP,
 } from "./clip.help";
 
@@ -49,9 +50,10 @@ import {
  *
  *   Clips are CHILDREN of a Video, addressed only by id. There is no version
  *   scoping here — clips belong to the live recorded timeline of one Video.
- *   Archived clips are treated as deleted: they are ALWAYS filtered out and
- *   never surfaced (no --archived flag on this noun, and no restore verb —
- *   same one-way convention as `beat delete`).
+ *   Archived clips are hidden by DEFAULT from `list`/`get`, but unlike most
+ *   other archived nouns a Clip's archive is a REVIEW SURFACE, not a one-way
+ *   trapdoor: pass --archived to either verb to reveal them (a wrongly-deleted
+ *   clip needs to be findable), and `clip restore` undoes a `clip delete`.
  *
  * OUTPUT FIELDS:
  *   id               clip id (use with `clip get`)
@@ -66,18 +68,19 @@ import {
  *   pauseType         held pause after clip; "none" or "long"
  *   zoomType          Clip Zoom; "none" or "subtle" (camera scenes only)
  *   diagramSnapshotId pinned DiagramSnapshot filmed against this clip, if any
- *   archived         always false in CLI output (archived rows are hidden)
+ *   archived         true for a soft-deleted clip; only ever seen with --archived
  *   createdAt        row creation timestamp
  *
  * VERBS:
- *   clip list --video <videoId>          every active clip on a Video, timeline order
- *   clip get <id...>                     one or more clips by id (variadic)
- *   clip add --video <id> --source <p>   cut a new clip, text sliced from the
- *     --start <t> --end <t>              cached footage transcript
- *   clip update <id> [flags]             set --zoom and/or retime --start/--end
- *   clip move <id> --before/--after <id> reposition within the Video's timeline
- *   clip delete <id>                     archive (soft delete; no restore)
- *   clip words <id>                      the Clip's Transcript Words (NDJSON)
+ *   clip list --video <videoId> [--archived]  clips on a Video, timeline order
+ *   clip get [--archived] <id...>             one or more clips by id (variadic)
+ *   clip add --video <id> --source <p>        cut a new clip, text sliced from the
+ *     --start <t> --end <t>                   cached footage transcript
+ *   clip update <id> [flags]                  set --zoom and/or retime --start/--end
+ *   clip move <id> --before/--after <id>      reposition within the Video's timeline
+ *   clip delete <id>                          archive (soft delete; see `clip restore`)
+ *   clip restore <id>                         undo `clip delete`
+ *   clip words <id>                           the Clip's Transcript Words (NDJSON)
  *
  * `update`'s --start/--end retime the cut WITHOUT touching `text`/`transcribedAt` — there is no
  * re-transcription step, so a retimed clip's text can drift out of sync with its new audio range
@@ -112,45 +115,60 @@ const videoOpt = Options.text("video").pipe(
   Options.withDescription("Parent Video id whose clips to list")
 );
 
-const listCmd = Command.make("list", { video: videoOpt }, ({ video }) =>
-  Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const found = yield* videoOps
-      .getVideoWithClipsById(video)
-      .pipe(Effect.catchTag("NotFoundError", () => notFound("video", video)));
-    yield* emitNdjson(found.clips);
-  })
+const archivedOpt = Options.boolean("archived").pipe(
+  Options.withDescription(
+    "Include archived (soft-deleted) clips too — the review surface for finding a wrongly-deleted clip."
+  )
+);
+
+const listCmd = Command.make(
+  "list",
+  { video: videoOpt, archived: archivedOpt },
+  ({ video, archived }) =>
+    Effect.gen(function* () {
+      const videoOps = yield* VideoOperationsService;
+      const found = yield* videoOps
+        .getVideoWithClipsById(video, { withArchived: archived })
+        .pipe(Effect.catchTag("NotFoundError", () => notFound("video", video)));
+      yield* emitNdjson(found.clips);
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const ids = Args.text({ name: "id" }).pipe(Args.repeated);
 
-const getCmd = Command.make("get", { ids }, ({ ids }) =>
-  Effect.gen(function* () {
-    const clipOps = yield* ClipOperationsService;
-    // Clip is a leaf noun: archived = deleted, ALWAYS hidden (no flag). The
-    // shared getClipsByIds has no archived filter, so the CLI enforces the
-    // contract here — archived ids fall through to the not-found path (exit 2).
-    const rows = (yield* clipOps.getClipsByIds(ids)).filter((r) => !r.archived);
+const getCmd = Command.make(
+  "get",
+  { ids, archived: archivedOpt },
+  ({ ids, archived }) =>
+    Effect.gen(function* () {
+      const clipOps = yield* ClipOperationsService;
+      // Clip get defaults to ACTIVE only, same as `clip list` — an archived id
+      // is a clean not-found (exit 2) unless --archived opts into seeing it too.
+      // The shared getClipsByIds has no archived filter itself, so the CLI
+      // enforces the default here.
+      const rows = (yield* clipOps.getClipsByIds(ids)).filter(
+        (r) => archived || !r.archived
+      );
 
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    const found = ids
-      .map((id) => byId.get(id))
-      .filter((row): row is NonNullable<typeof row> => row !== undefined);
-    const missing = ids.filter((id) => !byId.has(id));
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      const found = ids
+        .map((id) => byId.get(id))
+        .filter((row): row is NonNullable<typeof row> => row !== undefined);
+      const missing = ids.filter((id) => !byId.has(id));
 
-    if (ids.length === 1) {
-      if (found.length === 1) {
-        yield* emitObject(found[0]);
-        return;
+      if (ids.length === 1) {
+        if (found.length === 1) {
+          yield* emitObject(found[0]);
+          return;
+        }
+        return yield* notFound("clip", ids[0]!);
       }
-      return yield* notFound("clip", ids[0]!);
-    }
 
-    yield* emitNdjson(found);
-    if (missing.length > 0) {
-      return yield* notFoundMany("clip", missing);
-    }
-  })
+      yield* emitNdjson(found);
+      if (missing.length > 0) {
+        return yield* notFoundMany("clip", missing);
+      }
+    })
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
 const zoomOpt = Options.choice("zoom", CLIP_ZOOM_TYPES).pipe(
@@ -419,6 +437,25 @@ const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 
 /**
+ * Undo `clip delete`. Deliberately idempotent on an already-active clip (a
+ * plain no-op success) — the only thing worth gating on a not-found is an id
+ * that matches NO row at all, active or archived, same as every other clip
+ * write's not-found check.
+ */
+const restoreCmd = Command.make("restore", { id: idArg }, ({ id }) =>
+  Effect.gen(function* () {
+    const clipOps = yield* ClipOperationsService;
+    const [existing] = yield* clipOps.getClipsByIds([id]);
+    if (!existing) {
+      return yield* notFound("clip", id);
+    }
+    yield* clipOps.restoreClip(id);
+    const [restored] = yield* clipOps.getClipsByIds([id]);
+    yield* emitObject(restored);
+  })
+).pipe(Command.withDescription(detail(RESTORE_HELP)));
+
+/**
  * The Clip's Transcript Words — Whisper's per-word timing, at CLIP-RELATIVE
  * offsets. A never-transcribed Clip has none; that prints nothing and exits 0,
  * because "no words yet" is an ordinary state, not a failure. Read-only, and
@@ -448,6 +485,7 @@ export const clipCommand = Command.make("clip").pipe(
     updateCmd,
     moveCmd,
     deleteCmd,
+    restoreCmd,
     wordsCmd,
   ])
 );

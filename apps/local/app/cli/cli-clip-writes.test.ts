@@ -26,7 +26,8 @@ import {
 // (Split out like cli-beat-writes.test.ts. Clip has no `add` verb — the only
 // creators are OBS-capture append and "create video from selection", neither
 // CLI-facing — so fixtures here are seeded directly through
-// ClipOperationsService.appendClips rather than through the CLI.)
+// ClipOperationsService.appendClips rather than through the CLI. `restore`
+// is in cli-clip-restore.test.ts)
 //
 // NOTE on argv shape: like every other write-verb suite, flags go BEFORE the
 // trailing positional <id> (`--start 3 <id>`, not `<id> --start 3`).
@@ -290,7 +291,7 @@ describe("clip writes (update / move / delete)", () => {
   });
 
   describe("delete", () => {
-    it("archives the clip, echoes archived:true, hides it from list, no restore", async () => {
+    it("archives the clip, echoes archived:true, hides it from list", async () => {
       const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
       const del = one<ClipRow>((await run(["clip", "delete", clip.id])).stdout);
       expect(del.id).toBe(clip.id);
@@ -313,7 +314,7 @@ describe("clip writes (update / move / delete)", () => {
       );
     });
 
-    it("any write on an already-deleted clip => NotFoundError, exit 2", async () => {
+    it("other writes on an already-deleted clip => NotFoundError, exit 2", async () => {
       const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
       await run(["clip", "delete", clip.id]);
       expect(

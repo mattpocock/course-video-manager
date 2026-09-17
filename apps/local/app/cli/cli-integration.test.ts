@@ -306,18 +306,9 @@ describe("archived filtering", () => {
     expect(rows.every((r) => r.archived === false)).toBe(true);
   });
 
-  it("clip get on an archived clip id => NotFoundError, exit 2", async () => {
-    const { stdout, stderr, exitCode } = await run([
-      "clip",
-      "get",
-      s.archivedClipId,
-    ]);
-    expect(exitCode).toBe(2);
-    expect(stdout).toBe("");
-    const err = JSON.parse(stderr.trim()) as { _tag: string; entity: string };
-    expect(err._tag).toBe("NotFoundError");
-    expect(err.entity).toBe("clip");
-  });
+  // Clip's own archived-visibility/restore cases (get --archived, list
+  // --archived) live in cli-clip-archived-view.test.ts, split out per the
+  // per-file token budget.
 
   it("pitch get on an archived pitch id => NotFoundError, exit 2", async () => {
     const { stdout, stderr, exitCode } = await run([

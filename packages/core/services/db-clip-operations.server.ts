@@ -137,6 +137,37 @@ const createClipOperationsUnwrapped = (db: Database) => {
     return clip;
   });
 
+  /**
+   * Undo `archiveClip`. Unlike most other archived nouns, a Clip's archive is
+   * meant as a REVIEW SURFACE, not a one-way trapdoor — this exists so a
+   * wrongly-deleted clip found via `clip list --archived`/`clip get --archived`
+   * can actually be brought back. Idempotent: restoring an already-active clip
+   * is a harmless no-op, since the only thing this ever needed to guarantee is
+   * "the row exists and archived is false" — the CLI still gates it behind a
+   * not-found for a clip id that doesn't exist at all.
+   */
+  const restoreClip = Effect.fn("restoreClip")(function* (clipId: string) {
+    yield* requireDraftVersionForClip(db, clipId);
+    const clipExists = yield* makeDbCall(() =>
+      db.query.clips.findFirst({
+        where: eq(clips.id, clipId),
+      })
+    );
+
+    if (!clipExists) {
+      return yield* new NotFoundError({
+        type: "restoreClip",
+        params: { clipId },
+      });
+    }
+
+    const clip = yield* makeDbCall(() =>
+      db.update(clips).set({ archived: false }).where(eq(clips.id, clipId))
+    );
+
+    return clip;
+  });
+
   const reorderClip = Effect.fn("reorderClip")(function* (
     clipId: string,
     direction: "up" | "down"
@@ -512,6 +543,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
     updateClip,
     setClipZoom,
     archiveClip,
+    restoreClip,
     reorderClip,
     listTimelineOrder,
     moveClipToPosition,
@@ -531,6 +563,7 @@ export const createClipOperations = (db: Database) =>
     "updateClip",
     "setClipZoom",
     "archiveClip",
+    "restoreClip",
     "reorderClip",
     "moveClipToPosition",
     "createClip",
