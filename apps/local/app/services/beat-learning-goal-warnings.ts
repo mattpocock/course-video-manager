@@ -13,6 +13,8 @@
  * computed and attached.
  */
 
+import type { BeatKind } from "@/features/beats/beat-kinds";
+
 export type LearningGoalWarningKind = "noBeats";
 export type LearningGoalWarning = { kind: LearningGoalWarningKind };
 
@@ -54,12 +56,17 @@ export const computeLearningGoalWarnings = (input: {
 /**
  * A Beat warns when its Section has Learning Goals but the Beat serves none
  * of them. A Beat whose Video has no Section (standalone / pitch-bound) is
- * never passed `sectionHasLearningGoals: true`, so it never warns.
+ * never passed `sectionHasLearningGoals: true`, so it never warns. A `setup`
+ * Beat never warns either — it records a playground/repo requirement, not
+ * something the viewer is taught, so it's exempt from the Learning Goal
+ * expectation regardless of `sectionHasLearningGoals`/`learningGoalIds`.
  */
 export const computeBeatWarnings = (input: {
+  kind: BeatKind;
   sectionHasLearningGoals: boolean;
   learningGoalIds: readonly string[];
 }): BeatWarning[] => {
+  if (input.kind === "setup") return [];
   if (!input.sectionHasLearningGoals) return [];
   return input.learningGoalIds.length === 0 ? [{ kind: "noLearningGoal" }] : [];
 };

@@ -110,6 +110,21 @@ describe("beat writes (add / update / move / delete)", () => {
     expect(seg.description).toBe("note here");
   });
 
+  it("add accepts --kind setup", async () => {
+    const seg = await add(
+      s.standaloneActiveId,
+      "--kind",
+      "setup",
+      "--title",
+      "Repo state",
+      "--description",
+      "exercise repo now has the closures folder"
+    );
+    expect(seg.kind).toBe("setup");
+    expect(seg.title).toBe("Repo state");
+    expect(seg.description).toBe("exercise repo now has the closures folder");
+  });
+
   it("add --before inserts immediately before the anchor", async () => {
     const anchor = await add(s.standaloneActiveId, "--title", "Anchor");
     const seg = await add(

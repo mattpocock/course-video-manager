@@ -134,6 +134,7 @@ export function courseViewEffect(input: {
                       beats: withQuizWarning.beats.map((beat) => ({
                         ...beat,
                         warnings: computeBeatWarnings({
+                          kind: beat.kind,
                           sectionHasLearningGoals: hasLearningGoals,
                           learningGoalIds: beat.learningGoalIds,
                         }),

@@ -4,6 +4,7 @@ import {
   Eye,
   Footprints,
   Gamepad2,
+  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { BeatKind } from "@cvm/core/features/beats/beat-kinds";
@@ -28,4 +29,5 @@ export const BEAT_KIND_ICONS: Record<BeatKind, LucideIcon> = {
   playthrough: Gamepad2,
   quest: CircleQuestionMark,
   reaction: Eye,
+  setup: Wrench,
 };

@@ -16,6 +16,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createTable } from "./table-creator.js";
 import type { BulletPanelBullet } from "../features/videos/bullet-panel.js";
+import type { BeatKind } from "../features/beats/beat-kinds.js";
 export { createTable } from "./table-creator.js";
 
 const varcharCollateC = customType<{
@@ -570,7 +571,7 @@ export const beats = createTable(
     videoId: varchar("video_id", { length: 255 })
       .references(() => videos.id, { onDelete: "cascade" })
       .notNull(),
-    kind: text("kind").notNull().default("definition"),
+    kind: text("kind").$type<BeatKind>().notNull().default("definition"),
     title: text("title").notNull().default(""),
     // In-app planning note ("what am I going to do/say here"). Never published —
     // publish skips it exactly as it skips the Beat plan itself.

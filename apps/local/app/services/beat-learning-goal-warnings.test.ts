@@ -48,6 +48,7 @@ describe("computeBeatWarnings", () => {
   it("never warns when the section has no learning goals", () => {
     expect(
       computeBeatWarnings({
+        kind: "quest",
         sectionHasLearningGoals: false,
         learningGoalIds: [],
       })
@@ -57,6 +58,7 @@ describe("computeBeatWarnings", () => {
   it("warns when the section has learning goals and the beat serves none", () => {
     expect(
       computeBeatWarnings({
+        kind: "quest",
         sectionHasLearningGoals: true,
         learningGoalIds: [],
       })
@@ -66,8 +68,19 @@ describe("computeBeatWarnings", () => {
   it("does not warn once the beat serves at least one learning goal", () => {
     expect(
       computeBeatWarnings({
+        kind: "quest",
         sectionHasLearningGoals: true,
         learningGoalIds: ["goal-1"],
+      })
+    ).toEqual([]);
+  });
+
+  it("never warns for a setup beat, even when the section has learning goals and it serves none", () => {
+    expect(
+      computeBeatWarnings({
+        kind: "setup",
+        sectionHasLearningGoals: true,
+        learningGoalIds: [],
       })
     ).toEqual([]);
   });

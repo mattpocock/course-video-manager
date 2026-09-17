@@ -54,7 +54,7 @@ const pitchAddOption = Options.text("pitch").pipe(
 
 const kindOption = Options.choice("kind", [...BEAT_KINDS]).pipe(
   Options.withDescription(
-    "Beat kind: definition|walkthrough|playthrough|quest|reaction."
+    "Beat kind: definition|walkthrough|playthrough|quest|reaction|setup."
   ),
   Options.optional
 );

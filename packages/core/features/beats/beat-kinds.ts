@@ -13,6 +13,7 @@ export const BEAT_KINDS = [
   "playthrough",
   "quest",
   "reaction",
+  "setup",
 ] as const;
 
 /**
@@ -35,6 +36,7 @@ export const BEAT_KIND_DESCRIPTIONS: Record<BeatKind, string> = {
   playthrough: "Build something live, start to finish",
   quest: "Set the viewer a challenge to attempt",
   reaction: "React to or review code or content",
+  setup: "Note what the playground repo needs by this point (never published)",
 };
 
 export const BEAT_KIND_LABELS: Record<BeatKind, string> = {
@@ -43,4 +45,5 @@ export const BEAT_KIND_LABELS: Record<BeatKind, string> = {
   playthrough: "Playthrough",
   quest: "Quest",
   reaction: "Reaction",
+  setup: "Setup",
 };

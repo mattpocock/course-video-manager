@@ -101,6 +101,21 @@ describe("createBeat", () => {
     }).pipe(Effect.provide(testLayer))
   );
 
+  it.effect(
+    "round-trips the setup kind through createBeat and setBeatKind",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() => makeVideo("video-1"));
+        const beatOps = yield* BeatOperationsService;
+
+        const beat = yield* beatOps.createBeat("video-1", "setup");
+        expect(beat.kind).toBe("setup");
+
+        const updated = yield* beatOps.setBeatKind(beat.id, "setup");
+        expect(updated.kind).toBe("setup");
+      }).pipe(Effect.provide(testLayer))
+  );
+
   it.effect("slots new beats at the end, in creation order", () =>
     Effect.gen(function* () {
       yield* Effect.promise(() => makeVideo("video-1"));
