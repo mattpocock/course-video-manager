@@ -131,19 +131,23 @@ const transcribeCmd = Command.make(
       }
 
       // Use an ambiently-provided VideoProcessingService if there is one (a test
-      // fake); otherwise build the real one here, loading the repo .env first so
-      // OPENAI_API_KEY is present at the layer's build time.
+      // fake); otherwise build the real one here. loadRepoEnv MUST run OUTSIDE
+      // the provided effect: Effect.provide builds footageProcessingLayer before
+      // the inner effect starts, and the layer reads OPENAI_API_KEY at build time.
       const provided = yield* Effect.serviceOption(VideoProcessingService);
       const transcript = yield* Option.match(provided, {
         onSome: (svc) => svc.transcribeFootageFile(sourcePath),
         onNone: () =>
-          Effect.gen(function* () {
-            yield* Effect.sync(() => loadRepoEnv());
-            const svc = yield* VideoProcessingService;
-            return yield* svc.transcribeFootageFile(sourcePath);
-          }).pipe(
-            Effect.provide(footageProcessingLayer),
-            Effect.withConfigProvider(ConfigProvider.fromEnv())
+          Effect.sync(() => loadRepoEnv()).pipe(
+            Effect.zipRight(
+              Effect.gen(function* () {
+                const svc = yield* VideoProcessingService;
+                return yield* svc.transcribeFootageFile(sourcePath);
+              }).pipe(
+                Effect.provide(footageProcessingLayer),
+                Effect.withConfigProvider(ConfigProvider.fromEnv())
+              )
+            )
           ),
       });
 
