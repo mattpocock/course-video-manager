@@ -8,7 +8,6 @@ import {
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { PrioritySelector } from "@/components/priority-selector";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   LessonTitleEditor,
@@ -16,6 +15,7 @@ import {
   useLessonTitleEditor,
 } from "./lesson-title-editor";
 import { LessonContextMenuContent } from "./lesson-context-menu";
+import { LessonDescriptionField } from "./lesson-description-field";
 import { LessonBeatTree } from "./lesson-beat-tree";
 import { useCourseViewVisibility } from "./course-view-visibility";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useLessonDependencyDrag } from "./use-lesson-dependency-drag";
 import { lessonWarningLabel } from "./lesson-warning-labels";
-import { Suspense, use, useCallback, useRef, useState } from "react";
+import { Suspense, use, useCallback } from "react";
 import { useNavigate, useFetcher } from "react-router";
 
 function LessonFsModals({
@@ -167,9 +167,6 @@ export function SortableLessonItem({
   const { effective: visibility } = useCourseViewVisibility();
 
   const currentDescription = lesson.description ?? "";
-  const [editingDesc, setEditingDesc] = useState(false);
-  const [descValue, setDescValue] = useState(lesson.description || "");
-  const descTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     editingTitle,
@@ -276,7 +273,6 @@ export function SortableLessonItem({
 
   const saveDescription = useCallback(
     (value: string) => {
-      setEditingDesc(false);
       if (value !== currentDescription) {
         submitEvent({
           type: "update-lesson-description",
@@ -419,55 +415,13 @@ export function SortableLessonItem({
                     </TooltipProvider>
                   )}
               </div>
-              {!compact && visibility.lessonDescriptions && (
-                <div className="ml-5">
-                  {!isReadOnly && editingDesc ? (
-                    <div className="mt-1 max-w-[65ch]">
-                      <Textarea
-                        ref={descTextareaRef}
-                        value={descValue}
-                        onChange={(e) => setDescValue(e.target.value)}
-                        placeholder="What should this lesson teach?"
-                        className="text-sm min-h-[60px]"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            setDescValue(currentDescription);
-                            setEditingDesc(false);
-                          }
-                          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                            saveDescription(descValue);
-                          }
-                        }}
-                        onBlur={() => saveDescription(descValue)}
-                      />
-                    </div>
-                  ) : currentDescription ? (
-                    <div
-                      className={cn(
-                        "text-xs text-muted-foreground mt-1 whitespace-pre-line max-w-[65ch]",
-                        !isReadOnly && "cursor-pointer hover:text-foreground/70"
-                      )}
-                      onClick={() => {
-                        if (isReadOnly) return;
-                        setDescValue(currentDescription);
-                        setEditingDesc(true);
-                      }}
-                    >
-                      {currentDescription}
-                    </div>
-                  ) : !isReadOnly ? (
-                    <button
-                      className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                      onClick={() => {
-                        setDescValue("");
-                        setEditingDesc(true);
-                      }}
-                    >
-                      + Add description
-                    </button>
-                  ) : null}
-                </div>
+              {visibility.lessonDescriptions && (
+                <LessonDescriptionField
+                  description={currentDescription}
+                  isReadOnly={isReadOnly}
+                  compact={!!compact}
+                  onSave={saveDescription}
+                />
               )}
             </div>
           </ContextMenuTrigger>
