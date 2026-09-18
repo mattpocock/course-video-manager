@@ -30,6 +30,7 @@ import {
   CREATE_HELP,
   MOVE_HELP,
   UPDATE_HELP,
+  ARCHIVE_HELP,
 } from "./video.help";
 
 // ---------------------------------------------------------------------------
@@ -508,6 +509,35 @@ const updateCmd = Command.make(
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 // ---------------------------------------------------------------------------
+// archive <id>
+// ---------------------------------------------------------------------------
+
+const archiveId = Args.text({ name: "id" });
+
+const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
+  Effect.gen(function* () {
+    const svc = yield* VideoOperationsService;
+
+    // Read first: an archived Video is still addressable here (unlike an
+    // archived Lesson), so re-archiving one is invalid input rather than a
+    // not-found — `video get` would happily return the very row we'd deny.
+    const video = yield* svc
+      .getVideoRowById(id)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("video", id)));
+    if (video.archived) {
+      return yield* parseError(`video ${id} is already archived`, "video");
+    }
+
+    // deleteVideo is the ONE archive path for every Video, standalone or
+    // lesson-bound; its Draft guard is what refuses a published Video
+    // (VersionNotDraftError, exit 3). updateVideoArchiveStatus is deliberately
+    // NOT used: it is the UI's standalone-only archive/restore toggle.
+    const archived = yield* svc.deleteVideo(id);
+    yield* emitObject(archived);
+  })
+).pipe(Command.withDescription(detail(ARCHIVE_HELP)));
+
+// ---------------------------------------------------------------------------
 // Noun command
 // ---------------------------------------------------------------------------
 
@@ -522,5 +552,6 @@ export const videoCommand = Command.make("video").pipe(
     createCmd,
     moveCmd,
     updateCmd,
+    archiveCmd,
   ])
 );

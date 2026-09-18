@@ -13,6 +13,7 @@ import {
   ndjson,
   one,
   seedWrite,
+  videoObj,
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
@@ -20,6 +21,7 @@ import * as schema from "@/db/schema";
 
 // ===========================================================================
 // cvm WRITE verbs — lesson create + video create/move/update
+// ('video archive' has its own file: cli-video-archive.test.ts.)
 // (Split from cli-integration.test.ts to stay under the per-file token budget.)
 // ===========================================================================
 
@@ -378,17 +380,6 @@ describe("lesson archive", () => {
 });
 
 describe("video create / move / update", () => {
-  interface Video {
-    id: string;
-    title: string;
-    lessonId: string | null;
-    pitchId: string | null;
-    archived: boolean;
-    body: string | null;
-    description: string | null;
-  }
-  const vobj = (stdout: string): Video => one<Video>(stdout);
-
   it("create --name (standalone) has no lesson or pitch parent", async () => {
     const { stdout, stderr, exitCode } = await run([
       "video",
@@ -398,7 +389,7 @@ describe("video create / move / update", () => {
     ]);
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
-    const v = vobj(stdout);
+    const v = videoObj(stdout);
     expect(v.title).toBe("New Standalone");
     expect(v.lessonId).toBeNull();
     expect(v.pitchId).toBeNull();
@@ -406,7 +397,7 @@ describe("video create / move / update", () => {
   });
 
   it("create --lesson attaches to the lesson", async () => {
-    const v = vobj(
+    const v = videoObj(
       (
         await run([
           "video",
@@ -423,7 +414,7 @@ describe("video create / move / update", () => {
   });
 
   it("create --pitch attaches to the pitch, name required and honored", async () => {
-    const v = vobj(
+    const v = videoObj(
       (
         await run([
           "video",
@@ -511,7 +502,7 @@ describe("video create / move / update", () => {
   });
 
   it("move re-homes a standalone video into a lesson", async () => {
-    const moved = vobj(
+    const moved = videoObj(
       (
         await run([
           "video",
@@ -528,7 +519,7 @@ describe("video create / move / update", () => {
   });
 
   it("move to a pitch clears any lesson parent (single-parent invariant)", async () => {
-    const moved = vobj(
+    const moved = videoObj(
       (
         await run([
           "video",
@@ -592,7 +583,7 @@ describe("video create / move / update", () => {
   });
 
   it("update --name renames the video, echoing the row", async () => {
-    const updated = vobj(
+    const updated = videoObj(
       (
         await run([
           "video",
@@ -639,7 +630,7 @@ describe("video create / move / update", () => {
   });
 
   it("update --description sets the SEO description, echoing the row", async () => {
-    const updated = vobj(
+    const updated = videoObj(
       (
         await run([
           "video",
@@ -657,7 +648,7 @@ describe("video create / move / update", () => {
   });
 
   it("update --body sets the markdown body from inline text", async () => {
-    const updated = vobj(
+    const updated = videoObj(
       (
         await run([
           "video",
@@ -672,7 +663,7 @@ describe("video create / move / update", () => {
   });
 
   it("update patches name, body and description together", async () => {
-    const updated = vobj(
+    const updated = videoObj(
       (
         await run([
           "video",
@@ -720,7 +711,7 @@ describe("video create / move / update", () => {
     const dir = mkdtempSync(join(tmpdir(), "cvm-body-"));
     const file = join(dir, "notes.md");
     writeFileSync(file, "# From file\n\nContents", "utf8");
-    const updated = vobj(
+    const updated = videoObj(
       (
         await run([
           "video",

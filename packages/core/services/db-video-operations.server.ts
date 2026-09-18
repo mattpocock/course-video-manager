@@ -397,13 +397,36 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     return videoResult;
   });
 
+  /**
+   * Archive a Video — the soft delete behind both the UI's "delete video"
+   * modal and `cvm video archive`. Works for ANY Video: a lesson-bound one is
+   * gated on its owning CourseVersion being a Draft, a Standalone one belongs
+   * to no version so the guard passes.
+   *
+   * Returns the archived row (and NotFoundError when the id is absent) so a
+   * caller can echo what the database now holds — that is what the CLI's write
+   * verbs all do. Distinct from `updateVideoArchiveStatus`, which is the
+   * Standalone-videos page's two-way archive/restore TOGGLE and refuses
+   * lesson-bound videos outright.
+   */
   const deleteVideo = Effect.fn("deleteVideo")(function* (videoId: string) {
     yield* requireDraftVersionForVideo(db, videoId);
-    const videoResult = yield* makeDbCall(() =>
-      db.update(videos).set({ archived: true }).where(eq(videos.id, videoId))
+    const [archivedVideo] = yield* makeDbCall(() =>
+      db
+        .update(videos)
+        .set({ archived: true })
+        .where(eq(videos.id, videoId))
+        .returning()
     );
 
-    return videoResult;
+    if (!archivedVideo) {
+      return yield* new NotFoundError({
+        type: "deleteVideo",
+        params: { videoId },
+      });
+    }
+
+    return archivedVideo;
   });
 
   const updateVideoTitle = Effect.fn("updateVideoTitle")(function* (opts: {

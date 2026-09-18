@@ -8,6 +8,9 @@ const deleteVideoSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "formData",
+  // deleteVideo now raises NotFoundError for an id that is not there (it
+  // returns the archived row, so it can tell); say 404 rather than 500.
+  errors: { NotFoundError: 404 },
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const { videoId } =
