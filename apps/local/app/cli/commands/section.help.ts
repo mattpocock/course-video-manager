@@ -43,6 +43,10 @@ VERBS
   list   All sections of a Version (requires --course-version <id> or --course <id>).
   get    One or more sections by id (variadic), each with its active Lessons.
   tree   Skeleton of section -> lessons -> videos.
+  lint <id>             Check the section's PLAN against the section-authoring
+                        quality bar: orphaned Learning Goals, unlinked Beats,
+                        stub Beats and quest pacing. Findings are DATA — it
+                        exits 0 whether or not it finds any.
   search <id> <query>  Substring search down this section's subtree
                        (--type section|lesson|video|beat).
   create --course-version <id>|--course <id> --title <t> [--before|--after <id>]
@@ -212,3 +216,78 @@ EXAMPLES
   cvm section archive <sectionId>
   cvm section list --course <courseId> | jq -r 'select(.path=="Scratch") | .id' \\
     | xargs -n1 cvm section archive`;
+
+export const LINT_HELP = `Check ONE Section against the section-authoring quality bar: four checks over its Learning Goals and the Beats of every Video of every active Lesson.
+
+This is the PLANNING-stage counterpart to 'cvm course readiness'. Readiness is
+course-scoped and asks "what stands between this Course and SHIPPING", over
+Lesson/Video fields that reach published output. These four checks are
+section-scoped and ask "is this Section's plan actually wired up", over Learning
+Goals and Beats — planning artifacts Publish never emits. Neither verb reports
+the other's findings, and a lint finding here never blocks a publish.
+
+THE FOUR CHECKS
+  orphanedLearningGoals  A Learning Goal no Beat anywhere in the Section serves
+                         (its beatIds are empty). The same predicate the course
+                         view draws the "noBeats" Learning Goal Warning from.
+  unlinkedBeats          A Beat whose kind is NOT 'setup' and which serves no
+                         Learning Goal. Two exemptions, both deliberate: a
+                         'setup' Beat records a playground/repo requirement, not
+                         something the viewer is taught; and a Section with NO
+                         Learning Goals at all exempts every Beat, because there
+                         is nothing yet to serve.
+  stubBeats              A Beat whose description is empty or whitespace-only —
+                         a placeholder carrying no plan. Applies to every kind,
+                         'setup' included.
+  questlessLessons       QUEST PACING. Quests should be SPREAD across the
+                         Section's Lessons, not bunched into some of them, so
+                         this reports each Lesson with no Quest Beat. Exempt
+                         when the Section has no Quest Beat at all — that is
+                         "no quests planned yet", a different and earlier
+                         problem, and firing on every Lesson would drown the
+                         other three checks.
+
+ARCHIVED ROWS ARE INVISIBLE THROUGHOUT
+  Archived Lessons, Videos, Beats and Learning Goals are excluded before any
+  check runs, and a deleted Beat's id never lingers in a Goal's beatIds, so an
+  orphan is a real orphan. Linting an archived Section is a not-found (exit 2),
+  not a clean report.
+
+A FINDING IS NOT A FAILURE — EXIT 0
+  Findings are DATA: they go to STDOUT and the exit code stays 0, exactly as
+  'cvm course readiness' exits 0 while reporting lints. A non-zero exit would
+  mean "this command could not answer", which is a different fact from "this
+  Section has three stub Beats". Branch on 'clean' / 'failedChecks', never on
+  the exit code. The only non-zero exits are the CLI's usual ones: 2 for an
+  unknown or archived sectionId, 3 for bad input, 4/5/6 for transport, auth and
+  schema-version failures.
+
+OUTPUT (one pretty JSON object)
+  sectionId              The Section checked.
+  sectionTitle           Its title, echoed so a report reads without a second call.
+  clean                  true when all four lists are empty.
+  failedChecks[]         Which checks are non-empty, named — the reason 'clean'
+                         is false, in one field. Empty when clean.
+  counts                 One integer per check, for a cheap glance:
+                         { orphanedLearningGoals, unlinkedBeats, stubBeats,
+                           questlessLessons }.
+  orphanedLearningGoals[]  { id, title }
+  unlinkedBeats[]          { id, title, kind, videoId, videoTitle, lessonId,
+                             lessonTitle } — every Beat finding carries its full
+                             address, so a fix needs no lookup.
+  stubBeats[]              The same shape as unlinkedBeats. A Beat can appear in
+                           BOTH lists; they are independent checks.
+  questlessLessons[]       { id, title, quests } — quests is always 0 here.
+  questPacing              { totalQuests, lessons[] } — the whole distribution
+                           the questless list was derived from, one
+                           { id, title, quests } per Lesson in order, so you can
+                           see the bunching rather than just its symptom.
+
+EXAMPLES
+  cvm section lint <sectionId>
+  # Is this Section's plan wired up, and if not which checks failed?
+  cvm section lint <sectionId> | jq -c '{clean, failedChecks, counts}'
+  # Every Beat that serves no Learning Goal, addressed:
+  cvm section lint <sectionId> | jq -r '.unlinkedBeats[] | "\\(.lessonTitle)/\\(.videoTitle): \\(.title)"'
+  # The quest distribution across the Section's Lessons:
+  cvm section lint <sectionId> | jq -c '.questPacing.lessons[]'`;
