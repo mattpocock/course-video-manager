@@ -18,31 +18,41 @@ const GOALS: BeatLearningGoalOption[] = [
   { id: "g1", title: "Order a list without renumbering it" },
 ];
 
+/**
+ * Omitting `sectionLearningGoals` means exactly that — the no-Section-context
+ * callers (the video editor's Beats tab, the pitch page), which get the bare
+ * warning icon rather than the picker. Spell the key out to get the picker.
+ */
 const render = (props: {
   beats: BeatListBeat[];
   showLearningGoals?: boolean;
+  isReadOnly?: boolean;
   sectionLearningGoals?: BeatLearningGoalOption[];
 }) =>
   renderToStaticMarkup(
     <BeatList
       video={{ id: "v1", beats: props.beats }}
       submitEvent={() => {}}
-      isReadOnly={false}
-      sectionLearningGoals={props.sectionLearningGoals ?? GOALS}
+      isReadOnly={props.isReadOnly ?? false}
+      sectionLearningGoals={props.sectionLearningGoals}
       showLearningGoals={props.showLearningGoals}
     />
   );
 
 describe("BeatList", () => {
   it("names the Learning Goals a Beat serves", () => {
-    const html = render({ beats: [beat({ learningGoalIds: ["g1"] })] });
+    const html = render({
+      beats: [beat({ learningGoalIds: ["g1"] })],
+      sectionLearningGoals: GOALS,
+    });
 
     expect(html).toContain("Order a list without renumbering it");
   });
 
-  it("drops the Learning Goal control when the caller turns it off", () => {
+  it("drops the Learning Goal picker when the caller turns it off", () => {
     const html = render({
       beats: [beat({ learningGoalIds: ["g1"] })],
+      sectionLearningGoals: GOALS,
       showLearningGoals: false,
     });
 
@@ -50,12 +60,50 @@ describe("BeatList", () => {
     expect(html).toContain("Why fractional indexing beats integer positions");
   });
 
-  it("drops the Learning Goal warning too when it is turned off", () => {
-    const warned = [beat({ warnings: [{ kind: "noLearningGoal" }] })];
+  it("drops the picker's warning too when it is turned off", () => {
+    const beats = [beat({ warnings: [{ kind: "noLearningGoal" }] })];
 
-    expect(render({ beats: warned })).toContain("Serves no Learning Goal");
-    expect(render({ beats: warned, showLearningGoals: false })).not.toContain(
+    expect(render({ beats, sectionLearningGoals: GOALS })).toContain(
       "Serves no Learning Goal"
     );
+    expect(
+      render({ beats, sectionLearningGoals: GOALS, showLearningGoals: false })
+    ).not.toContain("Serves no Learning Goal");
+  });
+
+  it("flags a warning with the bare icon where there is no Section context", () => {
+    // The video editor's Beats tab and the pitch page pass no
+    // `sectionLearningGoals`: no picker, but the warning is not silent.
+    const beats = [beat({ warnings: [{ kind: "noLearningGoal" }] })];
+
+    expect(render({ beats })).toContain("Serves no Learning Goal");
+    expect(render({ beats, showLearningGoals: false })).not.toContain(
+      "Serves no Learning Goal"
+    );
+  });
+
+  it("flags a warning with the bare icon while a capture is read-only", () => {
+    // Section context, but editing is off, so the picker gives way to the
+    // icon — and `showLearningGoals` still hides it.
+    const beats = [beat({ warnings: [{ kind: "noLearningGoal" }] })];
+
+    expect(
+      render({ beats, sectionLearningGoals: GOALS, isReadOnly: true })
+    ).toContain("Serves no Learning Goal");
+    expect(
+      render({
+        beats,
+        sectionLearningGoals: GOALS,
+        isReadOnly: true,
+        showLearningGoals: false,
+      })
+    ).not.toContain("Serves no Learning Goal");
+  });
+
+  it("renders no Learning Goal control at all for an unwarned, ungoaled Beat", () => {
+    const html = render({ beats: [beat()] });
+
+    expect(html).not.toContain("Serves no Learning Goal");
+    expect(html).toContain("Why fractional indexing beats integer positions");
   });
 });

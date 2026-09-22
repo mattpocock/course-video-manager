@@ -224,6 +224,65 @@ function AddBeatButton({ videoId }: { videoId: string }) {
   );
 }
 
+/**
+ * A Beat row's Learning Goal control.
+ *
+ * An editable picker when the caller has Section context AND editing is
+ * allowed; otherwise (the video editor's Beats tab, the pitch page, or a
+ * capture in progress) a plain warning icon, so a Beat serving no Learning
+ * Goal is still flagged, just not fixable right here.
+ *
+ * Nothing at all when `showLearningGoals` is off (the course view's display
+ * settings, see `course-view-visibility.tsx`): that checkbox hides the whole
+ * Beat <-> Learning Goal link, its warning included, so a phase of work that
+ * isn't about Learning Goals gets a Beat row that is just its title.
+ */
+function BeatLearningGoalsControl({
+  beat,
+  isReadOnly,
+  showLearningGoals,
+  sectionLearningGoals,
+  submitEvent,
+}: {
+  beat: BeatListBeat;
+  isReadOnly: boolean;
+  showLearningGoals: boolean;
+  sectionLearningGoals?: BeatLearningGoalOption[];
+  submitEvent: (event: CourseEditorEvent) => void;
+}) {
+  if (!showLearningGoals) return null;
+
+  const warnings = beat.warnings ?? [];
+
+  if (sectionLearningGoals && !isReadOnly) {
+    return (
+      <BeatLearningGoalsPicker
+        selectedIds={beat.learningGoalIds ?? []}
+        options={sectionLearningGoals}
+        warnings={warnings}
+        onChange={(learningGoalIds) =>
+          submitEvent({
+            type: "set-beat-learning-goals",
+            beatId: beat.id,
+            learningGoalIds,
+          })
+        }
+      />
+    );
+  }
+
+  if (warnings.length === 0) return null;
+
+  return (
+    <span
+      title={warnings.map((w) => BEAT_WARNING_LABELS[w.kind]).join("; ")}
+      className="shrink-0"
+    >
+      <AlertTriangle className="w-3 h-3 text-amber-600" />
+    </span>
+  );
+}
+
 function BeatRow({
   beat,
   nextBeatId,
@@ -251,36 +310,6 @@ function BeatRow({
   const [completed, setCompleted] = useLocalStorageBoolean(
     `beat-completion:${beat.id}`
   );
-  const warnings = beat.warnings ?? [];
-
-  // Editable picker when the caller has Section context AND editing is
-  // allowed; otherwise (the video editor's Beats tab, the pitch page, or a
-  // capture in progress) fall back to a plain warning icon, so a Beat
-  // serving no Learning Goal is never silent, just not fixable right here.
-  // `showLearningGoals` off drops both: the display setting hides the whole
-  // Beat <-> Learning Goal link, its warning included.
-  const learningGoalsControl =
-    !showLearningGoals ? null : sectionLearningGoals && !isReadOnly ? (
-      <BeatLearningGoalsPicker
-        selectedIds={beat.learningGoalIds ?? []}
-        options={sectionLearningGoals}
-        warnings={warnings}
-        onChange={(learningGoalIds) =>
-          submitEvent({
-            type: "set-beat-learning-goals",
-            beatId: beat.id,
-            learningGoalIds,
-          })
-        }
-      />
-    ) : warnings.length > 0 ? (
-      <span
-        title={warnings.map((w) => BEAT_WARNING_LABELS[w.kind]).join("; ")}
-        className="shrink-0"
-      >
-        <AlertTriangle className="w-3 h-3 text-amber-600" />
-      </span>
-    ) : null;
 
   const titleRow = (
     <div className="flex items-start gap-1.5 text-sm text-foreground/80 cursor-context-menu">
@@ -301,7 +330,13 @@ function BeatRow({
           submitEvent({ type: "rename-beat", beatId: beat.id, title })
         }
       />
-      {learningGoalsControl}
+      <BeatLearningGoalsControl
+        beat={beat}
+        isReadOnly={isReadOnly}
+        showLearningGoals={showLearningGoals}
+        sectionLearningGoals={sectionLearningGoals}
+        submitEvent={submitEvent}
+      />
     </div>
   );
 

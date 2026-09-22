@@ -7,11 +7,15 @@ import { useState } from "react";
  * title is empty it shows the supplied `placeholder` (the kind label) in
  * italics.
  *
- * The title is never clipped: a Beat title is the plan for a stretch of
- * video, and a row sharing its width with the Learning Goal chip used to
+ * The displayed title is never clipped: a Beat title is the plan for a stretch
+ * of video, and a row sharing its width with the Learning Goal chip used to
  * ellipsize it down to a couple of words. It wraps over as many lines as it
  * needs instead — the chip beside it is the one that truncates, and it spells
  * itself out in a tooltip.
+ *
+ * The edit-mode `<input>` below is the exception, and still scrolls rather
+ * than wraps: an `<input>` cannot wrap, so giving editing the same treatment
+ * means a `<textarea>`, which would take Enter away from save.
  */
 export function BeatTitleEditor({
   title,
