@@ -86,6 +86,7 @@ export function BeatList({
   isReadOnly,
   showDescriptions,
   showAddButton = true,
+  showLearningGoals = true,
   courseId,
   sectionId,
   sectionLearningGoals,
@@ -111,6 +112,14 @@ export function BeatList({
    * `isReadOnly` — that branch never shows the button either way.
    */
   showAddButton?: boolean;
+  /**
+   * Show each row's Learning Goal control — the picker, and the bare warning
+   * icon that stands in for it where the caller has no Section context. Off
+   * (the course view's display settings, see `course-view-visibility.tsx`)
+   * leaves a Beat row as just its title, for a phase of work that isn't
+   * about which Learning Goal a Beat serves. Defaults on.
+   */
+  showLearningGoals?: boolean;
   courseId?: string;
   sectionId?: string;
   /**
@@ -140,6 +149,7 @@ export function BeatList({
             nextBeatId={null}
             isReadOnly
             showDescription={showDescription}
+            showLearningGoals={showLearningGoals}
             submitEvent={submitEvent}
             courseId={courseId}
             sectionId={sectionId}
@@ -166,6 +176,7 @@ export function BeatList({
                 nextBeatId={beats[index + 1]?.id ?? null}
                 isReadOnly={false}
                 showDescription={showDescription}
+                showLearningGoals={showLearningGoals}
                 submitEvent={submitEvent}
                 courseId={courseId}
                 sectionId={sectionId}
@@ -218,6 +229,7 @@ function BeatRow({
   nextBeatId,
   isReadOnly,
   showDescription,
+  showLearningGoals,
   submitEvent,
   courseId,
   sectionId,
@@ -227,6 +239,7 @@ function BeatRow({
   nextBeatId: string | null;
   isReadOnly: boolean;
   showDescription: boolean;
+  showLearningGoals: boolean;
   submitEvent: (event: CourseEditorEvent) => void;
   courseId?: string;
   sectionId?: string;
@@ -244,8 +257,10 @@ function BeatRow({
   // allowed; otherwise (the video editor's Beats tab, the pitch page, or a
   // capture in progress) fall back to a plain warning icon, so a Beat
   // serving no Learning Goal is never silent, just not fixable right here.
+  // `showLearningGoals` off drops both: the display setting hides the whole
+  // Beat <-> Learning Goal link, its warning included.
   const learningGoalsControl =
-    sectionLearningGoals && !isReadOnly ? (
+    !showLearningGoals ? null : sectionLearningGoals && !isReadOnly ? (
       <BeatLearningGoalsPicker
         selectedIds={beat.learningGoalIds ?? []}
         options={sectionLearningGoals}
@@ -268,14 +283,16 @@ function BeatRow({
     ) : null;
 
   const titleRow = (
-    <div className="flex items-center gap-1.5 text-sm text-foreground/80 cursor-context-menu">
+    <div className="flex items-start gap-1.5 text-sm text-foreground/80 cursor-context-menu">
       <Checkbox
         checked={completed}
         onCheckedChange={(checked) => setCompleted(checked === true)}
         onClick={(e) => e.stopPropagation()}
-        className="shrink-0"
+        className="shrink-0 mt-0.5"
       />
-      {Icon && <Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+      {Icon && (
+        <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+      )}
       <BeatTitleEditor
         title={beat.title}
         placeholder={BEAT_KIND_LABELS[kind]}

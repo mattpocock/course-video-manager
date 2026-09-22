@@ -6,6 +6,12 @@ import { useState } from "react";
  * Escape cancels. Mirrors the lesson/section inline-edit pattern. When the
  * title is empty it shows the supplied `placeholder` (the kind label) in
  * italics.
+ *
+ * The title is never clipped: a Beat title is the plan for a stretch of
+ * video, and a row sharing its width with the Learning Goal chip used to
+ * ellipsize it down to a couple of words. It wraps over as many lines as it
+ * needs instead — the chip beside it is the one that truncates, and it spells
+ * itself out in a tooltip.
  */
 export function BeatTitleEditor({
   title,
@@ -54,7 +60,7 @@ export function BeatTitleEditor({
   return (
     <span
       className={cn(
-        "truncate",
+        "min-w-0 break-words",
         !title.trim() && "italic text-muted-foreground",
         !isReadOnly && "cursor-text hover:underline"
       )}
