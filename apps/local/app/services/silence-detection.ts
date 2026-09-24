@@ -40,7 +40,10 @@ export function getClipsOfSpeakingFromFFmpeg(
   let currentSilenceStart: number | null = null;
 
   for (const line of lines) {
-    if (!line.includes("[silencedetect @")) continue;
+    // ffmpeg <8 prefixes lines with `[silencedetect @ 0x…]`; ffmpeg 8 uses the
+    // parsed instance name, `[Parsed_silencedetect_0 @ 0x…]`. Matching only
+    // the old form made every recording yield zero clips.
+    if (!/\[(?:Parsed_)?silencedetect(?:_\d+)? @/.test(line)) continue;
 
     // ffmpeg reports a slightly-negative silence_start (e.g. -0.000166667)
     // whenever a file opens in silence, which every OBS recording does. The

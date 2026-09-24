@@ -46,6 +46,21 @@ const SILENCE_OUTPUT_NEGATIVE_FIRST_START = [
   "[silencedetect @ 0x5dcf256ab0c0] silence_end: 26.2398 | silence_duration: 3.91283",
 ].join("\n");
 
+/**
+ * Real, verbatim ffmpeg 8.1 output from an OBS recording (30fps) at the CVM's
+ * production settings (-38dB, d=0.8). ffmpeg 8 prefixes each line with the
+ * parsed filter instance name (`Parsed_silencedetect_0`) rather than the bare
+ * `silencedetect`. The speaking gaps are 5.117–7.752 and 9.278–10.683.
+ */
+const SILENCE_OUTPUT_FFMPEG_8 = [
+  "[Parsed_silencedetect_0 @ 0x8d300d140] silence_start: 3.267917",
+  "[Parsed_silencedetect_0 @ 0x8d300d140] silence_end: 5.116875 | silence_duration: 1.848958",
+  "[Parsed_silencedetect_0 @ 0x8d300d140] silence_start: 7.752063",
+  "[Parsed_silencedetect_0 @ 0x8d300d140] silence_end: 9.278 | silence_duration: 1.525937",
+  "[Parsed_silencedetect_0 @ 0x8d300d140] silence_start: 10.682833",
+  "[Parsed_silencedetect_0 @ 0x8d300d140] silence_end: 12.283896 | silence_duration: 1.601063",
+].join("\n");
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const run = <A>(effect: Effect.Effect<A, any, any>): Promise<A> =>
   Effect.runPromise(
@@ -119,5 +134,20 @@ describe("findSilenceInVideo", () => {
     expect(result.clips[0]!.endTime).toBeCloseTo(5.92, 1);
     expect(result.clips[1]!.startTime).toBeCloseTo(19.4, 1);
     expect(result.clips[1]!.endTime).toBeCloseTo(22.41, 1);
+  });
+
+  it("parses ffmpeg 8's Parsed_silencedetect_0 line prefix", async () => {
+    const ffmpeg = mockFFmpeg({
+      fps: 30,
+      silenceOutput: SILENCE_OUTPUT_FFMPEG_8,
+    });
+
+    const result = await run(findSilenceInVideo(ffmpeg, "/test/video.mp4"));
+
+    expect(result.clips).toHaveLength(2);
+    expect(result.clips[0]!.startTime).toBeCloseTo(5.13, 1);
+    expect(result.clips[0]!.endTime).toBeCloseTo(7.83, 1);
+    expect(result.clips[1]!.startTime).toBeCloseTo(9.27, 1);
+    expect(result.clips[1]!.endTime).toBeCloseTo(10.77, 1);
   });
 });

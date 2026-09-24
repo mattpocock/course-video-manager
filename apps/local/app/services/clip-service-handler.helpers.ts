@@ -56,6 +56,11 @@ export const noopLogger: LoggerAdapter = { log: () => {} };
 // ============================================================================
 
 export function windowsToWSL(windowsPath: string): string {
+  // Only a drive-letter path is a Windows path. OBS on macOS/Linux already
+  // reports a POSIX path; mangling it into `/mnt///…` made every recording
+  // resolve to a file that does not exist, so no clip was ever detected.
+  if (!/^[A-Za-z]:[\\/]/.test(windowsPath)) return windowsPath;
+
   // Convert C:\Users\... to /mnt/c/Users/...
   const drive = windowsPath.charAt(0).toLowerCase();
   const pathWithoutDrive = windowsPath.slice(3); // Remove "C:\"
