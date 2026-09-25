@@ -134,7 +134,15 @@ export const clipMockupFileExists = (lineageId: string, relativePath: string) =>
     return yield* fs.exists(full);
   });
 
-/** Write a frame, creating any missing parent directories. */
+/** Read a stored frame or speech file back. */
+export const readClipMockupFile = (lineageId: string, relativePath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const full = yield* resolveClipMockupPath(lineageId, relativePath);
+    return yield* fs.readFile(full);
+  });
+
+/** Write a frame or a speech file, creating any missing parent directories. */
 export const writeClipMockupFile = (
   lineageId: string,
   relativePath: string,

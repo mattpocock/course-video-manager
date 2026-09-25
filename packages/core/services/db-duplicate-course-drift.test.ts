@@ -113,7 +113,7 @@ describe("duplicateCourse — schema-drift guard", () => {
     },
     clipMockup: {
       table: schema.clipMockups,
-      copied: ["line", "imagePath", "durationSeconds", "order"],
+      copied: ["line", "imagePath", "audioPath", "durationSeconds", "order"],
       notCopied: ["id", "videoId", "archived", "createdAt"],
     },
     thumbnail: {
@@ -225,6 +225,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       videoId: video!.id,
       line: "Coverage Clip Mockup line",
       imagePath: "frame-001.png",
+      audioPath: "speech-001.wav",
       durationSeconds: 2.75,
       order: "m",
     });

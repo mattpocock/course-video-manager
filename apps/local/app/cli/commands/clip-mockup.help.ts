@@ -30,22 +30,32 @@ THE CONSTRAINT IS THE POINT. A Clip Mockup must have an IMAGE and must have a
 LINE. The CLI will not accept a description of a picture, only a picture — so
 every moment of the Lesson has to be decided before the camera is switched on.
 
+THE LINE IS SPOKEN, NOT READ. 'add' and 'update --say' synthesise the line to
+speech as they write it, in ONE voice (Leda) — every line is the author's, and
+a second voice would invent a character who will not exist in the filmed
+video. The WAV lands beside the frame and the MEASURED length goes on the row,
+so an agent can total a Video's durationSeconds and say the Lesson runs 34
+minutes before anybody presses play. Needs GEMINI_API_KEY; a failure is _tag
+"SpeechSynthesisError", exit 4, and creates nothing.
+
 Like a Beat and the Script, a Clip Mockup is an internal planning artifact: it
 is NEVER published into course.json. Deleting is an archive, and archived ==
 deleted (there is no restore verb).
 
 LANDSCAPE ONLY. 'add' refuses a Video whose Video Format is 'short'.
 
-LOCAL-ONLY. The frames are a directory on the author's machine
+LOCAL-ONLY. The frames and the speech are a directory on the author's machine
 (CLIP_MOCKUP_DIR), so every verb here needs that machine. On any other box the
 command is refused before it does anything, with _tag "LocalOnlyCommandError"
 and exit 7, naming what it would have needed. That is a full stop, not a
 retry.
 
 Output fields: id, videoId, line (the spoken words), imagePath (relative to
-{CLIP_MOCKUP_DIR}/{lineageId}/), durationSeconds (the measured length of the
-line's speech; null until speech synthesis fills it), order (fractional sort
-key), archived, createdAt.
+{CLIP_MOCKUP_DIR}/{lineageId}/), audioPath (the line's WAV, relative to the
+same directory and named by a hash of the line, the voice and the model, so
+two Clip Mockups saying the same words share one file), durationSeconds (the
+measured length of that WAV, in seconds, as a FLOAT — sum it for a Video's run
+time), order (fractional sort key), archived, createdAt.
 
 TWO WAYS TO ADDRESS ONE. 'update', 'move' and 'delete' each take either a bare
 <id> or '--video <id> --at <position>'. A position counts from 1 and is exactly
@@ -100,11 +110,13 @@ Flags:
                    to that directory — never the path you passed. A missing or
                    unreadable source is invalid input (exit 3).
   --say "<text>"   the spoken line for this moment. One line per Clip Mockup:
-                   it maps to the Clip it will become. Must not be empty.
+                   it maps to the Clip it will become. Must not be empty. It is
+                   SPOKEN as it is added, and the WAV is written next to the
+                   frame. The same line added twice is only voiced once.
 
-Echoes the created row (with its new id, imagePath and computed order) as one
-pretty JSON object. 'durationSeconds' is null: it is the measured length of
-the line's speech and nothing synthesises speech yet.
+Echoes the created row (with its new id, imagePath, audioPath, durationSeconds
+and computed order) as one pretty JSON object. The line is spoken BEFORE
+anything is written, so a speech failure (exit 4) leaves no row and no file.
 
 Examples:
   cvm clip-mockup add --video vid_123 --image ./frames/01.png --say "Here's the problem."
@@ -127,7 +139,8 @@ An unknown or archived --video is a not-found (exit 2).
 Examples:
   cvm clip-mockup list --video vid_123
   cvm clip-mockup list --video vid_123 | jq -r .line
-  cvm clip-mockup list --video vid_123 | jq -s length`;
+  cvm clip-mockup list --video vid_123 | jq -s length
+  cvm clip-mockup list --video vid_123 | jq -s 'map(.durationSeconds) | add'`;
 
 export const GET_HELP = `READS. Read one or more Clip Mockups back by id. Variadic: pass as many ids
 as you like.
@@ -175,10 +188,14 @@ Flags:
                    row repointed at it, exactly as 'add' does. The old frame is
                    left on disk — the row is the state. A missing or unreadable
                    source is invalid input (exit 3).
-  --say "<text>"   the new spoken line. Must not be empty.
+  --say "<text>"   the new spoken line. Must not be empty. New words are new
+                   speech: the line is RE-SYNTHESISED and 'durationSeconds'
+                   replaced in the same write, so the row can never claim a run
+                   time for words it no longer says. Changing it back to a line
+                   already voiced reuses that WAV rather than paying again.
 
-'durationSeconds' is deliberately NOT touched: it is the measured length of the
-line's speech, so only whatever synthesises that speech may write it.
+--image alone never speaks, and --say never touches the picture. The old WAV is
+left on disk beside the old frame — the row is the state.
 
 ${ADDRESSING_HELP}
 
