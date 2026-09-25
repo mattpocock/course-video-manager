@@ -342,5 +342,29 @@ describe("CoursePublishService", () => {
       // Should report zero unexported videos
       expect(announcedTitles(events)).toEqual([]);
     });
+
+    // A Video with no Clips has no Export Hash, so there is nothing to render
+    // and nothing to compare an existing file against. The roster walks past
+    // it rather than queueing an export that could only fail. Moved here from
+    // the retired batch-export.server.ts suite, which asserted the same rule
+    // against a copy of the roster that no route called.
+    it("skips a video with no clips", async () => {
+      const context = await setup();
+      const { dbLayer, lesson } = context;
+
+      await Effect.gen(function* () {
+        const videoOps = yield* VideoOperationsService;
+        return yield* videoOps.createVideo(lesson.id, {
+          title: "Clipless",
+          originalFootagePath: "/tmp/footage.mp4",
+        });
+      }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+      const events = await runBatchExport(context);
+
+      // "Problem" is the clip-bearing Video seeded by setup(); "Clipless" is
+      // never announced, so it is never exported.
+      expect(announcedTitles(events)).toEqual(["intro/welcome/Problem"]);
+    });
   });
 });

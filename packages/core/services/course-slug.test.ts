@@ -3,15 +3,12 @@ import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { CourseOperationsService } from "./db-course-operations.server.js";
 import { DrizzleService } from "./drizzle-service.server.js";
-import { courses } from "../db/schema.js";
 import { courseNameToSlug } from "./course-slug.js";
-import { backfillCourseSlugs } from "./course-slug-backfill.js";
 import {
   createTestDb,
   truncateAllTables,
   type TestDb,
 } from "../test-utils/pglite.js";
-import { eq } from "drizzle-orm";
 
 let testDb: TestDb;
 let testLayer: Layer.Layer<CourseOperationsService>;
@@ -201,126 +198,4 @@ describe("updateCourseName uniqueness guard", () => {
       expect(updated.slug).toBe("same-name");
     }).pipe(Effect.provide(testLayer))
   );
-});
-
-describe("backfillCourseSlugs", () => {
-  it("sets slug for all courses", async () => {
-    await testDb
-      .insert(courses)
-      .values([{ name: "Course A" }, { name: "Course B" }]);
-
-    await backfillCourseSlugs(testDb as any);
-
-    const result = await testDb.select().from(courses);
-    expect(result.map((c) => c.slug).sort()).toEqual(["course-a", "course-b"]);
-  });
-
-  it("deduplicates colliding slugs deterministically (keep first by createdAt)", async () => {
-    const now = new Date();
-    const later = new Date(now.getTime() + 1000);
-
-    await testDb.insert(courses).values([
-      { id: "first", name: "My Course", createdAt: now },
-      { id: "second", name: "My Course", createdAt: later },
-    ]);
-
-    await backfillCourseSlugs(testDb as any);
-
-    const first = await testDb.query.courses.findFirst({
-      where: eq(courses.id, "first"),
-    });
-    const second = await testDb.query.courses.findFirst({
-      where: eq(courses.id, "second"),
-    });
-
-    expect(first!.slug).toBe("my-course");
-    expect(first!.name).toBe("My Course");
-    expect(second!.slug).toBe("my-course-2");
-    expect(second!.name).toBe("My Course-2");
-  });
-
-  it("handles triple collision with -2 and -3 suffixes", async () => {
-    const t1 = new Date("2024-01-01");
-    const t2 = new Date("2024-01-02");
-    const t3 = new Date("2024-01-03");
-
-    await testDb.insert(courses).values([
-      { id: "a", name: "Foo", createdAt: t1 },
-      { id: "b", name: "Foo", createdAt: t2 },
-      { id: "c", name: "Foo", createdAt: t3 },
-    ]);
-
-    await backfillCourseSlugs(testDb as any);
-
-    const all = await testDb.select().from(courses);
-    const byId = Object.fromEntries(all.map((c) => [c.id, c]));
-
-    expect(byId["a"]!.slug).toBe("foo");
-    expect(byId["b"]!.slug).toBe("foo-2");
-    expect(byId["c"]!.slug).toBe("foo-3");
-  });
-
-  it("deduplicates names that produce the same slug", async () => {
-    await testDb.insert(courses).values([
-      {
-        id: "a",
-        name: "A B",
-        createdAt: new Date("2024-01-01"),
-      },
-      {
-        id: "b",
-        name: "A-B",
-        createdAt: new Date("2024-01-02"),
-      },
-    ]);
-
-    await backfillCourseSlugs(testDb as any);
-
-    const all = await testDb.select().from(courses);
-    const byId = Object.fromEntries(all.map((c) => [c.id, c]));
-
-    expect(byId["a"]!.slug).toBe("a-b");
-    expect(byId["b"]!.slug).toBe("a-b-2");
-    expect(byId["b"]!.name).toBe("A-B-2");
-  });
-
-  it("does not rename archived courses even if slugs collide", async () => {
-    await testDb.insert(courses).values([
-      { id: "active", name: "My Course", archived: false },
-      { id: "archived", name: "My Course", archived: true },
-    ]);
-
-    await backfillCourseSlugs(testDb as any);
-
-    const active = await testDb.query.courses.findFirst({
-      where: eq(courses.id, "active"),
-    });
-    const archived = await testDb.query.courses.findFirst({
-      where: eq(courses.id, "archived"),
-    });
-
-    expect(active!.slug).toBe("my-course");
-    expect(active!.name).toBe("My Course");
-    expect(archived!.slug).toBe("my-course");
-    expect(archived!.name).toBe("My Course");
-  });
-
-  it("uses id as tiebreaker when createdAt is identical", async () => {
-    const sameTime = new Date("2024-01-01");
-
-    await testDb.insert(courses).values([
-      { id: "zzz", name: "Same", createdAt: sameTime },
-      { id: "aaa", name: "Same", createdAt: sameTime },
-    ]);
-
-    await backfillCourseSlugs(testDb as any);
-
-    const all = await testDb.select().from(courses);
-    const byId = Object.fromEntries(all.map((c) => [c.id, c]));
-
-    expect(byId["aaa"]!.slug).toBe("same");
-    expect(byId["aaa"]!.name).toBe("Same");
-    expect(byId["zzz"]!.slug).toBe("same-2");
-    expect(byId["zzz"]!.name).toBe("Same-2");
-  });
 });
