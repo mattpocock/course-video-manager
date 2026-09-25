@@ -16,6 +16,14 @@ Single-context layout: `CONTEXT.md` at the repo root, ADRs under `docs/adr/`. Se
 
 `.claude/skills/verify-cvm/` drives the app in a browser against the PRODUCTION database and leaves a **Write Ledger** proving what it did or did not modify. Reach for it before opening a PR that changes a page, or to reproduce a UI bug.
 
+### What the running server printed
+
+`pnpm dev` and `pnpm start` tee their output to `.data/logs/dev.log` and
+`.data/logs/start.log` — the current run only, truncated when the next one
+starts. Read it when a page throws at runtime, when the server dies, or to
+confirm a fix loads: the stack that killed the process is there and in no test,
+build artifact or table. `scripts/run-with-log.sh` is the wrapper.
+
 ### Repository layout
 
 A Turborepo monorepo. Two apps: `apps/local` is today's application, and `apps/remote` is the deployed RPC API (a Hono app on Vercel — see [apps/remote/README.md](./apps/remote/README.md)). Three workspace packages under `packages/`:

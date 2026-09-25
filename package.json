@@ -8,8 +8,8 @@
   },
   "scripts": {
     "build": "turbo run build --filter=!@cvm/overlay-renderer",
-    "dev": "turbo run dev --filter=!@cvm/overlay-renderer",
-    "start": "turbo run start --filter=!@cvm/overlay-renderer",
+    "dev": "./scripts/run-with-log.sh dev",
+    "start": "./scripts/run-with-log.sh start",
     "test": "turbo run test test:root --concurrency=1 --filter=!@cvm/overlay-renderer",
     "test:watch": "turbo run test:watch --filter=!@cvm/overlay-renderer",
     "typecheck": "turbo run typecheck typecheck:root --filter=!@cvm/overlay-renderer",
