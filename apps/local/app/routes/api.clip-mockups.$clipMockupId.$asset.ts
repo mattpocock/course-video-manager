@@ -49,15 +49,17 @@ export const loader = makeLoader({
       );
       const relativePath = mockup[ASSET_COLUMNS[asset]];
 
-      // `audioPath` is nullable — a row written before speech synthesis
-      // existed has no voicing at all. Say so instead of streaming nothing.
-      if (relativePath == null || relativePath === "") {
+      if (relativePath === "") {
         return yield* Effect.die(
           data(`This Clip Mockup has no ${asset}`, { status: 404 })
         );
       }
 
-      const video = yield* videoOps.getVideoDeepById(mockup.videoId);
+      // The FLAT row, not `getVideoDeepById`: all this needs is one
+      // `lineageId`, and the editor's Clip Mockup list asks for sixty of
+      // these at once — a four-level join per thumbnail is sixty joins for
+      // one column (#1671).
+      const video = yield* videoOps.getVideoRowById(mockup.videoId);
       const absolutePath = yield* resolveClipMockupPath(
         video.lineageId,
         relativePath

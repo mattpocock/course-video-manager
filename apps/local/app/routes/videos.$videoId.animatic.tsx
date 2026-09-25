@@ -33,7 +33,9 @@ export const loader = makeLoader({
       const videoOps = yield* VideoOperationsService;
       const clipMockupOps = yield* ClipMockupOperationsService;
 
-      const video = yield* videoOps.getVideoDeepById(videoId);
+      // The flat row: the page needs a `lineageId`, a title and a format,
+      // and no part of the Lesson/Section/Version chain above them (#1671).
+      const video = yield* videoOps.getVideoRowById(videoId);
       const rows = yield* clipMockupOps.listClipMockupsByVideoId(videoId);
 
       // Every file is checked HERE, once, before anything plays. A frame or a

@@ -115,7 +115,9 @@ export const action = makeAction({
             event.clipMockupId
           );
           const videoOps = yield* VideoOperationsService;
-          const video = yield* videoOps.getVideoDeepById(row.videoId);
+          // The flat row: this needs the Video's `lineageId` and nothing
+          // else (#1671).
+          const video = yield* videoOps.getVideoRowById(row.videoId);
 
           // New WORDS are new SPEECH. Synthesise FIRST and only then write:
           // a row whose duration no longer measures its line would make the
