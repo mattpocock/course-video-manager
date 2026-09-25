@@ -14,6 +14,7 @@
     "test:watch": "turbo run test:watch --filter=!@cvm/overlay-renderer",
     "typecheck": "turbo run typecheck typecheck:root --filter=!@cvm/overlay-renderer",
     "lint:boundaries": "turbo run lint:boundaries --filter=!@cvm/overlay-renderer",
+    "lint": "oxlint",
     "test:root": "vitest run",
     "typecheck:root": "tsgo",
     "format": "prettier --write .",
@@ -29,7 +30,10 @@
     "gen:lucide-icons": "pnpm --filter @cvm/local run gen:lucide-icons",
     "sandcastle": "tsx ./.sandcastle/main.ts",
     "check:file-tokens": "./scripts/check-file-tokens.sh",
-    "check:no-dirname": "./scripts/check-no-dirname.sh"
+    "check:no-dirname": "./scripts/check-no-dirname.sh",
+    "check:env-example": "./scripts/check-env-example.sh",
+    "check:routes-folder": "./scripts/check-routes-folder.sh",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run lint:boundaries && ./scripts/check-file-tokens.sh --all && ./scripts/check-no-dirname.sh --all && ./scripts/check-env-example.sh --all && ./scripts/check-routes-folder.sh --all && pnpm run test"
   },
   "pnpm": {
     "overrides": {
@@ -58,6 +62,7 @@
     "@typescript/native-preview": "^7.0.0-dev.20260304.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.3.0",
+    "oxlint": "^1.85.0",
     "prettier": "^3.4.2",
     "tsx": "^4.20.5",
     "turbo": "^2.5.6",

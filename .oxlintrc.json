@@ -1,0 +1,77 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  // Oxlint runs advisory, not as a gate. Its `correctness` set stays at
+  // warning level: the repo has a standing backlog of them, cleared by hand a
+  // few at a time in the PRs that touch the file. Only the rules that encode a
+  // documented coding standard are errors — those are green today and must
+  // stay green.
+  "categories": { "correctness": "warn" },
+
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/build/**",
+    "**/.react-router/**",
+    ".worktrees/**",
+    "packages/core/db/migrations/**",
+    // Vendored, generated, append-only — see packages/lucide-icons/README.md.
+    "packages/lucide-icons/lib/generated/**",
+    // Vendored shadcn/kibo-ui components. They are copied in, not written
+    // here, so their style is not ours to enforce.
+    "apps/local/components/ui/**"
+  ],
+
+  "rules": {
+    // CODING STANDARD: localStorage goes through the hook.
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "localStorage",
+        "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+      }
+    ],
+    // Effect generators legitimately never yield.
+    "require-yield": "off",
+    // `const { versions, ...rest } = x` is how this repo omits a field. The
+    // omitted name is not dead code, so ignoreRestSiblings keeps it quiet.
+    "no-unused-vars": [
+      "warn",
+      {
+        "ignoreRestSiblings": true,
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ]
+  },
+
+  "overrides": [
+    {
+      // The hook itself is the one place raw localStorage belongs.
+      "files": ["apps/local/app/hooks/use-local-storage.ts"],
+      "rules": { "no-restricted-globals": "off" }
+    },
+    {
+      // Tests assert on what was stored, so they read the real thing.
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": { "no-restricted-globals": "off" }
+    },
+    {
+      // Legacy: these files predate the standard. THIS LIST ONLY SHRINKS —
+      // move a file onto useLocalStorage and delete its line. Do not add one.
+      "files": [
+        "apps/local/app/features/article-writer/write-utils.ts",
+        "apps/local/app/features/article-writer/writer-engine-utils.ts",
+        "apps/local/app/features/diagrams/diagram-centering-settings.ts",
+        "apps/local/app/features/video-editor/components/suggestions-panel.tsx",
+        "apps/local/app/features/video-posting/ai-hero-page.tsx",
+        "apps/local/app/features/video-posting/newsletter-page.tsx",
+        "apps/local/app/features/video-posting/post-page.tsx",
+        "apps/local/app/features/video-posting/skills-changelog-form-state.ts",
+        "apps/local/app/features/video-posting/skills-changelog-page.tsx",
+        "apps/local/app/features/video-posting/social-page.tsx",
+        "apps/local/app/routes/_app._index.tsx"
+      ],
+      "rules": { "no-restricted-globals": "off" }
+    }
+  ]
+}
