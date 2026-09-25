@@ -8,8 +8,11 @@ export const HELP = `clip-mockup-chapter — a named divider grouping a Video's 
 
 A Clip Mockup Chapter has a title and a position in the Animatic and nothing
 else. It groups the Clip Mockups that follow it, in the spirit of a YouTube
-chapter: coarse, navigational, named for a viewer. Matt reads it as a divider in
-the Animatic sidebar, where it collapses the moments under it.
+chapter: coarse and navigational. It is never published, so its title is read by
+the author and not by a viewer. He reads it as a divider in the Animatic
+sidebar, where it collapses the moments under it. The row belongs to the VIDEO,
+not to an Animatic — there is no Animatic record, and nothing is addressed by
+that word.
 
 ONE SHARED ORDER SPACE. A Chapter's 'order' is a fractional index in the SAME
 key space as a Clip Mockup's, exactly as a Chapter shares one with a Clip. So
@@ -25,7 +28,7 @@ Chapter above (or leaves them unchaptered) with no further write.
 
 TWO DELIBERATE DIFFERENCES from 'cvm chapter', and both are on purpose:
 
-  NOT LOCAL-ONLY. Every 'cvm clip-mockup' verb is refused off Matt's machine,
+  NOT LOCAL-ONLY. Every 'cvm clip-mockup' verb is refused off the author's machine,
   because a frame and a WAV are a directory there. A Clip Mockup Chapter is a
   row and touches no disk, so every verb here works from any box with a token —
   including the Remote Box. 'cvm clip-mockup-chapter list' works where
