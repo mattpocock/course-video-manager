@@ -49,7 +49,7 @@ export type ClipMockupEditorEvent = typeof ClipMockupEditorEventSchema.Type;
 export type ClipMockupListRow = {
   id: string;
   line: string;
-  durationSeconds: number | null;
+  durationSeconds: number;
 };
 
 export type ClipMockupListData = { clipMockups: ClipMockupListRow[] };

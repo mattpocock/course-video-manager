@@ -630,15 +630,16 @@ export const clipMockups = createTable(
     // The synthesised speech for `line`: a WAV beside the frame, and relative
     // to the same `{CLIP_MOCKUP_DIR}/{video.lineageId}/` directory. Named by a
     // hash of the line, the voice and the model, so two Clip Mockups that say
-    // the same words share one file. Nullable only because rows predating
-    // speech synthesis exist; every row written since carries both this and
-    // `durationSeconds`.
-    audioPath: text("audio_path"),
+    // the same words share one file. NOT NULL, like `line` and `imagePath`: a
+    // Clip Mockup with no voicing is not a thing, so there is no silent row to
+    // make room for (#1670).
+    audioPath: text("audio_path").notNull(),
     // Seconds of speech for `line`, measured off the synthesised audio — a
     // FLOAT, not whole seconds: it is summed across a whole Animatic to
     // estimate a Lesson's run time, and rounding each line would drift by
-    // minutes. Nullable for the same reason as `audioPath`.
-    durationSeconds: doublePrecision("duration_seconds"),
+    // minutes. NOT NULL for the same reason as `audioPath` — the words and
+    // their measured length are written as one.
+    durationSeconds: doublePrecision("duration_seconds").notNull(),
     order: varcharCollateC("order").notNull(),
     archived: boolean("archived").notNull().default(false),
     createdAt: timestamp("created_at", {

@@ -80,8 +80,7 @@ export function ClipMockupList({
 }
 
 /** Seconds as the author reads them off a row: one decimal, never rounded away. */
-function formatDuration(durationSeconds: number | null): string {
-  if (durationSeconds == null) return "—";
+function formatDuration(durationSeconds: number): string {
   return `${durationSeconds.toFixed(1)}s`;
 }
 

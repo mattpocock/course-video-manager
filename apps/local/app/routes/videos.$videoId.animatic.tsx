@@ -49,13 +49,10 @@ export const loader = makeLoader({
               row.imagePath
             ).pipe(Effect.catchAll(() => Effect.succeed(false)));
 
-            const audioExists =
-              row.audioPath == null
-                ? false
-                : yield* clipMockupFileExists(
-                    video.lineageId,
-                    row.audioPath
-                  ).pipe(Effect.catchAll(() => Effect.succeed(false)));
+            const audioExists = yield* clipMockupFileExists(
+              video.lineageId,
+              row.audioPath
+            ).pipe(Effect.catchAll(() => Effect.succeed(false)));
 
             return {
               id: row.id,
@@ -63,8 +60,7 @@ export const loader = makeLoader({
               position: index + 1,
               durationSeconds: row.durationSeconds,
               imageUrl: clipMockupFrameUrl(row.id),
-              audioUrl:
-                row.audioPath == null ? null : clipMockupAudioUrl(row.id),
+              audioUrl: clipMockupAudioUrl(row.id),
               imageMissing: !imageExists,
               audioMissing: !audioExists,
             } satisfies AnimaticClipMockup;

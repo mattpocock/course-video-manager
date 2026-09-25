@@ -244,6 +244,7 @@ describe("copyVideoImpl — clip mockups", () => {
         videoId: source.id,
         line: "Second line",
         imagePath: "frame-002.png",
+        audioPath: "speech-002.wav",
         durationSeconds: 3.5,
         order: "a2",
       },
@@ -251,12 +252,16 @@ describe("copyVideoImpl — clip mockups", () => {
         videoId: source.id,
         line: "First line",
         imagePath: "frame-001.png",
+        audioPath: "speech-001.wav",
+        durationSeconds: 1.25,
         order: "a1",
       },
       {
         videoId: source.id,
         line: "Archived line",
         imagePath: "frame-003.png",
+        audioPath: "speech-003.wav",
+        durationSeconds: 0.5,
         order: "a3",
         archived: true,
       },
@@ -289,7 +294,7 @@ describe("copyVideoImpl — clip mockups", () => {
       {
         line: "First line",
         imagePath: "frame-001.png",
-        durationSeconds: null,
+        durationSeconds: 1.25,
         archived: false,
       },
       {

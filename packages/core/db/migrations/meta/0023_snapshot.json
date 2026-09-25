@@ -364,7 +364,7 @@
           "name": "duration_seconds",
           "type": "double precision",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "order": {
           "name": "order",

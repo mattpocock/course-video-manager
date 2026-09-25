@@ -476,6 +476,7 @@ describe("copyVersionStructure", () => {
         videoId: video!.id,
         line: "Second line",
         imagePath: "frame-002.png",
+        audioPath: "speech-002.wav",
         durationSeconds: 3.5,
         order: "a1",
       },
@@ -483,7 +484,8 @@ describe("copyVersionStructure", () => {
         videoId: video!.id,
         line: "First line",
         imagePath: "frame-001.png",
-        durationSeconds: null,
+        audioPath: "speech-001.wav",
+        durationSeconds: 1.25,
         order: "a0",
       },
     ]);
@@ -520,7 +522,7 @@ describe("copyVersionStructure", () => {
       {
         line: "First line",
         imagePath: "frame-001.png",
-        durationSeconds: null,
+        durationSeconds: 1.25,
         order: "a0",
         archived: false,
       },
@@ -574,6 +576,8 @@ describe("copyVersionStructure", () => {
         videoId: video!.id,
         line: "Active",
         imagePath: "active.png",
+        audioPath: "active.wav",
+        durationSeconds: 1,
         order: "a0",
         archived: false,
       },
@@ -581,6 +585,8 @@ describe("copyVersionStructure", () => {
         videoId: video!.id,
         line: "Archived",
         imagePath: "archived.png",
+        audioPath: "archived.wav",
+        durationSeconds: 1,
         order: "a1",
         archived: true,
       },
@@ -691,6 +697,8 @@ describe("getVersionWithSections — the publish read", () => {
       videoId: video!.id,
       line: "And here is the bug.",
       imagePath: "frame-001.png",
+      audioPath: "speech-001.wav",
+      durationSeconds: 1.75,
       order: "a0",
     });
 

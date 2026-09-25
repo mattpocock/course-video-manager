@@ -31,10 +31,12 @@ export const CLIP_MOCKUP_GAP_SECONDS = AUTO_EDITED_END_PADDING_SECONDS;
 export const ANIMATIC_FPS = 30;
 
 /**
- * How long a Clip Mockup with no measured speech is held for. Rows written
- * before speech synthesis existed have a null `durationSeconds`; they are
- * reported as broken on the page, and this stops them flashing past at one
- * frame while the author reads the report.
+ * How long a Clip Mockup with no measured speech is held for.
+ *
+ * `durationSeconds` is NOT NULL on the row (#1670), so nothing the loader
+ * builds can reach this — it is the floor for a caller that hands over a row
+ * it could not measure, and it stops such a row flashing past at one frame
+ * while the author reads the "speech missing" report.
  */
 export const UNVOICED_HOLD_SECONDS = 2;
 

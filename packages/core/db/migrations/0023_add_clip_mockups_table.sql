@@ -3,7 +3,7 @@ CREATE TABLE "course-video-manager_clip_mockup" (
 	"video_id" varchar(255) NOT NULL,
 	"line" text NOT NULL,
 	"image_path" text NOT NULL,
-	"duration_seconds" double precision,
+	"duration_seconds" double precision NOT NULL,
 	"order" varchar(255) COLLATE "C" NOT NULL,
 	"archived" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
