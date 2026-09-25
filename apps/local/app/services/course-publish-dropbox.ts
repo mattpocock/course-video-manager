@@ -1,17 +1,13 @@
 import { Config, Effect, Either } from "effect";
 import { FileSystem } from "@effect/platform";
-import { createHash } from "node:crypto";
-import path from "node:path";
 import {
+  ANNOUNCE_NOTHING,
   buildCourseJson,
   buildCourseJsonSchema,
-  computeEffectiveSections,
+  computeShippingSections,
+  type PlaceholderFloor,
 } from "@/packages/course-json";
-import {
-  computeExportHash,
-  resolveExportPath,
-  toExportClips,
-} from "./export-hash";
+import { computeBundleAddress } from "./course-publish-bundle-address";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { ExportError, PublishValidationError } from "./course-publish-errors";
 import type { EmitPublishDetailEvent } from "./course-publish-export-events";
@@ -28,7 +24,11 @@ import {
 } from "./course-publish-reuse-plan";
 import { getValidDropboxAccessToken } from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
-import { createShipVideo, type VideoEntry } from "./course-publish-ship-video";
+import {
+  createShipVideo,
+  toVideoEntries,
+  type VideoEntry,
+} from "./course-publish-ship-video";
 import { ensureExportDigest } from "./export-sha256-sidecar";
 
 /**
@@ -51,6 +51,14 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   courseId: string;
   courseVersionId: string;
   includeTodoLessons: boolean;
+  /**
+   * The lowest Lesson Priority band whose unshippable Lessons are announced as
+   * Placeholder Lessons. Absent means `ANNOUNCE_NOTHING` — the release behaves
+   * exactly as it did before ADR 0029. The floor is a per-browser, per-Course UI
+   * preference and is deliberately not recorded on the Published Version, so a
+   * manual re-sync has no floor to recover and announces nothing.
+   */
+  placeholderFloor?: PlaceholderFloor;
   /**
    * The observable surface of the upload: the bundle-wide `progress`
    * percentage plus one task's worth of events per shipping Video.
@@ -93,7 +101,12 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     versionId: input.courseVersionId,
   });
 
-  const effectiveSections = computeEffectiveSections(
+  const placeholderFloor = input.placeholderFloor ?? ANNOUNCE_NOTHING;
+
+  // The ASSET SET: only the Lessons that ship in full. A Placeholder Lesson
+  // contributes no .mp4, so its Videos must never reach the roster below —
+  // Publish would otherwise encode and upload a file no manifest names.
+  const shippingSections = computeShippingSections(
     repoWithSections.sections,
     input.includeTodoLessons
   );
@@ -102,67 +115,23 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     repoWithSections.name
   );
 
-  // The Export Hash is the recipe an Exported Video is addressed by — Clip
-  // filenames, source timings, order, Video Format and the Export Version Key —
-  // and is pure database state, which is what lets the bundle path below be
-  // knowable up front too. Whether a Video's file has actually appeared yet is
-  // checked per Video, after its handoff.
-  const videoEntries: VideoEntry[] = effectiveSections.flatMap((section) =>
-    section.lessons.flatMap((lesson) =>
-      lesson.videos.map((video) => {
-        const exportHash =
-          video.clips.length > 0
-            ? computeExportHash(toExportClips(video.clips), video.format)
-            : null;
-        return {
-          videoId: video.id,
-          videoTitle: video.title,
-          lessonPath: lesson.path,
-          localPath: exportHash
-            ? resolveExportPath(
-                finishedVideosDirectory,
-                input.courseId,
-                exportHash
-              )
-            : path.join(finishedVideosDirectory, `${video.id}.mp4`),
-          relativeAssetPath: `${section.path}/${lesson.path}/${video.title}.mp4`,
-          exportHash,
-        };
-      })
-    )
-  );
+  const videoEntries = toVideoEntries({
+    sections: shippingSections,
+    courseId: input.courseId,
+    finishedVideosDirectory,
+  });
 
   const schemaJson = JSON.stringify(buildCourseJsonSchema(), null, 2);
-  // The bundle is addressed by its RECIPE, not by its bytes: each Video
-  // contributes its Export Hash rather than a SHA256 of the encoded file. Every
-  // ingredient is therefore database state, so the destination path is known
-  // before any encoding or reading happens — which is what lets export and
-  // upload overlap. Two files at one address are asserted identical because
-  // they came from identical Clips and Video Format; the Export Version Key is
-  // the manual lever for invalidating that assertion (see ADR on bundle
-  // addressing).
-  const assetFingerprint = createHash("sha256")
-    .update(
-      JSON.stringify({
-        schemaJson,
-        courseId: input.courseId,
-        courseVersionId: input.courseVersionId,
-        courseName: repoWithSections.name,
-        includeTodoLessons: input.includeTodoLessons,
-        sections: repoWithSections.sections,
-        videos: videoEntries.map((entry) => ({
-          relativeAssetPath: entry.relativeAssetPath,
-          exportHash: entry.exportHash,
-        })),
-      })
-    )
-    .digest("hex")
-    .slice(0, 32);
-  const versionFingerprint = createHash("sha256")
-    .update(input.courseVersionId)
-    .digest("hex")
-    .slice(0, 16);
-  const assetBasePath = `versions/${versionFingerprint}-${assetFingerprint}`;
+  const { assetBasePath } = computeBundleAddress({
+    schemaJson,
+    courseId: input.courseId,
+    courseVersionId: input.courseVersionId,
+    courseName: repoWithSections.name,
+    includeTodoLessons: input.includeTodoLessons,
+    placeholderFloor,
+    sections: repoWithSections.sections,
+    videos: videoEntries,
+  });
   const remoteBundleDir = `${dropboxCourseDir}/${assetBasePath}`;
 
   // Take stock of whatever of this bundle already landed. A bundle left
@@ -510,6 +479,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     sections: repoWithSections.sections,
     videoAssets,
     includeTodoLessons: input.includeTodoLessons,
+    placeholderFloor,
   });
   const manifestJson = JSON.stringify(courseJsonDoc, null, 2);
 

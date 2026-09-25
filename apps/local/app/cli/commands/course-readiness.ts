@@ -70,7 +70,10 @@ WHAT ACTUALLY BLOCKS A PUBLISH
   exactly those three:
     courseViewLints       REFUSE the publish outright.
     invalidLessonCombos   Not checked at the gate, but they fail the later
-    incompleteVideos      course.json build — so the publish still cannot land.
+                          course.json build — so the publish cannot land.
+    incompleteVideos      Counted over the SHIPPING Lessons only, and no longer
+                          fail the build (ADR 0029); the lint gate above is what
+                          refuses such a release.
     unexportedVideos      Do NOT block. 'course publish' RENDERS them itself as
                           its exporting stage and carries on. They are pending
                           machine work, reported separately as exportsRequired.
@@ -117,7 +120,9 @@ OUTPUT (one pretty JSON object)
                         longer show them.
   invalidLessonCombos[] Lessons whose Video roles are ambiguous (e.g. a
                         Solution with no Problem).
-  incompleteVideos[]    Shipping Videos missing a required field.
+  incompleteVideos[]    Shipping Videos missing a required field. A Video with
+                        no Clips or no Body is a hard gap instead, so its Lesson
+                        does not ship and it is not named here (ADR 0029).
   counts                One integer per list above, for a cheap glance.
   progress              Toggle-INDEPENDENT authoring counts over the whole
                         version tree (including Lessons no publish would ship,

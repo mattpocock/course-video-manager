@@ -1,107 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { Effect } from "effect";
+import { buildCourseJson, collectPublishBlockers } from "../index";
 import {
-  buildCourseJson,
-  collectPublishBlockers,
-  type BuildCourseJsonInput,
-} from "../index";
-
-// A complete, shippable Video by default: every field course.json requires is
-// present (clips → hash + relativePath, a body, and a description). Tests that
-// exercise incompleteness override these to null / [] explicitly.
-const makeVideo = (
-  overrides: Partial<
-    BuildCourseJsonInput["sections"][0]["lessons"][0]["videos"][0]
-  > & {
-    title: string;
-  }
-) => ({
-  id: `video-${overrides.title}`,
-  lineageId: `vid-lineage-${overrides.title}`,
-  body: "Video body",
-  description: "Video description",
-  archived: false,
-  format: "landscape",
-  clips: CLIPS,
-  chapters: [],
-  ...overrides,
-});
-
-const makeLesson = (
-  overrides: Partial<BuildCourseJsonInput["sections"][0]["lessons"][0]> & {
-    path: string;
-    videos: BuildCourseJsonInput["sections"][0]["lessons"][0]["videos"];
-  }
-) => ({
-  lineageId: `lesson-lineage-${overrides.path}`,
-  title: overrides.path,
-  description: "",
-  authoringStatus: null as string | null,
-  priority: 2,
-  ...overrides,
-});
-
-const makeSection = (
-  overrides: Partial<BuildCourseJsonInput["sections"][0]> & {
-    path: string;
-    lessons: BuildCourseJsonInput["sections"][0]["lessons"];
-  }
-) => ({
-  lineageId: `section-lineage-${overrides.path}`,
-  title: overrides.title ?? overrides.path,
-  description: "",
-  ...overrides,
-});
-
-const makeInput = (
-  sections: BuildCourseJsonInput["sections"],
-  includeTodoLessons = true
-): BuildCourseJsonInput => {
-  const videoAssets = new Map<string, { sha256: string; bytes: number }>();
-  for (const section of sections) {
-    for (const lesson of section.lessons) {
-      for (const video of lesson.videos) {
-        videoAssets.set(video.id, { sha256: "a".repeat(64), bytes: 123 });
-      }
-    }
-  }
-  return {
-    courseId: "course-1",
-    courseVersionId: "course-version-1",
-    courseName: "Test Course",
-    assetBasePath: "versions/course-version-1-assets",
-    sections,
-    videoAssets,
-    includeTodoLessons,
-  };
-};
-
-const run = (input: BuildCourseJsonInput) =>
-  Effect.runPromise(buildCourseJson(input));
-
-const runFlip = (input: BuildCourseJsonInput) =>
-  Effect.runPromise(buildCourseJson(input).pipe(Effect.flip));
-
-const CLIPS = [
-  {
-    videoFilename: "rec.mp4",
-    sourceStartTime: 0,
-    sourceEndTime: 10,
-    pauseType: "none",
-    zoomType: "none",
-    order: "a0",
-    overlays: [],
-  },
-  {
-    videoFilename: "rec.mp4",
-    sourceStartTime: 15,
-    sourceEndTime: 25,
-    pauseType: "none",
-    zoomType: "none",
-    order: "a1",
-    overlays: [],
-  },
-];
+  makeInput,
+  makeLesson,
+  makeSection,
+  makeVideo,
+  run,
+  runFlip,
+} from "./course-json-fixtures";
 
 describe("buildCourseJson – validation and filtering", () => {
   // ── Archived videos filtered ───────────────────────────────────────
@@ -356,57 +263,63 @@ describe("buildCourseJson – validation and filtering", () => {
     expect(result.sections[1]!.lessons[1]!.type).toBe("problem");
   });
 
-  // ── Incomplete videos fail loudly ──────────────────────────────────
+  // ── A hard gap decides a status; it no longer fails ────────────────
+  //
+  // ADR 0029: `IncompleteVideosError` is gone. A Video with no Clips or no
+  // `body` is a HARD GAP — a gap Autofill cannot close — so it decides the
+  // Lesson's Lesson Publish Status instead of stopping the release.
 
-  it("fails when a shipping video has no exportable clips", async () => {
-    const error = await runFlip(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", clips: [] })],
-            }),
-          ],
+  const gappedCourse = (
+    overrides: Partial<{ clips: never[]; body: null }>,
+    priority = 2
+  ) => [
+    makeSection({
+      path: "01-intro",
+      lessons: [
+        makeLesson({
+          path: "01.01-welcome",
+          priority,
+          title: "Welcome",
+          videos: [makeVideo({ title: "Explainer", ...overrides })],
         }),
-      ])
-    );
-    expect(error).toMatchObject({
-      _tag: "IncompleteVideosError",
-      videos: [
-        {
-          sectionPath: "01-intro",
-          lessonPath: "01.01-welcome",
-          videoTitle: "Explainer",
-          missing: ["clips"],
-        },
       ],
-    });
+    }),
+  ];
+
+  it("withholds a lesson whose video has no exportable clips", async () => {
+    const result = await run(makeInput(gappedCourse({ clips: [] })));
+    expect(result.sections).toEqual([]);
   });
 
-  it("fails when a shipping video has no body", async () => {
-    const error = await runFlip(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", body: null })],
-            }),
-          ],
-        }),
-      ])
+  it("withholds a lesson whose video has no body", async () => {
+    const result = await run(makeInput(gappedCourse({ body: null })));
+    expect(result.sections).toEqual([]);
+  });
+
+  it("announces a gapped lesson once the floor reaches its priority", async () => {
+    const withheld = await run(
+      makeInput(gappedCourse({ body: null }, 3), true, 2)
     );
-    expect(error).toMatchObject({
-      _tag: "IncompleteVideosError",
-      videos: [{ videoTitle: "Explainer", missing: ["body"] }],
-    });
+    expect(withheld.sections).toEqual([]);
+
+    const announced = await run(
+      makeInput(gappedCourse({ body: null }, 3), true, 3)
+    );
+    expect(announced.sections[0]!.lessons).toEqual([
+      {
+        type: "placeholder",
+        id: "lesson-lineage-01.01-welcome",
+        title: "Welcome",
+      },
+    ]);
   });
 
-  it("fails when a shipping video has no description", async () => {
-    const error = await runFlip(
+  // A missing `description` is NOT a hard gap: Autofill writes it, so a Lesson
+  // one press from complete is never announced as a Placeholder Lesson. It
+  // stays a reported blocker, and the course-view lint gate is what refuses the
+  // Publish — see collectPublishBlockers below.
+  it("still ships a lesson whose only gap is a missing description", async () => {
+    const result = await run(
       makeInput([
         makeSection({
           path: "01-intro",
@@ -419,69 +332,29 @@ describe("buildCourseJson – validation and filtering", () => {
         }),
       ])
     );
-    expect(error).toMatchObject({
-      _tag: "IncompleteVideosError",
-      videos: [{ videoTitle: "Explainer", missing: ["description"] }],
-    });
+    expect(result.sections[0]!.lessons[0]!.type).toBe("explainer");
   });
 
-  it("reports every missing field on a single video", async () => {
+  // The one release-stopping failure left: an ambiguous role combo. There is no
+  // honest node to emit for it, so it is not a status — it is a refusal.
+  it("still refuses a release when a shipping lesson's roles are ambiguous", async () => {
     const error = await runFlip(
       makeInput([
         makeSection({
           path: "01-intro",
           lessons: [
             makeLesson({
-              path: "01.01-welcome",
-              videos: [
-                makeVideo({
-                  title: "Explainer",
-                  clips: [],
-                  body: null,
-                  description: null,
-                }),
-              ],
+              path: "01.01-exercise",
+              videos: [makeVideo({ title: "Solution" })],
             }),
           ],
         }),
       ])
     );
     expect(error).toMatchObject({
-      _tag: "IncompleteVideosError",
-      videos: [{ missing: ["clips", "body", "description"] }],
+      _tag: "InvalidLessonRoleComboError",
+      lessonPath: "01.01-exercise",
     });
-  });
-
-  it("collects every incomplete video across the whole course before failing", async () => {
-    const error = await runFlip(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", clips: [] })],
-            }),
-          ],
-        }),
-        makeSection({
-          path: "02-exercises",
-          lessons: [
-            makeLesson({
-              path: "02.01-exercise",
-              videos: [makeVideo({ title: "Problem", body: null })],
-            }),
-          ],
-        }),
-      ])
-    );
-    expect(error).toMatchObject({ _tag: "IncompleteVideosError" });
-    if (error._tag === "IncompleteVideosError") {
-      expect(error.videos.map((v) => v.videoTitle)).toEqual([
-        "Explainer",
-        "Problem",
-      ]);
-    }
   });
 
   // ── Effective-output filter (includeTodoLessons) ───────────────────
@@ -594,8 +467,10 @@ describe("buildCourseJson – validation and filtering", () => {
 });
 
 // The pre-publish page reads collectPublishBlockers to warn and block before a
-// doomed publish; buildCourseJson reads the same result as its backstop. These
-// cover the collector's enumeration directly.
+// doomed publish; buildCourseJson reads the same result as its backstop. The
+// walk is the SHIPPING output (ADR 0029): a Lesson that is withheld or merely
+// announced is silent here, because a half-planned Video must not refuse a
+// pre-launch release.
 describe("collectPublishBlockers", () => {
   it("returns no blockers for a complete course", () => {
     const blockers = collectPublishBlockers(
@@ -626,7 +501,7 @@ describe("collectPublishBlockers", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", clips: [] })],
+              videos: [makeVideo({ title: "Explainer", description: null })],
             }),
           ],
         }),
@@ -635,7 +510,7 @@ describe("collectPublishBlockers", () => {
           lessons: [
             makeLesson({
               path: "02.01-exercise",
-              videos: [makeVideo({ title: "Problem", body: null })],
+              videos: [makeVideo({ title: "Problem", description: null })],
             }),
           ],
         }),
@@ -648,15 +523,42 @@ describe("collectPublishBlockers", () => {
         sectionPath: "01-intro",
         lessonPath: "01.01-welcome",
         videoTitle: "Explainer",
-        missing: ["clips"],
+        missing: ["description"],
       },
       {
         sectionPath: "02-exercises",
         lessonPath: "02.01-exercise",
         videoTitle: "Problem",
-        missing: ["body"],
+        missing: ["description"],
       },
     ]);
+  });
+
+  // A hard gap stops the Lesson shipping, so there is nothing here to report.
+  // The Lesson appears as its Lesson Publish Status instead.
+  it("says nothing about a lesson a hard gap stops shipping", () => {
+    const blockers = collectPublishBlockers(
+      [
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [makeVideo({ title: "Explainer", clips: [] })],
+            }),
+            makeLesson({
+              path: "01.02-next",
+              videos: [makeVideo({ title: "Explainer", body: null })],
+            }),
+          ],
+        }),
+      ],
+      true
+    );
+    expect(blockers).toEqual({
+      invalidLessonCombos: [],
+      incompleteVideos: [],
+    });
   });
 
   it("collects every invalid lesson combo", () => {
@@ -702,8 +604,8 @@ describe("collectPublishBlockers", () => {
               // Invalid combo AND both videos incomplete — only the combo is
               // reported, since we can't say which video plays which role.
               videos: [
-                makeVideo({ title: "Explainer", clips: [] }),
-                makeVideo({ title: "Problem", clips: [] }),
+                makeVideo({ title: "Explainer", description: null }),
+                makeVideo({ title: "Problem", description: null }),
               ],
             }),
           ],
@@ -723,7 +625,7 @@ describe("collectPublishBlockers", () => {
           makeLesson({
             path: "01.01-todo",
             authoringStatus: "todo",
-            videos: [makeVideo({ title: "Explainer", clips: [] })],
+            videos: [makeVideo({ title: "Explainer", description: null })],
           }),
         ],
       }),
@@ -747,7 +649,7 @@ describe("collectPublishBlockers", () => {
             makeLesson({
               path: "01.01-welcome",
               videos: [
-                makeVideo({ title: "Old", archived: true, clips: [] }),
+                makeVideo({ title: "Old", archived: true, description: null }),
                 makeVideo({ title: "Explainer" }),
               ],
             }),

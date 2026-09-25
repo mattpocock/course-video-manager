@@ -1,4 +1,4 @@
-import { computeEffectiveSections } from "@/packages/course-json";
+import { computeShippingSections } from "@/packages/course-json";
 import { computeVideoWarnings, type AutofillField } from "./video-warnings";
 
 /**
@@ -99,9 +99,9 @@ export const autofillVideoKey = (parts: {
 }): string => `${parts.sectionPath}/${parts.lessonPath}/${parts.videoTitle}`;
 
 /**
- * Walks the effective output — the exact Videos this **Publish** would ship
- * under the given to-do setting — and splits them into what the Autofill will
- * do and what it is leaving behind.
+ * Walks the shipping output — the exact Videos this **Publish** would ship in
+ * full under the given to-do setting — and splits them into what the Autofill
+ * will do and what it is leaving behind.
  */
 export const selectAutofillCandidates = (
   sections: readonly CandidateSection[],
@@ -110,10 +110,10 @@ export const selectAutofillCandidates = (
   const candidates: AutofillCandidate[] = [];
   const skipped: AutofillSkip[] = [];
 
-  for (const section of computeEffectiveSections(
-    sections,
-    includeTodoLessons
-  )) {
+  // The Videos that SHIP, and only those. A Lesson announced as a Placeholder
+  // Lesson is not one press from complete — it is unfilmed — so counting it here
+  // would make the one button unreachable.
+  for (const section of computeShippingSections(sections, includeTodoLessons)) {
     for (const lesson of section.lessons) {
       for (const video of lesson.videos) {
         if (video.archived) continue;
@@ -137,7 +137,9 @@ export const selectAutofillCandidates = (
         if (!needsDescription && !raisesMissingChapters) continue;
 
         // The Body is the precondition for the whole feature: it is written by
-        // hand, and nothing downstream of it can be invented without it.
+        // hand, and nothing downstream of it can be invented without it. A
+        // NULL body is a hard gap, so its Lesson never reaches this walk at all
+        // (ADR 0029); what lands here is a body present but empty.
         if (!video.body?.trim()) {
           skipped.push({ videoId: video.id, title, reason: "no-body" });
           continue;

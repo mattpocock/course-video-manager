@@ -1,183 +1,28 @@
-import { Data, Effect, JSONSchema, Schema } from "effect";
+import { Data, Effect } from "effect";
 import {
   computeExportHash,
   toExportClips,
   type ExportOverlay,
 } from "@/services/export-hash";
-import { computeEffectiveSections } from "./effective-sections";
+import {
+  computeEffectiveSections,
+  computeShippingSections,
+} from "./effective-sections";
+import {
+  classifyLessonPublishStatus,
+  type PlaceholderFloor,
+} from "./lesson-publish-status";
+import {
+  CourseJsonVideo,
+  CourseJsonLessonSchema,
+  CourseJsonSectionSchema,
+  type CourseJsonDocument,
+} from "./course-json-schema";
 import {
   computeLessonWarnings,
   deriveVideoRole,
 } from "@/services/lesson-warnings";
 import { buildChapters } from "@/services/publish-to-dropbox";
-
-// ── Schema ──────────────────────────────────────────────────────────────
-
-// Descriptions on every field are load-bearing: `buildCourseJsonSchema` turns
-// this schema into the `course.schema.json` sidecar via `JSONSchema.make`, which
-// reads these annotations verbatim. Keep them in the domain's language (see
-// CONTEXT.md) — this is the published contract for a course.json.
-
-const CourseJsonChapter = Schema.Struct({
-  title: Schema.String.annotations({
-    description:
-      "The chapter name shown to viewers; maps 1:1 to a YouTube chapter.",
-  }),
-  startTime: Schema.Number.annotations({
-    description:
-      "Offset in seconds from the start of the video where this chapter begins.",
-  }),
-}).annotations({
-  description:
-    "A named marker within a video's timeline that groups related clips.",
-});
-
-const CourseJsonVideo = Schema.Struct({
-  id: Schema.String.annotations({
-    description:
-      "Stable lineage id of the video, carried across course versions.",
-  }),
-  relativePath: Schema.String.annotations({
-    description:
-      "Path to the exported .mp4 relative to this course.json (section-dir/lesson-dir/VideoTitle.mp4).",
-  }),
-  body: Schema.String.annotations({
-    description: "Long-form written companion to the video (its article body).",
-  }),
-  description: Schema.String.annotations({
-    description: "Short description of the video.",
-  }),
-  hash: Schema.String.annotations({
-    description:
-      "Export Hash identifying the exported .mp4 inputs (SHA256 of the video's clip filenames and timestamps in sequence, plus the Export Version Key).",
-  }),
-  sha256: Schema.String.pipe(
-    Schema.pattern(/^[a-f0-9]{64}$/),
-    Schema.annotations({
-      description:
-        "Full lowercase hexadecimal SHA256 of the exported .mp4 bytes.",
-    })
-  ),
-  bytes: Schema.Number.pipe(
-    Schema.int(),
-    Schema.nonNegative(),
-    Schema.annotations({
-      description: "Non-negative integer size of the exported .mp4 in bytes.",
-    })
-  ),
-  chapters: Schema.Array(CourseJsonChapter).annotations({
-    description: "The video's chapters, in timeline order.",
-  }),
-}).annotations({
-  description:
-    "A single producible video output — a container of clips and chapters.",
-});
-
-const ExplainerLessonSchema = Schema.Struct({
-  type: Schema.Literal("explainer").annotations({
-    description:
-      "Discriminant marking this lesson as a single-video explainer.",
-  }),
-  id: Schema.String.annotations({
-    description:
-      "Stable lineage id of the lesson, carried across course versions.",
-  }),
-  title: Schema.String.annotations({
-    description: "The lesson title shown to learners.",
-  }),
-  explainer: CourseJsonVideo.annotations({
-    description: "The explainer video that delivers this lesson.",
-  }),
-}).annotations({
-  description:
-    "A lesson delivered as a single explainer video (no problem/solution split).",
-});
-
-const ProblemLessonSchema = Schema.Struct({
-  type: Schema.Literal("problem").annotations({
-    description: "Discriminant marking this lesson as a problem/solution pair.",
-  }),
-  id: Schema.String.annotations({
-    description:
-      "Stable lineage id of the lesson, carried across course versions.",
-  }),
-  title: Schema.String.annotations({
-    description: "The lesson title shown to learners.",
-  }),
-  problem: CourseJsonVideo.annotations({
-    description: "The problem video the learner attempts.",
-  }),
-  solution: Schema.optional(
-    CourseJsonVideo.annotations({
-      description:
-        "The worked-solution video; present only when the lesson ships a solution.",
-    })
-  ),
-}).annotations({
-  description:
-    "A lesson delivered as a problem video with an optional worked-solution video.",
-});
-
-const CourseJsonLessonSchema = Schema.Union(
-  ExplainerLessonSchema,
-  ProblemLessonSchema
-).annotations({
-  description: "A single learning unit within a section.",
-});
-
-const CourseJsonSectionSchema = Schema.Struct({
-  id: Schema.String.annotations({
-    description:
-      "Stable lineage id of the section, carried across course versions.",
-  }),
-  title: Schema.String.annotations({
-    description: "The section title shown to learners.",
-  }),
-  lessons: Schema.Array(CourseJsonLessonSchema).annotations({
-    description: "The lessons that ship in this section, in display order.",
-  }),
-}).annotations({
-  description: "A grouping of lessons within the course, in display order.",
-});
-
-export const CourseJsonDocumentSchema = Schema.Struct({
-  $schema: Schema.String.annotations({
-    description:
-      "Relative path to the JSON Schema describing this document (course.schema.json).",
-  }),
-  schemaVersion: Schema.Literal(3).annotations({
-    description: "Version of the course.json manifest format.",
-  }),
-  courseId: Schema.String.annotations({
-    description: "Stable identifier of the course this manifest snapshots.",
-  }),
-  courseVersionId: Schema.String.annotations({
-    description:
-      "Immutable Course Version identifier whose structure this manifest snapshots.",
-  }),
-  archiveTTL: Schema.Literal("90d").annotations({
-    description:
-      "Retention window for this immutable Course Version bundle, starting when the manifest is written to Dropbox. After this duration Course Builder may remove the bundle.",
-  }),
-  courseName: Schema.String.annotations({
-    description: "Human-readable name of the course.",
-  }),
-  sections: Schema.Array(CourseJsonSectionSchema).annotations({
-    description: "The sections that ship in this course, in display order.",
-  }),
-}).annotations({
-  title: "Course Manifest",
-  description:
-    "The published manifest of a course — an immutable snapshot of its sections, lessons, and videos, emitted alongside the exported .mp4 files at publish time.",
-});
-
-export type CourseJsonDocument = typeof CourseJsonDocumentSchema.Type;
-
-// The JSON Schema sidecar (`course.schema.json`) generated from
-// `CourseJsonDocumentSchema`. A pure function of the schema — invariant across
-// courses and publishes — so callers can write it verbatim next to course.json.
-export const buildCourseJsonSchema = (): JSONSchema.JsonSchema7Root =>
-  JSONSchema.make(CourseJsonDocumentSchema);
 
 // ── Publish blockers ──────────────────────────────────────────────────────
 
@@ -194,6 +39,12 @@ export type InvalidLessonCombo = {
 // course.json must carry exportable clips (so it produces an .mp4 and an Export
 // Hash) and both a body and a description — each is required, never nullable.
 // Any absence is a gap on our side, not real optionality.
+//
+// Only a Lesson that SHIPS is gap-checked. A hard gap — no Clips, no `body` —
+// decides the Lesson's Lesson Publish Status instead of appearing here, so in
+// practice the only gap left on a shipping Video is a missing `description`,
+// which Autofill writes. It is reported, not thrown: the course-view lint
+// `missingDescription` is what refuses the Publish (ADR 0029).
 export type IncompleteVideo = {
   sectionPath: string;
   lessonPath: string;
@@ -201,10 +52,10 @@ export type IncompleteVideo = {
   missing: Array<"clips" | "body" | "description">;
 };
 
-// Everything that would make a Publish fail, enumerated in full. The pre-publish
-// page reads this to warn (and block) before a doomed publish is ever started;
-// `buildCourseJson` reads the same result as its backstop — so the thing that
-// warns you is literally the thing that would fail.
+// Everything wrong with the Lessons that SHIP, enumerated in full. The
+// pre-publish page reads this to warn (and block) before a doomed publish is
+// ever started. An invalid role combo is still a release-stopping failure in
+// `buildCourseJson`; an incomplete Video no longer is (ADR 0029).
 export type PublishBlockers = {
   invalidLessonCombos: InvalidLessonCombo[];
   incompleteVideos: IncompleteVideo[];
@@ -216,15 +67,11 @@ export class InvalidLessonRoleComboError extends Data.TaggedError(
   "InvalidLessonRoleComboError"
 )<InvalidLessonCombo> {}
 
-// Raised when one or more shipping Videos are incomplete. Publish scans the
-// whole course and collects every gap, then fails with the full list — so the
-// author fixes all of them in one pass rather than re-running publish per gap,
-// and course.json never ships a null for these fields.
-export class IncompleteVideosError extends Data.TaggedError(
-  "IncompleteVideosError"
-)<{
-  videos: IncompleteVideo[];
-}> {}
+// RETIRED (ADR 0029). `IncompleteVideosError` used to stop a release when a
+// shipping Video was incomplete. A hard gap now decides the Lesson's Lesson
+// Publish Status instead — the Lesson ships as a Placeholder Lesson or is
+// withheld, and either way it is listed on the publish page rather than
+// throwing. Nothing replaces the class.
 
 export class MissingVideoAssetReceiptError extends Data.TaggedError(
   "MissingVideoAssetReceiptError"
@@ -302,6 +149,10 @@ export type BuildCourseJsonInput = {
   // to-do Lesson is withheld — omitted from course.json entirely, and Sections
   // left with no shippable Lessons disappear.
   includeTodoLessons: boolean;
+  // The lowest Lesson Priority band whose unshippable Lessons are announced as
+  // Placeholder Lessons. `ANNOUNCE_NOTHING` reproduces the pre-ADR-0029
+  // release exactly: every unshippable Lesson is withheld.
+  placeholderFloor: PlaceholderFloor;
 };
 
 // ── Publish-blocker detection ─────────────────────────────────────────────
@@ -352,12 +203,13 @@ function shippingVideos(selected: SelectedLessonVideos): InputVideo[] {
     : [selected.video];
 }
 
-// The single source of truth for "why can't this publish?". Walks the effective
-// output — the exact Lessons and Videos this publish would ship — and returns
-// every blocker: Lessons with an invalid role combo, and shipping Videos missing
-// a required field. `buildCourseJson` fails on a non-empty result; the publish
-// page shows it as pre-publish warnings and blocks the button. One walk, so the
-// warning and the failure can never disagree.
+// The single source of truth for "what is wrong with what ships?". Walks the
+// SHIPPING output — the exact Lessons and Videos this publish would ship in full
+// — and returns every blocker: Lessons with an invalid role combo, and shipping
+// Videos missing a required field. A Lesson that does not ship is silent here,
+// because a Placeholder Lesson's half-planned Video must not refuse a
+// pre-launch release (ADR 0029); it is reported as its Lesson Publish Status
+// instead. The shipping walk needs no floor — see computeShippingSections.
 export const collectPublishBlockers = (
   sections: readonly InputSection[],
   includeTodoLessons: boolean
@@ -365,12 +217,12 @@ export const collectPublishBlockers = (
   const invalidLessonCombos: InvalidLessonCombo[] = [];
   const incompleteVideos: IncompleteVideo[] = [];
 
-  const effectiveSections = computeEffectiveSections(
+  const shippingSections = computeShippingSections(
     sections,
     includeTodoLessons
   );
 
-  for (const section of effectiveSections) {
+  for (const section of shippingSections) {
     for (const lesson of section.lessons) {
       const activeVideos = lesson.videos.filter((v) => !v.archived);
       if (activeVideos.length === 0) continue;
@@ -406,10 +258,13 @@ export const collectPublishBlockers = (
 // ── Builder ─────────────────────────────────────────────────────────────
 
 // The published .mp4 lives under the manifest's immutable assetBasePath, then
-// section-dir/lesson-dir/video-title.mp4. Only complete Videos reach here,
-// because `videoGaps` has already been checked and found empty, so
-// the clips (hence hash), body, and description are all guaranteed present, and
-// every emitted field is non-null.
+// section-dir/lesson-dir/video-title.mp4. Only a Video on a Lesson that SHIPS
+// reaches here, so its clips (hence hash) and its body are guaranteed present
+// by the classifier — those are two of the three hard gaps. The `description`
+// is guaranteed one step further out, by the course-view lint gate
+// (`missingDescription`), which refuses the Publish outright before any of this
+// runs. Every emitted field is therefore non-null: ADR 0019's no-null rule for
+// a shipping Video survives ADR 0029 intact.
 function toVideoEntry(
   video: InputVideo,
   sectionPath: string,
@@ -435,16 +290,16 @@ export const buildCourseJson = (
 ): Effect.Effect<
   CourseJsonDocument,
   | InvalidLessonRoleComboError
-  | IncompleteVideosError
   | MissingVideoAssetReceiptError
   | InvalidVideoAssetReceiptError
 > =>
   Effect.gen(function* () {
     // The pre-publish gate and this backstop read the exact same blockers, so a
-    // manifest can never ship with a hole in it. Invalid role combos come first
-    // (they make roles ambiguous); we fail on the first, matching the page, which
-    // blocks publish until it's fixed. Incomplete Videos are reported all at once
-    // so the author fixes every gap in a single pass.
+    // manifest can never ship with a hole in it. An invalid role combo is the
+    // one remaining release-stopping failure: it makes roles ambiguous, so
+    // there is no honest node to emit. We fail on the first, matching the page,
+    // which blocks publish until it is fixed. An incomplete Video no longer
+    // fails anything (ADR 0029) — it decides a Lesson Publish Status.
     const blockers = collectPublishBlockers(
       input.sections,
       input.includeTodoLessons
@@ -453,11 +308,6 @@ export const buildCourseJson = (
       return yield* new InvalidLessonRoleComboError(
         blockers.invalidLessonCombos[0]!
       );
-    }
-    if (blockers.incompleteVideos.length > 0) {
-      return yield* new IncompleteVideosError({
-        videos: blockers.incompleteVideos,
-      });
     }
 
     const sections: Array<typeof CourseJsonSectionSchema.Type> = [];
@@ -486,20 +336,41 @@ export const buildCourseJson = (
       );
     });
 
-    // The effective-output filter is the single home of "what this publish
-    // ships": it drops to-do Lessons when they are withheld, Lessons with no
-    // active Videos, and Sections left with no shippable Lessons. Everything
-    // below then models only what actually ships. Every Lesson here is now a
-    // valid combo and every shipping Video complete (checked above).
+    // The effective-output filter is the single home of "what this release
+    // reaches": the Lessons that ship in full plus the Lessons announced as
+    // Placeholder Lessons. Withheld Lessons and Sections left with nothing are
+    // already gone. The classifier is then asked once more, per Lesson, for
+    // which of the two this one is — the same pure verdict the filter used, so
+    // the tree and the nodes can never disagree.
     const effectiveSections = computeEffectiveSections(
       input.sections,
-      input.includeTodoLessons
+      input.includeTodoLessons,
+      input.placeholderFloor
     );
 
     for (const section of effectiveSections) {
       const lessons: Array<typeof CourseJsonLessonSchema.Type> = [];
 
       for (const lesson of section.lessons) {
+        const verdict = classifyLessonPublishStatus(lesson, {
+          includeTodoLessons: input.includeTodoLessons,
+          placeholderFloor: input.placeholderFloor,
+        });
+
+        // A PLACEHOLDER LESSON: a title and nothing else. No video key, no
+        // `body`, no `description` — there is nothing filmed to describe. The
+        // `id` is the Lesson's lineage id, exactly as on a shipping node, so
+        // filling the Lesson in later updates one resource downstream rather
+        // than creating a second.
+        if (verdict.status === "placeholder") {
+          lessons.push({
+            type: "placeholder",
+            id: lesson.lineageId,
+            title: lesson.title,
+          });
+          continue;
+        }
+
         const activeVideos = lesson.videos.filter((v) => !v.archived);
         if (activeVideos.length === 0) continue;
 
@@ -547,10 +418,13 @@ export const buildCourseJson = (
         }
       }
 
-      // Emit a Section only when it actually ships Lessons. Sections are
-      // decided by their shippable Lessons, not by a derived path — an empty
-      // Section (whether it never had Lessons or had them all withheld/archived
-      // upstream) produces no course.json entry, never an empty lessons array.
+      // Emit a Section only when this release actually carries Lessons in it.
+      // Sections are decided by their Lessons, not by a derived path — a
+      // Section with nothing effective (whether it never had Lessons or had
+      // them all withheld/archived upstream) produces no course.json entry,
+      // never an empty lessons array. A Section whose every Lesson is a
+      // Placeholder Lesson DOES ship: that is a whole unfilmed part of the
+      // Course appearing in the syllabus.
       if (lessons.length === 0) continue;
 
       sections.push({
@@ -562,7 +436,7 @@ export const buildCourseJson = (
 
     return {
       $schema: `${input.assetBasePath}/course.schema.json`,
-      schemaVersion: 3 as const,
+      schemaVersion: 4 as const,
       courseId: input.courseId,
       courseVersionId: input.courseVersionId,
       archiveTTL: "90d" as const,

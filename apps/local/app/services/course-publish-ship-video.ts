@@ -1,6 +1,12 @@
 import { Effect, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
 import { createHash } from "node:crypto";
+import path from "node:path";
+import {
+  computeExportHash,
+  resolveExportPath,
+  toExportClips,
+} from "./export-hash";
 import { ExportError } from "./course-publish-errors";
 import {
   extractErrorMessage,
@@ -27,6 +33,60 @@ export type VideoEntry = {
   relativeAssetPath: string;
   exportHash: string | null;
 };
+
+/**
+ * The Bundle's whole upload roster, read off the DATABASE in one pass.
+ *
+ * `sections` must already be the SHIPPING Sections — only the Lessons that ship
+ * in full. A Placeholder Lesson contributes no .mp4, so a Video of one reaching
+ * here would be encoded and uploaded with no manifest node naming it.
+ *
+ * The Export Hash is the recipe an Exported Video is addressed by — Clip
+ * filenames, source timings, order, Video Format and the Export Version Key —
+ * and is pure database state, which is what lets the Bundle address be knowable
+ * up front too. Whether a Video's file has actually appeared yet is checked per
+ * Video, after its handoff.
+ */
+export const toVideoEntries = (input: {
+  readonly sections: readonly {
+    readonly path: string;
+    readonly lessons: readonly {
+      readonly path: string;
+      readonly videos: readonly {
+        readonly id: string;
+        readonly title: string;
+        readonly format: string;
+        readonly clips: readonly Parameters<typeof toExportClips>[0][number][];
+      }[];
+    }[];
+  }[];
+  readonly courseId: string;
+  readonly finishedVideosDirectory: string;
+}): VideoEntry[] =>
+  input.sections.flatMap((section) =>
+    section.lessons.flatMap((lesson) =>
+      lesson.videos.map((video) => {
+        const exportHash =
+          video.clips.length > 0
+            ? computeExportHash(toExportClips([...video.clips]), video.format)
+            : null;
+        return {
+          videoId: video.id,
+          videoTitle: video.title,
+          lessonPath: lesson.path,
+          localPath: exportHash
+            ? resolveExportPath(
+                input.finishedVideosDirectory,
+                input.courseId,
+                exportHash
+              )
+            : path.join(input.finishedVideosDirectory, `${video.id}.mp4`),
+          relativeAssetPath: `${section.path}/${lesson.path}/${video.title}.mp4`,
+          exportHash,
+        };
+      })
+    )
+  );
 
 /**
  * Read an Exported Video off disk purely to digest it. Only Videos this

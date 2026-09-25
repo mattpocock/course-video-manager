@@ -1,111 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
   buildCourseJson,
+  buildCourseJsonSchema,
+  CourseJsonDocumentSchema,
   InvalidVideoAssetReceiptError,
   MissingVideoAssetReceiptError,
-  type BuildCourseJsonInput,
 } from "../index";
 import { computeExportHash } from "@/services/export-hash";
-
-// A complete, shippable Video by default: every field course.json requires is
-// present (clips → hash + relativePath, a body, and a description). Tests that
-// exercise incompleteness override these to null / [] explicitly.
-const makeVideo = (
-  overrides: Partial<
-    BuildCourseJsonInput["sections"][0]["lessons"][0]["videos"][0]
-  > & {
-    title: string;
-  }
-) => ({
-  id: `video-${overrides.title}`,
-  lineageId: `vid-lineage-${overrides.title}`,
-  body: "Video body",
-  description: "Video description",
-  archived: false,
-  format: "landscape",
-  clips: CLIPS,
-  chapters: [],
-  ...overrides,
-});
-
-const makeLesson = (
-  overrides: Partial<BuildCourseJsonInput["sections"][0]["lessons"][0]> & {
-    path: string;
-    videos: BuildCourseJsonInput["sections"][0]["lessons"][0]["videos"];
-  }
-) => ({
-  lineageId: `lesson-lineage-${overrides.path}`,
-  title: overrides.path,
-  description: "",
-  authoringStatus: null as string | null,
-  priority: 2,
-  ...overrides,
-});
-
-const makeSection = (
-  overrides: Partial<BuildCourseJsonInput["sections"][0]> & {
-    path: string;
-    lessons: BuildCourseJsonInput["sections"][0]["lessons"];
-  }
-) => ({
-  lineageId: `section-lineage-${overrides.path}`,
-  title: overrides.title ?? overrides.path,
-  description: "",
-  ...overrides,
-});
-
-const makeInput = (
-  sections: BuildCourseJsonInput["sections"],
-  includeTodoLessons = true
-): BuildCourseJsonInput => {
-  const videoAssets = new Map<string, { sha256: string; bytes: number }>();
-  for (const section of sections) {
-    for (const lesson of section.lessons) {
-      for (const video of lesson.videos) {
-        videoAssets.set(video.id, { sha256: "a".repeat(64), bytes: 123 });
-      }
-    }
-  }
-  return {
-    courseId: "course-1",
-    courseVersionId: "course-version-1",
-    courseName: "Test Course",
-    assetBasePath: "versions/course-version-1-assets",
-    sections,
-    videoAssets,
-    includeTodoLessons,
-  };
-};
-
-const run = (input: BuildCourseJsonInput) =>
-  Effect.runPromise(buildCourseJson(input));
-
-const CLIPS = [
-  {
-    videoFilename: "rec.mp4",
-    sourceStartTime: 0,
-    sourceEndTime: 10,
-    pauseType: "none",
-    zoomType: "none",
-    order: "a0",
-    overlays: [],
-  },
-  {
-    videoFilename: "rec.mp4",
-    sourceStartTime: 15,
-    sourceEndTime: 25,
-    pauseType: "none",
-    zoomType: "none",
-    order: "a1",
-    overlays: [],
-  },
-];
+import {
+  CLIPS,
+  makeInput,
+  makeLesson,
+  makeSection,
+  makeVideo,
+  run,
+} from "./course-json-fixtures";
 
 describe("buildCourseJson", () => {
-  it("emits schemaVersion 3 with the immutable Course Version id", async () => {
+  it("emits schemaVersion 4 with the immutable Course Version id", async () => {
     const result = await run(makeInput([]));
-    expect(result.schemaVersion).toBe(3);
+    expect(result.schemaVersion).toBe(4);
     expect(result.courseVersionId).toBe("course-version-1");
     expect(result.archiveTTL).toBe("90d");
     expect(result.$schema).toBe(
@@ -499,5 +414,161 @@ describe("buildCourseJson", () => {
     if (lesson.type === "explainer") {
       expect(lesson.explainer.chapters).toEqual([]);
     }
+  });
+});
+
+// ADR 0029. The Placeholder Lesson is the third member of the Lesson union: a
+// title and nothing else, so a learner can read the name of a Lesson nobody has
+// filmed. These state the emitted shape, because prose cannot state it exactly.
+describe("buildCourseJson — Placeholder Lessons", () => {
+  /** A Lesson with one hard gap (no `body`), at the given Priority band. */
+  const unfilmed = (path: string, title: string, priority: number) =>
+    makeLesson({
+      path,
+      title,
+      priority,
+      videos: [makeVideo({ title: "Explainer", body: null })],
+    });
+
+  it("emits type, id and title, and no other key", async () => {
+    const result = await run(
+      makeInput(
+        [
+          makeSection({
+            path: "01-intro",
+            lessons: [unfilmed("01.01-welcome", "Welcome", 1)],
+          }),
+        ],
+        true,
+        1
+      )
+    );
+    // toEqual, not toMatchObject: a fourth key would be a contract change.
+    expect(result.sections[0]!.lessons).toEqual([
+      {
+        type: "placeholder",
+        id: "lesson-lineage-01.01-welcome",
+        title: "Welcome",
+      },
+    ]);
+  });
+
+  it("keeps a shipping lesson byte-identical to what it emits today", async () => {
+    const sections = [
+      makeSection({
+        path: "01-intro",
+        lessons: [
+          makeLesson({
+            path: "01.01-welcome",
+            videos: [makeVideo({ title: "Explainer" })],
+          }),
+        ],
+      }),
+    ];
+    const announcingNothing = await run(makeInput(sections, true, null));
+    const announcingEverything = await run(makeInput(sections, true, 3));
+    expect(JSON.stringify(announcingEverything)).toBe(
+      JSON.stringify(announcingNothing)
+    );
+  });
+
+  it("ships a section whose every lesson is a placeholder", async () => {
+    const result = await run(
+      makeInput(
+        [
+          makeSection({
+            path: "01-intro",
+            title: "Intro",
+            lessons: [unfilmed("01.01-a", "A", 1), unfilmed("01.02-b", "B", 2)],
+          }),
+          // Nothing effective in it at all — still elided.
+          makeSection({ path: "02-empty", title: "Empty", lessons: [] }),
+        ],
+        true,
+        2
+      )
+    );
+    expect(result.sections.map((section) => section.title)).toEqual(["Intro"]);
+    expect(result.sections[0]!.lessons.map((lesson) => lesson.type)).toEqual([
+      "placeholder",
+      "placeholder",
+    ]);
+  });
+
+  it("emits a valid syllabus-only document with no videos in it at all", async () => {
+    const result = await run(
+      makeInput(
+        [
+          makeSection({
+            path: "01-intro",
+            lessons: [unfilmed("01.01-a", "A", 3)],
+          }),
+          makeSection({
+            path: "02-deeper",
+            lessons: [unfilmed("02.01-b", "B", 3)],
+          }),
+        ],
+        true,
+        3
+      )
+    );
+    // It decodes against the published contract, and it names no .mp4.
+    expect(() =>
+      Schema.decodeUnknownSync(CourseJsonDocumentSchema)(result)
+    ).not.toThrow();
+    expect(JSON.stringify(result)).not.toContain(".mp4");
+  });
+
+  // The sidecar is `JSONSchema.make` of the very schema that types the
+  // document, so they cannot drift — but the consumer reads the sidecar and not
+  // our source, so this states what the consumer will find in it.
+  it("generates a schema sidecar that describes the document it accompanies", async () => {
+    const doc = await run(
+      makeInput(
+        [
+          makeSection({
+            path: "01-intro",
+            lessons: [
+              makeLesson({
+                path: "01.01-filmed",
+                priority: 1,
+                videos: [makeVideo({ title: "Explainer" })],
+              }),
+              unfilmed("01.02-unfilmed", "Unfilmed", 1),
+            ],
+          }),
+        ],
+        true,
+        1
+      )
+    );
+    const sidecar = JSON.parse(JSON.stringify(buildCourseJsonSchema()));
+
+    // The version the consumer checks first is the version we stamp.
+    expect(sidecar.properties.schemaVersion.enum).toEqual([doc.schemaVersion]);
+
+    // Three members, and every kind this document emits is one of them.
+    const members =
+      sidecar.properties.sections.items.properties.lessons.items.anyOf;
+    const declared = members.map(
+      (member: any) => member.properties.type.enum[0]
+    );
+    expect(declared).toEqual(["explainer", "problem", "placeholder"]);
+    for (const lesson of doc.sections.flatMap((section) => section.lessons)) {
+      expect(declared).toContain(lesson.type);
+    }
+
+    // The placeholder member declares exactly three keys, all required, and
+    // refuses a fourth.
+    const placeholder = members.find(
+      (member: any) => member.properties.type.enum[0] === "placeholder"
+    );
+    expect(Object.keys(placeholder.properties)).toEqual([
+      "type",
+      "id",
+      "title",
+    ]);
+    expect(placeholder.required).toEqual(["type", "id", "title"]);
+    expect(placeholder.additionalProperties).toBe(false);
   });
 });
