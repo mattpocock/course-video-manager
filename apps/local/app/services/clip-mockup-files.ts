@@ -4,6 +4,7 @@ import { Data, Effect } from "effect";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveRepoEnvValue } from "./repo-env";
 
 /**
  * The per-Video Clip Mockup frame store.
@@ -50,6 +51,14 @@ function findRepoRoot(start: string): string | undefined {
  * this way), otherwise `<repoRoot>/clip-mockups` anchored to THIS module's
  * install location.
  *
+ * The setting is read through `resolveRepoEnvValue`, so the repo-root `.env`
+ * counts as "set" — NOT a bare `process.env` read. tsx does not auto-load
+ * `.env`, so a bare read made this answer depend on whether something earlier
+ * in the same command happened to call `loadRepoEnv`: `add` voices its line
+ * first and so found the real store, while `update --image` / `--html` voices
+ * nothing and silently wrote its frame into the fallback below, leaving the
+ * row pointing at a picture that was not there.
+ *
  * Deliberately NEVER cwd-relative, for the same reason `video-files.ts` says
  * so: the globally-linked `cvm` bin runs from arbitrary directories, and a
  * `./clip-mockups` fallback would scatter frames into whichever repo the agent
@@ -57,7 +66,7 @@ function findRepoRoot(start: string): string | undefined {
  * actually decides whether the store is reachable.
  */
 export function getClipMockupBaseDir(): string {
-  const fromEnv = process.env[CLIP_MOCKUP_DIR_ENV_KEY];
+  const fromEnv = resolveRepoEnvValue(CLIP_MOCKUP_DIR_ENV_KEY);
   if (fromEnv != null && fromEnv !== "") {
     return fromEnv;
   }

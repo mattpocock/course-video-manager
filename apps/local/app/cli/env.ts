@@ -3,7 +3,7 @@ import { join } from "node:path";
 import {
   installLocationRepoRoot,
   readEnvValue,
-  repoEnvPath,
+  resolveRepoEnvValue,
 } from "@/services/repo-env";
 
 /**
@@ -53,16 +53,7 @@ export type EnsureApiConfigResult =
     };
 
 /** Resolve one key from process.env, falling back to the repo-root `.env`. */
-const resolveEnvKey = (key: string): string | undefined => {
-  const existing = process.env[key];
-  if (existing != null && existing !== "") return existing;
-
-  const envPath = repoEnvPath();
-  if (envPath === undefined) return undefined;
-
-  const value = readEnvValue(envPath, key);
-  return value === "" ? undefined : value;
-};
+const resolveEnvKey = resolveRepoEnvValue;
 
 export const API_URL_ENV_KEY = "CVM_API_URL";
 export const API_TOKEN_ENV_KEY = "CVM_API_TOKEN";

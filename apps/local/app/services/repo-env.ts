@@ -127,3 +127,26 @@ export const loadRepoEnv = (): void => {
     // own Config error when Publish actually reads it.
   }
 };
+
+/**
+ * Resolve ONE setting the way every `cvm` setting resolves: an already-set
+ * environment variable wins, otherwise the value assigned in the repo-root
+ * `.env` found by walking up from this module.
+ *
+ * Use this rather than reading `process.env` directly for anything a CLI verb
+ * needs. tsx does not auto-load `.env`, and `loadRepoEnv` only runs on the few
+ * paths that ask for it — so a bare `process.env` read answers DIFFERENTLY
+ * depending on which branch of a command ran first. That is exactly how
+ * `clip-mockup update` came to write a frame into the fallback store while
+ * `add` wrote into the real one.
+ */
+export const resolveRepoEnvValue = (key: string): string | undefined => {
+  const existing = process.env[key];
+  if (existing != null && existing !== "") return existing;
+
+  const envPath = repoEnvPath();
+  if (envPath === undefined) return undefined;
+
+  const value = readEnvValue(envPath, key);
+  return value === "" ? undefined : value;
+};
