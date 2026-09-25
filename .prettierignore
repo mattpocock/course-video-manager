@@ -28,3 +28,9 @@ coverage
 # Misc
 .vscode
 .idea
+
+# Clip Mockup frame examples. Each code/terminal line is one whitespace-
+# significant element (`white-space: pre`), and Prettier — which sees only
+# inline <span>s — rewraps their contents and injects line breaks INSIDE a
+# line of code. The captured frame then shows one token per row.
+frame-examples/*.html

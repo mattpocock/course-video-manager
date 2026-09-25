@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Frame example — editor</title>
+    <!--
+      THE STYLESHEET IS THE CONTRACT; THIS MARKUP IS NOT. Copy this file, keep
+      the <link>, and rewrite everything below it. This example deliberately
+      shows the awkward case rather than the tidy one: a file tree with git
+      status on it, a tab strip, a two-line diff, a squiggle, an inline
+      diagnostic and a status bar reporting the error. Delete whichever of
+      those your moment does not need.
+
+      HIGHLIGHTING IS HAND-WRITTEN <span class="t-*"> — no highlighter runs, so
+      there is no build step and nothing is fetched while the frame is
+      captured. The classes are Shiki's vitesse-dark scopes: t-key, t-storage,
+      t-str, t-num, t-fn, t-type, t-class, t-prop, t-var, t-const, t-com,
+      t-op, t-punc, t-tag, t-attr.
+
+      ONE LINE OF CODE IS ONE `.l` ELEMENT AND MUST STAY ON ONE SOURCE LINE.
+      `.l` carries `white-space: pre`, so a line break inserted inside it
+      becomes a line break in the captured frame. That is why
+      `frame-examples/*.html` is in .prettierignore.
+    -->
+    <link rel="stylesheet" href="./house.css" />
+  </head>
+  <body>
+    <div class="frame frame--full">
+      <div class="window">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="title">course-video-manager — clip-mockup.ts</span>
+        </div>
+
+        <div class="panes">
+          <nav class="sidebar">
+            <div class="sidebar-heading">Explorer</div>
+            <ul class="tree">
+              <li class="dir">app</li>
+              <li class="dir indent">cli</li>
+              <li class="indent-2 active">clip-mockup.ts</li>
+              <li class="indent-2 modified">helpers.ts</li>
+              <li class="indent-2">local-only.ts</li>
+              <li class="dir indent">services</li>
+              <li class="indent-2 added">frame-capture.ts</li>
+              <li class="indent-2">speech.ts</li>
+            </ul>
+          </nav>
+
+          <div class="main">
+            <div class="tabs">
+              <div class="tab active">clip-mockup.ts</div>
+              <div class="tab">frame-capture.ts <span class="dot"></span></div>
+            </div>
+
+            <div class="code">
+<span class="l"><span class="t-key">const</span> <span class="t-fn">resolveFrameSource</span> <span class="t-op">=</span> <span class="t-punc">(</span><span class="t-var">args</span><span class="t-punc">:</span> <span class="t-type">AddArgs</span><span class="t-punc">)</span> <span class="t-op">=&gt;</span></span>
+<span class="l">  <span class="t-const">Effect</span><span class="t-punc">.</span><span class="t-fn">gen</span><span class="t-punc">(</span><span class="t-key">function</span><span class="t-op">*</span> <span class="t-punc">() {</span></span>
+<span class="l">    <span class="t-key">const</span> <span class="t-var">html</span> <span class="t-op">=</span> <span class="t-const">Option</span><span class="t-punc">.</span><span class="t-fn">getOrUndefined</span><span class="t-punc">(</span><span class="t-var">args</span><span class="t-punc">.</span><span class="t-prop">html</span><span class="t-punc">);</span></span>
+<span class="l">    <span class="t-key">const</span> <span class="t-var">image</span> <span class="t-op">=</span> <span class="t-const">Option</span><span class="t-punc">.</span><span class="t-fn">getOrUndefined</span><span class="t-punc">(</span><span class="t-var">args</span><span class="t-punc">.</span><span class="t-prop">image</span><span class="t-punc">);</span></span>
+<span class="l bare"> </span>
+<span class="l">    <span class="t-com">// Exactly one, checked here so there is ONE message.</span></span>
+<span class="l del">    <span class="t-key">if</span> <span class="t-punc">(</span><span class="t-var">html</span> <span class="t-op">&amp;&amp;</span> <span class="t-var">image</span><span class="t-punc">)</span> <span class="t-key">throw</span> <span class="t-key">new</span> <span class="t-class">Error</span><span class="t-punc">(</span><span class="t-str">"both"</span><span class="t-punc">);</span></span>
+<span class="l add">    <span class="t-key">yield</span><span class="t-op">*</span> <span class="t-fn">rejectBothFlags</span><span class="t-punc">({</span></span>
+<span class="l add">      <span class="t-prop">a</span><span class="t-punc">:</span> <span class="t-var">html</span><span class="t-punc">,</span> <span class="t-prop">b</span><span class="t-punc">:</span> <span class="t-var">image</span><span class="t-punc">,</span> <span class="t-prop">flags</span><span class="t-punc">: [</span><span class="t-str">"--html"</span><span class="t-punc">,</span> <span class="t-str">"--image"</span><span class="t-punc">],</span></span>
+<span class="l add">    <span class="t-punc">});</span></span>
+<span class="l bare"> </span>
+<span class="l here">    <span class="t-key">if</span> <span class="t-punc">(</span><span class="t-var">html</span> <span class="t-op">===</span> <span class="t-storage">undefined</span><span class="t-punc">)</span> <span class="t-key">return</span> <span class="t-punc">{</span> <span class="t-prop">kind</span><span class="t-punc">:</span> <span class="t-str">"image"</span><span class="t-punc">,</span> <span class="t-var"><span class="squiggle">pathh</span></span> <span class="t-punc">};</span></span>
+<span class="l bare">      <span class="diagnostic">Property 'pathh' does not exist. Did you mean 'path'?</span></span>
+<span class="l bare"> </span>
+<span class="l">    <span class="t-key">const</span> <span class="t-var">capture</span> <span class="t-op">=</span> <span class="t-key">yield</span><span class="t-op">*</span> <span class="t-class">FrameCaptureService</span><span class="t-punc">;</span></span>
+<span class="l">    <span class="t-key">yield</span><span class="t-op">*</span> <span class="t-var">capture</span><span class="t-punc">.</span><span class="t-fn">captureHtmlToPng</span><span class="t-punc">({</span> <span class="t-var">htmlPath</span><span class="t-punc">,</span> <span class="t-var">outputPath</span> <span class="t-punc">});</span></span>
+<span class="l">    <span class="t-key">return</span> <span class="t-punc">{</span> <span class="t-prop">kind</span><span class="t-punc">:</span> <span class="t-str">"html"</span><span class="t-punc">,</span> <span class="t-prop">path</span><span class="t-punc">:</span> <span class="t-var">outputPath</span> <span class="t-punc">};</span></span>
+<span class="l">  <span class="t-punc">});</span></span>
+            </div>
+
+            <div class="statusbar">
+              <span class="bad">&#9587; 1</span>
+              <span>&#9888; 0</span>
+              <span class="spacer"></span>
+              <span>Ln 11, Col 62</span>
+              <span>TypeScript</span>
+              <span class="good">ticket/1648</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

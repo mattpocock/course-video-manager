@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Frame example &mdash; title card</title>
+    <!--
+      THE STYLESHEET IS THE CONTRACT; THIS MARKUP IS NOT. Copy this file, keep
+      the <link>, rewrite the words.
+
+      This is the Definition Card's shape blown up to fill a frame: the amber
+      bar down the left edge, barely-rounded left corners so the bar reads as a
+      straight line, an uppercase kicker, a white headline and one supporting
+      line. Use it for the opening frame of a Lesson, for a section break, or
+      for the one sentence a moment is really about.
+
+      Say ONE thing. If the card needs a second supporting line it is probably
+      two Clip Mockups.
+
+      The mark is inlined, not <img src>: a frame page has to render on its own
+      from wherever it was copied to, with nothing fetched.
+    -->
+    <link rel="stylesheet" href="./house.css" />
+  </head>
+  <body>
+    <div class="frame frame--center">
+      <div class="card">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="72"
+          height="72"
+          class="logo"
+          fill="none"
+          viewBox="0 0 280 280"
+        >
+          <g clip-path="url(#a)">
+            <path
+              fill="#FFF"
+              fill-rule="evenodd"
+              d="m284.66-4.72 1.107-.997-18.581-16.725L152 81.242V-1.999h-25v80.54L14.814-22.441-3.715-5.764l-.002-.003-.027.029-.023.021.002.002-16.678 18.529L80.54 125H.115v25h83.127L-20.444 265.186l16.726 18.581L126.594 139-3.266-5.265 141 124.595 274.725 4.223 153.405 139l130.312 144.767 16.726-18.581L196.758 150h83.127v-25h-80.426L300.443 12.814 284.66-4.72Zm1.107 290.438L141 155.406-3.767 285.718l18.58 16.725L127 201.459V280h25v-81.241l115.186 103.684 18.581-16.725Z"
+              clip-rule="evenodd"
+            />
+          </g>
+          <defs>
+            <clipPath id="a">
+              <path fill="#fff" d="M0 0h280v280H0z" />
+            </clipPath>
+          </defs>
+        </svg>
+        <div class="kicker">Clip Mockups &middot; Lesson 3</div>
+        <h1 class="headline">
+          Decide the picture<br />before you film it
+          <span class="rule"></span>
+        </h1>
+        <p class="subhead">
+          A Beat says what a moment is for. It does not say what is on screen.
+          That gap is what costs a re-film.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

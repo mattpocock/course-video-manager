@@ -139,6 +139,11 @@ Echoes the created row (with its new id, imagePath, audioPath, durationSeconds
 and computed order) as one pretty JSON object. The line is spoken BEFORE
 anything is written, so a speech failure (exit 4) leaves no row and no file.
 
+The house style for a frame page ships in this repo, at frame-examples/ —
+house.css plus five example pages (editor, terminal, browser, title card,
+diagram). The stylesheet is the contract; the markup is not. Copy the example
+nearest your moment, ALONGSIDE house.css, and rewrite it freely.
+
 The browser binary is a one-off install on this machine:
   pnpm --filter @cvm/local exec playwright install chromium
 

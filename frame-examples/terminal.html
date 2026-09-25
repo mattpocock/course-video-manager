@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Frame example — terminal</title>
+    <!--
+      THE STYLESHEET IS THE CONTRACT; THIS MARKUP IS NOT. Copy this file, keep
+      the <link>, and rewrite the lines. This example shows a run that FAILS,
+      because a passing test suite is the easy frame and a failure is the one a
+      moment is usually about.
+
+      Every line is its own element: .cmd draws the `$` prompt for you, .out is
+      program output. Colour a word with .ok / .bad / .warn / .info / .cyan /
+      .yellow / .magenta / .faint. Finish the last line with
+      <span class="caret"> if the moment is "and now we wait".
+
+      ONE OUTPUT LINE IS ONE ELEMENT AND MUST STAY ON ONE SOURCE LINE: `.cmd`
+      and `.out` carry `white-space: pre-wrap`, so a line break inserted inside
+      one becomes a line break in the captured frame. That is why
+      `frame-examples/*.html` is in .prettierignore.
+    -->
+    <link rel="stylesheet" href="./house.css" />
+  </head>
+  <body>
+    <div class="frame frame--inset">
+      <div class="window">
+        <div class="titlebar">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <span class="title">zsh — course-video-manager</span>
+        </div>
+
+        <div class="terminal">
+<span class="cmd">pnpm --filter @cvm/local test -- cli-clip-mockup-writes.test.ts</span>
+<span class="blank"></span>
+<span class="out"><span class="faint">RUN</span>  v3.2.4 /Users/matt/repos/course-video-manager/apps/local</span>
+<span class="blank"></span>
+<span class="out"><span class="bad">&rsaquo;</span> app/cli/cli-clip-mockup-writes.test.ts <span class="faint">(6 tests | 1 failed) 2841ms</span></span>
+<span class="out">  <span class="ok">&check;</span> add --html captures the page and stores the frame</span>
+<span class="out">  <span class="ok">&check;</span> add --image copies the PNG into the Clip Mockup directory</span>
+<span class="out">  <span class="bad">&times;</span> add with neither --html nor --image exits 3</span>
+<span class="out">  <span class="ok">&check;</span> add on a Short is refused, Landscape only</span>
+<span class="blank"></span>
+<span class="out"><span class="bad">--- Failed Tests 1 ---</span></span>
+<span class="blank"></span>
+<span class="out"><span class="bad">FAIL</span>  add with neither --html nor --image exits 3</span>
+<span class="out"><span class="bad">AssertionError:</span> expected <span class="yellow">4</span> to be <span class="yellow">3</span> <span class="faint">// Object.is equality</span></span>
+<span class="blank"></span>
+<span class="out">  <span class="faint">at</span> app/cli/cli-clip-mockup-writes.test.ts<span class="faint">:118:22</span></span>
+<span class="blank"></span>
+<span class="out"><span class="faint">Test Files</span>  <span class="bad">1 failed</span> <span class="faint">(1)</span></span>
+<span class="out"><span class="faint">     Tests</span>  <span class="bad">1 failed</span> | <span class="ok">5 passed</span> <span class="faint">(6)</span></span>
+<span class="blank"></span>
+<span class="cmd"><span class="caret"></span></span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
