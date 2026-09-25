@@ -38,10 +38,15 @@ die() { log "FAIL: $*"; exit 1; }
 # --- production database access ------------------------------------------
 # PlanetScale rejects the connection without a root certificate; `system` uses
 # the OS trust store, which is the only root available on this box.
-# default_transaction_read_only makes every statement below incapable of
-# writing, whatever it says.
 export PGSSLROOTCERT=system
-export PGOPTIONS='-c default_transaction_read_only=on'
+
+# default_transaction_read_only makes every psql statement THIS script runs
+# incapable of writing, whatever it says. It is deliberately NOT exported:
+# `launch` execs the dev server from here, so an exported copy was inherited by
+# the app, and every write it tried came back a 500 (`PreventCommandIfReadOnly`)
+# — the skill's own "Writing to production" protocol could not be carried out.
+# What proves a run changed nothing is the Write Ledger, not this variable.
+PSQL_RO_OPTIONS='-c default_transaction_read_only=on'
 
 db_url() {
   # `.env` holds unquoted values with spaces in them, so sourcing it breaks.
@@ -54,7 +59,7 @@ db_url() {
 
 db_host() { db_url | sed -e 's#.*@##' -e 's#/.*##'; }
 
-psql_ro() { psql "$(db_url)" -At -F'|' "$@"; }
+psql_ro() { PGOPTIONS="$PSQL_RO_OPTIONS" psql "$(db_url)" -At -F'|' "$@"; }
 
 # --- finding a run --------------------------------------------------------
 # A run is live when the server it recorded is still alive. That is the only
