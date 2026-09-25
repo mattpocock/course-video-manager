@@ -180,11 +180,37 @@ to bottom rather than by id.
 
 An unknown or archived --video is a not-found (exit 2).
 
+Flags:
+  --with-chapters  also print the Video's Clip Mockup Chapters — the dividers
+                   that group the Animatic — interleaved in the same order, and
+                   add two fields to EVERY row:
+
+                   'type'      'clipMockup' or 'clipMockupChapter'. The
+                               discriminator: a reader never has to guess which
+                               kind of row it holds, because the two shapes
+                               differ (a Chapter has a 'name', no 'line', no
+                               frame and no duration).
+                   'position'  the '--at' number, 1..N over the CLIP MOCKUPS
+                               ONLY, and null on a Chapter.
+
+                   READ 'position' — NEVER COUNT THE LINES. Chapter rows sit in
+                   this stream, so a line count runs ahead of the real position
+                   and gives the wrong '--at' number for every Clip Mockup
+                   below the first divider. That wrong number is what you would
+                   pass to 'update', 'move' or 'delete', and what you would say
+                   back to the author. The field makes the mistake impossible.
+
+Without --with-chapters the stream is unchanged: Clip Mockups only, and no
+'type' or 'position' field. So every pipeline written against it keeps working,
+including the run-time sum below.
+
 Examples:
   cvm clip-mockup list --video vid_123
   cvm clip-mockup list --video vid_123 | jq -r .line
   cvm clip-mockup list --video vid_123 | jq -s length
-  cvm clip-mockup list --video vid_123 | jq -s 'map(.durationSeconds) | add'`;
+  cvm clip-mockup list --video vid_123 | jq -s 'map(.durationSeconds) | add'
+  cvm clip-mockup list --video vid_123 --with-chapters
+  cvm clip-mockup list --video vid_123 --with-chapters | jq -r '"\\(.position // "--") \\(.line // .name)"'`;
 
 export const GET_HELP = `READS. Read one or more Clip Mockups back by id. Variadic: pass as many ids
 as you like.

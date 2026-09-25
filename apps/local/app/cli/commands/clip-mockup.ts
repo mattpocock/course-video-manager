@@ -29,6 +29,7 @@ import {
   requireLocalMachine,
 } from "@/cli/local-only";
 import { resolveBeforeAnimaticItemId } from "./animatic-position";
+import { listAnimaticRows } from "./animatic-rows";
 import {
   HELP,
   ADD_HELP,
@@ -106,6 +107,17 @@ const afterOption = Options.text("after").pipe(
     "Place immediately after this Clip Mockup id (mutually exclusive with --before)."
   ),
   Options.optional
+);
+
+/**
+ * Off by default, and that default is a contract: without this flag the stream
+ * is byte for byte what it always was. With it, every row gains `type` and
+ * `position` and the Chapter rows are interleaved.
+ */
+const withChaptersOption = Options.boolean("with-chapters").pipe(
+  Options.withDescription(
+    "Interleave the Video's Clip Mockup Chapters into the stream, and add 'type' and 'position' to every row."
+  )
 );
 
 const optionalIdArg = Args.text({ name: "id" }).pipe(Args.optional);
@@ -406,13 +418,23 @@ const addCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(ADD_HELP)));
 
-const listCmd = Command.make("list", { video: videoOption }, ({ video }) =>
-  Effect.gen(function* () {
-    yield* requireLocalFrameStore;
-    const row = yield* requireActiveVideo(video);
-    const svc = yield* ClipMockupOperationsService;
-    yield* emitNdjson(yield* svc.listClipMockupsByVideoId(row.id));
-  })
+const listCmd = Command.make(
+  "list",
+  { video: videoOption, withChapters: withChaptersOption },
+  ({ video, withChapters }) =>
+    Effect.gen(function* () {
+      yield* requireLocalFrameStore;
+      const row = yield* requireActiveVideo(video);
+      // Two streams, and the bare one stays exactly as it was: no extra field
+      // and no extra row. Every `jq` pipeline in the animatic skill reads it,
+      // down to `map(.durationSeconds) | add` for a Video's run time.
+      if (withChapters) {
+        yield* emitNdjson(yield* listAnimaticRows(row.id));
+        return;
+      }
+      const svc = yield* ClipMockupOperationsService;
+      yield* emitNdjson(yield* svc.listClipMockupsByVideoId(row.id));
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const getCmd = Command.make("get", { ids: idsArg }, ({ ids }) =>
