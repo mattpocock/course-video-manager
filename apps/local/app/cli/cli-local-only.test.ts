@@ -114,7 +114,13 @@ describe("on a box that is not the author's", () => {
         "A line.",
       ],
       ["clip-mockup", "get", "cm_1"],
+      ["clip-mockup", "update", "--say", "A line.", "cm_1"],
+      ["clip-mockup", "update", "--image", "/tmp/whatever.png", "cm_1"],
+      ["clip-mockup", "move", "--before", "cm_2", "cm_1"],
       ["clip-mockup", "delete", "cm_1"],
+      // The --at addressing form reads the Animatic to count positions, so it
+      // is refused for the same reason the bare-id form is.
+      ["clip-mockup", "delete", "--video", s.standaloneActiveId, "--at", "1"],
     ];
 
     for (const argv of invocations) {

@@ -322,6 +322,15 @@ const clipMockupService = (client: RpcClient) =>
     createClipMockup: rpcMethod((json) =>
       client.rpc["clip-mockup"].createClipMockup.$post({ json })
     ),
+    setClipMockupLine: rpcMethod((json) =>
+      client.rpc["clip-mockup"].setClipMockupLine.$post({ json })
+    ),
+    setClipMockupImagePath: rpcMethod((json) =>
+      client.rpc["clip-mockup"].setClipMockupImagePath.$post({ json })
+    ),
+    moveClipMockup: rpcMethod((json) =>
+      client.rpc["clip-mockup"].moveClipMockup.$post({ json })
+    ),
     deleteClipMockup: rpcMethod((json) =>
       client.rpc["clip-mockup"].deleteClipMockup.$post({ json })
     ),

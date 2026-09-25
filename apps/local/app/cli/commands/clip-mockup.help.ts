@@ -47,11 +47,20 @@ Output fields: id, videoId, line (the spoken words), imagePath (relative to
 line's speech; null until speech synthesis fills it), order (fractional sort
 key), archived, createdAt.
 
+TWO WAYS TO ADDRESS ONE. 'update', 'move' and 'delete' each take either a bare
+<id> or '--video <id> --at <position>'. A position counts from 1 and is exactly
+the position the Clip Mockup has in 'list' and in the player — because the
+author watching the Animatic sees a number, not a uuid, and says "number 14 is
+too dense". Giving both an <id> and --at is invalid input (exit 3), and so is a
+position outside the list, which says how long the list actually is.
+
 Verbs (flags come BEFORE any positional <id> — a flag after it exits 3):
   add    --video <id> --image <path> --say "…"  Add a frame + line at the end
   list   --video <id>                           The Video's Animatic, in order
   get    <id…>                                  Read one or more back
-  delete <id>                                   Archive (delete) one
+  update <id> | --video <id> --at <n>           Swap the frame and/or the line
+  move   <id> | --video <id> --at <n>           Reorder within the Video
+  delete <id> | --video <id> --at <n>           Archive (delete) one
 
 Every write echoes the affected row as one pretty JSON object.
 
@@ -59,7 +68,23 @@ Examples:
   cvm clip-mockup add --video vid_123 --image /tmp/frame-01.png --say "Here's the problem."
   cvm clip-mockup list --video vid_123
   cvm clip-mockup get cm_456
+  cvm clip-mockup update --say "Shorter." --video vid_123 --at 14
+  cvm clip-mockup move --video vid_123 --at 14 --before cm_456
   cvm clip-mockup delete cm_456`;
+
+/**
+ * The addressing rules are identical for update / move / delete, so they are
+ * written once and appended to each of those three verbs' help.
+ */
+export const ADDRESSING_HELP = `Addressing — pick ONE of:
+  <id>                        the Clip Mockup id, as printed by 'list'/'get'.
+  --video <id> --at <n>       the Clip Mockup at POSITION n of that Video's
+                              Animatic, counting from 1, in exactly the order
+                              'list' and the player show. This is the number
+                              the author reads off the screen.
+Both at once is invalid input (exit 3), as is --at without --video, --video
+beside a bare <id>, and a position outside the list — that last one says how
+many Clip Mockups the Video actually has.`;
 
 export const ADD_HELP = `WRITES. Add a Clip Mockup to the end of a Video's Animatic. Requires --video,
 --image and --say; any of them missing is invalid input (exit 3).
@@ -92,9 +117,10 @@ object per line; an empty Animatic prints nothing and exits 0). Requires
 Rows sort by 'order' ascending — playback order. Archived (deleted) Clip
 Mockups are always excluded; there is no flag to include them.
 
-The line's POSITION in this stream is how the author addresses one in
-conversation ("number 14 is too dense"), so read it top to bottom rather than
-by id.
+The line's POSITION in this stream, counted from 1, is how the author addresses
+one in conversation ("number 14 is too dense") — pass it straight back as
+'--video <id> --at 14' to 'update', 'move' or 'delete'. So read this stream top
+to bottom rather than by id.
 
 An unknown or archived --video is a not-found (exit 2).
 
@@ -117,7 +143,8 @@ Examples:
   cvm clip-mockup get cm_456
   cvm clip-mockup get cm_456 cm_789 | jq -r .imagePath`;
 
-export const DELETE_HELP = `WRITES. Delete (archive) a single Clip Mockup by id. For Clip Mockups,
+export const DELETE_HELP = `WRITES. Delete (archive) a single Clip Mockup, addressed either by a bare
+<id> or by '--video <id> --at <position>'. For Clip Mockups,
 archived == deleted: it leaves the Animatic and can never be listed or
 addressed again (there is no restore verb).
 
@@ -128,5 +155,61 @@ Immediate — there is no confirmation prompt (this is an agent-facing tool).
 Echoes the now-archived row ({ ..., archived: true }). An unknown or
 already-deleted id is a not-found (exit 2).
 
-Example:
-  cvm clip-mockup delete cm_456`;
+${ADDRESSING_HELP}
+
+Examples:
+  cvm clip-mockup delete cm_456
+  cvm clip-mockup delete --video vid_123 --at 14`;
+
+export const UPDATE_HELP = `WRITES. Change an existing Clip Mockup's frame, its line, or both. At least
+one of --image / --say is required; neither is invalid input (exit 3).
+
+The two fields are INDEPENDENT. --image swaps the picture and leaves the line
+exactly as it was; --say rewrites the line and leaves the picture alone. There
+is no verb that moves a Clip Mockup between Videos: its frame lives under its
+Video's directory, so the row cannot leave the picture behind.
+
+Flags:
+  --image <path>   a new PNG on the local filesystem. Copied into
+                   {CLIP_MOCKUP_DIR}/{lineageId}/ under a FRESH name and the
+                   row repointed at it, exactly as 'add' does. The old frame is
+                   left on disk — the row is the state. A missing or unreadable
+                   source is invalid input (exit 3).
+  --say "<text>"   the new spoken line. Must not be empty.
+
+'durationSeconds' is deliberately NOT touched: it is the measured length of the
+line's speech, so only whatever synthesises that speech may write it.
+
+${ADDRESSING_HELP}
+
+Echoes the updated row as one pretty JSON object.
+
+Examples:
+  cvm clip-mockup update --say "Shorter, and it lands harder." cm_456
+  cvm clip-mockup update --image ./frames/14-v2.png --video vid_123 --at 14
+  cvm clip-mockup update --image ./f.png --say "Both." --video vid_123 --at 14`;
+
+export const MOVE_HELP = `WRITES. Reorder a Clip Mockup WITHIN its Video's Animatic. Ordering only: no
+file on disk is read, written or moved, and the line, the frame and the
+duration are all untouched.
+
+Position it with the same anchors 'beat move' uses:
+  --before <id>    place it immediately before that Clip Mockup.
+  --after <id>     place it immediately after that Clip Mockup.
+  neither          move it to the END of the Animatic.
+--before and --after together is invalid input (exit 3). An anchor id that is
+not an active Clip Mockup of this Video is a not-found (exit 2). Anchors are
+ids, not positions — read them off 'list' alongside the position you are
+moving.
+
+Moving does not renumber anything the author has to track: 'list' and the
+player re-read the new order, so the positions simply are what they now show.
+
+${ADDRESSING_HELP}
+
+Echoes the moved row as one pretty JSON object.
+
+Examples:
+  cvm clip-mockup move --before cm_123 cm_456
+  cvm clip-mockup move --after cm_123 --video vid_123 --at 14
+  cvm clip-mockup move --video vid_123 --at 1`;

@@ -107,6 +107,87 @@ export const createClipMockupOperations = (db: Database) => {
   });
 
   /**
+   * Replace a Clip Mockup's spoken line. `durationSeconds` is deliberately
+   * left alone here: it is the MEASURED length of the line's speech, so only
+   * whatever synthesises that speech may write it, and a caller that changes
+   * the words without re-synthesising must be able to see that the duration
+   * has gone stale rather than have it silently zeroed.
+   */
+  const setClipMockupLine = Effect.fn("setClipMockupLine")(function* (
+    id: string,
+    line: string
+  ) {
+    yield* makeDbCall(() =>
+      db.update(clipMockups).set({ line }).where(eq(clipMockups.id, id))
+    );
+    return yield* requireClipMockup(id);
+  });
+
+  /**
+   * Point a Clip Mockup at a different frame. `imagePath` is relative to
+   * `{CLIP_MOCKUP_DIR}/{lineageId}/`, and this service never checks that
+   * anything is there — the caller that owns the disk writes the PNG first and
+   * only then swaps the path. The old frame is left where it is: the row is
+   * the state, and an orphan PNG costs nothing.
+   */
+  const setClipMockupImagePath = Effect.fn("setClipMockupImagePath")(function* (
+    id: string,
+    imagePath: string
+  ) {
+    yield* makeDbCall(() =>
+      db.update(clipMockups).set({ imagePath }).where(eq(clipMockups.id, id))
+    );
+    return yield* requireClipMockup(id);
+  });
+
+  /**
+   * Reposition a Clip Mockup WITHIN its own Video, computing a fractional key
+   * strictly between its new neighbours. `beforeClipMockupId === null` moves
+   * it to the end. The same shape as {@link moveBeat} minus the target Video:
+   * a Clip Mockup's frame lives under its Video's `lineageId`, so carrying a
+   * row into another Video would leave its picture behind. Reordering touches
+   * `order` and nothing else — no file is read or written.
+   */
+  const moveClipMockup = Effect.fn("moveClipMockup")(function* (
+    id: string,
+    beforeClipMockupId: string | null
+  ) {
+    const row = yield* requireClipMockup(id);
+
+    // The Video's Animatic as it would look without the moved row.
+    const existing = yield* listClipMockupsByVideoId(row.videoId);
+    const remaining = existing.filter((r) => r.id !== id);
+
+    let prevOrder: string | null;
+    let nextOrder: string | null;
+    if (beforeClipMockupId === null) {
+      prevOrder = remaining.at(-1)?.order ?? null;
+      nextOrder = null;
+    } else {
+      const idx = remaining.findIndex((r) => r.id === beforeClipMockupId);
+      if (idx === -1) {
+        return yield* new NotFoundError({
+          type: "clipMockup",
+          params: { id: beforeClipMockupId },
+        });
+      }
+      prevOrder = remaining[idx - 1]?.order ?? null;
+      nextOrder = remaining[idx]!.order;
+    }
+
+    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
+
+    yield* makeDbCall(() =>
+      db
+        .update(clipMockups)
+        .set({ order: order! })
+        .where(eq(clipMockups.id, id))
+    );
+
+    return yield* requireClipMockup(id);
+  });
+
+  /**
    * Archive a Clip Mockup. As with a Beat, archived == deleted: it leaves the
    * Animatic and there is no restore verb. The PNG on disk is deliberately
    * left alone — the row is the state, and an orphan frame costs nothing.
@@ -127,6 +208,9 @@ export const createClipMockupOperations = (db: Database) => {
     listClipMockupsByVideoId,
     getClipMockupById: requireClipMockup,
     createClipMockup,
+    setClipMockupLine,
+    setClipMockupImagePath,
+    moveClipMockup,
     deleteClipMockup,
   };
 };
