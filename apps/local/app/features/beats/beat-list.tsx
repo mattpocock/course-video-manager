@@ -86,6 +86,7 @@ export function BeatList({
   isReadOnly,
   showDescriptions,
   showAddButton = true,
+  showLearningGoals = true,
   courseId,
   sectionId,
   sectionLearningGoals,
@@ -111,6 +112,14 @@ export function BeatList({
    * `isReadOnly` — that branch never shows the button either way.
    */
   showAddButton?: boolean;
+  /**
+   * Show each row's Learning Goal control — the picker, and the bare warning
+   * icon that stands in for it where the caller has no Section context. Off
+   * (the course view's display settings, see `course-view-visibility.tsx`)
+   * leaves a Beat row as just its title, for a phase of work that isn't
+   * about which Learning Goal a Beat serves. Defaults on.
+   */
+  showLearningGoals?: boolean;
   courseId?: string;
   sectionId?: string;
   /**
@@ -140,6 +149,7 @@ export function BeatList({
             nextBeatId={null}
             isReadOnly
             showDescription={showDescription}
+            showLearningGoals={showLearningGoals}
             submitEvent={submitEvent}
             courseId={courseId}
             sectionId={sectionId}
@@ -166,6 +176,7 @@ export function BeatList({
                 nextBeatId={beats[index + 1]?.id ?? null}
                 isReadOnly={false}
                 showDescription={showDescription}
+                showLearningGoals={showLearningGoals}
                 submitEvent={submitEvent}
                 courseId={courseId}
                 sectionId={sectionId}
@@ -213,39 +224,38 @@ function AddBeatButton({ videoId }: { videoId: string }) {
   );
 }
 
-function BeatRow({
+/**
+ * A Beat row's Learning Goal control.
+ *
+ * An editable picker when the caller has Section context AND editing is
+ * allowed; otherwise (the video editor's Beats tab, the pitch page, or a
+ * capture in progress) a plain warning icon, so a Beat serving no Learning
+ * Goal is still flagged, just not fixable right here.
+ *
+ * Nothing at all when `showLearningGoals` is off (the course view's display
+ * settings, see `course-view-visibility.tsx`): that checkbox hides the whole
+ * Beat <-> Learning Goal link, its warning included, so a phase of work that
+ * isn't about Learning Goals gets a Beat row that is just its title.
+ */
+function BeatLearningGoalsControl({
   beat,
-  nextBeatId,
   isReadOnly,
-  showDescription,
-  submitEvent,
-  courseId,
-  sectionId,
+  showLearningGoals,
   sectionLearningGoals,
+  submitEvent,
 }: {
   beat: BeatListBeat;
-  nextBeatId: string | null;
   isReadOnly: boolean;
-  showDescription: boolean;
-  submitEvent: (event: CourseEditorEvent) => void;
-  courseId?: string;
-  sectionId?: string;
+  showLearningGoals: boolean;
   sectionLearningGoals?: BeatLearningGoalOption[];
+  submitEvent: (event: CourseEditorEvent) => void;
 }) {
-  const kind = beat.kind as BeatKind;
-  const Icon = BEAT_KIND_ICONS[kind];
-  const requestCreateBeat = useRequestCreateBeat();
-  const [completed, setCompleted] = useLocalStorageBoolean(
-    `beat-completion:${beat.id}`
-  );
+  if (!showLearningGoals) return null;
+
   const warnings = beat.warnings ?? [];
 
-  // Editable picker when the caller has Section context AND editing is
-  // allowed; otherwise (the video editor's Beats tab, the pitch page, or a
-  // capture in progress) fall back to a plain warning icon, so a Beat
-  // serving no Learning Goal is never silent, just not fixable right here.
-  const learningGoalsControl =
-    sectionLearningGoals && !isReadOnly ? (
+  if (sectionLearningGoals && !isReadOnly) {
+    return (
       <BeatLearningGoalsPicker
         selectedIds={beat.learningGoalIds ?? []}
         options={sectionLearningGoals}
@@ -258,24 +268,60 @@ function BeatRow({
           })
         }
       />
-    ) : warnings.length > 0 ? (
-      <span
-        title={warnings.map((w) => BEAT_WARNING_LABELS[w.kind]).join("; ")}
-        className="shrink-0"
-      >
-        <AlertTriangle className="w-3 h-3 text-amber-600" />
-      </span>
-    ) : null;
+    );
+  }
+
+  if (warnings.length === 0) return null;
+
+  return (
+    <span
+      title={warnings.map((w) => BEAT_WARNING_LABELS[w.kind]).join("; ")}
+      className="shrink-0"
+    >
+      <AlertTriangle className="w-3 h-3 text-amber-600" />
+    </span>
+  );
+}
+
+function BeatRow({
+  beat,
+  nextBeatId,
+  isReadOnly,
+  showDescription,
+  showLearningGoals,
+  submitEvent,
+  courseId,
+  sectionId,
+  sectionLearningGoals,
+}: {
+  beat: BeatListBeat;
+  nextBeatId: string | null;
+  isReadOnly: boolean;
+  showDescription: boolean;
+  showLearningGoals: boolean;
+  submitEvent: (event: CourseEditorEvent) => void;
+  courseId?: string;
+  sectionId?: string;
+  sectionLearningGoals?: BeatLearningGoalOption[];
+}) {
+  const kind = beat.kind as BeatKind;
+  const Icon = BEAT_KIND_ICONS[kind];
+  const requestCreateBeat = useRequestCreateBeat();
+  const [completed, setCompleted] = useLocalStorageBoolean(
+    `beat-completion:${beat.id}`
+  );
 
   const titleRow = (
-    <div className="flex items-center gap-1.5 text-sm text-foreground/80 cursor-context-menu">
+    <div className="flex items-start gap-1.5 text-sm text-foreground/80 cursor-context-menu">
       <Checkbox
         checked={completed}
         onCheckedChange={(checked) => setCompleted(checked === true)}
         onClick={(e) => e.stopPropagation()}
-        className="shrink-0"
+        className="shrink-0 mt-0.5"
       />
-      {Icon && <Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+      {Icon && (
+        <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+      )}
       <BeatTitleEditor
         title={beat.title}
         placeholder={BEAT_KIND_LABELS[kind]}
@@ -284,7 +330,13 @@ function BeatRow({
           submitEvent({ type: "rename-beat", beatId: beat.id, title })
         }
       />
-      {learningGoalsControl}
+      <BeatLearningGoalsControl
+        beat={beat}
+        isReadOnly={isReadOnly}
+        showLearningGoals={showLearningGoals}
+        sectionLearningGoals={sectionLearningGoals}
+        submitEvent={submitEvent}
+      />
     </div>
   );
 

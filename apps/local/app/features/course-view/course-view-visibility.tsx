@@ -22,6 +22,7 @@ export type VisibilityKey =
   | "videos"
   | "beats"
   | "beatDescriptions"
+  | "beatLearningGoals"
   | "addBeatButton";
 
 export type VisibilityNode = {
@@ -61,6 +62,11 @@ export const VISIBILITY_TREE: VisibilityNode[] = [
   { key: "videos", label: "Videos", parent: "lessons" },
   { key: "beats", label: "Beats", parent: "videos" },
   { key: "beatDescriptions", label: "Beat descriptions", parent: "beats" },
+  {
+    key: "beatLearningGoals",
+    label: "Beat learning goals",
+    parent: "beats",
+  },
   { key: "addBeatButton", label: "Add beat button", parent: "beats" },
 ];
 
@@ -85,6 +91,7 @@ export const DEFAULT_VISIBILITY: Record<VisibilityKey, boolean> = {
   videos: true,
   beats: true,
   beatDescriptions: false,
+  beatLearningGoals: true,
   addBeatButton: true,
 };
 

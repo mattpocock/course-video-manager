@@ -44,3 +44,6 @@ video-files
 .cutover/
 packages/core/dist/
 .vercel
+
+# Evidence from the verify-cvm skill — kept on disk, never committed
+.verify/

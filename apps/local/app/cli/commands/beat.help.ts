@@ -34,7 +34,9 @@ Positioning (add & move): pick a place with an anchor, not an index —
 Every Beat is expected to serve at least one Learning Goal of its Section (see
 'cvm learning-goal --help'): a Section that has any Learning Goals surfaces a
 warning in the UI for a Beat that serves none, and for a Learning Goal no Beat
-yet serves. Attach/detach Learning Goals with 'update --learning-goal' below.
+yet serves. Attach Learning Goals at creation with 'add --learning-goal', or
+attach/detach them later with 'update --learning-goal' /
+'update --clear-learning-goals' below.
 
 Output fields: id, videoId, kind, title, description (never published), order
 (fractional sort key), learningGoalIds (Learning Goals this Beat serves),
@@ -43,7 +45,8 @@ archived, createdAt.
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   list   --video|--lesson|--section <id>  An active hierarchy scope's ordered plan
   add    --video|--pitch <id> [flags]  Create a Beat in a Video's plan
-                                   (--pitch targets a pitch's video)
+                                   (--pitch targets a pitch's video;
+                                   --learning-goal links Goals up front)
   update [flags] <id>              Patch title/description/kind/learning goals
   move   --video <id> [flags] <id> Reorder, or move to another Video
   delete <id>                      Archive (delete) a Beat
@@ -54,7 +57,7 @@ Examples:
   cvm beat list --video vid_123
   cvm beat list --lesson les_123
   cvm beat list --section sec_123
-  cvm beat add --video vid_123 --kind quest --title "Try it"
+  cvm beat add --video vid_123 --kind quest --title "Try it" --learning-goal goal_1
   cvm beat update --title "Setup" --kind walkthrough seg_456
   cvm beat move --video vid_123 --after seg_789 seg_456
   cvm beat delete seg_456`;
@@ -108,15 +111,27 @@ Flags:
   --before <id>       place immediately before that beat.
   --after <id>        place immediately after that beat.
                       (omit both --before/--after to append to the end.)
+  --learning-goal <id> attach this Learning Goal to the new Beat (repeatable;
+                      pass the flag once per Goal). Every Beat is expected to
+                      serve at least one Learning Goal, so prefer this to a
+                      follow-up 'beat update --learning-goal' — one call, not
+                      two. Same ids, same validation and same errors as
+                      'update --learning-goal': an unknown or archived
+                      Learning Goal id is a not-found (exit 2), and it is
+                      checked BEFORE the Beat is created, so a bad id leaves
+                      no Beat behind.
 
-Echoes the created Beat row (including its new id and computed order) as one
-pretty JSON object. --before/--after are mutually exclusive; an anchor that is
-not a beat of the target video is a not-found (exit 2).
+Echoes the created Beat row (including its new id, computed order and
+learningGoalIds) as one pretty JSON object. --before/--after are mutually
+exclusive; an anchor that is not a beat of the target video is a not-found
+(exit 2).
 
 Examples:
   cvm beat add --video vid_123
   cvm beat add --video vid_123 --kind quest --title "Try it" --description "..."
   cvm beat add --video vid_123 --before seg_456
+  cvm beat add --video vid_123 --title "Setup" --learning-goal goal_1
+  cvm beat add --video vid_123 --learning-goal goal_1 --learning-goal goal_2
   cvm beat add --pitch pit_123 --kind quest --title "Try it"`;
 
 export const UPDATE_HELP = `Patch a single Beat's content by id. At least one of --title / --description

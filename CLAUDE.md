@@ -12,6 +12,10 @@ Canonical defaults, except `ready-for-agent` is spelled `Sandcastle` in this rep
 
 Single-context layout: `CONTEXT.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.
 
+### Verifying a change in the real app
+
+`.claude/skills/verify-cvm/` drives the app in a browser against the PRODUCTION database and leaves a **Write Ledger** proving what it did or did not modify. Reach for it before opening a PR that changes a page, or to reproduce a UI bug.
+
 ### Repository layout
 
 A Turborepo monorepo. Two apps: `apps/local` is today's application, and `apps/remote` is the deployed RPC API (a Hono app on Vercel — see [apps/remote/README.md](./apps/remote/README.md)). Three workspace packages under `packages/`:

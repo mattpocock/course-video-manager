@@ -112,6 +112,7 @@ function VideoBeatNode({
           isReadOnly={isReadOnly}
           showDescriptions={visibility.beatDescriptions}
           showAddButton={visibility.addBeatButton}
+          showLearningGoals={visibility.beatLearningGoals}
           courseId={videoMenuProps.courseId}
           sectionId={videoMenuProps.section.id}
           sectionLearningGoals={videoMenuProps.section.learningGoals}

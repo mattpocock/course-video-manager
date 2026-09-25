@@ -219,7 +219,11 @@ export default function DeliverablesCalendarPage() {
   const handleBufferChange = (n: number) => {
     setBufferWeeks(n);
     if (typeof window !== "undefined") {
-      localStorage.setItem(BUFFER_STORAGE_KEY, String(n));
+      try {
+        localStorage.setItem(BUFFER_STORAGE_KEY, String(n));
+      } catch {
+        // Storage full or blocked; the buffer still holds for this session.
+      }
     }
   };
 

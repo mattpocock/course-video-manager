@@ -72,6 +72,13 @@ PUBLISH READINESS
   as exportsRequired, apart from the blocking lists. Exportedness is read
   straight off the filesystem; the CVM server does not need to be up.
 
+SECTION LINT
+  'cvm section lint <sectionId>' is the PLANNING-stage counterpart: it checks one
+  Section's plan — orphaned Learning Goals, Beats serving no Learning Goal, stub
+  Beats with no description, and quest pacing across its Lessons. Findings are
+  DATA, not a failure: it exits 0 either way, so branch on 'clean'/'failedChecks'.
+  It blocks no publish, and 'course readiness' reports none of it.
+
 ARCHIVED
   'list' shows ACTIVE records only. Only 'course' and standalone 'video' have a
   viewable archive (use --archived to include it). For every other noun,

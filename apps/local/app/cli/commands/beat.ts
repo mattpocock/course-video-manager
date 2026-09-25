@@ -105,6 +105,13 @@ const learningGoalOption = Options.text("learning-goal").pipe(
   Options.repeated
 );
 
+const learningGoalAddOption = Options.text("learning-goal").pipe(
+  Options.withDescription(
+    "Attach a Learning Goal by id at creation time (repeatable)."
+  ),
+  Options.repeated
+);
+
 const clearLearningGoalsOption = Options.boolean("clear-learning-goals").pipe(
   Options.withDescription(
     "Detach every Learning Goal from this Beat (mutually exclusive with --learning-goal)."
@@ -311,8 +318,9 @@ const addCmd = Command.make(
     description: descriptionOption,
     before: beforeOption,
     after: afterOption,
+    learningGoal: learningGoalAddOption,
   },
-  ({ video, pitch, kind, title, description, before, after }) =>
+  ({ video, pitch, kind, title, description, before, after, learningGoal }) =>
     Effect.gen(function* () {
       const videoId = yield* resolveTargetVideoId({ video, pitch });
       const beforeBeatId = yield* resolveBeforeBeatId({
@@ -320,6 +328,10 @@ const addCmd = Command.make(
         before,
         after,
       });
+      // Validate every --learning-goal BEFORE the Beat exists: a bad id must
+      // fail the whole verb, not leave behind an unlinked Beat the caller
+      // then has to find and delete.
+      const learningGoalIds = yield* resolveLearningGoalIds(learningGoal);
       const svc = yield* BeatOperationsService;
       const beat = yield* svc.createBeat(
         videoId,
@@ -328,7 +340,11 @@ const addCmd = Command.make(
         Option.getOrUndefined(title) ?? "",
         Option.getOrUndefined(description) ?? ""
       );
-      yield* emitObject(beat);
+      if (learningGoalIds.length === 0) {
+        return yield* emitObject(beat);
+      }
+      const linked = yield* svc.setBeatLearningGoals(beat.id, learningGoalIds);
+      yield* emitObject(linked);
     })
 ).pipe(Command.withDescription(detail(ADD_HELP)));
 

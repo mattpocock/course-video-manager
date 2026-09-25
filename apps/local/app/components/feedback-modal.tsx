@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocalStorageBoolean } from "@/hooks/use-local-storage";
 import { useFetcher, useLocation } from "react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 const ADD_MORE_STORAGE_KEY = "feedback-modal-add-more";
@@ -25,12 +26,7 @@ export function FeedbackModal(props: {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevState = useRef(fetcher.state);
-  const [addMore, setAddMore] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(ADD_MORE_STORAGE_KEY) === "true";
-    }
-    return false;
-  });
+  const [addMore, setAddMore] = useLocalStorageBoolean(ADD_MORE_STORAGE_KEY);
 
   const focusTextarea = useCallback(() => {
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -124,13 +120,7 @@ export function FeedbackModal(props: {
             <Checkbox
               id="feedback-add-more"
               checked={addMore}
-              onCheckedChange={(checked) => {
-                const value = checked === true;
-                setAddMore(value);
-                if (typeof localStorage !== "undefined") {
-                  localStorage.setItem(ADD_MORE_STORAGE_KEY, String(value));
-                }
-              }}
+              onCheckedChange={(checked) => setAddMore(checked === true)}
             />
             <Label htmlFor="feedback-add-more" className="text-sm font-normal">
               Add more

@@ -27,7 +27,11 @@ export const useSilenceLength = () => {
   const setSilenceLength = useCallback((next: SilenceLength) => {
     setSilenceLengthState(next);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, next);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, next);
+      } catch {
+        // Storage full or blocked; the choice still holds for this session.
+      }
     }
   }, []);
 

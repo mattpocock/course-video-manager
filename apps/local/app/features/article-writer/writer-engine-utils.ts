@@ -1,4 +1,5 @@
 import type { Mode } from "./types";
+import { hasLocalStorage } from "@/hooks/use-local-storage";
 
 export type WriterFieldId =
   | "ai-hero-body"
@@ -46,7 +47,7 @@ export function loadFieldMessages(
   fieldId: WriterFieldId,
   mode: Mode
 ): unknown[] {
-  if (typeof localStorage === "undefined") return [];
+  if (!hasLocalStorage()) return [];
   try {
     const saved = localStorage.getItem(
       getFieldMessagesStorageKey(videoId, fieldId, mode)
@@ -63,7 +64,7 @@ export function saveFieldMessages(
   mode: Mode,
   messages: unknown[]
 ): void {
-  if (typeof localStorage === "undefined") return;
+  if (!hasLocalStorage()) return;
   try {
     localStorage.setItem(
       getFieldMessagesStorageKey(videoId, fieldId, mode),
