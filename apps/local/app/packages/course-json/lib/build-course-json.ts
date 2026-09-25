@@ -273,6 +273,8 @@ type InputLesson = {
   title: string;
   description: string;
   authoringStatus: string | null;
+  // The Lesson Priority band the Placeholder Floor is compared against.
+  priority: number;
   videos: InputVideo[];
 };
 

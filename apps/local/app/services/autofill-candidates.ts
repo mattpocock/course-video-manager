@@ -60,7 +60,7 @@ type CandidateVideo = {
   readonly title: string;
   readonly archived: boolean;
   readonly lessonId?: string | null;
-  readonly body?: string | null;
+  readonly body: string | null;
   readonly description?: string | null;
   readonly clips: readonly CandidateClip[];
   readonly chapters: readonly {
@@ -72,6 +72,7 @@ type CandidateVideo = {
 type CandidateLesson = {
   readonly path?: string;
   readonly authoringStatus: string | null;
+  readonly priority: number;
   readonly videos: readonly CandidateVideo[];
 };
 

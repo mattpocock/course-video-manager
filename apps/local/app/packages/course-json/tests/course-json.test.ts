@@ -39,6 +39,7 @@ const makeLesson = (
   title: overrides.path,
   description: "",
   authoringStatus: null as string | null,
+  priority: 2,
   ...overrides,
 });
 

@@ -1,45 +1,25 @@
 import { describe, it, expect } from "vitest";
-import {
-  computeEffectiveSections,
-  isLessonEffective,
-  isLessonWithheld,
-} from "../index";
+import { computeEffectiveSections } from "../index";
 
-const video = (archived = false) => ({ archived });
+type TestVideo = {
+  archived: boolean;
+  body: string | null;
+  clips: readonly unknown[];
+};
+
+const video = (archived = false): TestVideo => ({
+  archived,
+  body: "Video body",
+  clips: [{ order: "a0" }],
+});
 
 const lesson = (
   authoringStatus: string | null,
-  videos: Array<{ archived: boolean }> = [video()]
-) => ({ authoringStatus, videos });
+  videos: ReturnType<typeof video>[] = [video()],
+  priority = 2
+) => ({ authoringStatus, priority, videos });
 
 const section = (lessons: ReturnType<typeof lesson>[]) => ({ lessons });
-
-describe("isLessonWithheld", () => {
-  it("withholds only a todo lesson when todo lessons are excluded", () => {
-    expect(isLessonWithheld("todo", false)).toBe(true);
-    expect(isLessonWithheld("done", false)).toBe(false);
-    expect(isLessonWithheld(null, false)).toBe(false);
-  });
-
-  it("never withholds when todo lessons are included", () => {
-    expect(isLessonWithheld("todo", true)).toBe(false);
-    expect(isLessonWithheld("done", true)).toBe(false);
-    expect(isLessonWithheld(null, true)).toBe(false);
-  });
-});
-
-describe("isLessonEffective", () => {
-  it("requires at least one active (non-archived) video", () => {
-    expect(isLessonEffective(lesson("done", [video()]), true)).toBe(true);
-    expect(isLessonEffective(lesson("done", []), true)).toBe(false);
-    expect(isLessonEffective(lesson("done", [video(true)]), true)).toBe(false);
-  });
-
-  it("excludes withheld todo lessons even with active videos", () => {
-    expect(isLessonEffective(lesson("todo", [video()]), false)).toBe(false);
-    expect(isLessonEffective(lesson("todo", [video()]), true)).toBe(true);
-  });
-});
 
 describe("computeEffectiveSections", () => {
   it("passes every lesson through when todo lessons are included", () => {
@@ -72,6 +52,16 @@ describe("computeEffectiveSections", () => {
     }
   });
 
+  // A hard gap on a Video does not elide the Lesson yet — it is still a
+  // release-stopping failure raised by collectPublishBlockers, so the walk has
+  // to hand the Lesson on for the blocker collector to find.
+  it("keeps a lesson whose video has a hard gap", () => {
+    const gapped = lesson("done", [{ ...video(), clips: [] }]);
+    expect(computeEffectiveSections([section([gapped])], true)).toHaveLength(1);
+    const noBody = lesson("done", [{ ...video(), body: null }]);
+    expect(computeEffectiveSections([section([noBody])], true)).toHaveLength(1);
+  });
+
   it("drops a section whose only lessons are withheld", () => {
     const sections = [section([lesson("todo"), lesson("todo")])];
     expect(computeEffectiveSections(sections, false)).toEqual([]);
@@ -96,16 +86,14 @@ describe("computeEffectiveSections", () => {
         id: "sec-1",
         path: "01-intro",
         lessons: [
-          { id: "l-1", authoringStatus: "done", videos: [video()] },
-          { id: "l-2", authoringStatus: "todo", videos: [video()] },
+          { id: "l-1", ...lesson("done") },
+          { id: "l-2", ...lesson("todo") },
         ],
       },
     ];
     const result = computeEffectiveSections(sections, false);
     expect(result[0]!.id).toBe("sec-1");
     expect(result[0]!.path).toBe("01-intro");
-    expect(result[0]!.lessons).toEqual([
-      { id: "l-1", authoringStatus: "done", videos: [video()] },
-    ]);
+    expect(result[0]!.lessons).toEqual([{ id: "l-1", ...lesson("done") }]);
   });
 });
