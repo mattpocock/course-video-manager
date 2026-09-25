@@ -15,7 +15,10 @@ import {
   rejectBothFlags,
   withName,
 } from "@/cli/helpers";
-import { VIDEO_FORMATS } from "@/features/videos/video-format";
+import {
+  DEFAULT_VIDEO_FORMAT,
+  VIDEO_FORMATS,
+} from "@/features/videos/video-format";
 import {
   formatProseTranscript,
   toTranscriptItems,
@@ -283,7 +286,7 @@ const createCmd = Command.make(
         yield* requirePitch(pitchId);
         const created = yield* svc.createStandaloneVideo({
           title: name,
-          format: videoFormat,
+          format: videoFormat ?? DEFAULT_VIDEO_FORMAT,
         });
         const linked = yield* svc.linkVideoToPitch({
           videoId: created.id,
@@ -294,7 +297,7 @@ const createCmd = Command.make(
 
       const created = yield* svc.createStandaloneVideo({
         title: name,
-        format: videoFormat,
+        format: videoFormat ?? DEFAULT_VIDEO_FORMAT,
       });
       yield* emitObject(created);
     })

@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeAction } from "@/services/route-action.server";
 import { data, redirect } from "react-router";
+import { DEFAULT_VIDEO_FORMAT } from "@/features/videos/video-format";
 
 const createVideoSchema = Schema.Struct({
   title: Schema.String,
@@ -21,7 +22,7 @@ export const action = makeAction({
 
       const video = yield* videoOps.createStandaloneVideo({
         title: result.title,
-        ...(result.format ? { format: result.format } : {}),
+        format: result.format ?? DEFAULT_VIDEO_FORMAT,
       });
 
       if (

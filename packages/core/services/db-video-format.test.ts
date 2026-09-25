@@ -31,11 +31,12 @@ beforeEach(async () => {
 });
 
 describe("video format", () => {
-  it.effect("defaults to landscape when not specified", () =>
+  it.effect("creates a landscape video with format landscape", () =>
     Effect.gen(function* () {
       const videoOps = yield* VideoOperationsService;
       const video = yield* videoOps.createStandaloneVideo({
         title: "Test Video",
+        format: "landscape",
       });
 
       expect(video.format).toBe("landscape");
@@ -60,6 +61,7 @@ describe("video format", () => {
       const videoOps = yield* VideoOperationsService;
       const video = yield* videoOps.createStandaloneVideo({
         title: "Test Video",
+        format: "landscape",
       });
 
       const updated = yield* videoOps.updateVideoFormat({
@@ -78,12 +80,18 @@ describe("video format", () => {
       Effect.gen(function* () {
         const videoOps = yield* VideoOperationsService;
 
-        yield* videoOps.createStandaloneVideo({ title: "Standard 1" });
+        yield* videoOps.createStandaloneVideo({
+          title: "Standard 1",
+          format: "landscape",
+        });
         yield* videoOps.createStandaloneVideo({
           title: "Short 1",
           format: "short",
         });
-        yield* videoOps.createStandaloneVideo({ title: "Standard 2" });
+        yield* videoOps.createStandaloneVideo({
+          title: "Standard 2",
+          format: "landscape",
+        });
         yield* videoOps.createStandaloneVideo({
           title: "Short 2",
           format: "short",
@@ -106,7 +114,10 @@ describe("video format", () => {
       Effect.gen(function* () {
         const videoOps = yield* VideoOperationsService;
 
-        yield* videoOps.createStandaloneVideo({ title: "Standard" });
+        yield* videoOps.createStandaloneVideo({
+          title: "Standard",
+          format: "landscape",
+        });
         yield* videoOps.createStandaloneVideo({
           title: "Short",
           format: "short",
@@ -162,6 +173,7 @@ describe("video format", () => {
 
         const archivedStandard = yield* videoOps.createStandaloneVideo({
           title: "Archived Standard",
+          format: "landscape",
         });
         const archivedShort = yield* videoOps.createStandaloneVideo({
           title: "Archived Short",

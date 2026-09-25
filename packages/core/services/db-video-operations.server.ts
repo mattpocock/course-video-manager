@@ -346,7 +346,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
   });
 
   const createStandaloneVideo = Effect.fn("createStandaloneVideo")(
-    function* (video: { title: string; format?: VideoFormat }) {
+    function* (video: { title: string; format: VideoFormat }) {
       const videoResults = yield* makeDbCall(() =>
         db
           .insert(videos)
@@ -354,7 +354,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
             title: video.title,
             originalFootagePath: "",
             lessonId: null,
-            ...(video.format ? { format: video.format } : {}),
+            format: video.format,
           })
           .returning()
       );

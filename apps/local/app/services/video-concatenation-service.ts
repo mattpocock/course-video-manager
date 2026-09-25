@@ -5,6 +5,7 @@ import { generateNKeysBetween } from "fractional-indexing";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { UnknownDBServiceError } from "@/services/db-service-errors";
+import type { VideoFormat } from "@/features/videos/video-format";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -19,15 +20,26 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
  * For each source video, all non-archived clips and chapters are copied in order.
  * Boundary chapters are inserted between each source video, named after the source.
  * The resulting video is a normal standalone video (null lessonId).
+ *
+ * `format` is the Video Format the new Video is created with. It is REQUIRED:
+ * the format drives the export frame dimensions, so a concatenation that
+ * omitted it silently produced a landscape Video out of Short sources.
  */
 export const concatenateVideos = Effect.fn("concatenateVideos")(
-  function* (opts: { name: string; sourceVideoIds: string[] }) {
-    const { name, sourceVideoIds } = opts;
+  function* (opts: {
+    name: string;
+    sourceVideoIds: string[];
+    format: VideoFormat;
+  }) {
+    const { name, sourceVideoIds, format } = opts;
     const db = yield* DrizzleService;
     const videoOps = yield* VideoOperationsService;
 
     // Create the new standalone video
-    const newVideo = yield* videoOps.createStandaloneVideo({ title: name });
+    const newVideo = yield* videoOps.createStandaloneVideo({
+      title: name,
+      format,
+    });
 
     // Track the running order position across all sources
     let prevOrder: string | null = null;

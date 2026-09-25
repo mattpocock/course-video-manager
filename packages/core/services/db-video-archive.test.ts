@@ -44,7 +44,10 @@ describe("deleteVideo", () => {
   it.effect("archives the video and returns the archived row", () =>
     Effect.gen(function* () {
       const videoOps = yield* VideoOperationsService;
-      const video = yield* videoOps.createStandaloneVideo({ title: "Doomed" });
+      const video = yield* videoOps.createStandaloneVideo({
+        title: "Doomed",
+        format: "landscape",
+      });
 
       const archived = yield* videoOps.deleteVideo(video.id);
 
@@ -84,7 +87,10 @@ describe("deleteVideo", () => {
   it.effect("is idempotent — re-archiving an archived video succeeds", () =>
     Effect.gen(function* () {
       const videoOps = yield* VideoOperationsService;
-      const video = yield* videoOps.createStandaloneVideo({ title: "Doomed" });
+      const video = yield* videoOps.createStandaloneVideo({
+        title: "Doomed",
+        format: "landscape",
+      });
 
       yield* videoOps.deleteVideo(video.id);
       // The UI's delete modal can post the same id twice (a double submit).

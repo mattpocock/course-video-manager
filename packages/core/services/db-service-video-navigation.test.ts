@@ -100,6 +100,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const vOps = yield* VideoOperationsService;
         const video = yield* vOps.createStandaloneVideo({
           title: "standalone.mp4",
+          format: "landscape",
         });
         const fetched = yield* vOps.getVideoWithClipsById(video.id);
 
@@ -113,6 +114,7 @@ describe("getNextVideoId / getPreviousVideoId", () => {
         const vOps = yield* VideoOperationsService;
         const video = yield* vOps.createStandaloneVideo({
           title: "standalone.mp4",
+          format: "landscape",
         });
         const fetched = yield* vOps.getVideoWithClipsById(video.id);
 
@@ -444,6 +446,7 @@ describe("getNextLessonWithoutVideo", () => {
       const vOps = yield* VideoOperationsService;
       const video = yield* vOps.createStandaloneVideo({
         title: "standalone.mp4",
+        format: "landscape",
       });
       const fetched = yield* vOps.getVideoWithClipsById(video.id);
 

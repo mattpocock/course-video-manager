@@ -131,6 +131,7 @@ describe("listSnapshotsWithClips", () => {
 
       const video = yield* videoOps.createStandaloneVideo({
         title: "test-video.mp4",
+        format: "landscape",
       });
       const clips = yield* clipOps.appendClips({
         videoId: video.id,
@@ -175,6 +176,7 @@ describe("listSnapshotsWithClips", () => {
 
       const video = yield* videoOps.createStandaloneVideo({
         title: "test-video.mp4",
+        format: "landscape",
       });
       const clips = yield* clipOps.appendClips({
         videoId: video.id,
@@ -344,6 +346,7 @@ describe("updateClipDiagramPin", () => {
     const clipOps = yield* ClipOperationsService;
     const video = yield* videoOps.createStandaloneVideo({
       title: "test-video.mp4",
+      format: "landscape",
     });
     const clips = yield* clipOps.appendClips({
       videoId: video.id,
@@ -452,6 +455,7 @@ describe("createSnapshotForClip", () => {
     const clipOps = yield* ClipOperationsService;
     const video = yield* videoOps.createStandaloneVideo({
       title: "test-video.mp4",
+      format: "landscape",
     });
     const clips = yield* clipOps.appendClips({
       videoId: video.id,

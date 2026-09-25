@@ -27,6 +27,15 @@ import { buildQueueTreeLines } from "@/lib/queue-tree";
 import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/_app.videos.concatenate";
+import type { VideoFormat } from "@/features/videos/video-format";
+
+/**
+ * The one Video Format this picker deals in. Every source it lists is a
+ * Landscape Video, and the concatenated Video is created Landscape, so the
+ * format is never guessed from a mixed queue. Shorts are concatenated
+ * elsewhere, not here.
+ */
+const CONCATENATE_FORMAT: VideoFormat = "landscape";
 
 export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Concatenate Videos" }];
@@ -63,7 +72,10 @@ export const loader = makeLoader({
       const videoOps = yield* VideoOperationsService;
       const courseOps = yield* CourseOperationsService;
       const [videos, courseList] = yield* Effect.all(
-        [videoOps.getAllStandaloneVideos(), courseOps.getCourses()],
+        [
+          videoOps.getAllStandaloneVideos({ format: CONCATENATE_FORMAT }),
+          courseOps.getCourses(),
+        ],
         { concurrency: "unbounded" }
       );
 
@@ -393,6 +405,7 @@ export default function Component({ loaderData }: Route.ComponentProps) {
         body: JSON.stringify({
           name: name.trim(),
           sourceVideoIds: queue.map((v) => v.id),
+          format: CONCATENATE_FORMAT,
         }),
       });
       const result = await response.json();

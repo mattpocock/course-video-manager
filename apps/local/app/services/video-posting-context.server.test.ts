@@ -68,7 +68,10 @@ const createStandaloneVideoWithClips = (
   Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     const clipOps = yield* ClipOperationsService;
-    const video = yield* videoOps.createStandaloneVideo({ title: name });
+    const video = yield* videoOps.createStandaloneVideo({
+      title: name,
+      format: "landscape",
+    });
 
     const createdClips = yield* clipOps.appendClips({
       videoId: video.id,
@@ -323,6 +326,7 @@ describe("loadVideoPostingContext", () => {
         const videoOps = yield* VideoOperationsService;
         const video = yield* videoOps.createStandaloneVideo({
           title: "empty-video",
+          format: "landscape",
         });
 
         setupVideoDir(video.lineageId);

@@ -44,7 +44,10 @@ const createVideoWithClips = (
   Effect.gen(function* () {
     const videoOps = yield* VideoOperationsService;
     const clipOps = yield* ClipOperationsService;
-    const video = yield* videoOps.createStandaloneVideo({ title: name });
+    const video = yield* videoOps.createStandaloneVideo({
+      title: name,
+      format: "landscape",
+    });
 
     // Add all clips at the start
     const createdClips = yield* clipOps.appendClips({
@@ -125,6 +128,7 @@ describe("concatenateVideos", () => {
       const result = yield* concatenateVideos({
         name: "Combined Video",
         sourceVideoIds: [video1.id, video2.id],
+        format: "landscape",
       });
 
       // Verify it's a standalone video
@@ -181,6 +185,7 @@ describe("concatenateVideos", () => {
         const result = yield* concatenateVideos({
           name: "Copy",
           sourceVideoIds: [video1.id],
+          format: "landscape",
         });
 
         const videoOps = yield* VideoOperationsService;
@@ -213,6 +218,7 @@ describe("concatenateVideos", () => {
       const result = yield* concatenateVideos({
         name: "With Sections",
         sourceVideoIds: [video1.id],
+        format: "landscape",
       });
 
       const videoOps = yield* VideoOperationsService;
@@ -261,6 +267,7 @@ describe("concatenateVideos", () => {
         const result = yield* concatenateVideos({
           name: "Three Sources",
           sourceVideoIds: [video1.id, video2.id, video3.id],
+          format: "landscape",
         });
 
         const videoOps = yield* VideoOperationsService;
@@ -303,6 +310,7 @@ describe("concatenateVideos", () => {
       const result = yield* concatenateVideos({
         name: "Single Source",
         sourceVideoIds: [video1.id],
+        format: "landscape",
       });
 
       const videoOps = yield* VideoOperationsService;
@@ -338,6 +346,7 @@ describe("concatenateVideos", () => {
         const result = yield* concatenateVideos({
           name: "Big Concat",
           sourceVideoIds: [video1.id, video2.id, video3.id],
+          format: "landscape",
         });
 
         const videoOps = yield* VideoOperationsService;
@@ -367,5 +376,28 @@ describe("concatenateVideos", () => {
           "v3.mp4",
         ]);
       }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("gives the concatenated video the format it was asked for", () =>
+    Effect.gen(function* () {
+      const short = yield* createVideoWithClips("Short One", [
+        {
+          videoFilename: "/footage/short-a.mp4",
+          startTime: 0,
+          endTime: 10,
+          text: "short clip",
+        },
+      ]);
+
+      const result = yield* concatenateVideos({
+        name: "Combined Short",
+        sourceVideoIds: [short.id],
+        format: "short",
+      });
+
+      const videoOps = yield* VideoOperationsService;
+      const newVideo = yield* videoOps.getVideoWithClipsById(result.id);
+      expect(newVideo.format).toBe("short");
+    }).pipe(Effect.provide(testLayer))
   );
 });
