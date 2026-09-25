@@ -1,5 +1,8 @@
 import { AbsoluteFill, Audio, Series } from "remotion";
-import type { AnimaticSegment } from "./animatic-timeline";
+import {
+  CLIP_MOCKUP_PREMOUNT_IN_FRAMES,
+  type AnimaticSegment,
+} from "./animatic-timeline";
 
 /**
  * The Animatic itself: every Clip Mockup's frame in order, each held for the
@@ -79,6 +82,10 @@ export const AnimaticComposition = (props: AnimaticCompositionProps) => (
         <Series.Sequence
           key={segment.mockup.id}
           durationInFrames={segment.durationInFrames}
+          // The frame is fetched and decoded during the Clip Mockup before
+          // this one, so its first frame is painted rather than black. See
+          // `CLIP_MOCKUP_PREMOUNT_IN_FRAMES`.
+          premountFor={CLIP_MOCKUP_PREMOUNT_IN_FRAMES}
         >
           <AnimaticSegmentFrame segment={segment} />
         </Series.Sequence>

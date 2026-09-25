@@ -31,6 +31,25 @@ export const CLIP_MOCKUP_GAP_SECONDS = AUTO_EDITED_END_PADDING_SECONDS;
 export const ANIMATIC_FPS = 30;
 
 /**
+ * How far ahead of its own first frame a Clip Mockup is mounted.
+ *
+ * Every frame is fetched over HTTP from `clipMockupFrameUrl`, and a
+ * `Series.Sequence` only mounts its children once the playhead is inside it —
+ * so without this the `<img>` for Clip Mockup N+1 is created at the exact
+ * frame it must already be painted on, and the browser shows the black
+ * behind it while it fetches and decodes. That black reads as the 0.08 s gap
+ * leaking into the picture, which it is not: the gap is audio-only, and the
+ * frame is held right through it.
+ *
+ * Remotion's `premountFor` mounts the sequence early at `opacity: 0`, frozen
+ * on its first frame, and pauses premounted `<Audio>` — so the speech does
+ * not start early and the gap keeps meaning what it means. Half a second is
+ * far more than a local fetch and decode needs, and only ever one extra Clip
+ * Mockup is mounted at a time, so a long Animatic does not grow with it.
+ */
+export const CLIP_MOCKUP_PREMOUNT_IN_FRAMES = ANIMATIC_FPS / 2;
+
+/**
  * How long a Clip Mockup with no measured speech is held for.
  *
  * `durationSeconds` is NOT NULL on the row (#1670), so nothing the loader
