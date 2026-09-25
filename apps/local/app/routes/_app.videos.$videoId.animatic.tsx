@@ -1,5 +1,4 @@
 import { Effect } from "effect";
-import { Link } from "react-router";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { clipMockupFileExists } from "@/services/clip-mockup-files";
@@ -14,16 +13,18 @@ import {
 } from "@/features/videos/video-format";
 import { AnimaticPlayer } from "@/features/animatic/animatic-player";
 import type { AnimaticClipMockup } from "@/features/animatic/animatic-timeline";
-import type { Route } from "./+types/videos.$videoId.animatic";
+import { AnimaticEmptyState } from "@/features/animatic/animatic-empty-state";
+import type { Route } from "./+types/_app.videos.$videoId.animatic";
 
 /**
  * `/videos/:videoId/animatic` — the author watches the Lesson from the
  * student's seat.
  *
- * DELIBERATELY OUTSIDE THE `_app` LAYOUT. The `handle: { fullscreen: true }`
- * escape hatch the editor's sub-routes use still leaves a floating sidebar
- * rail on screen, and an Animatic is watched, not edited: the same choice
- * `teleprompter.tsx` and the Diagram Playground make.
+ * ONE TAB OF THE VIDEO, inside the `_app` layout, so it carries the same
+ * sidebar, breadcrumb and PREVIOUS/NEXT as every other page of a Video. An
+ * Animatic is watched a Lesson at a time and the note it produces is per
+ * Video, so walking the Lesson's Videos in order is the whole motion; a page
+ * of its own outside the layout made that a trip back through the editor.
  */
 
 export const loader = makeLoader({
@@ -86,23 +87,7 @@ export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
   const { width, height } = VIDEO_FORMAT_DIMENSIONS[video.format];
 
   if (mockups.length === 0) {
-    return (
-      <main className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-black px-8 text-center text-white">
-        <h1 className="text-xl font-semibold">{video.title}</h1>
-        <p className="max-w-lg text-sm text-white/70">
-          This Video has no Clip Mockups yet, so there is no Animatic to watch.
-          Author them with{" "}
-          <code className="font-mono">cvm clip-mockup add</code> and this page
-          will play them in order.
-        </p>
-        <Link
-          to={`/videos/${video.id}/edit`}
-          className="rounded-md border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
-        >
-          Back to the editor
-        </Link>
-      </main>
-    );
+    return <AnimaticEmptyState videoId={video.id} />;
   }
 
   return <AnimaticPlayer mockups={mockups} width={width} height={height} />;

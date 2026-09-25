@@ -38,8 +38,8 @@ export const loader = makeLoader({
       const clipMockupOps = yield* ClipMockupOperationsService;
       const video = yield* videoOps.getVideoWithLessonById(videoId);
 
-      // The header link into `/videos/:videoId/animatic` shows only when there
-      // is something to watch, so the count comes down with every tab of the
+      // The editor's compact header offers the Animatic only when there is
+      // something to watch, so the count comes down with every tab of the
       // Video. The rows themselves stay behind the Animatic route: sixty frame
       // paths are of no use to a header.
       const clipMockupCount = (yield* clipMockupOps.listClipMockupsByVideoId(
@@ -96,6 +96,7 @@ export const loader = makeLoader({
 
 type Tab =
   | "edit"
+  | "animatic"
   | "lesson"
   | "post"
   | "social"
@@ -169,7 +170,6 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
     previousVideoId,
     videoCount,
     hasExplainerFolder,
-    clipMockupCount,
   } = loaderData;
 
   const location = useLocation();
@@ -190,19 +190,21 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
   );
 
   // Determine active tab from current path
-  const activeTab: Tab = location.pathname.endsWith("/lesson")
-    ? "lesson"
-    : location.pathname.endsWith("/post")
-      ? "post"
-      : location.pathname.endsWith("/social")
-        ? "social"
-        : location.pathname.endsWith("/ai-hero")
-          ? "ai-hero"
-          : location.pathname.endsWith("/skills-changelog")
-            ? "skills-changelog"
-            : location.pathname.endsWith("/newsletter")
-              ? "newsletter"
-              : "edit";
+  const activeTab: Tab = location.pathname.endsWith("/animatic")
+    ? "animatic"
+    : location.pathname.endsWith("/lesson")
+      ? "lesson"
+      : location.pathname.endsWith("/post")
+        ? "post"
+        : location.pathname.endsWith("/social")
+          ? "social"
+          : location.pathname.endsWith("/ai-hero")
+            ? "ai-hero"
+            : location.pathname.endsWith("/skills-changelog")
+              ? "skills-changelog"
+              : location.pathname.endsWith("/newsletter")
+                ? "newsletter"
+                : "edit";
 
   const backButtonUrl = getBackButtonUrl(repoId, lessonId, format, pitchId);
 
@@ -236,21 +238,24 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Into the Animatic. A plain anchor, not a `Link`: the route sits
-                  outside the `_app` layout on purpose, and it opens in its own
-                  tab so the Video stays where it was. Shown only for a
-                  Landscape Video that has Clip Mockups — a Short has no
-                  Animatic, and an empty one is nothing to watch. */}
-              {videoFormat !== "short" && clipMockupCount > 0 && (
-                <a
-                  href={`/videos/${videoId}/animatic`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              {/* Into the Animatic, which is now a page of this Video like any
+                  other: a `Link`, in this tab, beside the tab switcher. Shown
+                  for every Landscape Video — a Short has no Animatic, but a
+                  Video with no Clip Mockups yet has an empty state that says
+                  how they are authored, which is worth reaching. */}
+              {videoFormat !== "short" && (
+                <Link
+                  to={`/videos/${videoId}/animatic`}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                    activeTab === "animatic"
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
                 >
                   <PlayIcon className="size-4" />
                   Animatic
-                </a>
+                </Link>
               )}
 
               {/* Top-level tab switcher (hidden for short-format videos) */}

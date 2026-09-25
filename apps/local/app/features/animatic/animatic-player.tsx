@@ -19,7 +19,8 @@ import {
 
 /**
  * The Animatic as the author watches it — a Video's Clip Mockups played in
- * order, full screen, from the student's seat.
+ * order, from the student's seat. It fills whatever the Video's layout gives
+ * it, so the page keeps its header and its PREVIOUS/NEXT.
  *
  * Three things beyond plain playback, all of them there because of what the
  * author does next. The POSITION shows in a corner the whole time, because the
@@ -79,7 +80,7 @@ export const AnimaticPlayer = (props: {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-black text-white">
+    <div className="flex h-full w-full min-h-0 bg-black text-white">
       <div className="relative flex-1 min-w-0">
         <Player
           ref={playerRef}
