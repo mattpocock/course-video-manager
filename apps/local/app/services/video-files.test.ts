@@ -5,6 +5,7 @@ import nodeFs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
 import {
+  copyVideoFilesDirectory,
   deleteVideoFile,
   getVideoFilePath,
   isDefaultEnabled,
@@ -175,6 +176,48 @@ describe("the on-disk store", () => {
       await expectRejected(nodePath.join(baseDir, "absolute.md"));
       await expectRejected("");
       await expectRejected(".");
+    });
+  });
+
+  describe("copyVideoFilesDirectory", () => {
+    const COPY = "lineage-2";
+
+    it("carries a duplicated Video's files into its own directory", async () => {
+      writeFixture("notes/snippet.md", "writer context");
+      writeFixture("thumbnail-abc.png", "png bytes");
+
+      const copied = await run(copyVideoFilesDirectory(LINEAGE, COPY));
+
+      expect(copied).toBe(2);
+      expect(
+        (await run(listVideoFiles(COPY))).map((entry) => entry.path)
+      ).toEqual(["notes/snippet.md", "thumbnail-abc.png"]);
+      expect(await run(readVideoFileString(COPY, "notes/snippet.md"))).toBe(
+        "writer context"
+      );
+    });
+
+    it("leaves the source Video's files where they were", async () => {
+      writeFixture("notes/snippet.md", "writer context");
+
+      await run(copyVideoFilesDirectory(LINEAGE, COPY));
+
+      expect(await run(readVideoFileString(LINEAGE, "notes/snippet.md"))).toBe(
+        "writer context"
+      );
+    });
+
+    it("writes nothing when source and target share one lineage", async () => {
+      // The Draft Version snapshot path: it copies `lineageId`, so both rows
+      // already name the one directory and a copy would be self-overwriting.
+      writeFixture("notes/snippet.md");
+
+      expect(await run(copyVideoFilesDirectory(LINEAGE, LINEAGE))).toBe(0);
+    });
+
+    it("is a no-op for a Video that has no files at all", async () => {
+      expect(await run(copyVideoFilesDirectory("never-created", COPY))).toBe(0);
+      expect(nodeFs.existsSync(nodePath.join(baseDir, COPY))).toBe(false);
     });
   });
 

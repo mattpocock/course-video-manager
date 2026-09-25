@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { copyClipMockupAssetsForVideos } from "@/services/clip-mockup-copy-forward.server";
+import { copyVideoFilesDirectory } from "@/services/video-files";
 import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
@@ -52,10 +53,16 @@ export const action = makeAction({
         name,
       });
 
-      // Same as the single-Video duplicate: every duplicated Video got a
-      // fresh `lineageId`, so its Clip Mockups' frames and WAVs have to be
-      // carried into the new directory here (#1669).
+      // Same as the single-Video duplicate, once per Video the Course
+      // produced: each got a fresh `lineageId`, so both stores keyed by one
+      // have to be carried into the new directory here — the Clip Mockups'
+      // frames and WAVs (#1669), and the Video Files, with them the PNGs the
+      // Thumbnails now name, `@cvm/core` having rewritten those paths onto the
+      // copy (#1674).
       yield* copyClipMockupAssetsForVideos(result.videoLineageMappings);
+      yield* Effect.forEach(result.videoLineageMappings, (video) =>
+        copyVideoFilesDirectory(video.sourceLineageId, video.newLineageId)
+      );
 
       return { id: result.course.id };
     }),

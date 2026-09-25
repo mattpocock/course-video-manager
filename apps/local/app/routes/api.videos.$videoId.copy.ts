@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { copyClipMockupAssetsForVideo } from "@/services/clip-mockup-copy-forward.server";
+import { copyVideoFilesDirectory } from "@/services/video-files";
 import { makeAction } from "@/services/route-action.server";
 import { redirect } from "react-router";
 
@@ -43,15 +44,19 @@ export const action = makeAction({
       });
 
       // The rows are copied; the FILES are not. The duplicate has a fresh
-      // `lineageId` and its Clip Mockups keep their paths verbatim, so
-      // without this every frame and every WAV would resolve into an empty
-      // directory (#1669). `@cvm/core` cannot do it — it has no disk.
+      // `lineageId`, and both of the stores keyed by one are left behind:
+      // its Clip Mockups keep their paths verbatim, so every frame and every
+      // WAV would resolve into an empty directory (#1669), and
+      // `{VIDEO_FILES_DIR}/{lineageId}/` does not exist at all, so the copy
+      // would open with none of the source's writer context (#1674).
+      // `@cvm/core` cannot do either — it has no disk.
       const newVideo = yield* videoOps.getVideoRowById(newVideoId);
       yield* copyClipMockupAssetsForVideo({
         sourceLineageId: sourceVideo.lineageId,
         newLineageId: newVideo.lineageId,
         newVideoId,
       });
+      yield* copyVideoFilesDirectory(sourceVideo.lineageId, newVideo.lineageId);
 
       if (
         redirectTo &&

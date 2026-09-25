@@ -269,3 +269,47 @@ export const deleteVideoFile = (lineageId: string, relativePath: string) =>
     const filePath = yield* resolveVideoFilePath(lineageId, relativePath);
     yield* fs.remove(filePath);
   });
+
+/**
+ * Carry a duplicated Video's Video Files across, and say how many landed.
+ *
+ * A duplicate is a NEW Video with a fresh `lineageId` — the column has
+ * `$defaultFn(crypto.randomUUID)` and neither `copyVideo` nor `duplicateCourse`
+ * carries the source's forward — so `{VIDEO_FILES_DIR}/{lineageId}/` is a
+ * directory that does not exist yet. Nothing in the database points at the
+ * store (the directory listing IS the state), so nothing breaks loudly: the
+ * copy's writer context is simply empty, and its Thumbnail images are gone
+ * with it (#1674).
+ *
+ * The whole directory moves, not a named list of files, because that listing
+ * is the only record of what a Video's files are — and copying it whole is
+ * also what puts a duplicated Thumbnail's PNG under the path
+ * `rebaseThumbnailPaths` rewrote it to.
+ *
+ * Lives here rather than in `@cvm/core` for the reason the module header
+ * gives: core is deployed to a box with no disk, so the file half of every
+ * duplicate belongs at the call site in `apps/local`.
+ *
+ * A source directory that does not exist is not an error — a Video with no
+ * Video Files is ordinary — and an equal pair is a no-op, which is what keeps
+ * the Draft Version snapshot path (it copies `lineageId`) out of this.
+ */
+export const copyVideoFilesDirectory = (
+  sourceLineageId: string,
+  targetLineageId: string
+): Effect.Effect<number, PlatformError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    if (sourceLineageId === targetLineageId) return 0;
+
+    const fs = yield* FileSystem.FileSystem;
+    const from = getVideoFilePath(sourceLineageId);
+
+    if (!(yield* fs.exists(from))) return 0;
+
+    const entries = yield* listVideoFiles(sourceLineageId);
+    if (entries.length === 0) return 0;
+
+    yield* fs.copy(from, getVideoFilePath(targetLineageId));
+
+    return entries.length;
+  });

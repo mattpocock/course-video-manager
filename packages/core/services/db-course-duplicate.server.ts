@@ -12,6 +12,10 @@ import {
   videos,
 } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
+import {
+  rebaseLineagePath,
+  rebaseLineagePathsDeep,
+} from "./thumbnail-path-rebase.js";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -30,10 +34,15 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
  *
  * Returns the Video lineage pairs alongside the new course. Every duplicated
  * Video gets a FRESH `lineageId` — it is a new Video, not the same one in a
- * new version — while its copied Clip Mockups keep `imagePath`/`audioPath`
- * verbatim, so the caller that owns a disk has to carry those files from the
- * source directory to the new one. This service cannot: `@cvm/core` is
- * filesystem-free. The pairs are the only thing it can hand over (#1669).
+ * new version — and THREE things are keyed by one. Its copied Clip Mockups
+ * keep `imagePath`/`audioPath` verbatim (#1669); its Video Files are a
+ * directory the duplicate does not have yet; and its Thumbnails store
+ * ABSOLUTE paths that, copied verbatim, aliased the SOURCE Video's PNGs
+ * rather than stranding — so editing the copy's Thumbnail wrote over the
+ * source's picture (#1674). The Thumbnail paths are rewritten onto the copy's
+ * own lineage HERE, which is pure string work; moving the bytes is the
+ * caller's, because `@cvm/core` is filesystem-free. The pairs are the only
+ * thing it can hand over.
  */
 export const makeDuplicateCourse = (db: Database) =>
   Effect.fn("duplicateCourse")(function* (input: {
@@ -284,8 +293,19 @@ export const makeDuplicateCourse = (db: Database) =>
               db.insert(thumbnails).values(
                 sourceVideo.thumbnails.map((thumbnail) => ({
                   videoId: newVideo.id,
-                  layers: thumbnail.layers,
-                  filePath: thumbnail.filePath,
+                  layers: rebaseLineagePathsDeep(
+                    thumbnail.layers,
+                    sourceVideo.lineageId,
+                    newVideo.lineageId
+                  ),
+                  filePath:
+                    thumbnail.filePath === null
+                      ? null
+                      : rebaseLineagePath(
+                          thumbnail.filePath,
+                          sourceVideo.lineageId,
+                          newVideo.lineageId
+                        ),
                   selectedForUpload: thumbnail.selectedForUpload,
                 }))
               )
