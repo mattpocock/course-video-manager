@@ -99,6 +99,36 @@ export const makeTempVideoFilesDir = (): {
   };
 };
 
+/**
+ * Point CLIP_MOCKUP_DIR at a fresh temp directory for the duration of a suite.
+ *
+ * Same reason as {@link makeTempVideoFilesDir}, different directory: Clip
+ * Mockup frames are deliberately NOT under VIDEO_FILES_DIR, and without this a
+ * `cvm clip-mockup` test would write PNGs into the repo's own ./clip-mockups.
+ */
+export const makeTempClipMockupDir = (): {
+  readonly dir: string;
+  readonly cleanup: () => void;
+} => {
+  const previous = process.env.CLIP_MOCKUP_DIR;
+  const dir = nodeFs.mkdtempSync(
+    nodePath.join(os.tmpdir(), "cvm-clip-mockups-")
+  );
+  process.env.CLIP_MOCKUP_DIR = dir;
+
+  return {
+    dir,
+    cleanup: () => {
+      nodeFs.rmSync(dir, { recursive: true, force: true });
+      if (previous === undefined) {
+        delete process.env.CLIP_MOCKUP_DIR;
+      } else {
+        process.env.CLIP_MOCKUP_DIR = previous;
+      }
+    },
+  };
+};
+
 export interface WriteSeed {
   draftSectionId: string;
   lessonId: string;

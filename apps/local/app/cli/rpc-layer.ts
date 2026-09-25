@@ -1,5 +1,6 @@
 import { Context, Layer } from "effect";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -309,6 +310,23 @@ const beatService = (client: RpcClient) =>
     deleteBeat: rpcMethod((json) => client.rpc.beat.deleteBeat.$post({ json })),
   }) satisfies RemoteService<BeatOperationsService>;
 
+const clipMockupService = (client: RpcClient) =>
+  ({
+    _tag: "ClipMockupOperationsService",
+    listClipMockupsByVideoId: rpcMethod((json) =>
+      client.rpc["clip-mockup"].listClipMockupsByVideoId.$post({ json })
+    ),
+    getClipMockupById: rpcMethod((json) =>
+      client.rpc["clip-mockup"].getClipMockupById.$post({ json })
+    ),
+    createClipMockup: rpcMethod((json) =>
+      client.rpc["clip-mockup"].createClipMockup.$post({ json })
+    ),
+    deleteClipMockup: rpcMethod((json) =>
+      client.rpc["clip-mockup"].deleteClipMockup.$post({ json })
+    ),
+  }) satisfies RemoteService<ClipMockupOperationsService>;
+
 const learningGoalService = (client: RpcClient) =>
   ({
     _tag: "LearningGoalOperationsService",
@@ -401,6 +419,7 @@ export type RemoteServices =
   | ClipOperationsService
   | OverlayOperationsService
   | BeatOperationsService
+  | ClipMockupOperationsService
   | PitchOperationsService
   | DeliverableOperationsService
   | CourseWriteService;
@@ -438,6 +457,7 @@ export const makeRemoteLayer = (
     remoteLayer(ClipOperationsService, clipService, client),
     remoteLayer(OverlayOperationsService, overlayService, client),
     remoteLayer(BeatOperationsService, beatService, client),
+    remoteLayer(ClipMockupOperationsService, clipMockupService, client),
     remoteLayer(PitchOperationsService, pitchService, client),
     remoteLayer(DeliverableOperationsService, deliverableService, client),
     remoteLayer(CourseWriteService, courseWriteService, client)
