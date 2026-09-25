@@ -1,0 +1,39 @@
+# The exhaustive run. docs/agents/testing.md tells every agent to stay
+# targeted locally because this job runs the whole suite on every PR — so this
+# file is what makes that instruction true.
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # typecheck, oxlint, package boundaries, the four file guards, then the
+      # unfiltered test run. One script, the same one a human runs by hand.
+      - name: Check
+        run: pnpm run check
