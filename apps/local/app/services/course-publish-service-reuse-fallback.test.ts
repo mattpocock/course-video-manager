@@ -9,6 +9,7 @@ import {
   setupPublishServiceTests,
   setupPublishableCourse as setup,
 } from "./course-publish-service-test-setup";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
 
 setupPublishServiceTests();
 
@@ -94,6 +95,7 @@ const publish = (courseId: string, versionName: string) =>
       versionName,
       versionDescription: `${versionName} release`,
       includeTodoLessons: true,
+      placeholderFloor: ANNOUNCE_NOTHING,
     });
   });
 

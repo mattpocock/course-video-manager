@@ -11,6 +11,7 @@ import {
   setupPublishServiceTests,
   setupPublishableCourse as setup,
 } from "./course-publish-service-test-setup";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
 
 setupPublishServiceTests();
 
@@ -24,6 +25,7 @@ const publishCapturing = (courseId: string, events: CapturedEvent[]) =>
       versionName: "v1.0",
       versionDescription: "First release",
       includeTodoLessons: true,
+      placeholderFloor: ANNOUNCE_NOTHING,
       onDetailEvent: (e: PublishDetailEvent) => {
         events.push({ event: e.event, data: e.data });
       },

@@ -17,6 +17,7 @@ import {
   honestRenderedDurationInSeconds,
   soundExportDurationProbe,
 } from "@/test-utils/fake-video-processing";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
 
 setupPublishServiceTests();
 
@@ -54,6 +55,7 @@ describe("CoursePublishService — Submit before export", () => {
           versionName: "v1.0",
           versionDescription: "First release",
           includeTodoLessons: true,
+          placeholderFloor: ANNOUNCE_NOTHING,
         });
       })
     );
@@ -101,6 +103,7 @@ describe("CoursePublishService — Submit before export", () => {
           versionName: "v1.0",
           versionDescription: "First release",
           includeTodoLessons: true,
+          placeholderFloor: ANNOUNCE_NOTHING,
           onStageChange: (stage) => {
             stages.push(stage);
           },
@@ -133,6 +136,7 @@ describe("CoursePublishService — Submit before export", () => {
             versionName: "v1.0",
             versionDescription: "First release",
             includeTodoLessons: true,
+            placeholderFloor: ANNOUNCE_NOTHING,
           })
           .pipe(Effect.catchTag("PublishValidationError", () => Effect.void));
         const versionOps = yield* VersionOperationsService;

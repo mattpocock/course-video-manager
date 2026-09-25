@@ -15,8 +15,11 @@ import {
   exportVideoToItsAddress,
   type ExportStage,
 } from "./course-publish-export-video";
-import { DoesNotExistOnDbError } from "./publish-to-dropbox";
-import type { PlaceholderFloor } from "@/packages/course-json";
+import { resolveResyncTargetVersionId } from "./course-publish-resync-target";
+import {
+  ANNOUNCE_NOTHING,
+  type PlaceholderFloor,
+} from "@/packages/course-json";
 import { validatePublishability as validatePublishabilityCore } from "./course-publish-readiness";
 import { findShippingVideos as findShippingVideosCore } from "./course-publish-video-roster";
 import {
@@ -71,9 +74,11 @@ export type PublishOptions = {
   versionDescription: string;
   includeTodoLessons: boolean;
   // The lowest Lesson Priority band whose unshippable Lessons are announced as
-  // Placeholder Lessons. Absent announces nothing, so a Publish that does not
-  // name a floor behaves exactly as it did before ADR 0029.
-  placeholderFloor?: PlaceholderFloor;
+  // Placeholder Lessons. REQUIRED: `ANNOUNCE_NOTHING` is the announce-nothing
+  // position, a real answer rather than an absent one, and each caller
+  // normalises its own boundary to it (both the CLI flag and the SSE body
+  // default to the `none` band).
+  placeholderFloor: PlaceholderFloor;
   // The coarse publish lifecycle stage (validating → … → complete).
   onStageChange?: (stage: PublishStage) => void;
   // Per-video export events (same names/payloads as batchExport: `videos`,
@@ -216,10 +221,14 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         VersionOperationsService | FileSystem.FileSystem
       >();
       const validatePublishability = Effect.fn("validatePublishability")(
-        function* (versionId: string) {
-          return yield* validatePublishabilityCore(versionId).pipe(
-            Effect.provide(readinessContext)
-          );
+        function* (
+          versionId: string,
+          placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
+        ) {
+          return yield* validatePublishabilityCore(
+            versionId,
+            placeholderFloor
+          ).pipe(Effect.provide(readinessContext));
         }
       );
 
@@ -228,29 +237,14 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           courseId: string,
           includeTodoLessons: boolean,
           onProgress?: DropboxSyncProgressCallback,
-          placeholderFloor?: PlaceholderFloor
+          placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
         ) {
-          const latestVersion =
-            yield* versionOps.getLatestCourseVersion(courseId);
-          if (!latestVersion) {
-            return yield* new DoesNotExistOnDbError({
-              type: "section",
-              path: "",
-              message: `No version found for repo ${courseId}`,
-            });
-          }
-          // The commit state is authoritative: re-sync the newest Published
-          // Version. (Previously inferred positionally as "first non-latest".)
-          const latestPublishedVersion =
-            yield* versionOps.getLatestPublishedVersion(courseId);
-          if (!latestPublishedVersion) {
-            return yield* new PublishValidationError({
-              unfrozenCourseVersionId: latestVersion.id,
-            });
-          }
+          // Which Version a Course-level re-sync re-commits is its own question
+          // — see ./course-publish-resync-target.
+          const courseVersionId = yield* resolveResyncTargetVersionId(courseId);
           return yield* syncFrozenCourseVersionToDropbox({
             courseId,
-            courseVersionId: latestPublishedVersion.id,
+            courseVersionId,
             includeTodoLessons,
             placeholderFloor,
             onDetailEvent: onlyBundleProgress(onProgress),
@@ -279,10 +273,17 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           return yield* Effect.die(new Error("No version found for course"));
         }
 
-        const validation = yield* validatePublishability(latestVersion.id);
-        const { courseViewLintCount } = includeTodoLessons
+        // The floor reaches the gate only so the counts it reports describe THIS
+        // release: no gate reads the floor (see course-publish-readiness), so it
+        // cannot change whether a publish is refused.
+        const validation = yield* validatePublishability(
+          latestVersion.id,
+          placeholderFloor
+        );
+        const position = includeTodoLessons
           ? validation.withTodo
           : validation.withoutTodo;
+        const { courseViewLintCount } = position;
         if (courseViewLintCount > 0) {
           return yield* new PublishValidationError({
             courseViewLintCount,
@@ -486,6 +487,14 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         return {
           publishedVersionId: latestVersion.id,
           newDraftVersionId: newDraft.id,
+          // What this release did with every Lesson, counted: a headless run
+          // sees no publish page, so this is its only report of what the floor
+          // announced and what it left behind.
+          lessonCounts: {
+            ships: position.ships,
+            placeholders: position.placeholderLessons.length,
+            withheld: position.withheldLessons.length,
+          },
         };
       });
 
@@ -496,7 +505,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         courseVersionId: string,
         includeTodoLessons: boolean,
         onProgress?: DropboxSyncProgressCallback,
-        placeholderFloor?: PlaceholderFloor
+        placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
       ) {
         return yield* courseVersionMutationSemaphore.withPermits(1)(
           syncFrozenCourseVersionToDropbox({
@@ -514,7 +523,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         courseId: string,
         includeTodoLessons: boolean,
         onProgress?: DropboxSyncProgressCallback,
-        placeholderFloor?: PlaceholderFloor
+        placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
       ) {
         return yield* courseVersionMutationSemaphore.withPermits(1)(
           syncToDropboxUnlocked(

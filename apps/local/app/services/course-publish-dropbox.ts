@@ -1,7 +1,6 @@
 import { Config, Effect, Either } from "effect";
 import { FileSystem } from "@effect/platform";
 import {
-  ANNOUNCE_NOTHING,
   buildCourseJson,
   buildCourseJsonSchema,
   computeShippingSections,
@@ -53,12 +52,14 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   includeTodoLessons: boolean;
   /**
    * The lowest Lesson Priority band whose unshippable Lessons are announced as
-   * Placeholder Lessons. Absent means `ANNOUNCE_NOTHING` — the release behaves
-   * exactly as it did before ADR 0029. The floor is a per-browser, per-Course UI
-   * preference and is deliberately not recorded on the Published Version, so a
-   * manual re-sync has no floor to recover and announces nothing.
+   * Placeholder Lessons. REQUIRED: `ANNOUNCE_NOTHING` is the announce-nothing
+   * position, so every caller states which release it wants rather than leaving
+   * it to whatever `undefined` does here. The floor is a per-browser,
+   * per-Course preference and is deliberately not recorded on the Published
+   * Version (ADR 0029) — a re-sync that cannot be told the floor therefore
+   * announces nothing, which is why the caller, not this function, decides.
    */
-  placeholderFloor?: PlaceholderFloor;
+  placeholderFloor: PlaceholderFloor;
   /**
    * The observable surface of the upload: the bundle-wide `progress`
    * percentage plus one task's worth of events per shipping Video.
@@ -101,8 +102,6 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     versionId: input.courseVersionId,
   });
 
-  const placeholderFloor = input.placeholderFloor ?? ANNOUNCE_NOTHING;
-
   // The ASSET SET: only the Lessons that ship in full. A Placeholder Lesson
   // contributes no .mp4, so its Videos must never reach the roster below —
   // Publish would otherwise encode and upload a file no manifest names.
@@ -128,7 +127,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     courseVersionId: input.courseVersionId,
     courseName: repoWithSections.name,
     includeTodoLessons: input.includeTodoLessons,
-    placeholderFloor,
+    placeholderFloor: input.placeholderFloor,
     sections: repoWithSections.sections,
     videos: videoEntries,
   });
@@ -479,7 +478,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     sections: repoWithSections.sections,
     videoAssets,
     includeTodoLessons: input.includeTodoLessons,
-    placeholderFloor,
+    placeholderFloor: input.placeholderFloor,
   });
   const manifestJson = JSON.stringify(courseJsonDoc, null, 2);
 

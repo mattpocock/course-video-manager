@@ -18,6 +18,7 @@ import {
   honestRenderedDurationInSeconds,
   soundExportDurationProbe,
 } from "@/test-utils/fake-video-processing";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
 
 setupPublishServiceTests();
 
@@ -51,6 +52,7 @@ const publish = (courseId: string) =>
       versionName: "v1.0",
       versionDescription: "First release",
       includeTodoLessons: true,
+      placeholderFloor: ANNOUNCE_NOTHING,
     });
   });
 
@@ -157,6 +159,7 @@ describe("CoursePublishService — export/upload pipelining", () => {
             versionName: "v1.0",
             versionDescription: "First release",
             includeTodoLessons: true,
+            placeholderFloor: ANNOUNCE_NOTHING,
           })
           .pipe(
             Effect.catchTag("PublishValidationError", (e) =>

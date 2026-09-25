@@ -358,28 +358,50 @@ describe("CoursePublishService", () => {
     });
 
     // A Video with no Clips has no Export Hash, so there is nothing to render
-    // and nothing to compare an existing file against. The roster walks past
-    // it rather than queueing an export that could only fail. Moved here from
-    // the retired batch-export.server.ts suite, which asserted the same rule
-    // against a copy of the roster that no route called.
-    it("skips a video with no clips", async () => {
-      const context = await setup();
-      const { dbLayer, section } = context;
-
-      // Its OWN Lesson: a Lesson is all-or-nothing (ADR 0029), so a clip-less
-      // Video beside the seeded one would withhold that Lesson too, and the
-      // rule under test here is about the Video, not the Lesson.
-      await Effect.gen(function* () {
-        const lsOps = yield* LessonSectionOperationsService;
+    // and nothing to compare an existing file against — the roster must never
+    // queue an export that could only fail. Moved here from the retired
+    // batch-export.server.ts suite, which asserted the same rule against a copy
+    // of the roster that no route called.
+    //
+    // ADR 0029 moved WHERE that is decided: no Clips is a hard gap, and a Lesson
+    // is all-or-nothing, so the whole Lesson is withheld from the roster. Both
+    // halves of that are asserted, because between them they are the rule: the
+    // clip-less Video is never exported, and neither is the sound Video beside
+    // it.
+    const addCliplessVideo = async ({ dbLayer }: Setup, lessonId: string) =>
+      Effect.gen(function* () {
         const videoOps = yield* VideoOperationsService;
-        const lessons = yield* lsOps.createLessons(section.id, [
-          { lessonPathWithNumber: "01.02-clipless", lessonNumber: 2 },
-        ]);
-        return yield* videoOps.createVideo(lessons[0]!.id, {
+        return yield* videoOps.createVideo(lessonId, {
           title: "Clipless",
           originalFootagePath: "/tmp/footage.mp4",
         });
       }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+
+    it("withholds the whole lesson a clip-less video sits on", async () => {
+      const context = await setup();
+
+      // Beside the seeded, clip-bearing "Problem": one hard gap decides the
+      // Lesson, so NEITHER Video is exported.
+      await addCliplessVideo(context, context.lesson.id);
+
+      const events = await runBatchExport(context);
+
+      expect(announcedTitles(events)).toEqual([]);
+    });
+
+    it("leaves the rest of the course shipping around it", async () => {
+      const context = await setup();
+      const { dbLayer, section } = context;
+
+      // On a Lesson of its own this time, so only that Lesson is withheld.
+      const lessonId = await Effect.gen(function* () {
+        const lsOps = yield* LessonSectionOperationsService;
+        const lessons = yield* lsOps.createLessons(section.id, [
+          { lessonPathWithNumber: "01.02-clipless", lessonNumber: 2 },
+        ]);
+        return lessons[0]!.id;
+      }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+      await addCliplessVideo(context, lessonId);
 
       const events = await runBatchExport(context);
 

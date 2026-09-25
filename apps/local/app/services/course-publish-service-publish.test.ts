@@ -13,6 +13,7 @@ import {
   setupPublishServiceTests,
   setupPublishableCourse as setup,
 } from "./course-publish-service-test-setup";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
 
 setupPublishServiceTests();
 
@@ -29,6 +30,7 @@ describe("CoursePublishService — publish", () => {
           versionName: "v1.0",
           versionDescription: "First release",
           includeTodoLessons: true,
+          placeholderFloor: ANNOUNCE_NOTHING,
           onStageChange: (stage) => {
             stages.push(stage);
           },
@@ -66,6 +68,7 @@ describe("CoursePublishService — publish", () => {
           versionName: "v1.0",
           versionDescription: "First release",
           includeTodoLessons: true,
+          placeholderFloor: ANNOUNCE_NOTHING,
           onStageChange: (stage) => {
             stages.push(stage);
           },
@@ -88,6 +91,7 @@ describe("CoursePublishService — publish", () => {
           versionName: "v1.0",
           versionDescription: "First release",
           includeTodoLessons: true,
+          placeholderFloor: ANNOUNCE_NOTHING,
         });
         const versionOps = yield* VersionOperationsService;
         const versions = yield* versionOps.getCourseVersions(course.id);
@@ -159,6 +163,7 @@ describe("CoursePublishService — publish", () => {
             versionName: "v1.0",
             versionDescription: "First release",
             includeTodoLessons: false,
+            placeholderFloor: ANNOUNCE_NOTHING,
           })
           .pipe(
             Effect.catchTag("PublishCommitFailedError", (error) =>
@@ -208,6 +213,7 @@ describe("CoursePublishService — publish", () => {
             versionName: "v1.0",
             versionDescription: "First release",
             includeTodoLessons: true,
+            placeholderFloor: ANNOUNCE_NOTHING,
             onStageChange: (stage) => {
               if (stage === "uploading") {
                 fs.rmSync(
@@ -252,6 +258,7 @@ describe("CoursePublishService — publish", () => {
           versionName: "v1.0",
           versionDescription: "First release",
           includeTodoLessons: false,
+          placeholderFloor: ANNOUNCE_NOTHING,
         });
         // Delete the remote receipt, then re-sync.
         fakeDropbox.files.delete(
@@ -289,6 +296,7 @@ describe("CoursePublishService — publish", () => {
             versionName: "v1.0",
             versionDescription: "First release",
             includeTodoLessons: true,
+            placeholderFloor: ANNOUNCE_NOTHING,
           })
           .pipe(
             Effect.catchTag("PublishValidationError", (e) =>
@@ -317,6 +325,7 @@ describe("CoursePublishService — publish", () => {
           versionName: "v1.0",
           versionDescription: "First release",
           includeTodoLessons: true,
+          placeholderFloor: ANNOUNCE_NOTHING,
           onDetailEvent: (e) => {
             events.push({ event: e.event, data: e.data });
           },
@@ -381,6 +390,7 @@ describe("CoursePublishService — publish", () => {
             versionName: "v1.0",
             versionDescription: "First release",
             includeTodoLessons: true,
+            placeholderFloor: ANNOUNCE_NOTHING,
             onDetailEvent: (e) => {
               events.push({ event: e.event, data: e.data });
             },

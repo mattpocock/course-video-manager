@@ -19,6 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { CoursePublishService } from "@/services/course-publish-service";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
 import {
   DROPBOX_REMOTE_PATH,
   fakeDropbox,
@@ -125,6 +126,7 @@ describe("CoursePublishService — a syllabus-only release", () => {
           versionName: "v0.1",
           versionDescription: "Nothing announced",
           includeTodoLessons: true,
+          placeholderFloor: ANNOUNCE_NOTHING,
         });
         const versionOps = yield* VersionOperationsService;
         return {

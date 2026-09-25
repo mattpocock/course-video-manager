@@ -21,7 +21,7 @@ import {
   ANNOUNCE_NOTHING_BAND,
   PLACEHOLDER_FLOOR_BANDS,
   placeholderFloorFromBand,
-} from "@/cli/placeholder-floor";
+} from "@/packages/course-json";
 
 /**
  * `cvm course publish <courseId> --name vX.Y.Z` — the ONE write verb that
@@ -233,7 +233,12 @@ FLAGS
 
 OUTPUT
   One pretty JSON object: { publishedVersionId, newDraftVersionId, name,
-  description }. Errors go to STDERR as the usual tagged contract object.
+  description, lessons }. 'lessons' is { ships, placeholders, withheld } — the
+  three Lesson Publish Status counts for the release that just went out, under
+  the floor and the to-do setting this run used. Together they are every Lesson
+  in the version tree. Run 'cvm course readiness --placeholders <band>' to see
+  which Lessons they are.
+  Errors go to STDERR as the usual tagged contract object.
 
 EXAMPLES
   cvm course publish course_123 --name v1.0.0 --description "first cut"
@@ -321,6 +326,13 @@ export const publishCmd = Command.make(
         newDraftVersionId: result.newDraftVersionId,
         name,
         description,
+        // WHAT THE RELEASE DID WITH EVERY LESSON. A headless run has no publish
+        // page to read the two cards off, so the three Lesson Publish Status
+        // counts ride out with the result: they are the only way an agent can
+        // see that `--placeholders p2` announced anything, or how many Lessons
+        // it left behind. Ask `cvm course readiness --placeholders <band>` for
+        // the Lessons themselves.
+        lessons: result.lessonCounts,
       });
     });
 
