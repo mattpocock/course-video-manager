@@ -615,6 +615,22 @@ describe("computeCourseStats", () => {
     expect(stats.todoCount).toBe(0);
   });
 
+  it("does not count a lesson with no authoringStatus as done", () => {
+    const sections = [
+      makeSection([
+        makeLesson({ id: "l1", authoringStatus: null }),
+        makeLesson({ id: "l2", authoringStatus: null }),
+        makeLesson({ id: "l3", authoringStatus: null }),
+        makeLesson({ id: "l4", authoringStatus: "done" }),
+      ]),
+    ];
+    const stats = computeCourseStats(sections);
+    expect(stats.doneCount).toBe(1);
+    expect(stats.unsetCount).toBe(3);
+    expect(stats.todoCount).toBe(0);
+    expect(stats.percentageComplete).toBe(25);
+  });
+
   it("counts all-done lessons as 100% even with videos absent", () => {
     const sections = [
       makeSection([
