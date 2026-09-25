@@ -6,7 +6,10 @@
 // positions as BANDS — `none`, `p1`, `p2`, `p3` — and this module is the one
 // place a band is turned into a floor. `cvm course readiness` and
 // `cvm course publish` both read it, so the two verbs can never disagree about
-// what `--placeholders p2` means.
+// what `--placeholders p2` means — and so does the publish page, which keeps
+// the author's chosen band in `localStorage` per Course and sends it down the
+// wire. A band is the right thing to store and to send: it is stable, it is
+// readable by a human hand-editing it, and it means one thing on both surfaces.
 
 import type { PlaceholderFloor } from "@/packages/course-json";
 

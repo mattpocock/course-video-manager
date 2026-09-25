@@ -17,6 +17,19 @@ import {
   PublishBlockers,
 } from "@/features/publish/publish-blockers";
 import { PendingRecoveryBanner } from "@/features/publish/pending-recovery-banner";
+import { PlaceholderFloorPanel } from "@/features/publish/placeholder-floor-panel";
+import { placeholderFloorStorageKey } from "@/features/publish/placeholder-floor";
+import {
+  ANNOUNCE_NOTHING_BAND,
+  PLACEHOLDER_FLOOR_BANDS,
+  placeholderFloorFromBand,
+  type PlaceholderFloorBand,
+} from "@/cli/placeholder-floor";
+import {
+  collectLessonPublishStatuses,
+  type LessonPublishStatuses,
+} from "@/services/course-publish-lesson-statuses";
+import { useLocalStorageOneOf } from "@/hooks/use-local-storage";
 import { selectAutofillCandidates } from "@/services/autofill-candidates";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
@@ -76,6 +89,28 @@ export const loader = makeLoader({
         false
       );
 
+      // THE PLACEHOLDER FLOOR, PRECOMPUTED AT EVERY POSITION.
+      //
+      // The floor is one value per `validatePublishability` call, and that call
+      // carries an `exists()` per shipping Video — far too expensive to repeat
+      // eight times just so a control can flip. But the floor decides ONLY the
+      // Lesson Publish Status lists, and those come from a pure, filesystem-free
+      // walk of the tree this loader already holds. So the floor loop is hoisted
+      // here instead: two to-do settings × four bands, from one tree read, and
+      // moving the control costs nothing. It is the same walk
+      // `validatePublishability` and `buildCourseJson` read, so the cards and
+      // the release can never disagree.
+      const lessonStatusesByBand = (includeTodoLessons: boolean) =>
+        Object.fromEntries(
+          PLACEHOLDER_FLOOR_BANDS.map((band) => [
+            band,
+            collectLessonPublishStatuses(versionTree.sections, {
+              includeTodoLessons,
+              placeholderFloor: placeholderFloorFromBand(band),
+            }),
+          ])
+        ) as Record<PlaceholderFloorBand, LessonPublishStatuses>;
+
       // Reconcile-on-load (#1404): detect a crash-stranded Pending Version and
       // classify it against the Dropbox course.json receipt. Read-only — the
       // Promote / Discard transitions run in this route's action.
@@ -96,6 +131,7 @@ export const loader = makeLoader({
           invalidLessonCombos: withTodo.invalidLessonCombos,
           incompleteVideos: withTodo.incompleteVideos,
           autofill: autofillWithTodo,
+          lessonStatusesByBand: lessonStatusesByBand(true),
         },
         withoutTodo: {
           courseViewLintCount: withoutTodo.courseViewLintCount,
@@ -103,6 +139,7 @@ export const loader = makeLoader({
           invalidLessonCombos: withoutTodo.invalidLessonCombos,
           incompleteVideos: withoutTodo.incompleteVideos,
           autofill: autofillWithoutTodo,
+          lessonStatusesByBand: lessonStatusesByBand(false),
         },
       };
     }),
@@ -170,6 +207,15 @@ export default function Component(props: Route.ComponentProps) {
   const name = formatSemver(bumpSemver(baseSemver, bumpLevel));
   const [description, setDescription] = useState("");
   const [includeTodoLessons, setIncludeTodoLessons] = useState(true);
+  // The floor, unlike the to-do toggle, is remembered — per Course, so an
+  // unlaunched Course and a shipped one never share one setting — and it
+  // defaults to announcing nothing, so the first release after this lands
+  // behaves exactly as one before it.
+  const [floorBand, setFloorBand] = useLocalStorageOneOf<PlaceholderFloorBand>(
+    placeholderFloorStorageKey(course.id),
+    PLACEHOLDER_FLOOR_BANDS,
+    ANNOUNCE_NOTHING_BAND
+  );
   const [publishStarted, setPublishStarted] = useState(false);
 
   const [autofillUploadId, setAutofillUploadId] = useState<string | null>(null);
@@ -210,7 +256,11 @@ export default function Component(props: Route.ComponentProps) {
   const hasCourseViewLints = courseViewLintCount > 0;
   const hasInvalidLessonCombos = invalidLessonCombos.length > 0;
   const hasIncompleteVideos = incompleteVideos.length > 0;
+  // Autofill is untouched by the floor: its candidates are still the shipping
+  // Videos missing a description or chapters, so the one button still reaches
+  // Publish on a pre-launch Course.
   const autofill = effective.autofill;
+  const lessonStatuses = effective.lessonStatusesByBand[floorBand];
 
   // One button, two labels. The rule lives in a pure function so it can be
   // tested across its four cases without rendering this page.
@@ -248,7 +298,8 @@ export default function Component(props: Route.ComponentProps) {
       course.name,
       name,
       description.trim(),
-      includeTodoLessons
+      includeTodoLessons,
+      floorBand
     );
     // Navigate back to course — progress shows in GlobalUploadProgress
     navigate(`/courses/${course.id}`);
@@ -258,6 +309,7 @@ export default function Component(props: Route.ComponentProps) {
     name,
     description,
     includeTodoLessons,
+    floorBand,
     startPublish,
     navigate,
   ]);
@@ -355,6 +407,13 @@ export default function Component(props: Route.ComponentProps) {
             </div>
           </div>
         </div>
+
+        <PlaceholderFloorPanel
+          band={floorBand}
+          onBandChange={setFloorBand}
+          disabled={publishStarted}
+          statuses={lessonStatuses}
+        />
 
         <PublishBlockers
           lists={{

@@ -9,6 +9,7 @@ import { uploadReducer, createInitialUploadState } from "./upload-reducer";
 import { showSuccessToast, showErrorToast } from "./upload-toasts";
 import { startSSEBatchExport } from "./sse-batch-export-client";
 import { uploadTypeRegistry } from "./upload-type-registry";
+import type { PlaceholderFloorBand } from "@/cli/placeholder-floor";
 
 export interface UploadContextType {
   uploads: uploadReducer.State["uploads"];
@@ -62,7 +63,9 @@ export interface UploadContextType {
     courseName: string,
     name: string,
     description: string,
-    includeTodoLessons: boolean
+    includeTodoLessons: boolean,
+    /** The Placeholder Floor the publish page showed, as its band. */
+    placeholders: PlaceholderFloorBand
   ) => string;
   startAutofill: (
     courseId: string,
@@ -458,11 +461,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       courseName: string,
       name: string,
       description: string,
-      includeTodoLessons: boolean
+      includeTodoLessons: boolean,
+      placeholders: PlaceholderFloorBand
     ) => {
       const uploadId = generateUploadId();
 
-      const params = { courseId, name, description, includeTodoLessons };
+      const params = {
+        courseId,
+        name,
+        description,
+        includeTodoLessons,
+        placeholders,
+      };
       paramsMapRef.current.set(uploadId, { type: "publish", params });
 
       const action = {

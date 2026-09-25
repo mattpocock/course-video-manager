@@ -1,4 +1,5 @@
 import { consumeSSEStream } from "./consume-sse-stream";
+import type { PlaceholderFloorBand } from "@/cli/placeholder-floor";
 import type { uploadReducer } from "./upload-reducer";
 
 export interface SSEPublishParams {
@@ -6,6 +7,12 @@ export interface SSEPublishParams {
   name: string;
   description: string;
   includeTodoLessons: boolean;
+  /**
+   * The Placeholder Floor, as the band the publish page showed — the same
+   * spelling `cvm course publish --placeholders` takes, so the two surfaces
+   * ask for one release.
+   */
+  placeholders: PlaceholderFloorBand;
 }
 
 export interface SSEPublishCallbacks {
@@ -56,6 +63,7 @@ export const startSSEPublish = (
       name: params.name,
       description: params.description,
       includeTodoLessons: params.includeTodoLessons,
+      placeholders: params.placeholders,
     },
     events: {
       progress: (data: { stage: uploadReducer.PublishStage }) =>

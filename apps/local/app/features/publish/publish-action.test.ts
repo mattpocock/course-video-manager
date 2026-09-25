@@ -76,6 +76,18 @@ describe("the publish page's one button", () => {
     });
   });
 
+  it("reaches Publish on a pre-launch Course", () => {
+    // Every unfinished Lesson is announced as a Placeholder Lesson or withheld
+    // rather than blocking, and a Lesson that does not ship in full contributes
+    // no Autofill Candidate — so the button the author meets is Publish, not a
+    // count of work the floor has already answered for.
+    expect(input({ autofillCandidateCount: 0, hasBlockers: false })).toEqual({
+      kind: "publish",
+      label: "Publish",
+      enabled: true,
+    });
+  });
+
   it("holds the Autofill while a Publish is running", () => {
     expect(input({ autofillCandidateCount: 3, publishRunning: true })).toEqual({
       kind: "autofill",
