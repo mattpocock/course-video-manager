@@ -12,6 +12,18 @@ export const SILENCE_THRESHOLD_DB = -38;
 export const MINIMUM_CLIP_LENGTH_SECONDS = 1;
 
 /**
+ * Seconds of room left at the end of an auto-edited Clip, so a cut does not
+ * land on the last syllable.
+ *
+ * Here rather than in `silence-detection.ts`, its original home, because it has
+ * a SECOND consumer that must not drift from it: the gap an Animatic holds
+ * between Clip Mockups (`CLIP_MOCKUP_GAP_SECONDS`), so a mock paces like the
+ * filmed Lesson will. That consumer is client code and this module — unlike
+ * `silence-detection.ts` — pulls in no ffmpeg.
+ */
+export const AUTO_EDITED_END_PADDING_SECONDS = 0.08;
+
+/**
  * Per-Recording-Session "Silence Length" mode (see CONTEXT.md).
  * Controls how long a silence must last before it ends a clip.
  * Applied symmetrically to the frontend speech detector and the backend

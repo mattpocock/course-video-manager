@@ -3,6 +3,10 @@ import { Link } from "react-router";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { clipMockupFileExists } from "@/services/clip-mockup-files";
+import {
+  clipMockupAudioUrl,
+  clipMockupFrameUrl,
+} from "@/features/clip-mockups/clip-mockup-frame-url";
 import { makeLoader } from "@/services/route-action.server";
 import {
   VIDEO_FORMAT_DIMENSIONS,
@@ -58,11 +62,9 @@ export const loader = makeLoader({
               line: row.line,
               position: index + 1,
               durationSeconds: row.durationSeconds,
-              imageUrl: `/api/clip-mockups/${row.id}/image`,
+              imageUrl: clipMockupFrameUrl(row.id),
               audioUrl:
-                row.audioPath == null
-                  ? null
-                  : `/api/clip-mockups/${row.id}/audio`,
+                row.audioPath == null ? null : clipMockupAudioUrl(row.id),
               imageMissing: !imageExists,
               audioMissing: !audioExists,
             } satisfies AnimaticClipMockup;

@@ -1,3 +1,5 @@
+import { AUTO_EDITED_END_PADDING_SECONDS } from "@/silence-detection-constants";
+
 /**
  * The Animatic's clock.
  *
@@ -11,15 +13,15 @@
 /**
  * The gap held after each Clip Mockup before the next one begins.
  *
- * THE ONE PLACE THIS NUMBER LIVES. It is the same 0.08 s the Clip cutter pads
- * the end of an auto-edited Clip with (`AUTO_EDITED_END_PADDING` in
- * `apps/local/app/services/silence-detection.ts`), so the Animatic's pacing
- * matches what the filmed Lesson will actually feel like rather than running
- * fractionally tighter than every real cut. Copied rather than imported: that
- * module is ffmpeg-bound and pulling it into the client bundle for one number
- * would drag the whole silence-detection graph with it.
+ * IMPORTED, NOT COPIED. It is the same padding the Clip cutter leaves at the
+ * end of an auto-edited Clip, so the Animatic's pacing matches what the filmed
+ * Lesson will actually feel like rather than running fractionally tighter than
+ * every real cut — and two hand-written 0.08s could drift apart without
+ * anything noticing. It is read from `silence-detection-constants`, which is
+ * shared client/server and pulls in no ffmpeg, rather than from
+ * `silence-detection.ts` itself.
  */
-export const CLIP_MOCKUP_GAP_SECONDS = 0.08;
+export const CLIP_MOCKUP_GAP_SECONDS = AUTO_EDITED_END_PADDING_SECONDS;
 
 /**
  * The Animatic renders at 30fps. Every frame in it is a still, so the rate

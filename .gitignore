@@ -31,8 +31,12 @@ diagram-thumbnails/
 video-files
 # The Clip Mockup frame store (fallback path when CLIP_MOCKUP_DIR is unset).
 # ROOT-ANCHORED: unanchored, it also swallowed
-# apps/local/app/features/clip-mockups/, which is source.
+# apps/local/app/features/clip-mockups/, which is source. The fallback really
+# lands in apps/local, because getClipMockupBaseDir() anchors to the nearest
+# package.json above its own module (exactly as video-files.ts does), so both
+# paths are named rather than matched loosely.
 /clip-mockups/
+/apps/local/clip-mockups/
 .worktrees
 
 # The cutover wizard's working directory: full database dumps and the .env it
