@@ -3,6 +3,15 @@
 # Prevent CJS __dirname/__filename in an ESM project.
 # Use import.meta.dirname / import.meta.filename instead.
 
+# Default: staged files (pre-commit). `--all`: every tracked file (CI).
+file_list() {
+  if [ "${1:-}" = "--all" ]; then
+    git ls-files
+  else
+    git diff --cached --name-only --diff-filter=d
+  fi
+}
+
 found_violations=0
 
 while IFS= read -r file; do
@@ -23,7 +32,7 @@ while IFS= read -r file; do
     done
     found_violations=1
   fi
-done < <(git diff --cached --name-only --diff-filter=d)
+done < <(file_list "${1:-}")
 
 if [ "$found_violations" -eq 1 ]; then
   echo ""

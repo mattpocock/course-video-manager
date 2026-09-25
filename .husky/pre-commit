@@ -3,3 +3,5 @@ pnpm run typecheck
 pnpm run lint:boundaries
 pnpm run check:file-tokens
 pnpm run check:no-dirname
+pnpm run check:env-example
+pnpm run check:routes-folder
