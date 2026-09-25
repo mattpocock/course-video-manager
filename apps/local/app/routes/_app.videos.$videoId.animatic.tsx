@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
+import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { clipMockupFileExists } from "@/services/clip-mockup-files";
@@ -13,6 +14,7 @@ import {
   resolveVideoFormat,
 } from "@/features/videos/video-format";
 import { AnimaticPlayer } from "@/features/animatic/animatic-player";
+import type { AnimaticChapter } from "@/features/animatic/animatic-chapters";
 import type { AnimaticClipMockup } from "@/features/animatic/animatic-timeline";
 import { AnimaticEmptyState } from "@/features/animatic/animatic-empty-state";
 import type { Route } from "./+types/_app.videos.$videoId.animatic";
@@ -39,11 +41,19 @@ export const loader = makeLoader({
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
       const clipMockupOps = yield* ClipMockupOperationsService;
+      const chapterOps = yield* ClipMockupChapterOperationsService;
 
       // The flat row: the page needs a `lineageId`, a title and a format,
       // and no part of the Lesson/Section/Version chain above them (#1671).
       const video = yield* videoOps.getVideoRowById(videoId);
       const rows = yield* clipMockupOps.listClipMockupsByVideoId(videoId);
+
+      // BOTH TABLES, not the merged `listAnimaticOrder`: that read hands back
+      // positions alone, and the sidebar prints a Chapter's title. The two
+      // lists are merged by their shared `order` key in
+      // `buildAnimaticChapterLayout`, where the grouping arithmetic lives.
+      const chapterRows =
+        yield* chapterOps.listClipMockupChaptersByVideoId(videoId);
 
       // Every file is checked HERE, once, before anything plays. A frame or a
       // WAV the row names but the disk does not have has to be reported as
@@ -68,6 +78,7 @@ export const loader = makeLoader({
               line: row.line,
               position: index + 1,
               durationSeconds: row.durationSeconds,
+              order: row.order,
               imageUrl: clipMockupFrameUrl(row.id),
               audioUrl: clipMockupAudioUrl(row.id),
               imageMissing: !imageExists,
@@ -84,12 +95,20 @@ export const loader = makeLoader({
           format: resolveVideoFormat(video.format),
         },
         mockups,
+        chapters: chapterRows.map(
+          (row) =>
+            ({
+              id: row.id,
+              name: row.name,
+              order: row.order,
+            }) satisfies AnimaticChapter
+        ),
       };
     }),
 });
 
 export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
-  const { video, mockups } = loaderData;
+  const { video, mockups, chapters } = loaderData;
   const { width, height } = VIDEO_FORMAT_DIMENSIONS[video.format];
 
   // An Animatic is WATCHED WHILE IT IS STILL BEING WRITTEN — an agent redraws a
@@ -107,5 +126,12 @@ export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
     return <AnimaticEmptyState videoId={video.id} />;
   }
 
-  return <AnimaticPlayer mockups={mockups} width={width} height={height} />;
+  return (
+    <AnimaticPlayer
+      mockups={mockups}
+      chapters={chapters}
+      width={width}
+      height={height}
+    />
+  );
 }

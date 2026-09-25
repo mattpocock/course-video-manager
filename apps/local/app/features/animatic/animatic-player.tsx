@@ -1,6 +1,19 @@
 import { Player, type PlayerRef } from "@remotion/player";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
+import { AnimaticChapterDivider } from "./animatic-chapter-divider";
+import {
+  buildAnimaticChapterLayout,
+  type AnimaticChapter,
+  type AnimaticChapterRow,
+} from "./animatic-chapters";
 import {
   AnimaticComposition,
   type AnimaticCompositionProps,
@@ -14,7 +27,7 @@ import {
   resolveSelection,
   type AnimaticSelection,
 } from "./animatic-selection";
-import { useStableMockups } from "./animatic-revalidation";
+import { useStableChapters, useStableMockups } from "./animatic-revalidation";
 import { useAnimaticShortcuts } from "./use-animatic-shortcuts";
 import {
   ANIMATIC_FPS,
@@ -49,10 +62,17 @@ import {
  * The SPEED is a fourth: it starts at two times, it has a control of its own
  * in the bar, and the choice follows the author to the next Animatic. See
  * `animatic-playback-rate.ts` for why.
+ *
+ * The Video's Clip Mockup Chapters are DIVIDERS IN THAT LIST, and nothing more:
+ * each one carries the count and the run time of the rows under it, and seeks to
+ * the first of them. No Chapter is a segment, so the clock, the frame and the
+ * position badge do not know they exist. See `animatic-chapters.ts`.
  */
 
 export const AnimaticPlayer = (props: {
   mockups: AnimaticClipMockup[];
+  /** The Video's Clip Mockup Chapters. Empty for a Video nobody has divided. */
+  chapters: AnimaticChapter[];
   width: number;
   height: number;
 }) => {
@@ -70,8 +90,16 @@ export const AnimaticPlayer = (props: {
   // The rows as an unchanged poll leaves them: the SAME array, so nothing below
   // sees a change and the Player is never remounted mid-watch.
   const mockups = useStableMockups(props.mockups);
+  const chapters = useStableChapters(props.chapters);
 
   const timeline = useMemo(() => buildAnimaticTimeline(mockups), [mockups]);
+
+  // The dividers, with what they roll up. Pure arithmetic over the same
+  // segments the Player plays — no Chapter is a segment of its own.
+  const layout = useMemo(
+    () => buildAnimaticChapterLayout({ segments: timeline.segments, chapters }),
+    [timeline, chapters]
+  );
 
   // Read by the frameupdate listener, which is installed once. A new timeline
   // (an agent added a line while this played) must not re-install it.
@@ -169,6 +197,46 @@ export const AnimaticPlayer = (props: {
     [timeline]
   );
 
+  /**
+   * One Clip Mockup's row. The same row whether it sits under a divider or
+   * above the first one: the number on it is its position in the Animatic, and
+   * `data-animatic-index` is its index in the timeline, so a Chapter changes
+   * neither the count nor what a key walks.
+   */
+  const renderRow = ({ segment, index }: AnimaticChapterRow) => (
+    <li key={segment.mockup.id}>
+      <button
+        type="button"
+        data-animatic-index={index}
+        // A clicked row keeps the keys working: the shared guard ignores a
+        // keydown on a plain button, and the author's next act after clicking a
+        // moment is SPACE.
+        className={cn(
+          "allow-keydown flex w-full gap-3 border-b border-white/5 px-4 py-2.5 text-left text-sm hover:bg-white/10",
+          index === activeIndex && "bg-white/15",
+          index === selectedIndex && index !== activeIndex && "bg-white/10",
+          index === selectedIndex && "ring-1 ring-inset ring-sky-400/60"
+        )}
+        onClick={() => playFrom(index)}
+      >
+        <span className="w-7 shrink-0 font-mono text-xs tabular-nums text-white/50">
+          {segment.mockup.position}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block whitespace-pre-wrap">
+            {segment.mockup.line}
+          </span>
+          <span className="mt-0.5 block font-mono text-[11px] text-white/40">
+            {formatRunTime(segment.startFrame / ANIMATIC_FPS)}
+            {(segment.mockup.imageMissing || segment.mockup.audioMissing) && (
+              <span className="text-amber-300"> · file missing</span>
+            )}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+
   return (
     <div className="flex h-full w-full min-h-0 bg-black text-white">
       <aside className="flex w-96 shrink-0 flex-col border-r border-white/10 bg-neutral-950">
@@ -202,41 +270,26 @@ export const AnimaticPlayer = (props: {
         )}
 
         <ol ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
-          {timeline.segments.map((segment, index) => (
-            <li key={segment.mockup.id}>
-              <button
-                type="button"
-                data-animatic-index={index}
-                // A clicked row keeps the keys working: the shared guard ignores
-                // a keydown on a plain button, and the author's next act after
-                // clicking a moment is SPACE.
-                className={cn(
-                  "allow-keydown flex w-full gap-3 border-b border-white/5 px-4 py-2.5 text-left text-sm hover:bg-white/10",
-                  index === activeIndex && "bg-white/15",
-                  index === selectedIndex &&
-                    index !== activeIndex &&
-                    "bg-white/10",
-                  index === selectedIndex && "ring-1 ring-inset ring-sky-400/60"
-                )}
-                onClick={() => playFrom(index)}
-              >
-                <span className="w-7 shrink-0 font-mono text-xs tabular-nums text-white/50">
-                  {segment.mockup.position}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block whitespace-pre-wrap">
-                    {segment.mockup.line}
-                  </span>
-                  <span className="mt-0.5 block font-mono text-[11px] text-white/40">
-                    {formatRunTime(segment.startFrame / ANIMATIC_FPS)}
-                    {(segment.mockup.imageMissing ||
-                      segment.mockup.audioMissing) && (
-                      <span className="text-amber-300"> · file missing</span>
-                    )}
-                  </span>
-                </span>
-              </button>
-            </li>
+          {/* Above the first divider: plain rows, with no invented heading. */}
+          {layout.leadingRows.map(renderRow)}
+          {layout.sections.map((section) => (
+            <Fragment key={section.chapter.id}>
+              {/* Sticky on the row, not the button: the row is the scrolling
+                  list's own child, so this is what can stay in sight. */}
+              <li className="sticky top-0 z-10">
+                <AnimaticChapterDivider
+                  name={section.chapter.name}
+                  mockupCount={section.mockupCount}
+                  runTimeSeconds={section.runTimeSeconds}
+                  onClick={
+                    section.seekIndex === null
+                      ? undefined
+                      : () => playFrom(section.seekIndex!)
+                  }
+                />
+              </li>
+              {section.rows.map(renderRow)}
+            </Fragment>
           ))}
         </ol>
       </aside>

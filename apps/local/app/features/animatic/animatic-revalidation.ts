@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import type { AnimaticChapter } from "./animatic-chapters";
 import type { AnimaticClipMockup } from "./animatic-timeline";
 
 /**
@@ -19,6 +20,11 @@ import type { AnimaticClipMockup } from "./animatic-timeline";
  * handing back the array it already returned while nothing has changed. The
  * timeline, the `inputProps` and the Player's own props then stay identical
  * across a poll, and a poll that found no change costs nothing at all.
+ *
+ * THE CHAPTERS ARE GUARDED THE SAME WAY, and they must be: a by-value guard
+ * that does not read a row cannot see it change. A renamed or moved Clip Mockup
+ * Chapter would sit invisible in the sidebar until some unrelated row changed,
+ * which reads as a lost edit.
  */
 
 /**
@@ -35,6 +41,7 @@ export function animaticMockupsSignature(
       mockup.position,
       mockup.line,
       mockup.durationSeconds,
+      mockup.order,
       mockup.imageUrl,
       mockup.audioUrl,
       mockup.imageMissing,
@@ -44,17 +51,43 @@ export function animaticMockupsSignature(
 }
 
 /**
+ * Every field of a Clip Mockup Chapter the sidebar shows or groups by: the
+ * title it prints, and the order key that decides which rows fall under it.
+ */
+export function animaticChaptersSignature(
+  chapters: readonly AnimaticChapter[]
+): string {
+  return JSON.stringify(
+    chapters.map((chapter) => [chapter.id, chapter.name, chapter.order])
+  );
+}
+
+/**
  * The same rows, but the SAME ARRAY for as long as the rows say the same thing.
  */
 export function useStableMockups(
   mockups: readonly AnimaticClipMockup[]
 ): readonly AnimaticClipMockup[] {
-  const signature = animaticMockupsSignature(mockups);
-  const held = useRef({ signature, mockups });
+  return useHeldByValue(mockups, animaticMockupsSignature(mockups));
+}
+
+/**
+ * The same Chapters, but the SAME ARRAY while they say the same thing — so a
+ * poll does not rebuild the grouping, and through it the rows, on every loop.
+ */
+export function useStableChapters(
+  chapters: readonly AnimaticChapter[]
+): readonly AnimaticChapter[] {
+  return useHeldByValue(chapters, animaticChaptersSignature(chapters));
+}
+
+/** Hold a value until its signature says something really changed. */
+function useHeldByValue<T>(value: T, signature: string): T {
+  const held = useRef({ signature, value });
 
   if (held.current.signature !== signature) {
-    held.current = { signature, mockups };
+    held.current = { signature, value };
   }
 
-  return held.current.mockups;
+  return held.current.value;
 }
