@@ -40,22 +40,47 @@ export const loader = makeLoader({
       const courseOps = yield* CourseOperationsService;
       const deliverableOps = yield* DeliverableOperationsService;
       const pitchOps = yield* PitchOperationsService;
-      const [deliverables, courses, pitches] = yield* Effect.all(
-        [
-          deliverableOps.listDeliverables(),
-          courseOps.getCourses(),
-          pitchOps.listPitches(),
-        ],
-        { concurrency: "unbounded" }
-      );
+      const [deliverables, courses, pitches, archivedCourses, archivedPitches] =
+        yield* Effect.all(
+          [
+            deliverableOps.listDeliverables(),
+            courseOps.getCourses(),
+            pitchOps.listPitches(),
+            // Archiving a Course or Pitch deletes neither the Deliverable nor
+            // its link row, so the label maps below need the archived rows too
+            // — otherwise the badge falls back to a raw database id.
+            courseOps.getArchivedCourses(),
+            pitchOps.listPitches({ archived: true }),
+          ],
+          { concurrency: "unbounded" }
+        );
 
-      const courseMap = new Map(courses.map((c) => [c.id, c.name]));
-      const pitchMap = new Map(
-        pitches.map((p) => [
-          p.id,
-          { title: p.title, priority: p.priority, state: p.state },
-        ])
-      );
+      // Labels only: the archived rows never reach the `courses`/`pitches`
+      // pickers below, so an archived Course or Pitch stays unselectable.
+      const courseMap = new Map([
+        ...archivedCourses.map((c) => [c.id, `${c.name} (archived)`] as const),
+        ...courses.map((c) => [c.id, c.name] as const),
+      ]);
+      const pitchMap = new Map([
+        ...archivedPitches.map(
+          (p) =>
+            [
+              p.id,
+              {
+                title: `${p.title} (archived)`,
+                priority: p.priority,
+                state: p.state,
+              },
+            ] as const
+        ),
+        ...pitches.map(
+          (p) =>
+            [
+              p.id,
+              { title: p.title, priority: p.priority, state: p.state },
+            ] as const
+        ),
+      ]);
 
       return {
         deliverables: deliverables.map((d) => ({
