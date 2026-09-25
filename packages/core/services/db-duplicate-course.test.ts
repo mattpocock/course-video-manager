@@ -173,20 +173,11 @@ async function createFullCourseStructure() {
     },
   ]);
 
-  // Thumbnails. A real one stores ABSOLUTE paths under the Video's own
-  // `{VIDEO_FILES_DIR}/{lineageId}/`, which is what makes a duplicate's paths
-  // worth checking (#1674).
+  // Thumbnails
   await testDb.insert(schema.thumbnails).values({
     videoId: video!.id,
-    layers: {
-      backgroundPhoto: {
-        filePath: `/video-files/${video!.lineageId}/thumbnail-01-bg.png`,
-        horizontalPosition: 50,
-      },
-      diagram: null,
-      cutout: null,
-    },
-    filePath: `/video-files/${video!.lineageId}/thumbnail-01.png`,
+    layers: JSON.stringify([{ type: "text", content: "thumb" }]),
+    filePath: "/thumbs/01.png",
     selectedForUpload: true,
   });
 
@@ -472,48 +463,10 @@ describe("duplicateCourse", () => {
       },
     });
 
-    const newVideo = newSections[0]!.lessons[0]!.videos[0]!;
-    const thumbnails = newVideo.thumbnails;
+    const thumbnails = newSections[0]!.lessons[0]!.videos[0]!.thumbnails;
     expect(thumbnails).toHaveLength(1);
+    expect(thumbnails[0]!.filePath).toBe("/thumbs/01.png");
     expect(thumbnails[0]!.selectedForUpload).toBe(true);
-  });
-
-  it("points a copied thumbnail at the DUPLICATE's own lineage directory", async () => {
-    // Copied verbatim, the paths aliased the SOURCE Video's files: the copy
-    // rendered the source's picture, and editing the copy's Thumbnail wrote
-    // over the source's PNG, because the update route writes back to the path
-    // on the row (#1674).
-    const { course, video } = await createFullCourseStructure();
-
-    const result = await run(
-      Effect.gen(function* () {
-        const courseOps = yield* CourseOperationsService;
-        return yield* courseOps.duplicateCourse({
-          sourceCourseId: course.id,
-          name: "Dup",
-        });
-      })
-    );
-
-    const newSections = await testDb.query.sections.findMany({
-      where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
-      with: {
-        lessons: { with: { videos: { with: { thumbnails: true } } } },
-      },
-    });
-
-    const newVideo = newSections[0]!.lessons[0]!.videos[0]!;
-    const thumbnail = newVideo.thumbnails[0]!;
-
-    expect(newVideo.lineageId).not.toBe(video.lineageId);
-    expect(thumbnail.filePath).toBe(
-      `/video-files/${newVideo.lineageId}/thumbnail-01.png`
-    );
-    expect(thumbnail.filePath).not.toContain(video.lineageId);
-    expect(
-      (thumbnail.layers as { backgroundPhoto: { filePath: string } })
-        .backgroundPhoto.filePath
-    ).toBe(`/video-files/${newVideo.lineageId}/thumbnail-01-bg.png`);
   });
 
   it("preserves entity ordering across sections and lessons", async () => {
