@@ -375,6 +375,19 @@ export const setupPublishableCourse = async (opts?: {
       effect.pipe(Effect.provide(testLayer) as any)
     ) as Promise<A>;
 
+  /**
+   * Open a hard gap on a seeded Video by taking its `body` away. Its Lesson
+   * then ships as a Placeholder Lesson (at a floor that reaches it) or is
+   * withheld — either way the Lesson contributes no .mp4, so unfilming every
+   * seeded Video leaves a syllabus-only release.
+   */
+  const unfilm = async (videoId: string) => {
+    await testDb
+      .update(videosTable)
+      .set({ body: null })
+      .where(eq(videosTable.id, videoId));
+  };
+
   return {
     course,
     version,
@@ -382,6 +395,7 @@ export const setupPublishableCourse = async (opts?: {
     videos,
     exportHash,
     run,
+    unfilm,
     /** Every Definition Card the export step asked to be rendered. */
     cardRenderRequests: overlayRenderCache.requests,
     /** Every run of the compositing pass. Empty means it never ran. */

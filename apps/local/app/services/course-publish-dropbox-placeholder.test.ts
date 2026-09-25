@@ -11,6 +11,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  copyBatchCount,
   DROPBOX_REMOTE_PATH,
   fakeDropbox,
   manifestVideos,
@@ -20,6 +21,24 @@ import {
   setupUploads,
   videoUploadCount,
 } from "./course-publish-dropbox-upload-test-setup";
+
+/** How many `files/upload` calls landed on a path ending in `suffix`. */
+const uploadCountFor = (suffix: string) =>
+  fakeDropbox.fetchCalls.filter((call) => {
+    if (!call.url.includes("/2/files/upload") || call.url.includes("session"))
+      return false;
+    const arg = (call.init.headers as Record<string, string> | undefined)?.[
+      "Dropbox-API-Arg"
+    ];
+    return Boolean(arg && JSON.parse(arg).path.endsWith(suffix));
+  }).length;
+
+/** Where a syllabus-only release's Bundle landed, read off its receipt. */
+const bundleDirOfReceipt = () =>
+  `${DROPBOX_REMOTE_PATH}/test-course/${receiptManifest().$schema.replace(
+    "/course.schema.json",
+    ""
+  )}`;
 
 setupDropboxUploadTests();
 
@@ -95,5 +114,61 @@ describe("Dropbox publish upload — Placeholder Lessons", () => {
     const bundleDir = `${DROPBOX_REMOTE_PATH}/test-course/${manifest.$schema.replace("/course.schema.json", "")}`;
     expect(fakeDropbox.get(`${bundleDir}/course.schema.json`)).toBeTruthy();
     expect(fakeDropbox.get(`${bundleDir}/manifest.json`)).toBeTruthy();
+  });
+
+  it("resumes a syllabus-only release whose receipt never landed", async () => {
+    const { videos, sync, unfilm } = await setupUploads({ videoCount: 2 });
+    for (const video of videos) await unfilm(video.id);
+
+    await sync(undefined, true, 2);
+    const bundleDir = bundleDirOfReceipt();
+
+    // A Publish interrupted between the Bundle and its commit receipt: the
+    // Bundle directory stands, the receipt does not.
+    fakeDropbox.files.delete(
+      `${DROPBOX_REMOTE_PATH}/test-course/course.json`.toLowerCase()
+    );
+
+    await sync(undefined, true, 2);
+
+    // Re-running the same Publish resumes: the schema sidecar and manifest
+    // already in place are left alone, and the receipt lands.
+    expect(receiptManifest().schemaVersion).toBe(4);
+    expect(fakeDropbox.get(`${bundleDir}/manifest.json`)).toBeTruthy();
+    expect(videoUploadCount()).toBe(0);
+    expect(uploadCountFor("/manifest.json")).toBe(1);
+    expect(uploadCountFor("/course.schema.json")).toBe(1);
+  });
+
+  it("restores a syllabus-only Bundle's missing manifest", async () => {
+    const { videos, sync, unfilm } = await setupUploads({ videoCount: 2 });
+    for (const video of videos) await unfilm(video.id);
+
+    await sync(undefined, true, 2);
+    const bundleDir = bundleDirOfReceipt();
+    fakeDropbox.files.delete(`${bundleDir}/manifest.json`.toLowerCase());
+
+    await sync(undefined, true, 2);
+
+    expect(fakeDropbox.get(`${bundleDir}/manifest.json`)).toBeTruthy();
+    expect(fakeDropbox.get(`${bundleDir}/course.schema.json`)).toBeTruthy();
+  });
+
+  it("reuses nothing from a previous syllabus-only release", async () => {
+    const { videos, sync, unfilm, refilm } = await setupUploads({
+      videoCount: 2,
+    });
+    for (const video of videos) await unfilm(video.id);
+
+    // The reuse plan is read off a receipt that names no Video at all, and the
+    // Bundle directory it would list holds none either.
+    await sync(undefined, true, 2);
+    for (const video of videos) await refilm(video.id);
+    await sync();
+
+    expect(copyBatchCount()).toBe(0);
+    expect(videoUploadCount()).toBe(2);
+    expect(remoteBundleVideoPaths()).toHaveLength(2);
+    expect(manifestVideos(receiptManifest())).toHaveLength(2);
   });
 });

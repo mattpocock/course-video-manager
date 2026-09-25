@@ -297,7 +297,15 @@ export const setupUploads = async (opts?: {
       .where(eq(videosTable.id, videoId));
   };
 
-  return { course, version, videos, run, sync, unfilm };
+  /** Close the gap `unfilm` opened, so the Lesson ships in full again. */
+  const refilm = async (videoId: string) => {
+    await testDb
+      .update(videosTable)
+      .set({ body: "Video body" })
+      .where(eq(videosTable.id, videoId));
+  };
+
+  return { course, version, videos, run, sync, unfilm, refilm };
 };
 
 export const remoteBundleVideoPaths = () =>
