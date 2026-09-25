@@ -232,3 +232,96 @@ describe("copyVideoImpl — copyScript", () => {
     expect(newVideo!.script).toBeNull();
   });
 });
+
+describe("copyVideoImpl — clip mockups", () => {
+  it("copies clip mockups in order, excluding archived ones, with fresh order keys", async () => {
+    const source = await createVideo({ title: "problem" });
+
+    // Inserted out of `order` on purpose, and with one archived row: the copy
+    // must follow `order` and drop the archived one.
+    await testDb.insert(schema.clipMockups).values([
+      {
+        videoId: source.id,
+        line: "Second line",
+        imagePath: "frame-002.png",
+        durationSeconds: 3.5,
+        order: "a2",
+      },
+      {
+        videoId: source.id,
+        line: "First line",
+        imagePath: "frame-001.png",
+        order: "a1",
+      },
+      {
+        videoId: source.id,
+        line: "Archived line",
+        imagePath: "frame-003.png",
+        order: "a3",
+        archived: true,
+      },
+    ]);
+
+    const newVideoId = await run(
+      copyVideoImpl(db(), {
+        sourceVideoId: source.id,
+        newTitle: "problem (copy)",
+        copyClips: false,
+        copyBeats: false,
+        copyScript: false,
+        renameOld: false,
+      })
+    );
+
+    const copied = await testDb.query.clipMockups.findMany({
+      where: (m, { eq }) => eq(m.videoId, newVideoId),
+      orderBy: (m, { asc }) => asc(m.order),
+    });
+
+    expect(
+      copied.map((m) => ({
+        line: m.line,
+        imagePath: m.imagePath,
+        durationSeconds: m.durationSeconds,
+        archived: m.archived,
+      }))
+    ).toEqual([
+      {
+        line: "First line",
+        imagePath: "frame-001.png",
+        durationSeconds: null,
+        archived: false,
+      },
+      {
+        line: "Second line",
+        imagePath: "frame-002.png",
+        durationSeconds: 3.5,
+        archived: false,
+      },
+    ]);
+
+    // This path regenerates order keys the way it does for clips, chapters and
+    // beats — relative order survives, the literal keys do not.
+    expect(copied.map((m) => m.order)).not.toEqual(["a1", "a2"]);
+  });
+
+  it("leaves the copy with no clip mockups when the source has none", async () => {
+    const source = await createVideo({ title: "problem" });
+
+    const newVideoId = await run(
+      copyVideoImpl(db(), {
+        sourceVideoId: source.id,
+        newTitle: "problem (copy)",
+        copyClips: false,
+        copyBeats: false,
+        copyScript: false,
+        renameOld: false,
+      })
+    );
+
+    const copied = await testDb.query.clipMockups.findMany({
+      where: (m, { eq }) => eq(m.videoId, newVideoId),
+    });
+    expect(copied).toEqual([]);
+  });
+});

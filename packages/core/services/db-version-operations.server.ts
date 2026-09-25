@@ -7,6 +7,7 @@ import {
   courseVersions,
   sections,
   beats,
+  clipMockups,
   thumbnails,
   videos,
 } from "../db/schema.js";
@@ -377,6 +378,10 @@ export const createVersionOperations = (db: Database) => {
                       orderBy: asc(beats.order),
                       where: eq(beats.archived, false),
                     },
+                    clipMockups: {
+                      orderBy: asc(clipMockups.order),
+                      where: eq(clipMockups.archived, false),
+                    },
                     thumbnails: true,
                   },
                 },
@@ -494,6 +499,22 @@ export const createVersionOperations = (db: Database) => {
                     title: beat.title,
                     description: beat.description,
                     order: beat.order,
+                  }))
+                )
+              );
+            }
+
+            // Clip Mockups copy exactly as Beats do: `order` verbatim, and
+            // `imagePath` stays valid because the snapshot keeps lineageId.
+            if (sourceVideo.clipMockups.length > 0) {
+              yield* makeDbCall(() =>
+                transaction.insert(clipMockups).values(
+                  sourceVideo.clipMockups.map((clipMockup) => ({
+                    videoId: newVideo.id,
+                    line: clipMockup.line,
+                    imagePath: clipMockup.imagePath,
+                    durationSeconds: clipMockup.durationSeconds,
+                    order: clipMockup.order,
                   }))
                 )
               );

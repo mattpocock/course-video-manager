@@ -7,6 +7,7 @@ import {
   sections,
   lessons,
   beats,
+  clipMockups,
   thumbnails,
   videos,
 } from "../db/schema.js";
@@ -125,6 +126,10 @@ export const makeDuplicateCourse = (db: Database) =>
                     orderBy: asc(beats.order),
                     where: eq(beats.archived, false),
                   },
+                  clipMockups: {
+                    orderBy: asc(clipMockups.order),
+                    where: eq(clipMockups.archived, false),
+                  },
                   thumbnails: true,
                 },
               },
@@ -232,6 +237,22 @@ export const makeDuplicateCourse = (db: Database) =>
                   title: beat.title,
                   description: beat.description,
                   order: beat.order,
+                }))
+              )
+            );
+          }
+
+          // Clip Mockups copy the way Beats do — verbatim `order`, archived
+          // rows already filtered out by the read above.
+          if (sourceVideo.clipMockups.length > 0) {
+            yield* makeDbCall(() =>
+              db.insert(clipMockups).values(
+                sourceVideo.clipMockups.map((clipMockup) => ({
+                  videoId: newVideo.id,
+                  line: clipMockup.line,
+                  imagePath: clipMockup.imagePath,
+                  durationSeconds: clipMockup.durationSeconds,
+                  order: clipMockup.order,
                 }))
               )
             );

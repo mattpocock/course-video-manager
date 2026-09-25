@@ -5,7 +5,7 @@
  * the repo's 5500-token pre-commit limit.
  */
 
-import { clips, chapters, videos, beats } from "../db/schema.js";
+import { clips, chapters, videos, beats, clipMockups } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
@@ -218,6 +218,38 @@ export const copyVideoImpl = (
               }))
             );
           }
+        }
+
+        // Clip Mockups always come along. Unlike clips, beats and the script
+        // they have no opt-out: a Video duplicate is a new take on the same
+        // plan, and #1646 asks for them unconditionally.
+        //
+        // NOTE: orders are REGENERATED here, the way this function regenerates
+        // clip, chapter and beat orders — relative order is preserved because
+        // the read is `orderBy: asc(order)`.
+        const sourceClipMockups = await tx.query.clipMockups.findMany({
+          where: and(
+            eq(clipMockups.videoId, sourceVideoId),
+            eq(clipMockups.archived, false)
+          ),
+          orderBy: asc(clipMockups.order),
+        });
+
+        if (sourceClipMockups.length > 0) {
+          const clipMockupOrders = generateNKeysBetween(
+            null,
+            null,
+            sourceClipMockups.length
+          );
+          await tx.insert(clipMockups).values(
+            sourceClipMockups.map((clipMockup, i) => ({
+              videoId: newVideo.id,
+              line: clipMockup.line,
+              imagePath: clipMockup.imagePath,
+              durationSeconds: clipMockup.durationSeconds,
+              order: clipMockupOrders[i]!,
+            }))
+          );
         }
 
         return newVideo.id;
