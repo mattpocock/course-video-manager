@@ -116,6 +116,11 @@ describe("duplicateCourse — schema-drift guard", () => {
       copied: ["line", "imagePath", "audioPath", "durationSeconds", "order"],
       notCopied: ["id", "videoId", "archived", "createdAt"],
     },
+    clipMockupChapter: {
+      table: schema.clipMockupChapters,
+      copied: ["name", "order"],
+      notCopied: ["id", "videoId", "archived", "createdAt"],
+    },
     thumbnail: {
       table: schema.thumbnails,
       copied: ["layers", "filePath", "selectedForUpload"],
@@ -229,6 +234,11 @@ describe("duplicateCourse — schema-drift guard", () => {
       durationSeconds: 2.75,
       order: "m",
     });
+    await testDb.insert(schema.clipMockupChapters).values({
+      videoId: video!.id,
+      name: "Coverage Clip Mockup Chapter",
+      order: "mV",
+    });
     await testDb.insert(schema.thumbnails).values({
       videoId: video!.id,
       layers: [{ type: "text", content: "coverage" }],
@@ -257,6 +267,7 @@ describe("duplicateCourse — schema-drift guard", () => {
                 chapters: true,
                 beats: true,
                 clipMockups: true,
+                clipMockupChapters: true,
                 thumbnails: true,
               },
             },
@@ -274,6 +285,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       chapter: dupVideo.chapters[0]!,
       beat: dupVideo.beats[0]!,
       clipMockup: dupVideo.clipMockups[0]!,
+      clipMockupChapter: dupVideo.clipMockupChapters[0]!,
       thumbnail: dupVideo.thumbnails[0]!,
     };
     const sourceRows: Record<keyof typeof COPY_SPEC, any> = {
@@ -284,6 +296,11 @@ describe("duplicateCourse — schema-drift guard", () => {
       chapter: await getOne(schema.chapters, "videoId", video!.id),
       beat: await getOne(schema.beats, "videoId", video!.id),
       clipMockup: await getOne(schema.clipMockups, "videoId", video!.id),
+      clipMockupChapter: await getOne(
+        schema.clipMockupChapters,
+        "videoId",
+        video!.id
+      ),
       thumbnail: await getOne(schema.thumbnails, "videoId", video!.id),
     };
 

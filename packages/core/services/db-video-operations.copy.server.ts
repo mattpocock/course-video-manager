@@ -5,11 +5,19 @@
  * the repo's 5500-token pre-commit limit.
  */
 
-import { clips, chapters, videos, beats, clipMockups } from "../db/schema.js";
+import {
+  clips,
+  chapters,
+  videos,
+  beats,
+  clipMockups,
+  clipMockupChapters,
+} from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
+import { sortByOrder } from "../lib/sort-by-order.js";
 import type { Database } from "./drizzle-service.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
@@ -220,13 +228,16 @@ export const copyVideoImpl = (
           }
         }
 
-        // Clip Mockups always come along. Unlike clips, beats and the script
-        // they have no opt-out: a Video duplicate is a new take on the same
-        // plan, and #1646 asks for them unconditionally.
+        // Clip Mockups and their Clip Mockup Chapters always come along.
+        // Unlike clips, beats and the script they have no opt-out: a Video
+        // duplicate is a new take on the same plan, and #1646 asks for them
+        // unconditionally.
         //
         // NOTE: orders are REGENERATED here, the way this function regenerates
-        // clip, chapter and beat orders — relative order is preserved because
-        // the read is `orderBy: asc(order)`.
+        // clip, chapter and beat orders. The two tables share ONE order space —
+        // the Animatic — so the keys are generated across the MERGED list and
+        // handed back to each row IN PLACE. A key run per table would pile
+        // every Chapter at one end of the copy.
         const sourceClipMockups = await tx.query.clipMockups.findMany({
           where: and(
             eq(clipMockups.videoId, sourceVideoId),
@@ -235,22 +246,63 @@ export const copyVideoImpl = (
           orderBy: asc(clipMockups.order),
         });
 
-        if (sourceClipMockups.length > 0) {
-          const clipMockupOrders = generateNKeysBetween(
+        const sourceClipMockupChapters =
+          await tx.query.clipMockupChapters.findMany({
+            where: and(
+              eq(clipMockupChapters.videoId, sourceVideoId),
+              eq(clipMockupChapters.archived, false)
+            ),
+            orderBy: asc(clipMockupChapters.order),
+          });
+
+        const animatic = sortByOrder([
+          ...sourceClipMockups.map((clipMockup) => ({
+            kind: "clipMockup" as const,
+            order: clipMockup.order,
+            clipMockup,
+          })),
+          ...sourceClipMockupChapters.map((chapter) => ({
+            kind: "clipMockupChapter" as const,
+            order: chapter.order,
+            chapter,
+          })),
+        ]);
+
+        if (animatic.length > 0) {
+          const animaticOrders = generateNKeysBetween(
             null,
             null,
-            sourceClipMockups.length
+            animatic.length
           );
-          await tx.insert(clipMockups).values(
-            sourceClipMockups.map((clipMockup, i) => ({
-              videoId: newVideo.id,
-              line: clipMockup.line,
-              imagePath: clipMockup.imagePath,
-              audioPath: clipMockup.audioPath,
-              durationSeconds: clipMockup.durationSeconds,
-              order: clipMockupOrders[i]!,
-            }))
-          );
+          const clipMockupValues: (typeof clipMockups.$inferInsert)[] = [];
+          const chapterValues: (typeof clipMockupChapters.$inferInsert)[] = [];
+
+          animatic.forEach((item, i) => {
+            const order = animaticOrders[i]!;
+            if (item.kind === "clipMockup") {
+              clipMockupValues.push({
+                videoId: newVideo.id,
+                line: item.clipMockup.line,
+                imagePath: item.clipMockup.imagePath,
+                audioPath: item.clipMockup.audioPath,
+                durationSeconds: item.clipMockup.durationSeconds,
+                order,
+              });
+            } else {
+              chapterValues.push({
+                videoId: newVideo.id,
+                name: item.chapter.name,
+                order,
+              });
+            }
+          });
+
+          if (clipMockupValues.length > 0) {
+            await tx.insert(clipMockups).values(clipMockupValues);
+          }
+          if (chapterValues.length > 0) {
+            await tx.insert(clipMockupChapters).values(chapterValues);
+          }
         }
 
         return newVideo.id;

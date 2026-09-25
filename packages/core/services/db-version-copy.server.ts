@@ -7,6 +7,7 @@ import {
   sections,
   beats,
   clipMockups,
+  clipMockupChapters,
   thumbnails,
   videos,
 } from "../db/schema.js";
@@ -125,6 +126,10 @@ export const createVersionCopyOps = (db: Database) => {
                     clipMockups: {
                       orderBy: asc(clipMockups.order),
                       where: eq(clipMockups.archived, false),
+                    },
+                    clipMockupChapters: {
+                      orderBy: asc(clipMockupChapters.order),
+                      where: eq(clipMockupChapters.archived, false),
                     },
                     thumbnails: true,
                   },
@@ -260,6 +265,20 @@ export const createVersionCopyOps = (db: Database) => {
                     audioPath: clipMockup.audioPath,
                     durationSeconds: clipMockup.durationSeconds,
                     order: clipMockup.order,
+                  }))
+                )
+              );
+            }
+
+            // Clip Mockup Chapters share the Clip Mockups' order space, so
+            // verbatim `order` keeps the two interleaved as the source has them.
+            if (sourceVideo.clipMockupChapters.length > 0) {
+              yield* makeDbCall(() =>
+                transaction.insert(clipMockupChapters).values(
+                  sourceVideo.clipMockupChapters.map((chapter) => ({
+                    videoId: newVideo.id,
+                    name: chapter.name,
+                    order: chapter.order,
                   }))
                 )
               );

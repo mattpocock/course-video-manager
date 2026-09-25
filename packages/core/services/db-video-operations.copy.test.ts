@@ -12,6 +12,7 @@ import {
   createSection,
 } from "./path-uniqueness-test-helpers.js";
 import type { Database } from "./drizzle-service.server.js";
+import { sortByOrder } from "../lib/sort-by-order.js";
 import { Effect } from "effect";
 
 let testDb: TestDb;
@@ -48,6 +49,37 @@ async function getVideo(id: string) {
 const db = () => testDb as unknown as Database;
 
 const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
+
+/** A Clip Mockup row with every not-null column the table demands. */
+const mockup = (videoId: string, line: string) => ({
+  videoId,
+  line,
+  imagePath: `${line}.png`,
+  audioPath: `${line}.wav`,
+  durationSeconds: 1,
+});
+
+/**
+ * The Video's Animatic as one list: its active Clip Mockups and Clip Mockup
+ * Chapters merged by their shared `order` key, each named. The copy path
+ * REGENERATES those keys, so only a merged list catches a run of keys made per
+ * table, which piles every Chapter at one end.
+ */
+async function animaticLabels(videoId: string) {
+  const mockups = await testDb.query.clipMockups.findMany({
+    where: (m, { and, eq }) =>
+      and(eq(m.videoId, videoId), eq(m.archived, false)),
+  });
+  const chapters = await testDb.query.clipMockupChapters.findMany({
+    where: (c, { and, eq }) =>
+      and(eq(c.videoId, videoId), eq(c.archived, false)),
+  });
+
+  return sortByOrder([
+    ...mockups.map((m) => ({ order: m.order, label: `mockup:${m.line}` })),
+    ...chapters.map((c) => ({ order: c.order, label: `chapter:${c.name}` })),
+  ]).map((item) => item.label);
+}
 
 describe("copyVideoImpl — renameOld", () => {
   it("renames the source video to '<title> (old)' without archiving it", async () => {
@@ -308,6 +340,47 @@ describe("copyVideoImpl — clip mockups", () => {
     // This path regenerates order keys the way it does for clips, chapters and
     // beats — relative order survives, the literal keys do not.
     expect(copied.map((m) => m.order)).not.toEqual(["a1", "a2"]);
+  });
+
+  it("keeps clip mockup chapters interleaved where the source has them", async () => {
+    const source = await createVideo({ title: "problem" });
+
+    await testDb.insert(schema.clipMockups).values([
+      { ...mockup(source.id, "One"), order: "a1" },
+      { ...mockup(source.id, "Two"), order: "a2" },
+      { ...mockup(source.id, "Three"), order: "a3" },
+    ]);
+    await testDb.insert(schema.clipMockupChapters).values([
+      { videoId: source.id, name: "Setup", order: "a0" },
+      { videoId: source.id, name: "The bug", order: "a1V" },
+      { videoId: source.id, name: "The fix", order: "a3V" },
+      { videoId: source.id, name: "Cut", order: "a4", archived: true },
+    ]);
+
+    const newVideoId = await run(
+      copyVideoImpl(db(), {
+        sourceVideoId: source.id,
+        newTitle: "problem (copy)",
+        copyClips: false,
+        copyBeats: false,
+        copyScript: false,
+        renameOld: false,
+      })
+    );
+
+    const sourceOrder = await animaticLabels(source.id);
+    expect(sourceOrder).toEqual([
+      "chapter:Setup",
+      "mockup:One",
+      "chapter:The bug",
+      "mockup:Two",
+      "mockup:Three",
+      "chapter:The fix",
+    ]);
+
+    // The whole point: the merged order arrives identical, so the keys were
+    // regenerated ACROSS both tables and not once per table.
+    expect(await animaticLabels(newVideoId)).toEqual(sourceOrder);
   });
 
   it("leaves the copy with no clip mockups when the source has none", async () => {

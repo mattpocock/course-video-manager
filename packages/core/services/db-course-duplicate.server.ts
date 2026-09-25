@@ -8,6 +8,7 @@ import {
   lessons,
   beats,
   clipMockups,
+  clipMockupChapters,
   thumbnails,
   videos,
 } from "../db/schema.js";
@@ -29,8 +30,9 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 /**
  * Deep-copies a course's latest draft version into a brand-new course: a single
  * fresh draft version, then every non-archived section → lesson → video and each
- * video's clips, chapters, beats, clip mockups and thumbnails. Split out of
- * `db-course-operations.server.ts` to keep that module under the file-token cap.
+ * video's clips, chapters, beats, clip mockups, clip mockup chapters and
+ * thumbnails. Split out of `db-course-operations.server.ts` to keep that module
+ * under the file-token cap.
  *
  * Returns the Video lineage pairs alongside the new course. Every duplicated
  * Video gets a FRESH `lineageId` — it is a new Video, not the same one in a
@@ -145,6 +147,10 @@ export const makeDuplicateCourse = (db: Database) =>
                   clipMockups: {
                     orderBy: asc(clipMockups.order),
                     where: eq(clipMockups.archived, false),
+                  },
+                  clipMockupChapters: {
+                    orderBy: asc(clipMockupChapters.order),
+                    where: eq(clipMockupChapters.archived, false),
                   },
                   thumbnails: true,
                 },
@@ -283,6 +289,20 @@ export const makeDuplicateCourse = (db: Database) =>
                   audioPath: clipMockup.audioPath,
                   durationSeconds: clipMockup.durationSeconds,
                   order: clipMockup.order,
+                }))
+              )
+            );
+          }
+
+          // Clip Mockup Chapters share the Clip Mockups' order space, so
+          // verbatim `order` keeps the two interleaved as the source has them.
+          if (sourceVideo.clipMockupChapters.length > 0) {
+            yield* makeDbCall(() =>
+              db.insert(clipMockupChapters).values(
+                sourceVideo.clipMockupChapters.map((chapter) => ({
+                  videoId: newVideo.id,
+                  name: chapter.name,
+                  order: chapter.order,
                 }))
               )
             );
