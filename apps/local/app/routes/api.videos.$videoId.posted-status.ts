@@ -1,12 +1,12 @@
 import { Effect } from "effect";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
 import { runtimeLive } from "@/services/layer.server";
-import type { PostedPlatforms } from "@/lib/short-status";
+import { getPostedPlatforms } from "@/lib/short-status";
 import type { Route } from "./+types/api.videos.$videoId.posted-status";
 
 // Returns which platforms a video has been posted to, for the posting modal's
-// per-platform indicators. `youtube-shorts` posts map to YouTube; `buffer`
-// posts map to TikTok.
+// per-platform indicators. The platform-to-flag mapping lives in
+// `@/lib/short-status`, shared with the Shorts grid.
 export const loader = async (args: Route.LoaderArgs) => {
   const { videoId } = args.params;
 
@@ -14,18 +14,9 @@ export const loader = async (args: Route.LoaderArgs) => {
     const videoPostOps = yield* VideoPostOperationsService;
     const posts = yield* videoPostOps.listByVideoId(videoId);
 
-    const posted: PostedPlatforms = {
-      youtube: posts.some(
-        (p) => p.platform === "youtube-shorts" && p.postedAt !== null
-      ),
-      tiktok: posts.some((p) => p.platform === "buffer" && p.postedAt !== null),
-    };
-
-    return Response.json(posted);
+    return Response.json(getPostedPlatforms(posts));
   }).pipe(
-    Effect.catchAll(() =>
-      Effect.succeed(Response.json({ youtube: false, tiktok: false }))
-    ),
+    Effect.catchAll(() => Effect.succeed(Response.json(getPostedPlatforms([])))),
     runtimeLive.runPromise
   );
 };

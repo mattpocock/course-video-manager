@@ -15,6 +15,7 @@ import { UploadContext } from "@/features/upload-manager/upload-context";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { useUploadRevalidate } from "@/hooks/use-upload-revalidate";
 import {
+  getPostedPlatforms,
   getShortStatus,
   STATUS_META,
   type PostedPlatforms,
@@ -73,14 +74,7 @@ export const loader = makeLoader({
           exportedMap[video.id] = yield* fs.exists(mp4Path);
 
           const posts = yield* videoPostOps.listByVideoId(video.id);
-          postedMap[video.id] = {
-            youtube: posts.some(
-              (p) => p.platform === "youtube-shorts" && p.postedAt !== null
-            ),
-            tiktok: posts.some(
-              (p) => p.platform === "buffer" && p.postedAt !== null
-            ),
-          };
+          postedMap[video.id] = getPostedPlatforms(posts);
         })
       );
 
