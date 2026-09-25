@@ -65,6 +65,13 @@ export interface AnimaticClipMockup {
   readonly line: string;
   /** 1-based position in the Animatic — the number the author says out loud. */
   readonly position: number;
+  /**
+   * Its key in the order space it shares with the Clip Mockup Chapters. The
+   * clock ignores it; the sidebar reads it to tell which divider a row sits
+   * under, because that membership is implicit in this one key and nowhere
+   * else (see `animatic-chapters.ts`).
+   */
+  readonly order: string;
   /** Measured seconds of speech, or `null` for an unvoiced row. */
   readonly durationSeconds: number | null;
   readonly imageUrl: string;

@@ -26,6 +26,7 @@ const mockup = (
   line: `Line ${position}.`,
   position,
   durationSeconds,
+  order: `a${position}`,
   imageUrl: `/api/clip-mockups/cm_${position}/image`,
   audioUrl: `/api/clip-mockups/cm_${position}/audio`,
   imageMissing: false,
