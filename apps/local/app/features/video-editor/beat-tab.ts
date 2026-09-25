@@ -1,12 +1,11 @@
 /**
- * The four occupants of the editor's tabbed side slot. The Beats tab shows
+ * The three occupants of the editor's tabbed side slot. The Beats tab shows
  * *this video's own* plan; the Reference tab shows the sibling-video reader;
- * the Script tab shows this video's teleprompter script; the Mockups tab shows
- * this video's Animatic — its Clip Mockups, in order. They merely share
+ * the Script tab shows this video's teleprompter script. They merely share
  * screen real estate — "Reference" stays reserved for the sibling reader,
- * never the beat, script or mockup view.
+ * never the beat or script view.
  */
-export type BeatTab = "beats" | "reference" | "script" | "mockups";
+export type BeatTab = "beats" | "reference" | "script";
 
 /**
  * Resolve which tab the editor's side slot should show, given the persisted
@@ -32,9 +31,8 @@ export const resolveBeatTab = ({
   const exists = (tab: BeatTab): boolean => {
     if (tab === "beats") return hasBeats;
     if (tab === "reference") return hasReference;
-    // Script and Mockups are always available: an empty Script is authored in
-    // place, and an empty Animatic has an empty state that says where Clip
-    // Mockups come from. Neither needs a loader flag to decide it exists.
+    // Script is always available: an empty Script is authored in place, so it
+    // needs no loader flag to decide it exists.
     return true;
   };
 

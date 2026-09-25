@@ -44,12 +44,11 @@ export const EditorCompactHeader = (props: {
 
       <div className="flex-1" />
 
-      {/* Into the Animatic, beside the tab switcher. The Mockups tab holds the
-          same link, but it is two clicks and a scroll away, and the author
-          reaches for the Animatic from the editor as a whole. A `Link`, in
-          this tab, like every other tab of the Video: the Animatic is a page
-          of the Video, and a second tab left the author with two editors
-          open. */}
+      {/* Into the Animatic, beside the tab switcher. This is the ONLY way
+          into the Animatic from the editor, so without it an author cannot
+          see that an Animatic exists at all. A `Link`, in this tab, like
+          every other tab of the Video: the Animatic is a page of the Video,
+          and a second tab left the author with two editors open. */}
       {props.hasAnimatic && (
         <Link
           to={`/videos/${props.videoId}/animatic`}

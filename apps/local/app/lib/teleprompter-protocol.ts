@@ -48,6 +48,10 @@ export type CaptureStatus = z.infer<typeof CaptureStatus>;
  * imported from `app/features/video-editor/beat-tab.ts` because this is a wire
  * format: `app/lib` doesn't reach into features, and a transport that owns its
  * own vocabulary can't be broken by a refactor on either side of the channel.
+ *
+ * `mockups` stays in the union although the editor no longer has that tab
+ * (#1724). It is what a stale editor build still on the other end of the
+ * channel sends, and the glass shows nothing for it either way.
  */
 export const EditorTab = z.enum(["beats", "reference", "script", "mockups"]);
 export type EditorTab = z.infer<typeof EditorTab>;
