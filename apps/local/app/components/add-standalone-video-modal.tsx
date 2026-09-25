@@ -8,27 +8,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
-import { useFetcher, useNavigate } from "react-router";
+import { useFetcher } from "react-router";
 
 export function AddStandaloneVideoModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const addVideoFetcher = useFetcher<{ id: string }>();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (addVideoFetcher.state === "idle" && addVideoFetcher.data?.id) {
-      props.onOpenChange(false);
-      navigate(`/videos/${addVideoFetcher.data.id}/edit`);
-    }
-  }, [
-    addVideoFetcher.state,
-    addVideoFetcher.data,
-    props.onOpenChange,
-    navigate,
-  ]);
+  const addVideoFetcher = useFetcher();
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -40,13 +26,18 @@ export function AddStandaloneVideoModal(props: {
           method="post"
           action="/api/videos/create"
           className="space-y-4 py-4"
+          // The action answers with a redirect, which React Router follows on
+          // its own. The fetcher lives on this component, not inside the
+          // dialog content, so closing here does not cancel the submission.
+          onSubmit={() => props.onOpenChange(false)}
         >
+          <input type="hidden" name="redirectTo" value="/videos/{id}/edit" />
           <div className="space-y-2">
-            <Label htmlFor="video-path">Video Name</Label>
+            <Label htmlFor="video-title">Video Name</Label>
             <Input
-              id="video-path"
+              id="video-title"
               placeholder="e.g., My Video"
-              name="path"
+              name="title"
               required
             />
           </div>
