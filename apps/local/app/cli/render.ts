@@ -17,6 +17,7 @@ import { CliOutput } from "./output";
  *   AuthenticationError         -> 5
  *   SchemaVersionMismatchError  -> 6
  *   LocalOnlyCommandError       -> 7
+ *   TtsQuotaExhaustedError      -> 8
  *   (@effect/cli ValidationError, bad input) -> 3
  *   (defect / unknown tag / die)             -> 4 (rendered as DatabaseError)
  *
@@ -66,6 +67,14 @@ const EXIT_CODES: Record<string, number> = {
   // CVM_API_URL / CVM_API_TOKEN are missing. Same class as a missing
   // DATABASE_URL always was: exit 4.
   ConfigurationError: 4,
+  // The DAILY Gemini TTS quota is spent. Its own code, like
+  // LocalOnlyCommandError, because the only correct response is to STOP: the
+  // cap resets in HOURS, so no retry and no new key will make the next `cvm
+  // clip-mockup add` work before `resetsAt`. An agent voicing three hundred
+  // lines has to be able to tell that apart from "the voice fell over" (4),
+  // which it should retry. `message`, `quotaValue` and `resetsAt` say
+  // everything needed to decide between waiting and raising the cap.
+  TtsQuotaExhaustedError: 8,
 };
 
 const exitCodeForTag = (tag: string): number => EXIT_CODES[tag] ?? 4;

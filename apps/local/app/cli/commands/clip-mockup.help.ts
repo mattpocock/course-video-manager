@@ -45,6 +45,16 @@ so an agent can total a Video's durationSeconds and say the Lesson runs 34
 minutes before anybody presses play. Needs GEMINI_API_KEY; a failure is _tag
 "SpeechSynthesisError", exit 4, and creates nothing.
 
+THE DAILY TTS QUOTA IS ITS OWN ANSWER. Gemini caps TTS requests per DAY, and
+that cap resets in HOURS, not seconds. Spending it is _tag
+"TtsQuotaExhaustedError" and exit 8 — NOT 4 — carrying quotaValue (the cap)
+and resetsAt (when it comes back) so the one line on stderr says whether to
+wait or raise the cap. It is a STOP: retrying before resetsAt cannot succeed.
+A per-minute squeeze or a 5xx is different and is retried for you, invisibly;
+only if the retries run out does it surface as "SpeechSynthesisError".
+Re-adding a line that was ALREADY spoken costs no request at all — the WAV
+cache is a far bigger lever on the quota than any retry policy.
+
 Like a Beat and the Script, a Clip Mockup is an internal planning artifact: it
 is NEVER published into course.json. Deleting is an archive, and archived ==
 deleted (there is no restore verb).
