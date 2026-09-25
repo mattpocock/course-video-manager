@@ -28,7 +28,8 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'learning-goal' (create/update/move/delete), 'beat' (add/update/move/delete),
 'clip' (add/update/move/delete), 'clip-mockup'
-(add/update/move/delete), 'clip-mockup-chapter' (add/list), 'chapter'
+(add/update/move/delete), 'clip-mockup-chapter'
+(add/update/move/delete), 'chapter'
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
@@ -154,13 +155,15 @@ WRITES
                                      the 1-based position the author reads off
                                      'list' and the player
     clip-mockup-chapter
-            add/list                 name the dividers that group a Video's
+            add/update/move/delete   name the dividers that group a Video's
                                      Animatic (Clip Mockups and Chapters share
                                      ONE order key space, so membership is
                                      implicit — a Clip Mockup belongs to the
                                      last Chapter above it). NOT local-only and
                                      needs NO Draft Version, unlike
-                                     'clip-mockup' and 'chapter'
+                                     'clip-mockup' and 'chapter'. Addressed by
+                                     BARE <id> only: there is no --at, and
+                                     'move' REQUIRES an anchor
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
     section
