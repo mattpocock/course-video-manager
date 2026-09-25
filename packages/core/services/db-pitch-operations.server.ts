@@ -1,5 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
-import { clips, pitches, beats, videos } from "../db/schema.js";
+import { clips, pitches, beats, videos, deliverables } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import { Effect } from "effect";
@@ -104,6 +104,7 @@ export const createPitchOperations = (db: Database) => {
             with: {
               deliverable: {
                 columns: { status: true },
+                where: eq(deliverables.archived, false),
               },
             },
           },
@@ -113,7 +114,9 @@ export const createPitchOperations = (db: Database) => {
 
     const withState = rows.map((row) => {
       const { deliverablesPitches: dpLinks, ...rest } = row;
-      const statuses = dpLinks.map((dp) => dp.deliverable.status);
+      const statuses = dpLinks.flatMap((dp) =>
+        dp.deliverable ? [dp.deliverable.status] : []
+      );
       return { ...rest, state: derivePitchState(statuses) };
     });
 
@@ -155,6 +158,7 @@ export const createPitchOperations = (db: Database) => {
               with: {
                 deliverable: {
                   columns: { status: true },
+                  where: eq(deliverables.archived, false),
                 },
               },
             },
@@ -164,7 +168,9 @@ export const createPitchOperations = (db: Database) => {
 
       const withState = rows.map((row) => {
         const { deliverablesPitches: dpLinks, ...rest } = row;
-        const statuses = dpLinks.map((dp) => dp.deliverable.status);
+        const statuses = dpLinks.flatMap((dp) =>
+          dp.deliverable ? [dp.deliverable.status] : []
+        );
         return { ...rest, state: derivePitchState(statuses) };
       });
 
@@ -227,6 +233,7 @@ export const createPitchOperations = (db: Database) => {
             with: {
               deliverable: {
                 columns: { status: true },
+                where: eq(deliverables.archived, false),
               },
             },
           },
@@ -242,7 +249,9 @@ export const createPitchOperations = (db: Database) => {
     }
 
     const { deliverablesPitches: dpLinks, ...rest } = pitch;
-    const statuses = dpLinks.map((dp) => dp.deliverable.status);
+    const statuses = dpLinks.flatMap((dp) =>
+      dp.deliverable ? [dp.deliverable.status] : []
+    );
     return { ...rest, state: derivePitchState(statuses) };
   });
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { PitchOperationsService } from "./db-pitch-operations.server.js";
+import { DeliverableOperationsService } from "./db-deliverable-operations.server.js";
 import { DrizzleService } from "./drizzle-service.server.js";
 import * as schema from "../db/schema.js";
 import {
@@ -11,15 +12,18 @@ import {
 } from "../test-utils/pglite.js";
 
 let testDb: TestDb;
-let testLayer: Layer.Layer<PitchOperationsService>;
+let testLayer: Layer.Layer<
+  PitchOperationsService | DeliverableOperationsService
+>;
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
 
-  testLayer = PitchOperationsService.Default.pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
+  testLayer = Layer.mergeAll(
+    PitchOperationsService.Default,
+    DeliverableOperationsService.Default
+  ).pipe(Layer.provide(Layer.succeed(DrizzleService, testDb as any)));
 });
 
 beforeEach(async () => {
@@ -283,6 +287,106 @@ describe("state derivation via getPitchWithVideos", () => {
 
       const result = yield* pitchOps.getPitchWithVideos(pitch.id);
       expect(result.state).toBe("idle");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
+describe("archived deliverables are excluded from state derivation", () => {
+  it.effect(
+    "pitch whose only deliverable is archived → idle, not scheduled",
+    () =>
+      Effect.gen(function* () {
+        const pitchOps = yield* PitchOperationsService;
+        const deliverableOps = yield* DeliverableOperationsService;
+
+        const pitch = yield* pitchOps.createPitch();
+        yield* pitchOps.updatePitchField(pitch.id, "title", "Emptied pitch");
+        const del = yield* Effect.promise(() =>
+          seedDeliverable(testDb, { status: "planned" })
+        );
+        yield* Effect.promise(() =>
+          linkPitchToDeliverable(testDb, pitch.id, del.id)
+        );
+
+        yield* deliverableOps.archiveDeliverable(del.id);
+
+        const list = yield* pitchOps.listPitches();
+        expect(list[0]!.state).toBe("idle");
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "pitch whose only done deliverable is archived stays under the default idle+scheduled filter",
+    () =>
+      Effect.gen(function* () {
+        const pitchOps = yield* PitchOperationsService;
+        const deliverableOps = yield* DeliverableOperationsService;
+
+        const pitch = yield* pitchOps.createPitch();
+        yield* pitchOps.updatePitchField(pitch.id, "title", "Not deleted");
+        const del = yield* Effect.promise(() =>
+          seedDeliverable(testDb, { status: "done" })
+        );
+        yield* Effect.promise(() =>
+          linkPitchToDeliverable(testDb, pitch.id, del.id)
+        );
+
+        yield* deliverableOps.archiveDeliverable(del.id);
+
+        const list = yield* pitchOps.listPitches({
+          state: ["idle", "scheduled"],
+        });
+        expect(list.map((p) => p.title)).toContain("Not deleted");
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "an archived deliverable no longer holds a pitch out of shipped",
+    () =>
+      Effect.gen(function* () {
+        const pitchOps = yield* PitchOperationsService;
+        const deliverableOps = yield* DeliverableOperationsService;
+
+        const pitch = yield* pitchOps.createPitch();
+        const done = yield* Effect.promise(() =>
+          seedDeliverable(testDb, { status: "done" })
+        );
+        const planned = yield* Effect.promise(() =>
+          seedDeliverable(testDb, { status: "planned" })
+        );
+        yield* Effect.promise(() =>
+          linkPitchToDeliverable(testDb, pitch.id, done.id)
+        );
+        yield* Effect.promise(() =>
+          linkPitchToDeliverable(testDb, pitch.id, planned.id)
+        );
+
+        yield* deliverableOps.archiveDeliverable(planned.id);
+
+        const result = yield* pitchOps.getPitchWithVideos(pitch.id);
+        expect(result.state).toBe("shipped");
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("listPitchesWithVideos ignores archived deliverables too", () =>
+    Effect.gen(function* () {
+      const pitchOps = yield* PitchOperationsService;
+      const deliverableOps = yield* DeliverableOperationsService;
+
+      const pitch = yield* pitchOps.createPitch();
+      yield* pitchOps.updatePitchField(pitch.id, "title", "With video");
+      yield* pitchOps.createVideoFromPitch(pitch.id);
+      const del = yield* Effect.promise(() =>
+        seedDeliverable(testDb, { status: "planned" })
+      );
+      yield* Effect.promise(() =>
+        linkPitchToDeliverable(testDb, pitch.id, del.id)
+      );
+
+      yield* deliverableOps.archiveDeliverable(del.id);
+
+      const list = yield* pitchOps.listPitchesWithVideos();
+      expect(list[0]!.state).toBe("idle");
     }).pipe(Effect.provide(testLayer))
   );
 });
