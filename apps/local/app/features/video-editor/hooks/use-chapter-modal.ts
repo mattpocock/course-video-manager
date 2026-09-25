@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import type { FrontendId, TimelineItem } from "../clip-state-reducer.types";
 import type { ChapterNamingModal } from "../types";
-import { shouldIgnoreKeyboardShortcut } from "./should-ignore-keyboard-shortcut";
+import { shouldIgnoreKeyboardShortcut } from "@/hooks/should-ignore-keyboard-shortcut";
 
 export const useChapterModal = (
   timelineItems: TimelineItem[],

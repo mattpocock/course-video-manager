@@ -8,7 +8,7 @@
  */
 import { useEffect } from "react";
 import { sendTeleprompterCommand } from "@/lib/teleprompter-window";
-import { shouldIgnoreKeyboardShortcut } from "./should-ignore-keyboard-shortcut";
+import { shouldIgnoreKeyboardShortcut } from "@/hooks/should-ignore-keyboard-shortcut";
 
 export function useTeleprompterShortcuts() {
   useEffect(() => {

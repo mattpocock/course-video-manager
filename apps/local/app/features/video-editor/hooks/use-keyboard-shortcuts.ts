@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { videoStateReducer } from "../video-state-reducer";
-import { shouldIgnoreKeyboardShortcut } from "./should-ignore-keyboard-shortcut";
+import { shouldIgnoreKeyboardShortcut } from "@/hooks/should-ignore-keyboard-shortcut";
 
 export function useKeyboardShortcuts(
   dispatch: (action: videoStateReducer.Action) => void

@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { clipMockupFileExists } from "@/services/clip-mockup-files";
@@ -90,6 +91,17 @@ export const loader = makeLoader({
 export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
   const { video, mockups } = loaderData;
   const { width, height } = VIDEO_FORMAT_DIMENSIONS[video.format];
+
+  // An Animatic is WATCHED WHILE IT IS STILL BEING WRITTEN — an agent redraws a
+  // frame or rewrites a line in the background, and the author should see it on
+  // the next loop rather than after a reload. Same hook, same shape as the
+  // Course view, plus a short interval because the edits arrive one at a time.
+  //
+  // The poll is only safe because `useStableMockups` in the player holds the
+  // rows by value: a revalidation that found no change reaches the Player as
+  // the identical props it already has, so playback is never restarted. Do not
+  // remove that guard while this poll exists.
+  useFocusRevalidate({ intervalMs: 2000 });
 
   if (mockups.length === 0) {
     return <AnimaticEmptyState videoId={video.id} />;

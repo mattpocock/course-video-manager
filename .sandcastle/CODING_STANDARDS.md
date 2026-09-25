@@ -83,6 +83,29 @@ component falls back to the revalidated loader data. Example:
 `const optimistic = (fetcher.formData?.get("value") ?? loaderValue) as MyType;`.
 This eliminates state-sync bugs and removes the need for `useEffect` entirely.
 
+## Keyboard shortcuts
+
+### The Animatic page answers the Video page's keys
+
+The author walks an Animatic with the same habit he walks a filmed Video with,
+so the two screens must not disagree about a key. Every shortcut the Video page
+has (`features/video-editor/hooks/use-keyboard-shortcuts.ts`) is **ported to the
+Animatic page where it has a meaning there**, and it keeps the same meaning:
+SPACE plays and pauses where the playhead is, RETURN plays the selected item
+from its start, the arrows move the selection and do not touch playback, HOME and
+END go to the ends, L and K are 2x and 1x.
+
+Port a key only if the Animatic has something for it to act on — the Animatic is
+read-only, so DELETE, ALT+ARROW (reorder) and B (pause marker) have no
+equivalent and are left out. When a shortcut is ADDED to the Video page, decide
+at that moment whether it makes sense on the Animatic page, and add it there too
+or say in the code why it cannot be. The two screens also hold the same shape:
+the list of moments on the left, the picture on the right.
+
+Both pages share one guard for when a key is not the page's to take —
+`app/hooks/should-ignore-keyboard-shortcut.ts`. A new keyboard surface uses it
+rather than writing its own test for inputs, Monaco and dialogs.
+
 ## Interface design
 
 ### Deep modules
