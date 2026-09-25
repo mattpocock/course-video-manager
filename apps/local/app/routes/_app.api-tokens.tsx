@@ -114,10 +114,13 @@ export default function ApiTokens({ loaderData }: Route.ComponentProps) {
 
   // The secret exists in exactly one response. Hold it in component state so a
   // revalidation cannot quietly replace it with the list that does not have it.
+  // Every settled response decides what is on screen: minting answers with the
+  // secret, revoking answers with `null` and so takes it back down. Only a
+  // settled response is read, so a submit in flight never blanks the secret
+  // that the previous one just showed.
   useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.secret) {
-      setSecret(fetcher.data.secret);
-    }
+    if (fetcher.state !== "idle" || fetcher.data === undefined) return;
+    setSecret(fetcher.data.secret);
   }, [fetcher.state, fetcher.data]);
 
   const revoke = (id: string) =>
