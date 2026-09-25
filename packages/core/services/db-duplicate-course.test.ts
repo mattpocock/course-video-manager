@@ -144,6 +144,30 @@ async function createFullCourseStructure() {
     },
   ]);
 
+  // Clip Mockups: two active (inserted out of order), one archived
+  await testDb.insert(schema.clipMockups).values([
+    {
+      videoId: video!.id,
+      line: "Second mockup line",
+      imagePath: "frame-002.png",
+      durationSeconds: 4.25,
+      order: "b",
+    },
+    {
+      videoId: video!.id,
+      line: "First mockup line",
+      imagePath: "frame-001.png",
+      order: "a",
+    },
+    {
+      videoId: video!.id,
+      line: "Archived mockup line",
+      imagePath: "frame-003.png",
+      order: "c",
+      archived: true,
+    },
+  ]);
+
   // Thumbnails
   await testDb.insert(schema.thumbnails).values({
     videoId: video!.id,
@@ -655,5 +679,60 @@ describe("duplicateCourse", () => {
     expect(beats).toHaveLength(1);
     expect(beats[0]!.title).toBe("Active Beat");
     expect(beats[0]!.kind).toBe("definition");
+  });
+
+  it("copies clip mockups in order and excludes archived ones", async () => {
+    const { course } = await createFullCourseStructure();
+
+    const result = await run(
+      Effect.gen(function* () {
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
+          sourceCourseId: course.id,
+          name: "Dup",
+        });
+      })
+    );
+
+    const newSections = await testDb.query.sections.findMany({
+      where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
+      with: {
+        lessons: {
+          with: {
+            videos: {
+              with: {
+                clipMockups: { orderBy: (s, { asc }) => asc(s.order) },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const mockups = newSections[0]!.lessons[0]!.videos[0]!.clipMockups;
+    expect(
+      mockups.map((m) => ({
+        line: m.line,
+        imagePath: m.imagePath,
+        durationSeconds: m.durationSeconds,
+        order: m.order,
+        archived: m.archived,
+      }))
+    ).toEqual([
+      {
+        line: "First mockup line",
+        imagePath: "frame-001.png",
+        durationSeconds: null,
+        order: "a",
+        archived: false,
+      },
+      {
+        line: "Second mockup line",
+        imagePath: "frame-002.png",
+        durationSeconds: 4.25,
+        order: "b",
+        archived: false,
+      },
+    ]);
   });
 });
