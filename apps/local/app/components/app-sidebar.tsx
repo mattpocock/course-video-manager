@@ -34,6 +34,7 @@ import {
   VideoIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Link,
   useFetcher,
@@ -66,25 +67,34 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   const archiveCourseFetcher = useFetcher();
   const createPitchFetcher = useFetcher();
   const createShortFetcher = useFetcher();
-  const createDiagramFetcher = useFetcher<{ id: string }>();
 
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false);
   const [isSpacedeskOpen, setIsSpacedeskOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [isCreatingDiagram, setIsCreatingDiagram] = useState(false);
 
   useEffect(() => {
     setSheetOpen(false);
   }, [location.pathname, location.search]);
 
-  useEffect(() => {
-    if (
-      createDiagramFetcher.state === "idle" &&
-      createDiagramFetcher.data?.id
-    ) {
-      openPlaygroundWithDiagram(createDiagramFetcher.data.id);
+  const handleCreateDiagram = async () => {
+    if (isCreatingDiagram) return;
+    setIsCreatingDiagram(true);
+    try {
+      const res = await fetch("/api/diagrams/create", { method: "POST" });
+      if (!res.ok) {
+        toast.error("Failed to create diagram");
+        return;
+      }
+      const { id } = (await res.json()) as { id: string };
+      openPlaygroundWithDiagram(id);
+    } catch {
+      toast.error("Failed to create diagram");
+    } finally {
+      setIsCreatingDiagram(false);
     }
-  }, [createDiagramFetcher.state, createDiagramFetcher.data]);
+  };
 
   const onPitchesPath = location.pathname.startsWith("/pitches");
   const onShortsPath = location.pathname.startsWith("/shorts");
@@ -181,13 +191,8 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         icon={<PenTool className="w-4 h-4 text-muted-foreground" />}
         label="Diagrams"
         onClick={() => openPlayground()}
-        onAdd={() => {
-          createDiagramFetcher.submit(
-            {},
-            { method: "post", action: "/api/diagrams/create" }
-          );
-        }}
-        addDisabled={createDiagramFetcher.state !== "idle"}
+        onAdd={handleCreateDiagram}
+        addDisabled={isCreatingDiagram}
       />
 
       <EntityCard
