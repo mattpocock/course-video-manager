@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useFetcher, useRevalidator } from "react-router";
+import { useFetcher } from "react-router";
 
 export function EditableDiagramName({
   diagramId,
@@ -15,7 +15,6 @@ export function EditableDiagramName({
   onClickWhenIdle?: (e: React.MouseEvent) => void;
 }) {
   const fetcher = useFetcher();
-  const revalidator = useRevalidator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -30,12 +29,6 @@ export function EditableDiagramName({
       inputRef.current?.select();
     }
   }, [editing]);
-
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data) {
-      revalidator.revalidate();
-    }
-  }, [fetcher.state, fetcher.data, revalidator]);
 
   const commit = () => {
     const trimmed = draft.trim();
