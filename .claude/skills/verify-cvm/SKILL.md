@@ -38,14 +38,17 @@ V=.claude/skills/verify-cvm/scripts/verify.sh
 $V launch
 ```
 
-**No port is pinned.** The server takes the first port that is free, which keeps
-your run clear of Matt's own CVM and of every other verification run on the box.
-`launch` reads the port back out of the server's own banner and prints it, along
-with the **run directory** that holds the pid, the port, the browser session
-name, the server log and all your evidence:
+**Verification runs live in 5200-5299, and the CVM never does.** The CVM owns
+5170-5199 — 5172 is the Stream Deck forwarder hub, 5173 Matt's own dev server,
+5174 the forwarder's HTTP side — and its dev server is pinned to 5173 so it can
+never drift upward into your band. `launch` takes the first free port of the
+verification band, asks for exactly it, and refuses a server that comes up
+anywhere else. It prints the port along with the **run directory** that holds
+the pid, the port, the browser session name, the server log and all your
+evidence:
 
 ```text
-ready:   http://localhost:5175/  (pid 1328618)
+ready:   http://localhost:5203/  (pid 1328618)
 run:     /…/.verify/run-20260925-160913-1328614
 session: verify-cvm-20260925-160913-1328614
 export VERIFY_RUN=/…/.verify/run-20260925-160913-1328614
@@ -63,8 +66,8 @@ AB="agent-browser --session $($V session)"  # this run's own browser
 
 ### Several runs at once
 
-Runs are independent by construction: each has its own port, its own browser
-session and its own evidence directory. There is no shared "current run"
+Runs are independent by construction: each has its own port out of 5200-5299,
+its own browser session and its own evidence directory. There is no shared "current run"
 pointer, so launching a second one never disturbs the first.
 
 Two consequences:
@@ -83,14 +86,15 @@ Run it after launch, and again the moment anything looks wrong:
 $V doctor
 ```
 
-It reports, read-only: the server process alive, the run's port owned by _this_
-run's pid, `/` answering 200, which database `.env` points at, psql reaching it,
+It reports, read-only: the server process alive, the run's port outside the
+CVM's band, the port owned by _this_ run's pid, `/` answering 200, which database `.env` points at, psql reaching it,
 and which other verification runs are live. Any FAIL means stop and fix — a
 snapshot taken against someone else's server proves nothing.
 
-**Drive only the port your own run reports.** Other ports in the same range
-belong to Matt: his CVM runs all day against this same production database, and
-driving it would type into the window he is looking at.
+**Drive only the port your own run reports.** 5173 is Matt's CVM: it runs all
+day against this same production database, and driving it would type into the
+window he is looking at. `doctor` fails outright on any port in 5170-5199 for
+that reason. Other ports in the verification band belong to sibling runs.
 
 ## Drive
 
