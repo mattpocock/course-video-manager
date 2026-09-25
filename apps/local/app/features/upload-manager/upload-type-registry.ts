@@ -3,6 +3,7 @@ import { autofillConfig } from "./upload-type-autofill";
 import { startSSEAiHeroPost } from "./sse-ai-hero-client";
 import { startSSEExport } from "./sse-export-client";
 import { startSSEPublish } from "./sse-publish-client";
+import type { PlaceholderFloorBand } from "@/cli/placeholder-floor";
 import { startSSERenderVertical } from "./sse-render-vertical-client";
 import { startSSESkillsChangelogPost } from "./sse-skills-changelog-client";
 import { startSSESocialPost } from "./sse-social-client";
@@ -474,6 +475,8 @@ export interface PublishParams {
   name: string;
   description: string;
   includeTodoLessons: boolean;
+  /** The Placeholder Floor the publish page showed, as its band. */
+  placeholders: PlaceholderFloorBand;
 }
 
 const publishConfig: UploadTypeConfig<
@@ -527,6 +530,7 @@ const publishConfig: UploadTypeConfig<
           name: params.name,
           description: params.description,
           includeTodoLessons: params.includeTodoLessons,
+          placeholders: params.placeholders,
         },
         {
           onStageChange: (stage) => {

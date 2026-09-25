@@ -4,6 +4,11 @@ import type { Route } from "./+types/api.courses.$courseId.publish-sse";
 import { CoursePublishService } from "@/services/course-publish-service";
 import type { PublishDetailEvent } from "@/services/course-publish-export-events";
 import { createSSEResponse } from "@/lib/create-sse-response.server";
+import {
+  ANNOUNCE_NOTHING_BAND,
+  PLACEHOLDER_FLOOR_BANDS,
+  placeholderFloorFromBand,
+} from "@/cli/placeholder-floor";
 
 // The per-video export events (batchExport's `videos`/`stage`/`complete`/
 // `error` payloads, unchanged) and the Dropbox commit's `progress` percentage
@@ -32,6 +37,10 @@ const publishSchema = Schema.Struct({
   // non-empty value; this just refuses a payload that omits the field.
   description: Schema.String,
   includeTodoLessons: Schema.optional(Schema.Boolean),
+  // The Placeholder Floor as a band, exactly as the CLI spells it. Absent means
+  // announce nothing, so a client that predates the control publishes as it
+  // always did.
+  placeholders: Schema.optional(Schema.Literal(...PLACEHOLDER_FLOOR_BANDS)),
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -50,6 +59,9 @@ export const action = async (args: Route.ActionArgs) => {
           versionName: parsed.name,
           versionDescription: parsed.description,
           includeTodoLessons: parsed.includeTodoLessons ?? true,
+          placeholderFloor: placeholderFloorFromBand(
+            parsed.placeholders ?? ANNOUNCE_NOTHING_BAND
+          ),
           onStageChange: (stage) => {
             sendEvent("progress", { stage });
           },

@@ -7,12 +7,11 @@ import {
   toExportClips,
 } from "./export-hash";
 import { collectCourseViewLints } from "./lesson-warnings";
+import { collectLessonPublishStatuses } from "./course-publish-lesson-statuses";
 import {
   ANNOUNCE_NOTHING,
-  classifyLessonPublishStatus,
   collectPublishBlockers,
   computeShippingSections,
-  type LessonHardGap,
   type PlaceholderFloor,
 } from "@/packages/course-json";
 
@@ -62,32 +61,15 @@ export const PUBLISH_BLOCKING_LISTS = [
 export type PublishBlockingList = (typeof PUBLISH_BLOCKING_LISTS)[number];
 
 /**
- * Why a Lesson is withheld, in the words a reader needs: the three hard gaps
- * named one by one, plus the to-do toggle. A Lesson vanishing from a release
- * must never be a mystery, so every withheld Lesson carries one of these.
+ * The Lesson Publish Status lists, re-exported from the pure walk that decides
+ * them (./course-publish-lesson-statuses) so a caller reading Publish Readiness
+ * names them without reaching past this module.
  */
-export type WithheldReason = "no-videos" | "no-clips" | "no-body" | "todo";
-
-const WITHHELD_REASON_BY_HARD_GAP: Record<LessonHardGap, WithheldReason> = {
-  "no-active-video": "no-videos",
-  "no-clips": "no-clips",
-  "no-body": "no-body",
-};
-
-/** A Lesson this release announces as a Placeholder Lesson: title only. */
-export type PlaceholderLesson = {
-  readonly sectionPath: string;
-  readonly lessonPath: string;
-  readonly title: string;
-  /** Its Lesson Priority — the band the floor let it through on. */
-  readonly priority: number;
-  readonly hardGaps: readonly LessonHardGap[];
-};
-
-/** A Lesson this release leaves out entirely, and why. */
-export type WithheldLesson = PlaceholderLesson & {
-  readonly reason: WithheldReason;
-};
+export type {
+  WithheldReason,
+  PlaceholderLesson,
+  WithheldLesson,
+} from "./course-publish-lesson-statuses";
 
 /** A shipping Video that has no matching `.mp4` on disk. */
 export type UnexportedVideo = {
@@ -161,20 +143,11 @@ export const validatePublishability = Effect.fn("validatePublishability")(
     }
 
     const evaluate = (includeTodoLessons: boolean) => {
-      const classify = (
-        lesson: (typeof version.sections)[number]["lessons"][number]
-      ) =>
-        classifyLessonPublishStatus(lesson, {
-          includeTodoLessons,
-          placeholderFloor,
-        });
-
       // THE LESSONS THAT SHIP — the asset set, and the only Lessons a gate may
       // speak about. Floor-independent by construction (see
       // computeShippingSections), and the very same walk `course publish` uses
       // to build its export roster, so `exportsRequired` can never name a
-      // Video that publish would not render. The floor reaches this walk only
-      // through `classify` below, where it decides the two lists it owns.
+      // Video that publish would not render.
       const shippingSections = computeShippingSections(
         version.sections,
         includeTodoLessons
@@ -204,36 +177,13 @@ export const validatePublishability = Effect.fn("validatePublishability")(
         includeTodoLessons
       );
 
-      // What this floor announces, and what it drops. One walk of the whole
-      // tree rather than of the shipping set, because a Lesson with no Video at
-      // all never reaches either set and is exactly the Lesson a Placeholder
-      // Lesson exists for.
-      const placeholderLessons: PlaceholderLesson[] = [];
-      const withheldLessons: WithheldLesson[] = [];
-      for (const section of version.sections) {
-        for (const lesson of section.lessons) {
-          const verdict = classify(lesson);
-          if (verdict.status === "ships") continue;
-          const row = {
-            sectionPath: section.path,
-            lessonPath: lesson.path,
-            title: lesson.title,
-            priority: lesson.priority,
-            hardGaps: verdict.hardGaps,
-          };
-          if (verdict.status === "placeholder") {
-            placeholderLessons.push(row);
-          } else {
-            withheldLessons.push({
-              ...row,
-              reason:
-                verdict.reason === "todo"
-                  ? "todo"
-                  : WITHHELD_REASON_BY_HARD_GAP[verdict.hardGaps[0]!],
-            });
-          }
-        }
-      }
+      // What this floor announces, and what it drops — the one walk the publish
+      // page reads too, so the cards and the manifest cannot disagree.
+      const { placeholderLessons, withheldLessons } =
+        collectLessonPublishStatuses(version.sections, {
+          includeTodoLessons,
+          placeholderFloor,
+        });
 
       return {
         unexportedVideoIds,
