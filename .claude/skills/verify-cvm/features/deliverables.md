@@ -17,8 +17,8 @@ The home page: what ships, and which week it ships in.
 ## Driving it with agent-browser
 
 ```bash
-AB="agent-browser --session verify-cvm"
-$AB open http://localhost:5199/
+# $BASE and $AB come from the skill's launch step — this run's port and session.
+$AB open "$BASE/"
 $AB wait --load networkidle
 $AB select "select" "2 weeks"
 $AB snapshot -i -c -d 3

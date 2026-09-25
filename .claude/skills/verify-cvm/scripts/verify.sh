@@ -1,24 +1,23 @@
 #!/usr/bin/env bash
-# Harness for the verify-cvm skill. One entry point, five verbs.
+# Harness for the verify-cvm skill. One entry point, seven verbs.
 #
-#   verify.sh launch            start a verification dev server, print the run dir
+#   verify.sh launch            start a verification server, print its run directory
+#   verify.sh url               base URL of the run's server
+#   verify.sh session           agent-browser session name for the run
 #   verify.sh doctor            read-only "is this instance worth driving?" check
 #   verify.sh guard baseline    record the database write counters
 #   verify.sh guard check       diff them, write the Write Ledger
 #   verify.sh guard forensics <table> [since]
 #                               name the rows that moved in one table
-#   verify.sh cleanup           stop what this run started, keep the evidence
+#   verify.sh cleanup [--all]   stop what this run started, keep the evidence
+#
+# Runs are independent: several can drive at once. Every verb after `launch`
+# needs to know WHICH run it means. Set VERIFY_RUN to the directory `launch`
+# printed; with exactly one live run the verbs find it themselves.
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-VERIFY_PORT="${VERIFY_PORT:-5199}"
-BROWSER_SESSION="${AGENT_BROWSER_SESSION:-verify-cvm}"
 STATE_DIR="$REPO_ROOT/.verify"
-CURRENT="$STATE_DIR/current"
-
-# The author's own CVM runs here all day, pointed at the same production
-# database. This run must never touch it.
-AUTHOR_PORT=5173
 
 log() { printf '%s\n' "$*" >&2; }
 die() { log "FAIL: $*"; exit 1; }
@@ -44,46 +43,97 @@ db_host() { db_url | sed -e 's#.*@##' -e 's#/.*##'; }
 
 psql_ro() { psql "$(db_url)" -At -F'|' "$@"; }
 
-run_dir() {
-  [ -f "$CURRENT" ] || die "no active run — call 'verify.sh launch' first"
-  cat "$CURRENT"
+# --- finding a run --------------------------------------------------------
+# A run is live when the server it recorded is still alive. That is the only
+# registry: no shared "current" pointer to clobber, so two runs never collide.
+live_runs() {
+  local d pid
+  for d in "$STATE_DIR"/run-*; do
+    [ -f "$d/server.pid" ] || continue
+    pid="$(cat "$d/server.pid")"
+    kill -0 "$pid" 2>/dev/null && printf '%s\n' "$d"
+  done
+  return 0
 }
+
+run_dir() {
+  if [ -n "${VERIFY_RUN:-}" ]; then
+    [ -d "$VERIFY_RUN" ] || die "VERIFY_RUN=$VERIFY_RUN is not a directory"
+    # Absolute, so it compares equal to what live_runs prints.
+    ( cd "$VERIFY_RUN" && pwd )
+    return 0
+  fi
+  local runs count
+  runs="$(live_runs)"
+  count="$(printf '%s' "$runs" | grep -c . || true)"
+  case "$count" in
+    1) printf '%s\n' "$runs" ;;
+    0) die "no live run — call 'verify.sh launch' first" ;;
+    *) log "$runs"
+       die "$count runs are live — set VERIFY_RUN to the one you mean" ;;
+  esac
+}
+
+run_port()    { cat "$(run_dir)/server.port"; }
+run_session() { cat "$(run_dir)/browser-session"; }
+run_base()    { printf 'http://localhost:%s\n' "$(run_port)"; }
 
 # --- launch ---------------------------------------------------------------
 cmd_launch() {
-  if [ -f "$CURRENT" ] && [ -f "$(cat "$CURRENT")/server.pid" ] &&
-     kill -0 "$(cat "$(cat "$CURRENT")/server.pid")" 2>/dev/null; then
-    die "a verification server is already up at $(cat "$CURRENT") — drive that one, or run cleanup"
-  fi
-
   [ -f "$REPO_ROOT/.env" ] ||
     die "no .env at $REPO_ROOT/.env — symlink the main checkout's one: ln -s ../../.env $REPO_ROOT/.env"
 
-  local dir="$STATE_DIR/run-$(date +%Y%m%d-%H%M%S)"
+  local id dir
+  id="$(date +%Y%m%d-%H%M%S)-$$"
+  dir="$STATE_DIR/run-$id"
   mkdir -p "$dir"
-  echo "$dir" > "$CURRENT"
+  echo "verify-cvm-$id" > "$dir/browser-session"
+
+  # No port is pinned. Vite takes the first free port up from its default, so
+  # concurrent runs each land somewhere of their own and the log says where.
+  # VERIFY_PORT overrides it when you need a known address.
+  local port_arg=()
+  if [ -n "${VERIFY_PORT:-}" ]; then port_arg=(--port "$VERIFY_PORT"); fi
+
+  # `exec` replaces the subshell with the server, so $! is the server's own pid
+  # and cleanup can kill exactly what this run started.
+  ( cd "$REPO_ROOT/apps/local" &&
+    exec nohup ./node_modules/.bin/react-router dev "${port_arg[@]}" \
+      > "$dir/server.log" 2>&1 ) &
+  echo $! > "$dir/server.pid"
+  local pid; pid="$(cat "$dir/server.pid")"
+
+  # Read the port the server actually took, not the one we hoped for. Vite
+  # colours its banner, so strip the escapes before matching.
+  local port=""
+  for _ in $(seq 1 60); do
+    port="$(sed -e 's/\x1b\[[0-9;]*m//g' "$dir/server.log" 2>/dev/null |
+            grep -aoE 'Local:[[:space:]]+http://localhost:[0-9]+' |
+            grep -oE '[0-9]+$' | head -1 || true)"
+    [ -n "$port" ] && break
+    kill -0 "$pid" 2>/dev/null || { tail -20 "$dir/server.log" >&2; die "server died on startup"; }
+    sleep 2
+  done
+  [ -n "$port" ] || { tail -20 "$dir/server.log" >&2; die "server never announced a port"; }
+  echo "$port" > "$dir/server.port"
 
   {
     echo "started:   $(date --iso-8601=seconds)"
     echo "checkout:  $REPO_ROOT"
     echo "branch:    $(git -C "$REPO_ROOT" branch --show-current)"
     echo "commit:    $(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-    echo "port:      $VERIFY_PORT"
+    echo "port:      $port"
     echo "db host:   $(db_host)"
-    echo "session:   $BROWSER_SESSION"
+    echo "session:   verify-cvm-$id"
   } > "$dir/run.txt"
 
-  # `exec` replaces the subshell with the server, so $! is the server's own pid
-  # and cleanup can kill exactly what this run started.
-  ( cd "$REPO_ROOT/apps/local" &&
-    exec nohup ./node_modules/.bin/react-router dev --port "$VERIFY_PORT" \
-      > "$dir/server.log" 2>&1 ) &
-  echo $! > "$dir/server.pid"
-
-  local pid; pid="$(cat "$dir/server.pid")"
-  for _ in $(seq 1 60); do
-    if curl -sf -o /dev/null "http://localhost:$VERIFY_PORT/"; then
-      log "ready: http://localhost:$VERIFY_PORT/  (pid $pid, run $dir)"
+  local i
+  for i in $(seq 1 30); do
+    if curl -sf -o /dev/null "http://localhost:$port/"; then
+      log "ready:   http://localhost:$port/  (pid $pid)"
+      log "run:     $dir"
+      log "session: verify-cvm-$id"
+      log "export VERIFY_RUN=$dir"
       echo "$dir"
       return 0
     fi
@@ -91,26 +141,26 @@ cmd_launch() {
     sleep 2
   done
   tail -20 "$dir/server.log" >&2
-  die "server did not answer on $VERIFY_PORT within 120s"
+  die "server announced port $port but never answered on it"
 }
 
 # --- doctor ---------------------------------------------------------------
 cmd_doctor() {
   local dir; dir="$(run_dir)"
-  local pid; pid="$(cat "$dir/server.pid")"
+  local pid port; pid="$(cat "$dir/server.pid")"; port="$(cat "$dir/server.port")"
   local ok=0
 
   kill -0 "$pid" 2>/dev/null &&
     log "ok   server process $pid alive" || { log "FAIL server process $pid gone"; ok=1; }
 
-  local owner; owner="$(ss -ltnp 2>/dev/null | grep ":$VERIFY_PORT " || true)"
+  local owner; owner="$(ss -ltnp 2>/dev/null | grep ":$port " || true)"
   case "$owner" in
-    *"pid=$pid"*) log "ok   port $VERIFY_PORT owned by this run" ;;
-    "")           log "FAIL nothing listening on $VERIFY_PORT"; ok=1 ;;
-    *)            log "FAIL port $VERIFY_PORT owned by another process — do not drive it"; ok=1 ;;
+    *"pid=$pid"*) log "ok   port $port owned by this run" ;;
+    "")           log "FAIL nothing listening on $port"; ok=1 ;;
+    *)            log "FAIL port $port owned by another process — do not drive it"; ok=1 ;;
   esac
 
-  curl -sf -o /dev/null "http://localhost:$VERIFY_PORT/" &&
+  curl -sf -o /dev/null "http://localhost:$port/" &&
     log "ok   / answers 200" || { log "FAIL / does not answer"; ok=1; }
 
   case "$(db_host)" in
@@ -121,12 +171,14 @@ cmd_doctor() {
   psql_ro -c 'select 1' > /dev/null 2>&1 &&
     log "ok   read-only psql reaches the database" || { log "FAIL psql cannot reach the database"; ok=1; }
 
-  if ss -ltnp 2>/dev/null | grep -q ":$AUTHOR_PORT "; then
-    log "note the author's own CVM is up on $AUTHOR_PORT — leave it alone"
+  local others; others="$(live_runs | grep -vx "$dir" || true)"
+  if [ -n "$others" ]; then
+    log "note other verification runs are live — their writes land in your Ledger too:"
+    printf '       %s\n' $others >&2
   fi
 
   [ "$ok" = 0 ] || die "doctor found problems — fix them before driving"
-  log "doctor: healthy"
+  log "doctor: healthy — base URL http://localhost:$port"
 }
 
 # --- database write guard -------------------------------------------------
@@ -177,8 +229,9 @@ cmd_guard_check() {
       echo "| --- | --- | --- | --- |"
       printf '%s\n' "$moved" | awk -F'|' '{ printf "| %s | %d | %d | %d |\n", $1, $2, $3, $4 }'
       echo
-      echo "These counters are database-wide. The author's own CVM and the deployed"
-      echo "apps/remote write to the same tables, so a row here is a lead, not a verdict."
+      echo "These counters are database-wide. Matt's own CVM, the deployed apps/remote"
+      echo "and any other live verification run write to the same tables, so a row here"
+      echo "is a lead, not a verdict."
       echo "Run 'verify.sh guard forensics <table>' on each one to name the rows."
     } >> "$ledger"
     log "guard: WRITES DETECTED — see $ledger"
@@ -198,7 +251,7 @@ cmd_guard_forensics() {
                         and column_name in ('created_at','updated_at')")"
   [ -n "$cols" ] || die "$table has no created_at or updated_at — inspect it by hand"
 
-  local where=""
+  local where="" c
   for c in $cols; do
     [ -n "$where" ] && where="$where or "
     where="$where\"$c\" > '$since'"
@@ -210,13 +263,12 @@ cmd_guard_forensics() {
 }
 
 # --- cleanup --------------------------------------------------------------
-cmd_cleanup() {
-  [ -f "$CURRENT" ] || { log "cleanup: nothing to do"; return 0; }
-  local dir; dir="$(cat "$CURRENT")"
-
+stop_run() {
+  local dir="$1"
   if [ -f "$dir/server.pid" ]; then
     local pid; pid="$(cat "$dir/server.pid")"
-    # Kill the process group this run started, never anything matched by name.
+    # Kill the process this run recorded, never anything matched by name —
+    # by name would take Matt's server and every sibling run with it.
     if kill -0 "$pid" 2>/dev/null; then
       pkill -TERM -P "$pid" 2>/dev/null || true
       kill -TERM "$pid" 2>/dev/null || true
@@ -225,17 +277,28 @@ cmd_cleanup() {
       log "cleanup: stopped server pid $pid"
     fi
   fi
-
-  agent-browser --session "$BROWSER_SESSION" close 2>/dev/null &&
-    log "cleanup: closed browser session $BROWSER_SESSION" || true
-
-  rm -f "$CURRENT"
+  if [ -f "$dir/browser-session" ]; then
+    agent-browser --session "$(cat "$dir/browser-session")" close 2>/dev/null &&
+      log "cleanup: closed browser session $(cat "$dir/browser-session")" || true
+  fi
   log "cleanup: done — evidence kept at $dir"
   echo "$dir"
 }
 
+cmd_cleanup() {
+  if [ "${1:-}" = "--all" ]; then
+    local runs; runs="$(live_runs)"
+    [ -n "$runs" ] || { log "cleanup: no live runs"; return 0; }
+    local d; for d in $runs; do stop_run "$d"; done
+    return 0
+  fi
+  stop_run "$(run_dir)"
+}
+
 case "${1:-}" in
   launch)  cmd_launch ;;
+  url)     run_base ;;
+  session) run_session ;;
   doctor)  cmd_doctor ;;
   guard)
     case "${2:-}" in
@@ -244,6 +307,6 @@ case "${1:-}" in
       forensics) shift 2; cmd_guard_forensics "$@" ;;
       *) die "usage: verify.sh guard <baseline|check|forensics <table>>" ;;
     esac ;;
-  cleanup) cmd_cleanup ;;
-  *) sed -n '2,10p' "$0"; exit 1 ;;
+  cleanup) shift; cmd_cleanup "$@" ;;
+  *) sed -n '2,16p' "$0"; exit 1 ;;
 esac

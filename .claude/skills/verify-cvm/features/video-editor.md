@@ -21,8 +21,8 @@ Course View.
 ## Driving it with agent-browser
 
 ```bash
-AB="agent-browser --session verify-cvm"
-$AB open http://localhost:5199/videos/<videoId>/edit
+# $BASE and $AB come from the skill's launch step — this run's port and session.
+$AB open "$BASE/videos/<videoId>/edit"
 $AB wait --load networkidle
 $AB find role button click --name "BEATS"
 $AB snapshot -i -c -d 3
@@ -31,7 +31,7 @@ $AB snapshot -i -c -d 3
 Get a `<videoId>` off the Shorts list:
 
 ```bash
-$AB open http://localhost:5199/shorts
+$AB open "$BASE/shorts"
 $AB snapshot -i -u -d 2 | grep -oE 'videos/[0-9a-f-]{36}' | head -1
 ```
 

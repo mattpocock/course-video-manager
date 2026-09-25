@@ -25,9 +25,9 @@ Matt clicks the course name in the sidebar rail.
 Navigate by URL — the sidebar rail does not respond to a click:
 
 ```bash
-AB="agent-browser --session verify-cvm"
+# $BASE and $AB come from the skill's launch step — this run's port and session.
 $AB snapshot -i -u -d 2 | grep -i "<course name>"   # read the href
-$AB open http://localhost:5199/courses/<courseId>
+$AB open "$BASE/courses/<courseId>"
 $AB wait --load networkidle
 ```
 

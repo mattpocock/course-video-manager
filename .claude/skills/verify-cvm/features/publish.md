@@ -26,11 +26,11 @@ Videos and commits a Bundle to Dropbox. `Autofill` spends Anthropic tokens
 rewriting real Video descriptions and Chapters. Neither is undoable from here.
 
 ```bash
-AB="agent-browser --session verify-cvm"
-$AB open http://localhost:5199/courses/<courseId>/publish
+# $BASE and $AB come from the skill's launch step — this run's port and session.
+$AB open "$BASE/courses/<courseId>/publish"
 $AB wait --load networkidle
 $AB snapshot -i -c -d 3
-$AB screenshot "$RUN/publish.png"
+$AB screenshot "$VERIFY_RUN/publish.png"
 ```
 
 What proves it works: the snapshot shows `heading "Publish <course name>"`, the
