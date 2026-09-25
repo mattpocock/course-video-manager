@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # typecheck, oxlint, package boundaries, the four file guards, then the
+      # typecheck, oxlint, package boundaries, the five file guards, then the
       # unfiltered test run. One script, the same one a human runs by hand.
       - name: Check
         run: pnpm run check
