@@ -141,19 +141,12 @@ export const loader = async (args: Route.LoaderArgs) => {
 
 export default function PitchesIndexRoute(props: Route.ComponentProps) {
   const { pitches, hasExportedVideoMap } = props.loaderData;
-  const navigate = useNavigate();
-  const createPitchFetcher = useFetcher<{ id: string }>();
+  const createPitchFetcher = useFetcher();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const priorityFilter = parsePriorityParam(searchParams.get("priority"));
   const effortFilter = parseEffortParam(searchParams.get("effort"));
   const showShipped = searchParams.get("shipped") === "1";
-
-  useEffect(() => {
-    if (createPitchFetcher.state === "idle" && createPitchFetcher.data?.id) {
-      navigate(`/pitches/${createPitchFetcher.data.id}`);
-    }
-  }, [createPitchFetcher.state, createPitchFetcher.data, navigate]);
 
   const updateFilters = (
     nextPriority: PitchPriority[],

@@ -38,7 +38,6 @@ import {
   Link,
   useFetcher,
   useLocation,
-  useNavigate,
   useRouteLoaderData,
 } from "react-router";
 
@@ -60,13 +59,12 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   const topCourses = data?.topCourses ?? [];
 
   const location = useLocation();
-  const navigate = useNavigate();
 
   const courseMatch = location.pathname.match(/^\/courses\/([^/]+)/);
   const selectedCourseId = courseMatch?.[1] ?? null;
 
   const archiveCourseFetcher = useFetcher();
-  const createPitchFetcher = useFetcher<{ id: string }>();
+  const createPitchFetcher = useFetcher();
   const createShortFetcher = useFetcher();
   const createDiagramFetcher = useFetcher<{ id: string }>();
 
@@ -78,12 +76,6 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   useEffect(() => {
     setSheetOpen(false);
   }, [location.pathname, location.search]);
-
-  useEffect(() => {
-    if (createPitchFetcher.state === "idle" && createPitchFetcher.data?.id) {
-      navigate(`/pitches/${createPitchFetcher.data.id}`);
-    }
-  }, [createPitchFetcher.state, createPitchFetcher.data, navigate]);
 
   useEffect(() => {
     if (
