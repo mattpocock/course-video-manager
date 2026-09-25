@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { hasLocalStorage } from "@/hooks/use-local-storage";
+import { useCallback } from "react";
+import { useLocalStorageOneOf } from "@/hooks/use-local-storage";
 
 /**
  * How fast the Animatic plays, and the fact that the choice sticks.
@@ -40,33 +40,30 @@ export function parseAnimaticPlaybackRate(raw: string | null): number {
   return parsed;
 }
 
+/** The offered rates as they are written down. */
+const STORED_RATES = ANIMATIC_PLAYBACK_RATES.map(String);
+
 /**
- * Starts at the default and moves to the stored rate in an effect, never
- * during the first render: the page is server-rendered, the server has no
- * storage, and a first client render that disagreed with it would be a
- * hydration mismatch.
+ * The rate is a preference that is one of a fixed set of spellings, so it is
+ * kept through `useLocalStorageOneOf` — which owns the SSR guard, the fallback
+ * for an unreadable or hand-edited value, and the write on every change.
+ *
+ * Reading during the first render is safe here, unlike on a surface that
+ * paints the preference as text: the rate leaves this hook only as the Remotion
+ * Player's `playbackRate`, so a stored rate the server could not know about
+ * changes how the Animatic plays, not the server-rendered markup.
  */
 export function useAnimaticPlaybackRate(): [number, (rate: number) => void] {
-  const [rate, setRate] = useState(DEFAULT_ANIMATIC_PLAYBACK_RATE);
+  const [stored, setStored] = useLocalStorageOneOf(
+    STORAGE_KEY,
+    STORED_RATES,
+    String(DEFAULT_ANIMATIC_PLAYBACK_RATE)
+  );
 
-  useEffect(() => {
-    if (!hasLocalStorage()) return;
-    try {
-      setRate(parseAnimaticPlaybackRate(localStorage.getItem(STORAGE_KEY)));
-    } catch {
-      // Storage blocked; the default holds for this sitting.
-    }
-  }, []);
+  const choose = useCallback(
+    (next: number) => setStored(String(next)),
+    [setStored]
+  );
 
-  const choose = useCallback((next: number) => {
-    setRate(next);
-    if (!hasLocalStorage()) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, String(next));
-    } catch {
-      // Storage full or blocked; the choice still holds for this sitting.
-    }
-  }, []);
-
-  return [rate, choose];
+  return [parseAnimaticPlaybackRate(stored), choose];
 }
