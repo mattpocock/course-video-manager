@@ -1,7 +1,4 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import nodeFs from "node:fs";
-import os from "node:os";
-import nodePath from "node:path";
 import {
   createTestDb,
   truncateAllTables,
@@ -10,7 +7,6 @@ import {
 import * as schema from "@/db/schema";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
-  makeTempClipMockupDir,
   ndjson,
   one,
   seedWrite,
@@ -20,28 +16,28 @@ import {
 import { fakeSpeech, makeClipMockupRun } from "./cli-clip-mockup-test-harness";
 
 // ===========================================================================
-// cvm clip-mockup-chapter: the noun, and the order space it shares
+// cvm clip-mockup-chapter: the noun, and its verbs.
 //
 // Its own file because the per-file token budget will not take it in an
 // existing one.
 //
-// TWO SUITES, and the split is the point. The chapter verbs are NOT
-// local-only, so the first suite declares the machine NOT local — the inverse
-// of what cli-local-only.test.ts asserts about `clip-mockup`. But
-// `clip-mockup add` IS refused in that state, so the shared-order-space proof
-// needs the machine declared local, and lives in the second suite with the
-// frame directory the frames go in.
+// The chapter verbs are NOT local-only, so this suite declares the machine NOT
+// local — the inverse of what cli-local-only.test.ts asserts about
+// `clip-mockup`. But `clip-mockup add` IS refused in that state, so every case
+// that needs it — the order space the noun shares with Clip Mockups, and the
+// `clip-mockup list --with-chapters` stream over it — lives in the sibling
+// cli-clip-mockup-chapter.order-space.test.ts, which declares the machine
+// local and owns the frame directory. The two files are siblings rather than
+// one because together they are over the token budget.
 //
-// Neither suite seeds a Draft Course Version guard, because the noun has none:
-// the standalone Video every case writes to belongs to no Course Version at
-// all, and every write still lands.
+// No Draft Course Version guard is seeded, because the noun has none: the
+// standalone Video every case writes to belongs to no Course Version at all,
+// and every write still lands.
 // ===========================================================================
 
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let s: WriteSeed;
-let frames: ReturnType<typeof makeTempClipMockupDir>;
-let sourceDir: string;
 const speech = fakeSpeech();
 const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
 
@@ -69,7 +65,7 @@ const failureOf = (result: RunResult) =>
 /**
  * Set explicitly rather than deleted, both ways: the author's own repo .env
  * says `true`, so a deleted key would read as local and hide the very
- * asymmetry the first suite is here to prove.
+ * asymmetry this suite is here to prove.
  */
 const declareLocalMachine = (local: boolean) => {
   process.env[LOCAL_MACHINE_ENV_KEY] = local ? "true" : "false";
@@ -79,13 +75,9 @@ beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
   run = makeClipMockupRun(testDb, speech);
-  frames = makeTempClipMockupDir();
-  sourceDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-cmc-src-"));
 });
 
 afterAll(() => {
-  frames.cleanup();
-  nodeFs.rmSync(sourceDir, { recursive: true, force: true });
   if (originalLocalMachine === undefined) {
     delete process.env[LOCAL_MACHINE_ENV_KEY];
   } else {
@@ -96,8 +88,6 @@ afterAll(() => {
 beforeEach(async () => {
   await truncateAllTables(testDb);
   s = await seedWrite(testDb);
-  nodeFs.rmSync(frames.dir, { recursive: true, force: true });
-  nodeFs.mkdirSync(frames.dir, { recursive: true });
   speech.spoken.length = 0;
 });
 
@@ -484,148 +474,5 @@ describe("cvm clip-mockup-chapter: off the local machine", () => {
       expect(r.exitCode).toBe(2);
       expect(failureOf(r)._tag).toBe("NotFoundError");
     }
-  });
-});
-
-describe("one order space shared with Clip Mockups", () => {
-  beforeEach(() => {
-    // `clip-mockup add` is local-only, so this suite declares the machine
-    // local. The chapter verbs work in both states.
-    declareLocalMachine(true);
-  });
-
-  const sourceImage = (name: string): string => {
-    const full = nodePath.join(sourceDir, name);
-    nodeFs.writeFileSync(full, "PNG-BYTES");
-    return full;
-  };
-
-  const addMockup = async (videoId: string, line: string): Promise<MockupRow> =>
-    one<MockupRow>(
-      (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          videoId,
-          "--image",
-          sourceImage(`${line}.png`),
-          "--say",
-          line,
-        ])
-      ).stdout
-    );
-
-  it("a Clip Mockup added after a Chapter lands INSIDE that Chapter", async () => {
-    await addMockup(s.standaloneActiveId, "One");
-    await addMockup(s.standaloneActiveId, "Two");
-
-    const chapter = chapterOf(
-      (
-        await run([
-          "clip-mockup-chapter",
-          "add",
-          "--video",
-          s.standaloneActiveId,
-          "--title",
-          "Part two",
-        ])
-      ).stdout
-    );
-
-    const third = await addMockup(s.standaloneActiveId, "Three");
-
-    // The whole proof of one shared order space: the appended Clip Mockup sorts
-    // AFTER the divider. Computed against the Clip Mockup table alone it would
-    // sort at the same key as the divider, so the row would be outside the
-    // Chapter the author had just opened.
-    expect(third.order > chapter.order).toBe(true);
-  });
-
-  it("bare clip-mockup list is unchanged — append still appends", async () => {
-    const one1 = await addMockup(s.standaloneActiveId, "One");
-    await run([
-      "clip-mockup-chapter",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--title",
-      "Part two",
-    ]);
-    const two = await addMockup(s.standaloneActiveId, "Two");
-
-    const rows = ndjson(
-      (await run(["clip-mockup", "list", "--video", s.standaloneActiveId]))
-        .stdout
-    ) as MockupRow[];
-
-    expect(rows.map((r) => r.id)).toEqual([one1.id, two.id]);
-  });
-
-  it("clip-mockup move --before a Chapter id lifts the row above the divider", async () => {
-    const first = await addMockup(s.standaloneActiveId, "One");
-    const chapter = chapterOf(
-      (
-        await run([
-          "clip-mockup-chapter",
-          "add",
-          "--video",
-          s.standaloneActiveId,
-          "--title",
-          "Part two",
-        ])
-      ).stdout
-    );
-    const second = await addMockup(s.standaloneActiveId, "Two");
-
-    const r = await run([
-      "clip-mockup",
-      "move",
-      "--before",
-      chapter.id,
-      second.id,
-    ]);
-
-    expect(r.exitCode).toBe(0);
-    const moved = one<MockupRow>(r.stdout);
-    expect(moved.order > first.order).toBe(true);
-    expect(moved.order < chapter.order).toBe(true);
-  });
-
-  it("delete absorbs its Clip Mockups upward — every one survives", async () => {
-    // The acceptance criterion, asserted as an OUTCOME rather than as the rule.
-    // `clip-mockup list` is local-only, so this case lives in the local suite.
-    const above = await addMockup(s.standaloneActiveId, "Above");
-    const chapter = chapterOf(
-      (
-        await run([
-          "clip-mockup-chapter",
-          "add",
-          "--video",
-          s.standaloneActiveId,
-          "--title",
-          "Part two",
-        ])
-      ).stdout
-    );
-    const under = await addMockup(s.standaloneActiveId, "Under");
-    const alsoUnder = await addMockup(s.standaloneActiveId, "AlsoUnder");
-
-    const deleted = await run(["clip-mockup-chapter", "delete", chapter.id]);
-    expect(deleted.exitCode).toBe(0);
-
-    const rows = ndjson(
-      (await run(["clip-mockup", "list", "--video", s.standaloneActiveId]))
-        .stdout
-    ) as MockupRow[];
-
-    // Not one frame or line is lost, and none is re-ordered: the two Clip
-    // Mockups that were under the divider are simply unchaptered now.
-    expect(rows.map((r) => r.id)).toEqual([above.id, under.id, alsoUnder.id]);
-    expect(rows.map((r) => r.order)).toEqual([
-      above.order,
-      under.order,
-      alsoUnder.order,
-    ]);
   });
 });
