@@ -54,6 +54,31 @@ export function toggleAllChapters(
 }
 
 /**
+ * The row indices a folded Chapter has taken off the screen.
+ *
+ * A HIDDEN ROW IS NEVER SELECTED. The sidebar draws a folded Chapter's rows
+ * nowhere, so the arrow keys must not walk them either: a selection on a row
+ * that is not on screen has nothing to scroll into sight, and RETURN then plays
+ * a Clip Mockup the author never saw highlighted. `moveSelection` and
+ * `selectEdge` in `animatic-selection.ts` take this set and step over it.
+ *
+ * Indices are the timeline's own — the `index` on each row — so the set can be
+ * read straight against a selection. It is empty while nothing is folded away,
+ * which is what keeps a Video with no Chapters exactly as it was.
+ */
+export function hiddenRowIndices(params: {
+  readonly collapsed: AnimaticCollapseState;
+  readonly sections: readonly AnimaticChapterSection[];
+}): ReadonlySet<number> {
+  const hidden = new Set<number>();
+  for (const section of params.sections) {
+    if (!params.collapsed[section.chapter.id]) continue;
+    for (const row of section.rows) hidden.add(row.index);
+  }
+  return hidden;
+}
+
+/**
  * Open the Chapter the playhead has entered.
  *
  * THE LIST NEVER HIDES THE ROW BEING HEARD. The author folded a Chapter away

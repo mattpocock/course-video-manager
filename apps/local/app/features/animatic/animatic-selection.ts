@@ -36,20 +36,59 @@ export function resolveSelection(
  *
  * A press off either end of the Animatic holds where it is rather than
  * wrapping around.
+ *
+ * IT STEPS OVER A FOLDED CHAPTER'S ROWS. `hiddenIndices` names the rows the
+ * sidebar is not drawing (see `hiddenRowIndices` in `animatic-collapse.ts`), and
+ * the move carries on in its own direction until it finds a row on screen. A
+ * press that finds none before the end of the Animatic holds where it is, so
+ * with every Chapter folded away the selection does not move at all. Omit the
+ * set — or hand over an empty one — and the move is what it always was.
  */
 export function moveSelection(props: {
   selection: AnimaticSelection;
   activeIndex: number;
   delta: number;
   count: number;
+  /** The rows a folded Chapter has taken off the screen. */
+  hiddenIndices?: ReadonlySet<number>;
 }): AnimaticSelection {
   if (props.count === 0) return null;
 
   if (props.selection === null) {
+    // The playhead's own Chapter is always open — `expandChapterAtPlayhead`
+    // sees to that — so the row this adopts is on screen.
     return props.activeIndex >= 0 ? props.activeIndex : 0;
   }
 
-  const next = props.selection + props.delta;
+  const step = props.delta < 0 ? -1 : 1;
+  let next = props.selection + props.delta;
+  while (next >= 0 && next < props.count && props.hiddenIndices?.has(next)) {
+    next += step;
+  }
   if (next < 0 || next >= props.count) return props.selection;
   return next;
+}
+
+/**
+ * The row HOME and END select: the first or the last Clip Mockup that is
+ * actually on screen.
+ *
+ * Same rule as the arrows — a hidden row is never selected — so END with the
+ * last Chapter folded away lands on the last row the author can see, not on the
+ * row behind the fold. `null` means there is nothing to select at all: an empty
+ * Animatic, or every row behind a fold. The caller holds its selection then.
+ */
+export function selectEdge(props: {
+  edge: "first" | "last";
+  count: number;
+  hiddenIndices?: ReadonlySet<number>;
+}): AnimaticSelection {
+  if (props.count === 0) return null;
+
+  const step = props.edge === "first" ? 1 : -1;
+  let index = props.edge === "first" ? 0 : props.count - 1;
+  while (index >= 0 && index < props.count && props.hiddenIndices?.has(index)) {
+    index += step;
+  }
+  return index >= 0 && index < props.count ? index : null;
 }

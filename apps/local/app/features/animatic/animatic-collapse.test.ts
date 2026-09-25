@@ -3,6 +3,7 @@ import { buildAnimaticChapterLayout } from "./animatic-chapters";
 import {
   areAllChaptersCollapsed,
   expandChapterAtPlayhead,
+  hiddenRowIndices,
   toggleAllChapters,
   toggleChapter,
   type AnimaticCollapseState,
@@ -135,5 +136,32 @@ describe("the playhead entering a folded Chapter", () => {
     expect(
       expandChapterAtPlayhead({ collapsed: before, sections, activeIndex: -1 })
     ).toBe(before);
+  });
+});
+
+describe("the rows a fold takes off the screen", () => {
+  it("names the indices under a folded Chapter, and nothing else", () => {
+    expect(hiddenRowIndices({ collapsed: { ch_a: true }, sections })).toEqual(
+      new Set([1, 2])
+    );
+  });
+
+  it("hides no row while every Chapter is open", () => {
+    expect(hiddenRowIndices({ collapsed: {}, sections }).size).toBe(0);
+    expect(
+      hiddenRowIndices({ collapsed: { ch_a: false, ch_b: false }, sections })
+        .size
+    ).toBe(0);
+  });
+
+  it("never hides a row above the first divider, whatever is folded", () => {
+    const hidden = hiddenRowIndices({
+      collapsed: { ch_a: true, ch_b: true },
+      sections,
+    });
+
+    // Row 0 is the leading row: it belongs to no Chapter, so no fold reaches it.
+    expect(hidden.has(0)).toBe(false);
+    expect(hidden).toEqual(new Set([1, 2, 3, 4]));
   });
 });

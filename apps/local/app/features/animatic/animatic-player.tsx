@@ -18,6 +18,7 @@ import {
 import {
   areAllChaptersCollapsed,
   expandChapterAtPlayhead,
+  hiddenRowIndices,
   toggleAllChapters,
   toggleChapter,
   type AnimaticCollapseState,
@@ -33,6 +34,7 @@ import {
 import {
   moveSelection,
   resolveSelection,
+  selectEdge,
   type AnimaticSelection,
 } from "./animatic-selection";
 import { useStableChapters, useStableMockups } from "./animatic-revalidation";
@@ -79,7 +81,8 @@ import {
  * A divider also FOLDS ITS ROWS AWAY, which is the reason Chapters exist: a
  * settled Playthrough of twenty rows goes behind one title, and the two moments
  * still being judged sit next to each other. Collapsing hides rows and never
- * skips frames. See `animatic-collapse.ts`.
+ * skips frames, and the ARROW keys step over a folded Chapter's rows rather than
+ * walking a selection the author cannot see. See `animatic-collapse.ts`.
  */
 
 export const AnimaticPlayer = (props: {
@@ -123,6 +126,12 @@ export const AnimaticPlayer = (props: {
     [layout]
   );
   const allCollapsed = areAllChaptersCollapsed(collapsed, chapterIds);
+  // The rows a fold has taken off the screen. The keys read it so that they
+  // cannot select a row the author cannot see.
+  const hiddenIndices = useMemo(
+    () => hiddenRowIndices({ collapsed, sections: layout.sections }),
+    [collapsed, layout]
+  );
   const toggleAll = () =>
     setCollapsed((prev) => toggleAllChapters(prev, chapterIds));
 
@@ -184,11 +193,14 @@ export const AnimaticPlayer = (props: {
       playFrom(selectedIndex);
     },
     onMoveSelection: (delta) =>
-      setSelection(moveSelection({ selection, activeIndex, delta, count })),
-    onSelectEdge: (edge) => {
-      if (count === 0) return;
-      setSelection(edge === "first" ? 0 : count - 1);
-    },
+      setSelection(
+        moveSelection({ selection, activeIndex, delta, count, hiddenIndices })
+      ),
+    onSelectEdge: (edge) =>
+      // `null` is "nothing on screen to select", so the selection stands.
+      setSelection(
+        (prev) => selectEdge({ edge, count, hiddenIndices }) ?? prev
+      ),
     onChooseRate: (rate) => {
       // The Video page's L and K: at that rate already, the key is a play/pause.
       if (playbackRate === rate) {
@@ -205,15 +217,25 @@ export const AnimaticPlayer = (props: {
   // the same for the Clip being edited. The helper hands back the very same
   // state when nothing changed, so a segment boundary inside an open Chapter
   // costs no re-render.
+  //
+  // IT FIRES ON A PLAYHEAD MOVE, NEVER ON A DATA CHANGE. The sections are read
+  // through a ref, so `layout` is not a dependency: an edit by the authoring
+  // agent — one new line, one renamed Chapter — mints a new `layout` while the
+  // playhead stands still, and re-running this effect there would re-open the
+  // Chapter the author has just folded away. He folds a settled Playthrough,
+  // the agent adds a row somewhere else, and the fold undoes itself.
+  const sectionsRef = useRef(layout.sections);
+  sectionsRef.current = layout.sections;
+
   useEffect(() => {
     setCollapsed((prev) =>
       expandChapterAtPlayhead({
         collapsed: prev,
-        sections: layout.sections,
+        sections: sectionsRef.current,
         activeIndex,
       })
     );
-  }, [activeIndex, layout]);
+  }, [activeIndex]);
 
   // Keep the selected row in sight. While the author has made no choice of his
   // own the selection follows the playhead, so this is also what makes the list

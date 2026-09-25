@@ -16,7 +16,7 @@ import { data } from "react-router";
  * Clip Mockup, and the server resolves the rest. That is what
  * `api.videos.$videoId.stream.ts` does and what `view-image.ts` (absolute path
  * straight off the query string, no guard) does not.
-
+ *
  * The Animatic player is the one surface that reads these URLs. It asks for
  * both: a frame per Clip Mockup, and the WAV of the line spoken over it.
  */
