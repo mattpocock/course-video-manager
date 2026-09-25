@@ -31,7 +31,7 @@ export const NEEDS_FINISHED_VIDEOS_DIRECTORY =
 export const NEEDS_FINISHED_VIDEOS_AND_FFMPEG =
   "it renders Videos with ffmpeg and reads the finished videos directory on this machine's disk";
 export const NEEDS_CLIP_MOCKUP_DIRECTORY =
-  "it reads and writes the Clip Mockup directory on this machine's disk, where a Video's Animatic frames are kept";
+  "it reads and writes the Clip Mockup directory on this machine's disk, where a Video's Animatic frames are kept, and captures frames with a headless browser installed on this machine";
 export const NEEDS_FOOTAGE_ON_DISK =
   "it reads raw footage files on this machine's disk (with ffmpeg) and caches their transcripts beside them";
 

@@ -58,6 +58,11 @@ const EXIT_CODES: Record<string, number> = {
   // because the only correct response is to STOP: no retry, no new token, no
   // pull will make `cvm file` work on a box with no Video Files directory.
   LocalOnlyCommandError: 7,
+  // An HTML page could not be turned into a Clip Mockup frame (the browser
+  // would not launch, or the page would not render). Internal-failure class:
+  // the input was a real, readable file, something on this machine broke. It
+  // is listed rather than left to the default so the contract is written down.
+  FrameCaptureError: 4,
   // CVM_API_URL / CVM_API_TOKEN are missing. Same class as a missing
   // DATABASE_URL always was: exit 4.
   ConfigurationError: 4,

@@ -1,6 +1,7 @@
 import { Args, Command, Options } from "@effect/cli";
 import { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
+import nodePath from "node:path";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import {
@@ -8,6 +9,10 @@ import {
   newFrameFilename,
   writeClipMockupFile,
 } from "@/services/clip-mockup-files";
+import {
+  FrameCaptureError,
+  FrameCaptureService,
+} from "@/services/frame-capture-service";
 import {
   detail,
   emitGet,
@@ -43,14 +48,21 @@ const videoOption = Options.text("video").pipe(
 );
 
 /**
- * Optional rather than required so that the "exactly one frame source" rule is
- * checked by `resolveFrameSource` below, in ONE place and with ONE message.
- * `--html` (capture a frame from an HTML page) slots in beside it there
- * without reshaping this verb.
+ * The two frame sources. Both are optional HERE so that the "exactly one of"
+ * rule is checked by `resolveFrameSource` below, in ONE place and with ONE
+ * message — @effect/cli's own `Options.orElse` would report it as a generic
+ * validation failure instead.
  */
 const imageOption = Options.text("image").pipe(
   Options.withDescription(
-    "Path to a ready-made PNG on this machine. It is copied into the Clip Mockup directory."
+    "Path to a ready-made PNG on this machine. It is copied into the Clip Mockup directory. Mutually exclusive with --html."
+  ),
+  Options.optional
+);
+
+const htmlOption = Options.text("html").pipe(
+  Options.withDescription(
+    "Path to an HTML page on this machine. It is rendered in a headless browser at 1920x1080 and the resulting PNG becomes the frame. Mutually exclusive with --image."
   ),
   Options.optional
 );
@@ -268,39 +280,119 @@ const resolveBeforeClipMockupId = (params: {
   });
 
 /**
+ * Capture an HTML page as a 1920x1080 PNG and hand back its bytes.
+ *
+ * The capture writes into a SCOPED temp directory that is deleted when this
+ * effect finishes, however it finishes. That is what makes "a page that cannot
+ * be captured leaves no orphan file" true: the only PNG that ever reaches the
+ * Clip Mockup directory is one `writeClipMockupFile` put there, and that runs
+ * after the capture has already succeeded.
+ *
+ * The `Effect.serviceOption` branch is the test seam: an ambiently-provided
+ * FrameCaptureService (a `Layer.succeed` fake writing canned bytes) is used
+ * when there is one, so the whole verb is exercised through the real CLI
+ * without Chromium ever launching.
+ */
+const captureFrameFromHtml = (htmlPath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const scratch = yield* fs
+      .makeTempDirectoryScoped({ prefix: "cvm-frame-capture-" })
+      .pipe(
+        Effect.catchAll(
+          (cause) =>
+            new FrameCaptureError({
+              htmlPath,
+              cause,
+              message:
+                "could not make a temp directory to capture the frame in",
+            })
+        )
+      );
+    const outputPath = nodePath.join(scratch, "frame.png");
+
+    const provided = yield* Effect.serviceOption(FrameCaptureService);
+    yield* Option.match(provided, {
+      onSome: (svc) => svc.captureHtmlToPng({ htmlPath, outputPath }),
+      onNone: () =>
+        Effect.gen(function* () {
+          const svc = yield* FrameCaptureService;
+          return yield* svc.captureHtmlToPng({ htmlPath, outputPath });
+        }).pipe(Effect.provide(FrameCaptureService.Default)),
+    });
+
+    const content = yield* fs.readFile(outputPath).pipe(
+      Effect.catchAll(
+        (cause) =>
+          new FrameCaptureError({
+            htmlPath,
+            cause,
+            message:
+              "the capture reported success but wrote no PNG — refusing to create a Clip Mockup with no frame",
+          })
+      )
+    );
+
+    return { content, filename: newFrameFilename(outputPath) };
+  }).pipe(Effect.scoped);
+
+/**
  * Produce the PNG bytes for a new Clip Mockup from whichever frame source the
  * caller named, and the name to store them under.
  *
- * THE SEAM FOR A SECOND SOURCE. Today there is exactly one (`--image`, a ready
- * PNG read off disk). `--html` — capture the page with a browser, then store
- * the bytes it produced — is another branch of this function and nothing else:
- * the "exactly one of" rule, the copy, the containment guard and the row write
- * are all already on this side of it.
+ * THE ONE PLACE THE "EXACTLY ONE FRAME SOURCE" RULE LIVES. Both sources and
+ * neither are each one message here, and both branches return the same shape
+ * — so the copy into {CLIP_MOCKUP_DIR}/{lineageId}/, the containment guard and
+ * the row write on the far side of this function cannot tell a captured frame
+ * from a supplied one, and never have to.
  */
 const resolveFrameSource = (params: {
   readonly verb: string;
   readonly image: Option.Option<string>;
+  readonly html: Option.Option<string>;
 }) =>
   Effect.gen(function* () {
     const image = Option.getOrUndefined(params.image);
+    const html = Option.getOrUndefined(params.html);
 
-    if (image === undefined) {
+    yield* rejectBothFlags({
+      a: image,
+      b: html,
+      flags: ["--image", "--html"],
+      entity: "clipMockup",
+    });
+
+    if (image === undefined && html === undefined) {
       return yield* parseError(
-        `clip-mockup ${params.verb} needs --image <path> (a Clip Mockup must have a picture)`,
+        `clip-mockup ${params.verb} needs exactly one of --image <path> / --html <path> (a Clip Mockup must have a picture)`,
         "clipMockup"
       );
     }
 
     const fs = yield* FileSystem.FileSystem;
+
+    if (html !== undefined) {
+      // Checked here rather than inside the capture so that "you typed the
+      // wrong path" stays invalid input (exit 3) and only a page that really
+      // could not be rendered raises FrameCaptureError.
+      if (!(yield* fs.exists(html))) {
+        return yield* parseError(
+          `cannot read source HTML ${html}`,
+          "clipMockup"
+        );
+      }
+      return yield* captureFrameFromHtml(html);
+    }
+
     const content = yield* fs
-      .readFile(image)
+      .readFile(image!)
       .pipe(
         Effect.catchAll(() =>
           parseError(`cannot read source image ${image}`, "clipMockup")
         )
       );
 
-    return { content, filename: newFrameFilename(image) };
+    return { content, filename: newFrameFilename(image!) };
   });
 
 // ---------------------------------------------------------------------------
@@ -309,8 +401,8 @@ const resolveFrameSource = (params: {
 
 const addCmd = Command.make(
   "add",
-  { video: videoOption, image: imageOption, say: sayOption },
-  ({ video, image, say }) =>
+  { video: videoOption, image: imageOption, html: htmlOption, say: sayOption },
+  ({ video, image, html, say }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
 
@@ -330,7 +422,7 @@ const addCmd = Command.make(
         );
       }
 
-      const frame = yield* resolveFrameSource({ verb: "add", image });
+      const frame = yield* resolveFrameSource({ verb: "add", image, html });
 
       // Write the frame BEFORE the row: a row whose imagePath points at
       // nothing is the one state an authoring agent cannot see or fix.
@@ -377,17 +469,19 @@ const updateCmd = Command.make(
     video: videoAddressOption,
     at: atOption,
     image: imageOption,
+    html: htmlOption,
     say: sayOption,
   },
-  ({ id, video, at, image, say }) =>
+  ({ id, video, at, image, html, say }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
 
-      const source = Option.getOrUndefined(image);
+      const source =
+        Option.getOrUndefined(image) ?? Option.getOrUndefined(html);
       const line = Option.getOrUndefined(say);
       if (source === undefined && line === undefined) {
         return yield* parseError(
-          'clip-mockup update needs at least one of --image <path> / --say "<line>"',
+          'clip-mockup update needs at least one of --image <path> / --html <path> / --say "<line>"',
           "clipMockup"
         );
       }
@@ -403,7 +497,11 @@ const updateCmd = Command.make(
 
       if (source !== undefined) {
         const parent = yield* requireActiveVideo(row.videoId);
-        const frame = yield* resolveFrameSource({ verb: "update", image });
+        const frame = yield* resolveFrameSource({
+          verb: "update",
+          image,
+          html,
+        });
         // Same order as 'add': the frame lands before the row points at it, so
         // a failure halfway leaves an orphan PNG rather than a row whose
         // picture does not exist.
