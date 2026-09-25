@@ -594,6 +594,59 @@ export const beats = createTable(
 );
 
 /**
+ * Clip Mockup — one still image and one spoken line, belonging to a Video and
+ * ordered like a Beat.
+ *
+ * One rung of the fidelity ladder below a Beat: a Beat says what a part of the
+ * video does for the viewer, a Clip Mockup decides the picture and the words.
+ * Played in order, a Video's Clip Mockups are its Animatic — there is no
+ * Animatic record, the name is for the playback and nothing else.
+ *
+ * Internal like beats and `videos.script`: copied into version snapshots and
+ * into a duplicated Video, but NEVER emitted into the shipped course.json.
+ *
+ * `imagePath` is relative to `{CLIP_MOCKUP_DIR}/{video.lineageId}/`, the way a
+ * Video File's path is relative to its own directory. Resolving it needs the
+ * VIDEO row (for its lineageId), not this one — and it needs a machine, so the
+ * resolution lives in apps/local, never here.
+ */
+export const clipMockups = createTable(
+  "clip_mockup",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    // The spoken line. NOT NULL with no default on purpose: a Clip Mockup with
+    // no line is not a thing, and there are no silent holds.
+    line: text("line").notNull(),
+    // Relative to the Clip Mockup directory for this Video's lineageId — never
+    // an absolute path, and never a path into the authoring agent's scratch
+    // folder. The CVM keeps its own copy of the frame.
+    imagePath: text("image_path").notNull(),
+    // Seconds of speech for `line`. Nullable because speech synthesis is a
+    // later change; until then every row carries null.
+    durationSeconds: doublePrecision("duration_seconds"),
+    order: varcharCollateC("order").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    // Same FK-indexing gap as beat.video_id — resolving a Video's Clip Mockups
+    // otherwise seq-scans the whole clip_mockup table once per Video.
+    index("clip_mockup_video_id_idx").on(table.videoId),
+  ]
+);
+
+/**
  * The Beat <-> Learning Goal dependency: every Beat must serve at least one
  * Learning Goal of its Section (enforced in the authoring UI/CLI, not by a DB
  * constraint — a Beat's Video can be standalone/pitch-bound with no Section at
@@ -720,6 +773,13 @@ export const beatsRelations = relations(beats, ({ one, many }) => ({
   beatLearningGoals: many(beatLearningGoals),
 }));
 
+export const clipMockupsRelations = relations(clipMockups, ({ one }) => ({
+  video: one(videos, {
+    fields: [clipMockups.videoId],
+    references: [videos.id],
+  }),
+}));
+
 export const beatLearningGoalsRelations = relations(
   beatLearningGoals,
   ({ one }) => ({
@@ -741,6 +801,7 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   chapters: many(chapters),
   thumbnails: many(thumbnails),
   beats: many(beats),
+  clipMockups: many(clipMockups),
   videoPosts: many(videoPosts),
 }));
 

@@ -6,6 +6,7 @@ import { lessonCommand } from "./commands/lesson";
 import { videoCommand } from "./commands/video";
 import { clipCommand } from "./commands/clip";
 import { chapterCommand } from "./commands/chapter";
+import { clipMockupCommand } from "./commands/clip-mockup";
 import { overlayCommand } from "./commands/overlay";
 import { beatCommand } from "./commands/beat";
 import { learningGoalCommand } from "./commands/learning-goal";
@@ -25,7 +26,7 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'learning-goal' (create/update/move/delete), 'beat' (add/update/move/delete),
-'clip' (add/update/move/delete), 'chapter'
+'clip' (add/update/move/delete), 'clip-mockup' (add/delete), 'chapter'
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
@@ -44,7 +45,9 @@ DOMAIN MODEL
   away knowing, authored before its Lessons/Videos/Beats are scaffolded) and
   Lessons. A Lesson contains Videos; a Video is an ordered sequence of Clips
   (recorded timeline) and is planned as an ordered sequence of Beats
-  (intended structure, by job/kind). An Overlay is a visual layer composited on
+  (intended structure, by job/kind) and, one rung finer, of Clip Mockups (one
+  still image and one spoken line each — played in order they are the Video's
+  Animatic, watched before filming; never published). An Overlay is a visual layer composited on
   top of the footage, anchored to a Clip at an offset in seconds and carrying a
   Definition Card (a title + description shown on screen). Pitches are course ideas with a derived
   Pitch State. Deliverables are calendar entries linking Courses and/or Pitches.
@@ -105,6 +108,7 @@ WHAT NEEDS A MACHINE
   read and write its disk:
     cvm file …              the Video Files directory
     cvm footage …           raw footage files on disk (transcribed with ffmpeg)
+    cvm clip-mockup …       the Clip Mockup directory (a Video's Animatic frames)
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
   Anywhere else they are refused before doing any work — exit 7, _tag
@@ -132,6 +136,11 @@ WRITES
                                      footage, anchored to a Clip at an offset
                                      in seconds ('delete' is a HARD delete —
                                      no archive, no restore)
+    clip-mockup
+            add/delete               author a Video's Animatic: one still image
+                                     and one spoken line per moment, decided
+                                     before filming (LOCAL-ONLY; Landscape
+                                     only; never published)
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
     section
@@ -172,8 +181,8 @@ WRITES
   (Dropbox) and reads publish-only config from the repo .env.
 
 NOUNS
-  course version section learning-goal lesson video clip chapter overlay beat
-  file footage pitch deliverable
+  course version section learning-goal lesson video clip clip-mockup chapter
+  overlay beat file footage pitch deliverable
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -196,6 +205,7 @@ export const rootCommand = Command.make("cvm").pipe(
     videoCommand,
     clipCommand,
     chapterCommand,
+    clipMockupCommand,
     overlayCommand,
     beatCommand,
     learningGoalCommand,
