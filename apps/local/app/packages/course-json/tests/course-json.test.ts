@@ -415,6 +415,69 @@ describe("buildCourseJson", () => {
       expect(lesson.explainer.chapters).toEqual([]);
     }
   });
+
+  // ── Clip Mockups never ship ────────────────────────────────────────
+
+  // A Clip Mockup is an in-app planning artifact, one rung below the Script.
+  // Like a Beat and the Script it is copied forward but never reaches a
+  // student. Two layers already stop it: getVersionWithSections never loads
+  // the rows, and InputVideo has no field for them. This test guards the
+  // second layer — if someone widens the shipped Video shape, it fails.
+  it("emits no clip mockup field, and the same output as a video with none", async () => {
+    const plain = makeVideo({ title: "Explainer" });
+    // Attached to a variable, not an object literal, so TypeScript's excess
+    // property check does not reject what the real DB row would carry.
+    const withMockups = {
+      ...plain,
+      clipMockups: [
+        {
+          line: "And here is the bug.",
+          imagePath: "frame-001.png",
+          order: "a0",
+        },
+        {
+          line: "One import fixes it.",
+          imagePath: "frame-002.png",
+          order: "a1",
+        },
+      ],
+      beats: [{ kind: "definition", title: "Closures", order: "a0" }],
+      script: "INT. TERMINAL - DAY",
+    };
+
+    const build = (video: typeof plain) =>
+      run(
+        makeInput([
+          makeSection({
+            path: "01-intro",
+            lessons: [makeLesson({ path: "01.01-welcome", videos: [video] })],
+          }),
+        ])
+      );
+
+    const withResult = await build(withMockups);
+    const withoutResult = await build(plain);
+
+    // Byte-for-byte the same shipped Course: the Clip Mockups changed nothing.
+    expect(withResult).toEqual(withoutResult);
+
+    const lesson = withResult.sections[0]!.lessons[0]!;
+    if (lesson.type === "explainer") {
+      expect(lesson.explainer).not.toHaveProperty("clipMockups");
+      expect(lesson.explainer).not.toHaveProperty("beats");
+      expect(lesson.explainer).not.toHaveProperty("script");
+      expect(Object.keys(lesson.explainer).sort()).toEqual([
+        "body",
+        "bytes",
+        "chapters",
+        "description",
+        "hash",
+        "id",
+        "relativePath",
+        "sha256",
+      ]);
+    }
+  });
 });
 
 // ADR 0029. The Placeholder Lesson is the third member of the Lesson union: a

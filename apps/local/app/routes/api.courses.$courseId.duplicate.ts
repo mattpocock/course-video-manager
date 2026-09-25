@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
+import { copyClipMockupAssetsForVideos } from "@/services/clip-mockup-copy-forward.server";
 import { makeAction } from "@/services/route-action.server";
 import { data } from "react-router";
 
@@ -11,7 +12,7 @@ const duplicateCourseSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "formData",
-  errors: { NotFoundError: 404 },
+  errors: { NotFoundError: 404, InvalidClipMockupPathError: 400 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
       const parsed = yield* Schema.decodeUnknown(duplicateCourseSchema)(
@@ -50,6 +51,11 @@ export const action = makeAction({
         sourceCourseId: params.courseId!,
         name,
       });
+
+      // Same as the single-Video duplicate: every duplicated Video got a
+      // fresh `lineageId`, so its Clip Mockups' frames and WAVs have to be
+      // carried into the new directory here (#1669).
+      yield* copyClipMockupAssetsForVideos(result.videoLineageMappings);
 
       return { id: result.course.id };
     }),

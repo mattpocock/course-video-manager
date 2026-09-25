@@ -17,7 +17,7 @@ import {
   notFound,
   parseError,
 } from "@/cli/helpers";
-import { loadRepoEnv } from "@/cli/env";
+import { loadRepoEnv } from "@/services/repo-env";
 import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
 import {
   HELP,

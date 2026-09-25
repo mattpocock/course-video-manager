@@ -271,6 +271,69 @@ describe("beat writes (add / update / move / delete)", () => {
     expect(seg.learningGoalIds).toEqual([]);
   });
 
+  it("add --learning-goal links the Goal at creation time, in ONE call", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    const seg = await add(s.lessonVideoId, "--learning-goal", goalA);
+    expect(seg.learningGoalIds).toEqual([goalA]);
+
+    // and the link is durable, not just echoed
+    const [listed] = await list(s.lessonVideoId);
+    expect(listed!.learningGoalIds).toEqual([goalA]);
+  });
+
+  it("add --learning-goal (repeated) links every Goal given", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    const goalB = await addLearningGoal(s.draftSectionId, "Goal B");
+    const seg = await add(
+      s.lessonVideoId,
+      "--title",
+      "Two goals",
+      "--learning-goal",
+      goalA,
+      "--learning-goal",
+      goalB
+    );
+    expect(new Set(seg.learningGoalIds)).toEqual(new Set([goalA, goalB]));
+    expect(seg.title).toBe("Two goals");
+  });
+
+  it("add --learning-goal with an unknown id => NotFoundError, exit 2, and NO beat is created", async () => {
+    const { stdout, stderr, exitCode } = await run([
+      "beat",
+      "add",
+      "--video",
+      s.lessonVideoId,
+      "--learning-goal",
+      "lg_missing",
+    ]);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe("");
+    const err = JSON.parse(stderr.trim()) as { _tag: string; entity: string };
+    expect(err._tag).toBe("NotFoundError");
+    expect(err.entity).toBe("learningGoal");
+    // The whole verb failed: no orphan, unlinked Beat left for the caller
+    // to hunt down and delete.
+    expect(await list(s.lessonVideoId)).toEqual([]);
+  });
+
+  it("add --learning-goal with an archived Goal => NotFoundError, exit 2 (same as update)", async () => {
+    const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
+    await run(["learning-goal", "delete", goalA]);
+
+    const { stderr, exitCode } = await run([
+      "beat",
+      "add",
+      "--video",
+      s.lessonVideoId,
+      "--learning-goal",
+      goalA,
+    ]);
+    expect(exitCode).toBe(2);
+    expect((JSON.parse(stderr.trim()) as { entity: string }).entity).toBe(
+      "learningGoal"
+    );
+  });
+
   it("update --learning-goal attaches Learning Goals, replacing the full set", async () => {
     const goalA = await addLearningGoal(s.draftSectionId, "Goal A");
     const goalB = await addLearningGoal(s.draftSectionId, "Goal B");

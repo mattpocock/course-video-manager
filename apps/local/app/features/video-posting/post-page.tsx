@@ -1,7 +1,10 @@
 "use client";
 
 import { useContext, useEffect, useState } from "react";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import {
+  hasLocalStorage,
+  useLocalStorage,
+} from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { useFetcher } from "react-router";
 import { UploadContext } from "@/features/upload-manager/upload-context";
@@ -114,7 +117,7 @@ export function PostPage({
 
   // Load storedYoutubeVideoId from localStorage on mount
   useEffect(() => {
-    if (typeof localStorage !== "undefined") {
+    if (hasLocalStorage()) {
       const stored = localStorage.getItem(
         YOUTUBE_VIDEO_ID_STORAGE_KEY(videoId)
       );

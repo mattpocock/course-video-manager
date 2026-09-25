@@ -111,6 +111,11 @@ describe("duplicateCourse — schema-drift guard", () => {
       copied: ["kind", "title", "description", "order"],
       notCopied: ["id", "videoId", "archived", "createdAt"],
     },
+    clipMockup: {
+      table: schema.clipMockups,
+      copied: ["line", "imagePath", "audioPath", "durationSeconds", "order"],
+      notCopied: ["id", "videoId", "archived", "createdAt"],
+    },
     thumbnail: {
       table: schema.thumbnails,
       copied: ["layers", "filePath", "selectedForUpload"],
@@ -216,6 +221,14 @@ describe("duplicateCourse — schema-drift guard", () => {
       description: "Beat Description",
       order: "m",
     });
+    await testDb.insert(schema.clipMockups).values({
+      videoId: video!.id,
+      line: "Coverage Clip Mockup line",
+      imagePath: "frame-001.png",
+      audioPath: "speech-001.wav",
+      durationSeconds: 2.75,
+      order: "m",
+    });
     await testDb.insert(schema.thumbnails).values({
       videoId: video!.id,
       layers: [{ type: "text", content: "coverage" }],
@@ -243,6 +256,7 @@ describe("duplicateCourse — schema-drift guard", () => {
                 clips: true,
                 chapters: true,
                 beats: true,
+                clipMockups: true,
                 thumbnails: true,
               },
             },
@@ -259,6 +273,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       clip: dupVideo.clips[0]!,
       chapter: dupVideo.chapters[0]!,
       beat: dupVideo.beats[0]!,
+      clipMockup: dupVideo.clipMockups[0]!,
       thumbnail: dupVideo.thumbnails[0]!,
     };
     const sourceRows: Record<keyof typeof COPY_SPEC, any> = {
@@ -268,6 +283,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       clip: await getOne(schema.clips, "videoId", video!.id),
       chapter: await getOne(schema.chapters, "videoId", video!.id),
       beat: await getOne(schema.beats, "videoId", video!.id),
+      clipMockup: await getOne(schema.clipMockups, "videoId", video!.id),
       thumbnail: await getOne(schema.thumbnails, "videoId", video!.id),
     };
 

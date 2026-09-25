@@ -162,6 +162,20 @@
       "when": 1788711271063,
       "tag": "0022_add_beat_learning_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790347504459,
+      "tag": "0023_add_clip_mockups_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790348887211,
+      "tag": "0024_add_clip_mockup_audio_path",
+      "breakpoints": true
     }
   ]
 }

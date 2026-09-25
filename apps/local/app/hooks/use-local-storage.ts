@@ -24,25 +24,79 @@ export function hasLocalStorage(): boolean {
   );
 }
 
+/** The stored string, or `null` when there is nothing readable under `key`. */
+function readStored(key: string): string | null {
+  if (!hasLocalStorage()) return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes, and says nothing when it cannot. A write throws on a full quota and
+ * in a browser that blocks storage outright (private mode); neither is worth
+ * taking a render down for, because the in-memory value still serves the
+ * session.
+ */
+function writeStored(key: string, value: string): void {
+  if (!hasLocalStorage()) return;
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage full or blocked; the in-memory value still holds for this session.
+  }
+}
+
+/**
+ * Which value a render shows, given the one the hook is holding. The same key
+ * keeps the held value — an unsaved edit must survive a re-render — and a new
+ * key reads that key's own stored value instead.
+ *
+ * This is the whole reason the hook tracks the key alongside the value: a
+ * component that stays mounted while its key changes (the posting pages, keyed
+ * per `videoId`) would otherwise keep the previous video's value on screen and
+ * then auto-save it over the new video's draft.
+ */
+export function valueForKey(
+  held: { key: string; value: string },
+  key: string,
+  fallback: string
+): { key: string; value: string } {
+  if (held.key === key) return held;
+  return { key, value: readStored(key) ?? fallback };
+}
+
 export function useLocalStorage(
   key: string,
   fallback = ""
 ): [string, Dispatch<SetStateAction<string>>] {
-  const [value, setValue] = useState(() => {
-    if (hasLocalStorage()) {
-      const stored = localStorage.getItem(key);
-      if (stored !== null) return stored;
-    }
-    return fallback;
-  });
+  const [held, setHeld] = useState(() => ({
+    key,
+    value: readStored(key) ?? fallback,
+  }));
+
+  // Adjusting state during render, rather than in an effect, so a key change
+  // never paints one frame of the previous key's value.
+  const current = valueForKey(held, key, fallback);
+  if (current !== held) setHeld(current);
 
   useEffect(() => {
-    if (hasLocalStorage()) {
-      localStorage.setItem(key, value);
-    }
-  }, [key, value]);
+    writeStored(key, current.value);
+  }, [key, current.value]);
 
-  return [value, setValue];
+  const setValue: Dispatch<SetStateAction<string>> = useCallback(
+    (action) => {
+      setHeld((prev) => ({
+        key: prev.key,
+        value: typeof action === "function" ? action(prev.value) : action,
+      }));
+    },
+    []
+  );
+
+  return [current.value, setValue];
 }
 
 export function useLocalStorageBoolean(

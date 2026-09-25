@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 const SLUG_PREFIX = "skills-changelog-";
 
@@ -72,107 +73,30 @@ export const buildSkillsChangelogPayload = (args: {
   ].join("\n");
 
 export function useSkillsChangelogForm(videoId: string) {
-  const [title, setTitle] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(TITLE_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
+  const [title, setTitle] = useLocalStorage(TITLE_KEY(videoId));
+  const [body, setBody] = useLocalStorage(BODY_KEY(videoId));
+  const [description, setDescription] = useLocalStorage(
+    DESCRIPTION_KEY(videoId)
+  );
+  const [slugSuffix, setSlugSuffix] = useLocalStorage(FORM_SLUG_KEY(videoId));
+  const [newsletterSubject, setNewsletterSubject] = useLocalStorage(
+    NL_SUBJECT_KEY(videoId)
+  );
+  const [newsletterPreviewText, setNewsletterPreviewText] = useLocalStorage(
+    NL_PREVIEW_KEY(videoId)
+  );
+  const [newsletterCopy, setNewsletterCopy] = useLocalStorage(
+    NL_COPY_KEY(videoId)
+  );
 
-  const [body, setBody] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(BODY_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
-
-  const [description, setDescription] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(DESCRIPTION_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
-
-  const slugInputTouched = useRef(false);
-  const [slugSuffix, setSlugSuffix] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem(FORM_SLUG_KEY(videoId));
-      if (stored) {
-        slugInputTouched.current = true;
-        return stored;
-      }
-    }
-    return slugify(title);
-  });
-
-  const [newsletterSubject, setNewsletterSubject] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(NL_SUBJECT_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
-
-  const [newsletterPreviewText, setNewsletterPreviewText] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(NL_PREVIEW_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
-
-  const [newsletterCopy, setNewsletterCopy] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(NL_COPY_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
+  // A stored slug is one the author typed; an empty one still tracks the title.
+  const slugInputTouched = useRef(slugSuffix !== "");
 
   useEffect(() => {
     if (!slugInputTouched.current) {
       setSlugSuffix(slugify(title));
     }
-  }, [title]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(TITLE_KEY(videoId), title);
-    }
-  }, [title, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(BODY_KEY(videoId), body);
-    }
-  }, [body, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(DESCRIPTION_KEY(videoId), description);
-    }
-  }, [description, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(FORM_SLUG_KEY(videoId), slugSuffix);
-    }
-  }, [slugSuffix, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(NL_SUBJECT_KEY(videoId), newsletterSubject);
-    }
-  }, [newsletterSubject, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(NL_PREVIEW_KEY(videoId), newsletterPreviewText);
-    }
-  }, [newsletterPreviewText, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(NL_COPY_KEY(videoId), newsletterCopy);
-    }
-  }, [newsletterCopy, videoId]);
+  }, [title, setSlugSuffix]);
 
   const setSlugSuffixTouched = (value: string) => {
     slugInputTouched.current = true;

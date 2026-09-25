@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_clip_mockup" ADD COLUMN "audio_path" text NOT NULL;

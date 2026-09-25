@@ -434,6 +434,186 @@ describe("copyVersionStructure", () => {
     ]);
   });
 
+  it("copies a video's clip mockups, preserving line/imagePath/order", async () => {
+    const [course] = await testDb
+      .insert(schema.courses)
+      .values({ name: "Test Course" })
+      .returning();
+
+    const [version] = await testDb
+      .insert(schema.courseVersions)
+      .values({ repoId: course!.id, name: "v1" })
+      .returning();
+
+    const [section] = await testDb
+      .insert(schema.sections)
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
+      .returning();
+
+    const [lesson] = await testDb
+      .insert(schema.lessons)
+      .values({
+        sectionId: section!.id,
+        order: 1,
+        title: "Lesson",
+        authoringStatus: "done",
+      })
+      .returning();
+
+    const [video] = await testDb
+      .insert(schema.videos)
+      .values({
+        lessonId: lesson!.id,
+        title: "01-intro/01-lesson/video.mp4",
+        originalFootagePath: "/footage/v1",
+      })
+      .returning();
+
+    // Inserted out of order on purpose: the copy must follow `order`, not
+    // insertion order.
+    await testDb.insert(schema.clipMockups).values([
+      {
+        videoId: video!.id,
+        line: "Second line",
+        imagePath: "frame-002.png",
+        audioPath: "speech-002.wav",
+        durationSeconds: 3.5,
+        order: "a1",
+      },
+      {
+        videoId: video!.id,
+        line: "First line",
+        imagePath: "frame-001.png",
+        audioPath: "speech-001.wav",
+        durationSeconds: 1.25,
+        order: "a0",
+      },
+    ]);
+
+    const result = await run(
+      Effect.gen(function* () {
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
+          sourceVersionId: version!.id,
+          repoId: course!.id,
+          newVersionName: "v2",
+        });
+      })
+    );
+
+    const newVideoId = result.videoIdMappings.find(
+      (m) => m.sourceVideoId === video!.id
+    )!.newVideoId;
+
+    const copied = await testDb.query.clipMockups.findMany({
+      where: (s, { eq }) => eq(s.videoId, newVideoId),
+      orderBy: (s, { asc }) => asc(s.order),
+    });
+
+    expect(
+      copied.map((s) => ({
+        line: s.line,
+        imagePath: s.imagePath,
+        durationSeconds: s.durationSeconds,
+        order: s.order,
+        archived: s.archived,
+      }))
+    ).toEqual([
+      {
+        line: "First line",
+        imagePath: "frame-001.png",
+        durationSeconds: 1.25,
+        order: "a0",
+        archived: false,
+      },
+      {
+        line: "Second line",
+        imagePath: "frame-002.png",
+        durationSeconds: 3.5,
+        order: "a1",
+        archived: false,
+      },
+    ]);
+  });
+
+  it("excludes archived clip mockups when copying a video", async () => {
+    const [course] = await testDb
+      .insert(schema.courses)
+      .values({ name: "Test Course" })
+      .returning();
+
+    const [version] = await testDb
+      .insert(schema.courseVersions)
+      .values({ repoId: course!.id, name: "v1" })
+      .returning();
+
+    const [section] = await testDb
+      .insert(schema.sections)
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
+      .returning();
+
+    const [lesson] = await testDb
+      .insert(schema.lessons)
+      .values({
+        sectionId: section!.id,
+        order: 1,
+        title: "Lesson",
+        authoringStatus: "done",
+      })
+      .returning();
+
+    const [video] = await testDb
+      .insert(schema.videos)
+      .values({
+        lessonId: lesson!.id,
+        title: "01-intro/01-lesson/video.mp4",
+        originalFootagePath: "/footage/v1",
+      })
+      .returning();
+
+    await testDb.insert(schema.clipMockups).values([
+      {
+        videoId: video!.id,
+        line: "Active",
+        imagePath: "active.png",
+        audioPath: "active.wav",
+        durationSeconds: 1,
+        order: "a0",
+        archived: false,
+      },
+      {
+        videoId: video!.id,
+        line: "Archived",
+        imagePath: "archived.png",
+        audioPath: "archived.wav",
+        durationSeconds: 1,
+        order: "a1",
+        archived: true,
+      },
+    ]);
+
+    const result = await run(
+      Effect.gen(function* () {
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.copyVersionStructure({
+          sourceVersionId: version!.id,
+          repoId: course!.id,
+          newVersionName: "v2",
+        });
+      })
+    );
+
+    const newVideoId = result.videoIdMappings.find(
+      (m) => m.sourceVideoId === video!.id
+    )!.newVideoId;
+
+    const copied = await testDb.query.clipMockups.findMany({
+      where: (s, { eq }) => eq(s.videoId, newVideoId),
+    });
+
+    expect(copied.map((s) => s.line)).toEqual(["Active"]);
+  });
+
   it("serializes concurrent clones from the same latest Course Version", async () => {
     const [course] = await testDb
       .insert(schema.courses)
@@ -468,5 +648,69 @@ describe("copyVersionStructure", () => {
         where: (row, { eq }) => eq(row.repoId, course!.id),
       })
     ).toHaveLength(2);
+  });
+});
+
+// The read that feeds Publish and Publish Readiness. It loads clips and
+// chapters and nothing else per Video, which is the first of the two reasons
+// a Clip Mockup can never reach a student (the second is that the shipped
+// Video shape has no field for one — see course-json.test.ts). Adding a
+// `clipMockups` sub-relation here would be the way to break that, so this
+// test fails if anyone does.
+describe("getVersionWithSections — the publish read", () => {
+  it("does not load clip mockups", async () => {
+    const [course] = await testDb
+      .insert(schema.courses)
+      .values({ name: "Test Course" })
+      .returning();
+
+    const [version] = await testDb
+      .insert(schema.courseVersions)
+      .values({ repoId: course!.id, name: "v1" })
+      .returning();
+
+    const [section] = await testDb
+      .insert(schema.sections)
+      .values({ repoVersionId: version!.id, title: "01-intro", order: 1 })
+      .returning();
+
+    const [lesson] = await testDb
+      .insert(schema.lessons)
+      .values({
+        sectionId: section!.id,
+        order: 1,
+        title: "01.01-welcome",
+        authoringStatus: "done",
+      })
+      .returning();
+
+    const [video] = await testDb
+      .insert(schema.videos)
+      .values({
+        lessonId: lesson!.id,
+        title: "video.mp4",
+        originalFootagePath: "/footage/v1",
+      })
+      .returning();
+
+    await testDb.insert(schema.clipMockups).values({
+      videoId: video!.id,
+      line: "And here is the bug.",
+      imagePath: "frame-001.png",
+      audioPath: "speech-001.wav",
+      durationSeconds: 1.75,
+      order: "a0",
+    });
+
+    const loaded = await run(
+      Effect.gen(function* () {
+        const versionOps = yield* VersionOperationsService;
+        return yield* versionOps.getVersionWithSections(version!.id);
+      })
+    );
+
+    const loadedVideo = loaded.sections[0]!.lessons[0]!.videos[0]!;
+    expect(loadedVideo).not.toHaveProperty("clipMockups");
+    expect(loadedVideo).not.toHaveProperty("beats");
   });
 });

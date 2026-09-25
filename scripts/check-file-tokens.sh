@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Default: staged files (pre-commit). `--all`: every tracked file (CI).
+file_list() {
+  if [ "${1:-}" = "--all" ]; then
+    git ls-files
+  else
+    git diff --cached --name-only --diff-filter=d
+  fi
+}
+
 MAX_TOKENS=5500
 found_violations=0
 
@@ -27,6 +36,11 @@ EXCLUDE_PATTERNS=(
   # order of the stages, which is the only thing it teaches. It was already over
   # the limit when it landed.
   "scripts/cutover-wizard.sh"
+  # Already over the limit when the `--all` sweep first ran against the whole
+  # tree. THIS PAIR ONLY SHRINKS — split one and delete its line. New files get
+  # no exemption: the staged check still stops them at the commit.
+  "apps/local/app/cli/cli-integration.test.ts"
+  "apps/local/app/services/dropbox-http-client.ts"
 )
 
 should_skip() {
@@ -61,7 +75,7 @@ while IFS= read -r file; do
     echo "  $file (~${tokens} tokens)"
     found_violations=1
   fi
-done < <(git diff --cached --name-only --diff-filter=d)
+done < <(file_list "${1:-}")
 
 if [ "$found_violations" -eq 1 ]; then
   echo ""

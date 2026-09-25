@@ -48,9 +48,18 @@ function serveRoots(): string[] {
   return roots;
 }
 
+// The CVM owns 5170-5199 and nothing else: 5172 (Stream Deck forwarder hub
+// WebSocket), 5173 (this dev server), 5174 (forwarder HTTP). `strictPort` stops
+// Vite drifting onto the next free port when 5173 is busy, because drifting is
+// how a second CVM ends up on a port something else already claims. A busy 5173
+// means a CVM is already running — read that as an error, not as a reason to
+// move. Verification runs take 5200-5299 instead; see
+// .claude/skills/verify-cvm/scripts/verify.sh.
+const DEV_PORT = 5173;
+
 export default defineConfig({
   envDir: WORKSPACE_ROOT,
-  server: { fs: { allow: serveRoots() } },
+  server: { port: DEV_PORT, strictPort: true, fs: { allow: serveRoots() } },
   plugins:
     process.env.NODE_ENV === "test"
       ? [tsconfigPaths()]

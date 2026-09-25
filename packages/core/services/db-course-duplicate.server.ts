@@ -7,6 +7,7 @@ import {
   sections,
   lessons,
   beats,
+  clipMockups,
   thumbnails,
   videos,
 } from "../db/schema.js";
@@ -24,8 +25,15 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 /**
  * Deep-copies a course's latest draft version into a brand-new course: a single
  * fresh draft version, then every non-archived section → lesson → video and each
- * video's clips, chapters, beats, and thumbnails. Split out of
+ * video's clips, chapters, beats, clip mockups and thumbnails. Split out of
  * `db-course-operations.server.ts` to keep that module under the file-token cap.
+ *
+ * Returns the Video lineage pairs alongside the new course. Every duplicated
+ * Video gets a FRESH `lineageId` — it is a new Video, not the same one in a
+ * new version — while its copied Clip Mockups keep `imagePath`/`audioPath`
+ * verbatim, so the caller that owns a disk has to carry those files from the
+ * source directory to the new one. This service cannot: `@cvm/core` is
+ * filesystem-free. The pairs are the only thing it can hand over (#1669).
  */
 export const makeDuplicateCourse = (db: Database) =>
   Effect.fn("duplicateCourse")(function* (input: {
@@ -125,6 +133,10 @@ export const makeDuplicateCourse = (db: Database) =>
                     orderBy: asc(beats.order),
                     where: eq(beats.archived, false),
                   },
+                  clipMockups: {
+                    orderBy: asc(clipMockups.order),
+                    where: eq(clipMockups.archived, false),
+                  },
                   thumbnails: true,
                 },
               },
@@ -133,6 +145,13 @@ export const makeDuplicateCourse = (db: Database) =>
         },
       })
     );
+
+    /** Source → duplicate, per Video, for the caller that owns the disk. */
+    const videoLineageMappings: Array<{
+      sourceLineageId: string;
+      newLineageId: string;
+      newVideoId: string;
+    }> = [];
 
     for (const sourceSection of sourceSections) {
       const [newSection] = yield* makeDbCall(() =>
@@ -188,6 +207,12 @@ export const makeDuplicateCourse = (db: Database) =>
 
           if (!newVideo) continue;
 
+          videoLineageMappings.push({
+            sourceLineageId: sourceVideo.lineageId,
+            newLineageId: newVideo.lineageId,
+            newVideoId: newVideo.id,
+          });
+
           if (sourceVideo.clips.length > 0) {
             yield* makeDbCall(() =>
               db.insert(clips).values(
@@ -237,6 +262,23 @@ export const makeDuplicateCourse = (db: Database) =>
             );
           }
 
+          // Clip Mockups copy the way Beats do — verbatim `order`, archived
+          // rows already filtered out by the read above.
+          if (sourceVideo.clipMockups.length > 0) {
+            yield* makeDbCall(() =>
+              db.insert(clipMockups).values(
+                sourceVideo.clipMockups.map((clipMockup) => ({
+                  videoId: newVideo.id,
+                  line: clipMockup.line,
+                  imagePath: clipMockup.imagePath,
+                  audioPath: clipMockup.audioPath,
+                  durationSeconds: clipMockup.durationSeconds,
+                  order: clipMockup.order,
+                }))
+              )
+            );
+          }
+
           if (sourceVideo.thumbnails.length > 0) {
             yield* makeDbCall(() =>
               db.insert(thumbnails).values(
@@ -253,5 +295,9 @@ export const makeDuplicateCourse = (db: Database) =>
       }
     }
 
-    return { course: newCourse, version: newVersion };
+    return {
+      course: newCourse,
+      version: newVersion,
+      videoLineageMappings,
+    };
   });

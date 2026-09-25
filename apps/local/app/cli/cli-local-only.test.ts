@@ -100,6 +100,62 @@ describe("on a box that is not the author's", () => {
     }
   });
 
+  it("refuses every cvm clip-mockup verb", async () => {
+    const invocations: ReadonlyArray<ReadonlyArray<string>> = [
+      ["clip-mockup", "list", "--video", s.standaloneActiveId],
+      [
+        "clip-mockup",
+        "add",
+        "--video",
+        s.standaloneActiveId,
+        "--image",
+        "/tmp/whatever.png",
+        "--say",
+        "A line.",
+      ],
+      ["clip-mockup", "get", "cm_1"],
+      ["clip-mockup", "update", "--say", "A line.", "cm_1"],
+      ["clip-mockup", "update", "--image", "/tmp/whatever.png", "cm_1"],
+      ["clip-mockup", "move", "--before", "cm_2", "cm_1"],
+      ["clip-mockup", "delete", "cm_1"],
+      // The --at addressing form reads the Animatic to count positions, so it
+      // is refused for the same reason the bare-id form is.
+      ["clip-mockup", "delete", "--video", s.standaloneActiveId, "--at", "1"],
+    ];
+
+    for (const argv of invocations) {
+      const result = await run(argv);
+
+      expect(result.exitCode, argv.join(" ")).toBe(7);
+      expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+      expect(result.stdout).toBe("");
+    }
+  });
+
+  it("refuses cvm clip-mockup ahead of its own argument validation", async () => {
+    // Missing --say is normally exit 3. The machine check comes first, because
+    // a line would not have helped: there is no directory to put the frame in.
+    const result = await run([
+      "clip-mockup",
+      "add",
+      "--video",
+      s.standaloneActiveId,
+      "--image",
+      "/tmp/whatever.png",
+    ]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+  });
+
+  it("names the Clip Mockup directory as what cvm clip-mockup needed", async () => {
+    const mockup = failureOf(
+      await run(["clip-mockup", "list", "--video", s.standaloneActiveId])
+    );
+    expect(mockup.command).toBe("cvm clip-mockup");
+    expect(mockup.message).toContain("Clip Mockup directory");
+  });
+
   it("names footage as the resource cvm footage would have needed", async () => {
     const footage = failureOf(await run(["footage", "list"]));
     expect(footage.command).toBe("cvm footage");

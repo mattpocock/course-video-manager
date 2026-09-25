@@ -49,7 +49,7 @@ export type CaptureStatus = z.infer<typeof CaptureStatus>;
  * format: `app/lib` doesn't reach into features, and a transport that owns its
  * own vocabulary can't be broken by a refactor on either side of the channel.
  */
-export const EditorTab = z.enum(["beats", "reference", "script"]);
+export const EditorTab = z.enum(["beats", "reference", "script", "mockups"]);
 export type EditorTab = z.infer<typeof EditorTab>;
 
 /**

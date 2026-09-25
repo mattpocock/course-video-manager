@@ -19,6 +19,19 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 STATE_DIR="$REPO_ROOT/.verify"
 
+# --- port bands -----------------------------------------------------------
+# Two bands, and they never overlap. The CVM owns 5170-5199 — 5172 is the
+# Stream Deck forwarder hub, 5173 Matt's dev server (pinned there by
+# apps/local/vite.config.ts), 5174 the forwarder's HTTP side. Verification runs
+# take 5200-5299. A run that lands in the CVM's band is driving the window Matt
+# is looking at, so the band is checked, not hoped for.
+CVM_BAND_MIN=5170
+CVM_BAND_MAX=5199
+VERIFY_BAND_MIN=5200
+VERIFY_BAND_MAX=5299
+
+in_cvm_band() { [ "$1" -ge "$CVM_BAND_MIN" ] && [ "$1" -le "$CVM_BAND_MAX" ]; }
+
 log() { printf '%s\n' "$*" >&2; }
 die() { log "FAIL: $*"; exit 1; }
 
@@ -78,10 +91,83 @@ run_port()    { cat "$(run_dir)/server.port"; }
 run_session() { cat "$(run_dir)/browser-session"; }
 run_base()    { printf 'http://localhost:%s\n' "$(run_port)"; }
 
+# --- picking a port -------------------------------------------------------
+port_listening() { ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1$"; }
+
+# Ports a live sibling run recorded. A run holds its port from the moment it
+# writes it, which is earlier than the moment the server listens on it.
+ports_held_by_runs() {
+  local d
+  for d in $(live_runs); do
+    [ -f "$d/server.port" ] && cat "$d/server.port"
+  done
+  return 0
+}
+
+# The order launch tries. VERIFY_PORT, when set, is the whole list: an explicit
+# address is a request, not a starting point.
+candidate_ports() {
+  if [ -n "${VERIFY_PORT:-}" ]; then
+    printf '%s\n' "$VERIFY_PORT"
+    return 0
+  fi
+  local held p
+  held="$(ports_held_by_runs)"
+  for p in $(seq "$VERIFY_BAND_MIN" "$VERIFY_BAND_MAX"); do
+    printf '%s\n' "$held" | grep -qx "$p" && continue
+    port_listening "$p" && continue
+    printf '%s\n' "$p"
+  done
+}
+
+# Start the server on exactly $2, or fail. Leaves no process behind on failure,
+# so the caller can try the next port without leaking a half-started Vite.
+start_server() {
+  local dir="$1" wanted="$2"
+  echo "$wanted" > "$dir/server.port"
+
+  # `exec` replaces the subshell with the server, so $! is the server's own pid
+  # and cleanup can kill exactly what this run started.
+  ( cd "$REPO_ROOT/apps/local" &&
+    exec nohup ./node_modules/.bin/react-router dev --port "$wanted" \
+      > "$dir/server.log" 2>&1 ) &
+  local pid=$!
+  echo "$pid" > "$dir/server.pid"
+
+  # Read the port the server actually took, not the one we asked for. Vite
+  # colours its banner, so strip the escapes before matching.
+  local announced="" _
+  for _ in $(seq 1 60); do
+    announced="$(sed -e 's/\x1b\[[0-9;]*m//g' "$dir/server.log" 2>/dev/null |
+            grep -aoE 'Local:[[:space:]]+http://localhost:[0-9]+' |
+            grep -oE '[0-9]+$' | head -1 || true)"
+    [ -n "$announced" ] && break
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 2
+  done
+
+  if [ "$announced" = "$wanted" ]; then return 0; fi
+
+  # Either it died (strictPort refusing a taken port looks exactly like this)
+  # or it answered somewhere we did not ask for. Neither is drivable.
+  [ -n "$announced" ] &&
+    log "launch: asked for $wanted, server announced $announced — refusing it"
+  pkill -TERM -P "$pid" 2>/dev/null || true
+  kill -TERM "$pid" 2>/dev/null || true
+  sleep 1
+  kill -KILL "$pid" 2>/dev/null || true
+  rm -f "$dir/server.pid" "$dir/server.port"
+  return 1
+}
+
 # --- launch ---------------------------------------------------------------
 cmd_launch() {
   [ -f "$REPO_ROOT/.env" ] ||
     die "no .env at $REPO_ROOT/.env — symlink the main checkout's one: ln -s ../../.env $REPO_ROOT/.env"
+
+  if [ -n "${VERIFY_PORT:-}" ] && in_cvm_band "$VERIFY_PORT"; then
+    die "VERIFY_PORT=$VERIFY_PORT is in the CVM's band ($CVM_BAND_MIN-$CVM_BAND_MAX) — that port is Matt's own CVM, not yours. Use $VERIFY_BAND_MIN-$VERIFY_BAND_MAX."
+  fi
 
   local id dir
   id="$(date +%Y%m%d-%H%M%S)-$$"
@@ -89,33 +175,18 @@ cmd_launch() {
   mkdir -p "$dir"
   echo "verify-cvm-$id" > "$dir/browser-session"
 
-  # No port is pinned. Vite takes the first free port up from its default, so
-  # concurrent runs each land somewhere of their own and the log says where.
-  # VERIFY_PORT overrides it when you need a known address.
-  local port_arg=()
-  if [ -n "${VERIFY_PORT:-}" ]; then port_arg=(--port "$VERIFY_PORT"); fi
-
-  # `exec` replaces the subshell with the server, so $! is the server's own pid
-  # and cleanup can kill exactly what this run started.
-  ( cd "$REPO_ROOT/apps/local" &&
-    exec nohup ./node_modules/.bin/react-router dev "${port_arg[@]}" \
-      > "$dir/server.log" 2>&1 ) &
-  echo $! > "$dir/server.pid"
-  local pid; pid="$(cat "$dir/server.pid")"
-
-  # Read the port the server actually took, not the one we hoped for. Vite
-  # colours its banner, so strip the escapes before matching.
-  local port=""
-  for _ in $(seq 1 60); do
-    port="$(sed -e 's/\x1b\[[0-9;]*m//g' "$dir/server.log" 2>/dev/null |
-            grep -aoE 'Local:[[:space:]]+http://localhost:[0-9]+' |
-            grep -oE '[0-9]+$' | head -1 || true)"
-    [ -n "$port" ] && break
-    kill -0 "$pid" 2>/dev/null || { tail -20 "$dir/server.log" >&2; die "server died on startup"; }
-    sleep 2
+  # Pick a port out of the verification band and ask for exactly it. Vite runs
+  # with strictPort, so a taken port is a startup failure rather than a silent
+  # drift onto the neighbour — which is what used to walk a run up into the
+  # CVM's band. VERIFY_PORT overrides the pick when you need a known address.
+  local wanted port="" pid=""
+  for wanted in $(candidate_ports); do
+    if start_server "$dir" "$wanted"; then port="$wanted"; break; fi
+    log "launch: port $wanted did not come up — trying the next one"
   done
-  [ -n "$port" ] || { tail -20 "$dir/server.log" >&2; die "server never announced a port"; }
-  echo "$port" > "$dir/server.port"
+  [ -n "$port" ] ||
+    die "no free port in $VERIFY_BAND_MIN-$VERIFY_BAND_MAX — run 'verify.sh cleanup --all' to free the band"
+  pid="$(cat "$dir/server.pid")"
 
   {
     echo "started:   $(date --iso-8601=seconds)"
@@ -152,6 +223,13 @@ cmd_doctor() {
 
   kill -0 "$pid" 2>/dev/null &&
     log "ok   server process $pid alive" || { log "FAIL server process $pid gone"; ok=1; }
+
+  if in_cvm_band "$port"; then
+    log "FAIL port $port is in the CVM's band ($CVM_BAND_MIN-$CVM_BAND_MAX) — stop and cleanup, you may be driving Matt's own CVM"
+    ok=1
+  else
+    log "ok   port $port is outside the CVM's band ($CVM_BAND_MIN-$CVM_BAND_MAX)"
+  fi
 
   local owner; owner="$(ss -ltnp 2>/dev/null | grep ":$port " || true)"
   case "$owner" in

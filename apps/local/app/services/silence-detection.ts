@@ -5,11 +5,12 @@ import {
   MINIMUM_CLIP_LENGTH_SECONDS,
   silenceLengthToSeconds,
   DEFAULT_SILENCE_LENGTH,
+  AUTO_EDITED_END_PADDING_SECONDS,
   type SilenceLength,
 } from "@/silence-detection-constants";
 
 const AUTO_EDITED_START_PADDING = 0; // frames
-const AUTO_EDITED_END_PADDING = 0.08; // frames
+const AUTO_EDITED_END_PADDING = AUTO_EDITED_END_PADDING_SECONDS; // seconds
 
 interface SpeakingClip {
   startFrame: number;

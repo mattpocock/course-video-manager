@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import {
+  hasLocalStorage,
+  useLocalStorage,
+} from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -42,27 +46,16 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
     kitSequenceUrl,
   } = props;
 
-  // Newsletter content state with localStorage persistence
-  const [newsletterContent, setNewsletterContent] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(NEWSLETTER_STORAGE_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
-
-  // Auto-save newsletter content to localStorage
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(NEWSLETTER_STORAGE_KEY(videoId), newsletterContent);
-    }
-  }, [newsletterContent, videoId]);
+  const [newsletterContent, setNewsletterContent] = useLocalStorage(
+    NEWSLETTER_STORAGE_KEY(videoId)
+  );
 
   // Newsletter generation state
   const [isGenerating, setIsGenerating] = useState(false);
 
   // AI Hero URL input - pre-filled from localStorage slug if available
   const [aiHeroUrl, setAiHeroUrl] = useState(() => {
-    if (typeof localStorage !== "undefined") {
+    if (hasLocalStorage()) {
       const slug = localStorage.getItem(`ai-hero-slug-${videoId}`);
       return slug ? `https://aihero.dev/${slug}` : "";
     }

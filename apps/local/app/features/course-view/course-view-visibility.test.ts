@@ -39,10 +39,22 @@ describe("resolveEffectiveVisibility", () => {
     // the immediate parent.
     expect(effective.beats).toBe(false);
     expect(effective.beatDescriptions).toBe(false);
+    expect(effective.beatLearningGoals).toBe(false);
     expect(effective.addBeatButton).toBe(false);
   });
 
-  it("4. leaves an unrelated branch alone when a sibling subtree is hidden", () => {
+  it("4. hides a Beat's Learning Goal picker with the Beats it hangs off", () => {
+    const effective = resolveEffectiveVisibility({
+      ...DEFAULT_VISIBILITY,
+      beats: false,
+    });
+    expect(effective.beatLearningGoals).toBe(false);
+    // Section-altitude Learning Goals are a separate branch: hiding the Beat
+    // rows says nothing about the Section's own Learning Goal list.
+    expect(effective.learningGoals).toBe(true);
+  });
+
+  it("5. leaves an unrelated branch alone when a sibling subtree is hidden", () => {
     const prefs = { ...DEFAULT_VISIBILITY, lessons: false };
     const effective = resolveEffectiveVisibility(prefs);
     expect(effective.learningGoals).toBe(true);
@@ -50,7 +62,7 @@ describe("resolveEffectiveVisibility", () => {
     expect(effective.sectionDescriptions).toBe(true);
   });
 
-  it("5. keeps a child's own preference intact for when its parent comes back on", () => {
+  it("6. keeps a child's own preference intact for when its parent comes back on", () => {
     // Turning a parent off and back on shouldn't clobber a child's own
     // stored preference — resolveEffectiveVisibility only reads `prefs`, so
     // this documents that the parent flag alone decides the cascade.
@@ -66,7 +78,7 @@ describe("resolveEffectiveVisibility", () => {
     expect(resolveEffectiveVisibility(parentBackOn).videos).toBe(true);
   });
 
-  it("6. every VISIBILITY_TREE key round-trips through the cascade", () => {
+  it("7. every VISIBILITY_TREE key round-trips through the cascade", () => {
     const effective = resolveEffectiveVisibility(DEFAULT_VISIBILITY);
     const keys = VISIBILITY_TREE.map((n) => n.key);
     const uniqueKeys = new Set<VisibilityKey>(keys);

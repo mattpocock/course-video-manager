@@ -144,6 +144,35 @@ async function createFullCourseStructure() {
     },
   ]);
 
+  // Clip Mockups: two active (inserted out of order), one archived
+  await testDb.insert(schema.clipMockups).values([
+    {
+      videoId: video!.id,
+      line: "Second mockup line",
+      imagePath: "frame-002.png",
+      audioPath: "speech-002.wav",
+      durationSeconds: 4.25,
+      order: "b",
+    },
+    {
+      videoId: video!.id,
+      line: "First mockup line",
+      imagePath: "frame-001.png",
+      audioPath: "speech-001.wav",
+      durationSeconds: 1.5,
+      order: "a",
+    },
+    {
+      videoId: video!.id,
+      line: "Archived mockup line",
+      imagePath: "frame-003.png",
+      audioPath: "speech-003.wav",
+      durationSeconds: 0.5,
+      order: "c",
+      archived: true,
+    },
+  ]);
+
   // Thumbnails
   await testDb.insert(schema.thumbnails).values({
     videoId: video!.id,
@@ -655,5 +684,89 @@ describe("duplicateCourse", () => {
     expect(beats).toHaveLength(1);
     expect(beats[0]!.title).toBe("Active Beat");
     expect(beats[0]!.kind).toBe("definition");
+  });
+
+  it("copies clip mockups in order and excludes archived ones", async () => {
+    const { course } = await createFullCourseStructure();
+
+    const result = await run(
+      Effect.gen(function* () {
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
+          sourceCourseId: course.id,
+          name: "Dup",
+        });
+      })
+    );
+
+    const newSections = await testDb.query.sections.findMany({
+      where: (s, { eq }) => eq(s.repoVersionId, result.version.id),
+      with: {
+        lessons: {
+          with: {
+            videos: {
+              with: {
+                clipMockups: { orderBy: (s, { asc }) => asc(s.order) },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const mockups = newSections[0]!.lessons[0]!.videos[0]!.clipMockups;
+    expect(
+      mockups.map((m) => ({
+        line: m.line,
+        imagePath: m.imagePath,
+        durationSeconds: m.durationSeconds,
+        order: m.order,
+        archived: m.archived,
+      }))
+    ).toEqual([
+      {
+        line: "First mockup line",
+        imagePath: "frame-001.png",
+        durationSeconds: 1.5,
+        order: "a",
+        archived: false,
+      },
+      {
+        line: "Second mockup line",
+        imagePath: "frame-002.png",
+        durationSeconds: 4.25,
+        order: "b",
+        archived: false,
+      },
+    ]);
+  });
+
+  it("reports each duplicated Video's source and new lineageId", async () => {
+    const { course, video } = await createFullCourseStructure();
+
+    const result = await run(
+      Effect.gen(function* () {
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
+          sourceCourseId: course.id,
+          name: "Dup",
+        });
+      })
+    );
+
+    // A duplicated Video is a NEW Video, so it gets a fresh lineageId while
+    // its copied Clip Mockups keep their paths. `apps/local` carries the
+    // frames and WAVs across on the strength of these pairs (#1669) —
+    // `@cvm/core` has no disk to do it with.
+    expect(result.videoLineageMappings).toHaveLength(1);
+
+    const [mapping] = result.videoLineageMappings;
+    expect(mapping!.sourceLineageId).toBe(video!.lineageId);
+    expect(mapping!.newLineageId).not.toBe(video!.lineageId);
+
+    const newVideo = await testDb.query.videos.findFirst({
+      where: (v, { eq }) => eq(v.id, mapping!.newVideoId),
+    });
+    expect(newVideo!.lineageId).toBe(mapping!.newLineageId);
   });
 });

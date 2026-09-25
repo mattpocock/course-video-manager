@@ -1,6 +1,7 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { sectionSearchCmd } from "./search";
+import { sectionLintCmd } from "./section-lint";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -456,6 +457,7 @@ export const sectionCommand = Command.make("section").pipe(
     renameCmd,
     moveCmd,
     archiveCmd,
+    sectionLintCmd,
     sectionSearchCmd,
   ])
 );
