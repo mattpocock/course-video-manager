@@ -1,4 +1,5 @@
 import { Player, type PlayerRef } from "@remotion/player";
+import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import {
   Fragment,
   useCallback,
@@ -14,6 +15,13 @@ import {
   type AnimaticChapter,
   type AnimaticChapterRow,
 } from "./animatic-chapters";
+import {
+  areAllChaptersCollapsed,
+  expandChapterAtPlayhead,
+  toggleAllChapters,
+  toggleChapter,
+  type AnimaticCollapseState,
+} from "./animatic-collapse";
 import {
   AnimaticComposition,
   type AnimaticCompositionProps,
@@ -67,6 +75,11 @@ import {
  * each one carries the count and the run time of the rows under it, and seeks to
  * the first of them. No Chapter is a segment, so the clock, the frame and the
  * position badge do not know they exist. See `animatic-chapters.ts`.
+ *
+ * A divider also FOLDS ITS ROWS AWAY, which is the reason Chapters exist: a
+ * settled Playthrough of twenty rows goes behind one title, and the two moments
+ * still being judged sit next to each other. Collapsing hides rows and never
+ * skips frames. See `animatic-collapse.ts`.
  */
 
 export const AnimaticPlayer = (props: {
@@ -100,6 +113,18 @@ export const AnimaticPlayer = (props: {
     () => buildAnimaticChapterLayout({ segments: timeline.segments, chapters }),
     [timeline, chapters]
   );
+
+  // Which dividers are folded away. EPHEMERAL, keyed by Chapter id: it is born
+  // empty on every load, exactly as the Clip timeline's is. See
+  // `animatic-collapse.ts`.
+  const [collapsed, setCollapsed] = useState<AnimaticCollapseState>({});
+  const chapterIds = useMemo(
+    () => layout.sections.map((section) => section.chapter.id),
+    [layout]
+  );
+  const allCollapsed = areAllChaptersCollapsed(collapsed, chapterIds);
+  const toggleAll = () =>
+    setCollapsed((prev) => toggleAllChapters(prev, chapterIds));
 
   // Read by the frameupdate listener, which is installed once. A new timeline
   // (an agent added a line while this played) must not re-install it.
@@ -175,6 +200,21 @@ export const AnimaticPlayer = (props: {
     },
   });
 
+  // THE LIST NEVER HIDES THE ROW BEING HEARD. A Chapter the author folded away
+  // opens itself the moment the Animatic plays into it — the Clip timeline does
+  // the same for the Clip being edited. The helper hands back the very same
+  // state when nothing changed, so a segment boundary inside an open Chapter
+  // costs no re-render.
+  useEffect(() => {
+    setCollapsed((prev) =>
+      expandChapterAtPlayhead({
+        collapsed: prev,
+        sections: layout.sections,
+        activeIndex,
+      })
+    );
+  }, [activeIndex, layout]);
+
   // Keep the selected row in sight. While the author has made no choice of his
   // own the selection follows the playhead, so this is also what makes the list
   // walk itself down as the Animatic plays.
@@ -240,11 +280,34 @@ export const AnimaticPlayer = (props: {
   return (
     <div className="flex h-full w-full min-h-0 bg-black text-white">
       <aside className="flex w-96 shrink-0 flex-col border-r border-white/10 bg-neutral-950">
-        <header className="border-b border-white/10 px-4 py-3">
-          <div className="text-sm font-semibold">Clip Mockups</div>
-          <div className="text-xs text-white/60">
-            {count} in {formatRunTime(timeline.totalSeconds)}
+        <header className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold">Clip Mockups</div>
+            <div className="text-xs text-white/60">
+              {count} in {formatRunTime(timeline.totalSeconds)}
+            </div>
           </div>
+
+          {/* One control for the lot, and the SAME PAIR OF ICONS the Clip
+              timeline uses, so it reads as the same control. A Video nobody has
+              divided has nothing to fold, so it has no button either. */}
+          {chapterIds.length > 0 && (
+            <button
+              type="button"
+              // A clicked control keeps the keys working, exactly as a row does.
+              className="allow-keydown shrink-0 rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white"
+              onClick={toggleAll}
+              aria-label={
+                allCollapsed ? "Expand all chapters" : "Collapse all chapters"
+              }
+            >
+              {allCollapsed ? (
+                <ChevronsUpDown className="size-3" />
+              ) : (
+                <ChevronsDownUp className="size-3" />
+              )}
+            </button>
+          )}
         </header>
 
         {broken.length > 0 && (
@@ -286,9 +349,18 @@ export const AnimaticPlayer = (props: {
                       ? undefined
                       : () => playFrom(section.seekIndex!)
                   }
+                  isCollapsed={collapsed[section.chapter.id] ?? false}
+                  onToggleCollapse={() =>
+                    setCollapsed((prev) =>
+                      toggleChapter(prev, section.chapter.id)
+                    )
+                  }
                 />
               </li>
-              {section.rows.map(renderRow)}
+              {/* Folded away: the rows are not drawn. The count and the run
+                  time are the divider's own, so it reads the same closed as
+                  open, and the clock never knew about any of this. */}
+              {!collapsed[section.chapter.id] && section.rows.map(renderRow)}
             </Fragment>
           ))}
         </ol>
