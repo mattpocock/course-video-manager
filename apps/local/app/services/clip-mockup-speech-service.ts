@@ -129,6 +129,11 @@ export function pcmToWav(pcm: Uint8Array, sampleRate: number): Buffer {
   header.writeUInt32LE(sampleRate, 24);
   header.writeUInt32LE(byteRate, 28);
   header.writeUInt16LE(blockAlign, 32);
+  // Offset 34 is bitsPerSample, and it is NOT optional. Left at zero the
+  // header still parses: ffprobe reads the duration straight off byteRate and
+  // reports the file as 8.97s of audio, so every check this repo made passed.
+  // A browser will not decode it — `<Audio>` in the Animatic played silence.
+  header.writeUInt16LE(bitsPerSample, 34);
   header.write("data", 36);
   header.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([header, pcm]);
