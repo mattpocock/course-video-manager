@@ -16,18 +16,15 @@ import { loadRepoEnv } from "./repo-env";
  * cache, the test seam, and the rule that nothing reaches the disk until the
  * words have actually been spoken.
  *
- * It has TWO callers on purpose: `cvm clip-mockup add` / `update --say`, and
- * the video editor's Clip Mockup list over `/api/clip-mockup-editor`. That
- * shared path is what stops the CLI and the editor re-voicing the same line
- * differently, so this lives under `app/services/` — the code both sides may
- * reach — rather than inside a CLI verb module the web app would have to
- * import (#1672).
+ * Its caller is `cvm clip-mockup add` / `update --say`. It lives under
+ * `app/services/` — the code the CLI and the web app may both reach — rather
+ * than inside a CLI verb module, so a web surface that must voice a line can
+ * call the same path instead of re-voicing the line differently (#1672).
  */
 
 /**
- * The heavy service `clip-mockup add`, `update --say` and the editor's
- * in-place edit reach for, built LOCALLY here rather than merged into the
- * shared cliRuntime — exactly like
+ * The heavy service `clip-mockup add` and `update --say` reach for, built
+ * LOCALLY here rather than merged into the shared cliRuntime — exactly like
  * `footage transcribe`: no read verb should have to satisfy Google credentials. It
  * is only reached on the branch below where the service was not already
  * provided, which is what lets a test inject a fake and never call Gemini.

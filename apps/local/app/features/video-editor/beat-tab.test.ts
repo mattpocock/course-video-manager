@@ -91,16 +91,4 @@ describe("resolveBeatTab", () => {
       })
     ).toBe("script");
   });
-
-  it("honours a persisted mockups tab, even for a video with no Clip Mockups", () => {
-    // The Animatic tab carries its own empty state, so unlike Beats it never
-    // goes away and never falls back.
-    expect(
-      resolveBeatTab({
-        persistedTab: "mockups",
-        hasBeats: false,
-        hasReference: false,
-      })
-    ).toBe("mockups");
-  });
 });

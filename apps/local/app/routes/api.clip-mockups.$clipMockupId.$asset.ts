@@ -16,9 +16,9 @@ import { data } from "react-router";
  * Clip Mockup, and the server resolves the rest. That is what
  * `api.videos.$videoId.stream.ts` does and what `view-image.ts` (absolute path
  * straight off the query string, no guard) does not.
- *
- * Shared on purpose: the Clip Mockup list in the Video Editor (#1650) needs
- * exactly these two URLs for its thumbnails and its per-row preview.
+
+ * The Animatic player is the one surface that reads these URLs. It asks for
+ * both: a frame per Clip Mockup, and the WAV of the line spoken over it.
  */
 
 const ASSET_COLUMNS = {
@@ -56,9 +56,8 @@ export const loader = makeLoader({
       }
 
       // The FLAT row, not `getVideoDeepById`: all this needs is one
-      // `lineageId`, and the editor's Clip Mockup list asks for sixty of
-      // these at once — a four-level join per thumbnail is sixty joins for
-      // one column (#1671).
+      // `lineageId`, and the Animatic asks for sixty of these at once — a
+      // four-level join per frame is sixty joins for one column (#1671).
       const video = yield* videoOps.getVideoRowById(mockup.videoId);
       const absolutePath = yield* resolveClipMockupPath(
         video.lineageId,

@@ -18,7 +18,7 @@ describe("EditorCompactHeader", () => {
       <EditorCompactHeader {...props} hasAnimatic={true} />
     );
 
-    // Without this the only way in is the Mockups tab of the side panel, and an
+    // This is the only way into the Animatic from the editor. Without it an
     // author in the editor cannot see that an Animatic exists at all.
     expect(html).toContain('href="/videos/v1/animatic"');
     expect(html).toContain("Animatic");
