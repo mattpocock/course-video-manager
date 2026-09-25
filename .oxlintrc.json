@@ -62,11 +62,9 @@
         "apps/local/app/features/article-writer/write-utils.ts",
         "apps/local/app/features/article-writer/writer-engine-utils.ts",
         "apps/local/app/features/diagrams/diagram-centering-settings.ts",
-        "apps/local/app/features/video-editor/components/suggestions-panel.tsx",
         "apps/local/app/features/video-posting/ai-hero-page.tsx",
         "apps/local/app/features/video-posting/newsletter-page.tsx",
         "apps/local/app/features/video-posting/post-page.tsx",
-        "apps/local/app/features/video-posting/skills-changelog-form-state.ts",
         "apps/local/app/features/video-posting/skills-changelog-page.tsx",
         "apps/local/app/features/video-posting/social-page.tsx",
         "apps/local/app/routes/_app._index.tsx"
