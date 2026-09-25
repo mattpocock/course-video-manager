@@ -6,15 +6,30 @@ import { Effect } from "effect";
 import { compareOrderStrings } from "../lib/sort-by-order.js";
 
 /**
- * THE ONE MERGED READ of a Video's Animatic: its Clip Mockups and its Clip
- * Mockup Chapters as a single list, sorted by the fractional `order` key the
- * two nouns share.
+ * THE ONE SHARED POSITIONING READ of a Video's Animatic: its Clip Mockups and
+ * its Clip Mockup Chapters as a single list, sorted by the fractional `order`
+ * key the two nouns share.
  *
- * It lives in its own module because four writers and two readers need exactly
- * this list and must all agree on it: creating a Clip Mockup, moving a Clip
- * Mockup, creating a Clip Mockup Chapter, moving a Clip Mockup Chapter, the
- * CLI's `--before`/`--after` anchor resolvers, and the Animatic page's loader.
- * A second copy of the merge is a second answer to "what is after row 14".
+ * It lives in its own module because every path that computes a position needs
+ * exactly this list and they must all agree on it: creating a Clip Mockup,
+ * moving a Clip Mockup, creating a Clip Mockup Chapter, moving a Clip Mockup
+ * Chapter, and the CLI's `--before`/`--after` anchor resolvers. A second answer
+ * to "what is after row 14" is a row that lands on the wrong side of a divider.
+ *
+ * IT IS NOT THE ONLY MERGE, and it is not meant to be. It hands back
+ * `{ type, id, order }` alone, so the two callers that PRINT rows read both
+ * tables and merge them for themselves — the Animatic page's loader
+ * (`_app.videos.$videoId.animatic.tsx`, whose sidebar prints a Chapter's title)
+ * and `cvm clip-mockup list --with-chapters` (`cli/commands/animatic-rows.ts`,
+ * whose stream carries the whole row of each kind). So: one shared positioning
+ * read, plus two row-level merges.
+ *
+ * WHAT ALL THREE MUST KEEP THE SAME — the sort and the archive filters. The
+ * sort is `compareOrderStrings`, never `localeCompare`, because the columns are
+ * `COLLATE "C"`. The filters are TWO, one per table: a merged list built from
+ * two tables has two ways to leave a deleted row in. A change to either rule
+ * here is a change in all three places, or the sidebar and the CLI report an
+ * order the writers did not compute.
  *
  * Why the merge matters: membership is implicit. A Clip Mockup belongs to the
  * last Chapter above it in THIS list, so a key computed against one table
