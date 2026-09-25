@@ -13,6 +13,7 @@ import {
   AlertTriangleIcon,
   ArrowDownIcon,
   ArrowUpIcon,
+  AudioWaveformIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   FilmIcon,
@@ -394,6 +395,7 @@ export const ClipItem = (props: ClipItemProps) => {
                 onAddEffectClipAt("white-noise", "before", clip.frontendId);
               }}
             >
+              <AudioWaveformIcon />
               White Noise
             </ContextMenuItem>
           </ContextMenuSubContent>
@@ -409,6 +411,7 @@ export const ClipItem = (props: ClipItemProps) => {
                 onAddEffectClipAt("white-noise", "after", clip.frontendId);
               }}
             >
+              <AudioWaveformIcon />
               White Noise
             </ContextMenuItem>
           </ContextMenuSubContent>

@@ -22,6 +22,8 @@ import {
   AlertTriangleIcon,
   RadioIcon,
   FileTypeIcon,
+  MessageSquareIcon,
+  MessagesSquareIcon,
   SettingsIcon,
   Trash2Icon,
   RefreshCwIcon,
@@ -245,12 +247,14 @@ function CopyButtons(props: {
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onClick={onCopyConversationHistory}>
+            <MessagesSquareIcon className="h-4 w-4 mr-2" />
             Copy Conversation History
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={onCopyToClipboard}
             disabled={!lastAssistantMessageText}
           >
+            <MessageSquareIcon className="h-4 w-4 mr-2" />
             Copy Last Message
           </DropdownMenuItem>
         </DropdownMenuContent>

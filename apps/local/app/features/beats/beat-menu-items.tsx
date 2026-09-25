@@ -6,7 +6,7 @@ import {
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
 import { copyDeepLink } from "@/features/course-view/deep-link";
-import { Link2, Plus, Trash2 } from "lucide-react";
+import { Link2, Plus, Shapes, Trash2 } from "lucide-react";
 import {
   BEAT_KINDS,
   BEAT_KIND_DESCRIPTIONS,
@@ -87,7 +87,10 @@ export function BeatContextMenuContent({
   return (
     <>
       <ContextMenuSub>
-        <ContextMenuSubTrigger>Change kind</ContextMenuSubTrigger>
+        <ContextMenuSubTrigger>
+          <Shapes className="w-4 h-4" />
+          Change kind
+        </ContextMenuSubTrigger>
         <ContextMenuSubContent>
           <BeatKindMenuItems onSelect={onSetKind} />
         </ContextMenuSubContent>
