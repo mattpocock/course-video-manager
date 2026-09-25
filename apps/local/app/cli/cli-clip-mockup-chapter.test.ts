@@ -287,6 +287,204 @@ describe("cvm clip-mockup-chapter: off the local machine", () => {
     expect(r.exitCode).toBe(2);
     expect(failureOf(r)._tag).toBe("NotFoundError");
   });
+
+  // -----------------------------------------------------------------------
+  // get / update
+  // -----------------------------------------------------------------------
+
+  it("get of one id prints one pretty object", async () => {
+    const created = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+
+    const r = await run(["clip-mockup-chapter", "get", created.id]);
+
+    expect(r.exitCode).toBe(0);
+    expect(r.stderr).toBe("");
+    expect(chapterOf(r.stdout).id).toBe(created.id);
+  });
+
+  it("get of many ids prints NDJSON and names the missing ones on stderr", async () => {
+    const one1 = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+    const two = chapterOf((await add(s.standaloneActiveId, "Two")).stdout);
+
+    const r = await run([
+      "clip-mockup-chapter",
+      "get",
+      one1.id,
+      "no-such-chapter",
+      two.id,
+    ]);
+
+    expect((ndjson(r.stdout) as ChapterRow[]).map((c) => c.id)).toEqual([
+      one1.id,
+      two.id,
+    ]);
+    expect(r.exitCode).toBe(2);
+    expect(failureOf(r)._tag).toBe("NotFoundError");
+    expect(r.stderr).toContain("no-such-chapter");
+  });
+
+  it("get of an unknown id is a not-found", async () => {
+    const r = await run(["clip-mockup-chapter", "get", "no-such-chapter"]);
+
+    expect(r.exitCode).toBe(2);
+    expect(failureOf(r)._tag).toBe("NotFoundError");
+    expect(r.stdout).toBe("");
+  });
+
+  it("update renames a Chapter and echoes the row", async () => {
+    const created = chapterOf((await add(s.standaloneActiveId, "Old")).stdout);
+
+    // @effect/cli wants the options BEFORE the positional id.
+    const r = await run([
+      "clip-mockup-chapter",
+      "update",
+      "--title",
+      "New",
+      created.id,
+    ]);
+
+    expect(r.exitCode).toBe(0);
+    const row = chapterOf(r.stdout);
+    expect(row.id).toBe(created.id);
+    expect(row.name).toBe("New");
+    expect(row.order).toBe(created.order);
+    expect((await list(s.standaloneActiveId)).map((c) => c.name)).toEqual([
+      "New",
+    ]);
+  });
+
+  it("update of an unknown id is a not-found", async () => {
+    const r = await run([
+      "clip-mockup-chapter",
+      "update",
+      "--title",
+      "New",
+      "no-such-chapter",
+    ]);
+
+    expect(r.exitCode).toBe(2);
+    expect(failureOf(r)._tag).toBe("NotFoundError");
+  });
+
+  // -----------------------------------------------------------------------
+  // move
+  // -----------------------------------------------------------------------
+
+  const move = async (id: string, anchor: ReadonlyArray<string>) =>
+    run(["clip-mockup-chapter", "move", ...anchor, id]);
+
+  it("move --before repositions against a Clip Mockup id", async () => {
+    const mockups = await seedMockups(s.standaloneActiveId, ["one", "two"]);
+    const chapter = chapterOf(
+      (await add(s.standaloneActiveId, "Wanderer")).stdout
+    );
+
+    const r = await move(chapter.id, ["--before", mockups[0]!.id]);
+
+    expect(r.exitCode).toBe(0);
+    const moved = chapterOf(r.stdout);
+    expect(moved.id).toBe(chapter.id);
+    expect(moved.order < mockups[0]!.order).toBe(true);
+  });
+
+  it("move --after repositions against another Chapter id", async () => {
+    const one1 = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+    const two = chapterOf((await add(s.standaloneActiveId, "Two")).stdout);
+    const three = chapterOf((await add(s.standaloneActiveId, "Three")).stdout);
+
+    const r = await move(three.id, ["--after", one1.id]);
+
+    expect(r.exitCode).toBe(0);
+    const moved = chapterOf(r.stdout);
+    expect(moved.order > one1.order).toBe(true);
+    expect(moved.order < two.order).toBe(true);
+    expect((await list(s.standaloneActiveId)).map((c) => c.name)).toEqual([
+      "One",
+      "Three",
+      "Two",
+    ]);
+  });
+
+  it("move with no anchor is invalid input, NOT a send-to-the-end", async () => {
+    const one1 = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+    const two = chapterOf((await add(s.standaloneActiveId, "Two")).stdout);
+
+    const r = await move(one1.id, []);
+
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r)._tag).toBe("ParseError");
+    expect(r.stdout).toBe("");
+    // The refusal moved nothing: the order the resolver would have appended to
+    // is still the order it started at.
+    expect((await list(s.standaloneActiveId)).map((c) => c.id)).toEqual([
+      one1.id,
+      two.id,
+    ]);
+  });
+
+  it("move with both anchors is invalid input", async () => {
+    const one1 = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+    const two = chapterOf((await add(s.standaloneActiveId, "Two")).stdout);
+    const three = chapterOf((await add(s.standaloneActiveId, "Three")).stdout);
+
+    const r = await move(three.id, ["--before", one1.id, "--after", two.id]);
+
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r)._tag).toBe("ParseError");
+    expect(r.stdout).toBe("");
+  });
+
+  it("move of an unknown Chapter, and to an unknown anchor, are not-founds", async () => {
+    const chapter = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+
+    const badId = await move("no-such-chapter", ["--before", chapter.id]);
+    const badAnchor = await move(chapter.id, ["--before", "no-such-row"]);
+
+    expect(badId.exitCode).toBe(2);
+    expect(failureOf(badId)._tag).toBe("NotFoundError");
+    expect(badAnchor.exitCode).toBe(2);
+    expect(failureOf(badAnchor)._tag).toBe("NotFoundError");
+  });
+
+  // -----------------------------------------------------------------------
+  // delete
+  // -----------------------------------------------------------------------
+
+  it("delete archives the Chapter and echoes the archived row", async () => {
+    const created = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+
+    const r = await run(["clip-mockup-chapter", "delete", created.id]);
+
+    expect(r.exitCode).toBe(0);
+    expect(chapterOf(r.stdout).archived).toBe(true);
+  });
+
+  it("a deleted Chapter never appears in list or get again", async () => {
+    const created = chapterOf((await add(s.standaloneActiveId, "One")).stdout);
+    await run(["clip-mockup-chapter", "delete", created.id]);
+
+    const got = await run(["clip-mockup-chapter", "get", created.id]);
+    const deletedTwice = await run([
+      "clip-mockup-chapter",
+      "delete",
+      created.id,
+    ]);
+    const updated = await run([
+      "clip-mockup-chapter",
+      "update",
+      "--title",
+      "Back",
+      created.id,
+    ]);
+
+    expect(await list(s.standaloneActiveId)).toEqual([]);
+    // Archived means deleted: there is no restore verb, so every verb that
+    // addresses it reports a not-found.
+    for (const r of [got, deletedTwice, updated]) {
+      expect(r.exitCode).toBe(2);
+      expect(failureOf(r)._tag).toBe("NotFoundError");
+    }
+  });
 });
 
 describe("one order space shared with Clip Mockups", () => {
@@ -392,5 +590,42 @@ describe("one order space shared with Clip Mockups", () => {
     const moved = one<MockupRow>(r.stdout);
     expect(moved.order > first.order).toBe(true);
     expect(moved.order < chapter.order).toBe(true);
+  });
+
+  it("delete absorbs its Clip Mockups upward — every one survives", async () => {
+    // The acceptance criterion, asserted as an OUTCOME rather than as the rule.
+    // `clip-mockup list` is local-only, so this case lives in the local suite.
+    const above = await addMockup(s.standaloneActiveId, "Above");
+    const chapter = chapterOf(
+      (
+        await run([
+          "clip-mockup-chapter",
+          "add",
+          "--video",
+          s.standaloneActiveId,
+          "--title",
+          "Part two",
+        ])
+      ).stdout
+    );
+    const under = await addMockup(s.standaloneActiveId, "Under");
+    const alsoUnder = await addMockup(s.standaloneActiveId, "AlsoUnder");
+
+    const deleted = await run(["clip-mockup-chapter", "delete", chapter.id]);
+    expect(deleted.exitCode).toBe(0);
+
+    const rows = ndjson(
+      (await run(["clip-mockup", "list", "--video", s.standaloneActiveId]))
+        .stdout
+    ) as MockupRow[];
+
+    // Not one frame or line is lost, and none is re-ordered: the two Clip
+    // Mockups that were under the divider are simply unchaptered now.
+    expect(rows.map((r) => r.id)).toEqual([above.id, under.id, alsoUnder.id]);
+    expect(rows.map((r) => r.order)).toEqual([
+      above.order,
+      under.order,
+      alsoUnder.order,
+    ]);
   });
 });
