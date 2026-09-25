@@ -1,6 +1,10 @@
 "use client";
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  hasLocalStorage,
+  useLocalStorage,
+} from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { Input } from "@/components/ui/input";
@@ -79,81 +83,23 @@ export function AiHeroPage({
   chapters: SectionWithWordCount[];
   writerContext: WriterContext | null;
 }) {
-  // Title with localStorage persistence
-  const [title, setTitle] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(AI_HERO_TITLE_STORAGE_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
+  const [title, setTitle] = useLocalStorage(AI_HERO_TITLE_STORAGE_KEY(videoId));
+  const [body, setBody] = useLocalStorage(AI_HERO_BODY_STORAGE_KEY(videoId));
+  const [seoDescription, setSeoDescription] = useLocalStorage(
+    AI_HERO_SEO_DESCRIPTION_STORAGE_KEY(videoId)
+  );
+  const [slug, setSlug] = useLocalStorage(
+    AI_HERO_FORM_SLUG_STORAGE_KEY(videoId)
+  );
 
-  // Body with localStorage persistence
-  const [body, setBody] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(AI_HERO_BODY_STORAGE_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
+  // A stored slug is one the author typed; an empty one still tracks the title.
+  const slugInputTouched = useRef(slug !== "");
 
-  // SEO description with localStorage persistence
-  const [seoDescription, setSeoDescription] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return (
-        localStorage.getItem(AI_HERO_SEO_DESCRIPTION_STORAGE_KEY(videoId)) ?? ""
-      );
-    }
-    return "";
-  });
-
-  // Editable slug with localStorage persistence
-  const slugInputTouched = useRef(false);
-  const [slug, setSlug] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem(
-        AI_HERO_FORM_SLUG_STORAGE_KEY(videoId)
-      );
-      if (stored) {
-        slugInputTouched.current = true;
-        return stored;
-      }
-    }
-    return slugify(title);
-  });
-
-  // Auto-derive slug from title when user hasn't manually edited it
   useEffect(() => {
     if (!slugInputTouched.current) {
       setSlug(slugify(title));
     }
-  }, [title]);
-
-  // Auto-save to localStorage
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(AI_HERO_TITLE_STORAGE_KEY(videoId), title);
-    }
-  }, [title, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(AI_HERO_BODY_STORAGE_KEY(videoId), body);
-    }
-  }, [body, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(
-        AI_HERO_SEO_DESCRIPTION_STORAGE_KEY(videoId),
-        seoDescription
-      );
-    }
-  }, [seoDescription, videoId]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(AI_HERO_FORM_SLUG_STORAGE_KEY(videoId), slug);
-    }
-  }, [slug, videoId]);
+  }, [title, setSlug]);
 
   // Upload context
   const { uploads, startAiHeroUpload, startExportUpload } =
@@ -173,7 +119,7 @@ export function AiHeroPage({
   const [storedSlug, setStoredSlug] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof localStorage !== "undefined") {
+    if (hasLocalStorage()) {
       setStoredSlug(
         localStorage.getItem(AI_HERO_SLUG_STORAGE_KEY(videoId)) ?? null
       );

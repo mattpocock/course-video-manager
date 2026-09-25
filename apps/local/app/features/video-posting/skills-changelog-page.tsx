@@ -1,6 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useState } from "react";
+import { hasLocalStorage } from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { Input } from "@/components/ui/input";
@@ -90,7 +91,7 @@ export function SkillsChangelogPage({
   const [storedSlug, setStoredSlug] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof localStorage !== "undefined") {
+    if (hasLocalStorage()) {
       setStoredSlug(localStorage.getItem(SLUG_STORAGE_KEY(videoId)) ?? null);
     }
   }, [videoId]);

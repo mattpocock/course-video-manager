@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  hasLocalStorage,
+  useLocalStorage,
+} from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -43,20 +47,9 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     showSocialShareButtons,
   } = props;
 
-  // Social caption state with localStorage persistence
-  const [socialCaption, setSocialCaption] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(SOCIAL_CAPTION_STORAGE_KEY(videoId)) ?? "";
-    }
-    return "";
-  });
-
-  // Auto-save social caption to localStorage
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(SOCIAL_CAPTION_STORAGE_KEY(videoId), socialCaption);
-    }
-  }, [socialCaption, videoId]);
+  const [socialCaption, setSocialCaption] = useLocalStorage(
+    SOCIAL_CAPTION_STORAGE_KEY(videoId)
+  );
 
   // Social AI generation state
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
@@ -118,7 +111,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
   // Read the video title from localStorage (set by the YouTube tab)
   const [videoTitle, setVideoTitle] = useState("");
   useEffect(() => {
-    if (typeof localStorage !== "undefined") {
+    if (hasLocalStorage()) {
       setVideoTitle(
         localStorage.getItem(`post-title-${videoId}`) || "Untitled"
       );
