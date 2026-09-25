@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { buildOverlayCompositeFilterGraph } from "@/services/overlay-compositing";
 import {
@@ -96,6 +96,34 @@ describe.skipIf(!hasFfmpeg)(
   }
 );
 
+/** The width of the frame a filter chain hands back, according to ffmpeg. */
+const probeFilteredWidth = (
+  filter: string,
+  sourceWidth: number,
+  height: number
+): number => {
+  // ffmpeg writes what it built to STDERR, so this reads the stream it
+  // actually prints on rather than an empty stdout.
+  const log = spawnSync(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-f",
+      "lavfi",
+      "-i",
+      `color=white:s=${sourceWidth}x${height}:r=25:d=0.04`,
+      "-vf",
+      filter,
+      "-f",
+      "null",
+      "-",
+    ],
+    { encoding: "utf8" }
+  ).stderr;
+  const size = /Output #0[\s\S]*?Stream #0:0[^\n]*?, (\d+)x\d+/.exec(log);
+  return size ? Number(size[1]) : sourceWidth;
+};
+
 /**
  * Where the camera actually puts the picture, measured in REAL PIXELS out of
  * real ffmpeg.
@@ -106,8 +134,14 @@ describe.skipIf(!hasFfmpeg)(
  * about a horizontal slide varies down it.
  */
 const measureLeftEdges = (filter: string, fps: number, seconds: number) => {
-  const width = 1920;
+  const sourceWidth = 1920;
   const height = 16;
+  // ASK ffmpeg how wide the frame it hands back is; do not assume the source's
+  // own width. `pad` and `crop` each land on a whole, chroma-aligned pixel, so
+  // the round trip can return a frame a pixel or two narrower than it was
+  // given. Assuming 1920 here read every row at the wrong offset and reported
+  // a 406px drift in a move that was within 2px of the preview all along.
+  const width = probeFilteredWidth(filter, sourceWidth, height);
   const raw = execFileSync(
     "ffmpeg",
     [
@@ -117,7 +151,7 @@ const measureLeftEdges = (filter: string, fps: number, seconds: number) => {
       "-f",
       "lavfi",
       "-i",
-      `color=white:s=${width}x${height}:r=${fps}:d=${seconds}`,
+      `color=white:s=${sourceWidth}x${height}:r=${fps}:d=${seconds}`,
       "-vf",
       filter,
       "-f",
