@@ -251,6 +251,7 @@ export const makeDuplicateCourse = (db: Database) =>
                   videoId: newVideo.id,
                   line: clipMockup.line,
                   imagePath: clipMockup.imagePath,
+                  audioPath: clipMockup.audioPath,
                   durationSeconds: clipMockup.durationSeconds,
                   order: clipMockup.order,
                 }))

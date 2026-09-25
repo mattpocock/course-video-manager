@@ -19,6 +19,17 @@ import { Effect } from "effect";
  * repositioned by the same `--before`/`--after` anchoring.
  */
 
+/**
+ * The measured voicing of a Clip Mockup's line: where the WAV landed
+ * (relative to `{CLIP_MOCKUP_DIR}/{video.lineageId}/`, like `imagePath`) and
+ * how many seconds it runs. A FLOAT — the whole Animatic's run time is the sum
+ * of these, and rounding each one drifts by minutes over a Lesson.
+ */
+export interface ClipMockupSpeech {
+  readonly audioPath: string;
+  readonly durationSeconds: number;
+}
+
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
     try: fn,
@@ -54,19 +65,23 @@ export const createClipMockupOperations = (db: Database) => {
     });
 
   /**
-   * Create a Clip Mockup in a Video's Animatic. `line` and `imagePath` are
-   * both required — a Clip Mockup with no picture or no words is not a thing,
-   * and that constraint is the point of the feature. `beforeClipMockupId`
-   * anchors the new row immediately before that one; `null`/absent appends to
-   * the end. Mirrors {@link createBeat}'s fractional-key positioning exactly.
+   * Create a Clip Mockup in a Video's Animatic. `line`, `imagePath` and
+   * `speech` are all required — a Clip Mockup with no picture, no words or no
+   * voicing is not a thing, and that constraint is the point of the feature.
+   * `beforeClipMockupId` anchors the new row immediately before that one;
+   * `null`/absent appends to the end. Mirrors {@link createBeat}'s
+   * fractional-key positioning exactly.
    *
-   * `durationSeconds` is left null: it is the measured length of the line's
-   * speech, and speech synthesis is a later change.
+   * `speech` arrives already MEASURED and already on disk. This service never
+   * synthesises anything and never opens a file: the caller that owns the
+   * machine speaks the line, writes the WAV and hands over the two facts the
+   * row keeps — where it landed, and how long it runs.
    */
   const createClipMockup = Effect.fn("createClipMockup")(function* (
     videoId: string,
     line: string,
     imagePath: string,
+    speech: ClipMockupSpeech,
     beforeClipMockupId: string | null = null
   ) {
     const existing = yield* listClipMockupsByVideoId(videoId);
@@ -93,7 +108,14 @@ export const createClipMockupOperations = (db: Database) => {
     const [row] = yield* makeDbCall(() =>
       db
         .insert(clipMockups)
-        .values({ videoId, line, imagePath, order: order! })
+        .values({
+          videoId,
+          line,
+          imagePath,
+          audioPath: speech.audioPath,
+          durationSeconds: speech.durationSeconds,
+          order: order!,
+        })
         .returning()
     );
 
@@ -107,18 +129,26 @@ export const createClipMockupOperations = (db: Database) => {
   });
 
   /**
-   * Replace a Clip Mockup's spoken line. `durationSeconds` is deliberately
-   * left alone here: it is the MEASURED length of the line's speech, so only
-   * whatever synthesises that speech may write it, and a caller that changes
-   * the words without re-synthesising must be able to see that the duration
-   * has gone stale rather than have it silently zeroed.
+   * Replace a Clip Mockup's spoken line TOGETHER WITH its speech. The words
+   * and their voicing move as one write on purpose: `durationSeconds` is the
+   * measured length of THIS line, and a row whose words say one thing while
+   * its duration measures another would make an Animatic's run-time estimate
+   * quietly wrong. The caller re-synthesises before it calls here.
    */
   const setClipMockupLine = Effect.fn("setClipMockupLine")(function* (
     id: string,
-    line: string
+    line: string,
+    speech: ClipMockupSpeech
   ) {
     yield* makeDbCall(() =>
-      db.update(clipMockups).set({ line }).where(eq(clipMockups.id, id))
+      db
+        .update(clipMockups)
+        .set({
+          line,
+          audioPath: speech.audioPath,
+          durationSeconds: speech.durationSeconds,
+        })
+        .where(eq(clipMockups.id, id))
     );
     return yield* requireClipMockup(id);
   });

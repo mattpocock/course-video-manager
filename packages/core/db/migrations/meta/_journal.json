@@ -169,6 +169,13 @@
       "when": 1790347504459,
       "tag": "0023_add_clip_mockups_table",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790348887211,
+      "tag": "0024_add_clip_mockup_audio_path",
+      "breakpoints": true
     }
   ]
 }

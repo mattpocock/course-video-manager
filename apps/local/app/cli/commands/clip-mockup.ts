@@ -8,6 +8,7 @@ import {
   newFrameFilename,
   writeClipMockupFile,
 } from "@/services/clip-mockup-files";
+import { resolveClipMockupSpeech } from "./clip-mockup.speech";
 import {
   detail,
   emitGet,
@@ -332,6 +333,13 @@ const addCmd = Command.make(
 
       const frame = yield* resolveFrameSource({ verb: "add", image });
 
+      // Speak the line BEFORE anything is written. It is the one step that
+      // depends on something off this machine, so putting it first is what
+      // makes a speech failure leave no row AND no orphan frame behind.
+      const speech = yield* asParseError(
+        resolveClipMockupSpeech({ lineageId: row.lineageId, line })
+      );
+
       // Write the frame BEFORE the row: a row whose imagePath points at
       // nothing is the one state an authoring agent cannot see or fix.
       yield* asParseError(
@@ -339,7 +347,12 @@ const addCmd = Command.make(
       );
 
       const svc = yield* ClipMockupOperationsService;
-      const created = yield* svc.createClipMockup(row.id, line, frame.filename);
+      const created = yield* svc.createClipMockup(
+        row.id,
+        line,
+        frame.filename,
+        speech
+      );
       yield* emitObject(created);
     })
 ).pipe(Command.withDescription(detail(ADD_HELP)));
@@ -399,10 +412,12 @@ const updateCmd = Command.make(
       }
 
       let row = yield* resolveTargetClipMockup({ id, video, at });
+      // Both halves land under the parent Video's lineageId, so resolve it
+      // once up front rather than per branch.
+      const parent = yield* requireActiveVideo(row.videoId);
       const svc = yield* ClipMockupOperationsService;
 
       if (source !== undefined) {
-        const parent = yield* requireActiveVideo(row.videoId);
         const frame = yield* resolveFrameSource({ verb: "update", image });
         // Same order as 'add': the frame lands before the row points at it, so
         // a failure halfway leaves an orphan PNG rather than a row whose
@@ -414,9 +429,15 @@ const updateCmd = Command.make(
       }
 
       // The line and the picture are independent: swapping one leaves the
-      // other exactly as it was, and neither touches durationSeconds.
+      // other exactly as it was. New WORDS are new SPEECH, though — the line
+      // is re-synthesised and its measured duration replaced in the same
+      // write, so the row can never claim a run time for words it no longer
+      // says.
       if (line !== undefined) {
-        row = yield* svc.setClipMockupLine(row.id, line);
+        const speech = yield* asParseError(
+          resolveClipMockupSpeech({ lineageId: parent.lineageId, line })
+        );
+        row = yield* svc.setClipMockupLine(row.id, line, speech);
       }
 
       yield* emitObject(row);

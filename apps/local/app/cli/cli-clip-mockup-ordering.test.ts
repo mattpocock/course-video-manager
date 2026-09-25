@@ -9,8 +9,6 @@ import {
 } from "@/test-utils/pglite";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
-  buildWriteLayer,
-  makeRun,
   makeTempClipMockupDir,
   ndjson,
   one,
@@ -18,6 +16,7 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import { fakeSpeech, makeClipMockupRun } from "./cli-clip-mockup-test-harness";
 
 // ===========================================================================
 // cvm clip-mockup: move / update / --at position addressing
@@ -37,13 +36,14 @@ let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let s: WriteSeed;
 let frames: ReturnType<typeof makeTempClipMockupDir>;
+const speech = fakeSpeech();
 let sourceDir: string;
 const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  run = makeRun(buildWriteLayer(testDb));
+  run = makeClipMockupRun(testDb, speech);
   frames = makeTempClipMockupDir();
   sourceDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-frame-src-"));
   process.env[LOCAL_MACHINE_ENV_KEY] = "true";
@@ -64,6 +64,7 @@ beforeEach(async () => {
   s = await seedWrite(testDb);
   nodeFs.rmSync(frames.dir, { recursive: true, force: true });
   nodeFs.mkdirSync(frames.dir, { recursive: true });
+  speech.spoken.length = 0;
 });
 
 describe("cvm clip-mockup: ordering and addressing", () => {
@@ -72,6 +73,7 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     videoId: string;
     line: string;
     imagePath: string;
+    audioPath: string | null;
     durationSeconds: number | null;
     order: string;
     archived: boolean;
@@ -168,7 +170,8 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     expect(nodeFs.readdirSync(dir).sort()).toEqual(before);
     expect(moved.imagePath).toBe(b.imagePath);
     expect(moved.line).toBe(b.line);
-    expect(moved.durationSeconds).toBeNull();
+    expect(moved.audioPath).toBe(b.audioPath);
+    expect(moved.durationSeconds).toBe(b.durationSeconds);
     expect(moved.order).not.toBe(b.order);
   });
 
@@ -202,7 +205,7 @@ describe("cvm clip-mockup: ordering and addressing", () => {
   // update
   // -----------------------------------------------------------------------
 
-  it("update --image copies the new PNG in and leaves the line and duration alone", async () => {
+  it("update --image copies the new PNG in and leaves the line and its speech alone", async () => {
     const created = await add(
       s.standaloneActiveId,
       "The line stays.",
@@ -223,7 +226,9 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     const row = obj(r.stdout);
     expect(row.id).toBe(created.id);
     expect(row.line).toBe("The line stays.");
-    expect(row.durationSeconds).toBeNull();
+    // The words did not change, so neither did their voicing or its length.
+    expect(row.audioPath).toBe(created.audioPath);
+    expect(row.durationSeconds).toBe(created.durationSeconds);
     expect(row.order).toBe(created.order);
     expect(row.imagePath).not.toBe(created.imagePath);
 
@@ -252,10 +257,13 @@ describe("cvm clip-mockup: ordering and addressing", () => {
 
     expect(row.line).toBe("Shorter, and it lands harder.");
     expect(row.imagePath).toBe(created.imagePath);
-    expect(row.durationSeconds).toBeNull();
-    expect(nodeFs.readdirSync(frameDir(s.standaloneActiveLineageId))).toEqual([
-      created.imagePath,
-    ]);
+    // New words are new speech; what the picture is has not changed.
+    expect(row.audioPath).not.toBe(created.audioPath);
+    expect(
+      nodeFs.readdirSync(frameDir(s.standaloneActiveLineageId)).sort()
+    ).toEqual(
+      [created.imagePath, created.audioPath, row.audioPath].sort() as string[]
+    );
   });
 
   it("update takes both --image and --say at once", async () => {

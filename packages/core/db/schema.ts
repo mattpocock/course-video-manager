@@ -627,8 +627,17 @@ export const clipMockups = createTable(
     // an absolute path, and never a path into the authoring agent's scratch
     // folder. The CVM keeps its own copy of the frame.
     imagePath: text("image_path").notNull(),
-    // Seconds of speech for `line`. Nullable because speech synthesis is a
-    // later change; until then every row carries null.
+    // The synthesised speech for `line`: a WAV beside the frame, and relative
+    // to the same `{CLIP_MOCKUP_DIR}/{video.lineageId}/` directory. Named by a
+    // hash of the line, the voice and the model, so two Clip Mockups that say
+    // the same words share one file. Nullable only because rows predating
+    // speech synthesis exist; every row written since carries both this and
+    // `durationSeconds`.
+    audioPath: text("audio_path"),
+    // Seconds of speech for `line`, measured off the synthesised audio — a
+    // FLOAT, not whole seconds: it is summed across a whole Animatic to
+    // estimate a Lesson's run time, and rounding each line would drift by
+    // minutes. Nullable for the same reason as `audioPath`.
     durationSeconds: doublePrecision("duration_seconds"),
     order: varcharCollateC("order").notNull(),
     archived: boolean("archived").notNull().default(false),

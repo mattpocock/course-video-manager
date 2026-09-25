@@ -10,8 +10,6 @@ import {
 } from "@/test-utils/pglite";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
-  buildWriteLayer,
-  makeRun,
   makeTempClipMockupDir,
   ndjson,
   one,
@@ -19,6 +17,11 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import {
+  fakeSpeech,
+  makeClipMockupRun,
+  FAKE_DURATION_SECONDS,
+} from "./cli-clip-mockup-test-harness";
 
 // ===========================================================================
 // cvm clip-mockup: add / list / get / delete
@@ -29,6 +32,10 @@ import {
 // real FileSystem) and asserts BOTH halves — what the CLI printed, and what
 // actually landed on disk.
 //
+// 'add' also SPEAKS its line, so the speech service is faked (see
+// ./cli-clip-mockup-test-harness.ts) and no Gemini call ever runs. What the
+// speech itself is asserted to do lives in ./cli-clip-mockup-speech.test.ts.
+//
 // Touching the disk is what makes every verb LOCAL-ONLY, so the suite declares
 // the machine local the way the author's .env does. The refusals themselves
 // live in ./cli-local-only.test.ts.
@@ -38,13 +45,14 @@ let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let s: WriteSeed;
 let frames: ReturnType<typeof makeTempClipMockupDir>;
+const speech = fakeSpeech();
 let sourceDir: string;
 const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
 
 beforeAll(async () => {
   const result = await createTestDb();
   testDb = result.testDb;
-  run = makeRun(buildWriteLayer(testDb));
+  run = makeClipMockupRun(testDb, speech);
   frames = makeTempClipMockupDir();
   sourceDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-frame-src-"));
   process.env[LOCAL_MACHINE_ENV_KEY] = "true";
@@ -65,6 +73,7 @@ beforeEach(async () => {
   s = await seedWrite(testDb);
   nodeFs.rmSync(frames.dir, { recursive: true, force: true });
   nodeFs.mkdirSync(frames.dir, { recursive: true });
+  speech.spoken.length = 0;
 });
 
 describe("cvm clip-mockup", () => {
@@ -73,6 +82,7 @@ describe("cvm clip-mockup", () => {
     videoId: string;
     line: string;
     imagePath: string;
+    audioPath: string | null;
     durationSeconds: number | null;
     order: string;
     archived: boolean;
@@ -155,11 +165,15 @@ describe("cvm clip-mockup", () => {
     expect(row.videoId).toBe(s.standaloneActiveId);
     expect(row.line).toBe("Here's the problem.");
     expect(row.archived).toBe(false);
-    // The duration of the line's speech is a later change: it stays empty.
-    expect(row.durationSeconds).toBeNull();
+    // The line was spoken as it was added, so the row already knows how long
+    // this moment of the Animatic runs.
+    expect(row.durationSeconds).toBe(FAKE_DURATION_SECONDS);
 
     const dir = frameDir(s.standaloneActiveLineageId);
-    expect(nodeFs.readdirSync(dir)).toEqual([row.imagePath]);
+    // The frame and its speech, side by side in the Video's own directory.
+    expect(nodeFs.readdirSync(dir).sort()).toEqual(
+      [row.imagePath, row.audioPath].sort()
+    );
     expect(nodeFs.readFileSync(nodePath.join(dir, row.imagePath), "utf8")).toBe(
       "FIRST-FRAME"
     );

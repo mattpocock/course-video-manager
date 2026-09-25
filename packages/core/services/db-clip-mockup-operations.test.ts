@@ -40,8 +40,14 @@ const makeVideo = async (id: string) => {
   });
 };
 
+/** The measured speech a caller hands over; the service never makes one. */
+const speech = (audioPath: string, durationSeconds: number) => ({
+  audioPath,
+  durationSeconds,
+});
+
 describe("createClipMockup", () => {
-  it.effect("appends to the end and leaves the duration empty", () =>
+  it.effect("appends to the end, carrying the measured speech", () =>
     Effect.gen(function* () {
       yield* Effect.promise(() => makeVideo("video-1"));
       const ops = yield* ClipMockupOperationsService;
@@ -49,17 +55,21 @@ describe("createClipMockup", () => {
       const first = yield* ops.createClipMockup(
         "video-1",
         "Here's the problem.",
-        "a.png"
+        "a.png",
+        speech("a.wav", 2.75)
       );
       const second = yield* ops.createClipMockup(
         "video-1",
         "And here's the fix.",
-        "b.png"
+        "b.png",
+        speech("b.wav", 1.5)
       );
 
       expect(first.line).toBe("Here's the problem.");
       expect(first.imagePath).toBe("a.png");
-      expect(first.durationSeconds).toBeNull();
+      expect(first.audioPath).toBe("a.wav");
+      // A float, never rounded: an Animatic's run time is the sum of these.
+      expect(first.durationSeconds).toBe(2.75);
       expect(first.archived).toBe(false);
 
       const rows = yield* ops.listClipMockupsByVideoId("video-1");
@@ -72,12 +82,23 @@ describe("createClipMockup", () => {
       yield* Effect.promise(() => makeVideo("video-1"));
       const ops = yield* ClipMockupOperationsService;
 
-      const first = yield* ops.createClipMockup("video-1", "One", "a.png");
-      const last = yield* ops.createClipMockup("video-1", "Three", "c.png");
+      const first = yield* ops.createClipMockup(
+        "video-1",
+        "One",
+        "a.png",
+        speech("a.wav", 1)
+      );
+      const last = yield* ops.createClipMockup(
+        "video-1",
+        "Three",
+        "c.png",
+        speech("c.wav", 1)
+      );
       const middle = yield* ops.createClipMockup(
         "video-1",
         "Two",
         "b.png",
+        speech("b.wav", 1),
         last.id
       );
 
@@ -92,7 +113,7 @@ describe("createClipMockup", () => {
       const ops = yield* ClipMockupOperationsService;
 
       const failure = yield* ops
-        .createClipMockup("video-1", "One", "a.png", "nope")
+        .createClipMockup("video-1", "One", "a.png", speech("a.wav", 1), "nope")
         .pipe(Effect.flip);
 
       expect(failure._tag).toBe("NotFoundError");
@@ -107,9 +128,24 @@ describe("listClipMockupsByVideoId", () => {
       yield* Effect.promise(() => makeVideo("video-2"));
       const ops = yield* ClipMockupOperationsService;
 
-      const kept = yield* ops.createClipMockup("video-1", "Mine", "a.png");
-      const gone = yield* ops.createClipMockup("video-1", "Deleted", "b.png");
-      yield* ops.createClipMockup("video-2", "Theirs", "c.png");
+      const kept = yield* ops.createClipMockup(
+        "video-1",
+        "Mine",
+        "a.png",
+        speech("a.wav", 1)
+      );
+      const gone = yield* ops.createClipMockup(
+        "video-1",
+        "Deleted",
+        "b.png",
+        speech("b.wav", 1)
+      );
+      yield* ops.createClipMockup(
+        "video-2",
+        "Theirs",
+        "c.png",
+        speech("c.wav", 1)
+      );
       yield* ops.deleteClipMockup(gone.id);
 
       const rows = yield* ops.listClipMockupsByVideoId("video-1");
@@ -128,6 +164,34 @@ describe("getClipMockupById", () => {
       const ops = yield* ClipMockupOperationsService;
       const failure = yield* ops.getClipMockupById("nope").pipe(Effect.flip);
       expect(failure._tag).toBe("NotFoundError");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
+describe("setClipMockupLine", () => {
+  it.effect("replaces the words and their speech in one write", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => makeVideo("video-1"));
+      const ops = yield* ClipMockupOperationsService;
+
+      const row = yield* ops.createClipMockup(
+        "video-1",
+        "Too long by half.",
+        "a.png",
+        speech("old.wav", 4.25)
+      );
+
+      const updated = yield* ops.setClipMockupLine(
+        row.id,
+        "Shorter.",
+        speech("new.wav", 1.125)
+      );
+
+      expect(updated.line).toBe("Shorter.");
+      expect(updated.audioPath).toBe("new.wav");
+      expect(updated.durationSeconds).toBe(1.125);
+      // The picture is untouched: only the words and their voicing moved.
+      expect(updated.imagePath).toBe("a.png");
     }).pipe(Effect.provide(testLayer))
   );
 });
