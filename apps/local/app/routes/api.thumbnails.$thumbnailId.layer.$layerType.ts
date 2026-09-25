@@ -1,5 +1,5 @@
-import { createReadStream } from "fs";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
+import { webFileStream } from "@/services/web-file-stream.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { data } from "react-router";
@@ -55,7 +55,7 @@ export const loader = makeLoader({
         );
       }
 
-      return new Response(createReadStream(filePath) as any, {
+      return new Response(webFileStream(filePath), {
         headers: {
           "Content-Type": "image/png",
           "Cache-Control": "no-cache",

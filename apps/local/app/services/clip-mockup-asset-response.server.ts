@@ -1,5 +1,6 @@
-import { createReadStream, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import path from "node:path";
+import { webFileStream } from "./web-file-stream.server";
 
 /**
  * Serving a Clip Mockup's frame and its speech to the browser.
@@ -115,32 +116,28 @@ export function clipMockupAssetResponse(
   }
 
   if (range) {
-    const stream = createReadStream(absolutePath, {
-      start: range.start,
-      end: range.end,
-    });
-    return new Response(stream as unknown as ReadableStream, {
-      status: 206,
-      headers: {
-        "Content-Range": `bytes ${range.start}-${range.end}/${fileSize}`,
-        "Accept-Ranges": "bytes",
-        "Content-Length": String(range.end - range.start + 1),
-        "Content-Type": contentType,
-        "Cache-Control": "no-cache",
-      },
-    });
+    return new Response(
+      webFileStream(absolutePath, { start: range.start, end: range.end }),
+      {
+        status: 206,
+        headers: {
+          "Content-Range": `bytes ${range.start}-${range.end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": String(range.end - range.start + 1),
+          "Content-Type": contentType,
+          "Cache-Control": "no-cache",
+        },
+      }
+    );
   }
 
-  return new Response(
-    createReadStream(absolutePath) as unknown as ReadableStream,
-    {
-      status: 200,
-      headers: {
-        "Content-Length": String(fileSize),
-        "Accept-Ranges": "bytes",
-        "Content-Type": contentType,
-        "Cache-Control": "no-cache",
-      },
-    }
-  );
+  return new Response(webFileStream(absolutePath), {
+    status: 200,
+    headers: {
+      "Content-Length": String(fileSize),
+      "Accept-Ranges": "bytes",
+      "Content-Type": contentType,
+      "Cache-Control": "no-cache",
+    },
+  });
 }

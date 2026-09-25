@@ -1,5 +1,5 @@
-import { createReadStream } from "fs";
 import type { Route } from "./+types/view-image";
+import { webFileStream } from "@/services/web-file-stream.server";
 
 export const loader = async (args: Route.LoaderArgs) => {
   const request = args.request;
@@ -13,7 +13,7 @@ export const loader = async (args: Route.LoaderArgs) => {
   }
 
   try {
-    return new Response(createReadStream(imagePath) as any, {
+    return new Response(webFileStream(imagePath), {
       headers: {
         "Content-Type": "image/png",
       },

@@ -1,8 +1,8 @@
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
+import { webFileStream } from "@/services/web-file-stream.server";
 import { Effect } from "effect";
 import { makeLoader } from "@/services/route-action.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
-import { createReadStream } from "fs";
 
 export const loader = makeLoader({
   effect: ({ params }) =>
@@ -21,9 +21,7 @@ export const loader = makeLoader({
         seekTo
       );
 
-      const firstFrameReadStream = createReadStream(firstFramePath);
-
-      return new Response(firstFrameReadStream as any, {
+      return new Response(webFileStream(firstFramePath), {
         headers: {
           "Content-Type": "image/png",
         },

@@ -1,10 +1,11 @@
 import { CoursePublishService } from "@/services/course-publish-service";
+import { webFileStream } from "@/services/web-file-stream.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { runtimeLive } from "@/services/layer.server";
 import { makeAction } from "@/services/route-action.server";
 import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
-import { createReadStream, statSync } from "fs";
+import { statSync } from "fs";
 import type { Route } from "./+types/api.videos.$videoId.stream";
 
 export const loader = async (args: Route.LoaderArgs) => {
@@ -43,9 +44,7 @@ export const loader = async (args: Route.LoaderArgs) => {
 
     const chunksize = end - start + 1;
 
-    const stream = createReadStream(videoPath, { start, end });
-
-    return new Response(stream as any, {
+    return new Response(webFileStream(videoPath, { start, end }), {
       status: 206,
       headers: {
         "Content-Range": `bytes ${start}-${end}/${fileSize}`,

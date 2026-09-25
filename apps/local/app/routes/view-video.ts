@@ -1,4 +1,5 @@
-import { createReadStream, statSync } from "fs";
+import { statSync } from "fs";
+import { webFileStream } from "@/services/web-file-stream.server";
 import type { Route } from "./+types/view-video";
 
 export const loader = async (args: Route.LoaderArgs) => {
@@ -25,9 +26,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = end - start + 1;
 
-      const stream = createReadStream(videoPath, { start, end });
-
-      return new Response(stream as any, {
+      return new Response(webFileStream(videoPath, { start, end }), {
         status: 206, // Partial Content
         headers: {
           "Content-Range": `bytes ${start}-${end}/${fileSize}`,
@@ -38,9 +37,7 @@ export const loader = async (args: Route.LoaderArgs) => {
       });
     } else {
       // Handle regular requests
-      const stream = createReadStream(videoPath);
-
-      return new Response(stream as any, {
+      return new Response(webFileStream(videoPath), {
         headers: {
           "Content-Length": fileSize.toString(),
           "Accept-Ranges": "bytes",
