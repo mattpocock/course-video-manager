@@ -4,11 +4,15 @@ import type { BeatTab } from "../beat-tab";
 const storageKey = (videoId: string) => `video-editor:beat-tab:${videoId}`;
 
 const isBeatTab = (value: string | null): value is BeatTab =>
-  value === "beats" || value === "reference" || value === "script";
+  value === "beats" ||
+  value === "reference" ||
+  value === "script" ||
+  value === "mockups";
 
 /**
- * Persist which side-panel tab (Beats / Reference / Script) the author last had open
- * for a given video, so reopening the editor restores their view. Mirrors
+ * Persist which side-panel tab (Beats / Reference / Script / Mockups) the
+ * author last had open for a given video, so reopening the editor restores
+ * their view. Mirrors
  * {@link useReferenceVideoId}: in-memory state backed by localStorage, keyed
  * per video, degrading gracefully when storage is unavailable.
  */
