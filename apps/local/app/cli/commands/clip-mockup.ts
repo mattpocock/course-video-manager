@@ -9,7 +9,7 @@ import {
   newFrameFilename,
   writeClipMockupFile,
 } from "@/services/clip-mockup-files";
-import { resolveClipMockupSpeech } from "./clip-mockup.speech";
+import { resolveClipMockupSpeech } from "@/services/resolve-clip-mockup-speech";
 import {
   FrameCaptureError,
   FrameCaptureService,

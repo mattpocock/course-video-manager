@@ -3,27 +3,31 @@ import {
   clipMockupFileExists,
   readClipMockupFile,
   writeClipMockupFile,
-} from "@/services/clip-mockup-files";
+} from "./clip-mockup-files";
 import {
   ClipMockupSpeechService,
   speechFilename,
   wavDurationSeconds,
-} from "@/services/clip-mockup-speech-service";
-import { loadRepoEnv } from "@/cli/env";
+} from "./clip-mockup-speech-service";
+import { loadRepoEnv } from "./repo-env";
 
 /**
- * The speech half of `cvm clip-mockup`, split out of clip-mockup.ts so the
- * verb module stays under the repo's per-file token budget — the same reason
- * clip-mockup.help.ts is its own file.
- *
- * Everything about WHEN a line gets voiced lives here: the content-addressed
+ * The one place a Clip Mockup's line gets voiced — the content-addressed
  * cache, the test seam, and the rule that nothing reaches the disk until the
  * words have actually been spoken.
+ *
+ * It has TWO callers on purpose: `cvm clip-mockup add` / `update --say`, and
+ * the video editor's Clip Mockup list over `/api/clip-mockup-editor`. That
+ * shared path is what stops the CLI and the editor re-voicing the same line
+ * differently, so this lives under `app/services/` — the code both sides may
+ * reach — rather than inside a CLI verb module the web app would have to
+ * import (#1672).
  */
 
 /**
- * The heavy service `clip-mockup add` and `update --say` reach for, built
- * LOCALLY here rather than merged into the shared cliRuntime — exactly like
+ * The heavy service `clip-mockup add`, `update --say` and the editor's
+ * in-place edit reach for, built LOCALLY here rather than merged into the
+ * shared cliRuntime — exactly like
  * `footage transcribe`: no read verb should have to satisfy GEMINI_API_KEY. It
  * is only reached on the branch below where the service was not already
  * provided, which is what lets a test inject a fake and never call Gemini.

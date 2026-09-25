@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 import { data } from "react-router";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { resolveClipMockupSpeech } from "@/cli/commands/clip-mockup.speech";
+import { resolveClipMockupSpeech } from "@/services/resolve-clip-mockup-speech";
 import { makeAction, makeLoader } from "@/services/route-action.server";
 
 /**

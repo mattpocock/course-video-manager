@@ -11,7 +11,7 @@ import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import { OverlayRenderCacheService } from "@/services/overlay-render-cache.server";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { VideoEditorLoggerService } from "@/services/video-editor-logger-service";
-import { loadRepoEnv } from "@/cli/env";
+import { loadRepoEnv } from "@/services/repo-env";
 import {
   NEEDS_FINISHED_VIDEOS_AND_FFMPEG,
   requireLocalMachine,
