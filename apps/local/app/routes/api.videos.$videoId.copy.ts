@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { copyClipMockupAssetsForVideo } from "@/services/clip-mockup-copy-forward.server";
 import { makeAction } from "@/services/route-action.server";
 import { redirect } from "react-router";
 
@@ -22,12 +23,15 @@ const copyVideoSchema = Schema.Struct({
 
 export const action = makeAction({
   input: "formData",
+  errors: { InvalidClipMockupPathError: 400 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
       const { name, copyClips, copyBeats, copyScript, renameOld, redirectTo } =
         yield* Schema.decodeUnknown(copyVideoSchema)(payload);
 
       const videoOps = yield* VideoOperationsService;
+
+      const sourceVideo = yield* videoOps.getVideoRowById(params.videoId!);
 
       const newVideoId = yield* videoOps.copyVideo({
         sourceVideoId: params.videoId!,
@@ -36,6 +40,17 @@ export const action = makeAction({
         copyBeats: copyBeats === "on",
         copyScript: copyScript === "on",
         renameOld: renameOld === "on",
+      });
+
+      // The rows are copied; the FILES are not. The duplicate has a fresh
+      // `lineageId` and its Clip Mockups keep their paths verbatim, so
+      // without this every frame and every WAV would resolve into an empty
+      // directory (#1669). `@cvm/core` cannot do it — it has no disk.
+      const newVideo = yield* videoOps.getVideoRowById(newVideoId);
+      yield* copyClipMockupAssetsForVideo({
+        sourceLineageId: sourceVideo.lineageId,
+        newLineageId: newVideo.lineageId,
+        newVideoId,
       });
 
       if (

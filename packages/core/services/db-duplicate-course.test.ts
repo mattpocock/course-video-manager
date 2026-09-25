@@ -740,4 +740,33 @@ describe("duplicateCourse", () => {
       },
     ]);
   });
+
+  it("reports each duplicated Video's source and new lineageId", async () => {
+    const { course, video } = await createFullCourseStructure();
+
+    const result = await run(
+      Effect.gen(function* () {
+        const courseOps = yield* CourseOperationsService;
+        return yield* courseOps.duplicateCourse({
+          sourceCourseId: course.id,
+          name: "Dup",
+        });
+      })
+    );
+
+    // A duplicated Video is a NEW Video, so it gets a fresh lineageId while
+    // its copied Clip Mockups keep their paths. `apps/local` carries the
+    // frames and WAVs across on the strength of these pairs (#1669) —
+    // `@cvm/core` has no disk to do it with.
+    expect(result.videoLineageMappings).toHaveLength(1);
+
+    const [mapping] = result.videoLineageMappings;
+    expect(mapping!.sourceLineageId).toBe(video!.lineageId);
+    expect(mapping!.newLineageId).not.toBe(video!.lineageId);
+
+    const newVideo = await testDb.query.videos.findFirst({
+      where: (v, { eq }) => eq(v.id, mapping!.newVideoId),
+    });
+    expect(newVideo!.lineageId).toBe(mapping!.newLineageId);
+  });
 });

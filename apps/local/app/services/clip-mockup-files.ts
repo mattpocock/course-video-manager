@@ -1,4 +1,5 @@
 import { FileSystem } from "@effect/platform";
+import type { PlatformError } from "@effect/platform/Error";
 import { Data, Effect } from "effect";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -169,3 +170,50 @@ export function newFrameFilename(sourcePath: string): string {
   const extension = path.extname(sourcePath).toLowerCase() || ".png";
   return `${crypto.randomUUID()}${extension}`;
 }
+
+/**
+ * Copy the files a duplicated Video's Clip Mockups name out of the SOURCE
+ * Video's directory and into the duplicate's own.
+ *
+ * A duplicate is a new Video with a new `lineageId`, but the rows copied onto
+ * it keep `imagePath` and `audioPath` verbatim — so without this every frame
+ * and every WAV resolves into an empty directory and the duplicate's Animatic
+ * plays as sixty "frame missing" cards (#1669). The Draft Version snapshot
+ * path never needed it: that copies `lineageId`, so both rows point at the
+ * one directory, which is why an equal pair here is a no-op.
+ *
+ * The caller passes the paths the COPIED rows name, which is what keeps an
+ * archived Clip Mockup's frame out of it: an archived row is never copied, so
+ * its files are never asked for. A path the source directory does not have is
+ * skipped rather than failing the duplicate — the row was already broken, and
+ * the Animatic page reports it as missing on both Videos alike.
+ */
+export const copyClipMockupFiles = (
+  sourceLineageId: string,
+  targetLineageId: string,
+  relativePaths: readonly string[]
+): Effect.Effect<
+  number,
+  InvalidClipMockupPathError | PlatformError,
+  FileSystem.FileSystem
+> =>
+  Effect.gen(function* () {
+    if (sourceLineageId === targetLineageId) return 0;
+
+    const fs = yield* FileSystem.FileSystem;
+    let copied = 0;
+
+    // De-duplicated: two Clip Mockups saying the same words share one WAV.
+    for (const relativePath of new Set(relativePaths)) {
+      const from = yield* resolveClipMockupPath(sourceLineageId, relativePath);
+      const to = yield* resolveClipMockupPath(targetLineageId, relativePath);
+
+      if (!(yield* fs.exists(from))) continue;
+
+      yield* fs.makeDirectory(path.dirname(to), { recursive: true });
+      yield* fs.copyFile(from, to);
+      copied++;
+    }
+
+    return copied;
+  });
