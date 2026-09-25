@@ -1,6 +1,6 @@
 import { Config, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
-import { computeEffectiveSections } from "@/packages/course-json";
+import { computeShippingSections } from "@/packages/course-json";
 import {
   computeExportHash,
   resolveExportPath,
@@ -63,7 +63,8 @@ const isKnownSoundExport = Effect.fn("isKnownSoundExport")(function* (
  * The shared walk behind batchExport and publish: which Videos a Course
  * Version ships under the given to-do toggle, titled
  * `section/lesson/videoTitle`. Withheld to-do Lessons' Videos are not
- * included.
+ * included, and neither are a Placeholder Lesson's — a Lesson that is only
+ * announced ships no bytes.
  *
  * Two rosters come out of one walk, because the two phases of a Publish need
  * different halves of it:
@@ -90,7 +91,10 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
 
   const version = yield* versionOps.getVersionWithSections(versionId);
   const courseId = version.repo.id;
-  const effectiveSections = computeEffectiveSections(
+  // Only the Lessons that SHIP in full: a Placeholder Lesson has no .mp4 in the
+  // Bundle, so its Videos must be absent from both rosters or Publish would
+  // encode and upload a file no manifest names.
+  const shippingSections = computeShippingSections(
     version.sections,
     includeTodoLessons
   );
@@ -102,7 +106,7 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
     durationSeconds: number;
   }> = [];
 
-  for (const section of effectiveSections) {
+  for (const section of shippingSections) {
     for (const lesson of section.lessons) {
       for (const video of lesson.videos) {
         const entry = {

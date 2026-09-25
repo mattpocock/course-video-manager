@@ -44,6 +44,10 @@ import {
   dropboxAuth,
 } from "@/db/schema";
 import { fromPartial } from "@total-typescript/shoehorn";
+import {
+  ANNOUNCE_NOTHING,
+  type PlaceholderFloor,
+} from "@/packages/course-json";
 import { eq } from "drizzle-orm";
 
 let testDb: TestDb;
@@ -266,7 +270,8 @@ export const setupUploads = async (opts?: {
 
   const sync = (
     onProgress?: (event: "progress", data: { percentage: number }) => void,
-    includeTodoLessons = true
+    includeTodoLessons = true,
+    placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
   ) =>
     run(
       Effect.gen(function* () {
@@ -274,12 +279,25 @@ export const setupUploads = async (opts?: {
         return yield* svc.syncToDropbox(
           course.id,
           includeTodoLessons,
-          onProgress
+          onProgress,
+          placeholderFloor
         );
       })
     );
 
-  return { course, version, videos, run, sync };
+  /**
+   * Open a hard gap on a seeded Video by taking its `body` away. The Lesson
+   * then ships as a Placeholder Lesson (at a floor that reaches it) or is
+   * withheld — either way it contributes no .mp4.
+   */
+  const unfilm = async (videoId: string) => {
+    await testDb
+      .update(videosTable)
+      .set({ body: null })
+      .where(eq(videosTable.id, videoId));
+  };
+
+  return { course, version, videos, run, sync, unfilm };
 };
 
 export const remoteBundleVideoPaths = () =>

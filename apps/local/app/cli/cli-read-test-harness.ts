@@ -115,6 +115,11 @@ export const seedRead = async (db: TestDb): Promise<ReadSeed> => {
       lessonId: lesson!.id,
       title: "intro.mp4",
       originalFootagePath: "footage.mp4",
+      // A Body, so the Lesson SHIPS: a null body is a hard gap, which withholds
+      // the whole Lesson from every publish roster (ADR 0029). The absent
+      // `description` is left absent on purpose — it is the one gap a shipping
+      // Video can still have, and several tests read it as their blocker.
+      body: "Intro body",
     })
     .returning();
 

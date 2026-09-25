@@ -20,8 +20,9 @@ SHA256 of its encoded bytes (#1495).
 - The unit addressed by a fingerprint is the **whole bundle**, not the
   individual Video file.
 - The fingerprint is computed over the manifest schema, the course identifiers,
-  the section tree, the to-do setting, and — per shipping Video — its position
-  inside the bundle plus its **Export Hash**.
+  the section tree, the to-do setting, the **Placeholder Floor** (added by ADR
+  0029), and — per shipping Video — its position inside the bundle plus its
+  **Export Hash**.
 - The bundle is immutable. Same inputs produce the same path; a Video found at
   an existing address with a mismatched content hash or size is a hard failure,
   never an overwrite.
@@ -39,7 +40,8 @@ directory rather than of any file in it:
 - **Immutability.** Publishing the same Course Version twice must land in the
   same place, and publishing anything different must land somewhere else. A
   previously published bundle is therefore never mutated: a changed to-do
-  setting, a re-titled Video or an edited Clip all move the address instead.
+  setting, a moved Placeholder Floor, a re-titled Video or an edited Clip all
+  move the address instead.
 - **Wholesale deletion.** Under the delete handshake agreed in #1352, the
   downstream consumer expires a release by deleting its bundle directory
   outright. This system has no delete role at all. That only works if a
@@ -99,6 +101,13 @@ kept without any file being read twice.
   Before, the incomplete directory made the Course Version permanently
   unpublishable.
 - Re-publishing an unchanged Course Version still uploads no Videos.
+- **Amended by ADR 0029.** The floor is an explicit input for the same
+  belt-and-braces reason as the to-do setting: it genuinely changes the shipped
+  asset set, because a Lesson holding one sound Video and one gapped Video
+  becomes a **Placeholder Lesson** and ships neither. One-off consequence of
+  that ADR: the manifest schema is inside the fingerprint, so adding the
+  Placeholder Lesson union member re-addresses every bundle, and the first v4
+  Publish of each Course re-uploads every `.mp4` once, to a fresh address.
 - Export garbage collection must run after uploads finish, since it deletes by
   Export Hash reachability and cannot tell a file being streamed to Dropbox
   from an abandoned one.

@@ -19,7 +19,8 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
-import { clips as clipsTable } from "@/db/schema";
+import { clips as clipsTable, videos as videosTable } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import {
   honestRenderedDurationInSeconds,
   soundExportDurationProbe,
@@ -155,6 +156,14 @@ const setup = async () => {
       zoomType: "none",
     },
   ]);
+
+  // A COMPLETE, shippable Video: ADR 0029 makes a missing `body` or missing
+  // Clips a hard gap, which withholds the whole Lesson from every roster. A
+  // fixture that means to be published has to say so.
+  await testDb
+    .update(videosTable)
+    .set({ body: "Lesson body content", description: "SEO description" })
+    .where(eq(videosTable.id, video.id));
 
   const clips: ExportClip[] = [
     {
@@ -386,8 +395,15 @@ describe("CoursePublishService", () => {
       expect(result.unexportedVideoIds).toEqual([]);
     });
 
-    it("surfaces incomplete shipping videos (the seed video has no body/description)", async () => {
-      const { version, run } = await setup();
+    // A missing `description` is the only gap a SHIPPING Video can still have:
+    // a missing `body` or missing Clips is a hard gap, which withholds the
+    // Lesson instead of blocking the release (ADR 0029).
+    it("surfaces a shipping video missing its description", async () => {
+      const { version, video, run } = await setup();
+      await testDb
+        .update(videosTable)
+        .set({ description: null })
+        .where(eq(videosTable.id, video.id));
 
       const result = await run(
         Effect.gen(function* () {
@@ -401,7 +417,7 @@ describe("CoursePublishService", () => {
           sectionPath: "intro",
           lessonPath: "welcome",
           videoTitle: "Problem",
-          missing: ["body", "description"],
+          missing: ["description"],
         },
       ]);
       expect(result.invalidLessonCombos).toEqual([]);
@@ -529,14 +545,30 @@ describe("CoursePublishService", () => {
         return lessons[0]!;
       }).pipe(Effect.provide(dbLayer), Effect.runPromise);
 
-      // Create a "Solution" video without a "Problem" — invalid combo
-      await Effect.gen(function* () {
+      // Create a "Solution" video without a "Problem" — invalid combo. It is
+      // otherwise COMPLETE, because a Lesson that does not ship raises no lints
+      // at all now (ADR 0029) and the combo is what this test is about.
+      const soloSolution = await Effect.gen(function* () {
         const videoOps = yield* VideoOperationsService;
-        yield* videoOps.createVideo(lesson.id, {
+        return yield* videoOps.createVideo(lesson.id, {
           title: "Solution",
           originalFootagePath: "/tmp/footage.mp4",
         });
       }).pipe(Effect.provide(dbLayer), Effect.runPromise);
+      await testDb.insert(clipsTable).values({
+        videoId: soloSolution.id,
+        videoFilename: "recording.mp4",
+        sourceStartTime: 0,
+        sourceEndTime: 10,
+        order: "a0",
+        text: "Hello world",
+        pauseType: "none",
+        zoomType: "none",
+      });
+      await testDb
+        .update(videosTable)
+        .set({ body: "Lesson body content", description: "SEO description" })
+        .where(eq(videosTable.id, soloSolution.id));
 
       finishedVideosDir = fs.mkdtempSync(
         path.join(tmpdir(), "publish-test-lint-")

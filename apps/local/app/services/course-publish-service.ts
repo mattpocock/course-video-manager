@@ -16,6 +16,7 @@ import {
   type ExportStage,
 } from "./course-publish-export-video";
 import { DoesNotExistOnDbError } from "./publish-to-dropbox";
+import type { PlaceholderFloor } from "@/packages/course-json";
 import { validatePublishability as validatePublishabilityCore } from "./course-publish-readiness";
 import { findShippingVideos as findShippingVideosCore } from "./course-publish-video-roster";
 import {
@@ -69,6 +70,10 @@ export type PublishOptions = {
   versionName: string;
   versionDescription: string;
   includeTodoLessons: boolean;
+  // The lowest Lesson Priority band whose unshippable Lessons are announced as
+  // Placeholder Lessons. Absent announces nothing, so a Publish that does not
+  // name a floor behaves exactly as it did before ADR 0029.
+  placeholderFloor?: PlaceholderFloor;
   // The coarse publish lifecycle stage (validating → … → complete).
   onStageChange?: (stage: PublishStage) => void;
   // Per-video export events (same names/payloads as batchExport: `videos`,
@@ -222,7 +227,8 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         function* (
           courseId: string,
           includeTodoLessons: boolean,
-          onProgress?: DropboxSyncProgressCallback
+          onProgress?: DropboxSyncProgressCallback,
+          placeholderFloor?: PlaceholderFloor
         ) {
           const latestVersion =
             yield* versionOps.getLatestCourseVersion(courseId);
@@ -246,6 +252,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             courseId,
             courseVersionId: latestPublishedVersion.id,
             includeTodoLessons,
+            placeholderFloor,
             onDetailEvent: onlyBundleProgress(onProgress),
             awaitVideoReady: noExportPhase,
           });
@@ -260,6 +267,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           versionName,
           versionDescription,
           includeTodoLessons,
+          placeholderFloor,
           onStageChange,
           onDetailEvent,
         } = options;
@@ -416,6 +424,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             courseId,
             courseVersionId: latestVersion.id,
             includeTodoLessons,
+            placeholderFloor,
             onDetailEvent,
             awaitVideoReady,
           }).pipe(Effect.retry(Schedule.recurs(1)))
@@ -486,13 +495,15 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         courseId: string,
         courseVersionId: string,
         includeTodoLessons: boolean,
-        onProgress?: DropboxSyncProgressCallback
+        onProgress?: DropboxSyncProgressCallback,
+        placeholderFloor?: PlaceholderFloor
       ) {
         return yield* courseVersionMutationSemaphore.withPermits(1)(
           syncFrozenCourseVersionToDropbox({
             courseId,
             courseVersionId,
             includeTodoLessons,
+            placeholderFloor,
             onDetailEvent: onlyBundleProgress(onProgress),
             awaitVideoReady: noExportPhase,
           })
@@ -502,10 +513,16 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
       const syncToDropbox = Effect.fn("syncToDropbox")(function* (
         courseId: string,
         includeTodoLessons: boolean,
-        onProgress?: DropboxSyncProgressCallback
+        onProgress?: DropboxSyncProgressCallback,
+        placeholderFloor?: PlaceholderFloor
       ) {
         return yield* courseVersionMutationSemaphore.withPermits(1)(
-          syncToDropboxUnlocked(courseId, includeTodoLessons, onProgress)
+          syncToDropboxUnlocked(
+            courseId,
+            includeTodoLessons,
+            onProgress,
+            placeholderFloor
+          )
         );
       });
 

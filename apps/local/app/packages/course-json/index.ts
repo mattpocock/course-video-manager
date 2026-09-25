@@ -5,10 +5,14 @@
 // derivation, chapter building, content-addressed export hashing, and
 // empty-Section elision. Import THIS from outside the package — never `./lib/*`.
 //
-// `buildCourseJson` consumes the effective-output filter internally; the filter
-// is also exported directly because export, validation, and the Dropbox mirror
-// read the same effective Sections — so there is exactly one notion of what a
-// publish ships.
+// `buildCourseJson` consumes the effective-output filters internally; they are
+// also exported directly because export, validation, and the Dropbox mirror read
+// the same Sections — so there is exactly one notion of what a publish ships.
+// There are two: `computeEffectiveSections` is every Lesson the release reaches
+// (shipping plus Placeholder Lessons — the manifest's tree), and
+// `computeShippingSections` is only the Lessons that ship in full (the asset
+// set). Anything that exports, uploads, gap-checks or Autofills a Video reads
+// the second; anything that describes the release reads the first.
 //
 // `classifyLessonPublishStatus` is that one notion, stated once: it decides a
 // Lesson's Lesson Publish Status — `ships`, `placeholder` or `withheld`, with a
@@ -23,22 +27,27 @@
 
 export {
   buildCourseJson,
-  buildCourseJsonSchema,
   collectPublishBlockers,
-  CourseJsonDocumentSchema,
   InvalidLessonRoleComboError,
-  IncompleteVideosError,
   MissingVideoAssetReceiptError,
   InvalidVideoAssetReceiptError,
   type BuildCourseJsonInput,
-  type CourseJsonDocument,
   type IncompleteVideo,
   type InvalidLessonCombo,
   type VideoAssetReceipt,
   type PublishBlockers,
 } from "./lib/build-course-json";
 
-export { computeEffectiveSections } from "./lib/effective-sections";
+export {
+  buildCourseJsonSchema,
+  CourseJsonDocumentSchema,
+  type CourseJsonDocument,
+} from "./lib/course-json-schema";
+
+export {
+  computeEffectiveSections,
+  computeShippingSections,
+} from "./lib/effective-sections";
 
 export {
   ANNOUNCE_NOTHING,

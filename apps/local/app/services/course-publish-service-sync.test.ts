@@ -453,7 +453,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     );
 
     const doc = getRemoteManifest();
-    expect(doc.schemaVersion).toBe(3);
+    expect(doc.schemaVersion).toBe(4);
     expect(doc.courseId).toBe(course.id);
     expect(doc.courseVersionId).toBe(version.id);
     expect(doc.archiveTTL).toBe("90d");

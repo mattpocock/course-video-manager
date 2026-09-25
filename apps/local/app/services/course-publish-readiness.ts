@@ -8,6 +8,7 @@ import {
 } from "./export-hash";
 import { collectCourseViewLints } from "./lesson-warnings";
 import {
+  ANNOUNCE_NOTHING,
   collectPublishBlockers,
   computeEffectiveSections,
 } from "@/packages/course-json";
@@ -32,7 +33,11 @@ import {
  * interchangeable. Against `publish` (see course-publish-service):
  *   courseViewLints       REFUSE the publish outright (PublishValidationError).
  *   invalidLessonCombos   Not checked at the gate; they fail the later
- *   incompleteVideos      course.json build, so the publish still cannot land.
+ *                         course.json build, so the publish still cannot land.
+ *   incompleteVideos      No longer fail the build (ADR 0029). Enumerated over
+ *                         the SHIPPING Lessons only, so in practice a missing
+ *                         `description` — which the courseViewLints gate above
+ *                         refuses anyway, before any byte is uploaded.
  *   unexportedVideoIds    Do NOT refuse anything — publish RENDERS them as its
  *                         `exporting` stage and carries on. They are pending
  *                         machine work (and a failed render does abort), not an
@@ -112,7 +117,10 @@ export const validatePublishability = Effect.fn("validatePublishability")(
     const evaluate = (includeTodoLessons: boolean) => {
       const effectiveSections = computeEffectiveSections(
         version.sections,
-        includeTodoLessons
+        includeTodoLessons,
+        // Readiness answers for the default floor only. Reporting the other
+        // three positions is issue #1658's job, not this walk's.
+        ANNOUNCE_NOTHING
       );
       const unexportedVideoIds: string[] = [];
       for (const section of effectiveSections) {
