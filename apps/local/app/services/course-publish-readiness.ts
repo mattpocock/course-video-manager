@@ -9,8 +9,11 @@ import {
 import { collectCourseViewLints } from "./lesson-warnings";
 import {
   ANNOUNCE_NOTHING,
+  classifyLessonPublishStatus,
   collectPublishBlockers,
-  computeEffectiveSections,
+  computeShippingSections,
+  type LessonHardGap,
+  type PlaceholderFloor,
 } from "@/packages/course-json";
 
 /**
@@ -58,6 +61,34 @@ export const PUBLISH_BLOCKING_LISTS = [
 
 export type PublishBlockingList = (typeof PUBLISH_BLOCKING_LISTS)[number];
 
+/**
+ * Why a Lesson is withheld, in the words a reader needs: the three hard gaps
+ * named one by one, plus the to-do toggle. A Lesson vanishing from a release
+ * must never be a mystery, so every withheld Lesson carries one of these.
+ */
+export type WithheldReason = "no-videos" | "no-clips" | "no-body" | "todo";
+
+const WITHHELD_REASON_BY_HARD_GAP: Record<LessonHardGap, WithheldReason> = {
+  "no-active-video": "no-videos",
+  "no-clips": "no-clips",
+  "no-body": "no-body",
+};
+
+/** A Lesson this release announces as a Placeholder Lesson: title only. */
+export type PlaceholderLesson = {
+  readonly sectionPath: string;
+  readonly lessonPath: string;
+  readonly title: string;
+  /** Its Lesson Priority — the band the floor let it through on. */
+  readonly priority: number;
+  readonly hardGaps: readonly LessonHardGap[];
+};
+
+/** A Lesson this release leaves out entirely, and why. */
+export type WithheldLesson = PlaceholderLesson & {
+  readonly reason: WithheldReason;
+};
+
 /** A shipping Video that has no matching `.mp4` on disk. */
 export type UnexportedVideo = {
   readonly id: string;
@@ -70,9 +101,24 @@ export type UnexportedVideo = {
  * round-trip, both positions are computed in a single pass: the expensive
  * per-Video existence checks run once, then the pure counters run against the
  * effective Sections for each toggle state.
+ *
+ * `placeholderFloor` answers the other half of the question — "if I set the
+ * floor here, what would this release announce, and what would it drop?". It
+ * decides the `placeholderLessons` and `withheldLessons` lists, and nothing
+ * else: every gate here reads `computeShippingSections`, which the floor cannot
+ * move a Lesson into or out of (it only ever turns a withheld Lesson into a
+ * Placeholder Lesson). So the four outstanding-work lists are
+ * floor-INDEPENDENT, and asking about a floor can never change the answer to
+ * "can this ship?". A gate may only speak about what a release contains, so the
+ * course-view lints (every Lesson Warning and Video Warning), the Lesson
+ * role-combo check and the incomplete-Video record all stay silent about a
+ * Lesson the release does not ship in full.
  */
 export const validatePublishability = Effect.fn("validatePublishability")(
-  function* (versionId: string) {
+  function* (
+    versionId: string,
+    placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
+  ) {
     const versionOps = yield* VersionOperationsService;
     const effectFs = yield* FileSystem.FileSystem;
     const finishedVideosDirectory = yield* Config.string(
@@ -89,8 +135,8 @@ export const validatePublishability = Effect.fn("validatePublishability")(
     for (const section of version.sections) {
       for (const lesson of section.lessons) {
         for (const video of lesson.videos) {
-          // Archived videos are already filtered out of the effective output by
-          // computeEffectiveSections, so they can never reach one of the four
+          // Archived videos are already filtered out of the shipping set by
+          // computeShippingSections, so they can never reach one of the four
           // outstanding-work lists —
           // skipping them here just spares a pointless stat() per archived row.
           if (video.archived) continue;
@@ -115,15 +161,27 @@ export const validatePublishability = Effect.fn("validatePublishability")(
     }
 
     const evaluate = (includeTodoLessons: boolean) => {
-      const effectiveSections = computeEffectiveSections(
+      const classify = (
+        lesson: (typeof version.sections)[number]["lessons"][number]
+      ) =>
+        classifyLessonPublishStatus(lesson, {
+          includeTodoLessons,
+          placeholderFloor,
+        });
+
+      // THE LESSONS THAT SHIP — the asset set, and the only Lessons a gate may
+      // speak about. Floor-independent by construction (see
+      // computeShippingSections), and the very same walk `course publish` uses
+      // to build its export roster, so `exportsRequired` can never name a
+      // Video that publish would not render. The floor reaches this walk only
+      // through `classify` below, where it decides the two lists it owns.
+      const shippingSections = computeShippingSections(
         version.sections,
-        includeTodoLessons,
-        // Readiness answers for the default floor only. Reporting the other
-        // three positions is issue #1658's job, not this walk's.
-        ANNOUNCE_NOTHING
+        includeTodoLessons
       );
+
       const unexportedVideoIds: string[] = [];
-      for (const section of effectiveSections) {
+      for (const section of shippingSections) {
         for (const lesson of section.lessons) {
           for (const video of lesson.videos) {
             if (exportedById.get(video.id) === false) {
@@ -132,16 +190,50 @@ export const validatePublishability = Effect.fn("validatePublishability")(
           }
         }
       }
-      const courseViewLints = collectCourseViewLints(effectiveSections);
+
+      const courseViewLints = collectCourseViewLints(shippingSections);
       const courseViewLintCount = courseViewLints.length;
 
       // Publish blockers computed from the exact same walk buildCourseJson
       // uses (its backstop), so the pre-publish warnings and the build
-      // failure can never disagree — see collectPublishBlockers.
+      // failure can never disagree — see collectPublishBlockers. It narrows to
+      // the shipping Lessons itself, so the whole tree is the right argument:
+      // both lists come back already silent about a Placeholder Lesson.
       const { invalidLessonCombos, incompleteVideos } = collectPublishBlockers(
         version.sections,
         includeTodoLessons
       );
+
+      // What this floor announces, and what it drops. One walk of the whole
+      // tree rather than of the shipping set, because a Lesson with no Video at
+      // all never reaches either set and is exactly the Lesson a Placeholder
+      // Lesson exists for.
+      const placeholderLessons: PlaceholderLesson[] = [];
+      const withheldLessons: WithheldLesson[] = [];
+      for (const section of version.sections) {
+        for (const lesson of section.lessons) {
+          const verdict = classify(lesson);
+          if (verdict.status === "ships") continue;
+          const row = {
+            sectionPath: section.path,
+            lessonPath: lesson.path,
+            title: lesson.title,
+            priority: lesson.priority,
+            hardGaps: verdict.hardGaps,
+          };
+          if (verdict.status === "placeholder") {
+            placeholderLessons.push(row);
+          } else {
+            withheldLessons.push({
+              ...row,
+              reason:
+                verdict.reason === "todo"
+                  ? "todo"
+                  : WITHHELD_REASON_BY_HARD_GAP[verdict.hardGaps[0]!],
+            });
+          }
+        }
+      }
 
       return {
         unexportedVideoIds,
@@ -155,6 +247,8 @@ export const validatePublishability = Effect.fn("validatePublishability")(
         courseViewLints,
         invalidLessonCombos,
         incompleteVideos,
+        placeholderLessons,
+        withheldLessons,
       };
     };
 
