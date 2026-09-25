@@ -28,6 +28,7 @@ import {
   NEEDS_CLIP_MOCKUP_DIRECTORY,
   requireLocalMachine,
 } from "@/cli/local-only";
+import { resolveBeforeAnimaticItemId } from "./animatic-position";
 import {
   HELP,
   ADD_HELP,
@@ -234,50 +235,6 @@ const resolveTargetClipMockup = (params: {
       );
     }
     return row;
-  });
-
-/**
- * Turn `--before` / `--after` into the "insert before this id" anchor the
- * service takes. `null` means the end of the Animatic. A verbatim copy of the
- * Beat anchoring, because the ordering key is the same fractional index.
- */
-const resolveBeforeClipMockupId = (params: {
-  readonly videoId: string;
-  readonly before: Option.Option<string>;
-  readonly after: Option.Option<string>;
-  readonly excludeId: string;
-}) =>
-  Effect.gen(function* () {
-    const before = Option.getOrUndefined(params.before);
-    const after = Option.getOrUndefined(params.after);
-
-    yield* rejectBothFlags({
-      a: before,
-      b: after,
-      flags: ["--before", "--after"],
-      entity: "clipMockup",
-    });
-    if (before === undefined && after === undefined) {
-      return null;
-    }
-
-    const svc = yield* ClipMockupOperationsService;
-    const rows = (yield* svc.listClipMockupsByVideoId(params.videoId)).filter(
-      (r) => r.id !== params.excludeId
-    );
-
-    if (before !== undefined) {
-      if (!rows.some((r) => r.id === before)) {
-        return yield* notFound("clipMockup", before);
-      }
-      return before;
-    }
-
-    const idx = rows.findIndex((r) => r.id === after);
-    if (idx === -1) {
-      return yield* notFound("clipMockup", after!);
-    }
-    return rows[idx + 1]?.id ?? null;
   });
 
 /**
@@ -555,7 +512,10 @@ const moveCmd = Command.make(
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
       const row = yield* resolveTargetClipMockup({ id, video, at });
-      const beforeClipMockupId = yield* resolveBeforeClipMockupId({
+      // Resolved over the MERGED Animatic — Clip Mockups AND the Chapters
+      // that divide them — because the two share one order key space.
+      const beforeClipMockupId = yield* resolveBeforeAnimaticItemId({
+        entity: "clipMockup",
         videoId: row.videoId,
         before,
         after,

@@ -1,5 +1,6 @@
 import { Context, Layer } from "effect";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
+import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
@@ -336,6 +337,43 @@ const clipMockupService = (client: RpcClient) =>
     ),
   }) satisfies RemoteService<ClipMockupOperationsService>;
 
+const clipMockupChapterService = (client: RpcClient) =>
+  ({
+    _tag: "ClipMockupChapterOperationsService",
+    listAnimaticOrder: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].listAnimaticOrder.$post({ json })
+    ),
+    listClipMockupChaptersByVideoId: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].listClipMockupChaptersByVideoId.$post({
+        json,
+      })
+    ),
+    getClipMockupChaptersByIds: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].getClipMockupChaptersByIds.$post({
+        json,
+      })
+    ),
+    getClipMockupChapterById: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].getClipMockupChapterById.$post({ json })
+    ),
+    createClipMockupChapterAtItem: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].createClipMockupChapterAtItem.$post({
+        json,
+      })
+    ),
+    updateClipMockupChapter: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].updateClipMockupChapter.$post({ json })
+    ),
+    moveClipMockupChapterToPosition: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].moveClipMockupChapterToPosition.$post({
+        json,
+      })
+    ),
+    archiveClipMockupChapter: rpcMethod((json) =>
+      client.rpc["clip-mockup-chapter"].archiveClipMockupChapter.$post({ json })
+    ),
+  }) satisfies RemoteService<ClipMockupChapterOperationsService>;
+
 const learningGoalService = (client: RpcClient) =>
   ({
     _tag: "LearningGoalOperationsService",
@@ -429,6 +467,7 @@ export type RemoteServices =
   | OverlayOperationsService
   | BeatOperationsService
   | ClipMockupOperationsService
+  | ClipMockupChapterOperationsService
   | PitchOperationsService
   | DeliverableOperationsService
   | CourseWriteService;
@@ -467,6 +506,11 @@ export const makeRemoteLayer = (
     remoteLayer(OverlayOperationsService, overlayService, client),
     remoteLayer(BeatOperationsService, beatService, client),
     remoteLayer(ClipMockupOperationsService, clipMockupService, client),
+    remoteLayer(
+      ClipMockupChapterOperationsService,
+      clipMockupChapterService,
+      client
+    ),
     remoteLayer(PitchOperationsService, pitchService, client),
     remoteLayer(DeliverableOperationsService, deliverableService, client),
     remoteLayer(CourseWriteService, courseWriteService, client)

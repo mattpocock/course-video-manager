@@ -657,6 +657,54 @@ export const clipMockups = createTable(
 );
 
 /**
+ * Clip Mockup Chapter — a named divider that groups a Video's Clip Mockups in
+ * its Animatic, the way a YouTube chapter groups a video.
+ *
+ * ONE SHARED ORDER SPACE. `order` is a fractional index in the SAME key space
+ * as `clip_mockup.order`, exactly as `chapter.order` shares one with
+ * `clip.order`. So membership is implicit: a Clip Mockup belongs to the last
+ * Clip Mockup Chapter above it in the merged, sorted list, and Clip Mockups
+ * above the first divider belong to none. There is deliberately no
+ * `chapterId` on `clip_mockup` — nothing to re-parent when a row moves, and no
+ * way for a parent link to disagree with the list.
+ *
+ * NO RELATION TO `chapter`. This table mirrors that one's column shape on
+ * purpose, but the two nouns never meet: a Chapter groups the Clips that were
+ * filmed, a Clip Mockup Chapter groups the Clip Mockups that planned them.
+ *
+ * Internal like `clip_mockup`: copied into version snapshots and into a
+ * duplicated Video, but NEVER emitted into the shipped course.json.
+ */
+export const clipMockupChapters = createTable(
+  "clip_mockup_chapter",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    // The divider's title. `name` to match `chapter.name`, though the CLI flag
+    // is `--title` so the two Chapter nouns read identically at the prompt.
+    name: text("name").notNull(),
+    order: varcharCollateC("order").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    // Same FK-indexing gap as clip_mockup.video_id — resolving a Video's
+    // dividers otherwise seq-scans the whole table once per Video.
+    index("clip_mockup_chapter_video_id_idx").on(table.videoId),
+  ]
+);
+
+/**
  * The Beat <-> Learning Goal dependency: every Beat must serve at least one
  * Learning Goal of its Section (enforced in the authoring UI/CLI, not by a DB
  * constraint — a Beat's Video can be standalone/pitch-bound with no Section at
@@ -790,6 +838,16 @@ export const clipMockupsRelations = relations(clipMockups, ({ one }) => ({
   }),
 }));
 
+export const clipMockupChaptersRelations = relations(
+  clipMockupChapters,
+  ({ one }) => ({
+    video: one(videos, {
+      fields: [clipMockupChapters.videoId],
+      references: [videos.id],
+    }),
+  })
+);
+
 export const beatLearningGoalsRelations = relations(
   beatLearningGoals,
   ({ one }) => ({
@@ -812,6 +870,7 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   thumbnails: many(thumbnails),
   beats: many(beats),
   clipMockups: many(clipMockups),
+  clipMockupChapters: many(clipMockupChapters),
   videoPosts: many(videoPosts),
 }));
 
