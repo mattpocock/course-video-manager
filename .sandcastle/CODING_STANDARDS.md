@@ -6,10 +6,6 @@ Optional parameters passed to functions should be scrutinised extremely carefull
 
 ---
 
-All files in `apps/local/app/routes` will be exposed publicly as routes. Do not include test files or utility files there.
-
----
-
 Context menu items should always include a leading icon (from `lucide-react`), matching the style of the surrounding items. When adding a new menu item, pick an icon that conveys the action.
 
 ---
@@ -26,7 +22,7 @@ For optimistic UI on fetcher mutations, derive the optimistic value from `fetche
 
 ---
 
-Read every environment variable a run needs at its start, not at the moment of use. A `Config.string(...)` inside a branch that runs rarely turns a missing `.env` line into a failure that appears only when that branch first runs — a video export that concats and normalizes for thirteen seconds, then fails because nobody set `OVERLAY_RENDER_CACHE_DIRECTORY`, and does it again on every retry. Resolve the config at the edge (the layer, or the command's entry point) so a missing variable stops the process before any work starts, and let the error name the variable. Add each new key to `.env.example` in the same commit that reads it.
+Read every environment variable a run needs at its start, not at the moment of use. A `Config.string(...)` inside a branch that runs rarely turns a missing `.env` line into a failure that appears only when that branch first runs — a video export that concats and normalizes for thirteen seconds, then fails because nobody set `OVERLAY_RENDER_CACHE_DIRECTORY`, and does it again on every retry. Resolve the config at the edge (the layer, or the command's entry point) so a missing variable stops the process before any work starts, and let the error name the variable.
 
 ---
 
@@ -150,12 +146,17 @@ Avoid shallow modules: large interface with many methods that just pass through 
 
 ---
 
-## localStorage
+## Checked by machine, not by you
 
-Use `useLocalStorage` from `@/hooks/use-local-storage` for component state that should persist in `localStorage`. The hook handles SSR guards, initialization from a stored value with a fallback, and auto-saves on every change. Avoid raw `localStorage.getItem`/`setItem` scattered across components.
+These rules were here once. A check enforces each one now, so spend no review attention on them — `pnpm run check` runs the lot.
 
----
+| Rule                                          | Check                              |
+| --------------------------------------------- | ---------------------------------- |
+| `localStorage` goes through `useLocalStorage` | `oxlint` (`no-restricted-globals`) |
+| `import.meta.dirname` over CJS `__dirname`    | `scripts/check-no-dirname.sh`      |
+| No test or utility files in `app/routes`      | `scripts/check-routes-folder.sh`   |
+| Every env key documented in `.env.example`    | `scripts/check-env-example.sh`     |
+| No file over 5,500 tokens                     | `scripts/check-file-tokens.sh`     |
+| Deep-module import boundaries                 | `pnpm run lint:boundaries`         |
 
-## ESM path resolution
-
-This is an ESM project (`"type": "module"`). Use `import.meta.dirname` and `import.meta.filename` instead of the CJS globals `__dirname` and `__filename`. A pre-commit hook (`check:no-dirname`) enforces this on staged files.
+Oxlint's own `correctness` set runs advisory: its warnings are a standing backlog, cleared by hand in the PRs that touch each file.

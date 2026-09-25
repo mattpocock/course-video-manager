@@ -18,7 +18,7 @@ This is deliberately manual rather than diff-derived — no `turbo --affected`, 
 
 ## The full suite: CI, not you
 
-`.github/workflows/test.yml` runs `typecheck`, `lint:boundaries` and the **unfiltered** `pnpm run test` on every PR — every package, every test file, every time. That's what makes it safe to stay targeted locally: nothing merges without the exhaustive run passing regardless of what you ran (or skipped) by hand. Reach for the full `pnpm run test` yourself only if you have a specific reason to distrust your own targeting for this change (e.g. you suspect a cross-package regression the test files you picked wouldn't catch).
+`.github/workflows/test.yml` runs `pnpm run check` on every PR — `typecheck`, `oxlint`, `lint:boundaries`, the four `scripts/` guards and the **unfiltered** `pnpm run test` — every package, every test file, every time. That's what makes it safe to stay targeted locally: nothing merges without the exhaustive run passing regardless of what you ran (or skipped) by hand. Reach for the full `pnpm run test` yourself only if you have a specific reason to distrust your own targeting for this change (e.g. you suspect a cross-package regression the test files you picked wouldn't catch).
 
 ## Known noise: `packages/core`'s PGlite suite can look flaky under load
 

@@ -30,6 +30,10 @@ Neither `packages/core` nor `apps/remote` may import anything filesystem-bound �
 
 Two tiers — don't run a package's full suite by hand. While iterating, run only the specific test file(s) that cover your change, directly via `pnpm --filter <package> test -- path/to/thing.test.ts`; the full unfiltered suite runs in CI on every PR (`.github/workflows/test.yml`), so targeting locally never leaves a change unverified. See `docs/agents/testing.md` for the mechanics and known PGlite flakiness under a sandboxed agent workspace's CPU load.
 
+### Checks
+
+`pnpm run check` runs everything CI runs, in CI's order: typecheck, oxlint, package boundaries, the four file guards, then the unfiltered test suite (`.github/workflows/test.yml`). Pre-commit runs the fast half. Each guard in `scripts/` takes `--all` to sweep every tracked file instead of the staged ones. Oxlint is **advisory**: its `correctness` warnings are a standing backlog cleared by hand, so a warning in a file you touch is an invitation, not a blocker — only rules that encode a documented coding standard are errors, and those are green.
+
 ### Deep-module packages
 
 Packages under `apps/local/app/packages/` are deep modules — import only through a package's entry points (its root files); everything in `lib/`/`tests/` is private. See [apps/local/app/packages/README.md](./apps/local/app/packages/README.md) before adding or importing one. `packages/lucide-icons` is the same idea promoted to a workspace package: its entry points are `index.ts`, `generator.ts` and `tldraw.ts` (exactly its `exports` map), and it carries its own `.dependency-cruiser.cjs`. `pnpm run lint:boundaries` fans out to every package's own check (it runs in pre-commit alongside `typecheck`), so it enforces all of that plus `packages/core` staying filesystem-free.
