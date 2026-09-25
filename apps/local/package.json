@@ -90,6 +90,7 @@
     "obs-websocket-js": "^5.0.6",
     "openai": "^6.25.0",
     "pg": "^8.23.0",
+    "playwright": "^1.63.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.6",
     "react-day-picker": "^10.0.1",

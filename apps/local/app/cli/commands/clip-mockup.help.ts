@@ -30,6 +30,13 @@ THE CONSTRAINT IS THE POINT. A Clip Mockup must have an IMAGE and must have a
 LINE. The CLI will not accept a description of a picture, only a picture — so
 every moment of the Lesson has to be decided before the camera is switched on.
 
+TWO WAYS TO GIVE THE PICTURE, and exactly one per call. '--image <path>' is a
+PNG you already have. '--html <path>' is a page you WROTE: it is rendered in a
+headless browser at 1920x1080 and the screenshot becomes the frame. --html is
+the one to reach for — writing one HTML page gets you real code highlighting,
+real fonts and a real layout, and it is a file you can edit and re-capture
+after feedback. Passing both, or neither, is invalid input (exit 3).
+
 THE LINE IS SPOKEN, NOT READ. 'add' and 'update --say' synthesise the line to
 speech as they write it, in ONE voice (Leda) — every line is the author's, and
 a second voice would invent a character who will not exist in the filmed
@@ -45,7 +52,8 @@ deleted (there is no restore verb).
 LANDSCAPE ONLY. 'add' refuses a Video whose Video Format is 'short'.
 
 LOCAL-ONLY. The frames and the speech are a directory on the author's machine
-(CLIP_MOCKUP_DIR), so every verb here needs that machine. On any other box the
+(CLIP_MOCKUP_DIR), and --html needs the headless browser installed beside it,
+so every verb here needs that machine. On any other box the
 command is refused before it does anything, with _tag "LocalOnlyCommandError"
 and exit 7, naming what it would have needed. That is a full stop, not a
 retry.
@@ -65,7 +73,8 @@ too dense". Giving both an <id> and --at is invalid input (exit 3), and so is a
 position outside the list, which says how long the list actually is.
 
 Verbs (flags come BEFORE any positional <id> — a flag after it exits 3):
-  add    --video <id> --image <path> --say "…"  Add a frame + line at the end
+  add    --video <id> (--html|--image) <path> --say "…"
+                                                Add a frame + line at the end
   list   --video <id>                           The Video's Animatic, in order
   get    <id…>                                  Read one or more back
   update <id> | --video <id> --at <n>           Swap the frame and/or the line
@@ -75,6 +84,7 @@ Verbs (flags come BEFORE any positional <id> — a flag after it exits 3):
 Every write echoes the affected row as one pretty JSON object.
 
 Examples:
+  cvm clip-mockup add --video vid_123 --html /tmp/frame-01.html --say "Here's the problem."
   cvm clip-mockup add --video vid_123 --image /tmp/frame-01.png --say "Here's the problem."
   cvm clip-mockup list --video vid_123
   cvm clip-mockup get cm_456
@@ -97,18 +107,29 @@ beside a bare <id>, and a position outside the list — that last one says how
 many Clip Mockups the Video actually has.`;
 
 export const ADD_HELP = `WRITES. Add a Clip Mockup to the end of a Video's Animatic. Requires --video,
---image and --say; any of them missing is invalid input (exit 3).
+--say and EXACTLY ONE of --html / --image; any of them missing — or both frame
+sources at once — is invalid input (exit 3).
 
 Flags:
   --video <id>     the Video to add the Clip Mockup to. Unknown or archived is
                    a not-found (exit 2). A Video whose format is 'short' is
                    REFUSED — Clip Mockups are Landscape only (exit 3).
+  --html <path>    an HTML page on the local filesystem. It is rendered in a
+                   headless Chromium at exactly 1920x1080 and the screenshot
+                   becomes the frame, which is then stored exactly as --image's
+                   PNG is. Prefer this: write the page, look at the result,
+                   rewrite the page. A missing file is invalid input (exit 3);
+                   a page that will not render is a FrameCaptureError (exit 4)
+                   — a NAMED failure, never a blank frame — and it leaves no
+                   row and no file behind.
   --image <path>   a ready-made PNG on the local filesystem. It is COPIED into
                    {CLIP_MOCKUP_DIR}/{lineageId}/ under a fresh name, so the
                    CVM holds its own copy and clearing your scratch folder can
                    never empty the Animatic. The row stores the path RELATIVE
                    to that directory — never the path you passed. A missing or
                    unreadable source is invalid input (exit 3).
+                   --html and --image are MUTUALLY EXCLUSIVE and exactly one is
+                   required; both, or neither, is invalid input (exit 3).
   --say "<text>"   the spoken line for this moment. One line per Clip Mockup:
                    it maps to the Clip it will become. Must not be empty. It is
                    SPOKEN as it is added, and the WAV is written next to the
@@ -118,7 +139,11 @@ Echoes the created row (with its new id, imagePath, audioPath, durationSeconds
 and computed order) as one pretty JSON object. The line is spoken BEFORE
 anything is written, so a speech failure (exit 4) leaves no row and no file.
 
+The browser binary is a one-off install on this machine:
+  pnpm --filter @cvm/local exec playwright install chromium
+
 Examples:
+  cvm clip-mockup add --video vid_123 --html ./frames/01.html --say "Here's the problem."
   cvm clip-mockup add --video vid_123 --image ./frames/01.png --say "Here's the problem."
   cvm clip-mockup add --video vid_123 --image /tmp/f.png --say "And here's the fix."`;
 
@@ -175,27 +200,33 @@ Examples:
   cvm clip-mockup delete --video vid_123 --at 14`;
 
 export const UPDATE_HELP = `WRITES. Change an existing Clip Mockup's frame, its line, or both. At least
-one of --image / --say is required; neither is invalid input (exit 3).
+one of --html / --image / --say is required; none is invalid input (exit 3),
+and so is --html beside --image.
 
-The two fields are INDEPENDENT. --image swaps the picture and leaves the line
-exactly as it was; --say rewrites the line and leaves the picture alone. There
-is no verb that moves a Clip Mockup between Videos: its frame lives under its
+The two fields are INDEPENDENT. A frame source swaps the picture and leaves
+the line exactly as it was; --say rewrites the line and leaves the picture
+alone. There is
+no verb that moves a Clip Mockup between Videos: its frame lives under its
 Video's directory, so the row cannot leave the picture behind.
 
 Flags:
+  --html <path>    a new HTML page, captured at 1920x1080 exactly as 'add'
+                   does. This is the redraw loop: the author says "number 14 is
+                   too dense", you edit the page and re-capture it in place.
   --image <path>   a new PNG on the local filesystem. Copied into
                    {CLIP_MOCKUP_DIR}/{lineageId}/ under a FRESH name and the
                    row repointed at it, exactly as 'add' does. The old frame is
                    left on disk — the row is the state. A missing or unreadable
                    source is invalid input (exit 3).
+                   --html and --image are mutually exclusive (exit 3).
   --say "<text>"   the new spoken line. Must not be empty. New words are new
                    speech: the line is RE-SYNTHESISED and 'durationSeconds'
                    replaced in the same write, so the row can never claim a run
                    time for words it no longer says. Changing it back to a line
                    already voiced reuses that WAV rather than paying again.
 
---image alone never speaks, and --say never touches the picture. The old WAV is
-left on disk beside the old frame — the row is the state.
+--image or --html alone never speaks, and --say never touches the picture. The
+old WAV is left on disk beside the old frame — the row is the state.
 
 ${ADDRESSING_HELP}
 
@@ -203,6 +234,7 @@ Echoes the updated row as one pretty JSON object.
 
 Examples:
   cvm clip-mockup update --say "Shorter, and it lands harder." cm_456
+  cvm clip-mockup update --html ./frames/14-v2.html --video vid_123 --at 14
   cvm clip-mockup update --image ./frames/14-v2.png --video vid_123 --at 14
   cvm clip-mockup update --image ./f.png --say "Both." --video vid_123 --at 14`;
 
