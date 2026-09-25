@@ -142,10 +142,14 @@ export const ReferencePanel = (props: {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      COLLAPSED_STORAGE_KEY,
-      JSON.stringify(collapsed)
-    );
+    try {
+      window.localStorage.setItem(
+        COLLAPSED_STORAGE_KEY,
+        JSON.stringify(collapsed)
+      );
+    } catch {
+      // Storage full or blocked; the panel still remembers for this session.
+    }
   }, [collapsed]);
 
   const toggleCollapsed = (chapterId: string) =>

@@ -4,7 +4,12 @@ import { FileTree } from "@/components/FileTree";
 import { FilePreviewModal } from "@/components/file-preview-modal";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  parseStringSet,
+  useLocalStorage,
+  useLocalStorageBoolean,
+} from "@/hooks/use-local-storage";
 import type { Clip, FrontendInsertionPoint } from "../clip-state-reducer";
 import type { SuggestionState } from "../video-editor-context";
 
@@ -76,32 +81,27 @@ const SUGGESTIONS_ENABLED_KEY = "suggestions-enabled";
 const SUGGESTIONS_ENABLED_FILES_KEY = "suggestions-enabled-files-v2";
 
 export function SuggestionsPanel(props: SuggestionsPanelProps) {
-  const [enabled, setEnabled] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(SUGGESTIONS_ENABLED_KEY) === "true";
-  });
+  const [enabled, setEnabled] = useLocalStorageBoolean(
+    SUGGESTIONS_ENABLED_KEY
+  );
 
-  // Initialize enabled files from localStorage or from defaultEnabled
-  const [enabledFiles, setEnabledFiles] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-
-    // Try to load from localStorage first (shared with Write page)
-    const saved = localStorage.getItem(
-      `${SUGGESTIONS_ENABLED_FILES_KEY}-${props.videoId}`
-    );
-    if (saved) {
-      try {
-        return new Set(JSON.parse(saved));
-      } catch {
-        // Fall through to default
-      }
-    }
-
-    // Fall back to defaultEnabled files
-    return new Set(
-      props.files.filter((f) => f.defaultEnabled).map((f) => f.path)
-    );
-  });
+  // The files enabled by default stand in until the author picks their own.
+  // Stored per video, and shared with the Write page.
+  const defaultEnabledFiles = useMemo(
+    () =>
+      JSON.stringify(
+        props.files.filter((f) => f.defaultEnabled).map((f) => f.path)
+      ),
+    [props.files]
+  );
+  const [storedEnabledFiles, setStoredEnabledFiles] = useLocalStorage(
+    `${SUGGESTIONS_ENABLED_FILES_KEY}-${props.videoId}`,
+    defaultEnabledFiles
+  );
+  const enabledFiles = useMemo(
+    () => parseStringSet(storedEnabledFiles),
+    [storedEnabledFiles]
+  );
 
   const { messages, sendMessage, status, setMessages, stop, error } = useChat({
     transport: new DefaultChatTransport({
@@ -180,18 +180,8 @@ export function SuggestionsPanel(props: SuggestionsPanelProps) {
     props.onSuggestionStateChange,
   ]);
 
-  const handleEnabledChange = (checked: boolean) => {
-    setEnabled(checked);
-    localStorage.setItem(SUGGESTIONS_ENABLED_KEY, String(checked));
-  };
-
   const handleEnabledFilesChange = (files: Set<string>) => {
-    setEnabledFiles(files);
-    // Persist to localStorage (keyed by videoId for sharing with Write page)
-    localStorage.setItem(
-      `${SUGGESTIONS_ENABLED_FILES_KEY}-${props.videoId}`,
-      JSON.stringify(Array.from(files))
-    );
+    setStoredEnabledFiles(JSON.stringify([...files]));
   };
 
   const [previewFilePath, setPreviewFilePath] = useState("");
@@ -208,7 +198,7 @@ export function SuggestionsPanel(props: SuggestionsPanelProps) {
         <Checkbox
           id="suggestions-enabled"
           checked={enabled}
-          onCheckedChange={handleEnabledChange}
+          onCheckedChange={(checked) => setEnabled(checked === true)}
         />
         <Label htmlFor="suggestions-enabled" className="cursor-pointer">
           Enable AI suggestions

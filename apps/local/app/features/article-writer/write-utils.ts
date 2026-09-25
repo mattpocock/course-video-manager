@@ -1,4 +1,5 @@
 import type { DocumentAgentMessage, Mode } from "./types";
+import { hasLocalStorage } from "@/hooks/use-local-storage";
 
 export const partsToText = (parts: DocumentAgentMessage["parts"]) => {
   return parts
@@ -38,7 +39,7 @@ export const RECENT_MODES_STORAGE_KEY = "article-writer-recent-modes";
 export const MAX_RECENT_MODES = 3;
 
 export const loadRecentModes = (): Mode[] => {
-  if (typeof localStorage === "undefined") return [];
+  if (!hasLocalStorage()) return [];
   try {
     const saved = localStorage.getItem(RECENT_MODES_STORAGE_KEY);
     if (saved) {
@@ -51,7 +52,7 @@ export const loadRecentModes = (): Mode[] => {
 };
 
 export const saveRecentMode = (mode: Mode): void => {
-  if (typeof localStorage === "undefined") return;
+  if (!hasLocalStorage()) return;
   try {
     const recent = loadRecentModes().filter((m) => m !== mode);
     recent.unshift(mode);
@@ -81,7 +82,7 @@ export const loadMessagesFromStorage = (
   videoId: string,
   mode: Mode
 ): DocumentAgentMessage[] => {
-  if (typeof localStorage === "undefined") return [];
+  if (!hasLocalStorage()) return [];
   try {
     const saved = localStorage.getItem(getMessagesStorageKey(videoId, mode));
     if (saved) {
@@ -98,7 +99,7 @@ export const saveMessagesToStorage = (
   mode: Mode,
   messages: DocumentAgentMessage[]
 ) => {
-  if (typeof localStorage === "undefined") return;
+  if (!hasLocalStorage()) return;
   try {
     localStorage.setItem(
       getMessagesStorageKey(videoId, mode),
@@ -127,7 +128,7 @@ export const LEGACY_DOCUMENT_PURGE_KEY = "article-writer-document-purge-done";
  * it has run. Can be deleted once every browser in use has loaded the app.
  */
 export const purgeLegacyDocumentStorage = () => {
-  if (typeof localStorage === "undefined") return;
+  if (!hasLocalStorage()) return;
   try {
     if (localStorage.getItem(LEGACY_DOCUMENT_PURGE_KEY)) return;
     const stale: string[] = [];
