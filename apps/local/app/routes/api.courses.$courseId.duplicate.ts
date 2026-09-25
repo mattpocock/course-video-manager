@@ -3,7 +3,7 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { copyClipMockupAssetsForVideos } from "@/services/clip-mockup-copy-forward.server";
 import { copyVideoFilesDirectory } from "@/services/video-files";
 import { makeAction } from "@/services/route-action.server";
-import { data } from "react-router";
+import { data, redirect } from "react-router";
 
 const duplicateCourseSchema = Schema.Struct({
   name: Schema.String.pipe(
@@ -64,6 +64,6 @@ export const action = makeAction({
         copyVideoFilesDirectory(video.sourceLineageId, video.newLineageId)
       );
 
-      return { id: result.course.id };
+      return redirect(`/courses/${result.course.id}`);
     }),
 });

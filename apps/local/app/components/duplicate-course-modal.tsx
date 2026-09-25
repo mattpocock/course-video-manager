@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useFetcher, useNavigate } from "react-router";
+import { useFetcher } from "react-router";
 
 export function DuplicateCourseModal(props: {
   courseId: string;
@@ -17,8 +17,7 @@ export function DuplicateCourseModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const fetcher = useFetcher<{ id: string } | { error: string }>();
-  const navigate = useNavigate();
+  const fetcher = useFetcher();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,15 +25,6 @@ export function DuplicateCourseModal(props: {
       setError(null);
     }
   }, [props.open]);
-
-  useEffect(() => {
-    if (fetcher.data && "id" in fetcher.data) {
-      props.onOpenChange(false);
-      navigate(`/courses/${fetcher.data.id}`);
-    } else if (fetcher.data && "error" in fetcher.data) {
-      setError(fetcher.data.error);
-    }
-  }, [fetcher.data]);
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -63,6 +53,11 @@ export function DuplicateCourseModal(props: {
 
             try {
               await fetcher.submit(e.currentTarget);
+              // The action answers with a redirect, which React Router follows
+              // on its own; this closes the modal behind it. The modal stays
+              // mounted for as long as a Course page is open, so it has to be
+              // told to close — the route change alone does not unmount it.
+              props.onOpenChange(false);
             } catch {
               setError("Failed to duplicate course");
             }
