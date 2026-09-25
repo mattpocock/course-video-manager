@@ -15,6 +15,7 @@ import {
   emitObject,
   notFound,
   parseError,
+  rejectBothFlags,
   type ParseError,
 } from "@/cli/helpers";
 import {
@@ -26,6 +27,8 @@ import {
   ADD_HELP,
   LIST_HELP,
   GET_HELP,
+  UPDATE_HELP,
+  MOVE_HELP,
   DELETE_HELP,
 } from "./clip-mockup.help";
 
@@ -57,7 +60,41 @@ const sayOption = Options.text("say").pipe(
   Options.optional
 );
 
-const idArg = Args.text({ name: "id" });
+/**
+ * The addressing half of `--video`. On 'add' and 'list' the Video is what the
+ * verb operates on; on 'update' / 'move' / 'delete' it is only the list the
+ * `--at` position is counted in, so it is optional there and refused next to a
+ * bare <id>.
+ */
+const videoAddressOption = Options.text("video").pipe(
+  Options.withDescription(
+    "The parent Video id to count --at positions in (use with --at, instead of a bare <id>)."
+  ),
+  Options.optional
+);
+
+const atOption = Options.integer("at").pipe(
+  Options.withDescription(
+    "Address the Clip Mockup by its position in the Video's Animatic, counting from 1 (needs --video)."
+  ),
+  Options.optional
+);
+
+const beforeOption = Options.text("before").pipe(
+  Options.withDescription(
+    "Place immediately before this Clip Mockup id (mutually exclusive with --after)."
+  ),
+  Options.optional
+);
+
+const afterOption = Options.text("after").pipe(
+  Options.withDescription(
+    "Place immediately after this Clip Mockup id (mutually exclusive with --before)."
+  ),
+  Options.optional
+);
+
+const optionalIdArg = Args.text({ name: "id" }).pipe(Args.optional);
 const idsArg = Args.text({ name: "id" }).pipe(Args.repeated);
 
 // ---------------------------------------------------------------------------
@@ -118,6 +155,119 @@ const requireActiveClipMockup = (id: string) =>
   });
 
 /**
+ * Find the ONE Clip Mockup a write verb is aimed at, from either form of
+ * address: the bare `<id>` an agent reads out of `list`, or `--video <id> --at
+ * <position>`, the number a human reads off the screen while watching the
+ * Animatic ("number 14 is too dense"). Positions count from 1 and are exactly
+ * the order `list` and the player show, because both read this same sorted
+ * list.
+ *
+ * Every write verb goes through here so the two forms can never drift apart,
+ * and so "both at once" and "off the end of the list" are one message each.
+ * An out-of-range position is INVALID INPUT, not a not-found: the position is
+ * only meaningful against a list whose length the caller can be told.
+ */
+const resolveTargetClipMockup = (params: {
+  readonly id: Option.Option<string>;
+  readonly video: Option.Option<string>;
+  readonly at: Option.Option<number>;
+}) =>
+  Effect.gen(function* () {
+    const id = Option.getOrUndefined(params.id);
+    const video = Option.getOrUndefined(params.video);
+    const at = Option.getOrUndefined(params.at);
+
+    yield* rejectBothFlags({
+      a: id,
+      b: at,
+      flags: ["<id>", "--at"],
+      entity: "clipMockup",
+    });
+
+    if (id !== undefined) {
+      if (video !== undefined) {
+        return yield* parseError(
+          "--video only names the list --at counts in, so it cannot be combined with a bare <id>",
+          "clipMockup"
+        );
+      }
+      return yield* requireActiveClipMockup(id);
+    }
+
+    if (at === undefined) {
+      return yield* parseError(
+        "address the Clip Mockup with a bare <id> or with --video <id> --at <position>",
+        "clipMockup"
+      );
+    }
+    if (video === undefined) {
+      return yield* parseError(
+        "--at <position> needs --video <id> to count the position in",
+        "clipMockup"
+      );
+    }
+
+    const videoRow = yield* requireActiveVideo(video);
+    const svc = yield* ClipMockupOperationsService;
+    const rows = yield* svc.listClipMockupsByVideoId(videoRow.id);
+    const row = at >= 1 ? rows[at - 1] : undefined;
+
+    if (row === undefined) {
+      return yield* parseError(
+        rows.length === 0
+          ? `--at ${at} is out of range: video ${video} has 0 Clip Mockups`
+          : `--at ${at} is out of range: video ${video} has ${rows.length} Clip Mockups, so positions run 1-${rows.length}`,
+        "clipMockup"
+      );
+    }
+    return row;
+  });
+
+/**
+ * Turn `--before` / `--after` into the "insert before this id" anchor the
+ * service takes. `null` means the end of the Animatic. A verbatim copy of the
+ * Beat anchoring, because the ordering key is the same fractional index.
+ */
+const resolveBeforeClipMockupId = (params: {
+  readonly videoId: string;
+  readonly before: Option.Option<string>;
+  readonly after: Option.Option<string>;
+  readonly excludeId: string;
+}) =>
+  Effect.gen(function* () {
+    const before = Option.getOrUndefined(params.before);
+    const after = Option.getOrUndefined(params.after);
+
+    yield* rejectBothFlags({
+      a: before,
+      b: after,
+      flags: ["--before", "--after"],
+      entity: "clipMockup",
+    });
+    if (before === undefined && after === undefined) {
+      return null;
+    }
+
+    const svc = yield* ClipMockupOperationsService;
+    const rows = (yield* svc.listClipMockupsByVideoId(params.videoId)).filter(
+      (r) => r.id !== params.excludeId
+    );
+
+    if (before !== undefined) {
+      if (!rows.some((r) => r.id === before)) {
+        return yield* notFound("clipMockup", before);
+      }
+      return before;
+    }
+
+    const idx = rows.findIndex((r) => r.id === after);
+    if (idx === -1) {
+      return yield* notFound("clipMockup", after!);
+    }
+    return rows[idx + 1]?.id ?? null;
+  });
+
+/**
  * Produce the PNG bytes for a new Clip Mockup from whichever frame source the
  * caller named, and the name to store them under.
  *
@@ -128,6 +278,7 @@ const requireActiveClipMockup = (id: string) =>
  * are all already on this side of it.
  */
 const resolveFrameSource = (params: {
+  readonly verb: string;
   readonly image: Option.Option<string>;
 }) =>
   Effect.gen(function* () {
@@ -135,7 +286,7 @@ const resolveFrameSource = (params: {
 
     if (image === undefined) {
       return yield* parseError(
-        "clip-mockup add needs --image <path> (a Clip Mockup must have a picture)",
+        `clip-mockup ${params.verb} needs --image <path> (a Clip Mockup must have a picture)`,
         "clipMockup"
       );
     }
@@ -179,7 +330,7 @@ const addCmd = Command.make(
         );
       }
 
-      const frame = yield* resolveFrameSource({ image });
+      const frame = yield* resolveFrameSource({ verb: "add", image });
 
       // Write the frame BEFORE the row: a row whose imagePath points at
       // nothing is the one state an authoring agent cannot see or fix.
@@ -219,20 +370,117 @@ const getCmd = Command.make("get", { ids: idsArg }, ({ ids }) =>
   })
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
-const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
-  Effect.gen(function* () {
-    yield* requireLocalFrameStore;
-    const svc = yield* ClipMockupOperationsService;
-    yield* requireActiveClipMockup(id);
-    yield* svc.deleteClipMockup(id);
-    const archived = yield* svc
-      .getClipMockupById(id)
-      .pipe(Effect.catchTag("NotFoundError", () => notFound("clipMockup", id)));
-    yield* emitObject(archived);
-  })
+const updateCmd = Command.make(
+  "update",
+  {
+    id: optionalIdArg,
+    video: videoAddressOption,
+    at: atOption,
+    image: imageOption,
+    say: sayOption,
+  },
+  ({ id, video, at, image, say }) =>
+    Effect.gen(function* () {
+      yield* requireLocalFrameStore;
+
+      const source = Option.getOrUndefined(image);
+      const line = Option.getOrUndefined(say);
+      if (source === undefined && line === undefined) {
+        return yield* parseError(
+          'clip-mockup update needs at least one of --image <path> / --say "<line>"',
+          "clipMockup"
+        );
+      }
+      if (line !== undefined && line.trim() === "") {
+        return yield* parseError(
+          "--say must not be empty (a Clip Mockup must have a line)",
+          "clipMockup"
+        );
+      }
+
+      let row = yield* resolveTargetClipMockup({ id, video, at });
+      const svc = yield* ClipMockupOperationsService;
+
+      if (source !== undefined) {
+        const parent = yield* requireActiveVideo(row.videoId);
+        const frame = yield* resolveFrameSource({ verb: "update", image });
+        // Same order as 'add': the frame lands before the row points at it, so
+        // a failure halfway leaves an orphan PNG rather than a row whose
+        // picture does not exist.
+        yield* asParseError(
+          writeClipMockupFile(parent.lineageId, frame.filename, frame.content)
+        );
+        row = yield* svc.setClipMockupImagePath(row.id, frame.filename);
+      }
+
+      // The line and the picture are independent: swapping one leaves the
+      // other exactly as it was, and neither touches durationSeconds.
+      if (line !== undefined) {
+        row = yield* svc.setClipMockupLine(row.id, line);
+      }
+
+      yield* emitObject(row);
+    })
+).pipe(Command.withDescription(detail(UPDATE_HELP)));
+
+const moveCmd = Command.make(
+  "move",
+  {
+    id: optionalIdArg,
+    video: videoAddressOption,
+    at: atOption,
+    before: beforeOption,
+    after: afterOption,
+  },
+  ({ id, video, at, before, after }) =>
+    Effect.gen(function* () {
+      yield* requireLocalFrameStore;
+      const row = yield* resolveTargetClipMockup({ id, video, at });
+      const beforeClipMockupId = yield* resolveBeforeClipMockupId({
+        videoId: row.videoId,
+        before,
+        after,
+        excludeId: row.id,
+      });
+      const svc = yield* ClipMockupOperationsService;
+      // Ordering only: no frame is read, written or moved.
+      const moved = yield* svc
+        .moveClipMockup(row.id, beforeClipMockupId)
+        .pipe(
+          Effect.catchTag("NotFoundError", (e) =>
+            notFound("clipMockup", (e.params as { id?: string }).id ?? row.id)
+          )
+        );
+      yield* emitObject(moved);
+    })
+).pipe(Command.withDescription(detail(MOVE_HELP)));
+
+const deleteCmd = Command.make(
+  "delete",
+  { id: optionalIdArg, video: videoAddressOption, at: atOption },
+  ({ id, video, at }) =>
+    Effect.gen(function* () {
+      yield* requireLocalFrameStore;
+      const row = yield* resolveTargetClipMockup({ id, video, at });
+      const svc = yield* ClipMockupOperationsService;
+      yield* svc.deleteClipMockup(row.id);
+      const archived = yield* svc
+        .getClipMockupById(row.id)
+        .pipe(
+          Effect.catchTag("NotFoundError", () => notFound("clipMockup", row.id))
+        );
+      yield* emitObject(archived);
+    })
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 
 export const clipMockupCommand = Command.make("clip-mockup").pipe(
   Command.withDescription(detail(HELP)),
-  Command.withSubcommands([addCmd, listCmd, getCmd, deleteCmd])
+  Command.withSubcommands([
+    addCmd,
+    listCmd,
+    getCmd,
+    updateCmd,
+    moveCmd,
+    deleteCmd,
+  ])
 );

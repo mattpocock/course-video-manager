@@ -26,7 +26,8 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'learning-goal' (create/update/move/delete), 'beat' (add/update/move/delete),
-'clip' (add/update/move/delete), 'clip-mockup' (add/delete), 'chapter'
+'clip' (add/update/move/delete), 'clip-mockup'
+(add/update/move/delete), 'chapter'
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
@@ -137,10 +138,13 @@ WRITES
                                      in seconds ('delete' is a HARD delete —
                                      no archive, no restore)
     clip-mockup
-            add/delete               author a Video's Animatic: one still image
+            add/update/move/delete   author a Video's Animatic: one still image
                                      and one spoken line per moment, decided
                                      before filming (LOCAL-ONLY; Landscape
-                                     only; never published)
+                                     only; never published). update/move/delete
+                                     take a bare <id> OR --video <id> --at <n>,
+                                     the 1-based position the author reads off
+                                     'list' and the player
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
     section
