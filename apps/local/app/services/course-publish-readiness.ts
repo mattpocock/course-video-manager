@@ -8,8 +8,12 @@ import {
 } from "./export-hash";
 import { collectCourseViewLints } from "./lesson-warnings";
 import {
+  ANNOUNCE_NOTHING,
+  classifyLessonPublishStatus,
   collectPublishBlockers,
   computeEffectiveSections,
+  type LessonHardGap,
+  type PlaceholderFloor,
 } from "@/packages/course-json";
 
 /**
@@ -53,6 +57,34 @@ export const PUBLISH_BLOCKING_LISTS = [
 
 export type PublishBlockingList = (typeof PUBLISH_BLOCKING_LISTS)[number];
 
+/**
+ * Why a Lesson is withheld, in the words a reader needs: the three hard gaps
+ * named one by one, plus the to-do toggle. A Lesson vanishing from a release
+ * must never be a mystery, so every withheld Lesson carries one of these.
+ */
+export type WithheldReason = "no-videos" | "no-clips" | "no-body" | "todo";
+
+const WITHHELD_REASON_BY_HARD_GAP: Record<LessonHardGap, WithheldReason> = {
+  "no-active-video": "no-videos",
+  "no-clips": "no-clips",
+  "no-body": "no-body",
+};
+
+/** A Lesson this release announces as a Placeholder Lesson: title only. */
+export type PlaceholderLesson = {
+  readonly sectionPath: string;
+  readonly lessonPath: string;
+  readonly title: string;
+  /** Its Lesson Priority — the band the floor let it through on. */
+  readonly priority: number;
+  readonly hardGaps: readonly LessonHardGap[];
+};
+
+/** A Lesson this release leaves out entirely, and why. */
+export type WithheldLesson = PlaceholderLesson & {
+  readonly reason: WithheldReason;
+};
+
 /** A shipping Video that has no matching `.mp4` on disk. */
 export type UnexportedVideo = {
   readonly id: string;
@@ -65,9 +97,22 @@ export type UnexportedVideo = {
  * round-trip, both positions are computed in a single pass: the expensive
  * per-Video existence checks run once, then the pure counters run against the
  * effective Sections for each toggle state.
+ *
+ * `placeholderFloor` answers the other half of the question — "if I set the
+ * floor here, what would this release announce, and what would it drop?". It
+ * decides the `placeholderLessons` and `withheldLessons` lists, and it narrows
+ * two gates: a gate may only speak about what a release contains, so the
+ * course-view lints (every Lesson Warning and Video Warning) and the Lesson
+ * role-combo check are computed over the Lessons that ship and stay silent
+ * about a Placeholder Lesson. At the default announce-nothing position nothing
+ * is a Placeholder Lesson, so every number is exactly what it was before the
+ * floor existed.
  */
 export const validatePublishability = Effect.fn("validatePublishability")(
-  function* (versionId: string) {
+  function* (
+    versionId: string,
+    placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
+  ) {
     const versionOps = yield* VersionOperationsService;
     const effectFs = yield* FileSystem.FileSystem;
     const finishedVideosDirectory = yield* Config.string(
@@ -110,6 +155,14 @@ export const validatePublishability = Effect.fn("validatePublishability")(
     }
 
     const evaluate = (includeTodoLessons: boolean) => {
+      const classify = (
+        lesson: (typeof version.sections)[number]["lessons"][number]
+      ) =>
+        classifyLessonPublishStatus(lesson, {
+          includeTodoLessons,
+          placeholderFloor,
+        });
+
       const effectiveSections = computeEffectiveSections(
         version.sections,
         includeTodoLessons
@@ -124,16 +177,78 @@ export const validatePublishability = Effect.fn("validatePublishability")(
           }
         }
       }
-      const courseViewLints = collectCourseViewLints(effectiveSections);
+
+      // THE LESSONS THAT SHIP — the only Lessons a gate may speak about.
+      //
+      // INTERIM, and the one place this module knows the floor twice over:
+      // computeEffectiveSections still fixes the floor at announce-nothing
+      // internally, so it keeps a hard-gapped Lesson in the walk for the
+      // blocker collector to find (ADR 0019 — a gap is still a failure
+      // downstream until that changes). Dropping the Lessons this floor
+      // announces is therefore the whole of the narrowing: at announce-nothing
+      // nothing is dropped and these ARE the effective Sections, and once
+      // computeEffectiveSections takes the floor itself, `!== "placeholder"`
+      // over its output is exactly "ships".
+      const shippingSections = effectiveSections
+        .map((section) => ({
+          ...section,
+          lessons: section.lessons.filter(
+            (lesson) => classify(lesson).status !== "placeholder"
+          ),
+        }))
+        .filter((section) => section.lessons.length > 0);
+
+      const courseViewLints = collectCourseViewLints(shippingSections);
       const courseViewLintCount = courseViewLints.length;
 
       // Publish blockers computed from the exact same walk buildCourseJson
       // uses (its backstop), so the pre-publish warnings and the build
       // failure can never disagree — see collectPublishBlockers.
-      const { invalidLessonCombos, incompleteVideos } = collectPublishBlockers(
+      //
+      // Two calls, on purpose, because the two lists have different reach. The
+      // role-combo check is a GATE, so it sees only the Lessons that ship — a
+      // duplicate role on an unfilmed Lesson cannot refuse a pre-launch
+      // release. `incompleteVideos` is not narrowed: it is the record of which
+      // Videos still have gaps, and it keeps the reach it has today.
+      const { invalidLessonCombos } = collectPublishBlockers(
+        shippingSections,
+        includeTodoLessons
+      );
+      const { incompleteVideos } = collectPublishBlockers(
         version.sections,
         includeTodoLessons
       );
+
+      // What this floor announces, and what it drops. One walk of the whole
+      // tree rather than of the effective output, because a Lesson with no
+      // Video at all never reaches the effective output and is exactly the
+      // Lesson a Placeholder Lesson exists for.
+      const placeholderLessons: PlaceholderLesson[] = [];
+      const withheldLessons: WithheldLesson[] = [];
+      for (const section of version.sections) {
+        for (const lesson of section.lessons) {
+          const verdict = classify(lesson);
+          if (verdict.status === "ships") continue;
+          const row = {
+            sectionPath: section.path,
+            lessonPath: lesson.path,
+            title: lesson.title,
+            priority: lesson.priority,
+            hardGaps: verdict.hardGaps,
+          };
+          if (verdict.status === "placeholder") {
+            placeholderLessons.push(row);
+          } else {
+            withheldLessons.push({
+              ...row,
+              reason:
+                verdict.reason === "todo"
+                  ? "todo"
+                  : WITHHELD_REASON_BY_HARD_GAP[verdict.hardGaps[0]!],
+            });
+          }
+        }
+      }
 
       return {
         unexportedVideoIds,
@@ -147,6 +262,8 @@ export const validatePublishability = Effect.fn("validatePublishability")(
         courseViewLints,
         invalidLessonCombos,
         incompleteVideos,
+        placeholderLessons,
+        withheldLessons,
       };
     };
 

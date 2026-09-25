@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { ConfigProvider, Effect } from "effect";
+import { ConfigProvider, Effect, Option } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import {
@@ -12,6 +12,10 @@ import {
   requireLocalMachine,
 } from "@/cli/local-only";
 import { detail, emitObject, notFound, resolveVersionId } from "@/cli/helpers";
+import {
+  PLACEHOLDER_FLOOR_BANDS,
+  placeholderFloorFromBand,
+} from "@/cli/placeholder-floor";
 
 /**
  * `cvm course readiness <courseId>` — the READ half of publish validation.
@@ -48,6 +52,15 @@ const excludeTodoOpt = Options.boolean("exclude-todo").pipe(
   )
 );
 
+const placeholdersOpt = Options.choice("placeholders", [
+  ...PLACEHOLDER_FLOOR_BANDS,
+]).pipe(
+  Options.optional,
+  Options.withDescription(
+    "set the Placeholder Floor and also report what it announces and what it drops: none | p1 | p2 | p3 (default: not reported at all)"
+  )
+);
+
 const READINESS_HELP = `Report PUBLISH READINESS and authoring progress for a Course — what is actually
 between it and shipping.
 
@@ -64,6 +77,28 @@ THE TO-DO TOGGLE
   authoringStatus is "todo". Blockers differ between the two positions, so this
   command reports the one you asked for and mirrors the flag back as
   includesTodoLessons. Pass the same flag you would pass to 'course publish'.
+
+THE PLACEHOLDER FLOOR (--placeholders)
+  A PLACEHOLDER LESSON is a Lesson a release announces by title alone — no
+  video, no body, no description — so a learner can read the shape of a Course
+  before it is filmed. The PLACEHOLDER FLOOR is the lowest Lesson Priority band
+  whose unshippable Lessons ship that way: 'none' (announce nothing), 'p1',
+  'p2', 'p3'. Pass a band and this command answers "if I set the floor here,
+  what would this release announce, and what would it drop?" — two extra lists,
+  placeholderLessons and withheldLessons.
+  Three rules decide them:
+    A gap Autofill can close never makes a Lesson a Placeholder Lesson. Only
+    three HARD GAPS count — no active Video, a Video with no Clips, a Video with
+    no body. A missing description, missing Chapters and an unexported .mp4 are
+    not gaps at all.
+    A Lesson is all-or-nothing: one hard gap on any active Video decides the
+    whole Lesson.
+    The floor BEATS the to-do toggle inside the bands it names: a to-do,
+    unshippable Lesson at or above the floor is announced, not withheld. Outside
+    those bands the toggle keeps its job.
+  Omit the flag and nothing changes: the output is exactly what it was before
+  the floor existed. Pass '--placeholders none' to read the two lists at the
+  announce-nothing position.
 
 WHAT ACTUALLY BLOCKS A PUBLISH
   Only three of the four lists stop a release, and 'publishable' reflects
@@ -96,6 +131,8 @@ OUTPUT (one pretty JSON object)
   versionId             The CourseVersion actually measured (resolved Draft, or
                         whatever --course-version pinned).
   includesTodoLessons   Whether to-do Lessons are counted as shipping.
+  placeholderFloor      Only present when --placeholders was given: the band
+                        asked for, mirrored back.
   publishable           true when courseViewLints, invalidLessonCombos and
                         incompleteVideos are ALL empty. Ignores unexportedVideos
                         (see above).
@@ -105,8 +142,10 @@ OUTPUT (one pretty JSON object)
                         time, not authoring; never affects publishable.
   unexportedVideos[]    { id, title } — Videos with no .mp4 on disk. title is
                         "<sectionPath>/<lessonPath>/<title>".
-  courseViewLints[]     Lesson Warnings + Video Warnings on the effective
-                        output, itemised: { scope, sectionPath, lessonPath,
+  courseViewLints[]     Lesson Warnings + Video Warnings on the LESSONS THAT
+                        SHIP — a gate may only speak about what a release
+                        contains, so these stay silent about a Lesson shipping
+                        as a Placeholder Lesson. Itemised: { scope, sectionPath, lessonPath,
                         kind } plus videoTitle when scope is "video". A
                         course-scope entry belongs to no single video —
                         { scope: "course", kind: "duplicateQuizId", quizId,
@@ -116,8 +155,20 @@ OUTPUT (one pretty JSON object)
                         refuse a publish, the authoring surfaces just no
                         longer show them.
   invalidLessonCombos[] Lessons whose Video roles are ambiguous (e.g. a
-                        Solution with no Problem).
-  incompleteVideos[]    Shipping Videos missing a required field.
+                        Solution with no Problem). Narrowed the same way as
+                        courseViewLints: silent about a Placeholder Lesson.
+  incompleteVideos[]    Shipping Videos missing a required field. NOT narrowed —
+                        it is the record of which Videos still have gaps.
+  placeholderLessons[]  Only with --placeholders. The Lessons this floor
+                        announces by title alone:
+                        { sectionPath, lessonPath, title, priority, hardGaps[] }.
+                        priority is the Lesson Priority the floor let it
+                        through on.
+  withheldLessons[]     Only with --placeholders. The Lessons this release
+                        leaves out, each naming its reason: same fields plus
+                        reason — "no-videos", "no-clips", "no-body" (a hard gap
+                        below the floor) or "todo" (shippable, but the to-do
+                        toggle withholds it).
   counts                One integer per list above, for a cheap glance.
   progress              Toggle-INDEPENDENT authoring counts over the whole
                         version tree (including Lessons no publish would ship,
@@ -138,6 +189,11 @@ EXAMPLES
   cvm course readiness course_123
   cvm course readiness --exclude-todo course_123
   cvm course readiness --course-version ver_abc course_123
+  cvm course readiness --placeholders p2 course_123
+  # What would a P2 floor announce, and what would it still drop?
+  cvm course readiness --placeholders p2 course_123 |
+    jq -c '{counts, announces: [.placeholderLessons[].lessonPath],
+            dropped: [.withheldLessons[] | {lessonPath, reason}]}'
   # Is it shippable right now, and if not why?
   cvm course readiness course_123 | jq -c '{publishable, blockedBy}'
   # What would a publish have to render on the way?
@@ -148,9 +204,19 @@ EXAMPLES
 
 export const readinessCmd = Command.make(
   "readiness",
-  { courseId, version: versionOpt, excludeTodo: excludeTodoOpt },
-  ({ courseId, version, excludeTodo }) => {
+  {
+    courseId,
+    version: versionOpt,
+    excludeTodo: excludeTodoOpt,
+    placeholders: placeholdersOpt,
+  },
+  ({ courseId, version, excludeTodo, placeholders }) => {
     const includeTodoLessons = !excludeTodo;
+    // An absent flag is not the same question as `--placeholders none`. Absent
+    // means "do not ask about the floor at all", and the output is then exactly
+    // what it was before the floor existed; `none` asks for the two lists at
+    // the announce-nothing position.
+    const band = Option.getOrUndefined(placeholders);
 
     const run = Effect.gen(function* () {
       const courseOps = yield* CourseOperationsService;
@@ -164,7 +230,10 @@ export const readinessCmd = Command.make(
       }
 
       const versionId = yield* resolveVersionId({ courseId, version });
-      const readiness = yield* validatePublishability(versionId);
+      const readiness = yield* validatePublishability(
+        versionId,
+        band === undefined ? null : placeholderFloorFromBand(band)
+      );
       const position = includeTodoLessons
         ? readiness.withTodo
         : readiness.withoutTodo;
@@ -186,10 +255,23 @@ export const readinessCmd = Command.make(
         (list) => lists[list].length > 0
       );
 
+      // The floor's two lists are omitted entirely without the flag, so a
+      // caller that never asks about the floor reads the same object it always
+      // read — including the same key set.
+      const floorReport = band === undefined ? {} : { placeholderFloor: band };
+      const floorLists =
+        band === undefined
+          ? {}
+          : {
+              placeholderLessons: position.placeholderLessons,
+              withheldLessons: position.withheldLessons,
+            };
+
       yield* emitObject({
         courseId: readiness.courseId,
         versionId: readiness.versionId,
         includesTodoLessons: includeTodoLessons,
+        ...floorReport,
         publishable: blockedBy.length === 0,
         blockedBy,
         // Pending machine work, not an authoring gap: publish would render
@@ -201,8 +283,15 @@ export const readinessCmd = Command.make(
           courseViewLints: lists.courseViewLints.length,
           invalidLessonCombos: lists.invalidLessonCombos.length,
           incompleteVideos: lists.incompleteVideos.length,
+          ...(band === undefined
+            ? {}
+            : {
+                placeholderLessons: position.placeholderLessons.length,
+                withheldLessons: position.withheldLessons.length,
+              }),
         },
         ...lists,
+        ...floorLists,
         progress: readiness.progress,
       });
     });

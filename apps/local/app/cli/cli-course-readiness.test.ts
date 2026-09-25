@@ -266,6 +266,201 @@ describe("course readiness", () => {
     });
   });
 
+  // ── THE PLACEHOLDER FLOOR ────────────────────────────────────────────────
+  //
+  // The question these answer is "if I set the floor here, what would this
+  // release announce, and what would it drop?". The seeded Lesson is Priority 2
+  // and its Video has no body, so it is unshippable by a HARD GAP — exactly the
+  // Lesson a Placeholder Lesson exists for.
+
+  it("says nothing about the floor unless --placeholders is given", async () => {
+    const res = await run(["course", "readiness", s.courseAId]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out).not.toHaveProperty("placeholderFloor");
+    expect(out).not.toHaveProperty("placeholderLessons");
+    expect(out).not.toHaveProperty("withheldLessons");
+    expect(out.counts).not.toHaveProperty("placeholderLessons");
+  });
+
+  it("announces an unshippable lesson at or above the floor, carrying its Priority", async () => {
+    const res = await run([
+      "course",
+      "readiness",
+      "--placeholders",
+      "p2",
+      s.courseAId,
+    ]);
+
+    expect(res.exitCode).toBe(0);
+    const out = JSON.parse(res.stdout);
+    expect(out.placeholderFloor).toBe("p2");
+    expect(out.placeholderLessons).toEqual([
+      {
+        sectionPath: "01-intro",
+        lessonPath: "welcome",
+        title: "Welcome",
+        priority: 2,
+        hardGaps: ["no-body"],
+      },
+    ]);
+    expect(out.withheldLessons).toEqual([]);
+    expect(out.counts.placeholderLessons).toBe(1);
+    expect(out.counts.withheldLessons).toBe(0);
+  });
+
+  it("withholds the same lesson below the floor, naming the hard gap", async () => {
+    const res = await run([
+      "course",
+      "readiness",
+      "--placeholders",
+      "p1",
+      s.courseAId,
+    ]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out.placeholderLessons).toEqual([]);
+    expect(out.withheldLessons).toEqual([
+      {
+        sectionPath: "01-intro",
+        lessonPath: "welcome",
+        title: "Welcome",
+        priority: 2,
+        hardGaps: ["no-body"],
+        reason: "no-body",
+      },
+    ]);
+  });
+
+  it("names a lesson with no videos left as no-videos", async () => {
+    // A Lesson with no active Video never reaches the effective output, so it
+    // is invisible in every other list — and it is the oldest hard gap there is.
+    await testDb.update(schema.videos).set({ archived: true });
+
+    const res = await run([
+      "course",
+      "readiness",
+      "--placeholders",
+      "p1",
+      s.courseAId,
+    ]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out.withheldLessons).toMatchObject([
+      {
+        lessonPath: "welcome",
+        reason: "no-videos",
+        hardGaps: ["no-active-video"],
+      },
+    ]);
+  });
+
+  it("names the to-do toggle as the reason when the toggle is what withheld the lesson", async () => {
+    // Shippable, but not marked done: the toggle's own remaining job.
+    await testDb
+      .update(schema.videos)
+      .set({ body: "body", description: "description" });
+    await testDb.update(schema.lessons).set({ authoringStatus: "todo" });
+
+    const res = await run([
+      "course",
+      "readiness",
+      "--exclude-todo",
+      "--placeholders",
+      "none",
+      s.courseAId,
+    ]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out.placeholderFloor).toBe("none");
+    expect(out.placeholderLessons).toEqual([]);
+    expect(out.withheldLessons).toMatchObject([
+      { lessonPath: "welcome", reason: "todo", hardGaps: [] },
+    ]);
+  });
+
+  it("lets the floor beat the to-do toggle inside the bands it names", async () => {
+    await testDb.update(schema.lessons).set({ authoringStatus: "todo" });
+
+    const withheld = await run([
+      "course",
+      "readiness",
+      "--exclude-todo",
+      "--placeholders",
+      "none",
+      s.courseAId,
+    ]);
+    expect(JSON.parse(withheld.stdout).withheldLessons).toMatchObject([
+      { lessonPath: "welcome", reason: "todo" },
+    ]);
+
+    const announced = await run([
+      "course",
+      "readiness",
+      "--exclude-todo",
+      "--placeholders",
+      "p2",
+      s.courseAId,
+    ]);
+    const out = JSON.parse(announced.stdout);
+    expect(out.withheldLessons).toEqual([]);
+    expect(out.placeholderLessons).toMatchObject([
+      { lessonPath: "welcome", priority: 2 },
+    ]);
+  });
+
+  // A gate may only speak about what a release contains, so a half-planned
+  // Video cannot refuse a pre-launch release.
+  it("silences the course-view lints and Video Warnings about a lesson that does not ship", async () => {
+    const before = JSON.parse(
+      (await run(["course", "readiness", s.courseAId])).stdout
+    );
+    // The seed raises missingBody, missingDescription and missingChapters.
+    expect(before.counts.courseViewLints).toBeGreaterThan(0);
+
+    const res = await run([
+      "course",
+      "readiness",
+      "--placeholders",
+      "p2",
+      s.courseAId,
+    ]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out.counts.placeholderLessons).toBe(1);
+    expect(out.courseViewLints).toEqual([]);
+    expect(out.counts.courseViewLints).toBe(0);
+  });
+
+  it("silences the lesson role-combo check about a lesson that does not ship", async () => {
+    // A Solution with no Problem beside it — ambiguous roles, on a Lesson the
+    // release only announces by title.
+    await testDb.insert(schema.videos).values({
+      lessonId: s.lessonId,
+      // The role is derived from the title, so it must be the bare role name.
+      title: "Solution",
+      originalFootagePath: "footage.mp4",
+    });
+
+    const before = JSON.parse(
+      (await run(["course", "readiness", s.courseAId])).stdout
+    );
+    expect(before.counts.invalidLessonCombos).toBe(1);
+    expect(before.blockedBy).toContain("invalidLessonCombos");
+
+    const res = await run([
+      "course",
+      "readiness",
+      "--placeholders",
+      "p2",
+      s.courseAId,
+    ]);
+
+    const out = JSON.parse(res.stdout);
+    expect(out.invalidLessonCombos).toEqual([]);
+    expect(out.blockedBy).not.toContain("invalidLessonCombos");
+  });
+
   it("exits 2 for an unknown course id", async () => {
     const res = await run(["course", "readiness", "course_nope"]);
 
