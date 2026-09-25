@@ -24,7 +24,8 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import { computeExportHash, type ExportClip } from "@/services/export-hash";
-import { clips as clipsTable } from "@/db/schema";
+import { clips as clipsTable, videos as videosTable } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import {
   honestRenderedDurationInSeconds,
   soundExportDurationProbe,
@@ -161,6 +162,14 @@ const setup = async () => {
     },
   ]);
 
+  // A COMPLETE, shippable Video: ADR 0029 makes a missing `body` or missing
+  // Clips a hard gap, which withholds the whole Lesson from every roster. A
+  // fixture that means to be published has to say so.
+  await testDb
+    .update(videosTable)
+    .set({ body: "Lesson body content", description: "SEO description" })
+    .where(eq(videosTable.id, video.id));
+
   const clips: ExportClip[] = [
     {
       videoFilename: "recording.mp4",
@@ -235,6 +244,11 @@ const addVideo = async (
       return clip;
     })
   );
+  // Complete, so the Lesson it joins keeps shipping (ADR 0029).
+  await testDb
+    .update(videosTable)
+    .set({ body: `${title} body`, description: `${title} description` })
+    .where(eq(videosTable.id, created.id));
   return created;
 };
 
@@ -350,11 +364,18 @@ describe("CoursePublishService", () => {
     // against a copy of the roster that no route called.
     it("skips a video with no clips", async () => {
       const context = await setup();
-      const { dbLayer, lesson } = context;
+      const { dbLayer, section } = context;
 
+      // Its OWN Lesson: a Lesson is all-or-nothing (ADR 0029), so a clip-less
+      // Video beside the seeded one would withhold that Lesson too, and the
+      // rule under test here is about the Video, not the Lesson.
       await Effect.gen(function* () {
+        const lsOps = yield* LessonSectionOperationsService;
         const videoOps = yield* VideoOperationsService;
-        return yield* videoOps.createVideo(lesson.id, {
+        const lessons = yield* lsOps.createLessons(section.id, [
+          { lessonPathWithNumber: "01.02-clipless", lessonNumber: 2 },
+        ]);
+        return yield* videoOps.createVideo(lessons[0]!.id, {
           title: "Clipless",
           originalFootagePath: "/tmp/footage.mp4",
         });
