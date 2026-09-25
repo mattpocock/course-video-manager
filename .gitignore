@@ -29,7 +29,10 @@ assets/
 # Local diagram thumbnail store (fallback path when DIAGRAM_THUMBNAILS_DIR is unset)
 diagram-thumbnails/
 video-files
-clip-mockups/
+# The Clip Mockup frame store (fallback path when CLIP_MOCKUP_DIR is unset).
+# ROOT-ANCHORED: unanchored, it also swallowed
+# apps/local/app/features/clip-mockups/, which is source.
+/clip-mockups/
 .worktrees
 
 # The cutover wizard's working directory: full database dumps and the .env it

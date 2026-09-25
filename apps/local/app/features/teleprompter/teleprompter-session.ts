@@ -118,7 +118,7 @@ export namespace teleprompterSession {
   const isRecording = (capture: CaptureStatus): boolean =>
     capture !== "not-recording";
 
-  /** The Reference tab has nothing to show on the glass — see `editorSource`. */
+  /** Reference and Mockups have nothing to show on the glass — see `editorSource`. */
   const tabToSource = (tab: EditorTab): Source | null =>
     tab === "script" ? "script" : tab === "beats" ? "beats" : null;
 

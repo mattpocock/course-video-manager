@@ -6,18 +6,24 @@ import { BeatList, type BeatListBeat } from "@/features/beats/beat-list";
 import type { BeatTab } from "../beat-tab";
 import { ReferencePanel, type ReferenceCandidate } from "./reference-panel";
 import { ScriptPanel } from "./script-panel";
+import { ClipMockupPanel } from "./clip-mockup-panel";
 
 /**
- * The editor's middle 40ch slot as a tabbed container holding three mutually
+ * The editor's middle 40ch slot as a tabbed container holding four mutually
  * exclusive panels that share the space: **Beats** (this video's own plan),
- * **Reference** (the sibling-video reader) and **Script** (this video's
- * teleprompter script). "Reference" stays reserved for the sibling reader —
- * the beat view is the Beat Panel, never a "reference".
+ * **Reference** (the sibling-video reader), **Script** (this video's
+ * teleprompter script) and **Mockups** (this video's Animatic).
+ * "Reference" stays reserved for the sibling reader — the beat view is the
+ * Beat Panel, never a "reference".
  *
  * The Beats tab is available iff the video has ≥1 beat, and the Reference tab
- * iff a reference video is selected; the Script tab is ALWAYS available (you
- * author the script there, empty or not), so this panel always renders. The
- * tab strip always shows so the UI stays structurally stable as tabs appear.
+ * iff a reference video is selected; the Script and Mockups tabs are ALWAYS
+ * available (you author the script there, empty or not, and an empty Animatic
+ * has an empty state), so this panel always renders. The tab strip always
+ * shows so the UI stays structurally stable as tabs appear.
+ *
+ * Mockups, like Script, takes nothing but the videoId: it loads and writes
+ * through its own route, so the editor never carries an Animatic in props.
  */
 export function EditorSidePanel(props: {
   activeTab: BeatTab;
@@ -74,10 +80,20 @@ export function EditorSidePanel(props: {
             Reference
           </TabButton>
         )}
+        <TabButton
+          active={props.activeTab === "mockups"}
+          onClick={() => props.onTabChange("mockups")}
+        >
+          Mockups
+        </TabButton>
       </div>
 
       {props.activeTab === "script" ? (
         <ScriptPanel videoId={props.videoId} />
+      ) : props.activeTab === "mockups" ? (
+        <div className="overflow-y-auto flex-1 px-3 py-2">
+          <ClipMockupPanel videoId={props.videoId} />
+        </div>
       ) : props.activeTab === "beats" ? (
         <div className="overflow-y-auto flex-1 px-3 py-2">
           <CreateBeatDialogProvider submitEvent={props.onBeatEvent}>
