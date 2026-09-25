@@ -99,6 +99,7 @@
     "react-router": "^7.11.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "remotion": "4.0.347",
     "shiki": "^3.8.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
