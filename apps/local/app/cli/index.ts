@@ -7,6 +7,7 @@ import { videoCommand } from "./commands/video";
 import { clipCommand } from "./commands/clip";
 import { chapterCommand } from "./commands/chapter";
 import { clipMockupCommand } from "./commands/clip-mockup";
+import { clipMockupChapterCommand } from "./commands/clip-mockup-chapter";
 import { overlayCommand } from "./commands/overlay";
 import { beatCommand } from "./commands/beat";
 import { learningGoalCommand } from "./commands/learning-goal";
@@ -27,7 +28,7 @@ const ROOT_HELP = `cvm — agent-facing access to this Course Video Manager proj
 Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 'learning-goal' (create/update/move/delete), 'beat' (add/update/move/delete),
 'clip' (add/update/move/delete), 'clip-mockup'
-(add/update/move/delete), 'chapter'
+(add/update/move/delete), 'clip-mockup-chapter' (add/list), 'chapter'
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
@@ -152,6 +153,14 @@ WRITES
                                      take a bare <id> OR --video <id> --at <n>,
                                      the 1-based position the author reads off
                                      'list' and the player
+    clip-mockup-chapter
+            add/list                 name the dividers that group a Video's
+                                     Animatic (Clip Mockups and Chapters share
+                                     ONE order key space, so membership is
+                                     implicit — a Clip Mockup belongs to the
+                                     last Chapter above it). NOT local-only and
+                                     needs NO Draft Version, unlike
+                                     'clip-mockup' and 'chapter'
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
     section
@@ -192,8 +201,8 @@ WRITES
   (Dropbox) and reads publish-only config from the repo .env.
 
 NOUNS
-  course version section learning-goal lesson video clip clip-mockup chapter
-  overlay beat file footage pitch deliverable
+  course version section learning-goal lesson video clip clip-mockup
+  clip-mockup-chapter chapter overlay beat file footage pitch deliverable
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -217,6 +226,7 @@ export const rootCommand = Command.make("cvm").pipe(
     clipCommand,
     chapterCommand,
     clipMockupCommand,
+    clipMockupChapterCommand,
     overlayCommand,
     beatCommand,
     learningGoalCommand,

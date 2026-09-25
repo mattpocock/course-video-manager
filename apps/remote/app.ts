@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { authenticate } from "./auth.js";
 import { beatRoutes } from "./routes/beat.js";
 import { chapterRoutes } from "./routes/chapter.js";
+import { clipMockupChapterRoutes } from "./routes/clip-mockup-chapter.js";
 import { clipMockupRoutes } from "./routes/clip-mockup.js";
 import { clipRoutes } from "./routes/clip.js";
 import { courseRoutes } from "./routes/course.js";
@@ -54,6 +55,7 @@ export const createApp = (runtime: RemoteRuntime) =>
     .route("/rpc/video", videoRoutes(runtime))
     .route("/rpc/clip", clipRoutes(runtime))
     .route("/rpc/clip-mockup", clipMockupRoutes(runtime))
+    .route("/rpc/clip-mockup-chapter", clipMockupChapterRoutes(runtime))
     .route("/rpc/chapter", chapterRoutes(runtime))
     .route("/rpc/overlay", overlayRoutes(runtime))
     .route("/rpc/beat", beatRoutes(runtime))

@@ -2,8 +2,9 @@ import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { clipMockups } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
-import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
+import { orderKeyBeforeItem } from "../lib/sort-by-order.js";
+import { listAnimaticOrder } from "./db-animatic-order.server.js";
 
 /**
  * Row-level operations for Clip Mockups — one still image and one spoken line
@@ -17,6 +18,12 @@ import { Effect } from "effect";
  * machine is. What this service guarantees is the ordering — the same
  * fractional-index keys `BeatOperationsService` uses, so a Clip Mockup can be
  * repositioned by the same `--before`/`--after` anchoring.
+ *
+ * THE ORDER SPACE IS SHARED with Clip Mockup Chapters, the dividers that group
+ * an Animatic. So `createClipMockup` and `moveClipMockup` compute their keys
+ * against `listAnimaticOrder` — the merged, sorted list of both nouns — not
+ * against this table. Their external behaviour is the same (append to the end,
+ * or before a named row), but appending now lands INSIDE the last divider.
  */
 
 /**
@@ -84,26 +91,17 @@ export const createClipMockupOperations = (db: Database) => {
     speech: ClipMockupSpeech,
     beforeClipMockupId: string | null = null
   ) {
-    const existing = yield* listClipMockupsByVideoId(videoId);
-
-    let prevOrder: string | null;
-    let nextOrder: string | null;
-    if (beforeClipMockupId === null) {
-      prevOrder = existing.at(-1)?.order ?? null;
-      nextOrder = null;
-    } else {
-      const idx = existing.findIndex((r) => r.id === beforeClipMockupId);
-      if (idx === -1) {
-        return yield* new NotFoundError({
-          type: "clipMockup",
-          params: { id: beforeClipMockupId },
-        });
-      }
-      prevOrder = existing[idx - 1]?.order ?? null;
-      nextOrder = existing[idx]!.order;
+    // THE MERGED SPACE, not this table alone: a Clip Mockup Chapter holds a
+    // position in the same order key space, so appending must land INSIDE the
+    // last divider rather than after it.
+    const items = yield* listAnimaticOrder(db, videoId);
+    const order = orderKeyBeforeItem(items, beforeClipMockupId);
+    if (order === null) {
+      return yield* new NotFoundError({
+        type: "clipMockup",
+        params: { id: beforeClipMockupId },
+      });
     }
-
-    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
 
     const [row] = yield* makeDbCall(() =>
       db
@@ -114,7 +112,7 @@ export const createClipMockupOperations = (db: Database) => {
           imagePath,
           audioPath: speech.audioPath,
           durationSeconds: speech.durationSeconds,
-          order: order!,
+          order,
         })
         .returning()
     );
@@ -184,34 +182,21 @@ export const createClipMockupOperations = (db: Database) => {
   ) {
     const row = yield* requireClipMockup(id);
 
-    // The Video's Animatic as it would look without the moved row.
-    const existing = yield* listClipMockupsByVideoId(row.videoId);
-    const remaining = existing.filter((r) => r.id !== id);
-
-    let prevOrder: string | null;
-    let nextOrder: string | null;
-    if (beforeClipMockupId === null) {
-      prevOrder = remaining.at(-1)?.order ?? null;
-      nextOrder = null;
-    } else {
-      const idx = remaining.findIndex((r) => r.id === beforeClipMockupId);
-      if (idx === -1) {
-        return yield* new NotFoundError({
-          type: "clipMockup",
-          params: { id: beforeClipMockupId },
-        });
-      }
-      prevOrder = remaining[idx - 1]?.order ?? null;
-      nextOrder = remaining[idx]!.order;
+    // The Video's Animatic — BOTH kinds of row — as it would look without the
+    // moved one.
+    const remaining = (yield* listAnimaticOrder(db, row.videoId)).filter(
+      (item) => item.id !== id
+    );
+    const order = orderKeyBeforeItem(remaining, beforeClipMockupId);
+    if (order === null) {
+      return yield* new NotFoundError({
+        type: "clipMockup",
+        params: { id: beforeClipMockupId },
+      });
     }
 
-    const [order] = generateNKeysBetween(prevOrder, nextOrder, 1);
-
     yield* makeDbCall(() =>
-      db
-        .update(clipMockups)
-        .set({ order: order! })
-        .where(eq(clipMockups.id, id))
+      db.update(clipMockups).set({ order }).where(eq(clipMockups.id, id))
     );
 
     return yield* requireClipMockup(id);
