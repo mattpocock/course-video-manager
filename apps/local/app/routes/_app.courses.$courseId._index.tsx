@@ -44,6 +44,7 @@ import {
   RouteModals,
 } from "@/features/course-view/course-view-components";
 import { NextTodoCard } from "@/features/course-view/next-todo-card";
+import { countCourseWarnings } from "@/features/course-view/course-warning-count";
 import {
   createSectionDragHandler,
   computeTodoCount,
@@ -133,24 +134,11 @@ export default function Component(props: Route.ComponentProps) {
   const currentCourse = optimisticData.selectedCourse;
   const displaySections = currentCourse?.sections ?? [];
 
-  const courseWarningCount = useMemo(() => {
-    if (!loaderData.isLatestVersion) return 0;
-    // Count every warning the tree still shows — which is every lesson-level
-    // one and every video-level one the Autofill does not own (see
-    // authoringVideoWarnings). This badge deliberately reads LOWER than the
-    // publish page's blocker count: the missing description and the missing
-    // Chapters are still blocking there, they are just no longer Matt's work.
-    let count = 0;
-    for (const section of displaySections) {
-      for (const lesson of section.lessons) {
-        count += lesson.lessonWarnings?.length ?? 0;
-        for (const video of lesson.videos) {
-          count += video.warnings.length;
-        }
-      }
-    }
-    return count;
-  }, [displaySections, loaderData.isLatestVersion]);
+  const courseWarningCount = useMemo(
+    () =>
+      loaderData.isLatestVersion ? countCourseWarnings(displaySections) : 0,
+    [displaySections, loaderData.isLatestVersion]
+  );
 
   const {
     isCreateSectionModalOpen,
@@ -309,7 +297,7 @@ export default function Component(props: Route.ComponentProps) {
                       />
                       {courseWarningCount > 0 && (
                         <span
-                          title={`${courseWarningCount} video warning${courseWarningCount === 1 ? "" : "s"}`}
+                          title={`${courseWarningCount} authoring warning${courseWarningCount === 1 ? "" : "s"}`}
                           className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400"
                         >
                           <AlertTriangle className="w-3 h-3" />
