@@ -17,6 +17,11 @@ import {
   requireLocalMachine,
 } from "@/cli/local-only";
 import { detail, emitObject, notFound, parseError } from "@/cli/helpers";
+import {
+  ANNOUNCE_NOTHING_BAND,
+  PLACEHOLDER_FLOOR_BANDS,
+  placeholderFloorFromBand,
+} from "@/cli/placeholder-floor";
 
 /**
  * `cvm course publish <courseId> --name vX.Y.Z` — the ONE write verb that
@@ -104,6 +109,21 @@ const excludeTodoOpt = Options.boolean("exclude-todo").pipe(
   )
 );
 
+// The Placeholder Floor, spelled as a band. Options.choice rejects any other
+// spelling in the PARSER, so a malformed floor never reaches the machine gate,
+// let alone a write. The default is the announce-nothing band, so omitting the
+// flag publishes exactly what it published before ADR 0029 — and the band's
+// meaning is shared with `cvm course readiness` through one module, so the two
+// verbs can never disagree about what `--placeholders p2` announces.
+const placeholdersOpt = Options.choice("placeholders", [
+  ...PLACEHOLDER_FLOOR_BANDS,
+]).pipe(
+  Options.withDefault(ANNOUNCE_NOTHING_BAND),
+  Options.withDescription(
+    "the Placeholder Floor — the lowest Lesson Priority band whose unshippable Lessons ship as Placeholder Lessons: none | p1 | p2 | p3 (default: none)"
+  )
+);
+
 const PUBLISH_HELP = `Publish a Course: mirror its Draft Version to Dropbox, then freeze it as a
 named Published Version.
 
@@ -146,6 +166,29 @@ VERSION NAME (--name, required)
   v1.0.0-beta.2. A malformed name, or one already used by a Published Version of
   this course, is rejected (exit 3) before anything is written.
 
+THE PLACEHOLDER FLOOR (--placeholders)
+  A PLACEHOLDER LESSON is a Lesson this release announces by title alone — no
+  video, no body, no description — so a learner can read the shape of a Course
+  before it is filmed. The PLACEHOLDER FLOOR is the lowest Lesson Priority band
+  whose unshippable Lessons ship that way: 'none' (announce nothing, the
+  default), 'p1', 'p2', 'p3'. Any other spelling is refused by the parser,
+  before the machine gate and before anything is written.
+  Three rules decide what a floor announces:
+    A gap Autofill can close never makes a Lesson a Placeholder Lesson. Only
+    three HARD GAPS count — no active Video, a Video with no Clips, a Video with
+    no body. A missing description, missing Chapters and an unexported .mp4 are
+    not gaps at all.
+    A Lesson is all-or-nothing: one hard gap on any active Video decides the
+    whole Lesson.
+    The floor BEATS the to-do toggle inside the bands it names: a to-do,
+    unshippable Lesson at or above the floor is announced, not withheld.
+    Outside those bands --exclude-todo keeps its job.
+  An unshippable Lesson BELOW the floor is WITHHELD — left out of the release
+  exactly as an unfinished Lesson is left out today — rather than failing the
+  Publish. Ask 'cvm course readiness --placeholders <band>' first to read the
+  placeholderLessons and withheldLessons a floor produces; this command ships
+  the release those lists describe.
+
 VALIDATION
   The course view must be lint-clean for the effective output. If it is not, the
   publish is refused with a PublishValidationError — nothing is uploaded and no
@@ -184,6 +227,9 @@ FLAGS
   --description <text> (required) description for the Published Version.
   --exclude-todo      withhold to-do Lessons (default ships every Lesson, matching
                       the standalone Dropbox mirror).
+  --placeholders <band>
+                      the Placeholder Floor: none | p1 | p2 | p3 (default none —
+                      announce nothing, today's behaviour exactly).
 
 OUTPUT
   One pretty JSON object: { publishedVersionId, newDraftVersionId, name,
@@ -192,7 +238,8 @@ OUTPUT
 EXAMPLES
   cvm course publish course_123 --name v1.0.0 --description "first cut"
   cvm course publish course_123 --name v1.1.0 --description "adds the testing section"
-  cvm course publish course_123 --name v2.0.0-beta.1 --description "beta" --exclude-todo`;
+  cvm course publish course_123 --name v2.0.0-beta.1 --description "beta" --exclude-todo
+  cvm course publish course_123 --name v0.1.0 --description "the syllabus" --placeholders p2`;
 
 // ---------------------------------------------------------------------------
 // publish
@@ -205,9 +252,11 @@ export const publishCmd = Command.make(
     name: nameOpt,
     description: descriptionOpt,
     excludeTodo: excludeTodoOpt,
+    placeholders: placeholdersOpt,
   },
-  ({ courseId, name, description, excludeTodo }) => {
+  ({ courseId, name, description, excludeTodo, placeholders }) => {
     const includeTodoLessons = !excludeTodo;
+    const placeholderFloor = placeholderFloorFromBand(placeholders);
 
     // MACHINE GATE FIRST, ahead of even the name check: Publish renders with
     // ffmpeg and mirrors the finished videos directory to Dropbox, so on a
@@ -264,6 +313,7 @@ export const publishCmd = Command.make(
         versionName: name,
         versionDescription: description,
         includeTodoLessons,
+        placeholderFloor,
       });
 
       yield* emitObject({
