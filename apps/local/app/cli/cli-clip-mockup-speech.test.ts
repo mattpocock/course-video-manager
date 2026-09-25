@@ -207,7 +207,7 @@ describe("cvm clip-mockup: speech", () => {
     expect(wavsIn(s.lessonVideoLineageId)).toEqual([row.audioPath]);
     // It is the author's voice and the one model, and no verb can choose:
     expect(CLIP_MOCKUP_VOICE).toBe("Leda");
-    expect(CLIP_MOCKUP_TTS_MODEL).toBe("gemini-2.5-flash-preview-tts");
+    expect(CLIP_MOCKUP_TTS_MODEL).toBe("gemini-2.5-flash-tts");
   });
 
   // -----------------------------------------------------------------------

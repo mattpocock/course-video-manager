@@ -1,5 +1,6 @@
 import { Clock, Data, Duration, Effect, Schedule } from "effect";
 import type { RateLimiter } from "effect";
+import type { GoogleAuth } from "./google-adc";
 
 /**
  * THE PRIVATE LOWER HALF OF `clip-mockup-speech-service.ts` — everything that
@@ -20,23 +21,42 @@ import type { RateLimiter } from "effect";
 /** The single Gemini prebuilt voice every Clip Mockup line is read in. */
 export const CLIP_MOCKUP_VOICE = "Leda";
 
-/** The single Gemini TTS model every Clip Mockup line is read by. */
-export const CLIP_MOCKUP_TTS_MODEL = "gemini-2.5-flash-preview-tts";
-
-/** The environment variable holding the Gemini key. */
-export const GEMINI_API_KEY_ENV_KEY = "GEMINI_API_KEY";
+/**
+ * The single Gemini TTS model every Clip Mockup line is read by.
+ *
+ * The GA name on Cloud Text-to-Speech, not the `-preview-` name the Gemini
+ * API used. Same model, same Leda. It is part of the speech cache key in
+ * `speechFilename`, so changing this string retires every WAV already on disk
+ * — which is correct, and is why it is stated here and nowhere else.
+ */
+export const CLIP_MOCKUP_TTS_MODEL = "gemini-2.5-flash-tts";
 
 /** The sample rate assumed when Gemini's mimeType does not state one. */
 export const DEFAULT_SAMPLE_RATE = 24000;
 
-/** The one endpoint this module talks to. */
-const TTS_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${CLIP_MOCKUP_TTS_MODEL}:generateContent`;
+/**
+ * The one endpoint this module talks to.
+ *
+ * Cloud Text-to-Speech, NOT `generativelanguage.googleapis.com`. The Gemini
+ * API capped TTS at 100 requests per day on a paid Tier 1 account, counting
+ * requests rather than tokens; an Animatic is hundreds of seven-second lines,
+ * so it hit that wall at about a third of one Section. This endpoint serves
+ * the same models and the same prebuilt voices with no daily cap. See
+ * `google-adc.ts` for the one thing that cost us: OAuth instead of a key.
+ */
+const TTS_ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize";
+
+/** Cloud TTS wants a language for a prebuilt voice, even a universal one. */
+const TTS_LANGUAGE_CODE = "en-us";
 
 /**
  * THE PACE AND THE BACKOFF — all four numbers, here, beside the model.
  *
- * `TTS_REQUESTS_PER_INTERVAL` matches the model's published per-minute cap, so
- * the common case never earns a 429 in the first place.
+ * `TTS_REQUESTS_PER_INTERVAL` sits well under the model's published Cloud TTS
+ * ceiling (~1,500 queries per minute for `gemini-2.5-flash-tts`), so the
+ * common case never earns a 429 in the first place. It is deliberately NOT
+ * set to that ceiling: this is a guard against a runaway loop, not a target.
+ * It was 3/minute against the Gemini API's far tighter free-tier pacing.
  *
  * WHAT THE RATE LIMITER DOES NOT COVER, and this is the important part: `cvm`
  * is ONE PROCESS PER INVOCATION. An agent that runs `cvm clip-mockup add`
@@ -47,7 +67,7 @@ const TTS_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${
  * across processes would need a shared clock on disk; that is a separate,
  * deliberate decision and is NOT made here.
  */
-export const TTS_REQUESTS_PER_INTERVAL = 3;
+export const TTS_REQUESTS_PER_INTERVAL = 120;
 export const TTS_RATE_INTERVAL: Duration.DurationInput = "1 minute";
 
 /**
@@ -131,17 +151,14 @@ type SpeechFailure =
 export const wordCount = (s: string) =>
   s.trim() ? s.trim().split(/\s+/).length : 0;
 
+/**
+ * Cloud TTS answers with one base64 field and nothing else — no candidates, no
+ * finish reason, no safety envelope. The shape is flat because the service is
+ * a synthesiser, not a chat model: there is no branch where it decides to
+ * answer with text instead.
+ */
 type GeminiTtsResponse = {
-  candidates?: {
-    finishReason?: string;
-    content?: {
-      parts?: {
-        inlineData?: { data: string; mimeType: string };
-        text?: string;
-      }[];
-    };
-  }[];
-  promptFeedback?: { blockReason?: string; blockReasonMessage?: string };
+  audioContent?: string;
 };
 
 /**
@@ -149,29 +166,12 @@ type GeminiTtsResponse = {
  * token-limit truncation all arrive as a cheerful success, and the only thing
  * that tells the author which one happened is this message.
  */
-function describeMissingAudio(json: GeminiTtsResponse, chunk: string): string {
-  const parts: string[] = [];
-  const block = json.promptFeedback?.blockReason;
-  if (block) {
-    parts.push(
-      `the prompt was blocked (${block}${
-        json.promptFeedback?.blockReasonMessage
-          ? `: ${json.promptFeedback.blockReasonMessage}`
-          : ""
-      })`
-    );
-  }
-  const finish = json.candidates?.[0]?.finishReason;
-  if (finish && finish !== "STOP") parts.push(`finishReason ${finish}`);
-  const text = json.candidates?.[0]?.content?.parts?.find(
-    (p) => typeof p.text === "string"
-  )?.text;
-  if (text) parts.push(`it answered with text instead of audio: ${text}`);
-  if (parts.length === 0) parts.push("no inlineData part was present");
+function describeMissingAudio(chunk: string): string {
   const snippet = chunk.length > 120 ? `${chunk.slice(0, 120)}…` : chunk;
-  return `Gemini TTS returned no audio for a ${wordCount(
-    chunk
-  )}-word line — ${parts.join("; ")}. Line: "${snippet}"`;
+  return (
+    `Cloud TTS answered 200 with no audioContent for a ${wordCount(chunk)}-word ` +
+    `line. Line: "${snippet}"`
+  );
 }
 
 /**
@@ -199,7 +199,7 @@ export class GeminiTtsTransport extends Effect.Service<GeminiTtsTransport>()(
   {
     sync: () => ({
       post: (input: {
-        readonly apiKey: string;
+        readonly auth: GoogleAuth;
         readonly chunk: string;
       }): Effect.Effect<TtsHttpResponse, TtsTransientError> =>
         Effect.tryPromise({
@@ -208,17 +208,23 @@ export class GeminiTtsTransport extends Effect.Service<GeminiTtsTransport>()(
               method: "POST",
               headers: {
                 "content-type": "application/json",
-                "x-goog-api-key": input.apiKey,
+                authorization: `Bearer ${input.auth.token}`,
+                // A user credential carries no project of its own, so Cloud
+                // TTS refuses it without being told which one to bill.
+                "x-goog-user-project": input.auth.project,
               },
               body: JSON.stringify({
-                contents: [{ parts: [{ text: input.chunk }] }],
-                generationConfig: {
-                  responseModalities: ["AUDIO"],
-                  speechConfig: {
-                    voiceConfig: {
-                      prebuiltVoiceConfig: { voiceName: CLIP_MOCKUP_VOICE },
-                    },
-                  },
+                input: { text: input.chunk },
+                voice: {
+                  languageCode: TTS_LANGUAGE_CODE,
+                  name: CLIP_MOCKUP_VOICE,
+                  model_name: CLIP_MOCKUP_TTS_MODEL,
+                },
+                // Asking for the rate explicitly means it never has to be
+                // parsed back out of a mimeType, which the Gemini API forced.
+                audioConfig: {
+                  audioEncoding: "LINEAR16",
+                  sampleRateHertz: DEFAULT_SAMPLE_RATE,
                 },
               }),
             });
@@ -230,7 +236,7 @@ export class GeminiTtsTransport extends Effect.Service<GeminiTtsTransport>()(
               status: undefined,
               retryAfter: undefined,
               cause,
-              message: `Gemini TTS could not be reached: ${
+              message: `Cloud TTS could not be reached: ${
                 cause instanceof Error ? cause.message : String(cause)
               }`,
             }),
@@ -356,14 +362,14 @@ const refuse = (
 export interface TtsCaller {
   readonly transport: GeminiTtsTransport;
   readonly limit: RateLimiter.RateLimiter;
-  readonly apiKey: string;
+  readonly auth: GoogleAuth;
 }
 
 /** One request, one answer — no retrying, no pacing. */
 const requestChunk = (chunk: string, caller: TtsCaller) =>
   Effect.gen(function* () {
     const response = yield* caller.transport.post({
-      apiKey: caller.apiKey,
+      auth: caller.auth,
       chunk,
     });
     if (response.status < 200 || response.status >= 300) {
@@ -374,26 +380,27 @@ const requestChunk = (chunk: string, caller: TtsCaller) =>
       catch: (cause) =>
         new SpeechSynthesisError({
           cause,
-          message: `Gemini TTS answered 200 with a body that is not JSON: ${response.body.slice(
+          message: `Cloud TTS answered 200 with a body that is not JSON: ${response.body.slice(
             0,
             200
           )}`,
         }),
     });
-    const inline = json.candidates?.[0]?.content?.parts?.find(
-      (p) => p.inlineData
-    )?.inlineData;
-    if (!inline) {
+    if (!json.audioContent) {
       return yield* new SpeechSynthesisError({
         cause: null,
-        message: describeMissingAudio(json, chunk),
+        message: describeMissingAudio(chunk),
       });
     }
-    // mimeType looks like "audio/L16;rate=24000".
-    const rate = Number(
-      inline.mimeType.match(/rate=(\d+)/)?.[1] ?? DEFAULT_SAMPLE_RATE
-    );
-    return { pcm: Buffer.from(inline.data, "base64"), rate };
+    // Cloud TTS returns LINEAR16 already wrapped in a 44-byte RIFF header.
+    // Strip it: `pcmToWav` writes its own, and two stacked headers decode as
+    // a click followed by the first 44 bytes of audio being read as `fmt `.
+    const decoded = Buffer.from(json.audioContent, "base64");
+    const pcm =
+      decoded.subarray(0, 4).toString("ascii") === "RIFF"
+        ? decoded.subarray(44)
+        : decoded;
+    return { pcm, rate: DEFAULT_SAMPLE_RATE };
   });
 
 /**

@@ -133,7 +133,7 @@ describe("speechFilename", () => {
   it("names the voice and the model, so a stale WAV is impossible", () => {
     // Guard: if either constant is ever changed, every cached WAV must miss.
     expect(CLIP_MOCKUP_VOICE).toBe("Leda");
-    expect(CLIP_MOCKUP_TTS_MODEL).toBe("gemini-2.5-flash-preview-tts");
+    expect(CLIP_MOCKUP_TTS_MODEL).toBe("gemini-2.5-flash-tts");
     expect(speechFilename("A line.")).toMatch(/^speech-[0-9a-f]{32}\.wav$/);
   });
 });

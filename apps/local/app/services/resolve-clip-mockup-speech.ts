@@ -28,7 +28,7 @@ import { loadRepoEnv } from "./repo-env";
  * The heavy service `clip-mockup add`, `update --say` and the editor's
  * in-place edit reach for, built LOCALLY here rather than merged into the
  * shared cliRuntime — exactly like
- * `footage transcribe`: no read verb should have to satisfy GEMINI_API_KEY. It
+ * `footage transcribe`: no read verb should have to satisfy Google credentials. It
  * is only reached on the branch below where the service was not already
  * provided, which is what lets a test inject a fake and never call Gemini.
  */

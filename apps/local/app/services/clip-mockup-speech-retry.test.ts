@@ -7,11 +7,15 @@ import os from "node:os";
 import nodePath from "node:path";
 import {
   ClipMockupSpeechService,
-  GEMINI_API_KEY_ENV_KEY,
   GeminiTtsTransport,
   speechFilename,
   type TtsHttpResponse,
 } from "./clip-mockup-speech-service";
+import {
+  ACCESS_TOKEN_ENV_KEY,
+  forgetGoogleAuth,
+  PROJECT_ENV_KEY,
+} from "./google-adc";
 import { CLIP_MOCKUP_DIR_ENV_KEY } from "./clip-mockup-files";
 import { resolveClipMockupSpeech } from "./resolve-clip-mockup-speech";
 
@@ -35,15 +39,28 @@ import { resolveClipMockupSpeech } from "./resolve-clip-mockup-speech";
 // file can reach Gemini.
 // ===========================================================================
 
-const originalApiKey = process.env[GEMINI_API_KEY_ENV_KEY];
+// The credential seam. Setting an access token outright is what stops
+// `resolveGoogleAuth` reading the developer's own ADC file and spending a
+// refresh grant on a suite that never makes a request: the transport below is
+// faked, so this token is handed over and then thrown away.
+const originalToken = process.env[ACCESS_TOKEN_ENV_KEY];
+const originalProject = process.env[PROJECT_ENV_KEY];
+
+const restore = (key: string, was: string | undefined) => {
+  if (was === undefined) delete process.env[key];
+  else process.env[key] = was;
+};
 
 beforeAll(() => {
-  process.env[GEMINI_API_KEY_ENV_KEY] = "test-key-never-used";
+  process.env[ACCESS_TOKEN_ENV_KEY] = "test-token-never-used";
+  process.env[PROJECT_ENV_KEY] = "test-project-never-billed";
+  forgetGoogleAuth();
 });
 
 afterAll(() => {
-  if (originalApiKey === undefined) delete process.env[GEMINI_API_KEY_ENV_KEY];
-  else process.env[GEMINI_API_KEY_ENV_KEY] = originalApiKey;
+  restore(ACCESS_TOKEN_ENV_KEY, originalToken);
+  restore(PROJECT_ENV_KEY, originalProject);
+  forgetGoogleAuth();
 });
 
 // ---------------------------------------------------------------------------
@@ -112,23 +129,34 @@ const SAMPLE_RATE = 24000;
 /** Half a second of silence, so the returned WAV has a length to assert. */
 const PCM = Buffer.alloc(SAMPLE_RATE);
 
+/**
+ * A Cloud TTS success: one flat base64 field, no candidates and no envelope.
+ *
+ * Raw PCM with NO RIFF header, which is the half of the branch that matters
+ * least; `audio200WithRiffHeader` below covers the half that bit us.
+ */
 const audio200 = (): TtsHttpResponse => ({
   status: 200,
+  body: JSON.stringify({ audioContent: PCM.toString("base64") }),
+});
+
+/**
+ * What Cloud TTS ACTUALLY sends for `LINEAR16`: the PCM behind a 44-byte RIFF
+ * header it wrote itself.
+ *
+ * This is the one real behaviour difference between the two APIs, and it is
+ * silent: `pcmToWav` writes its own header, so a response passed through
+ * unstripped yields a file whose second header is read as audio — a click,
+ * then a run time overstated by 44 bytes on every single line of an Animatic.
+ */
+const audio200WithRiffHeader = (): TtsHttpResponse => ({
+  status: 200,
   body: JSON.stringify({
-    candidates: [
-      {
-        content: {
-          parts: [
-            {
-              inlineData: {
-                mimeType: `audio/L16;rate=${SAMPLE_RATE}`,
-                data: PCM.toString("base64"),
-              },
-            },
-          ],
-        },
-      },
-    ],
+    audioContent: Buffer.concat([
+      Buffer.from("RIFF"),
+      Buffer.alloc(40), // the rest of a WAV header; contents are irrelevant
+      PCM,
+    ]).toString("base64"),
   }),
 });
 
@@ -151,7 +179,7 @@ const fakeTransport = (
 ): FakeTransport => {
   const calls: string[] = [];
   const layer = Layer.succeed(GeminiTtsTransport, {
-    post: (input: { readonly apiKey: string; readonly chunk: string }) =>
+    post: (input: { readonly auth: unknown; readonly chunk: string }) =>
       Effect.sync(() => {
         calls.push(input.chunk);
         return responses[Math.min(calls.length - 1, responses.length - 1)]!;
@@ -347,4 +375,49 @@ describe("the speech cache costs no request", () => {
     // The duration still arrives, read straight back out of the WAV header.
     expect(second.durationSeconds).toBeCloseTo(first.durationSeconds, 6);
   });
+});
+
+// ===========================================================================
+// The shape of a Cloud TTS success.
+//
+// Moving off the Gemini API changed exactly one thing about a 200: the audio
+// arrives as a flat `audioContent` string, and for LINEAR16 it comes with a
+// RIFF header already on it. `pcmToWav` writes its own, so the header has to
+// come off first — and getting that wrong is SILENT, which is why it is
+// asserted here rather than left to a listen-through.
+// ===========================================================================
+
+describe("a 200 carries base64 audio", () => {
+  it.effect("a RIFF header from Cloud TTS is stripped, not doubled", () =>
+    Effect.gen(function* () {
+      const withHeader = fakeTransport([audio200WithRiffHeader()]);
+      const withoutHeader = fakeTransport([audio200()]);
+
+      const a = yield* speak("A line.", withHeader);
+      const b = yield* speak("A line.", withoutHeader);
+
+      // Same audio either way: the 44 bytes Cloud TTS prepended are gone.
+      expect(a.wav.byteLength).toBe(b.wav.byteLength);
+      expect(a.durationSeconds).toBeCloseTo(b.durationSeconds, 9);
+      // And the result is ONE well-formed WAV, not a header wrapping a header.
+      expect(Buffer.from(a.wav).subarray(0, 4).toString("ascii")).toBe("RIFF");
+      expect(Buffer.from(a.wav).subarray(8, 12).toString("ascii")).toBe("WAVE");
+      expect(Buffer.from(a.wav).subarray(36, 40).toString("ascii")).toBe(
+        "data"
+      );
+      // Half a second of s16le mono at 24kHz, and not a byte more.
+      expect(a.durationSeconds).toBeCloseTo(PCM.length / (SAMPLE_RATE * 2), 9);
+    })
+  );
+
+  it.effect("a 200 with no audioContent is a failure, not a silent WAV", () =>
+    Effect.gen(function* () {
+      const transport = fakeTransport([{ status: 200, body: "{}" }]);
+
+      const failure = yield* Effect.flip(speak("A line.", transport));
+
+      expect(failure._tag).toBe("SpeechSynthesisError");
+      expect(failure.message).toContain("no audioContent");
+    })
+  );
 });

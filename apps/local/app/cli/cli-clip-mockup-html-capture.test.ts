@@ -81,7 +81,7 @@ let sourceDir: string;
 /**
  * `add` and `update --say` voice their line (#1643), so this suite needs the
  * shared speech fake merged in beside the capture fake — otherwise every
- * write here would reach for GEMINI_API_KEY. Neither Chromium nor Gemini ever
+ * write here would reach for Google credentials. Neither Chromium nor Cloud TTS ever
  * runs in this file.
  */
 const speech = fakeSpeech();

@@ -42,18 +42,22 @@ speech as they write it, in ONE voice (Leda) — every line is the author's, and
 a second voice would invent a character who will not exist in the filmed
 video. The WAV lands beside the frame and the MEASURED length goes on the row,
 so an agent can total a Video's durationSeconds and say the Lesson runs 34
-minutes before anybody presses play. Needs GEMINI_API_KEY; a failure is _tag
-"SpeechSynthesisError", exit 4, and creates nothing.
+minutes before anybody presses play. Speech goes through Cloud Text-to-Speech
+and needs Google credentials, NOT an API key: run 'gcloud auth
+application-default login' once. A failure is _tag "SpeechSynthesisError",
+exit 4, and creates nothing.
 
-THE DAILY TTS QUOTA IS ITS OWN ANSWER. Gemini caps TTS requests per DAY, and
-that cap resets in HOURS, not seconds. Spending it is _tag
-"TtsQuotaExhaustedError" and exit 8 — NOT 4 — carrying quotaValue (the cap)
-and resetsAt (when it comes back) so the one line on stderr says whether to
-wait or raise the cap. It is a STOP: retrying before resetsAt cannot succeed.
-A per-minute squeeze or a 5xx is different and is retried for you, invisibly;
-only if the retries run out does it surface as "SpeechSynthesisError".
-Re-adding a line that was ALREADY spoken costs no request at all — the WAV
-cache is a far bigger lever on the quota than any retry policy.
+THERE IS NO DAILY CAP ANY MORE, and that is why the endpoint changed. The
+Gemini API capped TTS at 100 requests per DAY on a paid account — it counted
+requests, not tokens, so an Animatic of hundreds of seven-second lines hit the
+wall at about a third of one Section. Cloud TTS serves the same models and the
+same voices with no daily cap. Should a per-day cap ever appear again it is
+still _tag "TtsQuotaExhaustedError" and exit 8 — NOT 4 — carrying quotaValue
+(the cap) and resetsAt (when it comes back), and it is a STOP: retrying before
+resetsAt cannot succeed. A per-minute squeeze or a 5xx is different and is
+retried for you, invisibly; only if the retries run out does it surface as
+"SpeechSynthesisError". Re-adding a line that was ALREADY spoken costs no
+request at all — the WAV cache is a bigger lever than any retry policy.
 
 Like a Beat and the Script, a Clip Mockup is an internal planning artifact: it
 is NEVER published into course.json. Deleting is an archive, and archived ==

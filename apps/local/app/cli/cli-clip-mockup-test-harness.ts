@@ -13,7 +13,7 @@ import { buildWriteLayer, type RunResult } from "./cli-write-test-harness";
  * The speech fake every `cvm clip-mockup` suite runs on.
  *
  * `clip-mockup add` and `update --say` synthesise their line, so without this
- * the suites would need GEMINI_API_KEY and would call Gemini for real. The
+ * the suites would need Google credentials and would call Cloud TTS for real. The
  * whole ClipMockupSpeechService is replaced by `Layer.succeed`, exactly as the
  * `cvm footage` suite replaces VideoProcessingService to keep real ffmpeg and
  * real Whisper out of the run. NO GEMINI CALL EVER RUNS IN A TEST.

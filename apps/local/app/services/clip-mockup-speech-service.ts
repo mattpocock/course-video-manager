@@ -4,7 +4,6 @@ import {
   CLIP_MOCKUP_TTS_MODEL,
   CLIP_MOCKUP_VOICE,
   DEFAULT_SAMPLE_RATE,
-  GEMINI_API_KEY_ENV_KEY,
   GeminiTtsTransport,
   SpeechSynthesisError,
   synthesizeChunk,
@@ -14,6 +13,7 @@ import {
   wordCount,
   type TtsCaller,
 } from "./clip-mockup-speech-gemini";
+import { resolveGoogleAuth } from "./google-adc";
 
 /**
  * The one voice, the one model, the two typed failures and the HTTP seam are
@@ -23,7 +23,6 @@ import {
 export {
   CLIP_MOCKUP_TTS_MODEL,
   CLIP_MOCKUP_VOICE,
-  GEMINI_API_KEY_ENV_KEY,
   GeminiTtsTransport,
   SpeechSynthesisError,
   TtsQuotaExhaustedError,
@@ -243,23 +242,31 @@ export class ClipMockupSpeechService extends Effect.Service<ClipMockupSpeechServ
        * as `SpeechSynthesisError`, the tag `cvm clip-mockup` has always
        * documented, so nothing downstream had to change to keep working.
        *
-       * The key is read HERE, at call time, not while this layer is being
-       * built. `Effect.provide` builds a layer before the effect inside it
-       * runs, so a key read at build time is read before the CLI has loaded
-       * the repo `.env` — the bug commit 2205d419 fixed for
+       * The credential is resolved HERE, at call time, not while this layer is
+       * being built. `Effect.provide` builds a layer before the effect inside
+       * it runs, so anything read at build time is read before the CLI has
+       * loaded the repo `.env` — the bug commit 2205d419 fixed for
        * `footage transcribe`.
+       *
+       * A missing or unusable credential arrives as `SpeechSynthesisError`
+       * rather than its own exit code: the author's next move is the same
+       * either way, and `GoogleCredentialsError` already carries the exact
+       * `gcloud` line to run.
        */
       const synthesizeLine = Effect.fn("synthesizeLine")(function* (
         line: string
       ) {
-        const apiKey = process.env[GEMINI_API_KEY_ENV_KEY];
-        if (!apiKey) {
-          return yield* new SpeechSynthesisError({
-            cause: null,
-            message: `${GEMINI_API_KEY_ENV_KEY} is not set — cannot speak a Clip Mockup line.`,
-          });
-        }
-        return yield* speak(line, { transport, limit, apiKey }).pipe(
+        const auth = yield* resolveGoogleAuth().pipe(
+          Effect.catchTag(
+            "GoogleCredentialsError",
+            (failure) =>
+              new SpeechSynthesisError({
+                cause: failure.cause,
+                message: failure.message,
+              })
+          )
+        );
+        return yield* speak(line, { transport, limit, auth }).pipe(
           Effect.catchTag(
             "TtsTransientError",
             (failure) =>
