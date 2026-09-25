@@ -7,8 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useEffect } from "react";
-import { useFetcher, useNavigate } from "react-router";
+import { useFetcher } from "react-router";
 
 interface AddCourseModalProps {
   isOpen: boolean;
@@ -16,15 +15,7 @@ interface AddCourseModalProps {
 }
 
 export function AddCourseModal({ isOpen, onOpenChange }: AddCourseModalProps) {
-  const fetcher = useFetcher<{ id: string }>();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.id) {
-      onOpenChange(false);
-      navigate(`/courses/${fetcher.data.id}`);
-    }
-  }, [fetcher.state, fetcher.data, onOpenChange, navigate]);
+  const fetcher = useFetcher();
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -36,6 +27,10 @@ export function AddCourseModal({ isOpen, onOpenChange }: AddCourseModalProps) {
           method="post"
           action="/api/courses/add-course"
           className="space-y-4 py-4"
+          // The action answers with a redirect, which React Router follows on
+          // its own. The fetcher lives on this component, not inside the
+          // dialog content, so closing here does not cancel the submission.
+          onSubmit={() => onOpenChange(false)}
         >
           <div className="space-y-2">
             <Label htmlFor="course-name">Course Name</Label>

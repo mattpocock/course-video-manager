@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { makeAction } from "@/services/route-action.server";
-import { data } from "react-router";
+import { redirect } from "react-router";
 
 const addCourseSchema = Schema.Struct({
   name: Schema.String,
@@ -27,8 +27,6 @@ export const action = makeAction({
         name: "v1.0",
       });
 
-      return data({
-        id: course.id,
-      });
+      return redirect(`/courses/${course.id}`);
     }),
 });
