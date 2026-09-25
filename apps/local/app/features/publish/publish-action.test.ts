@@ -34,6 +34,11 @@ describe("the publish page's one button", () => {
     expect(action.kind === "autofill" && action.label).toBe("Autofill 1 Video");
   });
 
+  // Also the pre-launch case, and the reason this decision needed no change for
+  // ADR 0029: an unfinished Lesson is announced or withheld rather than
+  // blocking, and a Lesson that does not ship in full contributes no Autofill
+  // Candidate — so on a Course with nothing filmed both inputs are already
+  // clean, and the button the author meets is Publish.
   it("publishes when there are no candidates and readiness is clean", () => {
     expect(input()).toEqual({
       kind: "publish",
@@ -73,18 +78,6 @@ describe("the publish page's one button", () => {
       kind: "publish",
       label: "Publish",
       enabled: false,
-    });
-  });
-
-  it("reaches Publish on a pre-launch Course", () => {
-    // Every unfinished Lesson is announced as a Placeholder Lesson or withheld
-    // rather than blocking, and a Lesson that does not ship in full contributes
-    // no Autofill Candidate — so the button the author meets is Publish, not a
-    // count of work the floor has already answered for.
-    expect(input({ autofillCandidateCount: 0, hasBlockers: false })).toEqual({
-      kind: "publish",
-      label: "Publish",
-      enabled: true,
     });
   });
 

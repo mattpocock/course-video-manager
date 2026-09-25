@@ -1,5 +1,5 @@
 import { consumeSSEStream } from "./consume-sse-stream";
-import type { PlaceholderFloorBand } from "@/cli/placeholder-floor";
+import type { PlaceholderFloorBand } from "@/packages/course-json";
 import type { uploadReducer } from "./upload-reducer";
 
 export interface SSEPublishParams {

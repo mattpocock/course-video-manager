@@ -24,7 +24,7 @@ import {
   PLACEHOLDER_FLOOR_BANDS,
   placeholderFloorFromBand,
   type PlaceholderFloorBand,
-} from "@/cli/placeholder-floor";
+} from "@/packages/course-json";
 import {
   collectLessonPublishStatuses,
   type LessonPublishStatuses,

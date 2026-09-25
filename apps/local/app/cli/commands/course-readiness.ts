@@ -15,7 +15,7 @@ import { detail, emitObject, notFound, resolveVersionId } from "@/cli/helpers";
 import {
   PLACEHOLDER_FLOOR_BANDS,
   placeholderFloorFromBand,
-} from "@/cli/placeholder-floor";
+} from "@/packages/course-json";
 
 /**
  * `cvm course readiness <courseId>` — the READ half of publish validation.

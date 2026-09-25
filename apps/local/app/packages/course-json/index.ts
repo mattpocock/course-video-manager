@@ -21,6 +21,16 @@
 // a Lesson reads the classifier rather than re-deriving it, so the publish page
 // and the manifest can never disagree.
 //
+// The floor's BAND spellings (`none`, `p1`, `p2`, `p3`) ship from here too,
+// beside `PlaceholderFloor` itself: the CLI flag, the publish page's stored
+// preference and the publish SSE body all have to mean one thing by "p2", and
+// none of them can carry `null`.
+//
+// `computeEffectiveSections` has only in-package callers today
+// (`buildCourseJson`). It stays on the entry point because it is one half of a
+// pair that is only understandable as a pair, and because this package's own
+// tests may reach it no other way (see ./tests and .dependency-cruiser.cjs).
+//
 // `buildCourseJsonSchema` derives the JSON Schema sidecar (`course.schema.json`)
 // from the same `CourseJsonDocumentSchema` that types the manifest — one source
 // of truth for both the data and the schema published beside it.
@@ -28,6 +38,7 @@
 export {
   buildCourseJson,
   collectPublishBlockers,
+  IncompleteShippingVideoError,
   InvalidLessonRoleComboError,
   MissingVideoAssetReceiptError,
   InvalidVideoAssetReceiptError,
@@ -51,8 +62,11 @@ export {
 
 export {
   ANNOUNCE_NOTHING,
+  ANNOUNCE_NOTHING_BAND,
   classifyLessonPublishStatus,
   lessonHardGaps,
+  PLACEHOLDER_FLOOR_BANDS,
+  placeholderFloorFromBand,
   type ClassifiableLesson,
   type ClassifiableVideo,
   type ClassifyLessonOptions,
@@ -60,4 +74,5 @@ export {
   type LessonPublishStatus,
   type LessonWithheldReason,
   type PlaceholderFloor,
+  type PlaceholderFloorBand,
 } from "./lib/lesson-publish-status";

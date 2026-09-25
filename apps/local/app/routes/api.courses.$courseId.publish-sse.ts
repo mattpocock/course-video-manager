@@ -8,7 +8,7 @@ import {
   ANNOUNCE_NOTHING_BAND,
   PLACEHOLDER_FLOOR_BANDS,
   placeholderFloorFromBand,
-} from "@/cli/placeholder-floor";
+} from "@/packages/course-json";
 
 // The per-video export events (batchExport's `videos`/`stage`/`complete`/
 // `error` payloads, unchanged) and the Dropbox commit's `progress` percentage

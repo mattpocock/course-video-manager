@@ -10,10 +10,14 @@
  * The four positions are spelled as BANDS (`none`, `p1`, `p2`, `p3`), the same
  * spellings `cvm course publish --placeholders` accepts, because a band is a
  * stable thing to keep in `localStorage` and because the page and the CLI must
- * mean one thing by "p2".
+ * mean one thing by "p2". The vocabulary itself lives beside `PlaceholderFloor`
+ * in the course-json package — one mapping, read by both surfaces.
  */
 
-import type { PlaceholderFloorBand } from "@/cli/placeholder-floor";
+import type {
+  LessonHardGap,
+  PlaceholderFloorBand,
+} from "@/packages/course-json";
 import type { WithheldReason } from "@/services/course-publish-lesson-statuses";
 
 /**
@@ -58,6 +62,31 @@ export const WITHHELD_REASON_LABELS: Record<WithheldReason, string> = {
   "no-body": "its video has no body yet — raise the floor to announce it",
   todo: "still marked to-do, and to-do lessons are withheld",
 };
+
+/** Each hard gap, in the author's words. */
+const HARD_GAP_LABELS: Record<LessonHardGap, string> = {
+  "no-active-video": "no video",
+  "no-clips": "no clips",
+  "no-body": "no body",
+};
+
+/**
+ * WHAT IS ACTUALLY WRONG WITH A WITHHELD LESSON, whatever its reason says.
+ *
+ * The reason names the control that withheld the Lesson, and when that control
+ * is the to-do toggle the reason says nothing about the Lesson's hard gaps — so
+ * on its own it would invite the author to mark the Lesson done, republish, and
+ * watch it stay away. The gaps travel on every verdict, so they are shown
+ * beside the reason: a Lesson can never look one toggle from shipping when it
+ * is not. Empty for a Lesson the toggle alone is holding back, which is exactly
+ * the case where flipping it IS the fix.
+ */
+export const formatHardGaps = (
+  hardGaps: readonly LessonHardGap[]
+): string | null =>
+  hardGaps.length === 0
+    ? null
+    : hardGaps.map((gap) => HARD_GAP_LABELS[gap]).join(", ");
 
 export type PublishSummaryCounts = {
   readonly ships: number;

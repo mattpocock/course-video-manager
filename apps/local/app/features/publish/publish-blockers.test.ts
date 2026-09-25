@@ -10,6 +10,7 @@ import {
   type PlaceholderFloor,
 } from "@/packages/course-json";
 import {
+  formatHardGaps,
   formatPublishSummary,
   placeholderFloorStorageKey,
   WITHHELD_REASON_LABELS,
@@ -405,6 +406,41 @@ describe("the publish page's Placeholder Floor cards", () => {
     expect(
       result.withheldLessons.map((row) => [row.lessonPath, row.reason])
     ).toEqual([["p3-finished-todo", "todo"]]);
+  });
+
+  // The withheld card must never make a Lesson look one toggle from shipping.
+  // `todo` takes precedence over a hard gap in the verdict itself — that order
+  // is load-bearing for collectPublishBlockers — so the gaps have to be shown
+  // beside the reason or the label would send the author to a control that
+  // cannot help.
+  it("carries the hard gaps of a lesson the to-do toggle withheld", () => {
+    const result = statuses(
+      [
+        lesson("todo-and-unfilmed", {
+          authoringStatus: "todo",
+          videos: [video({ clips: 0, body: null })],
+        }),
+      ],
+      { includeTodoLessons: false }
+    );
+
+    const row = result.withheldLessons[0]!;
+    expect(row.reason).toBe("todo");
+    expect(row.hardGaps).toEqual(["no-clips", "no-body"]);
+    expect(formatHardGaps(row.hardGaps)).toBe("no clips, no body");
+  });
+
+  it("names no gaps on a shippable lesson the toggle alone is holding back", () => {
+    const result = statuses(
+      [lesson("finished-todo", { authoringStatus: "todo" })],
+      {
+        includeTodoLessons: false,
+      }
+    );
+
+    expect(result.withheldLessons[0]!.hardGaps).toEqual([]);
+    // Nothing to show: here flipping the toggle really is the whole fix.
+    expect(formatHardGaps(result.withheldLessons[0]!.hardGaps)).toBe(null);
   });
 
   it("keeps two courses' remembered floors apart", () => {

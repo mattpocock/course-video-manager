@@ -86,15 +86,12 @@ export function useLocalStorage(
     writeStored(key, current.value);
   }, [key, current.value]);
 
-  const setValue: Dispatch<SetStateAction<string>> = useCallback(
-    (action) => {
-      setHeld((prev) => ({
-        key: prev.key,
-        value: typeof action === "function" ? action(prev.value) : action,
-      }));
-    },
-    []
-  );
+  const setValue: Dispatch<SetStateAction<string>> = useCallback((action) => {
+    setHeld((prev) => ({
+      key: prev.key,
+      value: typeof action === "function" ? action(prev.value) : action,
+    }));
+  }, []);
 
   return [current.value, setValue];
 }
@@ -176,10 +173,12 @@ export function useLocalStorageOneOf<T extends string>(
   allowed: readonly T[],
   fallback: T
 ): [T, (next: T) => void] {
+  // Through the same guarded helpers as every other hook in this file: a read
+  // that throws (a browser blocking storage outright) must fall back, not take
+  // the page down.
   const read = useCallback(
     (from: string): T => {
-      if (!hasLocalStorage()) return fallback;
-      const stored = localStorage.getItem(from) ?? "";
+      const stored = readStored(from) ?? "";
       return (allowed as readonly string[]).includes(stored)
         ? (stored as T)
         : fallback;
@@ -198,7 +197,7 @@ export function useLocalStorageOneOf<T extends string>(
   const set = useCallback(
     (next: T) => {
       setValue(next);
-      if (hasLocalStorage()) localStorage.setItem(key, next);
+      writeStored(key, next);
     },
     [key]
   );

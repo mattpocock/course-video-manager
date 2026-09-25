@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
 import {
   PLACEHOLDER_FLOOR_BANDS,
   type PlaceholderFloorBand,
-} from "@/cli/placeholder-floor";
+} from "@/packages/course-json";
 import {
+  formatHardGaps,
   formatPublishSummary,
   PLACEHOLDER_FLOOR_BAND_DESCRIPTIONS,
   PLACEHOLDER_FLOOR_BAND_LABELS,
@@ -161,7 +162,15 @@ function PlaceholderRow({ lesson }: { lesson: PlaceholderLesson }) {
   );
 }
 
+/**
+ * The reason AND the gaps. A `todo` reason takes precedence over a hard gap in
+ * the verdict itself (`collectPublishBlockers` depends on that order), so the
+ * label alone can tell an author to flip a toggle that will not help. The gaps
+ * ride alongside it, unconditionally, so a Lesson never looks fixable when it
+ * is not.
+ */
 function WithheldRow({ lesson }: { lesson: WithheldLesson }) {
+  const gaps = formatHardGaps(lesson.hardGaps);
   return (
     <li className="text-xs text-muted-foreground">
       <span className="font-medium text-foreground">
@@ -171,6 +180,9 @@ function WithheldRow({ lesson }: { lesson: WithheldLesson }) {
       <span className="text-amber-500">
         ({WITHHELD_REASON_LABELS[lesson.reason]})
       </span>
+      {gaps !== null && (
+        <span className="block text-amber-500/80">gaps: {gaps}</span>
+      )}
       <span className="block text-muted-foreground/70">
         {lesson.sectionPath} / {lesson.lessonPath}
       </span>
