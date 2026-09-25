@@ -418,12 +418,13 @@ describe("buildCourseJson", () => {
 
   // ── Clip Mockups never ship ────────────────────────────────────────
 
-  // A Clip Mockup is an in-app planning artifact, one rung below the Script.
-  // Like a Beat and the Script it is copied forward but never reaches a
-  // student. Two layers already stop it: getVersionWithSections never loads
-  // the rows, and InputVideo has no field for them. This test guards the
-  // second layer — if someone widens the shipped Video shape, it fails.
-  it("emits no clip mockup field, and the same output as a video with none", async () => {
+  // A Clip Mockup and its Clip Mockup Chapter are in-app planning artifacts,
+  // one rung below the Script. Like a Beat and the Script they are copied
+  // forward but never reach a student. Two layers already stop them:
+  // getVersionWithSections never loads the rows, and InputVideo has no field
+  // for them. This test guards the second layer — if someone widens the
+  // shipped Video shape, it fails.
+  it("emits no clip mockup or chapter field, and the same output as a video with none", async () => {
     const plain = makeVideo({ title: "Explainer" });
     // Attached to a variable, not an object literal, so TypeScript's excess
     // property check does not reject what the real DB row would carry.
@@ -441,6 +442,7 @@ describe("buildCourseJson", () => {
           order: "a1",
         },
       ],
+      clipMockupChapters: [{ name: "The bug", order: "a0V" }],
       beats: [{ kind: "definition", title: "Closures", order: "a0" }],
       script: "INT. TERMINAL - DAY",
     };
@@ -464,6 +466,7 @@ describe("buildCourseJson", () => {
     const lesson = withResult.sections[0]!.lessons[0]!;
     if (lesson.type === "explainer") {
       expect(lesson.explainer).not.toHaveProperty("clipMockups");
+      expect(lesson.explainer).not.toHaveProperty("clipMockupChapters");
       expect(lesson.explainer).not.toHaveProperty("beats");
       expect(lesson.explainer).not.toHaveProperty("script");
       expect(Object.keys(lesson.explainer).sort()).toEqual([
