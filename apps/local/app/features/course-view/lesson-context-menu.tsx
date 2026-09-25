@@ -183,6 +183,7 @@ export function LessonContextMenuContent({
               )}
             </ContextMenuSubContent>
           </ContextMenuSub>
+          <ContextMenuSeparator />
           <ContextMenuItem
             variant="destructive"
             onSelect={() => {
