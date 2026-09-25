@@ -21,7 +21,10 @@ import {
   planBundleReuse,
   type ReusableSource,
 } from "./course-publish-reuse-plan";
-import { getValidDropboxAccessToken } from "./dropbox-auth-service";
+import {
+  dropboxAppCredentials,
+  getValidDropboxAccessToken,
+} from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
 import {
   createShipVideo,
@@ -83,6 +86,10 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const finishedVideosDirectory = yield* Config.string(
     "FINISHED_VIDEOS_DIRECTORY"
   );
+  // Resolved here, beside the other config this sync needs, rather than only
+  // inside the token refresh — which runs on the rare branch where the stored
+  // token has just expired.
+  yield* dropboxAppCredentials;
   const accessToken = yield* getValidDropboxAccessToken;
 
   const targetVersion = yield* versionOps.getCourseVersionById(

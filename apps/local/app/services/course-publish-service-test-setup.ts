@@ -109,6 +109,12 @@ export const setupPublishableCourse = async (opts?: {
   videoCount?: number;
   config?: Record<string, string>;
   /**
+   * Environment variables to REMOVE from the config provider, so a test can
+   * exercise what a box with an incomplete `.env` does. Applied after
+   * `config`.
+   */
+  unsetConfig?: string[];
+  /**
    * The bytes the fake renderer writes. Called once per export, so a Video can
    * be re-exported into DIFFERENT bytes without any of its Clips changing —
    * which is the whole of a re-export.
@@ -339,14 +345,16 @@ export const setupPublishableCourse = async (opts?: {
   const mockVideoProcessing =
     opts?.mockVideoProcessing ?? defaultMockVideoProcessing;
 
+  const configMap = new Map([
+    ["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir],
+    ["DROPBOX_REMOTE_PATH", DROPBOX_REMOTE_PATH],
+    ["DROPBOX_APP_KEY", "test-dropbox-app-key"],
+    ["DROPBOX_APP_SECRET", "test-dropbox-app-secret"],
+    ...Object.entries(opts?.config ?? {}),
+  ]);
+  for (const key of opts?.unsetConfig ?? []) configMap.delete(key);
   const configLayer = Layer.setConfigProvider(
-    ConfigProvider.fromMap(
-      new Map([
-        ["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir],
-        ["DROPBOX_REMOTE_PATH", DROPBOX_REMOTE_PATH],
-        ...Object.entries(opts?.config ?? {}),
-      ])
-    )
+    ConfigProvider.fromMap(configMap)
   );
 
   // The export writes why a stage failed into the Video's own log. In memory

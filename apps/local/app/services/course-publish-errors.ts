@@ -24,6 +24,14 @@ export class PublishCommitFailedError extends Data.TaggedError(
   newDraftVersionId: string;
   reason: "sync_failed" | "missing_assets";
   missingVideoIds?: string[];
+  /**
+   * What actually broke, for a `sync_failed`. The reason code names the PHASE;
+   * this names the failure inside it — a missing `DROPBOX_APP_KEY`, a rejected
+   * upload — which is the only part an author can act on. Optional because
+   * `missing_assets` says everything in `missingVideoIds`. The CLI renders it:
+   * `serializeError` in `app/cli/render.ts` asks for `message` by name.
+   */
+  message?: string;
 }> {}
 
 export class ExportError extends Data.TaggedError("ExportError")<{

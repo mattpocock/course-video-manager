@@ -12,11 +12,23 @@ export class DropboxNotAuthenticatedError extends Data.TaggedError(
 
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
+/**
+ * The Dropbox app credentials the token refresh exchanges a refresh token
+ * with. Exported so a run that will need them can resolve them at its EDGE:
+ * the refresh below only runs when the stored access token is already inside
+ * the five-minute buffer, so reading them here alone made a missing `.env`
+ * line a failure that first appeared minutes into a Publish, after every
+ * unexported Video had been encoded. See `.sandcastle/CODING_STANDARDS.md`.
+ */
+export const dropboxAppCredentials = Config.all({
+  appKey: Config.string("DROPBOX_APP_KEY"),
+  appSecret: Config.string("DROPBOX_APP_SECRET"),
+});
+
 const refreshAccessToken = Effect.fn("refreshDropboxAccessToken")(function* (
   refreshToken: string
 ) {
-  const appKey = yield* Config.string("DROPBOX_APP_KEY");
-  const appSecret = yield* Config.string("DROPBOX_APP_SECRET");
+  const { appKey, appSecret } = yield* dropboxAppCredentials;
 
   const tokenResponse = yield* Effect.tryPromise({
     try: async () => {

@@ -234,6 +234,8 @@ export const setupUploads = async (opts?: {
       new Map([
         ["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir],
         ["DROPBOX_REMOTE_PATH", DROPBOX_REMOTE_PATH],
+        ["DROPBOX_APP_KEY", "test-dropbox-app-key"],
+        ["DROPBOX_APP_SECRET", "test-dropbox-app-secret"],
         ...Object.entries(opts?.config ?? {}),
       ])
     )

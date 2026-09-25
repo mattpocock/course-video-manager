@@ -216,6 +216,8 @@ const setupSync = async () => {
       new Map([
         ["FINISHED_VIDEOS_DIRECTORY", finishedVideosDir],
         ["DROPBOX_REMOTE_PATH", DROPBOX_REMOTE_PATH],
+        ["DROPBOX_APP_KEY", "test-dropbox-app-key"],
+        ["DROPBOX_APP_SECRET", "test-dropbox-app-secret"],
       ])
     )
   );

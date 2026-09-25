@@ -1,4 +1,5 @@
-import { Config, Deferred, Effect, Exit, Schedule } from "effect";
+import { Cause, Config, Deferred, Effect, Exit, Schedule } from "effect";
+import { dropboxAppCredentials } from "./dropbox-auth-service";
 import { FileSystem } from "@effect/platform";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
@@ -267,6 +268,9 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         } = options;
         onStageChange?.("validating");
 
+        // Before the Submit, before any encoding — see `dropboxAppCredentials`.
+        yield* dropboxAppCredentials;
+
         const latestVersion =
           yield* versionOps.getLatestCourseVersion(courseId);
         if (!latestVersion) {
@@ -455,6 +459,8 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             discardedVersionId: latestVersion.id,
             newDraftVersionId: newDraft.id,
             reason: "sync_failed",
+            // `sync_failed` names no cause; the Exit is the only place one is.
+            message: Cause.pretty(commitExit.cause),
           });
         }
         if (commitExit.value.missingVideos.length > 0) {

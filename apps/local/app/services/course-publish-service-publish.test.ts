@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { writeAlreadyExportedVideo } from "@/test-utils/exported-video-fixture";
-import { Effect, Layer } from "effect";
+import { Cause, Effect, Exit, Layer } from "effect";
 import fs from "node:fs";
 import path from "node:path";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
@@ -180,6 +180,11 @@ describe("CoursePublishService — publish", () => {
       error: true,
       errorDetails: { reason: "sync_failed" },
     });
+    // `sync_failed` alone does not say WHAT failed. The author has to be able
+    // to read the cause off the error the CLI prints.
+    expect((result.outcome as any).errorDetails.message).toContain(
+      "too_many_write_operations"
+    );
     // The retry schedule retries the receipt upload (with internal retries
     // for transient errors), then the outer publish retries the whole sync.
     // The Pending Version was auto-Discarded.
@@ -411,5 +416,44 @@ describe("CoursePublishService — publish", () => {
     expect(typeof errorEvent?.data.message).toBe("string");
     expect(result).toHaveProperty("error", true);
     expect((result as any).failedExportVideoIds).toContain(video.id);
+  });
+
+  it("refuses before any encoding when a Dropbox credential is missing", async () => {
+    const { course, exportHash, run } = await setup({
+      unsetConfig: ["DROPBOX_APP_KEY"],
+    });
+
+    const result = await run(
+      Effect.gen(function* () {
+        const svc = yield* CoursePublishService;
+        const exit = yield* Effect.exit(
+          svc.publish({
+            courseId: course.id,
+            versionName: "v1.0",
+            versionDescription: "First release",
+            includeTodoLessons: true,
+            placeholderFloor: ANNOUNCE_NOTHING,
+          })
+        );
+        const versionOps = yield* VersionOperationsService;
+        const versions = yield* versionOps.getCourseVersions(course.id);
+        return { exit, versions };
+      })
+    );
+
+    expect(Exit.isFailure(result.exit)).toBe(true);
+    // The failure NAMES the variable, so the fix is one line of `.env`.
+    expect(
+      Cause.pretty((result.exit as Exit.Failure<any, any>).cause)
+    ).toContain("DROPBOX_APP_KEY");
+    // Nothing was encoded: the GPU never ran.
+    expect(
+      fs.existsSync(
+        path.join(finishedVideosDir, `${course.id}-${exportHash}.mp4`)
+      )
+    ).toBe(false);
+    // And nothing was Submitted: the Draft is untouched.
+    expect(result.versions).toHaveLength(1);
+    expect(result.versions[0]).toMatchObject({ commitState: "draft" });
   });
 });
