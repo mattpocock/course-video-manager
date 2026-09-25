@@ -261,7 +261,6 @@ function BlockerLists({ lists }: { lists: PublishBlockerLists }) {
 }
 
 const AUTOFILL_SKIP_LABELS: Record<AutofillSkipReason, string> = {
-  "no-body": "no lesson body yet — the Autofill writes from the body",
   "untranscribed-clips": "clips still transcribing — chapters can't be written",
 };
 

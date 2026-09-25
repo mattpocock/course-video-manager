@@ -11,11 +11,13 @@ import { computeVideoWarnings, type AutofillField } from "./video-warnings";
  *
  * The rules, in the order they decide:
  *
- *   No **Body**       → not a candidate AT ALL, and not merely for its
- *                       `description`. The description is written from the
- *                       Body, so without one there is nothing to write from —
- *                       and a Video with no Body is Matt's work, not the
- *                       Autofill's.
+ *   No **Body**       → never reaches this walk at all. A Body that is absent
+ *                       OR blank is a hard gap, so its Lesson is announced or
+ *                       withheld and never ships (ADR 0029). The rule survives
+ *                       — the description is written from the Body, and a Video
+ *                       with no Body is Matt's work, not the Autofill's — it is
+ *                       simply enforced one level up, by the classifier, so
+ *                       there is no skip reason left for it here.
  *   `description`     → a candidate only when the field is empty. Existing
  *                       text is never overwritten, so running twice is safe.
  *   **Chapters**      → a candidate only when the Video raises **Missing
@@ -41,7 +43,7 @@ export type AutofillCandidate = {
  * publish page shows these, so a missing row in the progress list is never a
  * mystery.
  */
-export type AutofillSkipReason = "no-body" | "untranscribed-clips";
+export type AutofillSkipReason = "untranscribed-clips";
 
 export type AutofillSkip = {
   readonly videoId: string;
@@ -135,15 +137,6 @@ export const selectAutofillCandidates = (
         );
         const needsDescription = !video.description?.trim();
         if (!needsDescription && !raisesMissingChapters) continue;
-
-        // The Body is the precondition for the whole feature: it is written by
-        // hand, and nothing downstream of it can be invented without it. A
-        // NULL body is a hard gap, so its Lesson never reaches this walk at all
-        // (ADR 0029); what lands here is a body present but empty.
-        if (!video.body?.trim()) {
-          skipped.push({ videoId: video.id, title, reason: "no-body" });
-          continue;
-        }
 
         const liveClips = video.clips.filter((clip) => !clip.archived);
         const allTranscribed =

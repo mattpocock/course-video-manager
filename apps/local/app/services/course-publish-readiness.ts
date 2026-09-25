@@ -36,10 +36,12 @@ import {
  *   courseViewLints       REFUSE the publish outright (PublishValidationError).
  *   invalidLessonCombos   Not checked at the gate; they fail the later
  *                         course.json build, so the publish still cannot land.
- *   incompleteVideos      No longer fail the build (ADR 0029). Enumerated over
- *                         the SHIPPING Lessons only, so in practice a missing
- *                         `description` — which the courseViewLints gate above
- *                         refuses anyway, before any byte is uploaded.
+ *   incompleteVideos      Enumerated over the SHIPPING Lessons only, so since
+ *                         ADR 0029 this means a missing `description`. It still
+ *                         FAILS the course.json build (see
+ *                         IncompleteShippingVideoError), and the courseViewLints
+ *                         gate above refuses it earlier, before any byte is
+ *                         uploaded.
  *   unexportedVideoIds    Do NOT refuse anything — publish RENDERS them as its
  *                         `exporting` stage and carries on. They are pending
  *                         machine work (and a failed render does abort), not an
@@ -179,7 +181,7 @@ export const validatePublishability = Effect.fn("validatePublishability")(
 
       // What this floor announces, and what it drops — the one walk the publish
       // page reads too, so the cards and the manifest cannot disagree.
-      const { placeholderLessons, withheldLessons } =
+      const { ships, placeholderLessons, withheldLessons } =
         collectLessonPublishStatuses(version.sections, {
           includeTodoLessons,
           placeholderFloor,
@@ -197,6 +199,11 @@ export const validatePublishability = Effect.fn("validatePublishability")(
         courseViewLints,
         invalidLessonCombos,
         incompleteVideos,
+        // The three Lesson Publish Status counts, so a caller that publishes
+        // can report what it announced and what it withheld without walking the
+        // tree a second time. `ships` plus the two list lengths is every Lesson
+        // in the version tree.
+        ships,
         placeholderLessons,
         withheldLessons,
       };

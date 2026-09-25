@@ -1,21 +1,23 @@
 ---
-status: superseded in part by 0029-placeholder-lessons-and-the-placeholder-floor
+status: superseded by 0029-placeholder-lessons-and-the-placeholder-floor
 ---
 
 # course.json fields are required, and incomplete Videos fail the Publish
 
-> **Superseded in part (2026-09-25) by ADR 0029.** The reasoning survives; the
-> consequence does not. Every field on a SHIPPING Video is still required and
+> **Superseded (2026-09-25) by ADR 0029.** The reasoning survives; the
+> consequence is narrowed. Every field on a SHIPPING Video is still required and
 > non-nullable, and `lesson.solution` is still the one honestly optional key —
 > read the whole of "Why this shape" as current. What no longer holds is the
-> title's second clause: an incomplete Video does **not** fail the Publish.
-> `IncompleteVideosError` is retired. A hard gap — no active Video, no Clips,
-> no `body` — now decides the Lesson's **Lesson Publish Status**, so the Lesson
-> ships as a **Placeholder Lesson** or is withheld, and is listed on the publish
-> page either way. The no-null rule is kept by the classifier (`body`, Clips)
-> and by the course-view lint gate (`description`), which refuses a Publish
-> before any byte is uploaded. `collectPublishBlockers` survives, walking only
-> the Lessons that ship.
+> title's second clause in full: an incomplete Video no longer fails the Publish
+> merely for being unfinished. `IncompleteVideosError` is retired. A hard gap —
+> no active Video, no Clips, no `body` — now decides the Lesson's **Lesson
+> Publish Status**, so the Lesson ships as a **Placeholder Lesson** or is
+> withheld, and is listed on the publish page either way. The no-null rule is
+> unchanged and still enforced inside the builder: `body` and Clips by the
+> classifier, and a missing `description` by `IncompleteShippingVideoError`,
+> which refuses the release on every path into a manifest — a missing
+> `description` is not a hard gap, so it can never be announced instead.
+> `collectPublishBlockers` survives, walking only the Lessons that ship.
 
 Every field on a **Video** in `course.json` — `relativePath`, `hash`, `body`, and `description` — is **required and non-nullable**. A Video reaches the manifest only if it is complete: it has exportable **Clips** (which produce its `.mp4` and its **Export Hash**) and both an authored `body` and `description`. When a shipping Video is missing any of these, **Publish fails** with the full list of gaps rather than emitting a `null`.
 

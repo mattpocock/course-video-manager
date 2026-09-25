@@ -37,6 +37,44 @@ export type PlaceholderFloor = null | 1 | 2 | 3;
 /** The floor's default position: this release announces nothing. */
 export const ANNOUNCE_NOTHING: PlaceholderFloor = null;
 
+// ── The floor, spelled for a flag, a form and a wire ──────────────────────
+//
+// The domain value is a number or null, and neither a CLI flag, a
+// `localStorage` entry nor a JSON body can carry `null` legibly. So the four
+// positions are also spelled as BANDS — `none`, `p1`, `p2`, `p3` — and this is
+// the one place a band becomes a floor. The vocabulary lives beside
+// `PlaceholderFloor` rather than in the CLI, because `cvm course publish`,
+// `cvm course readiness`, the publish page and the publish SSE route all
+// depend on "p2" meaning one thing.
+
+/** The four spellings a `--placeholders` flag (or a stored band) accepts. */
+export const PLACEHOLDER_FLOOR_BANDS = ["none", "p1", "p2", "p3"] as const;
+
+export type PlaceholderFloorBand = (typeof PLACEHOLDER_FLOOR_BANDS)[number];
+
+/** The band a release announces nothing at — the default, as it is in the UI. */
+export const ANNOUNCE_NOTHING_BAND: PlaceholderFloorBand = "none";
+
+/**
+ * A band as the domain's floor. `none` is the announce-nothing position, so it
+ * is a real answer rather than an absent one: asking for it reports the lists a
+ * release would show today.
+ */
+export const placeholderFloorFromBand = (
+  band: PlaceholderFloorBand
+): PlaceholderFloor => {
+  switch (band) {
+    case "none":
+      return null;
+    case "p1":
+      return 1;
+    case "p2":
+      return 2;
+    case "p3":
+      return 3;
+  }
+};
+
 /** A gap Autofill cannot close, and so the only kind that decides a status. */
 export type LessonHardGap = "no-active-video" | "no-clips" | "no-body";
 
@@ -94,7 +132,11 @@ export const lessonHardGaps = (
   if (activeVideos.some((video) => video.clips.length === 0)) {
     gaps.push("no-clips");
   }
-  if (activeVideos.some((video) => video.body === null)) {
+  // An empty string is no body at all. The `missingBody` lint reads it that
+  // way too, so a Video whose body is `""` must be a hard gap here — otherwise
+  // it would ship, trip that lint, and refuse the release with no floor
+  // position able to rescue it.
+  if (activeVideos.some((video) => !video.body?.trim())) {
     gaps.push("no-body");
   }
   return gaps;

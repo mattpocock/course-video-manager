@@ -43,8 +43,10 @@ export type InvalidLessonCombo = {
 // Only a Lesson that SHIPS is gap-checked. A hard gap — no Clips, no `body` —
 // decides the Lesson's Lesson Publish Status instead of appearing here, so in
 // practice the only gap left on a shipping Video is a missing `description`,
-// which Autofill writes. It is reported, not thrown: the course-view lint
-// `missingDescription` is what refuses the Publish (ADR 0029).
+// which Autofill writes. That one is reported to the publish page AND refuses
+// the build (see IncompleteShippingVideoError): a missing `description` can
+// never be announced, because it is not a hard gap, so the only honest
+// alternative to refusing is a `null` in the manifest.
 export type IncompleteVideo = {
   sectionPath: string;
   lessonPath: string;
@@ -54,8 +56,9 @@ export type IncompleteVideo = {
 
 // Everything wrong with the Lessons that SHIP, enumerated in full. The
 // pre-publish page reads this to warn (and block) before a doomed publish is
-// ever started. An invalid role combo is still a release-stopping failure in
-// `buildCourseJson`; an incomplete Video no longer is (ADR 0029).
+// ever started, and `buildCourseJson` refuses on either list (ADR 0029): a
+// Lesson that does not ship in full is silent here, and one that does must be
+// whole.
 export type PublishBlockers = {
   invalidLessonCombos: InvalidLessonCombo[];
   incompleteVideos: IncompleteVideo[];
@@ -67,11 +70,22 @@ export class InvalidLessonRoleComboError extends Data.TaggedError(
   "InvalidLessonRoleComboError"
 )<InvalidLessonCombo> {}
 
-// RETIRED (ADR 0029). `IncompleteVideosError` used to stop a release when a
-// shipping Video was incomplete. A hard gap now decides the Lesson's Lesson
-// Publish Status instead — the Lesson ships as a Placeholder Lesson or is
-// withheld, and either way it is listed on the publish page rather than
-// throwing. Nothing replaces the class.
+// A shipping Video that is not whole. NARROWER than the retired
+// `IncompleteVideosError` it replaces (ADR 0029): a HARD GAP — no active Video,
+// no Clips, no `body` — decides the Lesson's Lesson Publish Status instead of
+// reaching here, so the Lesson ships as a Placeholder Lesson or is withheld and
+// is listed on the publish page rather than throwing.
+//
+// What is left is a shipping Video missing its `description`, and that one has
+// to refuse the release. A missing `description` is NOT a hard gap (Autofill
+// writes it), so no floor position can announce the Lesson instead — and the
+// schema types the field as a string. Refusing here rather than in the publish
+// page's lint gate is what makes the guarantee hold on EVERY path into a
+// manifest, including the standalone Dropbox re-sync, which runs no lint gate
+// and would otherwise overwrite the live course.json with `"description": null`.
+export class IncompleteShippingVideoError extends Data.TaggedError(
+  "IncompleteShippingVideoError"
+)<IncompleteVideo> {}
 
 export class MissingVideoAssetReceiptError extends Data.TaggedError(
   "MissingVideoAssetReceiptError"
@@ -163,8 +177,11 @@ export type BuildCourseJsonInput = {
 function videoGaps(video: InputVideo): IncompleteVideo["missing"] {
   const missing: IncompleteVideo["missing"] = [];
   if (video.clips.length === 0) missing.push("clips");
-  if (video.body === null) missing.push("body");
-  if (video.description === null) missing.push("description");
+  // Blank is absent, for both fields: an empty string is what the
+  // `missingBody` / `missingDescription` lints read as missing, and what the
+  // `no-body` hard gap reads as missing, so nothing here may read it as text.
+  if (!video.body?.trim()) missing.push("body");
+  if (!video.description?.trim()) missing.push("description");
   return missing;
 }
 
@@ -260,11 +277,11 @@ export const collectPublishBlockers = (
 // The published .mp4 lives under the manifest's immutable assetBasePath, then
 // section-dir/lesson-dir/video-title.mp4. Only a Video on a Lesson that SHIPS
 // reaches here, so its clips (hence hash) and its body are guaranteed present
-// by the classifier — those are two of the three hard gaps. The `description`
-// is guaranteed one step further out, by the course-view lint gate
-// (`missingDescription`), which refuses the Publish outright before any of this
-// runs. Every emitted field is therefore non-null: ADR 0019's no-null rule for
-// a shipping Video survives ADR 0029 intact.
+// by the classifier — those are two of the three hard gaps — and its
+// `description` by the `IncompleteShippingVideoError` gate at the top of
+// `buildCourseJson`, which has already refused this build if any shipping Video
+// lacks one. Every emitted field is therefore non-null: ADR 0019's no-null rule
+// for a shipping Video survives ADR 0029 intact.
 function toVideoEntry(
   video: InputVideo,
   sectionPath: string,
@@ -290,16 +307,23 @@ export const buildCourseJson = (
 ): Effect.Effect<
   CourseJsonDocument,
   | InvalidLessonRoleComboError
+  | IncompleteShippingVideoError
   | MissingVideoAssetReceiptError
   | InvalidVideoAssetReceiptError
 > =>
   Effect.gen(function* () {
-    // The pre-publish gate and this backstop read the exact same blockers, so a
-    // manifest can never ship with a hole in it. An invalid role combo is the
-    // one remaining release-stopping failure: it makes roles ambiguous, so
-    // there is no honest node to emit. We fail on the first, matching the page,
-    // which blocks publish until it is fixed. An incomplete Video no longer
-    // fails anything (ADR 0029) — it decides a Lesson Publish Status.
+    // THE ONE GATE EVERY PATH INTO A MANIFEST PASSES THROUGH. The pre-publish
+    // page reads the exact same blockers, so a doomed publish is refused before
+    // it starts; this is what makes the guarantee hold anyway on a path that
+    // never asked the page — the standalone Dropbox re-sync. We fail on the
+    // first of either list, matching the page, which blocks publish until it is
+    // fixed.
+    //
+    // An invalid role combo makes roles ambiguous, so there is no honest node
+    // to emit. An incomplete shipping Video is narrower than it was before ADR
+    // 0029: a hard gap decides a Lesson Publish Status instead of arriving
+    // here, so what is left is a missing `description` — which the schema types
+    // as a string and which no floor can announce its way out of.
     const blockers = collectPublishBlockers(
       input.sections,
       input.includeTodoLessons
@@ -307,6 +331,11 @@ export const buildCourseJson = (
     if (blockers.invalidLessonCombos.length > 0) {
       return yield* new InvalidLessonRoleComboError(
         blockers.invalidLessonCombos[0]!
+      );
+    }
+    if (blockers.incompleteVideos.length > 0) {
+      return yield* new IncompleteShippingVideoError(
+        blockers.incompleteVideos[0]!
       );
     }
 

@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   ANNOUNCE_NOTHING,
+  ANNOUNCE_NOTHING_BAND,
   classifyLessonPublishStatus,
   lessonHardGaps,
+  PLACEHOLDER_FLOOR_BANDS,
+  placeholderFloorFromBand,
   type LessonPublishStatus,
   type PlaceholderFloor,
 } from "../index";
@@ -60,24 +63,25 @@ const GAP_CASES = [
     hardGap: true,
     videos: [video({ body: null })],
   },
+  // A BLANK body is no body. The `missingBody` lint reads `""` that way, so if
+  // the classifier did not, such a Video would ship, trip that lint, refuse the
+  // release — and no floor position could rescue it.
   {
-    name: "a video missing only its description",
-    hardGap: false,
-    videos: [video()],
-  },
-  {
-    name: "a video missing only its chapters",
-    hardGap: false,
-    videos: [video()],
-  },
-  // An Unexported Video has clips and a body; Publish renders it as its export
-  // stage, so nothing about it is a gap.
-  {
-    name: "an unexported video",
-    hardGap: false,
-    videos: [video()],
+    name: "a video whose body is blank",
+    hardGap: true,
+    videos: [video({ body: "   " })],
   },
 ] as const;
+
+// NOT IN THE TABLE, deliberately: a Video missing only its `description`, a
+// Video missing only its Chapters, and an Unexported Video. Each is a real
+// criterion — none of the three is a hard gap — but `ClassifiableVideo` cannot
+// express any of them, so a row for one would pass the identical complete Video
+// and assert the criterion by comment alone. They are proved where they are
+// visible instead: the `description` and the Chapters in
+// ./course-json-validation.test.ts (the builder ships and gap-checks such a
+// Lesson), and exportedness in ../../../services/course-publish-readiness, whose
+// unexported list never touches a Lesson Publish Status.
 
 const PRIORITIES = [1, 2, 3, 9] as const;
 const FLOORS: readonly PlaceholderFloor[] = [null, 1, 2, 3];
@@ -248,6 +252,33 @@ describe("classifyLessonPublishStatus", () => {
       reason: "todo",
       hardGaps: ["no-clips"],
     });
+  });
+});
+
+// The floor's four positions, as the spellings a flag, a stored preference and
+// a JSON body carry. `cvm course publish`, `cvm course readiness` and the
+// publish page all read this one mapping, so "p2" means one thing everywhere;
+// that the CLI refuses any other spelling is pinned at the command, in
+// ../../../cli/cli-course-publish-placeholders.test.ts.
+describe("the floor as a band", () => {
+  it.each([
+    ["none", null], // announce nothing — no Lesson ships as a Placeholder Lesson
+    ["p1", 1],
+    ["p2", 2],
+    ["p3", 3],
+  ] as const)("reads the band %s as the floor %s", (band, floor) => {
+    expect(placeholderFloorFromBand(band)).toBe(floor);
+  });
+
+  it("offers exactly the four bands, in floor order", () => {
+    expect(PLACEHOLDER_FLOOR_BANDS).toEqual(["none", "p1", "p2", "p3"]);
+  });
+
+  it("defaults to announcing nothing, so omitting the band publishes as before", () => {
+    expect(ANNOUNCE_NOTHING_BAND).toBe("none");
+    expect(placeholderFloorFromBand(ANNOUNCE_NOTHING_BAND)).toBe(
+      ANNOUNCE_NOTHING
+    );
   });
 });
 

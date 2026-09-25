@@ -263,11 +263,12 @@ describe("buildCourseJson – validation and filtering", () => {
     expect(result.sections[1]!.lessons[1]!.type).toBe("problem");
   });
 
-  // ── A hard gap decides a status; it no longer fails ────────────────
+  // ── A hard gap decides a status rather than failing ────────────────
   //
   // ADR 0029: `IncompleteVideosError` is gone. A Video with no Clips or no
   // `body` is a HARD GAP — a gap Autofill cannot close — so it decides the
-  // Lesson's Lesson Publish Status instead of stopping the release.
+  // Lesson's Lesson Publish Status instead of stopping the release. A missing
+  // `description` is the one gap that still stops it; see below.
 
   const gappedCourse = (
     overrides: Partial<{ clips: never[]; body: null }>,
@@ -315,24 +316,55 @@ describe("buildCourseJson – validation and filtering", () => {
   });
 
   // A missing `description` is NOT a hard gap: Autofill writes it, so a Lesson
-  // one press from complete is never announced as a Placeholder Lesson. It
-  // stays a reported blocker, and the course-view lint gate is what refuses the
-  // Publish — see collectPublishBlockers below.
-  it("still ships a lesson whose only gap is a missing description", async () => {
-    const result = await run(
-      makeInput([
-        makeSection({
-          path: "01-intro",
-          lessons: [
-            makeLesson({
-              path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", description: null })],
-            }),
-          ],
+  // one press from complete is never ANNOUNCED as a Placeholder Lesson. Which
+  // leaves exactly one honest outcome — the release is refused. The schema types
+  // `description` as a string, and no floor position can turn this Lesson into a
+  // node that omits it.
+  //
+  // THIS GATE IS THE NO-NULL GUARANTEE (ADR 0019, ADR 0029). It lives inside the
+  // builder, so it holds on EVERY path into a manifest — including the
+  // standalone Dropbox re-sync, which runs no lint gate and would otherwise
+  // overwrite a live course.json with `"description": null`.
+  const missingDescriptionCourse = (description: string | null) => [
+    makeSection({
+      path: "01-intro",
+      lessons: [
+        makeLesson({
+          path: "01.01-welcome",
+          videos: [makeVideo({ title: "Explainer", description })],
         }),
-      ])
-    );
-    expect(result.sections[0]!.lessons[0]!.type).toBe("explainer");
+      ],
+    }),
+  ];
+
+  it.each([
+    ["absent", null],
+    ["blank", "  "],
+  ] as const)(
+    "refuses a release when a shipping video's description is %s",
+    async (_name, description) => {
+      const error = await runFlip(
+        makeInput(missingDescriptionCourse(description))
+      );
+      expect(error).toMatchObject({
+        _tag: "IncompleteShippingVideoError",
+        sectionPath: "01-intro",
+        lessonPath: "01.01-welcome",
+        videoTitle: "Explainer",
+        missing: ["description"],
+      });
+    }
+  );
+
+  // …and the floor cannot talk its way past it either: the Lesson is shippable
+  // in the classifier's eyes, so no band makes it a Placeholder Lesson.
+  it("refuses it at every floor position", async () => {
+    for (const floor of [null, 1, 2, 3] as const) {
+      const error = await runFlip(
+        makeInput(missingDescriptionCourse(null), true, floor)
+      );
+      expect(error._tag).toBe("IncompleteShippingVideoError");
+    }
   });
 
   // The one release-stopping failure left: an ambiguous role combo. There is no
