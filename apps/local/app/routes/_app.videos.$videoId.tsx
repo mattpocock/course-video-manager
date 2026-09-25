@@ -9,6 +9,7 @@ import {
 import { getBackButtonUrl } from "@/features/video-editor/video-editor-selectors";
 import { cn } from "@/lib/utils";
 import { type VideoFormat } from "@/features/videos/video-format";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
@@ -23,6 +24,7 @@ import {
   NewspaperIcon,
   MailIcon,
   HistoryIcon,
+  PlayIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useMatches } from "react-router";
@@ -33,7 +35,16 @@ export const loader = makeLoader({
     Effect.gen(function* () {
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
+      const clipMockupOps = yield* ClipMockupOperationsService;
       const video = yield* videoOps.getVideoWithLessonById(videoId);
+
+      // The header link into `/videos/:videoId/animatic` shows only when there
+      // is something to watch, so the count comes down with every tab of the
+      // Video. The rows themselves stay behind the Animatic route: sixty frame
+      // paths are of no use to a header.
+      const clipMockupCount = (yield* clipMockupOps.listClipMockupsByVideoId(
+        videoId
+      )).length;
 
       const [nextVideoId, previousVideoId] = yield* Effect.all([
         videoOps.getNextVideoId(video),
@@ -59,6 +70,7 @@ export const loader = makeLoader({
           previousVideoId,
           videoCount: 1,
           hasExplainerFolder: false,
+          clipMockupCount,
         };
       }
 
@@ -77,6 +89,7 @@ export const loader = makeLoader({
         previousVideoId,
         videoCount: lesson.videos.length,
         hasExplainerFolder: false,
+        clipMockupCount,
       };
     }),
 });
@@ -156,6 +169,7 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
     previousVideoId,
     videoCount,
     hasExplainerFolder,
+    clipMockupCount,
   } = loaderData;
 
   const location = useLocation();
@@ -222,6 +236,23 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Into the Animatic. A plain anchor, not a `Link`: the route sits
+                  outside the `_app` layout on purpose, and it opens in its own
+                  tab so the Video stays where it was. Shown only for a
+                  Landscape Video that has Clip Mockups — a Short has no
+                  Animatic, and an empty one is nothing to watch. */}
+              {videoFormat !== "short" && clipMockupCount > 0 && (
+                <a
+                  href={`/videos/${videoId}/animatic`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                >
+                  <PlayIcon className="size-4" />
+                  Animatic
+                </a>
+              )}
+
               {/* Top-level tab switcher (hidden for short-format videos) */}
               {videoFormat !== "short" && (
                 <div className="flex gap-1">

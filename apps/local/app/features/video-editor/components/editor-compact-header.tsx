@@ -5,6 +5,7 @@ import {
   ChevronRightIcon,
   VideoIcon,
   SendIcon,
+  PlayIcon,
 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -16,6 +17,8 @@ export const EditorCompactHeader = (props: {
   showTabSwitcher: boolean;
   videoId: string;
   lessonId: string | null;
+  /** True iff this Video has ≥1 Clip Mockup, so there is an Animatic to watch. */
+  hasAnimatic: boolean;
 }) => {
   const tabs = [
     { id: "edit", label: "Video", path: "edit", icon: VideoIcon },
@@ -40,6 +43,23 @@ export const EditorCompactHeader = (props: {
       </span>
 
       <div className="flex-1" />
+
+      {/* Into the Animatic, beside the tab switcher. The Mockups tab holds the
+          same link, but it is two clicks and a scroll away, and the author
+          reaches for the Animatic from the editor as a whole. A plain anchor,
+          not a `Link`: the route sits outside the `_app` layout on purpose,
+          and it opens in its own tab so the editor keeps its state. */}
+      {props.hasAnimatic && (
+        <a
+          href={`/videos/${props.videoId}/animatic`}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+        >
+          <PlayIcon className="size-3.5" />
+          Animatic
+        </a>
+      )}
 
       {props.showTabSwitcher && (
         <div className="flex gap-1">

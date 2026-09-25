@@ -95,6 +95,7 @@ export const VideoEditor = (props: {
     showTabSwitcher: boolean;
     videoId: string;
     lessonId: string | null;
+    hasAnimatic: boolean;
   };
   videoId: string;
   liveMediaStream: MediaStream | null;

@@ -11,9 +11,11 @@ import { useClipMockups } from "@/features/clip-mockups/use-clip-mockups";
  * threaded through the editor, because sixty lines of prose and sixty frame
  * URLs are of no use to the timeline.
  *
- * It also holds the ONLY way into `/videos/:videoId/animatic`. That route is
- * deliberately outside the app layout, so nothing else in the editor can link
- * to it, and without this the author would have to type the URL.
+ * It holds one way into `/videos/:videoId/animatic`, beside the Clip Mockups it
+ * plays. The editor's compact header and the Video header hold the same link,
+ * for the author who is not already reading this tab. That route is
+ * deliberately outside the app layout, so every way in is a plain anchor, never
+ * a `Link`.
  */
 export function ClipMockupPanel({ videoId }: { videoId: string }) {
   const {

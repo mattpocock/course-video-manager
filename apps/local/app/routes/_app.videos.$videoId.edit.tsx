@@ -240,6 +240,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       showTabSwitcher: parentData.videoFormat !== "short",
       videoId: parentData.videoId,
       lessonId: parentData.lessonId,
+      hasAnimatic: parentData.clipMockupCount > 0,
     };
   }, [parentData]);
 
