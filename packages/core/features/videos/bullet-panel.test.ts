@@ -27,8 +27,9 @@ const messageOf = (result: ReturnType<typeof parse>) =>
 
 describe("lastBulletRevealAtInSeconds", () => {
   // The panel's exit BEGINS one ease before the window ends, so a bullet
-  // revealed at `duration - 0.35` would be easing IN exactly as the panel eases
-  // OUT. The room a bullet needs is its own ease plus the exit it must clear.
+  // revealed at `duration - one ease` would be easing IN exactly as the panel
+  // eases OUT. The room a bullet needs is its own ease plus the exit it must
+  // clear.
   it("reserves TWO eases: the bullet's own, and the panel's exit", () => {
     expect(lastBulletRevealAtInSeconds({ durationInSeconds: 5 })).toBeCloseTo(
       5 - 2 * BULLET_PANEL_ANIMATION_IN_SECONDS

@@ -2,7 +2,31 @@
  * Long-form --help text for the `cvm overlay` verbs, split out of overlay.ts
  * to keep that command module under the repo's per-file token budget. These
  * are domain-teaching prose strings consumed only by Command.withDescription.
+ *
+ * The ease's own numbers are INTERPOLATED, never typed. It is retuned by eye
+ * against a real render (it has already gone 2s -> 1s -> 0.8s), and prose that
+ * restates it teaches an agent a rule the CLI no longer enforces.
  */
+import {
+  BULLET_PANEL_ANIMATION_IN_SECONDS,
+  lastBulletRevealAtInSeconds,
+} from "@/features/videos/bullet-panel";
+
+/** Seconds as the help spells them: no trailing zeros, no float dust. */
+const secs = (value: number) => `${Number(value.toFixed(3))}s`;
+
+const EASE = secs(BULLET_PANEL_ANIMATION_IN_SECONDS);
+const TWO_EASES = secs(BULLET_PANEL_ANIMATION_IN_SECONDS * 2);
+const LAST_OF_FIVE = secs(
+  lastBulletRevealAtInSeconds({ durationInSeconds: 5 })
+);
+const LAST_OF_FIVE_CUT = secs(
+  lastBulletRevealAtInSeconds({
+    durationInSeconds: 5,
+    disableExitAnimation: true,
+  })
+);
+
 export const OVERLAY_HELP = `overlay — a visual layer composited on top of a Video's footage.
 
 An Overlay is anchored to ONE Clip at '--at', a plain offset in SECONDS from
@@ -28,10 +52,10 @@ its own content flags. Passing the other kind's is refused, not ignored.
 'revealAt' is SECONDS AFTER THE OVERLAY'S OWN START, so an authoring agent
 derives it straight from the transcript as 'wordStartTime - overlayAt'. Bullets
 must be listed in STRICTLY ascending reveal order — no two share a moment — and
-none may be negative. Each also needs 0.7s of room at the end: 0.35s to ease in
-plus the 0.35s the panel spends easing out, so a 5s panel's last bullet may be
-revealed at 4.3s. '--disable-exit-animation true' gives the second 0.35s back
-(4.65s), because a cut exit holds the panel to the very last frame.
+none may be negative. Each also needs ${TWO_EASES} of room at the end: ${EASE} to ease
+in plus the ${EASE} the panel spends easing out, so a 5s panel's last bullet may
+be revealed at ${LAST_OF_FIVE}. '--disable-exit-animation true' gives the second
+${EASE} back (${LAST_OF_FIVE_CUT}), because a cut exit holds the panel to the very last frame.
 
 Icons are lucide names, kebab-case ("circle-check", "triangle-alert"). Any
 lucide name works; one that is not a lucide name is refused at authoring time,
@@ -176,9 +200,9 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
                        'wordStartTime - overlayAt'. Bullets must be listed in
                        strictly ascending reveal order (no ties), none may be
                        negative, and the last may be revealed no later than
-                       duration - 0.7s — its own 0.35s ease plus the 0.35s the
-                       panel spends leaving. '--disable-exit-animation true'
-                       makes that duration - 0.35s.
+                       duration - ${TWO_EASES} — its own ${EASE} ease plus the ${EASE}
+                       the panel spends leaving. '--disable-exit-animation
+                       true' makes that duration - ${EASE}.
   --disable-enter-animation <true|false>
   --disable-exit-animation <true|false>
                        hard-cut in/out instead of easing. Governs the panel
