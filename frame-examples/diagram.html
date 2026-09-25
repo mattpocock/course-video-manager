@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Frame example — diagram</title>
+    <!--
+      THE STYLESHEET IS THE CONTRACT; THIS MARKUP IS NOT. Copy this file, keep
+      the <link>, rebuild the shape.
+
+      A diagram frame is boxes, arrows and ONE lit box. `.node.lit` is the step
+      the moment is about; `.node.muted` is the context the viewer should not
+      look at yet. Stack `.diagram` vertically, nest it, or drop an SVG in —
+      it is only a flex row, and there is nothing to slot into.
+
+      `.annotation` is the app's --font-tldraw face, so a hand-written aside
+      looks hand-written rather than like a second heading.
+    -->
+    <link rel="stylesheet" href="./house.css" />
+  </head>
+  <body>
+    <div class="frame frame--center">
+      <div class="overline">The fidelity ladder</div>
+
+      <div class="diagram" style="margin-top: 56px">
+        <div class="node muted">
+          <div class="node-title">Beat</div>
+          <div class="node-sub">what it does</div>
+        </div>
+        <div class="arrow">
+          <span>&rarr;</span><span class="label">plan</span>
+        </div>
+        <div class="node lit">
+          <div class="node-title">Clip Mockup</div>
+          <div class="node-sub">picture + line</div>
+        </div>
+        <div class="arrow">
+          <span>&rarr;</span><span class="label">write</span>
+        </div>
+        <div class="node muted">
+          <div class="node-title">Script</div>
+          <div class="node-sub">the words</div>
+        </div>
+        <div class="arrow">
+          <span>&rarr;</span><span class="label">film</span>
+        </div>
+        <div class="node muted">
+          <div class="node-title">Clip</div>
+          <div class="node-sub">what was shot</div>
+        </div>
+      </div>
+
+      <div class="annotation" style="margin-top: 72px">
+        The only rung you can watch before you film
+      </div>
+
+      <div class="caption" style="margin-top: 96px; border: 0; padding: 0">
+        Played in order, a Video's Clip Mockups are its
+        <strong>Animatic</strong>.
+      </div>
+    </div>
+  </body>
+</html>
