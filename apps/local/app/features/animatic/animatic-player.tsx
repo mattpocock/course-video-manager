@@ -6,6 +6,10 @@ import {
   type AnimaticCompositionProps,
 } from "./animatic-composition";
 import {
+  ANIMATIC_PLAYBACK_RATES,
+  useAnimaticPlaybackRate,
+} from "./animatic-playback-rate";
+import {
   ANIMATIC_FPS,
   buildAnimaticTimeline,
   formatRunTime,
@@ -24,6 +28,10 @@ import {
  * one moment, not by scrubbing for it. The RUN TIME shows, because the point
  * of an Animatic is knowing a Lesson runs thirty-four minutes before anything
  * is filmed.
+ *
+ * The SPEED is a fourth: it starts at two times, it has a control of its own
+ * in the bar, and the choice follows the author to the next Animatic. See
+ * `animatic-playback-rate.ts` for why.
  */
 
 export const AnimaticPlayer = (props: {
@@ -33,6 +41,7 @@ export const AnimaticPlayer = (props: {
 }) => {
   const playerRef = useRef<PlayerRef>(null);
   const [frame, setFrame] = useState(0);
+  const [playbackRate, choosePlaybackRate] = useAnimaticPlaybackRate();
 
   const timeline = useMemo(
     () => buildAnimaticTimeline(props.mockups),
@@ -47,6 +56,18 @@ export const AnimaticPlayer = (props: {
     player.addEventListener("frameupdate", onFrameUpdate);
     return () => player.removeEventListener("frameupdate", onFrameUpdate);
   }, []);
+
+  // The control in the bar owns the Player's own rate; this is how the choice
+  // made there gets written down. Storing the rate the Player reports, rather
+  // than the rate a click asked for, keeps the two from drifting apart.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    const onRateChange = (event: { detail: { playbackRate: number } }) =>
+      choosePlaybackRate(event.detail.playbackRate);
+    player.addEventListener("ratechange", onRateChange);
+    return () => player.removeEventListener("ratechange", onRateChange);
+  }, [choosePlaybackRate]);
 
   const activeIndex = segmentIndexAtFrame(timeline.segments, frame);
   const active = activeIndex >= 0 ? timeline.segments[activeIndex] : undefined;
@@ -70,6 +91,8 @@ export const AnimaticPlayer = (props: {
           compositionHeight={props.height}
           style={{ width: "100%", height: "100%" }}
           controls
+          playbackRate={playbackRate}
+          showPlaybackRateControl={ANIMATIC_PLAYBACK_RATES}
           loop={false}
           clickToPlay
           spaceKeyToPlayOrPause
