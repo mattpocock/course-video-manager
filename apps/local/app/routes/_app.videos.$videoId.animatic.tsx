@@ -127,7 +127,20 @@ export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
   }
 
   return (
+    // KEYED BY THE VIDEO, so NEXT starts the next Animatic at its first frame.
+    // This is one route: PREVIOUS/NEXT changes `:videoId` alone, React keeps
+    // the same `AnimaticPlayer` mounted, and everything the player holds —
+    // the Remotion Player's own playhead above all — survives the move. Walk
+    // off clip seven while it plays and the next Video picks up playing at
+    // clip seven, halfway through a Lesson the author has not started
+    // watching. The editor keys itself the same way, for the same reason.
+    //
+    // A POLL MUST NOT REMOUNT IT. The `videoId` is the one thing a
+    // revalidation of this page cannot change, which is why the key is the
+    // Video and not the rows; the rows are held by value instead, in
+    // `useStableMockups`.
     <AnimaticPlayer
+      key={video.id}
       mockups={mockups}
       chapters={chapters}
       width={width}
