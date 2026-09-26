@@ -40,6 +40,20 @@ nothing breaks when you change them.
    Mockup. A frame with unreadable type is found here or at minute 26 of the
    playback.
 
+## Point at the thing
+
+A viewer gets about one second to find the part of the frame the line is
+talking about. Make that free.
+
+- **`.here`** on a code line: an accent wash and a bar in the gutter.
+- **`.code--spotlight`** on the block around it: every line that is not
+  `.here` fades back, so the rest reads as context.
+- **`.mark`** around words in prose, a label or a heading: the same job,
+  outside a code block. **`.mark--quiet`** is the losing side of a comparison.
+
+Highlight the exact words the line says out loud, and nothing else. Two marks
+on one frame means the frame is really two moments.
+
 ## Two things that have no build step
 
 **Syntax highlighting is hand-written.** Each code line is a `.l` element and
