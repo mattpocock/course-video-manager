@@ -1,4 +1,5 @@
-import { AbsoluteFill, Audio, Series } from "remotion";
+import { AbsoluteFill, Audio, Sequence, Series } from "remotion";
+import { subtitleCuesForSegment } from "./animatic-subtitles";
 import {
   CLIP_MOCKUP_PREMOUNT_IN_FRAMES,
   type AnimaticSegment,
@@ -20,6 +21,8 @@ import {
  */
 export type AnimaticCompositionProps = {
   segments: AnimaticSegment[];
+  /** Draw each line over its frame as subtitles. See `animatic-subtitles.ts`. */
+  showSubtitles: boolean;
 };
 
 /**
@@ -50,7 +53,40 @@ const MissingFrame = (props: { position: number; line: string }) => (
   </AbsoluteFill>
 );
 
-const AnimaticSegmentFrame = (props: { segment: AnimaticSegment }) => {
+/**
+ * One phrase of the line, low and centred, as a student's player draws
+ * subtitles. Sized in composition pixels, so it scales with the picture.
+ */
+const AnimaticSubtitle = (props: { text: string }) => (
+  <AbsoluteFill
+    style={{
+      justifyContent: "flex-end",
+      alignItems: "center",
+      paddingBottom: "7%",
+    }}
+  >
+    <div
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.75)",
+        color: "white",
+        fontFamily: "Inter, sans-serif",
+        fontSize: 52,
+        fontWeight: 600,
+        lineHeight: 1.3,
+        padding: "10px 28px",
+        borderRadius: 12,
+        textAlign: "center",
+      }}
+    >
+      {props.text}
+    </div>
+  </AbsoluteFill>
+);
+
+const AnimaticSegmentFrame = (props: {
+  segment: AnimaticSegment;
+  showSubtitles: boolean;
+}) => {
   const { mockup } = props.segment;
 
   return (
@@ -71,6 +107,19 @@ const AnimaticSegmentFrame = (props: { segment: AnimaticSegment }) => {
       {mockup.audioUrl !== null && !mockup.audioMissing && (
         <Audio src={mockup.audioUrl} />
       )}
+      {/* The missing-frame card already prints the whole line. */}
+      {props.showSubtitles &&
+        !mockup.imageMissing &&
+        subtitleCuesForSegment(props.segment).map((cue) => (
+          <Sequence
+            key={cue.fromFrame}
+            from={cue.fromFrame}
+            durationInFrames={cue.durationInFrames}
+            layout="none"
+          >
+            <AnimaticSubtitle text={cue.text} />
+          </Sequence>
+        ))}
     </AbsoluteFill>
   );
 };
@@ -87,7 +136,10 @@ export const AnimaticComposition = (props: AnimaticCompositionProps) => (
           // `CLIP_MOCKUP_PREMOUNT_IN_FRAMES`.
           premountFor={CLIP_MOCKUP_PREMOUNT_IN_FRAMES}
         >
-          <AnimaticSegmentFrame segment={segment} />
+          <AnimaticSegmentFrame
+            segment={segment}
+            showSubtitles={props.showSubtitles}
+          />
         </Series.Sequence>
       ))}
     </Series>

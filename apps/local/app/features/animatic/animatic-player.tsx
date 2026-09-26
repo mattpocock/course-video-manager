@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { cn } from "@/lib/utils";
+import { AnimaticBrokenFiles } from "./animatic-broken-files";
 import { AnimaticChapterDivider } from "./animatic-chapter-divider";
 import {
   buildAnimaticChapterLayout,
@@ -45,6 +46,8 @@ import {
   type AnimaticSelection,
 } from "./animatic-selection";
 import { useStableChapters, useStableMockups } from "./animatic-revalidation";
+import { useAnimaticSubtitles } from "./animatic-subtitles";
+import { AnimaticSubtitlesToggle } from "./animatic-subtitles-toggle";
 import { startPlayingAt } from "./animatic-transport";
 import { useAnimaticShortcuts } from "./use-animatic-shortcuts";
 import {
@@ -114,6 +117,7 @@ export const AnimaticPlayer = (props: {
 }) => {
   const playerRef = useRef<PlayerRef>(null);
   const [playbackRate, choosePlaybackRate] = useAnimaticPlaybackRate();
+  const [showSubtitles, chooseSubtitles] = useAnimaticSubtitles();
   const [selection, setSelection] = useState<AnimaticSelection>(null);
 
   // THE SEGMENT IS STATE, NOT THE FRAME. Holding the raw frame re-rendered this
@@ -276,6 +280,7 @@ export const AnimaticPlayer = (props: {
       choosePlaybackRate(rate);
       playerRef.current?.play();
     },
+    onToggleSubtitles: () => chooseSubtitles(!showSubtitles),
   });
 
   // Keep the selected row in sight. While the author has made no choice of his
@@ -316,13 +321,11 @@ export const AnimaticPlayer = (props: {
     activeIndex,
   })?.chapter.id;
 
-  const broken = mockups.filter((m) => m.imageMissing || m.audioMissing);
-
   // Memoised on the timeline alone: a poll that changed nothing hands the
   // Player the very same object, and the composition is not rebuilt.
   const inputProps: AnimaticCompositionProps = useMemo(
-    () => ({ segments: [...timeline.segments] }),
-    [timeline]
+    () => ({ segments: [...timeline.segments], showSubtitles }),
+    [timeline, showSubtitles]
   );
 
   /**
@@ -420,27 +423,7 @@ export const AnimaticPlayer = (props: {
           )}
         </header>
 
-        {broken.length > 0 && (
-          <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
-            <div className="font-semibold">
-              {broken.length} Clip Mockup{broken.length === 1 ? "" : "s"} cannot
-              play in full
-            </div>
-            <ul className="mt-1 space-y-0.5">
-              {broken.map((m) => (
-                <li key={m.id}>
-                  #{m.position}:{" "}
-                  {[
-                    m.imageMissing ? "frame file missing" : null,
-                    m.audioMissing ? "speech file missing" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <AnimaticBrokenFiles mockups={mockups} />
 
         <ol ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
           {/* Above the first divider: plain rows, with no invented heading. */}
@@ -519,8 +502,14 @@ export const AnimaticPlayer = (props: {
           </div>
         )}
 
-        <div className="pointer-events-none absolute right-4 top-4 rounded-md bg-black/70 px-3 py-1.5 font-mono text-sm tabular-nums">
-          {formatRunTime(timeline.totalSeconds)}
+        <div className="absolute right-4 top-4 flex items-center gap-2">
+          <AnimaticSubtitlesToggle
+            showSubtitles={showSubtitles}
+            onToggle={() => chooseSubtitles(!showSubtitles)}
+          />
+          <div className="pointer-events-none rounded-md bg-black/70 px-3 py-1.5 font-mono text-sm tabular-nums">
+            {formatRunTime(timeline.totalSeconds)}
+          </div>
         </div>
       </div>
     </div>

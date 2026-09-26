@@ -11,6 +11,10 @@ import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import { makeFfmpegLogger } from "./ffmpeg-video-logger";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import { overlayRendererBinPath } from "./overlay-renderer-bin";
+import {
+  splitSubtitleSegments,
+  type SubtitleSegment,
+} from "@/lib/subtitle-chunks";
 
 export type RenderVerticalStage =
   "concatenating-clips" | "transcribing" | "rendering-overlay" | "compositing";
@@ -181,60 +185,6 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
     ],
   }
 ) {}
-
-/** A caption segment timed in seconds, as returned by Whisper. */
-type SubtitleSegment = { start: number; end: number; text: string };
-
-/**
- * The longest a single on-screen subtitle may be before it is split into
- * multiple phrases. Ported verbatim from the original Total TypeScript renderer.
- */
-const MAXIMUM_SUBTITLE_LENGTH_IN_CHARS = 32;
-
-/**
- * Split a Whisper segment that is longer than
- * {@link MAXIMUM_SUBTITLE_LENGTH_IN_CHARS} into several shorter phrases,
- * distributing the words evenly and dividing the segment's time span evenly
- * across the resulting chunks.
- *
- * Ported verbatim from the original Total TypeScript renderer's
- * `splitSubtitleSegments`. Timing is by even division (not per-word
- * timestamps), which is the behaviour we are intentionally reproducing.
- */
-export function splitSubtitleSegments(
-  subtitle: SubtitleSegment
-): SubtitleSegment[] {
-  if (subtitle.text.length <= MAXIMUM_SUBTITLE_LENGTH_IN_CHARS) {
-    return [subtitle];
-  }
-
-  const numChunks = Math.ceil(
-    subtitle.text.length / MAXIMUM_SUBTITLE_LENGTH_IN_CHARS
-  );
-
-  const words = subtitle.text.split(" ");
-  const wordsPerChunk = Math.ceil(words.length / numChunks);
-
-  const chunks: SubtitleSegment[] = [];
-  const duration = subtitle.end - subtitle.start;
-  const chunkDuration = duration / numChunks;
-
-  for (let i = 0; i < numChunks; i++) {
-    const startTime = subtitle.start + i * chunkDuration;
-    const endTime = startTime + chunkDuration;
-
-    const startWordIndex = i * wordsPerChunk;
-    const endWordIndex = startWordIndex + wordsPerChunk;
-
-    chunks.push({
-      start: startTime,
-      end: endTime,
-      text: words.slice(startWordIndex, endWordIndex).join(" ").trim(),
-    });
-  }
-
-  return chunks;
-}
 
 /**
  * Build frame-based subtitles from Whisper segments of the concatenated video.

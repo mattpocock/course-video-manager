@@ -28,6 +28,8 @@ export interface AnimaticShortcutHandlers {
   onSelectEdge: (edge: "first" | "last") => void;
   /** L and K — 2x and 1x, the Video page's transport keys. */
   onChooseRate: (rate: number) => void;
+  /** C — subtitles on or off, as on YouTube. The Animatic's own key. */
+  onToggleSubtitles: () => void;
 }
 
 export function useAnimaticShortcuts(handlers: AnimaticShortcutHandlers) {
@@ -62,6 +64,8 @@ export function useAnimaticShortcuts(handlers: AnimaticShortcutHandlers) {
         held.current.onChooseRate(2);
       } else if (e.key === "k") {
         held.current.onChooseRate(1);
+      } else if (e.key === "c") {
+        held.current.onToggleSubtitles();
       }
     };
 
