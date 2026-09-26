@@ -46,6 +46,15 @@ decide what to deploy. There is deliberately **no Ignored Build Step**:
 `turbo-ignore` is deprecated, and native skipping does not consume a concurrent
 build slot. If a custom step is ever needed it is `turbo query affected`.
 
+**Only `main` deploys.** `apps/remote/vercel.json` sets
+`git.deploymentEnabled` to `{ "**": false, "main": true }`, so a push to any
+other branch builds nothing: no Preview Deployment for an open PR. Production
+still deploys on a merge to `main`, because a branch that matches two rules
+deploys if either one is `true`. The pattern is `**` and not `*`, as `*` does
+not match a slash and a `feat/thing` branch would still deploy. This is the
+supported per-branch control — Vercel's dashboard has no equivalent, and the
+repo takes no Ignored Build Step.
+
 ## Database migrations
 
 Schema changes are managed with **drizzle-kit generate / migrate** (versioned SQL files), not `push`. The schema, the migrations and the drizzle config all live in `packages/core`.
