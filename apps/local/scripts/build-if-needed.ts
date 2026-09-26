@@ -51,10 +51,17 @@ if (existsSync(HASH_FILE) && existsSync(SERVER_ENTRY)) {
 }
 
 console.log("→ repo changed, running react-router build...");
+const startedAt = Date.now();
 execFileSync("npx", ["react-router", "build"], {
   cwd: ROOT,
   stdio: "inherit",
 });
+const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
 
 writeFileSync(HASH_FILE, currentHash + "\n");
-console.log("✓ wrote build/.build-hash");
+
+// The build's own `✓ built in Ns` is gone — vite.config.ts drops build output
+// below `warn`, because the same `info` level carries the 400-line asset table.
+// The duration is the one number from that table worth keeping, so it is
+// printed here instead, where the log has room for it.
+console.log(`✓ react-router build finished in ${elapsedSeconds}s`);

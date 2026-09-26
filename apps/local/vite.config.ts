@@ -57,8 +57,57 @@ function serveRoots(): string[] {
 // .claude/skills/verify-cvm/scripts/verify.sh.
 const DEV_PORT = 5173;
 
-export default defineConfig({
+// A `pnpm start` prints ~700 lines, and ~600 of them are this build reporting
+// on itself: one line per emitted asset, one warning per empty route chunk, one
+// warning per sourcemap it could not resolve. THE POINT IS THE AGENT (see
+// scripts/run-with-log.sh) — an agent reading `start-latest.log` for the stack
+// that broke a page has to scroll past all of it, and a 90KB log is 90KB of
+// context spent on nothing. What follows removes the volume and keeps the
+// signal: every warning Vite would show you by default still shows, and errors
+// are untouched.
+export default defineConfig(({ command }) => ({
   envDir: WORKSPACE_ROOT,
+
+  // `warn` on a build only. It drops the per-asset size table (419 lines of the
+  // 697), `transforming...`, `computing gzip size...` and `built in Ns` — all
+  // logged at `info`. Nothing here is read on a normal run, and on a failed one
+  // the error is at `error` level and survives. build-if-needed.ts prints the
+  // build's duration itself, so the one number worth keeping is not lost.
+  //
+  // Scoped to `command === "build"` because `serve` is the dev server, where
+  // `info` is what prints the local URL and the HMR reloads.
+  logLevel: command === "build" ? "warn" : "info",
+
+  build: {
+    // The gzip column of a table nobody now prints. It is a synchronous
+    // compression pass over every one of ~400 assets, so dropping it is also
+    // the single cheapest thing available to the build's wall time.
+    reportCompressedSize: false,
+
+    rollupOptions: {
+      // Two of rollup's warning codes are structural here — they fire on a
+      // healthy build and they cannot be fixed, only heard. Everything else
+      // goes to `defaultHandler`, which is Vite's own filter: it is what
+      // already hides CIRCULAR_DEPENDENCY and THIS_IS_UNDEFINED from
+      // dependencies, and replacing it rather than delegating to it is how you
+      // accidentally un-hide 58 more lines.
+      onwarn(warning, defaultHandler) {
+        // EMPTY_BUNDLE, 118 lines. Every `api.*` route module exports only a
+        // loader or an action, so its client chunk is empty by design. React
+        // Router builds one chunk per route either way.
+        if (warning.code === "EMPTY_BUNDLE") return;
+
+        // SOURCEMAP_ERROR, 92 lines. This is not a warning about your code; it
+        // is rollup failing to map a location while reporting one of the
+        // warnings `defaultHandler` then suppresses. The suppressed warning
+        // never prints and this complaint about it does — noise about silence.
+        if (warning.code === "SOURCEMAP_ERROR") return;
+
+        defaultHandler(warning);
+      },
+    },
+  },
+
   server: { port: DEV_PORT, strictPort: true, fs: { allow: serveRoots() } },
   plugins:
     process.env.NODE_ENV === "test"
@@ -91,4 +140,4 @@ export default defineConfig({
       },
     ],
   },
-});
+}));
