@@ -1,6 +1,6 @@
 import { Console, Effect, type ManagedRuntime } from "effect";
 import { data } from "react-router";
-import { runtimeLive } from "./layer.server";
+import { type LayerLive, runtimeLive } from "./layer.server";
 
 type ErrorTags<E> = E extends { readonly _tag: infer T extends string }
   ? T
@@ -69,7 +69,7 @@ interface MakeLoaderConfig<A, E, R> {
   }) => Effect.Effect<A, E, R>;
 }
 
-export function makeLoader<A, E, R>(
+export function makeLoader<A, E, R extends LayerLive>(
   config: MakeLoaderConfig<A, E, R>,
   runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
 ): (args: {
@@ -93,7 +93,7 @@ export function makeLoader<A, E, R>(
   };
 }
 
-export function makeAction<A, E, R>(
+export function makeAction<A, E, R extends LayerLive>(
   config: MakeActionConfig<A, E, R>,
   runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
 ): (args: {

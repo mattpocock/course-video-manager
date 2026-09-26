@@ -103,4 +103,13 @@ export const layerLive = Layer.mergeAll(
   renderVerticalLayer
 );
 
+/**
+ * Every service `runtimeLive` can hand out.
+ *
+ * `makeLoader`/`makeAction` constrain a route's requirements to THIS, so a
+ * route that asks for a service missing from `layerLive` fails to compile
+ * rather than 500-ing on the first request (#1737).
+ */
+export type LayerLive = Layer.Layer.Success<typeof layerLive>;
+
 export const runtimeLive = ManagedRuntime.make(layerLive);
