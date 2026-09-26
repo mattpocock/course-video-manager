@@ -45,6 +45,7 @@ import {
   type AnimaticSelection,
 } from "./animatic-selection";
 import { useStableChapters, useStableMockups } from "./animatic-revalidation";
+import { startPlayingAt } from "./animatic-transport";
 import { useAnimaticShortcuts } from "./use-animatic-shortcuts";
 import {
   ANIMATIC_FPS,
@@ -91,6 +92,12 @@ import {
  * skips frames, and the ARROW keys step over a folded Chapter's rows rather than
  * walking a selection the author cannot see. A FOLD STAYS SHUT while the
  * Animatic plays into it — see `animatic-collapse.ts`.
+ *
+ * PLAYING IS THE PLAYER'S OWN STATE, and nothing here keeps a second copy of
+ * it. The play/pause button, SPACE and a click on a row all end at the same
+ * Remotion Player, which is why the button can never disagree with what is
+ * playing — as it did while a seek-then-play left Remotion holding a resume it
+ * still meant to do. See `animatic-transport.ts`.
  *
  * WHAT IS PLAYING SHOWS AS A BAR THAT FILLS, the Video Editor's Clip timeline's
  * own answer: across the playing row, and across a folded Chapter's divider
@@ -219,14 +226,20 @@ export const AnimaticPlayer = (props: {
   const count = timeline.segments.length;
   const selectedIndex = resolveSelection(selection, activeIndex);
 
-  /** Select a Clip Mockup and play it from its own first frame. */
+  /**
+   * Select a Clip Mockup and play it from its own first frame.
+   *
+   * THROUGH `startPlayingAt`, never a bare `seekTo()` then `play()`: seeking a
+   * playing Player arms Remotion's own resume latch, which then fires on the
+   * author's next click of the pause button and undoes it. See
+   * `animatic-transport.ts`.
+   */
   const playFrom = useCallback(
     (index: number) => {
       const segment = segmentsRef.current[index];
       if (!segment) return;
       setSelection(index);
-      playerRef.current?.seekTo(segment.startFrame);
-      playerRef.current?.play();
+      startPlayingAt(playerRef.current, segment.startFrame);
     },
     // `segmentsRef` and `playerRef` are refs, so this is stable for the life of
     // the page — a poll cannot replace the click handler on every row.
