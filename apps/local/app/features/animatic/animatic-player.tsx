@@ -327,7 +327,11 @@ export const AnimaticPlayer = (props: {
         // keydown on a plain button, and the author's next act after clicking a
         // moment is SPACE.
         className={cn(
-          "allow-keydown relative flex w-full gap-3 overflow-hidden border-b border-border px-4 py-2.5 text-left text-sm hover:bg-muted/60",
+          // `isolate` keeps this row's own z-indexed parts inside it. Without
+          // it a `relative` box with no z-index of its own raises them into the
+          // list's stacking context, where they tie with the sticky Chapter
+          // divider and, being later in the list, paint OVER it.
+          "allow-keydown relative isolate flex w-full gap-3 overflow-hidden border-b border-border px-4 py-2.5 text-left text-sm hover:bg-muted/60",
           index === activeIndex && "bg-muted",
           index === selectedIndex && index !== activeIndex && "bg-muted/50",
           index === selectedIndex &&
@@ -431,9 +435,11 @@ export const AnimaticPlayer = (props: {
           {layout.sections.map((section) => (
             <Fragment key={section.chapter.id}>
               {/* Sticky on the row, not the button: the row is the scrolling
-                  list's own child, so this is what can stay in sight. */}
+                  list's own child, so this is what can stay in sight. It sits
+                  ABOVE the rows' own layer, so a row scrolling under it goes
+                  behind the title rather than through it. */}
               <li
-                className="sticky top-0 z-10"
+                className="sticky top-0 z-20"
                 data-animatic-chapter={section.chapter.id}
               >
                 <AnimaticChapterDivider

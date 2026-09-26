@@ -345,12 +345,25 @@ body {
   color: #dedcd550;
   user-select: none;
 }
-/* The line the eye should land on. */
+/*
+ * The line the eye should land on. A viewer gets one second to find it while
+ * a sentence is spoken, so this is loud on purpose: an accent wash and a bar
+ * in the gutter. Do not soften it.
+ */
 .code .l.here {
-  background: var(--window-raised);
+  background: rgba(251, 191, 36, 0.14);
+  box-shadow: inset 6px 0 0 var(--accent);
 }
 .code .l.here::before {
-  color: #bfbaaa;
+  color: var(--accent-soft);
+}
+/*
+ * Louder still. On `.code--spotlight` every line that is not `.here` fades
+ * back, so the frame answers "which part am I reading?" on its own. Use it
+ * when the surrounding code is context, not content.
+ */
+.code--spotlight .l:not(.here) {
+  opacity: 0.28;
 }
 /* A diff, the commonest thing a slot-filling template would have refused. */
 .code .l.add {
@@ -371,6 +384,23 @@ body {
 }
 .code .l.bare::before {
   content: "";
+}
+
+/*
+ * The words the eye should land on, inside a line of prose, a label or a
+ * heading. Same job as `.here`, for everything that is not a code block.
+ * `.spot--quiet` is the second colour, for the losing side of a comparison.
+ */
+.spot {
+  background: rgba(251, 191, 36, 0.18);
+  box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.18);
+  border-radius: 2px;
+  color: var(--accent-soft);
+}
+.spot--quiet {
+  background: rgba(203, 118, 118, 0.16);
+  box-shadow: 0 0 0 8px rgba(203, 118, 118, 0.16);
+  color: var(--error);
 }
 
 /* Red squiggle under the thing that is wrong. */
