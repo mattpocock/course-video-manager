@@ -55,6 +55,53 @@ A new `any` needs a reason in the PR. An `any` already sitting in a file you are
 touching is an invitation, the same way an oxlint `correctness` warning is — a
 file should leave review with fewer of them than it had.
 
+## Course Versions
+
+### A write to anything a Version owns goes through the Draft guard
+
+A Section, a Lesson, a Video and everything hanging off them belong to a
+CourseVersion, and only a Draft accepts writes: Pending and Published Versions
+are immutable. `packages/core/services/draft-guard.server.ts` is the single
+place that decides this. Every DB write entry point resolves its target's owning
+Version through the `requireDraftVersionFor…` that matches the noun it is
+writing — Section, Lesson, Learning Goal, Video, Clip, Chapter, Clip web link,
+Overlay — and fails with a typed `VersionNotDraftError` when the Version is not
+a Draft. The guard reads `commitState` with a `SELECT … FOR UPDATE`, so it is
+only race-safe inside the SAME transaction as the write it protects.
+
+**A NEW NOUN INHERITS THE GUARD FROM WHAT IT HANGS OFF.** If a row points at a
+Video, a Clip or a Section, then a Version owns it too, however far from the
+Course the noun feels while you are building it. Add its
+`requireDraftVersionFor<Noun>` beside the others and call it from every write —
+create, update, move and archive alike. A read never needs it.
+
+The guard is not only about protecting a published Course from a late edit. It
+is the only thing that tells a caller it is holding the WRONG VERSION of a row.
+A Version copy gives every Video a new id, so a stale id still resolves, still
+names a real Video with the right title, and still takes writes — the work
+simply lands somewhere nobody is looking.
+
+What the omission costs, from this repo: Clip Mockups and Clip Mockup Chapters
+were left outside the closure on purpose, on the reasoning that a Clip Mockup is
+pre-filming authoring data and sits outside the published write-closure. A
+Version copy then gave one course a set of Draft Videos. Half an hour later an
+authoring run wrote 190 Clip Mockups across six of those Videos — onto the
+`v0.0.1` rows, a **published** Version — and ten hours after that a second run
+wrote 57 Chapters onto eleven of them the same way. Every one of those ~250
+writes succeeded and returned a row. The author opened the Animatic on the
+Draft, which is the Version the app shows, and saw no Chapters and no Chapter
+controls at all, because those controls hide themselves when a Video has none.
+`requireDraftVersionForVideo` would have refused the first write of the first
+run and the whole thing would have stopped there. The reasoning about the
+write-closure was sound and the conclusion was still wrong: the guard's second
+job is catching a stale id, and no noun that a Version owns is exempt from that.
+
+A noun survives review without a guard only when no Version owns it — a
+standalone or pitch-bound Video belongs to no CourseVersion, and the guard
+already passes for that case rather than needing to be skipped. "This noun is
+not part of the published artifact" is not the test; "no row above this one
+reaches a CourseVersion" is.
+
 ## Entities and their actions
 
 ### Every entity is right-clickable
