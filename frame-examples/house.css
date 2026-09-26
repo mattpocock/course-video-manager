@@ -352,6 +352,17 @@ body {
 .code .l.here::before {
   color: #bfbaaa;
 }
+/*
+ * The whole block pulled back so the `.here` line is the only one that reads.
+ * It goes on the BLOCK, not the line, so spotlighting a frame is one class on
+ * one element and the lines themselves keep the markup they already had.
+ */
+.code--spotlight .l {
+  opacity: 0.32;
+}
+.code--spotlight .l.here {
+  opacity: 1;
+}
 /* A diff, the commonest thing a slot-filling template would have refused. */
 .code .l.add {
   background: rgba(77, 147, 117, 0.16);
@@ -755,6 +766,18 @@ body {
 .caption strong {
   color: var(--accent-soft);
   font-weight: 600;
+}
+
+/* A run of words in prose the eye should land on: the inline twin of
+ * `.code .l.here`, the same raised plate and lifted text at word width.
+ * For PROSE — a label, a callout, a heading — never for code. */
+.spot {
+  padding: 0.08em 0.3em;
+  margin: 0 -0.06em;
+  border-radius: 6px;
+  background: var(--window-raised);
+  color: var(--accent-soft);
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 
 /* A section heading above a diagram or a pair of panes. */
