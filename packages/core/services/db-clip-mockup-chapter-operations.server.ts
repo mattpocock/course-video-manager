@@ -20,14 +20,12 @@ import { listAnimaticOrder } from "./db-animatic-order.server.js";
  *
  * NO DRAFT GUARD, AND THAT IS A BUG (owed work, not a design). Every write here
  * should call `requireDraftVersionForVideo`, as `ClipOperationsService`'s
- * chapter writes do. The original reasoning was that a Clip is inside the
- * published Course Version write-closure while a Clip Mockup sits outside it,
- * so its grouping could follow the thing it groups. That reasoning missed the
- * guard's second job: a Version copy gives every Video a new id, so an
- * unguarded write takes a STALE id happily and strands the work on a superseded
- * Version. It did exactly that to 57 Chapters and 190 Clip Mockups. See
- * "A write to anything a Version owns goes through the Draft guard" in
- * CODING_STANDARDS.md. `ClipMockupOperationsService` owes the same guard.
+ * chapter writes do. Without it a stranded write goes straight through, and it
+ * has: 57 Chapters and 190 Clip Mockups landed on a published Version, where
+ * nothing reads them. `ClipMockupOperationsService` owes the same guard. The
+ * write-closure reasoning this omission rested on, and why it was wrong, is in
+ * CODING_STANDARDS.md under "A write to anything a Version owns goes through
+ * the Draft guard".
  *
  * ONE DELIBERATE ASYMMETRY with the Chapters that group filmed Clips:
  *
