@@ -60,7 +60,7 @@ Avoid over-simplification that could:
 
 ## 5. Apply project standards
 
-Follow the established coding standards in the project at @.sandcastle/CODING_STANDARDS.md.
+Follow the established coding standards in the project at @CODING_STANDARDS.md.
 
 ## 6. Preserve functionality
 

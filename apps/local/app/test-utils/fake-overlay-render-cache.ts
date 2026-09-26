@@ -21,7 +21,7 @@ export type FakeOverlayRenderRequest = {
  *
  * This is the boundary a test is allowed to fake — a real render is a real
  * browser, which no test in this repo may drive (see
- * `.sandcastle/CODING_STANDARDS.md`). Everything on this side of it — which
+ * `CODING_STANDARDS.md`). Everything on this side of it — which
  * content is asked for, and where it lands — stays real. It uses the REAL
  * {@link computeOverlayContentHash}, so a test asserting the answered path is
  * asserting the address a real export would have used.

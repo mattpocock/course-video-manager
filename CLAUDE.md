@@ -47,7 +47,7 @@ Two tiers — don't run a package's full suite by hand. While iterating, run onl
 
 ### Coding standards
 
-`CODING_STANDARDS.md` holds the rules the **review** agent applies to a diff. Read it when reviewing a PR, and when a change reaches for a cast or a type escape hatch. Today it carries one rule: every `any` is a leak, and a file leaves review with fewer of them than it had.
+[`CODING_STANDARDS.md`](./CODING_STANDARDS.md) — Effect and config, function signatures, types, entity actions, React Router data flow, keyboard shortcuts, interface design, testing. Read it while writing code, not only while reviewing it: `every \`any\` is a leak` binds the hand that writes the cast. It sits at the repo root rather than in `.sandcastle/` for that reason. Testing detail is one level down, in [`.sandcastle/TESTING_STANDARDS.md`](./.sandcastle/TESTING_STANDARDS.md).
 
 ### Deep-module packages
 

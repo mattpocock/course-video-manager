@@ -122,7 +122,7 @@ export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
     onProgress: ((percent: number) => void) | undefined;
     // Required, not optional: an omitted onLog silently drops the
     // per-video log this function exists to feed — see the
-    // "optional parameters" note in .sandcastle/CODING_STANDARDS.md.
+    // "optional parameters" note in CODING_STANDARDS.md.
     // A caller with nothing to do about it passes a no-op explicitly.
     onLog: (info: FfmpegLogInfo) => void;
     errorPrefix: string;

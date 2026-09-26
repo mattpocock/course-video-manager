@@ -1,7 +1,7 @@
 # Testing standards
 
 The worked examples behind the testing rules in
-[`CODING_STANDARDS.md`](./CODING_STANDARDS.md). Read those two rules first —
+[`CODING_STANDARDS.md`](../CODING_STANDARDS.md). Read those two rules first —
 behavior through public interfaces, and mocking at system boundaries only.
 Everything here is how they look in practice.
 

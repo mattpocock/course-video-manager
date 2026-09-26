@@ -145,7 +145,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         // onProgress may reasonably be skipped (progress reporting is a UI
         // nicety), but onLog must not be — an omitted logger silently drops
         // the per-video log this function exists to feed. See the "optional
-        // parameters" note in .sandcastle/CODING_STANDARDS.md.
+        // parameters" note in CODING_STANDARDS.md.
         extras: {
           onProgress?: (percent: number) => void;
           onLog: (info: FfmpegLogInfo) => void;

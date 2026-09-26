@@ -37,7 +37,7 @@ export class OverlayRenderCacheService extends Effect.Service<OverlayRenderCache
       // Read at layer construction, not inside the render. A key read only
       // where it is used turns a missing `.env` line into a failure that
       // appears minutes into an export, after the concat and normalize passes
-      // have already run — see `.sandcastle/CODING_STANDARDS.md`.
+      // have already run — see `CODING_STANDARDS.md`.
       const cacheDir = yield* Config.string("OVERLAY_RENDER_CACHE_DIRECTORY");
 
       /**
