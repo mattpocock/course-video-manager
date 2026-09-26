@@ -23,6 +23,7 @@ import { DiagramComponentOperationsService } from "@/services/db-diagram-compone
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
+import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { DeliverableOperationsService } from "@/services/db-deliverable-operations.server";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
@@ -51,6 +52,7 @@ const coreLayer = Layer.mergeAll(
   PitchOperationsService.Default,
   BeatOperationsService.Default,
   ClipMockupOperationsService.Default,
+  ClipMockupChapterOperationsService.Default,
   OverlayOperationsService.Default,
   DeliverableOperationsService.Default,
   ThumbnailOperationsService.Default,
