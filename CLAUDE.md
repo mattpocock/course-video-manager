@@ -32,7 +32,7 @@ Two tiers — don't run a package's full suite by hand. While iterating, run onl
 
 ### Checks
 
-`pnpm run check` runs everything CI runs, in CI's order: typecheck, oxlint, package boundaries, the five file guards, then the unfiltered test suite (`.github/workflows/test.yml`). Pre-commit runs the fast half. Each guard in `scripts/` takes `--all` to sweep every tracked file instead of the staged ones. Oxlint is **advisory**: its `correctness` warnings are a standing backlog cleared by hand, so a warning in a file you touch is an invitation, not a blocker — only rules that encode a documented coding standard are errors, and those are green.
+`pnpm run check` runs everything CI runs, in CI's order: typecheck, oxlint, package boundaries, the five file guards, then the unfiltered test suite (`.github/workflows/test.yml`). Pre-commit runs the fast half, less `check:response-body`, which is CI-only to keep the commit loop short. Each guard in `scripts/` takes `--all` to sweep every tracked file instead of the staged ones. Oxlint is **advisory**: its `correctness` warnings are a standing backlog cleared by hand, so a warning in a file you touch is an invitation, not a blocker — only rules that encode a documented coding standard are errors, and those are green.
 
 ### Deep-module packages
 

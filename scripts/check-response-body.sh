@@ -18,7 +18,14 @@
 # stream belongs: it converts with `Readable.toWeb`, which needs no cast and has
 # no such window.
 
-# Default: staged files (pre-commit). `--all`: every tracked file (CI).
+# CI ONLY, unlike the other four guards: this one is in `pnpm run check`, which
+# the Check workflow runs on every PR, and NOT in `.husky/pre-commit`. Nothing
+# about it is slow — it is a grep, 0.2s of it — but the commit hook is a hot loop
+# and this pattern reaches a Response in a route, which CI sees long before the
+# code can hurt anyone. Run it by hand whenever you like: `pnpm run
+# check:response-body` for the staged files, `--all` for every tracked one.
+
+# Default: staged files, for a run by hand. `--all`: every tracked file (CI).
 file_list() {
   if [ "${1:-}" = "--all" ]; then
     git ls-files
