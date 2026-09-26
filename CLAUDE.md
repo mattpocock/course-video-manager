@@ -45,6 +45,10 @@ Two tiers — don't run a package's full suite by hand. While iterating, run onl
 
 `pnpm run check` runs everything CI runs, in CI's order: typecheck, oxlint, package boundaries, the five file guards, then the unfiltered test suite (`.github/workflows/test.yml`). Pre-commit runs the fast half, less `check:response-body`, which is CI-only to keep the commit loop short. Each guard in `scripts/` takes `--all` to sweep every tracked file instead of the staged ones. Oxlint is **advisory**: its `correctness` warnings are a standing backlog cleared by hand, so a warning in a file you touch is an invitation, not a blocker — only rules that encode a documented coding standard are errors, and those are green.
 
+### Coding standards
+
+`CODING_STANDARDS.md` holds the rules the **review** agent applies to a diff. Read it when reviewing a PR, and when a change reaches for a cast or a type escape hatch. Today it carries one rule: every `any` is a leak, and a file leaves review with fewer of them than it had.
+
 ### Deep-module packages
 
 Packages under `apps/local/app/packages/` are deep modules — import only through a package's entry points (its root files); everything in `lib/`/`tests/` is private. See [apps/local/app/packages/README.md](./apps/local/app/packages/README.md) before adding or importing one. `packages/lucide-icons` is the same idea promoted to a workspace package: its entry points are `index.ts`, `generator.ts` and `tldraw.ts` (exactly its `exports` map), and it carries its own `.dependency-cruiser.cjs`. `pnpm run lint:boundaries` fans out to every package's own check (it runs in pre-commit alongside `typecheck`), so it enforces all of that plus `packages/core` staying filesystem-free.
