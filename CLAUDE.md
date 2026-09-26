@@ -39,7 +39,7 @@ Neither `packages/core` nor `apps/remote` may import anything filesystem-bound �
 
 ### Testing
 
-Two tiers — don't run a package's full suite by hand. While iterating, run only the specific test file(s) that cover your change, directly via `pnpm --filter <package> test -- path/to/thing.test.ts`; the full unfiltered suite runs in CI on every PR (`.github/workflows/test.yml`), so targeting locally never leaves a change unverified. See `docs/agents/testing.md` for the mechanics and known PGlite flakiness under a sandboxed agent workspace's CPU load.
+Two tiers — don't run a package's full suite by hand. While iterating, run only the specific test file(s) that cover your change, directly via `pnpm --filter <package> test -- path/to/thing.test.ts`; the full unfiltered suite runs in CI on every PR (`.github/workflows/test.yml`), so targeting locally never leaves a change unverified. See `docs/agents/testing.md` for the mechanics and known PGlite flakiness under a sandboxed agent workspace's CPU load. That file is how to RUN them; [`docs/TESTING_STANDARDS.md`](./docs/TESTING_STANDARDS.md) is how to WRITE them — mock at system boundaries only, never an internal collaborator.
 
 ### Checks
 
@@ -47,7 +47,7 @@ Two tiers — don't run a package's full suite by hand. While iterating, run onl
 
 ### Coding standards
 
-[`CODING_STANDARDS.md`](./CODING_STANDARDS.md) — Effect and config, function signatures, types, entity actions, React Router data flow, keyboard shortcuts, interface design, testing. Read it while writing code, not only while reviewing it: `every \`any\` is a leak` binds the hand that writes the cast. It sits at the repo root rather than in `.sandcastle/` for that reason. Testing detail is one level down, in [`.sandcastle/TESTING_STANDARDS.md`](./.sandcastle/TESTING_STANDARDS.md).
+[`CODING_STANDARDS.md`](./CODING_STANDARDS.md) — Effect and config, function signatures, types, entity actions, React Router data flow, keyboard shortcuts, interface design, testing. Read it while writing code, not only while reviewing it: `every \`any\` is a leak` binds the hand that writes the cast. It sits at the repo root rather than in `.sandcastle/` for that reason. Testing detail is one level down, in [`docs/TESTING_STANDARDS.md`](./docs/TESTING_STANDARDS.md).
 
 ### Deep-module packages
 

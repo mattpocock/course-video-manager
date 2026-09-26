@@ -168,4 +168,4 @@ internal, redesign the interface.
 Writing, changing or reviewing a test — for the worked good and bad examples,
 the red-flag list, the rule for Remotion renderer packages, and the
 vertical-slice TDD loop, read
-[`TESTING_STANDARDS.md`](./.sandcastle/TESTING_STANDARDS.md).
+[`TESTING_STANDARDS.md`](./docs/TESTING_STANDARDS.md).
