@@ -41,3 +41,23 @@ Consumed only by `/teleprompter`; the Video Editor ignores them.
 2. Use the **Website** action or **System: Open** action
 3. Set URL to: `http://localhost:5174/api/clear-all-archived`
 4. This will clear all deleted clips and orphaned clips across every recording session in one press
+
+## Logging
+
+A connect prints the origin of the page and the live client count:
+
+```
+Client connected — 2 client(s) — http://localhost:5173
+```
+
+If one origin connects three or more times inside ten seconds, the hub says so
+once and then collapses the rest:
+
+```
+http://localhost:5173 reconnected 3x in under 10s — that page is churning its
+hub socket; further connects from it are collapsed (2 client(s))
+```
+
+That line means a page reopens its socket on a timer — usually an effect whose
+dependencies change on every render. Read it as a pointer to the page named, not
+to the hub. See `connection-log.ts`.

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
 import type { ChapterNamingModal } from "../types";
 
@@ -11,7 +11,12 @@ import type { ChapterNamingModal } from "../types";
  * - toggle-pause: Toggles pause between clips
  * - add-chapter: Opens modal to create a new chapter
  *
- * The socket is automatically closed when the component unmounts.
+ * The socket is opened once per mount and closed on unmount. The handlers are
+ * held in a ref rather than listed as effect deps: several of them are inline
+ * arrows in the edit route, so a new identity every render. Listing them made
+ * every re-render of that route close the socket and open a new one — and the
+ * OBS connector re-renders the route on a ~1s beat for as long as OBS is shut,
+ * so the hub saw a fresh client roughly every two seconds and logged each one.
  */
 export function useWebSocket(params: {
   dispatch: (action: { type: "toggle-last-frame-of-video" }) => void;
@@ -21,6 +26,9 @@ export function useWebSocket(params: {
   setChapterNamingModal: (modal: ChapterNamingModal) => void;
   generateDefaultChapterName: () => string;
 }) {
+  const ref = useRef(params);
+  ref.current = params;
+
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:5172");
     socket.addEventListener("message", (event) => {
@@ -33,30 +41,24 @@ export function useWebSocket(params: {
       );
       if (!parsed.success) return;
       const data = parsed.data;
+      const handlers = ref.current;
       if (data.type === "delete-last-clip") {
-        params.onDeleteLatestInsertedClip();
+        handlers.onDeleteLatestInsertedClip();
       } else if (data.type === "toggle-last-frame-of-video") {
-        params.dispatch({ type: "toggle-last-frame-of-video" });
+        handlers.dispatch({ type: "toggle-last-frame-of-video" });
       } else if (data.type === "toggle-pause") {
-        params.onTogglePause();
+        handlers.onTogglePause();
       } else if (data.type === "add-chapter") {
-        params.setChapterNamingModal({
+        handlers.setChapterNamingModal({
           mode: "create",
-          defaultName: params.generateDefaultChapterName(),
+          defaultName: handlers.generateDefaultChapterName(),
         });
       } else if (data.type === "clear-all-archived") {
-        params.onClearAllArchived();
+        handlers.onClearAllArchived();
       }
     });
     return () => {
       socket.close();
     };
-  }, [
-    params.dispatch,
-    params.onDeleteLatestInsertedClip,
-    params.onTogglePause,
-    params.onClearAllArchived,
-    params.setChapterNamingModal,
-    params.generateDefaultChapterName,
-  ]);
+  }, []);
 }

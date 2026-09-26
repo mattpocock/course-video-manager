@@ -1,6 +1,7 @@
 import http from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { type StreamDeckForwarderMessage } from "./stream-deck-forwarder-types";
+import { createConnectionLog } from "./connection-log";
 
 export const DEFAULT_WS_PORT = 5172;
 export const DEFAULT_HTTP_PORT = 5174;
@@ -37,10 +38,19 @@ export function startStreamDeckForwarder(opts?: {
     });
   };
 
-  wss.on("connection", (ws) => {
-    console.log("Client connected");
+  // Names the connecting page and collapses a churning one, so a client that
+  // reopens its socket on a timer can no longer bury the log.
+  const connectionLog = createConnectionLog();
+
+  wss.on("connection", (ws, req) => {
     const connectionId = crypto.randomUUID();
     clients.set(connectionId, ws);
+
+    const line = connectionLog.onConnect({
+      origin: req.headers.origin,
+      clientCount: clients.size,
+    });
+    if (line) console.log(line);
 
     // Rebroadcast anything a client sends over the socket to every other client.
     // Stream Deck actions arrive via the HTTP endpoints below, but other
