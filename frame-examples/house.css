@@ -389,15 +389,15 @@ body {
 /*
  * The words the eye should land on, inside a line of prose, a label or a
  * heading. Same job as `.here`, for everything that is not a code block.
- * `.mark--quiet` is the second colour, for the losing side of a comparison.
+ * `.spot--quiet` is the second colour, for the losing side of a comparison.
  */
-.mark {
+.spot {
   background: rgba(251, 191, 36, 0.18);
   box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.18);
   border-radius: 2px;
   color: var(--accent-soft);
 }
-.mark--quiet {
+.spot--quiet {
   background: rgba(203, 118, 118, 0.16);
   box-shadow: 0 0 0 8px rgba(203, 118, 118, 0.16);
   color: var(--error);

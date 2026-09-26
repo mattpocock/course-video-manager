@@ -48,10 +48,10 @@ talking about. Make that free.
 - **`.here`** on a code line: an accent wash and a bar in the gutter.
 - **`.code--spotlight`** on the block around it: every line that is not
   `.here` fades back, so the rest reads as context.
-- **`.mark`** around words in prose, a label or a heading: the same job,
-  outside a code block. **`.mark--quiet`** is the losing side of a comparison.
+- **`.spot`** around words in prose, a label or a heading: the same job,
+  outside a code block. **`.spot--quiet`** is the losing side of a comparison.
 
-Highlight the exact words the line says out loud, and nothing else. Two marks
+Highlight the exact words the line says out loud, and nothing else. Two spots
 on one frame means the frame is really two moments.
 
 ## Two things that have no build step
