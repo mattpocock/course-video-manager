@@ -50,7 +50,7 @@ export function courseViewEffect(input: {
 
     let selectedVersion: Awaited<
       ReturnType<typeof versionOps.getLatestCourseVersion>
-    > extends Effect.Effect<infer R, any, any>
+    > extends Effect.Effect<infer R, infer _E, infer _Services>
       ? R
       : never = undefined;
 

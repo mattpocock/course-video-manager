@@ -208,7 +208,9 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
 
       default: {
         const _exhaustive: never = event;
-        throw new Error(`Unknown event type: ${(_exhaustive as any).type}`);
+        throw new Error(
+          `Unknown event type: ${(_exhaustive as { type: string }).type}`
+        );
       }
     }
   }
@@ -218,8 +220,11 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
 // Direct Transport Factory (for tests)
 // ============================================================================
 
+/** The effect `handleCourseEditorEvent` returns — services, errors and all. */
+type CourseEditorEventEffect = ReturnType<typeof handleCourseEditorEvent>;
+
 export function createDirectCourseEditorService(
-  runtimePromise: (effect: Effect.Effect<any, any, any>) => Promise<any>
+  runtimePromise: (effect: CourseEditorEventEffect) => Promise<unknown>
 ): CourseEditorService {
   const send = (event: CourseEditorEvent): Promise<unknown> => {
     return runtimePromise(handleCourseEditorEvent(event));

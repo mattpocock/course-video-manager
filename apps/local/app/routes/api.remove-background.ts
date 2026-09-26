@@ -24,11 +24,19 @@ function uint8ArrayToBase64DataUrl(bytes: Uint8Array): string {
   return `data:image/png;base64,${btoa(binary)}`;
 }
 
+/**
+ * The JSON body this route accepts. Every field is `unknown` because it comes
+ * off the wire unvalidated — the checks below are what turn it into a string.
+ */
+interface RemoveBackgroundPayload {
+  imageDataUrl?: unknown;
+}
+
 export const action = makeAction({
   input: "json",
   effect: ({ payload }) =>
     Effect.gen(function* () {
-      const { imageDataUrl } = payload as any;
+      const { imageDataUrl } = (payload ?? {}) as RemoveBackgroundPayload;
 
       if (
         typeof imageDataUrl !== "string" ||

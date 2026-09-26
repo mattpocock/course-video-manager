@@ -19,6 +19,20 @@ function decodeDataUrl(dataUrl: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * The JSON body this route accepts. Every field is `unknown` because it comes
+ * off the wire unvalidated — the `typeof` checks below are what narrow it.
+ */
+interface CreateThumbnailPayload {
+  videoId?: unknown;
+  imageDataUrl?: unknown;
+  backgroundPhotoDataUrl?: unknown;
+  diagramDataUrl?: unknown;
+  diagramPosition?: unknown;
+  cutoutDataUrl?: unknown;
+  cutoutPosition?: unknown;
+}
+
 export const action = makeAction({
   input: "json",
   effect: ({ payload }) =>
@@ -31,7 +45,7 @@ export const action = makeAction({
         diagramPosition,
         cutoutDataUrl,
         cutoutPosition,
-      } = payload as any;
+      } = (payload ?? {}) as CreateThumbnailPayload;
 
       if (typeof videoId !== "string" || !videoId) {
         return yield* Effect.die(data("videoId is required", { status: 400 }));

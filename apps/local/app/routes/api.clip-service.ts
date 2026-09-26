@@ -43,7 +43,7 @@ export const action = makeAction({
 
       const db = yield* DrizzleService;
       const result = yield* handleClipServiceEvent(
-        db as any,
+        db,
         event as ClipServiceEvent,
         videoProcessingAdapter,
         logger

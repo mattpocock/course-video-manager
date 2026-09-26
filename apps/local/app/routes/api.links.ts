@@ -8,6 +8,23 @@ function normalizePayload(payload: unknown): unknown {
   return { ...obj, description: obj.description || null };
 }
 
+/**
+ * Postgres reports a unique-constraint violation as SQLSTATE 23505, which
+ * drizzle hangs off the thrown error's `cause`.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("cause" in error)) {
+    return false;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    (cause as { code?: unknown }).code === "23505"
+  );
+}
+
 const CreateLinkSchema = Schema.Struct({
   title: Schema.String,
   url: Schema.String,
@@ -48,8 +65,8 @@ export const action = makeAction({
 
       return { link };
     }).pipe(
-      Effect.catchAll((e: any) => {
-        if (e?.cause?.code === "23505") {
+      Effect.catchAll((e) => {
+        if (isUniqueViolation(e)) {
           return Effect.die(
             data("A link with this URL already exists", { status: 409 })
           );

@@ -1,5 +1,5 @@
 export interface SSEClientConfig<
-  TEvents extends Record<string, (data: any) => void>,
+  TEvents extends Record<string, (data: never) => void>,
 > {
   url: string;
   method?: "POST" | "GET";
@@ -10,7 +10,7 @@ export interface SSEClientConfig<
 }
 
 export const consumeSSEStream = <
-  TEvents extends Record<string, (data: any) => void>,
+  TEvents extends Record<string, (data: never) => void>,
 >(
   config: SSEClientConfig<TEvents>
 ): AbortController => {
@@ -31,7 +31,7 @@ export const consumeSSEStream = <
 };
 
 const performSSEStream = async <
-  TEvents extends Record<string, (data: any) => void>,
+  TEvents extends Record<string, (data: never) => void>,
 >(
   config: SSEClientConfig<TEvents>,
   signal: AbortSignal
@@ -65,10 +65,13 @@ const performSSEStream = async <
       if (line.startsWith("event: ")) {
         eventType = line.slice(7);
       } else if (line.startsWith("data: ") && eventType) {
-        const eventData = JSON.parse(line.slice(6));
+        const eventData: unknown = JSON.parse(line.slice(6));
         const handler = config.events[eventType as keyof TEvents];
         if (handler) {
-          handler(eventData);
+          // The wire payload is unvalidated here; each handler declares the
+          // shape it expects, so widen the call once rather than typing the
+          // whole event map as `any`.
+          (handler as (data: unknown) => void)(eventData);
         }
         eventType = "";
       }

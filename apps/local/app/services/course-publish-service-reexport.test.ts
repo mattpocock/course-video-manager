@@ -9,6 +9,8 @@ import {
   setupPublishableCourse as setup,
 } from "./course-publish-service-test-setup";
 import { ANNOUNCE_NOTHING } from "@/packages/course-json";
+import type { PublishedManifest } from "./course-publish-dropbox-upload-test-setup";
+import type { ManifestVideo } from "./course-publish-reuse-plan";
 
 setupPublishServiceTests();
 
@@ -123,19 +125,19 @@ const latestBundleVideos = () => {
   return bundles[bundles.length - 1]![1];
 };
 
-const readCommitReceipt = (courseName: string) => {
+const readCommitReceipt = (courseName: string): PublishedManifest => {
   const stored = Array.from(fakeDropbox.files.values()).find((file) =>
     file.pathDisplay.endsWith(`${courseName}/course.json`)
   );
   return JSON.parse(stored!.content.toString("utf-8"));
 };
 
-const manifestVideos = (receipt: any): any[] =>
-  receipt.sections.flatMap((section: any) =>
-    section.lessons.flatMap((lesson: any) =>
-      ["explainer", "problem", "solution"]
-        .map((role) => lesson[role])
-        .filter(Boolean)
+const manifestVideos = (receipt: PublishedManifest): ManifestVideo[] =>
+  receipt.sections.flatMap((section) =>
+    section.lessons.flatMap((lesson) =>
+      [lesson.explainer, lesson.problem, lesson.solution].filter(
+        (video): video is ManifestVideo => video != null
+      )
     )
   );
 

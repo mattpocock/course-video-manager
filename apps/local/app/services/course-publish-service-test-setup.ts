@@ -297,7 +297,9 @@ export const setupPublishableCourse = async (opts?: {
   });
 
   const defaultMockVideoProcessing = Layer.succeed(VideoProcessingService, {
-    exportVideoClips: (exportOpts: any) =>
+    exportVideoClips: (
+      exportOpts: Parameters<VideoProcessingService["exportVideoClips"]>[0]
+    ) =>
       Effect.sync(() => {
         const videoId: string = exportOpts.videoId;
         const runNumber = (runNumbers.get(videoId) ?? 0) + 1;

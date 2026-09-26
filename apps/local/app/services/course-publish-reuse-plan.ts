@@ -48,7 +48,7 @@ export const EMPTY_REUSE_PLAN: ReusePlan = new Map();
  * manifest this Publish cannot fully understand is a reason to reuse LESS, not
  * a reason to fail. Anything unrecognised simply contributes no entry.
  */
-type ManifestVideo = {
+export type ManifestVideo = {
   relativePath: string;
   sha256: string;
   bytes: number;

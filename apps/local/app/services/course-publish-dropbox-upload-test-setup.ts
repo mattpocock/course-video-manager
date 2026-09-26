@@ -9,6 +9,7 @@
  */
 
 import { beforeAll, afterEach } from "vitest";
+import type { ManifestVideo } from "./course-publish-reuse-plan";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import { createFakeOverlayRenderCache } from "@/test-utils/fake-overlay-render-cache";
@@ -326,17 +327,34 @@ export const remoteBundleDirs = () =>
     )
   );
 
-export const receiptManifest = () =>
+/** A Lesson as the published `course.json` carries it. */
+interface ManifestLesson {
+  type?: string;
+  explainer?: ManifestVideo | null;
+  problem?: ManifestVideo | null;
+  solution?: ManifestVideo | null;
+}
+
+/** The `course.json` a Publish writes into the Bundle. */
+export interface PublishedManifest {
+  $schema: string;
+  schemaVersion: number;
+  sections: Array<{ lessons: ManifestLesson[] }>;
+}
+
+export const receiptManifest = (): PublishedManifest =>
   JSON.parse(
     fakeDropbox
       .get(`${DROPBOX_REMOTE_PATH}/test-course/course.json`)!
       .content.toString("utf-8")
   );
 
-export const manifestVideos = (manifest: any): any[] =>
-  manifest.sections.flatMap((section: any) =>
-    section.lessons.flatMap((lesson: any) =>
-      [lesson.explainer, lesson.problem, lesson.solution].filter(Boolean)
+export const manifestVideos = (manifest: PublishedManifest): ManifestVideo[] =>
+  manifest.sections.flatMap((section) =>
+    section.lessons.flatMap((lesson) =>
+      [lesson.explainer, lesson.problem, lesson.solution].filter(
+        (video): video is ManifestVideo => video != null
+      )
     )
   );
 

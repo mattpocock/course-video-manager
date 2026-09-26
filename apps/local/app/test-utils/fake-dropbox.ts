@@ -168,11 +168,22 @@ export const createFakeDropbox = () => {
     return Buffer.from(await new Response(body).arrayBuffer());
   };
 
-  const getApiArg = (headers: HeadersInit | undefined): any => {
+  /**
+   * The `Dropbox-API-Arg` header. Each endpoint below sends only the fields
+   * its own call needs, so the shape is named once here rather than read off
+   * an `any`.
+   */
+  interface DropboxApiArg {
+    path: string;
+    cursor: { session_id: string };
+    commit: { path: string };
+  }
+
+  const getApiArg = (headers: HeadersInit | undefined): DropboxApiArg => {
     const raw = (headers as Record<string, string> | undefined)?.[
       "Dropbox-API-Arg"
     ];
-    return raw ? JSON.parse(raw) : {};
+    return (raw ? JSON.parse(raw) : {}) as DropboxApiArg;
   };
 
   const dispatch = async (
@@ -233,7 +244,9 @@ export const createFakeDropbox = () => {
     // here too: no request body ever carries the bytes.
     if (urlStr.includes("/2/files/copy_batch_v2")) {
       const body = JSON.parse(reqInit.body as string);
-      const entries = (body.entries as Array<any>).map((entry) => {
+      const entries = (
+        body.entries as Array<{ from_path: string; to_path: string }>
+      ).map((entry) => {
         const source = get(entry.from_path);
         if (!source) {
           return {
@@ -321,7 +334,7 @@ export const createFakeDropbox = () => {
     ) {
       const body = JSON.parse(reqInit.body as string);
       const prefix = body.path.toLowerCase();
-      const entries: any[] = [];
+      const entries: unknown[] = [];
       const seenFolders = new Set<string>();
 
       for (const [key, stored] of files) {
