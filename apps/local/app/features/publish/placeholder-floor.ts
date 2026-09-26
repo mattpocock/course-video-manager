@@ -17,7 +17,7 @@
 import type {
   LessonHardGap,
   PlaceholderFloorBand,
-} from "@/packages/course-json";
+} from "@/packages/course-json/client";
 import type { WithheldReason } from "@/services/course-publish-lesson-statuses";
 
 /**

@@ -92,6 +92,32 @@ export default defineConfig(({ command }) => ({
       // dependencies, and replacing it rather than delegating to it is how you
       // accidentally un-hide 58 more lines.
       onwarn(warning, defaultHandler) {
+        // A node builtin reaching the BROWSER bundle is a bug, not a warning.
+        // Vite only externalizes one when a module bound for the client imports
+        // it, and the module is then shipped with a stub that throws on use —
+        // so the page breaks at runtime, in whatever feature touched it, long
+        // after the build said nothing much. It used to say nothing much
+        // inside 640 other lines.
+        //
+        // The fix is never to stub the builtin: it is to find what dragged a
+        // server module into a component's import graph. `course-json` is the
+        // worked example — `index.ts` reaches the Export Hash and so
+        // `node:crypto`, and `client.ts` exists for the browser-side callers.
+        // Split the module, or move the call into a loader.
+        if (
+          warning.message.includes(
+            "has been externalized for browser compatibility"
+          )
+        ) {
+          throw new Error(
+            `Node builtin in the client bundle.\n\n${warning.message}\n\n` +
+              "Something bound for the browser imports a server-only module. " +
+              "Find the chain and break it — give the package a browser-safe " +
+              "entry point (see app/packages/course-json/client.ts) or move the " +
+              "call into a loader. Do not stub the builtin."
+          );
+        }
+
         // EMPTY_BUNDLE, 118 lines. Every `api.*` route module exports only a
         // loader or an action, so its client chunk is empty by design. React
         // Router builds one chunk per route either way.

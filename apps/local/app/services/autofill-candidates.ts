@@ -1,4 +1,4 @@
-import { computeShippingSections } from "@/packages/course-json";
+import { computeShippingSections } from "@/packages/course-json/client";
 import { computeVideoWarnings, type AutofillField } from "./video-warnings";
 
 /**

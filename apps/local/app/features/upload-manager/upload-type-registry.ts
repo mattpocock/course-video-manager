@@ -3,7 +3,7 @@ import { autofillConfig } from "./upload-type-autofill";
 import { startSSEAiHeroPost } from "./sse-ai-hero-client";
 import { startSSEExport } from "./sse-export-client";
 import { startSSEPublish } from "./sse-publish-client";
-import type { PlaceholderFloorBand } from "@/packages/course-json";
+import type { PlaceholderFloorBand } from "@/packages/course-json/client";
 import { startSSERenderVertical } from "./sse-render-vertical-client";
 import { startSSESkillsChangelogPost } from "./sse-skills-changelog-client";
 import { startSSESocialPost } from "./sse-social-client";

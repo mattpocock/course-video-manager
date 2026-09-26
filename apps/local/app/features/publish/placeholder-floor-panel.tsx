@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import {
   PLACEHOLDER_FLOOR_BANDS,
   type PlaceholderFloorBand,
-} from "@/packages/course-json";
+} from "@/packages/course-json/client";
 import {
   formatHardGaps,
   formatPublishSummary,

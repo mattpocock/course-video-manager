@@ -9,7 +9,7 @@ import { uploadReducer, createInitialUploadState } from "./upload-reducer";
 import { showSuccessToast, showErrorToast } from "./upload-toasts";
 import { startSSEBatchExport } from "./sse-batch-export-client";
 import { uploadTypeRegistry } from "./upload-type-registry";
-import type { PlaceholderFloorBand } from "@/packages/course-json";
+import type { PlaceholderFloorBand } from "@/packages/course-json/client";
 
 export interface UploadContextType {
   uploads: uploadReducer.State["uploads"];

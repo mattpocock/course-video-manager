@@ -1,4 +1,7 @@
-// Entry point (public) for the course-json package — a single seam.
+// Entry point (public, server-side) for the course-json package.
+//
+// Browser-side code wants `./client` instead: this file re-exports the manifest
+// builder, which reaches node:crypto through the Export Hash. See ./client.ts.
 //
 // A deep module: this small surface hides the whole production of a course.json
 // manifest — the effective-output filter (which to-do Lessons ship), role
@@ -55,11 +58,13 @@ export {
   type CourseJsonDocument,
 } from "./lib/course-json-schema";
 
-export {
-  computeEffectiveSections,
-  computeShippingSections,
-} from "./lib/effective-sections";
+export { computeEffectiveSections, computeShippingSections } from "./client";
 
+// Through `./client`, not straight from `./lib/lesson-publish-status`, so this
+// surface has ONE definition and the two entry points cannot drift. Server-side
+// callers keep importing it from here; a browser-side caller must use `./client`
+// directly, because reaching it through this file drags the manifest builder and
+// its node builtins along with it.
 export {
   ANNOUNCE_NOTHING,
   ANNOUNCE_NOTHING_BAND,
@@ -75,4 +80,4 @@ export {
   type LessonWithheldReason,
   type PlaceholderFloor,
   type PlaceholderFloorBand,
-} from "./lib/lesson-publish-status";
+} from "./client";
