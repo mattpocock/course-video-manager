@@ -18,11 +18,14 @@ Single-context layout: `CONTEXT.md` at the repo root, ADRs under `docs/adr/`. Se
 
 ### What the running server printed
 
-`pnpm dev` and `pnpm start` tee their output to `.data/logs/dev.log` and
-`.data/logs/start.log` — the current run only, truncated when the next one
-starts. Read it when a page throws at runtime, when the server dies, or to
-confirm a fix loads: the stack that killed the process is there and in no test,
-build artifact or table. `scripts/run-with-log.sh` is the wrapper.
+`pnpm dev` and `pnpm start` tee their output to `.data/logs/`, one file per
+run: `dev-<timestamp>-<pid>.log`. Read the current run with `tail -100
+.data/logs/dev-latest.log`, which is a symlink to the run that started last,
+and `ls -t .data/logs/dev-*.log` when several dev servers are up and you need a
+different one. Runs are kept for a day. Read them when a page throws at
+runtime, when the server dies, or to confirm a fix loads: the stack that killed
+the process is there and in no test, build artifact or table.
+`scripts/run-with-log.sh` is the wrapper.
 
 ### Repository layout
 

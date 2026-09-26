@@ -10,22 +10,40 @@
 # paste. With this, the agent reads the stack itself, and reads the log again
 # after the fix to check that the page it broke now loads.
 #
-# Read it with `tail -100 .data/logs/<task>.log`. `.data/` is the log directory
-# this repo already has — `VideoEditorLoggerService` writes its per-Video logs
-# beside these — and it is gitignored whole.
+# Read the run you are in with `tail -100 .data/logs/<task>-latest.log`, or list
+# the day's runs with `ls -t .data/logs/<task>-*.log`. `.data/` is the log
+# directory this repo already has — `VideoEditorLoggerService` writes its
+# per-Video logs beside these — and it is gitignored whole.
 
 set -uo pipefail
 
 task="${1:?usage: run-with-log.sh <turbo-task>}"
 log_dir=".data/logs"
-log="$log_dir/$task.log"
 
 mkdir -p "$log_dir"
 
-# ONE RUN PER FILE. The only question anyone asks this log is "what did the
-# server just do", and a month of appended runs buries the answer under its own
-# history. The previous run goes when a new one starts, on purpose.
+# ONE FILE PER RUN, NOT PER TASK. Two dev servers in two worktrees are normal
+# here, and a single `dev.log` makes them fight: both truncate it at start, both
+# write into it, and the file ends up a shuffle of two servers that reads like
+# one broken one. The timestamp separates the runs; the PID separates two runs
+# that start inside the same second.
+log="$log_dir/$task-$(date +%Y-%m-%dT%H-%M-%S)-$$.log"
 : >"$log"
+
+# `<task>-latest.log` is the path to paste to an agent, so nobody has to know
+# the timestamp. With several servers up it points at the one that started last
+# — when that is the wrong one, `ls -t` above lists them all.
+ln -sfn "$(basename "$log")" "$log_dir/$task-latest.log"
+
+# ONE DAY OF HISTORY. Enough to read back this morning's crash, not so much
+# that `.data/logs` becomes an archive nobody prunes. Age is taken from mtime,
+# not from the name, so a server that has been up for two days keeps its log:
+# it is still being written to.
+#
+# The glob is `<task>-*`, never `*.log`. The per-Video logs live in this same
+# directory and are not ours to delete.
+find "$log_dir" -maxdepth 1 -name "$task-*.log" \
+  \( -type f -mmin +1440 -o -xtype l \) -delete 2>/dev/null
 
 # The colour codes come out. They are invisible in a terminal and they are
 # rubbish in a file — a grep for an error message misses it because a bold
