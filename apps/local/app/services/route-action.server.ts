@@ -58,7 +58,7 @@ function buildErrorPipeline<A, E, R>(
           : statusMessage(status);
       return Effect.die(data(message, { status }));
     })
-  ) as Effect.Effect<A, never, R>;
+  );
 }
 
 interface MakeLoaderConfig<A, E, R> {
@@ -71,7 +71,7 @@ interface MakeLoaderConfig<A, E, R> {
 
 export function makeLoader<A, E, R extends LayerLive>(
   config: MakeLoaderConfig<A, E, R>,
-  runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
+  runtime: ManagedRuntime.ManagedRuntime<R, unknown> = runtimeLive
 ): (args: {
   request: Request;
   params: Record<string, string | undefined>;
@@ -95,7 +95,7 @@ export function makeLoader<A, E, R extends LayerLive>(
 
 export function makeAction<A, E, R extends LayerLive>(
   config: MakeActionConfig<A, E, R>,
-  runtime: ManagedRuntime.ManagedRuntime<any, any> = runtimeLive
+  runtime: ManagedRuntime.ManagedRuntime<R, unknown> = runtimeLive
 ): (args: {
   request: Request;
   params: Record<string, string | undefined>;

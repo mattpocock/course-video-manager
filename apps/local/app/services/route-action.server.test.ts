@@ -2,19 +2,28 @@ import { describe, it, expect, vi } from "vitest";
 import { Cause, Data, Effect, Layer, ManagedRuntime, Runtime } from "effect";
 import { makeAction, makeLoader } from "./route-action.server";
 
-function extractDieDefect(error: unknown): unknown {
+/**
+ * What `buildErrorPipeline` dies with: react-router's `data(message, init)`.
+ * Naming the shape HERE is what keeps `as any` out of the 13 assertions below.
+ */
+interface ThrownRouteData {
+  data: string;
+  init: { status: number };
+}
+
+function extractDieDefect(error: unknown): ThrownRouteData {
   if (!Runtime.isFiberFailure(error)) throw error;
-  const cause = (error as any)[Symbol.for("effect/Runtime/FiberFailure/Cause")];
+  const cause = error[Runtime.FiberFailureCauseId];
   const defects = [...Cause.defects(cause)];
-  return defects[0];
+  return defects[0] as ThrownRouteData;
 }
 
 /**
  * makeAction/makeLoader provide nothing of their own, so the empty layer is
  * enough for every effect below — none of them ask for a service.
  */
-function makeTestRuntime(): ManagedRuntime.ManagedRuntime<any, any> {
-  return ManagedRuntime.make(Layer.empty as unknown as Layer.Layer<any, any>);
+function makeTestRuntime(): ManagedRuntime.ManagedRuntime<never, never> {
+  return ManagedRuntime.make(Layer.empty);
 }
 
 function mockRequest(
@@ -169,7 +178,7 @@ describe("makeAction", () => {
         await action({ request: mockRequest(), params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(400);
         expect(defect.data).toBe("Invalid request");
       }
@@ -189,7 +198,7 @@ describe("makeAction", () => {
         await action({ request: mockRequest(), params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(500);
         expect(defect.data).toBe("Internal server error");
       }
@@ -210,7 +219,7 @@ describe("makeAction", () => {
         await action({ request: mockRequest(), params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(404);
         expect(defect.data).toBe("missing");
       }
@@ -232,7 +241,7 @@ describe("makeAction", () => {
         await action({ request: mockRequest(), params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(400);
       }
     });
@@ -255,7 +264,7 @@ describe("makeAction", () => {
         await action({ request: mockRequest(), params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(404);
         expect(defect.data).toBe("Course version not found");
       }
@@ -276,7 +285,7 @@ describe("makeAction", () => {
         await action({ request: mockRequest(), params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(409);
         expect(defect.data).toBe("Conflict");
       }
@@ -297,7 +306,7 @@ describe("makeAction", () => {
         await action({ request: mockRequest(), params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(400);
         expect(defect.data).toBe("Invalid request");
       }
@@ -420,7 +429,7 @@ describe("makeLoader", () => {
         await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(404);
         expect(defect.data).toBe("Not found");
       }
@@ -440,7 +449,7 @@ describe("makeLoader", () => {
         await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(400);
         expect(defect.data).toBe("Invalid request");
       }
@@ -466,7 +475,7 @@ describe("makeLoader", () => {
         await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(401);
         expect(defect.data).toBe("Not authenticated");
       }
@@ -486,7 +495,7 @@ describe("makeLoader", () => {
         await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(500);
         expect(defect.data).toBe("Internal server error");
       }
@@ -530,7 +539,7 @@ describe("makeLoader", () => {
         await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(404);
         expect(defect.data).toBe("Course version not found");
       }
@@ -553,7 +562,7 @@ describe("makeLoader", () => {
         await loader({ request: dummyRequest, params: {} });
         expect.unreachable("should have thrown");
       } catch (error) {
-        const defect = extractDieDefect(error) as any;
+        const defect = extractDieDefect(error);
         expect(defect.init.status).toBe(400);
       }
     });
