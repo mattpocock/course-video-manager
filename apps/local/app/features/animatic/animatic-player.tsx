@@ -274,24 +274,28 @@ export const AnimaticPlayer = (props: {
         // keydown on a plain button, and the author's next act after clicking a
         // moment is SPACE.
         className={cn(
-          "allow-keydown flex w-full gap-3 border-b border-white/5 px-4 py-2.5 text-left text-sm hover:bg-white/10",
-          index === activeIndex && "bg-white/15",
-          index === selectedIndex && index !== activeIndex && "bg-white/10",
-          index === selectedIndex && "ring-1 ring-inset ring-sky-400/60"
+          "allow-keydown flex w-full gap-3 border-b border-border px-4 py-2.5 text-left text-sm hover:bg-muted/60",
+          index === activeIndex && "bg-muted",
+          index === selectedIndex && index !== activeIndex && "bg-muted/50",
+          index === selectedIndex &&
+            "ring-1 ring-inset ring-sky-500/70 dark:ring-sky-400/60"
         )}
         onClick={() => playFrom(index)}
       >
-        <span className="w-7 shrink-0 font-mono text-xs tabular-nums text-white/50">
+        <span className="w-7 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
           {segment.mockup.position}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block whitespace-pre-wrap">
             {segment.mockup.line}
           </span>
-          <span className="mt-0.5 block font-mono text-[11px] text-white/40">
+          <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
             {formatRunTime(segment.startFrame / ANIMATIC_FPS)}
             {(segment.mockup.imageMissing || segment.mockup.audioMissing) && (
-              <span className="text-amber-300"> · file missing</span>
+              <span className="text-amber-600 dark:text-amber-300">
+                {" "}
+                · file missing
+              </span>
             )}
           </span>
         </span>
@@ -300,12 +304,12 @@ export const AnimaticPlayer = (props: {
   );
 
   return (
-    <div className="flex h-full w-full min-h-0 bg-black text-white">
-      <aside className="flex w-96 shrink-0 flex-col border-r border-white/10 bg-neutral-950">
-        <header className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+    <div className="flex h-full w-full min-h-0 bg-background text-foreground">
+      <aside className="flex w-96 shrink-0 flex-col border-r border-border bg-background">
+        <header className="flex items-center gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold">Clip Mockups</div>
-            <div className="text-xs text-white/60">
+            <div className="text-xs text-muted-foreground">
               {count} in {formatRunTime(timeline.totalSeconds)}
             </div>
           </div>
@@ -317,7 +321,7 @@ export const AnimaticPlayer = (props: {
             <button
               type="button"
               // A clicked control keeps the keys working, exactly as a row does.
-              className="allow-keydown shrink-0 rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white"
+              className="allow-keydown shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               onClick={toggleAll}
               aria-label={
                 allCollapsed ? "Expand all chapters" : "Collapse all chapters"
@@ -333,7 +337,7 @@ export const AnimaticPlayer = (props: {
         </header>
 
         {broken.length > 0 && (
-          <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+          <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
             <div className="font-semibold">
               {broken.length} Clip Mockup{broken.length === 1 ? "" : "s"} cannot
               play in full
@@ -388,7 +392,11 @@ export const AnimaticPlayer = (props: {
         </ol>
       </aside>
 
-      <div className="relative flex-1 min-w-0">
+      {/* THE STAGE STAYS BLACK IN BOTH THEMES, and so do the two pills on
+          it. The frame is what is being judged, and a judgement made against a
+          white surround is not the judgement the student's player will give.
+          Only the chrome around it follows the theme. */}
+      <div className="relative flex-1 min-w-0 bg-black text-white">
         <Player
           ref={playerRef}
           component={AnimaticComposition}

@@ -6,9 +6,9 @@ import { formatRunTime } from "./animatic-timeline";
  * A Clip Mockup Chapter in the Animatic's sidebar.
  *
  * THE SAME CONTROL THE VIDEO EDITOR HAS. The markup is the editor's
- * `chapter-divider.tsx` — rule, title, rule, with the chevron first — so the
- * two surfaces read as one thing; only the colours are translated, because this
- * sidebar is dark. It is opaque so it can be made sticky, but the caller owns
+ * `chapter-divider.tsx` — rule, title, rule, with the chevron first — and the
+ * SAME THEME TOKENS, so the two surfaces read as one thing in either theme. It
+ * is opaque so it can be made sticky, but the caller owns
  * the sticking: in a list, the row that wraps it is the scroll container's own
  * child, and a `sticky` button inside that wrapper would never leave it.
  *
@@ -41,15 +41,15 @@ export const AnimaticChapterDivider = (props: {
       // shared guard ignores a keydown on a plain button.
       className={cn(
         "allow-keydown flex w-full items-center gap-3",
-        "border-b border-white/5 bg-neutral-950 px-4 py-2 text-left",
-        props.onClick && "hover:bg-white/10"
+        "border-b border-border bg-background px-4 py-2 text-left",
+        props.onClick && "hover:bg-muted/60"
       )}
       onClick={props.onClick}
     >
       {props.onToggleCollapse !== undefined && (
         <span
           aria-hidden
-          className="shrink-0 text-white/40 hover:text-white"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
           onClick={(e) => {
             e.stopPropagation();
             props.onToggleCollapse?.();
@@ -62,16 +62,16 @@ export const AnimaticChapterDivider = (props: {
           )}
         </span>
       )}
-      <div className="h-0 flex-1 border-t-2 border-white/10" />
+      <div className="h-0 flex-1 border-t-2 border-border" />
       <span className="whitespace-nowrap text-sm font-semibold">
         {props.name}
       </span>
-      <span className="font-mono text-[11px] tabular-nums text-white/40">
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
         {props.mockupCount === 0
           ? "0"
           : `${props.mockupCount} in ${formatRunTime(props.runTimeSeconds)}`}
       </span>
-      <div className="h-0 flex-1 border-t-2 border-white/10" />
+      <div className="h-0 flex-1 border-t-2 border-border" />
     </button>
   );
 };
