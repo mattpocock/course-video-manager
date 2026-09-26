@@ -39,6 +39,12 @@ export type ChapterDividerProps = {
   isSelected: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  /**
+   * How far through this Chapter playback is, 0 to 1, drawn as a bar that fills
+   * across the title. `null` or left off draws no bar. Only a COLLAPSED Chapter
+   * passes it: an expanded one's Clips draw their own.
+   */
+  percentComplete?: number | null;
   onClick: (e: React.MouseEvent) => void;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>;
 

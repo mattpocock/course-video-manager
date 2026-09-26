@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { PauseIndicator } from "./timeline-indicators";
 import { ClipItem } from "./clip-item";
 import { ChapterItem } from "./chapter-item";
@@ -11,7 +11,7 @@ import { VideoEditorContext } from "../video-editor-context";
 import { Button } from "@/components/ui/button";
 import { ChevronsDownUp, ChevronsUpDown, Plus } from "lucide-react";
 import type { FrontendId } from "../clip-state-reducer";
-import { getChapterForClip, getChapters } from "../video-editor-selectors";
+import { getChapters } from "../video-editor-selectors";
 
 export const ClipTimeline = () => {
   const items = useContextSelector(VideoEditorContext, (ctx) => ctx.items);
@@ -52,11 +52,6 @@ export const ClipTimeline = () => {
     VideoEditorContext,
     (ctx) => ctx.onOpenCreateChapterModal
   );
-  const currentClipId = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.currentClipId
-  );
-
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const chapters = useMemo(() => getChapters(items), [items]);
@@ -81,16 +76,12 @@ export const ClipTimeline = () => {
     });
   };
 
-  useEffect(() => {
-    if (!currentClipId) return;
-    const chapter = getChapterForClip(items, currentClipId);
-    if (chapter && collapsed[chapter.frontendId as string]) {
-      setCollapsed((prev) => ({
-        ...prev,
-        [chapter.frontendId as string]: false,
-      }));
-    }
-  }, [currentClipId, items]);
+  // A FOLD IS OPENED BY HAND ALONE. Playback runs straight through a folded
+  // Chapter and leaves it folded — the bar filling across its title says it is
+  // playing (see `getChapterPercentComplete`). It used to spring open at the
+  // Clip boundary, which undid the fold every few seconds on exactly the settled
+  // stretch that was folded away to stop looking at. The Animatic's sidebar made
+  // the same change.
 
   const visualAnchorId = useMemo((): FrontendId | null => {
     if (insertionPoint.type !== "after-clip") return null;

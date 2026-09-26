@@ -55,8 +55,9 @@ export function moveSelection(props: {
   if (props.count === 0) return null;
 
   if (props.selection === null) {
-    // The playhead's own Chapter is always open — `expandChapterAtPlayhead`
-    // sees to that — so the row this adopts is on screen.
+    // The playhead's row may itself be behind a fold, and this still adopts it:
+    // it is what the author is hearing, so the next press must move relative to
+    // it. The press after this one steps out of the fold onto a row on screen.
     return props.activeIndex >= 0 ? props.activeIndex : 0;
   }
 

@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHAPTER_PROGRESS_VAR, progressFillStyle } from "./animatic-progress";
 import { formatRunTime } from "./animatic-timeline";
 
 /**
@@ -12,27 +13,38 @@ import { formatRunTime } from "./animatic-timeline";
  * the sticking: in a list, the row that wraps it is the scroll container's own
  * child, and a `sticky` button inside that wrapper would never leave it.
  *
- * It carries the ROLLED-UP count and run time of the rows below it, which is
- * what makes "this Chapter is eleven minutes" answerable at a glance on a
- * thirty-four minute watch. An empty Chapter reads as a plain zero and has no
- * seek to offer: `onClick` is left off, and the title does not move the
- * playhead.
+ * It carries the ROLLED-UP RUN TIME of the rows below it, which is what makes
+ * "this Chapter is eleven minutes" answerable at a glance on a thirty-four
+ * minute watch. It does NOT carry their count: the numbered rows below it and
+ * the `14 / 61` badge on the picture both say where the author is, and a second
+ * count on every divider was noise between the title and the minutes. An empty
+ * Chapter has no seek to offer either: `onClick` is left off, and the title does
+ * not move the playhead.
  *
  * The chevron is drawn only when a caller passes `onToggleCollapse`, and it
  * stops the click going further. THE SPLIT IS LOAD-BEARING: the chevron opens
  * and closes, the rest of the button seeks.
+ *
+ * A FOLDED CHAPTER IS THE ONLY THING ON SCREEN FOR ITS ROWS, so it is what
+ * shows them playing: `isPlaying` draws the fill bar across the divider itself,
+ * filling over the whole Chapter's run time. Nothing else on the page would
+ * say that the eleven minutes behind this one title are the eleven minutes
+ * being heard. See `animatic-progress.ts`.
  */
 export const AnimaticChapterDivider = (props: {
   readonly name: string;
-  /** Clip Mockups under this title. */
-  readonly mockupCount: number;
-  /** Their run time, in seconds. */
+  /** Its rows' run time, in seconds. Zero for a Chapter holding nothing. */
   readonly runTimeSeconds: number;
   /** Left off by a Chapter with nothing under it, which cannot be seeked to. */
   readonly onClick?: () => void;
   readonly isCollapsed?: boolean;
   /** Left off while nothing can collapse — then no chevron is drawn. */
   readonly onToggleCollapse?: () => void;
+  /**
+   * The playhead is inside this Chapter and its rows are folded away. Passing
+   * it on an OPEN Chapter would double the row's own bar.
+   */
+  readonly isPlaying?: boolean;
 }) => {
   return (
     <button
@@ -40,16 +52,26 @@ export const AnimaticChapterDivider = (props: {
       // A clicked divider keeps the keys working, exactly as a row does: the
       // shared guard ignores a keydown on a plain button.
       className={cn(
-        "allow-keydown flex w-full items-center gap-3",
+        "allow-keydown relative flex w-full items-center gap-3 overflow-hidden",
         "border-b border-border bg-background px-4 py-2 text-left",
-        props.onClick && "hover:bg-muted/60"
+        props.onClick && "hover:bg-muted/60",
+        props.isPlaying && "bg-muted"
       )}
       onClick={props.onClick}
     >
+      {/* The fill, behind everything, sized in CSS from the frame the player
+          last wrote. */}
+      {props.isPlaying && (
+        <div
+          aria-hidden
+          className="absolute inset-y-0 left-0 z-0 bg-sky-500/20 dark:bg-sky-400/25"
+          style={progressFillStyle(CHAPTER_PROGRESS_VAR)}
+        />
+      )}
       {props.onToggleCollapse !== undefined && (
         <span
           aria-hidden
-          className="shrink-0 text-muted-foreground hover:text-foreground"
+          className="relative z-10 shrink-0 text-muted-foreground hover:text-foreground"
           onClick={(e) => {
             e.stopPropagation();
             props.onToggleCollapse?.();
@@ -62,16 +84,14 @@ export const AnimaticChapterDivider = (props: {
           )}
         </span>
       )}
-      <div className="h-0 flex-1 border-t-2 border-border" />
-      <span className="whitespace-nowrap text-sm font-semibold">
+      <div className="relative z-10 h-0 flex-1 border-t-2 border-border" />
+      <span className="relative z-10 whitespace-nowrap text-sm font-semibold">
         {props.name}
       </span>
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-        {props.mockupCount === 0
-          ? "0"
-          : `${props.mockupCount} in ${formatRunTime(props.runTimeSeconds)}`}
+      <span className="relative z-10 font-mono text-[11px] tabular-nums text-muted-foreground">
+        {formatRunTime(props.runTimeSeconds)}
       </span>
-      <div className="h-0 flex-1 border-t-2 border-border" />
+      <div className="relative z-10 h-0 flex-1 border-t-2 border-border" />
     </button>
   );
 };

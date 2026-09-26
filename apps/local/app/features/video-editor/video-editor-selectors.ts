@@ -321,6 +321,55 @@ export const getClipPercentComplete = (
   return duration ? currentTimeInClip / duration : 0;
 };
 
+/**
+ * How far through a Chapter playback is, or `null` when this Chapter is not the
+ * one playing.
+ *
+ * IT IS THE COLLAPSED CHAPTER'S ONLY SIGN OF LIFE. A folded Chapter draws none
+ * of its Clips, so the bar that fills across a playing Clip
+ * (`getClipPercentComplete`) is nowhere on screen; this rolls the same idea up
+ * to the title, filling across every Clip under it. The Animatic's sidebar does
+ * exactly this — see `features/animatic/animatic-progress.ts`.
+ *
+ * Elapsed is the whole of every Clip already played plus the part played of the
+ * current one. A Chapter whose Clips have no measured duration yet returns
+ * `null` rather than a bar stuck at zero.
+ */
+export const getChapterPercentComplete = (params: {
+  items: TimelineItem[];
+  chapterId: FrontendId;
+  currentClipId: FrontendId | undefined;
+  currentTimeInClip: number;
+}): number | null => {
+  if (!params.currentClipId) return null;
+  const playing = getChapterForClip(params.items, params.currentClipId);
+  if (playing?.frontendId !== params.chapterId) return null;
+
+  const titleIndex = params.items.findIndex(
+    (item) => item.frontendId === params.chapterId
+  );
+  if (titleIndex === -1) return null;
+
+  let total = 0;
+  let elapsed = 0;
+  let reachedCurrent = false;
+  for (const item of params.items.slice(titleIndex + 1)) {
+    // The next title ends this Chapter.
+    if (isChapter(item)) break;
+    const duration = getClipDuration(item) ?? 0;
+    total += duration;
+    if (item.frontendId === params.currentClipId) {
+      elapsed += Math.min(duration, params.currentTimeInClip);
+      reachedCurrent = true;
+    } else if (!reachedCurrent) {
+      elapsed += duration;
+    }
+  }
+
+  if (total <= 0) return null;
+  return Math.min(1, Math.max(0, elapsed / total));
+};
+
 export const getIsClipPortrait = (clip: Clip): boolean => {
   return (
     clip.type === "on-database" &&

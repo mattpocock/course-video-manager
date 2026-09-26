@@ -20,6 +20,7 @@ import { ChapterDivider } from "./chapter-divider";
 import { InsertionPointWithSession } from "./insertion-point-with-session";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
+import { getChapterPercentComplete } from "../video-editor-selectors";
 
 /**
  * ChapterItem component displays a chapter divider with context menu
@@ -63,6 +64,25 @@ export const ChapterItem = (props: {
     VideoEditorContext,
     (ctx) => ctx.setIsCreateVideoModalOpen
   );
+  const items = useContextSelector(VideoEditorContext, (ctx) => ctx.items);
+  const currentClipId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.currentClipId
+  );
+  // ONLY A COLLAPSED CHAPTER WATCHES THE CLOCK. `currentTimeInClip` changes
+  // several times a second, so an expanded Chapter — which draws no bar — reads
+  // a constant instead and re-renders no more often than it did before.
+  const currentTimeInClip = useContextSelector(VideoEditorContext, (ctx) =>
+    props.isCollapsed ? ctx.currentTimeInClip : 0
+  );
+  const percentComplete = props.isCollapsed
+    ? getChapterPercentComplete({
+        items,
+        chapterId: props.chapter.frontendId,
+        currentClipId,
+        currentTimeInClip,
+      })
+    : null;
   return (
     <div>
       <ContextMenu>
@@ -72,6 +92,7 @@ export const ChapterItem = (props: {
             isSelected={isSelected}
             isCollapsed={props.isCollapsed}
             onToggleCollapse={props.onToggleCollapse}
+            percentComplete={percentComplete}
             onClick={(e) => {
               // If already selected and clicked again (without modifiers),
               // play from the next clip after this section

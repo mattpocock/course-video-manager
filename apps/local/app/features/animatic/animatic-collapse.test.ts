@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import { buildAnimaticChapterLayout } from "./animatic-chapters";
 import {
   areAllChaptersCollapsed,
-  expandChapterAtPlayhead,
   hiddenRowIndices,
   toggleAllChapters,
   toggleChapter,
-  type AnimaticCollapseState,
 } from "./animatic-collapse";
 import {
   buildAnimaticTimeline,
@@ -14,8 +12,10 @@ import {
 } from "./animatic-timeline";
 
 /**
- * Which Chapters are folded away, given a click or given the playhead. State in,
- * state out — so it is tested straight: no jsdom, no Remotion, no player.
+ * Which Chapters are folded away, given a click. State in, state out — so it is
+ * tested straight: no jsdom, no Remotion, no player. NOTHING HERE READS THE
+ * PLAYHEAD: a fold is opened by hand alone, and the Animatic plays through a
+ * folded Chapter without touching it.
  */
 
 const mockup = (position: number, order: string): AnimaticClipMockup => ({
@@ -95,47 +95,6 @@ describe("what the control's icon says it will do", () => {
 
   it("is never 'expand' on a Video with no Chapters, which has no control", () => {
     expect(areAllChaptersCollapsed({}, [])).toBe(false);
-  });
-});
-
-describe("the playhead entering a folded Chapter", () => {
-  it("opens it, so the list never hides the row being heard", () => {
-    // Index 3 is the first row of `ch_b`.
-    const collapsed = expandChapterAtPlayhead({
-      collapsed: { ch_a: true, ch_b: true },
-      sections,
-      activeIndex: 3,
-    });
-
-    expect(collapsed).toEqual({ ch_a: true, ch_b: false });
-  });
-
-  it("leaves the state untouched when the playing Chapter is already open", () => {
-    const before: AnimaticCollapseState = { ch_a: true };
-    const after = expandChapterAtPlayhead({
-      collapsed: before,
-      sections,
-      activeIndex: 3,
-    });
-
-    // The SAME state, so the effect asks React for no re-render.
-    expect(after).toBe(before);
-  });
-
-  it("leaves the state untouched for a row above the first divider", () => {
-    const before: AnimaticCollapseState = { ch_a: true, ch_b: true };
-
-    expect(
-      expandChapterAtPlayhead({ collapsed: before, sections, activeIndex: 0 })
-    ).toBe(before);
-  });
-
-  it("leaves the state untouched when nothing plays", () => {
-    const before: AnimaticCollapseState = { ch_a: true, ch_b: true };
-
-    expect(
-      expandChapterAtPlayhead({ collapsed: before, sections, activeIndex: -1 })
-    ).toBe(before);
   });
 });
 

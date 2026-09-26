@@ -17,7 +17,6 @@ import {
 } from "./animatic-chapters";
 import {
   areAllChaptersCollapsed,
-  expandChapterAtPlayhead,
   hiddenRowIndices,
   toggleAllChapters,
   toggleChapter,
@@ -31,6 +30,14 @@ import {
   ANIMATIC_PLAYBACK_RATES,
   useAnimaticPlaybackRate,
 } from "./animatic-playback-rate";
+import {
+  CHAPTER_PROGRESS_VAR,
+  MOCKUP_PROGRESS_VAR,
+  chapterProgressAtFrame,
+  mockupProgressAtFrame,
+  progressFillStyle,
+  sectionAtIndex,
+} from "./animatic-progress";
 import {
   moveSelection,
   resolveSelection,
@@ -82,7 +89,13 @@ import {
  * settled Playthrough of twenty rows goes behind one title, and the two moments
  * still being judged sit next to each other. Collapsing hides rows and never
  * skips frames, and the ARROW keys step over a folded Chapter's rows rather than
- * walking a selection the author cannot see. See `animatic-collapse.ts`.
+ * walking a selection the author cannot see. A FOLD STAYS SHUT while the
+ * Animatic plays into it — see `animatic-collapse.ts`.
+ *
+ * WHAT IS PLAYING SHOWS AS A BAR THAT FILLS, the Video Editor's Clip timeline's
+ * own answer: across the playing row, and across a folded Chapter's divider
+ * when the row itself is behind the fold. It is written to CSS rather than held
+ * in state, because it moves every frame. See `animatic-progress.ts`.
  */
 
 export const AnimaticPlayer = (props: {
@@ -140,16 +153,56 @@ export const AnimaticPlayer = (props: {
   const segmentsRef = useRef(timeline.segments);
   segmentsRef.current = timeline.segments;
 
+  // Read by that same listener, and by the scroll that follows the playhead
+  // into a folded Chapter. A ref, so neither is re-installed by a poll.
+  const sectionsRef = useRef(layout.sections);
+  sectionsRef.current = layout.sections;
+
+  /**
+   * Paint the two fills onto the sidebar as CSS custom properties.
+   *
+   * THIRTY WRITES A SECOND, NO RENDERS. The bars are sized from these two
+   * numbers in CSS, so the fill moves every frame while React renders once per
+   * Clip Mockup — which is the whole reason `activeIndex` above is the segment
+   * and not the frame. Stable for the life of the page: everything it reads is
+   * a ref.
+   */
+  const sidebarRef = useRef<HTMLElement>(null);
+  const paintProgress = useCallback((frame: number, index: number) => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+    sidebar.style.setProperty(
+      MOCKUP_PROGRESS_VAR,
+      String(
+        mockupProgressAtFrame({
+          segments: segmentsRef.current,
+          activeIndex: index,
+          frame,
+        })
+      )
+    );
+    const section = sectionAtIndex({
+      sections: sectionsRef.current,
+      activeIndex: index,
+    });
+    sidebar.style.setProperty(
+      CHAPTER_PROGRESS_VAR,
+      String(section ? chapterProgressAtFrame({ section, frame }) : 0)
+    );
+  }, []);
+
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
-    const onFrameUpdate = (event: { detail: { frame: number } }) =>
-      setActiveIndex(
-        segmentIndexAtFrame(segmentsRef.current, event.detail.frame)
-      );
+    const onFrameUpdate = (event: { detail: { frame: number } }) => {
+      const frame = event.detail.frame;
+      const index = segmentIndexAtFrame(segmentsRef.current, frame);
+      setActiveIndex(index);
+      paintProgress(frame, index);
+    };
     player.addEventListener("frameupdate", onFrameUpdate);
     return () => player.removeEventListener("frameupdate", onFrameUpdate);
-  }, []);
+  }, [paintProgress]);
 
   // The control in the bar owns the Player's own rate; this is how the choice
   // made there gets written down. Storing the rate the Player reports, rather
@@ -212,43 +265,43 @@ export const AnimaticPlayer = (props: {
     },
   });
 
-  // THE LIST NEVER HIDES THE ROW BEING HEARD. A Chapter the author folded away
-  // opens itself the moment the Animatic plays into it — the Clip timeline does
-  // the same for the Clip being edited. The helper hands back the very same
-  // state when nothing changed, so a segment boundary inside an open Chapter
-  // costs no re-render.
-  //
-  // IT FIRES ON A PLAYHEAD MOVE, NEVER ON A DATA CHANGE. The sections are read
-  // through a ref, so `layout` is not a dependency: an edit by the authoring
-  // agent — one new line, one renamed Chapter — mints a new `layout` while the
-  // playhead stands still, and re-running this effect there would re-open the
-  // Chapter the author has just folded away. He folds a settled Playthrough,
-  // the agent adds a row somewhere else, and the fold undoes itself.
-  const sectionsRef = useRef(layout.sections);
-  sectionsRef.current = layout.sections;
-
-  useEffect(() => {
-    setCollapsed((prev) =>
-      expandChapterAtPlayhead({
-        collapsed: prev,
-        sections: sectionsRef.current,
-        activeIndex,
-      })
-    );
-  }, [activeIndex]);
-
   // Keep the selected row in sight. While the author has made no choice of his
   // own the selection follows the playhead, so this is also what makes the list
   // walk itself down as the Animatic plays.
+  //
+  // A FOLD IS NOT OPENED TO DO IT. The Animatic plays straight through a folded
+  // Chapter and leaves it folded: the author folded a settled Playthrough away
+  // and having it spring open at the next Clip Mockup undid that with every
+  // boundary. What is brought into sight then is the DIVIDER, which is all
+  // there is on screen for those rows — and which carries the fill bar saying
+  // they are playing.
   const listRef = useRef<HTMLOListElement>(null);
   useEffect(() => {
-    const row = listRef.current?.querySelector(
-      `[data-animatic-index="${selectedIndex}"]`
-    );
-    row?.scrollIntoView({ block: "nearest" });
+    const list = listRef.current;
+    if (!list) return;
+    const row = list.querySelector(`[data-animatic-index="${selectedIndex}"]`);
+    if (row) {
+      row.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    const section = sectionAtIndex({
+      sections: sectionsRef.current,
+      activeIndex: selectedIndex,
+    });
+    if (!section) return;
+    list
+      .querySelector(`[data-animatic-chapter="${section.chapter.id}"]`)
+      ?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
   const active = activeIndex >= 0 ? timeline.segments[activeIndex] : undefined;
+
+  // Which divider carries the fill. Derived from `activeIndex`, so it is settled
+  // once per Clip Mockup — the fill's own movement is CSS, not this.
+  const playingChapterId = sectionAtIndex({
+    sections: layout.sections,
+    activeIndex,
+  })?.chapter.id;
 
   const broken = mockups.filter((m) => m.imageMissing || m.audioMissing);
 
@@ -274,7 +327,7 @@ export const AnimaticPlayer = (props: {
         // keydown on a plain button, and the author's next act after clicking a
         // moment is SPACE.
         className={cn(
-          "allow-keydown flex w-full gap-3 border-b border-border px-4 py-2.5 text-left text-sm hover:bg-muted/60",
+          "allow-keydown relative flex w-full gap-3 overflow-hidden border-b border-border px-4 py-2.5 text-left text-sm hover:bg-muted/60",
           index === activeIndex && "bg-muted",
           index === selectedIndex && index !== activeIndex && "bg-muted/50",
           index === selectedIndex &&
@@ -282,10 +335,19 @@ export const AnimaticPlayer = (props: {
         )}
         onClick={() => playFrom(index)}
       >
-        <span className="w-7 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+        {/* The fill, behind the text, sized in CSS from the frame the player
+            last wrote — so it moves without this row re-rendering. */}
+        {index === activeIndex && (
+          <div
+            aria-hidden
+            className="absolute inset-y-0 left-0 z-0 bg-sky-500/20 dark:bg-sky-400/25"
+            style={progressFillStyle(MOCKUP_PROGRESS_VAR)}
+          />
+        )}
+        <span className="relative z-10 w-7 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
           {segment.mockup.position}
         </span>
-        <span className="min-w-0 flex-1">
+        <span className="relative z-10 min-w-0 flex-1">
           <span className="block whitespace-pre-wrap">
             {segment.mockup.line}
           </span>
@@ -305,13 +367,18 @@ export const AnimaticPlayer = (props: {
 
   return (
     <div className="flex h-full w-full min-h-0 bg-background text-foreground">
-      <aside className="flex w-96 shrink-0 flex-col border-r border-border bg-background">
+      {/* The two fills are written here, on the sidebar, so every row and every
+          divider inside it inherits them. See `animatic-progress.ts`. */}
+      <aside
+        ref={sidebarRef}
+        className="flex w-96 shrink-0 flex-col border-r border-border bg-background"
+      >
         <header className="flex items-center gap-3 border-b border-border px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold">Clip Mockups</div>
-            <div className="text-xs text-muted-foreground">
-              {count} in {formatRunTime(timeline.totalSeconds)}
-            </div>
+          {/* The title alone. The count and the run time are on the picture —
+              the `14 / 61` badge and the run-time pill — and saying them twice
+              put a line of chrome above the list for nothing. */}
+          <div className="min-w-0 flex-1 text-sm font-semibold">
+            Clip Mockups
           </div>
 
           {/* One control for the lot, and the SAME PAIR OF ICONS the Clip
@@ -365,10 +432,12 @@ export const AnimaticPlayer = (props: {
             <Fragment key={section.chapter.id}>
               {/* Sticky on the row, not the button: the row is the scrolling
                   list's own child, so this is what can stay in sight. */}
-              <li className="sticky top-0 z-10">
+              <li
+                className="sticky top-0 z-10"
+                data-animatic-chapter={section.chapter.id}
+              >
                 <AnimaticChapterDivider
                   name={section.chapter.name}
-                  mockupCount={section.mockupCount}
                   runTimeSeconds={section.runTimeSeconds}
                   onClick={
                     section.seekIndex === null
@@ -380,6 +449,13 @@ export const AnimaticPlayer = (props: {
                     setCollapsed((prev) =>
                       toggleChapter(prev, section.chapter.id)
                     )
+                  }
+                  // Only while its rows are behind the fold: an open Chapter's
+                  // playing row draws its own bar, and both at once reads as two
+                  // playheads.
+                  isPlaying={
+                    (collapsed[section.chapter.id] ?? false) &&
+                    playingChapterId === section.chapter.id
                   }
                 />
               </li>

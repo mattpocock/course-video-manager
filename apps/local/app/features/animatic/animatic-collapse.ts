@@ -11,9 +11,14 @@ import type { AnimaticChapterSection } from "./animatic-chapters";
  * Chapter id, born empty on every load. A collapse is a five-second-old
  * intention, not a setting, so nothing is written down and nothing is shared.
  * The Video Editor's Clip timeline makes the same choice, and the arithmetic
- * here is that timeline's, lifted: same "all or nothing" toggle, same
- * auto-expand on the playhead. See
+ * here is that timeline's, lifted: same "all or nothing" toggle. See
  * `features/video-editor/components/clip-timeline.tsx`.
+ *
+ * A FOLD IS ONLY EVER OPENED BY HAND. The playhead does not open one — it plays
+ * straight through a folded Chapter, and the divider's fill bar is what says so
+ * (`animatic-progress.ts`). Both surfaces used to spring the Chapter open at the
+ * boundary, which undid the author's fold every few seconds on exactly the
+ * settled Playthrough he folded away to stop looking at.
  *
  * It hides ROWS, never frames. Nothing here can touch the clock: the run time
  * and the `14 / 61` position badge read the same open or closed.
@@ -78,27 +83,3 @@ export function hiddenRowIndices(params: {
   return hidden;
 }
 
-/**
- * Open the Chapter the playhead has entered.
- *
- * THE LIST NEVER HIDES THE ROW BEING HEARD. The author folded a Chapter away
- * while it was somebody else's problem; the moment the Animatic plays into it,
- * it is his again.
- *
- * It returns the SAME state when nothing changed, so the effect that calls it
- * on every segment boundary asks React for no re-render.
- */
-export function expandChapterAtPlayhead(params: {
-  readonly collapsed: AnimaticCollapseState;
-  readonly sections: readonly AnimaticChapterSection[];
-  /** The playing row's index in the timeline, or a negative number for none. */
-  readonly activeIndex: number;
-}): AnimaticCollapseState {
-  if (params.activeIndex < 0) return params.collapsed;
-  const playing = params.sections.find((section) =>
-    section.rows.some((row) => row.index === params.activeIndex)
-  );
-  if (!playing || !params.collapsed[playing.chapter.id])
-    return params.collapsed;
-  return { ...params.collapsed, [playing.chapter.id]: false };
-}
