@@ -36,7 +36,7 @@ import { fakeSpeech } from "./cli-clip-mockup-test-harness";
 // Every other clip-mockup suite pins CLIP_MOCKUP_DIR as a real environment
 // variable, so none of them could see this: on the author's machine the
 // setting lives ONLY in the repo-root `.env`, and `.env` is not loaded by tsx.
-// `add` got away with it because `resolveClipMockupSpeech` calls loadRepoEnv()
+// `add` got away with it because `resolveClipMockupSpeech` called loadRepoEnv()
 // before the frame is written; `update --image` / `--html` never voices a line,
 // so nothing had loaded the file by the time it wrote — and the frame went to
 // the fallback store inside the checkout while the row pointed at a name the

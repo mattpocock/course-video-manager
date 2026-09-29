@@ -9,7 +9,6 @@ import {
   speechFilename,
   wavDurationSeconds,
 } from "./clip-mockup-speech-service";
-import { loadRepoEnv } from "./repo-env";
 
 /**
  * The one place a Clip Mockup's line gets voiced — the content-addressed
@@ -24,10 +23,10 @@ import { loadRepoEnv } from "./repo-env";
 
 /**
  * The heavy service `clip-mockup add` and `update --say` reach for, built
- * LOCALLY here rather than merged into the shared cliRuntime — exactly like
- * `footage transcribe`: no read verb should have to satisfy Google credentials. It
- * is only reached on the branch below where the service was not already
- * provided, which is what lets a test inject a fake and never call Gemini.
+ * LOCALLY here rather than merged into the shared cliRuntime: building it
+ * loads Kokoro onto the GPU, and no read verb should pay for that. It is only
+ * reached on the branch below where the service was not already provided,
+ * which is what lets a test inject a fake and never load a model.
  */
 const speechLayer = ClipMockupSpeechService.Default;
 
@@ -64,21 +63,16 @@ export const resolveClipMockupSpeech = (params: {
     }
 
     // Use an ambiently-provided ClipMockupSpeechService if there is one (a
-    // test fake); otherwise build the real one here. loadRepoEnv runs OUTSIDE
-    // the provided effect, because Effect.provide builds speechLayer before
-    // the inner effect starts (commit 2205d419).
+    // test fake); otherwise build the real one here — on a cache miss only,
+    // so a line already spoken never loads the model.
     const provided = yield* Effect.serviceOption(ClipMockupSpeechService);
     const spoken = yield* Option.match(provided, {
       onSome: (svc) => svc.synthesizeLine(params.line),
       onNone: () =>
-        Effect.sync(() => loadRepoEnv()).pipe(
-          Effect.zipRight(
-            Effect.gen(function* () {
-              const svc = yield* ClipMockupSpeechService;
-              return yield* svc.synthesizeLine(params.line);
-            }).pipe(Effect.provide(speechLayer))
-          )
-        ),
+        Effect.gen(function* () {
+          const svc = yield* ClipMockupSpeechService;
+          return yield* svc.synthesizeLine(params.line);
+        }).pipe(Effect.provide(speechLayer)),
     });
 
     yield* writeClipMockupFile(params.lineageId, audioPath, spoken.wav);

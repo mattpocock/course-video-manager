@@ -33,7 +33,7 @@ import {
 // actually landed on disk.
 //
 // 'add' also SPEAKS its line, so the speech service is faked (see
-// ./cli-clip-mockup-test-harness.ts) and no Gemini call ever runs. What the
+// ./cli-clip-mockup-test-harness.ts) and no model is ever loaded. What the
 // speech itself is asserted to do lives in ./cli-clip-mockup-speech.test.ts.
 //
 // Touching the disk is what makes every verb LOCAL-ONLY, so the suite declares

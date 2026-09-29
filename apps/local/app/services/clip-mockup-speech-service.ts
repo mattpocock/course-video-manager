@@ -1,34 +1,28 @@
-import { Effect, RateLimiter } from "effect";
+import { Effect } from "effect";
 import { createHash } from "node:crypto";
 import {
   CLIP_MOCKUP_TTS_MODEL,
   CLIP_MOCKUP_VOICE,
   DEFAULT_SAMPLE_RATE,
-  GeminiTtsTransport,
+  loadKokoro,
   SpeechSynthesisError,
-  synthesizeChunk,
-  TTS_MAX_RETRIES,
-  TTS_RATE_INTERVAL,
-  TTS_REQUESTS_PER_INTERVAL,
   wordCount,
-  type TtsCaller,
-} from "./clip-mockup-speech-gemini";
-import { resolveGoogleAuth } from "./google-adc";
+  type KokoroVoice,
+} from "./clip-mockup-speech-kokoro";
 
 /**
- * The one voice, the one model, the two typed failures and the HTTP seam are
- * re-exported here so this file stays the single import site: the split into
- * `clip-mockup-speech-gemini.ts` is a token-budget fact, not an interface.
+ * The one voice, the one model and the one typed failure are re-exported here
+ * so this file stays the single import site: the split into
+ * `clip-mockup-speech-kokoro.ts` keeps the engine in one place, it is not an
+ * interface.
  */
 export {
   CLIP_MOCKUP_TTS_MODEL,
   CLIP_MOCKUP_VOICE,
-  GeminiTtsTransport,
+  CUDA_INSTALL_COMMAND,
+  float32ToPcm16,
   SpeechSynthesisError,
-  TtsQuotaExhaustedError,
-  TtsTransientError,
-  type TtsHttpResponse,
-} from "./clip-mockup-speech-gemini";
+} from "./clip-mockup-speech-kokoro";
 
 /**
  * The voice of a Clip Mockup's line.
@@ -44,32 +38,26 @@ export {
  * the voice is part of what a stored WAV IS, and a caller that could pass a
  * different one would make the cache below lie.
  *
- * Copied in shape from `personal-wiki/src/briefing/render.ts` — plain `fetch`,
- * no SDK, raw `audio/L16;rate=24000` PCM wrapped in a hand-built WAV header.
- * Its multi-speaker half is deliberately NOT here.
+ * ONE ENTRY POINT: `synthesizeLine`. Everything about the engine — loading
+ * Kokoro onto the GPU, the sample format it speaks in — lives in
+ * `clip-mockup-speech-kokoro.ts` and is invisible from out here.
  *
- * ONE ENTRY POINT: `synthesizeLine`. Everything about how Gemini is actually
- * asked — the pacing, the backoff, the reading of a 429 body, the two typed
- * failures — lives in `clip-mockup-speech-gemini.ts` and is invisible from
- * out here. A caller chooses none of it, which is what keeps the policy from
- * drifting between `cvm clip-mockup add` and the video editor.
- *
- * NOT A TESTED SEAM. Nothing in the CVM test suite may reach Gemini, so every
- * command that speaks a line branches on `Effect.serviceOption` first and the
- * suites hand it a `Layer.succeed` fake. This module is the thing that is
- * faked, never the thing under test.
+ * NOT A TESTED SEAM. Nothing in the CVM test suite may load a model onto a
+ * GPU, so every command that speaks a line branches on
+ * `Effect.serviceOption` first and the suites hand it a `Layer.succeed` fake.
+ * This module is the thing that is faked, never the thing under test.
  *
  * It lives in `apps/local` because the WAV it produces is written to a disk,
  * and `@cvm/core` is deployed to a box that has none.
  */
 
 /**
- * A single Gemini TTS call caps out around the 32k-token session window, so a
- * very long line is voiced in pieces and the raw PCM spliced back together.
- * A Clip Mockup line is normally one sentence and never reaches this; it is a
- * safety net so a wordy line degrades instead of truncating mid-word.
+ * Kokoro reads at most 512 phoneme tokens in one pass and SILENTLY cuts off
+ * the rest, so a line is voiced in pieces and the raw PCM spliced back
+ * together. Fifty words is about 300 tokens: room for long technical words.
+ * A Clip Mockup line is normally one sentence and never reaches this.
  */
-const CHUNK_WORD_BUDGET = 800;
+const CHUNK_WORD_BUDGET = 50;
 
 /** Silence inserted between spliced chunks (ms) — a breath that hides the seam. */
 const CHUNK_GAP_MS = 250;
@@ -99,8 +87,8 @@ export function speechFilename(line: string): string {
 }
 
 /**
- * Read the run time straight back out of a WAV's header, so a cache hit costs
- * no Gemini call and still yields the duration the row needs.
+ * Read the run time straight back out of a WAV's header, so a cache hit
+ * loads no model and still yields the duration the row needs.
  *
  * `undefined` for anything this cannot read: the caller treats that as a cache
  * MISS and re-synthesises, so a truncated or foreign file heals itself instead
@@ -153,10 +141,21 @@ function silencePcm(ms: number, sampleRate: number): Buffer {
   return Buffer.alloc(samples * 2); // 16-bit => 2 bytes/sample
 }
 
+/** Cut one over-budget sentence between words, into pieces under budget. */
+function splitBetweenWords(sentence: string, wordBudget: number): string[] {
+  const words = sentence.trim().split(/\s+/);
+  const pieces: string[] = [];
+  for (let i = 0; i < words.length; i += wordBudget) {
+    pieces.push(words.slice(i, i + wordBudget).join(" "));
+  }
+  return pieces;
+}
+
 /**
- * Split a long line into chunks under `wordBudget`, never splitting a
- * sentence. A single sentence over budget still becomes its own chunk — the
- * line is never dropped or truncated.
+ * Split a long line into chunks under `wordBudget`, splitting between
+ * sentences wherever it can. A single sentence over budget is cut between
+ * WORDS instead — an odd pause beats the silent truncation Kokoro would
+ * otherwise apply. The line is never dropped or truncated.
  */
 export function chunkLine(line: string, wordBudget: number): string[] {
   const sentences = line.match(/[^.!?]+[.!?]*\s*/g) ?? [line];
@@ -169,6 +168,10 @@ export function chunkLine(line: string, wordBudget: number): string[] {
       chunks.push(current.trim());
       current = "";
       words = 0;
+    }
+    if (w > wordBudget) {
+      chunks.push(...splitBetweenWords(sentence, wordBudget));
+      continue;
     }
     current += sentence;
     words += w;
@@ -186,13 +189,13 @@ export function chunkLine(line: string, wordBudget: number): string[] {
  * than the six lines it replaces. The splice gap, the sample-rate check and
  * the WAV header are byte-for-byte what they were.
  */
-const speak = (line: string, caller: TtsCaller) =>
+const speak = (line: string, voice: KokoroVoice) =>
   Effect.gen(function* () {
     const chunks = chunkLine(line, CHUNK_WORD_BUDGET);
     const pieces: Buffer[] = [];
     let rate: number | undefined;
     for (const [i, chunk] of chunks.entries()) {
-      const { pcm, rate: chunkRate } = yield* synthesizeChunk(chunk, caller);
+      const { pcm, rate: chunkRate } = yield* voice.speakChunk(chunk);
       if (rate === undefined) rate = chunkRate;
       else if (chunkRate !== rate) {
         return yield* new SpeechSynthesisError({
@@ -219,65 +222,27 @@ const speak = (line: string, caller: TtsCaller) =>
 export class ClipMockupSpeechService extends Effect.Service<ClipMockupSpeechService>()(
   "ClipMockupSpeechService",
   {
-    dependencies: [GeminiTtsTransport.Default],
-    // `scoped`, not `effect`, because the RateLimiter owns a fiber and must be
-    // released with the layer.
-    scoped: Effect.gen(function* () {
-      const transport = yield* GeminiTtsTransport;
-      const limit = yield* RateLimiter.make({
-        limit: TTS_REQUESTS_PER_INTERVAL,
-        interval: TTS_RATE_INTERVAL,
-        algorithm: "fixed-window",
-      });
+    /**
+     * Building the layer IS loading the model: ~1.4s on the GPU, paid once
+     * per process. `cvm` is one process per invocation and
+     * `resolveClipMockupSpeech` builds this layer only on a cache miss, so a
+     * line already spoken never loads Kokoro at all.
+     *
+     * No credential, no config and no `.env`: the model runs in this process
+     * and needs nothing the repo could forget to set.
+     */
+    effect: Effect.gen(function* () {
+      const voice = yield* loadKokoro;
 
       /**
-       * A line in, a WAV and its measured length out.
-       *
-       * ONE METHOD, and the pacing and the backoff are invisible from here:
-       * a caller decides nothing about either, which is what stops the policy
-       * drifting between `clip-mockup add` and the editor.
-       *
-       * Two ways out. `TtsQuotaExhaustedError` escapes UNTOUCHED, because the
-       * daily cap is a fact the human has to act on; everything else arrives
-       * as `SpeechSynthesisError`, the tag `cvm clip-mockup` has always
-       * documented, so nothing downstream had to change to keep working.
-       *
-       * The credential is resolved HERE, at call time, not while this layer is
-       * being built. `Effect.provide` builds a layer before the effect inside
-       * it runs, so anything read at build time is read before the CLI has
-       * loaded the repo `.env` — the bug commit 2205d419 fixed for
-       * `footage transcribe`.
-       *
-       * A missing or unusable credential arrives as `SpeechSynthesisError`
-       * rather than its own exit code: the author's next move is the same
-       * either way, and `GoogleCredentialsError` already carries the exact
-       * `gcloud` line to run.
+       * A line in, a WAV and its measured length out. One way out:
+       * `SpeechSynthesisError`, the tag `cvm clip-mockup` has always
+       * documented (exit 4).
        */
       const synthesizeLine = Effect.fn("synthesizeLine")(function* (
         line: string
       ) {
-        const auth = yield* resolveGoogleAuth().pipe(
-          Effect.catchTag(
-            "GoogleCredentialsError",
-            (failure) =>
-              new SpeechSynthesisError({
-                cause: failure.cause,
-                message: failure.message,
-              })
-          )
-        );
-        return yield* speak(line, { transport, limit, auth }).pipe(
-          Effect.catchTag(
-            "TtsTransientError",
-            (failure) =>
-              new SpeechSynthesisError({
-                cause: failure.cause,
-                message: `${failure.message} (gave up after ${
-                  TTS_MAX_RETRIES + 1
-                } attempts)`,
-              })
-          )
-        );
+        return yield* speak(line, voice);
       });
 
       return { synthesizeLine };

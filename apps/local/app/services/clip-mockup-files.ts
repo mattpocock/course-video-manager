@@ -54,10 +54,10 @@ function findRepoRoot(start: string): string | undefined {
  * The setting is read through `resolveRepoEnvValue`, so the repo-root `.env`
  * counts as "set" — NOT a bare `process.env` read. tsx does not auto-load
  * `.env`, so a bare read made this answer depend on whether something earlier
- * in the same command happened to call `loadRepoEnv`: `add` voices its line
- * first and so found the real store, while `update --image` / `--html` voices
- * nothing and silently wrote its frame into the fallback below, leaving the
- * row pointing at a picture that was not there.
+ * in the same command happened to call `loadRepoEnv`: `add` voiced its line
+ * first (speech loaded `.env` then) and so found the real store, while
+ * `update --image` / `--html` voiced nothing and silently wrote its frame into
+ * the fallback below, leaving the row pointing at a picture that was not there.
  *
  * Deliberately NEVER cwd-relative, for the same reason `video-files.ts` says
  * so: the globally-linked `cvm` bin runs from arbitrary directories, and a

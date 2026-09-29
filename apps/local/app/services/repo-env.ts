@@ -5,10 +5,9 @@ import { dirname, join } from "node:path";
  * The repo-root `.env`, and the one parser that reads it.
  *
  * Lives under `app/services/` rather than `app/cli/` because both sides of
- * the app need it: `cvm publish` / `footage transcribe` / `clip-mockup add`
- * load it before building a config-reading layer, and so does
- * `resolveClipMockupSpeech`, which the video editor's Clip Mockup list calls
- * over a web route (#1672). `app/cli/env.ts` builds its CLI-edge resolvers
+ * the app need it: `cvm publish` / `footage transcribe` / `course readiness`
+ * load it before building a config-reading layer, and every `cvm` setting is
+ * resolved through it. `app/cli/env.ts` builds its CLI-edge resolvers
  * (`ensureApiConfig`, `ensureDatabaseUrl`, `isLocalMachine`) on top of these.
  *
  * Everything here is anchored to THIS MODULE, never to the working directory:

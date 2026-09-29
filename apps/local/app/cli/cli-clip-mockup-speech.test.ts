@@ -38,8 +38,8 @@ import {
 // say a Lesson is 34 minutes before anybody presses play.
 //
 // The speech service is replaced wholesale by Layer.succeed, exactly as the
-// `cvm footage` suite replaces VideoProcessingService: NO GEMINI CALL EVER
-// RUNS HERE, and `speech.spoken` is the record of what the command actually
+// `cvm footage` suite replaces VideoProcessingService: NO MODEL IS EVER
+// LOADED HERE, and `speech.spoken` is the record of what the command actually
 // asked to have voiced — which is how the WAV cache is asserted.
 // ===========================================================================
 
@@ -206,8 +206,8 @@ describe("cvm clip-mockup: speech", () => {
     expect(other.audioPath).toBe(row.audioPath);
     expect(wavsIn(s.lessonVideoLineageId)).toEqual([row.audioPath]);
     // It is the author's voice and the one model, and no verb can choose:
-    expect(CLIP_MOCKUP_VOICE).toBe("Leda");
-    expect(CLIP_MOCKUP_TTS_MODEL).toBe("gemini-2.5-flash-tts");
+    expect(CLIP_MOCKUP_VOICE).toBe("af_heart");
+    expect(CLIP_MOCKUP_TTS_MODEL).toBe("onnx-community/Kokoro-82M-v1.0-ONNX");
   });
 
   // -----------------------------------------------------------------------

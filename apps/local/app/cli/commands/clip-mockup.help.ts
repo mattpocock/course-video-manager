@@ -38,26 +38,21 @@ real fonts and a real layout, and it is a file you can edit and re-capture
 after feedback. Passing both, or neither, is invalid input (exit 3).
 
 THE LINE IS SPOKEN, NOT READ. 'add' and 'update --say' synthesise the line to
-speech as they write it, in ONE voice (Leda) — every line is the author's, and
-a second voice would invent a character who will not exist in the filmed
+speech as they write it, in ONE voice (af_heart) — every line is the author's,
+and a second voice would invent a character who will not exist in the filmed
 video. The WAV lands beside the frame and the MEASURED length goes on the row,
 so an agent can total a Video's durationSeconds and say the Lesson runs 34
-minutes before anybody presses play. Speech goes through Cloud Text-to-Speech
-and needs Google credentials, NOT an API key: run 'gcloud auth
-application-default login' once. A failure is _tag "SpeechSynthesisError",
+minutes before anybody presses play. A failure is _tag "SpeechSynthesisError",
 exit 4, and creates nothing.
 
-THERE IS NO DAILY CAP ANY MORE, and that is why the endpoint changed. The
-Gemini API capped TTS at 100 requests per DAY on a paid account — it counted
-requests, not tokens, so an Animatic of hundreds of seven-second lines hit the
-wall at about a third of one Section. Cloud TTS serves the same models and the
-same voices with no daily cap. Should a per-day cap ever appear again it is
-still _tag "TtsQuotaExhaustedError" and exit 8 — NOT 4 — carrying quotaValue
-(the cap) and resetsAt (when it comes back), and it is a STOP: retrying before
-resetsAt cannot succeed. A per-minute squeeze or a 5xx is different and is
-retried for you, invisibly; only if the retries run out does it surface as
-"SpeechSynthesisError". Re-adding a line that was ALREADY spoken costs no
-request at all — the WAV cache is a bigger lever than any retry policy.
+SPEECH IS MADE ON THIS MACHINE, BY ITS GPU. The line is read by Kokoro-82M,
+loaded into the 'cvm' process itself: no API key, no credentials, no quota and
+no rate limit, so agents may voice lines in parallel. Loading the model costs
+about a second and a half per command; the first run on a machine downloads it
+(~330MB, into ~/.cache/cvm/kokoro). There is NO CPU fallback. If the GPU path
+cannot load — most often a missing CUDA 12 runtime library — the verb fails
+with exit 4 and the message carries the one-time install command. Re-adding a
+line that was ALREADY spoken loads no model at all: the WAV is reused.
 
 Like a Beat and the Script, a Clip Mockup is an internal planning artifact: it
 is NEVER published into course.json. Deleting is an archive, and archived ==

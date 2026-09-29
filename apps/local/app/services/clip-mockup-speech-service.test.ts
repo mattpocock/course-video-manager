@@ -3,18 +3,20 @@ import {
   CLIP_MOCKUP_TTS_MODEL,
   CLIP_MOCKUP_VOICE,
   chunkLine,
+  float32ToPcm16,
   pcmToWav,
   speechFilename,
   wavDurationSeconds,
 } from "./clip-mockup-speech-service";
 
 /**
- * The pure half of the speech service — everything that does NOT call Gemini.
+ * The pure half of the speech service — everything that does NOT load Kokoro.
  *
  * The service itself is never the thing under test (the CLI suites fake it),
- * but three pieces of arithmetic inside it decide what an author hears and how
- * long an Animatic claims to run, and none of them needs a network: the
- * chunker that keeps a long line from truncating mid-word, the WAV header the
+ * but four pieces of arithmetic inside it decide what an author hears and how
+ * long an Animatic claims to run, and none of them needs a GPU: the chunker
+ * that keeps Kokoro from silently truncating a long line, the conversion of
+ * Kokoro's float samples to the 16-bit PCM every WAV holds, the WAV header the
  * duration is read back out of, and the content-addressed filename that is the
  * whole speech cache.
  */
@@ -45,13 +47,44 @@ describe("chunkLine", () => {
     );
   });
 
-  it("gives a single over-budget sentence its own chunk rather than dropping it", () => {
-    const monster = `${"word ".repeat(50).trim()}.`;
-    expect(chunkLine(monster, 10)).toEqual([monster]);
+  it("cuts a single over-budget sentence between words rather than truncating it", () => {
+    const monster = `${"word ".repeat(25).trim()}.`;
+    const chunks = chunkLine(monster, 10);
+
+    expect(chunks.map((c) => c.split(/\s+/).length)).toEqual([10, 10, 5]);
+    expect(chunks.join(" ")).toBe(monster);
+  });
+
+  it("keeps the sentences either side of an over-budget one whole", () => {
+    const monster = `${"word ".repeat(15).trim()}.`;
+    const chunks = chunkLine(`Before this. ${monster} After this.`, 10);
+
+    expect(chunks[0]).toBe("Before this.");
+    expect(chunks.at(-1)).toBe("After this.");
+    expect(chunks.every((c) => c.split(/\s+/).length <= 10)).toBe(true);
   });
 
   it("never returns nothing", () => {
     expect(chunkLine("", 800)).toEqual([""]);
+  });
+});
+
+describe("float32ToPcm16", () => {
+  it("maps full scale to the 16-bit extremes and silence to zero", () => {
+    const pcm = float32ToPcm16(new Float32Array([0, 1, -1, 0.5]));
+
+    expect(pcm.byteLength).toBe(8);
+    expect(pcm.readInt16LE(0)).toBe(0);
+    expect(pcm.readInt16LE(2)).toBe(32767);
+    expect(pcm.readInt16LE(4)).toBe(-32767);
+    expect(pcm.readInt16LE(6)).toBe(16384);
+  });
+
+  it("clamps an overshooting sample instead of wrapping it to the other sign", () => {
+    const pcm = float32ToPcm16(new Float32Array([1.5, -2]));
+
+    expect(pcm.readInt16LE(0)).toBe(32767);
+    expect(pcm.readInt16LE(2)).toBe(-32767);
   });
 });
 
@@ -132,8 +165,8 @@ describe("speechFilename", () => {
 
   it("names the voice and the model, so a stale WAV is impossible", () => {
     // Guard: if either constant is ever changed, every cached WAV must miss.
-    expect(CLIP_MOCKUP_VOICE).toBe("Leda");
-    expect(CLIP_MOCKUP_TTS_MODEL).toBe("gemini-2.5-flash-tts");
+    expect(CLIP_MOCKUP_VOICE).toBe("af_heart");
+    expect(CLIP_MOCKUP_TTS_MODEL).toBe("onnx-community/Kokoro-82M-v1.0-ONNX");
     expect(speechFilename("A line.")).toMatch(/^speech-[0-9a-f]{32}\.wav$/);
   });
 });
