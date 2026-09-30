@@ -48,6 +48,15 @@ describe("SOURCE_HIERARCHY", () => {
     expect(SOURCE_HIERARCHY).toContain("never themselves a source of claims");
   });
 
+  it("makes an author's comment about the output an instruction, and lets the transcript win on what was said", () => {
+    expect(SOURCE_HIERARCHY).toContain(
+      "author's comments sit outside the ladder"
+    );
+    expect(SOURCE_HIERARCHY).toContain("is an instruction from the author");
+    expect(SOURCE_HIERARCHY).toContain("the transcript wins");
+    expect(SOURCE_HIERARCHY).toContain("never quote it");
+  });
+
   it("tolerates missing lower rungs", () => {
     expect(SOURCE_HIERARCHY).toContain("may be absent");
   });

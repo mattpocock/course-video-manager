@@ -19,6 +19,7 @@ import { generateScopingDiscussionPrompt } from "@/prompts/generate-scoping-disc
 import { generateScopingDocumentPrompt } from "@/prompts/generate-scoping-document";
 import type { GlobalLink } from "@/prompts/link-instructions";
 import { getBeatsSection } from "@/prompts/beats-instructions";
+import { getClipMockupCommentsSection } from "@/prompts/clip-mockup-comments-instructions";
 import { getScriptSection } from "@/prompts/script-instructions";
 import { CACHE_BREAKPOINT_1H } from "./prompt-cache";
 import {
@@ -61,6 +62,7 @@ export const createTextWritingAgent = (props: {
   memory?: string;
   beats?: string;
   script?: string;
+  comments?: string;
 }) => {
   const links = props.links ?? [];
   const systemPrompt = (() => {
@@ -211,7 +213,12 @@ export const createTextWritingAgent = (props: {
 
   return new Agent({
     model: props.model,
-    instructions: systemPrompt + memorySection + scriptSection + beatsSection,
+    instructions:
+      systemPrompt +
+      memorySection +
+      scriptSection +
+      beatsSection +
+      getClipMockupCommentsSection(props.comments ?? ""),
   });
 };
 

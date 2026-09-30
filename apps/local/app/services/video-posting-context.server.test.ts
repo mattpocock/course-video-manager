@@ -13,7 +13,11 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
+import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
+import { ClipMockupCommentOperationsService } from "@/services/db-clip-mockup-comment-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
+import * as schema from "@/db/schema";
 import {
   createTestDb,
   truncateAllTables,
@@ -33,6 +37,9 @@ type TestServices =
   | LessonSectionOperationsService
   | LinkAuthOperationsService
   | BeatOperationsService
+  | ClipMockupOperationsService
+  | ClipMockupChapterOperationsService
+  | ClipMockupCommentOperationsService
   | DrizzleService
   | FileSystem.FileSystem;
 
@@ -51,6 +58,9 @@ beforeAll(async () => {
     LessonSectionOperationsService.Default,
     LinkAuthOperationsService.Default,
     BeatOperationsService.Default,
+    ClipMockupOperationsService.Default,
+    ClipMockupChapterOperationsService.Default,
+    ClipMockupCommentOperationsService.Default,
     drizzleLayer,
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer));
@@ -392,6 +402,77 @@ describe("loadWriterContext", () => {
             "setup",
           ]);
         }).pipe(Effect.provide(testLayer))
+    );
+  });
+
+  describe("commentedLines", () => {
+    it.effect(
+      "holds only the Animatic lines with a Clip Mockup Comment, in Animatic order",
+      () =>
+        Effect.gen(function* () {
+          const video = yield* createStandaloneVideoWithClips("test-video", [
+            "text",
+          ]);
+          setupVideoDir(video.lineageId);
+
+          yield* Effect.promise(async () => {
+            const [chapter] = await testDb
+              .insert(schema.clipMockupChapters)
+              .values({ videoId: video.id, name: "Setup", order: "a0" })
+              .returning();
+            const [, second] = await testDb
+              .insert(schema.clipMockups)
+              .values(
+                ["Hi.", "Here's the problem."].map((line, i) => ({
+                  videoId: video.id,
+                  line,
+                  imagePath: `${i}.png`,
+                  audioPath: `${i}.wav`,
+                  durationSeconds: 1,
+                  order: `a${i + 1}`,
+                }))
+              )
+              .returning();
+            await testDb.insert(schema.clipMockupComments).values([
+              {
+                videoId: video.id,
+                clipMockupId: second!.id,
+                body: "Stress this.",
+              },
+              {
+                videoId: video.id,
+                clipMockupChapterId: chapter!.id,
+                body: "Name the repo.",
+              },
+            ]);
+          });
+
+          const ctx = yield* loadWriterContext(video.id);
+
+          expect(
+            ctx.commentedLines.map((line) =>
+              line.type === "chapter"
+                ? [line.name, line.comments]
+                : [line.position, line.comments]
+            )
+          ).toEqual([
+            ["Setup", ["Name the repo."]],
+            [2, ["Stress this."]],
+          ]);
+        }).pipe(Effect.provide(testLayer))
+    );
+
+    it.effect("is empty when the Video has no comments", () =>
+      Effect.gen(function* () {
+        const video = yield* createStandaloneVideoWithClips("test-video", [
+          "text",
+        ]);
+        setupVideoDir(video.lineageId);
+
+        const ctx = yield* loadWriterContext(video.id);
+
+        expect(ctx.commentedLines).toEqual([]);
+      }).pipe(Effect.provide(testLayer))
     );
   });
 });

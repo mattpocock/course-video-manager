@@ -4,6 +4,7 @@ import { generateNewsletterPrompt } from "@/prompts/generate-newsletter";
 import { generateSeoDescriptionPrompt } from "@/prompts/generate-seo-description";
 import type { GlobalLink } from "@/prompts/link-instructions";
 import { getBeatsSection } from "@/prompts/beats-instructions";
+import { getClipMockupCommentsSection } from "@/prompts/clip-mockup-comments-instructions";
 import { getScriptSection } from "@/prompts/script-instructions";
 import {
   ToolLoopAgent as Agent,
@@ -106,6 +107,8 @@ export type DocumentWritingContext = {
   beats?: string;
   /** The video's script — the base Matt improvised from. */
   script?: string;
+  /** Pre-formatted Clip Mockup Comments, each under its clip line or chapter. */
+  comments?: string;
 };
 
 /**
@@ -211,6 +214,8 @@ After calling a tool, you may add a brief conversational message explaining what
 
   const scriptSection = getScriptSection(props.script ?? "");
 
+  const commentsSection = getClipMockupCommentsSection(props.comments ?? "");
+
   return {
     role: "system",
     content:
@@ -218,6 +223,7 @@ After calling a tool, you may add a brief conversational message explaining what
       documentInstructions +
       scriptSection +
       beatsSection +
+      commentsSection +
       memorySection,
     providerOptions: CACHE_BREAKPOINT_1H,
   };

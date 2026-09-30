@@ -207,9 +207,9 @@ function TabBody({
         />
       );
     case "beats":
-      return <BeatsTab source={source} onToggleSource={onToggleSource} />;
     case "script":
-      return <ScriptTab source={source} onToggleSource={onToggleSource} />;
+    case "comments":
+      return <PreviewTab source={source} onToggleSource={onToggleSource} />;
     case "courseStructure":
       return (
         <CourseStructureTab source={source} onToggleSource={onToggleSource} />
@@ -494,32 +494,10 @@ function FieldsTab({
   );
 }
 
-// ─── Script tab ────────────────────────────────────────────────────────────
+// ─── Preview tab (beats, script, comments) ─────────────────────────────────
 
-function ScriptTab({
-  source,
-  onToggleSource,
-}: {
-  source: SourceView;
-  onToggleSource: (sourceKey: string) => void;
-}) {
-  const previewText = source.items.map((item) => item.text).join("\n");
-
-  return (
-    <div className="space-y-3">
-      <MasterToggle source={source} onToggleSource={onToggleSource} />
-      {previewText && (
-        <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 text-xs leading-relaxed">
-          {previewText}
-        </pre>
-      )}
-    </div>
-  );
-}
-
-// ─── Beats tab ─────────────────────────────────────────────────────────────
-
-function BeatsTab({
+/** One read-only text source: a master toggle over a preview of the text. */
+function PreviewTab({
   source,
   onToggleSource,
 }: {

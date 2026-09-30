@@ -13,9 +13,22 @@ import {
   COURSE_STRUCTURE_STORAGE_KEY,
   BEATS_ENABLED_STORAGE_KEY,
   SCRIPT_ENABLED_STORAGE_KEY,
+  COMMENTS_ENABLED_STORAGE_KEY,
   LINKS_DISABLED_STORAGE_KEY,
 } from "./write-utils";
 import { formatBeatsContext } from "./format-beats-context";
+import { formatClipMockupCommentsContext } from "./format-clip-mockup-comments-context";
+
+/**
+ * The single-text sources as the completion routes take them: each one's text
+ * when it is switched on and non-empty, else `undefined`.
+ */
+export interface PromptTexts {
+  memory: string | undefined;
+  beats: string | undefined;
+  script: string | undefined;
+  comments: string | undefined;
+}
 
 export interface ContextModel {
   sources: SourceView[];
@@ -30,6 +43,7 @@ export interface ContextModel {
   memoryEnabled: boolean;
   beatsEnabled: boolean;
   scriptEnabled: boolean;
+  commentsEnabled: boolean;
 
   // Mutation callbacks
   toggleItem: (itemId: string) => void;
@@ -52,6 +66,12 @@ export interface ContextModel {
 
   // Script (read-only; empty when the video has no script)
   scriptText: string;
+
+  // Clip Mockup Comments (read-only formatted text; empty when there are none)
+  commentsText: string;
+
+  // What the completion routes are sent for memory, beats, script and comments
+  promptTexts: PromptTexts;
 
   // Links (read from context, mutation via callbacks on the host)
   links: Array<{
@@ -108,6 +128,15 @@ export function useContextModel(
     true
   );
   const scriptText = context.script;
+  // The author's own notes on the video, so on wherever any exist.
+  const [commentsEnabled, setCommentsEnabled] = useLocalStorageBoolean(
+    COMMENTS_ENABLED_STORAGE_KEY,
+    true
+  );
+  const commentsText = useMemo(
+    () => formatClipMockupCommentsContext(context.commentedLines),
+    [context.commentedLines]
+  );
 
   // ── Build sources ─────────────────────────────────────────────────────────
 
@@ -282,6 +311,30 @@ export function useContextModel(
       });
     }
 
+    // 5b. Clip Mockup Comments (only if non-empty)
+    if (commentsText.length > 0) {
+      const tokens = estimateTokens(commentsText);
+      const on = commentsEnabled;
+      result.push({
+        key: "comments",
+        label: "Comments",
+        note: "the author's Clip Mockup Comments, under the clip or chapter each is about",
+        items: [
+          {
+            id: "comments",
+            label: "Author's comments",
+            text: commentsText,
+            on,
+            tokens,
+          },
+        ],
+        onCount: on ? 1 : 0,
+        check: on,
+        atomic: true,
+        tokens: on ? tokens : 0,
+      });
+    }
+
     // 6. Course structure (only if present)
     if (context.courseStructure !== null) {
       const text = JSON.stringify(context.courseStructure);
@@ -341,6 +394,7 @@ export function useContextModel(
     memoryText,
     beatsText,
     scriptText,
+    commentsText,
     enabledSections,
     enabledFiles,
     enabledFields,
@@ -351,6 +405,7 @@ export function useContextModel(
     memoryEnabled,
     beatsEnabled,
     scriptEnabled,
+    commentsEnabled,
   ]);
 
   const totalTokens = useMemo(
@@ -424,6 +479,10 @@ export function useContextModel(
         setScriptEnabled((prev) => !prev);
         return;
       }
+      if (itemId === "comments") {
+        setCommentsEnabled((prev) => !prev);
+        return;
+      }
       if (itemId === "courseStructure") {
         setIncludeCourseStructure((prev) => !prev);
         return;
@@ -487,6 +546,9 @@ export function useContextModel(
         case "script":
           setScriptEnabled((prev) => !prev);
           break;
+        case "comments":
+          setCommentsEnabled((prev) => !prev);
+          break;
         case "courseStructure":
           setIncludeCourseStructure((prev) => !prev);
           break;
@@ -528,6 +590,25 @@ export function useContextModel(
     [context.links]
   );
 
+  const promptTexts = useMemo(
+    (): PromptTexts => ({
+      memory: memoryEnabled && memoryText ? memoryText : undefined,
+      beats: beatsEnabled && beatsText ? beatsText : undefined,
+      script: scriptEnabled && scriptText ? scriptText : undefined,
+      comments: commentsEnabled && commentsText ? commentsText : undefined,
+    }),
+    [
+      memoryEnabled,
+      memoryText,
+      beatsEnabled,
+      beatsText,
+      scriptEnabled,
+      scriptText,
+      commentsEnabled,
+      commentsText,
+    ]
+  );
+
   // ── Return ────────────────────────────────────────────────────────────────
 
   return {
@@ -542,6 +623,7 @@ export function useContextModel(
     memoryEnabled,
     beatsEnabled,
     scriptEnabled,
+    commentsEnabled,
 
     toggleItem,
     toggleSource,
@@ -559,6 +641,10 @@ export function useContextModel(
     beatsText,
 
     scriptText,
+
+    commentsText,
+
+    promptTexts,
 
     links,
   };
