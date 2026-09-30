@@ -4,29 +4,39 @@ import { CreateBeatDialogProvider } from "@/features/beats/create-beat-dialog";
 import { BeatDndProvider } from "@/features/beats/beat-dnd-context";
 import { BeatList, type BeatListBeat } from "@/features/beats/beat-list";
 import type { BeatTab } from "../beat-tab";
+import type { AnimaticLine } from "@/features/animatic/animatic-lines";
+import { AnimaticPanel } from "./animatic-panel";
 import { ReferencePanel, type ReferenceCandidate } from "./reference-panel";
 import { ScriptPanel } from "./script-panel";
 
 /**
- * The editor's middle 40ch slot as a tabbed container holding three mutually
- * exclusive panels that share the space: **Beats** (this video's own plan),
- * **Reference** (the sibling-video reader) and **Script** (this video's
- * teleprompter script). "Reference" stays reserved for the sibling reader —
- * the beat view is the Beat Panel, never a "reference".
+ * The editor's middle 40ch slot as a tabbed container holding four mutually
+ * exclusive panels that share the space: **Script** (this video's teleprompter
+ * script), **Animatic** (its Clip Mockups read as lines), **Beats** (this
+ * video's own plan) and **Reference** (the sibling-video reader). "Reference"
+ * stays reserved for the sibling reader — the beat view is the Beat Panel,
+ * never a "reference".
  *
- * The Beats tab is available iff the video has ≥1 beat, and the Reference tab
- * iff a reference video is selected; the Script tab is ALWAYS available (you
- * author the script there, empty or not), so this panel always renders. The
- * tab strip always shows so the UI stays structurally stable as tabs appear.
+ * The Animatic tab is available iff the video has ≥1 Clip Mockup, the Beats
+ * tab iff it has ≥1 beat, and the Reference tab iff a reference video is
+ * selected; the Script tab is ALWAYS available (you author the script there,
+ * empty or not), so this panel always renders. The tab strip always shows so
+ * the UI stays structurally stable as tabs appear.
  *
- * Clip Mockups are NOT a tab here. You author them with `cvm clip-mockup` and
- * you watch them on the Animatic page, which the editor header links to.
+ * The Animatic tab is READ-ONLY, and must stay so. An earlier, editable
+ * Mockups tab was deleted (#1724): Clip Mockups and Clip Mockup Chapters share
+ * one order space, so a drag there could move a Clip Mockup into another
+ * Chapter without the author seeing it. Clip Mockups are authored with `cvm
+ * clip-mockup` and watched on the Animatic page.
  */
 export function EditorSidePanel(props: {
   activeTab: BeatTab;
   hasBeats: boolean;
   hasReference: boolean;
   onTabChange: (tab: BeatTab) => void;
+
+  // Animatic tab — empty when the Video has no Clip Mockups
+  animatic: AnimaticLine[];
 
   // Beats tab
   videoId: string;
@@ -61,6 +71,14 @@ export function EditorSidePanel(props: {
         >
           Script
         </TabButton>
+        {props.animatic.length > 0 && (
+          <TabButton
+            active={props.activeTab === "animatic"}
+            onClick={() => props.onTabChange("animatic")}
+          >
+            Animatic
+          </TabButton>
+        )}
         {props.hasBeats && (
           <TabButton
             active={props.activeTab === "beats"}
@@ -81,6 +99,8 @@ export function EditorSidePanel(props: {
 
       {props.activeTab === "script" ? (
         <ScriptPanel videoId={props.videoId} />
+      ) : props.activeTab === "animatic" ? (
+        <AnimaticPanel lines={props.animatic} />
       ) : props.activeTab === "beats" ? (
         <div className="overflow-y-auto flex-1 px-3 py-2">
           <CreateBeatDialogProvider submitEvent={props.onBeatEvent}>

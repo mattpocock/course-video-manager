@@ -72,6 +72,17 @@ export const TYPE = {
    */
   beatDescriptionScale: 0.7,
   /**
+   * The Animatic's clip-number gutter, in `em` of the body size. The lines
+   * themselves ARE read aloud, so they keep the script's size and `measure`;
+   * the gutter is added beside that, never taken out of it.
+   */
+  animaticGutter: 1.6,
+  /**
+   * A Clip Mockup Chapter's title, against the body size. A step down and
+   * quiet: it is a signpost between clips, never a line you say.
+   */
+  animaticChapterScale: 0.7,
+  /**
    * Warm rather than white: easier on the eye through beam-splitter glass.
    *
    * Colours here are Tailwind palette variables rather than hexes — Tailwind v4
@@ -169,8 +180,11 @@ export function cueStyle(): React.CSSProperties {
   };
 }
 
-/** Which document is on the glass. */
-export const SOURCES = ["beats", "script"] as const;
+/**
+ * Which document is on the glass, in the order the editor's side panel lists
+ * the same three tabs.
+ */
+export const SOURCES = ["script", "animatic", "beats"] as const;
 export type Source = (typeof SOURCES)[number];
 
 export const MIN_WPM = 80;

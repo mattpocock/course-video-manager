@@ -1,6 +1,7 @@
 /**
- * The teleprompter window: the current video's Script (or Beat plan) on an
- * Elgato Prompter, following whatever the Video Editor has open.
+ * The teleprompter window: the current video's Script (or its Animatic's
+ * lines, or its Beat plan) on an Elgato Prompter, following whatever the Video
+ * Editor has open.
  *
  * A top-level flat route (no `_app.` prefix) so it renders bare with no
  * sidebar, exactly like `diagram-playground.*`.
@@ -23,6 +24,7 @@ import { CaptureIndicator } from "@/features/teleprompter/capture-indicator";
 import { TeleprompterControls } from "@/features/teleprompter/teleprompter-controls";
 import { useTeleprompterWpm } from "@/features/teleprompter/teleprompter-settings";
 import { BeatsView } from "@/features/teleprompter/beats-view";
+import { AnimaticView } from "@/features/teleprompter/animatic-view";
 import { TeleprompterCrawl } from "@/features/teleprompter/teleprompter-crawl";
 import { teleprompterSession } from "@/features/teleprompter/teleprompter-session";
 import { SessionMarks } from "@/features/teleprompter/session-marks";
@@ -136,9 +138,14 @@ export default function Teleprompter() {
     [content.script]
   );
 
+  const hasScript = blocks.length > 0;
+  const hasBeats = content.beats.length > 0;
+  const hasAnimatic = content.animatic.length > 0;
+
   const source = teleprompterSession.resolveSource(state, {
-    hasScript: blocks.length > 0,
-    hasBeats: content.beats.length > 0,
+    hasScript,
+    hasBeats,
+    hasAnimatic,
   });
 
   const status = state.editorConnected
@@ -153,10 +160,16 @@ export default function Teleprompter() {
       ? "No video open in the editor."
       : source === "beats"
         ? "This video has no Beats yet."
-        : "This video has no Script yet.";
+        : source === "animatic"
+          ? "This video has no Clip Mockups yet."
+          : "This video has no Script yet.";
 
   const hasContent =
-    source === "beats" ? content.beats.length > 0 : blocks.length > 0;
+    source === "beats"
+      ? hasBeats
+      : source === "animatic"
+        ? hasAnimatic
+        : hasScript;
 
   return (
     <div className="fixed inset-0 select-none overflow-hidden bg-black">
@@ -177,6 +190,8 @@ export default function Teleprompter() {
         </div>
       ) : source === "beats" ? (
         <BeatsView beats={content.beats} />
+      ) : source === "animatic" ? (
+        <AnimaticView lines={content.animatic} />
       ) : (
         <TeleprompterCrawl
           blocks={blocks}

@@ -4,10 +4,13 @@ import type { BeatTab } from "../beat-tab";
 const storageKey = (videoId: string) => `video-editor:beat-tab:${videoId}`;
 
 const isBeatTab = (value: string | null): value is BeatTab =>
-  value === "beats" || value === "reference" || value === "script";
+  value === "beats" ||
+  value === "reference" ||
+  value === "script" ||
+  value === "animatic";
 
 /**
- * Persist which side-panel tab (Beats / Reference / Script) the author last
+ * Persist which side-panel tab (Script / Animatic / Beats / Reference) the author last
  * had open for a given video, so reopening the editor restores their view. A
  * value this app no longer knows — a `mockups` tab a browser remembers from
  * before the tab went away — fails the guard and reads back as no choice at

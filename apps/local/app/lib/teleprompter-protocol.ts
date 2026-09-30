@@ -13,8 +13,8 @@
  *     an empty teleprompter.
  *   - `editorState` also carries capture state, mirroring the editor's recording
  *     + silence-detection indicator so the same status is visible on the glass,
- *     the side panel's active tab, so the glass shows whichever of Script or
- *     Beats you're looking at in the editor, and one mark per clip in the
+ *     the side panel's active tab, so the glass shows whichever of Script,
+ *     Animatic or Beats you're looking at in the editor, and one mark per clip in the
  *     current recording session, so the glass can show clips landing.
  *
  * State is **pushed, not polled**. `editorState` goes out when it changes, so
@@ -51,9 +51,16 @@ export type CaptureStatus = z.infer<typeof CaptureStatus>;
  *
  * `mockups` stays in the union although the editor no longer has that tab
  * (#1724). It is what a stale editor build still on the other end of the
- * channel sends, and the glass shows nothing for it either way.
+ * channel sends, and the glass shows nothing for it either way. `animatic` is
+ * its read-only successor, and the glass does show that one.
  */
-export const EditorTab = z.enum(["beats", "reference", "script", "mockups"]);
+export const EditorTab = z.enum([
+  "beats",
+  "reference",
+  "script",
+  "animatic",
+  "mockups",
+]);
 export type EditorTab = z.infer<typeof EditorTab>;
 
 /**

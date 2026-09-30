@@ -8,6 +8,7 @@ describe("resolveBeatTab", () => {
         persistedTab: "beats",
         hasBeats: true,
         hasReference: true,
+        hasAnimatic: true,
       })
     ).toBe("beats");
   });
@@ -18,6 +19,7 @@ describe("resolveBeatTab", () => {
         persistedTab: "reference",
         hasBeats: true,
         hasReference: true,
+        hasAnimatic: true,
       })
     ).toBe("reference");
   });
@@ -28,6 +30,7 @@ describe("resolveBeatTab", () => {
         persistedTab: "reference",
         hasBeats: true,
         hasReference: false,
+        hasAnimatic: true,
       })
     ).toBe("script");
   });
@@ -38,6 +41,7 @@ describe("resolveBeatTab", () => {
         persistedTab: "beats",
         hasBeats: false,
         hasReference: true,
+        hasAnimatic: true,
       })
     ).toBe("script");
   });
@@ -48,6 +52,7 @@ describe("resolveBeatTab", () => {
         persistedTab: null,
         hasBeats: true,
         hasReference: true,
+        hasAnimatic: true,
       })
     ).toBe("script");
   });
@@ -58,6 +63,7 @@ describe("resolveBeatTab", () => {
         persistedTab: null,
         hasBeats: true,
         hasReference: false,
+        hasAnimatic: true,
       })
     ).toBe("script");
   });
@@ -68,6 +74,7 @@ describe("resolveBeatTab", () => {
         persistedTab: null,
         hasBeats: false,
         hasReference: false,
+        hasAnimatic: true,
       })
     ).toBe("script");
   });
@@ -78,6 +85,7 @@ describe("resolveBeatTab", () => {
         persistedTab: "beats",
         hasBeats: false,
         hasReference: false,
+        hasAnimatic: true,
       })
     ).toBe("script");
   });
@@ -88,6 +96,29 @@ describe("resolveBeatTab", () => {
         persistedTab: "script",
         hasBeats: true,
         hasReference: true,
+        hasAnimatic: true,
+      })
+    ).toBe("script");
+  });
+
+  it("honours a persisted Animatic tab while the video has Clip Mockups", () => {
+    expect(
+      resolveBeatTab({
+        persistedTab: "animatic",
+        hasBeats: true,
+        hasReference: false,
+        hasAnimatic: true,
+      })
+    ).toBe("animatic");
+  });
+
+  it("falls back to script when the Clip Mockups are gone", () => {
+    expect(
+      resolveBeatTab({
+        persistedTab: "animatic",
+        hasBeats: true,
+        hasReference: false,
+        hasAnimatic: false,
       })
     ).toBe("script");
   });

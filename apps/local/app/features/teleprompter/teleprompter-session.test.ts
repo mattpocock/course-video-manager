@@ -300,11 +300,11 @@ describe("content-fetched", () => {
 });
 
 describe("following the editor's tab", () => {
-  const both = { hasScript: true, hasBeats: true };
+  const both = { hasScript: true, hasBeats: true, hasAnimatic: true };
 
   const spoke = (
     state: teleprompterSession.State,
-    tab: "script" | "beats" | "reference"
+    tab: "script" | "beats" | "animatic" | "reference"
   ) =>
     reducer(state, {
       type: "editor-state",
@@ -322,6 +322,11 @@ describe("following the editor's tab", () => {
   it("shows the script when the editor is on the Script tab", () => {
     const next = spoke(connected({ editorSource: "beats" }), "script");
     expect(teleprompterSession.resolveSource(next, both)).toBe("script");
+  });
+
+  it("shows the Animatic when the editor is on the Animatic tab", () => {
+    const next = spoke(connected({ editorSource: "script" }), "animatic");
+    expect(teleprompterSession.resolveSource(next, both)).toBe("animatic");
   });
 
   it("holds its ground while the editor is on the Reference tab", () => {
@@ -353,7 +358,7 @@ describe("following the editor's tab", () => {
 });
 
 describe("resolveSource", () => {
-  const both = { hasScript: true, hasBeats: true };
+  const both = { hasScript: true, hasBeats: true, hasAnimatic: true };
 
   it("prefers the script when there is one", () => {
     expect(teleprompterSession.resolveSource(connected(), both)).toBe("script");
@@ -364,8 +369,19 @@ describe("resolveSource", () => {
       teleprompterSession.resolveSource(connected(), {
         hasScript: false,
         hasBeats: true,
+        hasAnimatic: true,
       })
     ).toBe("beats");
+  });
+
+  it("falls back to the Animatic for a video with only Clip Mockups", () => {
+    expect(
+      teleprompterSession.resolveSource(connected(), {
+        hasScript: false,
+        hasBeats: false,
+        hasAnimatic: true,
+      })
+    ).toBe("animatic");
   });
 
   it("honours a tab chosen by hand", () => {

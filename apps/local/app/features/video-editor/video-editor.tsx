@@ -9,6 +9,7 @@ import { EditorSidePanel } from "./components/editor-side-panel";
 import { useBeatTab } from "./hooks/use-beat-tab";
 import { useVideoEditor } from "./hooks/use-video-editor";
 import { resolveBeatTab } from "./beat-tab";
+import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 import { courseEditorFetcherKeyForEvent } from "@/features/course-view/optimistic-applier";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import type { BeatListBeat } from "@/features/beats/beat-list";
@@ -113,6 +114,7 @@ export const VideoEditor = (props: {
   }>;
   videoCount: number;
   beats: BeatListBeat[];
+  animatic: AnimaticLine[];
   /** Every Overlay on this Video — the loader's own read, no in-UI authoring. */
   overlays: ClipOverlay[];
   /** Does this video have a teleprompter script? Enables "Copy script". */
@@ -332,10 +334,12 @@ export const VideoEditor = (props: {
 
   const hasReference = activeReference !== null;
   const hasBeats = props.beats.length > 0;
+  const hasAnimatic = props.animatic.length > 0;
   const activeTab = resolveBeatTab({
     persistedTab: persistedBeatTab,
     hasBeats,
     hasReference,
+    hasAnimatic,
   });
 
   // Sits below `activeTab` rather than up with the other mount effects because
@@ -629,6 +633,7 @@ export const VideoEditor = (props: {
           activeTab={activeTab}
           hasBeats={hasBeats}
           hasReference={hasReference}
+          animatic={props.animatic}
           onTabChange={setPersistedBeatTab}
           videoId={props.videoId}
           beats={props.beats}

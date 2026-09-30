@@ -20,6 +20,7 @@ import type {
   EditorTab,
   ClipMarks,
 } from "@/lib/teleprompter-protocol";
+import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 import type { TeleprompterBeat } from "./beats-view";
 import type { Source } from "./teleprompter-settings";
 
@@ -37,6 +38,7 @@ export namespace teleprompterSession {
     title: string;
     script: string;
     beats: TeleprompterBeat[];
+    animatic: AnimaticLine[];
   }
 
   export interface State {
@@ -97,7 +99,12 @@ export namespace teleprompterSession {
     | { type: "rewound" }
     | { type: "source-picked"; source: Source };
 
-  export const EMPTY_CONTENT: Content = { title: "", script: "", beats: [] };
+  export const EMPTY_CONTENT: Content = {
+    title: "",
+    script: "",
+    beats: [],
+    animatic: [],
+  };
 
   /** No session under way, or nobody to ask. */
   export const NO_MARKS: ClipMarks = [];
@@ -120,7 +127,7 @@ export namespace teleprompterSession {
 
   /** Reference has nothing to show on the glass — see `editorSource`. */
   const tabToSource = (tab: EditorTab): Source | null =>
-    tab === "script" ? "script" : tab === "beats" ? "beats" : null;
+    tab === "script" || tab === "beats" || tab === "animatic" ? tab : null;
 
   export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
@@ -233,7 +240,8 @@ export namespace teleprompterSession {
   const isSameContent = (a: Content, b: Content): boolean =>
     a.title === b.title &&
     a.script === b.script &&
-    JSON.stringify(a.beats) === JSON.stringify(b.beats);
+    JSON.stringify(a.beats) === JSON.stringify(b.beats) &&
+    JSON.stringify(a.animatic) === JSON.stringify(b.animatic);
 
   /**
    * Which document is on the glass. Derived rather than stored, and driven by
@@ -243,7 +251,11 @@ export namespace teleprompterSession {
    */
   export const resolveSource = (
     state: State,
-    { hasScript, hasBeats }: { hasScript: boolean; hasBeats: boolean }
+    {
+      hasScript,
+      hasBeats,
+      hasAnimatic,
+    }: { hasScript: boolean; hasBeats: boolean; hasAnimatic: boolean }
   ): Source => {
     if (state.pinnedSource && state.pinnedSource.videoId === state.videoId) {
       return state.pinnedSource.source;
@@ -251,6 +263,7 @@ export namespace teleprompterSession {
     if (state.editorSource) return state.editorSource;
     if (hasScript) return "script";
     if (hasBeats) return "beats";
+    if (hasAnimatic) return "animatic";
     return "script";
   };
 }

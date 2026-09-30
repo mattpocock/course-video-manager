@@ -22,6 +22,7 @@ import { toClipOverlay } from "@/features/video-editor/clip-overlay-row";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
+import { loadAnimaticLines } from "@/services/animatic-lines.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { runtimeLive } from "@/services/layer.server";
@@ -96,6 +97,9 @@ export const loader = makeLoader({
         description: s.description,
         order: s.order,
       }));
+
+      // For the side panel's read-only Animatic tab.
+      const animatic = yield* loadAnimaticLines(videoId);
 
       // Overlays anchored to this Video's Clips, for the in-editor overlay
       // preview (a read — the Overlay itself is authored only via `cvm
@@ -172,6 +176,7 @@ export const loader = makeLoader({
         fsData,
         referenceCandidates,
         beats,
+        animatic,
         overlays,
       };
     }),
@@ -489,6 +494,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       videoCount={props.loaderData.videoCount}
       referenceCandidates={props.loaderData.referenceCandidates}
       beats={props.loaderData.beats}
+      animatic={props.loaderData.animatic}
       overlays={props.loaderData.overlays}
       hasScript={props.loaderData.hasScript}
       onAddReferenceChapterAt={({
