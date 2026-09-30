@@ -26,7 +26,10 @@ import {
   lockCourseForVersionMutation,
   type CopyVersionStructureInput,
 } from "./db-version-mutation.server.js";
-import { copyClipMockupCommentValues } from "./clip-mockup-comment-copy.js";
+import {
+  copyClipMockupCommentValues,
+  newIdsFor,
+} from "./clip-mockup-comment-copy.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -258,16 +261,9 @@ export const createVersionCopyOps = (db: Database) => {
 
             // Clip Mockups copy exactly as Beats do: `order` verbatim, and
             // `imagePath` stays valid because the snapshot keeps lineageId.
-            // Ids are made here, not by the table, so the comments below can
-            // be re-pointed at the copied parents.
-            const clipMockupIds = new Map(
-              sourceVideo.clipMockups.map((c) => [c.id, crypto.randomUUID()])
-            );
-            const clipMockupChapterIds = new Map(
-              sourceVideo.clipMockupChapters.map((c) => [
-                c.id,
-                crypto.randomUUID(),
-              ])
+            const clipMockupIds = newIdsFor(sourceVideo.clipMockups);
+            const clipMockupChapterIds = newIdsFor(
+              sourceVideo.clipMockupChapters
             );
             if (sourceVideo.clipMockups.length > 0) {
               yield* makeDbCall(() =>

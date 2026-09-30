@@ -172,7 +172,7 @@ export const createClipMockupCommentOperations = (db: Database) => {
     }
   );
 
-  /** Delete a comment for good. */
+  /** Delete a comment for good, handing back the row as it was. */
   const deleteClipMockupComment = Effect.fn("deleteClipMockupComment")(
     function* (id: string) {
       const comment = yield* requireClipMockupComment(id);
@@ -180,7 +180,7 @@ export const createClipMockupCommentOperations = (db: Database) => {
       yield* makeDbCall(() =>
         db.delete(clipMockupComments).where(eq(clipMockupComments.id, id))
       );
-      return { success: true as const };
+      return comment;
     }
   );
 

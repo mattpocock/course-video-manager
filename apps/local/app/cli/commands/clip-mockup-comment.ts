@@ -118,10 +118,9 @@ const getCmd = Command.make("get", { ids: idArgs }, ({ ids }) =>
       entity: "clipMockupComment",
       ids,
       fetch: (id) =>
-        svc.getClipMockupCommentById(id).pipe(
-          Effect.map((row) => row as typeof row | undefined),
-          Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
-        ),
+        svc
+          .getClipMockupCommentById(id)
+          .pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(null))),
     });
   })
 ).pipe(Command.withDescription(detail(GET_HELP)));
@@ -154,9 +153,7 @@ const updateCmd = Command.make(
 const deleteCmd = Command.make("delete", { id: idArg }, ({ id }) =>
   Effect.gen(function* () {
     const svc = yield* ClipMockupCommentOperationsService;
-    const existing = yield* svc.getClipMockupCommentById(id);
-    yield* svc.deleteClipMockupComment(id);
-    yield* emitObject(existing);
+    yield* emitObject(yield* svc.deleteClipMockupComment(id));
   })
 ).pipe(Command.withDescription(detail(DELETE_HELP)));
 

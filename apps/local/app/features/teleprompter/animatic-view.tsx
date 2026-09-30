@@ -27,7 +27,6 @@ import { TYPE, cueStyle, textStyle } from "./teleprompter-settings";
 
 type ClipMockupLine = Extract<AnimaticLine, { type: "clip-mockup" }>;
 
-/** Same guard as the Beats view: a drag to copy words must not move the list. */
 /** The comments under one line or Chapter; nothing at all when there are none. */
 function Comments(props: { comments: readonly string[] }) {
   if (props.comments.length === 0) return null;
@@ -53,6 +52,7 @@ function Comments(props: { comments: readonly string[] }) {
   );
 }
 
+/** Same guard as the Beats view: a drag to copy words must not move the list. */
 function hasSelectedText(): boolean {
   const selection = window.getSelection();
   return (

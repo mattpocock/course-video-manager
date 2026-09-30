@@ -167,6 +167,10 @@ describe("cvm clip-mockup-comment", () => {
 
     const deleted = await run(["clip-mockup-comment", "delete", created.id]);
     expect(deleted.exitCode).toBe(0);
+    expect(one<CommentRow>(deleted.stdout)).toMatchObject({
+      id: created.id,
+      body: "after",
+    });
     const rows = await testDb.query.clipMockupComments.findMany({
       where: eq(schema.clipMockupComments.id, created.id),
     });
@@ -174,5 +178,19 @@ describe("cvm clip-mockup-comment", () => {
 
     const gone = await run(["clip-mockup-comment", "get", created.id]);
     expect(gone.exitCode).toBe(2);
+  });
+
+  it("update and delete of an unknown id are a not-found", async () => {
+    const update = await run([
+      "clip-mockup-comment",
+      "update",
+      "--body",
+      "x",
+      "no-such-id",
+    ]);
+    const del = await run(["clip-mockup-comment", "delete", "no-such-id"]);
+
+    expect(update.exitCode).toBe(2);
+    expect(del.exitCode).toBe(2);
   });
 });

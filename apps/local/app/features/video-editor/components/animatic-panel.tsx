@@ -1,17 +1,6 @@
 import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 import { clipMockupFrameUrl } from "@/features/clip-mockups/clip-mockup-frame-url";
 
-/**
- * The editor side slot's **Animatic** tab: this video's Clip Mockups read as
- * lines, one clip at a time, under their Clip Mockup Chapters — each with a
- * small thumbnail of its still, so you can check a filmed Clip against what
- * was planned for that moment.
- *
- * READ-ONLY on purpose — see `EditorSidePanel`. No drag, no line editor.
- *
- * The number is the Clip Mockup's position, the same one the Animatic page
- * shows, so "number 14" means the same clip in both places.
- */
 /** A line's Clip Mockup Comments, as a margin note under it. */
 function PanelComments({ comments }: { comments: readonly string[] }) {
   if (comments.length === 0) return null;
@@ -26,6 +15,17 @@ function PanelComments({ comments }: { comments: readonly string[] }) {
   );
 }
 
+/**
+ * The editor side slot's **Animatic** tab: this video's Clip Mockups read as
+ * lines, one clip at a time, under their Clip Mockup Chapters — each with a
+ * small thumbnail of its still, so you can check a filmed Clip against what
+ * was planned for that moment.
+ *
+ * READ-ONLY on purpose — see `EditorSidePanel`. No drag, no line editor.
+ *
+ * The number is the Clip Mockup's position, the same one the Animatic page
+ * shows, so "number 14" means the same clip in both places.
+ */
 export function AnimaticPanel({ lines }: { lines: AnimaticLine[] }) {
   return (
     <div className="overflow-y-auto flex-1 px-3 py-2">

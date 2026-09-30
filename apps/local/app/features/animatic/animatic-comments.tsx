@@ -8,7 +8,6 @@ import {
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ComponentType,
@@ -19,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
@@ -26,6 +26,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -37,6 +38,7 @@ import {
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { groupCommentsByParent } from "./animatic-lines";
 import type {
   ClipMockupCommentEvent,
   ClipMockupCommentWriteResult,
@@ -70,21 +72,6 @@ export type AnimaticCommentTarget = Extract<
   { type: "create" }
 >["target"];
 
-/** Comments keyed by the id of the Clip Mockup or Chapter they hang off. */
-export function groupAnimaticComments(
-  comments: readonly AnimaticComment[]
-): ReadonlyMap<string, readonly AnimaticComment[]> {
-  const byParent = new Map<string, AnimaticComment[]>();
-  for (const comment of comments) {
-    const parentId = comment.clipMockupId ?? comment.clipMockupChapterId;
-    if (!parentId) continue;
-    const list = byParent.get(parentId) ?? [];
-    list.push(comment);
-    byParent.set(parentId, list);
-  }
-  return byParent;
-}
-
 const NO_COMMENTS: readonly AnimaticComment[] = [];
 
 const AnimaticCommentsContext = createContext<
@@ -97,7 +84,7 @@ export function AnimaticCommentsProvider(props: {
   readonly children: ReactNode;
 }) {
   const byParent = useMemo(
-    () => groupAnimaticComments(props.comments),
+    () => groupCommentsByParent(props.comments),
     [props.comments]
   );
   return (
@@ -228,11 +215,6 @@ function CommentItem(props: { readonly comment: AnimaticComment }) {
   const [draft, setDraft] = useState(props.comment.body);
   const writer = useCommentWriter();
 
-  // A poll that brings a new body (an agent edited it) resets an idle editor.
-  useEffect(() => {
-    if (!editing) setDraft(props.comment.body);
-  }, [props.comment.body, editing]);
-
   const save = () => {
     const body = draft.trim();
     if (body === "") return;
@@ -243,7 +225,18 @@ function CommentItem(props: { readonly comment: AnimaticComment }) {
   };
 
   const groups: readonly (readonly CommentAction[])[] = [
-    [{ label: "Edit", icon: PencilIcon, onSelect: () => setEditing(true) }],
+    [
+      {
+        label: "Edit",
+        icon: PencilIcon,
+        // The draft starts from the body as it is NOW, which a poll may have
+        // changed since this comment first rendered.
+        onSelect: () => {
+          setDraft(props.comment.body);
+          setEditing(true);
+        },
+      },
+    ],
     [
       {
         label: "Delete",
@@ -315,16 +308,18 @@ function CommentItem(props: { readonly comment: AnimaticComment }) {
             <DropdownMenuContent align="end">
               {groups.map((group, i) => [
                 i > 0 && <DropdownMenuSeparator key={`sep-${i}`} />,
-                ...group.map((action) => (
-                  <DropdownMenuItem
-                    key={action.label}
-                    variant={action.destructive ? "destructive" : "default"}
-                    onSelect={action.onSelect}
-                  >
-                    <action.icon className="size-4" />
-                    {action.label}
-                  </DropdownMenuItem>
-                )),
+                <DropdownMenuGroup key={`group-${i}`}>
+                  {group.map((action) => (
+                    <DropdownMenuItem
+                      key={action.label}
+                      variant={action.destructive ? "destructive" : "default"}
+                      onSelect={action.onSelect}
+                    >
+                      <action.icon className="size-4" />
+                      {action.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>,
               ])}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -336,16 +331,18 @@ function CommentItem(props: { readonly comment: AnimaticComment }) {
       <ContextMenuContent>
         {groups.map((group, i) => [
           i > 0 && <ContextMenuSeparator key={`sep-${i}`} />,
-          ...group.map((action) => (
-            <ContextMenuItem
-              key={action.label}
-              variant={action.destructive ? "destructive" : "default"}
-              onSelect={action.onSelect}
-            >
-              <action.icon className="size-4" />
-              {action.label}
-            </ContextMenuItem>
-          )),
+          <ContextMenuGroup key={`group-${i}`}>
+            {group.map((action) => (
+              <ContextMenuItem
+                key={action.label}
+                variant={action.destructive ? "destructive" : "default"}
+                onSelect={action.onSelect}
+              >
+                <action.icon className="size-4" />
+                {action.label}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuGroup>,
         ])}
       </ContextMenuContent>
     </ContextMenu>

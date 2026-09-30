@@ -36,6 +36,31 @@ export type AnimaticLine =
       readonly position: number;
     };
 
+/** What a comment needs to be filed under its parent. */
+export interface CommentParentIds {
+  readonly clipMockupId: string | null;
+  readonly clipMockupChapterId: string | null;
+}
+
+/**
+ * Comments keyed by the id of the one Clip Mockup or Clip Mockup Chapter they
+ * hang off, each list in the order given. The one place that reads the pair of
+ * parent ids, for the teleprompter's lines and the Animatic's threads alike.
+ */
+export function groupCommentsByParent<C extends CommentParentIds>(
+  comments: readonly C[]
+): ReadonlyMap<string, readonly C[]> {
+  const byParent = new Map<string, C[]>();
+  for (const comment of comments) {
+    const parentId = comment.clipMockupId ?? comment.clipMockupChapterId;
+    if (!parentId) continue;
+    const list = byParent.get(parentId) ?? [];
+    list.push(comment);
+    byParent.set(parentId, list);
+  }
+  return byParent;
+}
+
 export function buildAnimaticLines(params: {
   readonly clipMockups: readonly {
     readonly id: string;
@@ -48,22 +73,11 @@ export function buildAnimaticLines(params: {
     readonly order: string;
   }[];
   /** Oldest first; each hangs off exactly one Clip Mockup or Chapter. */
-  readonly comments: readonly {
-    readonly clipMockupId: string | null;
-    readonly clipMockupChapterId: string | null;
-    readonly body: string;
-  }[];
+  readonly comments: readonly (CommentParentIds & { readonly body: string })[];
 }): AnimaticLine[] {
   if (params.clipMockups.length === 0) return [];
 
-  const commentsByParent = new Map<string, string[]>();
-  for (const comment of params.comments) {
-    const parentId = comment.clipMockupId ?? comment.clipMockupChapterId;
-    if (!parentId) continue;
-    const bodies = commentsByParent.get(parentId) ?? [];
-    bodies.push(comment.body);
-    commentsByParent.set(parentId, bodies);
-  }
+  const commentsByParent = groupCommentsByParent(params.comments);
 
   const rows = [
     ...params.clipMockups.map((m) => ({ kind: "clip-mockup" as const, ...m })),
@@ -72,7 +86,7 @@ export function buildAnimaticLines(params: {
 
   let position = 0;
   return rows.map((row): AnimaticLine => {
-    const comments = commentsByParent.get(row.id) ?? [];
+    const comments = (commentsByParent.get(row.id) ?? []).map((c) => c.body);
     if (row.kind === "chapter") {
       return { type: "chapter", id: row.id, name: row.name, comments };
     }
