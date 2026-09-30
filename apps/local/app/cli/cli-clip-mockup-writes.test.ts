@@ -18,6 +18,8 @@ import {
   type WriteSeed,
 } from "./cli-write-test-harness";
 import {
+  addArgv,
+  clipMockupsJson,
   fakeSpeech,
   makeClipMockupRun,
   FAKE_DURATION_SECONDS,
@@ -25,6 +27,10 @@ import {
 
 // ===========================================================================
 // cvm clip-mockup: add / list / get / delete
+//
+// 'add' takes ONE input, a --clip-mockups-json file of entries, and adds them
+// all in one call, in file order. So this suite writes that file for every
+// add (see addArgv in ./cli-clip-mockup-test-harness.ts).
 //
 // A Clip Mockup is half a row and half a file: the line and the order are in
 // the database, the frame is a PNG under {CLIP_MOCKUP_DIR}/{lineageId}/. So
@@ -78,6 +84,7 @@ beforeEach(async () => {
 
 describe("cvm clip-mockup", () => {
   interface Mockup {
+    type?: string;
     id: string;
     videoId: string;
     line: string;
@@ -98,26 +105,24 @@ describe("cvm clip-mockup", () => {
     return full;
   };
 
+  /** Add ONE moment, as a one-entry batch, and hand back its row. */
   const add = async (
     videoId: string,
     line: string,
     imageName = `${line.replace(/\W+/g, "-")}.png`,
     contents?: string
   ): Promise<Mockup> =>
-    obj(
-      (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          videoId,
-          "--image",
-          sourceImage(imageName, contents),
-          "--say",
-          line,
-        ])
-      ).stdout
-    );
+    (
+      ndjson(
+        (
+          await run(
+            addArgv(videoId, [
+              { say: line, image: sourceImage(imageName, contents) },
+            ])
+          )
+        ).stdout
+      ) as Mockup[]
+    )[0]!;
 
   const list = async (videoId: string): Promise<Mockup[]> =>
     ndjson(
@@ -144,24 +149,24 @@ describe("cvm clip-mockup", () => {
   // add
   // -----------------------------------------------------------------------
 
-  it("add copies the PNG in, creates the row at the end, and echoes it", async () => {
-    const { stdout, stderr, exitCode } = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--image",
-      sourceImage("first.png", "FIRST-FRAME"),
-      "--say",
-      "Here's the problem.",
-    ]);
+  it("add copies the PNG in, creates the row at the end, and prints it", async () => {
+    const { stdout, stderr, exitCode } = await run(
+      addArgv(s.standaloneActiveId, [
+        {
+          say: "Here's the problem.",
+          image: sourceImage("first.png", "FIRST-FRAME"),
+        },
+      ])
+    );
 
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
-    // Pretty single object, not NDJSON.
-    expect(stdout).toMatch(/^\{\n/);
+    // NDJSON, one compact row per entry — even for a batch of one.
+    const rows = ndjson(stdout) as Mockup[];
+    expect(rows).toHaveLength(1);
 
-    const row = obj(stdout);
+    const row = rows[0]!;
+    expect(row.type).toBe("clipMockup");
     expect(row.videoId).toBe(s.standaloneActiveId);
     expect(row.line).toBe("Here's the problem.");
     expect(row.archived).toBe(false);
@@ -181,34 +186,45 @@ describe("cvm clip-mockup", () => {
 
   it("add stores a path RELATIVE to the Clip Mockup directory, not the caller's", async () => {
     const source = sourceImage("scratch-frame.png");
-    const row = obj(
+    const [row] = ndjson(
       (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          s.standaloneActiveId,
-          "--image",
-          source,
-          "--say",
-          "One line.",
-        ])
+        await run(
+          addArgv(s.standaloneActiveId, [{ say: "One line.", image: source }])
+        )
       ).stdout
-    );
+    ) as Mockup[];
 
-    expect(nodePath.isAbsolute(row.imagePath)).toBe(false);
-    expect(row.imagePath).not.toContain(sourceDir);
-    expect(row.imagePath).not.toContain(frames.dir);
+    expect(nodePath.isAbsolute(row!.imagePath)).toBe(false);
+    expect(row!.imagePath).not.toContain(sourceDir);
+    expect(row!.imagePath).not.toContain(frames.dir);
     // The CVM keeps its OWN copy: clearing the scratch folder cannot empty it.
     nodeFs.rmSync(source);
     expect(
       nodeFs.existsSync(
-        nodePath.join(frameDir(s.standaloneActiveLineageId), row.imagePath)
+        nodePath.join(frameDir(s.standaloneActiveLineageId), row!.imagePath)
       )
     ).toBe(true);
   });
 
-  it("add appends to the end of the Video's Animatic, in order", async () => {
+  it("add lands every entry of the file in one call, in file order", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "One", image: sourceImage("1.png") },
+        { say: "Two", image: sourceImage("2.png") },
+        { say: "Three", image: sourceImage("3.png") },
+      ])
+    );
+
+    expect(r.exitCode).toBe(0);
+    const printed = ndjson(r.stdout) as Mockup[];
+    expect(printed.map((m) => m.line)).toEqual(["One", "Two", "Three"]);
+    // The file order IS the Animatic order.
+    expect((await list(s.standaloneActiveId)).map((m) => m.id)).toEqual(
+      printed.map((m) => m.id)
+    );
+  });
+
+  it("add appends a second call after the first", async () => {
     const first = await add(s.standaloneActiveId, "One");
     const second = await add(s.standaloneActiveId, "Two");
     const third = await add(s.standaloneActiveId, "Three");
@@ -217,6 +233,46 @@ describe("cvm clip-mockup", () => {
       first.id,
       second.id,
       third.id,
+    ]);
+  });
+
+  it("add places a chapter entry between the moments either side of it", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "Before", image: sourceImage("before.png") },
+        { chapter: "The fix" },
+        { say: "After", image: sourceImage("after.png") },
+      ])
+    );
+
+    expect(r.exitCode).toBe(0);
+    const printed = ndjson(r.stdout) as {
+      type: string;
+      name?: string;
+      line?: string;
+    }[];
+    expect(printed.map((row) => row.type)).toEqual([
+      "clipMockup",
+      "clipMockupChapter",
+      "clipMockup",
+    ]);
+    expect(printed[1]!.name).toBe("The fix");
+
+    const animatic = ndjson(
+      (
+        await run([
+          "clip-mockup",
+          "list",
+          "--video",
+          s.standaloneActiveId,
+          "--with-chapters",
+        ])
+      ).stdout
+    ) as { type: string; line?: string; name?: string }[];
+    expect(animatic.map((row) => row.line ?? row.name)).toEqual([
+      "Before",
+      "The fix",
+      "After",
     ]);
   });
 
@@ -234,71 +290,137 @@ describe("cvm clip-mockup", () => {
     );
   });
 
-  it("add without --say is invalid input, exit 3, and writes nothing", async () => {
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--image",
-      sourceImage("no-line.png"),
-    ]);
+  it("add copies an image held across several entries ONCE, and the rows share it", async () => {
+    const held = sourceImage("held.png", "HELD-FRAME");
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "First over it.", image: held },
+        { say: "Second over it.", image: held },
+      ])
+    );
+
+    expect(r.exitCode).toBe(0);
+    const [a, b] = ndjson(r.stdout) as Mockup[];
+    expect(a!.imagePath).toBe(b!.imagePath);
+    const pngs = nodeFs
+      .readdirSync(frameDir(s.standaloneActiveLineageId))
+      .filter((f) => f.endsWith(".png"));
+    expect(pngs).toEqual([a!.imagePath]);
+  });
+
+  it('add with an entry missing "say" is invalid input, exit 3, and writes nothing', async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [{ image: sourceImage("no-line.png") }])
+    );
 
     expect(r.exitCode).toBe(3);
     expect(r.stdout).toBe("");
-    expect(failureOf(r)._tag).toBe("ParseError");
+    const failure = failureOf(r);
+    expect(failure._tag).toBe("ParseError");
+    expect(failure.message).toContain('entry 1 needs "say"');
     expect(nodeFs.existsSync(frameDir(s.standaloneActiveLineageId))).toBe(
       false
     );
     expect(await list(s.standaloneActiveId)).toEqual([]);
   });
 
-  it("add without --image is invalid input, exit 3", async () => {
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--say",
-      "A moment with no picture.",
-    ]);
+  it("add with an entry that has no picture is invalid input, exit 3", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [{ say: "A moment with no picture." }])
+    );
 
     expect(r.exitCode).toBe(3);
     expect(r.stdout).toBe("");
-    expect(failureOf(r)._tag).toBe("ParseError");
+    const failure = failureOf(r);
+    expect(failure._tag).toBe("ParseError");
+    expect(failure.message).toContain('entry 1 needs one of "html" or "image"');
+    expect(await list(s.standaloneActiveId)).toEqual([]);
+  });
+
+  it('add with an empty "say" is invalid input, exit 3', async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "   ", image: sourceImage("blank.png") },
+      ])
+    );
+
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r).message).toContain('entry 1: "say" must not be empty');
     expect(await list(s.standaloneActiveId)).toEqual([]);
   });
 
   it("add with an unreadable source image is invalid input, exit 3", async () => {
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--image",
-      nodePath.join(sourceDir, "does-not-exist.png"),
-      "--say",
-      "A line.",
-    ]);
+    const missing = nodePath.join(sourceDir, "does-not-exist.png");
+    const r = await run(
+      addArgv(s.standaloneActiveId, [{ say: "A line.", image: missing }])
+    );
 
     expect(r.exitCode).toBe(3);
-    expect(failureOf(r)._tag).toBe("ParseError");
+    const failure = failureOf(r);
+    expect(failure._tag).toBe("ParseError");
+    expect(failure.message).toContain(
+      `entry 1: cannot read source image ${missing}`
+    );
+    expect(await list(s.standaloneActiveId)).toEqual([]);
+  });
+
+  it("one bad entry fails the whole file: no row, no frame, no speech", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "Fine.", image: sourceImage("fine-1.png") },
+        { say: "Also fine.", image: sourceImage("fine-2.png") },
+        { say: "Broken.", image: nodePath.join(sourceDir, "missing.png") },
+      ])
+    );
+
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r).message).toContain("entry 3");
+    expect(await list(s.standaloneActiveId)).toEqual([]);
+    // Checked BEFORE any work: nothing was voiced and nothing reached the store.
+    expect(speech.spoken).toEqual([]);
+    expect(nodeFs.existsSync(frameDir(s.standaloneActiveLineageId))).toBe(
+      false
+    );
+  });
+
+  it("add refuses an unknown key rather than ignoring it, exit 3", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "A line.", image: sourceImage("typo.png"), sya: "typo" },
+      ])
+    );
+
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r).message).toContain('entry 1 has an unknown key "sya"');
+    expect(await list(s.standaloneActiveId)).toEqual([]);
+  });
+
+  it("add refuses a file that is not a non-empty JSON array, exit 3", async () => {
+    const notJson = nodePath.join(sourceDir, "not.json");
+    nodeFs.writeFileSync(notJson, "{ nope");
+    for (const file of [notJson, clipMockupsJson([])]) {
+      const r = await run([
+        "clip-mockup",
+        "add",
+        "--video",
+        s.standaloneActiveId,
+        "--clip-mockups-json",
+        file,
+      ]);
+      expect(r.exitCode, file).toBe(3);
+      expect(failureOf(r)._tag, file).toBe("ParseError");
+    }
     expect(await list(s.standaloneActiveId)).toEqual([]);
   });
 
   it("add on a Short is refused, naming Landscape", async () => {
     const short = await freshVideo("short.mp4", "short");
 
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      short.id,
-      "--image",
-      sourceImage("short-frame.png"),
-      "--say",
-      "Not allowed.",
-    ]);
+    const r = await run(
+      addArgv(short.id, [
+        { say: "Not allowed.", image: sourceImage("short-frame.png") },
+      ])
+    );
 
     expect(r.exitCode).toBe(3);
     expect(r.stdout).toBe("");
@@ -310,16 +432,9 @@ describe("cvm clip-mockup", () => {
 
   it("add on an unknown or archived Video is a not-found, exit 2", async () => {
     for (const videoId of ["nope", s.standaloneArchivedId]) {
-      const r = await run([
-        "clip-mockup",
-        "add",
-        "--video",
-        videoId,
-        "--image",
-        sourceImage("orphan.png"),
-        "--say",
-        "A line.",
-      ]);
+      const r = await run(
+        addArgv(videoId, [{ say: "A line.", image: sourceImage("orphan.png") }])
+      );
       expect(r.exitCode, videoId).toBe(2);
       expect(failureOf(r)._tag, videoId).toBe("NotFoundError");
     }

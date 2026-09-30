@@ -1,19 +1,19 @@
 import { Args, Command, Options } from "@effect/cli";
-import { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
-import nodePath from "node:path";
-import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
+import {
+  ClipMockupOperationsService,
+  type ClipMockupBatchEntry,
+  type ClipMockupEdit,
+} from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import {
   InvalidClipMockupPathError,
-  newFrameFilename,
   writeClipMockupFile,
 } from "@/services/clip-mockup-files";
-import { resolveClipMockupSpeech } from "@/services/resolve-clip-mockup-speech";
 import {
-  FrameCaptureError,
-  FrameCaptureService,
-} from "@/services/frame-capture-service";
+  resolveClipMockupSpeeches,
+  type SpokenFile,
+} from "@/services/resolve-clip-mockup-speech";
 import {
   detail,
   emitGet,
@@ -30,6 +30,12 @@ import {
 } from "@/cli/local-only";
 import { resolveBeforeAnimaticItemId } from "./animatic-position";
 import { listAnimaticRows } from "./animatic-rows";
+import {
+  produceFrames,
+  readAddEntries,
+  readUpdateEntries,
+  type UpdateEntry,
+} from "./clip-mockup.batch";
 import {
   HELP,
   ADD_HELP,
@@ -51,28 +57,13 @@ const videoOption = Options.text("video").pipe(
 );
 
 /**
- * The two frame sources. Both are optional HERE so that the "exactly one of"
- * rule is checked by `resolveFrameSource` below, in ONE place and with ONE
- * message — @effect/cli's own `Options.orElse` would report it as a generic
- * validation failure instead.
+ * THE ONE INPUT of `add` and `update`: a JSON file of entries, or "-" for
+ * STDIN. What an entry holds is in `clip-mockup.batch.ts` and the verbs' help.
  */
-const imageOption = Options.text("image").pipe(
+const clipMockupsJsonOption = Options.text("clip-mockups-json").pipe(
   Options.withDescription(
-    "Path to a ready-made PNG on this machine. It is copied into the Clip Mockup directory. Mutually exclusive with --html."
-  ),
-  Options.optional
-);
-
-const htmlOption = Options.text("html").pipe(
-  Options.withDescription(
-    "Path to an HTML page on this machine. It is rendered in a headless browser at 1920x1080 and the resulting PNG becomes the frame. Mutually exclusive with --image."
-  ),
-  Options.optional
-);
-
-const sayOption = Options.text("say").pipe(
-  Options.withDescription("The spoken line for this Clip Mockup (required)."),
-  Options.optional
+    'Path to a JSON array of entries, one per Clip Mockup (see this verb\'s help for their keys); "-" reads STDIN. Paths inside it are relative to the file.'
+  )
 );
 
 /**
@@ -249,120 +240,75 @@ const resolveTargetClipMockup = (params: {
     return row;
   });
 
-/**
- * Capture an HTML page as a 1920x1080 PNG and hand back its bytes.
- *
- * The capture writes into a SCOPED temp directory that is deleted when this
- * effect finishes, however it finishes. That is what makes "a page that cannot
- * be captured leaves no orphan file" true: the only PNG that ever reaches the
- * Clip Mockup directory is one `writeClipMockupFile` put there, and that runs
- * after the capture has already succeeded.
- *
- * The `Effect.serviceOption` branch is the test seam: an ambiently-provided
- * FrameCaptureService (a `Layer.succeed` fake writing canned bytes) is used
- * when there is one, so the whole verb is exercised through the real CLI
- * without Chromium ever launching.
- */
-const captureFrameFromHtml = (htmlPath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const scratch = yield* fs
-      .makeTempDirectoryScoped({ prefix: "cvm-frame-capture-" })
-      .pipe(
-        Effect.catchAll(
-          (cause) =>
-            new FrameCaptureError({
-              htmlPath,
-              cause,
-              message:
-                "could not make a temp directory to capture the frame in",
-            })
-        )
-      );
-    const outputPath = nodePath.join(scratch, "frame.png");
-
-    const provided = yield* Effect.serviceOption(FrameCaptureService);
-    yield* Option.match(provided, {
-      onSome: (svc) => svc.captureHtmlToPng({ htmlPath, outputPath }),
-      onNone: () =>
-        Effect.gen(function* () {
-          const svc = yield* FrameCaptureService;
-          return yield* svc.captureHtmlToPng({ htmlPath, outputPath });
-        }).pipe(Effect.provide(FrameCaptureService.Default)),
-    });
-
-    const content = yield* fs.readFile(outputPath).pipe(
-      Effect.catchAll(
-        (cause) =>
-          new FrameCaptureError({
-            htmlPath,
-            cause,
-            message:
-              "the capture reported success but wrote no PNG — refusing to create a Clip Mockup with no frame",
-          })
-      )
-    );
-
-    return { content, filename: newFrameFilename(outputPath) };
-  }).pipe(Effect.scoped);
+/** Write the WAVs a batch voiced, each into its own Video's directory. */
+const writeSpokenFiles = (files: ReadonlyArray<SpokenFile>) =>
+  Effect.forEach(
+    files,
+    (file) =>
+      asParseError(
+        writeClipMockupFile(file.lineageId, file.audioPath, file.wav)
+      ),
+    { discard: true }
+  );
 
 /**
- * Produce the PNG bytes for a new Clip Mockup from whichever frame source the
- * caller named, and the name to store them under.
+ * Find the Clip Mockup each `update` entry is aimed at, from either form of
+ * address — the same two `move` and `delete` take, with the same messages.
  *
- * THE ONE PLACE THE "EXACTLY ONE FRAME SOURCE" RULE LIVES. Both sources and
- * neither are each one message here, and both branches return the same shape
- * — so the copy into {CLIP_MOCKUP_DIR}/{lineageId}/, the containment guard and
- * the row write on the far side of this function cannot tell a captured frame
- * from a supplied one, and never have to.
+ * Each Video's list is read ONCE, however many entries count positions in it,
+ * and every position is counted in the list as it is BEFORE the batch: the
+ * edits change no order, so entry 3 can never shift what entry 4 points at.
+ * Two entries that name the same Clip Mockup are refused, because which of
+ * them should win is a decision the file has to make, not this command.
  */
-const resolveFrameSource = (params: {
-  readonly verb: string;
-  readonly image: Option.Option<string>;
-  readonly html: Option.Option<string>;
-}) =>
+const resolveUpdateTargets = (entries: ReadonlyArray<UpdateEntry>) =>
   Effect.gen(function* () {
-    const image = Option.getOrUndefined(params.image);
-    const html = Option.getOrUndefined(params.html);
+    const svc = yield* ClipMockupOperationsService;
+    const lists = new Map<
+      string,
+      ReadonlyArray<
+        Effect.Effect.Success<ReturnType<typeof requireActiveClipMockup>>
+      >
+    >();
 
-    yield* rejectBothFlags({
-      a: image,
-      b: html,
-      flags: ["--image", "--html"],
-      entity: "clipMockup",
-    });
-
-    if (image === undefined && html === undefined) {
-      return yield* parseError(
-        `clip-mockup ${params.verb} needs exactly one of --image <path> / --html <path> (a Clip Mockup must have a picture)`,
-        "clipMockup"
-      );
-    }
-
-    const fs = yield* FileSystem.FileSystem;
-
-    if (html !== undefined) {
-      // Checked here rather than inside the capture so that "you typed the
-      // wrong path" stays invalid input (exit 3) and only a page that really
-      // could not be rendered raises FrameCaptureError.
-      if (!(yield* fs.exists(html))) {
+    const rows = [];
+    for (const [i, entry] of entries.entries()) {
+      const n = i + 1;
+      if (entry.target.kind === "id") {
+        rows.push(yield* requireActiveClipMockup(entry.target.id));
+        continue;
+      }
+      const { video, at } = entry.target;
+      let list = lists.get(video);
+      if (list === undefined) {
+        const videoRow = yield* requireActiveVideo(video);
+        list = yield* svc.listClipMockupsByVideoId(videoRow.id);
+        lists.set(video, list);
+      }
+      const row = at >= 1 ? list[at - 1] : undefined;
+      if (row === undefined) {
         return yield* parseError(
-          `cannot read source HTML ${html}`,
+          list.length === 0
+            ? `entry ${n}: "at" ${at} is out of range: video ${video} has 0 Clip Mockups`
+            : `entry ${n}: "at" ${at} is out of range: video ${video} has ${list.length} Clip Mockups, so positions run 1-${list.length}`,
           "clipMockup"
         );
       }
-      return yield* captureFrameFromHtml(html);
+      rows.push(row);
     }
 
-    const content = yield* fs
-      .readFile(image!)
-      .pipe(
-        Effect.catchAll(() =>
-          parseError(`cannot read source image ${image}`, "clipMockup")
-        )
-      );
-
-    return { content, filename: newFrameFilename(image!) };
+    const firstEntryFor = new Map<string, number>();
+    for (const [i, row] of rows.entries()) {
+      const earlier = firstEntryFor.get(row.id);
+      if (earlier !== undefined) {
+        return yield* parseError(
+          `entries ${earlier} and ${i + 1} both change Clip Mockup ${row.id}; give each Clip Mockup one entry`,
+          "clipMockup"
+        );
+      }
+      firstEntryFor.set(row.id, i + 1);
+    }
+    return rows;
   });
 
 // ---------------------------------------------------------------------------
@@ -371,18 +317,13 @@ const resolveFrameSource = (params: {
 
 const addCmd = Command.make(
   "add",
-  { video: videoOption, image: imageOption, html: htmlOption, say: sayOption },
-  ({ video, image, html, say }) =>
+  { video: videoOption, file: clipMockupsJsonOption },
+  ({ video, file }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
 
-      const line = Option.getOrUndefined(say);
-      if (line === undefined || line.trim() === "") {
-        return yield* parseError(
-          'clip-mockup add needs --say "<line>" (a Clip Mockup must have a line)',
-          "clipMockup"
-        );
-      }
+      // The whole file is checked before anything slow or anything written.
+      const entries = yield* readAddEntries(file);
 
       const row = yield* requireActiveVideo(video);
       if (row.format === "short") {
@@ -392,29 +333,46 @@ const addCmd = Command.make(
         );
       }
 
-      const frame = yield* resolveFrameSource({ verb: "add", image, html });
+      const moments = entries.filter((e) => e.type === "clipMockup");
 
-      // Speak the line BEFORE anything is written. It is the one step that
-      // depends on something off this machine, so putting it first is what
-      // makes a speech failure leave no row AND no orphan frame behind.
-      const speech = yield* asParseError(
-        resolveClipMockupSpeech({ lineageId: row.lineageId, line })
+      // Frames and speech together: the one is Chromium on the CPU, the other
+      // Kokoro on the GPU, so neither waits for the other. Neither writes to
+      // the store: a failure in either leaves no file and no row behind.
+      const [frames, { speeches, files }] = yield* Effect.all(
+        [
+          produceFrames(moments.map((m) => m.frame)),
+          asParseError(
+            resolveClipMockupSpeeches(
+              moments.map((m) => ({ lineageId: row.lineageId, line: m.line }))
+            )
+          ),
+        ],
+        { concurrency: 2 }
       );
 
-      // Write the frame BEFORE the row: a row whose imagePath points at
-      // nothing is the one state an authoring agent cannot see or fix.
-      yield* asParseError(
-        writeClipMockupFile(row.lineageId, frame.filename, frame.content)
-      );
+      // Every file BEFORE any row: a row whose imagePath points at nothing is
+      // the one state an authoring agent cannot see or fix.
+      for (const frame of new Set(frames)) {
+        yield* asParseError(
+          writeClipMockupFile(row.lineageId, frame.filename, frame.content)
+        );
+      }
+      yield* writeSpokenFiles(files);
+
+      let m = 0;
+      const batch = entries.map((entry): ClipMockupBatchEntry => {
+        if (entry.type === "clipMockupChapter") return entry;
+        const i = m++;
+        return {
+          type: "clipMockup",
+          line: entry.line,
+          imagePath: frames[i]!.filename,
+          speech: speeches[i]!,
+        };
+      });
 
       const svc = yield* ClipMockupOperationsService;
-      const created = yield* svc.createClipMockup(
-        row.id,
-        line,
-        frame.filename,
-        speech
-      );
-      yield* emitObject(created);
+      yield* emitNdjson(yield* svc.createClipMockups(row.id, batch));
     })
 ).pipe(Command.withDescription(detail(ADD_HELP)));
 
@@ -456,68 +414,73 @@ const getCmd = Command.make("get", { ids: idsArg }, ({ ids }) =>
 
 const updateCmd = Command.make(
   "update",
-  {
-    id: optionalIdArg,
-    video: videoAddressOption,
-    at: atOption,
-    image: imageOption,
-    html: htmlOption,
-    say: sayOption,
-  },
-  ({ id, video, at, image, html, say }) =>
+  { file: clipMockupsJsonOption },
+  ({ file }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
 
-      const source =
-        Option.getOrUndefined(image) ?? Option.getOrUndefined(html);
-      const line = Option.getOrUndefined(say);
-      if (source === undefined && line === undefined) {
-        return yield* parseError(
-          'clip-mockup update needs at least one of --image <path> / --html <path> / --say "<line>"',
-          "clipMockup"
-        );
-      }
-      if (line !== undefined && line.trim() === "") {
-        return yield* parseError(
-          "--say must not be empty (a Clip Mockup must have a line)",
-          "clipMockup"
-        );
-      }
+      const entries = yield* readUpdateEntries(file);
+      const rows = yield* resolveUpdateTargets(entries);
 
-      let row = yield* resolveTargetClipMockup({ id, video, at });
-      // Both halves land under the parent Video's lineageId, so resolve it
-      // once up front rather than per branch.
-      const parent = yield* requireActiveVideo(row.videoId);
-      const svc = yield* ClipMockupOperationsService;
+      // Both halves land under each row's parent Video's lineageId. The rows
+      // may come from several Videos: a round of notes is one file.
+      const lineageOf = new Map<string, string>();
+      for (const row of rows) {
+        if (!lineageOf.has(row.videoId)) {
+          const parent = yield* requireActiveVideo(row.videoId);
+          lineageOf.set(row.videoId, parent.lineageId);
+        }
+      }
+      const lineage = (i: number) => lineageOf.get(rows[i]!.videoId)!;
 
-      if (source !== undefined) {
-        const frame = yield* resolveFrameSource({
-          verb: "update",
-          image,
-          html,
-        });
-        // Same order as 'add': the frame lands before the row points at it, so
-        // a failure halfway leaves an orphan PNG rather than a row whose
-        // picture does not exist.
+      const framed = entries.flatMap((e, i) =>
+        e.frame === undefined ? [] : [{ i, frame: e.frame }]
+      );
+      const worded = entries.flatMap((e, i) =>
+        e.line === undefined ? [] : [{ i, line: e.line }]
+      );
+
+      // The line and the picture are independent: an entry that changes one
+      // leaves the other exactly as it was. New WORDS are new SPEECH, though:
+      // the line is voiced again and its measured duration replaced in the
+      // same write, so no row claims a run time for words it no longer says.
+      const [frames, { speeches, files }] = yield* Effect.all(
+        [
+          produceFrames(framed.map((f) => f.frame)),
+          asParseError(
+            resolveClipMockupSpeeches(
+              worded.map((w) => ({ lineageId: lineage(w.i), line: w.line }))
+            )
+          ),
+        ],
+        { concurrency: 2 }
+      );
+
+      // Files first, as in 'add': a failure after this leaves an orphan file
+      // rather than a row whose picture or speech does not exist.
+      yield* writeSpokenFiles(files);
+      for (const [k, { i }] of framed.entries()) {
         yield* asParseError(
-          writeClipMockupFile(parent.lineageId, frame.filename, frame.content)
+          writeClipMockupFile(
+            lineage(i),
+            frames[k]!.filename,
+            frames[k]!.content
+          )
         );
-        row = yield* svc.setClipMockupImagePath(row.id, frame.filename);
       }
 
-      // The line and the picture are independent: swapping one leaves the
-      // other exactly as it was. New WORDS are new SPEECH, though — the line
-      // is re-synthesised and its measured duration replaced in the same
-      // write, so the row can never claim a run time for words it no longer
-      // says.
-      if (line !== undefined) {
-        const speech = yield* asParseError(
-          resolveClipMockupSpeech({ lineageId: parent.lineageId, line })
-        );
-        row = yield* svc.setClipMockupLine(row.id, line, speech);
-      }
+      const frameOf = new Map(framed.map((f, k) => [f.i, frames[k]!.filename]));
+      const speechOf = new Map(
+        worded.map((w, k) => [w.i, { line: w.line, speech: speeches[k]! }])
+      );
+      const edits = rows.map((row, i): ClipMockupEdit => ({
+        id: row.id,
+        ...(frameOf.has(i) ? { imagePath: frameOf.get(i)! } : {}),
+        ...(speechOf.has(i) ? { say: speechOf.get(i)! } : {}),
+      }));
 
-      yield* emitObject(row);
+      const svc = yield* ClipMockupOperationsService;
+      yield* emitNdjson(yield* svc.updateClipMockups(edits));
     })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 

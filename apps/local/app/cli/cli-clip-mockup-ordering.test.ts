@@ -16,7 +16,12 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
-import { fakeSpeech, makeClipMockupRun } from "./cli-clip-mockup-test-harness";
+import {
+  addArgv,
+  fakeSpeech,
+  makeClipMockupRun,
+  updateArgv,
+} from "./cli-clip-mockup-test-harness";
 
 // ===========================================================================
 // cvm clip-mockup: move / update / --at position addressing
@@ -30,6 +35,11 @@ import { fakeSpeech, makeClipMockupRun } from "./cli-clip-mockup-test-harness";
 // What it is here to prove: reordering touches the ORDER and nothing on disk,
 // 'update' changes one of the two fields without disturbing the other, and the
 // POSITION an author reads off the screen reaches the same row its uuid does.
+//
+// 'add' and 'update' take a --clip-mockups-json file (addArgv / updateArgv in
+// ./cli-clip-mockup-test-harness.ts): an 'update' entry names its Clip Mockup
+// by "id" or by "video" + "at", the same two forms 'move' and 'delete' take
+// as flags.
 // ===========================================================================
 
 let testDb: TestDb;
@@ -89,26 +99,30 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     return full;
   };
 
+  /** Add ONE moment, as a one-entry batch, and hand back its row. */
   const add = async (
     videoId: string,
     line: string,
     imageName = `${line.replace(/\W+/g, "-")}.png`,
     contents?: string
   ): Promise<Mockup> =>
-    obj(
-      (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          videoId,
-          "--image",
-          sourceImage(imageName, contents),
-          "--say",
-          line,
-        ])
-      ).stdout
-    );
+    (
+      ndjson(
+        (
+          await run(
+            addArgv(videoId, [
+              { say: line, image: sourceImage(imageName, contents) },
+            ])
+          )
+        ).stdout
+      ) as Mockup[]
+    )[0]!;
+
+  /** Run one `update` batch and hand back the rows it printed. */
+  const update = async (entries: ReadonlyArray<unknown>) => {
+    const r = await run(updateArgv(entries));
+    return { ...r, rows: ndjson(r.stdout) as Mockup[] };
+  };
 
   const list = async (videoId: string): Promise<Mockup[]> =>
     ndjson(
@@ -205,7 +219,7 @@ describe("cvm clip-mockup: ordering and addressing", () => {
   // update
   // -----------------------------------------------------------------------
 
-  it("update --image copies the new PNG in and leaves the line and its speech alone", async () => {
+  it("update with an image copies the new PNG in and leaves the line and its speech alone", async () => {
     const created = await add(
       s.standaloneActiveId,
       "The line stays.",
@@ -213,17 +227,13 @@ describe("cvm clip-mockup: ordering and addressing", () => {
       "FRAME-V1"
     );
 
-    const r = await run([
-      "clip-mockup",
-      "update",
-      "--image",
-      sourceImage("v2.png", "FRAME-V2"),
-      created.id,
+    const r = await update([
+      { id: created.id, image: sourceImage("v2.png", "FRAME-V2") },
     ]);
     expect(r.exitCode).toBe(0);
     expect(r.stderr).toBe("");
 
-    const row = obj(r.stdout);
+    const row = r.rows[0]!;
     expect(row.id).toBe(created.id);
     expect(row.line).toBe("The line stays.");
     // The words did not change, so neither did their voicing or its length.
@@ -240,20 +250,12 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     expect(nodeFs.existsSync(nodePath.join(dir, created.imagePath))).toBe(true);
   });
 
-  it("update --say changes the line and leaves the frame alone", async () => {
+  it("update with a line changes the line and leaves the frame alone", async () => {
     const created = await add(s.standaloneActiveId, "Too dense.");
 
-    const row = obj(
-      (
-        await run([
-          "clip-mockup",
-          "update",
-          "--say",
-          "Shorter, and it lands harder.",
-          created.id,
-        ])
-      ).stdout
-    );
+    const row = (
+      await update([{ id: created.id, say: "Shorter, and it lands harder." }])
+    ).rows[0]!;
 
     expect(row.line).toBe("Shorter, and it lands harder.");
     expect(row.imagePath).toBe(created.imagePath);
@@ -266,63 +268,134 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     );
   });
 
-  it("update takes both --image and --say at once", async () => {
+  it("update takes an image and a line in one entry", async () => {
     const created = await add(s.standaloneActiveId, "Old.");
 
-    const row = obj(
-      (
-        await run([
-          "clip-mockup",
-          "update",
-          "--image",
-          sourceImage("both.png", "BOTH"),
-          "--say",
-          "New.",
-          created.id,
-        ])
-      ).stdout
-    );
+    const row = (
+      await update([
+        { id: created.id, image: sourceImage("both.png", "BOTH"), say: "New." },
+      ])
+    ).rows[0]!;
 
     expect(row.line).toBe("New.");
     expect(row.imagePath).not.toBe(created.imagePath);
   });
 
-  it("update with neither --image nor --say is invalid input, exit 3", async () => {
-    const created = await add(s.standaloneActiveId, "One");
+  it("update applies every entry in one call and prints them in file order", async () => {
+    const a = await add(s.standaloneActiveId, "One");
+    const b = await add(s.standaloneActiveId, "Two");
 
-    const r = await run(["clip-mockup", "update", created.id]);
-    expect(r.exitCode).toBe(3);
-    expect(r.stdout).toBe("");
-    expect(failureOf(r)._tag).toBe("ParseError");
+    const r = await update([
+      { id: b.id, say: "Two, again." },
+      { id: a.id, image: sourceImage("a-v2.png") },
+    ]);
+
+    expect(r.exitCode).toBe(0);
+    expect(r.rows.map((row) => row.id)).toEqual([b.id, a.id]);
+    expect((await list(s.standaloneActiveId)).map((m) => m.line)).toEqual([
+      "One",
+      "Two, again.",
+    ]);
   });
 
-  it("update with an empty --say is invalid input, exit 3", async () => {
+  it("update reaches Clip Mockups of several Videos in one call", async () => {
+    const mine = await add(s.standaloneActiveId, "Mine.");
+    const theirs = await add(s.lessonVideoId, "Theirs.");
+
+    const r = await update([
+      { id: mine.id, image: sourceImage("mine-v2.png", "MINE-V2") },
+      { video: s.lessonVideoId, at: 1, say: "Theirs, fixed." },
+    ]);
+
+    expect(r.exitCode).toBe(0);
+    expect(r.rows.map((row) => row.id)).toEqual([mine.id, theirs.id]);
+    // Each frame lands in its OWN Video's directory.
+    expect(
+      nodeFs.readFileSync(
+        nodePath.join(
+          frameDir(s.standaloneActiveLineageId),
+          r.rows[0]!.imagePath
+        ),
+        "utf8"
+      )
+    ).toBe("MINE-V2");
+    expect((await list(s.lessonVideoId))[0]!.line).toBe("Theirs, fixed.");
+  });
+
+  it("update with an entry that changes nothing is invalid input, exit 3", async () => {
     const created = await add(s.standaloneActiveId, "One");
 
-    const r = await run(["clip-mockup", "update", "--say", "   ", created.id]);
+    const r = await update([{ id: created.id }]);
+    expect(r.exitCode).toBe(3);
+    expect(r.stdout).toBe("");
+    const failure = failureOf(r);
+    expect(failure._tag).toBe("ParseError");
+    expect(failure.message).toContain("entry 1 changes nothing");
+  });
+
+  it("update with an empty line is invalid input, exit 3", async () => {
+    const created = await add(s.standaloneActiveId, "One");
+
+    const r = await update([{ id: created.id, say: "   " }]);
     expect(r.exitCode).toBe(3);
     expect(failureOf(r)._tag).toBe("ParseError");
     expect((await list(s.standaloneActiveId))[0]!.line).toBe("One");
   });
 
-  it("update with an unreadable source image is invalid input and changes nothing", async () => {
+  it("update with both an html page and an image is invalid input, exit 3", async () => {
+    const created = await add(s.standaloneActiveId, "One");
+    const page = nodePath.join(sourceDir, "page.html");
+    nodeFs.writeFileSync(page, "<html></html>");
+
+    const r = await update([
+      { id: created.id, html: page, image: sourceImage("x.png") },
+    ]);
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r).message).toContain(
+      'entry 1 has both "html" and "image"'
+    );
+  });
+
+  it("update with an unknown key is invalid input, exit 3", async () => {
     const created = await add(s.standaloneActiveId, "One");
 
-    const r = await run([
-      "clip-mockup",
-      "update",
-      "--image",
-      nodePath.join(sourceDir, "missing.png"),
-      "--say",
-      "Should not land.",
-      created.id,
+    const r = await update([{ id: created.id, line: "Wrong key." }]);
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r).message).toContain('entry 1 has an unknown key "line"');
+    expect((await list(s.standaloneActiveId))[0]!.line).toBe("One");
+  });
+
+  it("update with an unreadable source image is invalid input and changes nothing", async () => {
+    const created = await add(s.standaloneActiveId, "One");
+    speech.spoken.length = 0;
+
+    const r = await update([
+      {
+        id: created.id,
+        image: nodePath.join(sourceDir, "missing.png"),
+        say: "Should not land.",
+      },
     ]);
 
     expect(r.exitCode).toBe(3);
     expect(failureOf(r)._tag).toBe("ParseError");
+    expect(speech.spoken).toEqual([]);
     const row = (await list(s.standaloneActiveId))[0]!;
     expect(row.line).toBe("One");
     expect(row.imagePath).toBe(created.imagePath);
+  });
+
+  it("update refuses two entries for the same Clip Mockup, and changes nothing", async () => {
+    const created = await add(s.standaloneActiveId, "One");
+
+    const r = await update([
+      { id: created.id, say: "First try." },
+      { video: s.standaloneActiveId, at: 1, say: "Second try." },
+    ]);
+
+    expect(r.exitCode).toBe(3);
+    expect(failureOf(r).message).toContain("entries 1 and 2 both change");
+    expect((await list(s.standaloneActiveId))[0]!.line).toBe("One");
   });
 
   it("update of an unknown or deleted id is a not-found, exit 2", async () => {
@@ -330,7 +403,7 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     await run(["clip-mockup", "delete", created.id]);
 
     for (const id of ["nope", created.id]) {
-      const r = await run(["clip-mockup", "update", "--say", "New.", id]);
+      const r = await update([{ id, say: "New." }]);
       expect(r.exitCode, id).toBe(2);
       expect(failureOf(r)._tag, id).toBe("NotFoundError");
     }
@@ -355,41 +428,21 @@ describe("cvm clip-mockup: ordering and addressing", () => {
         [2, second.id],
         [3, third.id],
       ] as const) {
-        const r = await run([
-          "clip-mockup",
-          "update",
-          "--video",
-          s.standaloneActiveId,
-          "--at",
-          String(at),
-          "--say",
-          `Line ${at}.`,
+        const r = await update([
+          { video: s.standaloneActiveId, at, say: `Line ${at}.` },
         ]);
-        expect(r.exitCode, `--at ${at}`).toBe(0);
-        expect(obj(r.stdout).id, `--at ${at}`).toBe(expected);
+        expect(r.exitCode, `at ${at}`).toBe(0);
+        expect(r.rows[0]!.id, `at ${at}`).toBe(expected);
       }
     });
 
     it("reaches the same row as the bare id does", async () => {
       const { second } = await seedThree();
 
-      const byId = obj(
-        (await run(["clip-mockup", "update", "--say", "A.", second.id])).stdout
-      );
-      const byPosition = obj(
-        (
-          await run([
-            "clip-mockup",
-            "update",
-            "--video",
-            s.standaloneActiveId,
-            "--at",
-            "2",
-            "--say",
-            "B.",
-          ])
-        ).stdout
-      );
+      const byId = (await update([{ id: second.id, say: "A." }])).rows[0]!;
+      const byPosition = (
+        await update([{ video: s.standaloneActiveId, at: 2, say: "B." }])
+      ).rows[0]!;
 
       expect(byPosition.id).toBe(byId.id);
       expect(byPosition.id).toBe(second.id);
@@ -430,20 +483,15 @@ describe("cvm clip-mockup: ordering and addressing", () => {
     it("works on every write verb", async () => {
       const { first } = await seedThree();
 
-      const updated = obj(
-        (
-          await run([
-            "clip-mockup",
-            "update",
-            "--video",
-            s.standaloneActiveId,
-            "--at",
-            "1",
-            "--image",
-            sourceImage("at-image.png", "AT-IMAGE"),
-          ])
-        ).stdout
-      );
+      const updated = (
+        await update([
+          {
+            video: s.standaloneActiveId,
+            at: 1,
+            image: sourceImage("at-image.png", "AT-IMAGE"),
+          },
+        ])
+      ).rows[0]!;
       expect(updated.id).toBe(first.id);
       expect(updated.imagePath).not.toBe(first.imagePath);
       expect(
@@ -455,6 +503,47 @@ describe("cvm clip-mockup: ordering and addressing", () => {
           "utf8"
         )
       ).toBe("AT-IMAGE");
+    });
+
+    it("counts every position of a batch in the list as it was BEFORE the batch", async () => {
+      const { first, third } = await seedThree();
+
+      // Neither edit moves a row, so position 3 is "Three" for both entries —
+      // entry 1 can never shift what entry 2 points at.
+      const r = await update([
+        { video: s.standaloneActiveId, at: 1, say: "One, fixed." },
+        { video: s.standaloneActiveId, at: 3, say: "Three, fixed." },
+      ]);
+
+      expect(r.exitCode).toBe(0);
+      expect(r.rows.map((row) => row.id)).toEqual([first.id, third.id]);
+      expect((await list(s.standaloneActiveId)).map((m) => m.line)).toEqual([
+        "One, fixed.",
+        "Two",
+        "Three, fixed.",
+      ]);
+    });
+
+    it("an update position outside the list names the entry and the length", async () => {
+      await seedThree();
+
+      const r = await update([
+        { video: s.standaloneActiveId, at: 4, say: "Nowhere." },
+      ]);
+      expect(r.exitCode).toBe(3);
+      const failure = failureOf(r);
+      expect(failure.message).toContain("entry 1");
+      expect(failure.message).toContain("3 Clip Mockups");
+    });
+
+    it("an update entry with both an id and a position is invalid input, exit 3", async () => {
+      const { first } = await seedThree();
+
+      const r = await update([
+        { id: first.id, video: s.standaloneActiveId, at: 1, say: "Twice." },
+      ]);
+      expect(r.exitCode).toBe(3);
+      expect(failureOf(r).message).toContain("names its Clip Mockup twice");
     });
 
     it("a position outside the list is invalid input, naming the length", async () => {

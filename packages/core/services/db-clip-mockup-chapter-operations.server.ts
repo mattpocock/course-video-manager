@@ -4,7 +4,8 @@ import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { orderKeyBeforeItem } from "../lib/sort-by-order.js";
-import { listAnimaticOrder } from "./db-animatic-order.server.js";
+import { listAnimaticOrder, lockAnimatic } from "./db-animatic-order.server.js";
+import { transactionalizeWrites } from "./with-db-transaction.server.js";
 
 /**
  * Row-level operations for Clip Mockup Chapters — the named dividers that group
@@ -104,6 +105,7 @@ export const createClipMockupChapterOperations = (db: Database) => {
   const createClipMockupChapterAtItem = Effect.fn(
     "createClipMockupChapterAtItem"
   )(function* (videoId: string, name: string, beforeItemId: string | null) {
+    yield* lockAnimatic(db, videoId);
     const items = yield* listAnimaticOrder(db, videoId);
     const order = orderKeyBeforeItem(items, beforeItemId);
     if (order === null) {
@@ -150,6 +152,7 @@ export const createClipMockupChapterOperations = (db: Database) => {
     "moveClipMockupChapterToPosition"
   )(function* (id: string, beforeItemId: string | null) {
     const chapter = yield* requireClipMockupChapter(id);
+    yield* lockAnimatic(db, chapter.videoId);
     const items = (yield* listAnimaticOrder(db, chapter.videoId)).filter(
       (item) => item.id !== id
     );
@@ -204,7 +207,12 @@ export class ClipMockupChapterOperationsService extends Effect.Service<ClipMocku
   {
     effect: Effect.gen(function* () {
       const db = yield* DrizzleService;
-      return createClipMockupChapterOperations(db);
+      // The two positioning writes run in a transaction so the Animatic lock
+      // they take is held until their key is committed.
+      return transactionalizeWrites(db, createClipMockupChapterOperations, [
+        "createClipMockupChapterAtItem",
+        "moveClipMockupChapterToPosition",
+      ]);
     }),
   }
 ) {}

@@ -1,4 +1,7 @@
 import { Effect, Layer } from "effect";
+import nodeFs from "node:fs";
+import os from "node:os";
+import nodePath from "node:path";
 import { buildProgram } from "@/cli/main";
 import { makeTestCliOutput } from "@/cli/output";
 import type { TestDb } from "@/test-utils/pglite";
@@ -12,15 +15,16 @@ import { buildWriteLayer, type RunResult } from "./cli-write-test-harness";
 /**
  * The speech fake every `cvm clip-mockup` suite runs on.
  *
- * `clip-mockup add` and `update --say` synthesise their line, so without this
- * the suites would load Kokoro onto a GPU for real. The whole
+ * `clip-mockup add` and `update` synthesise every "say" line, so without this
+ * the suites would start the Clip Mockup daemon and load Kokoro onto a GPU for
+ * real. The whole
  * ClipMockupSpeechService is replaced by `Layer.succeed`, exactly as the
  * `cvm footage` suite replaces VideoProcessingService to keep real ffmpeg and
  * real Whisper out of the run. NO MODEL IS EVER LOADED IN A TEST.
  *
  * What makes the fake REACHABLE is the `Effect.serviceOption` branch in
- * commands/clip-mockup.speech.ts — without it the command would always build
- * the real layer and this would be ignored.
+ * services/resolve-clip-mockup-speech.ts — without it the command would always
+ * send its lines to the daemon and this would be ignored.
  */
 
 const FAKE_SAMPLE_RATE = 24000;
@@ -95,3 +99,36 @@ export const makeClipMockupRun =
     );
     return { stdout: out.stdout(), stderr: out.stderr(), exitCode };
   };
+
+/**
+ * Write a `--clip-mockups-json` file and return its path — the one input of
+ * `clip-mockup add` and `update`. Relative paths inside it resolve against
+ * the file's own directory, so tests pass ABSOLUTE frame paths.
+ */
+export const clipMockupsJson = (entries: ReadonlyArray<unknown>): string => {
+  const dir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-batch-"));
+  const file = nodePath.join(dir, "clip-mockups.json");
+  nodeFs.writeFileSync(file, JSON.stringify(entries));
+  return file;
+};
+
+/** argv for `clip-mockup add` of these entries to this Video. */
+export const addArgv = (
+  videoId: string,
+  entries: ReadonlyArray<unknown>
+): string[] => [
+  "clip-mockup",
+  "add",
+  "--video",
+  videoId,
+  "--clip-mockups-json",
+  clipMockupsJson(entries),
+];
+
+/** argv for `clip-mockup update` of these entries. */
+export const updateArgv = (entries: ReadonlyArray<unknown>): string[] => [
+  "clip-mockup",
+  "update",
+  "--clip-mockups-json",
+  clipMockupsJson(entries),
+];

@@ -223,13 +223,13 @@ export class ClipMockupSpeechService extends Effect.Service<ClipMockupSpeechServ
   "ClipMockupSpeechService",
   {
     /**
-     * Building the layer IS loading the model: ~1.4s on the GPU, paid once
-     * per process. `cvm` is one process per invocation and
-     * `resolveClipMockupSpeech` builds this layer only on a cache miss, so a
-     * line already spoken never loads Kokoro at all.
+     * Building the layer IS loading the model: ~1.4s on the GPU. Only the
+     * Clip Mockup daemon builds it, once for its whole life, and only when
+     * the first line that is not already on disk arrives — so a `cvm` process
+     * never loads Kokoro, and a line already spoken never loads it at all.
      *
-     * No credential, no config and no `.env`: the model runs in this process
-     * and needs nothing the repo could forget to set.
+     * No credential, no config and no `.env`: the model runs in the daemon's
+     * process and needs nothing the repo could forget to set.
      */
     effect: Effect.gen(function* () {
       const voice = yield* loadKokoro;

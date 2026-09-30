@@ -108,14 +108,11 @@ describe("on a box that is not the author's", () => {
         "add",
         "--video",
         s.standaloneActiveId,
-        "--image",
-        "/tmp/whatever.png",
-        "--say",
-        "A line.",
+        "--clip-mockups-json",
+        "/tmp/whatever.json",
       ],
       ["clip-mockup", "get", "cm_1"],
-      ["clip-mockup", "update", "--say", "A line.", "cm_1"],
-      ["clip-mockup", "update", "--image", "/tmp/whatever.png", "cm_1"],
+      ["clip-mockup", "update", "--clip-mockups-json", "/tmp/whatever.json"],
       ["clip-mockup", "move", "--before", "cm_2", "cm_1"],
       ["clip-mockup", "delete", "cm_1"],
       // The --at addressing form reads the Animatic to count positions, so it
@@ -133,15 +130,16 @@ describe("on a box that is not the author's", () => {
   });
 
   it("refuses cvm clip-mockup ahead of its own argument validation", async () => {
-    // Missing --say is normally exit 3. The machine check comes first, because
-    // a line would not have helped: there is no directory to put the frame in.
+    // A --clip-mockups-json file that is not there is normally exit 3. The
+    // machine check comes first, before the file is even read, because a good
+    // file would not have helped: there is no directory to put the frames in.
     const result = await run([
       "clip-mockup",
       "add",
       "--video",
       s.standaloneActiveId,
-      "--image",
-      "/tmp/whatever.png",
+      "--clip-mockups-json",
+      "/tmp/cvm-no-such-batch-file.json",
     ]);
 
     expect(result.exitCode).toBe(7);

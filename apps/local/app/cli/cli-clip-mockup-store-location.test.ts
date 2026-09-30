@@ -23,12 +23,16 @@ import {
 } from "@/test-utils/pglite";
 import {
   buildWriteLayer,
-  one,
+  ndjson,
   seedWrite,
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
-import { fakeSpeech } from "./cli-clip-mockup-test-harness";
+import {
+  addArgv,
+  fakeSpeech,
+  updateArgv,
+} from "./cli-clip-mockup-test-harness";
 
 // ===========================================================================
 // WHICH DIRECTORY A CLIP MOCKUP FRAME LANDS IN
@@ -37,7 +41,8 @@ import { fakeSpeech } from "./cli-clip-mockup-test-harness";
 // variable, so none of them could see this: on the author's machine the
 // setting lives ONLY in the repo-root `.env`, and `.env` is not loaded by tsx.
 // `add` got away with it because `resolveClipMockupSpeech` called loadRepoEnv()
-// before the frame is written; `update --image` / `--html` never voices a line,
+// before the frame is written; an `update` that only swaps a frame never voices
+// a line,
 // so nothing had loaded the file by the time it wrote — and the frame went to
 // the fallback store inside the checkout while the row pointed at a name the
 // real store did not have.
@@ -124,7 +129,8 @@ interface Mockup {
   imagePath: string;
 }
 
-const obj = (stdout: string): Mockup => one<Mockup>(stdout);
+/** The first row a batch printed. */
+const obj = (stdout: string): Mockup => (ndjson(stdout) as Mockup[])[0]!;
 
 beforeAll(async () => {
   const paths = await fixture;
@@ -180,16 +186,7 @@ describe("cvm clip-mockup with CLIP_MOCKUP_DIR only in the repo .env", () => {
     nodePath.join(storeDir, s.standaloneActiveLineageId, row.imagePath);
 
   const add = async (html: string, line: string): Promise<Mockup> => {
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--html",
-      html,
-      "--say",
-      line,
-    ]);
+    const r = await run(addArgv(s.standaloneActiveId, [{ say: line, html }]));
     expect(r.exitCode).toBe(0);
     return obj(r.stdout);
   };
@@ -202,20 +199,21 @@ describe("cvm clip-mockup with CLIP_MOCKUP_DIR only in the repo .env", () => {
     expect(nodeFs.existsSync(framePath(created))).toBe(true);
   });
 
-  it("update --html writes the re-captured frame to disk, not just the row", async () => {
+  it("update with a page writes the re-captured frame to disk, not just the row", async () => {
     const created = await add(
       sourceFile("v1.html", "<html><body>v1</body></html>"),
       "Number 14."
     );
 
     capture.bytes = "RECAPTURED-PNG";
-    const r = await run([
-      "clip-mockup",
-      "update",
-      "--html",
-      sourceFile("v2.html", "<html><body>v2</body></html>"),
-      created.id,
-    ]);
+    const r = await run(
+      updateArgv([
+        {
+          id: created.id,
+          html: sourceFile("v2.html", "<html><body>v2</body></html>"),
+        },
+      ])
+    );
 
     expect(r.exitCode).toBe(0);
     const updated = obj(r.stdout);
@@ -230,19 +228,20 @@ describe("cvm clip-mockup with CLIP_MOCKUP_DIR only in the repo .env", () => {
     expect(nodeFs.existsSync(framePath(created))).toBe(true);
   });
 
-  it("update --image copies the supplied PNG to disk, not just the row", async () => {
+  it("update with an image copies the supplied PNG to disk, not just the row", async () => {
     const created = await add(
       sourceFile("img-v1.html", "<html><body>v1</body></html>"),
       "Number 15."
     );
 
-    const r = await run([
-      "clip-mockup",
-      "update",
-      "--image",
-      sourceFile("replacement.png", "REPLACEMENT-PNG"),
-      created.id,
-    ]);
+    const r = await run(
+      updateArgv([
+        {
+          id: created.id,
+          image: sourceFile("replacement.png", "REPLACEMENT-PNG"),
+        },
+      ])
+    );
 
     expect(r.exitCode).toBe(0);
     const updated = obj(r.stdout);
@@ -253,19 +252,18 @@ describe("cvm clip-mockup with CLIP_MOCKUP_DIR only in the repo .env", () => {
     );
   });
 
-  it("update addressed by --video/--at lands in the store too", async () => {
+  it("update addressed by video and position lands in the store too", async () => {
     await add(sourceFile("at-v1.html", "<html><body>v1</body></html>"), "One.");
 
-    const r = await run([
-      "clip-mockup",
-      "update",
-      "--video",
-      s.standaloneActiveId,
-      "--at",
-      "1",
-      "--image",
-      sourceFile("at-new.png", "AT-PNG"),
-    ]);
+    const r = await run(
+      updateArgv([
+        {
+          video: s.standaloneActiveId,
+          at: 1,
+          image: sourceFile("at-new.png", "AT-PNG"),
+        },
+      ])
+    );
 
     expect(r.exitCode).toBe(0);
     expect(nodeFs.readFileSync(framePath(obj(r.stdout)), "utf8")).toBe(
@@ -292,13 +290,14 @@ describe("cvm clip-mockup with CLIP_MOCKUP_DIR only in the repo .env", () => {
 
     const out = makeTestCliOutput();
     const exitCode = await Effect.runPromise(
-      buildProgram([
-        "clip-mockup",
-        "update",
-        "--html",
-        sourceFile("bad.html", "<html><body>bad</body></html>"),
-        created.id,
-      ]).pipe(
+      buildProgram(
+        updateArgv([
+          {
+            id: created.id,
+            html: sourceFile("bad.html", "<html><body>bad</body></html>"),
+          },
+        ])
+      ).pipe(
         Effect.provide(out.layer),
         Effect.provide(
           Layer.mergeAll(buildWriteLayer(testDb), broken, speech.layer)

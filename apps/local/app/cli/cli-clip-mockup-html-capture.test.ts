@@ -21,15 +21,18 @@ import {
   buildWriteLayer,
   makeTempClipMockupDir,
   ndjson,
-  one,
   seedWrite,
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
-import { fakeSpeech } from "./cli-clip-mockup-test-harness";
+import {
+  addArgv,
+  fakeSpeech,
+  updateArgv,
+} from "./cli-clip-mockup-test-harness";
 
 // ===========================================================================
-// cvm clip-mockup add/update --html: capture a frame from an HTML page
+// cvm clip-mockup add/update, "html" entries: capture a frame from a page
 //
 // The capture is the ONE thing in this feature that cannot run in a test: it
 // drives a real headless browser. So FrameCaptureService is faked with
@@ -38,7 +41,9 @@ import { fakeSpeech } from "./cli-clip-mockup-test-harness";
 // and NO CHROMIUM EVER LAUNCHES HERE. The fake writes canned bytes at exactly
 // the path it was asked for, which is all the rest of the verb needs to be
 // real: the copy into {CLIP_MOCKUP_DIR}/{lineageId}/, the row write, the
-// ordering and the failure paths are the shipping code.
+// ordering and the failure paths are the shipping code. Outside a test the
+// same captures go to the Clip Mockup daemon's one browser; the fake is what
+// keeps that daemon from ever starting here.
 //
 // Its own file rather than an addition to cli-clip-mockup-writes.test.ts
 // because only this suite needs the fake layer — and because that file is
@@ -79,10 +84,10 @@ let s: WriteSeed;
 let frames: ReturnType<typeof makeTempClipMockupDir>;
 let sourceDir: string;
 /**
- * `add` and `update --say` voice their line (#1643), so this suite needs the
+ * `add` and `update` voice every "say" line (#1643), so this suite needs the
  * shared speech fake merged in beside the capture fake — otherwise every
- * write here would reach for Google credentials. Neither Chromium nor Cloud TTS ever
- * runs in this file.
+ * write here would start the Clip Mockup daemon and load Kokoro. Neither
+ * Chromium nor Kokoro ever runs in this file.
  */
 const speech = fakeSpeech();
 const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
@@ -138,7 +143,14 @@ describe("cvm clip-mockup --html", () => {
     createdAt: string;
   }
 
-  const obj = (stdout: string): Mockup => one<Mockup>(stdout);
+  /** The rows a batch printed. */
+  const rowsOf = (stdout: string): Mockup[] => ndjson(stdout) as Mockup[];
+
+  /** Add ONE moment from a page and hand back its row. */
+  const addPage = async (html: string, say: string): Promise<Mockup> =>
+    rowsOf(
+      (await run(addArgv(s.standaloneActiveId, [{ say, html }]))).stdout
+    )[0]!;
 
   const failureOf = (result: RunResult) =>
     JSON.parse(result.stderr.trim()) as { _tag: string; message: string };
@@ -164,26 +176,19 @@ describe("cvm clip-mockup --html", () => {
     ) as Mockup[];
 
   // -----------------------------------------------------------------------
-  // add --html
+  // add, "html"
   // -----------------------------------------------------------------------
 
-  it("add --html captures the page and creates the Clip Mockup in one call", async () => {
+  it("add captures the page and creates the Clip Mockup in one call", async () => {
     const html = sourceHtml("moment-01.html");
-    const { stdout, stderr, exitCode } = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--html",
-      html,
-      "--say",
-      "Here's the problem.",
-    ]);
+    const { stdout, stderr, exitCode } = await run(
+      addArgv(s.standaloneActiveId, [{ say: "Here's the problem.", html }])
+    );
 
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
 
-    const row = obj(stdout);
+    const row = rowsOf(stdout)[0]!;
     expect(row.videoId).toBe(s.standaloneActiveId);
     expect(row.line).toBe("Here's the problem.");
 
@@ -203,21 +208,39 @@ describe("cvm clip-mockup --html", () => {
     expect(nodeFs.readFileSync(nodePath.join(dir, row.imagePath), "utf8")).toBe(
       "CAPTURED-PNG"
     );
-    // One capture AND one synthesis: --html and --say are one call.
+    // One capture AND one synthesis: the picture and the line are one entry.
     expect(speech.spoken).toEqual(["Here's the problem."]);
   });
 
-  it("add --html leaves no scratch file behind once the frame is stored", async () => {
-    await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--html",
-      sourceHtml("moment-02.html"),
-      "--say",
-      "One line.",
+  it("add captures every page of a batch, and a page used twice only once", async () => {
+    const one = sourceHtml("batch-1.html");
+    const two = sourceHtml("batch-2.html");
+
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "First.", html: one },
+        { say: "Second.", html: two },
+        { say: "Still on the first.", html: one },
+      ])
+    );
+
+    expect(r.exitCode).toBe(0);
+    const rows = rowsOf(r.stdout);
+    expect(rows.map((m) => m.line)).toEqual([
+      "First.",
+      "Second.",
+      "Still on the first.",
     ]);
+    expect(capture.calls.map((c) => c.htmlPath).sort()).toEqual(
+      [one, two].sort()
+    );
+    // The held page is one frame file, shared by both rows.
+    expect(rows[2]!.imagePath).toBe(rows[0]!.imagePath);
+    expect(rows[1]!.imagePath).not.toBe(rows[0]!.imagePath);
+  });
+
+  it("add leaves no scratch file behind once the frame is stored", async () => {
+    await addPage(sourceHtml("moment-02.html"), "One line.");
 
     // The capture writes into a SCOPED temp directory; the only lasting copy
     // is the one inside the Clip Mockup store.
@@ -231,26 +254,25 @@ describe("cvm clip-mockup --html", () => {
   });
 
   // -----------------------------------------------------------------------
-  // The mutually-exclusive rule
+  // The one-picture rule
   // -----------------------------------------------------------------------
 
-  it("add with BOTH --html and --image is invalid input, exit 3, and writes nothing", async () => {
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--html",
-      sourceHtml("both.html"),
-      "--image",
-      sourceImage("both.png"),
-      "--say",
-      "Two pictures.",
-    ]);
+  it("add with an entry holding BOTH html and image is invalid input, exit 3, and writes nothing", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        {
+          say: "Two pictures.",
+          html: sourceHtml("both.html"),
+          image: sourceImage("both.png"),
+        },
+      ])
+    );
 
     expect(r.exitCode).toBe(3);
     expect(r.stdout).toBe("");
-    expect(failureOf(r)._tag).toBe("ParseError");
+    const failure = failureOf(r);
+    expect(failure._tag).toBe("ParseError");
+    expect(failure.message).toContain('entry 1 has both "html" and "image"');
     // Rejected before anything was captured or written.
     expect(capture.calls).toEqual([]);
     expect(nodeFs.existsSync(frameDir(s.standaloneActiveLineageId))).toBe(
@@ -259,48 +281,30 @@ describe("cvm clip-mockup --html", () => {
     expect(await list(s.standaloneActiveId)).toEqual([]);
   });
 
-  it("add with NEITHER --html nor --image is invalid input, exit 3", async () => {
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--say",
-      "A moment with no picture.",
-    ]);
+  it("add with an entry holding NEITHER html nor image is invalid input, exit 3", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [{ say: "A moment with no picture." }])
+    );
 
     expect(r.exitCode).toBe(3);
-    expect(failureOf(r).message).toContain("--html");
+    expect(failureOf(r).message).toContain('"html"');
     expect(capture.calls).toEqual([]);
     expect(await list(s.standaloneActiveId)).toEqual([]);
   });
 
-  it("update with BOTH --html and --image is invalid input, exit 3, and changes nothing", async () => {
-    const created = obj(
-      (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          s.standaloneActiveId,
-          "--html",
-          sourceHtml("before.html"),
-          "--say",
-          "Before.",
-        ])
-      ).stdout
-    );
+  it("update with BOTH html and image is invalid input, exit 3, and changes nothing", async () => {
+    const created = await addPage(sourceHtml("before.html"), "Before.");
     capture.calls = [];
 
-    const r = await run([
-      "clip-mockup",
-      "update",
-      "--html",
-      sourceHtml("after.html"),
-      "--image",
-      sourceImage("after.png"),
-      created.id,
-    ]);
+    const r = await run(
+      updateArgv([
+        {
+          id: created.id,
+          html: sourceHtml("after.html"),
+          image: sourceImage("after.png"),
+        },
+      ])
+    );
 
     expect(r.exitCode).toBe(3);
     expect(failureOf(r)._tag).toBe("ParseError");
@@ -316,16 +320,11 @@ describe("cvm clip-mockup --html", () => {
   it("a page that cannot be captured is a NAMED error, and leaves no row and no file", async () => {
     capture.mode = "fail";
 
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--html",
-      sourceHtml("broken.html"),
-      "--say",
-      "This one will not render.",
-    ]);
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "This one will not render.", html: sourceHtml("broken.html") },
+      ])
+    );
 
     // Named, not a blank frame: an agent can read this and fix its HTML.
     const failure = failureOf(r);
@@ -336,7 +335,9 @@ describe("cvm clip-mockup --html", () => {
 
     // No row...
     expect(await list(s.standaloneActiveId)).toEqual([]);
-    // ...and no orphan file, in the store or in the scratch directory.
+    // ...and no file at all: not the frame, and not the line's WAV, although
+    // the line was voiced while the page was failing. Nothing is written
+    // until the whole batch has succeeded.
     expect(nodeFs.existsSync(frameDir(s.standaloneActiveLineageId))).toBe(
       false
     );
@@ -361,18 +362,16 @@ describe("cvm clip-mockup --html", () => {
 
     const out = makeTestCliOutput();
     const exitCode = await Effect.runPromise(
-      buildProgram([
-        "clip-mockup",
-        "add",
-        "--video",
-        s.standaloneActiveId,
-        "--html",
-        sourceHtml("silent.html"),
-        "--say",
-        "Nothing came out.",
-      ]).pipe(
+      buildProgram(
+        addArgv(s.standaloneActiveId, [
+          { say: "Nothing came out.", html: sourceHtml("silent.html") },
+        ])
+      ).pipe(
         Effect.provide(out.layer),
-        Effect.provide(Layer.merge(buildWriteLayer(testDb), broken))
+        // The speech fake too: without it the line would go to the real daemon.
+        Effect.provide(
+          Layer.mergeAll(buildWriteLayer(testDb), broken, speech.layer)
+        )
       )
     );
 
@@ -381,56 +380,37 @@ describe("cvm clip-mockup --html", () => {
     expect(await list(s.standaloneActiveId)).toEqual([]);
   });
 
-  it("add --html with a path that is not there is invalid input, and never captures", async () => {
-    const r = await run([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--html",
-      nodePath.join(sourceDir, "does-not-exist.html"),
-      "--say",
-      "Missing page.",
-    ]);
+  it("add with a page that is not there is invalid input, and never captures", async () => {
+    const missing = nodePath.join(sourceDir, "does-not-exist.html");
+    const r = await run(
+      addArgv(s.standaloneActiveId, [{ say: "Missing page.", html: missing }])
+    );
 
     expect(r.exitCode).toBe(3);
-    expect(failureOf(r)._tag).toBe("ParseError");
+    const failure = failureOf(r);
+    expect(failure._tag).toBe("ParseError");
+    expect(failure.message).toContain(
+      `entry 1: cannot read source HTML ${missing}`
+    );
     expect(capture.calls).toEqual([]);
     expect(await list(s.standaloneActiveId)).toEqual([]);
   });
 
   // -----------------------------------------------------------------------
-  // update --html
+  // update, "html"
   // -----------------------------------------------------------------------
 
-  it("update --html re-captures the page and repoints the row, leaving the line alone", async () => {
-    const created = obj(
-      (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          s.standaloneActiveId,
-          "--html",
-          sourceHtml("v1.html"),
-          "--say",
-          "Number 14.",
-        ])
-      ).stdout
-    );
+  it("update re-captures the page and repoints the row, leaving the line alone", async () => {
+    const created = await addPage(sourceHtml("v1.html"), "Number 14.");
 
     capture.bytes = "RECAPTURED-PNG";
     speech.spoken.length = 0;
-    const r = await run([
-      "clip-mockup",
-      "update",
-      "--html",
-      sourceHtml("v2.html"),
-      created.id,
-    ]);
+    const r = await run(
+      updateArgv([{ id: created.id, html: sourceHtml("v2.html") }])
+    );
 
     expect(r.exitCode).toBe(0);
-    const updated = obj(r.stdout);
+    const updated = rowsOf(r.stdout)[0]!;
     expect(updated.imagePath).not.toBe(created.imagePath);
     expect(updated.line).toBe("Number 14.");
     // A NEW PICTURE IS NOT NEW WORDS: swapping the frame never re-voices the
@@ -446,35 +426,22 @@ describe("cvm clip-mockup --html", () => {
     expect(nodeFs.existsSync(nodePath.join(dir, created.imagePath))).toBe(true);
   });
 
-  it("update takes --html and --say at once", async () => {
-    const created = obj(
-      (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          s.standaloneActiveId,
-          "--html",
-          sourceHtml("both-v1.html"),
-          "--say",
-          "Too dense.",
-        ])
-      ).stdout
-    );
+  it("update takes a page and a line in one entry", async () => {
+    const created = await addPage(sourceHtml("both-v1.html"), "Too dense.");
 
-    const updated = obj(
+    const updated = rowsOf(
       (
-        await run([
-          "clip-mockup",
-          "update",
-          "--html",
-          sourceHtml("both-v2.html"),
-          "--say",
-          "Shorter.",
-          created.id,
-        ])
+        await run(
+          updateArgv([
+            {
+              id: created.id,
+              html: sourceHtml("both-v2.html"),
+              say: "Shorter.",
+            },
+          ])
+        )
       ).stdout
-    );
+    )[0]!;
 
     expect(updated.line).toBe("Shorter.");
     expect(updated.imagePath).not.toBe(created.imagePath);

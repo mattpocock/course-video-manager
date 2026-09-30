@@ -16,15 +16,16 @@ import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
   makeTempClipMockupDir,
   ndjson,
-  one,
   seedWrite,
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
 import {
+  addArgv,
   failingSpeech,
   fakeSpeech,
   makeClipMockupRun,
+  updateArgv,
   FAKE_DURATION_SECONDS,
   SPEECH_FAILURE_MESSAGE,
 } from "./cli-clip-mockup-test-harness";
@@ -94,7 +95,8 @@ describe("cvm clip-mockup: speech", () => {
     archived: boolean;
   }
 
-  const obj = (stdout: string): Mockup => one<Mockup>(stdout);
+  /** The first row a batch printed. */
+  const first = (stdout: string): Mockup => (ndjson(stdout) as Mockup[])[0]!;
 
   let frameCounter = 0;
   const sourceImage = (): string => {
@@ -103,20 +105,14 @@ describe("cvm clip-mockup: speech", () => {
     return full;
   };
 
-  const addRaw = (videoId: string, line: string): Promise<RunResult> =>
-    run([
-      "clip-mockup",
-      "add",
-      "--video",
-      videoId,
-      "--image",
-      sourceImage(),
-      "--say",
-      line,
-    ]);
-
   const add = async (videoId: string, line: string): Promise<Mockup> =>
-    obj((await addRaw(videoId, line)).stdout);
+    first(
+      (await run(addArgv(videoId, [{ say: line, image: sourceImage() }])))
+        .stdout
+    );
+
+  const updateLine = async (id: string, line: string): Promise<Mockup> =>
+    first((await run(updateArgv([{ id, say: line }]))).stdout);
 
   const list = async (videoId: string): Promise<Mockup[]> =>
     ndjson(
@@ -186,6 +182,38 @@ describe("cvm clip-mockup: speech", () => {
     expect(second.durationSeconds).toBe(FAKE_DURATION_SECONDS);
   });
 
+  it("the same line twice in ONE batch is spoken once, and both rows share it", async () => {
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "Hold that thought.", image: sourceImage() },
+        { say: "Hold that thought.", image: sourceImage() },
+      ])
+    );
+
+    expect(r.exitCode).toBe(0);
+    const [a, b] = ndjson(r.stdout) as Mockup[];
+    expect(a!.audioPath).toBe(b!.audioPath);
+    expect(a!.durationSeconds).toBe(FAKE_DURATION_SECONDS);
+    expect(b!.durationSeconds).toBe(FAKE_DURATION_SECONDS);
+    expect(speech.spoken).toEqual(["Hold that thought."]);
+    expect(wavsIn(s.standaloneActiveLineageId)).toHaveLength(1);
+  });
+
+  it("a batch voices only the lines not already on disk", async () => {
+    await add(s.standaloneActiveId, "Already said.");
+    speech.spoken.length = 0;
+
+    const r = await run(
+      addArgv(s.standaloneActiveId, [
+        { say: "Already said.", image: sourceImage() },
+        { say: "Brand new.", image: sourceImage() },
+      ])
+    );
+
+    expect(r.exitCode).toBe(0);
+    expect(speech.spoken).toEqual(["Brand new."]);
+  });
+
   it("different lines are different files", async () => {
     const a = await add(s.standaloneActiveId, "One.");
     const b = await add(s.standaloneActiveId, "Two.");
@@ -211,17 +239,14 @@ describe("cvm clip-mockup: speech", () => {
   });
 
   // -----------------------------------------------------------------------
-  // update --say
+  // update: a new "say"
   // -----------------------------------------------------------------------
 
-  it("update --say re-synthesises, replaces the duration, and leaves the image alone", async () => {
+  it("update with a new line re-synthesises, replaces the duration, and leaves the image alone", async () => {
     const created = await add(s.standaloneActiveId, "Too dense by half.");
     speech.spoken.length = 0;
 
-    const row = obj(
-      (await run(["clip-mockup", "update", "--say", "Shorter.", created.id]))
-        .stdout
-    );
+    const row = await updateLine(created.id, "Shorter.");
 
     expect(speech.spoken).toEqual(["Shorter."]);
     expect(row.line).toBe("Shorter.");
@@ -235,20 +260,12 @@ describe("cvm clip-mockup: speech", () => {
     );
   });
 
-  it("update --image alone never speaks", async () => {
+  it("update with only an image never speaks", async () => {
     const created = await add(s.standaloneActiveId, "The line stays.");
     speech.spoken.length = 0;
 
-    const row = obj(
-      (
-        await run([
-          "clip-mockup",
-          "update",
-          "--image",
-          sourceImage(),
-          created.id,
-        ])
-      ).stdout
+    const row = first(
+      (await run(updateArgv([{ id: created.id, image: sourceImage() }]))).stdout
     );
 
     expect(speech.spoken).toEqual([]);
@@ -256,15 +273,12 @@ describe("cvm clip-mockup: speech", () => {
     expect(row.durationSeconds).toBe(created.durationSeconds);
   });
 
-  it("update --say back to a line already voiced reuses the WAV", async () => {
+  it("update back to a line already voiced reuses the WAV", async () => {
     const created = await add(s.standaloneActiveId, "Original.");
-    await run(["clip-mockup", "update", "--say", "Changed.", created.id]);
+    await updateLine(created.id, "Changed.");
     speech.spoken.length = 0;
 
-    const row = obj(
-      (await run(["clip-mockup", "update", "--say", "Original.", created.id]))
-        .stdout
-    );
+    const row = await updateLine(created.id, "Original.");
 
     expect(speech.spoken).toEqual([]);
     expect(row.audioPath).toBe(created.audioPath);
@@ -276,16 +290,11 @@ describe("cvm clip-mockup: speech", () => {
   // -----------------------------------------------------------------------
 
   it("a speech failure on add names itself, exits 4, and leaves no row and no file", async () => {
-    const r = await runFailing([
-      "clip-mockup",
-      "add",
-      "--video",
-      s.standaloneActiveId,
-      "--image",
-      sourceImage(),
-      "--say",
-      "Never spoken.",
-    ]);
+    const r = await runFailing(
+      addArgv(s.standaloneActiveId, [
+        { say: "Never spoken.", image: sourceImage() },
+      ])
+    );
 
     // An internal failure, not bad input: exit 4, the CLI's existing code.
     expect(r.exitCode).toBe(4);
@@ -296,24 +305,21 @@ describe("cvm clip-mockup: speech", () => {
 
     // No row...
     expect(await list(s.standaloneActiveId)).toEqual([]);
-    // ...and not one orphan byte: the line is spoken before the frame is
-    // written, so a refusal never half-creates a Clip Mockup.
+    // ...and not one orphan byte: no frame is written until every line of
+    // the batch has been spoken, so a refusal never half-creates a Clip
+    // Mockup.
     expect(nodeFs.existsSync(dirFor(s.standaloneActiveLineageId))).toBe(false);
   });
 
-  it("a speech failure on update --say changes nothing", async () => {
+  it("a speech failure on update changes nothing", async () => {
     const created = await add(s.standaloneActiveId, "The original line.");
     const before = nodeFs
       .readdirSync(dirFor(s.standaloneActiveLineageId))
       .sort();
 
-    const r = await runFailing([
-      "clip-mockup",
-      "update",
-      "--say",
-      "Never spoken.",
-      created.id,
-    ]);
+    const r = await runFailing(
+      updateArgv([{ id: created.id, say: "Never spoken." }])
+    );
 
     expect(r.exitCode).toBe(4);
     expect(failureOf(r)._tag).toBe("SpeechSynthesisError");

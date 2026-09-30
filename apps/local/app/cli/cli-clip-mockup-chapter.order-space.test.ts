@@ -17,6 +17,7 @@ import {
   type WriteSeed,
 } from "./cli-write-test-harness";
 import {
+  addArgv,
   FAKE_DURATION_SECONDS,
   fakeSpeech,
   makeClipMockupRun,
@@ -115,21 +116,17 @@ describe("one order space shared with Clip Mockups", () => {
     return full;
   };
 
+  /** Add ONE moment, as a one-entry batch, and hand back its row. */
   const addMockup = async (videoId: string, line: string): Promise<MockupRow> =>
-    one<MockupRow>(
-      (
-        await run([
-          "clip-mockup",
-          "add",
-          "--video",
-          videoId,
-          "--image",
-          sourceImage(`${line}.png`),
-          "--say",
-          line,
-        ])
-      ).stdout
-    );
+    (
+      ndjson(
+        (
+          await run(
+            addArgv(videoId, [{ say: line, image: sourceImage(`${line}.png`) }])
+          )
+        ).stdout
+      ) as MockupRow[]
+    )[0]!;
 
   it("a Clip Mockup added after a Chapter lands INSIDE that Chapter", async () => {
     await addMockup(s.standaloneActiveId, "One");

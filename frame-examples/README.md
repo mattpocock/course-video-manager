@@ -1,7 +1,7 @@
 # Frame examples
 
 The house style for **Clip Mockup** frames — the still images of a Video's
-**Animatic**, captured by `cvm clip-mockup add --html <path>` at 1920x1080.
+**Animatic**, captured at 1920x1080 from an `"html"` entry of `cvm clip-mockup add`.
 
 ```
 house.css        the contract

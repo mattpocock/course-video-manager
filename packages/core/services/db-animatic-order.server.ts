@@ -1,5 +1,5 @@
 import type { Database } from "./drizzle-service.server.js";
-import { clipMockupChapters, clipMockups } from "../db/schema.js";
+import { clipMockupChapters, clipMockups, videos } from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -101,4 +101,31 @@ export const listAnimaticOrder = Effect.fn("listAnimaticOrder")(function* (
   ];
 
   return items.sort((a, b) => compareOrderStrings(a.order, b.order));
+});
+
+/**
+ * Serialise every positioning write on ONE Video's Animatic.
+ *
+ * A position is a read followed by a write: read the merged list, compute a key
+ * after its last row, insert. Two writers that both read before either
+ * inserts compute the SAME key, and two rows then share one position — it
+ * happened, when four `cvm clip-mockup add` calls ran at once. Locking the
+ * parent Video's row `FOR UPDATE` makes the second writer wait until the first
+ * has committed, so it reads the list with the first writer's row already in.
+ *
+ * The Video row, not a table lock: writers on DIFFERENT Videos never wait for
+ * each other. Only meaningful inside a transaction — every caller runs under
+ * `transactionalizeWrites`, and outside one the lock is released at once.
+ */
+export const lockAnimatic = Effect.fn("lockAnimatic")(function* (
+  db: Database,
+  videoId: string
+) {
+  yield* makeDbCall(() =>
+    db
+      .select({ id: videos.id })
+      .from(videos)
+      .where(eq(videos.id, videoId))
+      .for("update")
+  );
 });

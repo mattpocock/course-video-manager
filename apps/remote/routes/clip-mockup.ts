@@ -22,16 +22,12 @@ export const clipMockupRoutes = (runtime: RemoteRuntime) =>
       forward(runtime, ClipMockupOperationsService, "getClipMockupById")
     )
     .post(
-      "/createClipMockup",
-      forward(runtime, ClipMockupOperationsService, "createClipMockup")
+      "/createClipMockups",
+      forward(runtime, ClipMockupOperationsService, "createClipMockups")
     )
     .post(
-      "/setClipMockupLine",
-      forward(runtime, ClipMockupOperationsService, "setClipMockupLine")
-    )
-    .post(
-      "/setClipMockupImagePath",
-      forward(runtime, ClipMockupOperationsService, "setClipMockupImagePath")
+      "/updateClipMockups",
+      forward(runtime, ClipMockupOperationsService, "updateClipMockups")
     )
     .post(
       "/moveClipMockup",
