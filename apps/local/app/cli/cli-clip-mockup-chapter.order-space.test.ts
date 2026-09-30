@@ -352,9 +352,11 @@ describe("one order space shared with Clip Mockups", () => {
       ).toEqual(bare);
     });
 
-    it("the bare stream is unchanged — no new field and no new row", async () => {
+    it("the bare stream has no new row, and only the additive file fields", async () => {
       // The regression the flag exists to avoid. Asserted against the exact
-      // key set, because a reader of the bare stream sees only these.
+      // key set, because a reader of the bare stream sees only these. The
+      // absolute imageFile / audioFile come LAST, after every field an
+      // existing pipeline reads, and never replace imagePath / audioPath.
       await seedAnimatic();
 
       const r = await list(s.standaloneActiveId, false);
@@ -372,6 +374,8 @@ describe("one order space shared with Clip Mockups", () => {
           "order",
           "archived",
           "createdAt",
+          "imageFile",
+          "audioFile",
         ]);
       }
     });

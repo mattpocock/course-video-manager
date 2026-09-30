@@ -93,6 +93,27 @@ export function getClipMockupPath(
 }
 
 /**
+ * A Clip Mockup row with the ABSOLUTE paths of its two files added, as
+ * `imageFile` and `audioFile`, beside the relative `imagePath` and
+ * `audioPath` the row stores. An agent that wants to look at a frame reads
+ * `imageFile`; it never has to know where the store is or what a lineageId
+ * is. Additive on purpose: the relative fields stay exactly as they were.
+ */
+export function withClipMockupFiles<
+  Row extends { readonly imagePath: string; readonly audioPath: string },
+>(
+  lineageId: string,
+  row: Row
+): Row & { readonly imageFile: string; readonly audioFile: string } {
+  const dir = path.resolve(getClipMockupPath(lineageId));
+  return {
+    ...row,
+    imageFile: path.join(dir, row.imagePath),
+    audioFile: path.join(dir, row.audioPath),
+  };
+}
+
+/**
  * Resolve a relative path inside a Video's frame directory, refusing anything
  * that escapes it or names the directory itself. Copied in shape from
  * `resolveVideoFilePath` — the containment guard is the part a caller must not

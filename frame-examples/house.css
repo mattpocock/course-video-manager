@@ -525,6 +525,96 @@ body {
 }
 
 /* --------------------------------------------------------------------- */
+/* Claude Code                                                            */
+/* --------------------------------------------------------------------- */
+
+/*
+ * A Claude Code session, as the author's terminal shows it. Put `cc` beside
+ * `terminal` on the same element; each line below is one element, on ONE
+ * source line, like `.cmd` / `.out`. The glyphs are generated.
+ *   .you     a prompt the author typed ("> ", on a raised plate)
+ *   .say     the agent's reply text ("● ")
+ *   .tool    a collapsed tool call ("● ", green); wrap the name in <b>
+ *   .result  a tool call's one-line result ("└ ", under the call; Claude
+ *            Code draws "⎿", which Fira Code does not have)
+ *   .spin    the working line ("✻ Thinking…"), amber
+ *   .input   the input box at the bottom; .hint the line under it
+ */
+.cc .you,
+.cc .say,
+.cc .tool,
+.cc .result,
+.cc .spin,
+.cc .hint {
+  display: block;
+  white-space: pre-wrap;
+  padding-left: 2ch;
+  text-indent: -2ch;
+}
+.cc .you {
+  margin: 0 0 0.5em;
+  padding: 0.15em 0.6em 0.15em calc(2ch + 0.6em);
+  background: var(--window-raised);
+  color: var(--dim);
+}
+.cc .you::before {
+  content: "> ";
+}
+.cc .say {
+  color: var(--code-text);
+  margin-bottom: 0.5em;
+}
+.cc .say::before,
+.cc .tool::before {
+  content: "● ";
+  color: var(--text);
+}
+.cc .tool {
+  color: #bfbaaa;
+}
+.cc .tool::before {
+  color: var(--ok);
+}
+.cc .tool b {
+  color: var(--text);
+  font-weight: 600;
+}
+.cc .result {
+  padding-left: 5ch;
+  color: var(--dim);
+  margin-bottom: 0.4em;
+}
+.cc .result::before {
+  content: "└  ";
+  color: var(--faint);
+}
+.cc .spin {
+  color: var(--accent);
+}
+.cc code {
+  font-family: inherit;
+  color: var(--info);
+}
+.cc .input {
+  margin-top: 0.6em;
+  padding: 0.35em 0.7em;
+  border: 2px solid #4a4a4a;
+  border-radius: 10px;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.cc .input::before {
+  content: "> ";
+  color: var(--dim);
+}
+.cc .hint {
+  padding-left: 0.8em;
+  text-indent: 0;
+  color: var(--faint);
+  font-size: 24px;
+}
+
+/* --------------------------------------------------------------------- */
 /* Browser                                                                */
 /* --------------------------------------------------------------------- */
 

@@ -97,7 +97,11 @@ export const DAEMON_IDLE_MS = 5 * 60 * 1000;
 
 export const CaptureRequest = Schema.Struct({
   items: Schema.Array(
-    Schema.Struct({ htmlPath: Schema.String, outputPath: Schema.String })
+    Schema.Struct({
+      htmlPath: Schema.String,
+      outputPath: Schema.String,
+      fullPage: Schema.Boolean,
+    })
   ),
 });
 export type CaptureRequest = typeof CaptureRequest.Type;

@@ -289,6 +289,35 @@ export const readUpdateEntries = (source: string) =>
     return parsed;
   });
 
+/**
+ * THE ONE WAY a page becomes a PNG, for `add`, `update` and `capture` alike:
+ * every page at its `outputPath`, or a `FrameCaptureError` naming the first
+ * page that failed.
+ *
+ * Pages are captured together, in the Clip Mockup daemon's one browser. The
+ * `Effect.serviceOption` branch is the test seam: a suite provides a
+ * `Layer.succeed` FrameCaptureService and no Chromium ever launches.
+ */
+export const capturePages = (
+  pages: ReadonlyArray<{
+    readonly htmlPath: string;
+    readonly outputPath: string;
+    readonly fullPage: boolean;
+  }>
+) =>
+  Effect.gen(function* () {
+    if (pages.length === 0) return;
+    const provided = yield* Effect.serviceOption(FrameCaptureService);
+    yield* Option.match(provided, {
+      onSome: (svc) =>
+        Effect.forEach(pages, (page) => svc.captureHtmlToPng(page), {
+          concurrency: "unbounded",
+          discard: true,
+        }),
+      onNone: () => captureFramesInDaemon(pages),
+    });
+  });
+
 /** A frame ready to go into a Video's Clip Mockup directory. */
 export interface ProducedFrame {
   readonly content: Uint8Array;
@@ -303,9 +332,7 @@ export interface ProducedFrame {
  * rows share. That is safe because a frame file is never changed or removed
  * — `update` writes a new one.
  *
- * Pages are captured together, in the Clip Mockup daemon's one browser. The
- * `Effect.serviceOption` branch is the test seam: a suite provides a
- * `Layer.succeed` FrameCaptureService and no Chromium ever launches.
+ * Pages go through `capturePages`, all at once.
  */
 export const produceFrames = (sources: ReadonlyArray<FrameSource>) =>
   Effect.gen(function* () {
@@ -329,19 +356,10 @@ export const produceFrames = (sources: ReadonlyArray<FrameSource>) =>
       .map((s, i) => ({
         htmlPath: s.path,
         outputPath: nodePath.join(scratch, `${i}.png`),
+        fullPage: false,
       }));
 
-    if (pages.length > 0) {
-      const provided = yield* Effect.serviceOption(FrameCaptureService);
-      yield* Option.match(provided, {
-        onSome: (svc) =>
-          Effect.forEach(pages, (page) => svc.captureHtmlToPng(page), {
-            concurrency: "unbounded",
-            discard: true,
-          }),
-        onNone: () => captureFramesInDaemon(pages),
-      });
-    }
+    yield* capturePages(pages);
 
     const pngOf = new Map(pages.map((p) => [p.htmlPath, p.outputPath]));
     const byPath = new Map<string, ProducedFrame>();

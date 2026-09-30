@@ -137,6 +137,9 @@ describe("cvm clip-mockup --html", () => {
     videoId: string;
     line: string;
     imagePath: string;
+    audioPath: string;
+    imageFile: string;
+    audioFile: string;
     durationSeconds: number | null;
     order: string;
     archived: boolean;
@@ -445,5 +448,72 @@ describe("cvm clip-mockup --html", () => {
 
     expect(updated.line).toBe("Shorter.");
     expect(updated.imagePath).not.toBe(created.imagePath);
+  });
+
+  // -----------------------------------------------------------------------
+  // imageFile / audioFile: where the files really are
+  // -----------------------------------------------------------------------
+
+  /** The row's files, as ABSOLUTE paths that exist, beside its relative ones. */
+  const expectFiles = (row: Mockup) => {
+    const dir = frameDir(s.standaloneActiveLineageId);
+    expect(row.imageFile).toBe(nodePath.join(dir, row.imagePath));
+    expect(row.audioFile).toBe(nodePath.join(dir, row.audioPath));
+    expect(nodePath.isAbsolute(row.imageFile)).toBe(true);
+    expect(nodeFs.readFileSync(row.imageFile, "utf8")).toContain("PNG");
+    expect(nodeFs.existsSync(row.audioFile)).toBe(true);
+    // Additive: the relative fields are exactly as they always were.
+    expect(nodePath.isAbsolute(row.imagePath)).toBe(false);
+    expect(nodePath.isAbsolute(row.audioPath)).toBe(false);
+  };
+
+  it("add, list, get and update all print the absolute imageFile and audioFile", async () => {
+    const added = await addPage(sourceHtml("files-1.html"), "Where is it?");
+    expectFiles(added);
+
+    const [listed] = await list(s.standaloneActiveId);
+    expectFiles(listed!);
+
+    const got = JSON.parse(
+      (await run(["clip-mockup", "get", added.id])).stdout
+    ) as Mockup;
+    expectFiles(got);
+
+    const updated = rowsOf(
+      (
+        await run(
+          updateArgv([{ id: added.id, html: sourceHtml("files-2.html") }])
+        )
+      ).stdout
+    )[0]!;
+    expectFiles(updated);
+    expect(updated.imageFile).not.toBe(added.imageFile);
+  });
+
+  it("list --with-chapters prints the files on Clip Mockup rows only", async () => {
+    await run(
+      addArgv(s.standaloneActiveId, [
+        { chapter: "Part one" },
+        { say: "A moment.", html: sourceHtml("files-3.html") },
+      ])
+    );
+    const rows = ndjson(
+      (
+        await run([
+          "clip-mockup",
+          "list",
+          "--with-chapters",
+          "--video",
+          s.standaloneActiveId,
+        ])
+      ).stdout
+    ) as Array<Mockup & { type: string }>;
+
+    expect(rows.map((r) => r.type)).toEqual([
+      "clipMockupChapter",
+      "clipMockup",
+    ]);
+    expect("imageFile" in rows[0]!).toBe(false);
+    expectFiles(rows[1]!);
   });
 });

@@ -4,116 +4,74 @@
  * budget. These are domain-teaching prose strings consumed only by
  * Command.withDescription.
  */
-export const HELP = `Clip Mockup — one still image and one spoken line of a Video's plan.
-
-A Clip Mockup is a single moment of a Video decided BEFORE it is filmed: the
-picture that is on screen, and the words said over it. Clip Mockups belong to
-a VIDEO and are ordered the way Beats are. Played in order, a Video's Clip
-Mockups are its ANIMATIC — the film term for a timed cut of the storyboard,
-watched before the shoot. There is no Animatic record: the word names the
-playback of these rows and nothing else.
-
-Where it sits on the fidelity ladder:
-  Beat         what this part of the video does for the viewer (loose, the
-               author's inspiration at film time)
-  Clip Mockup  the picture and the words (this noun)
-  Script       written from the Clip Mockup lines once the author is happy
-  Clip         what was actually filmed
-
-Deliberately distinct from a Beat: a Beat is a job, a Clip Mockup is a frame.
-A Clip Mockup does NOT point at a Beat — one that serves no Beat is a real and
-useful thing, because it means the plan missed a moment. Deliberately distinct
-from a Clip: a Clip is footage that exists, a Clip Mockup is a picture that
-stands in for footage that does not exist yet.
-
-THE CONSTRAINT IS THE POINT. A Clip Mockup must have an IMAGE and must have a
-LINE. The CLI will not accept a description of a picture, only a picture — so
-every moment of the Lesson has to be decided before the camera is switched on.
-
-WRITTEN IN BATCHES. 'add' and 'update' take ONE input: a JSON file of entries
-(--clip-mockups-json <path>, or "-" for STDIN), one entry per Clip Mockup. Write
-a Video's whole run of moments into one file and add it in one call — the file
-order IS the Animatic order, the rows land together or not at all, and the
-frames and lines are made many at a time. A file with one entry is valid, but
-a call per moment pays the start-up cost every time. Paths inside the file are
-relative to the file. The whole file is checked before any work starts: one bad
-entry fails the call (exit 3, naming the entry) and nothing is written.
-
-TWO WAYS TO GIVE THE PICTURE, exactly one per entry. "image" is a PNG you
-already have. "html" is a page you WROTE: it is rendered in a headless browser
-at 1920x1080 and the screenshot becomes the frame. "html" is the one to reach
-for — writing one HTML page gets you real code highlighting, real fonts and a
-real layout, and it is a file you can edit and re-capture after feedback. An
-entry with both, or (on 'add') neither, is invalid input (exit 3).
-
-THE LINE IS SPOKEN, NOT READ. Every "say" is synthesised to speech as it is
-written, in ONE voice (af_heart) — every line is the author's, and a second
-voice would invent a character who will not exist in the filmed video. The WAV
-lands beside the frame and the MEASURED length goes on the row, so an agent can
-total a Video's durationSeconds and say the Lesson runs 34 minutes before
-anybody presses play. A failure is _tag "SpeechSynthesisError", exit 4, and
-creates nothing.
-
-FRAMES AND SPEECH ARE MADE ON THIS MACHINE, in one background process: the
-CLIP MOCKUP DAEMON. It holds one Chromium and one Kokoro-82M model on the GPU,
-and every 'cvm clip-mockup' call on this machine sends it its work — so many
-agents at once share one model instead of each loading their own. The first
-call starts it (a second or two); it stops itself after five idle minutes.
-Its log is in ~/.cache/cvm/clip-mockup-daemon/. Lines from different calls
-wait their turn in one queue, first come first served, so a call that arrives
-behind a big batch takes longer: give 'add' a generous timeout. No API key, no
-quota and no rate limit. The first voiced line on a machine downloads the model
-(~330MB, into ~/.cache/cvm/kokoro). There is NO CPU fallback: if the GPU path
-cannot load — most often a missing CUDA 12 runtime library — the call fails
-with exit 4 and the message carries the one-time install command. A line that
-was ALREADY spoken in this Video is not voiced again: the WAV is reused.
-
-Like a Beat and the Script, a Clip Mockup is an internal planning artifact: it
-is NEVER published into course.json. Deleting is an archive, and archived ==
-deleted (there is no restore verb).
-
-LANDSCAPE ONLY. 'add' refuses a Video whose Video Format is 'short'.
-
-LOCAL-ONLY. The frames and the speech are a directory on the author's machine
-(CLIP_MOCKUP_DIR), and "html" needs the headless browser installed beside it,
-so every verb here needs that machine. On any other box the
-command is refused before it does anything, with _tag "LocalOnlyCommandError"
-and exit 7, naming what it would have needed. That is a full stop, not a
-retry.
-
-Output fields: id, videoId, line (the spoken words), imagePath (relative to
-{CLIP_MOCKUP_DIR}/{lineageId}/), audioPath (the line's WAV, relative to the
-same directory and named by a hash of the line, the voice and the model, so
-two Clip Mockups saying the same words share one file), durationSeconds (the
-measured length of that WAV, in seconds, as a FLOAT — sum it for a Video's run
-time), order (fractional sort key), archived, createdAt.
-
-TWO WAYS TO ADDRESS ONE. An 'update' entry, 'move' and 'delete' each take
-either an id or a Video and a position ('--video <id> --at <position>' on the
-command line; "video" and "at" in an 'update' entry). A position counts from 1
-and is exactly the position the Clip Mockup has in 'list' and in the player —
-because the author watching the Animatic sees a number, not a uuid, and says
-"number 14 is too dense". Giving both is invalid input (exit 3), and so is a
-position outside the list, which says how long the list actually is.
+export const HELP = `Clip Mockup — one still image and one spoken line: a single moment of a Video,
+decided before it is filmed. Played in order, a Video's Clip Mockups are its
+ANIMATIC. Every Clip Mockup has an image AND a line.
 
 Verbs (flags come BEFORE any positional <id> — a flag after it exits 3):
-  add    --video <id> --clip-mockups-json <file>  Add a run of moments at the end
-  list   --video <id>                             The Video's Animatic, in order
-  get    <id…>                                    Read one or more back
-  update --clip-mockups-json <file>               Swap frames and/or lines
-  move   <id> | --video <id> --at <n>             Reorder within the Video
-  delete <id> | --video <id> --at <n>             Archive (delete) one
+  add     --video <id> --clip-mockups-json <file>  Add a run of moments at the end
+  list    --video <id> [--with-chapters]           The Video's Animatic, in order
+  get     <id…>                                    Read one or more back
+  update  --clip-mockups-json <file>               Swap frames and/or lines
+  move    <id> | --video <id> --at <n>             Reorder within the Video
+  delete  <id> | --video <id> --at <n>             Archive (delete) one
+  capture <page.html>… [--sheet <sheet.png>]       Render pages to PNGs only — no row
 
-'add' and 'update' print the rows they wrote as NDJSON, in file order; 'move'
-and 'delete' echo the affected row as one pretty JSON object.
+THE BATCH FILE. 'add' and 'update' take one input, --clip-mockups-json <file>
+(or "-" for STDIN): a JSON array, one entry per Clip Mockup, e.g.
+  [{ "say": "Here's the problem.", "html": "01.html" }, { "chapter": "The fix" }]
+File order is Animatic order; paths are relative to the file; the whole file
+is checked first and lands together or not at all. Entry keys are in
+'clip-mockup add --help' and 'clip-mockup update --help'.
+
+Rows carry imagePath / audioPath (relative to {CLIP_MOCKUP_DIR}/{lineageId}/)
+and imageFile / audioFile (the same files as absolute paths — read these).
+An 'update' entry, 'move' and 'delete' address a Clip Mockup by id or by
+Video + position (counting from 1, as 'list' and the player show it).
+
+Exit codes: 2 not found; 3 invalid input (naming the entry); 4 a frame or a
+line could not be made (_tag FrameCaptureError / SpeechSynthesisError) — no
+row is written; 7 not the author's machine.
+
+LOCAL-ONLY. Frames, speech and the headless browser are on the author's
+machine (CLIP_MOCKUP_DIR). Elsewhere every verb is refused before doing
+anything: _tag "LocalOnlyCommandError", exit 7. Stop; do not retry.
 
 Examples:
-  cvm clip-mockup add --video vid_123 --clip-mockups-json ./frames/clip-mockups.json
-  cvm clip-mockup list --video vid_123
-  cvm clip-mockup get cm_456
-  echo '[{"video":"vid_123","at":14,"say":"Shorter."}]' | cvm clip-mockup update --clip-mockups-json -
-  cvm clip-mockup move --video vid_123 --at 14 --before cm_456
-  cvm clip-mockup delete cm_456`;
+  cvm clip-mockup capture frames/*.html --sheet frames/sheet.png
+  cvm clip-mockup add --video vid_123 --clip-mockups-json frames/clip-mockups.json
+  cvm clip-mockup list --video vid_123 | jq -r .imageFile
+  echo '[{"video":"vid_123","at":14,"say":"Shorter."}]' | cvm clip-mockup update --clip-mockups-json -`;
+
+export const CAPTURE_HELP = `RENDERS ONLY. Capture each page as a PNG, exactly as 'add' would — the same
+headless Chromium, 1920x1080, after web fonts load — and write <page>.png
+beside each <page>.html. Touches no row, voices no line, writes nothing to the
+Clip Mockup store. Use it to LOOK at a frame before you 'add' it.
+
+  cvm clip-mockup capture <page.html>... [--sheet <sheet.png>]
+
+  <page.html>...        one or more .html / .htm pages. A page that is not
+                        there, or is not .html, is invalid input (exit 3),
+                        found before anything is captured.
+  --sheet <sheet.png>   also write ONE contact sheet: every page, in the order
+                        given, as a grid 3 tiles across (each tile 608x342, a
+                        frame at under a third of its size), each labelled
+                        with its 1-based index and file name. The sheet is
+                        1920px wide and as tall as its rows. Check a run of
+                        Reveals with one image read, then open any tile you
+                        cannot read at full size.
+
+Prints one NDJSON row per page, in the order given:
+  {"html":"/abs/01.html","png":"/abs/01.png"}
+and, with --sheet, a last row:
+  {"sheet":"/abs/sheet.png"}
+
+A page that will not render is a FrameCaptureError (exit 4) naming the page —
+never a blank PNG. Local-only, like every verb here (exit 7 elsewhere).
+
+Examples:
+  cvm clip-mockup capture frames/01.html
+  cvm clip-mockup capture frames/0*.html --sheet frames/sheet.png`;
 
 /**
  * The addressing rules are identical for move / delete, so they are written
@@ -168,13 +126,30 @@ and it is found BEFORE any frame is captured or line voiced. A capture or
 speech failure (exit 4) creates no row.
 
 Prints every row it wrote as NDJSON, in file order, each with a 'type' —
-'clipMockup' (with its id, imagePath, audioPath, durationSeconds and order) or
-'clipMockupChapter' (with its id and name).
+'clipMockup' (with its id, line, imagePath, audioPath, imageFile, audioFile,
+durationSeconds and order) or 'clipMockupChapter' (with its id and name).
+imagePath and audioPath are relative to {CLIP_MOCKUP_DIR}/{lineageId}/;
+imageFile and audioFile are the same files as ABSOLUTE paths. audioPath is
+named by a hash of the line, so two moments saying the same words share a WAV,
+and durationSeconds is that WAV's measured length (a float — sum it for a
+Video's run time).
+
+Want to see a frame before it becomes a row? 'cvm clip-mockup capture' renders
+pages to PNGs and writes nothing else.
 
 The house style for a frame page ships in this repo, at frame-examples/ —
-house.css plus five example pages (editor, terminal, browser, title card,
-diagram). The stylesheet is the contract; the markup is not. Copy the example
-nearest your moment, ALONGSIDE house.css, and rewrite it freely.
+house.css, a class index in its README, and example pages (editor, terminal,
+Claude Code, browser, title card, diagram). The stylesheet is the contract;
+the markup is not. Copy the example nearest your moment, ALONGSIDE house.css,
+and rewrite it freely.
+
+Frames and speech are made by the CLIP MOCKUP DAEMON: one background process
+on this machine holding one Chromium and one Kokoro-82M voice (af_heart) on
+the GPU, shared by every call. The first call starts it; it stops after five
+idle minutes; its log is in ~/.cache/cvm/clip-mockup-daemon/. Work from other
+calls queues first come first served, so give 'add' a generous timeout. There
+is no CPU fallback: a GPU that will not load fails with exit 4, and the
+message carries the one-time install command.
 
 The browser binary is a one-off install on this machine:
   pnpm --filter @cvm/local exec playwright install chromium
@@ -225,8 +200,12 @@ Flags:
                    pass to 'update', 'move' or 'delete', and what you would say
                    back to the author. The field makes the mistake impossible.
 
-Without --with-chapters the stream is unchanged: Clip Mockups only, and no
-'type' or 'position' field. So every pipeline written against it keeps working,
+Every Clip Mockup row carries imagePath / audioPath (relative to
+{CLIP_MOCKUP_DIR}/{lineageId}/) and imageFile / audioFile — the same files as
+ABSOLUTE paths, so you can open a frame without knowing where the store is.
+
+Without --with-chapters the stream is Clip Mockups only, with no 'type' or
+'position' field. So every pipeline written against it keeps working,
 including the run-time sum below.
 
 Examples:
@@ -245,11 +224,14 @@ unknown or already deleted. SEVERAL ids => NDJSON of the ones that were found
 on stdout, then a not-found naming the missing ones on stderr (exit 2) — so
 stdout stays pure data either way.
 
+Each row carries imageFile and audioFile: the ABSOLUTE paths of its frame and
+its WAV (imagePath / audioPath are the same files, relative to the store).
+
 Find ids with 'cvm clip-mockup list --video <id>'.
 
 Examples:
   cvm clip-mockup get cm_456
-  cvm clip-mockup get cm_456 cm_789 | jq -r .imagePath`;
+  cvm clip-mockup get cm_456 cm_789 | jq -r .imageFile`;
 
 export const DELETE_HELP = `WRITES. Delete (archive) a single Clip Mockup, addressed either by a bare
 <id> or by '--video <id> --at <position>'. For Clip Mockups,
@@ -304,7 +286,8 @@ that changes nothing, "html" beside "image", a missing source file, a position
 outside its list, and two entries for the same Clip Mockup. An unknown or
 archived id is a not-found (exit 2). All the edits land together, or none do.
 
-Prints every updated row as NDJSON, in file order.
+Prints every updated row as NDJSON, in file order, with imageFile and
+audioFile (absolute paths) beside imagePath and audioPath.
 
 Example — notes.json:
   [

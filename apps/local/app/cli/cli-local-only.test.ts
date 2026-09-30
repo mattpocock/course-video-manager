@@ -118,6 +118,8 @@ describe("on a box that is not the author's", () => {
       // The --at addressing form reads the Animatic to count positions, so it
       // is refused for the same reason the bare-id form is.
       ["clip-mockup", "delete", "--video", s.standaloneActiveId, "--at", "1"],
+      // capture writes no row, but it still needs this machine's browser.
+      ["clip-mockup", "capture", "/tmp/whatever.html", "--sheet", "/tmp/s.png"],
     ];
 
     for (const argv of invocations) {

@@ -153,7 +153,8 @@ WRITES
                                      only; never published). update/move/delete
                                      take a bare <id> OR --video <id> --at <n>,
                                      the 1-based position the author reads off
-                                     'list' and the player
+                                     'list' and the player. 'capture' renders
+                                     pages to PNGs and writes no row
     clip-mockup-chapter
             add/update/move/delete   name the dividers that group a Video's
                                      Animatic (Clip Mockups and Chapters share

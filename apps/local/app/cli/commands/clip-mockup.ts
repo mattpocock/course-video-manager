@@ -8,6 +8,7 @@ import {
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import {
   InvalidClipMockupPathError,
+  withClipMockupFiles,
   writeClipMockupFile,
 } from "@/services/clip-mockup-files";
 import {
@@ -36,6 +37,7 @@ import {
   readUpdateEntries,
   type UpdateEntry,
 } from "./clip-mockup.batch";
+import { captureCmd } from "./clip-mockup.capture";
 import {
   HELP,
   ADD_HELP,
@@ -372,7 +374,12 @@ const addCmd = Command.make(
       });
 
       const svc = yield* ClipMockupOperationsService;
-      yield* emitNdjson(yield* svc.createClipMockups(row.id, batch));
+      const created = yield* svc.createClipMockups(row.id, batch);
+      yield* emitNdjson(
+        created.map((r) =>
+          r.type === "clipMockup" ? withClipMockupFiles(row.lineageId, r) : r
+        )
+      );
     })
 ).pipe(Command.withDescription(detail(ADD_HELP)));
 
@@ -383,31 +390,53 @@ const listCmd = Command.make(
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
       const row = yield* requireActiveVideo(video);
-      // Two streams, and the bare one stays exactly as it was: no extra field
-      // and no extra row. Every `jq` pipeline in the animatic skill reads it,
-      // down to `map(.durationSeconds) | add` for a Video's run time.
+      // Two streams, and the bare one gains no extra ROW and no field but the
+      // additive `imageFile` / `audioFile`. Every `jq` pipeline in the
+      // animatic skill reads it, down to `map(.durationSeconds) | add`.
       if (withChapters) {
-        yield* emitNdjson(yield* listAnimaticRows(row.id));
+        const rows = yield* listAnimaticRows(row.id);
+        yield* emitNdjson(
+          rows.map((r) =>
+            r.type === "clipMockup" ? withClipMockupFiles(row.lineageId, r) : r
+          )
+        );
         return;
       }
       const svc = yield* ClipMockupOperationsService;
-      yield* emitNdjson(yield* svc.listClipMockupsByVideoId(row.id));
+      const rows = yield* svc.listClipMockupsByVideoId(row.id);
+      yield* emitNdjson(rows.map((r) => withClipMockupFiles(row.lineageId, r)));
     })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const getCmd = Command.make("get", { ids: idsArg }, ({ ids }) =>
   Effect.gen(function* () {
     yield* requireLocalFrameStore;
+    const videos = yield* VideoOperationsService;
+    // A row's files sit under its Video's lineageId. The Video is read, not
+    // required active: an archived Video's frames are still on disk.
+    const lineageOf = new Map<string, string>();
+    const lineage = (videoId: string) =>
+      Effect.gen(function* () {
+        const known = lineageOf.get(videoId);
+        if (known !== undefined) return known;
+        const video = yield* videos.getVideoDeepById(videoId);
+        lineageOf.set(videoId, video.lineageId);
+        return video.lineageId;
+      });
     yield* emitGet({
       entity: "clipMockup",
       ids,
       fetch: (id) =>
-        Effect.flatMap(ClipMockupOperationsService, (svc) =>
-          svc.getClipMockupById(id).pipe(
-            Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)),
-            Effect.map((row) => (row?.archived ? undefined : row))
-          )
-        ),
+        Effect.gen(function* () {
+          const svc = yield* ClipMockupOperationsService;
+          const row = yield* svc
+            .getClipMockupById(id)
+            .pipe(
+              Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
+            );
+          if (row === undefined || row.archived) return undefined;
+          return withClipMockupFiles(yield* lineage(row.videoId), row);
+        }),
     });
   })
 ).pipe(Command.withDescription(detail(GET_HELP)));
@@ -480,7 +509,10 @@ const updateCmd = Command.make(
       }));
 
       const svc = yield* ClipMockupOperationsService;
-      yield* emitNdjson(yield* svc.updateClipMockups(edits));
+      const updated = yield* svc.updateClipMockups(edits);
+      yield* emitNdjson(
+        updated.map((r) => withClipMockupFiles(lineageOf.get(r.videoId)!, r))
+      );
     })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
@@ -546,5 +578,6 @@ export const clipMockupCommand = Command.make("clip-mockup").pipe(
     updateCmd,
     moveCmd,
     deleteCmd,
+    captureCmd,
   ])
 );

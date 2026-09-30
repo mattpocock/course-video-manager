@@ -117,6 +117,13 @@ export class FrameCaptureService extends Effect.Service<FrameCaptureService>()(
         function* (params: {
           readonly htmlPath: string;
           readonly outputPath: string;
+          /**
+           * false for every Clip Mockup frame: the frame is the 1920x1080
+           * viewport. true only for the contact sheet `cvm clip-mockup
+           * capture --sheet` writes, which is 1920 wide and as tall as its
+           * grid of tiles. Required, not defaulted: a caller must decide.
+           */
+          readonly fullPage: boolean;
         }) {
           const fail = (cause: unknown, message: string) =>
             new FrameCaptureError({
@@ -149,11 +156,12 @@ export class FrameCaptureService extends Effect.Service<FrameCaptureService>()(
                   await page.evaluate(() =>
                     document.fonts.ready.then(() => undefined)
                   );
-                  // No `fullPage`: the frame is the VIEWPORT, so the output is
-                  // 1920x1080 whatever the page's own height turns out to be.
+                  // Without `fullPage` the frame is the VIEWPORT, so the output
+                  // is 1920x1080 whatever the page's own height turns out to be.
                   await page.screenshot({
                     path: params.outputPath,
                     type: "png",
+                    fullPage: params.fullPage,
                   });
                   return params.outputPath;
                 } finally {
