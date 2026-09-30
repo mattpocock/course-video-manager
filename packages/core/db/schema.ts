@@ -2,6 +2,7 @@ import type { DatabaseId } from "./ids.js";
 import { relations, sql, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
+  check,
   customType,
   date,
   doublePrecision,
@@ -705,6 +706,72 @@ export const clipMockupChapters = createTable(
 );
 
 /**
+ * Clip Mockup Comment — a note the author pins to ONE Clip Mockup or ONE Clip
+ * Mockup Chapter, the way a comment is pinned to a passage in a Google Doc. It
+ * is for the filming day: the teleprompter shows it under the line or divider
+ * it hangs off, and an agent reads it through `cvm clip-mockup-comment list`.
+ *
+ * EXACTLY ONE PARENT. `clipMockupId` and `clipMockupChapterId` are both
+ * nullable and the CHECK below demands that exactly one is set — two tables
+ * would double every verb for a row that is otherwise identical.
+ *
+ * `videoId` is DENORMALISED from the parent, and only the service writes it —
+ * never a caller. It is what the Draft guard and the one-query read per Video
+ * key on.
+ *
+ * NO AUTHOR. The CVM has no users, so a comment has a body and nothing that
+ * says who wrote it.
+ *
+ * Internal like its parents: copied into version snapshots and into a
+ * duplicated Video (re-pointed at the copied parent), NEVER emitted into the
+ * shipped course.json. Deleting one is a real DELETE, not an Archive — a
+ * comment is a passing note, and nothing reads an old one.
+ */
+export const clipMockupComments = createTable(
+  "clip_mockup_comment",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    clipMockupId: varchar("clip_mockup_id", { length: 255 }).references(
+      () => clipMockups.id,
+      { onDelete: "cascade" }
+    ),
+    clipMockupChapterId: varchar("clip_mockup_chapter_id", {
+      length: 255,
+    }).references(() => clipMockupChapters.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("clip_mockup_comment_video_id_idx").on(table.videoId),
+    index("clip_mockup_comment_clip_mockup_id_idx").on(table.clipMockupId),
+    index("clip_mockup_comment_clip_mockup_chapter_id_idx").on(
+      table.clipMockupChapterId
+    ),
+    check(
+      "clip_mockup_comment_one_parent",
+      sql`(${table.clipMockupId} IS NULL) <> (${table.clipMockupChapterId} IS NULL)`
+    ),
+  ]
+);
+
+/**
  * The Beat <-> Learning Goal dependency: every Beat must serve at least one
  * Learning Goal of its Section (enforced in the authoring UI/CLI, not by a DB
  * constraint — a Beat's Video can be standalone/pitch-bound with no Section at
@@ -831,19 +898,39 @@ export const beatsRelations = relations(beats, ({ one, many }) => ({
   beatLearningGoals: many(beatLearningGoals),
 }));
 
-export const clipMockupsRelations = relations(clipMockups, ({ one }) => ({
+export const clipMockupsRelations = relations(clipMockups, ({ one, many }) => ({
   video: one(videos, {
     fields: [clipMockups.videoId],
     references: [videos.id],
   }),
+  comments: many(clipMockupComments),
 }));
 
 export const clipMockupChaptersRelations = relations(
   clipMockupChapters,
-  ({ one }) => ({
+  ({ one, many }) => ({
     video: one(videos, {
       fields: [clipMockupChapters.videoId],
       references: [videos.id],
+    }),
+    comments: many(clipMockupComments),
+  })
+);
+
+export const clipMockupCommentsRelations = relations(
+  clipMockupComments,
+  ({ one }) => ({
+    video: one(videos, {
+      fields: [clipMockupComments.videoId],
+      references: [videos.id],
+    }),
+    clipMockup: one(clipMockups, {
+      fields: [clipMockupComments.clipMockupId],
+      references: [clipMockups.id],
+    }),
+    clipMockupChapter: one(clipMockupChapters, {
+      fields: [clipMockupComments.clipMockupChapterId],
+      references: [clipMockupChapters.id],
     }),
   })
 );
@@ -871,6 +958,7 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   beats: many(beats),
   clipMockups: many(clipMockups),
   clipMockupChapters: many(clipMockupChapters),
+  clipMockupComments: many(clipMockupComments),
   videoPosts: many(videoPosts),
 }));
 

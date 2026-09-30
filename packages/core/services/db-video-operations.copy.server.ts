@@ -12,6 +12,7 @@ import {
   beats,
   clipMockups,
   clipMockupChapters,
+  clipMockupComments,
 } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq } from "drizzle-orm";
@@ -19,6 +20,7 @@ import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
 import { sortByOrder } from "../lib/sort-by-order.js";
 import type { Database } from "./drizzle-service.server.js";
+import { copyClipMockupCommentValues } from "./clip-mockup-comment-copy.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -276,11 +278,18 @@ export const copyVideoImpl = (
           );
           const clipMockupValues: (typeof clipMockups.$inferInsert)[] = [];
           const chapterValues: (typeof clipMockupChapters.$inferInsert)[] = [];
+          // Ids are made here, not by the table, so the comments below can be
+          // re-pointed at the copied parents.
+          const clipMockupIds = new Map<string, string>();
+          const clipMockupChapterIds = new Map<string, string>();
 
           animatic.forEach((item, i) => {
             const order = animaticOrders[i]!;
             if (item.kind === "clipMockup") {
+              const id = crypto.randomUUID();
+              clipMockupIds.set(item.clipMockup.id, id);
               clipMockupValues.push({
+                id,
                 videoId: newVideo.id,
                 line: item.clipMockup.line,
                 imagePath: item.clipMockup.imagePath,
@@ -289,7 +298,10 @@ export const copyVideoImpl = (
                 order,
               });
             } else {
+              const id = crypto.randomUUID();
+              clipMockupChapterIds.set(item.chapter.id, id);
               chapterValues.push({
+                id,
                 videoId: newVideo.id,
                 name: item.chapter.name,
                 order,
@@ -302,6 +314,19 @@ export const copyVideoImpl = (
           }
           if (chapterValues.length > 0) {
             await tx.insert(clipMockupChapters).values(chapterValues);
+          }
+
+          const sourceComments = await tx.query.clipMockupComments.findMany({
+            where: eq(clipMockupComments.videoId, sourceVideoId),
+          });
+          const commentValues = copyClipMockupCommentValues(
+            sourceComments,
+            newVideo.id,
+            clipMockupIds,
+            clipMockupChapterIds
+          );
+          if (commentValues.length > 0) {
+            await tx.insert(clipMockupComments).values(commentValues);
           }
         }
 

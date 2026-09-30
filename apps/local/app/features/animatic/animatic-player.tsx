@@ -8,9 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "@/lib/utils";
 import { AnimaticBrokenFiles } from "./animatic-broken-files";
 import { AnimaticChapterDivider } from "./animatic-chapter-divider";
+import { AnimaticCommentThread } from "./animatic-comments";
+import { AnimaticMockupRow } from "./animatic-mockup-row";
 import {
   buildAnimaticChapterLayout,
   type AnimaticChapter,
@@ -37,7 +38,6 @@ import {
   MOCKUP_PROGRESS_VAR,
   chapterProgressAtFrame,
   mockupProgressAtFrame,
-  progressFillStyle,
   sectionAtIndex,
 } from "./animatic-progress";
 import {
@@ -334,61 +334,14 @@ export const AnimaticPlayer = (props: {
     [timeline, showSubtitles, subtitleStyle]
   );
 
-  /**
-   * One Clip Mockup's row. The same row whether it sits under a divider or
-   * above the first one: the number on it is its position in the Animatic, and
-   * `data-animatic-index` is its index in the timeline, so a Chapter changes
-   * neither the count nor what a key walks.
-   */
-  const renderRow = ({ segment, index }: AnimaticChapterRow) => (
-    <li key={segment.mockup.id}>
-      <button
-        type="button"
-        data-animatic-index={index}
-        // A clicked row keeps the keys working: the shared guard ignores a
-        // keydown on a plain button, and the author's next act after clicking a
-        // moment is SPACE.
-        className={cn(
-          // `isolate` keeps this row's own z-indexed parts inside it. Without
-          // it a `relative` box with no z-index of its own raises them into the
-          // list's stacking context, where they tie with the sticky Chapter
-          // divider and, being later in the list, paint OVER it.
-          "allow-keydown relative isolate flex w-full gap-3 overflow-hidden border-b border-border px-4 py-2.5 text-left text-sm hover:bg-muted/60",
-          index === activeIndex && "bg-muted",
-          index === selectedIndex && index !== activeIndex && "bg-muted/50",
-          index === selectedIndex &&
-            "ring-1 ring-inset ring-sky-500/70 dark:ring-sky-400/60"
-        )}
-        onClick={() => playFrom(index)}
-      >
-        {/* The fill, behind the text, sized in CSS from the frame the player
-            last wrote — so it moves without this row re-rendering. */}
-        {index === activeIndex && (
-          <div
-            aria-hidden
-            className="absolute inset-y-0 left-0 z-0 bg-sky-500/20 dark:bg-sky-400/25"
-            style={progressFillStyle(MOCKUP_PROGRESS_VAR)}
-          />
-        )}
-        <span className="relative z-10 w-7 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-          {segment.mockup.position}
-        </span>
-        <span className="relative z-10 min-w-0 flex-1">
-          <span className="block whitespace-pre-wrap">
-            {segment.mockup.line}
-          </span>
-          <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-            {formatRunTime(segment.startFrame / ANIMATIC_FPS)}
-            {(segment.mockup.imageMissing || segment.mockup.audioMissing) && (
-              <span className="text-amber-600 dark:text-amber-300">
-                {" "}
-                · file missing
-              </span>
-            )}
-          </span>
-        </span>
-      </button>
-    </li>
+  const renderRow = (row: AnimaticChapterRow) => (
+    <AnimaticMockupRow
+      key={row.segment.mockup.id}
+      row={row}
+      isActive={row.index === activeIndex}
+      isSelected={row.index === selectedIndex}
+      onPlay={playFrom}
+    />
   );
 
   return (
@@ -441,7 +394,7 @@ export const AnimaticPlayer = (props: {
                   ABOVE the rows' own layer, so a row scrolling under it goes
                   behind the title rather than through it. */}
               <li
-                className="sticky top-0 z-20"
+                className="group sticky top-0 z-20"
                 data-animatic-chapter={section.chapter.id}
               >
                 <AnimaticChapterDivider
@@ -468,6 +421,13 @@ export const AnimaticPlayer = (props: {
                     isChapterCollapsed(collapsed, section.chapter.id) &&
                     playingChapterId === section.chapter.id
                   }
+                />
+                <AnimaticCommentThread
+                  target={{
+                    type: "clip-mockup-chapter",
+                    id: section.chapter.id,
+                  }}
+                  className="absolute right-2 top-1/2 z-20 -translate-y-1/2 bg-background"
                 />
               </li>
               {/* Folded away: the rows are not drawn. The count and the run

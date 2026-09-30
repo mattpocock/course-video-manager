@@ -13,6 +13,10 @@
  * scroll alone. The lines keep the script's body size, because they are read
  * aloud.
  *
+ * Clip Mockup Comments sit under the line or Chapter they hang off, small and
+ * amber, marked off by a rule on the left like a note in a margin: the
+ * author's notes for this take, never said aloud.
+ *
  * Stream Deck: advance/back scroll to the next/previous clip (Chapters are
  * skipped — they are not something you say), reset returns to the top.
  */
@@ -24,6 +28,31 @@ import { TYPE, cueStyle, textStyle } from "./teleprompter-settings";
 type ClipMockupLine = Extract<AnimaticLine, { type: "clip-mockup" }>;
 
 /** Same guard as the Beats view: a drag to copy words must not move the list. */
+/** The comments under one line or Chapter; nothing at all when there are none. */
+function Comments(props: { comments: readonly string[] }) {
+  if (props.comments.length === 0) return null;
+  return (
+    <div
+      className="mt-2 flex flex-col gap-1 border-l-2 pl-3"
+      style={{
+        ...textStyle(),
+        fontSize: `${TYPE.fontSize * TYPE.animaticCommentScale}px`,
+        lineHeight: 1.3,
+        color: TYPE.commentColor,
+        borderColor: TYPE.commentColor,
+        textTransform: "none",
+        letterSpacing: "normal",
+      }}
+    >
+      {props.comments.map((body, i) => (
+        <p key={i} className="whitespace-pre-wrap">
+          {body}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function hasSelectedText(): boolean {
   const selection = window.getSelection();
   return (
@@ -105,6 +134,7 @@ export function AnimaticView(props: { lines: AnimaticLine[] }) {
                   }}
                 >
                   {line.name}
+                  <Comments comments={line.comments} />
                 </div>
               );
             }
@@ -142,7 +172,10 @@ export function AnimaticView(props: { lines: AnimaticLine[] }) {
                     {line.position}
                   </span>
                 </span>
-                <div className="min-w-0 flex-1">{line.line}</div>
+                <div className="min-w-0 flex-1">
+                  {line.line}
+                  <Comments comments={line.comments} />
+                </div>
               </div>
             );
           })}

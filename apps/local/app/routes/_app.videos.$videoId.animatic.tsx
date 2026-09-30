@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
+import { ClipMockupCommentOperationsService } from "@/services/db-clip-mockup-comment-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -16,6 +17,10 @@ import {
 } from "@/features/videos/video-format";
 import { AnimaticPlayer } from "@/features/animatic/animatic-player";
 import type { AnimaticChapter } from "@/features/animatic/animatic-chapters";
+import {
+  AnimaticCommentsProvider,
+  type AnimaticComment,
+} from "@/features/animatic/animatic-comments";
 import type { AnimaticClipMockup } from "@/features/animatic/animatic-timeline";
 import {
   sectionRunTime,
@@ -47,6 +52,7 @@ export const loader = makeLoader({
       const videoOps = yield* VideoOperationsService;
       const clipMockupOps = yield* ClipMockupOperationsService;
       const chapterOps = yield* ClipMockupChapterOperationsService;
+      const commentOps = yield* ClipMockupCommentOperationsService;
 
       // The flat row: the page needs a `lineageId`, a title and a format,
       // and no part of the Lesson/Section/Version chain above them (#1671).
@@ -59,6 +65,8 @@ export const loader = makeLoader({
       // `buildAnimaticChapterLayout`, where the grouping arithmetic lives.
       const chapterRows =
         yield* chapterOps.listClipMockupChaptersByVideoId(videoId);
+      const commentRows =
+        yield* commentOps.listClipMockupCommentsByVideoId(videoId);
 
       // Every file is checked HERE, once, before anything plays. A frame or a
       // WAV the row names but the disk does not have has to be reported as
@@ -115,6 +123,15 @@ export const loader = makeLoader({
               order: row.order,
             }) satisfies AnimaticChapter
         ),
+        comments: commentRows.map(
+          (row) =>
+            ({
+              id: row.id,
+              clipMockupId: row.clipMockupId,
+              clipMockupChapterId: row.clipMockupChapterId,
+              body: row.body,
+            }) satisfies AnimaticComment
+        ),
       };
     }),
 });
@@ -167,7 +184,7 @@ const loadSectionLessons = (videoId: string) =>
   });
 
 export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
-  const { video, mockups, chapters, sectionRunTime } = loaderData;
+  const { video, mockups, chapters, comments, sectionRunTime } = loaderData;
   const { width, height } = VIDEO_FORMAT_DIMENSIONS[video.format];
 
   // An Animatic is WATCHED WHILE IT IS STILL BEING WRITTEN — an agent redraws a
@@ -197,14 +214,17 @@ export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
     // A POLL MUST NOT REMOUNT IT. The `videoId` is the one thing a
     // revalidation of this page cannot change, which is why the key is the
     // Video and not the rows; the rows are held by value instead, in
-    // `useStableMockups`.
-    <AnimaticPlayer
-      key={video.id}
-      mockups={mockups}
-      chapters={chapters}
-      sectionRunTime={sectionRunTime}
-      width={width}
-      height={height}
-    />
+    // `useStableMockups`. Comments reach the sidebar through their own
+    // provider, so they are never part of what the Player is handed.
+    <AnimaticCommentsProvider comments={comments}>
+      <AnimaticPlayer
+        key={video.id}
+        mockups={mockups}
+        chapters={chapters}
+        sectionRunTime={sectionRunTime}
+        width={width}
+        height={height}
+      />
+    </AnimaticCommentsProvider>
   );
 }

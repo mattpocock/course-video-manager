@@ -2,6 +2,7 @@ import { Layer } from "effect";
 import { ApiTokenOperationsService } from "./services/db-api-token-operations.server.js";
 import { BeatOperationsService } from "./services/db-beat-operations.server.js";
 import { ClipMockupChapterOperationsService } from "./services/db-clip-mockup-chapter-operations.server.js";
+import { ClipMockupCommentOperationsService } from "./services/db-clip-mockup-comment-operations.server.js";
 import { ClipMockupOperationsService } from "./services/db-clip-mockup-operations.server.js";
 import { ClipOperationsService } from "./services/db-clip-operations.server.js";
 import { CourseOperationsService } from "./services/db-course-operations.server.js";
@@ -39,6 +40,7 @@ export const domainServicesLayer = Layer.mergeAll(
   ClipOperationsService.Default,
   ClipMockupOperationsService.Default,
   ClipMockupChapterOperationsService.Default,
+  ClipMockupCommentOperationsService.Default,
   OverlayOperationsService.Default,
   BeatOperationsService.Default,
   PitchOperationsService.Default,

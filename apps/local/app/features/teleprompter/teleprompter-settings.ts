@@ -83,6 +83,13 @@ export const TYPE = {
    */
   animaticChapterScale: 0.7,
   /**
+   * A Clip Mockup Comment, against the body size. Small like a cue, because it
+   * is never said aloud, but in its own colour, because it is the author's
+   * note to themself for this take and must not read as a stage direction.
+   */
+  animaticCommentScale: 0.6,
+  commentColor: "var(--color-amber-300)",
+  /**
    * Warm rather than white: easier on the eye through beam-splitter glass.
    *
    * Colours here are Tailwind palette variables rather than hexes — Tailwind v4

@@ -9,6 +9,7 @@ import {
   beats,
   clipMockups,
   clipMockupChapters,
+  clipMockupComments,
   thumbnails,
   videos,
 } from "../db/schema.js";
@@ -19,6 +20,7 @@ import {
 } from "./thumbnail-path-rebase.js";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
+import { copyClipMockupCommentValues } from "./clip-mockup-comment-copy.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -152,6 +154,7 @@ export const makeDuplicateCourse = (db: Database) =>
                     orderBy: asc(clipMockupChapters.order),
                     where: eq(clipMockupChapters.archived, false),
                   },
+                  clipMockupComments: true,
                   thumbnails: true,
                 },
               },
@@ -279,10 +282,22 @@ export const makeDuplicateCourse = (db: Database) =>
 
           // Clip Mockups copy the way Beats do — verbatim `order`, archived
           // rows already filtered out by the read above.
+          // Ids are made here, not by the table, so the comments below can be
+          // re-pointed at the copied parents.
+          const clipMockupIds = new Map(
+            sourceVideo.clipMockups.map((c) => [c.id, crypto.randomUUID()])
+          );
+          const clipMockupChapterIds = new Map(
+            sourceVideo.clipMockupChapters.map((c) => [
+              c.id,
+              crypto.randomUUID(),
+            ])
+          );
           if (sourceVideo.clipMockups.length > 0) {
             yield* makeDbCall(() =>
               db.insert(clipMockups).values(
                 sourceVideo.clipMockups.map((clipMockup) => ({
+                  id: clipMockupIds.get(clipMockup.id)!,
                   videoId: newVideo.id,
                   line: clipMockup.line,
                   imagePath: clipMockup.imagePath,
@@ -300,11 +315,24 @@ export const makeDuplicateCourse = (db: Database) =>
             yield* makeDbCall(() =>
               db.insert(clipMockupChapters).values(
                 sourceVideo.clipMockupChapters.map((chapter) => ({
+                  id: clipMockupChapterIds.get(chapter.id)!,
                   videoId: newVideo.id,
                   name: chapter.name,
                   order: chapter.order,
                 }))
               )
+            );
+          }
+
+          const commentValues = copyClipMockupCommentValues(
+            sourceVideo.clipMockupComments,
+            newVideo.id,
+            clipMockupIds,
+            clipMockupChapterIds
+          );
+          if (commentValues.length > 0) {
+            yield* makeDbCall(() =>
+              db.insert(clipMockupComments).values(commentValues)
             );
           }
 

@@ -6,6 +6,7 @@ import { Effect } from "effect";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
+import { ClipMockupCommentOperationsService } from "@/services/db-clip-mockup-comment-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -148,6 +149,14 @@ const GROUPS = [
     method: "listClipMockupsByVideoId",
     args: ["video_1"],
     path: "/rpc/clip-mockup/listClipMockupsByVideoId",
+    body: ["video_1"],
+  },
+  {
+    group: "clip-mockup-comment",
+    tag: ClipMockupCommentOperationsService,
+    method: "listClipMockupCommentsByVideoId",
+    args: ["video_1"],
+    path: "/rpc/clip-mockup-comment/listClipMockupCommentsByVideoId",
     body: ["video_1"],
   },
   {

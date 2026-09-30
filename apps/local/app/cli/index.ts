@@ -8,6 +8,7 @@ import { clipCommand } from "./commands/clip";
 import { chapterCommand } from "./commands/chapter";
 import { clipMockupCommand } from "./commands/clip-mockup";
 import { clipMockupChapterCommand } from "./commands/clip-mockup-chapter";
+import { clipMockupCommentCommand } from "./commands/clip-mockup-comment";
 import { overlayCommand } from "./commands/overlay";
 import { beatCommand } from "./commands/beat";
 import { learningGoalCommand } from "./commands/learning-goal";
@@ -165,6 +166,13 @@ WRITES
                                      'clip-mockup' and 'chapter'. Addressed by
                                      BARE <id> only: there is no --at, and
                                      'move' REQUIRES an anchor
+    clip-mockup-comment
+            add/update/delete        pin the author's notes to one Clip Mockup
+                                     or one Clip Mockup Chapter; the
+                                     teleprompter shows them while filming.
+                                     'list --video <id>' reads them all. NOT
+                                     local-only; needs a Draft Version;
+                                     'delete' is a HARD delete
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
     section
@@ -206,7 +214,7 @@ WRITES
 
 NOUNS
   course version section learning-goal lesson video clip clip-mockup
-  clip-mockup-chapter chapter overlay beat file footage pitch deliverable
+  clip-mockup-chapter clip-mockup-comment chapter overlay beat file footage pitch deliverable
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -231,6 +239,7 @@ export const rootCommand = Command.make("cvm").pipe(
     chapterCommand,
     clipMockupCommand,
     clipMockupChapterCommand,
+    clipMockupCommentCommand,
     overlayCommand,
     beatCommand,
     learningGoalCommand,

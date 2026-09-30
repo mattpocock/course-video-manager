@@ -121,6 +121,11 @@ describe("duplicateCourse — schema-drift guard", () => {
       copied: ["name", "order"],
       notCopied: ["id", "videoId", "archived", "createdAt"],
     },
+    clipMockupComment: {
+      table: schema.clipMockupComments,
+      copied: ["body", "createdAt", "updatedAt"],
+      notCopied: ["id", "videoId", "clipMockupId", "clipMockupChapterId"],
+    },
     thumbnail: {
       table: schema.thumbnails,
       copied: ["layers", "filePath", "selectedForUpload"],
@@ -234,10 +239,20 @@ describe("duplicateCourse — schema-drift guard", () => {
       durationSeconds: 2.75,
       order: "m",
     });
-    await testDb.insert(schema.clipMockupChapters).values({
+    const [coverageChapter] = await testDb
+      .insert(schema.clipMockupChapters)
+      .values({
+        videoId: video!.id,
+        name: "Coverage Clip Mockup Chapter",
+        order: "mV",
+      })
+      .returning();
+    await testDb.insert(schema.clipMockupComments).values({
       videoId: video!.id,
-      name: "Coverage Clip Mockup Chapter",
-      order: "mV",
+      clipMockupChapterId: coverageChapter!.id,
+      body: "Coverage Clip Mockup Comment",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      updatedAt: new Date("2026-01-02T00:00:00Z"),
     });
     await testDb.insert(schema.thumbnails).values({
       videoId: video!.id,
@@ -268,6 +283,7 @@ describe("duplicateCourse — schema-drift guard", () => {
                 beats: true,
                 clipMockups: true,
                 clipMockupChapters: true,
+                clipMockupComments: true,
                 thumbnails: true,
               },
             },
@@ -286,6 +302,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       beat: dupVideo.beats[0]!,
       clipMockup: dupVideo.clipMockups[0]!,
       clipMockupChapter: dupVideo.clipMockupChapters[0]!,
+      clipMockupComment: dupVideo.clipMockupComments[0]!,
       thumbnail: dupVideo.thumbnails[0]!,
     };
     const sourceRows: Record<keyof typeof COPY_SPEC, any> = {
@@ -298,6 +315,11 @@ describe("duplicateCourse — schema-drift guard", () => {
       clipMockup: await getOne(schema.clipMockups, "videoId", video!.id),
       clipMockupChapter: await getOne(
         schema.clipMockupChapters,
+        "videoId",
+        video!.id
+      ),
+      clipMockupComment: await getOne(
+        schema.clipMockupComments,
         "videoId",
         video!.id
       ),

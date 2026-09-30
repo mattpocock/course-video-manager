@@ -1,6 +1,7 @@
 import { Context, Layer } from "effect";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
+import { ClipMockupCommentOperationsService } from "@/services/db-clip-mockup-comment-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
@@ -371,6 +372,28 @@ const clipMockupChapterService = (client: RpcClient) =>
     ),
   }) satisfies RemoteService<ClipMockupChapterOperationsService>;
 
+const clipMockupCommentService = (client: RpcClient) =>
+  ({
+    _tag: "ClipMockupCommentOperationsService",
+    listClipMockupCommentsByVideoId: rpcMethod((json) =>
+      client.rpc["clip-mockup-comment"].listClipMockupCommentsByVideoId.$post({
+        json,
+      })
+    ),
+    getClipMockupCommentById: rpcMethod((json) =>
+      client.rpc["clip-mockup-comment"].getClipMockupCommentById.$post({ json })
+    ),
+    createClipMockupComment: rpcMethod((json) =>
+      client.rpc["clip-mockup-comment"].createClipMockupComment.$post({ json })
+    ),
+    updateClipMockupComment: rpcMethod((json) =>
+      client.rpc["clip-mockup-comment"].updateClipMockupComment.$post({ json })
+    ),
+    deleteClipMockupComment: rpcMethod((json) =>
+      client.rpc["clip-mockup-comment"].deleteClipMockupComment.$post({ json })
+    ),
+  }) satisfies RemoteService<ClipMockupCommentOperationsService>;
+
 const learningGoalService = (client: RpcClient) =>
   ({
     _tag: "LearningGoalOperationsService",
@@ -465,6 +488,7 @@ export type RemoteServices =
   | BeatOperationsService
   | ClipMockupOperationsService
   | ClipMockupChapterOperationsService
+  | ClipMockupCommentOperationsService
   | PitchOperationsService
   | DeliverableOperationsService
   | CourseWriteService;
@@ -506,6 +530,11 @@ export const makeRemoteLayer = (
     remoteLayer(
       ClipMockupChapterOperationsService,
       clipMockupChapterService,
+      client
+    ),
+    remoteLayer(
+      ClipMockupCommentOperationsService,
+      clipMockupCommentService,
       client
     ),
     remoteLayer(PitchOperationsService, pitchService, client),
