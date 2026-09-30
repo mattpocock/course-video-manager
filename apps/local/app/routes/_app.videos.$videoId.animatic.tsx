@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
+import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { clipMockupFileExists } from "@/services/clip-mockup-files";
 import {
@@ -16,6 +17,10 @@ import {
 import { AnimaticPlayer } from "@/features/animatic/animatic-player";
 import type { AnimaticChapter } from "@/features/animatic/animatic-chapters";
 import type { AnimaticClipMockup } from "@/features/animatic/animatic-timeline";
+import {
+  sectionRunTime,
+  type AnimaticSectionLesson,
+} from "@/features/animatic/animatic-section-clock";
 import { AnimaticEmptyState } from "@/features/animatic/animatic-empty-state";
 import type { Route } from "./+types/_app.videos.$videoId.animatic";
 
@@ -88,7 +93,14 @@ export const loader = makeLoader({
         )
       );
 
+      const sectionLessons = yield* loadSectionLessons(videoId);
+
       return {
+        sectionRunTime: sectionRunTime({
+          lessons: sectionLessons,
+          currentVideoId: videoId,
+          currentDurationsSeconds: rows.map((row) => row.durationSeconds),
+        }),
         video: {
           id: video.id,
           title: video.title,
@@ -107,8 +119,55 @@ export const loader = makeLoader({
     }),
 });
 
+/**
+ * The Lessons of the current Video's Section, in Section order, each Video
+ * with the speech durations of its Clip Mockups — what the Section clock sums.
+ *
+ * The Section is read off the Course's navigation tree, the same tree
+ * PREVIOUS/NEXT walks, so the clock counts the Videos NEXT will stop on. The
+ * durations are ONE query for the whole Section, not one per Video, because
+ * this loader is polled every two seconds. A standalone Video has no Section,
+ * and gets an empty list.
+ */
+const loadSectionLessons = (videoId: string) =>
+  Effect.gen(function* () {
+    const videoOps = yield* VideoOperationsService;
+    const courseOps = yield* CourseOperationsService;
+    const clipMockupOps = yield* ClipMockupOperationsService;
+
+    const video = yield* videoOps.getVideoWithLessonById(videoId);
+    const lesson = video.lesson;
+    if (!lesson) return [] as AnimaticSectionLesson[];
+
+    const courseNav = yield* courseOps.getCourseNavigationData(
+      lesson.section.repoVersion.repo.id
+    );
+    const section = (courseNav.versions[0]?.sections ?? []).find(
+      (candidate) => candidate.id === lesson.section.id
+    );
+    if (!section) return [] as AnimaticSectionLesson[];
+
+    const videoIds = section.lessons.flatMap((l) => l.videos.map((v) => v.id));
+    const durationRows =
+      yield* clipMockupOps.listClipMockupDurationsByVideoIds(videoIds);
+    const durationsByVideo = new Map<string, number[]>();
+    for (const row of durationRows) {
+      const list = durationsByVideo.get(row.videoId) ?? [];
+      list.push(row.durationSeconds);
+      durationsByVideo.set(row.videoId, list);
+    }
+
+    return section.lessons.map((l): AnimaticSectionLesson => ({
+      videos: l.videos.map((v) => ({
+        id: v.id,
+        title: v.title,
+        durationsSeconds: durationsByVideo.get(v.id) ?? [],
+      })),
+    }));
+  });
+
 export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
-  const { video, mockups, chapters } = loaderData;
+  const { video, mockups, chapters, sectionRunTime } = loaderData;
   const { width, height } = VIDEO_FORMAT_DIMENSIONS[video.format];
 
   // An Animatic is WATCHED WHILE IT IS STILL BEING WRITTEN — an agent redraws a
@@ -143,6 +202,7 @@ export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
       key={video.id}
       mockups={mockups}
       chapters={chapters}
+      sectionRunTime={sectionRunTime}
       width={width}
       height={height}
     />

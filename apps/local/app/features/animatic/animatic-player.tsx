@@ -47,8 +47,13 @@ import {
   type AnimaticSelection,
 } from "./animatic-selection";
 import { useStableChapters, useStableMockups } from "./animatic-revalidation";
-import { useAnimaticSubtitles } from "./animatic-subtitles";
-import { AnimaticSubtitlesToggle } from "./animatic-subtitles-toggle";
+import type { AnimaticSectionRunTime } from "./animatic-section-clock";
+import { AnimaticSectionClock } from "./animatic-section-clock-badge";
+import {
+  useAnimaticSubtitleStyle,
+  useAnimaticSubtitles,
+} from "./animatic-subtitles";
+import { AnimaticSubtitlesMenu } from "./animatic-subtitles-menu";
 import { startPlayingAt } from "./animatic-transport";
 import { useAnimaticShortcuts } from "./use-animatic-shortcuts";
 import {
@@ -74,9 +79,9 @@ import {
  * editing to select for here, so the second click had nothing to do.
  *
  * Three things beyond plain playback, all of them there because of what the
- * author does next. The POSITION shows in a corner the whole time, because the
- * feedback he gives is "number 14 is too dense" and he cannot count frames
- * back afterwards. The LIST jumps, because a note is written by re-watching
+ * author does next. The SECTION CLOCK shows in a corner (see
+ * `animatic-section-clock.ts`); a note's number is on the highlighted row.
+ * The LIST jumps, because a note is written by re-watching
  * one moment, not by scrubbing for it. The RUN TIME shows, because the point
  * of an Animatic is knowing a Lesson runs thirty-four minutes before anything
  * is filmed.
@@ -113,12 +118,14 @@ export const AnimaticPlayer = (props: {
   mockups: AnimaticClipMockup[];
   /** The Video's Clip Mockup Chapters. Empty for a Video nobody has divided. */
   chapters: AnimaticChapter[];
+  sectionRunTime: AnimaticSectionRunTime;
   width: number;
   height: number;
 }) => {
   const playerRef = useRef<PlayerRef>(null);
   const [playbackRate, choosePlaybackRate] = useAnimaticPlaybackRate();
   const [showSubtitles, chooseSubtitles] = useAnimaticSubtitles();
+  const [subtitleStyle, chooseSubtitleStyle] = useAnimaticSubtitleStyle();
   const [selection, setSelection] = useState<AnimaticSelection>(null);
 
   // THE SEGMENT IS STATE, NOT THE FRAME. Holding the raw frame re-rendered this
@@ -313,8 +320,6 @@ export const AnimaticPlayer = (props: {
       ?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
-  const active = activeIndex >= 0 ? timeline.segments[activeIndex] : undefined;
-
   // Which divider carries the fill. Derived from `activeIndex`, so it is settled
   // once per Clip Mockup — the fill's own movement is CSS, not this.
   const playingChapterId = sectionAtIndex({
@@ -325,8 +330,8 @@ export const AnimaticPlayer = (props: {
   // Memoised on the timeline alone: a poll that changed nothing hands the
   // Player the very same object, and the composition is not rebuilt.
   const inputProps: AnimaticCompositionProps = useMemo(
-    () => ({ segments: [...timeline.segments], showSubtitles }),
-    [timeline, showSubtitles]
+    () => ({ segments: [...timeline.segments], showSubtitles, subtitleStyle }),
+    [timeline, showSubtitles, subtitleStyle]
   );
 
   /**
@@ -500,17 +505,18 @@ export const AnimaticPlayer = (props: {
           spaceKeyToPlayOrPause={false}
         />
 
-        {/* The position, in a corner, throughout. */}
-        {active && (
-          <div className="pointer-events-none absolute left-4 top-4 rounded-md bg-black/70 px-3 py-1.5 font-mono text-sm tabular-nums tracking-wide">
-            {active.mockup.position} / {count}
-          </div>
-        )}
+        <AnimaticSectionClock
+          playerRef={playerRef}
+          runTime={props.sectionRunTime}
+          playbackRate={playbackRate}
+        />
 
         <div className="absolute right-4 top-4 flex items-center gap-2">
-          <AnimaticSubtitlesToggle
+          <AnimaticSubtitlesMenu
             showSubtitles={showSubtitles}
-            onToggle={() => chooseSubtitles(!showSubtitles)}
+            onShowSubtitles={chooseSubtitles}
+            style={subtitleStyle}
+            onStyle={chooseSubtitleStyle}
           />
           <div className="pointer-events-none rounded-md bg-black/70 px-3 py-1.5 font-mono text-sm tabular-nums">
             {formatRunTime(timeline.totalSeconds)}

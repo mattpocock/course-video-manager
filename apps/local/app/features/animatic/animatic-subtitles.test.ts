@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ANIMATIC_SUBTITLE_LENGTH_IN_CHARS,
+  ANIMATIC_SUBTITLE_STYLE_RANGES,
+  DEFAULT_ANIMATIC_SUBTITLE_STYLE,
+  parseAnimaticSubtitleStyle,
   subtitleCuesForSegment,
 } from "./animatic-subtitles";
 import {
@@ -85,5 +88,33 @@ describe("subtitleCuesForSegment", () => {
 
   it("shows nothing for an empty line", () => {
     expect(subtitleCuesForSegment(segmentFor("  \n ", 2))).toEqual([]);
+  });
+});
+
+describe("parseAnimaticSubtitleStyle", () => {
+  it("gives the default when nothing readable is stored", () => {
+    expect(parseAnimaticSubtitleStyle("")).toEqual(
+      DEFAULT_ANIMATIC_SUBTITLE_STYLE
+    );
+    expect(parseAnimaticSubtitleStyle("null")).toEqual(
+      DEFAULT_ANIMATIC_SUBTITLE_STYLE
+    );
+  });
+
+  it("gives back a stored style", () => {
+    const style = { offsetY: -120, fontSize: 40, maxWidthCh: 80 };
+    expect(parseAnimaticSubtitleStyle(JSON.stringify(style))).toEqual(style);
+  });
+
+  it("holds each setting inside its range, and keeps the others", () => {
+    expect(
+      parseAnimaticSubtitleStyle(
+        JSON.stringify({ offsetY: 900, fontSize: "big", maxWidthCh: 5 })
+      )
+    ).toEqual({
+      offsetY: ANIMATIC_SUBTITLE_STYLE_RANGES.offsetY.max,
+      fontSize: DEFAULT_ANIMATIC_SUBTITLE_STYLE.fontSize,
+      maxWidthCh: ANIMATIC_SUBTITLE_STYLE_RANGES.maxWidthCh.min,
+    });
   });
 });

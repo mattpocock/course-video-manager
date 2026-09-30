@@ -1,7 +1,7 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { clipMockups } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { orderKeyBeforeItem } from "../lib/sort-by-order.js";
 import { listAnimaticOrder } from "./db-animatic-order.server.js";
@@ -59,6 +59,24 @@ export const createClipMockupOperations = (db: Database) => {
         orderBy: asc(clipMockups.order),
       })
     );
+
+  /**
+   * The speech durations of every non-archived Clip Mockup across several
+   * Videos, in one read — what the Animatic's Section clock sums. Only the two
+   * columns it needs: a Section's worth of full rows is of no use to it.
+   */
+  const listClipMockupDurationsByVideoIds = (videoIds: readonly string[]) =>
+    videoIds.length === 0
+      ? Effect.succeed([] as { videoId: string; durationSeconds: number }[])
+      : makeDbCall(() =>
+          db.query.clipMockups.findMany({
+            columns: { videoId: true, durationSeconds: true },
+            where: and(
+              inArray(clipMockups.videoId, [...videoIds]),
+              eq(clipMockups.archived, false)
+            ),
+          })
+        );
 
   const requireClipMockup = (id: string) =>
     Effect.gen(function* () {
@@ -221,6 +239,7 @@ export const createClipMockupOperations = (db: Database) => {
 
   return {
     listClipMockupsByVideoId,
+    listClipMockupDurationsByVideoIds,
     getClipMockupById: requireClipMockup,
     createClipMockup,
     setClipMockupLine,

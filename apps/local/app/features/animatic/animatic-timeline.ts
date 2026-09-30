@@ -102,6 +102,24 @@ export interface AnimaticTimeline {
 }
 
 /**
+ * The frames one Clip Mockup occupies: its speech, rounded, and then the gap.
+ * The ONE place this rounding happens, so the Animatic's own clock and the
+ * Section clock that sums other Videos' Animatics count the same frames.
+ */
+export function segmentFrames(durationSeconds: number | null): {
+  readonly speechInFrames: number;
+  readonly durationInFrames: number;
+} {
+  const speechSeconds = durationSeconds ?? UNVOICED_HOLD_SECONDS;
+  const speechInFrames = Math.max(1, Math.round(speechSeconds * ANIMATIC_FPS));
+  return {
+    speechInFrames,
+    durationInFrames:
+      speechInFrames + Math.round(CLIP_MOCKUP_GAP_SECONDS * ANIMATIC_FPS),
+  };
+}
+
+/**
  * Lay the Clip Mockups out end to end. Frame counts are rounded per segment
  * and then accumulated, so a segment's start is always the exact sum of the
  * segments before it and the seek target can never drift off the boundary.
@@ -115,12 +133,9 @@ export function buildAnimaticTimeline(
 
   for (const mockup of mockups) {
     const speechSeconds = mockup.durationSeconds ?? UNVOICED_HOLD_SECONDS;
-    const speechInFrames = Math.max(
-      1,
-      Math.round(speechSeconds * ANIMATIC_FPS)
+    const { speechInFrames, durationInFrames } = segmentFrames(
+      mockup.durationSeconds
     );
-    const durationInFrames =
-      speechInFrames + Math.round(CLIP_MOCKUP_GAP_SECONDS * ANIMATIC_FPS);
 
     segments.push({ mockup, startFrame, speechInFrames, durationInFrames });
     startFrame += durationInFrames;

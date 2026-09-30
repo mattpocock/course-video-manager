@@ -1,5 +1,8 @@
 import { AbsoluteFill, Audio, Sequence, Series } from "remotion";
-import { subtitleCuesForSegment } from "./animatic-subtitles";
+import {
+  subtitleCuesForSegment,
+  type AnimaticSubtitleStyle,
+} from "./animatic-subtitles";
 import {
   CLIP_MOCKUP_PREMOUNT_IN_FRAMES,
   type AnimaticSegment,
@@ -23,6 +26,8 @@ export type AnimaticCompositionProps = {
   segments: AnimaticSegment[];
   /** Draw each line over its frame as subtitles. See `animatic-subtitles.ts`. */
   showSubtitles: boolean;
+  /** Where, how big and how wide. See `AnimaticSubtitleStyle`. */
+  subtitleStyle: AnimaticSubtitleStyle;
 };
 
 /**
@@ -55,9 +60,13 @@ const MissingFrame = (props: { position: number; line: string }) => (
 
 /**
  * One phrase of the line, low and centred, as a student's player draws
- * subtitles. Sized in composition pixels, so it scales with the picture.
+ * subtitles — then moved, sized and narrowed by the author's own style. Sized
+ * in composition pixels, so it scales with the picture.
  */
-const AnimaticSubtitle = (props: { text: string }) => (
+const AnimaticSubtitle = (props: {
+  text: string;
+  style: AnimaticSubtitleStyle;
+}) => (
   <AbsoluteFill
     style={{
       justifyContent: "flex-end",
@@ -70,13 +79,14 @@ const AnimaticSubtitle = (props: { text: string }) => (
         backgroundColor: "rgba(0, 0, 0, 0.75)",
         color: "white",
         fontFamily: "Inter, sans-serif",
-        fontSize: 52,
+        fontSize: props.style.fontSize,
         fontWeight: 600,
         lineHeight: 1.3,
         padding: "10px 28px",
         borderRadius: 12,
         textAlign: "center",
-        maxWidth: "60ch",
+        maxWidth: `${props.style.maxWidthCh}ch`,
+        transform: `translateY(${-props.style.offsetY}px)`,
       }}
     >
       {props.text}
@@ -87,6 +97,7 @@ const AnimaticSubtitle = (props: { text: string }) => (
 const AnimaticSegmentFrame = (props: {
   segment: AnimaticSegment;
   showSubtitles: boolean;
+  subtitleStyle: AnimaticSubtitleStyle;
 }) => {
   const { mockup } = props.segment;
 
@@ -118,7 +129,7 @@ const AnimaticSegmentFrame = (props: {
             durationInFrames={cue.durationInFrames}
             layout="none"
           >
-            <AnimaticSubtitle text={cue.text} />
+            <AnimaticSubtitle text={cue.text} style={props.subtitleStyle} />
           </Sequence>
         ))}
     </AbsoluteFill>
@@ -140,6 +151,7 @@ export const AnimaticComposition = (props: AnimaticCompositionProps) => (
           <AnimaticSegmentFrame
             segment={segment}
             showSubtitles={props.showSubtitles}
+            subtitleStyle={props.subtitleStyle}
           />
         </Series.Sequence>
       ))}

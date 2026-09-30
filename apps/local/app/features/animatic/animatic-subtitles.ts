@@ -1,5 +1,8 @@
-import { useCallback } from "react";
-import { useLocalStorageOneOf } from "@/hooks/use-local-storage";
+import { useCallback, useMemo } from "react";
+import {
+  useLocalStorage,
+  useLocalStorageOneOf,
+} from "@/hooks/use-local-storage";
 import {
   MAXIMUM_SUBTITLE_LENGTH_IN_CHARS,
   splitSubtitleSegments,
@@ -86,4 +89,93 @@ export function useAnimaticSubtitles(): [boolean, (on: boolean) => void] {
   );
 
   return [stored === "on", choose];
+}
+
+/**
+ * How the subtitles are drawn: how far up or down from their usual place, how
+ * big, and how wide a phrase may run before it wraps. The author moves them off
+ * whatever part of a frame he is judging — code at the bottom of a slide, say.
+ *
+ * In composition pixels (the frame is 1920 wide), so a setting looks the same
+ * at every size of the browser window. Remembered in the browser, like the
+ * rate and the on/off, because it is a habit of the watcher.
+ */
+export interface AnimaticSubtitleStyle {
+  /** Pixels UP from the usual place. Negative moves them down. */
+  readonly offsetY: number;
+  readonly fontSize: number;
+  /** The widest a phrase runs, in `ch` of its own font, before it wraps. */
+  readonly maxWidthCh: number;
+}
+
+/** Each setting's range, as its slider offers it. */
+export const ANIMATIC_SUBTITLE_STYLE_RANGES = {
+  offsetY: { min: -200, max: 200, step: 5 },
+  fontSize: { min: 24, max: 96, step: 2 },
+  maxWidthCh: { min: 20, max: 120, step: 1 },
+} as const satisfies Record<
+  keyof AnimaticSubtitleStyle,
+  { min: number; max: number; step: number }
+>;
+
+/** What the subtitles looked like before they could be changed. */
+export const DEFAULT_ANIMATIC_SUBTITLE_STYLE: AnimaticSubtitleStyle = {
+  offsetY: 0,
+  fontSize: 52,
+  maxWidthCh: 60,
+};
+
+/**
+ * The style a stored string stands for. Each setting is read on its own and
+ * held inside its range, so a hand-edited or half-written value loses only the
+ * setting that is wrong, never the others.
+ */
+export function parseAnimaticSubtitleStyle(raw: string): AnimaticSubtitleStyle {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return DEFAULT_ANIMATIC_SUBTITLE_STYLE;
+  }
+  const stored =
+    typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : {};
+
+  const read = (key: keyof AnimaticSubtitleStyle): number => {
+    const value = stored[key];
+    const { min, max } = ANIMATIC_SUBTITLE_STYLE_RANGES[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return DEFAULT_ANIMATIC_SUBTITLE_STYLE[key];
+    }
+    return Math.min(max, Math.max(min, value));
+  };
+
+  return {
+    offsetY: read("offsetY"),
+    fontSize: read("fontSize"),
+    maxWidthCh: read("maxWidthCh"),
+  };
+}
+
+const STYLE_STORAGE_KEY = "animatic:subtitleStyle";
+
+/** The subtitle style, remembered in the browser. */
+export function useAnimaticSubtitleStyle(): [
+  AnimaticSubtitleStyle,
+  (next: AnimaticSubtitleStyle) => void,
+] {
+  const [raw, setRaw] = useLocalStorage(
+    STYLE_STORAGE_KEY,
+    JSON.stringify(DEFAULT_ANIMATIC_SUBTITLE_STYLE)
+  );
+
+  const style = useMemo(() => parseAnimaticSubtitleStyle(raw), [raw]);
+
+  const choose = useCallback(
+    (next: AnimaticSubtitleStyle) => setRaw(JSON.stringify(next)),
+    [setRaw]
+  );
+
+  return [style, choose];
 }

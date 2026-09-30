@@ -16,7 +16,8 @@ import { useLocalStorageOneOf } from "@/hooks/use-local-storage";
  *
  * The RUN TIME in the corner is deliberately NOT divided by the rate: it is
  * the length of the filmed Lesson, which is what the author is judging, and
- * not how long this sitting takes.
+ * not how long this sitting takes. The SECTION CLOCK in the other corner is
+ * the one number that IS divided by it — see `animatic-section-clock.ts`.
  */
 
 export const ANIMATIC_PLAYBACK_RATES = [0.5, 1, 1.25, 1.5, 2, 2.5, 3];
