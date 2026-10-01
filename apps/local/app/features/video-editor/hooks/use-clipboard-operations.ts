@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import {
-  calculateYouTubeChapters,
-  type YouTubeChaptersItem,
-} from "@/services/utils";
+  buildVideoChapters,
+  toYouTubeChapters,
+  type ChapterTimelineItem,
+} from "@/services/video-chapters";
 import { isClip, isChapter } from "../clip-utils";
 import type { TimelineItem } from "../clip-state-reducer";
 
@@ -55,24 +56,24 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
     }
   };
 
-  // Generate YouTube chapters from chapters
-  // Format: "0:00 Section Name" for each chapter
+  // The same chapter list the published course.json carries, in the
+  // YouTube "0:00 Chapter Name" form.
   const youtubeChapters = useMemo(() => {
-    const chaptersItems: YouTubeChaptersItem[] = items
-      .map((item): YouTubeChaptersItem | null => {
+    const timeline = items
+      .map((item): ChapterTimelineItem | null => {
         if (isChapter(item)) {
-          return { type: "section", name: item.name };
+          return { kind: "chapter", name: item.name };
         } else if (isClip(item) && item.type === "on-database") {
           return {
-            type: "clip",
+            kind: "clip",
             durationSeconds: item.sourceEndTime - item.sourceStartTime,
           };
         }
         return null;
       })
-      .filter((item): item is YouTubeChaptersItem => item !== null);
+      .filter((item): item is ChapterTimelineItem => item !== null);
 
-    return calculateYouTubeChapters(chaptersItems);
+    return toYouTubeChapters(buildVideoChapters(timeline));
   }, [items]);
 
   const copyYoutubeChaptersToClipboard = async () => {

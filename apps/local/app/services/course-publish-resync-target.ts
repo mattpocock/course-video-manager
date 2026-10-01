@@ -1,7 +1,15 @@
-import { Effect } from "effect";
+import { Data, Effect } from "effect";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { DoesNotExistOnDbError } from "./publish-to-dropbox";
 import { PublishValidationError } from "./course-publish-errors";
+
+/** The Course has no Version at all, so there is nothing to re-sync. */
+export class DoesNotExistOnDbError extends Data.TaggedError(
+  "DoesNotExistOnDbError"
+)<{
+  type: "section" | "lesson";
+  path: string;
+  message: string;
+}> {}
 
 /**
  * WHICH Course Version a manual re-sync re-commits.

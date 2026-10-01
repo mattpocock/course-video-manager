@@ -31,7 +31,10 @@ import {
 import { Effect } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { FileSystem } from "@effect/platform";
-import { calculateYouTubeChapters, type YouTubeChaptersItem } from "./utils";
+import {
+  buildVideoChaptersFromRows,
+  toYouTubeChapters,
+} from "./video-chapters";
 import { getVideoFilePath, listVideoFiles } from "./video-files";
 import type { TextWritingAgentMode } from "@/routes/videos.$videoId.completions";
 
@@ -408,38 +411,10 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
       transcript = transcriptParts.join("\n\n").trim();
     }
 
-    // Calculate YouTube chapters from chapters
-    // Combine clips and chapters, sort by order (ASCII ordering to match PostgreSQL COLLATE "C")
-    const chaptersAllItems = [
-      ...video.clips.map((clip) => ({
-        type: "clip" as const,
-        order: clip.order,
-        clip,
-      })),
-      ...video.chapters.map((section) => ({
-        type: "chapter" as const,
-        order: section.order,
-        section,
-      })),
-    ];
-
-    const sortedChaptersItems = sortByOrder(chaptersAllItems);
-
-    const chaptersInput: YouTubeChaptersItem[] = sortedChaptersItems.map(
-      (item): YouTubeChaptersItem => {
-        if (item.type === "chapter") {
-          return { type: "section", name: item.section.name };
-        } else {
-          return {
-            type: "clip",
-            durationSeconds:
-              item.clip.sourceEndTime - item.clip.sourceStartTime,
-          };
-        }
-      }
+    // The same chapter list the published course.json carries.
+    const youtubeChapters = toYouTubeChapters(
+      buildVideoChaptersFromRows(video.clips, video.chapters)
     );
-
-    const youtubeChapters = calculateYouTubeChapters(chaptersInput);
 
     // Collect enabled section names for the prompt
     const enabledSectionIds = new Set(props.enabledSections ?? []);

@@ -22,7 +22,7 @@ import {
   computeLessonWarnings,
   deriveVideoRole,
 } from "@/services/lesson-warnings";
-import { buildChapters } from "@/services/publish-to-dropbox";
+import { buildVideoChaptersFromRows } from "@/services/video-chapters";
 
 // ── Publish blockers ──────────────────────────────────────────────────────
 
@@ -298,7 +298,7 @@ function toVideoEntry(
     hash: computeExportHash(exportClips, video.format)!,
     sha256: asset.sha256,
     bytes: asset.bytes,
-    chapters: buildChapters(video.clips, video.chapters) ?? [],
+    chapters: buildVideoChaptersFromRows(video.clips, video.chapters),
   };
 }
 
