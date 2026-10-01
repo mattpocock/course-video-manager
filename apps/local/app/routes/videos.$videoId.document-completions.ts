@@ -72,6 +72,7 @@ const chatSchema = Schema.Struct({
   ),
   beats: Schema.optional(Schema.String),
   script: Schema.optional(Schema.String),
+  comments: Schema.optional(Schema.String),
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -181,6 +182,7 @@ export const action = async (args: Route.ActionArgs) => {
       memory: parsed.memory,
       beats: parsed.beats,
       script: parsed.script,
+      comments: parsed.comments,
     });
 
     const result = yield* Effect.promise(async () => {

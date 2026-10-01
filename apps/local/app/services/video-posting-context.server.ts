@@ -13,6 +13,8 @@ import {
 } from "@/lib/transcript-builder";
 import { sortByOrder } from "@/lib/sort-by-order";
 import type { BeatKind } from "@/features/beats/beat-kinds";
+import type { AnimaticLine } from "@/features/animatic/animatic-lines";
+import { loadAnimaticLines } from "@/services/animatic-lines.server";
 import { getVideoFilePath, listVideoFiles } from "@/services/video-files";
 import { projectVersionPaths } from "@/services/path-projection";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
@@ -209,6 +211,11 @@ export interface WriterContextData {
   }>;
   /** The video's script — the base Matt improvised from. Empty when unwritten. */
   script: string;
+  /**
+   * The Animatic lines that carry a Clip Mockup Comment, in Animatic order —
+   * the author's notes, each still under the clip line or divider it is about.
+   */
+  commentedLines: AnimaticLine[];
   /** Quiz ids owned by other videos in this course. */
   quizIds: string[];
 }
@@ -222,13 +229,17 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
   const linkAuthOps = yield* LinkAuthOperationsService;
   const beatOps = yield* BeatOperationsService;
 
-  const [video, globalLinks, rawBeats] = yield* Effect.all(
+  const [video, globalLinks, rawBeats, animaticLines] = yield* Effect.all(
     [
       videoOps.getVideoWithClipsById(videoId),
       linkAuthOps.getLinks(),
       beatOps.listBeatsByVideoId(videoId),
+      loadAnimaticLines(videoId),
     ],
     { concurrency: "unbounded" }
+  );
+  const commentedLines = animaticLines.filter(
+    (line) => line.comments.length > 0
   );
 
   // Setup beats DO reach the Article Writer's context: they're not viewer-
@@ -265,6 +276,7 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
       links: globalLinks,
       beats,
       script: video.script ?? "",
+      commentedLines,
       quizIds: [],
     } satisfies WriterContextData;
   }
@@ -307,6 +319,7 @@ export const loadWriterContext = Effect.fn("loadWriterContext")(function* (
     links: globalLinks,
     beats,
     script: video.script ?? "",
+    commentedLines,
     quizIds,
   } satisfies WriterContextData;
 });

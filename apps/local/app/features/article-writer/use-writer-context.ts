@@ -28,6 +28,7 @@ export function toWriterContext(data: WriterContextData): WriterContext {
     isStandalone: data.isStandalone,
     beats: data.beats,
     script: data.script,
+    commentedLines: data.commentedLines,
   };
 }
 

@@ -9,6 +9,7 @@ import type {
   SectionWithWordCount,
 } from "@cvm/core/lib/transcript-types";
 import type { BeatKind } from "@/features/beats/beat-kinds";
+import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 
 export type DocumentAgentTools = {
   writeDocument: typeof writeDocumentTool;
@@ -80,6 +81,8 @@ export interface WriterContext {
   beats: Array<{ kind: BeatKind; title: string; description: string }>;
   /** The video's script — the base Matt improvised from. Empty when unwritten. */
   script: string;
+  /** Animatic lines with Clip Mockup Comments, in Animatic order. */
+  commentedLines: readonly AnimaticLine[];
   /** Quiz ids owned by other videos in this course — none of them are free. */
   quizIds?: string[];
 }
