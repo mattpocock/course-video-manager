@@ -489,7 +489,7 @@ const createLessonSectionOperationsUnwrapped = (db: Database) => {
 };
 
 /** Each write runs in one txn with its draft-guard's version-row lock (#1403). */
-export const createLessonSectionOperations = (db: Database) =>
+const createLessonSectionOperations = (db: Database) =>
   transactionalizeWrites(db, createLessonSectionOperationsUnwrapped, [
     "createSections",
     "createLessons",

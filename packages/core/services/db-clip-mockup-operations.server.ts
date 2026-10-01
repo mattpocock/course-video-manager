@@ -76,7 +76,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createClipMockupOperations = (db: Database) => {
+const createClipMockupOperations = (db: Database) => {
   /**
    * Non-archived Clip Mockups of a Video, sorted by their fractional `order`
    * key — i.e. the Video's Animatic, in playback order.

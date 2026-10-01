@@ -89,7 +89,7 @@ const computeOrder = (
   return prev ? (prev.order + anchor.order) / 2 : anchor.order - 1;
 };
 
-export const createLearningGoalOperations = (db: Database) => {
+const createLearningGoalOperations = (db: Database) => {
   /** Non-archived Learning Goals of a Section, sorted by their `order`. */
   const listLearningGoalsBySectionId = (sectionId: string) =>
     makeDbCall(() =>

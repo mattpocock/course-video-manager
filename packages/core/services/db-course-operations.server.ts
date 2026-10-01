@@ -50,7 +50,7 @@ const flattenBeatLearningGoalIds = <
   return { ...rest, learningGoalIds: joins.map((j) => j.learningGoalId) };
 };
 
-export const createCourseOperations = (db: Database) => {
+const createCourseOperations = (db: Database) => {
   const assertSlugAvailable = Effect.fn("assertSlugAvailable")(function* (
     name: string,
     excludeCourseId?: string

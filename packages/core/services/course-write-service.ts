@@ -2,7 +2,6 @@ import { Effect } from "effect";
 import { LessonSectionOperationsService } from "./db-lesson-section-operations.server.js";
 import { toSlug } from "./lesson-path-service.js";
 import { createMoveOps } from "./course-write-move-ops.js";
-export { CourseWriteError } from "./course-write-service.types.js";
 
 export class CourseWriteService extends Effect.Service<CourseWriteService>()(
   "CourseWriteService",

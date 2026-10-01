@@ -29,7 +29,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createVersionOperations = (db: Database) => {
+const createVersionOperations = (db: Database) => {
   const getCourseVersions = Effect.fn("getCourseVersions")(function* (
     repoId: string
   ) {

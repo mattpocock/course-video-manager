@@ -621,7 +621,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
 };
 
 /** Each write runs in one txn with its draft-guard's version-row lock (#1403). */
-export const createVideoOperations = (db: Database, deps: VideoOpsDeps) =>
+const createVideoOperations = (db: Database, deps: VideoOpsDeps) =>
   transactionalizeWrites(
     db,
     (d) => createVideoOperationsUnwrapped(d, deps),

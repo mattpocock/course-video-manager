@@ -199,7 +199,7 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
 };
 
 /** Each write runs in one txn with its draft-guard's version-row lock (#1403). */
-export const createOverlayOperations = (db: Database) =>
+const createOverlayOperations = (db: Database) =>
   transactionalizeWrites(db, createOverlayOperationsUnwrapped, [
     "createOverlay",
     "updateOverlay",

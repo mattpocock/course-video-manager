@@ -60,8 +60,6 @@ export const PUBLISH_BLOCKING_LISTS = [
   "incompleteVideos",
 ] as const;
 
-export type PublishBlockingList = (typeof PUBLISH_BLOCKING_LISTS)[number];
-
 /**
  * The Lesson Publish Status lists, re-exported from the pure walk that decides
  * them (./course-publish-lesson-statuses) so a caller reading Publish Readiness
@@ -252,6 +250,3 @@ export const validatePublishability = Effect.fn("validatePublishability")(
 export type PublishReadiness = Effect.Effect.Success<
   ReturnType<typeof validatePublishability>
 >;
-
-/** One toggle position of {@link PublishReadiness}. */
-export type PublishReadinessPosition = PublishReadiness["withTodo"];

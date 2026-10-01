@@ -11,7 +11,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createLinkAuthOperations = (db: Database) => {
+const createLinkAuthOperations = (db: Database) => {
   const getLinks = Effect.fn("getLinks")(function* () {
     const allLinks = yield* makeDbCall(() =>
       db.query.links.findMany({

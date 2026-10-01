@@ -190,7 +190,7 @@ const sectionWith = {
   },
 } as const;
 
-export const createSearchOperations = (db: Database) => {
+const createSearchOperations = (db: Database) => {
   /**
    * Search the entity tree for a literal, case-insensitive substring.
    *

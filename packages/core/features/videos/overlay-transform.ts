@@ -156,7 +156,7 @@ export const overlayTransform = (
 export const OVERLAY_TRANSFORM_EASE_IN_SECONDS = 0.8;
 
 /** The framing partway through a move: `0` is `from`, `1` is `to`. */
-export const overlayTransformFramingAt = (
+const overlayTransformFramingAt = (
   transform: OverlayTransform,
   progress: number
 ): OverlayFraming => {
