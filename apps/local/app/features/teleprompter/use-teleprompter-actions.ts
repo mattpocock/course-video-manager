@@ -12,7 +12,7 @@
  * */
 import { useEffect, useRef } from "react";
 import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
-import { subscribeTeleprompterChild } from "@/lib/teleprompter-protocol";
+import { teleprompterChannel } from "@/lib/teleprompter-protocol";
 
 export type TeleprompterActions = {
   advance: () => void;
@@ -73,7 +73,7 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
   // focus, and it won't while you're reading off the Prompter.
   useEffect(
     () =>
-      subscribeTeleprompterChild((msg) => {
+      teleprompterChannel.subscribeChild((msg) => {
         if (msg.type === "command") ref.current[msg.command]();
       }),
     []

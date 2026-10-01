@@ -1,8 +1,8 @@
 /**
- * Transport between the Video Editor and the teleprompter popup, cloned from
- * `diagram-protocol.ts` (BroadcastChannel, same-origin, no server). Deliberately
- * a SEPARATE channel name from "cvm-diagrams" so the two popups never parse each
- * other's traffic.
+ * Transport between the Video Editor and the teleprompter popup, built on
+ * `popup-channel.ts` like `diagram-protocol.ts` (BroadcastChannel, same-origin,
+ * no server). Deliberately a SEPARATE channel name from "cvm-diagrams" so the
+ * two popups never parse each other's traffic.
  *
  * Two differences from the diagram protocol, both because the teleprompter is a
  * pure slave to the editor:
@@ -28,6 +28,7 @@
  * Nothing else flows back the other way: the teleprompter never reports position.
  */
 import { z } from "zod";
+import { createPopupChannel } from "./popup-channel";
 
 /**
  * Mirrors `FrontendSpeechDetectorState["type"]` from
@@ -158,47 +159,12 @@ export type TeleprompterChildToParentMessage = z.infer<
   typeof TeleprompterChildToParent
 >;
 
-const CHANNEL_NAME = "cvm-teleprompter";
-
-let sendChannel: BroadcastChannel | null = null;
-function getSendChannel(): BroadcastChannel | null {
-  if (typeof window === "undefined") return null;
-  if (!sendChannel) sendChannel = new BroadcastChannel(CHANNEL_NAME);
-  return sendChannel;
-}
-
-export function sendToTeleprompter(
-  message: TeleprompterParentToChildMessage
-): void {
-  getSendChannel()?.postMessage(message);
-}
-
-export function sendToEditor(message: TeleprompterChildToParentMessage): void {
-  getSendChannel()?.postMessage(message);
-}
-
-/** Subscribe from the editor side — only sees child→parent messages. */
-export function subscribeTeleprompterParent(
-  handler: (message: TeleprompterChildToParentMessage) => void
-): () => void {
-  if (typeof window === "undefined") return () => {};
-  const ch = new BroadcastChannel(CHANNEL_NAME);
-  ch.onmessage = (e) => {
-    const result = TeleprompterChildToParent.safeParse(e.data);
-    if (result.success) handler(result.data);
-  };
-  return () => ch.close();
-}
-
-/** Subscribe from the popup side — only sees parent→child messages. */
-export function subscribeTeleprompterChild(
-  handler: (message: TeleprompterParentToChildMessage) => void
-): () => void {
-  if (typeof window === "undefined") return () => {};
-  const ch = new BroadcastChannel(CHANNEL_NAME);
-  ch.onmessage = (e) => {
-    const result = TeleprompterParentToChild.safeParse(e.data);
-    if (result.success) handler(result.data);
-  };
-  return () => ch.close();
-}
+export const teleprompterChannel = createPopupChannel({
+  name: "cvm-teleprompter",
+  url: "/teleprompter",
+  // Sized to the Elgato Prompter's panel (9", 1024x600) so what you judge in
+  // the popup is what you'll get on the glass.
+  windowFeatures: "popup,width=1024,height=600",
+  toChild: TeleprompterParentToChild,
+  toParent: TeleprompterChildToParent,
+});

@@ -51,7 +51,7 @@ import {
   openPlayground,
   openPlaygroundWithDiagram,
 } from "@/lib/diagram-window";
-import { openTeleprompter } from "@/lib/teleprompter-window";
+import { teleprompterChannel } from "@/lib/teleprompter-protocol";
 
 export const VideoPlayerPanel = () => {
   const videoTitle = useContextSelector(
@@ -508,7 +508,7 @@ export const VideoPlayerPanel = () => {
               onShowScriptPanel={onShowScriptPanel}
               onAutofillChaptersClick={onOpenAutofillChaptersModal}
               onOpenDiagramPlayground={handleOpenDiagramPlayground}
-              onOpenTeleprompter={openTeleprompter}
+              onOpenTeleprompter={() => teleprompterChannel.open()}
               onEditLessonBodyClick={() => setIsLessonBodyWriterOpen(true)}
               onAutofillDescriptionClick={() => setIsSeoDescriptionOpen(true)}
             />

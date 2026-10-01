@@ -31,11 +31,7 @@ import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { useEffectReducer } from "use-effect-reducer";
 import { getActiveDiagramId } from "@/lib/diagram-window";
-import { isDiagramFocused } from "@/lib/diagram-focus-tracking";
-import {
-  notifyBrowserFocus,
-  notifyBrowserBlur,
-} from "@/lib/browser-focus-tracking";
+import { browserFocus, diagramFocus } from "@/lib/focus-tracker";
 import { useBrowserLinkCapture } from "@/features/video-editor/hooks/use-browser-link-capture";
 import type { Route } from "./+types/_app.videos.$videoId.edit";
 
@@ -321,8 +317,8 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   useBrowserLinkCapture((event) => {
     dispatch({ type: "browser-event", event });
     if (event.type === "browser-focus") {
-      if (event.focused) notifyBrowserFocus();
-      else notifyBrowserBlur();
+      if (event.focused) browserFocus.focus();
+      else browserFocus.blur();
     }
   });
 
@@ -344,7 +340,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
         type: "clip-audio-window-closed",
         sessionId: activeSession.id,
         activeDiagramId: getActiveDiagramId(),
-        diagramFocused: isDiagramFocused(),
+        diagramFocused: diagramFocus.isFocused(),
         ts: Date.now(),
       });
     },

@@ -15,10 +15,7 @@
  * plumbing: subscribe, poll, dispatch.
  */
 import { useEffect, useMemo, useReducer, useRef } from "react";
-import {
-  subscribeTeleprompterChild,
-  sendToEditor,
-} from "@/lib/teleprompter-protocol";
+import { teleprompterChannel } from "@/lib/teleprompter-protocol";
 import { parseScriptBlocks } from "@/features/teleprompter/script-blocks";
 import { CaptureIndicator } from "@/features/teleprompter/capture-indicator";
 import { TeleprompterControls } from "@/features/teleprompter/teleprompter-controls";
@@ -53,7 +50,7 @@ export default function Teleprompter() {
   connectedRef.current = state.editorConnected;
 
   useEffect(() => {
-    const unsub = subscribeTeleprompterChild((msg) => {
+    const unsub = teleprompterChannel.subscribeChild((msg) => {
       if (msg.type === "editorState") {
         dispatch({
           type: "editor-state",
@@ -80,8 +77,9 @@ export default function Teleprompter() {
     });
 
     const knock = () => {
-      sendToEditor({ type: "ping" });
-      if (!connectedRef.current) sendToEditor({ type: "hello" });
+      teleprompterChannel.sendToParent({ type: "ping" });
+      if (!connectedRef.current)
+        teleprompterChannel.sendToParent({ type: "hello" });
     };
 
     knock();

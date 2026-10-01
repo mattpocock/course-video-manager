@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Plus, Search } from "lucide-react";
-import { sendToParent } from "@/lib/diagram-protocol";
+import { diagramChannel } from "@/lib/diagram-protocol";
 import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
 import { makeSnippet } from "@/features/diagrams/make-snippet";
 import { EditableDiagramName } from "@/features/diagrams/editable-diagram-name";
@@ -98,19 +98,22 @@ export default function DiagramPlaygroundHome({
   }, []);
 
   useEffect(() => {
-    sendToParent({ type: "activeDiagramChanged", diagramId: null });
+    diagramChannel.sendToParent({
+      type: "activeDiagramChanged",
+      diagramId: null,
+    });
   }, []);
 
   useEffect(() => {
     function onFocus() {
-      sendToParent({ type: "focus" });
+      diagramChannel.sendToParent({ type: "focus" });
     }
     function onBlur() {
-      sendToParent({ type: "blur" });
+      diagramChannel.sendToParent({ type: "blur" });
     }
     window.addEventListener("focus", onFocus);
     window.addEventListener("blur", onBlur);
-    if (document.hasFocus()) sendToParent({ type: "focus" });
+    if (document.hasFocus()) diagramChannel.sendToParent({ type: "focus" });
     return () => {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("blur", onBlur);
