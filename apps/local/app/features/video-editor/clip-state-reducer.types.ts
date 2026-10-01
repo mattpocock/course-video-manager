@@ -3,7 +3,6 @@ import type { PauseType } from "@/services/video-processing-service";
 import type { ClipZoomType } from "@/features/videos/clip-zoom";
 import type { SilenceLength } from "@/silence-detection-constants";
 import type { BrowserLinkEvent, CapturedWebLink } from "@/lib/clip-web-link";
-import type { Brand } from "./utils";
 
 /**
  * The schema is typed in terms of `DatabaseId`, so it is declared in
@@ -12,6 +11,9 @@ import type { Brand } from "./utils";
  */
 import type { DatabaseId } from "@cvm/core/db/ids";
 export type { DatabaseId };
+
+type Brand<T, B extends string> = T & { __brand: B };
+
 export type FrontendId = Brand<string, "FrontendId">;
 export type FrontendInsertionPoint =
   | {

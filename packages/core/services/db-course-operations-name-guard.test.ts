@@ -3,7 +3,6 @@ import { beforeAll, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { CourseOperationsService } from "./db-course-operations.server.js";
 import { DrizzleService } from "./drizzle-service.server.js";
-import { courseNameToSlug } from "./course-slug.js";
 import {
   createTestDb,
   truncateAllTables,
@@ -24,36 +23,6 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await truncateAllTables(testDb);
-});
-
-describe("courseNameToSlug", () => {
-  it("lowercases and dashes spaces", () => {
-    expect(courseNameToSlug("My Course")).toBe("my-course");
-  });
-
-  it("strips non-alphanumeric characters", () => {
-    expect(courseNameToSlug("A/B")).toBe("ab");
-  });
-
-  it("collapses consecutive dashes", () => {
-    expect(courseNameToSlug("a--b")).toBe("a-b");
-  });
-
-  it("trims leading/trailing dashes", () => {
-    expect(courseNameToSlug("-hello-")).toBe("hello");
-  });
-
-  it("handles names that collapse to the same slug", () => {
-    expect(courseNameToSlug("A B")).toBe(courseNameToSlug("A-B"));
-  });
-
-  it("returns empty string for non-alphanumeric input", () => {
-    expect(courseNameToSlug("///")).toBe("");
-  });
-
-  it("preserves digits", () => {
-    expect(courseNameToSlug("Course 101")).toBe("course-101");
-  });
 });
 
 describe("createCourse uniqueness guard", () => {

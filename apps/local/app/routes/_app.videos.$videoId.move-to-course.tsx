@@ -21,7 +21,6 @@ import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { data, redirect, Form, useNavigation } from "react-router";
 import type { Route } from "./+types/_app.videos.$videoId.move-to-course";
-import { buildMoveToCourseRedirectUrl } from "@/lib/move-to-course-redirect";
 
 export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Move Video to Course" }];
@@ -88,12 +87,7 @@ export const action = async (args: Route.ActionArgs) => {
     // Update video's lessonId in the database
     yield* videoOps.updateVideoLesson({ videoId, lessonId: targetLessonId });
 
-    return redirect(
-      buildMoveToCourseRedirectUrl({
-        courseId: targetCourseId,
-        lessonId: targetLessonId,
-      })
-    );
+    return redirect(`/courses/${targetCourseId}#${targetLessonId}`);
   }).pipe(
     Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
     Effect.catchTag("ParseError", () => {

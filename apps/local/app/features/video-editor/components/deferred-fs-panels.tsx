@@ -1,12 +1,13 @@
 /**
- * The two panels that can't render until the filesystem scan resolves.
+ * The panels and modals that can't render until the filesystem scan resolves.
  *
- * They're split out from `video-player-panel.tsx` purely so each one can `use()`
- * the promise at its own boundary: suspending here keeps the player itself
- * rendering while the scan is still in flight.
+ * They're split out from `video-player-panel.tsx` and `editor-modals.tsx`
+ * purely so each one can `use()` the promise at its own boundary: suspending
+ * here keeps the player itself rendering while the scan is still in flight.
  */
 import { use } from "react";
 import { AddVideoModal } from "@/components/add-video-modal";
+import { VideoFilePasteModal } from "@/components/video-file-paste-modal";
 import {
   SuggestionsPanel,
   type SuggestionsPanelProps,
@@ -38,4 +39,15 @@ export const DeferredAddVideoModal = (props: {
   return (
     <AddVideoModal {...rest} hasExplainerFolder={fsData.hasExplainerFolder} />
   );
+};
+
+export const DeferredVideoFilePasteModal = (props: {
+  fsData: FsData;
+  videoId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const { fsData: fsDataPromise, ...rest } = props;
+  const fsData = use(fsDataPromise);
+  return <VideoFilePasteModal {...rest} existingFiles={fsData.files} />;
 };

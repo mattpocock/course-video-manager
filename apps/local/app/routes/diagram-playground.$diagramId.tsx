@@ -27,7 +27,7 @@ import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
 import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
 import { DiagramEditorBoundary } from "@/features/diagrams/unknown-shape-boundary";
-import { DiagramCommandPalette } from "@/features/diagrams/palette/diagram-command-palette";
+import { CommandPalette } from "@/features/diagrams/palette/command-palette";
 
 export const loader = loadDiagramPlaygroundActive;
 
@@ -518,7 +518,7 @@ export default function DiagramPlaygroundActive({
         </DiagramEditorBoundary>
         {/* Active Diagram window only — never Playground Home. */}
         {diagramId && (
-          <DiagramCommandPalette
+          <CommandPalette
             diagramId={diagramId}
             editorRef={editorRef}
             flushPendingSave={flushPendingSave}

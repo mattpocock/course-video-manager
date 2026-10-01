@@ -45,6 +45,18 @@ describe("toSlug", () => {
   it("handles mixed case with special characters", () => {
     expect(toSlug("What's Up, Doc?")).toBe("whats-up-doc");
   });
+
+  it("strips a slash without leaving a dash", () => {
+    expect(toSlug("A/B")).toBe("ab");
+  });
+
+  it("gives the same slug to names that differ only by space or dash", () => {
+    expect(toSlug("A B")).toBe(toSlug("A-B"));
+  });
+
+  it("returns empty string for input with no letters or digits", () => {
+    expect(toSlug("///")).toBe("");
+  });
 });
 
 describe("deriveLessonPath", () => {

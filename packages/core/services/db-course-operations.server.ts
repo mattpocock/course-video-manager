@@ -17,7 +17,6 @@ import {
 } from "./db-service-errors.js";
 import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
-import { courseNameToSlug } from "./course-slug.js";
 import {
   formatProseTranscript,
   toTranscriptItems,
@@ -25,6 +24,7 @@ import {
 import { makeDuplicateCourse } from "./db-course-duplicate.server.js";
 import { attachDerivedPaths } from "./path-projection.js";
 import { overlayExportRelation } from "./db-overlay-operations.server.js";
+import { toSlug } from "./lesson-path-service.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -55,7 +55,7 @@ export const createCourseOperations = (db: Database) => {
     name: string,
     excludeCourseId?: string
   ) {
-    const slug = courseNameToSlug(name);
+    const slug = toSlug(name);
     if (!slug) {
       return yield* new CourseNameTakenError({
         name,

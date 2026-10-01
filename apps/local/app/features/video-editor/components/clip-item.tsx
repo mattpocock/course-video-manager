@@ -133,9 +133,9 @@ export const ClipItem = (props: ClipItemProps) => {
     VideoEditorContext,
     (ctx) => ctx.setIsCreateVideoModalOpen
   );
-  const onUnpinDiagram = useContextSelector(
+  const onUpdateClipDiagramPin = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.onUnpinDiagram
+    (ctx) => ctx.onUpdateClipDiagramPin
   );
   // Every Overlay that COVERS this Clip, anchored to it or spilling onto it
   // from an earlier one — the same grouping the player preview draws from, so
@@ -475,7 +475,12 @@ export const ClipItem = (props: ClipItemProps) => {
         {clip.type === "on-database" && clip.diagramSnapshotId && (
           <ContextMenuItem
             onSelect={() => {
-              onUnpinDiagram(clip.frontendId);
+              onUpdateClipDiagramPin(
+                clip.frontendId,
+                clip.databaseId,
+                null,
+                null
+              );
             }}
           >
             <XIcon />

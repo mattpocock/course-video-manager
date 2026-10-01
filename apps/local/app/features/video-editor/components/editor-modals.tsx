@@ -7,7 +7,7 @@ import type { ChapterNamingModal } from "../types";
 import { VideoEditorContext } from "../video-editor-context";
 import { ChapterNamingModal as ChapterNamingModalComponent } from "./chapter-naming-modal";
 import { CreateVideoFromSelectionModal } from "./create-video-from-selection-modal";
-import { FilePasteModalWithFsData } from "./file-paste-modal-with-fs-data";
+import { DeferredVideoFilePasteModal } from "./deferred-fs-panels";
 
 /**
  * Every dialog the editor keeps mounted alongside its panels. They live in one
@@ -87,16 +87,15 @@ export const EditorModals = (props: {
         onAddChapterAt={onAddChapterAt}
       />
       <Suspense>
-        <FilePasteModalWithFsData
+        <DeferredVideoFilePasteModal
           fsData={fsData}
           videoId={videoId}
-          isPasteModalOpen={props.isPasteModalOpen}
-          handlePasteModalClose={(open) => {
+          open={props.isPasteModalOpen}
+          onOpenChange={(open) => {
             props.setIsPasteModalOpen(open);
             // Revalidate to refresh the file list
             if (!open) revalidator.revalidate();
           }}
-          handleFileCreated={() => {}}
         />
       </Suspense>
       <RenameVideoModal
