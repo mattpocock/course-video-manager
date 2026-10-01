@@ -36,8 +36,13 @@ const setup = async () => {
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
-  const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
+  const run = <A, E>(
+    effect: Effect.Effect<
+      A,
+      E,
+      CourseWriteService | LessonSectionOperationsService
+    >
+  ) => Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const repo = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -141,17 +146,14 @@ describe("CourseWriteService (DB-only)", () => {
       const lesson = await getLesson(addResult.lessonId);
       expect(lesson.authoringStatus).toBe("todo");
 
-      const renameResult = await run(
+      await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.renameLesson(
-            addResult.lessonId,
-            "where-we-are-going"
-          );
+          const lsOps = yield* LessonSectionOperationsService;
+          yield* lsOps.updateLesson(addResult.lessonId, {
+            title: "where-we-are-going",
+          });
         })
       );
-      expect(renameResult.title).toBe("where-we-are-going");
-
       const updatedLesson = await getLesson(addResult.lessonId);
       expect(updatedLesson.title).toBe("where-we-are-going");
     });
@@ -221,14 +223,13 @@ describe("CourseWriteService (DB-only)", () => {
       const section = await createSection("Intro", 1);
       await createLesson(section.id, "Lesson", 1);
 
-      const result = await run(
+      await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.archiveSection(section.id);
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.archiveSection(section.id);
         })
       );
 
-      expect(result.success).toBe(true);
       const archived = await getSection(section.id);
       expect(archived.archivedAt).not.toBeNull();
     });
@@ -266,8 +267,8 @@ describe("CourseWriteService (DB-only)", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.archiveSection(section.id);
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.archiveSection(section.id);
         })
       );
 

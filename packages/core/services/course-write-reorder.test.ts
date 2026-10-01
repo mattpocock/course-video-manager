@@ -36,8 +36,13 @@ const setup = async () => {
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
-  const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
+  const run = <A, E>(
+    effect: Effect.Effect<
+      A,
+      E,
+      CourseWriteService | LessonSectionOperationsService
+    >
+  ) => Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const repo = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -112,7 +117,7 @@ const setup = async () => {
 };
 
 describe("CourseWriteService", () => {
-  describe("reorderLessons", () => {
+  describe("LessonSectionOperationsService.batchUpdateLessonOrders", () => {
     it("reverses lesson order values in the database", async () => {
       const { run, createSection, createLessonWithPath, getLesson } =
         await setup();
@@ -124,11 +129,11 @@ describe("CourseWriteService", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.reorderLessons(section.id, [
-            l3.id,
-            l2.id,
-            l1.id,
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.batchUpdateLessonOrders([
+            { id: l3.id, order: 0 },
+            { id: l2.id, order: 1 },
+            { id: l1.id, order: 2 },
           ]);
         })
       );
@@ -154,12 +159,12 @@ describe("CourseWriteService", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.reorderLessons(section.id, [
-            g4.id,
-            g3.id,
-            g2.id,
-            g1.id,
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.batchUpdateLessonOrders([
+            { id: g4.id, order: 0 },
+            { id: g3.id, order: 1 },
+            { id: g2.id, order: 2 },
+            { id: g1.id, order: 3 },
           ]);
         })
       );
@@ -185,8 +190,10 @@ describe("CourseWriteService", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.reorderLessons(section.id, [g1.id]);
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.batchUpdateLessonOrders([
+            { id: g1.id, order: 0 },
+          ]);
         })
       );
 

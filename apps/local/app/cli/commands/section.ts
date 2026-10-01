@@ -4,7 +4,6 @@ import { sectionSearchCmd } from "./search";
 import { sectionLintCmd } from "./section-lint";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { CourseWriteService } from "@/services/course-write-service";
 import {
   detail,
   emitGet,
@@ -48,13 +47,12 @@ import {
  * is a destructive, one-way soft-delete (sets `archivedAt`) — the same shape as
  * `cvm lesson archive`. See SECTION_HELP / ARCHIVE_HELP for the full contrast.
  *
- * `create`/`rename`/`archive` call LessonSectionOperationsService primitives
- * directly (not CourseWriteService) and do their own order math in the command
- * handler, the same way `cvm lesson create`/`archive` do. `move` instead
- * delegates its reorder to `CourseWriteService.reorderSections`, the same way
- * `cvm lesson move`'s within-section reorder delegates to
- * `CourseWriteService.reorderLessons` — a Section's only "parent" is the Course
- * Version itself, so `move` has no cross-parent re-homing case (no
+ * Every verb here calls LessonSectionOperationsService primitives directly and
+ * does its own order math in the command handler, the same way `cvm lesson
+ * create`/`archive`/`move` do. `move` writes the new order with
+ * `batchUpdateSectionOrders`, the same way `cvm lesson move`'s within-section
+ * reorder uses `batchUpdateLessonOrders` — a Section's only "parent" is the
+ * Course Version itself, so `move` has no cross-parent re-homing case (no
  * `moveToSection` equivalent) the way `lesson move` does.
  */
 
@@ -379,7 +377,6 @@ const moveCmd = Command.make(
       const anchorId = b ?? a;
 
       const svc = yield* ops;
-      const writes = yield* CourseWriteService;
       const section = yield* svc
         .getSectionWithHierarchyById(id)
         .pipe(Effect.catchTag("NotFoundError", () => notFound("section", id)));
@@ -408,7 +405,9 @@ const moveCmd = Command.make(
         id,
         ...rest.slice(insertAt).map((sec) => sec.id),
       ];
-      yield* writes.reorderSections(newOrderIds);
+      yield* svc.batchUpdateSectionOrders(
+        newOrderIds.map((sectionId, order) => ({ id: sectionId, order }))
+      );
 
       const moved = yield* svc.getSectionWithHierarchyById(id);
       yield* emitObject(moved);

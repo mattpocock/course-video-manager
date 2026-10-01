@@ -1,8 +1,10 @@
 /**
  * CourseEditorService Handler
  *
- * Processes CourseEditorEvents by delegating to CourseWriteService
- * (for structural operations) or LessonSectionOperationsService (for property updates).
+ * Processes CourseEditorEvents by delegating to CourseWriteService (for the
+ * writes with real logic: add/create and cross-Section moves) or straight to
+ * LessonSectionOperationsService (for everything else, including archive,
+ * delete, rename and reorder).
  * Also provides the direct transport factory for testing.
  */
 
@@ -57,11 +59,15 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "archive-section": {
-        return yield* service.archiveSection(event.sectionId);
+        yield* lessonSectionOps.archiveSection(event.sectionId);
+        return { success: true };
       }
 
       case "reorder-sections": {
-        return yield* service.reorderSections(event.sectionIds);
+        yield* lessonSectionOps.batchUpdateSectionOrders(
+          event.sectionIds.map((id, order) => ({ id, order }))
+        );
+        return { success: true };
       }
 
       // --- Lesson events ---
@@ -80,7 +86,10 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "update-lesson-name": {
-        return yield* service.renameLesson(event.lessonId, event.newSlug);
+        yield* lessonSectionOps.updateLesson(event.lessonId, {
+          title: event.newSlug,
+        });
+        return { success: true, title: event.newSlug };
       }
 
       case "update-lesson-title": {
@@ -127,11 +136,15 @@ export const handleCourseEditorEvent = Effect.fn("handleCourseEditorEvent")(
       }
 
       case "delete-lesson": {
-        return yield* service.deleteLesson(event.lessonId);
+        yield* lessonSectionOps.deleteLesson(event.lessonId);
+        return { success: true };
       }
 
       case "reorder-lessons": {
-        return yield* service.reorderLessons(event.sectionId, event.lessonIds);
+        yield* lessonSectionOps.batchUpdateLessonOrders(
+          event.lessonIds.map((id, order) => ({ id, order }))
+        );
+        return { success: true };
       }
 
       case "move-lesson-to-section": {

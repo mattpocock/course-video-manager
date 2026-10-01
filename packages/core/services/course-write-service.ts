@@ -99,51 +99,8 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
         };
       });
 
-      const deleteLesson = Effect.fn("deleteLesson")(function* (
-        lessonId: string
-      ) {
-        yield* lessonSectionOps.deleteLesson(lessonId);
-        return { success: true };
-      });
-
-      const renameLesson = Effect.fn("renameLesson")(function* (
-        lessonId: string,
-        newSlug: string
-      ) {
-        yield* lessonSectionOps.updateLesson(lessonId, {
-          title: newSlug,
-        });
-        return { success: true, title: newSlug };
-      });
-
-      const reorderLessons = Effect.fn("reorderLessons")(function* (
-        _sectionId: string,
-        newOrderIds: readonly string[]
-      ) {
-        yield* lessonSectionOps.batchUpdateLessonOrders(
-          newOrderIds.map((id, i) => ({ id, order: i }))
-        );
-        return { success: true, renames: [] };
-      });
-
       const { moveToSection, moveLessonsToSection } =
         createMoveOps(lessonSectionOps);
-
-      const archiveSection = Effect.fn("archiveSection")(function* (
-        sectionId: string
-      ) {
-        yield* lessonSectionOps.archiveSection(sectionId);
-        return { success: true };
-      });
-
-      const reorderSections = Effect.fn("reorderSections")(function* (
-        sectionIds: readonly string[]
-      ) {
-        yield* lessonSectionOps.batchUpdateSectionOrders(
-          sectionIds.map((id, i) => ({ id, order: i }))
-        );
-        return { success: true };
-      });
 
       const renameSection = Effect.fn("renameSection")(function* (
         sectionId: string,
@@ -162,14 +119,9 @@ export class CourseWriteService extends Effect.Service<CourseWriteService>()(
 
       return {
         createLesson,
-        reorderLessons,
-        reorderSections,
         renameSection,
-        archiveSection,
         addSection,
         addLesson,
-        deleteLesson,
-        renameLesson,
         moveToSection,
         moveLessonsToSection,
       };
