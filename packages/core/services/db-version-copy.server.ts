@@ -46,7 +46,8 @@ const makeDbCall = <T>(fn: () => Promise<T>) =>
  * table lives in one file of its own, away from the version readers.
  *
  * Both exits from `copyVersionStructureInDb` are here: `copyVersionStructure`
- * (manual create-version, which freezes its source itself) and
+ * (which freezes its source itself; no app path calls it any more, only tests
+ * that need a Published Version in one step) and
  * `freezeAndCloneVersion` (**Submit**, whose transaction lives in
  * db-version-mutation.server.ts). Spread into VersionOperationsService's
  * returned object, so callers see them as ordinary service methods.
@@ -336,7 +337,7 @@ export const createVersionCopyOps = (db: Database) => {
         // cloning, so no write can land on the source mid-freeze.
         yield* requireDraftVersion(transaction, input.sourceVersionId);
         const result = yield* copyVersionStructureInDb(transaction, input);
-        // Manual create-version freezes its source without a Dropbox commit:
+        // This copy freezes its source without a Dropbox commit:
         // the old Draft becomes an immutable `published` snapshot (that is what
         // the positional model treated every non-latest version as), and the
         // clone becomes the course's single Draft.

@@ -8,10 +8,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Effect } from "effect";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
-import { CoursePublishService } from "@/services/course-publish-service";
 import {
   copyBatchCount,
   DROPBOX_REMOTE_PATH,
@@ -31,7 +29,7 @@ setupDropboxUploadTests();
 
 describe("Dropbox publish upload — reuse from the previous Bundle", () => {
   it("copies an unchanged Video inside Dropbox rather than sending its bytes again", async () => {
-    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+    const { course, run, commit, sync } = await setupUploads({ videoCount: 2 });
 
     // First release. Every Video is uploaded, and the Commit receipt names
     // the Bundle they landed in.
@@ -41,16 +39,7 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
     expect(remoteBundleDirs()).toHaveLength(1);
 
     const secondVersionId = await freezeLatestVersion(course, run);
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncFrozenVersionToDropbox(
-          course.id,
-          secondVersionId,
-          true
-        );
-      })
-    );
+    await commit(secondVersionId);
 
     // A second Bundle exists and holds both Videos — but not one further byte
     // left this machine to put them there.
@@ -61,7 +50,9 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
   }, 30_000);
 
   it("takes the manifest's sha256 from the local export, not from the previous manifest", async () => {
-    const { course, videos, run, sync } = await setupUploads({ videoCount: 2 });
+    const { course, videos, run, commit, sync } = await setupUploads({
+      videoCount: 2,
+    });
 
     await sync();
 
@@ -78,16 +69,7 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
     fakeDropbox.store(receiptPath, Buffer.from(JSON.stringify(poisoned)));
 
     const secondVersionId = await freezeLatestVersion(course, run);
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncFrozenVersionToDropbox(
-          course.id,
-          secondVersionId,
-          true
-        );
-      })
-    );
+    await commit(secondVersionId);
 
     // Nothing crossed the wire, and the receipt still describes the bytes on
     // this machine — the Byte Hash decided the copy, the local export decided
@@ -107,7 +89,7 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
   }, 30_000);
 
   it("uploads after all when the previous Bundle's file has gone", async () => {
-    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+    const { course, run, commit, sync } = await setupUploads({ videoCount: 2 });
 
     await sync();
     const uploadsAfterFirstRelease = videoUploadCount();
@@ -119,16 +101,7 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
     }
 
     const secondVersionId = await freezeLatestVersion(course, run);
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncFrozenVersionToDropbox(
-          course.id,
-          secondVersionId,
-          true
-        );
-      })
-    );
+    await commit(secondVersionId);
 
     // The Publish stands. It just paid for it.
     expect(videoUploadCount()).toBe(uploadsAfterFirstRelease + 2);
@@ -136,22 +109,14 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
   }, 30_000);
 
   it("reports byte-weighted progress for a Video that was copied, not sent", async () => {
-    const { course, run, sync } = await setupUploads({ videoCount: 2 });
+    const { course, run, commit, sync } = await setupUploads({ videoCount: 2 });
 
     await sync();
 
     const secondVersionId = await freezeLatestVersion(course, run);
     const percentages: number[] = [];
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncFrozenVersionToDropbox(
-          course.id,
-          secondVersionId,
-          true,
-          (_event, data) => percentages.push(data.percentage)
-        );
-      })
+    await commit(secondVersionId, (_event, data) =>
+      percentages.push(data.percentage)
     );
 
     // Every Video is in the byte-weighted denominator, whether it turns out to
@@ -167,7 +132,9 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
   }, 30_000);
 
   it("issues the copy batch while an upload is still in flight", async () => {
-    const { course, videos, run, sync } = await setupUploads({ videoCount: 2 });
+    const { course, videos, run, commit, sync } = await setupUploads({
+      videoCount: 2,
+    });
 
     await sync();
 
@@ -187,16 +154,7 @@ describe("Dropbox publish upload — reuse from the previous Bundle", () => {
     );
 
     const secondVersionId = await freezeLatestVersion(course, run);
-    await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncFrozenVersionToDropbox(
-          course.id,
-          secondVersionId,
-          true
-        );
-      })
-    );
+    await commit(secondVersionId);
 
     expect(copyBatchCount()).toBe(1);
     expect(remoteBundleVideoPaths()).toHaveLength(4);

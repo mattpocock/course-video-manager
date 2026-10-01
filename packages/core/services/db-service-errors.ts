@@ -20,12 +20,6 @@ export class NotLatestVersionError extends Data.TaggedError(
   latestVersionId: string;
 }> {}
 
-export class CannotUpdatePublishedVersionError extends Data.TaggedError(
-  "CannotUpdatePublishedVersionError"
-)<{
-  versionId: string;
-}> {}
-
 /**
  * Write-closure: only a Draft Version accepts section/lesson/video/clip
  * writes. A Pending or Published Version is immutable, and every DB-mutation
@@ -66,13 +60,6 @@ export class PendingVersionExistsError extends Data.TaggedError(
 )<{
   repoId: string;
   pendingVersionId: string;
-}> {}
-
-export class CannotArchiveLessonVideoError extends Data.TaggedError(
-  "CannotArchiveLessonVideoError"
-)<{
-  videoId: string;
-  lessonId: string;
 }> {}
 
 export class CourseNameTakenError extends Data.TaggedError(

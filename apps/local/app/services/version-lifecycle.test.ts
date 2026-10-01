@@ -223,26 +223,6 @@ describe("CourseVersion lifecycle (Draft → Pending → Published)", () => {
     expect(result.draftTag).toBe("VersionNotPendingError");
     expect(result.publishedTag).toBe("VersionNotPendingError");
   });
-
-  it("renaming a non-Draft version is refused", async () => {
-    const { course, version, run } = await setup();
-
-    const tag = await run(
-      Effect.gen(function* () {
-        const versionOps = yield* VersionOperationsService;
-        yield* submit({ sourceVersionId: version.id, repoId: course.id });
-        return yield* failureTag(
-          versionOps.updateCourseVersion({
-            versionId: version.id,
-            name: "v9.9.9",
-            description: "nope",
-          })
-        );
-      })
-    );
-
-    expect(tag).toBe("CannotUpdatePublishedVersionError");
-  });
 });
 
 describe("write-closure (VersionNotDraftError)", () => {

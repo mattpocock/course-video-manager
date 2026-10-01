@@ -81,8 +81,8 @@ export class InvalidLessonRoleComboError extends Data.TaggedError(
 // writes it), so no floor position can announce the Lesson instead — and the
 // schema types the field as a string. Refusing here rather than in the publish
 // page's lint gate is what makes the guarantee hold on EVERY path into a
-// manifest, including the standalone Dropbox re-sync, which runs no lint gate
-// and would otherwise overwrite the live course.json with `"description": null`.
+// manifest, including any that runs no lint gate and would otherwise overwrite
+// the live course.json with `"description": null`.
 export class IncompleteShippingVideoError extends Data.TaggedError(
   "IncompleteShippingVideoError"
 )<IncompleteVideo> {}
@@ -315,7 +315,7 @@ export const buildCourseJson = (
     // THE ONE GATE EVERY PATH INTO A MANIFEST PASSES THROUGH. The pre-publish
     // page reads the exact same blockers, so a doomed publish is refused before
     // it starts; this is what makes the guarantee hold anyway on a path that
-    // never asked the page — the standalone Dropbox re-sync. We fail on the
+    // never asked the page. We fail on the
     // first of either list, matching the page, which blocks publish until it is
     // fixed.
     //

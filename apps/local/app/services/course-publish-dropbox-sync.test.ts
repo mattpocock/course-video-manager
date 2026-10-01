@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
-import { createFakeOverlayRenderCache } from "@/test-utils/fake-overlay-render-cache";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -20,8 +19,8 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
-import { VideoProcessingService } from "@/services/video-processing-service";
-import { CoursePublishService } from "@/services/course-publish-service";
+import { syncFrozenCourseVersionToDropbox } from "@/services/course-publish-dropbox";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
 import {
   computeExportHash,
   resolveExportPath,
@@ -32,12 +31,7 @@ import {
   videos as videosTable,
   dropboxAuth,
 } from "@/db/schema";
-import { fromPartial } from "@total-typescript/shoehorn";
 import { eq } from "drizzle-orm";
-import {
-  honestRenderedDurationInSeconds,
-  soundExportDurationProbe,
-} from "@/test-utils/fake-video-processing";
 
 let testDb: TestDb;
 let finishedVideosDir: string;
@@ -73,26 +67,6 @@ const setupSync = async () => {
     LessonSectionOperationsService.Default,
     LinkAuthOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
-
-  const mockVideoProcessing = Layer.succeed(
-    VideoProcessingService,
-    fromPartial({
-      exportVideoClips: (opts: any) =>
-        Effect.sync(() => {
-          const outputPath = path.join(
-            finishedVideosDir,
-            `${opts.videoId}.mp4`
-          );
-          fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-          fs.writeFileSync(outputPath, "dummy-video-content");
-          return {
-            outputPath,
-            durationInSeconds: honestRenderedDurationInSeconds(opts),
-          };
-        }),
-      getVideoDurationInSeconds: soundExportDurationProbe,
-    })
-  );
 
   const course = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -227,15 +201,10 @@ const setupSync = async () => {
     VideoOperationsService.Default,
     VersionOperationsService.Default,
     LinkAuthOperationsService.Default,
-    mockVideoProcessing,
-    createFakeOverlayRenderCache().layer,
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
 
-  const testLayer = Layer.merge(
-    coreTestLayer,
-    CoursePublishService.Default.pipe(Layer.provide(coreTestLayer))
-  );
+  const testLayer = coreTestLayer;
 
   const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
     Effect.runPromise(
@@ -248,6 +217,27 @@ const setupSync = async () => {
 afterEach(() => {
   fakeDropbox?.cleanup();
 });
+
+/**
+ * Commit a Published Version to Dropbox: the same Bundle commit a Publish
+ * ends with, with no export phase in front of it.
+ */
+const commitPublished = (
+  courseId: string,
+  courseVersionId: string,
+  includeTodoLessons: boolean,
+  onProgress?: (event: "progress", data: { percentage: number }) => void
+) =>
+  syncFrozenCourseVersionToDropbox({
+    courseId,
+    courseVersionId,
+    includeTodoLessons,
+    placeholderFloor: ANNOUNCE_NOTHING,
+    onDetailEvent: (e) => {
+      if (e.event === "progress") onProgress?.("progress", e.data);
+    },
+    awaitVideoReady: () => Effect.void,
+  });
 
 function getRemoteManifest(): any {
   const stored = fakeDropbox.get(
@@ -267,14 +257,13 @@ function getManifestVideos(doc: any): Array<{ relativePath: string }> {
   );
 }
 
-describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
+describe("syncFrozenCourseVersionToDropbox (Dropbox HTTP API)", () => {
   it("uploads video files to Dropbox", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -286,12 +275,11 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("uploads videos for all lessons", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -305,13 +293,12 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("verifies existing bundle integrity via content_hash + size", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     // First sync creates the bundle.
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -319,8 +306,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     const callsBefore = fakeDropbox.fetchCalls.length;
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -340,12 +326,11 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("rejects bundle corruption without moving the commit marker", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -363,8 +348,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     await expect(
       run(
         Effect.gen(function* () {
-          const svc = yield* CoursePublishService;
-          yield* svc.syncToDropbox(course.id, true);
+          return yield* commitPublished(course.id, version.id, true);
         })
       )
     ).rejects.toBeDefined();
@@ -375,12 +359,11 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("writes only .mp4, course.json, manifest.json, and course.schema.json — no authoring sidecars", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -405,15 +388,19 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("emits per-lesson progress events", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     const events: Array<{ event: string; data: unknown }> = [];
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true, (event, data) => {
-          events.push({ event, data });
-        });
+        return yield* commitPublished(
+          course.id,
+          version.id,
+          true,
+          (event, data) => {
+            events.push({ event, data });
+          }
+        );
       })
     );
 
@@ -424,7 +411,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("returns missingVideos without writing an incomplete manifest", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     const files = fs.readdirSync(finishedVideosDir);
     for (const file of files) {
@@ -433,8 +420,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -449,8 +435,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -465,12 +450,11 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("course.json contains no path field", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -483,12 +467,11 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("course.json uses lineageId as correlation id", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -500,12 +483,11 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("course.json includes the render-input hash and exported byte receipt", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -519,7 +501,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("does not resolve or publish archived videos", async () => {
-    const { course, video2, run } = await setupSync();
+    const { course, version, video2, run } = await setupSync();
     await testDb
       .update(clipsTable)
       .set({ sourceEndTime: 99 })
@@ -531,8 +513,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
 
     const result = await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
 
@@ -545,12 +526,11 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   // ── Withholding to-do lessons (includeTodoLessons = false) ──────────
 
   it("withholds a to-do lesson's folder and omits it from course.json", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, false);
+        return yield* commitPublished(course.id, version.id, false);
       })
     );
 
@@ -567,13 +547,12 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
   });
 
   it("keeps the prior immutable bundle when a later manifest withholds a to-do lesson", async () => {
-    const { course, run } = await setupSync();
+    const { course, version, run } = await setupSync();
 
     // First publish includes the to-do lesson.
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, true);
+        return yield* commitPublished(course.id, version.id, true);
       })
     );
     const firstDoc = getRemoteManifest();
@@ -586,8 +565,7 @@ describe("CoursePublishService.syncToDropbox (Dropbox HTTP API)", () => {
     // A later publish withholds it.
     await run(
       Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        yield* svc.syncToDropbox(course.id, false);
+        return yield* commitPublished(course.id, version.id, false);
       })
     );
     const secondDoc = getRemoteManifest();

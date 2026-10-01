@@ -8,11 +8,7 @@ import {
   sections,
   videos,
 } from "../db/schema.js";
-import {
-  CannotUpdatePublishedVersionError,
-  NotFoundError,
-  UnknownDBServiceError,
-} from "./db-service-errors.js";
+import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { asc, and, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { toTranscriptItems } from "../lib/transcript-builder.js";
@@ -249,48 +245,6 @@ export const createVersionOperations = (db: Database) => {
     }
   );
 
-  const updateCourseVersion = Effect.fn("updateCourseVersion")(
-    function* (opts: { versionId: string; name: string; description: string }) {
-      const { versionId, name, description } = opts;
-
-      const version = yield* makeDbCall(() =>
-        db.query.courseVersions.findFirst({
-          where: eq(courseVersions.id, versionId),
-        })
-      );
-
-      if (!version) {
-        return yield* new NotFoundError({
-          type: "updateCourseVersion",
-          params: { versionId },
-        });
-      }
-
-      // The commit state is authoritative: only a Draft Version may be
-      // renamed. (Previously inferred positionally from "latest by createdAt".)
-      if (version.commitState !== "draft") {
-        return yield* new CannotUpdatePublishedVersionError({ versionId });
-      }
-
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(courseVersions)
-          .set({ name, description })
-          .where(eq(courseVersions.id, versionId))
-          .returning()
-      );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateCourseVersion",
-          params: { versionId },
-        });
-      }
-
-      return updated;
-    }
-  );
-
   const getVideoIdsForVersion = Effect.fn("getVideoIdsForVersion")(function* (
     versionId: string
   ) {
@@ -400,7 +354,6 @@ export const createVersionOperations = (db: Database) => {
     getCourseWithSectionsByVersionSlim,
     getVersionWithSections,
     createCourseVersion,
-    updateCourseVersion,
     // copyVersionStructure / freezeAndCloneVersion — the copy-forward seam
     // (split for the file token budget).
     ...createVersionCopyOps(db),

@@ -2,7 +2,6 @@ import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { CourseOperationsService } from "./db-course-operations.server.js";
 import { clips, chapters, videos, clipWebLinks } from "../db/schema.js";
 import {
-  CannotArchiveLessonVideoError,
   NotFoundError,
   UnknownDBServiceError,
   VideoTitleTakenError,
@@ -405,9 +404,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
    *
    * Returns the archived row (and NotFoundError when the id is absent) so a
    * caller can echo what the database now holds — that is what the CLI's write
-   * verbs all do. Distinct from `updateVideoArchiveStatus`, which is the
-   * Standalone-videos page's two-way archive/restore TOGGLE and refuses
-   * lesson-bound videos outright.
+   * verbs all do.
    */
   const deleteVideo = Effect.fn("deleteVideo")(function* (videoId: string) {
     yield* requireDraftVersionForVideo(db, videoId);
@@ -482,50 +479,6 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
         .where(eq(videos.id, opts.videoId))
     );
   });
-
-  const updateVideoArchiveStatus = Effect.fn("updateVideoArchiveStatus")(
-    function* (opts: { videoId: string; archived: boolean }) {
-      const { videoId, archived } = opts;
-
-      // First verify the video is a standalone video (lessonId is NULL)
-      const video = yield* makeDbCall(() =>
-        db.query.videos.findFirst({
-          where: eq(videos.id, videoId),
-        })
-      );
-
-      if (!video) {
-        return yield* new NotFoundError({
-          type: "updateVideoArchiveStatus",
-          params: { videoId },
-        });
-      }
-
-      if (video.lessonId !== null) {
-        return yield* new CannotArchiveLessonVideoError({
-          videoId,
-          lessonId: video.lessonId,
-        });
-      }
-
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(videos)
-          .set({ archived })
-          .where(eq(videos.id, videoId))
-          .returning()
-      );
-
-      if (!updated) {
-        return yield* new NotFoundError({
-          type: "updateVideoArchiveStatus",
-          params: { videoId },
-        });
-      }
-
-      return updated;
-    }
-  );
 
   /**
    * Get the 3 most recent videos (by createdAt) that have 10+ unarchived clips.
@@ -614,7 +567,6 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     copyVideo,
     updateVideoLesson,
     ...createVideoWriteOps(db),
-    updateVideoArchiveStatus,
     ...createVideoNavigationOps({ getCourseNavigationData }),
     getVideosForFewShotExamples,
   };

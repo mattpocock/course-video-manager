@@ -7,7 +7,6 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { VideoProcessingService } from "@/services/video-processing-service";
 import { CoursePublishService } from "@/services/course-publish-service";
 import {
-  DROPBOX_REMOTE_PATH,
   fakeDropbox,
   finishedVideosDir,
   setupPublishServiceTests,
@@ -250,38 +249,6 @@ describe("CoursePublishService — publish", () => {
       name: "",
       commitState: "draft",
     });
-  });
-
-  it("re-syncs the newest Published Version by commit state", async () => {
-    const { course, run } = await setup();
-
-    const result = await run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        const outcome = yield* svc.publish({
-          courseId: course.id,
-          versionName: "v1.0",
-          versionDescription: "First release",
-          includeTodoLessons: false,
-          placeholderFloor: ANNOUNCE_NOTHING,
-        });
-        // Delete the remote receipt, then re-sync.
-        fakeDropbox.files.delete(
-          `${DROPBOX_REMOTE_PATH}/test-course/course.json`.toLowerCase()
-        );
-        const retry = yield* svc.syncToDropbox(course.id, false);
-        const stored = fakeDropbox.get(
-          `${DROPBOX_REMOTE_PATH}/test-course/course.json`
-        );
-        const manifest = JSON.parse(stored!.content.toString("utf-8"));
-        return { outcome, retry, manifest };
-      })
-    );
-
-    expect(result.retry.missingVideos).toEqual([]);
-    expect(result.manifest.courseVersionId).toBe(
-      result.outcome.publishedVersionId
-    );
   });
 
   it("fails with PublishValidationError when export fails after retries", async () => {

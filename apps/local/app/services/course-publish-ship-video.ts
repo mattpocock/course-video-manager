@@ -182,7 +182,7 @@ export function createShipVideo(deps: {
    * Video at its address, and the export it was made from has since been
    * collected — so the manifest's SHA256 could not be recovered and the whole
    * Publish was discarded. It arises only where no export phase runs in front
-   * of this one, i.e. the manual re-sync of an already-Published Version.
+   * of this one, i.e. a commit of an already-Published Version.
    *
    * The previous Bundle answers it. The landed file's own Byte Hash finds the
    * previous manifest's entry for those exact bytes, and that entry owes the
