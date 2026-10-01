@@ -164,12 +164,3 @@ export const getAiHeroAccessToken = Effect.gen(function* () {
 
   return auth.accessToken;
 });
-
-/**
- * Check if the user is authenticated with AI Hero.
- */
-export const isAiHeroAuthenticated = Effect.gen(function* () {
-  const linkAuthOps = yield* LinkAuthOperationsService;
-  const auth = yield* linkAuthOps.getAiHeroAuth();
-  return auth !== null;
-});

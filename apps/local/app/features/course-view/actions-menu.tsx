@@ -15,7 +15,6 @@ import {
   ChevronDown,
   Copy,
   Download,
-  Film,
   FileText,
   FileX,
   PencilIcon,
@@ -158,43 +157,25 @@ export function ActionsDropdown({
           </DropdownMenuItem>
         </DropdownMenuGroup>
 
-        {data.selectedVersion &&
-          (data.showMediaFilesList || data.versions.length > 1) && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Version</DropdownMenuLabel>
-              <DropdownMenuGroup>
-                {data.showMediaFilesList && (
-                  <DropdownMenuItem asChild>
-                    <Link
-                      to={`/courses/${currentCourse.id}/versions/${data.selectedVersion.id}/media-files`}
-                    >
-                      <Film className="w-4 h-4 mr-2" />
-                      <div className="flex flex-col">
-                        <span className="font-medium">View Media Files</span>
-                        <span className="text-xs text-muted-foreground">
-                          List source footage for clips
-                        </span>
-                      </div>
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {data.versions.length > 1 && (
-                  <DropdownMenuItem asChild>
-                    <Link to={`/courses/${currentCourse.id}/changelog`}>
-                      <FileText className="w-4 h-4 mr-2" />
-                      <div className="flex flex-col">
-                        <span className="font-medium">Preview Changelog</span>
-                        <span className="text-xs text-muted-foreground">
-                          View changes between versions
-                        </span>
-                      </div>
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
-            </>
-          )}
+        {data.selectedVersion && data.versions.length > 1 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Version</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <Link to={`/courses/${currentCourse.id}/changelog`}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">Preview Changelog</span>
+                    <span className="text-xs text-muted-foreground">
+                      View changes between versions
+                    </span>
+                  </div>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
+        )}
 
         {data.selectedVersion && (
           <>

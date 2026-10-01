@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { FeatureFlagService } from "@/services/feature-flag-service";
 import {
   loadExportStatusMap,
   loadLessonFsMaps,
@@ -42,7 +41,6 @@ export function courseViewEffect(input: {
     const { courseId: selectedCourseId, selectedVersionId, viewMode } = input;
     const courseOps = yield* CourseOperationsService;
     const versionOps = yield* VersionOperationsService;
-    const featureFlags = yield* FeatureFlagService;
 
     const courses = yield* courseOps.getCourses();
 
@@ -225,7 +223,6 @@ export function courseViewEffect(input: {
       hasExportedVideoMap,
       lessonFsMaps,
       videoTranscripts,
-      showMediaFilesList: featureFlags.isEnabled("ENABLE_MEDIA_FILES_LIST"),
       viewMode,
     };
   });

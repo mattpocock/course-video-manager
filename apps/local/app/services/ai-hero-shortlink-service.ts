@@ -1,6 +1,5 @@
 import { Config, ConfigProvider, Data, Effect } from "effect";
 import { getAiHeroAccessToken } from "@/services/ai-hero-auth-service";
-import { FeatureFlagService } from "@/services/feature-flag-service";
 
 export class AiHeroShortLinkError extends Data.TaggedError(
   "AiHeroShortLinkError"
@@ -57,44 +56,8 @@ const createShortLink = (opts: {
   });
 
 /**
- * Search for short links by query string.
- * Uses GET /api/shortlinks?search={query}.
- */
-const searchShortLinks = (opts: {
-  baseUrl: string;
-  accessToken: string;
-  query: string;
-}) =>
-  Effect.tryPromise({
-    try: async () => {
-      const res = await fetch(
-        `${opts.baseUrl}/api/shortlinks?search=${encodeURIComponent(opts.query)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${opts.accessToken}`,
-          },
-        }
-      );
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(
-          `Failed to search short links (${res.status}): ${errorText}`
-        );
-      }
-
-      return (await res.json()) as ShortLink[];
-    },
-    catch: (e) =>
-      new AiHeroShortLinkError({
-        message:
-          e instanceof Error ? e.message : "Failed to search short links",
-        code: "search_shortlinks_failed",
-      }),
-  });
-
-/**
- * Find an existing short link by matching on description, or create a new one.
+ * Create a new short link. It does not look for an existing one first: the
+ * AI Hero search API is broken, and the dedupe was low-value.
  * Returns the short link URL in the format https://aihero.dev/s/{slug}.
  */
 export const findOrCreateShortLink = (opts: {
@@ -104,24 +67,7 @@ export const findOrCreateShortLink = (opts: {
   Effect.gen(function* () {
     const baseUrl = yield* Config.string("AI_HERO_BASE_URL");
     const accessToken = yield* getAiHeroAccessToken;
-    const featureFlags = yield* FeatureFlagService;
 
-    if (featureFlags.isEnabled("ENABLE_SHORTLINK_SEARCH")) {
-      // Search for existing short link with matching description
-      const existing = yield* searchShortLinks({
-        baseUrl,
-        accessToken,
-        query: opts.description,
-      });
-
-      const match = existing.find((sl) => sl.description === opts.description);
-
-      if (match) {
-        return { shortLinkUrl: `https://aihero.dev/s/${match.slug}` };
-      }
-    }
-
-    // Create a new short link
     const created = yield* createShortLink({
       baseUrl,
       accessToken,
