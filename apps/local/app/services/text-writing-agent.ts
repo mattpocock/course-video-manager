@@ -256,8 +256,6 @@ export const createModelMessagesForTextWritingAgent = async (props: {
   return modelMessages;
 };
 
-export const DEFAULT_UNCHECKED_PATHS = ["readme.md", "speaker-notes.md"];
-
 export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
   function* (props: {
     videoId: string;

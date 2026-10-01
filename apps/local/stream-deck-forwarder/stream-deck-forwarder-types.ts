@@ -20,12 +20,6 @@ export type StreamDeckForwarderMessage = z.infer<
   typeof streamDeckForwarderMessageSchema
 >;
 
-export const createStreamDeckForwarderMessage = (
-  message: StreamDeckForwarderMessage
-) => {
-  return JSON.stringify(message);
-};
-
 /**
  * Browser link-capture messages.
  *

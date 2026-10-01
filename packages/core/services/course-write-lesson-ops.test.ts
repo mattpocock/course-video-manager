@@ -36,8 +36,13 @@ const setup = async () => {
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
-  const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
+  const run = <A, E>(
+    effect: Effect.Effect<
+      A,
+      E,
+      CourseWriteService | LessonSectionOperationsService
+    >
+  ) => Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const repo = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -97,7 +102,7 @@ const setup = async () => {
 };
 
 describe("CourseWriteService", () => {
-  describe("deleteLesson", () => {
+  describe("LessonSectionOperationsService.deleteLesson", () => {
     it("archives a lesson in the database", async () => {
       const { run, createSection, createLesson, getLesson } = await setup();
 
@@ -106,8 +111,8 @@ describe("CourseWriteService", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.deleteLesson(lesson.id);
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.deleteLesson(lesson.id);
         })
       );
 
@@ -125,8 +130,8 @@ describe("CourseWriteService", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.deleteLesson(l2.id);
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.deleteLesson(l2.id);
         })
       );
 
@@ -138,28 +143,6 @@ describe("CourseWriteService", () => {
 
       const updatedL3 = await getLesson(l3.id);
       expect(updatedL3.archived).toBe(false);
-    });
-  });
-
-  describe("renameLesson", () => {
-    it("updates the lesson path in the database", async () => {
-      const { run, createSection, createLesson, getLesson } = await setup();
-
-      const section = await createSection("01-intro", 1);
-      const lesson = await createLesson(section.id, "01.01-old-slug", 1);
-
-      const result = await run(
-        Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.renameLesson(lesson.id, "new-slug");
-        })
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.title).toBe("new-slug");
-
-      const updated = await getLesson(lesson.id);
-      expect(updated.title).toBe("new-slug");
     });
   });
 

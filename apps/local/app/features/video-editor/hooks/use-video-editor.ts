@@ -19,8 +19,6 @@ export const useVideoEditor = (props: {
   onTogglePauseForClip: (clipId: FrontendId) => void;
   onToggleZoomForClip: (clipId: FrontendId) => void;
   onMoveClip: (clipId: FrontendId, direction: "up" | "down") => void;
-  onAddChapter: (name: string) => void;
-  onUpdateChapter: (chapterId: FrontendId, name: string) => void;
   onCreateVideoFromSelection: (
     clipIds: FrontendId[],
     chapterIds: FrontendId[],

@@ -39,7 +39,7 @@ export interface RenderResult {
  * Bundle the Remotion project once so multiple renders can share it. Returns a
  * `serveUrl` to pass back into {@link renderOverlay}.
  */
-export const bundleOverlayRenderer = (): Promise<string> =>
+const bundleOverlayRenderer = (): Promise<string> =>
   bundle({
     entryPoint,
     webpackOverride: enableTailwind,

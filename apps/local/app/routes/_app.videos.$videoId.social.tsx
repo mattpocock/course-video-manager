@@ -3,9 +3,7 @@
 export const handle = { fullscreen: true };
 
 import { loadVideoPostingContext } from "@/services/video-posting-context.server";
-import { FeatureFlagService } from "@/services/feature-flag-service";
 import { makeLoader } from "@/services/route-action.server";
-import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import { toast } from "sonner";
@@ -19,15 +17,7 @@ import { SocialPagePanel } from "@/features/video-posting/social-page";
 import type { Route } from "./+types/_app.videos.$videoId.social";
 
 export const loader = makeLoader({
-  effect: ({ params }) =>
-    Effect.gen(function* () {
-      const ctx = yield* loadVideoPostingContext(params.videoId!);
-      const featureFlags = yield* FeatureFlagService;
-      const showSocialShareButtons = featureFlags.isEnabled(
-        "ENABLE_SOCIAL_SHARE_BUTTONS"
-      );
-      return { ...ctx, showSocialShareButtons };
-    }),
+  effect: ({ params }) => loadVideoPostingContext(params.videoId!),
 });
 
 const Video = (props: { src: string }) => {
@@ -44,14 +34,8 @@ const Video = (props: { src: string }) => {
 
 export default function SocialPage(props: Route.ComponentProps) {
   const { videoId } = props.params;
-  const {
-    files,
-    transcriptWordCount,
-    chapters,
-    links,
-    courseStructure,
-    showSocialShareButtons,
-  } = props.loaderData;
+  const { files, transcriptWordCount, chapters, links, courseStructure } =
+    props.loaderData;
 
   // Context panel state
   const [enabledFiles, setEnabledFiles] = useState<Set<string>>(() => {
@@ -161,7 +145,6 @@ export default function SocialPage(props: Route.ComponentProps) {
           includeTranscript={includeTranscript}
           includeCourseStructure={includeCourseStructure}
           courseStructure={courseStructure}
-          showSocialShareButtons={showSocialShareButtons}
         />
       </div>
 

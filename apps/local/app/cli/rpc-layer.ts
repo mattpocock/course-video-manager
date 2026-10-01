@@ -145,20 +145,15 @@ const lessonSectionService = (client: RpcClient) =>
   }) satisfies RemoteService<LessonSectionOperationsService>;
 
 /**
- * `cvm lesson move` and `cvm section move` — structural writes, in their
- * respective route groups with the rest of that noun's verbs.
+ * `cvm lesson move` across Sections — the one CourseWriteService write the CLI
+ * needs. A within-Section move and `cvm section move` use the
+ * `batchUpdate…Orders` primitives above.
  */
 const courseWriteService = (client: RpcClient) =>
   ({
     _tag: "CourseWriteService",
-    reorderLessons: rpcMethod((json) =>
-      client.rpc.lesson.reorderLessons.$post({ json })
-    ),
     moveToSection: rpcMethod((json) =>
       client.rpc.lesson.moveToSection.$post({ json })
-    ),
-    reorderSections: rpcMethod((json) =>
-      client.rpc.section.reorderSections.$post({ json })
     ),
   }) satisfies RemoteService<CourseWriteService>;
 

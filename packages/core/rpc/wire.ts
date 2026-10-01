@@ -46,12 +46,9 @@ const ERROR_CONSTRUCTORS: Record<
   NotFoundError: DomainErrors.NotFoundError,
   UnknownDBServiceError: DomainErrors.UnknownDBServiceError,
   NotLatestVersionError: DomainErrors.NotLatestVersionError,
-  CannotUpdatePublishedVersionError:
-    DomainErrors.CannotUpdatePublishedVersionError,
   VersionNotDraftError: DomainErrors.VersionNotDraftError,
   VersionNotPendingError: DomainErrors.VersionNotPendingError,
   PendingVersionExistsError: DomainErrors.PendingVersionExistsError,
-  CannotArchiveLessonVideoError: DomainErrors.CannotArchiveLessonVideoError,
   CourseNameTakenError: DomainErrors.CourseNameTakenError,
   SectionPathTakenError: DomainErrors.SectionPathTakenError,
   LessonPathTakenError: DomainErrors.LessonPathTakenError,

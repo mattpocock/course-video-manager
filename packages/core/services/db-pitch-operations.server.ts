@@ -31,7 +31,7 @@ const prunePitchFields = (
   return set;
 };
 
-export function derivePitchState(deliverableStatuses: string[]): PitchState {
+function derivePitchState(deliverableStatuses: string[]): PitchState {
   if (deliverableStatuses.length === 0) return "idle";
   const allTerminal = deliverableStatuses.every(
     (s) => s === "done" || s === "cancelled"
@@ -46,7 +46,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createPitchOperations = (db: Database) => {
+const createPitchOperations = (db: Database) => {
   const buildPitchFilters = (filters?: {
     priority?: number[];
     effort?: number[];

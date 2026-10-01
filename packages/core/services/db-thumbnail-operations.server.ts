@@ -11,7 +11,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createThumbnailOperations = (db: Database) => {
+const createThumbnailOperations = (db: Database) => {
   const getThumbnailsByVideoId = Effect.fn("getThumbnailsByVideoId")(function* (
     videoId: string
   ) {

@@ -4,7 +4,6 @@ import {
   thumbnailStateReducer,
   createInitialThumbnailState,
 } from "@/features/thumbnail-editor/thumbnail-state-reducer";
-import type { ThumbnailLayers } from "@/services/thumbnail-schema";
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -13,6 +12,22 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+interface StoredLayer {
+  filePath: string;
+  horizontalPosition: number;
+}
+
+/**
+ * The `layers` JSON a thumbnail row stores: file paths and slider positions.
+ * Not the same as the compositor's `ThumbnailLayers`, which holds the loaded
+ * images.
+ */
+interface StoredThumbnailLayers {
+  backgroundPhoto: StoredLayer;
+  diagram: StoredLayer | null;
+  cutout: StoredLayer | null;
 }
 
 interface Thumbnail {
@@ -106,7 +121,7 @@ export function useThumbnailReducer(thumbnails: Thumbnail[]) {
         return;
       }
 
-      const layers = thumbnail.layers as unknown as ThumbnailLayers;
+      const layers = thumbnail.layers as StoredThumbnailLayers;
 
       Promise.all([
         // Fetch background photo

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createPopupChannel } from "./popup-channel";
 
 export const ParentToChild = z.discriminatedUnion("type", [
   z.object({ type: z.literal("loadDiagram"), diagramId: z.string() }),
@@ -34,43 +35,10 @@ export const ChildToParent = z.discriminatedUnion("type", [
 export type ParentToChildMessage = z.infer<typeof ParentToChild>;
 export type ChildToParentMessage = z.infer<typeof ChildToParent>;
 
-const CHANNEL_NAME = "cvm-diagrams";
-
-let sendChannel: BroadcastChannel | null = null;
-function getSendChannel(): BroadcastChannel | null {
-  if (typeof window === "undefined") return null;
-  if (!sendChannel) sendChannel = new BroadcastChannel(CHANNEL_NAME);
-  return sendChannel;
-}
-
-export function sendToChild(message: ParentToChildMessage): void {
-  getSendChannel()?.postMessage(message);
-}
-
-export function sendToParent(message: ChildToParentMessage): void {
-  getSendChannel()?.postMessage(message);
-}
-
-export function subscribeParent(
-  handler: (message: ChildToParentMessage) => void
-): () => void {
-  if (typeof window === "undefined") return () => {};
-  const ch = new BroadcastChannel(CHANNEL_NAME);
-  ch.onmessage = (e) => {
-    const result = ChildToParent.safeParse(e.data);
-    if (result.success) handler(result.data);
-  };
-  return () => ch.close();
-}
-
-export function subscribeChild(
-  handler: (message: ParentToChildMessage) => void
-): () => void {
-  if (typeof window === "undefined") return () => {};
-  const ch = new BroadcastChannel(CHANNEL_NAME);
-  ch.onmessage = (e) => {
-    const result = ParentToChild.safeParse(e.data);
-    if (result.success) handler(result.data);
-  };
-  return () => ch.close();
-}
+export const diagramChannel = createPopupChannel({
+  name: "cvm-diagrams",
+  url: "/diagram-playground",
+  windowFeatures: "popup,width=1100,height=800",
+  toChild: ParentToChild,
+  toParent: ChildToParent,
+});

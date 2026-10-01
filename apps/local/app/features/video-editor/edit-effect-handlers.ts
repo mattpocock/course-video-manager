@@ -13,7 +13,7 @@ import type { ClipService } from "@/services/clip-service";
 import { VERSION_NOT_DRAFT_MESSAGE } from "@/services/version-not-draft-message";
 import type { EffectsMap } from "use-effect-reducer";
 import type React from "react";
-import { sendToChild, subscribeParent } from "@/lib/diagram-protocol";
+import { diagramChannel } from "@/lib/diagram-protocol";
 
 export interface EditEffectHandlersDeps {
   videoId: string;
@@ -245,7 +245,7 @@ export function createEditEffectHandlers(
       // the tldraw editor and can render a thumbnail. We just tell it which
       // clip to pin and, on the ack, push the new pin into reducer state so
       // the clip's pin indicator updates without waiting for a reload.
-      const unsubAck = subscribeParent((msg) => {
+      const unsubAck = diagramChannel.subscribeParent((msg) => {
         if (msg.type !== "snapshotForClipDone" || !msg.ok) return;
         const item = clipStateRef.current.items.find(
           (i) => i.type === "on-database" && i.databaseId === msg.clipId
@@ -310,7 +310,7 @@ export function createEditEffectHandlers(
       };
     },
     "snapshot-for-clip": (_state, effect) => {
-      sendToChild({
+      diagramChannel.sendToChild({
         type: "snapshotForClip",
         diagramId: effect.diagramId,
         clipId: effect.clipId,

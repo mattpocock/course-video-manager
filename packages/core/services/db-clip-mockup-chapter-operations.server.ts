@@ -45,7 +45,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createClipMockupChapterOperations = (db: Database) => {
+const createClipMockupChapterOperations = (db: Database) => {
   /**
    * Active Clip Mockup Chapters of a Video, in Animatic order — backs
    * `cvm clip-mockup-chapter list`.

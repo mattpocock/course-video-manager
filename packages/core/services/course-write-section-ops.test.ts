@@ -36,8 +36,13 @@ const setup = async () => {
     LessonSectionOperationsService.Default
   ).pipe(Layer.provide(drizzleLayer));
 
-  const run = <A, E>(effect: Effect.Effect<A, E, CourseWriteService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
+  const run = <A, E>(
+    effect: Effect.Effect<
+      A,
+      E,
+      CourseWriteService | LessonSectionOperationsService
+    >
+  ) => Effect.runPromise(effect.pipe(Effect.provide(testLayer)));
 
   const repo = await Effect.gen(function* () {
     const courseOps = yield* CourseOperationsService;
@@ -136,7 +141,7 @@ describe("CourseWriteService", () => {
     });
   });
 
-  describe("reorderSections", () => {
+  describe("LessonSectionOperationsService.batchUpdateSectionOrders", () => {
     it("updates section order values in the database", async () => {
       const { run, createSection, getSection } = await setup();
 
@@ -145,8 +150,11 @@ describe("CourseWriteService", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.reorderSections([section2.id, section1.id]);
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.batchUpdateSectionOrders([
+            { id: section2.id, order: 0 },
+            { id: section1.id, order: 1 },
+          ]);
         })
       );
 
@@ -165,8 +173,11 @@ describe("CourseWriteService", () => {
 
       await run(
         Effect.gen(function* () {
-          const service = yield* CourseWriteService;
-          return yield* service.reorderSections([section1.id, section2.id]);
+          const lsOps = yield* LessonSectionOperationsService;
+          return yield* lsOps.batchUpdateSectionOrders([
+            { id: section1.id, order: 0 },
+            { id: section2.id, order: 1 },
+          ]);
         })
       );
 

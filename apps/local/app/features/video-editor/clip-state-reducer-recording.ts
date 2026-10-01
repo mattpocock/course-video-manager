@@ -1,7 +1,6 @@
 import type { PauseType } from "@/services/video-processing-service";
 import { resolveClipZoomType } from "@/features/videos/clip-zoom";
 import { DEFAULT_SILENCE_LENGTH } from "@/silence-detection-constants";
-import { shouldSnapshot } from "@/lib/snapshot-rule";
 import {
   isCapturableUrl,
   WEB_LINK_DWELL_MS,
@@ -304,15 +303,9 @@ const collectSnapshotForClip = (
   if (
     frontendClip?.type !== "optimistically-added" ||
     !frontendClip.pendingSnapshot ||
-    !frontendClip.pendingSnapshot.activeDiagramId
-  ) {
-    return null;
-  }
-  if (
-    !shouldSnapshot({
-      activeDiagramId: frontendClip.pendingSnapshot.activeDiagramId,
-      diagramFocusedDuringClip: frontendClip.pendingSnapshot.diagramFocused,
-    })
+    !frontendClip.pendingSnapshot.activeDiagramId ||
+    // Snapshot only a diagram the author actually looked at during the clip.
+    !frontendClip.pendingSnapshot.diagramFocused
   ) {
     return null;
   }

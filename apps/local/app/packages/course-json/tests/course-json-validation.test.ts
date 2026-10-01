@@ -322,9 +322,9 @@ describe("buildCourseJson – validation and filtering", () => {
   // node that omits it.
   //
   // THIS GATE IS THE NO-NULL GUARANTEE (ADR 0019, ADR 0029). It lives inside the
-  // builder, so it holds on EVERY path into a manifest — including the
-  // standalone Dropbox re-sync, which runs no lint gate and would otherwise
-  // overwrite a live course.json with `"description": null`.
+  // builder, so it holds on EVERY path into a manifest — including one that runs
+  // no lint gate and would otherwise overwrite a live course.json with
+  // `"description": null`.
   const missingDescriptionCourse = (description: string | null) => [
     makeSection({
       path: "01-intro",

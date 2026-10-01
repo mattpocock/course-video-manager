@@ -51,10 +51,10 @@ const bezierAxis = (s: number, p1: number, p2: number): number =>
  * Derived from the control point rather than typed out, so retuning the curve
  * along `x1 === x2` stays a one-line edit.
  */
-export const EASE_C = EASE_CONTROL_POINTS.x1;
+const EASE_C = EASE_CONTROL_POINTS.x1;
 const EASE_P = 3 * EASE_C * (1 - EASE_C);
-export const EASE_Q0 = 3 * EASE_C * EASE_C - 2 * EASE_C * EASE_C * EASE_C;
-export const EASE_DISCRIMINANT = (EASE_P / 3) ** 3;
+const EASE_Q0 = 3 * EASE_C * EASE_C - 2 * EASE_C * EASE_C * EASE_C;
+const EASE_DISCRIMINANT = (EASE_P / 3) ** 3;
 
 /**
  * The eased value of a 0..1 ramp. EXACT — no search, no approximation.

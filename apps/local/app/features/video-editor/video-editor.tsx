@@ -14,12 +14,7 @@ import { courseEditorFetcherKeyForEvent } from "@/features/course-view/optimisti
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import type { BeatListBeat } from "@/features/beats/beat-list";
 import { useAutofillChaptersModal } from "./hooks/use-autofill-chapters-modal";
-import {
-  useDiagramPin,
-  type UpdateClipDiagramPinFn,
-} from "./hooks/use-diagram-pin";
 import { useChapterModal } from "./hooks/use-chapter-modal";
-import { useReferenceVideoId } from "./hooks/use-reference-video-id";
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useTeleprompterShortcuts } from "./hooks/use-teleprompter-shortcuts";
 import { useTeleprompterEditorMode } from "./hooks/use-teleprompter-editor-mode";
@@ -35,6 +30,7 @@ import {
   useState,
 } from "react";
 import { enableVideoEditorMode } from "@/lib/diagram-window";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useFetcher, useSubmit } from "react-router";
 import type {
   DatabaseId,
@@ -52,6 +48,7 @@ import type { SilenceLength } from "@/silence-detection-constants";
 import {
   VideoEditorContext,
   type SuggestionState,
+  type UpdateClipDiagramPinFn,
 } from "./video-editor-context";
 import type { VideoFormat } from "@/features/videos/video-format";
 import type { ClipOverlay } from "./overlay-preview";
@@ -197,8 +194,6 @@ export const VideoEditor = (props: {
     onTogglePauseForClip: props.onTogglePauseForClip,
     onToggleZoomForClip: props.onToggleZoomForClip,
     onMoveClip: props.onMoveClip,
-    onAddChapter: props.onAddChapter,
-    onUpdateChapter: props.onUpdateChapter,
     onCreateVideoFromSelection: props.onCreateVideoFromSelection,
   });
 
@@ -251,11 +246,6 @@ export const VideoEditor = (props: {
     timelineItems,
     state.selectedClipsSet,
     props.onAddChapter
-  );
-
-  const { onUnpinDiagram } = useDiagramPin(
-    props.items,
-    props.onUpdateClipDiagramPin
   );
 
   const onRemoveWebLink = props.onRemoveWebLink;
@@ -320,9 +310,10 @@ export const VideoEditor = (props: {
     [dispatch]
   );
 
-  const [referenceVideoId, setReferenceVideoId] = useReferenceVideoId(
-    props.videoId
+  const [storedReferenceVideoId, setStoredReferenceVideoId] = useLocalStorage(
+    `video-editor:reference:${props.videoId}`
   );
+  const referenceVideoId = storedReferenceVideoId || null;
 
   const [persistedBeatTab, setPersistedBeatTab] = useBeatTab(props.videoId);
 
@@ -361,10 +352,10 @@ export const VideoEditor = (props: {
   // newly-added reader surfaces; removing (next === null) leaves the tab alone.
   const handleSetReferenceVideoId = useCallback(
     (next: string | null) => {
-      setReferenceVideoId(next);
+      setStoredReferenceVideoId(next ?? "");
       if (next) setPersistedBeatTab("reference");
     },
-    [setReferenceVideoId, setPersistedBeatTab]
+    [setStoredReferenceVideoId, setPersistedBeatTab]
   );
 
   // Beat edits submit to /api/course-editor with a stable per-entity
@@ -513,8 +504,7 @@ export const VideoEditor = (props: {
 
       onOpenAutofillChaptersModal,
 
-      // Diagram pin
-      onUnpinDiagram,
+      onUpdateClipDiagramPin: props.onUpdateClipDiagramPin,
 
       // Web links
       onRemoveWebLink,
@@ -595,7 +585,7 @@ export const VideoEditor = (props: {
       onAddChapterAfter,
       generateDefaultChapterName,
       onOpenAutofillChaptersModal,
-      onUnpinDiagram,
+      props.onUpdateClipDiagramPin,
       onRemoveWebLink,
     ]
   );

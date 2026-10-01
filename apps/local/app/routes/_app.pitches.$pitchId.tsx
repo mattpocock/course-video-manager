@@ -47,7 +47,6 @@ import { BeatDndProvider } from "@/features/beats/beat-dnd-context";
 import { CreateBeatDialogProvider } from "@/features/beats/create-beat-dialog";
 import { BeatList } from "@/features/beats/beat-list";
 import { pitchBackLink } from "@/features/pitches/pitch-back-link";
-import { X_POST_CHARACTER_LIMIT } from "@/features/pitches/x-character-count";
 import type { Route } from "./+types/_app.pitches.$pitchId";
 
 export const meta: Route.MetaFunction = ({ data: loaderData }) => {
@@ -121,6 +120,7 @@ export const loader = makeLoader({
 });
 
 const SAVE_THROTTLE_MS = 600;
+const X_POST_CHARACTER_LIMIT = 280;
 
 function usePitchAutoSave(pitchId: string) {
   const fetcher = useFetcher();

@@ -5,8 +5,7 @@ import { Save } from "lucide-react";
 import { ConnectionStatusIndicator } from "@/features/diagrams/connection-status-indicator";
 import { toast } from "sonner";
 import {
-  subscribeChild,
-  sendToParent,
+  diagramChannel,
   type ParentToChildMessage,
 } from "@/lib/diagram-protocol";
 import { RestoreSnapshotDialog } from "@/features/diagrams/restore-snapshot-dialog";
@@ -27,7 +26,7 @@ import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
 import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
 import { DiagramEditorBoundary } from "@/features/diagrams/unknown-shape-boundary";
-import { DiagramCommandPalette } from "@/features/diagrams/palette/diagram-command-palette";
+import { CommandPalette } from "@/features/diagrams/palette/command-palette";
 
 export const loader = loadDiagramPlaygroundActive;
 
@@ -228,7 +227,7 @@ export default function DiagramPlaygroundActive({
   // Emit activeDiagramChanged on mount
   useEffect(() => {
     if (diagramId) {
-      sendToParent({ type: "activeDiagramChanged", diagramId });
+      diagramChannel.sendToParent({ type: "activeDiagramChanged", diagramId });
     }
   }, [diagramId]);
 
@@ -249,7 +248,7 @@ export default function DiagramPlaygroundActive({
   // joined the channel late (e.g. closed and reopened) re-learns the state.
   useEffect(() => {
     let lastPong = 0;
-    const unsub = subscribeChild((msg: ParentToChildMessage) => {
+    const unsub = diagramChannel.subscribeChild((msg: ParentToChildMessage) => {
       if (msg.type === "pong" || msg.type === "editorConnected") {
         lastPong = Date.now();
         setEditorConnected(true);
@@ -259,8 +258,8 @@ export default function DiagramPlaygroundActive({
       }
     });
     function beat() {
-      sendToParent({ type: "ping" });
-      sendToParent({
+      diagramChannel.sendToParent({ type: "ping" });
+      diagramChannel.sendToParent({
         type: "activeDiagramChanged",
         diagramId: diagramId ?? null,
       });
@@ -276,7 +275,7 @@ export default function DiagramPlaygroundActive({
 
   // Listen for parent messages (loadDiagram for switch, flush for save)
   useEffect(() => {
-    const unsub = subscribeChild((msg: ParentToChildMessage) => {
+    const unsub = diagramChannel.subscribeChild((msg: ParentToChildMessage) => {
       if (msg.type === "loadDiagram") {
         navigate(`/diagram-playground/${msg.diagramId}`, { replace: true });
       } else if (msg.type === "flush") {
@@ -295,10 +294,10 @@ export default function DiagramPlaygroundActive({
           })
             .catch(() => {})
             .finally(() => {
-              sendToParent({ type: "flushAck" });
+              diagramChannel.sendToParent({ type: "flushAck" });
             });
         } else {
-          sendToParent({ type: "flushAck" });
+          diagramChannel.sendToParent({ type: "flushAck" });
         }
       } else if (msg.type === "snapshotForClip") {
         const { clipId, diagramId: targetDiagramId } = msg;
@@ -342,7 +341,7 @@ export default function DiagramPlaygroundActive({
               setRefreshKey((k) => k + 1);
             }
           } finally {
-            sendToParent({
+            diagramChannel.sendToParent({
               type: "snapshotForClipDone",
               clipId,
               ok,
@@ -359,17 +358,17 @@ export default function DiagramPlaygroundActive({
   useEffect(() => {
     function onFocus() {
       setWindowFocused(true);
-      sendToParent({ type: "focus" });
+      diagramChannel.sendToParent({ type: "focus" });
     }
     function onBlur() {
       setWindowFocused(false);
-      sendToParent({ type: "blur" });
+      diagramChannel.sendToParent({ type: "blur" });
     }
     window.addEventListener("focus", onFocus);
     window.addEventListener("blur", onBlur);
     if (document.hasFocus()) {
       setWindowFocused(true);
-      sendToParent({ type: "focus" });
+      diagramChannel.sendToParent({ type: "focus" });
     }
     return () => {
       window.removeEventListener("focus", onFocus);
@@ -486,7 +485,10 @@ export default function DiagramPlaygroundActive({
 
   const handleNavigateHome = useCallback(async () => {
     await flushPendingSave();
-    sendToParent({ type: "activeDiagramChanged", diagramId: null });
+    diagramChannel.sendToParent({
+      type: "activeDiagramChanged",
+      diagramId: null,
+    });
     navigate("/diagram-playground");
   }, [saveHead, navigate]);
 
@@ -518,7 +520,7 @@ export default function DiagramPlaygroundActive({
         </DiagramEditorBoundary>
         {/* Active Diagram window only — never Playground Home. */}
         {diagramId && (
-          <DiagramCommandPalette
+          <CommandPalette
             diagramId={diagramId}
             editorRef={editorRef}
             flushPendingSave={flushPendingSave}

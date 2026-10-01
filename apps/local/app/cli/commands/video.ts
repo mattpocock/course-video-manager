@@ -533,8 +533,7 @@ const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
 
     // deleteVideo is the ONE archive path for every Video, standalone or
     // lesson-bound; its Draft guard is what refuses a published Video
-    // (VersionNotDraftError, exit 3). updateVideoArchiveStatus is deliberately
-    // NOT used: it is the UI's standalone-only archive/restore toggle.
+    // (VersionNotDraftError, exit 3).
     const archived = yield* svc.deleteVideo(id);
     yield* emitObject(archived);
   })

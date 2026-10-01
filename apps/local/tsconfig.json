@@ -53,9 +53,6 @@
       "@/services/lesson-path-service": [
         "../../packages/core/services/lesson-path-service"
       ],
-      "@/services/section-path-service": [
-        "../../packages/core/services/section-path-service"
-      ],
       "@/services/lesson-authoring-status": [
         "../../packages/core/services/lesson-authoring-status"
       ],
@@ -67,9 +64,6 @@
       ],
       "@/services/course-write-service": [
         "../../packages/core/services/course-write-service"
-      ],
-      "@/services/course-write-service.types": [
-        "../../packages/core/services/course-write-service.types"
       ],
       "@/services/lesson-move-planner": [
         "../../packages/core/services/lesson-move-planner"

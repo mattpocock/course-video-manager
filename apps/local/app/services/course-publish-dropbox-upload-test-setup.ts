@@ -12,8 +12,6 @@ import { beforeAll, afterEach } from "vitest";
 import type { ManifestVideo } from "./course-publish-reuse-plan";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
-import { createFakeOverlayRenderCache } from "@/test-utils/fake-overlay-render-cache";
-import { createFakeVideoEditorLogger } from "@/test-utils/fake-video-editor-logger";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -32,8 +30,7 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
-import { VideoProcessingService } from "@/services/video-processing-service";
-import { CoursePublishService } from "@/services/course-publish-service";
+import { syncFrozenCourseVersionToDropbox } from "./course-publish-dropbox";
 import {
   computeExportHash,
   resolveExportPath,
@@ -44,7 +41,6 @@ import {
   videos as videosTable,
   dropboxAuth,
 } from "@/db/schema";
-import { fromPartial } from "@total-typescript/shoehorn";
 import {
   ANNOUNCE_NOTHING,
   type PlaceholderFloor,
@@ -218,7 +214,7 @@ export const setupUploads = async (opts?: {
   }
 
   // Cloning a fresh Draft leaves the seeded version Published, which is what
-  // `syncToDropbox` re-commits.
+  // `sync` commits.
   await runDb(
     Effect.gen(function* () {
       const versionOps = yield* VersionOperationsService;
@@ -242,51 +238,51 @@ export const setupUploads = async (opts?: {
     )
   );
 
-  const mockVideoProcessing = Layer.succeed(
-    VideoProcessingService,
-    fromPartial({
-      exportVideoClips: () =>
-        Effect.die(new Error("no export expected in these tests")),
-    })
-  );
-
-  const coreTestLayer = Layer.mergeAll(
+  const testLayer = Layer.mergeAll(
     CourseOperationsService.Default,
     VideoOperationsService.Default,
     VersionOperationsService.Default,
     LinkAuthOperationsService.Default,
-    mockVideoProcessing,
-    createFakeOverlayRenderCache().layer,
-    createFakeVideoEditorLogger().layer,
     NodeContext.layer
   ).pipe(Layer.provide(drizzleLayer), Layer.provide(configLayer));
-
-  const testLayer = Layer.merge(
-    coreTestLayer,
-    CoursePublishService.Default.pipe(Layer.provide(coreTestLayer))
-  );
 
   const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
     Effect.runPromise(
       effect.pipe(Effect.provide(testLayer) as any)
     ) as Promise<A>;
 
-  const sync = (
-    onProgress?: (event: "progress", data: { percentage: number }) => void,
+  type OnProgress = (event: "progress", data: { percentage: number }) => void;
+
+  /**
+   * Commit one frozen Course Version's Bundle, the same commit a Publish ends
+   * with, but with no export phase in front of it: every Video's bytes are
+   * already on disk or missing.
+   */
+  const commit = (
+    courseVersionId: string,
+    onProgress?: OnProgress,
     includeTodoLessons = true,
     placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
   ) =>
     run(
-      Effect.gen(function* () {
-        const svc = yield* CoursePublishService;
-        return yield* svc.syncToDropbox(
-          course.id,
-          includeTodoLessons,
-          onProgress,
-          placeholderFloor
-        );
+      syncFrozenCourseVersionToDropbox({
+        courseId: course.id,
+        courseVersionId,
+        includeTodoLessons,
+        placeholderFloor,
+        onDetailEvent: (e) => {
+          if (e.event === "progress") onProgress?.("progress", e.data);
+        },
+        awaitVideoReady: () => Effect.void,
       })
     );
+
+  /** Commit the seeded Version, which the setup left Published. */
+  const sync = (
+    onProgress?: OnProgress,
+    includeTodoLessons = true,
+    placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
+  ) => commit(version.id, onProgress, includeTodoLessons, placeholderFloor);
 
   /**
    * Open a hard gap on a seeded Video by taking its `body` away. The Lesson
@@ -308,7 +304,7 @@ export const setupUploads = async (opts?: {
       .where(eq(videosTable.id, videoId));
   };
 
-  return { course, version, videos, run, sync, unfilm, refilm };
+  return { course, version, videos, run, commit, sync, unfilm, refilm };
 };
 
 export const remoteBundleVideoPaths = () =>

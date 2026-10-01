@@ -152,10 +152,7 @@ describe("video format", () => {
         title: "Archived Short",
         format: "short",
       });
-      yield* videoOps.updateVideoArchiveStatus({
-        videoId: archivedShort.id,
-        archived: true,
-      });
+      yield* videoOps.deleteVideo(archivedShort.id);
 
       const shorts = yield* videoOps.getAllStandaloneVideos({
         format: "short",
@@ -180,14 +177,8 @@ describe("video format", () => {
           format: "short",
         });
 
-        yield* videoOps.updateVideoArchiveStatus({
-          videoId: archivedStandard.id,
-          archived: true,
-        });
-        yield* videoOps.updateVideoArchiveStatus({
-          videoId: archivedShort.id,
-          archived: true,
-        });
+        yield* videoOps.deleteVideo(archivedStandard.id);
+        yield* videoOps.deleteVideo(archivedShort.id);
 
         const standardOnly = yield* videoOps.getArchivedStandaloneVideos({
           format: "landscape",

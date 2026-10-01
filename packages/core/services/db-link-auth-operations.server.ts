@@ -11,7 +11,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createLinkAuthOperations = (db: Database) => {
+const createLinkAuthOperations = (db: Database) => {
   const getLinks = Effect.fn("getLinks")(function* () {
     const allLinks = yield* makeDbCall(() =>
       db.query.links.findMany({
@@ -229,11 +229,6 @@ export const createLinkAuthOperations = (db: Database) => {
     }
   );
 
-  const deleteDropboxAuth = Effect.fn("deleteDropboxAuth")(function* () {
-    yield* makeDbCall(() => db.delete(dropboxAuth));
-    return { success: true };
-  });
-
   return {
     getLinks,
     createLink,
@@ -248,7 +243,6 @@ export const createLinkAuthOperations = (db: Database) => {
     getDropboxAuth,
     upsertDropboxAuth,
     updateDropboxAccessToken,
-    deleteDropboxAuth,
   };
 };
 

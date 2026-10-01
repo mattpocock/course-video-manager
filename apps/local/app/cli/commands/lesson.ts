@@ -437,7 +437,9 @@ const moveCmd = Command.make(
           id,
           ...rest.slice(insertAt).map((l) => l.id),
         ];
-        yield* writes.reorderLessons(currentSectionId, newOrderIds);
+        yield* svc.batchUpdateLessonOrders(
+          newOrderIds.map((lessonId, order) => ({ id: lessonId, order }))
+        );
       } else {
         const targetLessons = yield* svc.getLessonsBySectionId(targetSectionId);
         let beforeLessonId: string | null = null;

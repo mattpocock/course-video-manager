@@ -16,7 +16,6 @@ import {
   exportVideoToItsAddress,
   type ExportStage,
 } from "./course-publish-export-video";
-import { resolveResyncTargetVersionId } from "./course-publish-resync-target";
 import {
   ANNOUNCE_NOTHING,
   type PlaceholderFloor,
@@ -28,10 +27,7 @@ import {
   PublishCommitFailedError,
   PublishValidationError,
 } from "./course-publish-errors";
-import {
-  noExportPhase,
-  syncFrozenCourseVersionToDropbox,
-} from "./course-publish-dropbox";
+import { syncFrozenCourseVersionToDropbox } from "./course-publish-dropbox";
 import {
   runObservedExportLoop,
   type EmitPublishDetailEvent,
@@ -54,20 +50,6 @@ export type VideoForExport = {
     overlays: ExportOverlay[];
   }>;
 };
-
-// The manual re-sync surface only ever reports the bundle-wide upload
-// percentage — the per-Video task events belong to a Publish, which is the
-// only caller that has an export phase to interleave them with.
-type DropboxSyncProgressCallback = (
-  event: "progress",
-  data: { percentage: number }
-) => void;
-
-const onlyBundleProgress =
-  (onProgress?: DropboxSyncProgressCallback): EmitPublishDetailEvent =>
-  (e) => {
-    if (e.event === "progress") onProgress?.("progress", e.data);
-  };
 
 export type PublishOptions = {
   courseId: string;
@@ -95,9 +77,9 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
       const videoOps = yield* VideoOperationsService;
       const versionOps = yield* VersionOperationsService;
       const effectFs = yield* FileSystem.FileSystem;
-      // CVM is a single local operator process. Serialize every Course Version
-      // lifecycle mutation so publish, manual sync, and create-version cannot
-      // interleave around the database freeze and Dropbox commit marker.
+      // CVM is a single local operator process. Serialize every Publish so two
+      // cannot interleave around the database freeze and Dropbox commit
+      // marker.
       const courseVersionMutationSemaphore = yield* Effect.makeSemaphore(1);
       const FINISHED_VIDEOS_DIRECTORY = yield* Config.string(
         "FINISHED_VIDEOS_DIRECTORY"
@@ -230,27 +212,6 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             versionId,
             placeholderFloor
           ).pipe(Effect.provide(readinessContext));
-        }
-      );
-
-      const syncToDropboxUnlocked = Effect.fn("syncToDropboxUnlocked")(
-        function* (
-          courseId: string,
-          includeTodoLessons: boolean,
-          onProgress?: DropboxSyncProgressCallback,
-          placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
-        ) {
-          // Which Version a Course-level re-sync re-commits is its own question
-          // — see ./course-publish-resync-target.
-          const courseVersionId = yield* resolveResyncTargetVersionId(courseId);
-          return yield* syncFrozenCourseVersionToDropbox({
-            courseId,
-            courseVersionId,
-            includeTodoLessons,
-            placeholderFloor,
-            onDetailEvent: onlyBundleProgress(onProgress),
-            awaitVideoReady: noExportPhase,
-          });
         }
       );
 
@@ -504,60 +465,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         };
       });
 
-      const syncFrozenVersionToDropbox = Effect.fn(
-        "syncFrozenVersionToDropbox"
-      )(function* (
-        courseId: string,
-        courseVersionId: string,
-        includeTodoLessons: boolean,
-        onProgress?: DropboxSyncProgressCallback,
-        placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
-      ) {
-        return yield* courseVersionMutationSemaphore.withPermits(1)(
-          syncFrozenCourseVersionToDropbox({
-            courseId,
-            courseVersionId,
-            includeTodoLessons,
-            placeholderFloor,
-            onDetailEvent: onlyBundleProgress(onProgress),
-            awaitVideoReady: noExportPhase,
-          })
-        );
-      });
-
-      const syncToDropbox = Effect.fn("syncToDropbox")(function* (
-        courseId: string,
-        includeTodoLessons: boolean,
-        onProgress?: DropboxSyncProgressCallback,
-        placeholderFloor: PlaceholderFloor = ANNOUNCE_NOTHING
-      ) {
-        return yield* courseVersionMutationSemaphore.withPermits(1)(
-          syncToDropboxUnlocked(
-            courseId,
-            includeTodoLessons,
-            onProgress,
-            placeholderFloor
-          )
-        );
-      });
-
       const publish = Effect.fn("publish")(function* (options: PublishOptions) {
         return yield* courseVersionMutationSemaphore.withPermits(1)(
           publishUnlocked(options)
         );
       });
-
-      const createDraftVersion = Effect.fn("createDraftVersion")(
-        function* (input: {
-          sourceVersionId: string;
-          repoId: string;
-          newVersionName: string;
-        }) {
-          return yield* courseVersionMutationSemaphore.withPermits(1)(
-            versionOps.copyVersionStructure(input)
-          );
-        }
-      );
 
       return {
         exportVideo,
@@ -565,10 +477,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         isExported,
         resolveExportPath,
         validatePublishability,
-        syncFrozenVersionToDropbox,
-        syncToDropbox,
         publish,
-        createDraftVersion,
       };
     }),
   }

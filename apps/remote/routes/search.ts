@@ -59,7 +59,7 @@ const parseRoot = (value: unknown): SearchRoot | undefined => {
  * exit code by the time it gets here, so this is not user-facing validation —
  * it is the guard that keeps a malformed body from reaching a query builder.
  */
-export const parseSearchRequest = (body: unknown): SearchRequest | null => {
+const parseSearchRequest = (body: unknown): SearchRequest | null => {
   if (!Array.isArray(body)) return null;
   const params: unknown = body[0];
   if (typeof params !== "object" || params === null) return null;

@@ -28,7 +28,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createDiagramOperations = (
+const createDiagramOperations = (
   db: Database,
   thumbnails: DiagramThumbnailStoreApi
 ) => {

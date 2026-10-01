@@ -19,7 +19,8 @@ import { cn } from "@/lib/utils";
 import { IconGlyph } from "./icon-glyph";
 import { ComponentCard, DiagramCard } from "./result-cards";
 import { GROUP_ORDER, PAGE_META, type PaletteGroup } from "./palette-model";
-import { usePalette, type PaletteHandlers } from "./use-palette";
+import { usePalette } from "./use-palette";
+import { usePaletteHandlers, type PaletteWiring } from "./use-palette-handlers";
 import { useGridNav } from "./use-grid-nav";
 import "./command-palette.css";
 
@@ -32,14 +33,18 @@ import "./command-palette.css";
  *
  * There is deliberately NO on-canvas affordance pointing at Cmd+K. The grouped
  * root list is itself the discovery surface, once the palette is open.
+ *
+ * The route hands over the handlers its own chrome already uses and knows
+ * nothing else about the palette — the mirror layer lives in
+ * `usePaletteHandlers`, next to the palette rather than next to the canvas.
  */
 export function CommandPalette({
   editorRef,
-  handlers,
-}: {
+  ...wiring
+}: PaletteWiring & {
   editorRef: React.RefObject<Editor | null>;
-  handlers: PaletteHandlers;
 }) {
+  const handlers = usePaletteHandlers(wiring);
   const state = usePalette({ editorRef, handlers });
   const listRef = useRef<HTMLDivElement | null>(null);
   const { title, placeholder, columns } = PAGE_META[state.page];

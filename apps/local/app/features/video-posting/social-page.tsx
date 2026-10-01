@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  hasLocalStorage,
-  useLocalStorage,
-} from "@/hooks/use-local-storage";
+import { hasLocalStorage, useLocalStorage } from "@/hooks/use-local-storage";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -17,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2Icon, SparklesIcon, CopyIcon, LinkIcon } from "lucide-react";
+import { Loader2Icon, SparklesIcon, LinkIcon } from "lucide-react";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
 import type { CourseStructure } from "@/components/video-context-panel";
 
@@ -32,7 +29,6 @@ export interface SocialPagePanelProps {
   includeTranscript: boolean;
   includeCourseStructure: boolean;
   courseStructure: CourseStructure | null;
-  showSocialShareButtons: boolean;
 }
 
 export const SocialPagePanel = (props: SocialPagePanelProps) => {
@@ -44,7 +40,6 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     includeTranscript,
     includeCourseStructure,
     courseStructure,
-    showSocialShareButtons,
   } = props;
 
   const [socialCaption, setSocialCaption] = useLocalStorage(
@@ -158,24 +153,6 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     }
   };
 
-  const copyAndNavigate = async (url: string, platform: string) => {
-    if (!socialCaption.trim()) return;
-    await navigator.clipboard.writeText(socialCaption);
-    toast(`Caption copied to clipboard`, {
-      description: `Opening ${platform}...`,
-    });
-    window.open(url, "_blank");
-  };
-
-  const handlePostToX = () => {
-    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(socialCaption)}`;
-    copyAndNavigate(url, "X");
-  };
-
-  const handlePostToLinkedIn = () => {
-    copyAndNavigate("https://www.linkedin.com/feed/", "LinkedIn");
-  };
-
   return (
     <>
       {/* Right panel: Social posting interface */}
@@ -211,44 +188,6 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
               className="min-h-[200px] resize-y"
             />
           </div>
-
-          {/* Post buttons */}
-          {showSocialShareButtons && (
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <Button
-                  onClick={handlePostToX}
-                  disabled={!socialCaption.trim()}
-                  className="flex-1"
-                  size="lg"
-                >
-                  <CopyIcon className="h-4 w-4" />
-                  Post to X
-                </Button>
-                <Button
-                  onClick={handlePostToLinkedIn}
-                  disabled={!socialCaption.trim()}
-                  className="flex-1"
-                  size="lg"
-                  variant="outline"
-                >
-                  <CopyIcon className="h-4 w-4" />
-                  Post to LinkedIn
-                </Button>
-              </div>
-
-              {!socialCaption.trim() && (
-                <p className="text-sm text-muted-foreground text-center">
-                  Write or generate a caption before posting.
-                </p>
-              )}
-
-              <p className="text-xs text-muted-foreground text-center">
-                Caption will be copied to clipboard. X will pre-fill the text;
-                for LinkedIn, paste from clipboard.
-              </p>
-            </div>
-          )}
 
           {/* Short link buttons */}
           <div className="space-y-3 pt-2 border-t border-border">

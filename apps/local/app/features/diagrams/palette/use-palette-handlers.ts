@@ -16,7 +16,8 @@ import type { PaletteHandlers } from "./use-palette";
  * one that exists — the right-rail timeline is untouched, and nothing here is a
  * second implementation of anything.
  */
-export function usePaletteHandlers(opts: {
+/** What the route hands the palette: the handlers its own chrome already uses. */
+export type PaletteWiring = {
   diagramId: string;
   /** Cancels the debounced autosave and lands it now. */
   flushPendingSave: () => Promise<void>;
@@ -28,7 +29,9 @@ export function usePaletteHandlers(opts: {
   reloadScene: (id: string) => Promise<void>;
   /** The same camera move the manual Cmd/Ctrl+0 shortcut runs. */
   recentreDiagram: () => void;
-}): PaletteHandlers {
+};
+
+export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
   const {
     diagramId,
     flushPendingSave,

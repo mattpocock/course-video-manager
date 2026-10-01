@@ -14,8 +14,9 @@ app/packages/
 ```
 
 **Import only through a package's entry points (its root files).** Never reach
-into another package's `lib/` (or any subfolder). Copy `example/` as a starting
-template (or delete it).
+into another package's `lib/` (or any subfolder). `course-json/` is the worked
+example: two entry points (`index.ts`, `client.ts`) over a private `lib/` and
+`tests/`. Copy its shape when you start a new package.
 
 ## The four rules (all errors)
 
@@ -50,7 +51,7 @@ points at `app/packages`.
 
 The rules above are about `apps/local/app/packages/` — packages that are plain
 directories reached through the app's `@/*` tsconfig alias, with no
-`package.json` of their own. Present members: `course-json`, `example`.
+`package.json` of their own. Present members: `course-json`.
 
 A deep module with consumers OUTSIDE `apps/local` cannot live here, because
 nothing outside the app can resolve the `@/*` alias. It is promoted to a

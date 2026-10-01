@@ -71,7 +71,7 @@ function checkSceneFragment(fragment: unknown) {
   });
 }
 
-export const createDiagramComponentOperations = (
+const createDiagramComponentOperations = (
   db: Database,
   thumbnails: DiagramThumbnailStoreApi
 ) => {

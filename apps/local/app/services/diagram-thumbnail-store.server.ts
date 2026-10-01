@@ -85,13 +85,6 @@ export function readThumbnail(
   }
 }
 
-export function thumbnailExists(
-  diagramId: string,
-  contentHash: string
-): boolean {
-  return fs.existsSync(getThumbnailPath(diagramId, contentHash));
-}
-
 /**
  * Component thumbnails are keyed by component id, not by content hash:
  * components are immutable so the file never needs invalidating, uniqueness is

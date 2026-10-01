@@ -8,9 +8,10 @@ import type { RemoteRuntime } from "../runtime.js";
  * The `lesson` verb group: `cvm lesson list | get | tree | create | update |
  * move`.
  *
- * `move` is the one verb here backed by CourseWriteService rather than the
- * operations service: reordering and re-sectioning a Lesson renumbers paths
- * across the Version, and that projection lives with the writes.
+ * `moveToSection` is the one route here backed by CourseWriteService rather
+ * than the operations service: re-sectioning a Lesson renumbers both
+ * Sections, and that logic lives with the writes. A within-Section `move` is
+ * plain `batchUpdateLessonOrders`.
  */
 export const lessonRoutes = (runtime: RemoteRuntime) =>
   new Hono()
@@ -49,10 +50,6 @@ export const lessonRoutes = (runtime: RemoteRuntime) =>
     .post(
       "/deleteLesson",
       forward(runtime, LessonSectionOperationsService, "deleteLesson")
-    )
-    .post(
-      "/reorderLessons",
-      forward(runtime, CourseWriteService, "reorderLessons")
     )
     .post(
       "/moveToSection",

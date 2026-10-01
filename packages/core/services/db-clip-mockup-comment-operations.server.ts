@@ -54,7 +54,7 @@ const parentIsActive = or(
   )
 );
 
-export const createClipMockupCommentOperations = (db: Database) => {
+const createClipMockupCommentOperations = (db: Database) => {
   const selectActive = () =>
     db
       .select({

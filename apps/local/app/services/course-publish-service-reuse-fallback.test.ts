@@ -22,7 +22,7 @@ setupPublishServiceTests();
  * copied rather than uploaded. The first test takes the copy away; the release
  * still stands, because the bytes were on disk all along.
  *
- * They go through `publish` rather than the manual re-sync because only
+ * They go through `publish` rather than a bare commit because only
  * `publish` has an export phase, which is the half that produces the bytes.
  */
 

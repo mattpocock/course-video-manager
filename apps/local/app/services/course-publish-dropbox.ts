@@ -33,14 +33,6 @@ import {
 } from "./course-publish-ship-video";
 import { ensureExportDigest } from "./export-sha256-sidecar";
 
-/**
- * The handoff for a sync with no export phase in front of it — the manual
- * re-sync of an already-Published Version. Every Video's bytes are either on
- * disk already or missing, and no latch will ever change that.
- */
-export const noExportPhase = (): Effect.Effect<void, ExportError> =>
-  Effect.void;
-
 /** Where a Course's Bundles live. */
 const resolveDropboxCourseDir = (courseName: string) =>
   Config.string("DROPBOX_REMOTE_PATH").pipe(
@@ -59,8 +51,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
    * position, so every caller states which release it wants rather than leaving
    * it to whatever `undefined` does here. The floor is a per-browser,
    * per-Course preference and is deliberately not recorded on the Published
-   * Version (ADR 0029) — a re-sync that cannot be told the floor therefore
-   * announces nothing, which is why the caller, not this function, decides.
+   * Version (ADR 0029), which is why the caller, not this function, decides.
    */
   placeholderFloor: PlaceholderFloor;
   /**
@@ -76,8 +67,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
    *
    * Required rather than optional: omitting it would silently mean "every
    * Video is ready", i.e. upload-before-export, which is a race rather than a
-   * type error. The manual re-sync path says so explicitly with
-   * `noExportPhase`.
+   * type error.
    */
   awaitVideoReady: (videoId: string) => Effect.Effect<void, ExportError>;
 }) {

@@ -20,6 +20,13 @@ import type { FetcherWithComponents } from "react-router";
 import type { VideoFormat } from "@/features/videos/video-format";
 import type { ClipOverlay } from "./overlay-preview";
 
+export type UpdateClipDiagramPinFn = (
+  clipFrontendId: FrontendId,
+  clipDatabaseId: string,
+  diagramSnapshotId: string | null,
+  diagramName: string | null
+) => void;
+
 export type FileMetadata = {
   path: string;
   size: number;
@@ -161,8 +168,8 @@ export type VideoEditorContextType = {
   // AI Chapter generation
   onOpenAutofillChaptersModal: () => void;
 
-  // Diagram pin
-  onUnpinDiagram: (clipId: FrontendId) => void;
+  // Diagram pin; the editor unpins by passing nulls
+  onUpdateClipDiagramPin: UpdateClipDiagramPinFn;
 
   // Web links captured during recording
   onRemoveWebLink: (clipId: FrontendId, linkId: DatabaseId) => void;

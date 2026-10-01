@@ -29,7 +29,7 @@ import {
   serialiseIconTable,
   type IconTable,
   type SynonymTable,
-} from "../../../packages/lucide-icons/generator";
+} from "@cvm/lucide-icons/generator";
 
 const GENERATED_DIR = path.join(
   import.meta.dirname,

@@ -13,7 +13,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
   });
 };
 
-export const createVideoPostOperations = (db: Database) => {
+const createVideoPostOperations = (db: Database) => {
   const createVideoPost = Effect.fn("createVideoPost")(function* (opts: {
     videoId: string;
     platform: VideoPostPlatform;

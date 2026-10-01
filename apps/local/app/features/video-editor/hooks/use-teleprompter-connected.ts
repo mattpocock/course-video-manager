@@ -1,7 +1,7 @@
 /**
  * Is a teleprompter popup attached to this editor?
  *
- * `teleprompter-window` already records the popup's pings for every tab that
+ * `teleprompterChannel` already records the popup's pings for every tab that
  * imports it; this turns that into React state. Polled on a timer rather than
  * subscribed because liveness *expires* — the popup being closed sends no
  * message, it just stops pinging.
@@ -12,7 +12,7 @@
  * editor re-renders on the transitions rather than once a second.
  */
 import { useEffect, useState } from "react";
-import { isTeleprompterAlive } from "@/lib/teleprompter-window";
+import { teleprompterChannel } from "@/lib/teleprompter-protocol";
 
 const POLL_INTERVAL_MS = 1000;
 
@@ -20,7 +20,7 @@ export function useTeleprompterConnected(): boolean {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const check = () => setConnected(isTeleprompterAlive());
+    const check = () => setConnected(teleprompterChannel.isOpen());
     check();
     const id = setInterval(check, POLL_INTERVAL_MS);
     return () => clearInterval(id);

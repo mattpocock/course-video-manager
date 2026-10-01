@@ -4,7 +4,6 @@ import { NodeContext } from "@effect/platform-node";
 import { VideoProcessingService } from "./video-processing-service";
 import { BackgroundRemovalService } from "./background-removal-service";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
-import { FeatureFlagService } from "./feature-flag-service";
 import { OpenFolderService } from "./open-folder-service";
 import { SpacedeskService } from "./spacedesk-service";
 import { CloudinaryService } from "./cloudinary-service";
@@ -67,7 +66,6 @@ const coreLayer = Layer.mergeAll(
   VideoProcessingService.Default,
   BackgroundRemovalService.Default,
   VideoEditorLoggerService.Default,
-  FeatureFlagService.Default,
   OpenFolderService.Default,
   SpacedeskService.Default,
   CloudinaryService.Default,

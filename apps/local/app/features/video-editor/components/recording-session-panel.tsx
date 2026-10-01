@@ -10,14 +10,7 @@ import {
   Link2Icon,
 } from "lucide-react";
 import { getActiveDiagramId } from "@/lib/diagram-window";
-import {
-  isDiagramFocused,
-  subscribeDiagramFocus,
-} from "@/lib/diagram-focus-tracking";
-import {
-  isBrowserFocused,
-  subscribeBrowserFocus,
-} from "@/lib/browser-focus-tracking";
+import { browserFocus, diagramFocus } from "@/lib/focus-tracker";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import type { SessionPanelData } from "../video-editor-selectors";
@@ -176,10 +169,10 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
     Math.floor((Date.now() - panel.startedAt) / 1000)
   );
   const [diagramFocused, setDiagramFocused] = useState(() =>
-    isDiagramFocused()
+    diagramFocus.isFocused()
   );
   const [browserFocused, setBrowserFocused] = useState(() =>
-    isBrowserFocused()
+    browserFocus.isFocused()
   );
   const [hasActiveDiagram, setHasActiveDiagram] = useState(
     () => getActiveDiagramId() !== null
@@ -198,13 +191,13 @@ export const SessionPanel = ({ panel }: { panel: SessionPanelData }) => {
   }, [panel.isRecording, panel.startedAt]);
 
   useEffect(() => {
-    setDiagramFocused(isDiagramFocused());
-    return subscribeDiagramFocus(setDiagramFocused);
+    setDiagramFocused(diagramFocus.isFocused());
+    return diagramFocus.subscribe(setDiagramFocused);
   }, []);
 
   useEffect(() => {
-    setBrowserFocused(isBrowserFocused());
-    return subscribeBrowserFocus(setBrowserFocused);
+    setBrowserFocused(browserFocus.isFocused());
+    return browserFocus.subscribe(setBrowserFocused);
   }, []);
 
   const hasArchived = panel.archivedClips.length > 0;
