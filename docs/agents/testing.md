@@ -32,3 +32,4 @@ Do **not** chase this by re-running the full suite with `--no-file-parallelism`;
 ## One build-order gotcha
 
 `packages/core` is consumed via its built `dist/` (its `package.json` `exports` map points there), even from tests — `pnpm run test` builds it first automatically (Turbo's `dependsOn: ["^build"]`), but running `vitest` directly inside `apps/local` or `apps/remote` (bypassing Turbo for faster iteration) will fail to resolve `@cvm/core/...` imports unless you've run `pnpm --filter @cvm/core build` at least once first.
+
