@@ -22,7 +22,8 @@ KEY FIELDS
                    "01-intro"). Unique per section among non-archived lessons.
   title            Human-readable lesson title (may be empty; untitled lesson).
   order            Sort position within the section (lower sorts first).
-  priority         Authoring priority hint (integer, default 2).
+  priority         Lesson Priority: 1, 2 or 3 (default 2; lower is more
+                   important). Set with 'update --priority'.
   sectionId        Parent Section id.
 
 ARCHIVED
@@ -40,8 +41,10 @@ VERBS
   create --section <id> --title <t> [--before|--after <lessonId>]
                         Create a lesson in a Section (WRITE).
   update <id> [--title <t>] [--description <d>] [--authoring-status todo|done]
-                        Rename a lesson, rewrite its description and/or set its
-                        authoring status (WRITE; slug unchanged).
+         [--priority 1|2|3]
+                        Rename a lesson, rewrite its description, set its
+                        authoring status and/or its priority (WRITE; slug
+                        unchanged).
   move <id> [--section <id>] [--before|--after <lessonId>]
                         Reorder within a section, or re-home to another (WRITE).
   archive <id>          Hide the lesson (WRITE; 'unarchive' undoes it).
@@ -137,8 +140,8 @@ Examples:
   cvm lesson create --section sec_123 --title "Intro to Effect"
   cvm lesson create --section sec_123 --title "Setup" --before les_abc`;
 
-export const UPDATE_HELP = `Update a lesson by id. Change its display TITLE, its DESCRIPTION and/or its
-AUTHORING STATUS.
+export const UPDATE_HELP = `Update a lesson by id. Change its display TITLE, its DESCRIPTION, its
+AUTHORING STATUS and/or its PRIORITY.
 
 Flags (pass at least one — an update with none is invalid input, exit 3):
   --title <text>              new display title. The lesson's 'path' (its slug)
@@ -154,6 +157,10 @@ Flags (pass at least one — an update with none is invalid input, exit 3):
                               workflow: "todo" (still needs work — the default
                               for newly created lessons) or "done" (marked
                               ready). Any other value is invalid input (exit 3).
+  --priority <n>              set the Lesson Priority: 1, 2 (the default for
+                              new lessons) or 3; lower is more important. It
+                              is what the Placeholder Floor reads at publish.
+                              Any other value is invalid input (exit 3).
 
 This is a partial patch: only the flags you pass are changed; the rest are left
 as-is. Editing a lesson in a published (frozen) version is refused (exit 3);
@@ -167,7 +174,8 @@ Examples:
   cvm lesson update les_abc --description ""          # clear a stale description
   cvm lesson update les_abc --authoring-status done
   cvm lesson update les_abc --authoring-status todo
-  cvm lesson update les_abc --title "Setup" --authoring-status todo`;
+  cvm lesson update les_abc --title "Setup" --authoring-status todo
+  cvm lesson update --priority 3 les_abc`;
 
 export const ARCHIVE_HELP = `WRITE. Archive a lesson — the only way to delete one.
 

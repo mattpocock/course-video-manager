@@ -310,6 +310,18 @@ const updateAuthoringStatus = Options.choice("authoring-status", [
   ),
   Options.optional
 );
+// Same name and parsing as `learning-goal --priority` (Options.integer), plus a
+// range check: a Lesson Priority is P1/P2/P3 — the UI only writes 1, 2 or 3 and
+// the Placeholder Floor only names those three — so anything else is refused
+// rather than stored as a rank nothing else understands.
+const LESSON_PRIORITIES = [1, 2, 3] as const;
+const updatePriority = Options.integer("priority").pipe(
+  Options.withDescription(
+    "Set the Lesson Priority: 1, 2 (the default for new lessons) or 3; " +
+      "lower is more important."
+  ),
+  Options.optional
+);
 
 const updateCmd = Command.make(
   "update",
@@ -318,20 +330,32 @@ const updateCmd = Command.make(
     title: updateTitle,
     description: updateDescription,
     authoringStatus: updateAuthoringStatus,
+    priority: updatePriority,
   },
-  ({ id, title, description, authoringStatus }) =>
+  ({ id, title, description, authoringStatus, priority }) =>
     Effect.gen(function* () {
       const titleValue = Option.getOrUndefined(title);
       const descriptionValue = Option.getOrUndefined(description);
       const statusValue = Option.getOrUndefined(authoringStatus);
+      const priorityValue = Option.getOrUndefined(priority);
 
       if (
         titleValue === undefined &&
         descriptionValue === undefined &&
-        statusValue === undefined
+        statusValue === undefined &&
+        priorityValue === undefined
       ) {
         return yield* parseError(
-          "update needs at least one of --title, --description or --authoring-status",
+          "update needs at least one of --title, --description, --authoring-status or --priority",
+          "lesson"
+        );
+      }
+      if (
+        priorityValue !== undefined &&
+        !LESSON_PRIORITIES.some((p) => p === priorityValue)
+      ) {
+        return yield* parseError(
+          `--priority must be 1, 2 or 3 (got ${priorityValue})`,
           "lesson"
         );
       }
@@ -356,6 +380,7 @@ const updateCmd = Command.make(
           ? { description: descriptionValue }
           : {}),
         ...(statusValue !== undefined ? { authoringStatus: statusValue } : {}),
+        ...(priorityValue !== undefined ? { priority: priorityValue } : {}),
       });
 
       const updated = yield* svc.getLessonWithHierarchyById(id);

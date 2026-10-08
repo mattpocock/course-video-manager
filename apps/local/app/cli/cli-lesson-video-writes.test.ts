@@ -196,6 +196,7 @@ describe("lesson update", () => {
     id: string;
     title: string;
     authoringStatus: string | null;
+    priority: number;
   }
   const lobj = (stdout: string): Lesson => one<Lesson>(stdout);
 
@@ -272,6 +273,64 @@ describe("lesson update", () => {
     expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
       "ParseError"
     );
+  });
+
+  it("--priority 3 sets the Lesson Priority, echoing the row", async () => {
+    const updated = lobj(
+      (await run(["lesson", "update", "--priority", "3", s.lessonId])).stdout
+    );
+    expect(updated.id).toBe(s.lessonId);
+    expect(updated.priority).toBe(3);
+  });
+
+  it("--priority alone leaves title and authoring status untouched", async () => {
+    const before = lobj((await run(["lesson", "get", s.lessonId])).stdout);
+    const updated = lobj(
+      (await run(["lesson", "update", "--priority", "1", s.lessonId])).stdout
+    );
+    expect(updated.priority).toBe(1);
+    expect(updated.title).toBe(before.title);
+    expect(updated.authoringStatus).toBe(before.authoringStatus);
+  });
+
+  it("--title only leaves the priority untouched", async () => {
+    await run(["lesson", "update", "--priority", "3", s.lessonId]);
+    const updated = lobj(
+      (await run(["lesson", "update", "--title", "Renamed", s.lessonId])).stdout
+    );
+    expect(updated.priority).toBe(3);
+  });
+
+  it.each(["0", "4", "-1"])(
+    "an out-of-range --priority %s => invalid input, exit 3, nothing written",
+    async (value) => {
+      const { exitCode, stdout, stderr } = await run([
+        "lesson",
+        "update",
+        "--priority",
+        value,
+        s.lessonId,
+      ]);
+      expect(exitCode).toBe(3);
+      expect(stdout).toBe("");
+      expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
+        "ParseError"
+      );
+      const after = lobj((await run(["lesson", "get", s.lessonId])).stdout);
+      expect(after.priority).toBe(2);
+    }
+  );
+
+  it("a non-integer --priority => invalid input, exit 3", async () => {
+    const { exitCode, stdout } = await run([
+      "lesson",
+      "update",
+      "--priority",
+      "high",
+      s.lessonId,
+    ]);
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
   });
 
   it("an unknown --authoring-status value => invalid input, exit 3", async () => {
