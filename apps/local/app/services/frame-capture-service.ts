@@ -213,7 +213,7 @@ export class FrameCaptureService extends Effect.Service<FrameCaptureService>()(
       );
 
       /**
-       * Render a Diagram's scene as a PNG, light mode on a white background,
+       * Render a Diagram's scene as a PNG, dark mode on a dark background,
        * through the app's render page (see diagram-render-contract.ts).
        *
        * The PNG is written under the OS temp dir and nowhere else: the path

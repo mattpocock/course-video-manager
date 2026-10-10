@@ -169,7 +169,7 @@ Output: ONE NDJSON line,
   snapshots  one per drawing, in the file's order; the first is what the
              Diagram shows when Matt opens it.
     id       the DiagramSnapshot's id.
-    image    the PNG of that drawing: light mode, white background. READ
+    image    the PNG of that drawing: dark mode, dark background. READ
              EVERY ONE before you hand the url over.
 
 Order: the file is checked, then drawn, then written. Nothing is written
@@ -229,7 +229,7 @@ offers him "Reload" or "Keep my edits".
 Output: ONE NDJSON line,
   {"snapshotId":"…","image":"/tmp/…/….png"}
   snapshotId  the new DiagramSnapshot's id; the Diagram's head is now this.
-  image       the PNG of the drawing: light mode, white background. READ IT.
+  image       the PNG of the drawing: dark mode, dark background. READ IT.
 
 Order: the Diagram is looked up, the file checked and applied onto its head,
 the drawing drawn, then written. Nothing is written unless all succeed. Adding a drawing the Diagram
@@ -255,7 +255,7 @@ a SNAPSHOT — never the head, which Matt may be mid-way through editing.
 Output: ONE NDJSON line,
   {"snapshotId":"…","image":"/tmp/…/….png"}
   snapshotId  the snapshot drawn.
-  image       its PNG: light mode, white background, <snapshotId>.png.
+  image       its PNG: dark mode, dark background, <snapshotId>.png.
 
 Exit codes:
   2  no snapshot with that id (_tag NotFoundError).
