@@ -1,9 +1,9 @@
 import { Context, Data, Effect, Layer } from "effect";
 
 /**
- * What one Whisper pass over an audio file gives back, from either engine:
- * OpenAI's `verbose_json` shape, in seconds from the file's start. A word's
- * text has no leading space; a segment's keeps Whisper's.
+ * What one Whisper pass over an audio file gives back, in seconds from the
+ * file's start. A word's text has no leading space; a segment's keeps
+ * Whisper's.
  */
 export interface AudioTranscript {
   readonly segments: ReadonlyArray<{
@@ -25,61 +25,32 @@ export class LocalWhisperError extends Data.TaggedError("LocalWhisperError")<{
 
 /**
  * **Local Whisper**: faster-whisper on this machine's GPU, in a worker the
- * Sidecar keeps alive so the model stays loaded (`sidecar/local-whisper-engine.ts`).
- * `enabled` is false unless `CVM_WHISPER_ENGINE=local`, and then
- * `WhisperTranscriptionService` uses OpenAI as before.
+ * Sidecar keeps alive so the model stays loaded
+ * (`sidecar/local-whisper-engine.ts`). It is the only Whisper engine: there
+ * is no hosted fallback, so when the GPU or its Python env is unavailable a
+ * transcription fails with an error that names the fix.
  *
- * Only the Sidecar's layer builds the live engine; tests and anything else
- * that builds `WhisperTranscriptionService.Default` take
- * {@link LocalWhisperDisabled}.
+ * Only the Sidecar's layer builds the live engine. Tests that build
+ * `WhisperTranscriptionService.Default` without transcribing take
+ * {@link LocalWhisperUnavailable}.
  */
 export class LocalWhisperEngine extends Context.Tag("LocalWhisperEngine")<
   LocalWhisperEngine,
   {
-    readonly enabled: boolean;
     readonly transcribe: (
       audioPath: string
     ) => Effect.Effect<AudioTranscript, LocalWhisperError>;
   }
 >() {}
 
-export const LocalWhisperDisabled = Layer.succeed(LocalWhisperEngine, {
-  enabled: false,
+/** An engine that refuses every file: for tests that never transcribe. */
+export const LocalWhisperUnavailable = Layer.succeed(LocalWhisperEngine, {
   transcribe: () =>
     Effect.fail(
       new LocalWhisperError({
         cause: null,
-        message: "Local Whisper is not enabled (CVM_WHISPER_ENGINE=local)",
+        message:
+          "Local Whisper runs only in the Sidecar (sidecar/local-whisper-engine.ts)",
       })
     ),
 });
-
-/**
- * The transcriber `WhisperTranscriptionService` uses: local when it is
- * enabled, falling back to OpenAI for a file the local engine could not do
- * (the worker would not start, the GPU ran out of memory) as long as an
- * OpenAI key is set. With the local engine off, OpenAI alone, as before.
- */
-export const chooseTranscriber = <E>(
-  local: LocalWhisperEngine["Type"],
-  openai: ((audioPath: string) => Effect.Effect<AudioTranscript, E>) | null,
-  noEngine: (cause: unknown) => E
-) => {
-  if (!local.enabled) {
-    return (audioPath: string): Effect.Effect<AudioTranscript, E> =>
-      openai ? openai(audioPath) : Effect.fail(noEngine(null));
-  }
-  return (audioPath: string): Effect.Effect<AudioTranscript, E> =>
-    local
-      .transcribe(audioPath)
-      .pipe(
-        Effect.catchTag("LocalWhisperError", (error) =>
-          openai
-            ? Effect.logWarning(
-                "Local Whisper failed; falling back to OpenAI",
-                { audioPath, error: error.message }
-              ).pipe(Effect.zipRight(openai(audioPath)))
-            : Effect.fail(noEngine(error))
-        )
-      );
-};

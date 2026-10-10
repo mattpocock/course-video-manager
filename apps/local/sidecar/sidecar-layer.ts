@@ -40,8 +40,8 @@ export const sidecarLayer = Layer.mergeAll(
   Layer.provideMerge(encodeLayer),
   Layer.provideMerge(layerLive),
   Layer.provideMerge(SidecarContextLive),
-  // OpenAI's Whisper, or Local Whisper when `CVM_WHISPER_ENGINE=local`: one
-  // worker, shared by every WhisperTranscriptionService built above.
+  // Local Whisper: its env made ready when the Sidecar starts, and one
+  // worker shared by every WhisperTranscriptionService built above.
   Layer.provideMerge(LocalWhisperEngineLive)
 );
 

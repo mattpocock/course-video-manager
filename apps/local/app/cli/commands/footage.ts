@@ -121,8 +121,7 @@ const listCmd = Command.make("list", { dir: dirOption }, ({ dir }) =>
 /**
  * What `footage transcribe` runs inside: enough to write the Job row and follow
  * it. The work itself — ffmpeg and Whisper — is the Sidecar's
- * (`sidecar/kinds/transcribe-footage.ts`), so neither it nor OPENAI_API_KEY is
- * built here. Only reached when no JobOperationsService is provided already,
+ * (`sidecar/kinds/transcribe-footage.ts`), so none of it is built here. Only reached when no JobOperationsService is provided already,
  * which is what lets a test hand it one on its own database.
  */
 const footageJobLayer = Layer.mergeAll(

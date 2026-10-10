@@ -67,8 +67,7 @@ export const isValidPublishVersionName = (name: string): boolean =>
  * The service graph the `publish` command runs inside: enough to check the
  * Course and the name and to write the Job row. The work itself — ffmpeg,
  * Dropbox, the Version lifecycle — is the Sidecar's, so none of its services
- * (nor OPENAI_API_KEY, which WhisperTranscriptionService reads at build time) are
- * built here.
+ * are built here.
  */
 const publishLayer = Layer.mergeAll(
   CourseOperationsService.Default,

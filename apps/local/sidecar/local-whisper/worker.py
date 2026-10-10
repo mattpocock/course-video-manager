@@ -3,15 +3,21 @@
 The Sidecar starts one of these and keeps it alive so the model stays resident
 in VRAM: loading large-v3-turbo costs ~1.5 s, transcribing a 10 s Clip ~0.5 s.
 
+    worker.py <model> <compute_type> <batched 0|1> <models_dir>
+    worker.py --prefetch <model> <models_dir>
+
 Protocol, one JSON object per line:
   stdout, once:  {"ready": true, "loadSeconds": 1.4}
+              or {"fatal": "..."} and exit 1 (the model would not load)
   stdin:         {"id": "1", "audio": "/tmp/whisper-audio/abc.mp3"}
   stdout:        {"id": "1", "segments": [...], "words": [...]}
               or {"id": "1", "error": "..."}
-Segments and words are `{start, end, text}` in seconds, the shape OpenAI's
-`verbose_json` gives (a word's text has no leading space; a segment's does).
+Segments and words are `{start, end, text}` in seconds (a word's text has no
+leading space; a segment's does).
 
-Config (argv): <model> <compute_type> <batched 0|1> [download_root]
+`--prefetch` downloads the model into <models_dir> if it is not there yet and
+prints {"path": "..."}; the Sidecar runs it once at startup so the first
+Clip never waits on a 1.6 GB download.
 """
 
 import ctypes
@@ -23,7 +29,7 @@ import time
 
 
 def preload_pip_cuda_libs():
-    # `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` puts the CUDA libs
+    # The nvidia-cublas-cu12 and nvidia-cudnn-cu12 wheels put the CUDA libs
     # CTranslate2 needs inside site-packages, where the loader never looks.
     # Load them by path first so no LD_LIBRARY_PATH is needed.
     try:
@@ -44,17 +50,32 @@ def send(message):
     sys.stdout.flush()
 
 
-def main():
-    model_name, compute_type, batched = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
-    download_root = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
+def model_path(model_name, models_dir):
+    """The model's directory in the cache, downloading it only if missing."""
+    from faster_whisper.utils import download_model
 
+    try:
+        return download_model(model_name, cache_dir=models_dir, local_files_only=True)
+    except Exception:
+        return download_model(model_name, cache_dir=models_dir)
+
+
+def prefetch(model_name, models_dir):
+    send({"path": model_path(model_name, models_dir)})
+
+
+def serve(model_name, compute_type, batched, models_dir):
     preload_pip_cuda_libs()
     from faster_whisper import BatchedInferencePipeline, WhisperModel
 
     started = time.perf_counter()
-    model = WhisperModel(
-        model_name, device="cuda", compute_type=compute_type, download_root=download_root
-    )
+    try:
+        model = WhisperModel(
+            model_path(model_name, models_dir), device="cuda", compute_type=compute_type
+        )
+    except Exception as error:
+        send({"fatal": f"{type(error).__name__}: {error}"})
+        sys.exit(1)
     pipeline = BatchedInferencePipeline(model=model) if batched else model
     send({"ready": True, "loadSeconds": round(time.perf_counter() - started, 3)})
 
@@ -83,6 +104,14 @@ def main():
             )
         except Exception as error:  # one bad file must not kill the worker
             send({"id": request["id"], "error": f"{type(error).__name__}: {error}"})
+
+
+def main():
+    os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+    if sys.argv[1] == "--prefetch":
+        prefetch(sys.argv[2], sys.argv[3])
+    else:
+        serve(sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[4])
 
 
 if __name__ == "__main__":

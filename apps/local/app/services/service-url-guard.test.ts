@@ -19,7 +19,6 @@ describe("the service URL guard", () => {
         S3_ENDPOINT: "https://s3.eu-west-2.amazonaws.com",
         AI_HERO_BASE_URL: "https://www.aihero.dev",
         ANTHROPIC_BASE_URL: "https://api.anthropic.com/v1",
-        OPENAI_BASE_URL: "https://api.openai.com/v1",
         DROPBOX_API_URL: "https://api.dropboxapi.com",
         DROPBOX_CONTENT_URL: "https://content.dropboxapi.com",
       })
