@@ -28,4 +28,8 @@ export const versionRoutes = (runtime: RemoteRuntime) =>
     .post(
       "/findVersionSuccessor",
       forward(runtime, VersionOperationsService, "findVersionSuccessor")
+    )
+    .post(
+      "/resolveEntityRef",
+      forward(runtime, VersionOperationsService, "resolveEntityRef")
     );

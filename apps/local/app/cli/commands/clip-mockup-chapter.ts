@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
+import { entityIdArg, entityIdOption, draftIdOption } from "../entity-id";
 import { Effect, Option } from "effect";
 import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -45,7 +45,7 @@ import {
 // Options
 // ---------------------------------------------------------------------------
 
-const videoOpt = entityIdOption("video", "video").pipe(
+const videoOpt = draftIdOption("video", "video").pipe(
   Options.withDescription("Parent Video id (required).")
 );
 
@@ -114,19 +114,24 @@ const requireActiveChapter = (id: string) =>
 // Verbs
 // ---------------------------------------------------------------------------
 
-const listCmd = Command.make("list", { video: videoOpt }, ({ video }) =>
-  Effect.gen(function* () {
-    const row = yield* requireActiveVideo(video);
-    const svc = yield* ClipMockupChapterOperationsService;
-    yield* emitNdjson(yield* svc.listClipMockupChaptersByVideoId(row.id));
-  })
+const listCmd = Command.make(
+  "list",
+  { video: videoOpt },
+  ({ video: videoRef }) =>
+    Effect.gen(function* () {
+      const video = yield* videoRef;
+      const row = yield* requireActiveVideo(video);
+      const svc = yield* ClipMockupChapterOperationsService;
+      yield* emitNdjson(yield* svc.listClipMockupChaptersByVideoId(row.id));
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const addCmd = Command.make(
   "add",
   { video: videoOpt, title: titleOpt, before: beforeOpt, after: afterOpt },
-  ({ video, title, before, after }) =>
+  ({ video: videoRef, title, before, after }) =>
     Effect.gen(function* () {
+      const video = yield* videoRef;
       const row = yield* requireActiveVideo(video);
       const beforeItemId = yield* resolveBeforeAnimaticItemId({
         entity: "clipMockupChapter",

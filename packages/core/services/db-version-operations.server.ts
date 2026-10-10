@@ -18,6 +18,7 @@ import { createVersionLifecycleOps } from "./db-version-lifecycle.server.js";
 import { createVersionPathOps } from "./db-version-paths.server.js";
 import { createVersionCopyOps } from "./db-version-copy.server.js";
 import { createVersionSuccessorOps } from "./db-version-successor.server.js";
+import { createEntityRefOps } from "./db-entity-ref.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -27,6 +28,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 };
 
 const createVersionOperations = (db: Database) => {
+  const successorOps = createVersionSuccessorOps(db);
   const getCourseVersions = Effect.fn("getCourseVersions")(function* (
     repoId: string
   ) {
@@ -365,7 +367,10 @@ const createVersionOperations = (db: Database) => {
     // resolveLessonDir / resolveSectionDir (split for the file token budget).
     ...createVersionPathOps(db),
     // findVersionSuccessor — an older version's id to its Draft equivalent.
-    ...createVersionSuccessorOps(db),
+    ...successorOps,
+    // resolveEntityRef — any Section/Lesson/Video id or lineageId to the
+    // Draft's row: THE resolver every CLI id argument goes through.
+    ...createEntityRefOps(db, successorOps.findVersionSuccessor),
   };
 };
 

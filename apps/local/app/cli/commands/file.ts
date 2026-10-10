@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdOption } from "../entity-id";
+import { draftIdOption } from "../entity-id";
 import { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
 import path from "node:path";
@@ -32,7 +32,7 @@ import { HELP, LIST_HELP, ADD_HELP, GET_HELP, DELETE_HELP } from "./file.help";
 // Options / Args
 // ---------------------------------------------------------------------------
 
-const videoOption = entityIdOption("video", "video").pipe(
+const videoOption = draftIdOption("video", "video").pipe(
   Options.withDescription("The Video id whose files to operate on (required).")
 );
 
@@ -101,13 +101,17 @@ const entryFor = (relativePath: string, size: number) => ({
 // Verbs
 // ---------------------------------------------------------------------------
 
-const listCmd = Command.make("list", { video: videoOption }, ({ video }) =>
-  Effect.gen(function* () {
-    yield* requireLocalFileStore;
-    const row = yield* requireActiveVideo(video);
-    const entries = yield* listVideoFiles(row.lineageId);
-    yield* emitNdjson(entries);
-  })
+const listCmd = Command.make(
+  "list",
+  { video: videoOption },
+  ({ video: videoRef }) =>
+    Effect.gen(function* () {
+      yield* requireLocalFileStore;
+      const video = yield* videoRef;
+      const row = yield* requireActiveVideo(video);
+      const entries = yield* listVideoFiles(row.lineageId);
+      yield* emitNdjson(entries);
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const addCmd = Command.make(
@@ -118,9 +122,10 @@ const addCmd = Command.make(
     force: forceOption,
     paths: sourcePathsArg,
   },
-  ({ video, as, force, paths }) =>
+  ({ video: videoRef, as, force, paths }) =>
     Effect.gen(function* () {
       yield* requireLocalFileStore;
+      const video = yield* videoRef;
       const fs = yield* FileSystem.FileSystem;
       const rename = Option.getOrUndefined(as);
 
@@ -175,9 +180,10 @@ const addCmd = Command.make(
 const getCmd = Command.make(
   "get",
   { video: videoOption, path: filePathArg },
-  ({ video, path: filePath }) =>
+  ({ video: videoRef, path: filePath }) =>
     Effect.gen(function* () {
       yield* requireLocalFileStore;
+      const video = yield* videoRef;
       const row = yield* requireActiveVideo(video);
 
       const exists = yield* asParseError(
@@ -202,9 +208,10 @@ const getCmd = Command.make(
 const deleteCmd = Command.make(
   "delete",
   { video: videoOption, path: filePathArg },
-  ({ video, path: filePath }) =>
+  ({ video: videoRef, path: filePath }) =>
     Effect.gen(function* () {
       yield* requireLocalFileStore;
+      const video = yield* videoRef;
       const row = yield* requireActiveVideo(video);
 
       const exists = yield* asParseError(

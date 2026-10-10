@@ -1,6 +1,6 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
-import { explainStaleId, notFoundOrStale } from "../stale-id";
+import { draftIdArg, draftIdOption, optionalDraftId } from "../entity-id";
+import { notFoundOrStale } from "../stale-id";
 import { Effect, Option } from "effect";
 import { lessonSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
@@ -70,15 +70,16 @@ const assertDraftLesson = (lesson: {
 // list --section <id>
 // ---------------------------------------------------------------------------
 
-const section = entityIdOption("section", "section");
+const section = draftIdOption("section", "section");
 
 const archived = Options.boolean("archived");
 
 const listCmd = Command.make(
   "list",
   { section, archived },
-  ({ section, archived }) =>
+  ({ section: sectionRef, archived }) =>
     Effect.gen(function* () {
+      const section = yield* sectionRef;
       const svc = yield* LessonSectionOperationsService;
       const rows = archived
         ? yield* svc.getArchivedLessonsBySectionId(section)
@@ -91,36 +92,40 @@ const listCmd = Command.make(
 // get <id...>
 // ---------------------------------------------------------------------------
 
-const ids = entityIdArg("lesson").pipe(Args.repeated);
+const refs = draftIdArg("lesson").pipe(Args.repeated);
 
-const getCmd = Command.make("get", { ids, full: fullOption }, ({ ids, full }) =>
-  emitGet({
-    entity: "lesson",
-    ids,
-    includeMemory: full,
-    explainMissing: explainStaleId("lesson"),
-    fetch: (id) =>
-      Effect.flatMap(LessonSectionOperationsService, (svc) =>
-        svc.getLessonWithHierarchyById(id).pipe(
-          // Service throws the DOMAIN NotFoundError for an absent row; the
-          // CLI owns not-found detection, so translate "absent" into
-          // undefined and let emitGet emit the contract's {entity,id}
-          // NotFoundError + exit 2.
-          Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)),
-          // Archived lessons are deleted-equivalent (no flag, never
-          // visible): treat an archived row as absent -> NotFoundError +
-          // exit 2.
-          Effect.map((lesson) => (lesson?.archived ? undefined : lesson))
-        )
-      ),
-  })
+const getCmd = Command.make(
+  "get",
+  { ids: refs, full: fullOption },
+  ({ ids: refs, full }) =>
+    Effect.flatMap(Effect.all(refs), (ids) =>
+      emitGet({
+        entity: "lesson",
+        ids,
+        includeMemory: full,
+        fetch: (id) =>
+          Effect.flatMap(LessonSectionOperationsService, (svc) =>
+            svc.getLessonWithHierarchyById(id).pipe(
+              // Service throws the DOMAIN NotFoundError for an absent row; the
+              // CLI owns not-found detection, so translate "absent" into
+              // undefined and let emitGet emit the contract's {entity,id}
+              // NotFoundError + exit 2.
+              Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)),
+              // Archived lessons are deleted-equivalent (no flag, never
+              // visible): treat an archived row as absent -> NotFoundError +
+              // exit 2.
+              Effect.map((lesson) => (lesson?.archived ? undefined : lesson))
+            )
+          ),
+      })
+    )
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
 // ---------------------------------------------------------------------------
 // tree <id> [--depth N|all]
 // ---------------------------------------------------------------------------
 
-const treeId = entityIdArg("lesson");
+const treeId = draftIdArg("lesson");
 const depth = Options.text("depth").pipe(Options.withDefault("1"));
 
 const parseDepth = (raw: string) =>
@@ -136,85 +141,89 @@ const parseDepth = (raw: string) =>
     return n;
   });
 
-const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
-  Effect.gen(function* () {
-    const maxDepth = yield* parseDepth(depth);
-    const lessonSvc = yield* LessonSectionOperationsService;
-    const videoSvc = yield* VideoOperationsService;
+const treeCmd = Command.make(
+  "tree",
+  { id: treeId, depth },
+  ({ id: ref, depth }) =>
+    Effect.gen(function* () {
+      const id = yield* ref;
+      const maxDepth = yield* parseDepth(depth);
+      const lessonSvc = yield* LessonSectionOperationsService;
+      const videoSvc = yield* VideoOperationsService;
 
-    // getLessonById returns the lesson WITH its (active) videos. It throws the
-    // domain NotFoundError when absent — translate to the CLI's exit-2 shape.
-    const lesson = yield* lessonSvc
-      .getLessonById(id)
-      .pipe(
-        Effect.catchTag("NotFoundError", () => notFoundOrStale("lesson", id))
-      );
+      // getLessonById returns the lesson WITH its (active) videos. It throws the
+      // domain NotFoundError when absent — translate to the CLI's exit-2 shape.
+      const lesson = yield* lessonSvc
+        .getLessonById(id)
+        .pipe(
+          Effect.catchTag("NotFoundError", () => notFoundOrStale("lesson", id))
+        );
 
-    // Archived lessons are deleted-equivalent: an archived lesson id is treated
-    // as not found (no flag, never visible).
-    if (lesson.archived) {
-      return yield* notFoundOrStale("lesson", id);
-    }
+      // Archived lessons are deleted-equivalent: an archived lesson id is treated
+      // as not found (no flag, never visible).
+      if (lesson.archived) {
+        return yield* notFoundOrStale("lesson", id);
+      }
 
-    // getLessonById loads the lesson's videos relation WITHOUT an archived
-    // filter; archived (deleted) lesson-bound videos are never visible, so drop
-    // them before building the skeleton.
-    const activeVideos = lesson.videos.filter((v) => !v.archived);
+      // getLessonById loads the lesson's videos relation WITHOUT an archived
+      // filter; archived (deleted) lesson-bound videos are never visible, so drop
+      // them before building the skeleton.
+      const activeVideos = lesson.videos.filter((v) => !v.archived);
 
-    const node: Record<string, unknown> = {
-      id: lesson.id,
-      kind: "lesson",
-      title: lesson.title,
-      path: lesson.title,
-    };
+      const node: Record<string, unknown> = {
+        id: lesson.id,
+        kind: "lesson",
+        title: lesson.title,
+        path: lesson.title,
+      };
 
-    if (maxDepth >= 1) {
-      const videoNodes = yield* Effect.forEach(
-        activeVideos,
-        (video) =>
-          Effect.gen(function* () {
-            const vNode: Record<string, unknown> = {
-              id: video.id,
-              kind: "video",
-              title: video.title,
-            };
-            if (maxDepth >= 2) {
-              const full = yield* videoSvc.getVideoWithClipsById(video.id);
-              vNode.children = full.clips.map((clip) => ({
-                id: clip.id,
-                kind: "clip",
-                videoFilename: clip.videoFilename,
-                children: [],
-              }));
-            }
-            return vNode;
-          }),
-        { concurrency: "unbounded" }
-      );
-      node.children = videoNodes;
-    }
+      if (maxDepth >= 1) {
+        const videoNodes = yield* Effect.forEach(
+          activeVideos,
+          (video) =>
+            Effect.gen(function* () {
+              const vNode: Record<string, unknown> = {
+                id: video.id,
+                kind: "video",
+                title: video.title,
+              };
+              if (maxDepth >= 2) {
+                const full = yield* videoSvc.getVideoWithClipsById(video.id);
+                vNode.children = full.clips.map((clip) => ({
+                  id: clip.id,
+                  kind: "clip",
+                  videoFilename: clip.videoFilename,
+                  children: [],
+                }));
+              }
+              return vNode;
+            }),
+          { concurrency: "unbounded" }
+        );
+        node.children = videoNodes;
+      }
 
-    yield* emitObject(node);
-  })
+      yield* emitObject(node);
+    })
 ).pipe(Command.withDescription(detail(TREE_HELP)));
 
 // ---------------------------------------------------------------------------
 // create --section <id> --title <t> [--before|--after <lessonId>]
 // ---------------------------------------------------------------------------
 
-const createSection = entityIdOption("section", "section").pipe(
+const createSection = draftIdOption("section", "section").pipe(
   Options.withDescription("The Section id to create the lesson in (required).")
 );
 const createTitle = Options.text("title").pipe(
   Options.withDescription("The lesson title (also slugified into its path).")
 );
-const beforeOption = entityIdOption("before", "lesson").pipe(
+const beforeOption = draftIdOption("before", "lesson").pipe(
   Options.withDescription(
     "Place immediately before this lesson id (mutually exclusive with --after)."
   ),
   Options.optional
 );
-const afterOption = entityIdOption("after", "lesson").pipe(
+const afterOption = draftIdOption("after", "lesson").pipe(
   Options.withDescription(
     "Place immediately after this lesson id (mutually exclusive with --before)."
   ),
@@ -229,10 +238,11 @@ const createCmd = Command.make(
     before: beforeOption,
     after: afterOption,
   },
-  ({ section, title, before, after }) =>
+  ({ section: sectionRef, title, before, after }) =>
     Effect.gen(function* () {
-      const b = Option.getOrUndefined(before);
-      const a = Option.getOrUndefined(after);
+      const section = yield* sectionRef;
+      const b = yield* optionalDraftId(before);
+      const a = yield* optionalDraftId(after);
       yield* rejectBothFlags({
         a: b,
         b: a,
@@ -284,7 +294,7 @@ const createCmd = Command.make(
 // update <id> --title <t>
 // ---------------------------------------------------------------------------
 
-const updateId = entityIdArg("lesson");
+const updateId = draftIdArg("lesson");
 const updateTitle = Options.text("title").pipe(
   Options.withDescription(
     "The lesson's new display title (the slug/path is left unchanged)."
@@ -332,8 +342,9 @@ const updateCmd = Command.make(
     authoringStatus: updateAuthoringStatus,
     priority: updatePriority,
   },
-  ({ id, title, description, authoringStatus, priority }) =>
+  ({ id: ref, title, description, authoringStatus, priority }) =>
     Effect.gen(function* () {
+      const id = yield* ref;
       const titleValue = Option.getOrUndefined(title);
       const descriptionValue = Option.getOrUndefined(description);
       const statusValue = Option.getOrUndefined(authoringStatus);
@@ -392,20 +403,20 @@ const updateCmd = Command.make(
 // move <id> [--section <id>] [--before|--after <lessonId>]
 // ---------------------------------------------------------------------------
 
-const moveId = entityIdArg("lesson");
-const moveSection = entityIdOption("section", "section").pipe(
+const moveId = draftIdArg("lesson");
+const moveSection = draftIdOption("section", "section").pipe(
   Options.withDescription(
     "Destination Section id (omit to reorder within the current section)."
   ),
   Options.optional
 );
-const moveBefore = entityIdOption("before", "lesson").pipe(
+const moveBefore = draftIdOption("before", "lesson").pipe(
   Options.withDescription(
     "Place immediately before this lesson id (mutually exclusive with --after)."
   ),
   Options.optional
 );
-const moveAfter = entityIdOption("after", "lesson").pipe(
+const moveAfter = draftIdOption("after", "lesson").pipe(
   Options.withDescription(
     "Place immediately after this lesson id (mutually exclusive with --before)."
   ),
@@ -415,10 +426,12 @@ const moveAfter = entityIdOption("after", "lesson").pipe(
 const moveCmd = Command.make(
   "move",
   { id: moveId, section: moveSection, before: moveBefore, after: moveAfter },
-  ({ id, section, before, after }) =>
+  ({ id: ref, section: sectionRef, before, after }) =>
     Effect.gen(function* () {
-      const b = Option.getOrUndefined(before);
-      const a = Option.getOrUndefined(after);
+      const id = yield* ref;
+      const section = Option.fromNullable(yield* optionalDraftId(sectionRef));
+      const b = yield* optionalDraftId(before);
+      const a = yield* optionalDraftId(after);
       yield* rejectBothFlags({
         a: b,
         b: a,
@@ -503,10 +516,11 @@ const moveCmd = Command.make(
 // archive <id>
 // ---------------------------------------------------------------------------
 
-const archiveId = entityIdArg("lesson");
+const archiveId = draftIdArg("lesson");
 
-const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
+const archiveCmd = Command.make("archive", { id: archiveId }, ({ id: ref }) =>
   Effect.gen(function* () {
+    const id = yield* ref;
     const svc = yield* LessonSectionOperationsService;
 
     // Read the row first — once archived it is deleted-equivalent, so this is
@@ -534,9 +548,10 @@ const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
 
 const unarchiveCmd = Command.make(
   "unarchive",
-  { id: entityIdArg("lesson") },
-  ({ id }) =>
+  { id: draftIdArg("lesson") },
+  ({ id: ref }) =>
     Effect.gen(function* () {
+      const id = yield* ref;
       const svc = yield* LessonSectionOperationsService;
 
       // Mirrors archive: unarchiving a live Lesson is invalid input.

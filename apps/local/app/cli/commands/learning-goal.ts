@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdOption } from "../entity-id";
+import { draftIdOption, entityIdOption } from "../entity-id";
 import { Effect, Option } from "effect";
 import {
   LearningGoalOperationsService,
@@ -29,7 +29,7 @@ import {
 // Options / Args
 // ---------------------------------------------------------------------------
 
-const sectionOption = entityIdOption("section", "section").pipe(
+const sectionOption = draftIdOption("section", "section").pipe(
   Options.withDescription("The parent Section id (required).")
 );
 
@@ -134,8 +134,9 @@ const requireActiveLearningGoal = (id: string) =>
 const listCmd = Command.make(
   "list",
   { section: sectionOption, full: fullOption },
-  ({ section, full }) =>
+  ({ section: sectionRef, full }) =>
     Effect.gen(function* () {
+      const section = yield* sectionRef;
       const svc = yield* LearningGoalOperationsService;
       const rows = yield* svc.listLearningGoalsBySectionId(section);
       // Compact by default: id/priority/title/beatIds is what a triage pass
@@ -180,8 +181,9 @@ const createCmd = Command.make(
     before: beforeOption,
     after: afterOption,
   },
-  ({ section, title, description, priority, before, after }) =>
+  ({ section: sectionRef, title, description, priority, before, after }) =>
     Effect.gen(function* () {
+      const section = yield* sectionRef;
       const svc = yield* LearningGoalOperationsService;
       const siblings = yield* svc.listLearningGoalsBySectionId(section);
       const beforeLearningGoalId = yield* resolveBeforeId({

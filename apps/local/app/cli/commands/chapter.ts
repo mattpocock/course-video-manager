@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
+import { entityIdArg, entityIdOption, draftIdOption } from "../entity-id";
 import { Effect, Option } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -26,7 +26,7 @@ import {
 // Options / Args
 // ---------------------------------------------------------------------------
 
-const videoOpt = entityIdOption("video", "video").pipe(
+const videoOpt = draftIdOption("video", "video").pipe(
   Options.withDescription("Parent Video id (required).")
 );
 
@@ -87,13 +87,17 @@ const requireVideo = (videoId: string) =>
 // Verbs
 // ---------------------------------------------------------------------------
 
-const listCmd = Command.make("list", { video: videoOpt }, ({ video }) =>
-  Effect.gen(function* () {
-    yield* requireVideo(video);
-    const clipOps = yield* ClipOperationsService;
-    const rows = yield* clipOps.listChaptersByVideoId(video);
-    yield* emitNdjson(rows);
-  })
+const listCmd = Command.make(
+  "list",
+  { video: videoOpt },
+  ({ video: videoRef }) =>
+    Effect.gen(function* () {
+      const video = yield* videoRef;
+      yield* requireVideo(video);
+      const clipOps = yield* ClipOperationsService;
+      const rows = yield* clipOps.listChaptersByVideoId(video);
+      yield* emitNdjson(rows);
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const getCmd = Command.make("get", { ids }, ({ ids }) =>
@@ -129,8 +133,9 @@ const getCmd = Command.make("get", { ids }, ({ ids }) =>
 const addCmd = Command.make(
   "add",
   { video: videoOpt, title: titleOpt, before: beforeOpt, after: afterOpt },
-  ({ video, title, before, after }) =>
+  ({ video: videoRef, title, before, after }) =>
     Effect.gen(function* () {
+      const video = yield* videoRef;
       yield* requireVideo(video);
       const beforeItemId = yield* resolveBeforeItemId({
         entity: "chapter",

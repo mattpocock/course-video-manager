@@ -55,6 +55,13 @@ VERBS
 WRITES honour correctness: reordering or moving a lesson renumbers path prefixes.
 Writes only ever target the Draft (latest) version.
 
+IDS. A Lesson's 'id' changes with every Course Version (each Submit copies the
+Draft with fresh ids); its 'lineageId' never does. STORE THE lineageId. Every
+verb that takes a Lesson id also takes the lineageId, and resolves an id from an
+older Version to the same Lesson in the current Draft, with a one-line note on
+stderr naming the id it used. An id whose Lesson has no copy in the Draft is a
+not-found (exit 2) naming its latest copy.
+
 EXAMPLES
   cvm lesson list --section sec_123
   cvm lesson get les_abc

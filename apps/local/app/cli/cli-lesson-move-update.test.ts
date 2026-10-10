@@ -208,7 +208,7 @@ describe("lesson update --title", () => {
     expect(exitCode).toBe(2);
   });
 
-  it("refuses to edit a lesson in a published version (exit 3)", async () => {
+  it("refuses to edit a published lesson with no Draft copy (exit 2)", async () => {
     const { exitCode, stderr } = await run([
       "lesson",
       "update",
@@ -216,8 +216,10 @@ describe("lesson update --title", () => {
       "Nope",
       s.publishedLessonId,
     ]);
-    expect(exitCode).toBe(3);
-    expect(stderr).toContain("ParseError");
+    // Its lineage has no copy in the Draft, so the id resolves to nothing
+    // editable: a not-found that names its latest copy, never a write.
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("has no copy");
   });
 
   it("rejects an update with no flags at all (exit 3)", async () => {
@@ -429,13 +431,15 @@ describe("lesson move (cross-section)", () => {
     expect(await orderOf(s.sectionAId)).toEqual([s.a1, s.a2, s.a3]);
   });
 
-  it("refuses to move a lesson in a published version (exit 3)", async () => {
+  it("refuses to move a published lesson with no Draft copy (exit 2)", async () => {
     const { exitCode, stderr } = await run([
       "lesson",
       "move",
       s.publishedLessonId, // lives in the older, frozen version
     ]);
-    expect(exitCode).toBe(3);
-    expect(stderr).toContain("ParseError");
+    // Its lineage has no copy in the Draft, so the id resolves to nothing
+    // editable: a not-found that names its latest copy, never a write.
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("has no copy");
   });
 });

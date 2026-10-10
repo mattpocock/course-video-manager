@@ -19,6 +19,13 @@ A Standalone Video has no lesson association (lessonId = NULL) and is used for
 reference or temporary content; it may be packaged by a Pitch. A lesson-bound
 Video belongs to a Lesson inside a Section of a Course Version.
 
+IDS. A lesson-bound Video's 'id' changes with every Course Version (each Submit
+copies the Draft with fresh ids); its 'lineageId' never does. STORE THE
+lineageId. Every verb that takes a Video id (here, and --video on clip, beat,
+chapter, overlay, file, clip-mockup …) also takes the lineageId, and resolves an
+id from an older Version to the same Video in the current Draft, with a one-line
+note on stderr naming the id it used. A Standalone Video's id never changes.
+
 Every Video has a Video Format (the 'format' field): one of 'landscape' (a
 horizontal, long-form video — the default) or 'short' (a vertical, short-form
 video, the kind posted to YouTube Shorts / TikTok / etc.). Format distinguishes
