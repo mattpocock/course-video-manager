@@ -57,7 +57,7 @@ migrate_run_clone() {
 # A clone run is writable, so nothing it does may leave the box. Every external
 # service's credential is replaced with a dud — they win over a linked .env,
 # because the process environment beats .env — so Buffer, S3, Dropbox, YouTube,
-# OpenAI, Anthropic, remove.bg, AI Hero and Cloudinary all fail closed. The services that
+# Anthropic, remove.bg, AI Hero and Cloudinary all fail closed. The services that
 # read these at startup still need SOME value, or every page 500s.
 OFFLINE='verify-cvm-offline'
 
@@ -94,7 +94,7 @@ OFFLINE_SERVICES_ENV=(
   "AWS_ACCESS_KEY_ID=$OFFLINE" "AWS_SECRET_ACCESS_KEY=$OFFLINE"
   "DROPBOX_APP_KEY=$OFFLINE" "DROPBOX_APP_SECRET=$OFFLINE"
   "GOOGLE_CLIENT_ID=$OFFLINE" "GOOGLE_CLIENT_SECRET=$OFFLINE"
-  "OPENAI_API_KEY=$OFFLINE" "ANTHROPIC_API_KEY=$OFFLINE" "REMOVE_BG_API_KEY=$OFFLINE"
+  "ANTHROPIC_API_KEY=$OFFLINE" "REMOVE_BG_API_KEY=$OFFLINE"
   # YouTube, Google's token endpoint, Buffer, S3, AI Hero, Anthropic and
   # Dropbox: the discard port, or a loopback stub the caller started
   # (POSTING_URL_VARS above).

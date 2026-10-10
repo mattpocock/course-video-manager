@@ -23,8 +23,7 @@ import {
  * stack. The publish service still owns the verb (it calls this as its
  * validation gate), but the question "what stands between this Course and
  * shipping" needs only the version tree, the finished-videos directory, and a
- * filesystem — no VideoProcessingService, no FFmpeg, no OPENAI_API_KEY at
- * layer-build time. That is what lets `cvm course readiness` be a cheap,
+ * filesystem — no VideoProcessingService and no FFmpeg at layer-build time. That is what lets `cvm course readiness` be a cheap,
  * server-free read (see app/cli/commands/course-readiness.ts).
  *
  * Whether a Video is EXPORTED is filesystem-derived, never a DB column: its

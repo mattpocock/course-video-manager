@@ -1,25 +1,21 @@
 import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Config, Data, Effect, Schema } from "effect";
+import { Data, Effect, Schema } from "effect";
 import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "os";
-import OpenAI from "openai";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import {
   transcribeFootage,
   type TranscribeFootageOptions,
 } from "./footage-transcription";
 import { SidecarContext } from "./sidecar-context";
+import { LocalWhisperEngine } from "./local-whisper-engine";
 import { removeBestEffort } from "@/services/remove-best-effort";
-
-const TRANSCRIPTION_PERMITS = 20;
 
 /**
  * How `extractAudio` encodes: a Clip's range at 384kbps as recorded, or a whole
- * Footage file (or a chunk of one) mono at 64kbps, small enough that most
- * files fit Whisper's 25MB upload in one pass.
+ * Footage file (or a chunk of one) mono at 64kbps.
  */
 const CLIP_AUDIO = ["-b:a", "384k"] as const;
 const FOOTAGE_AUDIO = ["-ac", "1", "-b:a", "64k"] as const;
@@ -84,9 +80,9 @@ class CouldNotExtractAudioError extends Data.TaggedError(
 }> {}
 
 /**
- * **Whisper transcription**: ffmpeg extracts the audio, OpenAI's Whisper
- * transcribes it, at most 20 calls at once (the permits are this service's,
- * shared by every caller in the process).
+ * **Whisper transcription**: ffmpeg extracts the audio and Local Whisper
+ * transcribes it on this machine's GPU, one file at a time
+ * (`local-whisper-engine.ts`). There is no other engine and no fallback.
  *
  * Sidecar only (docs/plans/background-jobs-sidecar.md, batches 7 and 9): a
  * Clip transcription (the `transcribe-clips` Job), the vertical Short's
@@ -94,8 +90,8 @@ class CouldNotExtractAudioError extends Data.TaggedError(
  * `transcribe-footage` Job, which `cvm footage transcribe` enqueues) ask for
  * `SidecarContext`, only the Sidecar's layer (`sidecar/sidecar-layer.ts`)
  * builds this service, and no module a route can reach may import it
- * (`.dependency-cruiser.spawn.cjs`). One Sidecar, one service, so all three
- * share the same Whisper permits.
+ * (`.dependency-cruiser.spawn.cjs`). One Sidecar, one Local Whisper worker,
+ * shared by all three.
  */
 export class WhisperTranscriptionService extends Effect.Service<WhisperTranscriptionService>()(
   "WhisperTranscriptionService",
@@ -103,12 +99,7 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
     effect: Effect.gen(function* () {
       const effectFs = yield* FileSystem.FileSystem;
       const ffmpegCommands = yield* FFmpegCommandsService;
-      const transcriptionSemaphore = yield* Effect.makeSemaphore(
-        TRANSCRIPTION_PERMITS
-      );
-
-      const openaiApiKey = yield* Config.string("OPENAI_API_KEY");
-      const openai = new OpenAI({ apiKey: openaiApiKey });
+      const localWhisper = yield* LocalWhisperEngine;
 
       /** ffmpeg writes `inputVideo`'s audio (or a range of it) as an mp3. */
       const extractAudio = Effect.fn("extractAudio")(function* (
@@ -158,44 +149,17 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
         return outputFile;
       });
 
-      /**
-       * Transcribe a single audio file using OpenAI Whisper API.
-       */
-      const transcribeAudioFile = Effect.fn("transcribeAudioFile")(function* (
-        audioPath: string
-      ) {
-        const response = yield* transcriptionSemaphore.withPermits(1)(
-          Effect.tryPromise({
-            try: async () => {
-              const stream = fs.createReadStream(audioPath);
-              return openai.audio.transcriptions.create({
-                file: stream,
-                model: "whisper-1",
-                response_format: "verbose_json",
-                timestamp_granularities: ["segment", "word"],
-              });
-            },
-            catch: (e) =>
+      /** One audio file through Local Whisper. Every caller below goes through here. */
+      const transcribeAudioFile = (audioPath: string) =>
+        localWhisper.transcribe(audioPath).pipe(
+          Effect.mapError(
+            (error) =>
               new CouldNotTranscribeError({
-                cause: e,
-                message: `Whisper API call failed: ${e}`,
-              }),
-          })
+                cause: error,
+                message: error.message,
+              })
+          )
         );
-
-        return {
-          segments: (response.segments ?? []).map((segment) => ({
-            start: segment.start,
-            end: segment.end,
-            text: segment.text,
-          })),
-          words: (response.words ?? []).map((word) => ({
-            start: word.start,
-            end: word.end,
-            text: word.word,
-          })),
-        };
-      });
 
       /** Each Clip's range of its recording, transcribed on its own. */
       const transcribeClips = Effect.fn("transcribeClips")(function* (
@@ -233,9 +197,7 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
 
       /**
        * Transcribe an entire, already-concatenated video in a single Whisper
-       * pass. Extracts the full audio track (audio-only, so it stays well under
-       * Whisper's 25MB upload limit even though the source video does not) and
-       * transcribes it once.
+       * pass. Extracts the full audio track and transcribes it once.
        *
        * Unlike {@link transcribeClips}, the returned segment timestamps are on
        * the video's own final timeline, so downstream callers need no per-clip

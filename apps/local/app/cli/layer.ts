@@ -26,7 +26,7 @@ import { makeRemoteLayer } from "./rpc-layer";
  * `cvm course publish`, `cvm course readiness` — read their domain data through
  * this layer and touch local disk themselves. `publish` additionally builds a
  * database-backed layer inside its own handler, because CoursePublishService
- * pulls in ffmpeg and an OPENAI_API_KEY no read command should have to satisfy.
+ * pulls in ffmpeg, which no read command should have to satisfy.
  * All three are LOCAL-ONLY: they refuse on any other machine, at the front of
  * the command, before any of the above happens (see ./local-only.ts).
  *

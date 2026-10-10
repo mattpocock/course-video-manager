@@ -45,7 +45,7 @@ back. Nothing you do can reach Matt's data, his files or the outside world:
 - File writes (Video files, Clip Mockups, renders, finished videos) go to
   `scratch/` in the run directory, never Matt's disk.
 - Every external service's credential is replaced with a dud, so Buffer, S3,
-  Dropbox, YouTube, OpenAI, Anthropic and AI Hero all fail closed. A feature
+  Dropbox, YouTube, Anthropic and AI Hero all fail closed. A feature
   whose point is an external call shows its error path here, not its success.
 - No `.env` is needed. Do not link one.
 
@@ -145,11 +145,9 @@ Its socket is a Unix socket named by the run id, never a port, and the run's
 server is pointed at it (`CVM_SIDECAR_SOCKET`): an Export pressed in the
 browser runs in this sidecar, and its row and toasts come from its Job Events. Its output is
 `<evidence>/sidecar.log`, and each Job's log is `<evidence>/logs/jobs/<job id>.jsonl`.
-A vertical Shorts render transcribes through OpenAI's Whisper, and the clone's
-OpenAI key is a dud, so on a clone it fails at "transcribing" — a ready-made
-failure path. To see one finish, launch with `OPENAI_BASE_URL` pointed at a
-local stub that answers `POST /v1/audio/transcriptions` (the server and the
-sidecar both inherit it); everything else in the render runs for real.
+Transcription runs for real on a clone: Local Whisper on the GPU, inside the
+clone's sidecar. Its env and model are shared in `~/.cache/cvm/whisper`; only
+a machine's first start builds them (minutes).
 **Posting never leaves the box.** Every posting service's base URL —
 `YOUTUBE_API_URL`, `GOOGLE_OAUTH_TOKEN_URL`, `BUFFER_API_URL`, `S3_ENDPOINT`,
 `AI_HERO_BASE_URL`, `DROPBOX_API_URL`, `DROPBOX_CONTENT_URL` and

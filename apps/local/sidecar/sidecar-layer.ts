@@ -8,6 +8,7 @@ import { SidecarContextLive } from "@/services/sidecar-context";
 import { VideoExportService } from "@/services/video-export-service";
 import { WhisperTranscriptionService } from "@/services/whisper-transcription-service";
 import { ClipMockupVoiceOperationsService } from "@/services/db-clip-mockup-voice-operations.server";
+import { LocalWhisperEngineLive } from "./local-whisper-engine";
 
 /**
  * The work only the **Sidecar** does: the encodes (`FFmpegEncodeService`,
@@ -38,7 +39,10 @@ export const sidecarLayer = Layer.mergeAll(
 ).pipe(
   Layer.provideMerge(encodeLayer),
   Layer.provideMerge(layerLive),
-  Layer.provideMerge(SidecarContextLive)
+  Layer.provideMerge(SidecarContextLive),
+  // Local Whisper: its env made ready when the Sidecar starts, and one
+  // worker shared by every WhisperTranscriptionService built above.
+  Layer.provideMerge(LocalWhisperEngineLive)
 );
 
 /** Every service a Job's handler may ask for. */

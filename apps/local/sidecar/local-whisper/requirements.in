@@ -1,0 +1,11 @@
+# Local Whisper's Python env. The Sidecar builds it from requirements.lock
+# (local-whisper-env.ts). After editing this file, regenerate the lock:
+#   uv pip compile requirements.in --universal --python-version 3.10 --generate-hashes -o requirements.lock
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+# faster-whisper 1.2.1 breaks on PyAV 16+ (`metadata_errors`).
+av==15.1.0
+# CTranslate2's CUDA libraries, loaded by path in worker.py: no system
+# cuDNN and no LD_LIBRARY_PATH needed.
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.27.0.42

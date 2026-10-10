@@ -21,7 +21,6 @@ KNOWN_GAPS=(
   CLOUDINARY_URL
   KIT_SEQUENCE_URL
   OBS_RECORDING_DIR
-  OPENAI_API_KEY
 )
 
 if [ "${1:-}" = "--all" ]; then

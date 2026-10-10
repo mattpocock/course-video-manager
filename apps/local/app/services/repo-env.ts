@@ -105,8 +105,7 @@ export const readEnvValue = (
  *
  * Read-only `cvm` commands need only DATABASE_URL, so the hot path stays lean.
  * The Publish flow is the exception: it reaches for config the read services
- * never touch (FINISHED_VIDEOS_DIRECTORY, DROPBOX_REMOTE_PATH, OPENAI_API_KEY — the
- * last read at VideoProcessingService BUILD time), and Effect's default
+ * never touch (FINISHED_VIDEOS_DIRECTORY, DROPBOX_REMOTE_PATH), and Effect's default
  * ConfigProvider resolves those from process.env. tsx does not auto-load `.env`,
  * so the `publish` command calls this first to make the whole file visible.
  *

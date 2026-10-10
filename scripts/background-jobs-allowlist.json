@@ -147,11 +147,6 @@
       "reason": "The author watches: the Article Writer's completions conversation, streamed to the person writing."
     },
     {
-      "file": "apps/local/app/services/whisper-transcription-service.ts",
-      "count": 1,
-      "reason": "Sidecar only: the Whisper client for the transcribe-clips, render-vertical and transcribe-footage Jobs. It asks for SidecarContext."
-    },
-    {
       "file": "apps/local/app/services/youtube-upload-service.ts",
       "count": 4,
       "reason": "The posting path: the YouTube upload and its thumbnail ask for SidecarContext and run only as posting Jobs, plus the read-only post check."

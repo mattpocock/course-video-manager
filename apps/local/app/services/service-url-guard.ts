@@ -3,7 +3,7 @@
  * credential has a base-URL override, so a test or a verify-cvm run can point
  * it at a local stub. A stray value in the main checkout's `.env` would send
  * the real token — YouTube's OAuth token, Buffer's key, AWS's, AI Hero's,
- * Anthropic's, OpenAI's, Dropbox's — to whatever host it names. So an
+ * Anthropic's, Dropbox's — to whatever host it names. So an
  * override may name only the service's own host (over https) or loopback
  * (a stub on this machine); anything else stops the process at startup,
  * naming the variable. Checked where each process starts: the app server
@@ -51,11 +51,6 @@ export const SERVICE_URL_OVERRIDES: readonly ServiceUrlOverride[] = [
     name: "ANTHROPIC_BASE_URL",
     officialHosts: ["api.anthropic.com"],
     official: "https://api.anthropic.com/v1",
-  },
-  {
-    name: "OPENAI_BASE_URL",
-    officialHosts: ["api.openai.com"],
-    official: "https://api.openai.com/v1",
   },
   {
     name: "DROPBOX_API_URL",

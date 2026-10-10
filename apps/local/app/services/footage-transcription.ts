@@ -15,20 +15,21 @@ import { removeBestEffort } from "@/services/remove-best-effort";
  * service purely to keep it under the repo's per-file token budget; it is not a
  * seam. It starts no process of its own: the audio comes from the service's
  * `extractAudio` and every chunk goes through its `transcribeAudioFile` (the
- * Whisper call, with its permits and API key), so the whole thing stays
+ * Whisper call), so the whole thing stays
  * fakeable by faking WhisperTranscriptionService.
  *
  * DELIBERATELY SEPARATE from the per-clip transcription path: the audio here is
- * mono 64kbps (small enough that most files upload in one Whisper pass), never
+ * mono 64kbps (small enough that most files are one Whisper pass), never
  * the 384kbps stereo a Clip's audio is extracted as.
  */
 
 /**
- * Whisper refuses an upload over 25MB. Footage whose extracted mono-64kbps audio
- * exceeds this is transcribed in silence-aligned chunks; anything at or under it
- * is one pass.
+ * The most audio one Whisper pass takes (~55 minutes of mono 64kbps). Footage
+ * whose extracted audio exceeds this is transcribed in silence-aligned chunks,
+ * so each pass stays well inside Local Whisper's per-file timeout and a long
+ * file resumes from its cached chunks; anything at or under it is one pass.
  */
-const WHISPER_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const WHISPER_MAX_PASS_BYTES = 25 * 1024 * 1024;
 
 /**
  * One piece of a footage file Whisper hears on its own: the whole file
@@ -92,7 +93,7 @@ export interface TranscribeFootageOptions {
 
 /**
  * Transcribe a whole raw footage file. Extracts the full audio (mono 64k); if it
- * fits under Whisper's 25MB cap it is one pass, otherwise the file is split into
+ * fits in one pass (25MB) it is one pass, otherwise the file is split into
  * ~27-minute chunks cut at detected silence (never mid-word), each transcribed
  * on its own, and the pieces' timestamps offset back onto the file's timeline
  * and merged. No diarization, ever. A chunk already in `options.cache` is not
@@ -158,7 +159,7 @@ export const transcribeFootage = <EA, RA, ET, RT>(
       const fullAudio = yield* deps.extractAudio(inputVideo, undefined);
       const stat = yield* fs.stat(fullAudio);
 
-      if (Number(stat.size) <= WHISPER_MAX_UPLOAD_BYTES) {
+      if (Number(stat.size) <= WHISPER_MAX_PASS_BYTES) {
         if (options.cache) yield* options.cache.putPlan({ whole: true });
         const transcription = yield* transcribeChunk(
           whole,
@@ -168,7 +169,7 @@ export const transcribeFootage = <EA, RA, ET, RT>(
         return transcription;
       }
 
-      // Too large for one upload: split at silence near the target size.
+      // Too large for one pass: split at silence near the target size.
       const durationSeconds =
         yield* deps.ffmpegCommands.getVideoDurationInSeconds(fullAudio);
       yield* removeBestEffort(fs, fullAudio);
