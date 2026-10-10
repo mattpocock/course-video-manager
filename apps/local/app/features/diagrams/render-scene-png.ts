@@ -2,16 +2,16 @@ import { loadSnapshot, type Editor, type TLStoreSnapshot } from "tldraw";
 import type { DiagramRenderResult } from "./diagram-render-contract";
 
 /**
- * How an agent's render of a Diagram looks: light mode on a white background.
+ * How an agent's render of a Diagram looks: dark mode, the same as the
+ * playground and its snapshot thumbnails, so the agent sees what Matt sees.
  *
- * Unlike the playground's snapshot thumbnails (dark, transparent — made to sit
- * on the dark app), this image is LOOKED AT by an agent checking its own
- * drawing, and black strokes on a transparent background read as nothing.
+ * Unlike the thumbnails (transparent, made to sit on the dark app), this PNG
+ * stands alone, so it paints tldraw's dark background behind the shapes.
  */
 export const AGENT_RENDER_OPTIONS = {
   format: "png",
   background: true,
-  darkMode: false,
+  darkMode: true,
   padding: 32,
 } as const;
 

@@ -40,7 +40,7 @@ export default function DiagramRender() {
       <Tldraw
         onMount={handleMount}
         hideUi
-        colorScheme="light"
+        colorScheme="dark"
         acceptedImageMimeTypes={EMPTY_MIME_TYPES}
         acceptedVideoMimeTypes={EMPTY_MIME_TYPES}
         shapeUtils={CVM_SHAPE_UTILS}
