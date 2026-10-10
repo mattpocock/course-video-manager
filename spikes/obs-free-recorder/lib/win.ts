@@ -1,6 +1,11 @@
 // Windows-side helpers. The rig runs in WSL but every capture, encode and
 // measurement tool is a Windows .exe reached through interop.
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import {
+  execFile,
+  execFileSync,
+  spawn,
+  type ChildProcess,
+} from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -221,4 +226,44 @@ export function listDshowDevices(): DshowDevice[] {
     if (alt && devices.length) devices[devices.length - 1]!.alt = alt[1]!;
   }
   return devices;
+}
+
+/**
+ * Raise the timer resolution to 1 ms inside the running ffmpeg.exe whose
+ * command line contains both `tag` and `match`, opt it out of power throttling
+ * and set it to High priority (see timer-resolution.ps1 for why ddagrab drops
+ * frames without these). Resolves with what happened; never
+ * throws, because a recorder at the default tick still records.
+ */
+export function raiseFfmpegTimerResolution(
+  tag: string,
+  match: string
+): Promise<{ ok: boolean; detail: string }> {
+  const script = toWindowsPath(
+    path.join(import.meta.dirname, "timer-resolution.ps1")
+  );
+  return new Promise((resolve) => {
+    execFile(
+      `${SYSTEM32}/WindowsPowerShell/v1.0/powershell.exe`,
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        script,
+        "-Tag",
+        tag,
+        "-Match",
+        match,
+      ],
+      { encoding: "utf8", cwd: "/mnt/c", timeout: 30_000 },
+      (err, stdout, stderr) => {
+        const text = (err ? stderr || err.message : stdout)
+          .replace(/\r/g, "")
+          .trim();
+        resolve({ ok: !err, detail: text.split("\n")[0] ?? "" });
+      }
+    );
+  });
 }

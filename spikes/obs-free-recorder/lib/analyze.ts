@@ -37,6 +37,8 @@ export type Meta = {
     screenCrop?: string;
   };
   logicalCpus: number;
+  /** Whether the screen recorder's ffmpeg.exe got the 1 ms timer (lib/timer-resolution.ps1). */
+  screenTimerResolution?: { ok: boolean; detail: string };
   obsFile?: string;
   obsFileStartWallMs?: number;
   /** Frames the WSL preview server received from each ffmpeg preview feed. */

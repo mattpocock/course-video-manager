@@ -278,10 +278,11 @@ export function buildArgs(o: RecorderOptions): RecorderArgs {
   const screenIn = synthScreen
     ? [...wall, ...rawVideoIn(SYNTH_PORTS.screen, "960x540")]
     : // dup_frames=1 is required: with dup_frames=0 ddagrab emits nothing at all
-      // while the screen is static, which stalls the graph. Known cost: ffmpeg
-      // paces ddagrab with Sleep(), which ticks at 15.6 ms on Windows (ffmpeg
-      // never calls timeBeginPeriod), so captures land on that grid, up to
-      // ~15 ms after the frame was presented. See RUN.md, "Risks".
+      // while the screen is static, which stalls the graph. ddagrab paces with
+      // Sleep() and an 8 ms AcquireNextFrame timeout; at Windows' default 15.6
+      // ms tick those overshoot enough to skip frame slots (~0.1-0.5% lost), so
+      // the rig raises this process's timer to 1 ms once it starts
+      // (raiseFfmpegTimerResolution, lib/timer-resolution.ps1).
       [
         ...wall,
         "-f",

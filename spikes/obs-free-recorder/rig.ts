@@ -24,6 +24,7 @@ import {
   SYSTEM32,
   allowAnyFfmpeg,
   killWindowsFfmpeg,
+  raiseFfmpegTimerResolution,
   listDshowDevices,
   openInWindowsBrowser,
   startWindowsClock,
@@ -232,6 +233,21 @@ async function record(plan: RecordPlan): Promise<string> {
     );
     return state;
   });
+  // ddagrab loses frames at Windows' default 15.6 ms timer tick, and ffmpeg
+  // never raises it (see lib/timer-resolution.ps1). Raise it inside the screen
+  // recorder, as OBS does for itself. Only when ddagrab is capturing: the
+  // synthetic screen is paced by its source, and a High-priority screen
+  // process there only competes with the synthetic camera.
+  if (!plan.synthetic || plan.synthetic.realScreen) {
+    const timer = await raiseFfmpegTimerResolution(tag, FILES.screen);
+    meta.screenTimerResolution = timer;
+    writeMeta();
+    log(
+      timer.ok
+        ? `screen recorder: ${timer.detail}`
+        : `WARNING: could not raise the screen recorder's timer resolution, expect dropped screen frames: ${timer.detail}`
+    );
+  }
   const recordStartedAt = performance.now();
   const screenPreviewLog = fs.createWriteStream(
     path.join(runDir, "ffmpeg-screen-preview.log")
