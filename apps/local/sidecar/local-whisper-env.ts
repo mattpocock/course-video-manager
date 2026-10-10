@@ -142,6 +142,7 @@ export const ensureWhisperEnv = Effect.gen(function* () {
   const envsDir = path.join(WHISPER_CACHE_DIR, "envs");
   const envDir = path.join(envsDir, envKey(lock, version));
   if (fs.existsSync(path.join(envDir, READY_MARKER))) {
+    yield* Effect.logInfo(`Local Whisper: Python env ready (${envDir})`);
     return envPython(envDir);
   }
 
@@ -150,7 +151,12 @@ export const ensureWhisperEnv = Effect.gen(function* () {
   );
   fs.mkdirSync(envsDir, { recursive: true });
   const building = `${envDir}.building-${process.pid}-${crypto.randomUUID().slice(0, 8)}`;
-  const log = (line: string) => Effect.logInfo(`Local Whisper env: ${line}`);
+  // pip's "Ignoring <pkg>: markers don't match" is one line per pin for
+  // other platforms; everything else is progress worth seeing.
+  const log = (line: string) =>
+    line.startsWith("Ignoring ")
+      ? Effect.void
+      : Effect.logInfo(`Local Whisper env: ${line}`);
 
   const build = Effect.gen(function* () {
     yield* step("Creating the venv", "python3", ["-m", "venv", building], log);
