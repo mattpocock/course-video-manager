@@ -9,7 +9,9 @@ import { hashHead } from "@/lib/scene-hash";
 
 /**
  * The Diagram rail, plus the Active Diagram's stored head as a hash and the
- * time it was written. The page revalidates this every few seconds, and
+ * time it was written. Only the Active Diagram's drawing is read; the rail is
+ * metadata and snapshot hashes, so a poll's cost does not grow with every
+ * other Diagram's drawing. The page revalidates this every few seconds, and
  * compares the head against the one its canvas last loaded or saved.
  *
  * `timelineHash` stands for the Active Diagram's snapshots, drawings included:
@@ -29,7 +31,7 @@ export const loadDiagramPlaygroundActive = async ({
         diagramOps.listDiagrams(),
         diagramOps.listAllSnapshotsWithClips(),
         activeId
-          ? diagramOps.getDiagram(activeId).pipe(
+          ? diagramOps.getDiagramHead(activeId).pipe(
               Effect.map((d) => ({
                 diagramId: d.id,
                 headHash: hashHead(d.headScene),

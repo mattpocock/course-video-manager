@@ -189,6 +189,53 @@ describe("listDiagrams", () => {
   );
 });
 
+describe("listDiagrams payload", () => {
+  it.effect("carries metadata only, never a drawing", () =>
+    Effect.gen(function* () {
+      const diagramOps = yield* DiagramOperationsService;
+      const d = yield* diagramOps.createDiagram();
+      yield* diagramOps.updateDiagramHead(d.id, { shapes: ["a big drawing"] });
+
+      const [row] = yield* diagramOps.listDiagrams();
+      expect(Object.keys(row!).sort()).toEqual([
+        "archived",
+        "createdAt",
+        "id",
+        "name",
+        "updatedAt",
+      ]);
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
+describe("getDiagramHead", () => {
+  it.effect("returns the stored head and when it was written", () =>
+    Effect.gen(function* () {
+      const diagramOps = yield* DiagramOperationsService;
+      const d = yield* diagramOps.createDiagram();
+      const scene = { shapes: ["x"] };
+      const updated = yield* diagramOps.updateDiagramHead(d.id, scene);
+
+      const head = yield* diagramOps.getDiagramHead(d.id);
+      expect(head).toEqual({
+        id: d.id,
+        headScene: scene,
+        updatedAt: updated.updatedAt,
+      });
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("fails with NotFoundError for missing id", () =>
+    Effect.gen(function* () {
+      const diagramOps = yield* DiagramOperationsService;
+      const result = yield* diagramOps
+        .getDiagramHead("nonexistent-id")
+        .pipe(Effect.flip);
+      expect(result._tag).toBe("NotFoundError");
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
 describe("getDiagram", () => {
   it.effect("fails with NotFoundError for missing id", () =>
     Effect.gen(function* () {
