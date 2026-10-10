@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-# One command per mode: ./rig selftest | baseline | record | crash | analyze <dir> | screens
+# One command per mode: ./rig selftest | check | baseline | record | crash | analyze <dir> | screens
 exec node "$(dirname "$0")/rig.ts" "$@"

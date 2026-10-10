@@ -3,12 +3,16 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { analyze, checkRecovery, type Meta } from "./lib/analyze.ts";
+import { analyze, type Meta } from "./lib/analyze.ts";
+import { checkRecovery } from "./lib/recovery.ts";
 import { startCollector } from "./lib/collector.ts";
 import type { ChildProcess } from "node:child_process";
+import { passed } from "./lib/judge.ts";
+import { runChecks } from "./lib/checks.ts";
 import {
   buildArgs,
   FILES,
+  SCREEN_MARKER_CROP,
   startRecorder,
   startScreenPreview,
   startSyntheticSources,
@@ -18,9 +22,11 @@ import {
 import { startServer } from "./lib/server.ts";
 import {
   SYSTEM32,
+  allowAnyFfmpeg,
   killWindowsFfmpeg,
   listDshowDevices,
   openInWindowsBrowser,
+  startWindowsClock,
   windowsFileCreatedMs,
   windowsNowMs,
   windowsTool,
@@ -38,23 +44,29 @@ const { positionals, values: flags } = parseArgs({
     "kill-at": { type: "string" },
     period: { type: "string" },
     "flash-every": { type: "string", default: "2" },
-    screen: { type: "string", default: process.env.RIG_SCREEN ?? "0" },
+    screen: { type: "string", default: "0" },
     camera: { type: "string", default: "Cam Link 4K" },
     mic: { type: "string", default: "Voicemeeter Out B1" },
     baseline: { type: "string" },
     "obs-dir": { type: "string", default: "/mnt/d/raw-footage" },
     "real-screen": { type: "boolean", default: false },
+    "real-screen-minutes": { type: "string", default: "3" },
+    "skip-real-screen": { type: "boolean", default: false },
     "no-audio-correction": { type: "boolean", default: false },
     "skip-crash": { type: "boolean", default: false },
     synthetic: { type: "boolean", default: false },
     open: { type: "boolean", default: false },
+    "any-ffmpeg": { type: "boolean", default: false },
   },
 });
 const mode = positionals[0];
+if (flags["any-ffmpeg"]) allowAnyFfmpeg();
 
 // Every child process, so a crash or Ctrl+C never leaves an ffmpeg.exe or a
 // synthetic source running on Windows.
 const children = new Set<ChildProcess>();
+// Each Windows-side helper adds its own exit hook; a selftest starts ~20.
+process.setMaxListeners(64);
 const track = <T extends ChildProcess | undefined>(c: T): T => {
   if (c) children.add(c);
   return c;
@@ -130,11 +142,17 @@ async function record(plan: RecordPlan): Promise<string> {
   let generators: ChildProcess[] = [];
   if (plan.synthetic) {
     generators = (
-      await startSyntheticSources(plan.synthetic, (name, line) =>
-        fs.appendFileSync(path.join(runDir, `synthetic-${name}.log`), line)
+      await startSyntheticSources(
+        plan.synthetic,
+        Number(flags.screen),
+        (name, line) =>
+          fs.appendFileSync(path.join(runDir, `synthetic-${name}.log`), line)
       )
     ).map(track);
   }
+  // Every progress block is stamped with Windows time, for pipeline lag.
+  const winClock = startWindowsClock();
+  await winClock.ready;
   const t0Ms = windowsNowMs();
   const meta: Meta = {
     mode: plan.kind,
@@ -145,6 +163,8 @@ async function record(plan: RecordPlan): Promise<string> {
       camSpeed: plan.synthetic.camSpeed,
       micSpeed: plan.synthetic.micSpeed,
       noAudioCorrection: plan.synthetic.noAudioCorrection,
+      realScreen: plan.synthetic.realScreen,
+      screenCrop: plan.synthetic.realScreen ? SCREEN_MARKER_CROP : undefined,
     },
     logicalCpus: logicalCpus(),
   };
@@ -166,6 +186,8 @@ async function record(plan: RecordPlan): Promise<string> {
       t0Ms,
       flashEveryMs: plan.synthetic ? 0 : Number(flags["flash-every"]) * 60_000,
       synthetic: !!plan.synthetic,
+      // Synthetic flashes fall on wall-clock multiples of the period.
+      syntheticPeriodMs: plan.synthetic ? plan.synthetic.period * 1000 : 0,
     },
     onStopRequest: () => (stopRequested = true),
   });
@@ -202,7 +224,7 @@ async function record(plan: RecordPlan): Promise<string> {
           state.last = p;
           fs.appendFileSync(
             path.join(runDir, `progress-${name}.jsonl`),
-            JSON.stringify(p) + "\n"
+            JSON.stringify({ ...p, winMs: winClock.now() }) + "\n"
           );
         },
         (chunk) => logStream.write(chunk)
@@ -210,9 +232,15 @@ async function record(plan: RecordPlan): Promise<string> {
     );
     return state;
   });
+  const recordStartedAt = performance.now();
+  const screenPreviewLog = fs.createWriteStream(
+    path.join(runDir, "ffmpeg-screen-preview.log")
+  );
   const screenPreview = track(
     !plan.synthetic || plan.synthetic.realScreen
-      ? startScreenPreview(Number(flags.screen), PORTS.screen)
+      ? startScreenPreview(Number(flags.screen), PORTS.screen, (c) =>
+          screenPreviewLog.write(c)
+        )
       : undefined
   );
   log(`recording to ${runDir}`);
@@ -262,6 +290,7 @@ async function record(plan: RecordPlan): Promise<string> {
     await sleep(100);
   }
   process.off("SIGINT", onSigint);
+  meta.preview = server.previewStats(recordStartedAt, ["screen", "camera"]);
 
   const exited = procs.filter((p) => p.child.exitCode !== null);
   if (exited.length) {
@@ -270,10 +299,14 @@ async function record(plan: RecordPlan): Promise<string> {
     );
   }
   if (plan.killAt !== undefined && !exited.length) {
-    const killedAtFileTime = (windowsNowMs() - t0Ms) / 1000;
-    const pids = killWindowsFfmpeg(tag);
+    const killed = killWindowsFfmpeg(tag);
+    // Each process's own kill moment, read on Windows inside the kill call.
+    const killedAtFileTime = Object.fromEntries(
+      killed.map((k) => [k.role, (k.killedAtMs - t0Ms) / 1000])
+    );
+    killedAtFileTime.mic = killedAtFileTime.camera!;
     log(
-      `kill -9 (TerminateProcess) ffmpeg.exe pids ${pids.join(",")} at file time ${killedAtFileTime.toFixed(2)} s`
+      `kill -9 (TerminateProcess) ffmpeg.exe ${killed.map((k) => `${k.role} pid ${k.pid} at file time ${((k.killedAtMs - t0Ms) / 1000).toFixed(3)} s`).join(", ")}`
     );
     await Promise.all(
       procs.map(
@@ -304,6 +337,8 @@ async function record(plan: RecordPlan): Promise<string> {
   for (const p of procs) p.logStream.end();
   for (const g of generators) g.kill();
   screenPreview?.stdin?.write("q");
+  screenPreviewLog.end();
+  winClock.stop();
   meta.endedWallMs = windowsNowMs();
   writeMeta();
   return runDir;
@@ -412,50 +447,78 @@ function screens() {
       break;
     }
   }
-  log("Pass the DELL's index as --screen N (or RIG_SCREEN=N).");
+  log("Pass the DELL's index as --screen N.");
 }
 
 async function main() {
   switch (mode) {
+    case "check": {
+      process.exit(runChecks(log) ? 0 : 1);
+    }
     case "selftest": {
-      const period = Number(flags.period ?? 20);
-      const synthetic: Synthetic = {
+      // 0. The review's repro cases against the verdict rules (no devices, no ffmpeg).
+      if (!runChecks(log)) {
+        log("SELFTEST FAIL (verdict rules)");
+        process.exit(1);
+      }
+      windowsTool("ffmpeg"); // fails fast if the build isn't 8.0.1
+      const base = {
         camSpeed: 1.0003, // camera crystal 300 ppm fast
         micSpeed: 0.9997, // mic clock 300 ppm slow
-        period,
-        realScreen: flags["real-screen"]!,
+        period: Number(flags.period ?? 20),
         noAudioCorrection: flags["no-audio-correction"]!,
       };
-      const runDir = await record({
-        kind: "selftest",
-        seconds: Number(flags.minutes ?? 5) * 60,
-        synthetic,
-        openPage: flags.open!,
-      });
-      const report = printReport(runDir);
-      let crashPass = true;
+      // Every verdict about the recorder itself must PASS; only the ones that
+      // need a baseline (CPU/GPU) may be n/a.
+      const gate = (r: { verdicts: Record<string, string> }) =>
+        Object.entries(r.verdicts)
+          .filter(([k]) => !k.startsWith("CPU/GPU"))
+          .filter(([, v]) => !passed(v))
+          .map(([k, v]) => `${k}: ${v}`);
+      const failures: string[] = [];
+      const phases: [string, boolean, number][] = [
+        ["synthetic screen", false, Number(flags.minutes ?? 5)],
+        ...(flags["skip-real-screen"]
+          ? []
+          : ([
+              [
+                "real screen (ddagrab + on-screen marker)",
+                true,
+                Number(flags["real-screen-minutes"]),
+              ],
+            ] as [string, boolean, number][])),
+      ];
+      for (const [label, realScreen, minutes] of phases) {
+        log(`selftest phase: ${label}, ${minutes} min`);
+        const runDir = await record({
+          kind: "selftest",
+          seconds: minutes * 60,
+          synthetic: { ...base, realScreen },
+          openPage: flags.open!,
+        });
+        failures.push(
+          ...gate(printReport(runDir)).map((f) => `[${label}] ${f}`)
+        );
+      }
       if (!flags["skip-crash"]) {
         log("kill -9 recovery check (synthetic, 60 s, killed at 40 s)…");
         const crashDir = await record({
           kind: "crash",
           seconds: 60,
           killAt: 40,
-          synthetic,
+          synthetic: { ...base, realScreen: false },
           openPage: false,
         });
         const meta = JSON.parse(
           fs.readFileSync(path.join(crashDir, "meta.json"), "utf8")
         ) as Meta;
-        crashPass = !!meta.crash?.pass;
+        const crashPass = !!meta.crash?.pass;
         log(`kill -9 recovery: ${crashPass ? "PASS" : "FAIL"}  (${crashDir})`);
+        if (!crashPass) failures.push("[crash] kill -9 recovery: FAIL");
       }
-      const ok =
-        report.verdicts["A/V drift <= 33 ms"] === "PASS" &&
-        report.verdicts["camera/screen drift <= 33 ms"] === "PASS" &&
-        report.verdicts["no dropped frames"] === "PASS" &&
-        crashPass;
-      log(ok ? "SELFTEST PASS" : "SELFTEST FAIL");
-      process.exit(ok ? 0 : 1);
+      for (const f of failures) log(`  ✗ ${f}`);
+      log(failures.length ? "SELFTEST FAIL" : "SELFTEST PASS");
+      process.exit(failures.length ? 1 : 0);
     }
     case "record": {
       const runDir = await record({
@@ -472,7 +535,7 @@ async function main() {
             camSpeed: 1,
             micSpeed: 1,
             period: 20,
-            realScreen: false,
+            realScreen: flags["real-screen"]!,
             noAudioCorrection: false,
           }
         : undefined;
@@ -499,7 +562,7 @@ async function main() {
       return screens();
     default:
       console.log(
-        "usage: ./rig selftest | baseline | record | crash | analyze <runDir> | screens   (see RUN.md)"
+        "usage: ./rig selftest | check | baseline | record | crash | analyze <runDir> | screens   (see RUN.md)"
       );
       process.exit(mode ? 1 : 0);
   }

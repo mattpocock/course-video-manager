@@ -1,7 +1,14 @@
 // Preview page. Draws the final composite from the two low-res preview feeds
-// with the same layouts.json the export would use, measures glass-to-page
-// latency by decoding its own on-screen clock out of the screen feed, and emits
-// the sync markers (white flash + 1 kHz beep on wall-clock boundaries).
+// with the same layouts.json the export would use, and emits the sync markers
+// (white flash + 1 kHz beep on wall-clock boundaries). It measures preview
+// delay on both paths, at the moment it has decoded a preview frame:
+//  - screen path: its own on-screen ms clock, read back out of the screen feed;
+//  - camera path: the time from a flash (drawn at wall time W) until the camera
+//    feed brightens, so camera capture, the 4K → CUDA → MJPEG branch and the
+//    transport are all in it. The camera must see the flash (the DELL, or the
+//    light on your face).
+// Neither includes this page's composite or the display's scan-out, so neither
+// is full glass-to-glass.
 //
 // Keys: 1 Camera · 2 Code · 3 No Face · M marker · F flash now · C clap
 //       T end of take (saves the ghost frame) · G ghost overlay · Q stop
@@ -85,14 +92,62 @@ function recordLatency(decoded) {
   state.latencyBatch.push(lat);
   if (state.latency.length > 300) state.latency.shift();
 }
+
+// Camera path: mean luma of the camera picture; the first frame after a flash
+// that rises well above the running level gives one delay sample per flash.
+const lumaProbe = new OffscreenCanvas(16, 9);
+const lumaCtx = lumaProbe.getContext("2d", { willReadFrequently: true });
+function meanLuma(source, sx, sy, sw, sh) {
+  lumaCtx.drawImage(source, sx, sy, sw, sh, 0, 0, 16, 9);
+  const px = lumaCtx.getImageData(0, 0, 16, 9).data;
+  let sum = 0;
+  for (let i = 0; i < px.length; i += 4)
+    sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+  return sum / (px.length / 4);
+}
+const cam = { level: null, measuredFlash: 0, batch: [], samples: [] };
+function lastFlashWall(now) {
+  if (config.syntheticPeriodMs)
+    return (
+      Math.floor(now / config.syntheticPeriodMs) * config.syntheticPeriodMs
+    );
+  return state.lastFlashWall ?? 0;
+}
+function cameraFrame(luma) {
+  const now = Date.now();
+  const W = lastFlashWall(now);
+  const since = now - W;
+  if (cam.level === null) cam.level = luma;
+  if (since > 1500 || W === cam.measuredFlash) {
+    // Outside a flash: track the room's level slowly.
+    if (since > 1500) cam.level += 0.1 * (luma - cam.level);
+    return;
+  }
+  if (luma - cam.level > Math.max(10, 0.25 * cam.level)) {
+    cam.measuredFlash = W;
+    cam.batch.push(since);
+    cam.samples.push(since);
+    if (cam.samples.length > 50) cam.samples.shift();
+  }
+}
+
 setInterval(() => {
-  if (!state.latencyBatch.length) return;
-  post({
-    type: "latency",
-    source: baseline ? "obs-virtual-camera" : "rig-screen-feed",
-    samples: state.latencyBatch,
-  });
-  state.latencyBatch = [];
+  if (state.latencyBatch.length) {
+    post({
+      type: "latency",
+      source: baseline ? "obs-virtual-camera" : "rig-screen-feed",
+      samples: state.latencyBatch,
+    });
+    state.latencyBatch = [];
+  }
+  if (cam.batch.length) {
+    post({
+      type: "latency",
+      source: baseline ? "obs-virtual-camera camera-feed" : "rig-camera-feed",
+      samples: cam.batch,
+    });
+    cam.batch = [];
+  }
 }, 5000);
 
 // ---------- preview feeds (length-prefixed JPEGs over a streaming fetch) ----------
@@ -122,6 +177,7 @@ async function readFeed(name) {
           state.counts[name]++;
           if (name === "screen")
             recordLatency(decodeStrip(bmp, bmp.width / (screen.width * dpr)));
+          else cameraFrame(meanLuma(bmp, 0, 0, bmp.width, bmp.height));
         }
       }
     } catch {
@@ -150,10 +206,22 @@ async function openVirtualCam() {
   const video = $("vcam");
   video.srcObject = stream;
   await video.play();
+  // The Code scene's face cam, in Virtual Camera pixels, for the camera path.
+  const face = layouts.scenes.Code.find((i) => i.source === "camera").dest;
   const onFrame = () => {
     state.counts.screen++;
+    const k = video.videoWidth / layouts.canvas.w;
     // Code / No Face scenes put the full screen at canvas (0,0) at scale 1.
-    recordLatency(decodeStrip(video, video.videoWidth / layouts.canvas.w));
+    recordLatency(decodeStrip(video, k));
+    cameraFrame(
+      meanLuma(
+        video,
+        Math.max(0, face.x * k),
+        Math.max(0, face.y * k),
+        face.w * k,
+        face.h * k
+      )
+    );
     video.requestVideoFrameCallback(onFrame);
   };
   video.requestVideoFrameCallback(onFrame);
@@ -180,6 +248,7 @@ function beepAt(wallMs) {
 }
 function flashNow(reason) {
   const now = Date.now();
+  state.lastFlashWall = now;
   state.flashUntil = now + 250;
   $("flash").style.display = "block";
   post({ type: "flash", reason, wallMs: now });
@@ -254,7 +323,8 @@ setInterval(() => {
   $("hud").textContent = [
     `mode ${config.mode}${baseline ? " (baseline)" : ""}   file time ${((Date.now() - config.t0Ms) / 1000).toFixed(1)} s`,
     `feeds: screen ${state.fps.screen} fps, camera ${state.fps.camera} fps`,
-    `preview latency p50 ${q(0.5)} ms, p95 ${q(0.95)} ms (n=${s.length})`,
+    `preview delay, screen path (clock → decoded here): p50 ${q(0.5)} ms, p95 ${q(0.95)} ms (n=${s.length})`,
+    `preview delay, camera path (flash → decoded here): ${cam.samples.length ? `p50 ${[...cam.samples].sort((a, b) => a - b)[Math.floor(cam.samples.length / 2)]} ms (n=${cam.samples.length})` : "– (camera hasn't seen a flash yet)"}`,
     s.length === 0
       ? "! no clock decoded: is this page fullscreen on the captured monitor (try --screen)?"
       : "",

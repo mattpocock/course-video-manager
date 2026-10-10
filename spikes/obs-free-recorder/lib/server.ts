@@ -40,11 +40,22 @@ export function startServer(o: ServerOptions) {
     camera: new Set(),
   };
   const frames: Record<Feed, number> = { screen: 0, camera: 0 };
+  // Arrival timing per feed (WSL monotonic clock: only durations are used).
+  const timing: Record<Feed, { first: number; last: number; maxGap: number }> =
+    {
+      screen: { first: NaN, last: NaN, maxGap: 0 },
+      camera: { first: NaN, last: NaN, maxGap: 0 },
+    };
   const eventsFile = path.join(o.runDir, "events.jsonl");
   const t0 = o.config.t0Ms as number;
 
   const broadcast = (feed: Feed, jpeg: Buffer) => {
     frames[feed]++;
+    const now = performance.now();
+    const t = timing[feed];
+    if (Number.isNaN(t.first)) t.first = now;
+    else t.maxGap = Math.max(t.maxGap, now - t.last);
+    t.last = now;
     const header = Buffer.alloc(4);
     header.writeUInt32BE(jpeg.length);
     for (const res of clients[feed]) {
@@ -171,6 +182,27 @@ export function startServer(o: ServerOptions) {
 
   return {
     frames,
+    /** Per feed: frames received, first one (s after `since`), longest gap (s, including the tail up to now). */
+    previewStats: (since: number, feeds: Feed[]) => {
+      const now = performance.now();
+      const r2 = (ms: number) => Math.round(ms / 10) / 100;
+      return Object.fromEntries(
+        feeds.map((f) => {
+          const t = timing[f];
+          const seen = !Number.isNaN(t.first);
+          return [
+            f,
+            {
+              frames: frames[f],
+              firstFrameSec: seen ? r2(t.first - since) : null,
+              maxGapSec: seen
+                ? r2(Math.max(t.maxGap, now - t.last))
+                : r2(now - since),
+            },
+          ];
+        })
+      );
+    },
     close: () => {
       for (const set of Object.values(clients)) for (const r of set) r.end();
       for (const t of tcpServers) t.close();

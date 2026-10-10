@@ -30,7 +30,10 @@ export type Synthetic = {
   micSpeed: number;
   /** Seconds between wall-clock-aligned flash/beep markers. */
   period: number;
-  /** Capture the real screen with ddagrab instead of a test pattern. */
+  /**
+   * Capture the real screen with ddagrab instead of a test pattern. A small
+   * marker square on that screen flashes on the same wall-clock boundaries.
+   */
   realScreen: boolean;
   /** Negative control: skip aresample's drift correction. */
   noAudioCorrection: boolean;
@@ -83,36 +86,53 @@ const NVENC = (gop: number) => [
 // MKV, like OBS today: playable up to the last flushed cluster after a crash,
 // and it stores PTS directly, so B-frame delay and AAC priming don't shift the
 // start time (fragmented MP4 put the first video frame 2 frames late).
+// A cluster is held in memory until it closes, so the cluster time bounds what
+// a hard kill loses: at 2 s the camera file lost 2.2 s once the kill time was
+// read accurately, over the 2 s criterion. 1 s keeps it to about 1 s.
 const MKV = [
   "-cluster_time_limit",
-  "2000",
+  "1000",
   "-flush_packets",
   "1",
   "-f",
   "matroska",
 ];
 
-// A preview consumer that dies or stalls must never stop the recording. The
-// tee drops a failed slave (onfail=ignore), the null slave keeps the tee alive,
-// and the TCP timeout bounds how long a stalled reader can block the graph.
-const preview = (port: number) => [
+// A preview consumer that dies or stalls must never stop the recording, and a
+// slow first connect must not lose the preview for the whole run. ffmpeg's tcp
+// `timeout` is also its connect timeout, and Windows → WSL localhost connects
+// sometimes take longer than the 0.5 s first used here (ETIMEDOUT, then the tee
+// dropped the slave for good: "preview frames 0/0" in 3 of 26 runs). So the
+// preview slave sits behind tee's fifo: its own thread and queue, packets
+// dropped when the queue is full (the graph never waits on the reader), and the
+// connection retried every 0.5 s for as long as the run lasts. The null slave
+// keeps the tee alive.
+export const preview = (port: number) => [
   "-c:v",
   "mjpeg",
   "-q:v",
   "7",
   "-f",
   "tee",
-  `[f=mpjpeg:onfail=ignore]tcp://127.0.0.1:${port}?timeout=500000|[f=null]-`,
+  "-use_fifo",
+  "1",
+  "-fifo_options",
+  "attempt_recovery=1:recover_any_error=1:recovery_wait_time=0.5:max_recovery_attempts=0:drop_pkts_on_overflow=1:queue_size=30",
+  `[f=mpjpeg:onfail=ignore]tcp://127.0.0.1:${port}?timeout=2000000|[f=null:use_fifo=0]-`,
 ];
 
 // ---------- synthetic sources (selftest) ----------
 // See synthetic-source.ps1 for why these are not ffmpeg lavfi sources.
 export const SYNTH_PORTS = { screen: 4793, camera: 4794, mic: 4795 };
+/** The real-screen marker square, in output pixels; the analysis crops to it. */
+export const SCREEN_MARKER = { x: 16, y: 16, size: 64 };
+export const SCREEN_MARKER_CROP = `${SCREEN_MARKER.size}:${SCREEN_MARKER.size}:${SCREEN_MARKER.x}:${SCREEN_MARKER.y}`;
 const SYNTH_SCRIPT = path.join(import.meta.dirname, "synthetic-source.ps1");
 
-/** Starts the three Windows-side sources; resolves once all are listening. */
+/** Starts the Windows-side sources; resolves once all are listening (or showing). */
 export async function startSyntheticSources(
   s: Synthetic,
+  screenIdx: number,
   log: (name: string, line: string) => void
 ) {
   const ps = `${SYSTEM32}/WindowsPowerShell/v1.0/powershell.exe`;
@@ -170,9 +190,26 @@ export async function startSyntheticSources(
         String(s.period),
       ],
     ],
+    [
+      "marker",
+      [
+        "-Kind",
+        "marker",
+        "-Output",
+        String(screenIdx),
+        "-X",
+        String(SCREEN_MARKER.x),
+        "-Y",
+        String(SCREEN_MARKER.y),
+        "-Size",
+        String(SCREEN_MARKER.size),
+        "-Period",
+        String(s.period),
+      ],
+    ],
   ];
   const children = specs
-    .filter(([name]) => !(s.realScreen && name === "screen"))
+    .filter(([name]) => (s.realScreen ? name !== "screen" : name !== "marker"))
     .map(([name, args]) => {
       const child = spawn(ps, [...common, ...args], {
         cwd: "/mnt/c",
@@ -181,10 +218,10 @@ export async function startSyntheticSources(
       process.once("exit", () => child.exitCode === null && child.kill());
       child.stderr!.on("data", (d) => log(name, String(d)));
       const ready = new Promise<void>((resolve, reject) => {
-        child.stdout!.on(
-          "data",
-          (d) => String(d).includes("listening") && resolve()
-        );
+        child.stdout!.on("data", (d) => {
+          log(name, String(d));
+          if (String(d).includes("listening")) resolve();
+        });
         child.once("exit", (code) =>
           reject(new Error(`synthetic ${name} source exited (${code})`))
         );
@@ -232,8 +269,9 @@ export function buildArgs(o: RecorderOptions): RecorderArgs {
     "-i",
     `tcp://127.0.0.1:${port}`,
   ];
+  // direct=1: unbuffered, so the stamps survive a hard kill too.
   const arrivals = (file: string) =>
-    `metadata=mode=add:key=rig:value=1,metadata=mode=print:file=${file}`;
+    `metadata=mode=add:key=rig:value=1,metadata=mode=print:direct=1:file=${file}`;
 
   // ---- screen process ----
   const synthScreen = !!s && !s.realScreen;
@@ -420,28 +458,28 @@ export function startRecorder(
  */
 export function startScreenPreview(
   screenIdx: number,
-  port: number
+  port: number,
+  onLog: (chunk: string) => void
 ): ChildProcess {
-  return spawn(
+  const child = spawn(
     windowsTool("ffmpeg"),
     [
       "-hide_banner",
+      "-nostats",
       "-loglevel",
-      "error",
+      "level+warning",
       "-f",
       "lavfi",
       "-i",
       `ddagrab=output_idx=${screenIdx}:framerate=30,hwdownload,format=bgra,scale=960:540,format=yuvj420p`,
-      "-c:v",
-      "mjpeg",
-      "-q:v",
-      "7",
-      "-f",
-      "mpjpeg",
-      `tcp://127.0.0.1:${port}`,
+      "-map",
+      "0:v",
+      ...preview(port),
     ],
-    { cwd: "/mnt/c", stdio: ["pipe", "ignore", "ignore"] }
+    { cwd: "/mnt/c", stdio: ["pipe", "ignore", "pipe"] }
   );
+  child.stderr!.on("data", (d: Buffer) => onLog(d.toString()));
+  return child;
 }
 
 /** Graceful stop: 'q' on stdin, like pressing q in an ffmpeg console; force-kill after 20 s. */

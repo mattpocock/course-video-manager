@@ -1,13 +1,26 @@
 // Turns a run folder into report.md / report.json, judged against the stop criteria:
-//   A/V drift <= 33 ms, camera/screen drift <= 33 ms, no dropped frames,
-//   CPU/GPU <= ~1.5x the OBS baseline, <= ~25 GB/h.
+//   A/V, camera/screen and lip-sync drift <= 33 ms, no dropped frames or stalls,
+//   the recorder keeping up, live preview feeds, CPU/GPU <= ~1.5x the OBS
+//   baseline, <= ~25 GB/h. The rules themselves live in judge.ts.
 // Drift is measured at each sync marker (white flash + 1 kHz beep): the onset
 // is found in every stream, and the offsets between streams must not move.
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { toWindowsPath, windowsTool } from "./win.ts";
+import { toMarkdown } from "./report-md.ts";
+import { countPackets, ffmpeg, lastPacketTime, probe } from "./ff.ts";
+import type { CrashResult } from "./recovery.ts";
 import { FILES } from "./recorder.ts";
+import {
+  arrivalsFromPts,
+  cfrShift,
+  frameVerdicts,
+  judgeSync,
+  lagFromRows,
+  median,
+  previewVerdict,
+  stats,
+  type PreviewStats,
+} from "./judge.ts";
 
 export type Meta = {
   mode: "selftest" | "record" | "crash" | "baseline";
@@ -19,106 +32,17 @@ export type Meta = {
     camSpeed: number;
     micSpeed: number;
     noAudioCorrection: boolean;
+    realScreen?: boolean;
+    /** Where the on-screen marker square sits in the captured output (ffmpeg crop w:h:x:y). */
+    screenCrop?: string;
   };
   logicalCpus: number;
   obsFile?: string;
   obsFileStartWallMs?: number;
+  /** Frames the WSL preview server received from each ffmpeg preview feed. */
+  preview?: PreviewStats;
   crash?: CrashResult;
 };
-
-export type CrashResult = {
-  killedAtFileTime: number;
-  files: {
-    file: string;
-    ok: boolean;
-    duration: number;
-    decodeErrors: number;
-    lostSeconds: number;
-  }[];
-  pass: boolean;
-};
-
-const LIMIT_MS = 33;
-
-// ---------- ffmpeg helpers ----------
-
-function ffmpeg(args: string[], cwd: string) {
-  const r = spawnSync(
-    windowsTool("ffmpeg"),
-    ["-hide_banner", "-nostats", ...args],
-    {
-      cwd,
-      maxBuffer: 1 << 30,
-    }
-  );
-  return { stdout: r.stdout as Buffer, stderr: String(r.stderr) };
-}
-
-export function probe(file: string) {
-  const r = spawnSync(
-    windowsTool("ffprobe"),
-    [
-      "-v",
-      "error",
-      "-show_format",
-      "-show_streams",
-      "-of",
-      "json",
-      path.basename(file),
-    ],
-    { cwd: path.dirname(file), encoding: "utf8", maxBuffer: 1 << 26 }
-  );
-  if (r.status !== 0) return null;
-  return JSON.parse(r.stdout) as {
-    format: { duration?: string; size?: string };
-    streams: Record<string, string | number>[];
-  };
-}
-
-function lastPacketTime(file: string): number {
-  const r = spawnSync(
-    windowsTool("ffprobe"),
-    [
-      "-v",
-      "error",
-      "-select_streams",
-      "0",
-      "-show_entries",
-      "packet=pts_time,duration_time",
-      "-of",
-      "csv=p=0",
-      path.basename(file),
-    ],
-    { cwd: path.dirname(file), encoding: "utf8", maxBuffer: 1 << 28 }
-  );
-  let end = 0;
-  for (const line of r.stdout.split("\n")) {
-    const [pts, dur] = line.split(",").map(Number);
-    if (Number.isFinite(pts))
-      end = Math.max(end, pts! + (Number.isFinite(dur) ? dur! : 0));
-  }
-  return end;
-}
-
-function countPackets(file: string): number {
-  const r = spawnSync(
-    windowsTool("ffprobe"),
-    [
-      "-v",
-      "error",
-      "-select_streams",
-      "v:0",
-      "-count_packets",
-      "-show_entries",
-      "stream=nb_read_packets",
-      "-of",
-      "csv=p=0",
-      path.basename(file),
-    ],
-    { cwd: path.dirname(file), encoding: "utf8" }
-  );
-  return Number(r.stdout.trim());
-}
 
 /** Mean luma of every frame in [from, from+dur), optionally inside a crop rect. */
 function lumaSeries(file: string, from: number, dur: number, crop?: string) {
@@ -203,11 +127,6 @@ function toneSeries(
   return { t, v };
 }
 
-const median = (a: number[]) => {
-  const s = [...a].sort((x, y) => x - y);
-  return s.length ? s[Math.floor(s.length / 2)]! : NaN;
-};
-
 /** Time where the series first crosses halfway from its pre-marker level to its peak (linear interpolation). */
 function onset(
   series: { t: number[]; v: number[] },
@@ -247,19 +166,6 @@ function parseCsv(line: string): string[] {
   return [...line.matchAll(/"([^"]*)"|([^,]+)/g)].map((m) =>
     (m[1] ?? m[2] ?? "").trim()
   );
-}
-
-function stats(a: number[]) {
-  const s = a.filter((x) => Number.isFinite(x)).sort((x, y) => x - y);
-  if (!s.length) return null;
-  const q = (p: number) => s[Math.min(s.length - 1, Math.floor(p * s.length))]!;
-  return {
-    avg: s.reduce((x, y) => x + y, 0) / s.length,
-    p50: q(0.5),
-    p95: q(0.95),
-    max: s[s.length - 1]!,
-    n: s.length,
-  };
 }
 
 function perf(runDir: string, cpus: number) {
@@ -337,71 +243,19 @@ function perf(runDir: string, cpus: number) {
   };
 }
 
-/**
- * Capture timing before the CFR step. Lost frames are counted as persistent
- * steps in the timing residual: a lost frame shifts every later frame by one
- * interval, while scheduling jitter (Windows' 15.6 ms timer, USB bursts) does
- * not accumulate. Rolling medians make the count immune to that jitter.
- */
-function arrivals(file: string, nominalFps: number) {
-  if (!fs.existsSync(file)) return null;
-  const pts = [
-    ...fs.readFileSync(file, "utf8").matchAll(/pts_time:([-\d.]+)/g),
-  ].map((m) => Number(m[1]));
-  const n = pts.length;
-  if (n < 100) return null;
-  const intervals: number[] = [];
-  for (let i = 1; i < n; i++) intervals.push((pts[i]! - pts[i - 1]!) * 1000);
-  // Measured period over the steady part (skip the first 3 s of start-up).
-  const s0 = Math.min(n - 2, Math.round(3 * nominalFps));
-  const T = (pts[n - 1]! - pts[s0]!) / (n - 1 - s0);
-  const r = pts.map((p, i) => p - pts[s0]! - (i - s0) * T);
-  const W = 15;
-  const med: number[] = [];
-  for (let i = 0; i < n; i++)
-    med.push(median(r.slice(Math.max(0, i - W), Math.min(n, i + W + 1))));
-  let lost = 0;
-  let events = 0;
-  for (let i = s0 + W; i < n - W; i++) {
-    const step = med[i + W]! - med[i - W]!;
-    if (step > 0.6 * T) {
-      lost += Math.round(step / T);
-      events++;
-      i += 2 * W;
-    }
-  }
-  return {
-    frames: n,
-    firstArrival: pts[0]!,
-    lastArrival: pts[n - 1]!,
-    measuredFps: Math.round((1 / T) * 1000) / 1000,
-    clockPpm: Math.round((1 / T / nominalFps - 1) * 1e6),
-    lostFrames: lost,
-    lossEvents: events,
-    intervalMs: stats(intervals),
-  };
+function arrivalPts(file: string): number[] {
+  if (!fs.existsSync(file)) return [];
+  return [...fs.readFileSync(file, "utf8").matchAll(/pts_time:([-\d.]+)/g)].map(
+    (m) => Number(m[1])
+  );
 }
 
-/**
- * How far the pipeline fell behind real time. ffmpeg's -progress `speed` is
- * media time / ffmpeg's own elapsed wall time, so elapsed = out_time / speed and
- * lag = elapsed - out_time. A pipeline that keeps up holds lag constant.
- */
-function pipelineLag(runDir: string, name: string) {
-  const rows = readJsonl(path.join(runDir, `progress-${name}.jsonl`))
-    .map((p) => ({
-      out: Number(p.out_time_us) / 1e6,
-      speed: parseFloat(String(p.speed)),
-    }))
-    .filter((p) => p.out > 0 && p.speed > 0);
-  if (rows.length < 15) return null;
-  const lag = (p: { out: number; speed: number }) => p.out / p.speed - p.out;
-  const base = lag(rows[10]!);
-  const growth = rows.slice(10).map((p) => lag(p) - base);
-  return {
-    maxLagGrowthSec: Math.round(Math.max(...growth) * 100) / 100,
-    endLagGrowthSec: Math.round(growth[growth.length - 1]! * 100) / 100,
-  };
+/** Lag from the Windows wall time stamped on each -progress block (see recorder's onProgress). */
+function pipelineLag(runDir: string, name: string, t0Ms: number) {
+  const rows = readJsonl(path.join(runDir, `progress-${name}.jsonl`)).map(
+    (p) => ({ out: Number(p.out_time_us) / 1e6, winMs: Number(p.winMs) })
+  );
+  return lagFromRows(rows, t0Ms);
 }
 
 // ---------- markers ----------
@@ -459,7 +313,7 @@ export function analyze(runDir: string, baselineDir?: string): Report {
   return report;
 }
 
-type Report = ReturnType<typeof buildReport>;
+export type Report = ReturnType<typeof buildReport>;
 
 function buildReport(runDir: string, baselineDir?: string) {
   const meta = JSON.parse(
@@ -478,7 +332,11 @@ function buildReport(runDir: string, baselineDir?: string) {
         origin: meta.obsFileStartWallMs!,
       }
     : {
-        screen: { file: path.join(runDir, FILES.screen), crop: undefined },
+        // Real screen in the selftest: only the marker square flashes.
+        screen: {
+          file: path.join(runDir, FILES.screen),
+          crop: meta.synthetic?.screenCrop,
+        },
         camera: { file: path.join(runDir, FILES.camera), crop: undefined },
         mic: path.join(runDir, FILES.mic),
         origin: meta.t0Ms,
@@ -489,12 +347,27 @@ function buildReport(runDir: string, baselineDir?: string) {
     camera: isBaseline ? null : probe(src.camera.file),
     mic: isBaseline ? null : probe(src.mic),
   };
-  const duration = Number(probes.screen?.format.duration ?? 0);
+  // A hard-killed MKV has no container duration until it is remuxed.
+  const duration =
+    Number(probes.screen?.format.duration) ||
+    lastPacketTime(src.screen.file) ||
+    0;
   const micStart = Number(
     (isBaseline ? probes.screen : probes.mic)?.streams.find(
       (s) => s.codec_type === "audio"
     )?.start_time ?? 0
   );
+
+  // Per-frame arrival stamps before the CFR step (rig runs only).
+  const pts = {
+    screen: isBaseline
+      ? []
+      : arrivalPts(path.join(runDir, FILES.screenArrivals)),
+    camera: isBaseline
+      ? []
+      : arrivalPts(path.join(runDir, FILES.cameraArrivals)),
+  };
+  const CAM_FPS = 30000 / 1001;
 
   // Sync markers
   const rows = markers(meta, events, src.origin, duration).map((m) => {
@@ -516,79 +389,50 @@ function buildReport(runDir: string, baselineDir?: string) {
     );
     const ms = (a: number | null, b: number | null) =>
       a === null || b === null ? null : Math.round((a - b) * 10000) / 10;
+    // Undo the CFR step's per-frame shift, so offsets are capture-time.
+    const screenCap =
+      screen === null ? null : screen - cfrShift(pts.screen, 60, screen);
+    const cameraCap =
+      camera === null ? null : camera - cfrShift(pts.camera, CAM_FPS, camera);
     return {
       marker: m.label,
       expected: Math.round(m.expected * 1000) / 1000,
       screen,
       camera,
       audio,
-      camMinusScreenMs: ms(camera, screen),
-      audioMinusScreenMs: ms(audio, screen),
-      audioMinusCameraMs: ms(audio, camera),
+      camMinusScreenMs: ms(cameraCap, screenCap),
+      audioMinusScreenMs: ms(audio, screenCap),
+      audioMinusCameraMs: ms(audio, cameraCap),
+      fileTimeCamMinusScreenMs: ms(camera, screen),
     };
   });
-  // A device clock that runs fast or slow is retimed to CFR by dropping or
-  // repeating a whole frame, so the camera's offset saw-tooths within one frame
-  // (33 ms) without accumulating. Drift is therefore judged as the furthest any
-  // marker strays from the run's median offset; range and linear trend are shown too.
-  const drift = (
-    key: "camMinusScreenMs" | "audioMinusScreenMs" | "audioMinusCameraMs"
-  ) => {
-    const pts = rows
-      .filter((r) => r[key] !== null)
-      .map((r) => ({ t: r.expected, v: r[key] as number }));
-    if (pts.length < 2)
-      return {
-        n: pts.length,
-        medianMs: pts[0]?.v ?? null,
-        maxDevMs: null as number | null,
-        rangeMs: null,
-        trendMs: null,
-      };
-    const vals = pts.map((p) => p.v);
-    const med = median(vals);
-    const mt = pts.reduce((a, p) => a + p.t, 0) / pts.length;
-    const mv = pts.reduce((a, p) => a + p.v, 0) / pts.length;
-    const slope =
-      pts.reduce((a, p) => a + (p.t - mt) * (p.v - mv), 0) /
-      (pts.reduce((a, p) => a + (p.t - mt) ** 2, 0) || 1);
-    const r1 = (x: number) => Math.round(x * 10) / 10;
-    return {
-      n: pts.length,
-      medianMs: r1(med),
-      maxDevMs: r1(Math.max(...vals.map((v) => Math.abs(v - med)))),
-      rangeMs: r1(Math.max(...vals) - Math.min(...vals)),
-      trendMs: r1(slope * (pts[pts.length - 1]!.t - pts[0]!.t)),
-    };
-  };
-  const sync = {
-    camMinusScreen: drift("camMinusScreenMs"),
-    audioMinusScreen: drift("audioMinusScreenMs"),
-    audioMinusCamera: drift("audioMinusCameraMs"),
-  };
+  // Drift rules: judge.ts. Rig runs are judged with the CFR saw-tooth removed;
+  // the OBS baseline can't be, so its camera pairs get one frame of room.
+  const { sync, verdicts: syncVerdicts } = judgeSync(rows, {
+    cfrRemoved: !isBaseline,
+  });
 
-  // Frames
-  // The screen is captured on change (VFR) by design, so only the camera can lose frames at
-  // capture; the screen can only lose them by the pipeline falling behind (lag).
+  // Frames. Both files are CFR, so loss is judged on arrival timing before the
+  // CFR step. The screen (ddagrab, or the synthetic screen) is paced by the
+  // machine's clock, so it is also judged on rate.
   const frames = isBaseline
     ? null
     : {
         screen: {
-          arrivals: arrivals(path.join(runDir, FILES.screenArrivals), 60),
+          arrivals: arrivalsFromPts(pts.screen, 60, { rateLocked: true }),
           written: countPackets(src.screen.file),
           expected: Math.round(duration * 60),
         },
         camera: {
-          arrivals: arrivals(
-            path.join(runDir, FILES.cameraArrivals),
-            30000 / 1001
-          ),
+          arrivals: arrivalsFromPts(pts.camera, CAM_FPS, {
+            rateLocked: false,
+          }),
           written: countPackets(src.camera.file),
           expected: Math.round((duration * 30000) / 1001),
         },
         pipeline: {
-          screen: pipelineLag(runDir, "screen"),
-          camera: pipelineLag(runDir, "camera"),
+          screen: pipelineLag(runDir, "screen", meta.t0Ms),
+          camera: pipelineLag(runDir, "camera", meta.t0Ms),
         },
       };
   const log = ["ffmpeg-screen.log", "ffmpeg-camera.log"]
@@ -614,11 +458,21 @@ function buildReport(runDir: string, baselineDir?: string) {
   );
   const gbPerHour = duration > 0 ? bytes / 1e9 / (duration / 3600) : null;
 
-  // Preview latency (page decodes the on-screen ms clock from the preview it received)
-  const latencySamples = events
-    .filter((e) => e.type === "latency")
-    .flatMap((e) => e.samples as number[]);
-  const latency = stats(latencySamples);
+  // Preview delay, measured by the page at the moment it decodes a preview frame:
+  //  screen path: its own on-screen ms clock (drawn → captured → encoded → sent → decoded);
+  //  camera path: a flash on wall time W (drawn → seen by the camera → … → decoded).
+  // Neither includes the page's composite or the display's scan-out (~1–2 frames).
+  const delayBy = (source: RegExp) =>
+    stats(
+      events
+        .filter((e) => e.type === "latency" && source.test(String(e.source)))
+        .flatMap((e) => e.samples as number[])
+    );
+  const previewDelayMs = {
+    screenFeed: delayBy(/screen-feed|obs-virtual-camera$/),
+    cameraFeed: delayBy(/camera-feed/),
+    source: isBaseline ? "OBS Virtual Camera" : "rig preview feeds",
+  };
 
   const resources = perf(runDir, meta.logicalCpus || 32);
   let baseline: ReturnType<typeof perf> | null = null;
@@ -641,27 +495,21 @@ function buildReport(runDir: string, baselineDir?: string) {
     : null;
 
   // Verdicts
-  const within = (d: { maxDevMs: number | null; n: number }) =>
-    d.n < 2
-      ? "n/a (fewer than 2 markers found)"
-      : d.maxDevMs! <= LIMIT_MS
-        ? "PASS"
-        : "FAIL";
-  const captureDrops = frames
-    ? (frames.camera.arrivals?.lostFrames ?? 0) +
-      Object.values(frames.pipeline).filter((p) => p && p.maxLagGrowthSec > 0.5)
-        .length
-    : null;
   const verdicts: Record<string, string> = {
-    "A/V drift <= 33 ms": within(sync.audioMinusScreen),
-    "camera/screen drift <= 33 ms": within(sync.camMinusScreen),
-    "no dropped frames":
-      captureDrops === null
-        ? "n/a (OBS: see its log)"
-        : captureDrops === 0 &&
-            !logWarnings.some((l) => /real-time buffer|dropp/i.test(l))
-          ? "PASS"
-          : "FAIL",
+    ...syncVerdicts,
+    ...(frames
+      ? frameVerdicts({
+          screen: frames.screen.arrivals,
+          camera: frames.camera.arrivals,
+          lag: frames.pipeline,
+          logDropWarnings: logWarnings.filter((l) =>
+            /real-time buffer|dropp/i.test(l)
+          ).length,
+        })
+      : { "no dropped frames": "n/a (OBS: see its log)" }),
+    "preview feeds deliver frames": isBaseline
+      ? "n/a (baseline)"
+      : previewVerdict(meta.preview),
     "CPU/GPU <= 1.5x OBS": !comparison
       ? "n/a (no baseline run to compare with)"
       : Math.max(comparison.cpuTotal ?? 0, comparison.gpu ?? 0) <= 1.5
@@ -688,7 +536,8 @@ function buildReport(runDir: string, baselineDir?: string) {
     logWarnings: logWarnings.slice(0, 20),
     sizeGB: Math.round(bytes / 1e7) / 100,
     gbPerHour: gbPerHour === null ? null : Math.round(gbPerHour * 10) / 10,
-    previewLatencyMs: latency,
+    previewDelayMs,
+    preview: meta.preview ?? null,
     resources,
     comparison,
     crash: meta.crash ?? null,
@@ -785,114 +634,4 @@ function clapSheets(runDir: string, duration: number, micStart: number) {
       runDir
     );
   }
-}
-
-function toMarkdown(r: Report): string {
-  const lines = [
-    `# Rig report: ${r.mode}${r.synthetic ? " (synthetic sources)" : ""}`,
-    "",
-    `Run: \`${r.runDir}\` (Windows: \`${safeWin(r.runDir)}\`), ${r.durationSec} s recorded.`,
-    "",
-    "## Stop criteria",
-    "",
-    "| Criterion | Result |",
-    "|---|---|",
-    ...Object.entries(r.verdicts).map(([k, v]) => `| ${k} | ${v} |`),
-    "",
-    "## Sync at each marker (ms, onset of flash/beep)",
-    "",
-    "| Marker | file time (s) | camera - screen | audio - screen | audio - camera |",
-    "|---|---|---|---|---|",
-    ...r.markers.map(
-      (m) =>
-        `| ${m.marker} | ${m.expected} | ${m.camMinusScreenMs ?? "–"} | ${m.audioMinusScreenMs ?? "–"} | ${m.audioMinusCameraMs ?? "–"} |`
-    ),
-    "",
-    "| Pair | markers | median offset | max deviation from median (judged) | range | linear trend over run |",
-    "|---|---|---|---|---|---|",
-    ...(
-      [
-        ["camera - screen", r.sync.camMinusScreen],
-        ["audio - screen", r.sync.audioMinusScreen],
-        ["audio - camera", r.sync.audioMinusCamera],
-      ] as const
-    ).map(
-      ([k, d]) =>
-        `| ${k} | ${d.n} | ${d.medianMs ?? "–"} | ${d.maxDevMs ?? "–"} | ${d.rangeMs ?? "–"} | ${d.trendMs ?? "–"} |`
-    ),
-    "",
-    "The median offset is a constant (device latency, packetisation) to calibrate once; only movement around it is drift.",
-    "",
-    "## Frames",
-    "",
-    "```json",
-    JSON.stringify(r.frames, null, 1),
-    "```",
-    r.logWarnings.length
-      ? `ffmpeg log warnings (first 20):\n\n\`\`\`\n${r.logWarnings.join("\n")}\n\`\`\``
-      : "No drop/buffer warnings in the ffmpeg log.",
-    "",
-    "## Resources, size, latency",
-    "",
-    `- Size: ${r.sizeGB} GB, **${r.gbPerHour} GB/h**`,
-    `- Preview latency (ms clock, glass to page): ${r.previewLatencyMs ? `p50 ${r.previewLatencyMs.p50} / p95 ${r.previewLatencyMs.p95} ms over ${r.previewLatencyMs.n} frames` : "n/a"}`,
-    "",
-    "```json",
-    JSON.stringify(
-      { resources: r.resources, comparison: r.comparison },
-      null,
-      1
-    ),
-    "```",
-    "",
-    r.crash
-      ? `## kill -9 recovery\n\n\`\`\`json\n${JSON.stringify(r.crash, null, 1)}\n\`\`\``
-      : "",
-    "## Formats",
-    "",
-    "```json",
-    JSON.stringify(r.formats, null, 1),
-    "```",
-    "",
-  ];
-  return lines.join("\n");
-}
-
-function safeWin(p: string) {
-  try {
-    return toWindowsPath(p);
-  } catch {
-    return p;
-  }
-}
-
-/** Opens each recorded file after a hard kill: it must decode cleanly and stop no more than 2 s before the kill. */
-export function checkRecovery(
-  runDir: string,
-  killedAtFileTime: number
-): CrashResult {
-  const files = [FILES.screen, FILES.camera, FILES.mic].map((f) => {
-    const p = probe(path.join(runDir, f));
-    const duration = lastPacketTime(path.join(runDir, f));
-    const { stderr } = ffmpeg(
-      ["-v", "error", "-i", f, "-f", "null", "-"],
-      runDir
-    );
-    const decodeErrors = stderr.split("\n").filter((l) => l.trim()).length;
-    const lostSeconds = Math.round((killedAtFileTime - duration) * 100) / 100;
-    return {
-      file: f,
-      ok: !!p && duration > 0,
-      duration,
-      decodeErrors,
-      lostSeconds,
-    };
-  });
-  return {
-    killedAtFileTime,
-    files,
-    pass: files.every(
-      (f) => f.ok && f.lostSeconds <= 2 && f.decodeErrors === 0
-    ),
-  };
 }
