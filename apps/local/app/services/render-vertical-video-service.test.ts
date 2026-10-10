@@ -4,6 +4,7 @@ import { ConfigProvider, Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { WhisperTranscriptionService } from "@/services/whisper-transcription-service";
+import { LocalWhisperDisabled } from "@/services/local-whisper-engine";
 import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import { FFmpegEncodeService } from "@/services/ffmpeg-encode-commands";
 import { DrizzleService } from "@/services/drizzle-service.server";
@@ -135,7 +136,9 @@ describe("RenderVerticalVideoService", () => {
       depsLayer,
       // A render runs only in the Sidecar; a test stands in for it.
       SidecarContextTest,
-      RenderVerticalVideoService.Default.pipe(Layer.provide(depsLayer))
+      RenderVerticalVideoService.Default.pipe(
+        Layer.provide(Layer.merge(depsLayer, LocalWhisperDisabled))
+      )
     );
   }
 

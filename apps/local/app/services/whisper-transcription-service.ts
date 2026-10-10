@@ -1,6 +1,6 @@
 import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Config, Data, Effect, Schema } from "effect";
+import { Config, Data, Effect, Option, Schema } from "effect";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +12,11 @@ import {
   type TranscribeFootageOptions,
 } from "./footage-transcription";
 import { SidecarContext } from "./sidecar-context";
+import {
+  chooseTranscriber,
+  LocalWhisperEngine,
+  type AudioTranscript,
+} from "./local-whisper-engine";
 import { removeBestEffort } from "@/services/remove-best-effort";
 
 const TRANSCRIPTION_PERMITS = 20;
@@ -86,7 +91,9 @@ class CouldNotExtractAudioError extends Data.TaggedError(
 /**
  * **Whisper transcription**: ffmpeg extracts the audio, OpenAI's Whisper
  * transcribes it, at most 20 calls at once (the permits are this service's,
- * shared by every caller in the process).
+ * shared by every caller in the process) — or, with `CVM_WHISPER_ENGINE=local`,
+ * Local Whisper on the GPU does, one file at a time, with OpenAI as the
+ * fallback (`local-whisper-engine.ts`).
  *
  * Sidecar only (docs/plans/background-jobs-sidecar.md, batches 7 and 9): a
  * Clip transcription (the `transcribe-clips` Job), the vertical Short's
@@ -107,8 +114,16 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
         TRANSCRIPTION_PERMITS
       );
 
-      const openaiApiKey = yield* Config.string("OPENAI_API_KEY");
-      const openai = new OpenAI({ apiKey: openaiApiKey });
+      // With Local Whisper on, OpenAI is only the fallback, so its key is
+      // optional; with it off, OpenAI is the engine and the key is required.
+      const localWhisper = yield* LocalWhisperEngine;
+      const openaiApiKey = localWhisper.enabled
+        ? yield* Config.option(Config.string("OPENAI_API_KEY"))
+        : Option.some(yield* Config.string("OPENAI_API_KEY"));
+      const openai = Option.map(
+        openaiApiKey,
+        (apiKey) => new OpenAI({ apiKey })
+      );
 
       /** ffmpeg writes `inputVideo`'s audio (or a range of it) as an mp3. */
       const extractAudio = Effect.fn("extractAudio")(function* (
@@ -161,14 +176,15 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
       /**
        * Transcribe a single audio file using OpenAI Whisper API.
        */
-      const transcribeAudioFile = Effect.fn("transcribeAudioFile")(function* (
+      const transcribeWithOpenAI = Effect.fn("transcribeWithOpenAI")(function* (
+        client: OpenAI,
         audioPath: string
       ) {
         const response = yield* transcriptionSemaphore.withPermits(1)(
           Effect.tryPromise({
             try: async () => {
               const stream = fs.createReadStream(audioPath);
-              return openai.audio.transcriptions.create({
+              return client.audio.transcriptions.create({
                 file: stream,
                 model: "whisper-1",
                 response_format: "verbose_json",
@@ -194,8 +210,27 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
             end: word.end,
             text: word.word,
           })),
-        };
+        } satisfies AudioTranscript;
       });
+
+      /**
+       * One audio file through Whisper: Local Whisper when
+       * `CVM_WHISPER_ENGINE=local` (falling back to OpenAI per file), else
+       * OpenAI. Every caller below goes through here.
+       */
+      const transcribeAudioFile = chooseTranscriber(
+        localWhisper,
+        Option.match(openai, {
+          onNone: () => null,
+          onSome: (client) => (audioPath: string) =>
+            transcribeWithOpenAI(client, audioPath),
+        }),
+        (cause) =>
+          new CouldNotTranscribeError({
+            cause,
+            message: `No Whisper engine could transcribe: ${cause}`,
+          })
+      );
 
       /** Each Clip's range of its recording, transcribed on its own. */
       const transcribeClips = Effect.fn("transcribeClips")(function* (
