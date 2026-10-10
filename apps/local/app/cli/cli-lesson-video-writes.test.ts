@@ -384,7 +384,7 @@ describe("lesson archive", () => {
     expect((await run(["lesson", "archive", s.lessonId])).exitCode).toBe(2);
   });
 
-  it("refuses to archive a lesson in a published (frozen) version (exit 3)", async () => {
+  it("refuses to archive a published lesson with no Draft copy (exit 2)", async () => {
     const [oldCourse] = await testDb
       .insert(schema.courses)
       .values({ name: "Old", slug: "old-course" })
@@ -407,8 +407,10 @@ describe("lesson archive", () => {
       "archive",
       oldLesson!.id,
     ]);
-    expect(exitCode).toBe(3);
-    expect(stderr).toContain("ParseError");
+    // Its lineage has no copy in the Draft, so the id resolves to nothing
+    // editable: a not-found that names its latest copy, never a write.
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("has no copy");
   });
 });
 

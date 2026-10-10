@@ -1,5 +1,10 @@
 import { Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
+import {
+  draftIdOption,
+  entityIdArg,
+  entityIdOption,
+  optionalDraftId,
+} from "../entity-id";
 import { Effect, Option } from "effect";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
@@ -27,30 +32,30 @@ import {
 // Options / Args
 // ---------------------------------------------------------------------------
 
-const videoListOption = entityIdOption("video", "video").pipe(
+const videoListOption = draftIdOption("video", "video").pipe(
   Options.withDescription("The parent Video id whose Beat plan to list."),
   Options.optional
 );
 
-const lessonListOption = entityIdOption("lesson", "lesson").pipe(
+const lessonListOption = draftIdOption("lesson", "lesson").pipe(
   Options.withDescription(
     "The parent Lesson id whose Videos' Beat plans to list."
   ),
   Options.optional
 );
 
-const sectionListOption = entityIdOption("section", "section").pipe(
+const sectionListOption = draftIdOption("section", "section").pipe(
   Options.withDescription(
     "The parent Section id whose Lessons' Beat plans to list."
   ),
   Options.optional
 );
 
-const videoTargetOption = entityIdOption("video", "video").pipe(
+const videoTargetOption = draftIdOption("video", "video").pipe(
   Options.withDescription("The target Video id for the Beat (required).")
 );
 
-const videoAddOption = entityIdOption("video", "video").pipe(
+const videoAddOption = draftIdOption("video", "video").pipe(
   Options.withDescription(
     "The target Video id (mutually exclusive with --pitch)."
   ),
@@ -268,9 +273,9 @@ const listCmd = Command.make(
   ({ video, lesson, section, full }) =>
     Effect.gen(function* () {
       const svc = yield* BeatOperationsService;
-      const videoId = Option.getOrUndefined(video);
-      const lessonId = Option.getOrUndefined(lesson);
-      const sectionId = Option.getOrUndefined(section);
+      const videoId = yield* optionalDraftId(video);
+      const lessonId = yield* optionalDraftId(lesson);
+      const sectionId = yield* optionalDraftId(section);
       const scopeCount = [videoId, lessonId, sectionId].filter(
         (id) => id !== undefined
       ).length;
@@ -330,7 +335,10 @@ const addCmd = Command.make(
   },
   ({ video, pitch, kind, title, description, before, after, learningGoal }) =>
     Effect.gen(function* () {
-      const videoId = yield* resolveTargetVideoId({ video, pitch });
+      const videoId = yield* resolveTargetVideoId({
+        video: Option.fromNullable(yield* optionalDraftId(video)),
+        pitch,
+      });
       const beforeBeatId = yield* resolveBeforeBeatId({
         videoId,
         before,
@@ -417,8 +425,9 @@ const moveCmd = Command.make(
     before: beforeOption,
     after: afterOption,
   },
-  ({ id, video, before, after }) =>
+  ({ id, video: videoRef, before, after }) =>
     Effect.gen(function* () {
+      const video = yield* videoRef;
       const svc = yield* BeatOperationsService;
       yield* requireActiveBeat(id);
       const beforeBeatId = yield* resolveBeforeBeatId({

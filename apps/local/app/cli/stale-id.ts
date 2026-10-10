@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { NotFoundError, notFound } from "./errors";
+import { CliOutput } from "./output";
 
 /**
  * Why an id is missing, when the answer is "it belonged to an older Course
@@ -65,4 +66,63 @@ export const notFoundOrStale = (
         ? notFound(entity, id)
         : new NotFoundError({ entity, id, ...why })
     )
+  );
+
+/** The nouns whose ids change with every Course Version. */
+export type DraftEntity = "section" | "lesson" | "video";
+
+/**
+ * Resolve a Section, Lesson or Video reference to its id in the current Draft
+ * — THE step every such CLI argument goes through (see `draftIdArg` in
+ * ./entity-id.ts), so no command can act on a stale id by accident.
+ *
+ * - A current id passes through untouched.
+ * - A stable `lineageId` resolves silently: it is the id callers are told to
+ *   store, so resolving it is the normal case.
+ * - An id from an older Course Version resolves to the Draft's row of the same
+ *   lineage, with a one-line note on STDERR naming the id it resolved to.
+ * - A reference whose lineage has no row in the Draft fails NotFound, naming
+ *   its latest copy.
+ * - An unknown reference is passed through, so each command keeps its own
+ *   not-found handling. So is any failure of the lookup itself: resolving is
+ *   best effort and never turns a working id into an error.
+ */
+export const resolveDraftId = (
+  entity: DraftEntity,
+  ref: string
+): Effect.Effect<string, NotFoundError, VersionOperationsService | CliOutput> =>
+  Effect.flatMap(VersionOperationsService, (svc) =>
+    svc.resolveEntityRef(entity, ref)
+  ).pipe(
+    Effect.orElseSucceed(() => ({ kind: "unknown" }) as const),
+    Effect.flatMap((r) => {
+      if (r.kind === "unknown") return Effect.succeed(ref);
+      if (r.kind === "noDraftCopy") {
+        const { latest } = r;
+        const where =
+          latest.commitState === "draft"
+            ? `its copy in the current Draft is ${latest.id}${latest.archived ? " (archived)" : ""}`
+            : `the current Draft has no copy of it; ${latest.id === ref ? "it lives only" : `its latest copy is ${latest.id},`} in a ${latest.commitState} version${latest.archived ? " (archived there)" : ""}`;
+        return Effect.fail(
+          new NotFoundError({
+            entity,
+            id: ref,
+            message: `${entity} ${ref} belongs to an older Course Version; ${where}`,
+            ...(latest.commitState === "draft" ? { currentId: latest.id } : {}),
+          })
+        );
+      }
+      // An archived Draft row still resolves: `unarchive` needs it, and every
+      // other verb already reports an archived row as not-found.
+      if (r.via === "id") return Effect.succeed(r.id);
+      if (r.via === "lineage") return Effect.succeed(r.id);
+      return Effect.as(
+        Effect.flatMap(CliOutput, (out) =>
+          out.stderr(
+            `note: ${entity} ${ref} is from an older Course Version; resolved to ${r.id} in the current Draft (store its stable lineageId ${r.lineageId} instead)\n`
+          )
+        ),
+        r.id
+      );
+    })
   );

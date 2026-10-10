@@ -1,5 +1,10 @@
 import { readFileSync } from "node:fs";
-import { entityIdArg, entityIdOption } from "../entity-id";
+import {
+  draftIdArg,
+  draftIdOption,
+  entityIdOption,
+  optionalDraftId,
+} from "../entity-id";
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -132,7 +137,7 @@ const listCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
-const ids = entityIdArg("video").pipe(Args.repeated);
+const refs = draftIdArg("video").pipe(Args.repeated);
 
 /**
  * `get` carries NO Clips. On a filmed Video they ran to ~350KB — every Clip
@@ -149,23 +154,29 @@ const fetchVideoWithoutClips = (id: string) =>
     })
   );
 
-const getCmd = Command.make("get", { ids, full: fullOption }, ({ ids, full }) =>
-  emitGet({
-    entity: "video",
-    ids,
-    includeMemory: full,
-    fetch: fetchVideoWithoutClips,
-  })
+const getCmd = Command.make(
+  "get",
+  { ids: refs, full: fullOption },
+  ({ ids: refs, full }) =>
+    Effect.flatMap(Effect.all(refs), (ids) =>
+      emitGet({
+        entity: "video",
+        ids,
+        includeMemory: full,
+        fetch: fetchVideoWithoutClips,
+      })
+    )
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
-const treeId = entityIdArg("video");
+const treeId = draftIdArg("video");
 const depth = Options.text("depth").pipe(Options.withDefault("1"));
 
 const treeCmd = Command.make(
   "tree",
   { id: treeId, depth, full: fullOption },
-  ({ id, depth, full }) =>
+  ({ id: ref, depth, full }) =>
     Effect.gen(function* () {
+      const id = yield* ref;
       const levels =
         depth === "all"
           ? Number.POSITIVE_INFINITY
@@ -186,13 +197,14 @@ const treeCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(TREE_HELP)));
 
-const transcriptId = entityIdArg("video");
+const transcriptId = draftIdArg("video");
 
 const transcriptCmd = Command.make(
   "transcript",
   { id: transcriptId },
-  ({ id }) =>
+  ({ id: ref }) =>
     Effect.gen(function* () {
+      const id = yield* ref;
       const video = yield* fetchVideoWithClips(id);
       if (video === undefined) {
         return yield* notFound("video", id);
@@ -211,10 +223,11 @@ const transcriptCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(TRANSCRIPT_HELP)));
 
-const scriptId = entityIdArg("video");
+const scriptId = draftIdArg("video");
 
-const scriptCmd = Command.make("script", { id: scriptId }, ({ id }) =>
+const scriptCmd = Command.make("script", { id: scriptId }, ({ id: ref }) =>
   Effect.gen(function* () {
+    const id = yield* ref;
     const svc = yield* VideoOperationsService;
     const video = yield* svc
       .getVideoRowById(id)
@@ -235,7 +248,7 @@ const scriptCmd = Command.make("script", { id: scriptId }, ({ id }) =>
 const nameOption = Options.text("name").pipe(
   Options.withDescription("The Video's name (its 'title').")
 );
-const lessonOption = entityIdOption("lesson", "lesson").pipe(
+const lessonOption = draftIdOption("lesson", "lesson").pipe(
   Options.withDescription(
     "Parent Lesson id (mutually exclusive with --pitch)."
   ),
@@ -284,10 +297,10 @@ const createCmd = Command.make(
   },
   ({ name, lesson, pitch, format }) =>
     Effect.gen(function* () {
+      const lessonId = yield* optionalDraftId(lesson);
       if (name.trim() === "") {
         return yield* parseError("--name must not be empty", "video");
       }
-      const lessonId = Option.getOrUndefined(lesson);
       const pitchId = Option.getOrUndefined(pitch);
       const videoFormat = Option.getOrUndefined(format);
       yield* rejectBothFlags({
@@ -340,14 +353,15 @@ const createCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(CREATE_HELP)));
 
-const moveId = entityIdArg("video");
+const moveId = draftIdArg("video");
 
 const moveCmd = Command.make(
   "move",
   { id: moveId, lesson: lessonOption, pitch: pitchOption },
-  ({ id, lesson, pitch }) =>
+  ({ id: ref, lesson, pitch }) =>
     Effect.gen(function* () {
-      const lessonId = Option.getOrUndefined(lesson);
+      const id = yield* ref;
+      const lessonId = yield* optionalDraftId(lesson);
       const pitchId = Option.getOrUndefined(pitch);
       yield* rejectBothFlags({
         a: lessonId,
@@ -388,7 +402,7 @@ const moveCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(MOVE_HELP)));
 
-const updateId = entityIdArg("video");
+const updateId = draftIdArg("video");
 const updateNameOption = Options.text("name").pipe(
   Options.withDescription("The Video's new name (its 'title')."),
   Options.optional
@@ -461,8 +475,18 @@ const updateCmd = Command.make(
     scriptFile: updateScriptFileOption,
     format: updateFormatOption,
   },
-  ({ id, name, body, bodyFile, description, script, scriptFile, format }) =>
+  ({
+    id: ref,
+    name,
+    body,
+    bodyFile,
+    description,
+    script,
+    scriptFile,
+    format,
+  }) =>
     Effect.gen(function* () {
+      const id = yield* ref;
       const newName = Option.getOrUndefined(name);
       const inlineBody = Option.getOrUndefined(body);
       const bodyFilePath = Option.getOrUndefined(bodyFile);
@@ -552,10 +576,11 @@ const updateCmd = Command.make(
 // archive <id>
 // ---------------------------------------------------------------------------
 
-const archiveId = entityIdArg("video");
+const archiveId = draftIdArg("video");
 
-const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
+const archiveCmd = Command.make("archive", { id: archiveId }, ({ id: ref }) =>
   Effect.gen(function* () {
+    const id = yield* ref;
     const svc = yield* VideoOperationsService;
 
     // Read first: an archived Video is still addressable here (unlike an
@@ -582,9 +607,10 @@ const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
 
 const unarchiveCmd = Command.make(
   "unarchive",
-  { id: entityIdArg("video") },
-  ({ id }) =>
+  { id: draftIdArg("video") },
+  ({ id: ref }) =>
     Effect.gen(function* () {
+      const id = yield* ref;
       const svc = yield* VideoOperationsService;
 
       // Mirrors archive: unarchiving a live Video is invalid input.

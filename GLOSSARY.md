@@ -32,6 +32,10 @@ _Avoid_: Version (too vague), Revision
 The one CourseVersion that can still change, and the only one that accepts writes to sections, lessons, videos and clips. There is exactly one per course. It has no name or description.
 _Avoid_: Current version, Working version
 
+**Lineage**:
+What makes a **Section**, **Lesson** or **Video** "the same one" across CourseVersions. Every **Submit** copies the Draft with fresh ids, so an id names one row in one CourseVersion; the `lineageId` is carried unchanged by every copy and never changes. It is the id to store outside the CVM. A duplicated Course or Video starts a new Lineage. Any `cvm` command that takes one of these ids also takes the `lineageId`, and resolves an id from an older CourseVersion to the Draft's row of the same Lineage.
+_Avoid_: Stable id (say lineageId), Original id
+
 **Has Changes**:
 Whether a Draft Version has had any write since it was created, which answers "does this Draft need a **Publish**?" without comparing it to the last **Published Version**. Once set, it stays set for the life of that Draft. The fresh Draft that **Submit** creates starts without it. It has no meaning on a Pending or Published Version.
 _Avoid_: Dirty, Modified, Needs publish
