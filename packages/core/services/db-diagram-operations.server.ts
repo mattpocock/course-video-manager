@@ -128,6 +128,12 @@ const createDiagramOperations = (
     return diagram;
   });
 
+  /**
+   * The Diagram rail: metadata only, never the drawing. The playground polls
+   * this every few seconds, so pulling every `head_scene` here would ship
+   * every Diagram's full drawing on every poll. Read a drawing with
+   * `getDiagram` or `getDiagramHead`.
+   */
   const listDiagrams = Effect.fn("listDiagrams")(function* (opts?: {
     includeArchived?: boolean;
     nameFilter?: string;
@@ -157,7 +163,13 @@ const createDiagramOperations = (
 
     return yield* makeDbCall(() =>
       db
-        .select({ diagram: diagrams })
+        .select({
+          id: diagrams.id,
+          name: diagrams.name,
+          archived: diagrams.archived,
+          createdAt: diagrams.createdAt,
+          updatedAt: diagrams.updatedAt,
+        })
         .from(diagrams)
         .leftJoin(lastClipPinAt, eq(lastClipPinAt.diagramId, diagrams.id))
         .where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -166,7 +178,6 @@ const createDiagramOperations = (
             sql`GREATEST(${lastClipPinAt.lastClipPinAt}, ${diagrams.updatedAt})`
           )
         )
-        .then((rows) => rows.map((r) => r.diagram))
     );
   });
 
@@ -299,6 +310,32 @@ const createDiagramOperations = (
       });
     }
     return diagram;
+  });
+
+  /**
+   * One Diagram's stored head and when it was written — the drawing without
+   * the search text and vector `getDiagram` also carries.
+   */
+  const getDiagramHead = Effect.fn("getDiagramHead")(function* (id: string) {
+    const rows = yield* makeDbCall(() =>
+      db
+        .select({
+          id: diagrams.id,
+          headScene: diagrams.headScene,
+          updatedAt: diagrams.updatedAt,
+        })
+        .from(diagrams)
+        .where(eq(diagrams.id, id))
+    );
+
+    const head = rows[0];
+    if (!head) {
+      return yield* new NotFoundError({
+        type: "getDiagramHead",
+        params: { id },
+      });
+    }
+    return head;
   });
 
   const updateDiagram = Effect.fn("updateDiagram")(function* (
@@ -696,6 +733,7 @@ const createDiagramOperations = (
     listDiagramSummaries: listDiagramSummariesIn(db),
     searchDiagrams,
     getDiagram,
+    getDiagramHead,
     updateDiagram,
     updateDiagramHead,
     createSnapshot,
