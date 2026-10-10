@@ -1,5 +1,9 @@
 import { Args, HelpDoc, Options, ValidationError } from "@effect/cli";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
+import { resolveDraftId, type DraftEntity } from "./stale-id";
+import type { NotFoundError } from "./errors";
+import type { CliOutput } from "./output";
+import type { VersionOperationsService } from "@/services/db-version-operations.server";
 import {
   resolveEntityId,
   type EntityType,
@@ -19,6 +23,15 @@ import {
  */
 type Expected = EntityType | ReadonlyArray<EntityType>;
 
+/**
+ * Sections, Lessons and Videos get fresh ids with every Course Version, so
+ * their arguments are declared with {@link draftIdArg} / {@link draftIdOption}
+ * instead, which resolve a stale id or a `lineageId` to the Draft's id. The
+ * plain builders refuse them at the type level so that cannot be forgotten.
+ */
+type PlainEntity = Exclude<EntityType, DraftEntity>;
+type PlainExpected = PlainEntity | ReadonlyArray<PlainEntity>;
+
 const resolve = (input: string, expected: Expected) =>
   Effect.try({
     try: () => resolveEntityId(input, expected),
@@ -27,9 +40,11 @@ const resolve = (input: string, expected: Expected) =>
 
 /** A positional argument naming one entity of `expected` type(s). */
 export const entityIdArg = (
-  expected: Expected,
+  expected: PlainExpected,
   name = "id"
-): Args.Args<string> =>
+): Args.Args<string> => anyEntityIdArg(expected, name);
+
+const anyEntityIdArg = (expected: Expected, name = "id"): Args.Args<string> =>
   Args.text({ name }).pipe(
     Args.mapEffect((input) =>
       resolve(input, expected).pipe(Effect.mapError((m) => HelpDoc.p(m)))
@@ -38,6 +53,11 @@ export const entityIdArg = (
 
 /** A `--<name>` flag naming one entity of `expected` type(s). */
 export const entityIdOption = (
+  name: string,
+  expected: PlainExpected
+): Options.Options<string> => anyEntityIdOption(name, expected);
+
+const anyEntityIdOption = (
   name: string,
   expected: Expected
 ): Options.Options<string> =>
@@ -58,7 +78,7 @@ export const entityIdOption = (
  */
 export const entityIdsOption = (
   name: string,
-  expected: Expected
+  expected: PlainExpected
 ): Options.Options<ReadonlyArray<string>> =>
   Options.text(name).pipe(
     Options.repeated,
@@ -70,3 +90,46 @@ export const entityIdsOption = (
       )
     )
   );
+
+/**
+ * A Section, Lesson or Video id as a command receives it: an Effect that
+ * resolves to the id in the current Draft (see {@link resolveDraftId}). The
+ * handler has to `yield*` it to get a string, so every command that takes one
+ * accepts a stale id or a stable `lineageId` without doing anything itself.
+ */
+export type DraftId = Effect.Effect<
+  string,
+  NotFoundError,
+  VersionOperationsService | CliOutput
+>;
+
+/** A positional argument naming one Section, Lesson or Video. */
+export const draftIdArg = (
+  entity: DraftEntity,
+  name = "id"
+): Args.Args<DraftId> =>
+  anyEntityIdArg(entity, name).pipe(
+    Args.map((id) => resolveDraftId(entity, id))
+  );
+
+/** A `--<name>` flag naming one Section, Lesson or Video. */
+export const draftIdOption = (
+  name: string,
+  entity: DraftEntity
+): Options.Options<DraftId> =>
+  anyEntityIdOption(name, entity).pipe(
+    Options.map((id) => resolveDraftId(entity, id))
+  );
+
+/** Resolve an optional {@link draftIdOption} to `string | undefined`. */
+export const optionalDraftId = (
+  ref: Option.Option<DraftId>
+): Effect.Effect<
+  string | undefined,
+  NotFoundError,
+  VersionOperationsService | CliOutput
+> =>
+  Option.match(ref, {
+    onNone: () => Effect.succeed(undefined),
+    onSome: (id) => id,
+  });

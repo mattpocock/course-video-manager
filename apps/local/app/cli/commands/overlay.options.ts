@@ -1,5 +1,5 @@
 import { Args, Options } from "@effect/cli";
-import { entityIdOption } from "../entity-id";
+import { draftIdOption, entityIdOption } from "../entity-id";
 import { OVERLAY_KINDS } from "@/features/videos/overlay-kind";
 
 /**
@@ -13,7 +13,7 @@ import { OVERLAY_KINDS } from "@/features/videos/overlay-kind";
  * are the one-line `--help` summaries `@effect/cli` prints beside each flag.
  */
 
-export const videoOpt = entityIdOption("video", "video").pipe(
+export const videoOpt = draftIdOption("video", "video").pipe(
   Options.withDescription("The Video id whose Overlays to list (required).")
 );
 

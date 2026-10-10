@@ -12,13 +12,14 @@ import {
 } from "./cli-read-test-harness";
 
 // ===========================================================================
-// An id from an OLDER Course Version names the Draft's equivalent.
+// An id from an OLDER Course Version resolves to the Draft's equivalent.
 //
-// Submit copies the Draft into a fresh Draft with fresh ids, and a Discarded
-// Pending Version is deleted with its ids. An agent holding an id from before
-// that got a bare NotFoundError and took the Section for deleted. The only
-// trace of the old id is the copy's `previousVersionSectionId` /
-// `previousVersionLessonId`, so that is what these tests seed.
+// Submit copies the Draft into a fresh Draft with fresh ids, so a stored
+// Section, Lesson or Video id goes stale with every Course Version. Every copy
+// keeps its `lineageId`, and a Discarded Pending Version's ids survive only
+// in the copy's `previousVersionSectionId` / `previousVersionLessonId`. Any
+// command taking one of these ids resolves it (resolveDraftId), and the
+// stable `lineageId` is accepted wherever the id is.
 // ===========================================================================
 
 let testDb: TestDb;
@@ -32,8 +33,14 @@ beforeAll(async () => {
 
 let seed: {
   draftSectionId: string;
+  draftSectionLineageId: string;
   draftLessonId: string;
   lineageDraftSectionId: string;
+  publishedSectionId: string;
+  orphanSectionId: string;
+  publishedVideoId: string;
+  draftVideoId: string;
+  draftVideoLineageId: string;
 };
 
 beforeEach(async () => {
@@ -106,80 +113,112 @@ beforeEach(async () => {
     })
     .returning();
 
+  // A Section that never made it into the Draft: no copy of its lineage.
+  const [orphanSection] = await testDb
+    .insert(schema.sections)
+    .values({ repoVersionId: published!.id, title: "gone", order: 2 })
+    .returning();
+
+  // A Video copied forward by Submit: fresh id, same lineage.
+  const [publishedLesson] = await testDb
+    .insert(schema.lessons)
+    .values({ sectionId: publishedSection!.id, title: "old", order: 1 })
+    .returning();
+  const [publishedVideo] = await testDb
+    .insert(schema.videos)
+    .values({
+      lessonId: publishedLesson!.id,
+      title: "take",
+      originalFootagePath: "",
+    })
+    .returning();
+  const [draftVideo] = await testDb
+    .insert(schema.videos)
+    .values({
+      lessonId: draftLesson!.id,
+      lineageId: publishedVideo!.lineageId,
+      title: "take",
+      originalFootagePath: "",
+    })
+    .returning();
+
   seed = {
     draftSectionId: draftSection!.id,
+    draftSectionLineageId: draftSection!.lineageId,
     draftLessonId: draftLesson!.id,
     lineageDraftSectionId: lineageDraftSection!.id,
+    publishedSectionId: publishedSection!.id,
+    orphanSectionId: orphanSection!.id,
+    publishedVideoId: publishedVideo!.id,
+    draftVideoId: draftVideo!.id,
+    draftVideoLineageId: draftVideo!.lineageId,
   };
 });
 
 describe("ids from an older Course Version", () => {
-  it("section get names the Draft's equivalent section id", async () => {
+  it("section get resolves a Discarded version's id, with a note", async () => {
     const res = await run(["section", "get", "section-from-discarded-version"]);
 
-    expect(res.exitCode).toBe(2);
-    expect(res.stdout).toBe("");
-    const err = JSON.parse(res.stderr);
-    expect(err).toMatchObject({
-      _tag: "NotFoundError",
-      entity: "section",
-      id: "section-from-discarded-version",
-      currentId: seed.draftSectionId,
-    });
-    expect(err.message).toMatch(/older Course Version/);
-    expect(err.message).toContain(seed.draftSectionId);
+    expect(res.exitCode).toBe(0);
+    expect(JSON.parse(res.stdout).id).toBe(seed.draftSectionId);
+    expect(res.stderr).toMatch(/^note: .*older Course Version/);
+    expect(res.stderr).toContain(seed.draftSectionId);
+    expect(res.stderr.trim().split("\n")).toHaveLength(1);
   });
 
-  it("follows lineage when the forward chain breaks before the Draft", async () => {
-    const res = await run(["section", "get", "section-from-before-v1"]);
-
-    expect(res.exitCode).toBe(2);
-    expect(JSON.parse(res.stderr)).toMatchObject({
-      currentId: seed.lineageDraftSectionId,
-    });
-  });
-
-  it("lesson get names the Draft's equivalent lesson id", async () => {
-    const res = await run(["lesson", "get", "lesson-from-discarded-version"]);
-
-    expect(res.exitCode).toBe(2);
-    expect(JSON.parse(res.stderr)).toMatchObject({
-      _tag: "NotFoundError",
-      entity: "lesson",
-      currentId: seed.draftLessonId,
-    });
-  });
-
-  it("section lint and section tree carry the same hint", async () => {
-    for (const verb of ["lint", "tree"]) {
-      const res = await run([
-        "section",
-        verb,
-        "section-from-discarded-version",
-      ]);
-      expect(res.exitCode).toBe(2);
-      expect(JSON.parse(res.stderr)).toMatchObject({
-        currentId: seed.draftSectionId,
-      });
-    }
-  });
-
-  it("multi-id get maps each stale id to its Draft id", async () => {
+  it("resolves a Published Section's id by lineage, and writes go to the Draft", async () => {
     const res = await run([
       "section",
-      "get",
-      seed.draftSectionId,
-      "section-from-discarded-version",
-      "never-existed",
+      "rename",
+      "--title",
+      "renamed",
+      seed.publishedSectionId,
     ]);
 
-    expect(res.exitCode).toBe(2);
-    expect(JSON.parse(res.stderr)).toMatchObject({
-      ids: ["section-from-discarded-version", "never-existed"],
-      currentIds: {
-        "section-from-discarded-version": seed.draftSectionId,
-      },
+    expect(res.exitCode).toBe(0);
+    expect(JSON.parse(res.stdout).id).toBe(seed.lineageDraftSectionId);
+    expect(res.stderr).toContain(seed.lineageDraftSectionId);
+    const published = await testDb.query.sections.findFirst({
+      where: (s, { eq }) => eq(s.id, seed.publishedSectionId),
     });
+    expect(published!.title).toBe("basics");
+  });
+
+  it("lesson get resolves a stale lesson id", async () => {
+    const res = await run(["lesson", "get", "lesson-from-discarded-version"]);
+
+    expect(res.exitCode).toBe(0);
+    expect(JSON.parse(res.stdout).id).toBe(seed.draftLessonId);
+    expect(res.stderr).toContain(seed.draftLessonId);
+  });
+
+  it("an option resolves too (lesson list --section)", async () => {
+    const res = await run([
+      "lesson",
+      "list",
+      "--section",
+      "section-from-discarded-version",
+    ]);
+
+    expect(res.exitCode).toBe(0);
+    expect(res.stdout).toContain(seed.draftLessonId);
+  });
+
+  it("video get resolves an older version's video id by lineage", async () => {
+    const res = await run(["video", "get", seed.publishedVideoId]);
+
+    expect(res.exitCode).toBe(0);
+    expect(JSON.parse(res.stdout).id).toBe(seed.draftVideoId);
+    expect(res.stderr).toContain(seed.draftVideoId);
+  });
+
+  it("errors, naming its latest copy, when the Draft has no copy of the lineage", async () => {
+    const res = await run(["section", "tree", seed.orphanSectionId]);
+
+    expect(res.exitCode).toBe(2);
+    const err = JSON.parse(res.stderr);
+    expect(err).toMatchObject({ _tag: "NotFoundError", entity: "section" });
+    expect(err.message).toContain("the current Draft has no copy");
   });
 
   it("an id nothing descends from stays a bare NotFoundError", async () => {
@@ -194,3 +233,33 @@ describe("ids from an older Course Version", () => {
     });
   });
 });
+
+describe("the stable lineageId", () => {
+  it("section list shows it, and get resolves it silently", async () => {
+    const [course] = await testDb.query.courses.findMany();
+    const listed = res(
+      await run(["section", "list", "--course", course!.id])
+    ).find((s) => s.id === seed.draftSectionId);
+    expect(listed!.lineageId).toBe(seed.draftSectionLineageId);
+
+    const got = await run(["section", "get", seed.draftSectionLineageId]);
+    expect(got.exitCode).toBe(0);
+    expect(JSON.parse(got.stdout).id).toBe(seed.draftSectionId);
+    expect(got.stderr).toBe("");
+  });
+
+  it("is accepted for a Video, and video get shows it", async () => {
+    const got = await run(["video", "get", seed.draftVideoLineageId]);
+    expect(got.exitCode).toBe(0);
+    expect(JSON.parse(got.stdout)).toMatchObject({
+      id: seed.draftVideoId,
+      lineageId: seed.draftVideoLineageId,
+    });
+  });
+});
+
+const res = (r: RunResult) =>
+  r.stdout
+    .split("\n")
+    .filter((l) => l.length > 0)
+    .map((l) => JSON.parse(l) as { id: string; lineageId: string });

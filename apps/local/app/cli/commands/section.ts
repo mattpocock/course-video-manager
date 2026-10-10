@@ -1,6 +1,11 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
-import { explainStaleId, notFoundOrStale } from "../stale-id";
+import {
+  draftIdArg,
+  draftIdOption,
+  entityIdOption,
+  optionalDraftId,
+} from "../entity-id";
+import { notFoundOrStale } from "../stale-id";
 import { Effect, Option } from "effect";
 import { sectionSearchCmd } from "./search";
 import { sectionLintCmd } from "./section-lint";
@@ -117,118 +122,137 @@ const listCmd = Command.make(
       const sections = yield* svc.getSectionsByRepoVersionId(repoVersionId);
       const named = sections.map(withName);
       // Compact by default: id/name is what a caller almost always wants
-      // (pick a section to act on); 'order' is omitted — the NDJSON stream is
+      // (pick a section to act on), plus the stable lineageId — the id to
+      // store, since `id` changes with every Course Version; 'order' is omitted — the NDJSON stream is
       // already sorted by it, so the field would only repeat the row's own
       // position. --full adds order back plus description and the internal
       // lineage/version-linkage columns.
       yield* emitNdjson(
-        full ? named : named.map((s) => ({ id: s.id, name: s.name }))
+        full
+          ? named
+          : named.map((s) => ({
+              id: s.id,
+              lineageId: s.lineageId,
+              name: s.name,
+            }))
       );
     })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
-const ids = entityIdArg("section").pipe(Args.repeated);
+const refs = draftIdArg("section").pipe(Args.repeated);
 
-const getCmd = Command.make("get", { ids, full: fullOption }, ({ ids, full }) =>
-  emitGet({
-    entity: "section",
-    ids,
-    includeMemory: full,
-    explainMissing: explainStaleId("section"),
-    fetch: (id) =>
-      Effect.gen(function* () {
-        const svc = yield* ops;
-        const section = yield* svc
-          .getSectionWithHierarchyById(id)
-          .pipe(
-            Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
-          );
-        // Sections have no viewable archive: an archived (archivedAt
-        // non-null) section is treated as absent -> NotFoundError + exit 2.
-        if (section === undefined || section.archivedAt !== null) {
-          return undefined;
-        }
-        const lessons = yield* svc.getLessonsBySectionId(id);
-        return { ...section, lessons };
-      }),
-  })
+const getCmd = Command.make(
+  "get",
+  { ids: refs, full: fullOption },
+  ({ ids: refs, full }) =>
+    Effect.flatMap(Effect.all(refs), (ids) =>
+      emitGet({
+        entity: "section",
+        ids,
+        includeMemory: full,
+        fetch: (id) =>
+          Effect.gen(function* () {
+            const svc = yield* ops;
+            const section = yield* svc
+              .getSectionWithHierarchyById(id)
+              .pipe(
+                Effect.catchTag("NotFoundError", () =>
+                  Effect.succeed(undefined)
+                )
+              );
+            // Sections have no viewable archive: an archived (archivedAt
+            // non-null) section is treated as absent -> NotFoundError + exit 2.
+            if (section === undefined || section.archivedAt !== null) {
+              return undefined;
+            }
+            const lessons = yield* svc.getLessonsBySectionId(id);
+            return { ...section, lessons };
+          }),
+      })
+    )
 );
 
 const depth = Options.text("depth").pipe(Options.withDefault("1"));
-const treeId = entityIdArg("section");
+const treeId = draftIdArg("section");
 
-const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
-  Effect.gen(function* () {
-    const maxDepth =
-      depth === "all"
-        ? Number.POSITIVE_INFINITY
-        : Number.isInteger(Number(depth)) && Number(depth) >= 1
-          ? Number(depth)
-          : undefined;
-    if (maxDepth === undefined) {
-      return yield* parseError(
-        `--depth must be a positive integer or "all" (got "${depth}")`,
-        "section"
-      );
-    }
+const treeCmd = Command.make(
+  "tree",
+  { id: treeId, depth },
+  ({ id: ref, depth }) =>
+    Effect.gen(function* () {
+      const id = yield* ref;
+      const maxDepth =
+        depth === "all"
+          ? Number.POSITIVE_INFINITY
+          : Number.isInteger(Number(depth)) && Number(depth) >= 1
+            ? Number(depth)
+            : undefined;
+      if (maxDepth === undefined) {
+        return yield* parseError(
+          `--depth must be a positive integer or "all" (got "${depth}")`,
+          "section"
+        );
+      }
 
-    const svc = yield* ops;
-    const section = yield* svc
-      .getSectionWithHierarchyById(id)
-      .pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)));
-    if (section === undefined || section.archivedAt !== null) {
-      // Archived (archivedAt non-null) sections are never viewable.
-      return yield* notFoundOrStale("section", id);
-    }
+      const svc = yield* ops;
+      const section = yield* svc
+        .getSectionWithHierarchyById(id)
+        .pipe(
+          Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
+        );
+      if (section === undefined || section.archivedAt !== null) {
+        // Archived (archivedAt non-null) sections are never viewable.
+        return yield* notFoundOrStale("section", id);
+      }
 
-    const children =
-      maxDepth >= 1
-        ? yield* Effect.gen(function* () {
-            const lessons = yield* svc.getLessonsBySectionId(id);
-            return yield* Effect.forEach(lessons, (lesson) =>
-              Effect.gen(function* () {
-                let videoChildren: Array<{
-                  id: string;
-                  kind: "video";
-                  name: string;
-                  children: never[];
-                }> = [];
-                if (maxDepth >= 2) {
-                  const full = yield* svc
-                    .getLessonById(lesson.id)
-                    .pipe(
-                      Effect.catchTag("NotFoundError", () =>
-                        Effect.succeed(undefined)
-                      )
-                    );
-                  const videos = full?.videos ?? [];
-                  videoChildren = videos
-                    .filter((v) => !v.archived)
-                    .map((v) => ({
-                      id: v.id,
-                      kind: "video" as const,
-                      name: v.title,
-                      children: [],
-                    }));
-                }
-                return {
-                  id: lesson.id,
-                  kind: "lesson" as const,
-                  title: lesson.title,
-                  children: videoChildren,
-                };
-              })
-            );
-          })
-        : [];
+      const children =
+        maxDepth >= 1
+          ? yield* Effect.gen(function* () {
+              const lessons = yield* svc.getLessonsBySectionId(id);
+              return yield* Effect.forEach(lessons, (lesson) =>
+                Effect.gen(function* () {
+                  let videoChildren: Array<{
+                    id: string;
+                    kind: "video";
+                    name: string;
+                    children: never[];
+                  }> = [];
+                  if (maxDepth >= 2) {
+                    const full = yield* svc
+                      .getLessonById(lesson.id)
+                      .pipe(
+                        Effect.catchTag("NotFoundError", () =>
+                          Effect.succeed(undefined)
+                        )
+                      );
+                    const videos = full?.videos ?? [];
+                    videoChildren = videos
+                      .filter((v) => !v.archived)
+                      .map((v) => ({
+                        id: v.id,
+                        kind: "video" as const,
+                        name: v.title,
+                        children: [],
+                      }));
+                  }
+                  return {
+                    id: lesson.id,
+                    kind: "lesson" as const,
+                    title: lesson.title,
+                    children: videoChildren,
+                  };
+                })
+              );
+            })
+          : [];
 
-    yield* emitObject({
-      id: section.id,
-      kind: "section" as const,
-      name: section.title,
-      children,
-    });
-  })
+      yield* emitObject({
+        id: section.id,
+        kind: "section" as const,
+        name: section.title,
+        children,
+      });
+    })
 ).pipe(Command.withDescription(detail(TREE_HELP)));
 
 // ---------------------------------------------------------------------------
@@ -238,13 +262,13 @@ const treeCmd = Command.make("tree", { id: treeId, depth }, ({ id, depth }) =>
 const createTitle = Options.text("title").pipe(
   Options.withDescription("The section title (also its display path).")
 );
-const createBefore = entityIdOption("before", "section").pipe(
+const createBefore = draftIdOption("before", "section").pipe(
   Options.withDescription(
     "Place immediately before this section id (mutually exclusive with --after)."
   ),
   Options.optional
 );
-const createAfter = entityIdOption("after", "section").pipe(
+const createAfter = draftIdOption("after", "section").pipe(
   Options.withDescription(
     "Place immediately after this section id (mutually exclusive with --before)."
   ),
@@ -262,8 +286,8 @@ const createCmd = Command.make(
   },
   ({ version, course, title, before, after }) =>
     Effect.gen(function* () {
-      const b = Option.getOrUndefined(before);
-      const a = Option.getOrUndefined(after);
+      const b = yield* optionalDraftId(before);
+      const a = yield* optionalDraftId(after);
       yield* rejectBothFlags({
         a: b,
         b: a,
@@ -308,7 +332,7 @@ const createCmd = Command.make(
 // rename <id> --title <t>
 // ---------------------------------------------------------------------------
 
-const renameId = entityIdArg("section");
+const renameId = draftIdArg("section");
 const renameTitle = Options.text("title").pipe(
   Options.withDescription("The section's new display title.")
 );
@@ -316,8 +340,9 @@ const renameTitle = Options.text("title").pipe(
 const renameCmd = Command.make(
   "rename",
   { id: renameId, title: renameTitle },
-  ({ id, title }) =>
+  ({ id: ref, title }) =>
     Effect.gen(function* () {
+      const id = yield* ref;
       if (title.trim().length === 0) {
         return yield* parseError("rename needs a non-empty --title", "section");
       }
@@ -344,14 +369,14 @@ const renameCmd = Command.make(
 // move <id> [--before|--after <sectionId>]
 // ---------------------------------------------------------------------------
 
-const moveId = entityIdArg("section");
-const moveBefore = entityIdOption("before", "section").pipe(
+const moveId = draftIdArg("section");
+const moveBefore = draftIdOption("before", "section").pipe(
   Options.withDescription(
     "Place immediately before this section id (mutually exclusive with --after)."
   ),
   Options.optional
 );
-const moveAfter = entityIdOption("after", "section").pipe(
+const moveAfter = draftIdOption("after", "section").pipe(
   Options.withDescription(
     "Place immediately after this section id (mutually exclusive with --before)."
   ),
@@ -361,10 +386,11 @@ const moveAfter = entityIdOption("after", "section").pipe(
 const moveCmd = Command.make(
   "move",
   { id: moveId, before: moveBefore, after: moveAfter },
-  ({ id, before, after }) =>
+  ({ id: ref, before, after }) =>
     Effect.gen(function* () {
-      const b = Option.getOrUndefined(before);
-      const a = Option.getOrUndefined(after);
+      const id = yield* ref;
+      const b = yield* optionalDraftId(before);
+      const a = yield* optionalDraftId(after);
       yield* rejectBothFlags({
         a: b,
         b: a,
@@ -418,10 +444,11 @@ const moveCmd = Command.make(
 // archive <id>
 // ---------------------------------------------------------------------------
 
-const archiveId = entityIdArg("section");
+const archiveId = draftIdArg("section");
 
-const archiveCmd = Command.make("archive", { id: archiveId }, ({ id }) =>
+const archiveCmd = Command.make("archive", { id: archiveId }, ({ id: ref }) =>
   Effect.gen(function* () {
+    const id = yield* ref;
     const svc = yield* ops;
 
     // Read the row first — once archived it is deleted-equivalent, so this is

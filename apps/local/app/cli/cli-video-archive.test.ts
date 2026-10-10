@@ -112,7 +112,7 @@ describe("video archive", () => {
     );
   });
 
-  it("refuses a video in a published (frozen) version (exit 3)", async () => {
+  it("refuses a published video with no Draft copy (exit 2)", async () => {
     const [oldCourse] = await testDb
       .insert(schema.courses)
       .values({ name: "Frozen", slug: "frozen-course" })
@@ -138,13 +138,19 @@ describe("video archive", () => {
       })
       .returning();
 
-    const { exitCode, stdout } = await run(["video", "archive", oldVideo!.id]);
-    expect(exitCode).toBe(3);
+    const { exitCode, stdout, stderr } = await run([
+      "video",
+      "archive",
+      oldVideo!.id,
+    ]);
+    expect(exitCode).toBe(2);
     expect(stdout).toBe("");
+    expect(stderr).toContain("has no copy");
 
     // The row is untouched — a refused write leaves nothing half-done.
-    expect(
-      videoObj((await run(["video", "get", oldVideo!.id])).stdout).archived
-    ).toBe(false);
+    const row = await testDb.query.videos.findFirst({
+      where: (v, { eq }) => eq(v.id, oldVideo!.id),
+    });
+    expect(row!.archived).toBe(false);
   });
 });

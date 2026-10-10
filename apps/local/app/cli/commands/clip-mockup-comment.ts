@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
+import { entityIdArg, entityIdOption, draftIdOption } from "../entity-id";
 import { Effect, Option } from "effect";
 import {
   ClipMockupCommentOperationsService,
@@ -35,7 +35,7 @@ import {
 // Options
 // ---------------------------------------------------------------------------
 
-const videoOpt = entityIdOption("video", "video").pipe(
+const videoOpt = draftIdOption("video", "video").pipe(
   Options.withDescription("Parent Video id (required).")
 );
 
@@ -107,12 +107,16 @@ const resolveTarget = (
 // Verbs
 // ---------------------------------------------------------------------------
 
-const listCmd = Command.make("list", { video: videoOpt }, ({ video }) =>
-  Effect.gen(function* () {
-    const row = yield* requireActiveVideo(video);
-    const svc = yield* ClipMockupCommentOperationsService;
-    yield* emitNdjson(yield* svc.listClipMockupCommentsByVideoId(row.id));
-  })
+const listCmd = Command.make(
+  "list",
+  { video: videoOpt },
+  ({ video: videoRef }) =>
+    Effect.gen(function* () {
+      const video = yield* videoRef;
+      const row = yield* requireActiveVideo(video);
+      const svc = yield* ClipMockupCommentOperationsService;
+      yield* emitNdjson(yield* svc.listClipMockupCommentsByVideoId(row.id));
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 const getCmd = Command.make("get", { ids: idArgs }, ({ ids }) =>

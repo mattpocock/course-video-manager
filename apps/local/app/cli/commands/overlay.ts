@@ -271,8 +271,9 @@ const requireNoOverlappingOverlay = (params: {
 const listCmd = Command.make(
   "list",
   { video: videoOpt, clip: clipFilterOpt },
-  ({ video, clip }) =>
+  ({ video: videoRef, clip }) =>
     Effect.gen(function* () {
+      const video = yield* videoRef;
       // The Video must exist: an unknown id would otherwise be indistinguishable
       // from a Video that simply has no Overlays yet (both print nothing).
       const videoOps = yield* VideoOperationsService;

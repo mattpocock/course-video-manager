@@ -53,6 +53,13 @@ VERBS
   archive <id>          Hard, one-way soft-delete of a section (WRITE) — see
                         "ARCHIVING" above.
 
+IDS. A Section's 'id' changes with every Course Version (each Submit copies the
+Draft with fresh ids); its 'lineageId' never does. STORE THE lineageId. Every
+verb that takes a Section id also takes the lineageId, and resolves an id from an
+older Version to the same Section in the current Draft, with a one-line note on
+stderr naming the id it used. An id whose Section has no copy in the Draft is a
+not-found (exit 2) naming its latest copy.
+
 WRITES only ever target the Draft (latest) version.
 
 EXAMPLES
@@ -76,12 +83,13 @@ EXAMPLES
 
 export const LIST_HELP = `List ALL Sections of one Course Version (the complete set, never a UI-bounded subset), as NDJSON — one compact JSON object per line, ordered by 'order' ascending.
 
-By DEFAULT each line is the compact projection { id, name } — enough to map a
-section name to its id in a single call. 'order' is omitted from this
+By DEFAULT each line is the compact projection { id, lineageId, name } —
+enough to map a section name to its id in a single call. 'lineageId' is the
+stable id to store: 'id' changes with every Course Version. 'order' is omitted from this
 projection: the NDJSON stream is already sorted by it, so the field would
 only repeat each line's own position. 'name' is the uniform display label
 every noun's 'list' carries (for a section it mirrors 'path'). Pass --full for
-the complete row (order, description, repoVersionId, lineageId, etc).
+the complete row (order, description, repoVersionId, etc).
 Lessons are NOT included either way — list goes one level deep; use 'section
 get <id>' or 'lesson list --section <id>' to drill in.
 
@@ -153,8 +161,8 @@ empty/whitespace-only value is invalid input, exit 3).
 This ONLY changes the section's title/display path. It never hides or archives
 the section, whatever the title says — use 'cvm section archive' for that.
 
-Editing a section in a published (frozen) version is refused (exit 3); edits go
-to the Draft. Echoes the renamed section with its Version/Course hierarchy (as
+Edits go to the Draft: an id from a published (frozen) version resolves to its
+Draft copy. Echoes the renamed section with its Version/Course hierarchy (as
 'get').
 
 EXAMPLES

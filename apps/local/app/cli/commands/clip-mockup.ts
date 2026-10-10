@@ -1,5 +1,10 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
+import {
+  entityIdArg,
+  entityIdOption,
+  draftIdOption,
+  optionalDraftId,
+} from "../entity-id";
 import { Effect, Option } from "effect";
 import {
   ClipMockupOperationsService,
@@ -50,7 +55,7 @@ import {
 // Options / Args
 // ---------------------------------------------------------------------------
 
-const videoOption = entityIdOption("video", "video").pipe(
+const videoOption = draftIdOption("video", "video").pipe(
   Options.withDescription(
     "The parent Video id whose Animatic to operate on (required)."
   )
@@ -72,7 +77,7 @@ const clipMockupsJsonOption = Options.text("clip-mockups-json").pipe(
  * `--at` position is counted in, so it is optional there and refused next to a
  * bare <id>.
  */
-const videoAddressOption = entityIdOption("video", "video").pipe(
+const videoAddressOption = draftIdOption("video", "video").pipe(
   Options.withDescription(
     "The parent Video id to count --at positions in (use with --at, instead of a bare <id>)."
   ),
@@ -330,9 +335,10 @@ const resolveUpdateTargets = (entries: ReadonlyArray<UpdateEntry>) =>
 const addCmd = Command.make(
   "add",
   { video: videoOption, file: clipMockupsJsonOption },
-  ({ video, file }) =>
+  ({ video: videoRef, file }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
+      const video = yield* videoRef;
 
       // The whole file is checked before anything slow or anything written.
       const entries = yield* readAddEntries(file);
@@ -387,9 +393,10 @@ const addCmd = Command.make(
 const listCmd = Command.make(
   "list",
   { video: videoOption, withChapters: withChaptersOption },
-  ({ video, withChapters }) =>
+  ({ video: videoRef, withChapters }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
+      const video = yield* videoRef;
       const row = yield* requireActiveVideo(video);
       // Two streams, and the bare one gains no extra ROW and no field but the
       // additive `imageFile` / `audioFile`. Every `jq` pipeline in the
@@ -518,9 +525,10 @@ const moveCmd = Command.make(
     before: beforeOption,
     after: afterOption,
   },
-  ({ id, video, at, before, after }) =>
+  ({ id, video: videoRef, at, before, after }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
+      const video = Option.fromNullable(yield* optionalDraftId(videoRef));
       const row = yield* resolveTargetClipMockup({ id, video, at });
       // Resolved over the MERGED Animatic — Clip Mockups AND the Chapters
       // that divide them — because the two share one order key space.
@@ -547,9 +555,10 @@ const moveCmd = Command.make(
 const deleteCmd = Command.make(
   "delete",
   { id: optionalIdArg, video: videoAddressOption, at: atOption },
-  ({ id, video, at }) =>
+  ({ id, video: videoRef, at }) =>
     Effect.gen(function* () {
       yield* requireLocalFrameStore;
+      const video = Option.fromNullable(yield* optionalDraftId(videoRef));
       const row = yield* resolveTargetClipMockup({ id, video, at });
       const svc = yield* ClipMockupOperationsService;
       yield* svc.deleteClipMockup(row.id);

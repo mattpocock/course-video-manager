@@ -1,5 +1,10 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg, entityIdOption } from "../entity-id";
+import {
+  entityIdArg,
+  entityIdOption,
+  draftIdOption,
+  optionalDraftId,
+} from "../entity-id";
 import { Effect, Option } from "effect";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -117,7 +122,7 @@ import {
  *     | jq -r '.. | objects | select(.kind=="clip") | .id' \
  *     | xargs cvm clip get
  */
-const videoOpt = entityIdOption("video", "video").pipe(
+const videoOpt = draftIdOption("video", "video").pipe(
   Options.withDescription("Parent Video id whose clips to list")
 );
 
@@ -130,8 +135,9 @@ const archivedOpt = Options.boolean("archived").pipe(
 const listCmd = Command.make(
   "list",
   { video: videoOpt, archived: archivedOpt },
-  ({ video, archived }) =>
+  ({ video: videoRef, archived }) =>
     Effect.gen(function* () {
+      const video = yield* videoRef;
       const videoOps = yield* VideoOperationsService;
       const found = yield* videoOps
         .getVideoWithClipsById(video, { withArchived: archived })
@@ -214,7 +220,7 @@ const afterOpt = entityIdOption("after", ["clip", "chapter"]).pipe(
 
 const idArg = entityIdArg("clip");
 
-const videoAddOpt = entityIdOption("video", "video").pipe(
+const videoAddOpt = draftIdOption("video", "video").pipe(
   Options.withDescription("The Video id to add the clip to (required).")
 );
 
@@ -270,8 +276,9 @@ const addCmd = Command.make(
     before: beforeOpt,
     after: afterOpt,
   },
-  ({ video, source, start, end, before, after }) =>
+  ({ video: videoRef, source, start, end, before, after }) =>
     Effect.gen(function* () {
+      const video = yield* videoRef;
       if (start >= end) {
         return yield* parseError(
           `--start (${start}) must be before --end (${end})`,
@@ -400,7 +407,7 @@ const updateCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
-const videoMoveOpt = entityIdOption("video", "video").pipe(
+const videoMoveOpt = draftIdOption("video", "video").pipe(
   Options.withDescription(
     "Move the clip onto THIS Video's timeline (cross-video move). Anchors then resolve on the target; with neither --before nor --after it appends to the end."
   ),
@@ -410,8 +417,9 @@ const videoMoveOpt = entityIdOption("video", "video").pipe(
 const moveCmd = Command.make(
   "move",
   { id: idArg, video: videoMoveOpt, before: beforeOpt, after: afterOpt },
-  ({ id, video, before, after }) =>
+  ({ id, video: videoRef, before, after }) =>
     Effect.gen(function* () {
+      const video = Option.fromNullable(yield* optionalDraftId(videoRef));
       const existing = yield* requireActiveClip(id);
       const targetVideoId = Option.getOrUndefined(video);
       const crossVideo =

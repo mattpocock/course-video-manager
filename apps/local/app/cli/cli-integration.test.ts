@@ -660,11 +660,11 @@ describe("embedded course memory is stripped by default", () => {
 describe("compact list projections default on, --full opts out", () => {
   beforeEach(reseed);
 
-  it("section list defaults to { id, name } (order omitted — the stream is already ordered)", async () => {
+  it("section list defaults to { id, lineageId, name } (order omitted — the stream is already ordered)", async () => {
     const rows = ndjson(
       (await run(["section", "list", "--course", s.courseAId])).stdout
     ) as Record<string, unknown>[];
-    expect(Object.keys(rows[0]!).sort()).toEqual(["id", "name"]);
+    expect(Object.keys(rows[0]!).sort()).toEqual(["id", "lineageId", "name"]);
 
     const full = ndjson(
       (await run(["section", "list", "--full", "--course", s.courseAId])).stdout

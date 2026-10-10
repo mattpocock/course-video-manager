@@ -1,5 +1,5 @@
 import { Args, Command, Options } from "@effect/cli";
-import { entityIdArg } from "../entity-id";
+import { draftIdArg, entityIdArg } from "../entity-id";
 import { Effect } from "effect";
 import {
   SearchOperationsService,
@@ -235,8 +235,21 @@ export const searchCommand = Command.make(
 const makeScopedSearchCmd = (scope: "course" | "section" | "lesson") =>
   Command.make(
     "search",
-    { id: entityIdArg(scope), query, type: typeOpt, limit: limitOpt },
-    ({ id, query, type, limit }) => runSearch(scope, id, query, type, limit)
+    {
+      // A Section or Lesson root resolves a stale id or lineageId to the
+      // Draft's; a Course id never changes.
+      id:
+        scope === "course"
+          ? entityIdArg(scope).pipe(Args.map(Effect.succeed))
+          : draftIdArg(scope),
+      query,
+      type: typeOpt,
+      limit: limitOpt,
+    },
+    ({ id, query, type, limit }) =>
+      Effect.flatMap(id, (rootId) =>
+        runSearch(scope, rootId, query, type, limit)
+      )
   ).pipe(Command.withDescription(detail(scopedHelp(scope, APPLICABLE[scope]))));
 
 export const courseSearchCmd = makeScopedSearchCmd("course");

@@ -339,7 +339,7 @@ describe("section rename", () => {
     expect(exitCode).toBe(2);
   });
 
-  it("refuses to rename a section in a published version (exit 3)", async () => {
+  it("refuses to rename a published section with no Draft copy (exit 2)", async () => {
     const { exitCode, stderr } = await run([
       "section",
       "rename",
@@ -347,10 +347,10 @@ describe("section rename", () => {
       "Nope",
       s.publishedSectionId,
     ]);
-    expect(exitCode).toBe(3);
-    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
-      "ParseError"
-    );
+    // Its lineage has no copy in the Draft, so the id resolves to nothing
+    // editable: a not-found that names its latest copy, never a write.
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("has no copy");
   });
 });
 
@@ -430,16 +430,16 @@ describe("section move", () => {
     expect(exitCode).toBe(2);
   });
 
-  it("refuses to move a section in a published version (exit 3)", async () => {
+  it("refuses to move a published section with no Draft copy (exit 2)", async () => {
     const { exitCode, stderr } = await run([
       "section",
       "move",
       s.publishedSectionId,
     ]);
-    expect(exitCode).toBe(3);
-    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
-      "ParseError"
-    );
+    // Its lineage has no copy in the Draft, so the id resolves to nothing
+    // editable: a not-found that names its latest copy, never a write.
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("has no copy");
   });
 });
 
@@ -474,16 +474,16 @@ describe("section archive", () => {
     expect(exitCode).toBe(2);
   });
 
-  it("refuses to archive a section in a published version (exit 3)", async () => {
+  it("refuses to archive a published section with no Draft copy (exit 2)", async () => {
     const { exitCode, stderr } = await run([
       "section",
       "archive",
       s.publishedSectionId,
     ]);
-    expect(exitCode).toBe(3);
-    expect((JSON.parse(stderr.trim()) as { _tag: string })._tag).toBe(
-      "ParseError"
-    );
+    // Its lineage has no copy in the Draft, so the id resolves to nothing
+    // editable: a not-found that names its latest copy, never a write.
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("has no copy");
   });
 
   it("archive is one-way: cannot rename/move/archive again after", async () => {

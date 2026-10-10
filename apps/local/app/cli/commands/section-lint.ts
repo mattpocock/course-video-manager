@@ -1,5 +1,5 @@
 import { Command } from "@effect/cli";
-import { entityIdArg } from "../entity-id";
+import { draftIdArg } from "../entity-id";
 import { Effect } from "effect";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LearningGoalOperationsService } from "@/services/db-learning-goal-operations.server";
@@ -27,13 +27,14 @@ import { LINT_HELP } from "./section.help";
  * on a Remote Box.
  */
 
-const sectionId = entityIdArg("section", "sectionId");
+const sectionId = draftIdArg("section", "sectionId");
 
 export const sectionLintCmd = Command.make(
   "lint",
   { sectionId },
-  ({ sectionId }) =>
+  ({ sectionId: ref }) =>
     Effect.gen(function* () {
+      const sectionId = yield* ref;
       const sections = yield* LessonSectionOperationsService;
       const goals = yield* LearningGoalOperationsService;
       const beatOps = yield* BeatOperationsService;
