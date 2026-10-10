@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>OBS-free recorder rig</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #111;
+        color: #ddd;
+        font:
+          14px/1.4 system-ui,
+          sans-serif;
+        overflow: hidden;
+      }
+      #strip {
+        position: fixed;
+        left: 0;
+        top: 0;
+        image-rendering: pixelated;
+        z-index: 5;
+      }
+      #clock {
+        position: fixed;
+        left: 8px;
+        top: 40px;
+        font:
+          600 56px/1 ui-monospace,
+          monospace;
+        color: #fff;
+      }
+      #hud {
+        position: fixed;
+        left: 8px;
+        top: 120px;
+        width: 560px;
+        white-space: pre-wrap;
+        font:
+          14px/1.5 ui-monospace,
+          monospace;
+      }
+      #composite {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 1152px;
+        height: 648px;
+        background: #000;
+        outline: 2px solid #444;
+      }
+      #scene {
+        position: fixed;
+        right: 24px;
+        bottom: 680px;
+        font: 600 28px system-ui;
+      }
+      #flash {
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        display: none;
+        z-index: 10;
+      }
+      #start {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        background: #000d;
+        display: grid;
+        place-items: center;
+        font-size: 28px;
+        cursor: pointer;
+      }
+      video {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="strip"></canvas>
+    <div id="clock"></div>
+    <div id="hud"></div>
+    <div id="scene"></div>
+    <canvas id="composite" width="1920" height="1080"></canvas>
+    <video id="vcam" muted playsinline></video>
+    <div id="flash"></div>
+    <div id="start">
+      Click to start (goes fullscreen; keep this on the captured monitor)
+    </div>
+    <script type="module" src="/preview.js"></script>
+  </body>
+</html>
