@@ -1,6 +1,7 @@
 // `./rig check`: the review's repro cases (CVM #1992) run against the verdict
-// rules in judge.ts, plus clean cases that must still pass. No ffmpeg, no
-// devices, under a second. `./rig selftest` runs these first.
+// rules in judge.ts, plus clean cases that must still pass, plus the phone
+// marker's synthetic runs (phone-checks.ts). No ffmpeg, no devices, a few
+// seconds. `./rig selftest` runs these first.
 import {
   arrivalsFromPts,
   cfrShift,
@@ -12,6 +13,7 @@ import {
   previewVerdict,
   type MarkerRow,
 } from "./judge.ts";
+import { phoneCases } from "./phone-checks.ts";
 
 type Case = { name: string; ok: () => boolean | string };
 
@@ -292,6 +294,7 @@ const cases: Case[] = [
         })
       ),
   },
+  ...phoneCases,
 ];
 
 export function runChecks(log: (...a: unknown[]) => void): boolean {

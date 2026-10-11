@@ -2,10 +2,14 @@
 //   A/V, camera/screen and lip-sync drift <= 33 ms, no dropped frames or stalls,
 //   the recorder keeping up, live preview feeds, CPU/GPU <= ~1.5x the OBS
 //   baseline, <= ~25 GB/h. The rules themselves live in judge.ts.
-// Drift is measured at each sync marker (white flash + 1 kHz beep): the onset
-// is found in every stream, and the offsets between streams must not move.
+// Drift is measured at sync markers: the onset is found in every stream, and
+// the offsets between streams must not move. Real runs use two marker sources
+// (lib/sync.ts): the PC's DELL flash + 1 kHz beep for A/V, and a phone in front
+// of the camera (white flash + 2 kHz beep every 10 s) for lip sync; camera/
+// screen is derived from the two. Synthetic runs flash every source at once.
 import fs from "node:fs";
 import path from "node:path";
+import { perf } from "./perf.ts";
 import { toMarkdown } from "./report-md.ts";
 import { countPackets, ffmpeg, lastPacketTime, probe } from "./ff.ts";
 import type { CrashResult } from "./recovery.ts";
@@ -16,15 +20,31 @@ import {
   frameVerdicts,
   judgeSync,
   lipSyncVsObs,
+  judgePreflight,
   lagFromRows,
-  median,
   previewVerdict,
   stats,
+  type MarkerRow,
   type PreviewStats,
 } from "./judge.ts";
+import {
+  analyzePhoneMarkers,
+  onsetNear,
+  PC_BEEP_HZ,
+  pcBeepDelayMs,
+  PHONE_BEEP_HZ,
+  TONE,
+  toneSeries,
+} from "./sync.ts";
 
 export type Meta = {
-  mode: "selftest" | "record" | "crash" | "baseline";
+  mode: "selftest" | "record" | "crash" | "baseline" | "preflight";
+  /**
+   * What the camera watches for its sync marker. "phone": a phone playing the
+   * rig's flash + 2 kHz video (lib/phone.ts). Absent: the PC's own flash (the
+   * synthetic sources, and runs from before the phone).
+   */
+  cameraMarker?: "phone";
   t0Ms: number;
   startedWallMs: number;
   endedWallMs?: number;
@@ -79,27 +99,17 @@ function lumaSeries(file: string, from: number, dur: number, crop?: string) {
   return { t, v };
 }
 
-/** 1 kHz tone amplitude (Goertzel, 20 ms window, 1 ms hop) in [from, from+dur). */
-function toneSeries(
-  file: string,
-  from: number,
-  dur: number,
-  startTime: number
-) {
-  const start = Math.max(0, from);
+/** The whole mic, mono at TONE.sr, as samples in [-1, 1). Sample i is at file time startTime + i / sr. */
+function micSamples(file: string): Float64Array {
   const { stdout } = ffmpeg(
     [
-      "-ss",
-      String(start),
-      "-t",
-      String(dur),
       "-i",
       path.basename(file),
       "-vn",
       "-ac",
       "1",
       "-ar",
-      "8000",
+      String(TONE.sr),
       "-f",
       "s16le",
       "-",
@@ -109,49 +119,7 @@ function toneSeries(
   const n = stdout.length >> 1;
   const x = new Float64Array(n);
   for (let i = 0; i < n; i++) x[i] = stdout.readInt16LE(i * 2) / 32768;
-  const N = 160;
-  const hop = 8;
-  const coeff = 2 * Math.cos((2 * Math.PI * 1000) / 8000);
-  const t: number[] = [];
-  const v: number[] = [];
-  for (let s = 0; s + N <= n; s += hop) {
-    let q1 = 0;
-    let q2 = 0;
-    for (let i = 0; i < N; i++) {
-      const q0 = coeff * q1 - q2 + x[s + i]!;
-      q2 = q1;
-      q1 = q0;
-    }
-    const power = q1 * q1 + q2 * q2 - coeff * q1 * q2;
-    // Window END: the tone is fully inside the window from here on.
-    t.push(startTime + start + (s + N) / 8000);
-    v.push(Math.sqrt(Math.max(0, power)) / (N / 2));
-  }
-  return { t, v };
-}
-
-/** Time where the series first crosses halfway from its pre-marker level to its peak (linear interpolation). */
-function onset(
-  series: { t: number[]; v: number[] },
-  expected: number,
-  minRise: number
-): number | null {
-  const pre = series.v.filter((_, i) => series.t[i]! < expected - 0.6);
-  const base = median(pre.length >= 5 ? pre : series.v.slice(0, 10));
-  const peak = Math.max(...series.v);
-  if (!(peak - base >= minRise)) return null;
-  const thr = base + 0.5 * (peak - base);
-  for (let i = 1; i < series.v.length; i++) {
-    const a = series.v[i - 1]!;
-    const b = series.v[i]!;
-    if (a < thr && b >= thr && series.t[i]! > expected - 0.6) {
-      return (
-        series.t[i - 1]! +
-        ((thr - a) / (b - a)) * (series.t[i]! - series.t[i - 1]!)
-      );
-    }
-  }
-  return null;
+  return x;
 }
 
 // ---------- inputs ----------
@@ -164,87 +132,6 @@ const readJsonl = (file: string) =>
         .filter(Boolean)
         .map((l) => JSON.parse(l) as Record<string, unknown>)
     : [];
-
-function parseCsv(line: string): string[] {
-  return [...line.matchAll(/"([^"]*)"|([^,]+)/g)].map((m) =>
-    (m[1] ?? m[2] ?? "").trim()
-  );
-}
-
-function perf(runDir: string, cpus: number) {
-  const cpu: Record<string, number[]> = {
-    total: [],
-    ffmpeg: [],
-    obs64: [],
-    chrome: [],
-  };
-  const cpuFile = path.join(runDir, "perf-cpu.csv");
-  if (fs.existsSync(cpuFile)) {
-    const lines = fs
-      .readFileSync(cpuFile, "utf8")
-      .replace(/\r/g, "")
-      .split("\n")
-      .filter((l) => l.startsWith('"'));
-    const header = parseCsv(lines[0] ?? "");
-    // Every instance of a process (ffmpeg, ffmpeg#1, …) is summed.
-    const cols: Record<string, number[]> = {
-      total: header.flatMap((h, i) =>
-        /Processor\(_Total\)/.test(h) ? [i] : []
-      ),
-      ffmpeg: header.flatMap((h, i) =>
-        /Process\(ffmpeg(#\d+)?\)/.test(h) ? [i] : []
-      ),
-      obs64: header.flatMap((h, i) =>
-        /Process\(obs64(#\d+)?\)/.test(h) ? [i] : []
-      ),
-      chrome: header.flatMap((h, i) =>
-        /Process\(chrome(#\d+)?\)/.test(h) ? [i] : []
-      ),
-    };
-    for (const line of lines.slice(1)) {
-      const row = parseCsv(line);
-      for (const [k, idx] of Object.entries(cols)) {
-        if (!idx.length) continue;
-        const vals = idx
-          .map((i) => Number(row[i]))
-          .filter((n) => Number.isFinite(n) && n >= 0);
-        if (!vals.length) continue;
-        const sum = vals.reduce((a, b) => a + b, 0);
-        cpu[k]!.push(k === "total" ? sum : sum / cpus);
-      }
-    }
-  }
-  const gpu: Record<string, number[]> = {
-    gpu: [],
-    enc: [],
-    dec: [],
-    vramMiB: [],
-  };
-  const gpuFile = path.join(runDir, "perf-gpu.csv");
-  if (fs.existsSync(gpuFile)) {
-    for (const line of fs
-      .readFileSync(gpuFile, "utf8")
-      .replace(/\r/g, "")
-      .split("\n")
-      .slice(1)) {
-      const r = line.split(",").map((s) => Number(s.trim()));
-      if (r.length < 5 || !Number.isFinite(r[1])) continue;
-      gpu.gpu!.push(r[1]!);
-      gpu.enc!.push(r[2]!);
-      gpu.dec!.push(r[3]!);
-      gpu.vramMiB!.push(r[4]!);
-    }
-  }
-  return {
-    cpuTotalPct: stats(cpu.total!),
-    cpuFfmpegPct: stats(cpu.ffmpeg!),
-    cpuObsPct: stats(cpu.obs64!),
-    cpuChromePct: stats(cpu.chrome!),
-    gpuPct: stats(gpu.gpu!),
-    nvencPct: stats(gpu.enc!),
-    vramMiB: stats(gpu.vramMiB!),
-  };
-}
 
 function arrivalPts(file: string): number[] {
   if (!fs.existsSync(file)) return [];
@@ -263,7 +150,13 @@ function pipelineLag(runDir: string, name: string, t0Ms: number) {
 
 // ---------- markers ----------
 
-type Marker = { label: string; expected: number; wallMs: number };
+type Marker = {
+  label: string;
+  expected: number;
+  wallMs: number;
+  /** File time the page scheduled its beep for (the flash goes up on the nearest frame). */
+  beepAt?: number;
+};
 
 function markers(
   meta: Meta,
@@ -295,6 +188,10 @@ function markers(
           label: `${e.reason ?? "flash"} ${new Date(w).toISOString().slice(11, 19)}`,
           expected,
           wallMs: w,
+          beepAt:
+            typeof e.beepWallMs === "number"
+              ? ((e.beepWallMs as number) - origin) / 1000
+              : undefined,
         });
       }
     }
@@ -371,60 +268,101 @@ function buildReport(runDir: string, baselineDir?: string) {
   const CAM_FPS = 30000 / 1001;
 
   // Sync markers
-  const rows = markers(meta, events, src.origin, duration).map((m) => {
-    const from = m.expected - 2;
-    const screen = onset(
-      lumaSeries(src.screen.file, from, 4, src.screen.crop),
+  const marks = markers(meta, events, src.origin, duration);
+  const phoneMode = meta.cameraMarker === "phone";
+  const micX = micSamples(src.mic);
+  const mic1k = toneSeries(micX, PC_BEEP_HZ, micStart);
+  const mic2k = phoneMode
+    ? toneSeries(micX, PHONE_BEEP_HZ, micStart)
+    : undefined;
+  const ms = (a: number | null, b: number | null) =>
+    a === null || b === null ? null : Math.round((a - b) * 10000) / 10;
+  // Undo the CFR step's per-frame shift, so offsets are capture-time.
+  const camCfr = (t: number) => cfrShift(pts.camera, CAM_FPS, t);
+  const screenAt = (m: Marker) => {
+    const screen = onsetNear(
+      lumaSeries(src.screen.file, m.expected - 2, 4, src.screen.crop),
       m.expected,
       25
     );
-    const camera = onset(
-      lumaSeries(src.camera.file, from, 4, src.camera.crop),
-      m.expected,
-      8
-    );
-    const audio = onset(
-      toneSeries(src.mic, from, 4, micStart),
-      m.expected,
-      0.002
-    );
-    const ms = (a: number | null, b: number | null) =>
-      a === null || b === null ? null : Math.round((a - b) * 10000) / 10;
-    // Undo the CFR step's per-frame shift, so offsets are capture-time.
-    const screenCap =
-      screen === null ? null : screen - cfrShift(pts.screen, 60, screen);
-    const cameraCap =
-      camera === null ? null : camera - cfrShift(pts.camera, CAM_FPS, camera);
     return {
-      marker: m.label,
-      expected: Math.round(m.expected * 1000) / 1000,
       screen,
-      camera,
-      audio,
-      camMinusScreenMs: ms(cameraCap, screenCap),
-      audioMinusScreenMs: ms(audio, screenCap),
-      audioMinusCameraMs: ms(audio, cameraCap),
-      fileTimeCamMinusScreenMs: ms(camera, screen),
+      screenCap:
+        screen === null ? null : screen - cfrShift(pts.screen, 60, screen),
     };
-  });
+  };
+  let rows: MarkerRow[];
+  let markerRows: Record<string, string | number | null>[];
+  let phoneMarkers: Record<string, string | number | null>[] = [];
+  let phone: ReturnType<typeof analyzePhoneMarkers>["summary"] | null = null;
+  if (phoneMode) {
+    // PC markers: screen and mic 1 kHz only (the camera watches the phone).
+    // Phone markers: the whole run, no PC time to search around.
+    const r = analyzePhoneMarkers({
+      marks,
+      screenAround: (t) =>
+        lumaSeries(src.screen.file, t - 2, 4, src.screen.crop),
+      screenCfr: (t) => cfrShift(pts.screen, 60, t),
+      camera: lumaSeries(src.camera.file, 0, duration + 1, src.camera.crop),
+      cameraCfr: camCfr,
+      mic1k,
+      mic2k: mic2k!,
+      // The preflight flashes the DELL every 5 s: it only asks "seen and heard?".
+      excludeNearPc: meta.mode !== "preflight",
+    });
+    phone = r.summary;
+    rows = r.rows;
+    markerRows = r.pcRows;
+    phoneMarkers = r.phoneRows;
+  } else {
+    markerRows = marks.map((m) => {
+      const { screen, screenCap } = screenAt(m);
+      const camera = onsetNear(
+        lumaSeries(src.camera.file, m.expected - 2, 4, src.camera.crop),
+        m.expected,
+        8
+      );
+      const audio = onsetNear(mic1k, m.expected, 0.002);
+      const cameraCap = camera === null ? null : camera - camCfr(camera);
+      return {
+        marker: m.label,
+        expected: Math.round(m.expected * 1000) / 1000,
+        screen,
+        camera,
+        audio,
+        camMinusScreenMs: ms(cameraCap, screenCap),
+        audioMinusScreenMs: ms(audio, screenCap),
+        audioMinusCameraMs: ms(audio, cameraCap),
+        fileTimeCamMinusScreenMs: ms(camera, screen),
+      };
+    });
+    rows = markerRows as unknown as MarkerRow[];
+  }
   // Drift rules: judge.ts. Rig runs are judged with the CFR saw-tooth removed;
   // the OBS baseline can't be, so its camera pairs get one frame of room.
   const { sync, verdicts: syncVerdicts } = judgeSync(rows, {
     cfrRemoved: !isBaseline,
   });
+  const pageStart = events.find((e) => e.type === "page-start");
   // Unattended, nobody is watching the page: a run whose markers never landed
-  // (page didn't start, camera doesn't see the DELL, mic doesn't hear the
+  // (page didn't start, camera doesn't see the phone, mic doesn't hear a
   // beep) must fail, not read n/a.
   const unattended =
     !meta.synthetic && (meta.mode === "record" || meta.mode === "baseline");
   if (unattended) {
+    const why: Record<string, string> = {
+      "A/V drift <= 33 ms": "does the mic hear the PC's 1 kHz beep?",
+      "camera/screen drift <= 33 ms":
+        "needs both: the PC's beep in the mic and the phone's flash + 2 kHz beep",
+      "lip sync (audio/camera) drift <= 33 ms":
+        "does the camera see the phone's flash, and the mic hear its 2 kHz beep?",
+    };
     for (const [k, v] of Object.entries(syncVerdicts)) {
       if (v.startsWith("n/a"))
         (syncVerdicts as Record<string, string>)[k] =
-          `FAIL (${v.slice(5, -1)}: does the camera see the DELL, and the mic hear the beep?)`;
+          `FAIL (${v.slice(5, -1)}: ${why[k] ?? "do the markers land?"})`;
     }
   }
-  const pageStart = events.find((e) => e.type === "page-start");
 
   // Frames. Both files are CFR, so loss is judged on arrival timing before the
   // CFR step. The screen (ddagrab, or the synthetic screen) is paced by the
@@ -495,12 +433,24 @@ function buildReport(runDir: string, baselineDir?: string) {
     baselineDir && fs.existsSync(path.join(baselineDir, "report.json"))
       ? (JSON.parse(
           fs.readFileSync(path.join(baselineDir, "report.json"), "utf8")
-        ) as { sync?: { audioMinusCamera?: { medianMs: number | null } } })
+        ) as {
+          markerSource?: string;
+          sync?: { audioMinusCamera?: { medianMs: number | null } };
+        })
       : null;
-  const lipSync = lipSyncVsObs(
-    sync.audioMinusCamera.medianMs,
-    baselineReport?.sync?.audioMinusCamera?.medianMs
-  );
+  const markerSource = phoneMode ? "phone" : "pc-flash";
+  // Both runs must time the camera on the same marker, or the medians share nothing.
+  const lipSync =
+    baselineReport &&
+    (baselineReport.markerSource ?? "pc-flash") !== markerSource
+      ? {
+          deltaMs: null,
+          verdict: `n/a (the baseline's camera watched the ${baselineReport.markerSource ?? "pc-flash"} marker, this run's the ${markerSource}: run the baseline again)`,
+        }
+      : lipSyncVsObs(
+          sync.audioMinusCamera.medianMs,
+          baselineReport?.sync?.audioMinusCamera?.medianMs
+        );
   if (baselineDir && fs.existsSync(path.join(baselineDir, "meta.json"))) {
     const bm = JSON.parse(
       fs.readFileSync(path.join(baselineDir, "meta.json"), "utf8")
@@ -520,30 +470,61 @@ function buildReport(runDir: string, baselineDir?: string) {
       }
     : null;
 
+  // The PC beep's delay into the mic, from the moment the page scheduled it to
+  // the moment it is in the mic file. Chrome's own output latency (reported by
+  // the page) and the tone window's half-width are taken off.
+  const outputLatencySec =
+    typeof pageStart?.outputLatencyMs === "number" &&
+    pageStart.outputLatencyMs > 0 &&
+    pageStart.outputLatencyMs < 500
+      ? pageStart.outputLatencyMs / 1000
+      : 0;
+  const pcBeepDelaysMs = marks
+    .filter((m) => m.beepAt !== undefined)
+    .map((m) => pcBeepDelayMs(mic1k, mic2k, m.beepAt!, outputLatencySec));
+
   // Verdicts
-  const verdicts: Record<string, string> = {
-    ...syncVerdicts,
-    ...(frames
-      ? frameVerdicts({
-          screen: frames.screen.arrivals,
-          camera: frames.camera.arrivals,
-          lag: frames.pipeline,
-          logDropWarnings: logWarnings.filter((l) =>
-            /real-time buffer|dropp/i.test(l)
-          ).length,
+  const verdicts: Record<string, string> =
+    meta.mode === "preflight"
+      ? judgePreflight({
+          seconds: Math.round(duration),
+          pageStarted: !!pageStart,
+          sound: pageStart ? String(pageStart.audio ?? "running") : "none",
+          phone: {
+            cameraOnGrid: phone
+              ? phone.pairs + phone.unpaired + phone.droppedNearPcMarker
+              : 0,
+            micOnsets: phone?.micOnsets ?? 0,
+            pairs: phone?.pairs ?? 0,
+          },
+          pcBeeps: {
+            played: pcBeepDelaysMs.length,
+            delaysMs: pcBeepDelaysMs.filter((d): d is number => d !== null),
+          },
         })
-      : { "no dropped frames": "n/a (OBS: see its log)" }),
-    "preview feeds deliver frames": isBaseline
-      ? "n/a (baseline)"
-      : previewVerdict(meta.preview),
-    "CPU/GPU <= 1.5x OBS": !comparison
-      ? "n/a (no baseline run to compare with)"
-      : Math.max(comparison.cpuTotal ?? 0, comparison.gpu ?? 0) <= 1.5
-        ? "PASS"
-        : "FAIL",
-    "<= 25 GB/h":
-      gbPerHour === null ? "n/a" : gbPerHour <= 25 ? "PASS" : "FAIL",
-  };
+      : {
+          ...syncVerdicts,
+          ...(frames
+            ? frameVerdicts({
+                screen: frames.screen.arrivals,
+                camera: frames.camera.arrivals,
+                lag: frames.pipeline,
+                logDropWarnings: logWarnings.filter((l) =>
+                  /real-time buffer|dropp/i.test(l)
+                ).length,
+              })
+            : { "no dropped frames": "n/a (OBS: see its log)" }),
+          "preview feeds deliver frames": isBaseline
+            ? "n/a (baseline)"
+            : previewVerdict(meta.preview),
+          "CPU/GPU <= 1.5x OBS": !comparison
+            ? "n/a (no baseline run to compare with)"
+            : Math.max(comparison.cpuTotal ?? 0, comparison.gpu ?? 0) <= 1.5
+              ? "PASS"
+              : "FAIL",
+          "<= 25 GB/h":
+            gbPerHour === null ? "n/a" : gbPerHour <= 25 ? "PASS" : "FAIL",
+        };
   if (meta.mode === "record")
     verdicts[
       "lip sync vs OBS (audio - camera median within 33 ms + 1 OBS frame of the baseline's)"
@@ -566,8 +547,13 @@ function buildReport(runDir: string, baselineDir?: string) {
     durationSec: Math.round(duration * 10) / 10,
     micStart,
     verdicts,
+    markerSource,
     sync,
-    markers: rows,
+    markers: markerRows,
+    phoneMarkers,
+    phone,
+    pcBeepDelaysMs,
+    chromeOutputLatencyMs: Math.round(outputLatencySec * 1000),
     frames,
     logWarnings: logWarnings.slice(0, 20),
     sizeGB: Math.round(bytes / 1e7) / 100,

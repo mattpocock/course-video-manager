@@ -185,22 +185,25 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 # The OBS-free recorder test (RUN.md), unattended. One screen at the start
-# runs the preflight and lists the one-time setup; after its single Enter
-# nothing asks for anything until the summary, about 1.5 h later.
+# runs the preflight, serves the phone's marker video (QR code) and lists the
+# one-time setup; after its single Enter a ~1 min camera and mic check runs
+# and stops the wizard at once if it fails. Then nothing asks for anything
+# until the summary, about 1.5 h later.
 #
 #   ./wizard.sh              start, or resume where you left off
 #   ./wizard.sh --redo N     run stage N again (only that one is reset)
 #   ./wizard.sh --fresh      start a new session (old results stay on disk)
-#   ./wizard.sh --dry-run    stub the recordings (no ffmpeg capture, no device,
-#                            no Chrome page) and drive a mock OBS instead of
-#                            the real one; writes to /tmp
+#   ./wizard.sh --dry-run    stub the recordings and the camera and mic check (no
+#                            ffmpeg capture, no device, no Chrome page), serve
+#                            the phone video on 127.0.0.1 only, and drive a mock
+#                            OBS instead of the real one; writes to /tmp
 #   DRY_FAIL=N ./wizard.sh --dry-run   make stage N's stub FAIL
 #
 # A failed stage is recorded and the run carries on; finished stages (pass or
 # fail) are never re-run by themselves. Ctrl-C stops the recorders cleanly and
 # leaves the current stage unfinished.
 
-TOTAL_STAGES=6
+TOTAL_STAGES=7
 
 RIG_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$RIG_DIR"
@@ -227,6 +230,9 @@ fi
 mkdir -p "$OUT/wizard"
 ENV_FILE="$OUT/wizard/state.env"
 (( FRESH )) && rm -f "$ENV_FILE"
+# Stage numbers changed with the phone (7 stages): progress saved under the old
+# numbering starts a new session instead (old results stay on disk).
+if [[ -f "$ENV_FILE" ]] && ! grep -qx 'LAYOUT=phone-7' "$ENV_FILE"; then rm -f "$ENV_FILE"; fi
 
 state_get() { _existing "$1" || true; }
 state_set() {
@@ -241,30 +247,18 @@ SESSION=$(state_get SESSION)
 if [[ -z "$SESSION" ]]; then
   SESSION="$OUT/wizard/$(date +%Y-%m-%d_%H-%M)"
   state_set SESSION "$SESSION"
+  state_set LAYOUT phone-7
 fi
 mkdir -p "$SESSION"
 SUMMARY="$SESSION/SUMMARY.md"
-NAMES=("" "Preflight" "Selftest" "Baseline with OBS" "Close OBS" "Record without OBS" "Crash recovery")
+NAMES=("" "Preflight" "Camera and mic check" "Selftest" "Baseline with OBS" "Close OBS" "Record without OBS" "Crash recovery")
 
-PS_EXE=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
-ps_file() { "$PS_EXE" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$(wslpath -w "$RIG_DIR/lib/$1")" "${@:2}"; }
+# The helpers the stages below call (ffmpeg/OBS/phone/awake/preflight).
+# shellcheck source=lib/wizard-steps.sh
+source "$RIG_DIR/lib/wizard-steps.sh"
 
-# ── keep Windows awake (lib/awake.ps1), restored on any exit ─────────────────
-AWAKE_STATE="$OUT/wizard/awake-saved.json"; AWAKE_STOP="$OUT/wizard/awake.stop"; AWAKE_PID=""
-awake_start() {
-  rm -f "$AWAKE_STOP"
-  (cd /mnt/c && ps_file awake.ps1 -Hold -State "$(wslpath -w "$AWAKE_STATE")" -StopFile "$(wslpath -w "$AWAKE_STOP")" -MaxMinutes 300) \
-    >> "$SESSION/awake.log" 2>&1 &
-  AWAKE_PID=$!
-}
-awake_stop() {
-  [[ -n "$AWAKE_PID" ]] || return 0
-  touch "$AWAKE_STOP"
-  for _ in $(seq 1 40); do kill -0 "$AWAKE_PID" 2>/dev/null || break; sleep 0.5; done
-  (cd /mnt/c && ps_file awake.ps1 -Restore -State "$(wslpath -w "$AWAKE_STATE")") >> "$SESSION/awake.log" 2>&1 || true
-  AWAKE_PID=""
-}
 on_exit() {
+  phone_stop
   awake_stop
   # A dry run leaves no mock OBS behind.
   if (( DRY_RUN )); then ./rig obs close >/dev/null 2>&1 || true; fi
@@ -281,143 +275,6 @@ on_int() {
 }
 trap on_int INT
 
-# ── helpers ────────────────────────────────────────────────────────────────
-
-finished() { [[ -n "$(state_get "STAGE_$1")" ]]; }
-
-skip_if_done() {
-  if finished "$1"; then
-    _STAGE_INDEX=$((_STAGE_INDEX + 1))
-    printf '  %s✓ Stage %s/%s · %s: %s (done earlier, not re-run; --redo %s to repeat)%s\n' \
-      "$DIM" "$1" "$TOTAL_STAGES" "$2" "$(state_get "STAGE_$1")" "$1" "$RESET"
-    return 0
-  fi
-  return 1
-}
-
-ok()   { printf '  %s✓%s %s\n' "$GREEN" "$RESET" "$1"; }
-bad()  { printf '  %s✗ %s%s\n' "$RED" "$1" "$RESET"; }
-free_gb() { local d="$1"; while [[ ! -d "$d" ]]; do d=$(dirname "$d"); done; df -BG --output=avail "$d" | tail -n1 | tr -dc '0-9'; }
-disk_note() {
-  local free; free=$(free_gb "$OUT")
-  if (( free < $1 + 5 )); then warn "Only ${free} GB free; this step writes up to ~$1 GB. Running anyway."
-  else note "Disk: ${free} GB free, this step writes up to ~$1 GB."; fi
-}
-
-winrig() { node --input-type=module -e "const w = await import('./lib/win.ts'); $1"; }
-
-# rig MODE ARGS...: the real ./rig, or under --dry-run a stub that writes a fake
-# run folder with a report.md, prints progress and honours Ctrl-C. The baseline
-# is NOT stubbed: it drives the mock OBS for 12 s with no page.
-rig() {
-  if (( ! DRY_RUN )); then ./rig "$@" --out "$OUT"; return; fi
-  local mode="$1" n="$_STAGE_INDEX" i dir verdict="PASS"
-  if [[ "$mode" == baseline ]]; then ./rig baseline --minutes 0.2 --no-page --out "$OUT"; return; fi
-  [[ "${DRY_FAIL:-}" == "$n" ]] && verdict="FAIL"
-  dir="$OUT/runs/$(date -u +%Y-%m-%dT%H-%M-%S)-$mode"; mkdir -p "$dir"
-  ( trap 'echo "[stub] Ctrl-C: stopping ffmpeg (q)…"; exit 0' INT
-    for i in 1 2 3; do echo "[stub $mode] ${i}s / 3s  screen 60 fps, camera 29.97 fps"; sleep 1; done )
-  printf '# Rig report: %s (dry run)\n\n## Stop criteria\n\n| Criterion | Result |\n|---|---|\n| audio/screen drift | %s |\n| no dropped frames | PASS |\n\n## Frames\n' "$mode" "$verdict" > "$dir/report.md"
-  echo '{}' > "$dir/report.json"
-  [[ "$verdict" == PASS ]]
-}
-
-# run_rig N MODE ARGS...: runs the rig, shows each new run's verdict table,
-# copies the small result files into the session folder and records PASS/FAIL.
-# Never stops the session: the next stage runs either way.
-run_rig() {
-  local n="$1"; shift
-  local before after new d rc=0 verdict
-  mkdir -p "$OUT/runs"
-  before=$(ls "$OUT/runs")
-  IN_RUN=1; INTERRUPTED=0
-  printf '\n'
-  rig "$@" || rc=$?
-  IN_RUN=0
-  after=$(ls "$OUT/runs")
-  new=$(comm -13 <(printf '%s\n' "$before" | sort) <(printf '%s\n' "$after" | sort) | grep . || true)
-
-  printf '\n%s%s▸ Stage %s/%s · %s: result%s\n' "$BOLD" "$BLUE" "$n" "$TOTAL_STAGES" "${NAMES[$n]}" "$RESET"
-  verdict="PASS"; (( rc )) && verdict="FAIL"
-  for d in $new; do
-    mkdir -p "$SESSION/$n-$1/$d"
-    cp "$OUT/runs/$d"/{report.md,report.json,meta.json,events.jsonl} "$SESSION/$n-$1/$d/" 2>/dev/null || true
-    printf '\n  %s%s%s\n' "$BOLD" "$d" "$RESET"
-    if [[ -f "$OUT/runs/$d/report.md" ]]; then
-      sed -n '/^## Stop criteria/,/^## /p' "$OUT/runs/$d/report.md" | grep '^|' | sed 's/^/    /'
-      grep -q '| FAIL' "$OUT/runs/$d/report.md" && verdict="FAIL"
-    else
-      warn "no report.md in this run (see the ffmpeg logs in $OUT/runs/$d)"; verdict="FAIL"
-    fi
-  done
-  [[ -z "$new" ]] && { warn "the rig wrote no run folder"; verdict="FAIL"; }
-  (( rc )) && note "./rig $1 exited with code $rc"
-
-  if (( INTERRUPTED )); then
-    printf '\n'; warn "Stopped with Ctrl-C. The recorders were stopped; this step is not marked done."
-    note "Run ./wizard.sh again to redo it (the partial run stays in $OUT/runs)."
-    exit 130
-  fi
-  state_set "STAGE_$n" "$verdict"
-  state_set "RUNS_$n" "$(printf '%s\n' "$new" | paste -sd' ' -)"
-  if [[ "$verdict" == PASS ]]; then printf '\n  %s✓ PASS%s\n' "$GREEN" "$RESET"
-  else printf '\n  %s✗ FAIL%s (recorded; carrying on)\n' "$RED" "$RESET"; fi
-}
-
-# obs_gone N: OBS must be closed before the rig opens the camera and mic. Closes
-# it again if it came back; records FAIL for stage N and returns 1 if it won't go.
-obs_gone() {
-  ./rig obs status >/dev/null 2>&1 || return 0
-  warn "OBS is running: closing it before this step."
-  ./rig obs close || true
-  ./rig obs status >/dev/null 2>&1 || return 0
-  bad "OBS is still running, so the camera and mic are taken. Not running this step."
-  state_set "STAGE_$1" "FAIL (OBS still running)"
-  return 1
-}
-
-# ── 1 · Preflight (attended: its results are on the start screen) ──────────
-
-preflight() {
-  local okp=1 exe devices hit want free screens url
-  if exe=$(winrig "console.log(w.windowsTool('ffmpeg'))" 2>&1); then
-    ok "ffmpeg $("$exe" -hide_banner -version | head -n1 | awk '{print $3}')"
-  else bad "ffmpeg: $exe"; okp=0; fi
-
-  if ./rig check >"$SESSION/rig-check.log" 2>&1; then ok "./rig check: $(tail -n1 "$SESSION/rig-check.log" | sed 's/^\[[^]]*\] //')"
-  else bad "./rig check failed (see $SESSION/rig-check.log)"; okp=0; fi
-
-  if screens=$(./rig screens 2>&1) && grep -q '<- the rig records this one' <<<"$screens"; then
-    ok "screen: $(grep '<- the rig' <<<"$screens" | sed 's/^\[[^]]*\] //; s/  <- the rig records this one//')"
-  else bad "no DELL U2424H among the screens: $(printf '%s\n' "$screens" | sed 's/^\[[^]]*\] //' | paste -sd';' -)"; okp=0; fi
-
-  if (( DRY_RUN )); then
-    devices=$'video\tCam Link 4K\naudio\tVoicemeeter Out B1 (VB-Audio Voicemeeter VAIO)'; note "[stub] device list"
-  else
-    # Listed by name only (DirectShow enumeration). Never opened here.
-    devices=$(winrig "for (const d of w.listDshowDevices()) console.log(d.kind + '\t' + d.name)" 2>&1 || true)
-  fi
-  for want in "video:Cam Link 4K" "audio:Voicemeeter Out B1"; do
-    hit=$(printf '%s\n' "$devices" | grep -i "^${want%%:*}	.*${want#*:}" | head -n1 | cut -f2 || true)
-    if [[ -n "$hit" ]]; then ok "${want%%:*}: $hit"
-    else bad "no ${want%%:*} device matching \"${want#*:}\". Found: $(printf '%s\n' "$devices" | cut -f2 | paste -sd, -)"; okp=0; fi
-  done
-
-  free=$(free_gb "$OUT")
-  if (( free >= 40 )); then ok "disk: ${free} GB free (the test writes ~30 GB)"
-  else bad "disk: only ${free} GB free (the test writes ~30 GB)"; okp=0; fi
-
-  url=$(./rig obs url 2>/dev/null || true)
-  ok "OBS websocket: ${url%%	*} (${url#*	}, no password, as CVM)"
-  if (( DRY_RUN )); then note "[dry run] OBS is lib/mock-obs.ts; the real OBS is not looked at"
-  elif [[ -f "/mnt/c/Program Files/obs-studio/bin/64bit/obs64.exe" ]]; then ok "OBS installed (the wizard launches it if needed)"
-  else bad "obs64.exe not found in C:\\Program Files\\obs-studio"; okp=0; fi
-  if [[ -f "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" ]]; then ok "Chrome installed (the page opens fullscreen on the DELL by itself)"
-  else bad "chrome.exe not found"; okp=0; fi
-
-  if (( okp )); then state_set STAGE_1 PASS; else state_set STAGE_1 FAIL; fi
-}
-
 # ── the start screen: the only time a human is needed ───────────────────────
 
 _clear
@@ -431,21 +288,35 @@ else
 fi
 [[ "$(state_get STAGE_1)" == PASS ]] || warn "Preflight FAILED (above). Ctrl-C, fix it, then ./wizard.sh --redo 1. Enter runs anyway."
 
-printf '\n%s  Before you go (one-time setup)%s\n' "$BOLD" "$RESET"
-step "Point the camera (Cam Link) so the DELL fills at least a quarter of its view: it must see the white flash."
-step "Speakers on, not headphones, Windows volume about 50%: the mic must hear the 1 kHz beep."
-step "Leave OBS idle or closed and don't film. The wizard launches OBS, records with it, and closes it."
-step "Don't touch the mouse or keyboard. A fullscreen page takes over the DELL in stages 3 and 5."
-note "No clapping: lip sync is compared with OBS on the flash and beep instead."
+printf '\n%s  The phone (it replaces the flash on the DELL for the camera)%s\n' "$BOLD" "$RESET"
+if phone_start; then
+  ./rig qr "$PHONE_URL"
+  step "On the Pixel, scan this in Chrome (or type ${BOLD}${PHONE_URL}${RESET}) and download the video."
+  (( DRY_RUN )) && note "[dry run] served on 127.0.0.1 only, so a phone can't reach it"
+  note "Same Wi-Fi as this PC. If Windows asks whether PowerShell may accept connections"
+  note "on private networks, click Allow."
+else
+  warn "No phone video to download: Ctrl-C and fix it (the camera and mic check will fail without it)."
+fi
+
+printf '\n%s  Before you press Enter (one-time setup)%s\n' "$BOLD" "$RESET"
+step "Phone propped close in front of the Cam Link, in the middle of the picture, its screen filling at least 1/4 of the image."
+step "Phone: full brightness, Adaptive brightness off, volume about 2/3, plugged in."
+step "Download the video, open it in Files by Google, tap play (it runs 2.5 h: black, a flash and a beep every 10 s)."
+step "PC speakers on, not headphones, Windows volume about 50%: the mic must hear the PC's 1 kHz beep."
+step "OBS not recording. The wizard closes it for the camera and mic check, then launches it for the baseline."
+step "Don't touch the mouse or keyboard. A fullscreen page takes over the DELL in stages 2, 4 and 6."
+note "No clapping: lip sync is compared with OBS on the phone's flash and beep instead."
 note "Windows is kept awake (no sleep, screensaver, Dynamic Lock); settings are restored at the end."
 
 printf '\n%s  What runs (about 1 h 25 min)%s\n' "$BOLD" "$RESET"
-for n in 2 3 4 5 6; do
-  dur=("" "" "~13 min" "~33 min" "~1 min" "~33 min" "~3 min")
-  if finished "$n"; then note "  $n ${NAMES[$n]}: $(state_get "STAGE_$n") (done, not re-run)"
+for n in 2 3 4 5 6 7; do
+  dur=("" "" "~1 min" "~13 min" "~33 min" "~1 min" "~33 min" "~3 min")
+  if (( n > 2 )) && finished "$n"; then note "  $n ${NAMES[$n]}: $(state_get "STAGE_$n") (done, not re-run)"
   else printf '    %s %-20s %s\n' "$n" "${NAMES[$n]}" "${dur[$n]}"; fi
 done
-printf '\n  %sPress Enter and walk away.%s %sCtrl-C stops it; re-run to resume.%s ' "$BOLD" "$RESET" "$DIM" "$RESET"
+printf '\n  %sPress Enter, wait for the camera and mic check (~1 min), then walk away.%s\n' "$BOLD" "$RESET"
+printf '  %sCtrl-C stops it; re-run to resume.%s ' "$DIM" "$RESET"
 read -r _ || true
 
 # From here on: no prompts. Everything is also logged to the session folder.
@@ -454,51 +325,74 @@ printf '\n[%s] started (unattended)\n' "$(date '+%F %T')"
 awake_start
 note "Keeping Windows awake (log: $SESSION/awake.log)"
 
-# ── 2 · Selftest ────────────────────────────────────────────────────────────
-if ! skip_if_done 2 "${NAMES[2]}"; then
+# ── 2 · Camera and mic check (every time the camera is still needed) ────────
+# Not a finished-once stage: the phone or the speakers may have moved since.
+# A FAIL stops the wizard here, before the long runs.
+needs_devices=0
+for n in 4 6 7; do finished "$n" || needs_devices=1; done
+if (( needs_devices )); then
   stage "${NAMES[2]}"
-  say "~13 min. Synthetic camera and mic; the real-screen phase flashes a small square on the DELL."
-  disk_note 5
-  run_rig 2 selftest
+  say "~1 min. Opens the camera and mic for 40 s with the page on the DELL flashing and"
+  say "beeping every 5 s. Checks the camera sees the phone's flash, the mic hears the phone's"
+  say "2 kHz beep and the PC's 1 kHz beep, and that the PC beep crosses the room."
+  state_set STAGE_2 ""
+  if obs_gone 2; then run_rig 2 preflight; fi
+  phone_stop
+  if [[ "$(state_get STAGE_2)" != PASS ]]; then
+    printf '\n'; bad "The camera and mic check FAILED: each line above says what to change."
+    note "Fix it, then run ./wizard.sh again. Nothing long has run."
+    exit 1
+  fi
+else
+  _STAGE_INDEX=2; note "  2 ${NAMES[2]}: not needed (every stage that uses the camera is done)"
 fi
+phone_stop
 
-# ── 3 · Baseline with OBS ───────────────────────────────────────────────────
+# ── 3 · Selftest ────────────────────────────────────────────────────────────
 if ! skip_if_done 3 "${NAMES[3]}"; then
   stage "${NAMES[3]}"
+  say "~13 min. Synthetic camera and mic; the real-screen phase flashes a small square on the DELL."
+  disk_note 5
+  run_rig 3 selftest
+fi
+
+# ── 4 · Baseline with OBS ───────────────────────────────────────────────────
+if ! skip_if_done 4 "${NAMES[4]}"; then
+  stage "${NAMES[4]}"
   say "~33 min. Launches OBS if needed, sets the Code scene and Virtual Camera, records"
   say "30 min through obs-websocket with the page fullscreen on the DELL, then stops."
   (( DRY_RUN )) && note "[dry run] the real ./rig baseline against mock OBS for 12 s, no page: its sync verdicts FAIL (no markers)."
   disk_note 10
-  run_rig 3 baseline
+  run_rig 4 baseline
 fi
 
-# ── 4 · Close OBS ───────────────────────────────────────────────────────────
-if ! skip_if_done 4 "${NAMES[4]}"; then
-  stage "${NAMES[4]}"
+# ── 5 · Close OBS ───────────────────────────────────────────────────────────
+if ! skip_if_done 5 "${NAMES[5]}"; then
+  stage "${NAMES[5]}"
   say "Stops OBS's recording and Virtual Camera, then closes it: WM_CLOSE, then"
   say "taskkill without /F, and a force-kill only as a last resort."
   how=$(./rig obs close 2>&1 | tee /dev/stderr | sed -n 's/.*OBS: closed: //p' | tail -n1) || true
   if ./rig obs status >/dev/null 2>&1; then
-    bad "OBS is still running"; state_set STAGE_4 "FAIL (still running)"
+    bad "OBS is still running"; state_set STAGE_5 "FAIL (still running)"
   else
-    ok "OBS is gone (${how:-not running})"; state_set STAGE_4 "closed: ${how:-not running}"
+    ok "OBS is gone (${how:-not running})"; state_set STAGE_5 "closed: ${how:-not running}"
   fi
 fi
 
-# ── 5 · Record without OBS ──────────────────────────────────────────────────
-if ! skip_if_done 5 "${NAMES[5]}"; then
-  stage "${NAMES[5]}"
+# ── 6 · Record without OBS ──────────────────────────────────────────────────
+if ! skip_if_done 6 "${NAMES[6]}"; then
+  stage "${NAMES[6]}"
   say "~33 min. The rig records camera, screen and mic itself; the page runs fullscreen"
   say "on the DELL, switches scenes every 90 s and tries the ghost frame. Compared with"
   say "the baseline, including lip sync vs OBS."
-  if obs_gone 5; then disk_note 15; run_rig 5 record; fi
+  if obs_gone 6; then disk_note 15; run_rig 6 record; fi
 fi
 
-# ── 6 · Crash recovery ──────────────────────────────────────────────────────
-if ! skip_if_done 6 "${NAMES[6]}"; then
-  stage "${NAMES[6]}"
+# ── 7 · Crash recovery ──────────────────────────────────────────────────────
+if ! skip_if_done 7 "${NAMES[7]}"; then
+  stage "${NAMES[7]}"
   say "~3 min. Records 90 s, force-kills ffmpeg at 60 s and checks the files still play."
-  if obs_gone 6; then disk_note 3; run_rig 6 crash; fi
+  if obs_gone 7; then disk_note 3; run_rig 7 crash; fi
 fi
 
 # ── Hand-off ────────────────────────────────────────────────────────────────
@@ -509,11 +403,11 @@ printf '\n%s%s▸ Summary%s\n' "$BOLD" "$BLUE" "$RESET"
   printf 'Branch spike/obs-free-recorder @ %s, unattended. Run folders: %s/runs/. Each step folder here holds report.md/json, meta.json and events.jsonl copied from its runs; wizard.log is the whole console.\n\n' \
     "$(git rev-parse --short HEAD 2>/dev/null || echo '?')" "$OUT"
   printf '| # | Step | Result | Runs |\n|---|---|---|---|\n'
-  for n in 1 2 3 4 5 6; do
+  for n in 1 2 3 4 5 6 7; do
     printf '| %s | %s | %s | %s |\n' "$n" "${NAMES[$n]}" "$(state_get "STAGE_$n" | sed 's/^$/not run/')" "$(state_get "RUNS_$n")"
   done
   printf '\n## Every verdict\n'
-  for n in 2 3 5 6; do
+  for n in 2 3 4 6 7; do
     for d in $(state_get "RUNS_$n"); do
       [[ -f "$OUT/runs/$d/report.md" ]] || continue
       printf '\n### %s · %s\n\n' "${NAMES[$n]}" "$d"
@@ -521,8 +415,8 @@ printf '\n%s%s▸ Summary%s\n' "$BOLD" "$BLUE" "$RESET"
     done
   done
 } > "$SUMMARY"
-for n in 1 2 3 4 5 6; do printf '  %-20s %s\n' "${NAMES[$n]}" "$(state_get "STAGE_$n" | sed 's/^$/not run/')"; done
-fails=$(for n in 1 2 3 4 5 6; do state_get "STAGE_$n"; done | grep -c FAIL || true)
+for n in 1 2 3 4 5 6 7; do printf '  %-20s %s\n' "${NAMES[$n]}" "$(state_get "STAGE_$n" | sed 's/^$/not run/')"; done
+fails=$(for n in 1 2 3 4 5 6 7; do state_get "STAGE_$n"; done | grep -c FAIL || true)
 if (( DRY_RUN )); then note "[dry run] no toast"
 else (cd /mnt/c && ps_file toast.ps1 -Title "OBS rig test finished" -Body "$fails step(s) failed. Send Claude: $(wslpath -w "$SESSION")") >/dev/null 2>&1 || true; fi
 printf '\n  Summary: %s\n' "$SUMMARY"

@@ -5,8 +5,8 @@
 //  - screen path: its own on-screen ms clock, read back out of the screen feed;
 //  - camera path: the time from a flash (drawn at wall time W) until the camera
 //    feed brightens, so camera capture, the 4K → CUDA → MJPEG branch and the
-//    transport are all in it. The camera must see the flash (the DELL, or the
-//    light on your face).
+//    transport are all in it. Synthetic runs only: a real camera watches the
+//    phone (lib/phone.ts), whose flash times this page doesn't know.
 // Neither includes this page's composite or the display's scan-out, so neither
 // is full glass-to-glass.
 //
@@ -116,7 +116,8 @@ function lastFlashWall(now) {
     return (
       Math.floor(now / config.syntheticPeriodMs) * config.syntheticPeriodMs
     );
-  return state.lastFlashWall ?? 0;
+  // A real camera sees the phone, not this page's flash: no camera-path sample.
+  return 0;
 }
 function cameraFrame(luma) {
   const now = Date.now();
@@ -251,12 +252,14 @@ function beepAt(wallMs) {
   osc.start(at);
   osc.stop(at + 0.25);
 }
-function flashNow(reason) {
+function flashNow(reason, beepWallMs) {
   const now = Date.now();
   state.lastFlashWall = now;
   state.flashUntil = now + 250;
   $("flash").style.display = "block";
-  post({ type: "flash", reason, wallMs: now });
+  // beepWallMs: when the beep was scheduled on the audio clock (the PC beep's
+  // delay into the mic is measured from it).
+  post({ type: "flash", reason, wallMs: now, beepWallMs });
   state.markers++;
 }
 
@@ -275,7 +278,10 @@ function render() {
     beepAt(state.nextFlash);
   }
   if (now + 8 >= state.nextFlash) {
-    flashNow(state.nextFlash === state.firstFlash ? "start" : "scheduled");
+    flashNow(
+      state.nextFlash === state.firstFlash ? "start" : "scheduled",
+      state.beepScheduledFor === state.nextFlash ? state.nextFlash : undefined
+    );
     scheduleNextFlash(now);
   }
   if (state.flashUntil && now >= state.flashUntil) {
@@ -329,7 +335,7 @@ setInterval(() => {
     `mode ${config.mode}${baseline ? " (baseline)" : ""}   file time ${((Date.now() - config.t0Ms) / 1000).toFixed(1)} s`,
     `feeds: screen ${state.fps.screen} fps, camera ${state.fps.camera} fps`,
     `preview delay, screen path (clock → decoded here): p50 ${q(0.5)} ms, p95 ${q(0.95)} ms (n=${s.length})`,
-    `preview delay, camera path (flash → decoded here): ${cam.samples.length ? `p50 ${[...cam.samples].sort((a, b) => a - b)[Math.floor(cam.samples.length / 2)]} ms (n=${cam.samples.length})` : "– (camera hasn't seen a flash yet)"}`,
+    `preview delay, camera path (flash → decoded here): ${cam.samples.length ? `p50 ${[...cam.samples].sort((a, b) => a - b)[Math.floor(cam.samples.length / 2)]} ms (n=${cam.samples.length})` : config.syntheticPeriodMs ? "– (camera hasn't seen a flash yet)" : "n/a (the camera watches the phone)"}`,
     s.length === 0
       ? "! no clock decoded: is this page fullscreen on the captured monitor (try --screen)?"
       : "",
@@ -369,8 +375,9 @@ addEventListener("keydown", async (e) => {
   }
   if (key === "c") return post({ type: "clap" });
   if (key === "f") {
-    beepAt(Date.now());
-    return flashNow("manual");
+    const at = Date.now();
+    beepAt(at);
+    return flashNow("manual", at);
   }
   if (key === "g") return (state.ghost = !state.ghost);
   if (key === "t") return saveGhost();
@@ -383,15 +390,19 @@ async function startPage() {
   state.audio = new AudioContext();
   await state.audio.resume();
   const now = Date.now();
-  // First marker ~20 s in, then every flashEveryMs on the wall clock.
+  // First marker ~20 s in (the preflight: 3 s), then every flashEveryMs on the wall clock.
   if (config.flashEveryMs) {
-    state.firstFlash = Math.ceil((now + 20000) / 1000) * 1000;
+    state.firstFlash =
+      Math.ceil((now + (config.firstFlashDelayMs ?? 20000)) / 1000) * 1000;
     state.nextFlash = state.firstFlash;
   }
   post({
     type: "page-start",
     auto,
     audio: state.audio.state,
+    // What Chrome adds between scheduling a sound and it leaving the PC.
+    outputLatencyMs: Math.round((state.audio.outputLatency ?? 0) * 1000),
+    baseLatencyMs: Math.round((state.audio.baseLatency ?? 0) * 1000),
     screen: { w: screen.width, h: screen.height, dpr },
     window: { x: screenX, y: screenY },
   });

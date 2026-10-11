@@ -147,14 +147,14 @@ export function judgeSync(rows: MarkerRow[], opts = { cfrRemoved: true }) {
 
 /**
  * Absolute lip sync against today's OBS, without a clap. In both runs the
- * camera sees the same DELL flash and the mic hears the same speaker beep, so
- * the display and speaker latencies are identical and cancel: the difference
- * of the two runs' median audio - camera offsets is the rig's lip-sync error
- * relative to OBS. (One run's median alone is not lip sync: it includes the
- * monitor's and the speakers' own latency.)
+ * camera sees the same phone's flash and the mic hears the same phone's 2 kHz
+ * beep, so the phone's own A/V offset (its display against its speaker) is
+ * identical and cancels: the difference of the two runs' median audio - camera
+ * offsets is the rig's lip-sync error relative to OBS. (One run's median alone
+ * is not lip sync: it includes the phone's offset.)
  * The OBS file shows the camera only at its 60 fps canvas ticks and has no
  * arrival stamps, so its camera onset lands up to one canvas frame late: the
- * limit gets that frame of room (`./rig lipsync-proof` measured ~15 ms).
+ * limit gets that frame of room (`./rig lipsync-proof` measured 15–18 ms).
  */
 export const OBS_CANVAS_FRAME_MS = 1000 / 60;
 
@@ -175,6 +175,58 @@ export function lipSyncVsObs(
         ? `PASS (${deltaMs} ms vs OBS)`
         : `FAIL (${deltaMs} ms vs OBS)`,
   };
+}
+
+// ---------- preflight (camera and mic, before the long runs) ----------
+
+/**
+ * Below this, the PC's beep reached the mic without crossing the room: the
+ * delay is from the page scheduling the beep to the beep in the mic file, with
+ * Chrome's own output latency and the tone window's half-width taken off. A
+ * guess until a real run shows both cases.
+ */
+export const ACOUSTIC_MIN_MS = 5;
+
+export type PreflightInput = {
+  seconds: number;
+  pageStarted: boolean;
+  sound: string;
+  phone: { cameraOnGrid: number; micOnsets: number; pairs: number };
+  pcBeeps: { played: number; delaysMs: number[] };
+};
+
+/** Every check must PASS before the long runs: each FAIL says what to change. */
+export function judgePreflight(p: PreflightInput): Record<string, string> {
+  const expectPhone = Math.floor(p.seconds / 10);
+  const v: Record<string, string> = {};
+  v["camera sees the phone's flash"] =
+    p.phone.cameraOnGrid >= 2
+      ? `PASS (${p.phone.cameraOnGrid} of ~${expectPhone} flashes)`
+      : `FAIL (${p.phone.cameraOnGrid} of ~${expectPhone} flashes in ${p.seconds} s. Is the video playing? Prop the phone close in front of the Cam Link, in the middle of the picture, its screen filling at least a quarter of it; full brightness, Adaptive brightness off)`;
+  v["mic hears the phone's 2 kHz beep"] =
+    p.phone.micOnsets >= 2
+      ? `PASS (${p.phone.micOnsets} of ~${expectPhone} beeps)`
+      : `FAIL (${p.phone.micOnsets} of ~${expectPhone} beeps in ${p.seconds} s. Phone volume about 2/3, not muted, not on Bluetooth; is the video playing?)`;
+  v["phone flash and beep pair up"] =
+    p.phone.pairs >= 2
+      ? `PASS (${p.phone.pairs} pairs)`
+      : `FAIL (${p.phone.pairs} flashes with their beep within 0.5 s; both must work, from the same phone)`;
+  const heard = p.pcBeeps.delaysMs.length;
+  v["mic hears the PC's 1 kHz beep"] = !p.pageStarted
+    ? "FAIL (the page never started, so nothing beeped)"
+    : p.sound !== "running"
+      ? `FAIL (the page's sound is ${p.sound}: the beep can't play)`
+      : p.pcBeeps.played >= 2 && heard * 2 >= p.pcBeeps.played
+        ? `PASS (${heard} of ${p.pcBeeps.played} beeps)`
+        : `FAIL (${heard} of ${p.pcBeeps.played} beeps. Speakers on, not headphones, Windows volume about 50%)`;
+  const d = heard ? median(p.pcBeeps.delaysMs) : null;
+  v["PC beep reaches the mic through the air"] =
+    d === null
+      ? "FAIL (no PC beep heard, so its delay can't be measured)"
+      : d >= ACOUSTIC_MIN_MS
+        ? `PASS (${r1(d)} ms after Chrome played it)`
+        : `FAIL (${r1(d)} ms after Chrome played it, i.e. no acoustic delay: Voicemeeter is routing the PC's sound digitally into B1, the bus the rig records as the mic. Then A/V drift measures Voicemeeter's internal copy, not the mic. In Voicemeeter, turn off B1 on the virtual input strip Windows plays into (VAIO), keep A1 on so the speakers play it, and run again)`;
+  return v;
 }
 
 // ---------- frames ----------

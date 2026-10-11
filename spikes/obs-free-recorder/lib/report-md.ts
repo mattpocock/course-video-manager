@@ -14,14 +14,7 @@ export function toMarkdown(r: Report): string {
     "|---|---|",
     ...Object.entries(r.verdicts).map(([k, v]) => `| ${k} | ${v} |`),
     "",
-    "## Sync at each marker (ms, onset of flash/beep)",
-    "",
-    "| Marker | file time (s) | camera - screen | audio - screen | audio - camera | camera - screen in file time |",
-    "|---|---|---|---|---|---|",
-    ...r.markers.map(
-      (m) =>
-        `| ${m.marker} | ${m.expected} | ${m.camMinusScreenMs ?? "–"} | ${m.audioMinusScreenMs ?? "–"} | ${m.audioMinusCameraMs ?? "–"} | ${m.fileTimeCamMinusScreenMs ?? "–"} |`
-    ),
+    ...markerTables(r),
     "",
     "| Pair | markers | median offset | max deviation from median | range | linear trend over run |",
     "|---|---|---|---|---|---|",
@@ -36,6 +29,14 @@ export function toMarkdown(r: Report): string {
         `| ${k} | ${d.n} | ${d.medianMs ?? "–"} | ${d.maxDevMs ?? "–"} | ${d.rangeMs ?? "–"} | ${d.trendMs ?? "–"} |`
     ),
     "",
+    ...(r.markerSource === "phone"
+      ? [
+          "audio - camera is the phone's 2 kHz beep in the mic minus its flash in the camera, at every phone marker. camera - screen is derived at each PC marker: (audio - screen) - (the audio - camera of the phone markers within 15 s). The mic and the phone's own A/V offset cancel in it, so its trend and jumps are the camera's against the screen; its median is not an absolute offset.",
+          "",
+          `Phone markers: ${JSON.stringify(r.phone)}`,
+          "",
+        ]
+      : []),
     "The median offset is a constant (device latency, packetisation) to calibrate once; only movement is drift. Each pair is judged on |linear trend over the run| <= 33 ms (steady drift) and every marker within 33 ms of the median (jumps). Video onsets are capture-time: the CFR step's shift of the flash frame (read from *-arrivals.txt) is taken off, which removes the camera's saw-tooth. The last column is the raw file-time offset, which carries that saw-tooth (up to one camera frame, as in OBS). The OBS baseline has no arrival stamps, so its camera pairs get one frame of extra room.",
     "",
     "## Frames",
@@ -83,6 +84,59 @@ export function toMarkdown(r: Report): string {
     "",
   ];
   return lines.join("\n");
+}
+
+function markerTables(r: Report): string[] {
+  const cell = (v: unknown) =>
+    v === null || v === undefined ? "–" : String(v);
+  const table = (
+    title: string,
+    rows: Record<string, unknown>[],
+    cols: [string, string][]
+  ) => [
+    title,
+    "",
+    `| ${cols.map(([, h]) => h).join(" | ")} |`,
+    `|${cols.map(() => "---").join("|")}|`,
+    ...rows.map((m) => `| ${cols.map(([k]) => cell(m[k])).join(" | ")} |`),
+    "",
+  ];
+  if (r.markerSource !== "phone")
+    return table(
+      "## Sync at each marker (ms, onset of flash/beep)",
+      r.markers,
+      [
+        ["marker", "Marker"],
+        ["expected", "file time (s)"],
+        ["camMinusScreenMs", "camera - screen"],
+        ["audioMinusScreenMs", "audio - screen"],
+        ["audioMinusCameraMs", "audio - camera"],
+        ["fileTimeCamMinusScreenMs", "camera - screen in file time"],
+      ]
+    );
+  return [
+    ...table(
+      "## Sync at each PC marker (ms: DELL flash, 1 kHz beep)",
+      r.markers,
+      [
+        ["marker", "Marker"],
+        ["expected", "file time (s)"],
+        ["audioMinusScreenMs", "audio - screen"],
+        ["lipSyncAroundMs", "audio - camera (phone, ±15 s)"],
+        ["camMinusScreenMs", "camera - screen (derived)"],
+      ]
+    ),
+    ...table(
+      "## Sync at each phone marker (ms: phone flash, 2 kHz beep)",
+      r.phoneMarkers,
+      [
+        ["marker", "Marker"],
+        ["expected", "file time (s)"],
+        ["audioMinusCameraMs", "audio - camera"],
+        ["fileTimeAudioMinusCameraMs", "audio - camera in file time"],
+      ]
+    ),
+  ];
 }
 
 function fmtDelay(
