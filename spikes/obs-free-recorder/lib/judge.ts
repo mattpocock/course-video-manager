@@ -187,7 +187,68 @@ export function lipSyncVsObs(
  */
 export const ACOUSTIC_MIN_MS = 5;
 
+/** A recorder that quit before the planned stop: its name and its ffmpeg log's error lines. */
+export type EarlyExit = { name: string; code: number | null; errors: string[] };
+
+/** What the rig planned to record and what each recorder got (rig.ts writes it to meta.json). */
+export type CaptureRun = {
+  plannedSec: number;
+  /** ffmpeg file time each recorder reached. */
+  recordedSec: Record<string, number>;
+  earlyExits: EarlyExit[];
+  /** Why the rig stopped, when it wasn't the planned length or a recorder quitting. */
+  stoppedBy?: string;
+};
+
+/** Seconds a run may fall short of the plan and still count as complete. */
+export const CAPTURE_SLACK_SEC = 2;
+
+/** What to change for the ffmpeg errors a device input fails with. */
+export function ffmpegExitHint(errors: string[]): string {
+  const all = errors.join("\n");
+  if (/Could not set video options/i.test(all))
+    return "the Cam Link isn't offering 3840x2160 at 29.97 fps NV12: is the camera on, its HDMI out at 2160p 29.97 (UHD 30p), and nothing else using the Cam Link (OBS, the Camera app, a browser tab)?";
+  if (/Could not set audio options/i.test(all))
+    return "the mic isn't offering 48 kHz stereo: check Voicemeeter's sample rate is 48000";
+  if (/Could not run graph|in use|busy/i.test(all))
+    return "the device is busy: close OBS and anything else using the Cam Link or the mic";
+  if (/Could not find|No such|not found/i.test(all))
+    return "the device is gone: is it plugged in?";
+  return "see the ffmpeg log in the run folder";
+}
+
+/**
+ * null if every recorder ran the planned length; else why not, in words. A
+ * short capture can't judge anything else, so the preflight says so instead of
+ * "0 of ~0 flashes".
+ */
+export function captureShortfall(c: CaptureRun): string | null {
+  const got = Object.values(c.recordedSec);
+  const least = got.length ? Math.min(...got) : 0;
+  if (least >= c.plannedSec - CAPTURE_SLACK_SEC && !c.earlyExits.length)
+    return null;
+  const each = Object.entries(c.recordedSec)
+    .map(([k, v]) => `${k} ${Math.round(v)} s`)
+    .join(", ");
+  const why = c.earlyExits.length
+    ? c.earlyExits
+        .map((e) => {
+          const last = e.errors.find((l) => /\[fatal\]/.test(l)) ?? e.errors[0];
+          const first = e.errors.find((l) => !/Error opening input/i.test(l));
+          const quote = (first ?? last ?? "").replace(
+            /^\[[^\]]*\]\s*(\[[^\]]*\]\s*)?/,
+            ""
+          );
+          return `The ${e.name} recorder (ffmpeg) quit${e.code !== null ? ` with code ${e.code}` : ""}${quote ? `: "${quote}"` : ""}; ${ffmpegExitHint(e.errors)}`;
+        })
+        .join("; ")
+    : (c.stoppedBy ?? "a recorder stopped delivering (see ffmpeg-*.log)");
+  return `recorded ${Math.round(least)} s of the planned ${c.plannedSec} s (${each}). ${why}`;
+}
+
 export type PreflightInput = {
+  /** The planned and actual capture; absent for runs from before it was recorded. */
+  capture?: CaptureRun;
   seconds: number;
   pageStarted: boolean;
   sound: string;
@@ -199,6 +260,24 @@ export type PreflightInput = {
 export function judgePreflight(p: PreflightInput): Record<string, string> {
   const expectPhone = Math.floor(p.seconds / 10);
   const v: Record<string, string> = {};
+  if (p.capture) {
+    const short = captureShortfall(p.capture);
+    const row = `capture runs the planned ${p.capture.plannedSec} s`;
+    if (short) {
+      v[row] = `FAIL (${short})`;
+      const notJudged = `FAIL (not checked: the capture stopped early, see "${row}")`;
+      for (const k of [
+        "camera sees the phone's flash",
+        "mic hears the phone's 2 kHz beep",
+        "phone flash and beep pair up",
+        "mic hears the PC's 1 kHz beep",
+        "PC beep reaches the mic through the air",
+      ])
+        v[k] = notJudged;
+      return v;
+    }
+    v[row] = "PASS";
+  }
   v["camera sees the phone's flash"] =
     p.phone.cameraOnGrid >= 2
       ? `PASS (${p.phone.cameraOnGrid} of ~${expectPhone} flashes)`

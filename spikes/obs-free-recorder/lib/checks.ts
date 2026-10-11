@@ -6,14 +6,22 @@ import {
   arrivalsFromPts,
   cfrShift,
   frameVerdicts,
+  judgePreflight,
   judgeSync,
   lipSyncVsObs,
   lagFromRows,
   passed,
   previewVerdict,
+  type CaptureRun,
   type MarkerRow,
 } from "./judge.ts";
 import { phoneCases } from "./phone-checks.ts";
+import {
+  buildArgs,
+  CAM_LINK_INTERVAL,
+  dshowFrameInterval,
+} from "./recorder.ts";
+import { wrapLine } from "./wrap.ts";
 import { listDshowDevicesRaw, type DshowListing } from "./win.ts";
 
 type Case = { name: string; ok: () => boolean | string };
@@ -70,6 +78,125 @@ const dshowCases: Case[] = [
           l.raw === "dummy: Immediate exit requested") ||
         JSON.stringify(l)
       );
+    },
+  },
+];
+
+// ---- the 2026-10-11 preflight: the Cam Link never opened, the run lasted 6 s ----
+// ffmpeg-camera.log: "[dshow @ …] [error] Could not set video options". The rig
+// asked dshow for 30000/1001, which dshow.c truncates to a 333666 interval; the
+// Cam Link offers 333667 (OBS: "fps: 29.97 (interval: 333667)"). The camera
+// recorder quit at once, the screen one was stopped ~3 s later, and the
+// preflight judged 6 s as "0 of ~0 flashes" and "0 of 0 beeps".
+const camArg = (a: string[], flag: string) => a[a.indexOf(flag) + 1]!;
+const realArgs = () =>
+  buildArgs({
+    t0Ms: 1791734448399,
+    tag: "t",
+    screenIdx: 0,
+    camera: "Cam Link 4K",
+    mic: "Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)",
+    previewPorts: { screen: 4791, camera: 4792 },
+  }).camera;
+const CAMERA_QUIT: CaptureRun = {
+  plannedSec: 40,
+  recordedSec: { screen: 4.2, camera: 0 },
+  earlyExits: [
+    {
+      name: "camera",
+      code: 1,
+      errors: [
+        "[dshow @ 0000021294803040] [error] Could not set video options",
+        "[in#0 @ 0000021294808780] [error] Error opening input: I/O error",
+        "[error] Error opening input file video=Cam Link 4K.",
+        "[fatal] Error opening input files: I/O error",
+      ],
+    },
+  ],
+};
+const preflightOf = (capture: CaptureRun) =>
+  judgePreflight({
+    capture,
+    seconds: Math.round(Math.min(...Object.values(capture.recordedSec))),
+    pageStarted: true,
+    sound: "running",
+    phone: { cameraOnGrid: 0, micOnsets: 0, pairs: 0 },
+    pcBeeps: { played: 0, delaysMs: [] },
+  });
+const MATT_ROW =
+  "camera sees the phone's flash: FAIL (0 of ~0 flashes in 6 s. Is the video playing? Prop the phone close in front of the Cam Link, in the middle of the picture, its screen filling at least a quarter of it; full brightness, Adaptive brightness off)";
+
+const shortCaptureCases: Case[] = [
+  {
+    name: "dshow: the camera's -framerate asks for the Cam Link's 333667 interval (30000/1001 truncates to 333666: 'Could not set video options')",
+    ok: () => {
+      const a = realArgs();
+      const i = dshowFrameInterval(camArg(a, "-framerate"));
+      return (
+        (i === CAM_LINK_INTERVAL &&
+          dshowFrameInterval("30000/1001") === 333666 &&
+          camArg(a, "-video_size") === "3840x2160" &&
+          camArg(a, "-pixel_format") === "nv12") ||
+        `-framerate ${camArg(a, "-framerate")} → ${i}`
+      );
+    },
+  },
+  {
+    name: "preflight: the camera recorder quitting at start-up fails loudly, with ffmpeg's reason, not '0 of ~0'",
+    ok: () => {
+      const v = preflightOf(CAMERA_QUIT);
+      const first = Object.entries(v)[0]!;
+      const rows = Object.values(v);
+      return (
+        (first[0] === "capture runs the planned 40 s" &&
+          first[1].startsWith("FAIL (recorded 0 s of the planned 40 s") &&
+          first[1].includes('"Could not set video options"') &&
+          first[1].includes("2160p 29.97") &&
+          rows.every((r) => r.startsWith("FAIL")) &&
+          !rows.some((r) => /of ~?0 /.test(r))) ||
+        JSON.stringify(v)
+      );
+    },
+  },
+  {
+    name: "preflight: a capture cut short with no recorder exit still fails on length",
+    ok: () => {
+      const v = preflightOf({
+        plannedSec: 40,
+        recordedSec: { screen: 12, camera: 12 },
+        earlyExits: [],
+        stoppedBy: "no output for 20 s",
+      });
+      const r = v["capture runs the planned 40 s"] ?? "";
+      return (
+        (r.startsWith("FAIL (recorded 12 s of the planned 40 s") &&
+          r.includes("no output for 20 s")) ||
+        JSON.stringify(v)
+      );
+    },
+  },
+  {
+    name: "clean: a capture of the planned length passes the length row",
+    ok: () =>
+      preflightOf({
+        plannedSec: 40,
+        recordedSec: { screen: 39.4, camera: 39.1 },
+        earlyExits: [],
+      })["capture runs the planned 40 s"] === "PASS",
+  },
+  {
+    name: "wrap: breaking a result row keeps every space (no 'thevideo', 'Phonevolume')",
+    ok: () => {
+      const hang = "      ";
+      for (const w of [40, 60, 80]) {
+        const lines = wrapLine(MATT_ROW, w, hang);
+        const back = lines
+          .map((l, i) => (i ? l.slice(hang.length) : l))
+          .join(" ");
+        if (back !== MATT_ROW) return `width ${w}: ${back}`;
+        if (lines.some((l) => l.length > w)) return `width ${w}: line too long`;
+      }
+      return true;
     },
   },
 ];
@@ -353,6 +480,7 @@ const cases: Case[] = [
   },
   ...phoneCases,
   ...dshowCases,
+  ...shortCaptureCases,
 ];
 
 export function runChecks(log: (...a: unknown[]) => void): boolean {

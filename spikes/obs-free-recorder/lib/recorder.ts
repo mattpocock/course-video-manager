@@ -232,6 +232,31 @@ export async function startSyntheticSources(
   return children.map((c) => c.child);
 }
 
+/**
+ * The 100 ns frame interval ffmpeg's dshow input asks the device for, as
+ * libavdevice/dshow.c (8.0) computes it: den * 10^7 / num, truncated. A format
+ * whose Min/MaxFrameInterval doesn't contain it is skipped, and with none left
+ * ffmpeg fails "Could not set video options". 30000/1001 truncates to 333666,
+ * one short of the 333667 the Cam Link 4K advertises for 29.97 (OBS's log:
+ * "fps: 29.97 (interval: 333667)"), so it never opened.
+ */
+export function dshowFrameInterval(rate: string): number {
+  const [n, d = "1"] = rate.split("/");
+  // av_parse_video_rate reads "29.97" as 2997/100.
+  const dec = (x: string) => {
+    const [i, f = ""] = x.split(".");
+    return { num: BigInt(i + f), den: 10n ** BigInt(f.length) };
+  };
+  const a = dec(n!);
+  const b = dec(d);
+  const num = a.num * b.den;
+  const den = b.num * a.den;
+  return Number((den * 10_000_000n) / num);
+}
+/** The Cam Link 4K's 2160p29.97 interval, and the -framerate that asks for exactly it. */
+export const CAM_LINK_INTERVAL = 333667;
+export const CAM_DSHOW_FRAMERATE = "29.97";
+
 export type RecorderArgs = { screen: string[]; camera: string[] };
 
 export function buildArgs(o: RecorderOptions): RecorderArgs {
@@ -331,7 +356,8 @@ export function buildArgs(o: RecorderOptions): RecorderArgs {
 
   // ---- camera + mic process ----
   // Cam Link 4K only offers 2160p29.97 or 1080p59.94 raw, so open 4K NV12 and
-  // scale to 1440p on the GPU.
+  // scale to 1440p on the GPU. The rate is CAM_DSHOW_FRAMERATE, not 30000/1001:
+  // see dshowFrameInterval.
   const cameraIn = s
     ? [...wall, ...rawVideoIn(SYNTH_PORTS.camera, "3840x2160")]
     : [
@@ -343,7 +369,7 @@ export function buildArgs(o: RecorderOptions): RecorderArgs {
         "-video_size",
         "3840x2160",
         "-framerate",
-        "30000/1001",
+        CAM_DSHOW_FRAMERATE,
         "-pixel_format",
         "nv12",
         "-i",

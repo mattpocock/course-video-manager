@@ -320,6 +320,9 @@ printf '  %sCtrl-C stops it; re-run to resume.%s ' "$DIM" "$RESET"
 read -r _ || true
 
 # From here on: no prompts. Everything is also logged to the session folder.
+# stdout becomes a pipe, so pass the terminal's width on: the rig and the result
+# rows break their own lines (a soft-wrapped line copies out without its space).
+COLUMNS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}' || true); export COLUMNS="${COLUMNS:-100}"
 exec > >(tee -i -a "$SESSION/wizard.log") 2>&1
 printf '\n[%s] started (unattended)\n' "$(date '+%F %T')"
 awake_start

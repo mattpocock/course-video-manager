@@ -9,6 +9,7 @@ import { startCollector } from "./lib/collector.ts";
 import type { ChildProcess } from "node:child_process";
 import { passed } from "./lib/judge.ts";
 import { runChecks } from "./lib/checks.ts";
+import { forTerminal } from "./lib/wrap.ts";
 import {
   buildArgs,
   FILES,
@@ -277,6 +278,8 @@ async function record(plan: RecordPlan): Promise<string> {
       name,
       last: {} as Record<string, string>,
       logStream,
+      /** The log's last ~8 KB, for why it quit (the stream may not be flushed yet). */
+      tail: "",
       child: undefined as unknown as ChildProcess,
     };
     state.child = track(
@@ -290,7 +293,10 @@ async function record(plan: RecordPlan): Promise<string> {
             JSON.stringify({ ...p, winMs: winClock.now() }) + "\n"
           );
         },
-        (chunk) => logStream.write(chunk)
+        (chunk) => {
+          logStream.write(chunk);
+          state.tail = (state.tail + String(chunk)).slice(-8192);
+        }
       )
     );
     return state;
@@ -338,6 +344,7 @@ async function record(plan: RecordPlan): Promise<string> {
     Math.min(...procs.map((p) => Number(p.last.out_time_us ?? 0) / 1e6 || 0));
   const anyExited = () => procs.some((p) => p.child.exitCode !== null);
   const wslStart = Date.now();
+  let stoppedBy: string | undefined;
   let lastPrint = 0;
   let lastOut = -1;
   let lastOutChange = Date.now();
@@ -347,17 +354,18 @@ async function record(plan: RecordPlan): Promise<string> {
       lastOut = t;
       lastOutChange = Date.now();
     } else if (Date.now() - lastOutChange > 20_000) {
-      log(
-        "no output for 20 s: an input is delivering nothing (see ffmpeg-*.log). Stopping."
-      );
+      stoppedBy =
+        "no output for 20 s: an input is delivering nothing (see ffmpeg-*.log)";
+      log(`${stoppedBy}. Stopping.`);
       break;
     }
     if (plan.killAt !== undefined && t >= plan.killAt) break;
-    if (
-      t >= plan.seconds ||
-      Date.now() - wslStart > plan.seconds * 1500 + 60_000
-    )
+    if (t >= plan.seconds) break;
+    if (Date.now() - wslStart > plan.seconds * 1500 + 60_000) {
+      stoppedBy =
+        "the recorders ran far slower than real time (see ffmpeg-*.log)";
       break;
+    }
     if (Date.now() - lastPrint > 15_000) {
       lastPrint = Date.now();
       const p = Object.fromEntries(procs.map((x) => [x.name, x.last]));
@@ -368,13 +376,38 @@ async function record(plan: RecordPlan): Promise<string> {
     await sleep(100);
   }
   process.off("SIGINT", onSigint);
+  if (stopRequested) stoppedBy = "stopped by request (Ctrl-C or the page)";
   meta.preview = server.previewStats(recordStartedAt, ["screen", "camera"]);
 
   const exited = procs.filter((p) => p.child.exitCode !== null);
+  if (plan.killAt === undefined) {
+    meta.capture = {
+      plannedSec: plan.seconds,
+      recordedSec: Object.fromEntries(
+        procs.map((p) => [
+          p.name,
+          Math.round((Number(p.last.out_time_us ?? 0) / 1e6 || 0) * 10) / 10,
+        ])
+      ),
+      earlyExits: exited.map((p) => ({
+        name: p.name,
+        code: p.child.exitCode,
+        errors: p.tail
+          .split(/\r?\n/)
+          .filter((l) => /\[(error|fatal)\]/.test(l))
+          .slice(-6),
+      })),
+      stoppedBy,
+    };
+  }
   if (exited.length) {
     log(
       `ffmpeg (${exited.map((p) => p.name).join(", ")}) exited early; see ffmpeg-*.log in ${runDir}`
     );
+    for (const p of exited)
+      for (const l of meta.capture?.earlyExits.find((e) => e.name === p.name)
+        ?.errors ?? [])
+        log(`  ${p.name}: ${l}`);
   }
   if (plan.killAt !== undefined && !exited.length) {
     const killed = killWindowsFfmpeg(tag);
@@ -426,10 +459,14 @@ async function record(plan: RecordPlan): Promise<string> {
 function printReport(runDir: string, baselineDir?: string) {
   log("analysing…");
   const r = analyze(runDir, baselineDir);
+  // Hard line breaks, so a terminal never soft-wraps (and a copy never drops the space at the wrap).
   console.log(
-    fs
-      .readFileSync(path.join(runDir, "report.md"), "utf8")
-      .split("## Frames")[0]
+    forTerminal(
+      fs
+        .readFileSync(path.join(runDir, "report.md"), "utf8")
+        .split("## Frames")[0]!,
+      process.stdout.columns || Number(process.env.COLUMNS) || undefined
+    )
   );
   log(`full report: ${path.join(runDir, "report.md")}`);
   return r;

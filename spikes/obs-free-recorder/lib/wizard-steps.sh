@@ -86,6 +86,23 @@ rig() {
   [[ "$verdict" == PASS ]]
 }
 
+# verdict_rows REPORT.md: its Stop criteria as "Criterion: Result", broken at
+# spaces to the terminal's width with a hanging indent. Never left to the
+# terminal's soft wrap: copying that out drops the space at each wrap.
+verdict_rows() {
+  local w="${COLUMNS:-100}"; (( w > 120 )) && w=120; (( w < 40 )) && w=40
+  sed -n '/^## Stop criteria/,/^## /p' "$1" | grep '^| ' | grep -v '^| Criterion |' |
+    sed 's/^| //; s/ |$//; s/ | /: /' |
+    awk -v w="$((w - 1))" '{
+      n = split($0, word, " "); cur = "    " word[1]
+      for (i = 2; i <= n; i++) {
+        if (length(cur) + 1 + length(word[i]) > w) { print cur; cur = "        " word[i] }
+        else cur = cur " " word[i]
+      }
+      print cur
+    }'
+}
+
 # run_rig N MODE ARGS...: runs the rig, shows each new run's verdict table,
 # copies the small result files into the session folder and records PASS/FAIL.
 # Never stops the session: the next stage runs either way.
@@ -108,7 +125,7 @@ run_rig() {
     cp "$OUT/runs/$d"/{report.md,report.json,meta.json,events.jsonl} "$SESSION/$n-$1/$d/" 2>/dev/null || true
     printf '\n  %s%s%s\n' "$BOLD" "$d" "$RESET"
     if [[ -f "$OUT/runs/$d/report.md" ]]; then
-      sed -n '/^## Stop criteria/,/^## /p' "$OUT/runs/$d/report.md" | grep '^|' | sed 's/^/    /'
+      verdict_rows "$OUT/runs/$d/report.md"
       grep -q '| FAIL' "$OUT/runs/$d/report.md" && verdict="FAIL"
     else
       warn "no report.md in this run (see the ffmpeg logs in $OUT/runs/$d)"; verdict="FAIL"

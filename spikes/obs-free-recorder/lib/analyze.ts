@@ -21,6 +21,7 @@ import {
   judgeSync,
   lipSyncVsObs,
   judgePreflight,
+  type CaptureRun,
   lagFromRows,
   previewVerdict,
   stats,
@@ -65,6 +66,8 @@ export type Meta = {
   /** Frames the WSL preview server received from each ffmpeg preview feed. */
   preview?: PreviewStats;
   crash?: CrashResult;
+  /** Planned length, what each recorder got, and any that quit early (not for kill -9 runs). */
+  capture?: CaptureRun;
 };
 
 /** Mean luma of every frame in [from, from+dur), optionally inside a crop rect. */
@@ -487,6 +490,7 @@ function buildReport(runDir: string, baselineDir?: string) {
   const verdicts: Record<string, string> =
     meta.mode === "preflight"
       ? judgePreflight({
+          capture: meta.capture,
           seconds: Math.round(duration),
           pageStarted: !!pageStart,
           sound: pageStart ? String(pageStart.audio ?? "running") : "none",
