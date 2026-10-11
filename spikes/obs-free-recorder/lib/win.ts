@@ -407,3 +407,15 @@ export function closeKioskPage() {
     /* nothing to close */
   }
 }
+
+/** ./rig screens: every output by name, marking the one the rig records. Nothing is captured. */
+export function printScreens(
+  screenName: string,
+  log: (...a: unknown[]) => void
+) {
+  const wanted = screenName.toLowerCase();
+  for (const sc of listScreens())
+    log(
+      `output ${sc.idx}: ${sc.name}  ${sc.w}x${sc.h} at ${sc.x},${sc.y}  ${sc.device}${sc.name.toLowerCase().includes(wanted) ? "  <- the rig records this one" : ""}`
+    );
+}

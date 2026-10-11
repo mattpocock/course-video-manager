@@ -11,9 +11,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { perf } from "./perf.ts";
 import { toMarkdown } from "./report-md.ts";
-import { countPackets, ffmpeg, lastPacketTime, probe } from "./ff.ts";
+import {
+  countPackets,
+  lastPacketTime,
+  lumaSeries,
+  micSamples,
+  probe,
+} from "./ff.ts";
 import type { CrashResult } from "./recovery.ts";
 import { FILES } from "./recorder.ts";
+import { baselineObsOffset } from "./obs-sync.ts";
 import {
   arrivalsFromPts,
   cfrShift,
@@ -21,6 +28,9 @@ import {
   judgeSync,
   lipSyncVsObs,
   judgePreflight,
+  judderNote,
+  PHONE_WINDOW_SEC,
+  resourceVerdict,
   type CaptureRun,
   lagFromRows,
   previewVerdict,
@@ -30,11 +40,12 @@ import {
 } from "./judge.ts";
 import {
   analyzePhoneMarkers,
+  flashLateMs,
   onsetNear,
+  pcScreenOnset,
   PC_BEEP_HZ,
   pcBeepDelayMs,
   PHONE_BEEP_HZ,
-  TONE,
   toneSeries,
 } from "./sync.ts";
 
@@ -69,61 +80,6 @@ export type Meta = {
   /** Planned length, what each recorder got, and any that quit early (not for kill -9 runs). */
   capture?: CaptureRun;
 };
-
-/** Mean luma of every frame in [from, from+dur), optionally inside a crop rect. */
-function lumaSeries(file: string, from: number, dur: number, crop?: string) {
-  const vf = [crop ? `crop=${crop}` : "", "scale=16:9:flags=area", "showinfo"]
-    .filter(Boolean)
-    .join(",");
-  const { stderr } = ffmpeg(
-    [
-      "-copyts",
-      "-ss",
-      String(Math.max(0, from)),
-      "-t",
-      String(dur),
-      "-i",
-      path.basename(file),
-      "-vf",
-      vf,
-      "-an",
-      "-f",
-      "null",
-      "-",
-    ],
-    path.dirname(file)
-  );
-  const t: number[] = [];
-  const v: number[] = [];
-  for (const m of stderr.matchAll(/pts_time:\s*([\d.]+).*?mean:\[(\d+)/g)) {
-    t.push(Number(m[1]));
-    v.push(Number(m[2]));
-  }
-  return { t, v };
-}
-
-/** The whole mic, mono at TONE.sr, as samples in [-1, 1). Sample i is at file time startTime + i / sr. */
-function micSamples(file: string): Float64Array {
-  const { stdout } = ffmpeg(
-    [
-      "-i",
-      path.basename(file),
-      "-vn",
-      "-ac",
-      "1",
-      "-ar",
-      String(TONE.sr),
-      "-f",
-      "s16le",
-      "-",
-    ],
-    path.dirname(file)
-  );
-  const n = stdout.length >> 1;
-  const x = new Float64Array(n);
-  for (let i = 0; i < n; i++) x[i] = stdout.readInt16LE(i * 2) / 32768;
-  return x;
-}
 
 // ---------- inputs ----------
 
@@ -204,19 +160,38 @@ function markers(
 
 // ---------- main ----------
 
-export function analyze(runDir: string, baselineDir?: string): Report {
-  const report = buildReport(runDir, baselineDir);
+export type AnalyzeOptions = {
+  /** Where report.json / report.md go (default: the run folder). `./rig rescore` points it at a scratch folder. */
+  outDir?: string;
+  /** Read the baseline's report.json from here instead of the baseline folder (a rescored baseline). */
+  baselineReportDir?: string;
+  /** OBS scene collection JSON for the baseline's sync offsets, when the baseline didn't save one. */
+  obsScenes?: string;
+};
+
+export function analyze(
+  runDir: string,
+  baselineDir?: string,
+  opts: AnalyzeOptions = {}
+): Report {
+  const report = buildReport(runDir, baselineDir, opts);
+  const outDir = opts.outDir ?? runDir;
+  fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(
-    path.join(runDir, "report.json"),
+    path.join(outDir, "report.json"),
     JSON.stringify(report, null, 2)
   );
-  fs.writeFileSync(path.join(runDir, "report.md"), toMarkdown(report));
+  fs.writeFileSync(path.join(outDir, "report.md"), toMarkdown(report));
   return report;
 }
 
 export type Report = ReturnType<typeof buildReport>;
 
-function buildReport(runDir: string, baselineDir?: string) {
+function buildReport(
+  runDir: string,
+  baselineDir?: string,
+  opts: AnalyzeOptions = {}
+) {
   const meta = JSON.parse(
     fs.readFileSync(path.join(runDir, "meta.json"), "utf8")
   ) as Meta;
@@ -319,7 +294,9 @@ function buildReport(runDir: string, baselineDir?: string) {
     phoneMarkers = r.phoneRows;
   } else {
     markerRows = marks.map((m) => {
-      const { screen, screenCap } = screenAt(m);
+      const { screen, screenCap: cap } = screenAt(m);
+      // The page's flash vs its scheduled beep (sync.ts pcScreenOnset).
+      const screenCap = pcScreenOnset(cap, m);
       const camera = onsetNear(
         lumaSeries(src.camera.file, m.expected - 2, 4, src.camera.crop),
         m.expected,
@@ -337,14 +314,17 @@ function buildReport(runDir: string, baselineDir?: string) {
         audioMinusScreenMs: ms(audio, screenCap),
         audioMinusCameraMs: ms(audio, cameraCap),
         fileTimeCamMinusScreenMs: ms(camera, screen),
+        flashLateMs: flashLateMs(m),
       };
     });
     rows = markerRows as unknown as MarkerRow[];
   }
   // Drift rules: judge.ts. Rig runs are judged with the CFR saw-tooth removed;
   // the OBS baseline can't be, so its camera pairs get one frame of room.
+  // Phone markers: lip-sync jumps on window medians (judge.ts PHONE_WINDOW_SEC).
   const { sync, verdicts: syncVerdicts } = judgeSync(rows, {
     cfrRemoved: !isBaseline,
+    lipSyncWindowSec: phoneMode ? PHONE_WINDOW_SEC : undefined,
   });
   const pageStart = events.find((e) => e.type === "page-start");
   // Unattended, nobody is watching the page: a run whose markers never landed
@@ -432,27 +412,34 @@ function buildReport(runDir: string, baselineDir?: string) {
   const resources = perf(runDir, meta.logicalCpus || 32);
   let baseline: ReturnType<typeof perf> | null = null;
   // The baseline's own audio - camera median, for lip sync vs OBS (no clap needed).
+  const baselineReportDir = opts.baselineReportDir ?? baselineDir;
   const baselineReport =
-    baselineDir && fs.existsSync(path.join(baselineDir, "report.json"))
+    baselineReportDir &&
+    fs.existsSync(path.join(baselineReportDir, "report.json"))
       ? (JSON.parse(
-          fs.readFileSync(path.join(baselineDir, "report.json"), "utf8")
+          fs.readFileSync(path.join(baselineReportDir, "report.json"), "utf8")
         ) as {
           markerSource?: string;
           sync?: { audioMinusCamera?: { medianMs: number | null } };
         })
       : null;
   const markerSource = phoneMode ? "phone" : "pc-flash";
+  const obsOffset = baselineReport
+    ? baselineObsOffset(baselineDir, opts.obsScenes)
+    : null;
   // Both runs must time the camera on the same marker, or the medians share nothing.
   const lipSync =
     baselineReport &&
     (baselineReport.markerSource ?? "pc-flash") !== markerSource
       ? {
           deltaMs: null,
+          rawDeltaMs: null,
           verdict: `n/a (the baseline's camera watched the ${baselineReport.markerSource ?? "pc-flash"} marker, this run's the ${markerSource}: run the baseline again)`,
         }
       : lipSyncVsObs(
           sync.audioMinusCamera.medianMs,
-          baselineReport?.sync?.audioMinusCamera?.medianMs
+          baselineReport?.sync?.audioMinusCamera?.medianMs,
+          obsOffset ? obsOffset.audioOffsetMs : null
         );
   if (baselineDir && fs.existsSync(path.join(baselineDir, "meta.json"))) {
     const bm = JSON.parse(
@@ -470,6 +457,8 @@ function buildReport(runDir: string, baselineDir?: string) {
         nvenc: ratio(resources.nvencPct, baseline.nvencPct),
         recorderProcessCpu: ratio(resources.cpuFfmpegPct, baseline.cpuObsPct),
         lipSyncVsObsMs: lipSync.deltaMs,
+        lipSyncVsObsRawMs: lipSync.rawDeltaMs,
+        obsMicSyncOffset: obsOffset,
       }
     : null;
 
@@ -521,11 +510,22 @@ function buildReport(runDir: string, baselineDir?: string) {
           "preview feeds deliver frames": isBaseline
             ? "n/a (baseline)"
             : previewVerdict(meta.preview),
-          "CPU/GPU <= 1.5x OBS": !comparison
-            ? "n/a (no baseline run to compare with)"
-            : Math.max(comparison.cpuTotal ?? 0, comparison.gpu ?? 0) <= 1.5
-              ? "PASS"
-              : "FAIL",
+          "CPU/GPU <= 1.5x OBS": resourceVerdict(comparison, {
+            cpu: [
+              resources.cpuTotalMissing &&
+                `this run: ${resources.cpuTotalMissing}`,
+              baseline?.cpuTotalMissing &&
+                `baseline: ${baseline.cpuTotalMissing}`,
+            ]
+              .filter(Boolean)
+              .join("; "),
+            gpu: [
+              resources.gpuMissing && `this run: ${resources.gpuMissing}`,
+              baseline?.gpuMissing && `baseline: ${baseline.gpuMissing}`,
+            ]
+              .filter(Boolean)
+              .join("; "),
+          }),
           "<= 25 GB/h":
             gbPerHour === null ? "n/a" : gbPerHour <= 25 ? "PASS" : "FAIL",
         };
@@ -544,6 +544,11 @@ function buildReport(runDir: string, baselineDir?: string) {
       ? "PASS"
       : "FAIL";
 
+  // Measured and shown, not judged (judge.ts judderNote says why).
+  const reported: Record<string, string> = frames
+    ? { "screen judder": judderNote(frames.screen.arrivals) }
+    : {};
+
   const report = {
     runDir,
     mode: meta.mode,
@@ -551,6 +556,7 @@ function buildReport(runDir: string, baselineDir?: string) {
     durationSec: Math.round(duration * 10) / 10,
     micStart,
     verdicts,
+    reported,
     markerSource,
     sync,
     markers: markerRows,

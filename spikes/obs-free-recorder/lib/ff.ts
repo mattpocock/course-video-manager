@@ -1,6 +1,7 @@
 // Thin wrappers around the Windows ffmpeg.exe / ffprobe.exe used by the analysis.
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { TONE } from "./sync.ts";
 import { windowsTool } from "./win.ts";
 
 export function ffmpeg(args: string[], cwd: string) {
@@ -82,3 +83,63 @@ export function countPackets(file: string): number {
 }
 
 /** Mean luma of every frame in [from, from+dur), optionally inside a crop rect. */
+
+/** Mean luma of every frame in [from, from+dur), optionally inside a crop rect. */
+export function lumaSeries(
+  file: string,
+  from: number,
+  dur: number,
+  crop?: string
+) {
+  const vf = [crop ? `crop=${crop}` : "", "scale=16:9:flags=area", "showinfo"]
+    .filter(Boolean)
+    .join(",");
+  const { stderr } = ffmpeg(
+    [
+      "-copyts",
+      "-ss",
+      String(Math.max(0, from)),
+      "-t",
+      String(dur),
+      "-i",
+      path.basename(file),
+      "-vf",
+      vf,
+      "-an",
+      "-f",
+      "null",
+      "-",
+    ],
+    path.dirname(file)
+  );
+  const t: number[] = [];
+  const v: number[] = [];
+  for (const m of stderr.matchAll(/pts_time:\s*([\d.]+).*?mean:\[(\d+)/g)) {
+    t.push(Number(m[1]));
+    v.push(Number(m[2]));
+  }
+  return { t, v };
+}
+
+/** The whole mic, mono at TONE.sr, as samples in [-1, 1). Sample i is at file time startTime + i / sr. */
+export function micSamples(file: string): Float64Array {
+  const { stdout } = ffmpeg(
+    [
+      "-i",
+      path.basename(file),
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      String(TONE.sr),
+      "-f",
+      "s16le",
+      "-",
+    ],
+    path.dirname(file)
+  );
+  const n = stdout.length >> 1;
+  const x = new Float64Array(n);
+  for (let i = 0; i < n; i++) x[i] = stdout.readInt16LE(i * 2) / 32768;
+  return x;
+}

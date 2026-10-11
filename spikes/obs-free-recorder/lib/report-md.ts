@@ -14,6 +14,13 @@ export function toMarkdown(r: Report): string {
     "|---|---|",
     ...Object.entries(r.verdicts).map(([k, v]) => `| ${k} | ${v} |`),
     "",
+    ...Object.entries(r.reported).map(([k, v]) => `- ${k}: ${v}`),
+    ...(r.comparison?.obsMicSyncOffset
+      ? [
+          `- OBS mic sync offset taken off lip sync vs OBS: ${r.comparison.obsMicSyncOffset.audioOffsetMs ?? "unknown"} ms (${r.comparison.obsMicSyncOffset.detail}; from ${r.comparison.obsMicSyncOffset.from})`,
+        ]
+      : []),
+    "",
     ...markerTables(r),
     "",
     "| Pair | markers | median offset | max deviation from median | range | linear trend over run |",
@@ -23,6 +30,14 @@ export function toMarkdown(r: Report): string {
         ["camera - screen", r.sync.camMinusScreen],
         ["audio - screen", r.sync.audioMinusScreen],
         ["audio - camera", r.sync.audioMinusCamera],
+        ...(r.sync.audioMinusCameraWindowed
+          ? ([
+              [
+                "audio - camera, median of the phone markers within ±30 s (lip-sync jumps are judged on this)",
+                r.sync.audioMinusCameraWindowed,
+              ],
+            ] as const)
+          : []),
       ] as const
     ).map(
       ([k, d]) =>
@@ -122,6 +137,7 @@ function markerTables(r: Report): string[] {
         ["marker", "Marker"],
         ["expected", "file time (s)"],
         ["audioMinusScreenMs", "audio - screen"],
+        ["flashLateMs", "flash drawn after the beep's time (taken off)"],
         ["lipSyncAroundMs", "audio - camera (phone, ±15 s)"],
         ["camMinusScreenMs", "camera - screen (derived)"],
       ]

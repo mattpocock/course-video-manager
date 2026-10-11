@@ -16,6 +16,7 @@ import {
   type MarkerRow,
 } from "./judge.ts";
 import { phoneCases } from "./phone-checks.ts";
+import { runCases } from "./run-checks.ts";
 import {
   buildArgs,
   CAM_LINK_INTERVAL,
@@ -479,6 +480,7 @@ const cases: Case[] = [
       ),
   },
   ...phoneCases,
+  ...runCases,
   ...dshowCases,
   ...shortCaptureCases,
 ];

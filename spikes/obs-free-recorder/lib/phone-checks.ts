@@ -11,6 +11,7 @@ import {
   judgeSync,
   lipSyncVsObs,
   passed,
+  PHONE_WINDOW_SEC,
 } from "./judge.ts";
 import {
   analyzePhoneMarkers,
@@ -52,6 +53,12 @@ type Room = {
   noPhone?: boolean;
   /** Extra camera flashes off the phone's grid (a DELL reflection, someone walking past). */
   strays?: number[];
+  /** The phone's flash-to-beep wander, flash to flash: uniform ±this (s), seeded. */
+  phoneJitter?: number;
+  /** Its tail: every `every`th flash off by ±`by` s, alternating (Matt's run: ±27 ms p95, -37/+35 ms extremes). */
+  phoneTail?: { every: number; by: number };
+  /** A lip-sync step: from `at` (s) to `until` (default: the end), the phone's beep reads `by` (s) later. */
+  phoneStep?: { at: number; by: number; until?: number };
 };
 
 const at = (base: number, drift: number | undefined, t: number) =>
@@ -147,20 +154,48 @@ function micSamples(r: Room, seed = 5): Float64Array {
         [2 * PC_BEEP_HZ, 0.015],
       ]);
     }
+  const wander = rng(11);
   if (!r.noPhone)
-    for (const F of phoneFlashes(r))
-      tone(F + r.phoneAV + at(r.mic, r.micDrift, F), PHONE.beep, [
-        [PHONE_BEEP_HZ, 0.04],
-      ]);
+    phoneFlashes(r).forEach((F, k) => {
+      const tail =
+        r.phoneTail && (k + 1) % r.phoneTail.every === 0
+          ? r.phoneTail.by * (((k + 1) / r.phoneTail.every) % 2 ? 1 : -1)
+          : 0;
+      tone(
+        F +
+          r.phoneAV +
+          tail +
+          (r.phoneJitter ?? 0) * (2 * wander() - 1) +
+          (r.phoneStep &&
+          F >= r.phoneStep.at &&
+          F < (r.phoneStep.until ?? Infinity)
+            ? r.phoneStep.by
+            : 0) +
+          at(r.mic, r.micDrift, F),
+        PHONE.beep,
+        [[PHONE_BEEP_HZ, 0.04]]
+      );
+    });
   return x;
 }
 
-function run(r: Room) {
+/**
+ * `marks`: the PC markers as events.jsonl gives them (default: drawn exactly
+ * on the beep). `lipWindow`: judge lip-sync jumps as analyze.ts does on a real
+ * phone run (rolling medians); off, the per-marker rule.
+ */
+export function run(
+  r: Room,
+  o: {
+    marks?: { label: string; expected: number; beepAt?: number }[];
+    lipWindow?: boolean;
+  } = {}
+) {
   const x = micSamples(r);
   const mic1k = toneSeries(x, PC_BEEP_HZ, 0);
   const mic2k = toneSeries(x, PHONE_BEEP_HZ, 0);
   const a = analyzePhoneMarkers({
-    marks: pcMarks(),
+    marks: o.marks ?? pcMarks(),
     screenAround: screenAround(r),
     screenCfr: () => 0,
     camera: cameraSeries(r),
@@ -169,7 +204,15 @@ function run(r: Room) {
     mic2k,
     excludeNearPc: true,
   });
-  return { ...a, ...judgeSync(a.rows), mic1k, mic2k };
+  return {
+    ...a,
+    ...judgeSync(a.rows, {
+      cfrRemoved: true,
+      lipSyncWindowSec: o.lipWindow ? PHONE_WINDOW_SEC : undefined,
+    }),
+    mic1k,
+    mic2k,
+  };
 }
 
 // What each detector reads for a step at time F: the tone at its window's
@@ -183,7 +226,7 @@ const expected = (r: Room) => {
   return { lip: lip * 1000, av: av * 1000, cs: (av - lip) * 1000 };
 };
 
-const ROOM: Room = {
+export const ROOM: Room = {
   phoneAV: 0.137,
   phonePhase: 3.7,
   camera: 0.045,
@@ -357,11 +400,70 @@ export const phoneCases: Case[] = [
         excludeNearPc: true,
       });
       const j = judgeSync(a.rows);
+      // Judged as a real phone run is (rolling medians), it still fails.
+      const w = judgeSync(a.rows, {
+        cfrRemoved: true,
+        lipSyncWindowSec: PHONE_WINDOW_SEC,
+      });
       const ok =
         /jump/.test(j.verdicts[KEYS.cs]) &&
         /jump/.test(j.verdicts[KEYS.lip]) &&
+        /jump/.test(w.verdicts[KEYS.lip]) &&
         passed(j.verdicts[KEYS.av]);
-      return ok || JSON.stringify(j.verdicts);
+      return ok || JSON.stringify({ j: j.verdicts, w: w.verdicts });
+    },
+  },
+  // ---- the 2026-10-11 run (CVM #1992) ----
+  {
+    name: "run 2026-10-11: the page drawing its flash 0–45 ms after the beep's time doesn't read as an A/V jump (it's taken off per marker)",
+    ok: () => {
+      // events.jsonl: wallMs (flash drawn) vs beepWallMs (beep scheduled). The
+      // baseline's were -4..+26 ms; 50 (three missed frames) fails the old rule outright.
+      const late = [0, 0.05, 0.004, 0.026, 0, 0.05, 0.012, 0.03, 0];
+      const marks = pcMarks().map((m, k) => ({
+        label: m.label,
+        expected: m.expected + late[k % late.length]!,
+        beepAt: m.expected,
+      }));
+      const r = run(ROOM, { marks });
+      const e = expected(ROOM);
+      const bad = reads(r, e, { av: 0, cs: 0, lip: 0 });
+      if (!passed(r.verdicts[KEYS.av])) bad.push(`A/V ${r.verdicts[KEYS.av]}`);
+      if (r.sync.audioMinusScreen.maxDevMs! > 4)
+        bad.push(`A/V max dev ${r.sync.audioMinusScreen.maxDevMs} ms`);
+      // Without beepAt (the old analysis) the same run fails.
+      const old = run(ROOM, {
+        marks: marks.map(({ label, expected }) => ({ label, expected })),
+      });
+      if (passed(old.verdicts[KEYS.av]))
+        bad.push(`uncorrected A/V ${old.verdicts[KEYS.av]}, want FAIL`);
+      return bad.length ? bad.join("; ") : true;
+    },
+  },
+  {
+    name: "run 2026-10-11: the phone's ±25 ms flash jitter (tails to ±36 ms) PASSes lip sync on ±30 s medians, where every-marker FAILed; a 45 ms jump lasting 90 s still FAILs",
+    ok: () => {
+      const jitter = {
+        phoneJitter: 0.025,
+        phoneTail: { every: 20, by: 0.036 },
+      };
+      const room = { ...ROOM, ...jitter };
+      const jit = run(room, { lipWindow: true });
+      const perMarker = run(room);
+      const step45 = run(
+        { ...room, phoneStep: { at: 300, until: 390, by: -0.045 } },
+        { lipWindow: true }
+      );
+      const bad: string[] = [];
+      if (!passed(jit.verdicts[KEYS.lip]))
+        bad.push(`jitter: ${jit.verdicts[KEYS.lip]}`);
+      if (passed(perMarker.verdicts[KEYS.lip]))
+        bad.push(
+          `every-marker rule passed (${perMarker.sync.audioMinusCamera.maxDevMs} ms), want the old FAIL`
+        );
+      if (!/jump/.test(step45.verdicts[KEYS.lip]))
+        bad.push(`45 ms jump: ${step45.verdicts[KEYS.lip]}, want FAIL (jump)`);
+      return bad.length ? bad.join("; ") : true;
     },
   },
   {

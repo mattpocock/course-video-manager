@@ -124,12 +124,13 @@ run_rig() {
     mkdir -p "$SESSION/$n-$1/$d"
     cp "$OUT/runs/$d"/{report.md,report.json,meta.json,events.jsonl} "$SESSION/$n-$1/$d/" 2>/dev/null || true
     printf '\n  %s%s%s\n' "$BOLD" "$d" "$RESET"
-    if [[ -f "$OUT/runs/$d/report.md" ]]; then
-      verdict_rows "$OUT/runs/$d/report.md"
-      grep -q '| FAIL' "$OUT/runs/$d/report.md" && verdict="FAIL"
-    else
-      warn "no report.md in this run (see the ffmpeg logs in $OUT/runs/$d)"; verdict="FAIL"
-    fi
+    # report.md's stop criteria, or a kill -9 run's meta.crash (the selftest's
+    # crash phase writes only meta.json): ./rig verdict judges both.
+    local rows
+    rows=$(./rig verdict "$OUT/runs/$d") || verdict="FAIL"
+    verdict_rows <(printf '%s\n' "$rows")
+    [[ -f "$OUT/runs/$d/report.md" || -f "$OUT/runs/$d/meta.json" ]] ||
+      warn "no report.md or meta.json in this run (see the ffmpeg logs in $OUT/runs/$d)"
   done
   [[ -z "$new" ]] && { warn "the rig wrote no run folder"; verdict="FAIL"; }
   (( rc )) && note "./rig $1 exited with code $rc"

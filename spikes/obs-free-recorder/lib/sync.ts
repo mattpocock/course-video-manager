@@ -307,8 +307,10 @@ export type SyncRow = {
 export type PcPoint = {
   label: string;
   expected: number;
-  /** Screen onset, capture time. */
+  /** Screen onset, capture time, moved to the beep's schedule (see pcScreenOnset). */
   screen: number | null;
+  /** How long the page drew its flash after the beep's scheduled time (ms; events.jsonl). */
+  flashLateMs?: number | null;
   /** Mic 1 kHz onset. */
   audio: number | null;
 };
@@ -339,6 +341,7 @@ export function phoneSyncRows(pc: PcPoint[], phone: PhonePair[]) {
       screen: m.screen,
       audio: m.audio,
       audioMinusScreenMs: av,
+      flashLateMs: m.flashLateMs ?? null,
       lipSyncAroundMs: lipHere,
       camMinusScreenMs:
         av === null || lipHere === null
@@ -424,12 +427,34 @@ export function detectPhone(
 }
 
 /**
+ * The page schedules the PC beep on the audio clock for a wall-clock boundary,
+ * but draws its flash on the first animation frame at or after it: 4 ms early
+ * to 26 ms late on the rig PC (events.jsonl: wallMs vs beepWallMs). That
+ * per-marker difference is the page's, not the recorder's, so the screen onset
+ * is moved by it, to where it would be had the flash gone up exactly at the
+ * beep's time. A marker with no scheduled beep (a manual flash) is left as is.
+ */
+export function pcScreenOnset(
+  screen: number | null,
+  m: { expected: number; beepAt?: number }
+): number | null {
+  if (screen === null || m.beepAt === undefined) return screen;
+  return screen - (m.expected - m.beepAt);
+}
+
+export const flashLateMs = (m: { expected: number; beepAt?: number }) =>
+  m.beepAt === undefined
+    ? null
+    : Math.round((m.expected - m.beepAt) * 10000) / 10;
+
+/**
  * The PC marker (DELL flash + 1 kHz) and phone marker (flash + 2 kHz) path for
  * a real run, from decoded inputs to sync rows. analyze.ts feeds it ffmpeg's
  * output; checks.ts feeds it synthetic series with injected offsets.
  */
 export function analyzePhoneMarkers(i: {
-  marks: { label: string; expected: number }[];
+  /** `expected`: file time the page drew the flash; `beepAt`: the beep's scheduled file time. */
+  marks: { label: string; expected: number; beepAt?: number }[];
   /** Screen luma around a marker (±2 s), and the CFR shift to undo. */
   screenAround: (expected: number) => Series;
   screenCfr: (t: number) => number;
@@ -446,7 +471,11 @@ export function analyzePhoneMarkers(i: {
     return {
       label: m.label,
       expected: m.expected,
-      screen: screen === null ? null : screen - i.screenCfr(screen),
+      screen: pcScreenOnset(
+        screen === null ? null : screen - i.screenCfr(screen),
+        m
+      ),
+      flashLateMs: flashLateMs(m),
       audio: onsetNear(i.mic1k, m.expected, 0.002, i.mic2k),
     };
   });

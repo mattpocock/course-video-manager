@@ -22,6 +22,7 @@ import {
   TONE_BIAS_SEC,
   toneSeries,
 } from "./sync.ts";
+import { qrTerminal } from "./qr.ts";
 import { SYSTEM32, toWindowsPath } from "./win.ts";
 
 /** Google Pixel 7a: 1080x2400 portrait. H.264 High + AAC in MP4 plays in Files by Google. */
@@ -317,4 +318,44 @@ export function servePhoneVideo(o: {
       reject(new Error(`phone-serve.ps1 exited (${code}) before it listened`))
     );
   });
+}
+
+/**
+ * ./rig phone: builds (or finds) the phone's marker video and prints its path.
+ * --serve also serves it on the LAN from Windows until <out>/phone/serve.stop
+ * appears, Ctrl-C, or 90 min, printing the URL and a QR code for it.
+ */
+export async function phoneCommand(
+  o: {
+    out: string;
+    serve: boolean;
+    bind?: string;
+    urlFile?: string;
+    port: number;
+  },
+  log: (...a: unknown[]) => void
+) {
+  const { file } = ensurePhoneVideo(o.out, log);
+  if (!o.serve) {
+    console.log(file);
+    return;
+  }
+  const stopFile = path.join(o.out, "phone", "serve.stop");
+  const stop = () => {
+    fs.writeFileSync(stopFile, "");
+  };
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+  const { url, child } = await servePhoneVideo({
+    file,
+    port: o.port,
+    stopFile,
+    maxMinutes: 90,
+    bind: o.bind,
+    onLine: (l) => log(`phone-serve: ${l}`),
+  });
+  if (o.urlFile) fs.writeFileSync(o.urlFile, `${url}\n`);
+  log(`phone video: ${url}`);
+  console.log(qrTerminal(url));
+  await new Promise((r) => child.once("exit", r));
 }

@@ -412,9 +412,9 @@ printf '\n%s%s▸ Summary%s\n' "$BOLD" "$BLUE" "$RESET"
   printf '\n## Every verdict\n'
   for n in 2 3 4 6 7; do
     for d in $(state_get "RUNS_$n"); do
-      [[ -f "$OUT/runs/$d/report.md" ]] || continue
+      [[ -f "$OUT/runs/$d/report.md" || -f "$OUT/runs/$d/meta.json" ]] || continue
       printf '\n### %s · %s\n\n' "${NAMES[$n]}" "$d"
-      sed -n '/^## Stop criteria/,/^## /p' "$OUT/runs/$d/report.md" | grep '^|'
+      ./rig verdict "$OUT/runs/$d" | grep '^|' || true
     done
   done
 } > "$SUMMARY"

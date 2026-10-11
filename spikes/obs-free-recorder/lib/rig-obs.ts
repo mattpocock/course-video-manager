@@ -7,6 +7,7 @@ import type { Meta } from "./analyze.ts";
 import { startCollector } from "./collector.ts";
 import {
   closeObs,
+  isMock,
   launchObs,
   obsCall,
   obsReachable,
@@ -14,8 +15,9 @@ import {
   obsRunning,
   obsUrl,
 } from "./obs.ts";
+import { OBS_SCENES_FILE, obsMicSyncOffset } from "./obs-sync.ts";
 import { startServer } from "./server.ts";
-import { windowsFileCreatedMs, windowsNowMs } from "./win.ts";
+import { SYSTEM32, windowsFileCreatedMs, windowsNowMs } from "./win.ts";
 
 /** What baseline() needs from rig.ts: its flags and the helpers every mode shares. */
 export type BaselineContext = {
@@ -50,6 +52,41 @@ function newestObsFile(obsDir: string, minutes: number): string | undefined {
       (f) => fs.statSync(f).mtimeMs > Date.now() - (minutes + 10) * 60_000
     )
     .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+}
+
+/**
+ * Copies OBS's current scene collection into the baseline, for its per-source
+ * sync offsets (lib/obs-sync.ts): Matt's mic is delayed 150 ms in OBS on
+ * purpose, and lip sync vs OBS has to take that off. Read only; a dry run
+ * (mock OBS) leaves the real OBS's files alone.
+ */
+function saveSceneCollection(runDir: string, log: (...a: unknown[]) => void) {
+  if (isMock()) return;
+  try {
+    const appData = execFileSync(
+      `${SYSTEM32}/cmd.exe`,
+      ["/c", "echo %APPDATA%"],
+      { cwd: "/mnt/c", encoding: "utf8" }
+    ).trim();
+    const dir = path.join(fromWindowsPath(appData), "obs-studio");
+    const ini = ["user.ini", "global.ini"]
+      .map((f) => path.join(dir, f))
+      .filter((f) => fs.existsSync(f))
+      .map((f) => fs.readFileSync(f, "utf8"))
+      .join("\n");
+    const name =
+      /^SceneCollectionFile=(.+?)\s*$/m
+        .exec(ini)?.[1]
+        ?.replace(/\.json$/, "") ?? "Untitled";
+    const out = path.join(runDir, OBS_SCENES_FILE);
+    fs.copyFileSync(path.join(dir, "basic", "scenes", `${name}.json`), out);
+    const o = obsMicSyncOffset(JSON.parse(fs.readFileSync(out, "utf8")));
+    log(`OBS scene collection "${name}" saved: ${o.detail}`);
+  } catch (e) {
+    log(
+      `WARNING: couldn't save OBS's scene collection, so lip sync vs OBS can't take OBS's sync offsets off: ${(e as Error).message}`
+    );
+  }
 }
 
 /**
@@ -112,6 +149,7 @@ export async function baseline(c: BaselineContext) {
     onStopRequest: () => (stop = true),
   });
   process.on("SIGINT", () => (stop = true));
+  saveSceneCollection(runDir, log);
   const collector = startCollector(runDir, () => []);
   obsRequest("StartRecord");
   log(`OBS recording (scene Code) for ${minutes} min`);

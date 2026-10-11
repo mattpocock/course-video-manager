@@ -22,14 +22,16 @@ import {
 } from "./lib/recorder.ts";
 import { startServer } from "./lib/server.ts";
 import { baseline, obs } from "./lib/rig-obs.ts";
-import { ensurePhoneVideo, servePhoneVideo } from "./lib/phone.ts";
+import { phoneCommand } from "./lib/phone.ts";
 import { qrTerminal } from "./lib/qr.ts";
+import { rescoreCommand, verdictCommand, verdictOf } from "./lib/rescore.ts";
 import { runLipSyncProof } from "./lib/lipsync-proof.ts";
 import {
   SYSTEM32,
   closeKioskPage,
   listScreens,
   openKioskPage,
+  printScreens,
   screenByName,
   type Screen,
   allowAnyFfmpeg,
@@ -74,6 +76,9 @@ const { positionals, values: flags } = parseArgs({
     serve: { type: "boolean", default: false },
     bind: { type: "string" },
     "url-file": { type: "string" },
+    // ./rig rescore: where the re-scored reports go, and OBS's scene collection.
+    scratch: { type: "string" },
+    "obs-scenes": { type: "string" },
   },
 });
 const mode = positionals[0];
@@ -472,45 +477,6 @@ function printReport(runDir: string, baselineDir?: string) {
   return r;
 }
 
-function screens() {
-  const wanted = flags["screen-name"]!.toLowerCase();
-  for (const sc of listScreens())
-    log(
-      `output ${sc.idx}: ${sc.name}  ${sc.w}x${sc.h} at ${sc.x},${sc.y}  ${sc.device}${sc.name.toLowerCase().includes(wanted) ? "  <- the rig records this one" : ""}`
-    );
-}
-
-/**
- * ./rig phone: builds (or finds) the phone's marker video and prints its path.
- * --serve also serves it on the LAN from Windows until <out>/phone/serve.stop
- * appears, Ctrl-C, or 90 min, printing the URL and a QR code for it.
- */
-async function phone() {
-  const { file } = ensurePhoneVideo(flags.out!, log);
-  if (!flags.serve) {
-    console.log(file);
-    return;
-  }
-  const stopFile = path.join(flags.out!, "phone", "serve.stop");
-  const stop = () => {
-    fs.writeFileSync(stopFile, "");
-  };
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
-  const { url, child } = await servePhoneVideo({
-    file,
-    port: PORTS.phone,
-    stopFile,
-    maxMinutes: 90,
-    bind: flags.bind,
-    onLine: (l) => log(`phone-serve: ${l}`),
-  });
-  if (flags["url-file"]) fs.writeFileSync(flags["url-file"], `${url}\n`);
-  log(`phone video: ${url}`);
-  console.log(qrTerminal(url));
-  await new Promise((r) => child.once("exit", r));
-}
-
 async function main() {
   switch (mode) {
     case "check": {
@@ -570,10 +536,8 @@ async function main() {
           synthetic: { ...base, realScreen: false },
           openPage: false,
         });
-        const meta = JSON.parse(
-          fs.readFileSync(path.join(crashDir, "meta.json"), "utf8")
-        ) as Meta;
-        const crashPass = !!meta.crash?.pass;
+        // Judged by meta.crash, as the wizard does (lib/rescore.ts runVerdict).
+        const crashPass = verdictOf(crashDir).pass;
         log(`kill -9 recovery: ${crashPass ? "PASS" : "FAIL"}  (${crashDir})`);
         if (!crashPass) failures.push("[crash] kill -9 recovery: FAIL");
       }
@@ -630,7 +594,7 @@ async function main() {
       return;
     }
     case "screens":
-      return screens();
+      return printScreens(flags["screen-name"]!, log);
     case "obs":
       return obs(positionals[1], log);
     case "lipsync-proof":
@@ -651,7 +615,20 @@ async function main() {
       process.exit(fails.length ? 1 : 0);
     }
     case "phone":
-      return phone();
+      return phoneCommand(
+        {
+          out: flags.out!,
+          serve: flags.serve!,
+          bind: flags.bind,
+          urlFile: flags["url-file"],
+          port: PORTS.phone,
+        },
+        log
+      );
+    case "verdict":
+      return verdictCommand(positionals[1]);
+    case "rescore":
+      return rescoreCommand(positionals[1], flags, log);
     case "qr": {
       const text = positionals[1];
       if (!text) throw new Error("usage: ./rig qr <text>");
@@ -660,7 +637,7 @@ async function main() {
     }
     default:
       console.log(
-        "usage: ./rig selftest | check | preflight | baseline | record | crash | analyze <runDir> | screens | obs <verb> | phone [--serve] | qr <text> | lipsync-proof   (see RUN.md)"
+        "usage: ./rig selftest | check | preflight | baseline | record | crash | analyze <runDir> | rescore <runDir> --scratch <dir> | verdict <runDir> | screens | obs <verb> | phone [--serve] | qr <text> | lipsync-proof   (see RUN.md)"
       );
       process.exit(mode ? 1 : 0);
   }

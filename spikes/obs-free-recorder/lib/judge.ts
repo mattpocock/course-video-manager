@@ -3,179 +3,16 @@
 // repro cases (stall-then-burst, steady drift, cancelling errors, lag growth) so
 // a rule that can false-pass is caught without recording anything.
 
-export const LIMIT_MS = 33;
-/** One camera frame at 29.97 fps: how far the CFR saw-tooth may move the camera's offset. */
-export const CAMERA_FRAME_MS = 1000 / (30000 / 1001);
+import { median, r1, stats } from "./stats.ts";
+
+export * from "./stats.ts";
+export * from "./judge-sync.ts";
+
 /** A gap in capture this long is a visible freeze. */
 export const STALL_MS = 100;
 /** How far a rate-locked source (screen) may run from nominal: QPC against the system clock. */
 export const RATE_PPM_TOLERANCE = 100;
 export const LAG_GROWTH_LIMIT_SEC = 0.5;
-
-export const median = (a: number[]) => {
-  const s = [...a].sort((x, y) => x - y);
-  return s.length ? s[Math.floor(s.length / 2)]! : NaN;
-};
-
-export function stats(a: number[]) {
-  const s = a.filter((x) => Number.isFinite(x)).sort((x, y) => x - y);
-  if (!s.length) return null;
-  const q = (p: number) => s[Math.min(s.length - 1, Math.floor(p * s.length))]!;
-  return {
-    avg: s.reduce((x, y) => x + y, 0) / s.length,
-    p50: q(0.5),
-    p95: q(0.95),
-    p99: q(0.99),
-    max: s[s.length - 1]!,
-    n: s.length,
-  };
-}
-
-const r1 = (x: number) => Math.round(x * 10) / 10;
-
-// ---------- sync ----------
-
-export type SyncPair = {
-  n: number;
-  medianMs: number | null;
-  maxDevMs: number | null;
-  rangeMs: number | null;
-  /** Fitted offset change from the first marker to the last: the drift. */
-  trendMs: number | null;
-};
-
-/** Offsets (ms) at each marker time (s) → median, spread and linear trend. */
-export function driftStats(pts: { t: number; v: number }[]): SyncPair {
-  if (pts.length < 2)
-    return {
-      n: pts.length,
-      medianMs: pts[0]?.v ?? null,
-      maxDevMs: null,
-      rangeMs: null,
-      trendMs: null,
-    };
-  const vals = pts.map((p) => p.v);
-  const med = median(vals);
-  const mt = pts.reduce((a, p) => a + p.t, 0) / pts.length;
-  const mv = pts.reduce((a, p) => a + p.v, 0) / pts.length;
-  const slope =
-    pts.reduce((a, p) => a + (p.t - mt) * (p.v - mv), 0) /
-    (pts.reduce((a, p) => a + (p.t - mt) ** 2, 0) || 1);
-  return {
-    n: pts.length,
-    medianMs: r1(med),
-    maxDevMs: r1(Math.max(...vals.map((v) => Math.abs(v - med)))),
-    rangeMs: r1(Math.max(...vals) - Math.min(...vals)),
-    trendMs: r1(slope * (pts[pts.length - 1]!.t - pts[0]!.t)),
-  };
-}
-
-/**
- * Drift is judged two ways, both against 33 ms:
- *  - steady drift: |linear trend over the run| (the plan's "offset at t=0, 15
- *    and 30 min"). A deviation-from-median rule alone lets 0→66 ms pass.
- *  - jumps: every marker within 33 ms of the median.
- * `sawtoothMs` is extra room for a CFR saw-tooth that could not be removed
- * (OBS files in the baseline): the CFR step drops or repeats a whole frame
- * when a device clock runs fast or slow, so the offset ramps through up to one
- * frame and snaps back, which looks like trend over a short run. Rig files
- * have it removed per marker (cfrShift), so they get no extra room.
- */
-export function syncVerdict(d: SyncPair, sawtoothMs = 0): string {
-  if (d.n < 3) return `n/a (${d.n} markers found, need 3)`;
-  const limit = LIMIT_MS + sawtoothMs;
-  const why: string[] = [];
-  if (Math.abs(d.trendMs!) > limit) why.push(`trend ${d.trendMs} ms`);
-  if (d.maxDevMs! > limit) why.push(`jump ${d.maxDevMs} ms`);
-  return why.length ? `FAIL (${why.join(", ")})` : "PASS";
-}
-
-/**
- * How far the CFR step moved the frame captured nearest file time t: fps=N
- * puts a frame that arrived at a into slot round(a·N)/N. Subtracting it turns a
- * file-time onset back into a capture-time onset, which removes the camera's
- * saw-tooth (bounded by ±½ frame) and leaves only real drift. `pts` sorted.
- */
-export function cfrShift(pts: number[], fps: number, t: number): number {
-  if (!pts.length) return 0;
-  let lo = 0;
-  let hi = pts.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (pts[mid]! < t) lo = mid;
-    else hi = mid;
-  }
-  const a =
-    Math.abs(pts[lo]! - t) <= Math.abs(pts[hi]! - t) ? pts[lo]! : pts[hi]!;
-  return Math.round(a * fps) / fps - a;
-}
-
-export type MarkerRow = {
-  expected: number;
-  camMinusScreenMs: number | null;
-  audioMinusScreenMs: number | null;
-  audioMinusCameraMs: number | null;
-};
-
-export function judgeSync(rows: MarkerRow[], opts = { cfrRemoved: true }) {
-  const pair = (
-    key: "camMinusScreenMs" | "audioMinusScreenMs" | "audioMinusCameraMs"
-  ) =>
-    driftStats(
-      rows
-        .filter((r) => r[key] !== null)
-        .map((r) => ({ t: r.expected, v: r[key] as number }))
-    );
-  const sync = {
-    camMinusScreen: pair("camMinusScreenMs"),
-    audioMinusScreen: pair("audioMinusScreenMs"),
-    audioMinusCamera: pair("audioMinusCameraMs"),
-  };
-  const camRoom = opts.cfrRemoved ? 0 : CAMERA_FRAME_MS;
-  return {
-    sync,
-    verdicts: {
-      "A/V drift <= 33 ms": syncVerdict(sync.audioMinusScreen),
-      "camera/screen drift <= 33 ms": syncVerdict(sync.camMinusScreen, camRoom),
-      "lip sync (audio/camera) drift <= 33 ms": syncVerdict(
-        sync.audioMinusCamera,
-        camRoom
-      ),
-    },
-  };
-}
-
-/**
- * Absolute lip sync against today's OBS, without a clap. In both runs the
- * camera sees the same phone's flash and the mic hears the same phone's 2 kHz
- * beep, so the phone's own A/V offset (its display against its speaker) is
- * identical and cancels: the difference of the two runs' median audio - camera
- * offsets is the rig's lip-sync error relative to OBS. (One run's median alone
- * is not lip sync: it includes the phone's offset.)
- * The OBS file shows the camera only at its 60 fps canvas ticks and has no
- * arrival stamps, so its camera onset lands up to one canvas frame late: the
- * limit gets that frame of room (`./rig lipsync-proof` measured 15–18 ms).
- */
-export const OBS_CANVAS_FRAME_MS = 1000 / 60;
-
-export function lipSyncVsObs(
-  rigMedianMs: number | null | undefined,
-  obsMedianMs: number | null | undefined
-): { deltaMs: number | null; verdict: string } {
-  if (rigMedianMs == null || obsMedianMs == null)
-    return {
-      deltaMs: null,
-      verdict: `n/a (${obsMedianMs == null ? "no baseline audio - camera median" : "no audio - camera median in this run"})`,
-    };
-  const deltaMs = r1(rigMedianMs - obsMedianMs);
-  return {
-    deltaMs,
-    verdict:
-      Math.abs(deltaMs) <= LIMIT_MS + OBS_CANVAS_FRAME_MS
-        ? `PASS (${deltaMs} ms vs OBS)`
-        : `FAIL (${deltaMs} ms vs OBS)`,
-  };
-}
 
 // ---------- preflight (camera and mic, before the long runs) ----------
 
@@ -380,6 +217,12 @@ export function arrivalsFromPts(
   const kMax = Math.max(...ks);
   let dropped = 0;
   for (const c of slots.values()) dropped += c - 1;
+  const repeated = kMax - kMin + 1 - slots.size;
+  // Each output slot left empty next to one holding two inputs is a visible
+  // judder: a frame shown twice, its neighbour never shown.
+  const judderPairs = Math.min(repeated, dropped);
+  const outSlots = kMax - kMin + 1;
+  const spanMin = (pts[n - 1]! - pts[s0]!) / 60;
   return {
     frames: n,
     firstArrival: pts[0]!,
@@ -402,14 +245,30 @@ export function arrivalsFromPts(
     judder: {
       intervalsOver1_5x: steady.filter((ms) => ms > 1.5 * nominalT * 1000)
         .length,
-      cfrRepeatedEst: kMax - kMin + 1 - slots.size,
+      cfrRepeatedEst: repeated,
       cfrDroppedEst: dropped,
+      /** Repeat + drop pairs as a share of output frames (%): the judder metric. */
+      pct: Math.round((judderPairs / outSlots) * 10000) / 100,
+      perMin: spanMin > 0 ? r1(judderPairs / spanMin) : 0,
     },
     intervalMs: stats(intervals.slice(s0)),
   };
 }
 
 export type Arrivals = NonNullable<ReturnType<typeof arrivalsFromPts>>;
+
+/**
+ * Screen judder, reported and not judged. The screen's frames are stamped when
+ * ffmpeg reads them, not when ddagrab captured them, and the CFR step puts two
+ * that land in one 60 fps slot into it (one dropped) and leaves the next slot
+ * empty (one repeated): a visible stutter on anything moving. There's no
+ * threshold to hold it to yet: the OBS baseline has no arrival stamps, so its
+ * figure can't be measured the same way.
+ */
+export function judderNote(a: Arrivals | null): string {
+  if (!a) return "n/a (no arrival data)";
+  return `${a.judder.pct}% of output frames (${a.judder.perMin}/min) repeated with a neighbour dropped; not judged: no OBS figure to hold it to`;
+}
 
 /**
  * How far a recorder fell behind real time: the Windows wall time when ffmpeg
