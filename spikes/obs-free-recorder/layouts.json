@@ -1,0 +1,110 @@
+{
+  "_note": "Derived from OBS scene collection 'Untitled' (profile Landscape Recording, canvas 1920x1080). Items are bottom-to-top, as in OBS. crop is a fraction of the source frame (OBS crop px / source px, with the Cam Link at 3840x2160 and the DELL at 1920x1080), so it holds for the 2560x1440 recording and the 640x360 preview alike. dest is canvas pixels: OBS pos and (cropped size x scale). All items use OBS align 5 (top-left), no rotation, no bounds. Items fully off-canvas are kept so the layout stays a faithful copy of OBS.",
+  "canvas": {
+    "w": 1920,
+    "h": 1080
+  },
+  "scenes": {
+    "Camera": [
+      {
+        "source": "screen",
+        "crop": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 0.5,
+          "h": 1.0
+        },
+        "dest": {
+          "x": -1024,
+          "y": -18,
+          "w": 1024.0,
+          "h": 1152.0
+        }
+      },
+      {
+        "source": "camera",
+        "crop": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        },
+        "dest": {
+          "x": 2,
+          "y": 2,
+          "w": 1920.0,
+          "h": 1080.0
+        }
+      }
+    ],
+    "Code": [
+      {
+        "source": "screen",
+        "crop": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        },
+        "dest": {
+          "x": 0,
+          "y": 0,
+          "w": 1920,
+          "h": 1080
+        }
+      },
+      {
+        "source": "camera",
+        "crop": {
+          "x": 0.31875,
+          "y": 0.0,
+          "w": 0.370833,
+          "h": 0.961111
+        },
+        "dest": {
+          "x": 1429,
+          "y": 364,
+          "w": 490.96,
+          "h": 716.03
+        }
+      }
+    ],
+    "No Face": [
+      {
+        "source": "screen",
+        "crop": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        },
+        "dest": {
+          "x": 0,
+          "y": 0,
+          "w": 1920,
+          "h": 1080
+        }
+      },
+      {
+        "source": "camera",
+        "crop": {
+          "x": 0.266667,
+          "y": 0.063889,
+          "w": 0.371615,
+          "h": 0.897222
+        },
+        "dest": {
+          "x": 1920,
+          "y": 521,
+          "w": 412.0,
+          "h": 559.0
+        }
+      }
+    ]
+  },
+  "keys": {
+    "1": "Camera",
+    "2": "Code",
+    "3": "No Face"
+  }
+}
