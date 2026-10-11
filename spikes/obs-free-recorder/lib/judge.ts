@@ -145,6 +145,38 @@ export function judgeSync(rows: MarkerRow[], opts = { cfrRemoved: true }) {
   };
 }
 
+/**
+ * Absolute lip sync against today's OBS, without a clap. In both runs the
+ * camera sees the same DELL flash and the mic hears the same speaker beep, so
+ * the display and speaker latencies are identical and cancel: the difference
+ * of the two runs' median audio - camera offsets is the rig's lip-sync error
+ * relative to OBS. (One run's median alone is not lip sync: it includes the
+ * monitor's and the speakers' own latency.)
+ * The OBS file shows the camera only at its 60 fps canvas ticks and has no
+ * arrival stamps, so its camera onset lands up to one canvas frame late: the
+ * limit gets that frame of room (`./rig lipsync-proof` measured ~15 ms).
+ */
+export const OBS_CANVAS_FRAME_MS = 1000 / 60;
+
+export function lipSyncVsObs(
+  rigMedianMs: number | null | undefined,
+  obsMedianMs: number | null | undefined
+): { deltaMs: number | null; verdict: string } {
+  if (rigMedianMs == null || obsMedianMs == null)
+    return {
+      deltaMs: null,
+      verdict: `n/a (${obsMedianMs == null ? "no baseline audio - camera median" : "no audio - camera median in this run"})`,
+    };
+  const deltaMs = r1(rigMedianMs - obsMedianMs);
+  return {
+    deltaMs,
+    verdict:
+      Math.abs(deltaMs) <= LIMIT_MS + OBS_CANVAS_FRAME_MS
+        ? `PASS (${deltaMs} ms vs OBS)`
+        : `FAIL (${deltaMs} ms vs OBS)`,
+  };
+}
+
 // ---------- frames ----------
 
 /**

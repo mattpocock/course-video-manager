@@ -14,6 +14,10 @@
 //       T end of take (saves the ghost frame) · G ghost overlay · Q stop
 //
 // Baseline mode (?baseline=1): the composite is OBS Virtual Camera instead.
+// Unattended (?auto=1): starts without the click (the rig opens it in a kiosk
+// Chrome that may play sound unprompted) and, when recording, does what Matt's
+// keys did: switches scenes every 90 s, and 5 min in saves the ghost frame (T)
+// and shows it (G) for 30 s.
 
 const BITS = 24;
 const MOD = 2 ** BITS;
@@ -22,6 +26,7 @@ const CELL = 24; // physical pixels per cell on the captured monitor
 
 const params = new URLSearchParams(location.search);
 const baseline = params.has("baseline");
+const auto = params.has("auto");
 const config = await (await fetch("/config")).json();
 const layouts = config.layouts;
 const $ = (id) => document.getElementById(id);
@@ -343,6 +348,13 @@ async function loadGhost() {
   state.ghostImg = await createImageBitmap(await res.blob());
 }
 
+async function saveGhost() {
+  const blob = await new Promise((r) => $("composite").toBlob(r, "image/png"));
+  await fetch("/ghost", { method: "POST", body: blob });
+  post({ type: "take-end" });
+  state.ghostImg = await createImageBitmap(blob);
+}
+
 function setScene(scene) {
   state.scene = scene;
   post({ type: "scene", scene });
@@ -361,19 +373,11 @@ addEventListener("keydown", async (e) => {
     return flashNow("manual");
   }
   if (key === "g") return (state.ghost = !state.ghost);
-  if (key === "t") {
-    const blob = await new Promise((r) =>
-      $("composite").toBlob(r, "image/png")
-    );
-    await fetch("/ghost", { method: "POST", body: blob });
-    post({ type: "take-end" });
-    state.ghostImg = await createImageBitmap(blob);
-    return;
-  }
+  if (key === "t") return saveGhost();
   if (key === "q" && confirm("Stop the recording?")) post({ type: "stop" });
 });
 
-$("start").addEventListener("click", async () => {
+async function startPage() {
   $("start").remove();
   await document.documentElement.requestFullscreen().catch(() => {});
   state.audio = new AudioContext();
@@ -386,9 +390,35 @@ $("start").addEventListener("click", async () => {
   }
   post({
     type: "page-start",
+    auto,
+    audio: state.audio.state,
     screen: { w: screen.width, h: screen.height, dpr },
+    window: { x: screenX, y: screenY },
   });
-});
+  if (auto && !baseline) autoPilot();
+}
+
+// The keys Matt pressed by hand in a record run, on a timer.
+function autoPilot() {
+  const scenes = Object.entries(layouts.keys);
+  let i = 0;
+  setInterval(() => {
+    i = (i + 1) % scenes.length;
+    setScene(scenes[i][1]);
+  }, 90_000);
+  setTimeout(async () => {
+    await saveGhost();
+    state.ghost = true;
+    post({ type: "ghost", on: true });
+    setTimeout(() => {
+      state.ghost = false;
+      post({ type: "ghost", on: false });
+    }, 30_000);
+  }, 300_000);
+}
+
+if (auto) startPage();
+else $("start").addEventListener("click", startPage);
 
 if (baseline) openVirtualCam().catch((e) => alert(e.message));
 else {

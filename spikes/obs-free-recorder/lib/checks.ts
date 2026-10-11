@@ -6,6 +6,7 @@ import {
   cfrShift,
   frameVerdicts,
   judgeSync,
+  lipSyncVsObs,
   lagFromRows,
   passed,
   previewVerdict,
@@ -252,6 +253,24 @@ const cases: Case[] = [
       },
     ];
   })(),
+  // ---- lip sync against OBS, the clap's replacement (unattended run) ----
+  {
+    name: "H2: rig's audio - camera median 12 ms off OBS's passes lip sync vs OBS",
+    ok: () =>
+      passed(lipSyncVsObs(-38, -50).verdict) ||
+      JSON.stringify(lipSyncVsObs(-38, -50)),
+  },
+  {
+    name: "H2: rig's audio - camera median 60 ms off OBS's fails lip sync vs OBS",
+    ok: () =>
+      (!passed(lipSyncVsObs(10, -50).verdict) &&
+        lipSyncVsObs(10, -50).deltaMs === 60) ||
+      JSON.stringify(lipSyncVsObs(10, -50)),
+  },
+  {
+    name: "H2: no baseline median is n/a, not a pass",
+    ok: () => lipSyncVsObs(-5, null).verdict.startsWith("n/a"),
+  },
   // ---- preview (M2) ----
   {
     name: "M2: 0 preview frames fails",

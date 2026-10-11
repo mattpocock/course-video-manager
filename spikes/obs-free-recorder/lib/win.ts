@@ -267,3 +267,119 @@ export function raiseFfmpegTimerResolution(
     );
   });
 }
+
+export type Screen = {
+  idx: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  device: string;
+  name: string;
+};
+
+/**
+ * The outputs ddagrab can capture (its output_idx order), each with its
+ * monitor's EDID name, from lib/screens.ps1. Metadata only: nothing is captured.
+ */
+export function listScreens(): Screen[] {
+  const out = execFileSync(
+    `${SYSTEM32}/WindowsPowerShell/v1.0/powershell.exe`,
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      toWindowsPath(path.join(import.meta.dirname, "screens.ps1")),
+    ],
+    { encoding: "utf8", cwd: "/mnt/c" }
+  );
+  return out
+    .replace(/\r/g, "")
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [idx, x, y, w, h, device, name] = l.split("\t");
+      return {
+        idx: Number(idx),
+        x: Number(x),
+        y: Number(y),
+        w: Number(w),
+        h: Number(h),
+        device: device!,
+        name: name ?? "?",
+      };
+    });
+}
+
+/** The screen whose monitor name contains `wanted` (case-insensitive). Throws, listing what it found, if none does. */
+export function screenByName(wanted: string): Screen {
+  const screens = listScreens();
+  const hit = screens.find((s) =>
+    s.name.toLowerCase().includes(wanted.toLowerCase())
+  );
+  if (!hit)
+    throw new Error(
+      `No screen named "${wanted}". Found: ${screens.map((s) => `${s.idx} ${s.name}`).join(", ") || "none"}`
+    );
+  return hit;
+}
+
+const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+/** The kiosk profile folder name; also how closeKioskPage finds only the rig's Chrome processes. */
+const KIOSK_PROFILE = "chrome-kiosk";
+
+/**
+ * Opens `url` fullscreen (kiosk) on `screen` in a separate Chrome profile, so
+ * Matt's own Chrome is untouched and the flags apply: sound without a click
+ * (the sync beep), and camera access without a permission prompt (the
+ * baseline page reads OBS Virtual Camera). The window is placed at the
+ * monitor's centre so kiosk fullscreens on that monitor.
+ */
+export function openKioskPage(url: string, screen: Screen, outDir: string) {
+  closeKioskPage();
+  const profileDir = path.join(outDir, KIOSK_PROFILE);
+  fs.mkdirSync(profileDir, { recursive: true });
+  const args = [
+    `--user-data-dir=${toWindowsPath(profileDir)}`,
+    "--kiosk",
+    `--window-position=${screen.x + Math.round(screen.w / 2) - 400},${screen.y + Math.round(screen.h / 2) - 300}`,
+    "--window-size=800,600",
+    "--autoplay-policy=no-user-gesture-required",
+    "--use-fake-ui-for-media-stream",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-session-crashed-bubble",
+    "--disable-features=Translate,MediaRouter",
+    "--new-window",
+    url,
+  ];
+  const child = spawn(`/mnt/c${CHROME.slice(2).replace(/\\/g, "/")}`, args, {
+    cwd: "/mnt/c",
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+}
+
+/** Closes the kiosk Chrome (WM_CLOSE, then a force-kill after 10 s). Only the rig's own profile. */
+export function closeKioskPage() {
+  try {
+    execFileSync(
+      `${SYSTEM32}/WindowsPowerShell/v1.0/powershell.exe`,
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `$ps = @(Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*--user-data-dir=*${KIOSK_PROFILE}*' }); ` +
+          "foreach ($p in $ps) { $g = Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue; if ($g -and $g.MainWindowHandle -ne 0) { [void]$g.CloseMainWindow() } }; " +
+          "for ($i = 0; $i -lt 20 -and @($ps | Where-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }).Count; $i++) { Start-Sleep -Milliseconds 500 }; " +
+          "foreach ($p in $ps) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }",
+      ],
+      { cwd: "/mnt/c", stdio: "ignore", timeout: 30_000 }
+    );
+  } catch {
+    /* nothing to close */
+  }
+}

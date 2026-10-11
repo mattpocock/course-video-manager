@@ -15,6 +15,7 @@ import {
   cfrShift,
   frameVerdicts,
   judgeSync,
+  lipSyncVsObs,
   lagFromRows,
   median,
   previewVerdict,
@@ -310,8 +311,6 @@ export function analyze(runDir: string, baselineDir?: string): Report {
     JSON.stringify(report, null, 2)
   );
   fs.writeFileSync(path.join(runDir, "report.md"), toMarkdown(report));
-  if (report.mode === "record" || report.mode === "crash")
-    clapSheets(runDir, report.durationSec, report.micStart);
   return report;
 }
 
@@ -413,6 +412,19 @@ function buildReport(runDir: string, baselineDir?: string) {
   const { sync, verdicts: syncVerdicts } = judgeSync(rows, {
     cfrRemoved: !isBaseline,
   });
+  // Unattended, nobody is watching the page: a run whose markers never landed
+  // (page didn't start, camera doesn't see the DELL, mic doesn't hear the
+  // beep) must fail, not read n/a.
+  const unattended =
+    !meta.synthetic && (meta.mode === "record" || meta.mode === "baseline");
+  if (unattended) {
+    for (const [k, v] of Object.entries(syncVerdicts)) {
+      if (v.startsWith("n/a"))
+        (syncVerdicts as Record<string, string>)[k] =
+          `FAIL (${v.slice(5, -1)}: does the camera see the DELL, and the mic hear the beep?)`;
+    }
+  }
+  const pageStart = events.find((e) => e.type === "page-start");
 
   // Frames. Both files are CFR, so loss is judged on arrival timing before the
   // CFR step. The screen (ddagrab, or the synthetic screen) is paced by the
@@ -478,6 +490,17 @@ function buildReport(runDir: string, baselineDir?: string) {
 
   const resources = perf(runDir, meta.logicalCpus || 32);
   let baseline: ReturnType<typeof perf> | null = null;
+  // The baseline's own audio - camera median, for lip sync vs OBS (no clap needed).
+  const baselineReport =
+    baselineDir && fs.existsSync(path.join(baselineDir, "report.json"))
+      ? (JSON.parse(
+          fs.readFileSync(path.join(baselineDir, "report.json"), "utf8")
+        ) as { sync?: { audioMinusCamera?: { medianMs: number | null } } })
+      : null;
+  const lipSync = lipSyncVsObs(
+    sync.audioMinusCamera.medianMs,
+    baselineReport?.sync?.audioMinusCamera?.medianMs
+  );
   if (baselineDir && fs.existsSync(path.join(baselineDir, "meta.json"))) {
     const bm = JSON.parse(
       fs.readFileSync(path.join(baselineDir, "meta.json"), "utf8")
@@ -493,6 +516,7 @@ function buildReport(runDir: string, baselineDir?: string) {
         gpu: ratio(resources.gpuPct, baseline.gpuPct),
         nvenc: ratio(resources.nvencPct, baseline.nvencPct),
         recorderProcessCpu: ratio(resources.cpuFfmpegPct, baseline.cpuObsPct),
+        lipSyncVsObsMs: lipSync.deltaMs,
       }
     : null;
 
@@ -520,6 +544,16 @@ function buildReport(runDir: string, baselineDir?: string) {
     "<= 25 GB/h":
       gbPerHour === null ? "n/a" : gbPerHour <= 25 ? "PASS" : "FAIL",
   };
+  if (meta.mode === "record")
+    verdicts[
+      "lip sync vs OBS (audio - camera median within 33 ms + 1 OBS frame of the baseline's)"
+    ] = lipSync.verdict;
+  if (unattended)
+    verdicts["page started unattended, sound on"] = !pageStart
+      ? "FAIL (the page never started: no page-start event)"
+      : pageStart.audio && pageStart.audio !== "running"
+        ? `FAIL (sound ${String(pageStart.audio)}: the beep can't play)`
+        : "PASS";
   if (meta.crash)
     verdicts["kill -9 recovery (<= 2 s lost)"] = meta.crash.pass
       ? "PASS"
@@ -569,71 +603,4 @@ function buildReport(runDir: string, baselineDir?: string) {
     ),
   };
   return report;
-}
-
-// Matt claps on camera at the start and end. The loudest transient in the
-// first/last 2 minutes is found in the mic file, and a strip of camera frames
-// around it is saved so the hands-meet frame can be read off by eye.
-function clapSheets(runDir: string, duration: number, micStart: number) {
-  for (const [name, from] of [
-    ["start", 0],
-    ["end", Math.max(0, duration - 120)],
-  ] as const) {
-    const { stdout } = ffmpeg(
-      // High-pass at 3 kHz: a clap is broadband, the sync beep is a pure 1 kHz tone.
-      [
-        "-ss",
-        String(from),
-        "-t",
-        "120",
-        "-i",
-        FILES.mic,
-        "-ac",
-        "1",
-        "-ar",
-        "16000",
-        "-af",
-        "highpass=f=3000:poles=2,highpass=f=3000:poles=2",
-        "-f",
-        "s16le",
-        "-",
-      ],
-      runDir
-    );
-    let best = 0;
-    let at = -1;
-    for (let i = 0; i < stdout.length >> 1; i++) {
-      const v = Math.abs(stdout.readInt16LE(i * 2));
-      if (v > best) {
-        best = v;
-        at = i;
-      }
-    }
-    if (at < 0) continue;
-    const t = micStart + from + at / 16000;
-    fs.writeFileSync(
-      path.join(runDir, `clap-${name}.txt`),
-      `loudest transient at file time ${t.toFixed(3)} s\n`
-    );
-    ffmpeg(
-      [
-        "-copyts",
-        "-ss",
-        String(Math.max(0, t - 0.2)),
-        "-i",
-        FILES.camera,
-        "-frames:v",
-        "1",
-        "-fps_mode",
-        "passthrough",
-        "-vf",
-        "scale=320:-2,drawtext=text='%{pts\\:hms}':x=4:y=4:fontsize=18:fontcolor=yellow:box=1,tile=13x1:padding=2",
-        "-update",
-        "1",
-        "-y",
-        `clap-${name}.png`,
-      ],
-      runDir
-    );
-  }
 }

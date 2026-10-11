@@ -21,12 +21,26 @@ import {
 } from "./lib/recorder.ts";
 import { startServer } from "./lib/server.ts";
 import {
+  closeObs,
+  launchObs,
+  obsCall,
+  obsReachable,
+  obsRequest,
+  obsRunning,
+  obsUrl,
+} from "./lib/obs.ts";
+import { runLipSyncProof } from "./lib/lipsync-proof.ts";
+import {
   SYSTEM32,
+  closeKioskPage,
+  listScreens,
+  openKioskPage,
+  screenByName,
+  type Screen,
   allowAnyFfmpeg,
   killWindowsFfmpeg,
   raiseFfmpegTimerResolution,
   listDshowDevices,
-  openInWindowsBrowser,
   startWindowsClock,
   windowsFileCreatedMs,
   windowsNowMs,
@@ -45,7 +59,11 @@ const { positionals, values: flags } = parseArgs({
     "kill-at": { type: "string" },
     period: { type: "string" },
     "flash-every": { type: "string", default: "2" },
-    screen: { type: "string", default: "0" },
+    // The DELL is found by its monitor name; --screen N forces an output index.
+    screen: { type: "string" },
+    "screen-name": { type: "string", default: "DELL U2424H" },
+    // Tests only: never open the Chrome page (the baseline page opens a camera).
+    "no-page": { type: "boolean", default: false },
     camera: { type: "string", default: "Cam Link 4K" },
     mic: { type: "string", default: "Voicemeeter Out B1" },
     baseline: { type: "string" },
@@ -72,13 +90,47 @@ const track = <T extends ChildProcess | undefined>(c: T): T => {
   if (c) children.add(c);
   return c;
 };
+let kioskOpen = false;
 process.on("exit", () => {
   for (const c of children) if (c.exitCode === null) c.kill();
+  if (kioskOpen) closeKioskPage();
 });
 
 const log = (...a: unknown[]) =>
   console.log(`[rig ${new Date().toISOString().slice(11, 19)}]`, ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+let resolvedScreen: Screen | undefined;
+/** The captured monitor: --screen N, else the one named --screen-name (the DELL). */
+function theScreen(): Screen {
+  if (resolvedScreen) return resolvedScreen;
+  if (flags.screen !== undefined) {
+    const s = listScreens().find((x) => x.idx === Number(flags.screen));
+    if (!s) throw new Error(`No screen with index ${flags.screen}`);
+    resolvedScreen = s;
+  } else {
+    resolvedScreen = screenByName(flags["screen-name"]!);
+  }
+  log(
+    `screen ${resolvedScreen.idx}: ${resolvedScreen.name} (${resolvedScreen.w}x${resolvedScreen.h} at ${resolvedScreen.x},${resolvedScreen.y})`
+  );
+  return resolvedScreen;
+}
+
+/** Opens the preview page fullscreen on the DELL, no click needed (lib/win.ts). */
+function openPage(query: string) {
+  if (flags["no-page"]) {
+    log(`--no-page: not opening ${URL_BASE}${query}`);
+    return;
+  }
+  openKioskPage(`${URL_BASE}${query}`, theScreen(), flags.out!);
+  kioskOpen = true;
+}
+function closePage() {
+  if (!kioskOpen) return;
+  closeKioskPage();
+  kioskOpen = false;
+}
 
 function newRunDir(kind: string) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -145,7 +197,7 @@ async function record(plan: RecordPlan): Promise<string> {
     generators = (
       await startSyntheticSources(
         plan.synthetic,
-        Number(flags.screen),
+        plan.synthetic.realScreen ? theScreen().idx : 0,
         (name, line) =>
           fs.appendFileSync(path.join(runDir, `synthetic-${name}.log`), line)
       )
@@ -196,7 +248,8 @@ async function record(plan: RecordPlan): Promise<string> {
   const args = buildArgs({
     t0Ms,
     tag,
-    screenIdx: Number(flags.screen),
+    screenIdx:
+      plan.synthetic && !plan.synthetic.realScreen ? 0 : theScreen().idx,
     camera,
     mic,
     synthetic: plan.synthetic,
@@ -254,13 +307,13 @@ async function record(plan: RecordPlan): Promise<string> {
   );
   const screenPreview = track(
     !plan.synthetic || plan.synthetic.realScreen
-      ? startScreenPreview(Number(flags.screen), PORTS.screen, (c) =>
+      ? startScreenPreview(theScreen().idx, PORTS.screen, (c) =>
           screenPreviewLog.write(c)
         )
       : undefined
   );
   log(`recording to ${runDir}`);
-  if (plan.openPage) openInWindowsBrowser(URL_BASE);
+  if (plan.openPage) openPage("?auto=1");
   else log(`preview: ${URL_BASE}`);
 
   await sleep(3000);
@@ -348,6 +401,7 @@ async function record(plan: RecordPlan): Promise<string> {
       )
     );
   }
+  closePage();
   collector.stop();
   server.close();
   for (const p of procs) p.logStream.end();
@@ -372,8 +426,58 @@ function printReport(runDir: string, baselineDir?: string) {
   return r;
 }
 
+/** A Windows path OBS reports (D:\\raw-footage\\x.mkv) as a WSL path. */
+const fromWindowsPath = (p: string) =>
+  execFileSync("wslpath", ["-u", p], { encoding: "utf8" }).trim();
+
+/** The newest .mkv/.mp4 in --obs-dir: only if OBS's StopRecord gave no path. */
+function newestObsFile(minutes: number): string | undefined {
+  const obsDir = flags["obs-dir"]!;
+  if (!fs.existsSync(obsDir)) return undefined;
+  return fs
+    .readdirSync(obsDir)
+    .filter((f) => /\.(mkv|mp4)$/i.test(f))
+    .map((f) => path.join(obsDir, f))
+    .filter(
+      (f) => fs.statSync(f).mtimeMs > Date.now() - (minutes + 10) * 60_000
+    )
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+}
+
+/**
+ * Today's OBS, measured with nobody at the desk: launch OBS if needed, set
+ * Matt's landscape profile, the Code scene and the Virtual Camera (the page's
+ * preview), record through obs-websocket for --minutes, stop, and wait for the
+ * file. OBS is left running; ./rig obs close closes it.
+ */
 async function baseline() {
   const minutes = Number(flags.minutes ?? 30);
+  const { url, from } = obsUrl();
+  log(`OBS websocket ${url} (${from})`);
+  log(`OBS: ${await launchObs(log)}`);
+  const [profiles, rec, vcam] = obsCall(
+    { requestType: "GetProfileList" },
+    { requestType: "GetRecordStatus" },
+    { requestType: "GetVirtualCamStatus" }
+  );
+  if (rec?.data?.outputActive) {
+    log("OBS was already recording: stopping that recording first");
+    obsRequest("StopRecord");
+    await sleep(2000);
+  }
+  const LANDSCAPE = "Landscape Recording"; // CVM's profile for landscape videos (ensure-obs-profile.ts)
+  const profileList = (profiles?.data?.profiles ?? []) as string[];
+  if (
+    profileList.includes(LANDSCAPE) &&
+    profiles?.data?.currentProfileName !== LANDSCAPE
+  ) {
+    obsRequest("SetCurrentProfile", { profileName: LANDSCAPE });
+    await sleep(3000);
+  }
+  obsRequest("SetCurrentProgramScene", { sceneName: "Code" });
+  if (!vcam?.data?.outputActive) obsRequest("StartVirtualCam");
+  await sleep(2000);
+
   const runDir = newRunDir("baseline");
   const t0Ms = windowsNowMs();
   const meta: Meta = {
@@ -398,32 +502,45 @@ async function baseline() {
   });
   process.on("SIGINT", () => (stop = true));
   const collector = startCollector(runDir, () => []);
-  openInWindowsBrowser(`${URL_BASE}?baseline=1`);
-  log(
-    `baseline for ${minutes} min. In OBS now: scene "Code", Start Virtual Camera, Start Recording.`
-  );
+  obsRequest("StartRecord");
+  log(`OBS recording (scene Code) for ${minutes} min`);
+  openPage("?baseline=1&auto=1");
   const until = Date.now() + minutes * 60_000;
-  while (!stop && Date.now() < until) await sleep(1000);
+  let lastPrint = Date.now();
+  while (!stop && Date.now() < until) {
+    await sleep(1000);
+    if (Date.now() - lastPrint > 60_000) {
+      lastPrint = Date.now();
+      log(`baseline ${Math.round((until - Date.now()) / 60_000)} min to go`);
+    }
+  }
   collector.stop();
   server.close();
   meta.endedWallMs = windowsNowMs();
-  log(">>> Stop Recording in OBS now. Waiting for the file to settle…");
-
-  const obsDir = flags["obs-dir"]!;
   let file: string | undefined;
-  for (;;) {
-    const candidates = fs
-      .readdirSync(obsDir)
-      .filter((f) => /\.(mkv|mp4)$/i.test(f))
-      .map((f) => path.join(obsDir, f))
-      .filter(
-        (f) => fs.statSync(f).mtimeMs > Date.now() - (minutes + 10) * 60_000
-      )
-      .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-    file = candidates[0];
-    if (file && Date.now() - fs.statSync(file).mtimeMs > 5000) break;
-    await sleep(2000);
+  try {
+    const out = obsRequest("StopRecord");
+    if (typeof out.outputPath === "string" && out.outputPath)
+      file = fromWindowsPath(out.outputPath);
+    log(`OBS stopped recording: ${out.outputPath ?? "(no path given)"}`);
+  } catch (e) {
+    log(`StopRecord failed: ${(e as Error).message}`);
   }
+  closePage();
+  // Wait for the file to exist and stop growing (OBS finishes writing after StopRecord).
+  let lastSize = -1;
+  let stableSince = Date.now();
+  for (const deadline = Date.now() + 120_000; Date.now() < deadline;) {
+    file ??= newestObsFile(minutes);
+    const size = file && fs.existsSync(file) ? fs.statSync(file).size : -1;
+    if (size !== lastSize) {
+      lastSize = size;
+      stableSince = Date.now();
+    } else if (size >= 0 && Date.now() - stableSince > 5000) break;
+    await sleep(1000);
+  }
+  if (!file || !fs.existsSync(file))
+    throw new Error("OBS's recording never appeared (StopRecord gave no file)");
   meta.obsFile = file;
   meta.obsFileStartWallMs = windowsFileCreatedMs(file);
   fs.writeFileSync(
@@ -434,36 +551,45 @@ async function baseline() {
   printReport(runDir);
 }
 
-function screens() {
-  const dir = path.join(flags.out!, "screens");
-  fs.mkdirSync(dir, { recursive: true });
-  for (let i = 0; i < 4; i++) {
-    try {
-      execFileSync(
-        windowsTool("ffmpeg"),
-        [
-          "-hide_banner",
-          "-v",
-          "error",
-          "-y",
-          "-f",
-          "lavfi",
-          "-i",
-          `ddagrab=output_idx=${i}:framerate=5`,
-          "-frames:v",
-          "1",
-          "-vf",
-          "hwdownload,format=bgra,scale=480:-1",
-          `screen-${i}.png`,
-        ],
-        { cwd: dir, stdio: "ignore" }
-      );
-      log(`output ${i}: ${path.join(dir, `screen-${i}.png`)}`);
-    } catch {
-      break;
+/** ./rig obs url | status | launch | close */
+async function obs(verb: string | undefined) {
+  const say = (s: string) => log(`OBS: ${s}`);
+  switch (verb) {
+    case "url": {
+      const { url, from } = obsUrl();
+      console.log(`${url}\t${from}`);
+      return;
     }
+    case "status": {
+      const running = obsRunning();
+      say(
+        `${running ? "running" : "not running"}${running ? (obsReachable() ? ", websocket answers" : ", websocket NOT answering") : ""}`
+      );
+      process.exit(running ? 0 : 3);
+    }
+    case "launch":
+      say(await launchObs(say));
+      return;
+    case "close": {
+      say(`closed: ${await closeObs(say)}`);
+      if (obsRunning()) {
+        say("still running");
+        process.exit(1);
+      }
+      return;
+    }
+    default:
+      console.log("usage: ./rig obs url | status | launch | close");
+      process.exit(1);
   }
-  log("Pass the DELL's index as --screen N.");
+}
+
+function screens() {
+  const wanted = flags["screen-name"]!.toLowerCase();
+  for (const sc of listScreens())
+    log(
+      `output ${sc.idx}: ${sc.name}  ${sc.w}x${sc.h} at ${sc.x},${sc.y}  ${sc.device}${sc.name.toLowerCase().includes(wanted) ? "  <- the rig records this one" : ""}`
+    );
 }
 
 async function main() {
@@ -576,9 +702,13 @@ async function main() {
     }
     case "screens":
       return screens();
+    case "obs":
+      return obs(positionals[1]);
+    case "lipsync-proof":
+      process.exit((await runLipSyncProof(flags.out!, log)) ? 0 : 1);
     default:
       console.log(
-        "usage: ./rig selftest | check | baseline | record | crash | analyze <runDir> | screens   (see RUN.md)"
+        "usage: ./rig selftest | check | baseline | record | crash | analyze <runDir> | screens | obs <verb> | lipsync-proof   (see RUN.md)"
       );
       process.exit(mode ? 1 : 0);
   }
