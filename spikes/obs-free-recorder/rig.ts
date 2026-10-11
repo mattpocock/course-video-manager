@@ -34,7 +34,7 @@ import {
   allowAnyFfmpeg,
   killWindowsFfmpeg,
   raiseFfmpegTimerResolution,
-  listDshowDevices,
+  listDshowDevicesRaw,
   startWindowsClock,
   windowsNowMs,
   windowsTool,
@@ -159,13 +159,17 @@ function latestRun(kind: string): string | undefined {
 }
 
 function resolveDevice(kind: "video" | "audio", wanted: string): string {
-  const devices = listDshowDevices().filter((d) => d.kind === kind);
+  const listing = listDshowDevicesRaw();
+  const devices = listing.devices.filter((d) => d.kind === kind);
   const hit = devices.find((d) =>
     d.name.toLowerCase().includes(wanted.toLowerCase())
   );
   if (!hit) {
+    const raw = listing.devices.length
+      ? ""
+      : `\nNothing parsed from ffmpeg's listing:\n${listing.raw.slice(0, 2000) || "(empty)"}`;
     throw new Error(
-      `No DirectShow ${kind} device matching "${wanted}". Found: ${devices.map((d) => d.name).join(", ") || "none"}. Is OBS still open?`
+      `No DirectShow ${kind} device matching "${wanted}". Found: ${devices.map((d) => d.name).join(", ") || "none"}. Is OBS still open?${raw}`
     );
   }
   return hit.name;

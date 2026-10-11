@@ -160,12 +160,15 @@ preflight() {
     devices=$'video\tCam Link 4K\naudio\tVoicemeeter Out B1 (VB-Audio Voicemeeter VAIO)'; note "[stub] device list"
   else
     # Listed by name only (DirectShow enumeration). Never opened here.
-    devices=$(winrig "for (const d of w.listDshowDevices()) console.log(d.kind + '\t' + d.name)" 2>&1 || true)
+    devices=$(winrig "const l = w.listDshowDevicesRaw(); for (const d of l.devices) console.log(d.kind + '\t' + d.name); if (!l.devices.length) console.log('RAW\t' + (l.raw.slice(0, 1500) || '(empty)').replace(/\n/g, ' | '))" 2>&1 || true)
   fi
   for want in "video:Cam Link 4K" "audio:Voicemeeter Out B1"; do
     hit=$(printf '%s\n' "$devices" | grep -i "^${want%%:*}	.*${want#*:}" | head -n1 | cut -f2 || true)
     if [[ -n "$hit" ]]; then ok "${want%%:*}: $hit"
-    else bad "no ${want%%:*} device matching \"${want#*:}\". Found: $(printf '%s\n' "$devices" | cut -f2 | paste -sd, -)"; okp=0; fi
+    else bad "no ${want%%:*} device matching \"${want#*:}\". Found: $(printf '%s\n' "$devices" | grep -v '^RAW	' | cut -f2 | paste -sd, -)"; okp=0
+      # Nothing parsed: show what the enumeration actually printed (or threw).
+      if ! grep -q $'^\(video\|audio\)\t' <<<"$devices"; then note "raw listing: $(printf '%s' "$devices" | sed 's/^RAW\t//' | tr '\n' ' ' | cut -c1-1500)"; fi
+    fi
   done
 
   free=$(free_gb "$OUT")

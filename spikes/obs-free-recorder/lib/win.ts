@@ -4,6 +4,7 @@ import {
   execFile,
   execFileSync,
   spawn,
+  spawnSync,
   type ChildProcess,
 } from "node:child_process";
 import fs from "node:fs";
@@ -200,32 +201,55 @@ export type DshowDevice = {
   alt?: string;
 };
 
+/** What `ffmpeg -list_devices` left behind: exit code and both streams. */
+export type DshowListing = {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+const runDshowListing = (): DshowListing => {
+  const r = spawnSync(
+    windowsTool("ffmpeg"),
+    ["-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
+    { encoding: "utf8", cwd: "/mnt/c", stdio: ["ignore", "pipe", "pipe"] }
+  );
+  if (r.error) throw r.error;
+  return { status: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+};
+
 /**
- * Lists DirectShow devices. Enumerating does instantiate each capture filter,
- * so only call this when OBS is closed (the record/crash modes, never selftest).
+ * Parses a DirectShow listing. ffmpeg prints the devices on stderr, CRLF, and
+ * its exit code is not a signal: 8.0.1 exits 0 after "Error opening input file
+ * dummy.", older builds exit 1. So read both streams whatever the exit code.
  */
-export function listDshowDevices(): DshowDevice[] {
-  let text = "";
-  try {
-    execFileSync(
-      windowsTool("ffmpeg"),
-      ["-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
-      {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      }
-    );
-  } catch (e) {
-    text = String((e as { stderr?: string }).stderr ?? "");
-  }
+export function parseDshowListing(listing: DshowListing): {
+  devices: DshowDevice[];
+  raw: string;
+} {
+  const raw = `${listing.stderr}\n${listing.stdout}`.replace(/\r/g, "").trim();
   const devices: DshowDevice[] = [];
-  for (const line of text.replace(/\r/g, "").split("\n")) {
-    const m = line.match(/\] "(.+)" \((video|audio)/);
+  for (const line of raw.split("\n")) {
+    const m = line.match(/\] "(.+)" \((video|audio)\)/);
     if (m) devices.push({ name: m[1]!, kind: m[2] as "video" | "audio" });
     const alt = line.match(/Alternative name "(.+)"/);
     if (alt && devices.length) devices[devices.length - 1]!.alt = alt[1]!;
   }
-  return devices;
+  return { devices, raw };
+}
+
+/**
+ * Lists DirectShow devices by name (never opens one for capture). Also returns
+ * the raw listing so a caller that finds nothing can show what ffmpeg said.
+ */
+export function listDshowDevicesRaw(
+  run: () => DshowListing = runDshowListing
+): { devices: DshowDevice[]; raw: string } {
+  return parseDshowListing(run());
+}
+
+export function listDshowDevices(): DshowDevice[] {
+  return listDshowDevicesRaw().devices;
 }
 
 /**

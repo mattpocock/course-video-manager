@@ -1,7 +1,7 @@
 // `./rig check`: the review's repro cases (CVM #1992) run against the verdict
 // rules in judge.ts, plus clean cases that must still pass, plus the phone
-// marker's synthetic runs (phone-checks.ts). No ffmpeg, no devices, a few
-// seconds. `./rig selftest` runs these first.
+// marker's synthetic runs (phone-checks.ts), plus the DirectShow listing
+// parser fed a captured listing. No ffmpeg, no devices, a few seconds. `./rig selftest` runs these first.
 import {
   arrivalsFromPts,
   cfrShift,
@@ -14,8 +14,65 @@ import {
   type MarkerRow,
 } from "./judge.ts";
 import { phoneCases } from "./phone-checks.ts";
+import { listDshowDevicesRaw, type DshowListing } from "./win.ts";
 
 type Case = { name: string; ok: () => boolean | string };
+
+// What ffmpeg 8.0.1 printed for `-list_devices true -f dshow -i dummy` on the
+// rig PC (2026-10-11): everything on stderr, CRLF, a mis-decoded "Elgato" name,
+// and exit code 0. The rig read stderr only when ffmpeg exited non-zero, so the
+// wizard reported "Found:" with nothing after it.
+const DSHOW_8_0_1: DshowListing = {
+  status: 0,
+  stdout: "",
+  stderr: [
+    '[dshow @ 000001896faa4d00] "Cam Link 4K" (video)',
+    '[dshow @ 000001896faa4d00]   Alternative name "@device_pnp_\\\\?\\usb#vid_0fd9&pid_0066&mi_00#7&337bb0b0&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global"',
+    '[dshow @ 000001896faa4d00] "E\u00c2\u00a9lgato Virtual Camera" (video)',
+    '[dshow @ 000001896faa4d00] "OBS Virtual Camera" (video)',
+    '[dshow @ 000001896faa4d00] "Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)" (audio)',
+    '[dshow @ 000001896faa4d00]   Alternative name "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\\wave_{CADBF361-A950-44FF-8CBA-BB8F4CB031D0}"',
+    '[dshow @ 000001896faa4d00] "Microphone (Scarlett Solo USB)" (audio)',
+    "Error opening input file dummy.",
+    "",
+  ].join("\r\n"),
+};
+
+const dshowFinds = (listing: DshowListing): true | string => {
+  const { devices } = listDshowDevicesRaw(() => listing);
+  const has = (kind: string, name: string) =>
+    devices.some((d) => d.kind === kind && d.name.includes(name));
+  if (!has("video", "Cam Link 4K") || !has("audio", "Voicemeeter Out B1"))
+    return `parsed ${JSON.stringify(devices.map((d) => `${d.kind}:${d.name}`))}`;
+  if (devices.length !== 5) return `${devices.length} devices, want 5`;
+  return true;
+};
+
+const dshowCases: Case[] = [
+  {
+    name: "dshow: ffmpeg 8.0.1 listing (stderr, CRLF, exit 0) finds Cam Link 4K + Voicemeeter Out B1",
+    ok: () => dshowFinds(DSHOW_8_0_1),
+  },
+  {
+    name: "dshow: the same listing with exit 1 (older ffmpeg) still parses",
+    ok: () => dshowFinds({ ...DSHOW_8_0_1, status: 1 }),
+  },
+  {
+    name: "dshow: an unparseable listing returns its raw text for the error",
+    ok: () => {
+      const l = listDshowDevicesRaw(() => ({
+        status: 0,
+        stdout: "",
+        stderr: "dummy: Immediate exit requested\r\n",
+      }));
+      return (
+        (l.devices.length === 0 &&
+          l.raw === "dummy: Immediate exit requested") ||
+        JSON.stringify(l)
+      );
+    },
+  },
+];
 
 // Deterministic jitter so every run of the checks sees the same data.
 function rng(seed: number) {
@@ -295,6 +352,7 @@ const cases: Case[] = [
       ),
   },
   ...phoneCases,
+  ...dshowCases,
 ];
 
 export function runChecks(log: (...a: unknown[]) => void): boolean {
