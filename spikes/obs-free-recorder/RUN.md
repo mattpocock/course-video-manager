@@ -1,5 +1,13 @@
 # OBS-free recorder rig: how to run it
 
+**Start here** (WSL; uses the dedicated worktree `~/repos/matt/obs-rig-test`, not your CVM checkout):
+
+```
+cd ~/repos/matt/obs-rig-test/spikes/obs-free-recorder && git pull --ff-only && ./wizard.sh
+```
+
+`wizard.sh` walks the whole test below one screen at a time: preflight (ffmpeg 8.0.1, `./rig check`, devices listed by name only, free disk), selftest, pick the DELL, baseline with OBS, close OBS, record, crash, then the folder to send Claude. It saves progress in `D:\obs-rig\wizard\state.env`, so re-running resumes at the next unfinished step and never re-runs a finished one (`--redo N` repeats step N, `--fresh` starts over). Ctrl-C during a run stops the recorders cleanly. `./wizard.sh --dry-run` walks every screen with the rig stubbed (nothing records, no device is listed or opened). If the worktree is missing: `git -C ~/repos/matt/course-video-manager worktree add ~/repos/matt/obs-rig-test spike/obs-free-recorder`.
+
 This is a spike for architecture (b): ffmpeg.exe records the camera, screen and mic to three separate files, and a browser page draws the preview. Run every command from WSL in this folder. Each run writes to `D:\obs-rig\runs\<time>-<mode>\` and ends by printing `report.md`, the verdict against the stop criteria.
 
 ffmpeg must be **8.0.1** (`winget install Gyan.FFmpeg --version 8.0.1`). Versions 8.1 and 9.x need NVIDIA driver 610 or later for NVENC, and this machine has 591.74. It's pinned on this machine (`winget pin add --id Gyan.FFmpeg --version 8.0.1`, so `winget upgrade` skips it), and every mode refuses to start on any other version (`--any-ffmpeg` overrides that).
