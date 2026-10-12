@@ -16,6 +16,21 @@ export type SectionWithWordCount = {
   wordCount: number;
 };
 
+import type { RecordingSessionScene } from "../features/videos/recorder.js";
+
+/**
+ * A new-recorder Clip's Recording Session as loaded with it — the shape the
+ * Clip Source module (`ClipRecordingSession`) composites the picture from.
+ */
+export type IndexedClipRecordingSession = {
+  id: string;
+  cameraFilePath: string;
+  screenFilePath: string;
+  micFilePath: string;
+  micOffsetMs: number;
+  sceneEvents: { fileTime: number; scene: RecordingSessionScene }[];
+};
+
 /** A Clip paired with the `[N]` marker index it carries in the Transcript. */
 export type IndexedClip = {
   index: number;
@@ -23,4 +38,7 @@ export type IndexedClip = {
   sourceEndTime: number;
   videoFilename: string;
   text: string | null;
+  /** Present on a new-recorder Clip, so its screenshot is the composite. */
+  recordingSession?: IndexedClipRecordingSession | null;
+  sceneOverride?: RecordingSessionScene | null;
 };

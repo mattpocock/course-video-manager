@@ -9,15 +9,12 @@ export const loader = makeLoader({
   effect: ({ params }) =>
     Effect.gen(function* () {
       const clipOps = yield* ClipOperationsService;
-      const clip = yield* clipOps.getClipById(params.clipId!);
-
-      const frame = clipFrame(clipSource(clip), "first");
+      const clip = yield* clipOps.getClipWithRecordingSession(params.clipId!);
 
       const videoProcessing = yield* VideoProcessingService;
 
       const firstFramePath = yield* videoProcessing.getFirstFrame(
-        frame.inputVideo,
-        frame.time
+        clipFrame(clipSource(clip), "first")
       );
 
       return new Response(webFileStream(firstFramePath), {

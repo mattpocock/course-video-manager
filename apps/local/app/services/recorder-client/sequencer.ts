@@ -9,6 +9,10 @@ import type { RecordingSessionEvent } from "recorder-service/protocol";
  *
  * A speech's end comes out with the time its start was heard at, so the pair
  * is one stretch of speech however the two arrived.
+ *
+ * An event handed out but then not saved is taken back by `forget`ting its
+ * Recording Session: the sequencer starts it afresh, so a replay from the
+ * start hands every event out again.
  */
 
 export type SequencedEvent =
@@ -88,5 +92,10 @@ export const createRecorderEventSequencer = () => {
     };
   };
 
-  return { accept };
+  /** Start a Recording Session afresh, as though none of it was heard. */
+  const forget = (recordingSessionId: string) => {
+    sessions.delete(recordingSessionId);
+  };
+
+  return { accept, forget };
 };

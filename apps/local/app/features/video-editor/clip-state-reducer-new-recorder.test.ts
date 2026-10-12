@@ -1,6 +1,5 @@
 import { fromPartial } from "@total-typescript/shoehorn";
 import { describe, expect, it } from "vitest";
-import type { DB } from "@/db/schema";
 import { ReducerTester } from "@/test-utils/reducer-tester";
 import {
   clipStateReducer,
@@ -24,7 +23,12 @@ const saved = (id: string): ClipOnDatabase =>
     databaseId: id as DatabaseId,
   });
 
-const dbClip = (id: string): DB.Clip =>
+type SavedClip = Extract<
+  NewRecorderMessage,
+  { type: "clips-saved" }
+>["clips"][number];
+
+const dbClip = (id: string): SavedClip =>
   fromPartial({
     id: id as DatabaseId,
     videoFilename: "/mnt/d/r/mic.mkv",
@@ -100,6 +104,8 @@ describe("clip reducer on a New recorder Video", () => {
           type: "recording-stopped",
           recordingSessionId: SESSION,
           errors: [],
+          crashed: false,
+          framesLost: { camera: 0, screen: 0 },
         })
       );
 
@@ -118,9 +124,14 @@ describe("clip reducer on a New recorder Video", () => {
     expect(state.sessions).toMatchObject([
       { id: SESSION, status: "done", newRecorder: true },
     ]);
-    // The app server enqueued the transcription; the editor asks for nothing.
+    // The app server enqueued the transcription; the editor asks for nothing
+    // but that the recorder place Clips at its insertion point.
     expect(t.getEffects()).toEqual([
       { type: "scroll-to-insertion-point" },
+      {
+        type: "send-recorder-insertion-point",
+        insertionPoint: { type: "after-clip", databaseClipId: "a" },
+      },
       { type: "scroll-to-insertion-point" },
     ]);
   });
@@ -222,5 +233,61 @@ describe("clip reducer on a New recorder Video", () => {
       "start-session-polling",
       "scroll-to-insertion-point",
     ]);
+  });
+
+  it("a recording started from the Stream Deck places its Clips where the editor points", () => {
+    const t = tester([saved("a"), saved("b")]);
+    // Not recording: the app server is not told yet.
+    t.send({ type: "set-insertion-point-after", clipId: "f-a" as FrontendId });
+    expect(t.getEffects()).toEqual([]);
+
+    t.send(recordingStarted);
+    expect(t.getEffects()).toContainEqual({
+      type: "send-recorder-insertion-point",
+      insertionPoint: { type: "after-clip", databaseClipId: "a" },
+    });
+  });
+
+  it("Stream Deck delete last clip and add chapter work mid-recording: the next Clip goes after the chapter", () => {
+    const t = tester([saved("a")]);
+    t.send(recordingStarted).send(
+      clipsSaved(["c1"], { type: "after-clip", databaseClipId: "a" })
+    );
+
+    t.send({ type: "delete-latest-inserted-clip" });
+    expect(t.getEffects().map((e) => e.type)).toContain("archive-clips");
+    expect(t.getEffects().at(-1)).toEqual({
+      type: "send-recorder-insertion-point",
+      insertionPoint: { type: "after-clip", databaseClipId: "a" },
+    });
+
+    t.send({ type: "add-chapter", name: "Part 2" });
+    const chapter = t
+      .getState()
+      .items.find((i) => i.type === "chapter-optimistically-added")!;
+    expect(t.getEffects().at(-1)).toMatchObject({ type: "create-chapter" });
+    t.send({
+      type: "chapter-created",
+      frontendId: chapter.frontendId,
+      databaseId: "ch1" as DatabaseId,
+    });
+    expect(t.getEffects().at(-1)).toEqual({
+      type: "send-recorder-insertion-point",
+      insertionPoint: { type: "after-chapter", chapterId: "ch1" },
+    });
+
+    t.send(clipsSaved(["c2"], { type: "after-chapter", chapterId: "ch1" }));
+    expect(
+      t
+        .getState()
+        .items.filter((i) => !("shouldArchive" in i && i.shouldArchive))
+        .map((i) =>
+          i.type === "on-database"
+            ? i.databaseId
+            : i.type === "chapter-on-database"
+              ? i.name
+              : i.type
+        )
+    ).toEqual(["a", "Part 2", "c2"]);
   });
 });

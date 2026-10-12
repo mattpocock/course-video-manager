@@ -8,7 +8,7 @@
     {
       "file": "apps/local/app/routes/api.videos.$videoId.recorder.events.ts",
       "count": 1,
-      "reason": "A live Recording Session, not background work: the New recorder's events for the editor open on that Video. It only listens; the recorder service records and the app server's recorder client saves whether or not anyone listens, so closing it cancels nothing."
+      "reason": "A live Recording Session, not background work: the New recorder's events for the editor open on that Video. Its listening keeps the recorder open for that Video (the Cam Link and the previews); the recorder service records and the app server's recorder client saves whether or not anyone listens, so closing it cancels no recording."
     }
   ],
   "browser-driver": [
@@ -30,7 +30,7 @@
     {
       "file": "apps/local/app/features/video-editor/use-new-recorder.ts",
       "count": 1,
-      "reason": "A live Recording Session, not background work: the editor hears the New recorder's events (saved Clips) while it is open. It only listens and drives nothing."
+      "reason": "A live Recording Session, not background work: the editor hears the New recorder's events (saved Clips) while it is open. Its listening keeps the recorder (and the Cam Link) open for that Video; it cancels no recording."
     }
   ],
   "spawn": [
@@ -61,7 +61,7 @@
     },
     {
       "file": "apps/local/app/services/video-processing-service.ts",
-      "count": 3,
+      "count": 2,
       "reason": "Interactive, on the app server: a Clip's first or last frame for a thumbnail, and the DaVinci Resolve script behind Export to DaVinci Resolve. Each is one request the author's page waits on. Whisper's audio extraction is in whisper-transcription-service.ts (Sidecar only)."
     },
     {
@@ -164,12 +164,17 @@
     {
       "file": "apps/local/app/features/jobs/use-jobs.ts",
       "count": 3,
-      "reason": "Browser: the Upload Manager's Retry, Dismiss and stage history, each a call to the app's own route by the href job-wire.ts names (/api/jobs/\u2026). Not outbound."
+      "reason": "Browser: the Upload Manager's Retry, Dismiss and stage history, each a call to the app's own route by the href job-wire.ts names (/api/jobs/…). Not outbound."
     },
     {
       "file": "apps/local/app/lib/post-confirmed.ts",
       "count": 1,
       "reason": "Browser: POSTs a form to the route action it is handed (a path on the app itself), and resolves only on a confirmed save. Not outbound."
+    },
+    {
+      "file": "apps/local/app/features/thumbnail-editor/use-recorder-still.ts",
+      "count": 1,
+      "reason": "Interactive: the thumbnail camera on a New recorder Video fetches one still (a JPEG) from the local recorder service when the author presses Capture, while the modal waits."
     }
   ]
 }

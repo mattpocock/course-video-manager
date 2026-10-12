@@ -3,7 +3,11 @@ import { Effect, Layer } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import { SidecarContextTest } from "@/services/sidecar-context";
 import { eq } from "drizzle-orm";
-import { recordingSessions } from "@/db/schema";
+import {
+  recordingSessions,
+  recordingSessionSceneEvents,
+  videos,
+} from "@/db/schema";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
@@ -18,7 +22,9 @@ import {
   testDb,
   start,
 } from "../clip-service-test-setup";
+import { seedCourseVersion } from "@/test-utils/autofill-service-test-setup";
 import { ingestRecorderEvent } from "./ingest.server";
+import { requireRecordableVideo } from "./record-guard.server";
 import { createRecorderEventSequencer } from "./sequencer";
 
 /**
@@ -97,7 +103,30 @@ const speech = (seq: number, from: number, to: number) =>
     },
   ] satisfies RecordingSessionEvent[];
 
-const stopped = (seq: number): RecordingSessionEvent => ({
+const sceneChanged = (
+  seq: number,
+  scene: "Camera" | "Code" | "No Face",
+  fileTime: number
+): RecordingSessionEvent => ({
+  type: "scene-changed",
+  seq,
+  recordingSessionId: SESSION,
+  scene,
+  fileTime,
+});
+
+const sceneRows = async () =>
+  (
+    await testDb.query.recordingSessionSceneEvents.findMany({
+      where: eq(recordingSessionSceneEvents.recordingSessionId, SESSION),
+    })
+  )
+    .map((r) => [r.fileTime, r.scene])
+    .sort(([a], [b]) => Number(a) - Number(b));
+
+const stopped = (
+  seq: number
+): Extract<RecordingSessionEvent, { type: "recording-stopped" }> => ({
   type: "recording-stopped",
   seq,
   recordingSessionId: SESSION,
@@ -105,6 +134,7 @@ const stopped = (seq: number): RecordingSessionEvent => ({
   fileTime: 30,
   files: FILES,
   exitCodes: { screen: 0, camera: 0 },
+  framesLost: { camera: 0, screen: 0 },
   errors: [],
 });
 
@@ -250,7 +280,73 @@ describe("recorder ingest", () => {
     expect(await savedClips(video.id)).toHaveLength(1);
   });
 
-  it("enqueues a transcribe-clips Job that transcribes the new Clip from the mic file", async () => {
+  it("saves each scene change as a row, once however often it is replayed", async () => {
+    const video = await clipService.createVideo("new recorder");
+    const events = [
+      started(video.id),
+      sceneChanged(2, "Code", 0),
+      sceneChanged(3, "Camera", 4.25),
+      stopped(4),
+    ];
+
+    await recorderIngest().feed(...events);
+    await recorderIngest().feed(...events);
+
+    expect(await sceneRows()).toEqual([
+      [0, "Code"],
+      [4.25, "Camera"],
+    ]);
+  });
+
+  it("gives each Clip the scene in force at its start, in picture time", async () => {
+    const video = await clipService.createVideo("new recorder");
+    const ingest = recorderIngest();
+
+    await ingest.feed(
+      started(video.id),
+      sceneChanged(2, "No Face", 0),
+      // Switched to Camera at picture time 10. Speech heard from mic time
+      // 9.9 starts at picture time 10.05 (the 150 ms mic offset): Camera.
+      sceneChanged(3, "Camera", 10),
+      ...speech(4, 9.9, 12),
+      sceneChanged(6, "Code", 20),
+      // Speech from mic 19.9 starts at picture 20.05, after the switch to
+      // Code; a scene change mid-take does not change its start's scene.
+      ...speech(7, 19.9, 23),
+      sceneChanged(9, "Camera", 21)
+    );
+
+    expect((await savedClips(video.id)).map((c) => c.scene)).toEqual([
+      "Camera",
+      "Code",
+    ]);
+  });
+
+  it("hands the editor each saved Clip with its Recording Session, to play as the composite", async () => {
+    const video = await clipService.createVideo("new recorder");
+    const ingest = recorderIngest();
+    await ingest.feed(
+      started(video.id),
+      sceneChanged(2, "Code", 0),
+      sceneChanged(3, "Camera", 4),
+      ...speech(4, 2, 6)
+    );
+    const saved = ingest.messages.find((m) => m.type === "clips-saved");
+    if (saved?.type !== "clips-saved") throw new Error("no Clips saved");
+    expect(saved.clips[0]!.recordingSession).toEqual({
+      id: SESSION,
+      cameraFilePath: FILES.camera,
+      screenFilePath: FILES.screen,
+      micFilePath: FILES.mic,
+      micOffsetMs: 150,
+      sceneEvents: [
+        { fileTime: 0, scene: "Code" },
+        { fileTime: 4, scene: "Camera" },
+      ],
+    });
+  });
+
+  it("enqueues a transcribe-clips Job that transcribes the new Clip from the mic file at mic time", async () => {
     const video = await clipService.createVideo("new recorder");
     const ingest = recorderIngest();
     await ingest.feed(started(video.id), ...speech(2, 2, 5));
@@ -300,11 +396,153 @@ describe("recorder ingest", () => {
       )
     );
 
-    expect(heard).toMatchObject([{ inputVideo: MIC, startTime: 2.15 }]);
+    // Speech heard at mic time 2.0 is cut at picture time 2.15; Whisper hears
+    // the mic from 2.0, not 150 ms into the take.
+    expect(heard).toMatchObject([{ inputVideo: MIC, startTime: 2 }]);
     expect(
       (await clipService.getTimeline(video.id)).map(
         (i) => i.type === "clip" && i.data.text
       )
     ).toEqual(["hello"]);
+  });
+
+  it("stores the frames lost when the Recording Session stops", async () => {
+    const video = await clipService.createVideo("new recorder");
+    const ingest = recorderIngest();
+
+    await ingest.feed(started(video.id), {
+      ...stopped(2),
+      framesLost: { camera: 1, screen: 3 },
+    });
+
+    expect(await readSession()).toMatchObject({
+      status: "stopped",
+      cameraFramesLost: 1,
+      screenFramesLost: 3,
+    });
+    expect(ingest.messages.at(-1)).toMatchObject({
+      type: "recording-stopped",
+      framesLost: { camera: 1, screen: 3 },
+      crashed: false,
+    });
+  });
+
+  it("marks a crashed Recording Session crashed and keeps the Clips heard before the crash", async () => {
+    const video = await clipService.createVideo("new recorder");
+    const ingest = recorderIngest();
+
+    await ingest.feed(started(video.id), ...speech(2, 2, 5), {
+      type: "speech-started",
+      seq: 4,
+      recordingSessionId: SESSION,
+      fileTime: 8,
+    });
+    // The recorder service died; on its next start it repaired the files,
+    // ended the take where the mic file ends, and logged the crash.
+    await ingest.feed(
+      {
+        type: "speech-ended",
+        seq: 5,
+        recordingSessionId: SESSION,
+        fileTime: 11,
+      },
+      {
+        type: "recording-crashed",
+        seq: 6,
+        recordingSessionId: SESSION,
+        files: FILES,
+        repairs: { camera: "remuxed", screen: "remuxed", mic: "remuxed" },
+      }
+    );
+
+    expect((await readSession())?.status).toBe("crashed");
+    expect(
+      (await savedClips(video.id)).map((c) => [
+        c.sourceStartTime,
+        c.sourceEndTime,
+      ])
+    ).toEqual([
+      [2.15, 5.23],
+      [8.15, 11.23],
+    ]);
+    expect(ingest.messages.at(-1)).toMatchObject({
+      type: "recording-stopped",
+      crashed: true,
+      framesLost: null,
+    });
+  });
+
+  it("tells the editor the camera was lost", async () => {
+    const video = await clipService.createVideo("new recorder");
+    const ingest = recorderIngest();
+
+    await ingest.feed(
+      started(video.id),
+      {
+        type: "camera-lost",
+        seq: 2,
+        recordingSessionId: SESSION,
+        fileTime: 10,
+        errors: ["Error during demuxing: I/O error"],
+      },
+      { ...stopped(3), reason: "camera-lost" }
+    );
+
+    expect(ingest.messages.map((m) => m.type)).toEqual([
+      "recording-started",
+      "camera-lost",
+      "recording-stopped",
+    ]);
+    expect((await readSession())?.status).toBe("stopped");
+  });
+
+  it("refuses a Recording Session on a Video outside the Draft, and says so", async () => {
+    const { videoIds } = await seedCourseVersion(
+      testDb,
+      [{ path: "01-frozen", videos: [{ description: null, clips: [] }] }],
+      { commitState: "published" }
+    );
+    const videoId = videoIds["01-frozen/Explainer"]!;
+    const ingest = recorderIngest();
+
+    await ingest.feed(started(videoId), ...speech(2, 2, 5));
+
+    expect(await readSession()).toBeUndefined();
+    expect(ingest.messages).toEqual([
+      {
+        type: "recorder-failed",
+        message: expect.stringContaining("not the Draft"),
+      },
+    ]);
+  });
+
+  it("lets Record start only on a Draft Video that records with the New recorder", async () => {
+    const canRecord = (videoId: string) =>
+      Effect.runPromise(
+        requireRecordableVideo(testDb as never, videoId).pipe(
+          Effect.as("ok"),
+          Effect.catchAll((e) => Effect.succeed(e._tag))
+        )
+      );
+    const video = await clipService.createVideo("new recorder");
+    expect(await canRecord(video.id)).toBe("RecordOnOBSVideoError");
+
+    await testDb
+      .update(videos)
+      .set({ recorder: "new-recorder" })
+      .where(eq(videos.id, video.id));
+    expect(await canRecord(video.id)).toBe("ok");
+
+    const { videoIds } = await seedCourseVersion(
+      testDb,
+      [{ path: "01-frozen", videos: [{ description: null, clips: [] }] }],
+      { commitState: "published" }
+    );
+    const frozen = videoIds["01-frozen/Explainer"]!;
+    await testDb
+      .update(videos)
+      .set({ recorder: "new-recorder" })
+      .where(eq(videos.id, frozen));
+    expect(await canRecord(frozen)).toBe("VersionNotDraftError");
   });
 });

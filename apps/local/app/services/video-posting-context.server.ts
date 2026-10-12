@@ -20,7 +20,10 @@ import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 import { loadAnimaticLines } from "@/services/animatic-lines.server";
 import { getVideoFilePath, listVideoFiles } from "@/services/video-files";
 import { projectVersionPaths } from "@/services/path-projection";
-import type { SectionWithWordCount } from "@/features/article-writer/types";
+import type {
+  IndexedClip,
+  SectionWithWordCount,
+} from "@/features/article-writer/types";
 import type { CourseStructure } from "@/components/video-context-panel";
 
 export interface VideoPostingContext {
@@ -186,13 +189,7 @@ function loadCourseStructure(
 export interface WriterContextData {
   transcript: string;
   transcriptWordCount: number;
-  indexedClips: Array<{
-    index: number;
-    sourceStartTime: number;
-    sourceEndTime: number;
-    videoFilename: string;
-    text: string | null;
-  }>;
+  indexedClips: IndexedClip[];
   memory: string;
   repoId: string | null;
   fullPath: string;

@@ -1,6 +1,14 @@
 import http from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
-import { type StreamDeckForwarderMessage } from "./stream-deck-forwarder-types";
+import {
+  STREAM_DECK_RECORDER_PRESSES,
+  type StreamDeckForwarderMessage,
+} from "./stream-deck-forwarder-types";
+import {
+  RECORDER_SERVICE_PORT,
+  type RecorderCommand,
+  type StreamDeckPress,
+} from "../recorder-service/protocol";
 import { createConnectionLog } from "./connection-log";
 import { forwarderRefusal } from "../live-desk/live-desk";
 
@@ -18,14 +26,33 @@ export const DEFAULT_HTTP_PORT = 5174;
  *     client, so producers like the browser link-capture extension can reach
  *     the Video Editor over the same hub.
  *
+ * The New recorder's buttons (`STREAM_DECK_RECORDER_PRESSES`) skip the hub:
+ * each press is sent to the recorder service, which acts on it.
+ *
  * Ports are injectable so this can be started on ephemeral ports in tests.
  */
 export function startStreamDeckForwarder(opts?: {
   wsPort?: number;
   httpPort?: number;
+  /** The recorder service's WebSocket. */
+  recorderUrl?: string;
 }) {
   const wsPort = opts?.wsPort ?? DEFAULT_WS_PORT;
   const httpPort = opts?.httpPort ?? DEFAULT_HTTP_PORT;
+  const recorderUrl =
+    opts?.recorderUrl ?? `ws://127.0.0.1:${RECORDER_SERVICE_PORT}`;
+
+  /** One short connection per press: a press is rare, and the service may restart between. */
+  const pressRecorder = (press: StreamDeckPress) => {
+    const command: RecorderCommand = { type: "stream-deck", press };
+    const ws = new WebSocket(recorderUrl);
+    ws.once("open", () => ws.send(JSON.stringify(command), () => ws.close()));
+    ws.once("error", (error) =>
+      console.error(
+        `Stream Deck: the recorder service did not take ${press.action} (${recorderUrl}): ${error.message}`
+      )
+    );
+  };
 
   const wss = new WebSocketServer({ port: wsPort }, () => {
     console.log(`Stream Deck Forwarder server started on port ${wsPort}`);
@@ -79,7 +106,10 @@ export function startStreamDeckForwarder(opts?: {
   });
 
   const httpServer = http.createServer((req, res) => {
-    if (req.url === "/api/delete-last-clip") {
+    const recorderPress = STREAM_DECK_RECORDER_PRESSES[req.url ?? ""];
+    if (recorderPress) {
+      pressRecorder(recorderPress);
+    } else if (req.url === "/api/delete-last-clip") {
       sendMessage({
         type: "delete-last-clip",
       });

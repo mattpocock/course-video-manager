@@ -22,8 +22,13 @@ import {
  * means wall time T0 + t in all three files. fps=…:start_time=0 and
  * aresample=…:first_pts=0 make each file CFR from exactly t=0.
  *
- * Previews (an MJPEG tee per process, and the screen preview's own process)
- * come with the slice that opens the camera; nothing here reads a frame back.
+ * PREVIEWS: every process that sees a picture also sends a small MJPEG of it
+ * to the service (`previewOutput`), which serves it to the browser
+ * (`preview-feeds.ts`). While the recorder is open but not recording, the
+ * camera has a preview-only process of its own (`cameraPreviewArgs`); while
+ * recording, the camera + mic process carries the camera preview. The screen
+ * preview is always its own process (`screenPreviewArgs`): reading a D3D11
+ * frame back in the screen recorder would cost it frames.
  */
 
 export const FILE_NAMES = {
@@ -118,6 +123,98 @@ const WALLCLOCK = [
   "512",
 ];
 
+/**
+ * A preview output, as the rig (#1992) settled it: MJPEG to the service's TCP
+ * feed for that picture. A preview consumer that dies or stalls must never
+ * stop a recording, and a slow Windows -> WSL connect must not lose the
+ * preview for good, so it sits behind tee's fifo: its own queue, packets
+ * dropped when full, the connection retried every 0.5 s. The null output
+ * keeps the tee alive.
+ */
+export const previewOutput = (port: number, quality = 7) => [
+  "-c:v",
+  "mjpeg",
+  "-q:v",
+  String(quality),
+  "-f",
+  "tee",
+  "-use_fifo",
+  "1",
+  "-fifo_options",
+  "attempt_recovery=1:recover_any_error=1:recovery_wait_time=0.5:max_recovery_attempts=0:drop_pkts_on_overflow=1:queue_size=30",
+  `[f=mpjpeg:onfail=ignore]tcp://127.0.0.1:${port}?timeout=2000000|[f=null:use_fifo=0]-`,
+];
+
+const PREVIEW_HEAD = ["-hide_banner", "-nostats", "-loglevel", "level+warning"];
+
+/** 640x360 off the GPU, for the browser. */
+const CAMERA_PREVIEW_SCALE =
+  "scale_cuda=640:360,hwdownload,format=nv12,format=yuvj420p";
+
+/** The Cam Link 4K as DirectShow opens it, for recording and preview alike. */
+const camLinkInput = (camera: string) => [
+  "-f",
+  "dshow",
+  "-rtbufsize",
+  "1500M",
+  "-video_size",
+  "3840x2160",
+  "-framerate",
+  CAM_DSHOW_FRAMERATE,
+  "-pixel_format",
+  "nv12",
+  "-i",
+  `video=${camera}`,
+];
+
+/**
+ * The thumbnail camera's still (#2012): 1280x720, the size the OBS Virtual
+ * Camera gave it, a few times a second at a high JPEG quality. Scaled on the
+ * GPU like the preview; the rate is cut after the download, so no filter
+ * here has to take CUDA frames that the preview's own chain does not.
+ */
+const CAMERA_STILL_SCALE =
+  "scale_cuda=1280:720:interp_algo=bicubic,hwdownload,format=nv12,fps=4,format=yuvj420p";
+
+/**
+ * The camera while the recorder is open and not recording: the Cam Link in
+ * the very mode the recording opens it in, to a preview only, plus the
+ * thumbnail camera's still feed. Its first preview frame is how the service
+ * knows the camera is live.
+ */
+export const cameraPreviewArgs = (o: {
+  camera: string;
+  port: number;
+  stillPort: number;
+}) => [
+  ...PREVIEW_HEAD,
+  ...camLinkInput(o.camera),
+  "-filter_complex",
+  `[0:v]hwupload_cuda,split[p][s];[p]${CAMERA_PREVIEW_SCALE}[prev];[s]${CAMERA_STILL_SCALE}[still]`,
+  "-map",
+  "[prev]",
+  ...previewOutput(o.port),
+  "-map",
+  "[still]",
+  ...previewOutput(o.stillPort, 2),
+];
+
+/**
+ * The screen preview: a second Desktop Duplication session (Windows allows
+ * several) in its own ffmpeg.exe, which can stall, crash or be stopped
+ * without touching the screen recorder.
+ */
+export const screenPreviewArgs = (o: { screenIndex: number; port: number }) => [
+  ...PREVIEW_HEAD,
+  "-f",
+  "lavfi",
+  "-i",
+  `ddagrab=output_idx=${o.screenIndex}:framerate=30,hwdownload,format=bgra,scale=960:540,format=yuvj420p`,
+  "-map",
+  "0:v",
+  ...previewOutput(o.port),
+];
+
 export type CaptureOptions = {
   t0Ms: number;
   /** Put in each file's metadata and command line, so a process can be found by it. */
@@ -128,6 +225,8 @@ export type CaptureOptions = {
   camera: string;
   mic: string;
   silenceLength: SilenceLength;
+  /** The service's camera preview feed, which this process also sends to. */
+  cameraPreviewPort: number;
 };
 
 export const buildCaptureArgs = (o: CaptureOptions) => {
@@ -156,21 +255,7 @@ export const buildCaptureArgs = (o: CaptureOptions) => {
 
   // The Cam Link 4K offers only 2160p29.97 or 1080p59.94 raw, so open 4K NV12
   // and scale to 1440p on the GPU: no 4K reaches the disk.
-  const cameraIn = [
-    ...WALLCLOCK,
-    "-f",
-    "dshow",
-    "-rtbufsize",
-    "1500M",
-    "-video_size",
-    "3840x2160",
-    "-framerate",
-    CAM_DSHOW_FRAMERATE,
-    "-pixel_format",
-    "nv12",
-    "-i",
-    `video=${o.camera}`,
-  ];
+  const cameraIn = [...WALLCLOCK, ...camLinkInput(o.camera)];
   // The mic raw: no filters, a 20 ms device buffer keeps the stamp close to capture.
   const micIn = [
     ...WALLCLOCK,
@@ -193,7 +278,8 @@ export const buildCaptureArgs = (o: CaptureOptions) => {
   const silence = `silencedetect=n=${SILENCE_THRESHOLD_DB}dB:d=${silenceLengthToSeconds(o.silenceLength)}`;
   const cameraGraph = [
     `[0:v]setpts=PTS-${t0}/TB,fps=30000/1001:start_time=0,${BT709},` +
-      "hwupload_cuda,scale_cuda=2560:1440:interp_algo=bicubic[cam]",
+      "hwupload_cuda,scale_cuda=2560:1440:interp_algo=bicubic,split[cam][camp]",
+    `[camp]${CAMERA_PREVIEW_SCALE}[camprev]`,
     `[1:a]asetpts=PTS-${t0}/TB,atrim=start=1.5,aresample=async=50:min_hard_comp=0.1:first_pts=0,asplit=2[mic][sd]`,
     `[sd]${silence},anullsink`,
   ].join(";");
@@ -222,6 +308,9 @@ export const buildCaptureArgs = (o: CaptureOptions) => {
     `comment=${o.tag}`,
     ...MKV,
     FILE_NAMES.mic,
+    "-map",
+    "[camprev]",
+    ...previewOutput(o.cameraPreviewPort),
   ];
   return { screen, camera };
 };

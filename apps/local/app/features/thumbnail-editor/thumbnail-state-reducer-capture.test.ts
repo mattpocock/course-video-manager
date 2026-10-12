@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   thumbnailStateReducer,
   createInitialThumbnailState,
+  openCameraModal,
 } from "./thumbnail-state-reducer";
 import { ReducerTester } from "@/test-utils/reducer-tester";
 
@@ -13,6 +14,30 @@ const createState = (
 });
 
 describe("Camera", () => {
+  it("takes the still from the recorder service on a New recorder Video", () => {
+    const tester = new ReducerTester(
+      thumbnailStateReducer,
+      createInitialThumbnailState("new-recorder")
+    );
+    expect(openCameraModal(tester.getState())).toBeNull();
+
+    tester.send({ type: "open-camera" });
+    expect(openCameraModal(tester.getState())).toBe("recorder");
+
+    tester.send({ type: "close-camera" });
+    expect(openCameraModal(tester.getState())).toBeNull();
+  });
+
+  it("takes the still from the OBS Virtual Camera on an OBS Video", () => {
+    const tester = new ReducerTester(
+      thumbnailStateReducer,
+      createInitialThumbnailState("obs")
+    );
+
+    tester.send({ type: "open-camera" });
+    expect(openCameraModal(tester.getState())).toBe("virtual-camera");
+  });
+
   it("photo-captured: should set capturedPhoto, clear cutout and error, and emit remove-background effect", () => {
     const tester = new ReducerTester(
       thumbnailStateReducer,

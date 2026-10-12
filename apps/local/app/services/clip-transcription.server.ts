@@ -26,7 +26,11 @@ export const transcribeAndStoreClips = Effect.fn("transcribeAndStoreClips")(
     const whisper = yield* WhisperTranscriptionService;
     const onClipSettled = opts.onClipSettled ?? (() => Effect.void);
 
-    const clips = yield* clipOps.getClipsByIds([...clipIds]);
+    // With each Clip's Recording Session, so a new-recorder Clip is heard from
+    // its mic file at mic time (start − offset), as playback and export do.
+    const clips = yield* clipOps.getClipsWithRecordingSessionByIds([
+      ...clipIds,
+    ]);
 
     yield* clipOps.setTranscriptionStatus(
       clips.map((clip) => clip.id),

@@ -1,90 +1,20 @@
 import fs from "node:fs";
-import os from "node:os";
+import http from "node:http";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { WebSocket } from "ws";
+import { describe, expect, it, vi } from "vitest";
 import { CAM_LINK_FRAME_INTERVAL, dshowFrameInterval } from "./capture-args";
-import { fakeWindows } from "./test-utils/fake-windows";
-import type { RecorderCommand, RecorderMessage } from "./protocol";
-import { startRecorderService } from "./recorder-service";
+import { CAM_LINK_BUSY, CAM_LINK_NOT_STARTING } from "./camera";
+import { fakeFootage, fakeWindows } from "./test-utils/fake-windows";
+import {
+  connect,
+  readLog,
+  recordOnce,
+  start,
+  T0_MS,
+  tmp,
+} from "./test-utils/service-harness";
 
-/**
- * The recorder service driven through its WebSocket, with the process
- * launcher as the only fake: a scripted Windows whose ffmpeg.exe answers
- * -version and -list_devices, and whose recorders print what the test tells
- * them to and quit on `q`. Nothing here opens a real device.
- */
-
-const T0_MS = 1_760_000_000_000;
-
-const cleanups: (() => Promise<void>)[] = [];
-afterEach(async () => {
-  for (const c of cleanups.splice(0)) await c();
-});
-
-const tmp = () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "recorder-service-"));
-  cleanups.push(async () => fs.rmSync(dir, { recursive: true, force: true }));
-  return dir;
-};
-
-const start = async (windows = fakeWindows(), stateDir = tmp()) => {
-  const service = await startRecorderService({
-    port: 0,
-    launch: windows.launch,
-    now: () => T0_MS,
-    stateDir,
-  });
-  cleanups.unshift(() => service.close());
-  return { windows, stateDir, port: service.port, close: service.close };
-};
-
-const connect = async (port: number) => {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-  const received: RecorderMessage[] = [];
-  const waiters: {
-    match: (m: RecorderMessage) => boolean;
-    resolve: (m: RecorderMessage) => void;
-  }[] = [];
-  ws.on("message", (data) => {
-    const message = JSON.parse(data.toString()) as RecorderMessage;
-    received.push(message);
-    for (const w of waiters.slice()) {
-      if (w.match(message)) {
-        waiters.splice(waiters.indexOf(w), 1);
-        w.resolve(message);
-      }
-    }
-  });
-  await new Promise((r) => ws.once("open", r));
-  cleanups.unshift(async () => ws.close());
-  const next = <T extends RecorderMessage["type"]>(type: T) => {
-    const seen = received.find((m) => m.type === type);
-    if (seen) {
-      received.splice(received.indexOf(seen), 1);
-      return Promise.resolve(seen as Extract<RecorderMessage, { type: T }>);
-    }
-    return new Promise<Extract<RecorderMessage, { type: T }>>((resolve) =>
-      waiters.push({
-        match: (m) =>
-          m.type === type && (received.splice(received.indexOf(m), 1), true),
-        resolve: (m) => resolve(m as Extract<RecorderMessage, { type: T }>),
-      })
-    );
-  };
-  return {
-    send: (command: RecorderCommand) => ws.send(JSON.stringify(command)),
-    next,
-    received,
-  };
-};
-
-const readLog = (file: string) =>
-  fs
-    .readFileSync(file, "utf8")
-    .trim()
-    .split("\n")
-    .map((l) => JSON.parse(l) as { seq: number; type: string });
+/** The recorder service through its WebSocket (test-utils/service-harness.ts). */
 
 describe("start-up checks", () => {
   it("refuses any ffmpeg other than 8.0.1, saying how to install it", async () => {
@@ -118,16 +48,106 @@ describe("start-up checks", () => {
   });
 });
 
-const recordOnce = async () => {
-  const s = await start();
-  const folder = tmp();
-  const client = await connect(s.port);
-  await client.next("hello");
-  client.send({ type: "open", videoId: "video-1" });
-  client.send({ type: "record", silenceLength: "long", folder });
-  const started = await client.next("recording-started");
-  return { ...s, client, started, folder };
-};
+/** The first bytes a browser gets from a preview feed. */
+const firstPreviewBytes = (port: number, feed: "camera" | "screen") =>
+  new Promise<{ type: string | undefined; body: string }>((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/preview/${feed}`, (res) => {
+      res.once("data", (chunk: Buffer) => {
+        resolve({
+          type: res.headers["content-type"],
+          body: chunk.toString("latin1"),
+        });
+        req.destroy();
+      });
+    });
+  });
+
+describe("the Cam Link", () => {
+  it("opens with the recorder and is live on its first frame, with raw camera and screen previews", async () => {
+    const { port, windows } = await start();
+    const client = await connect(port);
+    await client.next("hello");
+    expect(windows.camerasRunning()).toBe(0);
+
+    client.send({ type: "open", videoId: "video-1" });
+    await client.camera("live");
+    expect(windows.cameraPreviews).toHaveLength(1);
+
+    for (const feed of ["camera", "screen"] as const) {
+      const { type, body } = await firstPreviewBytes(port, feed);
+      expect(type).toContain("multipart/x-mixed-replace");
+      expect(body).toContain("Content-Type: image/jpeg");
+    }
+  });
+
+  it("tries again on its own when no frames come, live on the third try", async () => {
+    const { port } = await start(
+      fakeWindows({ cameraTries: ["silent", "silent"] })
+    );
+    const client = await connect(port);
+    client.send({ type: "open", videoId: "video-1" });
+    await client.next(
+      "state",
+      (m) =>
+        m.state.kind === "open" &&
+        m.state.camera.kind === "opening" &&
+        m.state.camera.attempt === 3
+    );
+    await client.camera("live");
+  });
+
+  it("asks for a replug after three tries, refuses Record meanwhile, and Retry opens it", async () => {
+    const { port, windows } = await start(
+      fakeWindows({ cameraTries: ["silent", "silent", "silent"] })
+    );
+    const client = await connect(port);
+    client.send({ type: "open", videoId: "video-1" });
+    const stuck = await client.camera("not-starting");
+    expect(stuck.state).toMatchObject({
+      camera: { message: CAM_LINK_NOT_STARTING },
+    });
+    expect(windows.cameraPreviews).toHaveLength(3);
+    expect(windows.camerasRunning()).toBe(0);
+
+    client.send({ type: "record", silenceLength: "long", folder: tmp() });
+    expect((await client.next("refused")).message).toBe(
+      "The camera is not live yet."
+    );
+
+    client.send({ type: "retry-camera" });
+    await client.camera("live");
+  });
+
+  it("says Close OBS first when another program holds it, without trying again or closing anything", async () => {
+    const { port, windows } = await start(
+      fakeWindows({ cameraTries: ["busy"] })
+    );
+    const client = await connect(port);
+    client.send({ type: "open", videoId: "video-1" });
+    const busy = await client.camera("busy");
+    expect(busy.state).toMatchObject({ camera: { message: CAM_LINK_BUSY } });
+    expect(windows.cameraPreviews).toHaveLength(1);
+
+    client.send({ type: "retry-camera" });
+    await client.camera("live");
+  });
+
+  it("is held only while the recorder is open, by the preview or the recording", async () => {
+    const { windows, client } = await recordOnce();
+    expect(windows.camerasRunning()).toBe(1);
+    expect(windows.cameraPreviews.every((p) => !p.running)).toBe(true);
+
+    client.send({ type: "stop" });
+    await client.next("recording-stopped");
+    await client.camera("live");
+    expect(windows.camerasRunning()).toBe(1);
+
+    client.send({ type: "close" });
+    await client.next("state", (m) => m.state.kind === "closed");
+    await vi.waitFor(() => expect(windows.camerasRunning()).toBe(0));
+    expect(windows.screenPreviews.every((p) => !p.running)).toBe(true);
+  });
+});
 
 describe("a Recording Session", () => {
   it("is refused before the recorder is open for a Video", async () => {
@@ -240,6 +260,81 @@ describe("a Recording Session", () => {
     expect(stopped.errors.join("\n")).toContain("Failed to capture frame");
   });
 
+  it("stops the whole Recording Session and says the camera was lost when the camera process dies", async () => {
+    const { windows, client, started } = await recordOnce();
+    const camera = windows.recorder("camera");
+    camera.stdout("frame=300\nout_time_us=10000000\nprogress=continue\n");
+    camera.stderr(
+      "[in#0/dshow @ 0001] [error] Error during demuxing: I/O error\r\n"
+    );
+    camera.exit(1);
+
+    const lost = await client.next("camera-lost");
+    expect(lost.fileTime).toBe(10);
+    expect(lost.errors.join("\n")).toContain("I/O error");
+    const stopped = await client.next("recording-stopped");
+    expect(stopped.reason).toBe("camera-lost");
+    // The screen was asked to close its file, not killed.
+    expect(stopped.exitCodes).toEqual({ screen: 0, camera: 1 });
+    expect(stopped.files).toEqual(started.files);
+    expect(stopped.seq).toBeGreaterThan(lost.seq);
+  });
+
+  it("leaves every file readable when a process could not finish its files", async () => {
+    const { windows, client, started } = await recordOnce();
+    const { files } = started;
+    fs.writeFileSync(files.camera, fakeFootage(9.9, { unfinished: true }));
+    fs.writeFileSync(files.mic, fakeFootage(9.8, { unfinished: true }));
+    fs.writeFileSync(files.screen, fakeFootage(10));
+    windows.recorder("camera").exit(1);
+
+    await client.next("recording-stopped");
+    expect(fs.readFileSync(files.camera, "utf8")).toBe(fakeFootage(9.9));
+    expect(fs.readFileSync(files.mic, "utf8")).toBe(fakeFootage(9.8));
+    expect(fs.readFileSync(files.screen, "utf8")).toBe(fakeFootage(10));
+  });
+
+  it("says the camera was lost when it stops sending frames for 3 s", async () => {
+    const { windows, client } = await recordOnce();
+    const camera = windows.recorder("camera");
+    const block = (frame: number, seconds: number) =>
+      camera.stdout(
+        `frame=${frame}\nout_time_us=${seconds * 1_000_000}\nprogress=continue\n`
+      );
+    // The Cam Link takes a while to send its first frame: not a loss.
+    block(0, 1);
+    block(0, 2);
+    block(0, 3);
+    block(0, 4);
+    block(30, 5);
+    block(60, 6);
+    block(60, 7);
+    block(60, 8);
+    expect(client.received.map((m) => m.type)).not.toContain("camera-lost");
+    block(60, 9);
+
+    expect((await client.next("camera-lost")).fileTime).toBe(9);
+    expect((await client.next("recording-stopped")).reason).toBe("camera-lost");
+  });
+
+  it("reports the Cam Link's dropped frames when it stops, and the screen's as not measured", async () => {
+    const { windows, client } = await recordOnce();
+    const camera = windows.recorder("camera");
+    camera.stderr(
+      "[dshow @ 0001] [warning] real-time buffer [Cam Link 4K] [video input] too full or near too full (101% of size: 1500000000 [rtbufsize parameter])! frame dropped!\r\n"
+    );
+    // The mic's buffer is not a camera frame.
+    camera.stderr(
+      "[dshow @ 0002] [warning] real-time buffer [Voicemeeter Out B1] [audio input] too full or near too full (101% of size: 1500000000 [rtbufsize parameter])! frame dropped!\r\n"
+    );
+
+    client.send({ type: "stop" });
+    expect((await client.next("recording-stopped")).framesLost).toEqual({
+      camera: 1,
+      screen: null,
+    });
+  });
+
   it("replays the logged events after a given sequence number to a client that missed them", async () => {
     const { windows, client, started, port } = await recordOnce();
     windows
@@ -262,5 +357,58 @@ describe("a Recording Session", () => {
       Array.from({ length: stopped.seq - 1 }, (_, i) => i + 2)
     );
     expect(replayed.at(-1)).toEqual(stopped);
+  });
+});
+
+describe("crash recovery", () => {
+  it("repairs a Recording Session cut off without a stop, keeping the raw files, and reports it crashed", async () => {
+    // A recorder service dies mid-take: its Recording Session's log has no
+    // stop, and ffmpeg never finished the camera's and mic's files.
+    const crashed = await recordOnce();
+    const { files, recordingSessionId } = crashed.started;
+    crashed.windows
+      .recorder("camera")
+      .stderr("[silencedetect @ 1] silence_end: 2.0 | silence_duration: 2\r\n");
+    await crashed.client.next("speech-started");
+    fs.writeFileSync(files.camera, fakeFootage(12.5, { unfinished: true }));
+    fs.writeFileSync(files.screen, fakeFootage(12.6));
+    fs.writeFileSync(files.mic, fakeFootage(12.4, { unfinished: true }));
+
+    const windows = fakeWindows();
+    const { port } = await start(windows, crashed.stateDir);
+    const client = await connect(port);
+    expect((await client.next("hello")).recovered).toEqual([
+      recordingSessionId,
+    ]);
+
+    client.send({ type: "replay", recordingSessionId, afterSeq: 0 });
+    await client.next("replay-done");
+    const report = await client.next("recording-crashed");
+    expect(report.repairs).toEqual({
+      camera: "remuxed",
+      screen: "readable",
+      mic: "remuxed",
+    });
+    // The take still going at the crash ends where the mic file now does.
+    const speech = client.received.filter((m) => m.type === "speech-ended");
+    expect(speech).toMatchObject([{ fileTime: 12.4 }]);
+
+    expect(fs.readFileSync(files.camera, "utf8")).toBe(fakeFootage(12.5));
+    expect(fs.readFileSync(files.mic, "utf8")).toBe(fakeFootage(12.4));
+    for (const file of [files.camera, files.mic])
+      expect(fs.existsSync(file.replace(/\.mkv$/, ".raw.mkv"))).toBe(true);
+    // Any ffmpeg.exe still recording for it is stopped before its files are touched.
+    expect(windows.launched).toContainEqual(
+      expect.objectContaining({
+        script: "stop-recorders.ps1",
+        args: ["-Tags", `cvm-recorder-${recordingSessionId}`],
+      })
+    );
+
+    // Once repaired, a later start leaves it alone.
+    const again = await start(fakeWindows(), crashed.stateDir);
+    expect((await (await connect(again.port)).next("hello")).recovered).toEqual(
+      []
+    );
   });
 });

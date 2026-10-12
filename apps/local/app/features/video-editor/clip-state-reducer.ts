@@ -23,6 +23,7 @@ import {
 } from "./clip-state-reducer-recording";
 import {
   handleNewRecorderMessage,
+  recorderInsertionPoint,
   tellRecorderOfInsertionPoint,
 } from "./clip-state-reducer-new-recorder";
 import {
@@ -43,8 +44,9 @@ export const clipStateReducer: EffectReducer<
   clipStateReducer.Action,
   clipStateReducer.Effect
 > = (state, action, exec) => {
+  const recorderPoint = recorderInsertionPoint(state);
   const next = reduceClipState(state, action, exec);
-  tellRecorderOfInsertionPoint(state, next, action, exec);
+  tellRecorderOfInsertionPoint(recorderPoint, next, action, exec);
   return next;
 };
 

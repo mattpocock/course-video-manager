@@ -5,6 +5,8 @@ import {
 export const handle = { fullscreen: true };
 
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
+import { resolveVideoRecorder } from "@cvm/core/features/videos/recorder";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { Link } from "react-router";
@@ -27,6 +29,8 @@ import { EntityMenuContent } from "@/features/action-menu/action-menu";
 import { useThumbnailMenu } from "@/features/thumbnail-editor/thumbnail-menu";
 import { Label } from "@/components/ui/label";
 import { CaptureCameraModal } from "@/components/capture-camera-modal";
+import { RecorderCameraModal } from "@/features/thumbnail-editor/recorder-camera-modal";
+import { openCameraModal } from "@/features/thumbnail-editor/thumbnail-state-reducer";
 import { useThumbnailReducer } from "@/hooks/use-thumbnail-reducer";
 import {
   composeThumbnailLayers,
@@ -41,9 +45,15 @@ export const loader = makeLoader({
     Effect.gen(function* () {
       const videoId = params.videoId!;
       const db = yield* ThumbnailOperationsService;
+      const videoOps = yield* VideoOperationsService;
       const thumbnails = yield* db.getThumbnailsByVideoId(videoId);
+      const video = yield* videoOps.getVideoWithLessonById(videoId);
 
-      return { videoId, thumbnails };
+      return {
+        videoId,
+        thumbnails,
+        recorder: resolveVideoRecorder(video.recorder),
+      };
     }),
 });
 
@@ -78,8 +88,8 @@ function YouTubePreview({
 }
 
 export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
-  const { videoId, thumbnails } = loaderData;
-  const { state, dispatch } = useThumbnailReducer(thumbnails);
+  const { videoId, thumbnails, recorder } = loaderData;
+  const { state, dispatch } = useThumbnailReducer(thumbnails, recorder);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Draw all layers onto the canvas compositor
@@ -507,13 +517,24 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
           )}
       </div>
 
-      <CaptureCameraModal
-        open={state.cameraOpen}
-        onOpenChange={(open) =>
-          dispatch({ type: open ? "open-camera" : "close-camera" })
-        }
-        onCapture={(dataUrl) => dispatch({ type: "photo-captured", dataUrl })}
-      />
+      {state.cameraSource === "recorder" ? (
+        <RecorderCameraModal
+          videoId={videoId}
+          open={openCameraModal(state) === "recorder"}
+          onOpenChange={(open) =>
+            dispatch({ type: open ? "open-camera" : "close-camera" })
+          }
+          onCapture={(dataUrl) => dispatch({ type: "photo-captured", dataUrl })}
+        />
+      ) : (
+        <CaptureCameraModal
+          open={openCameraModal(state) === "virtual-camera"}
+          onOpenChange={(open) =>
+            dispatch({ type: open ? "open-camera" : "close-camera" })
+          }
+          onCapture={(dataUrl) => dispatch({ type: "photo-captured", dataUrl })}
+        />
+      )}
     </div>
   );
 }

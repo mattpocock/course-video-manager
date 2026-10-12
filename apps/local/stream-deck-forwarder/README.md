@@ -21,6 +21,21 @@ a dead address instead of the hub and OBS — see `../live-desk/live-desk.ts`.
 | Add Chapter        | `GET /api/add-chapter`                | Opens the chapter naming modal                                     |
 | Clear All Archived | `GET /api/clear-all-archived`         | Clears all deleted clips and orphans across all recording sessions |
 
+### New recorder
+
+Passed to the recorder service (`../recorder-service/`), not the hub: the
+service acts on whichever Video the recorder is open for, and the editor
+follows its events. With no recorder open the press does nothing and the
+service says why. OBS Videos keep Elgato's OBS plugin buttons.
+
+| Action          | HTTP Endpoint              | Description                               |
+| --------------- | -------------------------- | ----------------------------------------- |
+| Start Recording | `GET /api/start-recording` | Records, with the editor's Silence Length |
+| Stop Recording  | `GET /api/stop-recording`  | Stops the recording                       |
+| Camera scene    | `GET /api/scene-camera`    | Switches to the Camera scene              |
+| Code scene      | `GET /api/scene-code`      | Switches to the Code scene                |
+| No Face scene   | `GET /api/scene-no-face`   | Switches to the No Face scene             |
+
 ### Teleprompter
 
 Consumed only by `/teleprompter`; the Video Editor ignores them.

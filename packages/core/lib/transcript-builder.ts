@@ -1,6 +1,11 @@
 import { extractSceneText } from "./extract-scene-text/index.js";
 import { sortByOrder } from "./sort-by-order.js";
-import type { IndexedClip, SectionWithWordCount } from "./transcript-types.js";
+import type {
+  IndexedClip,
+  IndexedClipRecordingSession,
+  SectionWithWordCount,
+} from "./transcript-types.js";
+import type { RecordingSessionScene } from "../features/videos/recorder.js";
 
 export interface TranscriptWebLink {
   url: string;
@@ -14,6 +19,8 @@ export interface ClipInput {
   sourceEndTime: number;
   videoFilename: string;
   webLinks?: readonly TranscriptWebLink[];
+  recordingSession?: IndexedClipRecordingSession | null;
+  sceneOverride?: RecordingSessionScene | null;
 }
 
 /**
@@ -205,6 +212,8 @@ type OrderedItem =
       sourceEndTime: number;
       videoFilename: string;
       webLinks?: readonly TranscriptWebLink[];
+      recordingSession?: IndexedClipRecordingSession | null;
+      sceneOverride?: RecordingSessionScene | null;
     }
   | { type: "section"; order: string; id: string; name: string };
 
@@ -221,6 +230,8 @@ function toOrderedItems(
       sourceEndTime: clip.sourceEndTime,
       videoFilename: clip.videoFilename,
       webLinks: clip.webLinks,
+      recordingSession: clip.recordingSession,
+      sceneOverride: clip.sceneOverride,
     })),
     ...chapters.map<OrderedItem>((section) => ({
       type: "section",
@@ -345,6 +356,10 @@ export function buildTranscript(
         sourceEndTime: item.sourceEndTime,
         videoFilename: item.videoFilename,
         text: item.text,
+        ...(item.recordingSession && {
+          recordingSession: item.recordingSession,
+          sceneOverride: item.sceneOverride ?? null,
+        }),
       });
 
       if (item.text) {

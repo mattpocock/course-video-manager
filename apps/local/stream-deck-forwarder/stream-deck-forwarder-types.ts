@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { StreamDeckPress } from "../recorder-service/protocol";
 
 export const streamDeckForwarderMessageSchema = z.object({
   type: z.enum([
@@ -19,6 +20,21 @@ export const streamDeckForwarderMessageSchema = z.object({
 export type StreamDeckForwarderMessage = z.infer<
   typeof streamDeckForwarderMessageSchema
 >;
+
+/**
+ * The New recorder's buttons: each HTTP path, and the press the forwarder
+ * passes on to the recorder service (not to the hub, so an editor on an OBS
+ * Video never hears them). The service acts on whichever Video the recorder
+ * is open for; the editor follows its events. OBS Videos keep Elgato's OBS
+ * plugin buttons.
+ */
+export const STREAM_DECK_RECORDER_PRESSES: Record<string, StreamDeckPress> = {
+  "/api/start-recording": { action: "record" },
+  "/api/stop-recording": { action: "stop" },
+  "/api/scene-camera": { action: "switch-scene", scene: "Camera" },
+  "/api/scene-code": { action: "switch-scene", scene: "Code" },
+  "/api/scene-no-face": { action: "switch-scene", scene: "No Face" },
+};
 
 /**
  * Browser link-capture messages.

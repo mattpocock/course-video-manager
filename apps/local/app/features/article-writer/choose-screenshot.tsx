@@ -8,6 +8,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { formatDuration } from "@/lib/format-duration";
+import { cn } from "@/lib/utils";
 import { useRef, useState, useCallback, useEffect } from "react";
 import type { IndexedClip } from "./types";
 import {
@@ -20,11 +21,14 @@ import {
 import { stepScreenshotFrame } from "./screenshot-frame-step";
 import { useScreenshotSteps } from "./screenshot-io-step-dial";
 import {
+  clipCompositePicture,
   clipFrame,
+  clipPlaybackClock,
   clipPlaybackUrl,
   clipSource,
   type ClipFrame,
 } from "@/packages/clip-source";
+import { CompositePlayback } from "@/features/video-editor/components/composite-playback";
 
 const navAnchor = { [CHOOSE_SCREENSHOT_ATTR]: "" };
 
@@ -61,6 +65,15 @@ export function ChooseScreenshot({
   const landAtRef = useRef<"start" | "end">("start");
   const { steps, dials } = useScreenshotSteps();
 
+  // Every time kept here is the Clip's source time. The `<video>` is the
+  // playback clock: an OBS Clip's Footage, or a new-recorder Clip's mic,
+  // `offset` behind the picture (drawn by CompositePlayback).
+  const source = clip ? clipSource(clip) : null;
+  const offset = source ? clipPlaybackClock(source).offsetSeconds : 0;
+  const seekVideo = (time: number) => {
+    if (videoRef.current) videoRef.current.currentTime = time - offset;
+  };
+
   const isFirstClip = clipIndex <= 1;
   const isLastClip = clipIndex >= clips.length;
 
@@ -70,7 +83,7 @@ export function ChooseScreenshot({
   useEffect(() => {
     if (clip && videoRef.current) {
       const time = landingTime(clip);
-      videoRef.current.currentTime = time;
+      seekVideo(time);
       setCurrentTime(time);
     }
   }, [clip?.sourceStartTime]);
@@ -92,7 +105,7 @@ export function ChooseScreenshot({
       direction,
     });
     if (next?.type === "seek") {
-      if (videoRef.current) videoRef.current.currentTime = next.time;
+      seekVideo(next.time);
       setCurrentTime(next.time);
     } else if (next?.type === "change-clip") {
       changeClip(next.newIndex, next.landAt);
@@ -132,24 +145,24 @@ export function ChooseScreenshot({
 
   const handleTimeUpdate = useCallback(() => {
     if (!videoRef.current || !clip) return;
-    const time = videoRef.current.currentTime;
+    const time = videoRef.current.currentTime + offset;
     // Clamp to clip boundaries
-    if (time < clip.sourceStartTime) {
-      videoRef.current.currentTime = clip.sourceStartTime;
-    } else if (time > clip.sourceEndTime) {
-      videoRef.current.currentTime = clip.sourceEndTime;
-    }
-    setCurrentTime(videoRef.current.currentTime);
-  }, [clip]);
+    const clamped = Math.min(
+      Math.max(time, clip.sourceStartTime),
+      clip.sourceEndTime
+    );
+    if (clamped !== time) seekVideo(clamped);
+    setCurrentTime(clamped);
+  }, [clip, offset]);
 
   const handleScrub = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!videoRef.current || !clip) return;
       const time = parseFloat(e.target.value);
-      videoRef.current.currentTime = time;
+      seekVideo(time);
       setCurrentTime(time);
     },
-    [clip]
+    [clip, offset]
   );
 
   if (!clip) {
@@ -169,6 +182,10 @@ export function ChooseScreenshot({
   }
 
   const duration = clip.sourceEndTime - clip.sourceStartTime;
+  const picture = clipCompositePicture(source!, {
+    from: clip.sourceStartTime,
+    to: clip.sourceEndTime,
+  });
 
   if (isStreaming) {
     return (
@@ -218,23 +235,32 @@ export function ChooseScreenshot({
       )}
       <video
         ref={videoRef}
-        src={clipPlaybackUrl(clipSource(clip), {
+        src={clipPlaybackUrl(source!, {
           from: clip.sourceStartTime,
           to: clip.sourceEndTime,
         })}
-        className="w-full rounded-md aspect-video"
+        className={cn("w-full rounded-md aspect-video", picture && "hidden")}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => {
           // Re-apply the frame already chosen: a key pressed while the
           // video was loading must not be thrown away.
-          if (videoRef.current) {
-            videoRef.current.currentTime = Math.min(
+          seekVideo(
+            Math.min(
               Math.max(currentTime, clip.sourceStartTime),
               clip.sourceEndTime
-            );
-          }
+            )
+          );
         }}
       />
+      {picture && (
+        <CompositePlayback
+          clock={videoRef}
+          picture={picture}
+          offsetSeconds={offset}
+          hidden={false}
+          className="rounded-md"
+        />
+      )}
       <div className="mt-2 flex items-center gap-2">
         <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">
           {formatDuration(currentTime - clip.sourceStartTime)}

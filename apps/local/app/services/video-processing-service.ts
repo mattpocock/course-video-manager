@@ -8,6 +8,7 @@ import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { findSilenceInVideo } from "./silence-detection";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import type { SilenceLength } from "@/silence-detection-constants";
+import { clipFrameFfmpegArgs, type ClipFrame } from "@/packages/clip-source";
 
 export type PauseType = "none" | "long";
 
@@ -83,13 +84,23 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         }
       );
 
-      const getLastFrame = Effect.fn("getLastFrame")(function* (
-        inputVideo: string,
-        seekTo: number
+      /**
+       * Renders a still to a cached PNG. An OBS Clip's frame is cached under
+       * its file and time as it always was; a composite under the whole frame.
+       */
+      const renderStill = Effect.fn("renderStill")(function* (
+        frame: ClipFrame,
+        cacheKeyPrefix: string
       ) {
+        const seek = frame.time.toFixed(2);
         const inputHash = crypto
           .createHash("sha256")
-          .update(inputVideo + seekTo.toFixed(2))
+          .update(
+            cacheKeyPrefix +
+              (frame.kind === "footage"
+                ? frame.inputVideo + seek
+                : JSON.stringify({ ...frame, time: seek }))
+          )
           .digest("hex")
           .slice(0, 10);
 
@@ -106,10 +117,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
 
         const command = Command.make(
           "ffmpeg",
-          "-ss",
-          seekTo.toFixed(2),
-          "-i",
-          inputVideo,
+          ...clipFrameFfmpegArgs(frame, { seek }),
           "-frames:v",
           "1",
           outputFile
@@ -119,41 +127,9 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         return outputFile;
       });
 
-      const getFirstFrame = Effect.fn("getFirstFrame")(function* (
-        inputVideo: string,
-        seekTo: number
-      ) {
-        const inputHash = crypto
-          .createHash("sha256")
-          .update("first-" + inputVideo + seekTo.toFixed(2))
-          .digest("hex")
-          .slice(0, 10);
+      const getLastFrame = (frame: ClipFrame) => renderStill(frame, "");
 
-        const folder = path.join(tmpdir(), "tt-cli-images");
-        yield* effectFs.makeDirectory(folder, { recursive: true });
-
-        const outputFile = path.join(folder, `${inputHash}.png`);
-
-        const outputFileExists = yield* effectFs.exists(outputFile);
-
-        if (outputFileExists) {
-          return outputFile;
-        }
-
-        const command = Command.make(
-          "ffmpeg",
-          "-ss",
-          seekTo.toFixed(2),
-          "-i",
-          inputVideo,
-          "-frames:v",
-          "1",
-          outputFile
-        );
-        yield* Command.exitCode(command);
-
-        return outputFile;
-      });
+      const getFirstFrame = (frame: ClipFrame) => renderStill(frame, "first-");
 
       /**
        * Serialize clips into the format expected by the clip-and-append.lua script.

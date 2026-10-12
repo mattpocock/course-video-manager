@@ -87,6 +87,14 @@ export const showsOBSChecks = (state: recorderChoiceReducer.State): boolean =>
   state.recorder === "obs";
 
 /**
+ * Record, the scene buttons and the composite preview: only on a New
+ * recorder Video.
+ */
+export const showsNewRecorderControls = (
+  state: Pick<recorderChoiceReducer.State, "recorder">
+): boolean => state.recorder === "new-recorder";
+
+/**
  * The Recorder is locked once the Video has any Clip, so one Video never
  * mixes OBS and new-recorder Clips, and while a capture is still in progress
  * (its first Clip may not have landed yet).

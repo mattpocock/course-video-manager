@@ -23,6 +23,7 @@ import {
   requireDraftVersionForLesson,
   requireDraftVersionForVideo,
 } from "./draft-guard.server.js";
+import { clipRecordingSessionRelation } from "./clip-recording-session-relation.js";
 import { overlayExportRelation } from "./db-overlay-operations.server.js";
 import {
   createVideoNavigationOps,
@@ -230,6 +231,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
             ...(opts?.withArchived ? {} : { where: eq(clips.archived, false) }),
             with: {
               overlays: overlayExportRelation,
+              recordingSession: clipRecordingSessionRelation,
               diagramSnapshot: {
                 with: {
                   diagram: {

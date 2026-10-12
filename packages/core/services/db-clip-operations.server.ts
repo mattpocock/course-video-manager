@@ -21,6 +21,7 @@ import {
   requireDraftVersionForVideo,
 } from "./draft-guard.server.js";
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
+import { clipRecordingSessionRelation } from "./clip-recording-session-relation.js";
 import {
   compareOrderStrings,
   orderKeyBeforeItem,
@@ -70,6 +71,35 @@ const createClipOperationsUnwrapped = (db: Database) => {
 
     return clip;
   });
+
+  /** getClipsByIds, each with its Recording Session (null for OBS). */
+  const getClipsWithRecordingSessionByIds = Effect.fn(
+    "getClipsWithRecordingSessionByIds"
+  )(function* (clipIds: readonly string[]) {
+    return yield* makeDbCall(() =>
+      db.query.clips.findMany({
+        where: inArray(clips.id, clipIds),
+        with: { recordingSession: clipRecordingSessionRelation },
+      })
+    );
+  });
+
+  /**
+   * A Clip with its Recording Session (null for an OBS Clip): everything the
+   * Clip Source module needs to show its picture.
+   */
+  const getClipWithRecordingSession = Effect.fn("getClipWithRecordingSession")(
+    function* (clipId: string) {
+      const [clip] = yield* getClipsWithRecordingSessionByIds([clipId]);
+      if (!clip) {
+        return yield* new NotFoundError({
+          type: "getClipWithRecordingSession",
+          params: { clipId },
+        });
+      }
+      return clip;
+    }
+  );
 
   const getClipsByIds = Effect.fn("getClipsByIds")(function* (
     clipIds: readonly string[]
@@ -604,7 +634,9 @@ const createClipOperationsUnwrapped = (db: Database) => {
 
   return {
     getClipById,
+    getClipWithRecordingSession,
     getClipsByIds,
+    getClipsWithRecordingSessionByIds,
     updateClip,
     setTranscriptionStatus,
     listVideosWithStuckTranscriptions,

@@ -5,12 +5,26 @@ import { makeAction } from "@/services/route-action.server";
 import { getVideoFilePath } from "@/services/video-files";
 import { FileSystem } from "@effect/platform";
 import path from "node:path";
+import { SCENES } from "@/packages/scene-layout";
 
-/** A `ClipFrame` from `@/packages/clip-source`: the picker never names a file. */
-const RequestSchema = Schema.Struct({
-  inputVideo: Schema.String,
-  time: Schema.Number,
-});
+/**
+ * A `ClipFrame` from `@/packages/clip-source`: the picker never names a file.
+ * A new-recorder Clip's is a composite, drawn from its screen and camera.
+ */
+const RequestSchema = Schema.Union(
+  Schema.Struct({
+    kind: Schema.Literal("footage"),
+    inputVideo: Schema.String,
+    time: Schema.Number,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("composite"),
+    screen: Schema.String,
+    camera: Schema.String,
+    scene: Schema.Literal(...SCENES),
+    time: Schema.Number,
+  })
+);
 
 export const action = makeAction({
   input: "json",
@@ -39,11 +53,7 @@ export const action = makeAction({
 
       const outputPath = path.join(baseDir, filename);
 
-      yield* ffmpeg.captureFrameAtTime(
-        frame.inputVideo,
-        frame.time,
-        outputPath
-      );
+      yield* ffmpeg.captureFrameAtTime(frame, outputPath);
 
       return { imagePath: `./${filename}` };
     }),

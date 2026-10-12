@@ -1,9 +1,10 @@
 import { recordingSessions, recordingSessionSceneEvents } from "@/db/schema";
 import type { DatabaseId } from "@cvm/core/db/ids";
 import type { NewRecorderMessage } from "@/features/video-editor/new-recorder-wire";
-import type { RecordingSessionScene } from "@cvm/core/features/videos/recorder";
 import { asc, eq } from "drizzle-orm";
+import { clipRecordingSessionRelation } from "@cvm/core/services/clip-recording-session-relation";
 import { Effect } from "effect";
+import { sceneSegments } from "@/packages/scene-layout";
 import type { InsertionPoint } from "@/services/clip-service";
 import {
   dbCall,
@@ -11,19 +12,23 @@ import {
 } from "@/services/clip-service-handler.helpers";
 import { placeSpeechAsClips } from "@/services/clip-service-speech.server";
 import type { Database } from "@/services/drizzle-service.server";
+import { requireDraftVersionForVideo } from "@/services/draft-guard.server";
+import { withDbTransaction } from "@/services/with-db-transaction.server";
 import type { SequencedEvent } from "./sequencer";
 
 /**
  * What one recorder event means for the database: a Recording Session row
- * when it starts and stops, Clips when speech ends. Idempotent, so an event
- * replayed after a restart changes nothing it already changed.
+ * when it starts, stops (with its frames lost) or is found crashed, a scene
+ * event row per scene change, Clips when speech ends. Idempotent, so an
+ * event replayed after a restart changes nothing it already changed.
+ *
+ * Scene events and Clip bounds are both in picture time; speech arrives in
+ * mic time and is moved to picture time (+ mic offset) before a Clip is cut
+ * or its scene looked up (recorder-service/protocol.ts, TIME BASE).
  */
 
 /** The picture's frame rate: the new recorder records the screen at 60 fps. */
 export const NEW_RECORDER_FPS = 60;
-
-/** The scene with no scene events: the layout module's default. */
-const DEFAULT_SCENE: RecordingSessionScene = "Code";
 
 export type IngestResult = {
   /** The Video the event is about; null when it means nothing to an editor. */
@@ -51,10 +56,11 @@ const endOfVideo = Effect.fn("endOfVideo")(function* (
     : ({ type: "after-chapter", chapterId: last.id } satisfies InsertionPoint);
 });
 
+/** The scene in force at a picture time, by the layout module's rule. */
 const sceneAt = Effect.fn("sceneAt")(function* (
   db: Database,
   recordingSessionId: string,
-  fileTime: number
+  pictureTime: number
 ) {
   const events = yield* dbCall(() =>
     db.query.recordingSessionSceneEvents.findMany({
@@ -65,7 +71,11 @@ const sceneAt = Effect.fn("sceneAt")(function* (
       orderBy: asc(recordingSessionSceneEvents.fileTime),
     })
   );
-  return events.findLast((e) => e.fileTime <= fileTime)?.scene ?? DEFAULT_SCENE;
+  const [first] = sceneSegments({
+    events: events.map((e) => ({ scene: e.scene, atSeconds: e.fileTime })),
+    clip: { startSeconds: pictureTime, endSeconds: pictureTime },
+  });
+  return first!.scene;
 });
 
 export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
@@ -76,21 +86,44 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
 ) {
   const recordingSessionId = event.recordingSessionId;
   if (event.type === "recording-started") {
-    yield* dbCall(() =>
-      db
-        .insert(recordingSessions)
-        .values({
-          id: recordingSessionId,
-          videoId: event.videoId,
-          cameraFilePath: event.files.camera,
-          screenFilePath: event.files.screen,
-          micFilePath: event.files.mic,
-          status: "recording",
-          startedAt: new Date(event.t0Ms),
-          silenceLength: event.silenceLength,
-        })
-        .onConflictDoNothing()
+    // A Recording Session hangs off its Video, so the Video's Version must
+    // be the Draft (docs/DRAFT_GUARD.md). Refused, it is never saved, and
+    // nor is anything after it: the editor is told, not retried.
+    const refused = yield* withDbTransaction(db, (tx) =>
+      Effect.gen(function* () {
+        yield* requireDraftVersionForVideo(tx, event.videoId);
+        yield* dbCall(() =>
+          tx
+            .insert(recordingSessions)
+            .values({
+              id: recordingSessionId,
+              videoId: event.videoId,
+              cameraFilePath: event.files.camera,
+              screenFilePath: event.files.screen,
+              micFilePath: event.files.mic,
+              status: "recording",
+              startedAt: new Date(event.t0Ms),
+              silenceLength: event.silenceLength,
+            })
+            .onConflictDoNothing()
+        );
+      })
+    ).pipe(
+      Effect.as(false),
+      Effect.catchTag("VersionNotDraftError", () => Effect.succeed(true))
     );
+    if (refused)
+      return {
+        videoId: event.videoId,
+        messages: [
+          {
+            type: "recorder-failed",
+            message:
+              "This Video's Version is not the Draft, so this recording is not saved.",
+          },
+        ],
+        insertionPoint: null,
+      } satisfies IngestResult;
     return {
       videoId: event.videoId,
       messages: [
@@ -115,6 +148,21 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
 
   switch (event.type) {
     case "screen-recorder-tuned":
+      return nothing;
+    case "scene-changed":
+      // One row per logged event: its id is the event's (Recording Session,
+      // seq), so a replay writes nothing new.
+      yield* dbCall(() =>
+        db
+          .insert(recordingSessionSceneEvents)
+          .values({
+            id: `${recordingSessionId}:${event.seq}`,
+            recordingSessionId,
+            fileTime: event.fileTime,
+            scene: event.scene,
+          })
+          .onConflictDoNothing()
+      );
       return nothing;
     case "speech-started":
       return {
@@ -148,12 +196,19 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
         { type: "speech-ended", recordingSessionId },
       ];
       if (last && placed.transcriptionJobId) {
+        const recordingSession = yield* dbCall(() =>
+          db.query.recordingSessions.findFirst({
+            where: eq(recordingSessions.id, recordingSessionId),
+            ...clipRecordingSessionRelation,
+          })
+        );
         messages.push({
           type: "clips-saved",
           recordingSessionId,
           clips: placed.clips.map((c) => ({
             ...c,
             id: c.id as DatabaseId,
+            recordingSession: recordingSession!,
           })),
           placedAt: insertionPoint,
           transcriptionJobId: placed.transcriptionJobId,
@@ -167,11 +222,24 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
           : null,
       } satisfies IngestResult;
     }
+    case "camera-lost":
+      return {
+        videoId,
+        messages: [
+          { type: "camera-lost", recordingSessionId, errors: event.errors },
+        ],
+        insertionPoint: null,
+      } satisfies IngestResult;
     case "recording-stopped":
       yield* dbCall(() =>
         db
           .update(recordingSessions)
-          .set({ status: "stopped" })
+          .set({
+            status: "stopped",
+            cameraFramesLost: event.framesLost.camera,
+            // Not measured yet (null): the column keeps its default 0.
+            screenFramesLost: event.framesLost.screen ?? undefined,
+          })
           .where(eq(recordingSessions.id, recordingSessionId))
       );
       return {
@@ -181,9 +249,46 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
             type: "recording-stopped",
             recordingSessionId,
             errors: event.errors,
+            crashed: false,
+            framesLost: event.framesLost,
+          },
+        ],
+        insertionPoint: null,
+      } satisfies IngestResult;
+    case "recording-crashed":
+      // Its Clips so far are already saved; a take still going at the crash
+      // came in just before, ended where the repaired mic file ends.
+      yield* dbCall(() =>
+        db
+          .update(recordingSessions)
+          .set({ status: "crashed" })
+          .where(eq(recordingSessions.id, recordingSessionId))
+      );
+      return {
+        videoId,
+        messages: [
+          {
+            type: "recording-stopped",
+            recordingSessionId,
+            errors: [],
+            crashed: true,
+            framesLost: null,
           },
         ],
         insertionPoint: null,
       } satisfies IngestResult;
   }
+});
+
+/** The Recording Sessions not yet seen to stop or crash. */
+export const unfinishedRecordingSessions = Effect.fn(
+  "unfinishedRecordingSessions"
+)(function* (db: Database) {
+  const rows = yield* dbCall(() =>
+    db.query.recordingSessions.findMany({
+      columns: { id: true },
+      where: eq(recordingSessions.status, "recording"),
+    })
+  );
+  return rows.map((r) => r.id);
 });

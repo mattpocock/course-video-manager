@@ -8,7 +8,7 @@
 // canvas draws a scene (live preview, editor playback) and `sceneFilterGraph`
 // says how ffmpeg draws a run of segments (export, stills). `LAYOUT_VERSION`
 // goes into the Export Hash.
-export { SCENES, type Scene } from "./lib/layout-definition";
+export { DEFAULT_SCENE, SCENES, type Scene } from "./lib/layout-definition";
 export {
   sceneSegments,
   type SceneEvent,

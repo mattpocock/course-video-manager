@@ -3,6 +3,7 @@ import { NodeContext } from "@effect/platform-node";
 import { Effect, Stream } from "effect";
 import { FFmpegError, type FfmpegLogInfo } from "./ffmpeg-error";
 import { FfmpegPermitsService } from "./ffmpeg-permits";
+import { clipFrameFfmpegArgs, type ClipFrame } from "@/packages/clip-source";
 
 export type { FfmpegLogInfo };
 
@@ -110,21 +111,18 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
       );
 
       const captureFrameAtTime = Effect.fn("captureFrameAtTime")(function* (
-        inputVideo: string,
-        timestamp: number,
+        frame: ClipFrame,
         outputPath: string
       ) {
         const args = [
           "-y",
           "-hide_banner",
-          "-ss",
-          String(timestamp),
-          "-i",
-          inputVideo,
+          ...clipFrameFfmpegArgs(frame, {
+            seek: String(frame.time),
+            filter: "scale=-2:720",
+          }),
           "-vframes",
           "1",
-          "-vf",
-          "scale=-2:720",
           "-q:v",
           "2",
           outputPath,
@@ -142,14 +140,14 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
                 (e) =>
                   new FFmpegError({
                     cause: e,
-                    message: `Failed to capture frame at ${timestamp}s: ${e.message}`,
+                    message: `Failed to capture frame at ${frame.time}s: ${e.message}`,
                   })
               )
             );
             if (code !== 0) {
               return yield* new FFmpegError({
                 cause: null,
-                message: `Failed to capture frame at ${timestamp}s, exit code: ${code}`,
+                message: `Failed to capture frame at ${frame.time}s, exit code: ${code}`,
               });
             }
           })

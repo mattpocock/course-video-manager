@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClipOnDatabase, FrontendId } from "./clip-state-reducer";
 import { cn } from "@/lib/utils";
-import { clipPlaybackUrl, clipSource } from "@/packages/clip-source";
+import {
+  clipCompositePicture,
+  clipPlaybackClock,
+  clipPlaybackUrl,
+  clipSource,
+} from "@/packages/clip-source";
+import { CompositePlayback } from "./components/composite-playback";
 import { clipZoomCssStyle } from "@/features/videos/clip-zoom";
 import {
   BEAT_DURATION,
@@ -48,9 +54,19 @@ export const PreloadableClip = (props: {
   const ref = useRef<HTMLVideoElement>(null);
   useAudioBoost(ref, PREVIEW_AUDIO_BOOST_DB);
 
-  const preloadFrom = props.clip.sourceStartTime - PRELOAD_PLAY_AMOUNT;
-  const preloadTo = props.clip.sourceStartTime;
-  const modifiedEndTime = props.clip.sourceEndTime - 0.06;
+  // The `<video>` below is the playback clock: an OBS Clip's Footage, or a
+  // new-recorder Clip's mic, which runs `clockOffset` behind the picture.
+  // Every time this component keeps is the clock's own.
+  const source = clipSource(props.clip);
+  const clockOffset = clipPlaybackClock(source).offsetSeconds;
+  const clockStart = props.clip.sourceStartTime - clockOffset;
+  const preloadFrom = clockStart - PRELOAD_PLAY_AMOUNT;
+  const preloadTo = clockStart;
+  const modifiedEndTime = props.clip.sourceEndTime - 0.06 - clockOffset;
+  const picture = clipCompositePicture(source, {
+    from: preloadFrom + clockOffset,
+    to: modifiedEndTime + clockOffset,
+  });
 
   const isPlaying = !props.hidden && props.state === "playing";
 
@@ -65,8 +81,7 @@ export const PreloadableClip = (props: {
       return;
     }
 
-    const sync = () =>
-      setOverlayCurrentTime(video.currentTime - props.clip.sourceStartTime);
+    const sync = () => setOverlayCurrentTime(video.currentTime - clockStart);
 
     sync();
     video.addEventListener("seeked", sync);
@@ -75,12 +90,7 @@ export const PreloadableClip = (props: {
       video.removeEventListener("seeked", sync);
       video.removeEventListener("timeupdate", sync);
     };
-  }, [
-    ref.current,
-    props.hidden,
-    props.overlays.length,
-    props.clip.sourceStartTime,
-  ]);
+  }, [ref.current, props.hidden, props.overlays.length, clockStart]);
 
   useEffect(() => {
     if (!ref.current) {
@@ -94,7 +104,7 @@ export const PreloadableClip = (props: {
       return;
     }
     ref.current.pause();
-    ref.current.currentTime = props.scrubSeekTime;
+    ref.current.currentTime = props.scrubSeekTime - clockOffset;
   }, [props.scrubSeekTime, props.hidden, ref.current]);
 
   useEffect(() => {
@@ -110,7 +120,7 @@ export const PreloadableClip = (props: {
 
     if (props.hidden || !props.aggressivePreload) {
       ref.current.pause();
-      ref.current.currentTime = props.clip.sourceStartTime;
+      ref.current.currentTime = clockStart;
       ref.current.muted = false;
       return;
     }
@@ -152,11 +162,11 @@ export const PreloadableClip = (props: {
       } else if (currentTime >= modifiedEndTime) {
         ref.current!.pause();
         props.onFinish();
-        ref.current!.currentTime = props.clip.sourceStartTime;
+        ref.current!.currentTime = clockStart;
         return;
       }
 
-      const clipRelativeTime = currentTime - props.clip.sourceStartTime;
+      const clipRelativeTime = currentTime - clockStart;
       props.onUpdateCurrentTime(clipRelativeTime);
       if (props.overlays.length > 0) {
         setOverlayCurrentTime(clipRelativeTime);
@@ -177,7 +187,7 @@ export const PreloadableClip = (props: {
     isPlaying,
     preloadState,
     modifiedEndTime,
-    props.clip.sourceStartTime,
+    clockStart,
     preloadTo,
     props.onUpdateCurrentTime,
     props.overlays.length,
@@ -204,13 +214,15 @@ export const PreloadableClip = (props: {
     >
       <video
         key={props.clip.frontendId}
-        src={clipPlaybackUrl(clipSource(props.clip), {
-          from: preloadFrom,
-          to: modifiedEndTime,
+        src={clipPlaybackUrl(source, {
+          from: preloadFrom + clockOffset,
+          to: modifiedEndTime + clockOffset,
         })}
         className={cn(
           "w-full",
-          props.profile === "TikTok" && "w-92 aspect-[9/16]"
+          props.profile === "TikTok" && "w-92 aspect-[9/16]",
+          // A new-recorder Clip's clock is its mic: heard, drawn below.
+          picture && "hidden"
         )}
         // The preview half of two contracts that are never both in force: the
         // Overlay's kind-derived Transform (a sideways translate) and the
@@ -225,6 +237,19 @@ export const PreloadableClip = (props: {
         }
         ref={ref}
       />
+      {picture && (
+        <CompositePlayback
+          clock={ref}
+          picture={picture}
+          offsetSeconds={clockOffset}
+          hidden={props.hidden}
+          style={
+            overlayCameraStyle ??
+            clipZoomCssStyle(props.clip.zoomType) ??
+            undefined
+          }
+        />
+      )}
       {/* Only mounted for the Clip actually on screen — every other Clip in
           the manager is preloading off-screen (`hidden`), and there is no
           reason to run an extra `<Player>` per one of those. */}
