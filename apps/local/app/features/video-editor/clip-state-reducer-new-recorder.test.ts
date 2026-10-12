@@ -60,6 +60,8 @@ const recorderStatus = (recordingSessionId: string | null) =>
     reachable: true,
     problem: null,
     recordingSessionId,
+    previews: { camera: "c", screen: "s" },
+    still: "still",
   });
 
 const clipsSaved = (
