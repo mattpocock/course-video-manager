@@ -1,126 +1,42 @@
-import { sortByOrder } from "@/lib/sort-by-order";
 import { makeAction } from "@/services/route-action.server";
-import { acquireTextWritingContext } from "@/services/text-writing-agent";
-import {
-  generateSuggestNextClipPrompt,
-  type FewShotExample,
-} from "@/prompts/generate-suggest-next-clip";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { ToolLoopAgent as Agent } from "ai";
+import { generateSuggestNextClipPrompt } from "@/prompts/generate-suggest-next-clip";
+import { streamText } from "ai";
 import { Effect, Schema } from "effect";
 import { anthropic } from "@ai-sdk/anthropic";
 
-const requestSchema = Schema.Struct({
-  enabledFiles: Schema.optionalWith(Schema.Array(Schema.String), {
-    default: () => [],
-  }),
-  // When set, truncate the transcript to only include clips up to and including this clip ID
-  truncateAfterClipId: Schema.optionalWith(
-    Schema.Union(Schema.String, Schema.Null),
-    { default: () => null }
-  ),
-});
+/** The Suggestions tab's model: fast, because it races the next Take. */
+export const SUGGEST_NEXT_CLIP_MODEL = "claude-haiku-5-5";
 
 /**
- * Build a transcript for suggestions, optionally truncated after a specific clip.
- * The transcript is formatted clip-by-clip for clarity.
+ * Streams the Suggestions tab's next line as plain text. The editor sends the
+ * sources the author ticked and the recent Clip transcripts it already holds,
+ * so this route reads nothing. Aborting the request (a newer suggestion, or
+ * the tab closing) aborts the model call.
  */
-const buildSuggestionTranscript = (
-  clips: { id: string; text: string | null; order: string }[],
-  truncateAfterClipId: string | null
-): string => {
-  // Sort clips by order
-  const sortedClips = sortByOrder(clips);
-
-  // Find truncation point if specified
-  let clipsToInclude = sortedClips;
-  if (truncateAfterClipId) {
-    const truncateIndex = sortedClips.findIndex(
-      (clip) => clip.id === truncateAfterClipId
-    );
-    if (truncateIndex !== -1) {
-      clipsToInclude = sortedClips.slice(0, truncateIndex + 1);
-    }
-  }
-
-  // Build clip-by-clip transcript
-  const transcriptLines = clipsToInclude
-    .filter((clip) => clip.text && clip.text.trim().length > 0)
-    .map((clip, index) => `Clip ${index + 1}: ${clip.text}`)
-    .join("\n");
-
-  return transcriptLines;
-};
+const requestSchema = Schema.Struct({
+  notes: Schema.optional(Schema.String),
+  script: Schema.optional(Schema.String),
+  animatic: Schema.optional(Schema.String),
+  beats: Schema.optional(Schema.String),
+  recentClips: Schema.Array(Schema.String),
+});
 
 export const action = makeAction({
   input: "json",
-  effect: ({ params, payload: body }) => {
-    const videoId = params.videoId!;
+  effect: ({ payload, request }) =>
+    Effect.gen(function* () {
+      const input = yield* Schema.decodeUnknown(requestSchema)(payload);
 
-    return Effect.gen(function* () {
-      const videoOps = yield* VideoOperationsService;
-      const parsed = yield* Schema.decodeUnknown(requestSchema)(body);
-      const enabledFiles: string[] = [...parsed.enabledFiles];
-      const truncateAfterClipId = parsed.truncateAfterClipId;
-
-      const videoContext = yield* acquireTextWritingContext({
-        videoId,
-        enabledFiles,
-        includeTranscript: false, // We'll build our own transcript
-        enabledSections: [],
+      const result = streamText({
+        model: anthropic(SUGGEST_NEXT_CLIP_MODEL),
+        system: generateSuggestNextClipPrompt({
+          ...input,
+          recentClips: [...input.recentClips],
+        }),
+        messages: [{ role: "user", content: "What do I say next?" }],
+        abortSignal: request.signal,
       });
 
-      // Get the video with clips for building the transcript
-      const video = yield* videoOps.getVideoWithClipsById(videoId);
-
-      // Build transcript, truncated if specified
-      const transcript = buildSuggestionTranscript(
-        video.clips,
-        truncateAfterClipId
-      );
-
-      // Get videos for few-shot examples (excluding current video)
-      const exampleVideos =
-        yield* videoOps.getVideosForFewShotExamples(videoId);
-
-      // Build few-shot examples from the example videos
-      // For each video, take the clip transcripts to show the progression
-      const fewShotExamples: FewShotExample[] = exampleVideos
-        .map((video) => {
-          // Get all clip transcripts that have text
-          const clipTranscripts = video.clips
-            .filter((clip) => clip.text && clip.text.trim().length > 0)
-            .map((clip) => clip.text);
-
-          return { clipTranscripts };
-        })
-        .filter((example) => example.clipTranscripts.length >= 2);
-
-      console.log(fewShotExamples);
-
-      const systemPrompt = generateSuggestNextClipPrompt({
-        code: videoContext.textFiles,
-        transcript,
-        fewShotExamples,
-      });
-
-      const agent = new Agent({
-        model: anthropic("claude-haiku-4-5"),
-        instructions: systemPrompt,
-      });
-
-      const result = yield* Effect.tryPromise(() =>
-        agent.stream({
-          messages: [
-            {
-              role: "user",
-              content: "Go.",
-            },
-          ],
-        })
-      );
-
-      return result.toUIMessageStreamResponse();
-    });
-  },
+      return result.toTextStreamResponse();
+    }),
 });

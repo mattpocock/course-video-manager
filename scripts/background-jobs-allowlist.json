@@ -129,7 +129,7 @@
     {
       "file": "apps/local/app/routes/videos.$videoId.suggest-next-clip.ts",
       "count": 1,
-      "reason": "The author watches: a conversation streamed to the editor (suggest the next Clip), not background work."
+      "reason": "The author watches: the Suggestions tab's next line, streamed to the editor and the teleprompter while the tab is open, not background work."
     },
     {
       "file": "apps/local/app/services/ai-hero-auth-service.ts",

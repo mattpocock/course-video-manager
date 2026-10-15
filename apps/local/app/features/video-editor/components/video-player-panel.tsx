@@ -7,10 +7,7 @@ import { CvmRecorderControls } from "./cvm-recorder-controls";
 import { CalibrationGateBanner } from "./calibration-gate-banner";
 import { showsCvmRecorderControls } from "../recorder-choice-reducer";
 import { TableOfContents } from "./table-of-contents";
-import {
-  DeferredAddVideoModal,
-  DeferredSuggestionsPanel,
-} from "./deferred-fs-panels";
+import { DeferredAddVideoModal } from "./deferred-fs-panels";
 import { ActionsDropdown } from "./actions-dropdown";
 import { VideoPlayerStatusStrip } from "./video-player-status-strip";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
@@ -19,7 +16,6 @@ import { VideoPlayerLinksTab } from "./video-player-links-tab";
 import { VideoMoreActions } from "./video-more-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
-  getLastTranscribedClipId as getLastTranscribedClipIdSelector,
   getChapters as getChaptersSelector,
   getHasSections as getHasSectionsSelector,
   getIsOBSActive as getIsOBSActiveSelector,
@@ -31,17 +27,8 @@ import { videoMenuGroups } from "@/features/video-menu/video-menu";
 import { useEditorVideoActions } from "../editor-video-menu";
 import { useNewShortAction } from "../new-short-action";
 import { useContextSelector } from "use-context-selector";
-import {
-  VideoEditorContext,
-  type SuggestionState,
-} from "../video-editor-context";
-import {
-  Suspense,
-  useState,
-  useMemo,
-  useCallback,
-  type ChangeEvent,
-} from "react";
+import { VideoEditorContext } from "../video-editor-context";
+import { Suspense, useState, useMemo, type ChangeEvent } from "react";
 
 export const VideoPlayerPanel = () => {
   const lessonId = useContextSelector(
@@ -86,10 +73,6 @@ export const VideoPlayerPanel = () => {
   const footageNotFound = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.footageNotFound
-  );
-  const insertionPoint = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.insertionPoint
   );
   const clipIdsPreloaded = useContextSelector(
     VideoEditorContext,
@@ -183,22 +166,7 @@ export const VideoPlayerPanel = () => {
   const newShort = useNewShortAction();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<
-    "suggestions" | "toc" | "links" | "more"
-  >("suggestions");
-
-  // The Suggestions panel reports its state up; the timeline shows it inline.
-  const handleSuggestionStateChange = useCallback(
-    (suggestion: SuggestionState) => {
-      modalDispatch({ type: "suggestion-changed", suggestion });
-    },
-    [modalDispatch]
-  );
-
-  const lastTranscribedClipId = useMemo(
-    () => getLastTranscribedClipIdSelector(clips),
-    [clips]
-  );
+  const [activeTab, setActiveTab] = useState<"toc" | "links" | "more">("links");
 
   const chapters = useMemo(() => getChaptersSelector(items), [items]);
   const hasSections = getHasSectionsSelector(items);
@@ -343,12 +311,11 @@ export const VideoPlayerPanel = () => {
             </Button>
           </div>
 
-          {/* Tabbed panel for Suggestions and Table of Contents */}
+          {/* Tabbed panel for Sections, Links and More */}
           <div className="mt-6 border-t border-border pt-4">
             <div className="flex gap-2 mb-3">
               {(
                 [
-                  ["suggestions", "Suggestions"],
                   ...(hasSections ? [["toc", "Sections"] as const] : []),
                   ["links", "Links"],
                   ["more", "More"],
@@ -368,19 +335,6 @@ export const VideoPlayerPanel = () => {
                 </button>
               ))}
             </div>
-
-            {activeTab === "suggestions" && (
-              <Suspense>
-                <DeferredSuggestionsPanel
-                  fsData={fsData}
-                  videoId={videoId}
-                  lastTranscribedClipId={lastTranscribedClipId}
-                  clips={clips}
-                  insertionPoint={insertionPoint}
-                  onSuggestionStateChange={handleSuggestionStateChange}
-                />
-              </Suspense>
-            )}
 
             {activeTab === "toc" && hasSections && (
               <TableOfContents

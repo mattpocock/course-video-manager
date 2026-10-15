@@ -1,12 +1,14 @@
 /**
- * The four occupants of the editor's tabbed side slot. The Beats tab shows
+ * The five occupants of the editor's tabbed side slot. The Beats tab shows
  * *this video's own* plan; the Reference tab shows the sibling-video reader;
  * the Script tab shows this video's teleprompter script; the Animatic tab
- * shows its Clip Mockups read as lines. They merely share screen real estate —
+ * shows its Clip Mockups read as lines; the Suggestions tab streams the next
+ * line to say onto the teleprompter. They merely share screen real estate —
  * "Reference" stays reserved for the sibling reader, never the beat, script or
  * Animatic view.
  */
-export type BeatTab = "beats" | "reference" | "script" | "animatic";
+export type BeatTab =
+  "beats" | "reference" | "script" | "animatic" | "suggestions";
 
 /**
  * Resolve which tab the editor's side slot should show, given the persisted
@@ -35,6 +37,8 @@ export const resolveBeatTab = ({
     if (tab === "beats") return hasBeats;
     if (tab === "animatic") return hasAnimatic;
     if (tab === "reference") return hasReference;
+    // Suggestions, like Script, needs no loader flag: it works from whatever
+    // sources the video has.
     // Script is always available: an empty Script is authored in place, so it
     // needs no loader flag to decide it exists.
     return true;

@@ -8,24 +8,12 @@
 import { use } from "react";
 import { AddVideoModal } from "@/components/add-video-modal";
 import { VideoFilePasteModal } from "@/components/video-file-paste-modal";
-import {
-  SuggestionsPanel,
-  type SuggestionsPanelProps,
-} from "./suggestions-panel";
 
 export type FsData = Promise<{
   hasExplainerFolder: boolean;
   standaloneFiles: Array<{ path: string }>;
   files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
 }>;
-
-export const DeferredSuggestionsPanel = (
-  props: Omit<SuggestionsPanelProps, "files"> & { fsData: FsData }
-) => {
-  const { fsData: fsDataPromise, ...rest } = props;
-  const fsData = use(fsDataPromise);
-  return <SuggestionsPanel {...rest} files={fsData.files} />;
-};
 
 export const DeferredAddVideoModal = (props: {
   fsData: FsData;

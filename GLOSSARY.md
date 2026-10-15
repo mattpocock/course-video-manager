@@ -319,6 +319,10 @@ _Avoid_: Punch-in, Ken Burns (implies an animated move; this one is static — r
 The position in a video timeline where new clips or chapters will be added (start, after a clip, after a chapter, end). The editor owns it: on either **Recorder**, each save of a **Take** carries it, and the app server keeps none of its own (ADR 0044).
 _Avoid_: Cursor, Drop target
 
+**Suggestion**:
+The next line the author should say, streamed by the Video Editor's Suggestions tab while that tab is open and shown on the teleprompter in place of the **Script**. It is made from the author's Notes for the Video (free text kept in the browser, never stored, which outrank the rest), the **Script**, **Animatic** and **Beats** the author ticked, plus the transcripts of the last few **Clips** before the **Insertion Point**, which say where the author is. It is never stored: closing the tab forgets it.
+_Avoid_: Autofill (a different feature that writes a Video's description and Chapters), Prompt
+
 **Transcription**:
 The process of getting a clip's text from its audio. A **Clip** is transcribed as soon as it is saved, by Local Whisper in the **Sidecar**, even while its **Recording Session** is still recording, so its text is there mid-take. That Transcription runs below the capture and reads only the Clip's span of the mic file. A **Footage** file's Transcription waits until the Recording Session stops.
 _Avoid_: Caption, Subtitle

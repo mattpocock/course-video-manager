@@ -37,7 +37,7 @@ export default function Teleprompter() {
     teleprompterSession.reducer,
     teleprompterSession.initialState
   );
-  const { videoId, content } = state;
+  const { videoId } = state;
 
   // --- Editor sync: the only way this window learns anything --------------
   // The editor *pushes*; the heartbeat below is liveness only. `hello` goes out
@@ -60,6 +60,7 @@ export default function Teleprompter() {
           playingClipId: msg.playingClipId,
           latestTranscript: msg.latestTranscript,
           videoLengthSeconds: msg.videoLengthSeconds,
+          suggestion: msg.suggestion,
           at: Date.now(),
         });
       } else if (msg.type === "pong") {
@@ -138,16 +139,16 @@ export default function Teleprompter() {
     };
   }, [videoId]);
 
-  const blocks = useMemo(
-    () => parseScriptBlocks(content.script),
-    [content.script]
-  );
+  const glassScript = teleprompterSession.glassScript(state);
+  const blocks = useMemo(() => parseScriptBlocks(glassScript), [glassScript]);
 
   const emptyMessage = !state.editorConnected
     ? "Waiting for a Video Editor window."
     : !videoId
       ? "No video open in the editor."
-      : "This video has no Script yet.";
+      : state.suggestion !== null
+        ? "Thinking of what to say next…"
+        : "This video has no Script yet.";
 
   return (
     <div className="fixed inset-0 select-none overflow-hidden bg-black">
@@ -189,7 +190,12 @@ export default function Teleprompter() {
           <p className="max-w-md text-white/35">{emptyMessage}</p>
         </div>
       ) : (
-        <TeleprompterCrawl blocks={blocks} />
+        // Keyed so a suggestion starts at the top rather than at wherever the
+        // Script was scrolled to.
+        <TeleprompterCrawl
+          key={state.suggestion !== null ? "suggestion" : "script"}
+          blocks={blocks}
+        />
       )}
     </div>
   );

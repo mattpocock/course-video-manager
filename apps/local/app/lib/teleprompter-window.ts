@@ -31,6 +31,8 @@ export type TeleprompterEditorState = {
   latestTranscript?: string | null;
   /** The Video's length so far in seconds, for beside the mic on the glass. */
   videoLengthSeconds?: number | null;
+  /** The Suggestions tab's line, shown in place of the Script; `null` when closed. */
+  suggestion?: string | null;
 };
 
 /**

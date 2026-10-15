@@ -3,7 +3,6 @@ import { PauseIndicator } from "./timeline-indicators";
 import { ClipItem } from "./clip-item";
 import { ChapterItem } from "./chapter-item";
 import { PreRecordingChecklist } from "./pre-recording-checklist";
-import { InlineSuggestion } from "./inline-suggestion";
 import { InsertionPointWithSession } from "./insertion-point-with-session";
 import { isChapter } from "../clip-utils";
 import { useContextSelector } from "use-context-selector";
@@ -244,8 +243,6 @@ export const ClipTimeline = () => {
         {items.length === 0 && sessions.length > 0 && (
           <InsertionPointWithSession />
         )}
-
-        <InlineSuggestion />
       </div>
     </div>
   );

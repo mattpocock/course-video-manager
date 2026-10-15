@@ -42,12 +42,17 @@ export type TeleprompterEditorInput = {
   sessions: RecordingSession[];
   /** The Clip the editor's player is playing, or `null` when it is paused. */
   playingClipId: string | null;
+  /**
+   * The Suggestions tab's line while that tab is open (empty until the first
+   * words arrive), or `null`: the glass shows it in place of the Script.
+   */
+  suggestion: string | null;
   /** A dot on the glass was clicked: play its Clip, or pause it. */
   onClipMarkClicked: (clipId: string) => void;
 };
 
 export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
-  const { videoId, capture, playingClipId } = input;
+  const { videoId, capture, playingClipId, suggestion } = input;
   // One per clip in the current session — see `session-clip-marks.ts`.
   const { marks, markClipIds } = useSessionClipMarks(
     input.items,
@@ -74,6 +79,7 @@ export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
     playingClipId,
     latestTranscript,
     videoLengthSeconds,
+    suggestion,
   };
   const ref = useRef(state);
   ref.current = state;
@@ -103,6 +109,7 @@ export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
       playingClipId,
       latestTranscript,
       videoLengthSeconds,
+      suggestion,
     });
   }, [
     videoId,
@@ -112,5 +119,6 @@ export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
     playingClipId,
     latestTranscript,
     videoLengthSeconds,
+    suggestion,
   ]);
 }

@@ -9,12 +9,16 @@ import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 import { AnimaticPanel } from "./animatic-panel";
 import { ReferencePanel, type ReferenceCandidate } from "./reference-panel";
 import { ScriptPanel } from "./script-panel";
+import { SuggestionsPanel } from "./suggestions-panel";
+import type { SuggestionsTab } from "../hooks/use-suggestions";
 
 /**
- * The editor's middle 40ch slot as a tabbed container holding four mutually
+ * The editor's middle 40ch slot as a tabbed container holding five mutually
  * exclusive panels that share the space: **Script** (this video's teleprompter
  * script), **Animatic** (its Clip Mockups read as lines), **Beats** (this
- * video's own plan) and **Reference** (the sibling-video reader). "Reference"
+ * video's own plan), **Suggestions** (the next line to say, streamed onto the
+ * teleprompter while the tab is open) and **Reference** (the sibling-video
+ * reader). Landscape and Short editors share this panel. "Reference"
  * stays reserved for the sibling reader — the beat view is the Beat Panel,
  * never a "reference".
  *
@@ -22,7 +26,8 @@ import { ScriptPanel } from "./script-panel";
  * tab iff it has ≥1 beat, and the Reference tab iff a reference video is
  * selected; the Script tab is ALWAYS available (you author the script there,
  * empty or not), so this panel always renders. The tab strip always shows so
- * the UI stays structurally stable as tabs appear.
+ * the UI stays structurally stable as tabs appear. Suggestions, like Script,
+ * is always available: it works from whichever sources the video has.
  *
  * The Animatic tab is READ-ONLY, and must stay so. An earlier, editable
  * Mockups tab was deleted (#1724): Clip Mockups and Clip Mockup Chapters share
@@ -45,6 +50,9 @@ export function EditorSidePanel(props: {
   /** Read-only while a capture is in progress (recording or settling). */
   isBeatsReadOnly: boolean;
   onBeatEvent: (event: CourseEditorEvent) => void;
+
+  // Suggestions tab
+  suggestions: SuggestionsTab;
 
   // Reference tab
   referenceCandidates: ReferenceCandidate[];
@@ -99,6 +107,12 @@ export function EditorSidePanel(props: {
             Beats
           </TabButton>
         )}
+        <TabButton
+          active={props.activeTab === "suggestions"}
+          onClick={() => props.onTabChange("suggestions")}
+        >
+          Suggestions
+        </TabButton>
         {props.hasReference && (
           <TabButton
             active={props.activeTab === "reference"}
@@ -111,6 +125,13 @@ export function EditorSidePanel(props: {
 
       {props.activeTab === "script" ? (
         <ScriptPanel videoId={props.videoId} />
+      ) : props.activeTab === "suggestions" ? (
+        <SuggestionsPanel
+          state={props.suggestions.state}
+          onToggleSource={props.suggestions.onToggleSource}
+          onRefresh={props.suggestions.onRefresh}
+          onNotesChange={props.suggestions.onNotesChange}
+        />
       ) : props.activeTab === "animatic" ? (
         <AnimaticPanel lines={props.animatic} />
       ) : props.activeTab === "beats" ? (

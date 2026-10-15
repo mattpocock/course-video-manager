@@ -125,6 +125,13 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
      * `marks`.
      */
     videoLengthSeconds: z.number().nonnegative().nullable().optional(),
+    /**
+     * The editor's Suggestions tab is open: the glass shows this line in place
+     * of the Script, as it streams (empty until the first words arrive).
+     * `null` when the tab is closed. Optional for the same stale-popup reason
+     * as `marks`.
+     */
+    suggestion: z.string().nullable().optional(),
   }),
   /** Heartbeat answer, and nothing more. State travels by `editorState`. */
   z.object({ type: z.literal("pong") }),

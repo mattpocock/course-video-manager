@@ -9,11 +9,11 @@ import { ErrorOverlay } from "./components/error-overlay";
 import { type ReferenceCandidate } from "./components/reference-panel";
 import { EditorSidePanel } from "./components/editor-side-panel";
 import { useBeatTab } from "./hooks/use-beat-tab";
+import { useSuggestions } from "./hooks/use-suggestions";
+import { useSubmitBeatEvent } from "./hooks/use-submit-beat-event";
 import { useVideoEditor } from "./hooks/use-video-editor";
 import { resolveBeatTab } from "./beat-tab";
 import type { AnimaticLine } from "@/features/animatic/animatic-lines";
-import { courseEditorFetcherKeyForEvent } from "@/features/course-view/optimistic-applier";
-import type { CourseEditorEvent } from "@/services/course-editor-service";
 import type { BeatListBeat } from "@/features/beats/beat-list";
 import { useAutofillChaptersModal } from "./hooks/use-autofill-chapters-modal";
 import { useChapterModal } from "./hooks/use-chapter-modal";
@@ -28,7 +28,6 @@ import { useCallback, type ReactNode, useEffect, useMemo } from "react";
 import { enableVideoEditorMode } from "@/lib/diagram-window";
 import { useDiagramRecordingStatus } from "./use-diagram-recording-status";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { useSubmit } from "react-router";
 import type {
   DatabaseId,
   EditorError,
@@ -325,6 +324,16 @@ export const VideoEditor = (props: {
   });
 
   // Above the error-overlay early return, because these are hooks.
+  // Suggestions run only while their tab is the one showing.
+  const suggestions = useSuggestions({
+    videoId: props.videoId,
+    open: activeTab === "suggestions",
+    animatic: props.animatic,
+    beats: props.beats,
+    items: timelineItems,
+    insertionPoint: props.insertionPoint,
+  });
+
   useTeleprompterEditorMode({
     videoId: props.videoId,
     capture: toCaptureStatus({
@@ -335,6 +344,7 @@ export const VideoEditor = (props: {
     sessions: props.sessions,
     playingClipId:
       state.runningState === "playing" ? (state.currentClipId ?? null) : null,
+    suggestion: suggestions.teleprompterSuggestion,
     onClipMarkClicked: (clipId) =>
       dispatch({
         type: "click-teleprompter-mark",
@@ -354,22 +364,7 @@ export const VideoEditor = (props: {
     [setStoredReferenceVideoId, setPersistedBeatTab]
   );
 
-  // Beat edits submit to /api/course-editor with a stable per-entity
-  // fetcher key and navigate:false — exactly like the pitch page. Plain loader
-  // revalidation handles the refresh; no editor-specific optimistic applier.
-  const submit = useSubmit();
-  const submitBeatEvent = useCallback(
-    (event: CourseEditorEvent) => {
-      submit(event, {
-        method: "post",
-        encType: "application/json",
-        action: "/api/course-editor",
-        navigate: false,
-        fetcherKey: courseEditorFetcherKeyForEvent(event),
-      });
-    },
-    [submit]
-  );
+  const submitBeatEvent = useSubmitBeatEvent();
 
   // The Beat Panel is read-only the instant a capture starts and through
   // the post-recording settling window (recording, polling, or unresolved
@@ -497,7 +492,6 @@ export const VideoEditor = (props: {
       editTranscriptClipId: modalsState.editTranscriptClipId,
       modalDispatch,
       onModalOpenChange,
-      suggestionState: modalsState.suggestion,
 
       onOpenAutofillChaptersModal,
 
@@ -619,6 +613,7 @@ export const VideoEditor = (props: {
           beats={props.beats}
           isBeatsReadOnly={captureInProgress}
           onBeatEvent={submitBeatEvent}
+          suggestions={suggestions}
           referenceCandidates={props.referenceCandidates}
           referenceVideoId={activeReference}
           onRemoveReference={() => handleSetReferenceVideoId(null)}

@@ -3,7 +3,11 @@ import type { BeatTab } from "../beat-tab";
 
 const storageKey = (videoId: string) => `video-editor:beat-tab:${videoId}`;
 
-const isBeatTab = (value: string | null): value is BeatTab =>
+/**
+ * Suggestions is left out on purpose: it is never restored, so opening a video
+ * never starts a model call or takes over the teleprompter by itself.
+ */
+const isRestorableBeatTab = (value: string | null): value is BeatTab =>
   value === "beats" ||
   value === "reference" ||
   value === "script" ||
@@ -24,7 +28,7 @@ export const useBeatTab = (videoId: string) => {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(storageKey(videoId));
-      setState(isBeatTab(raw) ? raw : null);
+      setState(isRestorableBeatTab(raw) ? raw : null);
     } catch {
       setState(null);
     }

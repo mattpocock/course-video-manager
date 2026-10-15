@@ -19,6 +19,7 @@ import {
   getDatabaseClipBeforeInsertionPoint,
   getAllClipsHaveSilenceDetected,
   getAllClipsHaveText,
+  getRecentClipTranscripts,
 } from "./video-editor-selectors";
 
 // ---------------------------------------------------------------------------
@@ -339,5 +340,33 @@ describe("getAllClipsHaveText", () => {
   it("returns false for optimistic clips", () => {
     const clips: Clip[] = [makeOptimisticClip({ frontendId: id("a") })];
     expect(getAllClipsHaveText(clips)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRecentClipTranscripts
+// ---------------------------------------------------------------------------
+
+describe("getRecentClipTranscripts", () => {
+  const items: TimelineItem[] = [
+    makeClipOnDatabase({ frontendId: id("a"), text: "one" }),
+    makeClipOnDatabase({ frontendId: id("b"), text: "  " }),
+    makeOptimisticClip({ frontendId: id("c") }),
+    makeClipOnDatabase({ frontendId: id("d"), text: "two" }),
+    makeClipOnDatabase({ frontendId: id("e"), text: "three" }),
+  ];
+
+  it("reads the last Clips with text before the Insertion Point", () => {
+    expect(
+      getRecentClipTranscripts(items, {
+        type: "after-clip",
+        frontendClipId: id("d"),
+      })
+    ).toEqual(["one", "two"]);
+    expect(getRecentClipTranscripts(items, { type: "end" }, 2)).toEqual([
+      "two",
+      "three",
+    ]);
+    expect(getRecentClipTranscripts(items, { type: "start" })).toEqual([]);
   });
 });

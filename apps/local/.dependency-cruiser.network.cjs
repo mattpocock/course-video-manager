@@ -41,8 +41,6 @@ const EXTRA_ENTRY_POINTS = [
   // The Article Writer's chat in the browser: `DefaultChatTransport` posts to
   // the app's own completions route.
   "^app/features/article-writer/writer-engine\\.tsx$",
-  // Suggest-next-Clip's chat in the browser, the same way.
-  "^app/features/video-editor/components/suggestions-panel\\.tsx$",
   // Builds the writer's model (Anthropic's, or a scripted fake): the agents
   // that use it make the call.
   "^app/services/fake-writer-model\\.ts$",

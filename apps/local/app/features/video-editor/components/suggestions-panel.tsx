@@ -1,225 +1,155 @@
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { FileTree } from "@/components/FileTree";
-import { FilePreviewModal } from "@/components/file-preview-modal";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
-  parseStringSet,
-  useLocalStorage,
-  useLocalStorageBoolean,
-} from "@/hooks/use-local-storage";
-import type { Clip, FrontendInsertionPoint } from "../clip-state-reducer";
-import type { SuggestionState } from "../video-editor-context";
+  CheckGlyph,
+  estimateTokens,
+  fmtTok,
+} from "@/features/article-writer/inline-context-strip";
+import { AlertCircleIcon, Layers, RefreshCwIcon } from "lucide-react";
+import {
+  getSourceTexts,
+  getSuggestionInput,
+  suggestionsReducer,
+} from "../suggestions-reducer";
 
-type FileMetadata = {
-  path: string;
-  size: number;
-  defaultEnabled: boolean;
-};
-
-const partsToText = (parts: UIMessage["parts"]) => {
-  return parts
-    .map((part) => {
-      if (part.type === "text") {
-        return part.text;
-      }
-      return "";
-    })
-    .join("");
+const SOURCE_LABELS: Record<suggestionsReducer.Source, string> = {
+  notes: "Notes",
+  script: "Script",
+  animatic: "Animatic",
+  beats: "Beats",
 };
 
 /**
- * Gets the database clip ID to truncate the transcript after.
- * Returns undefined if we should use the full transcript (insertion at end)
- * or if there's no clip before the insertion point (insertion at start).
+ * The side panel's **Suggestions** tab: which sources go in (with what each
+ * one costs, as the Article Writer's context strip shows it), and the next
+ * line as it streams. The same line is on the teleprompter while this tab is
+ * open. All state is in `suggestions-reducer.ts`.
  */
-const getClipIdToTruncateAfter = (
-  clips: Clip[],
-  insertionPoint: FrontendInsertionPoint
-): string | undefined => {
-  if (insertionPoint.type === "start") {
-    return undefined;
-  }
-
-  if (insertionPoint.type === "end") {
-    // Full transcript - no truncation needed
-    return undefined;
-  }
-
-  if (insertionPoint.type === "after-clip") {
-    const clip = clips.find(
-      (c) =>
-        c.frontendId === insertionPoint.frontendClipId &&
-        c.type === "on-database"
+export function SuggestionsPanel(props: {
+  state: suggestionsReducer.State;
+  onToggleSource: (source: suggestionsReducer.Source) => void;
+  onRefresh: () => void;
+  onNotesChange: (notes: string) => void;
+}) {
+  const { state } = props;
+  const texts = getSourceTexts(state);
+  const input = getSuggestionInput(state);
+  const recentClipsTokens = estimateTokens(input.recentClips.join("\n"));
+  const totalTokens =
+    recentClipsTokens +
+    suggestionsReducer.SOURCES.reduce(
+      (sum, source) => sum + estimateTokens(input[source] ?? ""),
+      0
     );
-    return clip?.type === "on-database" ? clip.databaseId : undefined;
-  }
-
-  if (insertionPoint.type === "after-chapter") {
-    // Find the last clip before this chapter
-    // We need to iterate through clips and find the one just before the section
-    // For now, return undefined to use full transcript (safe default)
-    return undefined;
-  }
-
-  return undefined;
-};
-
-export type SuggestionsPanelProps = {
-  videoId: string;
-  lastTranscribedClipId: string | null;
-  clips: Clip[];
-  insertionPoint: FrontendInsertionPoint;
-  files: FileMetadata[];
-  onSuggestionStateChange?: (state: SuggestionState) => void;
-};
-
-const SUGGESTIONS_ENABLED_KEY = "suggestions-enabled";
-// -v2: stored bare filenames no longer match now that paths are relative.
-const SUGGESTIONS_ENABLED_FILES_KEY = "suggestions-enabled-files-v2";
-
-export function SuggestionsPanel(props: SuggestionsPanelProps) {
-  const [enabled, setEnabled] = useLocalStorageBoolean(SUGGESTIONS_ENABLED_KEY);
-
-  // The files enabled by default stand in until the author picks their own.
-  // Stored per video, and shared with the Write page.
-  const defaultEnabledFiles = useMemo(
-    () =>
-      JSON.stringify(
-        props.files.filter((f) => f.defaultEnabled).map((f) => f.path)
-      ),
-    [props.files]
-  );
-  const [storedEnabledFiles, setStoredEnabledFiles] = useLocalStorage(
-    `${SUGGESTIONS_ENABLED_FILES_KEY}-${props.videoId}`,
-    defaultEnabledFiles
-  );
-  const enabledFiles = useMemo(
-    () => parseStringSet(storedEnabledFiles),
-    [storedEnabledFiles]
-  );
-
-  const { messages, sendMessage, status, setMessages, stop, error } = useChat({
-    transport: new DefaultChatTransport({
-      api: `/videos/${props.videoId}/suggest-next-clip`,
-    }),
-  });
-
-  const lastAssistantMessage = messages.find((m) => m.role === "assistant");
-  const suggestionText = lastAssistantMessage
-    ? partsToText(lastAssistantMessage.parts)
-    : "";
-
-  const isStreaming = status === "submitted" || status === "streaming";
-
-  const triggerSuggestion = useCallback(() => {
-    // Cancel any in-flight suggestion before starting a new one
-    if (status === "streaming") {
-      stop();
-    }
-    setMessages([]);
-    // Get the clip ID to truncate after based on the current insertion point
-    const truncateAfterClipId = getClipIdToTruncateAfter(
-      props.clips,
-      props.insertionPoint
-    );
-    sendMessage(
-      { text: "Suggest what I should say next." },
-      {
-        body: {
-          enabledFiles: Array.from(enabledFiles),
-          truncateAfterClipId,
-        },
-      }
-    );
-  }, [
-    sendMessage,
-    setMessages,
-    props.clips,
-    props.insertionPoint,
-    enabledFiles,
-    status,
-    stop,
-  ]);
-
-  // Track the previous lastTranscribedClipId to detect new transcriptions
-  const lastTranscribedClipIdRef = useRef<string | null>(null);
-
-  // Trigger suggestion when a new clip is transcribed and suggestions are enabled
-  // The triggerSuggestion function handles cancellation of any in-flight request
-  useEffect(() => {
-    if (
-      enabled &&
-      props.lastTranscribedClipId &&
-      props.lastTranscribedClipId !== lastTranscribedClipIdRef.current
-    ) {
-      triggerSuggestion();
-    }
-    lastTranscribedClipIdRef.current = props.lastTranscribedClipId;
-  }, [enabled, props.lastTranscribedClipId, triggerSuggestion]);
-
-  // Notify parent of suggestion state changes for inline display
-  useEffect(() => {
-    props.onSuggestionStateChange?.({
-      suggestionText,
-      isStreaming,
-      enabled,
-      error: error ?? null,
-      triggerSuggestion,
-    });
-  }, [
-    suggestionText,
-    isStreaming,
-    enabled,
-    error,
-    triggerSuggestion,
-    props.onSuggestionStateChange,
-  ]);
-
-  const handleEnabledFilesChange = (files: Set<string>) => {
-    setStoredEnabledFiles(JSON.stringify([...files]));
-  };
-
-  const [previewFilePath, setPreviewFilePath] = useState("");
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-
-  const handleFileClick = (filePath: string) => {
-    setPreviewFilePath(filePath);
-    setIsPreviewModalOpen(true);
-  };
+  const scriptLoading = state.script === null;
+  const busy = state.status === "waiting" || state.status === "streaming";
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="suggestions-enabled"
-          checked={enabled}
-          onCheckedChange={(checked) => setEnabled(checked === true)}
-        />
-        <Label htmlFor="suggestions-enabled" className="cursor-pointer">
-          Enable AI suggestions
-        </Label>
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex flex-none flex-wrap items-center gap-1.5 border-b bg-muted/30 px-3 py-2">
+        <span
+          className="mr-1 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"
+          title="Estimated tokens sent with each suggestion"
+        >
+          <Layers className="size-3.5" />
+          <span>Context</span>
+          <span className="font-mono tabular-nums">{fmtTok(totalTokens)}</span>
+        </span>
+        {suggestionsReducer.SOURCES.map((source) => {
+          const present = texts[source].trim().length > 0;
+          const disabled = !present && !(source === "script" && scriptLoading);
+          const on = state.included[source] && present;
+          return (
+            <button
+              key={source}
+              type="button"
+              aria-pressed={state.included[source]}
+              disabled={disabled}
+              onClick={() => props.onToggleSource(source)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+                disabled
+                  ? "cursor-not-allowed opacity-40"
+                  : on
+                    ? "bg-background hover:bg-muted"
+                    : "bg-transparent text-muted-foreground opacity-70"
+              )}
+              title={
+                disabled
+                  ? source === "notes"
+                    ? "Write some Notes below to include them"
+                    : `This video has no ${SOURCE_LABELS[source]}`
+                  : `Include the ${SOURCE_LABELS[source]}`
+              }
+            >
+              <CheckGlyph state={on} />
+              <span>{SOURCE_LABELS[source]}</span>
+              <span className="w-9 text-right font-mono tabular-nums text-muted-foreground">
+                {present ? fmtTok(estimateTokens(texts[source])) : "–"}
+              </span>
+            </button>
+          );
+        })}
+        <span
+          className="flex items-center gap-1.5 rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground"
+          title="Where you are: the most recent Clips before the Insertion Point. Always sent."
+        >
+          <span>Recent Clips {input.recentClips.length}</span>
+          <span className="w-9 text-right font-mono tabular-nums">
+            {fmtTok(recentClipsTokens)}
+          </span>
+        </span>
       </div>
 
-      {props.files.length > 0 && (
-        <div className="border-t border-border pt-4">
-          <FileTree
-            files={props.files}
-            enabledFiles={enabledFiles}
-            onEnabledFilesChange={handleEnabledFilesChange}
-            onFileClick={handleFileClick}
-            disabled={!enabled}
-          />
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Say next
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-6 p-0"
+            onClick={props.onRefresh}
+            disabled={scriptLoading}
+            aria-label="Suggest again"
+          >
+            <RefreshCwIcon className={cn("size-3.5", busy && "animate-spin")} />
+          </Button>
         </div>
-      )}
-      <FilePreviewModal
-        isOpen={isPreviewModalOpen}
-        onClose={() => setIsPreviewModalOpen(false)}
-        videoId={props.videoId}
-        filePath={previewFilePath}
-      />
+        {state.status === "failed" ? (
+          <p className="flex items-start gap-2 text-sm text-red-400">
+            <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+            The suggestion failed. Refresh to try again.
+          </p>
+        ) : state.text ? (
+          <p className="whitespace-pre-wrap text-base leading-relaxed text-foreground">
+            {state.text}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-muted/50" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-muted/50" />
+          </div>
+        )}
+        <p className="mt-4 text-xs text-muted-foreground">
+          Shown on the teleprompter while this tab is open.
+        </p>
+        <label
+          htmlFor="suggestion-notes"
+          className="mt-6 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          Notes
+        </label>
+        <textarea
+          id="suggestion-notes"
+          value={state.notes}
+          onChange={(e) => props.onNotesChange(e.target.value)}
+          placeholder="How this take departs from the Script or Animatic. Overrides them where they disagree. Kept in this browser, for this video only."
+          rows={5}
+          className="mt-1 w-full resize-y rounded-md border bg-background px-2 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
     </div>
   );
 }

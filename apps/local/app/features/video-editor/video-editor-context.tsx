@@ -37,14 +37,6 @@ export type FileMetadata = {
   defaultEnabled: boolean;
 };
 
-export type SuggestionState = {
-  suggestionText: string;
-  isStreaming: boolean;
-  enabled: boolean;
-  error: Error | null;
-  triggerSuggestion: () => void;
-};
-
 export type VideoEditorContextType = {
   // From videoStateReducer
   runningState: "playing" | "paused";
@@ -169,7 +161,7 @@ export type VideoEditorContextType = {
   isCopied: boolean;
   isChaptersCopied: boolean;
 
-  // From editorModalsReducer: the open dialog and the inline suggestion
+  // From editorModalsReducer: the open dialog
   openModal: editorModalsReducer.Modal | null;
   /** The CVM-recorder Clip the Mic Settings dialog is open on. */
   micSettingsClipId: FrontendId | null;
@@ -178,7 +170,6 @@ export type VideoEditorContextType = {
   modalDispatch: (action: editorModalsReducer.Action) => void;
   /** Each dialog's `onOpenChange`; stable, so a dialog may list it in an effect. */
   onModalOpenChange: Record<editorModalsReducer.Modal, (open: boolean) => void>;
-  suggestionState: SuggestionState;
 
   // AI Chapter generation
   onOpenAutofillChaptersModal: () => void;

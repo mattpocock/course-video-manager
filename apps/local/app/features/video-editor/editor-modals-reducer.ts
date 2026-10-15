@@ -1,11 +1,9 @@
 import type { EffectReducer } from "use-effect-reducer";
-import type { SuggestionState } from "./video-editor-context";
 import type { FrontendId } from "./clip-state-reducer.types";
 
 /**
- * The video editor's own dialogs and the inline next-line suggestion the
- * Suggestions panel streams. The chapter-naming and Autofill chapters dialogs
- * keep their own hooks. See docs/FRONTEND_STATE.md.
+ * The video editor's own dialogs. The chapter-naming and Autofill chapters
+ * dialogs keep their own hooks. See docs/FRONTEND_STATE.md.
  */
 export namespace editorModalsReducer {
   /** The editor's dialogs. Only one is open at a time. */
@@ -24,8 +22,6 @@ export namespace editorModalsReducer {
     micSettingsClipId: FrontendId | null;
     /** The Clip the Edit Transcript dialog is open on. */
     editTranscriptClipId: FrontendId | null;
-    /** What the Suggestions panel last reported, shown under the timeline. */
-    suggestion: SuggestionState;
   }
 
   export type Action =
@@ -37,8 +33,7 @@ export namespace editorModalsReducer {
     | { type: "mic-settings-clicked"; clipId: FrontendId }
     | { type: "edit-transcript-clicked"; clipId: FrontendId }
     /** A dialog asked to close (Escape, overlay click, Cancel, or done). */
-    | { type: "modal-dismissed"; modal: Modal }
-    | { type: "suggestion-changed"; suggestion: SuggestionState };
+    | { type: "modal-dismissed"; modal: Modal };
 
   export type Effect =
     /** Re-run the route loaders so the video's file list is current. */
@@ -50,13 +45,6 @@ export const createInitialEditorModalsState =
     openModal: null,
     micSettingsClipId: null,
     editTranscriptClipId: null,
-    suggestion: {
-      suggestionText: "",
-      isStreaming: false,
-      enabled: false,
-      error: null,
-      triggerSuggestion: () => {},
-    },
   });
 
 export const editorModalsReducer: EffectReducer<
@@ -102,7 +90,5 @@ export const editorModalsReducer: EffectReducer<
         micSettingsClipId: null,
         editTranscriptClipId: null,
       };
-    case "suggestion-changed":
-      return { ...state, suggestion: action.suggestion };
   }
 };

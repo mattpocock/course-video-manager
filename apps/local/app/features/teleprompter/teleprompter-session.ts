@@ -65,6 +65,11 @@ export namespace teleprompterSession {
      * editor. `null` when there is nobody to ask.
      */
     videoLengthSeconds: number | null;
+    /**
+     * The editor's Suggestions tab's line, as last pushed, shown in place of
+     * the Script. `null` when that tab is closed, or there is nobody to ask.
+     */
+    suggestion: string | null;
     content: Content;
     lastScriptPushAt: number;
   }
@@ -88,6 +93,8 @@ export namespace teleprompterSession {
         latestTranscript?: string | null;
         /** Absent from an editor running older code; treated as unknown. */
         videoLengthSeconds?: number | null;
+        /** Absent from an editor running older code; treated as none. */
+        suggestion?: string | null;
         at: number;
       }
     /** A bare pong: the editor is still there, and nothing has changed. */
@@ -116,6 +123,7 @@ export namespace teleprompterSession {
     playingClipId: null,
     latestTranscript: null,
     videoLengthSeconds: null,
+    suggestion: null,
     content: EMPTY_CONTENT,
     lastScriptPushAt: 0,
   };
@@ -145,6 +153,7 @@ export namespace teleprompterSession {
           // Unlike the session's leftovers, the length always describes the
           // video it arrived with, so a new video's first push is believed.
           videoLengthSeconds: action.videoLengthSeconds ?? null,
+          suggestion: videoChanged ? null : (action.suggestion ?? null),
           // A different video means the content on screen belongs to the last
           // one. Drop it rather than showing it under the new title.
           content: videoChanged ? EMPTY_CONTENT : state.content,
@@ -176,6 +185,8 @@ export namespace teleprompterSession {
           playingClipId: null,
           latestTranscript: null,
           videoLengthSeconds: null,
+          // A suggestion nobody can withdraw would hide the Script for good.
+          suggestion: null,
         };
 
       case "content-fetched": {
@@ -204,6 +215,13 @@ export namespace teleprompterSession {
         };
     }
   };
+
+  /**
+   * What goes on the glass: the Suggestions tab's line while it is open,
+   * otherwise the Script.
+   */
+  export const glassScript = (state: State): string =>
+    state.suggestion ?? state.content.script;
 
   const isSameContent = (a: Content, b: Content): boolean =>
     a.title === b.title && a.script === b.script;

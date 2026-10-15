@@ -533,3 +533,57 @@ export const isCaptureInProgress = (
       !item.isOrphaned
   );
 };
+
+// ---------------------------------------------------------------------------
+// Suggestions
+// ---------------------------------------------------------------------------
+
+/** How many recent Clip transcripts tell the Suggestions tab where you are. */
+export const RECENT_CLIPS_FOR_SUGGESTIONS = 5;
+
+/**
+ * The transcripts of the last few Clips before the Insertion Point, oldest
+ * first: where the author is in the Video, which is where the next Clip lands.
+ * Only Clips with text count, so an Optimistic Clip never does. Pass the
+ * timeline's items (archived ones already left out).
+ */
+export const getRecentClipTranscripts = (
+  items: TimelineItem[],
+  insertionPoint: FrontendInsertionPoint,
+  count = RECENT_CLIPS_FOR_SUGGESTIONS
+): string[] => {
+  const indexOf = (id: FrontendId) => {
+    const index = items.findIndex((item) => item.frontendId === id);
+    return index === -1 ? items.length : index + 1;
+  };
+  const end =
+    insertionPoint.type === "start"
+      ? 0
+      : insertionPoint.type === "end"
+        ? items.length
+        : insertionPoint.type === "after-clip"
+          ? indexOf(insertionPoint.frontendClipId)
+          : indexOf(insertionPoint.frontendChapterId);
+
+  return items
+    .slice(0, end)
+    .filter(
+      (item): item is ClipOnDatabase =>
+        item.type === "on-database" && item.text.trim().length > 0
+    )
+    .slice(-count)
+    .map((clip) => clip.text.trim());
+};
+
+/**
+ * Every Clip whose transcript has arrived, by id. The Suggestions tab asks
+ * again when an id appears here that wasn't there before: a new Clip's
+ * transcript, wherever in the Video it was filmed.
+ */
+export const getTranscribedClipIds = (items: TimelineItem[]): FrontendId[] =>
+  items
+    .filter(
+      (item): item is ClipOnDatabase =>
+        item.type === "on-database" && item.transcriptionStatus === "done"
+    )
+    .map((clip) => clip.frontendId);

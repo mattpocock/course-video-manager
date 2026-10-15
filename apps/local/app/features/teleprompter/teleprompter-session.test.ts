@@ -52,6 +52,25 @@ describe("editor-state", () => {
   });
 });
 
+describe("suggestion", () => {
+  it("takes the glass from the Script while pushed, and hands it back when withdrawn", () => {
+    const state = connected({ content: content({ script: "the script" }) });
+    const push = (suggestion: string | null) => ({
+      type: "editor-state" as const,
+      videoId: "v1",
+      capture: "not-recording" as const,
+      suggestion,
+      at: 2000,
+    });
+
+    const showing = reducer(state, push("say this next"));
+    expect(teleprompterSession.glassScript(showing)).toBe("say this next");
+
+    const withdrawn = reducer(showing, push(null));
+    expect(teleprompterSession.glassScript(withdrawn)).toBe("the script");
+  });
+});
+
 describe("editor-alive", () => {
   it("keeps the editor connected without touching what's on the glass", () => {
     const state = connected({
