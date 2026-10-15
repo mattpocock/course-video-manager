@@ -117,11 +117,21 @@ export const windowsLauncher: Launcher = (launch) => {
   });
   // A write to a process that already quit must not crash the service.
   child.stdin.on("error", () => {});
+  // Both pipes are always read, listened to or not: one left full blocks
+  // ffmpeg on its next write, and a blocked ffmpeg never sees `q`.
+  const drain = (stream: NodeJS.ReadableStream) => {
+    const listeners: ((chunk: string) => void)[] = [];
+    stream.on("data", (d: Buffer) => {
+      const chunk = d.toString();
+      for (const l of listeners) l(chunk);
+    });
+    return (l: (chunk: string) => void) => void listeners.push(l);
+  };
+  const onStdout = drain(child.stdout);
+  const onStderr = drain(child.stderr);
   return {
-    onStdout: (l) =>
-      void child.stdout.on("data", (d: Buffer) => l(d.toString())),
-    onStderr: (l) =>
-      void child.stderr.on("data", (d: Buffer) => l(d.toString())),
+    onStdout,
+    onStderr,
     writeStdin: (text) => {
       if (child.exitCode === null) child.stdin.write(text);
     },

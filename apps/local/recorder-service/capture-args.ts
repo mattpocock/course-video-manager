@@ -112,19 +112,6 @@ export const MKV = [
   "matroska",
 ];
 
-export const HEAD = [
-  "-hide_banner",
-  "-nostats",
-  "-loglevel",
-  "level+info",
-  "-y",
-  "-progress",
-  "pipe:1",
-  "-stats_period",
-  "1",
-  "-copyts",
-];
-
 export const WALLCLOCK = [
   "-use_wallclock_as_timestamps",
   "1",

@@ -7,7 +7,6 @@ import {
   BT709,
   CAMERA_CFR,
   FILE_NAMES,
-  HEAD,
   MIC_FROM_ZERO,
   MKV,
   nvenc,
@@ -146,6 +145,20 @@ export const takeStartCommand = (t0Ms: number) => {
  * Its pacing needs the 1 ms timer the service raises right after start
  * (timer-resolution.ps1).
  */
+/**
+ * No -progress: nobody reads the screen recorder's stdout, and an unread
+ * pipe fills in a few minutes, after which ffmpeg blocks on its next write
+ * and never sees Stop's `q` (it was killed 20 s later, its file unfinished).
+ */
+const SCREEN_HEAD = [
+  "-hide_banner",
+  "-nostats",
+  "-loglevel",
+  "level+info",
+  "-y",
+  "-copyts",
+];
+
 export const screenRecorderArgs = (o: {
   t0Ms: number;
   /** Put in the file's metadata and the command line, so the process can be found by it. */
@@ -155,7 +168,7 @@ export const screenRecorderArgs = (o: {
 }) => {
   const t0 = (o.t0Ms / 1000).toFixed(3);
   return [
-    ...HEAD,
+    ...SCREEN_HEAD,
     ...WALLCLOCK,
     "-f",
     "lavfi",

@@ -170,4 +170,14 @@ describe("a take's screen recorder", () => {
     expect(args).toContain("-g 120");
     expect(args).toContain("screen.mkv");
   });
+
+  it("writes nothing to stdout, which nobody reads: a full pipe would leave it deaf to Stop's q", () => {
+    const args = screenRecorderArgs({
+      t0Ms: 1_000_000,
+      tag: "t",
+      screenIndex: 0,
+    });
+    expect(args).not.toContain("-progress");
+    expect(args).not.toContain("pipe:1");
+  });
 });
