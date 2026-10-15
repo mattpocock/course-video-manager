@@ -27,13 +27,30 @@ export const clockBitCentre = (k: number) => ({
   y: 10 + Math.floor(k / 7) * 40 + 20,
 });
 
-/** A 320x180 picture at `rate` whose blocks spell its own Windows wall time in ms. */
+/**
+ * A 320x180 picture at `rate` whose blocks spell, in Windows wall time (ms),
+ * when the frame was made: like ddagrab's, a frame's capture time.
+ *
+ * - The clock is the time each frame leaves `realtime`, not the time it was
+ *   due. `realtime` never drops a late frame, it only stops sleeping: a source
+ *   that falls behind would stamp a backlog that grows without limit, which a
+ *   real ddagrab (always the newest desktop frame) never has. That backlog
+ *   read as preview latency.
+ * - The bits are worked out on a 7x4 grid, one value per block, and scaled up
+ *   40x. Per pixel (`geq` over 320x180) the clock cost ~7 ms of a core per
+ *   frame, at Idle priority on cores 6-9 during a take: the source starved.
+ * - Downstream sees the due time again (`N/FRAME_RATE`, from the first
+ *   frame), so the recorder's inputs are paced as before, free of the
+ *   source's own jitter.
+ */
 const clockPicture = (rate: string) =>
-  `color=c=black:s=${CLOCK_WIDTH}x${CLOCK_HEIGHT}:r=${rate},settb=AVTB,` +
+  `color=c=black:s=7x4:r=${rate},settb=AVTB,` +
   "setpts='if(eq(N\\,0)\\,st(0\\,RTCTIME-PTS)\\,0);PTS+ld(0)',realtime," +
-  "geq=lum='if(between(X\\,20\\,299)*between(Y\\,10\\,169)\\," +
-  "255*mod(floor(floor(T*1000)/pow(2\\,floor((X-20)/40)+7*floor((Y-10)/40)))\\,2)\\,0)'" +
-  ":cb=128:cr=128";
+  "setpts=RTCTIME,format=gray," +
+  "geq=lum='255*mod(floor(floor(T*1000)/pow(2\\,X+7*Y))\\,2)'," +
+  `scale=${CLOCK_WIDTH - 40}:${CLOCK_HEIGHT - 20}:flags=neighbor,` +
+  `pad=${CLOCK_WIDTH}:${CLOCK_HEIGHT}:20:10:black,format=yuv420p,` +
+  "setpts='if(eq(N\\,0)\\,st(0\\,PTS)\\,0);ld(0)+N/FRAME_RATE/TB'";
 
 export const CAMERA_RATE = "30000/1001";
 export const CAMERA_FPS = 30000 / 1001;
