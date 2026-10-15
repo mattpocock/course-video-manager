@@ -3,6 +3,7 @@ import { useEffectReducer } from "use-effect-reducer";
 import { useBlocker, useNavigate } from "react-router";
 import { loadSnapshot, type Editor, type TLStoreSnapshot } from "tldraw";
 import { diagramChannel } from "@/lib/diagram-protocol";
+import { FULL_SCREEN_REFUSED_HINT } from "./full-screen";
 import {
   createInitialDiagramPlaygroundState,
   diagramPlaygroundReducer,
@@ -350,6 +351,14 @@ export function useDiagramPlaygroundReducer() {
           });
         });
         return () => cancelAnimationFrame(frame);
+      },
+      // No user gesture reaches this window when a take starts, so only an
+      // origin granted Automatic Fullscreen gets here. A refusal is logged,
+      // never shown: the status line is on the recorded screen.
+      "enter-full-screen": () => {
+        document.documentElement.requestFullscreen().catch((error) => {
+          console.warn(FULL_SCREEN_REFUSED_HINT, error);
+        });
       },
     }
   );

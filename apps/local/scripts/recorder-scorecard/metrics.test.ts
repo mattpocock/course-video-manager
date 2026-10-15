@@ -1,9 +1,17 @@
+import { execFileSync, spawn } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { analysePicture, unwrap } from "./footage-analysis";
 import { METRICS, rank, score } from "./metrics";
 import { renderJson } from "./report";
 import { syntheticFfmpegArgs } from "./synthetic-launcher";
-import { CLOCK_MOD } from "./synthetic-sources";
+import {
+  CLOCK_BITS,
+  CLOCK_HEIGHT,
+  CLOCK_MOD,
+  CLOCK_WIDTH,
+  SCREEN_SOURCE,
+  clockBitCentre,
+} from "./synthetic-sources";
 import {
   cameraCaptureArgs,
   screenPreviewArgs,
@@ -163,5 +171,71 @@ describe("syntheticFfmpegArgs", () => {
     expect(recorder.find((a) => a.startsWith("[0:v]"))).toMatch(
       /^\[0:v\]hwupload,scale_d3d11=1920:1080:format=nv12,setpts=/
     );
+  });
+});
+
+const hasFfmpeg = (() => {
+  try {
+    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+describe.skipIf(!hasFfmpeg)("the synthetic screen in ffmpeg", () => {
+  /**
+   * Reads the screen source's clock as each frame arrives, with the reader
+   * stalled for `stallMs` after the first second: a stand-in for a starved
+   * source. Each read is how far the burned clock is behind the wall.
+   */
+  const behindAfterStall = (stallMs: number) =>
+    new Promise<number[]>((resolve, reject) => {
+      const child = spawn(
+        "ffmpeg",
+        [
+          "-hide_banner",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          SCREEN_SOURCE,
+        ].concat(["-pix_fmt", "gray", "-f", "rawvideo", "-"]),
+        { stdio: ["ignore", "pipe", "ignore"] }
+      );
+      const size = CLOCK_WIDTH * CLOCK_HEIGHT;
+      const behind: number[] = [];
+      let pending = Buffer.alloc(0);
+      let stalled = false;
+      const started = Date.now();
+      child.stdout.on("data", (d: Buffer) => {
+        pending = Buffer.concat([pending, d]);
+        while (pending.length >= size) {
+          let v = 0;
+          for (let k = 0; k < CLOCK_BITS; k++) {
+            const { x, y } = clockBitCentre(k);
+            if (pending[y * CLOCK_WIDTH + x]! > 128) v += 2 ** k;
+          }
+          pending = pending.subarray(size);
+          if (stalled) behind.push((Date.now() - v) % CLOCK_MOD);
+        }
+        if (!stalled && Date.now() - started > 1000) {
+          stalled = true;
+          child.stdout.pause();
+          setTimeout(() => child.stdout.resume(), stallMs);
+          setTimeout(() => child.kill("SIGKILL"), stallMs + 1000);
+        }
+      });
+      child.once("error", reject);
+      child.once("close", () => resolve(behind));
+    });
+
+  it("stamps a frame when it is made, so a stalled source has no backlog", async () => {
+    const behind = await behindAfterStall(2000);
+    // What sat in ffmpeg's queues and the pipe through the stall is late;
+    // nothing made after it is. Due-time stamps put ~120 frames behind.
+    expect(behind.filter((ms) => ms > 500).length).toBeLessThan(30);
+    expect(behind.slice(-30).every((ms) => ms < 200)).toBe(true);
   });
 });

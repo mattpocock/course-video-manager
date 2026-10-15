@@ -26,6 +26,7 @@ import { PlaygroundStatusProvider } from "@/features/diagrams/playground-status"
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { useDiagramPlaygroundReducer } from "@/features/diagrams/use-diagram-playground-reducer";
 import { activeSnapshotHash } from "@/features/diagrams/diagram-playground-selectors";
+import { readFullScreen } from "@/features/diagrams/full-screen";
 
 export const handle = NO_TOASTS;
 
@@ -122,6 +123,7 @@ export default function DiagramPlaygroundActive({
           type: "recording-status-reported",
           recording: msg.recording,
           format: msg.format,
+          fullScreen: readFullScreen(),
         });
       }
     });
