@@ -239,8 +239,9 @@ export const openCamera = (o: CameraOptions): Camera => {
 
   /**
    * The capture's load samples, on to whoever listens (a Recording Session's
-   * capture log). The sampler ends with the capture; one that fails only
-   * costs the samples.
+   * capture log). The sampler ends itself within a second of the capture,
+   * and is never killed: a killed powershell.exe would leave its nvidia-smi.exe
+   * running. One that fails only costs the samples.
    */
   const sampleLoad = (live: NonNullable<typeof current>) => {
     const wsl = wslCpu();
@@ -427,7 +428,6 @@ export const openCamera = (o: CameraOptions): Camera => {
         return;
       }
       live.exited = true;
-      live.sampler.kill();
       await Promise.all([quitPreview(preview.p), quitCapture(capture)]);
       if (released) return;
       // NVENC would not open: not the Cam Link's fault, so not a try.
@@ -485,7 +485,6 @@ export const openCamera = (o: CameraOptions): Camera => {
       const live = current;
       if (!live) return;
       live.exited = true;
-      live.sampler.kill();
       await Promise.all([quitPreview(live.preview), quitCapture(live.capture)]);
     },
   };

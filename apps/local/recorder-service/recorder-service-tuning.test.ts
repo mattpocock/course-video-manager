@@ -96,7 +96,7 @@ describe("load samples", () => {
     expect(log).not.toContain("cpu 99%");
   });
 
-  it("stops the sampler when the camera is let go", async () => {
+  it("the sampler ends with the capture when the camera is let go", async () => {
     const { windows, client } = await recordOnce();
     client.send({ type: "stop" });
     await client.next("recording-stopped");

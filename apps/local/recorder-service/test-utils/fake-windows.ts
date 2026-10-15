@@ -337,7 +337,7 @@ export const fakeWindows = (
   };
   const recorders: FakeProcess[] = [];
   const cameraCaptures: FakeProcess[] = [];
-  /** Each load-sampler.ps1: runs until killed; a test prints its samples. */
+  /** Each load-sampler.ps1: runs until its capture exits; a test prints its samples. */
   const loadSamplers: FakeProcess[] = [];
   const cameraPreviews: FakeProcess[] = [];
   const screenPreviews: FakeProcess[] = [];
@@ -376,7 +376,10 @@ export const fakeWindows = (
       return answer(p, { stdout: `${hits.length}\r\n` });
     }
     if (l.tool === "powershell" && l.script === "load-sampler.ps1") {
+      // As the script does: it ends when the capture it samples does.
       loadSamplers.push(p);
+      const capture = cameraCaptures.at(-1);
+      if (capture) void capture.exited.then(() => p.running && p.exit(0));
       return p;
     }
     if (l.tool === "powershell" && l.script === "timer-resolution.ps1") {
