@@ -110,6 +110,8 @@ export type CameraStatus =
 export type StreamDeckPress =
   | { action: "record" }
   | { action: "stop" }
+  /** One key for both: stops while recording, records otherwise. */
+  | { action: "toggle-record" }
   | { action: "switch-scene"; scene: Scene };
 
 /**

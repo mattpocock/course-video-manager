@@ -59,7 +59,9 @@ const Command = Schema.Union(
   Schema.Struct({
     type: Schema.Literal("stream-deck"),
     press: Schema.Union(
-      Schema.Struct({ action: Schema.Literal("record", "stop") }),
+      Schema.Struct({
+        action: Schema.Literal("record", "stop", "toggle-record"),
+      }),
       Schema.Struct({
         action: Schema.Literal("switch-scene"),
         scene: Schema.Literal(...SCENES),

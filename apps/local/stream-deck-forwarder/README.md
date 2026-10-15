@@ -28,13 +28,14 @@ service acts on whichever Video the recorder is open for, and the editor
 follows its events. With no recorder open the press does nothing and the
 service says why. OBS Videos keep Elgato's OBS plugin buttons.
 
-| Action          | HTTP Endpoint              | Description                               |
-| --------------- | -------------------------- | ----------------------------------------- |
-| Start Recording | `GET /api/start-recording` | Records, with the editor's Silence Length |
-| Stop Recording  | `GET /api/stop-recording`  | Stops the recording                       |
-| Camera scene    | `GET /api/scene-camera`    | Switches to the Camera scene              |
-| Code scene      | `GET /api/scene-code`      | Switches to the Code scene                |
-| No Face scene   | `GET /api/scene-no-face`   | Switches to the No Face scene             |
+| Action          | HTTP Endpoint               | Description                               |
+| --------------- | --------------------------- | ----------------------------------------- |
+| Start Recording | `GET /api/start-recording`  | Records, with the editor's Silence Length |
+| Stop Recording  | `GET /api/stop-recording`   | Stops the recording                       |
+| Toggle Record   | `GET /api/toggle-recording` | Stops while recording, records otherwise  |
+| Camera scene    | `GET /api/scene-camera`     | Switches to the Camera scene              |
+| Code scene      | `GET /api/scene-code`       | Switches to the Code scene                |
+| No Face scene   | `GET /api/scene-no-face`    | Switches to the No Face scene             |
 
 ### Teleprompter
 

@@ -30,6 +30,7 @@ export type StreamDeckForwarderMessage = z.infer<
 export const STREAM_DECK_RECORDER_PRESSES: Record<string, StreamDeckPress> = {
   "/api/start-recording": { action: "record" },
   "/api/stop-recording": { action: "stop" },
+  "/api/toggle-recording": { action: "toggle-record" },
   "/api/scene-camera": { action: "switch-scene", scene: "Camera" },
   "/api/scene-code": { action: "switch-scene", scene: "Code" },
   "/api/scene-no-face": { action: "switch-scene", scene: "No Face" },

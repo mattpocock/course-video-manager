@@ -53,6 +53,39 @@ describe("Stream Deck presses", () => {
     );
   });
 
+  it("one Record toggle records when the recorder is open, and stops when it is recording", async () => {
+    const s = await start();
+    const app = await connect(s.port);
+    const deck = await connect(s.port);
+    await app.next("hello");
+    app.send({ type: "open", videoId: "video-1" });
+    await app.camera("live");
+    app.send({
+      type: "prepare-record",
+      videoId: "video-1",
+      silenceLength: "short",
+      folder: tmp(),
+      ...CALIBRATED,
+    });
+
+    deck.send({ type: "stream-deck", press: { action: "toggle-record" } });
+    expect(await app.next("recording-started")).toMatchObject({
+      videoId: "video-1",
+      silenceLength: "short",
+    });
+
+    deck.send({ type: "stream-deck", press: { action: "toggle-record" } });
+    expect(await app.next("recording-stopped")).toMatchObject({
+      reason: "requested",
+    });
+    expect((await app.camera("live")).state).toMatchObject({
+      videoId: "video-1",
+    });
+    expect(app.received.some((m) => m.type === "stream-deck-ignored")).toBe(
+      false
+    );
+  });
+
   it("with no recorder open, does nothing and says so to every client", async () => {
     const s = await start();
     const app = await connect(s.port);
@@ -62,6 +95,7 @@ describe("Stream Deck presses", () => {
     for (const press of [
       { action: "record" },
       { action: "stop" },
+      { action: "toggle-record" },
       { action: "switch-scene", scene: "No Face" },
     ] as const) {
       deck.send({ type: "stream-deck", press });

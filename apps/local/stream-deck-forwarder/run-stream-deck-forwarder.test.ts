@@ -109,13 +109,14 @@ describe("stream deck forwarder hub", () => {
       "scene-code",
       "scene-no-face",
       "stop-recording",
+      "toggle-recording",
       "delete-last-clip",
       "add-chapter",
     ]) {
       await fetch(`http://localhost:${hub.httpPort}/api/${path}`);
     }
 
-    await vi.waitFor(() => expect(recorder.commands).toHaveLength(5));
+    await vi.waitFor(() => expect(recorder.commands).toHaveLength(6));
     expect(recorder.commands).toEqual(
       expect.arrayContaining([
         { type: "stream-deck", press: { action: "record" } },
@@ -132,6 +133,7 @@ describe("stream deck forwarder hub", () => {
           press: { action: "switch-scene", scene: "No Face" },
         },
         { type: "stream-deck", press: { action: "stop" } },
+        { type: "stream-deck", press: { action: "toggle-record" } },
       ])
     );
     await vi.waitFor(() =>

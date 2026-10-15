@@ -8,6 +8,7 @@ import { corsHeaders, isAllowedOrigin } from "./allowed-origin";
 import { recoverCrashedSessions } from "./crash-recovery";
 import { CAMERA_START_TIMEOUT_MS, openCamera, type Camera } from "./camera";
 import type { Launcher } from "./launcher";
+import { resolveToggle } from "./stream-deck-press";
 import { DEFAULT_SCENE, type Scene } from "../app/packages/scene-layout";
 import { startPreviewFeeds } from "./preview-feeds";
 import { serveStill } from "./still";
@@ -382,7 +383,8 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       throw new Refusal(
         "The recorder is not open: open the editor on a CVM recorder Video first."
       );
-    switch (p.action) {
+    const pressed = resolveToggle(p, state);
+    switch (pressed.action) {
       case "record":
         if (recordWith?.videoId !== state.videoId)
           throw new Refusal(
@@ -397,8 +399,8 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       case "stop":
         return handle(ws, { type: "stop" });
       case "switch-scene":
-        refuseWakingScene(p.scene, state.format, state.screen);
-        return handle(ws, { type: "switch-scene", scene: p.scene });
+        refuseWakingScene(pressed.scene, state.format, state.screen);
+        return handle(ws, { type: "switch-scene", scene: pressed.scene });
     }
   };
 
