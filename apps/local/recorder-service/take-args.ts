@@ -4,7 +4,6 @@ import {
   type SilenceLength,
 } from "../app/silence-detection-constants";
 import {
-  BT709,
   CAMERA_CFR,
   FILE_NAMES,
   MIC_FROM_ZERO,
@@ -13,6 +12,7 @@ import {
   relayInput,
   WALLCLOCK,
 } from "./capture-args";
+import { BT709, SCREEN_TO_NV12 } from "./colour";
 
 /**
  * A TAKE'S OWN PROCESSES (#2207): the camera writer, which writes camera.mkv
@@ -139,7 +139,8 @@ export const takeStartCommand = (t0Ms: number) => {
 
 /**
  * THE SCREEN RECORDER for one take: ddagrab on the screen, wall time less
- * T0, CFR 60 from exactly t=0, NV12 on the GPU, NVENC. Each gap in
+ * T0, CFR 60 from exactly t=0, NV12 BT.709 limited range as OBS writes it
+ * (`SCREEN_TO_NV12`), NVENC. Each gap in
  * ddagrab's frames is logged (`SCREEN_FRAME_GAP_SECONDS`). dup_frames=1: with 0,
  * ddagrab emits nothing while the screen is static, which stalls the graph.
  * Its pacing needs the 1 ms timer the service raises right after start
@@ -175,7 +176,7 @@ export const screenRecorderArgs = (o: {
     "-i",
     `ddagrab=output_idx=${o.screenIndex}:framerate=60:dup_frames=1:draw_mouse=1,settb=AVTB`,
     "-filter_complex",
-    `[0:v]setpts=PTS-${t0}/TB,${gapLogger(SCREEN_FRAME_GAP_SECONDS)},fps=60:start_time=0,${BT709},scale_d3d11=format=nv12[scr]`,
+    `[0:v]setpts=PTS-${t0}/TB,${gapLogger(SCREEN_FRAME_GAP_SECONDS)},fps=60:start_time=0,${SCREEN_TO_NV12}[scr]`,
     "-map",
     "[scr]",
     ...nvenc(120),

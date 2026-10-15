@@ -2,6 +2,7 @@ import {
   MOTION_FILTERS,
   MOTION_KEY,
 } from "../app/packages/clap-detection/live";
+import { BT709, SCREEN_TO_NV12 } from "./colour";
 
 /**
  * THE CAPTURE (#2207): the devices open once, when the recorder opens, and
@@ -69,9 +70,6 @@ export const dshowFrameInterval = (rate: string): number => {
 };
 
 export const CAM_DSHOW_FRAMERATE = "29.97";
-
-export const BT709 =
-  "setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709";
 
 /**
  * OBS's "Landscape Recording": NVENC H.264, CQP 23, p5 + hq, High, 2
@@ -496,15 +494,16 @@ export const cameraPreviewArgs = (o: {
  * several) in its own ffmpeg.exe, which can stall, crash or be stopped
  * without touching the screen recorder. At the screen's own size and 60
  * fps, as the screen is recorded and as OBS previews it: nothing is scaled
- * (#2192). For NVENC (#2194) the frame stays on the GPU, made NV12 there as
- * the screen recorder makes it: NVENC fed BGRA converts each frame itself
- * and fell behind 60 fps (41-49 fps, synthetic). libx264 needs it down on
- * the CPU.
+ * (#2192). For NVENC (#2194) the frame is made NV12 on the GPU exactly as
+ * the screen recorder makes it (`SCREEN_TO_NV12`): NVENC fed BGRA converts
+ * each frame itself and fell behind 60 fps (41-49 fps, synthetic). libx264
+ * takes BGRA down on the CPU and converts it to the same BT.709 limited
+ * range, so the preview's black is the recording's.
  */
 /** What the screen preview does to ddagrab's D3D11 BGRA frame before its encoder. */
 export const SCREEN_PREVIEW_CHAIN: Record<PreviewEncoder, string> = {
-  nvenc: "scale_d3d11=format=nv12",
-  x264: "hwdownload,format=bgra",
+  nvenc: SCREEN_TO_NV12,
+  x264: `hwdownload,format=bgra,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p,${BT709}`,
 };
 
 export const screenPreviewArgs = (o: {

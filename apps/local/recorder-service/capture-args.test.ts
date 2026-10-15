@@ -6,6 +6,7 @@ import {
   previewOutput,
   screenPreviewArgs,
 } from "./capture-args";
+import { BT709, SCREEN_TO_NV12 } from "./colour";
 import {
   cameraWriterArgs,
   screenRecorderArgs,
@@ -109,10 +110,10 @@ describe("the camera preview (#2207)", () => {
     const screen = (encoder: "nvenc" | "x264") =>
       screenPreviewArgs({ screenIndex: 1, port: 9, encoder }).join(" ");
     expect(screen("x264")).toContain(
-      "ddagrab=output_idx=1:framerate=60,hwdownload,format=bgra -map"
+      `ddagrab=output_idx=1:framerate=60,hwdownload,format=bgra,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p,${BT709} -map`
     );
     expect(screen("nvenc")).toContain(
-      "ddagrab=output_idx=1:framerate=60,scale_d3d11=format=nv12 -map"
+      `ddagrab=output_idx=1:framerate=60,${SCREEN_TO_NV12} -map`
     );
   });
 });
@@ -169,6 +170,26 @@ describe("a take's screen recorder", () => {
     );
     expect(args).toContain("-g 120");
     expect(args).toContain("screen.mkv");
+  });
+
+  it("writes OBS's colour: BT.709 limited-range NV12, tagged so (#1e1e1e is Y=42, as in OBS's files)", () => {
+    expect(SCREEN_TO_NV12).toBe(
+      "scale_d3d11=format=nv12,hwdownload,format=nv12," +
+        "scale=in_range=pc:out_range=tv:in_color_matrix=bt709:out_color_matrix=bt709,format=nv12," +
+        "setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709"
+    );
+    const args = screenRecorderArgs({
+      t0Ms: 1_000_000,
+      tag: "t",
+      screenIndex: 1,
+    });
+    const [screen] = graphOf(args);
+    expect(screen?.endsWith(`fps=60:start_time=0,${SCREEN_TO_NV12}[scr]`)).toBe(
+      true
+    );
+    // Tagged once, after the range is made limited: a tag before scale_d3d11
+    // labelled its full-range output limited.
+    expect(screen!.split("setparams").length).toBe(2);
   });
 
   it("writes nothing to stdout, which nobody reads: a full pipe would leave it deaf to Stop's q", () => {
