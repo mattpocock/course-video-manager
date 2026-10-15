@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { copyMkvSpan } from "./mkv-span";
 import { spanCutArgs } from "./whisper-transcription-service";
 
@@ -58,7 +58,10 @@ const samples = (args: string[]) => {
 };
 
 describe.skipIf(!hasFfmpeg)("copyMkvSpan", () => {
-  const { finished, growing } = makeMic();
+  // Made only where ffmpeg is: a skipped describe still runs its body.
+  let finished = "";
+  let growing = "";
+  beforeAll(() => ({ finished, growing } = makeMic()), 120_000);
   const range = { startTime: 540.25, duration: 6.5 };
 
   it("copies only the Clip's Clusters out of a growing mic file, and ffmpeg hears exactly the Clip", async () => {
