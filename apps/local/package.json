@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "The Course Video Manager as it runs on the author's machine: the React Router app, the Video Editor, the Diagram Playground, the Publish flow, ffmpeg, OBS, the Stream Deck forwarder and the cvm CLI.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "cvm": "app/cli/bin.mjs"

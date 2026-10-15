@@ -4,7 +4,11 @@ CVM's ffmpeg.exe: licence notice
 This folder builds CVM's own ffmpeg.exe (build.sh, inside.sh, Dockerfile)
 from unmodified upstream sources plus the patches in patches/. It contains
 no FFmpeg source of its own beyond those patches. Nothing here changes the
-licence of the rest of this repository.
+licence of the rest of this repository, which is MIT (see LICENSE at the
+repository root). The build scripts in this folder (build.sh, inside.sh,
+Dockerfile) are part of that MIT-licensed code; MIT is GPL-compatible, so
+they can travel with the binary as part of its corresponding source. The
+patches are the exception, under the licence given in "The patches" below.
 
 What the build is made from
 ---------------------------
