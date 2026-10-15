@@ -2,8 +2,8 @@ import type { cvmRecorderReducer } from "./cvm-recorder-reducer";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 
 /**
- * Attaching (#2182): as OBS's connector stops any recording it finds when the
- * editor connects (`obs-connected`), the first reachable `recorder-status` a
+ * Attaching (#2182): as OBS's connector stops a recording it finds and does
+ * not follow when it connects (`obs-connected`), the first reachable `recorder-status` a
  * page hears asks the recorder to Stop if it names a Recording Session. A
  * take left going by a page that was refreshed or closed is stopped by the
  * next page; its speech up to the stop is still placed. A later status (a

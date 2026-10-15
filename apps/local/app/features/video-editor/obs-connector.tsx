@@ -1,75 +1,32 @@
 import { OBS_WEBSOCKET_URL } from "@/lib/live-channels";
 import { OBSWebSocket } from "obs-websocket-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useEffectReducer, type EffectReducer } from "use-effect-reducer";
+import { useEffectReducer } from "use-effect-reducer";
 import { useSpeechDetector } from "./use-speech-detector";
-import { obsTakeSignal } from "./obs-clip-bridge";
 import {
   DEFAULT_SILENCE_THRESHOLD_DB,
   type SilenceLength,
 } from "@/silence-detection-constants";
-import {
-  calibrationValidity,
-  RECORDER_CAMERA_NAME,
-  describeCalibrationRefusal,
-  type LastPassedCalibration,
-} from "@/av-calibration-constants";
+import type { LastPassedCalibration } from "@/av-calibration-constants";
 import { isMicDevice, MIC_NAME } from "@/mic-device";
 import { ensureOBSProfile } from "./ensure-obs-profile";
 import { useEnsureOBSProfile } from "./use-ensure-obs-profile";
+import type { ClipReducerAction } from "./clip-state-reducer.types";
+import {
+  createInitialOBSConnectorState,
+  innerToOuterState,
+  obsConnectorReducer,
+  type OBSConnectionOuterState,
+} from "./obs-connector-reducer";
+import { toFrontendSpeechDetectorState } from "./speech-detector-reducer";
 
-export type OBSNotRunningState = {
-  type: "obs-not-running";
-};
-
-export type OBSCheckingConnectionStatusState = {
-  type: "checking-obs-connection-status";
-};
-
-export type OBSConnectedState = {
-  type: "obs-connected";
-  profile: string;
-  scene: string;
-  latestOutputPath: string | null;
-  /**
-   * Why CVM stopped the recording OBS last started (the AV Calibration
-   * gate, ADR 0038), until a recording is let through.
-   */
-  calibrationRefusal?: string;
-};
-
-export type OBSRecordingState = {
-  type: "obs-recording";
-  profile: string;
-  scene: string;
-  latestOutputPath: string;
-  /**
-   * The silence threshold this take cuts with, fixed when it started (that
-   * of the AV Calibration it was let through under): the browser detector
-   * and the after-recording FFmpeg pass both use it, whatever is calibrated
-   * since.
-   */
-  silenceThresholdDb: number;
-};
-
-export type OBSConnectionOuterState =
-  OBSNotRunningState | OBSConnectedState | OBSRecordingState;
-
-/**
- * The Video records with the CVM recorder, so the editor leaves OBS alone:
- * no connection, no profile switch, no Virtual Camera. Reads as
- * `obs-not-running` outside the connector.
- */
-export type OBSNotUsedState = {
-  type: "obs-not-used";
-};
-
-export type OBSConnectionInnerState =
-  | OBSNotUsedState
-  | OBSNotRunningState
-  | OBSCheckingConnectionStatusState
-  | OBSConnectedState
-  | OBSRecordingState;
+export type {
+  OBSConnectedState,
+  OBSConnectionInnerState,
+  OBSConnectionOuterState,
+  OBSNotRunningState,
+  OBSRecordingState,
+} from "./obs-connector-reducer";
 
 const createNotRunningListener = (
   websocket: OBSWebSocket,
@@ -246,238 +203,13 @@ export const useConnectToOBSVirtualCamera = (props: {
   return mediaStream;
 };
 
-export namespace useOBSConnector {
-  export type State = OBSConnectionInnerState;
-  export type Action =
-    | {
-        type: "obs-connected";
-        profile: string;
-        scene: string;
-      }
-    | {
-        type: "obs-connection-failed";
-        error: unknown;
-      }
-    | {
-        type: "connection-closed";
-      }
-    | {
-        type: "trigger-reconnect";
-      }
-    | {
-        type: "profile-changed";
-        profile: string;
-      }
-    | {
-        type: "recording-started";
-        outputPath: string;
-        /** The editor's latest calibration passed under today's rules, then. */
-        lastPassed: LastPassedCalibration | null;
-        /** The label of the editor's mic track then; null with none open. */
-        browserInputLabel: string | null;
-        nowMs: number;
-      }
-    | {
-        type: "recording-stopped";
-        outputPath: string;
-      }
-    | {
-        type: "scene-changed";
-        scene: string;
-      }
-    | {
-        /** The Video's Recorder is (now) OBS, or (now) not. */
-        type: "video-recorder-changed";
-        usesObs: boolean;
-      };
-
-  export type Effect =
-    | {
-        type: "stop-recording";
-      }
-    | {
-        type: "log-error";
-        error: unknown;
-      }
-    | {
-        type: "wait-before-reconnecting";
-      }
-    | {
-        type: "stop-recording";
-      }
-    | {
-        type: "attempt-to-connect";
-      }
-    | {
-        type: "run-event-listeners";
-      }
-    | {
-        type: "disconnect";
-      };
-}
-
-/** OBS Videos connect at once, exactly as before the Recorder choice. */
-export const createInitialOBSConnectorState = (
-  usesObs: boolean,
-  exec: (effect: useOBSConnector.Effect) => void
-): useOBSConnector.State => {
-  if (!usesObs) return { type: "obs-not-used" };
-  exec({ type: "attempt-to-connect" });
-  return { type: "checking-obs-connection-status" };
-};
-
-export const obsConnectorReducer: EffectReducer<
-  useOBSConnector.State,
-  useOBSConnector.Action,
-  useOBSConnector.Effect
-> = (state, action, exec): useOBSConnector.State => {
-  if (action.type === "video-recorder-changed") {
-    if (action.usesObs) {
-      return state.type === "obs-not-used"
-        ? createInitialOBSConnectorState(true, exec)
-        : state;
-    }
-    if (state.type === "obs-not-used") return state;
-    exec({ type: "disconnect" });
-    return { type: "obs-not-used" };
-  }
-
-  // A CVM recorder Video ignores whatever OBS still reports.
-  if (state.type === "obs-not-used") {
-    if (action.type === "obs-connected") exec({ type: "disconnect" });
-    return state;
-  }
-
-  switch (action.type) {
-    case "obs-connected":
-      exec({
-        type: "stop-recording",
-      });
-      exec({
-        type: "run-event-listeners",
-      });
-      return {
-        type: "obs-connected",
-        profile: action.profile,
-        scene: action.scene,
-        latestOutputPath: null,
-      };
-    case "obs-connection-failed":
-      exec({
-        type: "log-error",
-        error: action.error,
-      });
-      exec({
-        type: "wait-before-reconnecting",
-      });
-      return {
-        type: "obs-not-running",
-      };
-    case "trigger-reconnect":
-      exec({
-        type: "attempt-to-connect",
-      });
-      return {
-        type: "checking-obs-connection-status",
-      };
-    case "connection-closed":
-      exec({
-        type: "attempt-to-connect",
-      });
-      return {
-        type: "obs-not-running",
-      };
-    case "profile-changed": {
-      if (state.type === "obs-recording" || state.type === "obs-connected") {
-        return {
-          ...state,
-          profile: action.profile,
-        };
-      }
-
-      throw new Error("Profile changed but not recording or connected");
-    }
-    case "scene-changed": {
-      if (state.type === "obs-recording" || state.type === "obs-connected") {
-        return {
-          ...state,
-          scene: action.scene,
-        };
-      }
-
-      throw new Error("Scene changed but not recording or connected");
-    }
-    case "recording-started": {
-      if (state.type === "obs-connected") {
-        // THE GATE (ADR 0038): a take OBS started without a fresh AV
-        // Calibration on this camera + mic pair is stopped at once, and the
-        // editor says why. OBS cannot say which camera it records: the
-        // recorder service's is taken as it. Only here, at its start: a take
-        // let through runs to its end.
-        const gate = calibrationValidity(
-          action.lastPassed,
-          {
-            browserInputLabel: action.browserInputLabel,
-            camera: RECORDER_CAMERA_NAME,
-          },
-          action.nowMs
-        );
-        if (!gate.valid) {
-          exec({ type: "stop-recording" });
-          return {
-            ...state,
-            calibrationRefusal: describeCalibrationRefusal(gate.reason),
-          };
-        }
-        return {
-          type: "obs-recording",
-          profile: state.profile,
-          scene: state.scene,
-          latestOutputPath: action.outputPath,
-          silenceThresholdDb: gate.calibration.thresholdDb,
-        };
-      }
-
-      throw new Error("Obs recording but not connected");
-    }
-    case "recording-stopped": {
-      if (state.type === "obs-recording") {
-        return {
-          type: "obs-connected",
-          profile: state.profile,
-          scene: state.scene,
-          latestOutputPath: action.outputPath,
-        };
-      }
-
-      if (state.type === "obs-connected") {
-        return {
-          ...state,
-          latestOutputPath: action.outputPath,
-        };
-      }
-
-      throw new Error("Obs stopped recording but not recording or connected");
-    }
-  }
-};
-
-const innerToOuterState = (
-  state: OBSConnectionInnerState
-): OBSConnectionOuterState => {
-  if (
-    state.type === "checking-obs-connection-status" ||
-    state.type === "obs-not-used"
-  ) {
-    return {
-      type: "obs-not-running",
-    };
-  }
-
-  return state;
-};
-
+/**
+ * The effect runner for `obsConnectorReducer`, and the bridge from OBS's
+ * websocket and the mic's silence scan into it. Its clip effects reach the
+ * clip reducer as the CVM recorder's do (`use-cvm-recorder.ts`).
+ */
 export const useOBSConnector = (props: {
+  clipDispatch: (action: ClipReducerAction) => void;
   onNewClipOptimisticallyAdded: (opts: {
     scene: string;
     profile: string;
@@ -500,7 +232,10 @@ export const useOBSConnector = (props: {
   const gateFactsRef = useRef({
     lastPassed: props.lastPassedCalibration,
     browserInputLabel: null as string | null,
+    silenceLength: props.silenceLength,
   });
+  // A reconnect runs the listeners again: the old ones go first.
+  const stopListeningRef = useRef<(() => void) | null>(null);
 
   const [state, dispatch] = useEffectReducer(
     obsConnectorReducer,
@@ -536,11 +271,13 @@ export const useOBSConnector = (props: {
           .then(async () => {
             const profile = await websocket.call("GetProfileList");
             const scene = await websocket.call("GetSceneList");
+            const record = await websocket.call("GetRecordStatus");
 
             dispatch({
               type: "obs-connected",
               profile: profile.currentProfileName,
               scene: scene.currentProgramSceneName,
+              recording: record.outputActive,
             });
           })
           .catch((e) => {
@@ -549,7 +286,8 @@ export const useOBSConnector = (props: {
           });
       },
       "run-event-listeners": (_state, _effect, dispatch) => {
-        createNotRunningListener(websocket, () => {
+        stopListeningRef.current?.();
+        const stopNotRunning = createNotRunningListener(websocket, () => {
           dispatch({ type: "connection-closed" });
         });
 
@@ -593,7 +331,8 @@ export const useOBSConnector = (props: {
 
         websocket.on("CurrentProgramSceneChanged", currentSceneChangedListener);
 
-        return () => {
+        const stopListening = () => {
+          stopNotRunning();
           websocket.removeListener("RecordStateChanged", recordingListener);
           websocket.removeListener(
             "CurrentProfileChanged",
@@ -603,7 +342,28 @@ export const useOBSConnector = (props: {
             "CurrentProgramSceneChanged",
             currentSceneChangedListener
           );
+          if (stopListeningRef.current === stopListening)
+            stopListeningRef.current = null;
         };
+        stopListeningRef.current = stopListening;
+        return stopListening;
+      },
+      "start-session": (_state, effect) => {
+        props.clipDispatch({
+          type: "recording-started",
+          outputPath: effect.outputPath,
+          silenceLength: effect.silenceLength,
+          silenceThresholdDb: effect.silenceThresholdDb,
+        });
+      },
+      "stop-session": () => {
+        props.clipDispatch({ type: "recording-stopped" });
+      },
+      "start-take": (_state, { type: _, ...take }) => {
+        props.onNewClipOptimisticallyAdded(take);
+      },
+      "close-take-window": () => {
+        props.onClipAudioWindowClosed();
       },
     }
   );
@@ -613,7 +373,8 @@ export const useOBSConnector = (props: {
     dispatch({ type: "video-recorder-changed", usesObs: props.usesObs });
   }, [props.usesObs]);
 
-  const outerState = useMemo(() => innerToOuterState(state), [state]);
+  const obs = state.obs;
+  const outerState = useMemo(() => innerToOuterState(obs), [obs]);
 
   const ensureProfileFn = useCallback(
     (targetProfile: string) => ensureOBSProfile(websocket, targetProfile),
@@ -638,35 +399,25 @@ export const useOBSConnector = (props: {
   gateFactsRef.current = {
     lastPassed: props.lastPassedCalibration,
     browserInputLabel,
+    silenceLength: props.silenceLength,
   };
 
-  const speechDetectorState = useSpeechDetector({
+  useSpeechDetector({
     mediaStream,
-    isRecording: state.type === "obs-recording",
+    isRecording: obs.type === "obs-recording",
+    speech: state.speech,
     silenceLength: props.silenceLength,
     thresholdDb:
-      state.type === "obs-recording"
-        ? state.silenceThresholdDb
+      obs.type === "obs-recording"
+        ? obs.silenceThresholdDb
         : (props.lastPassedCalibration?.thresholdDb ??
           DEFAULT_SILENCE_THRESHOLD_DB),
+    onHeard: (heard) => dispatch({ type: "speech-heard", heard }),
   });
-
-  // Bridges the speech detector's Takes to the editor (`obs-clip-bridge.ts`).
-  const prevSpeechDetectorStateRef = useRef(speechDetectorState);
-  useEffect(() => {
-    const signal = obsTakeSignal(
-      prevSpeechDetectorStateRef.current,
-      speechDetectorState,
-      state
-    );
-    prevSpeechDetectorStateRef.current = speechDetectorState;
-    if (signal?.type === "take-started") {
-      const { type: _, ...take } = signal;
-      props.onNewClipOptimisticallyAdded(take);
-    } else if (signal?.type === "take-window-closed") {
-      props.onClipAudioWindowClosed();
-    }
-  }, [speechDetectorState]);
+  const speechDetectorState = useMemo(
+    () => toFrontendSpeechDetectorState(state.speech),
+    [state.speech]
+  );
 
   const output = useMemo(() => {
     return {

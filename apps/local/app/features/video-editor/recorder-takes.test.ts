@@ -200,15 +200,31 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     expect(r.stops()).toBe(1);
   });
 
-  // OBS's connector asks OBS to stop as it connects, recording or not.
   it("a Recording Session started after the page opened is never stopped by the editor", () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
-    const atOpen = r.stops();
     r.startRecording();
     r.startTake();
     r.saveTake("c1");
-    expect(r.stops()).toBe(atOpen);
+    expect(r.stops()).toBe(0);
+  });
+
+  // #2198: only leaving the page, or Stop, stops a take.
+  it("a reconnect mid-take re-attaches to it: nothing stops, and the Take saves in place", () => {
+    const e = editor(["a"]);
+    const r = recorder.connect(e);
+    r.startRecording();
+    r.startTake();
+
+    r.reconnect();
+    expect(r.stops()).toBe(0);
+    r.saveTake("c1");
+
+    expect(shown(e)).toEqual(["a", "c1"]);
+    expect(e.database()).toEqual(["a", "c1"]);
+    expect(e.clips.getState().sessions.map((s) => s.status)).toEqual([
+      "recording",
+    ]);
   });
 });
 
