@@ -9,7 +9,7 @@ pnpm recorder:scorecard --quick    # 60 s take, 10 cycles, 3 preview kills, ~6 m
   [--long-take <s>] [--cycles <n>] [--fault-repeats <n>] [--keep-footage]
 ```
 
-The command runs under `nice -n 19 taskset -c 6-9`. The baseline goes in [`baseline/`](./baseline/) (pending: see #2212). To compare a run with it, diff the two `scorecard.json` files: each metric sits on its own line, in a fixed order. The `ranking` list names the failing metrics, worst first.
+The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baseline/`](./baseline/): a full run on commit `d843a057` (2026-10-15). To compare a run with it, diff the two `scorecard.json` files: each metric sits on its own line, in a fixed order. The `ranking` list names the failing metrics, worst first.
 
 ## What it runs
 
