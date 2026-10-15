@@ -108,8 +108,7 @@ export const PortraitStudioPanel = () => {
 
   const editorVideoActions = useEditorVideoActions();
   const menuGroups = videoMenuGroups({
-    ...editorVideoActions.common,
-    ...editorVideoActions.rare,
+    ...editorVideoActions.menu,
     postShort: () => openPostingModal("both"),
     postToYouTube: () => openPostingModal("youtube"),
     postToTikTok: () => openPostingModal("tiktok"),

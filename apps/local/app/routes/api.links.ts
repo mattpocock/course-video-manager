@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import { data } from "react-router";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
-import { makeAction, makeLoader } from "@/services/route-action.server";
+import { makeAction } from "@/services/route-action.server";
 
 function normalizePayload(payload: unknown): unknown {
   const obj = payload as Record<string, unknown>;
@@ -29,16 +29,6 @@ const CreateLinkSchema = Schema.Struct({
   title: Schema.String,
   url: Schema.String,
   description: Schema.optional(Schema.NullOr(Schema.String)),
-});
-
-export const loader = makeLoader({
-  effect: () =>
-    Effect.gen(function* () {
-      const linkAuthOps = yield* LinkAuthOperationsService;
-      const links = yield* linkAuthOps.getLinks();
-
-      return { links };
-    }),
 });
 
 export const action = makeAction({
