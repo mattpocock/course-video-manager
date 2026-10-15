@@ -12,8 +12,6 @@ import { ActionsDropdown } from "./actions-dropdown";
 import { VideoPlayerStatusStrip } from "./video-player-status-strip";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
 import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
-import { VideoPlayerLinksTab } from "./video-player-links-tab";
-import { VideoMoreActions } from "./video-more-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
 import {
   getChapters as getChaptersSelector,
@@ -173,8 +171,6 @@ export const VideoPlayerPanel = () => {
   const newShort = useNewShortAction();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<"toc" | "links" | "more">("links");
-
   const chapters = useMemo(() => getChaptersSelector(items), [items]);
   const hasSections = getHasSectionsSelector(items);
 
@@ -188,9 +184,8 @@ export const VideoPlayerPanel = () => {
   const isReferenceOpen =
     referenceVideoId !== null &&
     referenceCandidates.some((c) => c.id === referenceVideoId);
-  // Rare actions live in the More tab, not the menu (rule 9).
-  const moreGroups = videoMenuGroups({
-    ...editorVideoActions.rare,
+  const menuGroups = videoMenuGroups({
+    ...editorVideoActions.menu,
     openInVSCode: lessonId
       ? () =>
           openInVSCodeFetcher.submit(
@@ -200,9 +195,6 @@ export const VideoPlayerPanel = () => {
       : undefined,
     createConcatenatedVideo: () =>
       navigate(`/videos/concatenate?initial=${videoId}`),
-  });
-  const menuGroups = videoMenuGroups({
-    ...editorVideoActions.common,
     reference: isReferenceOpen
       ? { close: () => setReferenceVideoId(null) }
       : { candidates: referenceCandidates, open: setReferenceVideoId },
@@ -329,32 +321,9 @@ export const VideoPlayerPanel = () => {
             )}
           </div>
 
-          {/* Tabbed panel for Sections, Links and More */}
-          <div className="mt-6 border-t border-border pt-4">
-            <div className="flex gap-2 mb-3">
-              {(
-                [
-                  ...(hasSections ? [["toc", "Sections"] as const] : []),
-                  ["links", "Links"],
-                  ["more", "More"],
-                ] as const
-              ).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                    activeTab === tab
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === "toc" && hasSections && (
+          {hasSections && (
+            <div className="mt-6 border-t border-border pt-4">
+              <h2 className="px-3 py-1.5 mb-3 text-sm font-medium">Sections</h2>
               <TableOfContents
                 chapters={chapters}
                 selectedClipsSet={selectedClipsSet}
@@ -367,12 +336,8 @@ export const VideoPlayerPanel = () => {
                   })
                 }
               />
-            )}
-
-            {activeTab === "links" && <VideoPlayerLinksTab />}
-
-            {activeTab === "more" && <VideoMoreActions groups={moreGroups} />}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
