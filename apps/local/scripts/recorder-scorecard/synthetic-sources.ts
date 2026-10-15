@@ -2,12 +2,23 @@
  * THE SCORECARD'S SYNTHETIC SOURCES: what ffmpeg.exe reads in place of the
  * Cam Link, the mic and the DELL. No capture device, no screen.
  *
- * Every picture source burns the Windows wall clock (ms, 28 bits) into a
- * 320x180 frame as a 7x4 grid of 40 px blocks, the same code
- * `scripts/preview-latency.ts` reads back. A frame's own capture time is then
- * readable wherever the frame ends up: in the browser (preview latency), and
- * in camera.mkv and screen.mkv (first frame after Record, repeated and
- * dropped frames, video lag across a long take).
+ * Every picture source burns two numbers into a 320x180 frame, as a 7x6
+ * grid of 40x28 px blocks:
+ *
+ * - rows 0-3, the Windows wall clock (ms, 28 bits): a frame's own capture
+ *   time, read back in the browser (preview latency) and in camera.mkv and
+ *   screen.mkv (first frame after Record, video lag across a long take);
+ * - rows 4-5, the frame's index (14 bits, from the source's first frame):
+ *   which frame it is, so camera.mkv and screen.mkv say exactly which frames
+ *   are missing (dropped) or there twice (repeated).
+ *
+ * Drops and repeats are never read from the clock. The source runs inside
+ * the capture process at Idle priority: when it is starved, `realtime` stops
+ * sleeping and makes the late frames back to back, so the clock jumps and
+ * then bunches (frames a ms or less apart) with no frame lost. Read from the
+ * clock, a 600 s take scored 4609 screen frames "dropped" while the files
+ * had every frame (#2239). The clock's gaps are still reported, as source
+ * stalls: on a real Cam Link a capture stall is held in dshow's buffer.
  *
  * The mic is a quiet 440 Hz bed (-46 dBFS, under the calibration's silence
  * threshold, so the file is never digital silence once it has real audio)
@@ -18,14 +29,30 @@
 
 export const CLOCK_BITS = 28;
 export const CLOCK_MOD = 2 ** CLOCK_BITS;
+export const INDEX_BITS = 14;
+export const INDEX_MOD = 2 ** INDEX_BITS;
 export const CLOCK_WIDTH = 320;
 export const CLOCK_HEIGHT = 180;
 
-/** Centre of bit `k`'s block in the 320x180 frame. */
-export const clockBitCentre = (k: number) => ({
-  x: 20 + (k % 7) * 40 + 20,
-  y: 10 + Math.floor(k / 7) * 40 + 20,
+const GRID_COLUMNS = 7;
+const CLOCK_ROWS = CLOCK_BITS / GRID_COLUMNS;
+const GRID_ROWS = CLOCK_ROWS + INDEX_BITS / GRID_COLUMNS;
+const BLOCK_WIDTH = 40;
+const BLOCK_HEIGHT = 28;
+const PAD_X = (CLOCK_WIDTH - GRID_COLUMNS * BLOCK_WIDTH) / 2;
+const PAD_Y = (CLOCK_HEIGHT - GRID_ROWS * BLOCK_HEIGHT) / 2;
+
+/** Centre of grid block `k` (row-major) in the 320x180 frame. */
+const blockCentre = (k: number) => ({
+  x: PAD_X + (k % GRID_COLUMNS) * BLOCK_WIDTH + BLOCK_WIDTH / 2,
+  y: PAD_Y + Math.floor(k / GRID_COLUMNS) * BLOCK_HEIGHT + BLOCK_HEIGHT / 2,
 });
+
+/** Centre of clock bit `k`'s block in the 320x180 frame. */
+export const clockBitCentre = (k: number) => blockCentre(k);
+
+/** Centre of frame-index bit `k`'s block in the 320x180 frame. */
+export const indexBitCentre = (k: number) => blockCentre(CLOCK_BITS + k);
 
 /**
  * A 320x180 picture at `rate` whose blocks spell, in Windows wall time (ms),
@@ -36,20 +63,23 @@ export const clockBitCentre = (k: number) => ({
  *   that falls behind would stamp a backlog that grows without limit, which a
  *   real ddagrab (always the newest desktop frame) never has. That backlog
  *   read as preview latency.
- * - The bits are worked out on a 7x4 grid, one value per block, and scaled up
- *   40x. Per pixel (`geq` over 320x180) the clock cost ~7 ms of a core per
- *   frame, at Idle priority on cores 6-9 during a take: the source starved.
+ * - The bits are worked out on a 7x6 grid, one value per block, and scaled up
+ *   to 40x28 px blocks: the clock in rows 0-3, geq's frame number `N` (the
+ *   source's frame index; nothing upstream of geq drops) in rows 4-5. Per pixel (`geq` over
+ *   320x180) the clock cost ~7 ms of a core per frame, at Idle priority on cores 6-9 during a take: the source starved.
  * - Downstream sees the due time again (`N/FRAME_RATE`, from the first
  *   frame), so the recorder's inputs are paced as before, free of the
  *   source's own jitter.
  */
 const clockPicture = (rate: string) =>
-  `color=c=black:s=7x4:r=${rate},settb=AVTB,` +
+  `color=c=black:s=${GRID_COLUMNS}x${GRID_ROWS}:r=${rate},settb=AVTB,` +
   "setpts='if(eq(N\\,0)\\,st(0\\,RTCTIME-PTS)\\,0);PTS+ld(0)',realtime," +
   "setpts=RTCTIME,format=gray," +
-  "geq=lum='255*mod(floor(floor(T*1000)/pow(2\\,X+7*Y))\\,2)'," +
-  `scale=${CLOCK_WIDTH - 40}:${CLOCK_HEIGHT - 20}:flags=neighbor,` +
-  `pad=${CLOCK_WIDTH}:${CLOCK_HEIGHT}:20:10:black,format=yuv420p,` +
+  `geq=lum='255*if(lt(Y\\,${CLOCK_ROWS})\\,` +
+  "mod(floor(floor(T*1000)/pow(2\\,X+7*Y))\\,2)\\," +
+  `mod(floor(N/pow(2\\,X+7*(Y-${CLOCK_ROWS})))\\,2))',` +
+  `scale=${GRID_COLUMNS * BLOCK_WIDTH}:${GRID_ROWS * BLOCK_HEIGHT}:flags=neighbor,` +
+  `pad=${CLOCK_WIDTH}:${CLOCK_HEIGHT}:${PAD_X}:${PAD_Y}:black,format=yuv420p,` +
   "setpts='if(eq(N\\,0)\\,st(0\\,PTS)\\,0);ld(0)+N/FRAME_RATE/TB'";
 
 export const CAMERA_RATE = "30000/1001";

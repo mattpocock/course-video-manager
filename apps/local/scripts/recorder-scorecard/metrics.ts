@@ -293,6 +293,7 @@ export const METRICS: readonly MetricDef[] = [
     target: 0,
     obs: null,
     scale: 1,
+    note: "Read from each frame's burned-in index, never its clock: a starved synthetic source stamps late frames back to back (`sourceStalls` in the details).",
   },
   {
     id: "camera_repeated_per_100",
@@ -316,6 +317,7 @@ export const METRICS: readonly MetricDef[] = [
     target: 0,
     obs: null,
     scale: 1,
+    note: "Read from each frame's burned-in index, never its clock: a starved synthetic source stamps late frames back to back (`sourceStalls` in the details).",
   },
   {
     id: "screen_repeated_per_100",

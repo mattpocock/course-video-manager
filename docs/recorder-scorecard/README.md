@@ -7,6 +7,7 @@ pnpm recorder:scorecard            # full: 10-min take, 50 cycles, 5 preview kil
 pnpm recorder:scorecard --quick    # 60 s take, 10 cycles, 3 preview kills, ~6 min
   [--out <dir>]          # default .data/recorder-scorecard/<run>/
   [--long-take <s>] [--cycles <n>] [--fault-repeats <n>] [--keep-footage]
+  [--only <scenario,…>]  # idle, longTake, previewKill, eventLogFailure, cycles, crash
 ```
 
 The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baseline/`](./baseline/): a full run on commit `d843a057` (2026-10-15). To compare a run with it, diff the two `scorecard.json` files: each metric sits on its own line, in a fixed order. The `ranking` list names the failing metrics, worst first.
@@ -17,7 +18,7 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
   - The Cam Link becomes a 320x180 lavfi picture, made 4K NV12 on the GPU.
   - The mic becomes a lavfi tone bed with a 2.5 s burst every 6 s.
   - The DELL becomes a lavfi picture made 1080p in D3D11.
-  - Every picture burns in its own Windows capture time.
+  - Every picture burns in its own Windows capture time and its frame index.
   - The device and screen listings are faked.
 - **Never touched.** No real device or screen is opened, OBS is never touched, and nothing is written under `/mnt`.
 - **Process kills.** Every ffmpeg.exe the run starts carries a marker. Process kills match that marker only; Matt's own recorder uses the same tags, so the real `stop-recorders.ps1` is never run.
@@ -39,6 +40,7 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
 - **OBS values.** These come only from evidence in the repo: the #1993 rig's 30-minute OBS baseline, ADR 0042, #2207 and #2208. Everywhere else the OBS value is `unknown`, never a guess. Add one to `metrics.ts` only with its source.
 - **Not simulated.** Disk-full and slow-disk are not simulated: either would need root for a size-limited filesystem, and could fill the footage drive. The scorecard does simulate a disk write failure, by making the event log read-only.
 - **Synthetic sources.** The synthetic camera never repeats frames, but the real Cam Link does (ADR 0042). CPU figures include the cost of making the synthetic pictures.
+- **Drops and repeats.** These are read from each frame's index, never its clock (#2239). The source runs inside the capture process at Idle priority; when it is starved it makes its late frames back to back, so the clock jumps and bunches with no frame lost. Those jumps are reported as `sourceStalls` in the details: on a real Cam Link a capture stall sits in dshow's buffer.
 - **Footage location.** Footage goes to WSL's own disk, while Matt's real footage goes to a Windows drive. Finalisation times therefore include the `\\wsl.localhost` share.
 
 ## For an agent fixing the worst gap

@@ -6,7 +6,10 @@ import {
   CLOCK_HEIGHT,
   CLOCK_MOD,
   CLOCK_WIDTH,
+  INDEX_BITS,
+  INDEX_MOD,
   clockBitCentre,
+  indexBitCentre,
 } from "./synthetic-sources";
 
 /**
@@ -17,15 +20,27 @@ import {
 
 const FRAME_BYTES = CLOCK_WIDTH * CLOCK_HEIGHT;
 
-/** Reads a 320x180 grey frame's clock. */
-const readClock = (frame: Buffer) => {
+const readBits = (
+  frame: Buffer,
+  bits: number,
+  centre: (k: number) => { x: number; y: number }
+) => {
   let v = 0;
-  for (let k = 0; k < CLOCK_BITS; k++) {
-    const { x, y } = clockBitCentre(k);
+  for (let k = 0; k < bits; k++) {
+    const { x, y } = centre(k);
     if (frame[y * CLOCK_WIDTH + x]! > 128) v += 2 ** k;
   }
   return v;
 };
+
+/** What a frame's blocks say: its clock (ms, mod 2^28) and its index (mod 2^14). */
+export type FrameStamp = { clock: number; index: number };
+
+/** Reads a 320x180 grey frame's clock and index. */
+export const readStamp = (frame: Buffer): FrameStamp => ({
+  clock: readBits(frame, CLOCK_BITS, clockBitCentre),
+  index: readBits(frame, INDEX_BITS, indexBitCentre),
+});
 
 const decodeArgs = (file: string, gpu: boolean) => [
   "-hide_banner",
@@ -46,16 +61,16 @@ const decodeArgs = (file: string, gpu: boolean) => [
 ];
 
 const decodeWith = (file: string, gpu: boolean) =>
-  new Promise<number[] | null>((resolve) => {
+  new Promise<FrameStamp[] | null>((resolve) => {
     const child = spawn("ffmpeg", decodeArgs(file, gpu), {
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const values: number[] = [];
+    const values: FrameStamp[] = [];
     let pending = Buffer.alloc(0);
     child.stdout.on("data", (d: Buffer) => {
       pending = Buffer.concat([pending, d]);
       while (pending.length >= FRAME_BYTES) {
-        values.push(readClock(pending.subarray(0, FRAME_BYTES)));
+        values.push(readStamp(pending.subarray(0, FRAME_BYTES)));
         pending = pending.subarray(FRAME_BYTES);
       }
     });
@@ -66,8 +81,8 @@ const decodeWith = (file: string, gpu: boolean) =>
     child.once("error", () => resolve(null));
   });
 
-/** Each frame's burned-in clock (Windows ms, mod 2^28), in file order. */
-export const decodeClocks = async (file: string) =>
+/** Each frame's burned-in clock and index, in file order. */
+export const decodeStamps = async (file: string) =>
   (await decodeWith(file, true)) ?? (await decodeWith(file, false)) ?? [];
 
 /** A clock value unwrapped to the full Windows ms nearest `near`. */
@@ -96,62 +111,115 @@ export type PictureReport = {
   leadingRepeats: number;
   /** The first real frame's capture time, Windows ms. */
   firstCaptureMs: number;
-  /** Frames repeated after the head: the picture stood still. */
+  /** Frames there twice after the head (the same index again): the picture stood still. */
   repeated: number;
-  /** Frames missing: a jump in capture time past 1.5 frame intervals. */
+  /** Frames missing: indexes skipped. */
   dropped: number;
   /** Reads that fit neither neighbour (encode or decode noise), left out. */
   unreadable: number;
+  /**
+   * The source's own stalls, from the clock: frames' worth of jumps past 1.5
+   * intervals, and the longest. Not a loss (every index is there); a starved
+   * source makes its late frames back to back. On a real Cam Link a stall of
+   * the capture sits in dshow's buffer.
+   */
+  sourceStalls: { frames: number; longestMs: number };
   /** How far behind file time the picture's capture time runs, ms: first and last minute (median). */
   lagStartMs: number;
   lagEndMs: number;
 };
 
+/** Each value unwrapped against the one before it, so a sequence never jumps by a wrap. */
+const unwrapRun = (vs: number[], mod: number, start: number) => {
+  const out: number[] = [];
+  let at = start;
+  let raw = ((start % mod) + mod) % mod;
+  for (const v of vs) {
+    const d = (((v - raw) % mod) + mod) % mod;
+    at += d > mod / 2 ? d - mod : d;
+    raw = v;
+    out.push(at);
+  }
+  return out;
+};
+
 /**
- * What a picture file's clocks say. `fps` is the file's CFR rate, `t0Ms` the
+ * Which reads are noise: a read far from both neighbours, which agree with
+ * each other (they span at most `maxSpan`).
+ */
+const misreads = (xs: number[], maxSpan: number, slack: number) => {
+  const bad = xs.map(() => false);
+  for (let n = 1; n < xs.length - 1; n++) {
+    const prev = xs[n - 1]!;
+    const next = xs[n + 1]!;
+    const here = xs[n]!;
+    const span = next - prev;
+    const fits = here >= prev - slack && here <= next + slack;
+    if (!fits && span >= 0 && span <= maxSpan) bad[n] = true;
+  }
+  return bad;
+};
+
+/**
+ * What a picture file's stamps say. `fps` is the file's CFR rate, `t0Ms` the
  * Recording Session's T0 on the Windows clock.
+ *
+ * Repeats and drops come from the frame index alone: each frame says which
+ * it is. The clock says when each was made, for the first frame, the lag
+ * and the source's stalls.
  */
 export const analysePicture = (
-  clocks: number[],
+  stamps: FrameStamp[],
   o: { fps: number; t0Ms: number }
 ): PictureReport => {
   const interval = 1000 / o.fps;
-  const full = clocks.map((v) => unwrap(v, o.t0Ms));
-  // A misread frame sits far from both neighbours, which agree with each other.
-  let unreadable = 0;
-  for (let n = 1; n < full.length - 1; n++) {
-    const prev = full[n - 1]!;
-    const next = full[n + 1]!;
-    const here = full[n]!;
-    const span = next - prev;
-    const fits = here >= prev - 1 && here <= next + 1;
-    if (!fits && span >= 0 && span <= 3 * interval) {
-      full[n] = prev;
-      unreadable += 1;
-    }
-  }
+  const clock = stamps.map((s) => unwrap(s.clock, o.t0Ms));
+  const index = unwrapRun(
+    stamps.map((s) => s.index),
+    INDEX_MOD,
+    stamps[0]?.index ?? 0
+  );
+  const badClock = misreads(clock, 3 * interval, 1);
+  const badIndex = misreads(index, 3, 0);
+  const bad = stamps.map((_, n) => badClock[n]! || badIndex[n]!);
+  const unreadable = bad.filter(Boolean).length;
+  const good = stamps.map((_, n) => n).filter((n) => !bad[n]);
+
   let lead = 0;
-  while (lead + 1 < full.length && full[lead + 1] === full[0]) lead++;
+  while (lead + 1 < good.length && index[good[lead + 1]!] === index[good[0]!])
+    lead++;
   let repeated = 0;
   let dropped = 0;
-  for (let n = lead + 1; n < full.length; n++) {
-    const d = full[n]! - full[n - 1]!;
-    if (d === 0) repeated += 1;
-    else if (d > 1.5 * interval) dropped += Math.round(d / interval) - 1;
+  let stallFrames = 0;
+  let longestMs = 0;
+  for (let g = 1; g < good.length; g++) {
+    const n = good[g]!;
+    const p = good[g - 1]!;
+    const between = n - p - 1;
+    const dc = clock[n]! - clock[p]!;
+    if (between === 0) {
+      longestMs = Math.max(longestMs, dc);
+      if (dc > 1.5 * interval) stallFrames += Math.round(dc / interval) - 1;
+    }
+    if (g <= lead) continue;
+    // Misread frames between the two stood for some of the gap.
+    const missing = index[n]! - index[p]! - 1 - between;
+    if (missing > 0) dropped += missing;
+    else if (missing < 0) repeated += -missing;
   }
-  const lag = (n: number) => o.t0Ms + (n * 1000) / o.fps - full[n]!;
-  const span = driftWindow(full.length - lead - 1, Math.round(60 * o.fps));
-  const startIdx = Array.from({ length: span }, (_, i) => lead + 1 + i);
-  const endIdx = Array.from({ length: span }, (_, i) => full.length - 1 - i);
+  const lagAt = (n: number) => o.t0Ms + (n * 1000) / o.fps - clock[n]!;
+  const tail = good.slice(lead + 1);
+  const span = driftWindow(tail.length, Math.round(60 * o.fps));
   return {
-    frames: full.length,
+    frames: stamps.length,
     leadingRepeats: lead,
-    firstCaptureMs: full[0] ?? NaN,
+    firstCaptureMs: good.length ? clock[good[0]!]! : NaN,
     repeated,
     dropped,
     unreadable,
-    lagStartMs: median(startIdx.map(lag)),
-    lagEndMs: median(endIdx.map(lag)),
+    sourceStalls: { frames: stallFrames, longestMs },
+    lagStartMs: median(tail.slice(0, span).map(lagAt)),
+    lagEndMs: median(tail.slice(-span).map(lagAt)),
   };
 };
 

@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { previewPath, type PreviewFeed } from "../../recorder-service/protocol";
-import { CLOCK_BITS } from "./synthetic-sources";
+import { CLOCK_BITS, clockBitCentre } from "./synthetic-sources";
 
 /**
  * PREVIEW LATENCY as the editor sees it: a headless Chromium decodes the
@@ -21,6 +21,7 @@ const page = (feed: PreviewFeed) => `<!doctype html>
 <canvas id="c" width="320" height="180"></canvas>
 <script type="module">
 const BITS = ${CLOCK_BITS};
+const CENTRES = ${JSON.stringify(Array.from({ length: CLOCK_BITS }, (_, k) => clockBitCentre(k)))};
 const MOD = 2 ** BITS;
 const ctx = document.getElementById("c").getContext("2d", { willReadFrequently: true });
 const { watchLatestFrame } = await import("/frame-loop.js");
@@ -36,7 +37,7 @@ const draw = () => {
   const px = ctx.getImageData(0, 0, 320, 180).data;
   let v = 0;
   for (let k = 0; k < BITS; k++) {
-    const x = 20 + (k % 7) * 40 + 20, y = 10 + Math.floor(k / 7) * 40 + 20;
+    const { x, y } = CENTRES[k];
     if (px[(y * 320 + x) * 4] > 128) v += 2 ** k;
   }
   if (v === last) return;
