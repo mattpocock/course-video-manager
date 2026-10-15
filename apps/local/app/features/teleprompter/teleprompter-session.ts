@@ -33,6 +33,19 @@ export namespace teleprompterSession {
     script: string;
   }
 
+  /**
+   * The Suggestions tab's line, which takes the glass from the Script, with
+   * the Clips just before it shown dimmed above it.
+   */
+  export interface Suggestion {
+    /** A new id is a new suggestion, which the glass centres. */
+    id: number;
+    /** Streams in; empty until the first words arrive. */
+    text: string;
+    /** Transcripts, oldest first: context, not lines to read. */
+    previousClips: string[];
+  }
+
   export interface State {
     editorConnected: boolean;
     /** When the editor last said anything, for the liveness check. */
@@ -69,7 +82,7 @@ export namespace teleprompterSession {
      * The editor's Suggestions tab's line, as last pushed, shown in place of
      * the Script. `null` when that tab is closed, or there is nobody to ask.
      */
-    suggestion: string | null;
+    suggestion: Suggestion | null;
     content: Content;
     lastScriptPushAt: number;
   }
@@ -95,6 +108,10 @@ export namespace teleprompterSession {
         videoLengthSeconds?: number | null;
         /** Absent from an editor running older code; treated as none. */
         suggestion?: string | null;
+        /** Absent from an editor running older code; treated as 0. */
+        suggestionId?: number | null;
+        /** Absent from an editor running older code; treated as none. */
+        suggestionPreviousClips?: string[];
         at: number;
       }
     /** A bare pong: the editor is still there, and nothing has changed. */
@@ -153,7 +170,14 @@ export namespace teleprompterSession {
           // Unlike the session's leftovers, the length always describes the
           // video it arrived with, so a new video's first push is believed.
           videoLengthSeconds: action.videoLengthSeconds ?? null,
-          suggestion: videoChanged ? null : (action.suggestion ?? null),
+          suggestion:
+            videoChanged || action.suggestion == null
+              ? null
+              : {
+                  id: action.suggestionId ?? 0,
+                  text: action.suggestion,
+                  previousClips: action.suggestionPreviousClips ?? [],
+                },
           // A different video means the content on screen belongs to the last
           // one. Drop it rather than showing it under the new title.
           content: videoChanged ? EMPTY_CONTENT : state.content,
@@ -215,13 +239,6 @@ export namespace teleprompterSession {
         };
     }
   };
-
-  /**
-   * What goes on the glass: the Suggestions tab's line while it is open,
-   * otherwise the Script.
-   */
-  export const glassScript = (state: State): string =>
-    state.suggestion ?? state.content.script;
 
   const isSameContent = (a: Content, b: Content): boolean =>
     a.title === b.title && a.script === b.script;

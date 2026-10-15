@@ -33,6 +33,7 @@ import { useSessionClipMarks } from "../session-clip-marks";
 import { useLatestSessionTranscript } from "../session-latest-transcript";
 import { getTimelineItems, getTotalDuration } from "../video-editor-selectors";
 import { isClip } from "../clip-utils";
+import type { TeleprompterSuggestion } from "../suggestions-reducer";
 
 export type TeleprompterEditorInput = {
   videoId: string | null;
@@ -44,15 +45,19 @@ export type TeleprompterEditorInput = {
   playingClipId: string | null;
   /**
    * The Suggestions tab's line while that tab is open (empty until the first
-   * words arrive), or `null`: the glass shows it in place of the Script.
+   * words arrive), with the Clips just before it, or `null`: the glass shows
+   * it in place of the Script.
    */
-  suggestion: string | null;
+  suggestion: TeleprompterSuggestion | null;
   /** A dot on the glass was clicked: play its Clip, or pause it. */
   onClipMarkClicked: (clipId: string) => void;
 };
 
 export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
-  const { videoId, capture, playingClipId, suggestion } = input;
+  const { videoId, capture, playingClipId } = input;
+  const suggestion = input.suggestion?.text ?? null;
+  const suggestionId = input.suggestion?.id ?? null;
+  const suggestionPreviousClips = input.suggestion?.previousClips ?? [];
   // One per clip in the current session — see `session-clip-marks.ts`.
   const { marks, markClipIds } = useSessionClipMarks(
     input.items,
@@ -80,6 +85,8 @@ export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
     latestTranscript,
     videoLengthSeconds,
     suggestion,
+    suggestionId,
+    suggestionPreviousClips,
   };
   const ref = useRef(state);
   ref.current = state;
@@ -99,6 +106,7 @@ export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
   // dependency is the arrays' *content*, flattened to a string.
   const marksKey = marks.join(",");
   const markClipIdsKey = markClipIds.join(",");
+  const previousClipsKey = JSON.stringify(suggestionPreviousClips);
   useEffect(() => {
     pushTeleprompterState({
       videoId,
@@ -110,6 +118,8 @@ export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
       latestTranscript,
       videoLengthSeconds,
       suggestion,
+      suggestionId,
+      suggestionPreviousClips: JSON.parse(previousClipsKey) as string[],
     });
   }, [
     videoId,
@@ -120,5 +130,7 @@ export function useTeleprompterEditorMode(input: TeleprompterEditorInput) {
     latestTranscript,
     videoLengthSeconds,
     suggestion,
+    suggestionId,
+    previousClipsKey,
   ]);
 }

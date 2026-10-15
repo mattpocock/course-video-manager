@@ -6,9 +6,11 @@ import {
   fmtTok,
 } from "@/features/article-writer/inline-context-strip";
 import { AlertCircleIcon, Layers, RefreshCwIcon } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import {
   getSourceTexts,
   getSuggestionInput,
+  getSuggestionText,
   suggestionsReducer,
 } from "../suggestions-reducer";
 
@@ -18,6 +20,9 @@ const SOURCE_LABELS: Record<suggestionsReducer.Source, string> = {
   animatic: "Animatic",
   beats: "Beats",
 };
+
+/** The suggestion's Markdown, rendered as bold and nothing else. */
+const BOLD_ONLY = ["p", "strong"];
 
 /**
  * The side panel's **Suggestions** tab: which sources go in (with what each
@@ -34,9 +39,10 @@ export function SuggestionsPanel(props: {
   const { state } = props;
   const texts = getSourceTexts(state);
   const input = getSuggestionInput(state);
-  const recentClipsTokens = estimateTokens(input.recentClips.join("\n"));
+  const text = getSuggestionText(state);
+  const clipsTokens = estimateTokens(input.clips.join("\n"));
   const totalTokens =
-    recentClipsTokens +
+    clipsTokens +
     suggestionsReducer.SOURCES.reduce(
       (sum, source) => sum + estimateTokens(input[source] ?? ""),
       0
@@ -92,16 +98,30 @@ export function SuggestionsPanel(props: {
         })}
         <span
           className="flex items-center gap-1.5 rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground"
-          title="Where you are: the most recent Clips before the Insertion Point. Always sent."
+          title="Every Clip before the Insertion Point, the last few marked as where you are. Always sent."
         >
-          <span>Recent Clips {input.recentClips.length}</span>
+          <span>Clips {input.clips.length}</span>
           <span className="w-9 text-right font-mono tabular-nums">
-            {fmtTok(recentClipsTokens)}
+            {fmtTok(clipsTokens)}
           </span>
         </span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+        <label
+          htmlFor="suggestion-notes"
+          className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          Notes
+        </label>
+        <textarea
+          id="suggestion-notes"
+          value={state.notes}
+          onChange={(e) => props.onNotesChange(e.target.value)}
+          placeholder="How this take departs from the Script or Animatic. Overrides them where they disagree. Kept in this browser, for this video only."
+          rows={5}
+          className="mb-6 mt-1 w-full resize-y rounded-md border bg-background px-2 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring"
+        />
         <div className="mb-2 flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Say next
@@ -122,10 +142,12 @@ export function SuggestionsPanel(props: {
             <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
             The suggestion failed. Refresh to try again.
           </p>
-        ) : state.text ? (
-          <p className="whitespace-pre-wrap text-base leading-relaxed text-foreground">
-            {state.text}
-          </p>
+        ) : text ? (
+          <div className="whitespace-pre-wrap text-base leading-relaxed text-foreground [&_strong]:font-semibold">
+            <ReactMarkdown allowedElements={BOLD_ONLY} unwrapDisallowed>
+              {text}
+            </ReactMarkdown>
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="h-4 w-3/4 animate-pulse rounded bg-muted/50" />
@@ -135,20 +157,6 @@ export function SuggestionsPanel(props: {
         <p className="mt-4 text-xs text-muted-foreground">
           Shown on the teleprompter while this tab is open.
         </p>
-        <label
-          htmlFor="suggestion-notes"
-          className="mt-6 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-        >
-          Notes
-        </label>
-        <textarea
-          id="suggestion-notes"
-          value={state.notes}
-          onChange={(e) => props.onNotesChange(e.target.value)}
-          placeholder="How this take departs from the Script or Animatic. Overrides them where they disagree. Kept in this browser, for this video only."
-          rows={5}
-          className="mt-1 w-full resize-y rounded-md border bg-background px-2 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring"
-        />
       </div>
     </div>
   );

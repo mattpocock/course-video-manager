@@ -18,7 +18,7 @@ import {
   suggestionsStateReducer,
 } from "../suggestions-reducer";
 import {
-  getRecentClipTranscripts,
+  getClipTranscriptsBeforeInsertionPoint,
   getTranscribedClipIds,
 } from "../video-editor-selectors";
 
@@ -162,15 +162,16 @@ export function useSuggestions(input: {
       ),
     [input.beats]
   );
-  const recentClips = useMemo(
-    () => getRecentClipTranscripts(input.items, input.insertionPoint),
+  const clips = useMemo(
+    () =>
+      getClipTranscriptsBeforeInsertionPoint(input.items, input.insertionPoint),
     [input.items, input.insertionPoint]
   );
   const transcribedClipIds = useMemo(
     () => getTranscribedClipIds(input.items),
     [input.items]
   );
-  const recentClipsKey = JSON.stringify(recentClips);
+  const clipsKey = JSON.stringify(clips);
   const transcribedKey = transcribedClipIds.join(",");
   useEffect(() => {
     dispatch({
@@ -178,12 +179,12 @@ export function useSuggestions(input: {
       context: {
         animatic,
         beats,
-        recentClips: JSON.parse(recentClipsKey) as string[],
+        clips: JSON.parse(clipsKey) as string[],
         transcribedClipIds:
           transcribedKey === "" ? [] : transcribedKey.split(","),
       },
     });
-  }, [animatic, beats, recentClipsKey, transcribedKey, dispatch]);
+  }, [animatic, beats, clipsKey, transcribedKey, dispatch]);
 
   return {
     state,

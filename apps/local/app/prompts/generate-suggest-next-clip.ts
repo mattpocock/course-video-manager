@@ -3,9 +3,9 @@
  * author say in the next **Clip**?
  *
  * The guide is the **Script** or the **Animatic** (whichever sources the author
- * ticked); the **Beats** say what each part of the Video is for. "Where the
- * author is" is read from the transcripts of the most recent Clips, matched
- * against that guide. Every source is optional: an unticked or missing one is
+ * ticked); the **Beats** say what each part of the Video is for. Every Clip
+ * recorded so far goes in, numbered in order; the last few are set apart as
+ * where the author is now, matched against that guide. Every source is optional: an unticked or missing one is
  * simply left out. The author's **Notes** for this Video outrank the rest:
  * they say how today's take departs from the plan.
  */
@@ -14,9 +14,15 @@ export type SuggestNextClipInput = {
   script?: string;
   animatic?: string;
   beats?: string;
-  /** Transcripts of the most recent Clips, oldest first. */
-  recentClips: string[];
+  /** Transcripts of every Clip before the Insertion Point, oldest first. */
+  clips: string[];
 };
+
+/**
+ * How many of the last Clips count as "where the author is now". The
+ * teleprompter shows the same ones, dimmed, above the suggestion.
+ */
+export const MOST_RECENT_CLIP_COUNT = 3;
 
 const section = (tag: string, intro: string, body: string | undefined) =>
   body && body.trim().length > 0
@@ -49,13 +55,28 @@ export const generateSuggestNextClipPrompt = (
     ),
   ].filter(Boolean);
 
-  const recent =
-    input.recentClips.length > 0
-      ? `The most recent clips the creator has recorded, oldest first. This is where they are right now.
+  const numbered = input.clips.map((text, i) => `Clip ${i + 1}: ${text}`);
+  const split = Math.max(0, numbered.length - MOST_RECENT_CLIP_COUNT);
+  const earlier = numbered.slice(0, split);
+  const recent = numbered.slice(split);
+  const clips =
+    numbered.length > 0
+      ? [
+          earlier.length > 0
+            ? `Everything the creator has recorded so far, in order, up to the most recent clips.
 
-<recent-clips>
-${input.recentClips.map((text, i) => `Clip ${i + 1}: ${text}`).join("\n")}
-</recent-clips>`
+<earlier-clips>
+${earlier.join("\n")}
+</earlier-clips>`
+            : "",
+          `The most recent clips, oldest first. This is where the creator is RIGHT NOW: the next clip follows straight on from the last one.
+
+<most-recent-clips>
+${recent.join("\n")}
+</most-recent-clips>`,
+        ]
+          .filter(Boolean)
+          .join("\n\n")
       : "The creator has not recorded anything yet: suggest the opening line of the video.";
 
   return `
@@ -63,22 +84,23 @@ ${input.recentClips.map((text, i) => `Clip ${i + 1}: ${text}`).join("\n")}
 You are a teleprompter for a course creator recording a video one short clip at a time. After each clip, you show them what to say next.
 </role-context>
 
-${guides.length > 0 ? guides.join("\n\n") : "There is no plan for this video: continue naturally from the recent clips."}
+${guides.length > 0 ? guides.join("\n\n") : "There is no plan for this video: continue naturally from the clips."}
 
-${recent}
+${clips}
 
 <the-ask>
 Work out where the most recent clips sit in the plan, then write the very next thing the creator should say.
 
 - Follow the plan: the Script or the Animatic is the guide for what comes next.
 - If there are notes, they override the plan wherever the two disagree.
-- Do not repeat anything the creator has already recorded. Skip what the recent clips already cover.
+- Do not repeat anything the creator has already recorded, in any clip. Skip what the clips already cover.
 - Keep it short: one clip's worth, one or two sentences at most.
-- Write it in the creator's own voice, as heard in the recent clips: conversational, natural when read aloud.
+- Write it in the creator's own voice, as heard in the clips: conversational, natural when read aloud.
+- Bold the one to three words that matter most, the ones to stress, with Markdown: **like this**.
 </the-ask>
 
 <output-format>
-Output ONLY the spoken words. No quotes, no "you should say...", no stage directions, no markdown.
+Output ONLY the spoken words. No quotes, no "you should say...", no stage directions. The only markdown allowed is **bold**.
 </output-format>
 `.trim();
 };
