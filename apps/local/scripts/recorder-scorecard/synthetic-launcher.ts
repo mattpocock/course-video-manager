@@ -32,10 +32,9 @@ import { killMarked, windowsGuard } from "./windows";
  *
  * - every process starts through the Windows guard
  *   (`scripts/windows-guard.ts`): Idle priority on cores 6-9;
- * - `timer-resolution.ps1` and `raise-priority.ps1` are not run: they raise
- *   the screen recorder, the capture and the writer to High priority, which
- *   the guard's job object forbids anyway. Each reports a failure, which the
- *   service only logs.
+ * - `timer-resolution.ps1` is not run: it raises the screen recorder, the
+ *   capture and the writer to High priority, which the guard's job object
+ *   forbids anyway. Each run reports a failure, which the service only logs.
  *
  * nvidia-smi runs for real.
  */
@@ -234,7 +233,6 @@ export const syntheticLauncher = (o: {
           case "stop-recorders.ps1":
             return workProcess(() => killMarked(o.marker, tagsOf(launch.args)));
           case "timer-resolution.ps1":
-          case "raise-priority.ps1":
             return fakeProcess(
               "",
               "skipped: the scorecard keeps every process at Idle priority\n",

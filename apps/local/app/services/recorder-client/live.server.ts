@@ -8,6 +8,7 @@ import { readStorageRootsSync } from "@/services/storage-roots";
 import { lastPassedCalibrationNow } from "@/services/av-calibration.server";
 import { createRecorderClient, type RecorderClient } from "./client.server";
 import { keepWhisperWarm } from "@/services/sidecar-socket.server";
+import { RECORDER_CLIENT_KEY } from "./existing-client.server";
 import {
   ingestRecorderEvent,
   unfinishedRecordingSessions,
@@ -24,7 +25,7 @@ import {
  * and OBS (live-desk/live-desk.ts). `RECORDER_SERVICE_URL` overrides both.
  */
 
-const KEY = Symbol.for("cvm.recorder-client");
+const KEY = RECORDER_CLIENT_KEY;
 
 const recorderServiceUrl = () =>
   process.env.RECORDER_SERVICE_URL ||
