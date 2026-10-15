@@ -122,13 +122,15 @@ describe("claimNextJob", () => {
   );
 
   it.effect(
-    "holds transcription, queued, while a Recording Session records, and runs everything else",
+    "holds Footage transcription, queued, while a Recording Session records, and runs everything else, Clip transcription too",
     () =>
       Effect.gen(function* () {
         const ops = yield* JobOperationsService;
         const claim = () =>
           ops.claimNextJob({ lane: "default", holder: "h", leaseMs: LEASE });
-        const transcribe = yield* enqueue({ kind: "transcribe-clips" });
+        const transcribe = yield* enqueue({ kind: "transcribe-footage" });
+        // A Clip is transcribed as it arrives, mid-take (#2224).
+        const clips = yield* enqueue({ kind: "transcribe-clips" });
         const other = yield* enqueue({ kind: "noop" });
         yield* Effect.promise(() =>
           testDb.insert(recordingSessions).values({
@@ -149,6 +151,7 @@ describe("claimNextJob", () => {
           })
         );
 
+        expect((yield* claim())?.id).toBe(clips.id);
         expect((yield* claim())?.id).toBe(other.id);
         expect(yield* claim()).toBeUndefined();
 

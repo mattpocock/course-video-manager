@@ -320,7 +320,7 @@ The position in a video timeline where new clips or chapters will be added (star
 _Avoid_: Cursor, Drop target
 
 **Transcription**:
-The process of getting a clip's text from its audio.
+The process of getting a clip's text from its audio. A **Clip** is transcribed as soon as it is saved, by Local Whisper in the **Sidecar**, even while its **Recording Session** is still recording, so its text is there mid-take. That Transcription runs below the capture and reads only the Clip's span of the mic file. A **Footage** file's Transcription waits until the Recording Session stops.
 _Avoid_: Caption, Subtitle
 
 **Transcription Status**:

@@ -26,7 +26,10 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   if (audio.endsWith("bad.mp3")) return send({ id, error: "InvalidDataError: bad.mp3" });
   send({
     id,
-    segments: [{ start: 0, end: 1, text: " pid " + process.pid }],
+    segments: [
+      { start: 0, end: 1, text: " pid " + process.pid },
+      { start: 1, end: 2, text: " nice " + require("node:os").getPriority() },
+    ],
     words: [{ start: 0, end: 1, text: String(process.pid) }],
   });
 });
@@ -59,6 +62,13 @@ describe("makeWorker", () => {
     expect(pidOf(a)).toBeDefined();
     expect(new Set([pidOf(a), pidOf(b), pidOf(c)]).size).toBe(1);
     expect(a.segments[0]?.text).toBe(` pid ${pidOf(a)}`);
+    w.stop();
+  });
+
+  it("runs the worker at the lowest CPU priority, below the capture (#2224)", async () => {
+    const w = worker("ok");
+    const t = await w.transcribe("/a.mp3");
+    expect(t.segments[1]?.text).toBe(" nice 19");
     w.stop();
   });
 

@@ -12,6 +12,8 @@ import {
 import { SidecarContext } from "./sidecar-context";
 import { LocalWhisperEngine } from "./local-whisper-engine";
 import { removeBestEffort } from "@/services/remove-best-effort";
+import { copyMkvSpan } from "./mkv-span";
+import { assertUnderEffect } from "./assert-under";
 
 /**
  * How `extractAudio` encodes: a Clip's range at 384kbps as recorded, or a whole
@@ -19,6 +21,33 @@ import { removeBestEffort } from "@/services/remove-best-effort";
  */
 const CLIP_AUDIO = ["-b:a", "384k"] as const;
 const FOOTAGE_AUDIO = ["-ac", "1", "-b:a", "64k"] as const;
+
+/**
+ * Every ffmpeg here runs at the lowest CPU priority (#2224): a Clip is
+ * transcribed while its take is still recording, and nothing here may take
+ * time from the capture.
+ */
+const LOW_PRIORITY = ["nice", "-n", "19"] as const;
+
+/**
+ * The ffmpeg arguments that cut out of `spanFile` (a copy of only the
+ * Clusters around the range, `mkv-span.ts`) the very audio
+ * `-ss startTime -t duration` reads from the whole file. `-copyts` keeps the
+ * file's own timestamps; like `-ss`, the cut counts from the file's
+ * `start_time`.
+ */
+export const spanCutArgs = (
+  spanFile: string,
+  range: { startTime: number; duration: number },
+  fileStartSeconds: number
+) => [
+  "-copyts",
+  "-i",
+  spanFile,
+  "-vn",
+  "-af",
+  `atrim=start=${range.startTime + fileStartSeconds}:duration=${range.duration},asetpts=PTS-STARTPTS`,
+];
 
 const transcribeClipsSchema = Schema.Array(
   Schema.Struct({
@@ -112,19 +141,62 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
 
         const outputFile = whisperAudioPath(outputDir, inputVideo, range);
 
-        const rangeArgs = range
-          ? ["-ss", range.startTime.toString(), "-t", range.duration.toString()]
-          : [];
+        // A Clip of a Matroska file (a take's mic.mkv, maybe still growing,
+        // with no Cues to seek by) is read from a copy of only its Clusters:
+        // ffmpeg -ss would read the whole file up to it (#2224).
+        const spanFile = yield* assertUnderEffect(
+          outputDir,
+          `${outputFile}.span.mkv`
+        ).pipe(
+          Effect.mapError(
+            (e) =>
+              new CouldNotExtractAudioError({ cause: e, message: e.message })
+          )
+        );
+        const span =
+          range !== undefined &&
+          encoding === CLIP_AUDIO &&
+          inputVideo.toLowerCase().endsWith(".mkv") &&
+          (yield* Effect.tryPromise(() =>
+            copyMkvSpan(
+              inputVideo,
+              spanFile,
+              range.startTime,
+              range.startTime + range.duration
+            )
+          ).pipe(
+            Effect.catchAll((error) =>
+              Effect.logWarning(
+                `Could not read the span of ${inputVideo}; reading it whole`,
+                error
+              ).pipe(Effect.as(null))
+            )
+          ));
+
+        const inputArgs =
+          span && range
+            ? spanCutArgs(spanFile, range, span.startSeconds)
+            : [
+                ...(range
+                  ? [
+                      "-ss",
+                      range.startTime.toString(),
+                      "-t",
+                      range.duration.toString(),
+                    ]
+                  : []),
+                "-i",
+                inputVideo,
+                "-vn",
+              ];
 
         const code = yield* Command.exitCode(
           Command.make(
+            ...LOW_PRIORITY,
             "ffmpeg",
             "-y",
             "-hide_banner",
-            ...rangeArgs,
-            "-i",
-            inputVideo,
-            "-vn",
+            ...inputArgs,
             "-c:a",
             "libmp3lame",
             ...encoding,
@@ -137,6 +209,9 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
                 cause: e,
                 message: `Failed to extract audio: ${e.message}`,
               })
+          ),
+          Effect.ensuring(
+            span ? removeBestEffort(effectFs, spanFile) : Effect.void
           )
         );
         if (code !== 0) {

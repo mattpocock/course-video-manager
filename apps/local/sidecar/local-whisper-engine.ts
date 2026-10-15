@@ -16,7 +16,8 @@ import {
 /**
  * The live **Local Whisper** engine, the Sidecar's only way to transcribe:
  * one Python worker (`local-whisper/worker.py`, faster-whisper) that the
- * Sidecar starts on the first transcription and keeps alive, so the model
+ * Sidecar starts on the first transcription (or as the recorder opens) and
+ * keeps alive at the lowest CPU priority, so the model
  * stays loaded in VRAM and a Clip costs ~0.5 s. The worker answers one file
  * at a time; requests queue in order. After {@link IDLE_MINUTES} with nothing
  * to do it is stopped, handing its VRAM back to the exports' NVENC, and the
@@ -86,7 +87,9 @@ export const makeWorker = (config: WorkerConfig) => {
   };
 
   const start = (): Promise<void> => {
-    const proc = spawn(config.command, [...config.args], {
+    // Clips are transcribed while their take records (#2224): the worker and
+    // every thread it starts get CPU only when nothing else wants it.
+    const proc = spawn("nice", ["-n", "19", config.command, ...config.args], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     child = proc;

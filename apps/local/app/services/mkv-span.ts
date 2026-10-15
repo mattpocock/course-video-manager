@@ -25,6 +25,13 @@ const ID = {
   Cues: 0x1c53bb6b,
   Cluster: 0x1f43b675,
   Timestamp: 0xe7,
+  Crc32: 0xbf,
+  SimpleBlock: 0xa3,
+  BlockGroup: 0xa0,
+  Block: 0xa1,
+  Tracks: 0x1654ae6b,
+  TrackEntry: 0xae,
+  CodecDelay: 0x56aa,
   Void: 0xec,
 } as const;
 
@@ -93,15 +100,13 @@ const unknownSize = (length: number) => {
   return bytes;
 };
 
-/** Overwrites `total` bytes at `pos` with one Void element. */
+/** Overwrites `total` (at least 9) bytes at `pos` with one Void element. */
 const voidOut = (buf: Buffer, pos: number, total: number) => {
-  buf[pos] = ID.Void;
-  buf[pos + 1] = 0x01; // an 8-byte size
-  buf.writeUIntBE(0, pos + 2, 1);
   const payload = total - 9;
+  buf[pos] = ID.Void;
+  buf[pos + 1] = 0x01; // an 8-byte size: 0x01 then 7 bytes of value
   buf.writeUIntBE(Math.floor(payload / 2 ** 32), pos + 2, 3);
   buf.writeUInt32BE(payload % 2 ** 32, pos + 5);
-  buf[pos + 1] = 0x01;
   buf.fill(0, pos + 9, pos + total);
 };
 
@@ -110,10 +115,51 @@ interface Header {
   readonly bytes: Buffer;
   /** Nanoseconds per Cluster timestamp tick. */
   readonly timestampScale: number;
+  /**
+   * ffmpeg's `start_time` for the file, in seconds, which `-ss` counts from:
+   * its first Block's time less its track's CodecDelay (-0.021 for the
+   * recorder's AAC, the encoder's priming).
+   */
+  readonly startSeconds: number;
 }
 
-const readHeader = async (src: ByteSource): Promise<Header | null> => {
-  const buf = await src.read(0, Math.min(src.size, MAX_HEADER_BYTES));
+/** The time of the first Block in the Cluster at `pos`, in ticks. */
+const firstBlockTicks = (buf: Buffer, pos: number): number => {
+  const cluster = readId(buf, pos);
+  const clusterSize = cluster && readSize(buf, pos + cluster.length);
+  if (!cluster || !clusterSize) return 0;
+  let clusterTicks = 0;
+  for (let p = pos + cluster.length + clusterSize.length; p < buf.length;) {
+    const id = readId(buf, p);
+    const size = id && readSize(buf, p + id.length);
+    if (!id || !size || size.unknown) return clusterTicks;
+    const data = p + id.length + size.length;
+    if (id.id === ID.Timestamp) clusterTicks = readUint(buf, data, size.value);
+    let block = id.id === ID.SimpleBlock ? data : -1;
+    if (id.id === ID.BlockGroup) {
+      const inner = readId(buf, data);
+      const innerSize = inner && readSize(buf, data + inner.length);
+      if (inner?.id === ID.Block && innerSize)
+        block = data + inner.length + innerSize.length;
+    }
+    if (block !== -1) {
+      const track = readSize(buf, block);
+      if (!track || block + track.length + 2 > buf.length) return clusterTicks;
+      return clusterTicks + buf.readInt16BE(block + track.length);
+    }
+    p = data + size.value;
+  }
+  return clusterTicks;
+};
+
+/** The header from the first `PROBE_BYTES`, or (rarely) a longer read. */
+const readHeader = async (src: ByteSource): Promise<Header | null> =>
+  (await parseHeader(await src.read(0, Math.min(src.size, PROBE_BYTES)))) ??
+  (src.size > PROBE_BYTES
+    ? parseHeader(await src.read(0, Math.min(src.size, MAX_HEADER_BYTES)))
+    : null);
+
+const parseHeader = async (buf: Buffer): Promise<Header | null> => {
   const ebml = readId(buf, 0);
   if (!ebml || ebml.id !== ID.EBML) return null;
   const ebmlSize = readSize(buf, ebml.length);
@@ -128,25 +174,60 @@ const readHeader = async (src: ByteSource): Promise<Header | null> => {
   const bytes = Buffer.from(buf);
   unknownSize(segmentSize.length).copy(bytes, segmentSizePos);
   let timestampScale = 1_000_000;
+  let codecDelayNs = 0;
   let pos = segmentSizePos + segmentSize.length;
   for (;;) {
     const child = readId(bytes, pos);
     if (!child) return null;
     if (child.id === ID.Cluster)
-      return { bytes: bytes.subarray(0, pos), timestampScale };
+      return {
+        bytes: bytes.subarray(0, pos),
+        timestampScale,
+        // ffmpeg counts the delay in whole ticks, as it does every time.
+        startSeconds:
+          ((firstBlockTicks(buf, pos) -
+            Math.round(codecDelayNs / timestampScale)) *
+            timestampScale) /
+          1e9,
+      };
     const size = readSize(bytes, pos + child.length);
     if (!size || size.unknown) return null;
     const dataPos = pos + child.length + size.length;
     const end = dataPos + size.value;
     if (end > bytes.length) return null;
     if (child.id === ID.Info) {
-      for (let p = dataPos; p < end; ) {
+      for (let p = dataPos; p < end;) {
         const id = readId(bytes, p);
         const s = id && readSize(bytes, p + id.length);
         if (!id || !s) break;
         if (id.id === ID.TimestampScale)
           timestampScale = readUint(bytes, p + id.length + s.length, s.value);
         p += id.length + s.length + s.value;
+      }
+    }
+    if (child.id === ID.Tracks) {
+      // Its TrackEntry (after ffmpeg's CRC-32): the mic file has one track.
+      for (let t = dataPos; t < end;) {
+        const entry = readId(bytes, t);
+        const entrySize = entry && readSize(bytes, t + entry.length);
+        if (!entry || !entrySize) break;
+        const entryData = t + entry.length + entrySize.length;
+        if (entry.id === ID.TrackEntry) {
+          for (let p = entryData; p < entryData + entrySize.value;) {
+            const id = readId(bytes, p);
+            const sz = id && readSize(bytes, p + id.length);
+            if (!id || !sz) break;
+            if (id.id === ID.CodecDelay)
+              codecDelayNs = readUint(
+                bytes,
+                p + id.length + sz.length,
+                sz.value
+              );
+            p += id.length + sz.length + sz.value;
+          }
+          break;
+        }
+        t = entryData + entrySize.value;
       }
     }
     if (child.id === ID.SeekHead || child.id === ID.Cues) {
@@ -175,10 +256,11 @@ const probeCluster = async (
     i = buf.indexOf(CLUSTER_ID_BYTES, i + 1)
   ) {
     // Audio can hold these four bytes by chance: a real Cluster opens with
-    // its Timestamp.
+    // its Timestamp (after ffmpeg's CRC-32, when it writes one).
     const size = readSize(buf, i + 4);
     if (!size) continue;
-    const tsPos = i + 4 + size.length;
+    let tsPos = i + 4 + size.length;
+    if (buf[tsPos] === ID.Crc32 && buf[tsPos + 1] === 0x84) tsPos += 6;
     if (buf[tsPos] !== ID.Timestamp) continue;
     const tsSize = readSize(buf, tsPos + 1);
     if (!tsSize || tsSize.value > 8) continue;
@@ -186,8 +268,7 @@ const probeCluster = async (
     if (valuePos + tsSize.value > buf.length) continue;
     return {
       pos: from + i,
-      seconds:
-        (readUint(buf, valuePos, tsSize.value) * timestampScale) / 1e9,
+      seconds: (readUint(buf, valuePos, tsSize.value) * timestampScale) / 1e9,
     };
   }
   return null;
@@ -231,7 +312,12 @@ export const findMkvSpan = async (
   src: ByteSource,
   startSeconds: number,
   endSeconds: number
-): Promise<{ header: Buffer; from: number; to: number } | null> => {
+): Promise<{
+  header: Buffer;
+  from: number;
+  to: number;
+  startSeconds: number;
+} | null> => {
   const header = await readHeader(src);
   if (!header) return null;
   const first = header.bytes.length;
@@ -252,6 +338,7 @@ export const findMkvSpan = async (
   );
   return {
     header: header.bytes,
+    startSeconds: header.startSeconds,
     from: fromPos,
     to: to.firstAfter?.pos ?? src.size,
   };
@@ -272,19 +359,20 @@ const fileSource = async (handle: FileHandle): Promise<ByteSource> => {
 /**
  * Writes `outputPath`: a Matroska file holding only the Clusters of
  * `inputPath` around `[startSeconds, endSeconds]`, timestamps unchanged.
- * Returns `false`, writing nothing, when `inputPath` cannot be cut this way.
+ * Returns the file's `start_time` (see {@link Header}), or `null`, writing
+ * nothing, when `inputPath` cannot be cut this way.
  */
 export const copyMkvSpan = async (
   inputPath: string,
   outputPath: string,
   startSeconds: number,
   endSeconds: number
-): Promise<boolean> => {
+): Promise<{ startSeconds: number } | null> => {
   const input = await open(inputPath, "r");
   try {
     const src = await fileSource(input);
     const span = await findMkvSpan(src, startSeconds, endSeconds);
-    if (!span) return false;
+    if (!span) return null;
     const output = await open(outputPath, "w");
     try {
       await output.write(span.header);
@@ -297,7 +385,7 @@ export const copyMkvSpan = async (
     } finally {
       await output.close();
     }
-    return true;
+    return { startSeconds: span.startSeconds };
   } finally {
     await input.close();
   }

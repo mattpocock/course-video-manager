@@ -64,13 +64,12 @@ export { dependencyFailedMessage } from "./db-job-calls.server.js";
 
 /**
  * Job kinds held, queued, while any Recording Session is recording (#2214):
- * local Whisper on the GPU (and its ffmpeg audio cut from the growing mic
- * file) starved the camera capture mid-take. They run once it stops.
+ * a whole Footage file is minutes of GPU and disk, so it waits for Stop.
+ * A Clip's transcription is NOT held (#2224): the recording workflow needs
+ * each Clip's text as it arrives. It reads only the Clip's span of the mic
+ * file, at the lowest priority, from a Whisper the recorder keeps warm.
  */
-export const HELD_WHILE_RECORDING_KINDS = [
-  "transcribe-clips",
-  "transcribe-footage",
-] as const;
+export const HELD_WHILE_RECORDING_KINDS = ["transcribe-footage"] as const;
 
 /**
  * A Recording Session left `recording` longer than this (a service that died

@@ -183,6 +183,26 @@ allowlist. Interactive streams (the Article Writer, a modal the author watches)
 stay, by name. The plan and the order the jobs move in:
 [`docs/plans/background-jobs-sidecar.md`](./docs/plans/background-jobs-sidecar.md).
 
+### Work that runs during a take stays below the capture
+
+A Clip is transcribed as it arrives, while its take is still recording
+(#2224), because the recording workflow needs its text at once. Anything
+that runs mid-take must never take time from the capture (#2214, which lost
+41 frames to a Whisper cold start and stills grabbed from the growing take):
+
+- It runs at the lowest CPU priority: `nice -n 19` for ffmpeg and the Local
+  Whisper worker (`whisper-transcription-service.ts`,
+  `sidecar/local-whisper-engine.ts`). The capture, mic and writers are High.
+- It reads only what it needs from a file still being written. A growing
+  `.mkv` has no Cues, so `ffmpeg -ss` reads it from the start: go through
+  `copyMkvSpan` (`app/services/mkv-span.ts`), which copies out only the
+  Clusters it needs.
+- It never cold-starts the GPU: the recorder keeps Whisper loaded while it
+  is open (`recorder-client/whisper-warmth.ts`).
+- Heavier work waits for Stop: `transcribe-footage` Jobs
+  (`HELD_WHILE_RECORDING_KINDS`) and the stills of the live take
+  (`holdsStillsOf`).
+
 ### A script, harness or test starts Windows processes only through the Windows guard
 
 Before a script, harness or test starts any Windows-side process
