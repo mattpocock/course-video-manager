@@ -88,7 +88,7 @@ export const showsOBSChecks = (state: recorderChoiceReducer.State): boolean =>
   state.recorder === "obs";
 
 /**
- * Record, the scene buttons and the composite preview: only while the CVM
+ * The CVM recorder's status and the composite preview: only while the CVM
  * recorder opens next.
  */
 export const showsCvmRecorderControls = (

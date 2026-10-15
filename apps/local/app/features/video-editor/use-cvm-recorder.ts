@@ -18,7 +18,6 @@ import {
   canRecord,
   canRetryCamera,
   canStop,
-  canSwitchScene,
   canWakeSpacedeskAgain,
   createInitialCvmRecorderState,
   cvmRecorderReducer,
@@ -28,7 +27,6 @@ import {
   type CvmRecorderMessage,
   type PlacedTake,
 } from "./cvm-recorder-wire";
-import { isSceneAvailable } from "./cvm-recorder-screen";
 
 /** What the editor's CVM recorder controls show and do. */
 export type CvmRecorderControls = {
@@ -36,13 +34,8 @@ export type CvmRecorderControls = {
   canRecord: boolean;
   canStop: boolean;
   canRetryCamera: boolean;
-  canSwitchScene: boolean;
-  /** A Short's screen scenes wait for its screen; Camera never does. */
-  isSceneAvailable: (scene: Scene) => boolean;
   canWakeSpacedeskAgain: boolean;
   onWakeSpacedesk: () => void;
-  onRecord: () => void;
-  onScene: (scene: Scene) => void;
   onStop: () => void;
   onDismissAlert: () => void;
   onRetryCamera: () => void;
@@ -156,20 +149,6 @@ export const useCvmRecorder = (o: {
     cvmRecorderReducer,
     () => createInitialCvmRecorderState(format),
     {
-      "start-recording": (_state, effect, dispatch) => {
-        fetch(`/api/videos/${videoId}/recorder/record`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ silenceLength: effect.silenceLength }),
-        })
-          .then(answer)
-          .catch((error: unknown) =>
-            dispatch({
-              type: "start-recording-failed",
-              message: messageOf(error),
-            })
-          );
-      },
       "send-silence-length": (_state, effect) => {
         fetch(`/api/videos/${videoId}/recorder/silence-length`, {
           method: "POST",
@@ -265,17 +244,6 @@ export const useCvmRecorder = (o: {
             dispatch({ type: "retry-screen-failed", message: messageOf(error) })
           );
       },
-      "switch-scene": (_state, effect, dispatch) => {
-        fetch(`/api/videos/${videoId}/recorder/scene`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scene: effect.scene }),
-        })
-          .then(answer)
-          .catch((error: unknown) =>
-            dispatch({ type: "switch-scene-failed", message: messageOf(error) })
-          );
-      },
       "stop-recording": (_state, _effect, dispatch) => {
         fetch(`/api/videos/${videoId}/recorder/stop`, { method: "POST" })
           .then(answer)
@@ -309,14 +277,9 @@ export const useCvmRecorder = (o: {
     canRecord: canRecord(state),
     canStop: canStop(state),
     canRetryCamera: canRetryCamera(state),
-    canSwitchScene: canSwitchScene(state),
-    isSceneAvailable: (scene) => isSceneAvailable(state, scene),
     canWakeSpacedeskAgain: canWakeSpacedeskAgain(state),
     onWakeSpacedesk: () => dispatch({ type: "press-wake-spacedesk" }),
-    onRecord: () =>
-      dispatch({ type: "press-record", silenceLength: o.silenceLength }),
     onStop: () => dispatch({ type: "press-stop" }),
-    onScene: (scene) => dispatch({ type: "press-scene", scene }),
     onDismissAlert: () => dispatch({ type: "dismiss-alert" }),
     onRetryCamera: () => dispatch({ type: "press-retry" }),
     onSetSceneOverride: (clipId, sceneOverride) =>

@@ -3,7 +3,6 @@ import { ReducerTester } from "@/test-utils/reducer-tester";
 import {
   canRecord,
   canRetryCamera,
-  canSwitchScene,
   createInitialCvmRecorderState,
   cvmRecorderReducer,
   framesLostAlert,
@@ -44,11 +43,6 @@ const status = (
 
 const live = heard({ type: "camera-went-live" });
 
-const pressRecord = {
-  type: "press-record",
-  silenceLength: "long",
-} as const;
-
 const stoppedMessage = (
   o: Partial<Extract<CvmRecorderMessage, { type: "recording-stopped" }>> = {}
 ): CvmRecorderMessage => ({
@@ -65,7 +59,6 @@ const recording = () =>
   tester()
     .send(status())
     .send(live)
-    .send(pressRecord)
     .send(
       heard({
         type: "recording-started",
@@ -79,28 +72,20 @@ const tester = () =>
   new ReducerTester(cvmRecorderReducer, createInitialCvmRecorderState());
 
 describe("the CVM recorder's Record and Stop", () => {
-  it("records only once the recorder service is there and able", () => {
+  it("is ready to record only once the recorder service is there and able", () => {
     const t = tester();
-    t.send(pressRecord);
-    t.send(status({ problem: "ffmpeg 8.1 is not 8.0.1" })).send(pressRecord);
     expect(canRecord(t.getState())).toBe(false);
-    expect(t.getEffects()).toEqual([]);
+    t.send(status({ problem: "ffmpeg 8.1 is not 8.0.1" }));
+    expect(canRecord(t.getState())).toBe(false);
 
-    t.send(status()).send(live).send(pressRecord);
-    expect(t.getEffects()).toEqual([
-      {
-        type: "start-recording",
-        silenceLength: "long",
-      },
-    ]);
-    expect(t.getState().phase).toBe("starting");
+    t.send(status()).send(live);
+    expect(canRecord(t.getState())).toBe(true);
   });
 
   it("follows the recorder through a recording and Stop", () => {
     const t = tester();
     t.send(status())
       .send(live)
-      .send(pressRecord)
       .send(
         heard({
           type: "recording-started",
@@ -120,7 +105,6 @@ describe("the CVM recorder's Record and Stop", () => {
     // The clip reducer hears the OBS path's start and stop; a take ended
     // mid-speech closes its audio window first.
     expect(t.getEffects().map((e) => e.type)).toEqual([
-      "start-recording",
       "start-session",
       "stop-recording",
       "close-take-window",
@@ -139,22 +123,6 @@ describe("the CVM recorder's Record and Stop", () => {
       },
       { type: "stop-recording" },
     ]);
-  });
-
-  it("shows why Record was refused and lets it be pressed again", () => {
-    const t = tester();
-    t.send(status())
-      .send(live)
-      .send(pressRecord)
-      .send({ type: "start-recording-failed", message: "Close OBS first" });
-    expect(t.getState()).toMatchObject({
-      phase: "idle",
-      error: "Close OBS first",
-    });
-
-    t.send(pressRecord);
-    expect(t.getState().error).toBeNull();
-    expect(t.getEffects()).toHaveLength(2);
   });
 
   it("raises a loud alert when the camera is lost, back to not recording, until dismissed", () => {
@@ -214,11 +182,8 @@ describe("the CVM recorder's Record and Stop", () => {
 describe("the Cam Link in the editor", () => {
   it("keeps Record disabled until the camera went live", () => {
     const t = tester();
-    t.send(status())
-      .send(heard({ type: "camera-opening", attempt: 1 }))
-      .send(pressRecord);
+    t.send(status()).send(heard({ type: "camera-opening", attempt: 1 }));
     expect(canRecord(t.getState())).toBe(false);
-    expect(t.getEffects()).toEqual([]);
 
     t.send(live);
     expect(canRecord(t.getState())).toBe(true);
@@ -274,21 +239,10 @@ describe("the Cam Link in the editor", () => {
   });
 });
 
-describe("switching scenes on the CVM recorder", () => {
-  it("previews the scene the recorder says, and asks for a switch only while it is open", () => {
+describe("scenes on the CVM recorder", () => {
+  it("previews the scene the recorder says, until the camera closes", () => {
     const t = tester();
-    t.send(status()).send({ type: "press-scene", scene: "Camera" });
-    expect(canSwitchScene(t.getState())).toBe(false);
-    expect(t.getEffects()).toEqual([]);
-
-    t.send(heard({ type: "scene-changed", scene: "Code" }));
-    expect(t.getState().scene).toBe("Code");
-
-    t.send({ type: "press-scene", scene: "Code" });
-    expect(t.getEffects()).toEqual([]);
-    t.send({ type: "press-scene", scene: "Camera" });
-    expect(t.getEffects()).toEqual([{ type: "switch-scene", scene: "Camera" }]);
-    // The preview follows the recorder, not the press.
+    t.send(status()).send(heard({ type: "scene-changed", scene: "Code" }));
     expect(t.getState().scene).toBe("Code");
 
     t.send(heard({ type: "scene-changed", scene: "Camera" }));
@@ -296,16 +250,6 @@ describe("switching scenes on the CVM recorder", () => {
 
     t.send(heard({ type: "camera-closed" }));
     expect(t.getState().scene).toBe(null);
-    expect(canSwitchScene(t.getState())).toBe(false);
-  });
-
-  it("says why a switch failed", () => {
-    const t = tester();
-    t.send(status())
-      .send(heard({ type: "scene-changed", scene: "Code" }))
-      .send({ type: "press-scene", scene: "No Face" })
-      .send({ type: "switch-scene-failed", message: "Not open." });
-    expect(t.getState()).toMatchObject({ scene: "Code", error: "Not open." });
   });
 });
 
@@ -317,25 +261,14 @@ describe("the Stream Deck on the CVM recorder", () => {
     micFile: "mic.mkv",
   });
 
-  it("moves the editor through a recording and a scene switch exactly as its own buttons would", () => {
-    const opened = () =>
-      tester()
-        .send(status())
-        .send(live)
-        .send(heard({ type: "scene-changed", scene: "Code" }));
-
-    const buttons = opened()
-      .send(pressRecord)
-      .send(status({ recordingSessionId: "s1" }))
-      .send(started)
-      .send({ type: "press-scene", scene: "Camera" })
-      .send(heard({ type: "scene-changed", scene: "Camera" }));
-    // The Stream Deck pressed them on the recorder service: only its events.
-    const deck = opened()
+  it("moves the editor through a recording and a scene switch", () => {
+    const deck = tester()
+      .send(status())
+      .send(live)
+      .send(heard({ type: "scene-changed", scene: "Code" }))
       .send(status({ recordingSessionId: "s1" }))
       .send(started)
       .send(heard({ type: "scene-changed", scene: "Camera" }));
-    expect(deck.getState()).toEqual(buttons.getState());
     expect(deck.getState()).toMatchObject({
       phase: "recording",
       scene: "Camera",
@@ -348,12 +281,7 @@ describe("the Stream Deck on the CVM recorder", () => {
       },
     ]);
 
-    buttons
-      .send({ type: "press-stop" })
-      .send(status())
-      .send(heard(stoppedMessage()));
     deck.send(status()).send(heard(stoppedMessage()));
-    expect(deck.getState()).toEqual(buttons.getState());
     expect(deck.getState().phase).toBe("idle");
   });
 
@@ -393,10 +321,6 @@ describe("silence detection on the CVM recorder, as the glass shows it", () => {
 
   it("walks the OBS path's states: warming up, silence, speaking, long enough for a Clip, silence", () => {
     const t = tester().send(status()).send(live);
-    expect(captureOf(t.getState())).toBe("not-recording");
-
-    t.send(pressRecord);
-    // Starting is not recording yet, as OBS is not until it says so.
     expect(captureOf(t.getState())).toBe("not-recording");
 
     t.send(
@@ -464,7 +388,6 @@ describe("silence detection on the CVM recorder, as the glass shows it", () => {
     const t = recording()
       .send(warmedUp)
       .send(heard(stoppedMessage()))
-      .send(pressRecord)
       .send(
         heard({
           type: "recording-started",
@@ -555,7 +478,6 @@ describe("events from a Recording Session that is not the current one (#2163)", 
 
   it("keeps recording the new Recording Session while the old one's held events arrive", () => {
     const t = stoppedWithEventsHeld()
-      .send(pressRecord)
       .send(status({ recordingSessionId: "s2" }))
       .send(started("s2"))
       .send(heard({ type: "warmed-up", recordingSessionId: "s2" }))
@@ -576,14 +498,6 @@ describe("events from a Recording Session that is not the current one (#2163)", 
     expect(t.getEffects()).toHaveLength(effects);
     expect(t.getState().phase).toBe("recording");
     expect(captureOf(t.getState())).toBe("speaking-detected");
-  });
-
-  it("ignores the old Recording Session's events while a new Record is starting", () => {
-    const t = stoppedWithEventsHeld().send(pressRecord);
-    t.send(started("s1")).send(
-      heard(stoppedMessage({ recordingSessionId: "s1" }))
-    );
-    expect(t.getState().phase).toBe("starting");
   });
 
   it("still shows what the stop of the Recording Session just recorded says, after the recorder said it stopped", () => {

@@ -25,8 +25,6 @@ const status = () =>
     still: "still",
   });
 
-const pressRecord = { type: "press-record", silenceLength: "long" } as const;
-
 const stoppedMessage = (
   o: Partial<Extract<CvmRecorderMessage, { type: "recording-stopped" }>> = {}
 ): CvmRecorderMessage => ({
@@ -43,7 +41,6 @@ const recording = () =>
   new ReducerTester(cvmRecorderReducer, createInitialCvmRecorderState())
     .send(status())
     .send(heard({ type: "camera-went-live" }))
-    .send(pressRecord)
     .send(
       heard({
         type: "recording-started",
@@ -191,7 +188,14 @@ describe("frames lost (#2227): alerted only inside a Clip", () => {
       "Frames lost in Clip 1 of the last recording: 6 camera frames. It has a freeze in it."
     );
 
-    t.send(status()).send(pressRecord);
+    t.send(status()).send(
+      heard({
+        type: "recording-started",
+        recordingSessionId: "s2",
+        silenceLength: "long",
+        micFile: "mic.mkv",
+      })
+    );
     expect(framesLostAlert(t.getState())).toBeNull();
     expect(t.getState().takeSpans).toEqual([]);
   });

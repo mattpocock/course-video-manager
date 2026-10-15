@@ -388,7 +388,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       case "record":
         if (recordWith?.videoId !== state.videoId)
           throw new Refusal(
-            "The editor has not said its Silence Length yet: press Record in the editor."
+            "The editor has not said its Silence Length yet: reload the editor."
           );
         return record({
           type: "record",

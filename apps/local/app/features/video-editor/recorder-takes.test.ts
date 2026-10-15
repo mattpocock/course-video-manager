@@ -270,12 +270,10 @@ const cvmAdapter = (e: Editor) => {
             transcriptionJobId: effect.transcriptionJobId,
           });
           break;
-        case "start-recording":
         case "stop-recording":
         case "send-silence-length":
         case "retry-camera":
         case "retry-screen":
-        case "switch-scene":
           break;
       }
     }

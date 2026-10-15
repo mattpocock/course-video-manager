@@ -22,27 +22,26 @@ import type {
 import type { FrontendSpeechDetectorState } from "./use-speech-detector";
 
 /**
- * The CVM recorder's Record and Stop in the editor. The recorder service
- * records; this follows what the app server reports of it (`recorder-message-
- * heard`) and asks for Record and Stop. Whatever started a recording, the
- * editor shows what the recorder says.
+ * The CVM recorder in the editor. The recorder service records; this
+ * follows what the app server reports of it (`recorder-message-heard`).
+ * The Stream Deck starts a recording; the editor shows what the recorder
+ * says, and asks for Stop only when Matt leaves or makes a new Short.
  *
  * The Cam Link opens when the editor opens (the app server's recorder client
- * opens the recorder while an editor listens); Record waits for
+ * opens the recorder while an editor listens); "Ready to record" waits for
  * `camera-went-live`, and the replug and Close-OBS messages wait for Retry.
  *
  * Scenes: the preview draws the scene the recorder says it is in
- * (`scene-changed`); a scene button asks the recorder to switch, and the
- * preview follows once it has.
+ * (`scene-changed`); the Stream Deck switches it.
  *
  * A Short's screen is the Spacedesk display, which the recorder wakes when it
  * opens (`screen-changed`): until it is ready, only scenes that do not draw
- * the screen (Camera) may be switched to or recorded in, and once it is
+ * the screen (Camera) may be recorded in, and once it is
  * unavailable Matt may wake Spacedesk again (`cvm-recorder-screen.ts`).
  *
  * The Stream Deck records, stops and switches scenes on the recorder service
- * directly: the editor hears the same messages as for its own buttons, so it
- * follows them the same way. For a Stream Deck Record to use the editor's
+ * directly, and the editor follows the messages it hears. For a Stream Deck
+ * Record to use the editor's
  * Silence Length, the editor tells the app server its choice whenever it
  * changes and whenever the recorder reports in.
  *
@@ -81,7 +80,7 @@ import type { FrontendSpeechDetectorState } from "./use-speech-detector";
  * starts (`placing`).
  */
 export namespace cvmRecorderReducer {
-  export type Phase = "idle" | "starting" | "recording" | "stopping";
+  export type Phase = "idle" | "recording" | "stopping";
 
   export type Camera =
     | { kind: "closed" }
@@ -156,20 +155,15 @@ export namespace cvmRecorderReducer {
   export type Action =
     | { type: "recorder-message-heard"; message: CvmRecorderMessage }
     | { type: "silence-length-chosen"; silenceLength: SilenceLength }
-    | { type: "press-record"; silenceLength: SilenceLength }
     | { type: "press-stop" }
     | { type: "dismiss-alert" }
     | { type: "press-retry" }
-    | { type: "press-scene"; scene: Scene }
     | { type: "press-wake-spacedesk" }
     | { type: "retry-screen-failed"; message: string }
-    | { type: "switch-scene-failed"; message: string }
     | { type: "retry-camera-failed"; message: string }
-    | { type: "start-recording-failed"; message: string }
     | { type: "stop-recording-failed"; message: string };
 
   export type Effect =
-    | { type: "start-recording"; silenceLength: SilenceLength }
     | { type: "stop-recording" }
     | { type: "send-silence-length"; silenceLength: SilenceLength }
     | { type: "retry-camera" }
@@ -198,8 +192,7 @@ export namespace cvmRecorderReducer {
         recordingSessionId: string;
         clips: SavedRecorderClip[];
         transcriptionJobId: string;
-      }
-    | { type: "switch-scene"; scene: Scene };
+      };
 }
 
 export const createInitialCvmRecorderState = (
@@ -242,9 +235,6 @@ export const canRecord = (state: cvmRecorderReducer.State) =>
   state.camera.kind === "live" &&
   !isScreenWaking(state) &&
   (state.scene === null || isSceneAvailable(state, state.scene));
-
-export const canSwitchScene = (state: cvmRecorderReducer.State) =>
-  state.reachable === true && state.scene !== null;
 
 export const canRetryCamera = (state: cvmRecorderReducer.State) =>
   !state.retrying &&
@@ -386,9 +376,7 @@ const heard = (
           ? state.phase === "stopping"
             ? "stopping"
             : "recording"
-          : state.phase === "starting"
-            ? "starting"
-            : "idle",
+          : "idle",
         // Joined mid-take, nothing is known until the recorder next hears.
         speech: recording && state.phase !== "idle" ? state.speech : WARMING_UP,
       };
@@ -509,18 +497,6 @@ export const cvmRecorderReducer: EffectReducer<
           silenceLength: action.silenceLength,
         });
       return { ...state, silenceLength: action.silenceLength };
-    case "press-record":
-      if (!canRecord(state)) return state;
-      exec({ type: "start-recording", silenceLength: action.silenceLength });
-      return {
-        ...state,
-        phase: "starting",
-        error: null,
-        alert: null,
-        framesLost: null,
-        lostFrameSpans: [],
-        takeSpans: [],
-      };
     case "dismiss-alert":
       return { ...state, alert: null };
     case "press-stop":
@@ -531,17 +507,6 @@ export const cvmRecorderReducer: EffectReducer<
       if (!canRetryCamera(state)) return state;
       exec({ type: "retry-camera" });
       return { ...state, retrying: true, error: null };
-    case "press-scene":
-      if (
-        !canSwitchScene(state) ||
-        action.scene === state.scene ||
-        !isSceneAvailable(state, action.scene)
-      )
-        return state;
-      exec({ type: "switch-scene", scene: action.scene });
-      return { ...state, error: null };
-    case "switch-scene-failed":
-      return { ...state, error: action.message };
     case "press-wake-spacedesk":
       if (!canWakeSpacedeskAgain(state)) return state;
       exec({ type: "retry-screen" });
@@ -550,12 +515,6 @@ export const cvmRecorderReducer: EffectReducer<
       return { ...state, wakingAgain: false, error: action.message };
     case "retry-camera-failed":
       return { ...state, retrying: false, error: action.message };
-    case "start-recording-failed":
-      return {
-        ...state,
-        phase: state.phase === "starting" ? "idle" : state.phase,
-        error: action.message,
-      };
     case "stop-recording-failed":
       return {
         ...state,

@@ -59,11 +59,6 @@ describe("a Short on the CVM recorder", () => {
     expect(canWakeSpacedeskAgain(state)).toBe(false);
     expect(canRecord(state)).toBe(false);
     expect(recordNeedsScreenHint(state)).toBeNull();
-    t.send({
-      type: "press-record",
-      silenceLength: "long",
-    });
-    expect(t.getEffects()).toEqual([]);
 
     t.send(screen({ kind: "unavailable", message: UNAVAILABLE }));
     expect(canRecord(t.getState())).toBe(true);
@@ -79,7 +74,7 @@ describe("a Short on the CVM recorder", () => {
     expect(recordNeedsScreenHint(state)).toBeNull();
   });
 
-  it("with the screen unavailable, says why, ignores Code, and records in Camera only", () => {
+  it("with the screen unavailable, says why, and records in Camera only", () => {
     const t = open("short").send(
       screen({ kind: "unavailable", message: UNAVAILABLE })
     );
@@ -91,21 +86,9 @@ describe("a Short on the CVM recorder", () => {
     expect(recordNeedsScreenHint(t.getState())).toBe(
       "Code shows the screen, which is not ready: pick Camera to record without it."
     );
-    t.send({
-      type: "press-record",
-      silenceLength: "long",
-    });
-    expect(t.getEffects()).toEqual([]);
-
-    t.send({ type: "press-scene", scene: "No Face" });
-    expect(t.getEffects()).toEqual([]);
-    t.send({ type: "press-scene", scene: "Camera" });
-    expect(t.getEffects()).toEqual([{ type: "switch-scene", scene: "Camera" }]);
 
     t.send(heard({ type: "scene-changed", scene: "Camera" }));
     expect(canRecord(t.getState())).toBe(true);
-    t.send({ type: "press-scene", scene: "Code" });
-    expect(t.getEffects()).toHaveLength(1);
   });
 
   it("wakes Spacedesk again once, until the recorder says it is waking", () => {

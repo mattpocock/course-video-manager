@@ -42,7 +42,7 @@ describe("recorder choice", () => {
     });
     expect(picked.state.recorder).toBe("cvm");
     expect(showsOBSChecks(picked.state)).toBe(false);
-    // Record, the scene buttons and the composite preview.
+    // The CVM recorder's status and the composite preview.
     expect(showsCvmRecorderControls(picked.state)).toBe(true);
     expect(picked.effects).toEqual([
       { type: "save-recorder", recorder: "cvm" },

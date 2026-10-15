@@ -54,7 +54,7 @@ export const refuseScreenlessScene = (
 
 /**
  * Refuses a Stream Deck switch to a scene that draws the screen while a
- * Short's screen is still waking, as the editor's scene buttons do.
+ * Short's screen is still waking.
  */
 export const refuseWakingScene = (
   scene: Scene,
