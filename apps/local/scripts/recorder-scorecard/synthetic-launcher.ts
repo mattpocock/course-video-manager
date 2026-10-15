@@ -232,6 +232,13 @@ export const syntheticLauncher = (o: {
             return fakeProcess(SYNTHETIC_SCREENS, "");
           case "stop-recorders.ps1":
             return workProcess(() => killMarked(o.marker, tagsOf(launch.args)));
+          case "load-sampler.ps1":
+            // The scorecard samples its own load (windows.ts).
+            return fakeProcess(
+              "",
+              "skipped: the scorecard samples load itself\n",
+              1
+            );
           case "timer-resolution.ps1":
             return fakeProcess(
               "",

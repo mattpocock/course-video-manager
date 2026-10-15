@@ -6,7 +6,10 @@
  */
 
 export type PowerShellScript =
-  "screens.ps1" | "timer-resolution.ps1" | "stop-recorders.ps1";
+  | "screens.ps1"
+  | "timer-resolution.ps1"
+  | "stop-recorders.ps1"
+  | "load-sampler.ps1";
 
 export type Launch =
   /** ffmpeg.exe. `cwd` is a WSL path Windows can also see (`/mnt/…`). */

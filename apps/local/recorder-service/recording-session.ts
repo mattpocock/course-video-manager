@@ -393,14 +393,14 @@ const beginTake = (
         });
     },
   });
-  /** A line of the service's own in the capture's log, until it closes. */
+  // Beside the stalls, until it closes: how the capture and the writer were
+  // tuned, and the PC's load once a second (load-sampler.ts).
   const note = (line: string) => {
-    if (!captureLog.writableEnded) captureLog.write(`[cvm] ${line}\n`);
+    if (!captureLog.writableEnded) captureLog.write(`${line}\n`);
   };
-  // How the capture and the writer were tuned: a drop in this take can be
-  // checked against it.
-  void o.capture.tuned.then(note);
-  void o.writerTuned.then(note);
+  void o.capture.tuned.then((line) => note(`[cvm] ${line}`));
+  void o.writerTuned.then((line) => note(`[cvm] ${line}`));
+  const stopLoad = o.capture.onLoad(note);
   const stopCaptureLines = o.capture.onLine((line) => {
     captureLog.write(`${line}\n`);
     framesLost.captureLine(line);
@@ -559,6 +559,7 @@ const beginTake = (
     stopped = quitting.then(async () => {
       const [screenCode, cameraCode] = await finished;
       stopCaptureLines();
+      stopLoad();
       // `q` closes every file with its duration. A process that quit on an
       // error or was killed may not have: its files are repaired now, so
       // every file the Recording Session leaves is readable.

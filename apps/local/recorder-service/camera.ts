@@ -15,6 +15,7 @@ import type { PreviewFeeds } from "./preview-feeds";
 import type { PreviewEncoders } from "./preview-encoders";
 import type { CameraStatus } from "./protocol";
 import { watchPreview } from "./preview-watchdog";
+import { formatLoad, parseLoadLine, wslCpu } from "./load-sampler";
 
 /**
  * OPENING THE CAM LINK (#1993 Q11, Q12; #2207). The service opens the Cam
@@ -165,6 +166,8 @@ export type Capture = {
   quitWith: () => string[] | undefined;
   /** How it was tuned (`tuneProcess`): one line, once known. */
   tuned: Promise<string>;
+  /** Calls `listener` with the PC's load once a second (`load-sampler.ts`), until unsubscribed. */
+  onLoad: (listener: (line: string) => void) => () => void;
 };
 
 export type Camera = {
@@ -220,6 +223,8 @@ export const openCamera = (o: CameraOptions): Camera => {
         devices: { camera: string; mic: string };
         captureLog: string;
         lines: Set<(line: string) => void>;
+        loads: Set<(line: string) => void>;
+        sampler: LaunchedProcess;
         exited: boolean;
         tuned: Promise<string>;
       }
@@ -231,6 +236,29 @@ export const openCamera = (o: CameraOptions): Camera => {
     quitProcess(p, { launch: o.launch, tag: PREVIEW_TAGS.camera });
   const quitCapture = (p: LaunchedProcess) =>
     quitProcess(p, { launch: o.launch, tag: CAPTURE_TAG });
+
+  /**
+   * The capture's load samples, on to whoever listens (a Recording Session's
+   * capture log). The sampler ends with the capture; one that fails only
+   * costs the samples.
+   */
+  const sampleLoad = (live: NonNullable<typeof current>) => {
+    const wsl = wslCpu();
+    live.sampler.onStdout(
+      lineSplitter((line) => {
+        const sample = parseLoadLine(line);
+        if (!sample) return;
+        const text = formatLoad(Date.now(), { ...sample, wslPct: wsl() });
+        for (const listener of live.loads) listener(text);
+      })
+    );
+    void runToEnd(live.sampler).then(({ code, stderr }) => {
+      if (code !== 0 && !live.exited && !released)
+        console.error(
+          `recorder: load-sampler.ps1 failed, no load samples: ${stderr.trim().split(/\r?\n/)[0] ?? ""}`
+        );
+    });
+  };
 
   const set = (next: CameraStatus) => {
     if (released) return;
@@ -348,10 +376,17 @@ export const openCamera = (o: CameraOptions): Camera => {
         devices: { camera: found.camera, mic: found.mic },
         captureLog: "",
         lines: new Set(),
+        loads: new Set(),
+        sampler: o.launch({
+          tool: "powershell",
+          script: "load-sampler.ps1",
+          args: ["-Tag", CAPTURE_TAG],
+        }),
         exited: false,
         tuned,
       };
       current = live;
+      sampleLoad(live);
       let logged = 0;
       let windowStart = Date.now();
       capture.onStderr((chunk) => {
@@ -392,6 +427,7 @@ export const openCamera = (o: CameraOptions): Camera => {
         return;
       }
       live.exited = true;
+      live.sampler.kill();
       await Promise.all([quitPreview(preview.p), quitCapture(capture)]);
       if (released) return;
       // NVENC would not open: not the Cam Link's fault, so not a try.
@@ -438,6 +474,10 @@ export const openCamera = (o: CameraOptions): Camera => {
         },
         quitWith: () => (live.exited ? errorLines(live.captureLog) : undefined),
         tuned: live.tuned,
+        onLoad: (listener) => {
+          live.loads.add(listener);
+          return () => void live.loads.delete(listener);
+        },
       };
     },
     release: async () => {
@@ -445,6 +485,7 @@ export const openCamera = (o: CameraOptions): Camera => {
       const live = current;
       if (!live) return;
       live.exited = true;
+      live.sampler.kill();
       await Promise.all([quitPreview(live.preview), quitCapture(live.capture)]);
     },
   };
