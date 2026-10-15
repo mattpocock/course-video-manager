@@ -1,0 +1,53 @@
+CVM's ffmpeg.exe: licence notice
+================================
+
+This folder builds CVM's own ffmpeg.exe (build.sh, inside.sh, Dockerfile)
+from unmodified upstream sources plus the patches in patches/. It contains
+no FFmpeg source of its own beyond those patches. Nothing here changes the
+licence of the rest of this repository.
+
+What the build is made from
+---------------------------
+
+- FFmpeg 8.0.1, https://ffmpeg.org/releases/ffmpeg-8.0.1.tar.xz
+  (checked against FFMPEG_SHA256 in build.sh).
+  Copyright (c) the FFmpeg developers. FFmpeg's own code is LGPL-2.1-or-later;
+  some optional parts are GPL. Its licence texts are in the source tarball:
+  LICENSE.md, COPYING.LGPLv2.1, COPYING.LGPLv3, COPYING.GPLv2, COPYING.GPLv3.
+- x264 (commit X264_COMMIT in build.sh), https://code.videolan.org/videolan/x264
+  Copyright (C) the x264 project. GPL-2.0-or-later; licence text: COPYING in
+  its source.
+- nv-codec-headers (commit NVCODEC_COMMIT in build.sh),
+  https://github.com/FFmpeg/nv-codec-headers. MIT licence, in its source.
+- The mingw-w64 toolchain and runtime from the pinned Debian image (Dockerfile),
+  under their own licences.
+
+The licence of the resulting ffmpeg.exe
+---------------------------------------
+
+inside.sh configures FFmpeg with --enable-gpl --enable-version3 and links
+libx264. It does NOT use --enable-nonfree: NVENC is reached through
+nv-codec-headers and CUDA filters are compiled with clang (--enable-cuda-llvm),
+neither of which needs nonfree. So the binary is licensed under the
+GNU General Public License, version 3 or later (GPL-3.0-or-later), and may be
+redistributed under those terms. `ffmpeg.exe -L` prints the same.
+
+The patches
+-----------
+
+patches/0001-scale_d3d11-out_range-and-out_color_matrix.patch modifies
+libavfilter/vf_scale_d3d11.c, which is
+  Copyright (C) 2025 MulticorewWare, Inc.
+and part of FFmpeg, under the GNU Lesser General Public License, version 2.1
+or later. The patch is a modification of that file and is offered under the
+same licence (LGPL-2.1-or-later). Every patch in patches/ is under the licence
+of the FFmpeg file it modifies.
+
+Distribution
+------------
+
+The binary is built on the machine that runs it (pnpm ffmpeg:install) and is
+not published by this repository. Anyone who does pass the built ffmpeg.exe on
+must do so under GPL-3.0-or-later, with this folder (the build scripts and
+patches, which together with the upstream sources above are its complete
+corresponding source) and the licence texts listed above.
