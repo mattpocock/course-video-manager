@@ -123,11 +123,39 @@ export const sampleMarked = async (marker: string): Promise<ProcessSample> => {
   };
 };
 
-/** The processes in a sample that are not at Idle on cores 6-9: none, or the run stops. */
-export const notIdle = (s: ProcessSample) =>
-  s.processes.filter(
-    (p) => p.priority !== "Idle" || p.affinity !== AFFINITY_MASK
-  );
+type SampledProcess = ProcessSample["processes"][number];
+
+/**
+ * A read that came back empty: Windows gave no priority class, or no affinity
+ * mask. A process that is exiting (one the run has just killed) reads this
+ * way, so it says nothing about how the process was started.
+ */
+const unread = (p: SampledProcess) =>
+  p.priority === "" || !Number.isFinite(p.affinity) || p.affinity === 0;
+
+const offIdle = (p: SampledProcess) =>
+  p.priority !== "Idle" || p.affinity !== AFFINITY_MASK;
+
+/**
+ * The processes of the run that are not at Idle on cores 6-9: none, or the
+ * run stops. A process whose read came back empty is read again
+ * (`resample`): gone by then, it is ignored; still there, it counts, whether
+ * it now reads off Idle or still reads empty. Every process that read
+ * properly is judged on the first read.
+ */
+export const notIdle = async (
+  sample: ProcessSample,
+  resample: () => Promise<ProcessSample>
+) => {
+  const off = sample.processes.filter((p) => !unread(p) && offIdle(p));
+  const unreadPids = new Set(sample.processes.filter(unread).map((p) => p.pid));
+  if (unreadPids.size === 0) return off;
+  const again = await resample();
+  return [
+    ...off,
+    ...again.processes.filter((p) => unreadPids.has(p.pid) && offIdle(p)),
+  ];
+};
 
 export const logicalCpus = async () =>
   Number(

@@ -133,13 +133,13 @@ const main = async () => {
     if (checking || aborted) return;
     checking = true;
     void Promise.all([liveRecorderState(), obsRunning(), sampleMarked(marker)])
-      .then(([state, obs, sample]) => {
+      .then(async ([state, obs, sample]) => {
         const foreign = foreignRecorderReasons(marker);
         if (state === "recording") emergency("Matt's recorder started a take");
         else if (foreign.length) emergency(foreign.join(" "));
         else if (obs) emergency("OBS is running");
         else {
-          const off = notIdle(sample);
+          const off = await notIdle(sample, () => sampleMarked(marker));
           if (off.length)
             emergency(`ffmpeg.exe off Idle/cores 6-9: ${JSON.stringify(off)}`);
         }
