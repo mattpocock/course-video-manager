@@ -6,7 +6,7 @@ import {
   silenceLengthToSeconds,
   type SilenceLength,
 } from "../app/silence-detection-constants";
-import { quitProcess, raisePriority, type Capture } from "./camera";
+import { quitProcess, tuneProcess, type Capture } from "./camera";
 import { FILE_NAMES } from "./capture-args";
 import {
   cameraWriterArgs,
@@ -227,7 +227,7 @@ export const armTake = (o: {
       thresholdDb: o.settings.thresholdDb,
     })
   );
-  raisePriority(o.launch, {
+  const writerTuned = tuneProcess(o.launch, {
     name: "camera writer",
     tag,
     match: FILE_NAMES.camera,
@@ -285,6 +285,7 @@ export const armTake = (o: {
         now: o.now,
         settings: o.settings,
         camera,
+        writerTuned,
         run,
       });
     },
@@ -304,6 +305,8 @@ const beginTake = (
       errors: () => string[];
       closeLog: () => Promise<void>;
     };
+    /** How the writer was tuned (`tuneProcess`). */
+    writerTuned: Promise<string>;
     run: (
       name: "screen" | "camera",
       args: string[]
@@ -390,6 +393,14 @@ const beginTake = (
         });
     },
   });
+  /** A line of the service's own in the capture's log, until it closes. */
+  const note = (line: string) => {
+    if (!captureLog.writableEnded) captureLog.write(`[cvm] ${line}\n`);
+  };
+  // How the capture and the writer were tuned: a drop in this take can be
+  // checked against it.
+  void o.capture.tuned.then(note);
+  void o.writerTuned.then(note);
   const stopCaptureLines = o.capture.onLine((line) => {
     captureLog.write(`${line}\n`);
     framesLost.captureLine(line);

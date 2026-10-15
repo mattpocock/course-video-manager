@@ -107,6 +107,24 @@ export default function DiagramPlaygroundHome({
     });
   }, []);
 
+  // Liveness, as the Active Diagram page sends it, so the Video Editor knows
+  // the playground is open on Home too. Counted as open, Home must also answer
+  // `loadDiagram`: `openPlaygroundWithDiagram` then only focuses this window.
+  useEffect(() => {
+    const beat = () => diagramChannel.sendToParent({ type: "ping" });
+    beat();
+    const interval = setInterval(beat, 2000);
+    const unsub = diagramChannel.subscribeChild((msg) => {
+      if (msg.type === "loadDiagram") {
+        navigate(`/diagram-playground/${msg.diagramId}`, { replace: true });
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      unsub();
+    };
+  }, [navigate]);
+
   useEffect(() => {
     function onFocus() {
       diagramChannel.sendToParent({ type: "focus" });

@@ -287,6 +287,11 @@ export const fakeWindows = (
      */
     spacedesk?: { width: number; height: number; awake?: boolean };
     wakeFails?: string;
+    /**
+     * timer-resolution.ps1 fails, printing this, on the ffmpeg.exe whose
+     * `-Match` it is given (the capture's tag, `camera.mkv`, `screen.mkv`).
+     */
+    tuneFails?: Record<string, string>;
     /** How long screens.ps1 takes to answer (PowerShell's start-up); default the next tick. */
     screensListingMs?: number;
     /**
@@ -367,6 +372,10 @@ export const fakeWindows = (
       );
       hits.forEach((q) => q.exit(null));
       return answer(p, { stdout: `${hits.length}\r\n` });
+    }
+    if (l.tool === "powershell" && l.script === "timer-resolution.ps1") {
+      const fails = o.tuneFails?.[l.args[l.args.indexOf("-Match") + 1] ?? ""];
+      if (fails) return answer(p, { stderr: `${fails}\r\n`, code: 1 });
     }
     if (l.tool === "powershell")
       return answer(p, {

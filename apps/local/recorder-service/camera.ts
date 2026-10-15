@@ -77,26 +77,38 @@ export const stopTagged = async (launch: Launcher, tags: string[]) => {
 };
 
 /**
- * Raises a just-started ffmpeg.exe (found by `tag` and `match` in its
- * command line) to High priority (`raise-priority.ps1`, #2214): the camera
- * capture and a take's writer, as the screen recorder already is. One left
- * at Normal still records, so a failure is only logged.
+ * Tunes a just-started ffmpeg.exe (found by `tag` and `match` in its command
+ * line) as OBS runs its own capture: out of Windows 11's power throttling, a
+ * 1 ms timer and High priority (`timer-resolution.ps1`). The camera capture,
+ * a take's writer and the screen recorder all get it: at Normal, throttled
+ * and on the 15.6 ms tick, other work on the PC starved the capture mid-take
+ * (#2214, the capture stalls of 2026-10-15).
+ *
+ * One left untuned still records, so the outcome is only reported, as one
+ * line naming the process: in the service's log, and the take's
+ * `ffmpeg-capture.log` (`recording-session.ts`), so a drop can be checked
+ * against it.
  */
-export const raisePriority = (
+export const tuneProcess = (
   launch: Launcher,
   o: { name: string; tag: string; match: string }
-) =>
-  void runToEnd(
+): Promise<string> =>
+  runToEnd(
     launch({
       tool: "powershell",
-      script: "raise-priority.ps1",
+      script: "timer-resolution.ps1",
       args: ["-Tag", o.tag, "-Match", o.match],
     })
   ).then(({ code, stderr, stdout }) => {
-    if (code !== 0)
-      console.error(
-        `recorder: could not raise the ${o.name} to High priority: ${(stderr || stdout).trim().split(/\r?\n/)[0] ?? ""}`
-      );
+    const first = (text: string) => text.trim().split(/\r?\n/)[0] ?? "";
+    if (code === 0) {
+      const line = `${o.name} tuned: ${first(stdout)}`;
+      console.log(`recorder: ${line}`);
+      return line;
+    }
+    const line = `${o.name} NOT tuned (Normal priority, 15.6 ms timer): ${first(stderr || stdout)}`;
+    console.error(`recorder: ${line}`);
+    return line;
   });
 
 /**
@@ -151,6 +163,8 @@ export type Capture = {
   onLine: (listener: (line: string) => void) => () => void;
   /** Its last error lines, once it has quit; undefined while it runs. */
   quitWith: () => string[] | undefined;
+  /** How it was tuned (`tuneProcess`): one line, once known. */
+  tuned: Promise<string>;
 };
 
 export type Camera = {
@@ -207,6 +221,7 @@ export const openCamera = (o: CameraOptions): Camera => {
         captureLog: string;
         lines: Set<(line: string) => void>;
         exited: boolean;
+        tuned: Promise<string>;
       }
     | undefined;
   let released = false;
@@ -321,7 +336,7 @@ export const openCamera = (o: CameraOptions): Camera => {
         }),
         cwd: "/mnt/c",
       });
-      raisePriority(o.launch, {
+      const tuned = tuneProcess(o.launch, {
         name: "camera capture",
         tag: CAPTURE_TAG,
         match: CAPTURE_TAG,
@@ -334,6 +349,7 @@ export const openCamera = (o: CameraOptions): Camera => {
         captureLog: "",
         lines: new Set(),
         exited: false,
+        tuned,
       };
       current = live;
       let logged = 0;
@@ -421,6 +437,7 @@ export const openCamera = (o: CameraOptions): Camera => {
           return () => void live.lines.delete(listener);
         },
         quitWith: () => (live.exited ? errorLines(live.captureLog) : undefined),
+        tuned: live.tuned,
       };
     },
     release: async () => {
