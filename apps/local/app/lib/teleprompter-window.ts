@@ -33,6 +33,10 @@ export type TeleprompterEditorState = {
   videoLengthSeconds?: number | null;
   /** The Suggestions tab's line, shown in place of the Script; `null` when closed. */
   suggestion?: string | null;
+  /** Which suggestion that is; a new id means a new one started. */
+  suggestionId?: number | null;
+  /** The Clips just before the suggestion, dimmed above it on the glass. */
+  suggestionPreviousClips?: string[];
 };
 
 /**

@@ -9,7 +9,7 @@ export const SUGGEST_NEXT_CLIP_MODEL = "claude-haiku-5-5";
 
 /**
  * Streams the Suggestions tab's next line as plain text. The editor sends the
- * sources the author ticked and the recent Clip transcripts it already holds,
+ * sources the author ticked and the Clip transcripts it already holds,
  * so this route reads nothing. Aborting the request (a newer suggestion, or
  * the tab closing) aborts the model call.
  */
@@ -18,7 +18,7 @@ const requestSchema = Schema.Struct({
   script: Schema.optional(Schema.String),
   animatic: Schema.optional(Schema.String),
   beats: Schema.optional(Schema.String),
-  recentClips: Schema.Array(Schema.String),
+  clips: Schema.Array(Schema.String),
 });
 
 export const action = makeAction({
@@ -31,7 +31,7 @@ export const action = makeAction({
         model: anthropic(SUGGEST_NEXT_CLIP_MODEL),
         system: generateSuggestNextClipPrompt({
           ...input,
-          recentClips: [...input.recentClips],
+          clips: [...input.clips],
         }),
         messages: [{ role: "user", content: "What do I say next?" }],
         abortSignal: request.signal,

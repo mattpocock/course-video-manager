@@ -538,19 +538,15 @@ export const isCaptureInProgress = (
 // Suggestions
 // ---------------------------------------------------------------------------
 
-/** How many recent Clip transcripts tell the Suggestions tab where you are. */
-export const RECENT_CLIPS_FOR_SUGGESTIONS = 5;
-
 /**
- * The transcripts of the last few Clips before the Insertion Point, oldest
- * first: where the author is in the Video, which is where the next Clip lands.
- * Only Clips with text count, so an Optimistic Clip never does. Pass the
- * timeline's items (archived ones already left out).
+ * The transcripts of every Clip before the Insertion Point, oldest first: the
+ * Video so far, ending where the author is, which is where the next Clip
+ * lands. Only Clips with text count, so an Optimistic Clip never does. Pass
+ * the timeline's items (archived ones already left out).
  */
-export const getRecentClipTranscripts = (
+export const getClipTranscriptsBeforeInsertionPoint = (
   items: TimelineItem[],
-  insertionPoint: FrontendInsertionPoint,
-  count = RECENT_CLIPS_FOR_SUGGESTIONS
+  insertionPoint: FrontendInsertionPoint
 ): string[] => {
   const indexOf = (id: FrontendId) => {
     const index = items.findIndex((item) => item.frontendId === id);
@@ -571,7 +567,6 @@ export const getRecentClipTranscripts = (
       (item): item is ClipOnDatabase =>
         item.type === "on-database" && item.text.trim().length > 0
     )
-    .slice(-count)
     .map((clip) => clip.text.trim());
 };
 

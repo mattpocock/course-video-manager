@@ -19,7 +19,7 @@ import {
   getDatabaseClipBeforeInsertionPoint,
   getAllClipsHaveSilenceDetected,
   getAllClipsHaveText,
-  getRecentClipTranscripts,
+  getClipTranscriptsBeforeInsertionPoint,
 } from "./video-editor-selectors";
 
 // ---------------------------------------------------------------------------
@@ -344,10 +344,10 @@ describe("getAllClipsHaveText", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getRecentClipTranscripts
+// getClipTranscriptsBeforeInsertionPoint
 // ---------------------------------------------------------------------------
 
-describe("getRecentClipTranscripts", () => {
+describe("getClipTranscriptsBeforeInsertionPoint", () => {
   const items: TimelineItem[] = [
     makeClipOnDatabase({ frontendId: id("a"), text: "one" }),
     makeClipOnDatabase({ frontendId: id("b"), text: "  " }),
@@ -356,17 +356,18 @@ describe("getRecentClipTranscripts", () => {
     makeClipOnDatabase({ frontendId: id("e"), text: "three" }),
   ];
 
-  it("reads the last Clips with text before the Insertion Point", () => {
+  it("reads every Clip with text before the Insertion Point", () => {
     expect(
-      getRecentClipTranscripts(items, {
+      getClipTranscriptsBeforeInsertionPoint(items, {
         type: "after-clip",
         frontendClipId: id("d"),
       })
     ).toEqual(["one", "two"]);
-    expect(getRecentClipTranscripts(items, { type: "end" }, 2)).toEqual([
-      "two",
-      "three",
-    ]);
-    expect(getRecentClipTranscripts(items, { type: "start" })).toEqual([]);
+    expect(
+      getClipTranscriptsBeforeInsertionPoint(items, { type: "end" })
+    ).toEqual(["one", "two", "three"]);
+    expect(
+      getClipTranscriptsBeforeInsertionPoint(items, { type: "start" })
+    ).toEqual([]);
   });
 });

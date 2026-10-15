@@ -13,7 +13,7 @@ const context = (
 ): suggestionsReducer.EditorContext => ({
   animatic: 'Mockup 1: "Hello"',
   beats: "",
-  recentClips: ["So that's a type."],
+  clips: ["So that's a type."],
   transcribedClipIds: ["c1"],
   ...overrides,
 });
@@ -68,11 +68,15 @@ describe("the Suggestions tab", () => {
       stream(1, {
         script: "Intro line.",
         animatic: 'Mockup 1: "Hello"',
-        recentClips: ["So that's a type."],
+        clips: ["So that's a type."],
       }),
     ]);
     expect(t.getState().status).toBe("done");
-    expect(getTeleprompterSuggestion(t.getState())).toBe("Now try it.");
+    expect(getTeleprompterSuggestion(t.getState())).toEqual({
+      id: 1,
+      text: "Now try it.",
+      previousClips: ["So that's a type."],
+    });
   });
 
   it("a stream that ends with nothing said is a failure", () => {
@@ -92,7 +96,7 @@ describe("the Suggestions tab", () => {
       .send({
         type: "editor-context-changed",
         context: context({
-          recentClips: ["So that's a type.", "And here's another."],
+          clips: ["So that's a type.", "And here's another."],
           transcribedClipIds: ["c1", "c2"],
         }),
       })
@@ -107,10 +111,38 @@ describe("the Suggestions tab", () => {
     expect(t.getEffects().at(-1)).toEqual(
       stream(2, {
         animatic: 'Mockup 1: "Hello"',
-        recentClips: ["So that's a type.", "And here's another."],
+        clips: ["So that's a type.", "And here's another."],
       })
     );
-    expect(getTeleprompterSuggestion(t.getState())).toBe("");
+    expect(getTeleprompterSuggestion(t.getState())).toMatchObject({
+      id: 2,
+      text: "",
+    });
+  });
+
+  it("sends every Clip, shows the last three on the glass, and closes bold still streaming in", () => {
+    const clips = ["one", "two", "three", "four"];
+    const t = tester()
+      .send({
+        type: "editor-context-changed",
+        context: context({ clips }),
+      })
+      .send({ type: "suggestions-tab-opened" })
+      .send({ type: "script-loaded", videoId: "v1", script: "" })
+      .send({
+        type: "suggestion-chunk-received",
+        requestId: 1,
+        text: "Now the **important",
+      });
+
+    expect(t.getEffects().at(-1)).toEqual(
+      stream(1, { animatic: 'Mockup 1: "Hello"', clips })
+    );
+    expect(getTeleprompterSuggestion(t.getState())).toEqual({
+      id: 1,
+      text: "Now the **important**",
+      previousClips: ["two", "three", "four"],
+    });
   });
 
   it("an unticked source is left out, and the choice is stored", () => {
@@ -125,7 +157,7 @@ describe("the Suggestions tab", () => {
         type: "store-included-sources",
         included: { notes: true, script: true, animatic: false, beats: true },
       },
-      stream(2, { script: "Intro line.", recentClips: ["So that's a type."] }),
+      stream(2, { script: "Intro line.", clips: ["So that's a type."] }),
     ]);
   });
 
@@ -165,7 +197,7 @@ describe("the Suggestions tab", () => {
       stream(2, {
         notes: "Skip the intro",
         animatic: 'Mockup 1: "Hello"',
-        recentClips: ["So that's a type."],
+        clips: ["So that's a type."],
       }),
     ]);
   });

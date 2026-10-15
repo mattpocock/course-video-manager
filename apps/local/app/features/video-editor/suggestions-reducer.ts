@@ -21,7 +21,11 @@
  * sources in the prompt.
  */
 import type { EffectEntity, EffectReducer } from "use-effect-reducer";
-import type { SuggestNextClipInput } from "@/prompts/generate-suggest-next-clip";
+import {
+  MOST_RECENT_CLIP_COUNT,
+  type SuggestNextClipInput,
+} from "@/prompts/generate-suggest-next-clip";
+import { closeOpenBold } from "@/lib/close-open-bold";
 
 export namespace suggestionsReducer {
   export type Source = "notes" | "script" | "animatic" | "beats";
@@ -39,8 +43,8 @@ export namespace suggestionsReducer {
     animatic: string;
     /** The Beats as text; empty when the Video has none. */
     beats: string;
-    /** Transcripts of the most recent Clips, oldest first. */
-    recentClips: string[];
+    /** Transcripts of every Clip before the Insertion Point, oldest first. */
+    clips: string[];
     /** Every Clip whose transcript has arrived, so a new one is noticed. */
     transcribedClipIds: string[];
   };
@@ -122,7 +126,7 @@ export const createInitialSuggestionsState = (input: {
   context: {
     animatic: "",
     beats: "",
-    recentClips: [],
+    clips: [],
     transcribedClipIds: [],
   },
   status: "idle",
@@ -146,7 +150,7 @@ export const getSourceTexts = (
 export const getSuggestionInput = (state: State): SuggestNextClipInput => {
   const texts = getSourceTexts(state);
   const input: SuggestNextClipInput = {
-    recentClips: state.context.recentClips,
+    clips: state.context.clips,
   };
   for (const source of suggestionsReducer.SOURCES) {
     if (state.included[source] && texts[source].trim().length > 0) {
@@ -157,13 +161,37 @@ export const getSuggestionInput = (state: State): SuggestNextClipInput => {
 };
 
 /**
+ * The suggestion so far, as Markdown that is safe to render mid-stream: a
+ * `**` whose closer has not arrived yet is closed, so it never shows as
+ * literal asterisks.
+ */
+export const getSuggestionText = (state: State): string =>
+  closeOpenBold(state.text);
+
+export type TeleprompterSuggestion = {
+  /** A new id is a new suggestion, which the glass centres. */
+  id: number;
+  text: string;
+  /** The last few Clips before it, shown dimmed above it as context. */
+  previousClips: string[];
+};
+
+/**
  * What the teleprompter shows instead of the Script: the suggestion while the
  * tab is open (empty while the first words are on their way), `null` when it
  * is closed. A failed suggestion hands the glass back to the Script too,
  * rather than leaving it waiting on words that are not coming.
  */
-export const getTeleprompterSuggestion = (state: State): string | null =>
-  state.open && state.status !== "failed" ? state.text : null;
+export const getTeleprompterSuggestion = (
+  state: State
+): TeleprompterSuggestion | null =>
+  state.open && state.status !== "failed"
+    ? {
+        id: state.requestId ?? 0,
+        text: getSuggestionText(state),
+        previousClips: state.context.clips.slice(-MOST_RECENT_CLIP_COUNT),
+      }
+    : null;
 
 const stopStream = (state: State, exec: Exec) => {
   if (state.stream) exec.stop(state.stream);

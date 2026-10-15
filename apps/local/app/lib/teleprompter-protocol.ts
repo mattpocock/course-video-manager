@@ -132,6 +132,18 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
      * as `marks`.
      */
     suggestion: z.string().nullable().optional(),
+    /**
+     * Which suggestion `suggestion` is: a new id means a new one has started,
+     * so the glass centres it. Optional for the same stale-popup reason as
+     * `marks`.
+     */
+    suggestionId: z.number().nullable().optional(),
+    /**
+     * The transcripts of the Clips just before the suggestion, oldest first,
+     * shown dimmed above it as context. Optional for the same stale-popup
+     * reason as `marks`.
+     */
+    suggestionPreviousClips: z.array(z.string()).optional(),
   }),
   /** Heartbeat answer, and nothing more. State travels by `editorState`. */
   z.object({ type: z.literal("pong") }),

@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { teleprompterChannel } from "@/lib/teleprompter-protocol";
 import { parseScriptBlocks } from "@/features/teleprompter/script-blocks";
+import { SuggestionGlass } from "@/features/teleprompter/suggestion-glass";
 import { CaptureIndicator } from "@/features/teleprompter/capture-indicator";
 import { TeleprompterCrawl } from "@/features/teleprompter/teleprompter-crawl";
 import { teleprompterSession } from "@/features/teleprompter/teleprompter-session";
@@ -61,6 +62,8 @@ export default function Teleprompter() {
           latestTranscript: msg.latestTranscript,
           videoLengthSeconds: msg.videoLengthSeconds,
           suggestion: msg.suggestion,
+          suggestionId: msg.suggestionId,
+          suggestionPreviousClips: msg.suggestionPreviousClips,
           at: Date.now(),
         });
       } else if (msg.type === "pong") {
@@ -139,16 +142,14 @@ export default function Teleprompter() {
     };
   }, [videoId]);
 
-  const glassScript = teleprompterSession.glassScript(state);
-  const blocks = useMemo(() => parseScriptBlocks(glassScript), [glassScript]);
+  const script = state.content.script;
+  const blocks = useMemo(() => parseScriptBlocks(script), [script]);
 
   const emptyMessage = !state.editorConnected
     ? "Waiting for a Video Editor window."
     : !videoId
       ? "No video open in the editor."
-      : state.suggestion !== null
-        ? "Thinking of what to say next…"
-        : "This video has no Script yet.";
+      : "This video has no Script yet.";
 
   return (
     <div className="fixed inset-0 select-none overflow-hidden bg-black">
@@ -185,17 +186,14 @@ export default function Teleprompter() {
         <LatestTranscript text={state.latestTranscript} />
       )}
 
-      {blocks.length === 0 ? (
+      {state.suggestion !== null ? (
+        <SuggestionGlass suggestion={state.suggestion} />
+      ) : blocks.length === 0 ? (
         <div className="flex h-full items-center justify-center px-12 text-center">
           <p className="max-w-md text-white/35">{emptyMessage}</p>
         </div>
       ) : (
-        // Keyed so a suggestion starts at the top rather than at wherever the
-        // Script was scrolled to.
-        <TeleprompterCrawl
-          key={state.suggestion !== null ? "suggestion" : "script"}
-          blocks={blocks}
-        />
+        <TeleprompterCrawl blocks={blocks} />
       )}
     </div>
   );

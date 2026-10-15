@@ -60,14 +60,21 @@ describe("suggestion", () => {
       videoId: "v1",
       capture: "not-recording" as const,
       suggestion,
+      suggestionId: 4,
+      suggestionPreviousClips: ["before"],
       at: 2000,
     });
 
     const showing = reducer(state, push("say this next"));
-    expect(teleprompterSession.glassScript(showing)).toBe("say this next");
+    expect(showing.suggestion).toEqual({
+      id: 4,
+      text: "say this next",
+      previousClips: ["before"],
+    });
 
     const withdrawn = reducer(showing, push(null));
-    expect(teleprompterSession.glassScript(withdrawn)).toBe("the script");
+    expect(withdrawn.suggestion).toBeNull();
+    expect(withdrawn.content.script).toBe("the script");
   });
 });
 
