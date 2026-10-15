@@ -108,6 +108,49 @@ export function wavDurationSeconds(wav: Uint8Array): number | undefined {
   return dataSize / byteRate;
 }
 
+/**
+ * A sample louder than this (about -40 dBFS) is speech. Kokoro's own padding
+ * is digital near-silence, far below it, and the quietest onset of a word is
+ * well above it.
+ */
+const SPEECH_ONSET_THRESHOLD = 328;
+
+/**
+ * Kept before the first loud sample, so the soft start of a word ("s", "h")
+ * that sits just under the threshold is not clipped off.
+ */
+const SPEECH_ONSET_MARGIN_SECONDS = 0.05;
+
+/**
+ * Where the speech in a WAV begins: Kokoro pads every line with about a third
+ * of a second of silence before the first word, and the Animatic plays from
+ * here so the voice lands with its frame instead of after it (#2265).
+ *
+ * Reads only as many bytes as it is given, so the caller can pass the head of
+ * the file. `0` — play from the top — for anything it cannot read, or a head
+ * with no speech in it: trimming nothing is never wrong, only late.
+ */
+export function speechOnsetSeconds(wav: Uint8Array): number {
+  if (wav.byteLength < 44) return 0;
+  const view = new DataView(wav.buffer, wav.byteOffset, wav.byteLength);
+  const tag = (offset: number) =>
+    String.fromCharCode(...wav.subarray(offset, offset + 4));
+  if (tag(0) !== "RIFF" || tag(8) !== "WAVE" || tag(36) !== "data") return 0;
+  const channels = view.getUint16(22, true);
+  const sampleRate = view.getUint32(24, true);
+  const bitsPerSample = view.getUint16(34, true);
+  if (bitsPerSample !== 16 || channels === 0 || sampleRate === 0) return 0;
+
+  const frameBytes = 2 * channels;
+  for (let offset = 44; offset + 1 < wav.byteLength; offset += 2) {
+    if (Math.abs(view.getInt16(offset, true)) > SPEECH_ONSET_THRESHOLD) {
+      const frame = Math.floor((offset - 44) / frameBytes);
+      return Math.max(0, frame / sampleRate - SPEECH_ONSET_MARGIN_SECONDS);
+    }
+  }
+  return 0;
+}
+
 /** Wrap raw little-endian PCM (s16le mono) in a minimal WAV container. */
 export function pcmToWav(pcm: Uint8Array, sampleRate: number): Buffer {
   const numChannels = 1;

@@ -1,10 +1,19 @@
-import { AbsoluteFill, Audio, Sequence, Series } from "remotion";
+import {
+  AbsoluteFill,
+  Audio,
+  Sequence,
+  Series,
+  useCurrentFrame,
+} from "remotion";
+import { useAnimaticAudioPrefetch } from "./animatic-audio-prefetch";
 import {
   subtitleCuesForSegment,
   type AnimaticSubtitleStyle,
 } from "./animatic-subtitles";
 import {
+  ANIMATIC_FPS,
   CLIP_MOCKUP_PREMOUNT_IN_FRAMES,
+  segmentIndexAtFrame,
   type AnimaticSegment,
 } from "./animatic-timeline";
 
@@ -117,7 +126,12 @@ const AnimaticSegmentFrame = (props: {
         />
       )}
       {mockup.audioUrl !== null && !mockup.audioMissing && (
-        <Audio src={mockup.audioUrl} />
+        // Started past Kokoro's leading silence, so the voice comes in with
+        // the frame rather than a third of a second after it (#2265).
+        <Audio
+          src={mockup.audioUrl}
+          trimBefore={Math.round(mockup.speechStartSeconds * ANIMATIC_FPS)}
+        />
       )}
       {/* The missing-frame card already prints the whole line. */}
       {props.showSubtitles &&
@@ -136,8 +150,19 @@ const AnimaticSegmentFrame = (props: {
   );
 };
 
+/** Holds the next lines' speech in memory. See `animatic-audio-prefetch.ts`. */
+const AudioPrefetch = (props: { segments: AnimaticSegment[] }) => {
+  const frame = useCurrentFrame();
+  useAnimaticAudioPrefetch(
+    props.segments,
+    segmentIndexAtFrame(props.segments, frame)
+  );
+  return null;
+};
+
 export const AnimaticComposition = (props: AnimaticCompositionProps) => (
   <AbsoluteFill style={{ backgroundColor: "black" }}>
+    <AudioPrefetch segments={props.segments} />
     <Series>
       {props.segments.map((segment) => (
         <Series.Sequence

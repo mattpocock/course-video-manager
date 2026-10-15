@@ -6,6 +6,7 @@ import {
   float32ToPcm16,
   pcmToWav,
   speechFilename,
+  speechOnsetSeconds,
   wavDurationSeconds,
 } from "./clip-mockup-speech-service";
 
@@ -136,6 +137,22 @@ describe("wavDurationSeconds", () => {
     expect(
       wavDurationSeconds(pcmToWav(new Uint8Array(0), 24000))
     ).toBeUndefined();
+  });
+});
+
+describe("speechOnsetSeconds", () => {
+  it("finds the first word past Kokoro's padding, less a margin, and never cuts into it", () => {
+    // 0.33 s of near-silence (Kokoro's padding is not digital zero), then speech.
+    const pcm = Buffer.alloc(Math.round(24000 * 0.5) * 2);
+    for (let i = 0; i < 24000 * 0.33; i++)
+      pcm.writeInt16LE(i % 2 ? 40 : -40, i * 2);
+    for (let i = Math.round(24000 * 0.33); i < 24000 * 0.5; i++)
+      pcm.writeInt16LE(i % 2 ? 6000 : -6000, i * 2);
+
+    expect(speechOnsetSeconds(pcmToWav(pcm, 24000))).toBeCloseTo(0.28, 3);
+    // Silence throughout, or no WAV at all: play from the top.
+    expect(speechOnsetSeconds(pcmToWav(Buffer.alloc(4800), 24000))).toBe(0);
+    expect(speechOnsetSeconds(new Uint8Array(10))).toBe(0);
   });
 });
 

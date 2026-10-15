@@ -101,6 +101,13 @@ export interface AnimaticClipMockup {
   readonly imageMissing: boolean;
   /** The speech named by the row is not on disk, or the row names none. */
   readonly audioMissing: boolean;
+  /**
+   * Where the voice begins inside its WAV, in seconds. Kokoro pads every line
+   * with about a third of a second of silence, and the player starts the
+   * audio here so the voice lands with its frame (#2265). The clock does not
+   * read it: the segment still runs the whole WAV's length.
+   */
+  readonly speechStartSeconds: number;
 }
 
 /** One Clip Mockup placed on the Animatic's timeline. */
