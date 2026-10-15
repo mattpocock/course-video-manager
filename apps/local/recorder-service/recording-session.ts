@@ -378,8 +378,16 @@ const beginTake = (
   const framesLost = countFramesLost({
     screenCaptured: screen !== null,
     fileTime: () => lastFileTime,
-    tell: (lost) => {
-      if (!ended) log({ type: "frames-lost", fileTime: lastFileTime, ...lost });
+    // The clock's picture time, falling back to the file's (`pressTime`).
+    pictureTime: () => pressTime(),
+    tell: (lost, lostFrameSpans) => {
+      if (!ended)
+        log({
+          type: "frames-lost",
+          fileTime: lastFileTime,
+          ...lost,
+          lostFrameSpans,
+        });
     },
   });
   const stopCaptureLines = o.capture.onLine((line) => {
@@ -566,6 +574,7 @@ const beginTake = (
         files,
         exitCodes: { screen: screenCode, camera: cameraCode },
         framesLost: framesLost.totals(),
+        lostFrameSpans: framesLost.spans(),
         errors: [
           ...(logFailure ? [logFailure] : []),
           ...(reason === "requested" &&
@@ -574,7 +583,6 @@ const beginTake = (
                 `camera.mkv and mic.mkv end ${(pressedAt - lastFileTime).toFixed(1)} s before Stop was pressed: the writer had not caught up in ${STOP_CATCH_UP_MS / 1000} s (ffmpeg-camera.log).`,
               ]
             : []),
-          ...framesLost.errors(),
           ...(reason === "ffmpeg-exited"
             ? [
                 ...(screen?.errors() ?? []),

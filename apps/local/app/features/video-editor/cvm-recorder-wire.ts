@@ -2,12 +2,22 @@ import type { DB } from "@/db/schema";
 import type { Scene } from "@/packages/scene-layout";
 import type { ClipRecordingSession } from "@/packages/clip-source";
 import type { SilenceLength } from "@/silence-detection-constants";
-import type { FramesLost, ScreenStatus } from "recorder-service/protocol";
+import type {
+  FramesLost,
+  LostFrameSpan,
+  ScreenStatus,
+} from "recorder-service/protocol";
 
 /** A Clip the app server saved from speech, with its Recording Session, so the editor plays it as the composite. */
 export type SavedRecorderClip = DB.Clip & {
   recordingSession: ClipRecordingSession;
 };
+
+/**
+ * Where a Take's Clip falls in its Recording Session, in picture time
+ * (seconds): the bounds its Clip is cut to (`speechToClipBounds`).
+ */
+export type ClipSpan = { startTime: number; endTime: number };
 
 /** What `POST /api/videos/:id/recorder/place-take` answers: the Clips saved where the editor said. */
 export type PlacedTake = {
@@ -81,6 +91,8 @@ export type CvmRecorderMessage =
       recordingSessionId: string;
       /** Unique to the Take: its Optimistic Clip's sound detection id. */
       takeId: string;
+      /** Its speech's start in picture time: where its Clip will begin. */
+      startTime: number;
     }
   /**
    * A speech ended. A Take's is sent before its Clip is saved: an editor
@@ -88,7 +100,12 @@ export type CvmRecorderMessage =
    * (`place-take`). Speech that was no Take makes no Clip, and is not asked
    * about.
    */
-  | { type: "speech-ended"; recordingSessionId: string }
+  | {
+      type: "speech-ended";
+      recordingSessionId: string;
+      /** A Take's: where its Clip falls. Absent for speech that was no Take. */
+      clip?: ClipSpan;
+    }
   | {
       /**
        * Speech the app server saved as Clips without an editor saying where
@@ -113,12 +130,14 @@ export type CvmRecorderMessage =
     }
   /**
    * Frames were lost mid-recording (#2214): the Recording Session's running
-   * totals. `recording-stopped` carries the final ones.
+   * totals, and every span lost so far (#2227). `recording-stopped` carries
+   * the final ones.
    */
   | {
       type: "frames-lost";
       recordingSessionId: string;
       framesLost: FramesLost;
+      lostFrameSpans: LostFrameSpan[];
     }
   | {
       type: "recording-stopped";
@@ -132,6 +151,11 @@ export type CvmRecorderMessage =
       crashed: boolean;
       /** Camera and screen frames lost; null when it crashed (not counted). */
       framesLost: FramesLost | null;
+      /**
+       * Every span lost; null when it crashed, or the recorder service is
+       * older than protocol 17.
+       */
+      lostFrameSpans: LostFrameSpan[] | null;
     }
   | {
       /** The recorder service refused a command, or saving its events failed. */

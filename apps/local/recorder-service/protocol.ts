@@ -53,11 +53,13 @@ export const RECORDER_SERVICE_PORT = 5177;
  * pulled a frame at a time, not streamed as multipart; 14: the previews are
  * H.264 streams, not JPEGs; 15: `take-started`, without which the editor
  * shows no Take; 16: `frames-lost` mid-take, the screen's lost frames
- * counted, and the capture and writer at High priority). The app server reloads on a change and the service does not
+ * counted, and the capture and writer at High priority; 17: `frames-lost`
+ * and `recording-stopped` carry where in the take each loss fell,
+ * `lostFrameSpans`). The app server reloads on a change and the service does not
  * (ADR 0035), so after a pull mid-session the app may meet a service started
  * from older code; `hello` says which wire it speaks (none before 2).
  */
-export const RECORDER_PROTOCOL_VERSION = 16;
+export const RECORDER_PROTOCOL_VERSION = 17;
 
 export const PREVIEW_FEEDS = ["camera", "screen"] as const;
 export type PreviewFeed = (typeof PREVIEW_FEEDS)[number];
@@ -255,6 +257,20 @@ export type RecordingSessionFiles = {
 export type FramesLost = { camera: number; screen: number | null };
 
 /**
+ * Where in a take frames were lost (#2227): `frames` of `picture` lost from
+ * `from` to `to`, in picture file time. Losses close together are merged
+ * into one span; a DirectShow buffer drop has no frame time, so it is
+ * stamped with the clock's picture time when it was heard (`from === to`).
+ * The editor alerts only for spans inside a Clip.
+ */
+export type LostFrameSpan = {
+  picture: "camera" | "screen";
+  from: number;
+  to: number;
+  frames: number;
+};
+
+/**
  * What a file needed after a crash: `readable` as it was, `remuxed` to give
  * it a duration (the raw file is kept as `<name>.raw.mkv`), `missing`, or
  * `failed` (left as it was).
@@ -299,11 +315,16 @@ export type RecordingSessionEvent = Logged<
    */
   | { type: "scene-changed"; scene: Scene; fileTime: number }
   /**
-   * Frames were lost mid-take (#2214): the running totals so far, sent at
-   * once so the editor can alert while the take is still going. The same
-   * totals end up in `recording-stopped`'s `framesLost`.
+   * Frames were lost mid-take (#2214): the running totals so far, and every
+   * span lost so far (#2227), sent at once so the editor can alert while the
+   * take is still going. The same end up in `recording-stopped`.
    */
-  | ({ type: "frames-lost"; fileTime: number } & FramesLost)
+  | ({
+      type: "frames-lost";
+      fileTime: number;
+      /** Absent in logs written before protocol 17. */
+      lostFrameSpans?: LostFrameSpan[];
+    } & FramesLost)
   /** The screen recorder's 1 ms timer, no-throttling and High priority. */
   | { type: "screen-recorder-tuned"; ok: boolean; detail: string }
   /**
@@ -341,6 +362,8 @@ export type RecordingSessionEvent = Logged<
       /** `screen` is null when no screen was captured (a camera-only Short). */
       exitCodes: { screen: number | null; camera: number | null };
       framesLost: FramesLost;
+      /** Every span of the take lost, told or not; absent before protocol 17. */
+      lostFrameSpans?: LostFrameSpan[];
       /** Why the event log failed, and the last error lines of a process that quit on its own. */
       errors: string[];
     }

@@ -196,7 +196,7 @@ export const CvmRecorderControls = () => {
       <CameraProblem />
       {state.framesLost && !framesLost && state.phase === "idle" && (
         <p className="text-xs text-muted-foreground">
-          Last recording: no frames lost
+          Last recording: no frames lost in a Clip
           {state.framesLost.screen === null ? " (screen not measured)" : ""}
         </p>
       )}

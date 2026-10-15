@@ -2,10 +2,19 @@ import type { EffectReducer } from "use-effect-reducer";
 import type { Scene } from "@/packages/scene-layout";
 import type { SilenceLength } from "@/silence-detection-constants";
 import type { VideoFormat } from "@/features/videos/video-format";
-import type { FramesLost, ScreenStatus } from "recorder-service/protocol";
+import type {
+  FramesLost,
+  LostFrameSpan,
+  ScreenStatus,
+} from "recorder-service/protocol";
 import { isSceneAvailable, isScreenWaking } from "./cvm-recorder-screen";
 import { attach } from "./cvm-recorder-attach";
 import { placeClips } from "./cvm-recorder-clips";
+import {
+  describeFramesLostInClips,
+  trackFramesLost,
+  type TakeSpan,
+} from "./cvm-recorder-frames-lost";
 import type {
   CvmRecorderMessage,
   SavedRecorderClip,
@@ -112,10 +121,18 @@ export namespace cvmRecorderReducer {
      */
     alert: string | null;
     /**
-     * The Recording Session's frames lost: live while it records (#2214),
-     * then the last one's, until the next Record.
+     * The Recording Session's frames lost, every one, in or out of a Clip:
+     * live while it records (#2214), then the last one's, until the next
+     * Record.
      */
     framesLost: FramesLost | null;
+    /**
+     * Where in the Recording Session placed frames were lost, and its
+     * Takes' spans: the frames-lost alert is for a loss inside one
+     * (`cvm-recorder-frames-lost.ts`, #2227).
+     */
+    lostFrameSpans: readonly LostFrameSpan[];
+    takeSpans: readonly TakeSpan[];
     /** The editor's Silence Length, for a Stream Deck Record. */
     silenceLength: SilenceLength | null;
     /** The Recording Session the editor follows; null while none records. */
@@ -203,6 +220,8 @@ export const createInitialCvmRecorderState = (
   error: null,
   alert: null,
   framesLost: null,
+  lostFrameSpans: [],
+  takeSpans: [],
   silenceLength: null,
   recordingSessionId: null,
   endedRecordingSessionIds: [],
@@ -267,32 +286,18 @@ export const holdsStillsOf = (
   );
 };
 
-const frames = (count: number, picture: string) =>
-  `${count} ${picture} ${count === 1 ? "frame" : "frames"}`;
-
 /**
- * The loud alert for frames lost (#2214): shown the moment any camera or
- * screen frame is lost mid-recording, and kept after Stop until the next
- * Record. Null while none were lost. Each lost frame is a freeze in the
- * file (the CFR filters repeat the last one).
+ * The loud alert for frames lost INSIDE A CLIP (#2214, #2227): shown
+ * mid-take the moment a loss is known to fall in one, naming the Clips hit,
+ * and kept after Stop until the next Recording Session. Frames lost between
+ * Clips, or with no Clip at all, never raise it; they are still counted
+ * (`framesLost`). Each lost frame is a freeze in the file (the CFR filters
+ * repeat the last one).
  */
 export const framesLostAlert = (
   state: cvmRecorderReducer.State
-): string | null => {
-  const lost = state.framesLost;
-  if (!lost) return null;
-  const screen = lost.screen ?? 0;
-  if (lost.camera + screen === 0) return null;
-  const what = [
-    lost.camera > 0 ? frames(lost.camera, "camera") : null,
-    screen > 0 ? frames(screen, "screen") : null,
-  ]
-    .filter((part) => part !== null)
-    .join(" and ");
-  return isCvmRecorderRecording(state)
-    ? `Frames lost: ${what} so far. This recording has a freeze in it.`
-    : `Frames lost: ${what} in the last recording. It has a freeze in it.`;
-};
+): string | null =>
+  describeFramesLostInClips(state, isCvmRecorderRecording(state));
 
 const WARMING_UP: FrontendSpeechDetectorState = { type: "warming-up" };
 const SILENCE: FrontendSpeechDetectorState = { type: "silence" };
@@ -473,7 +478,11 @@ export const cvmRecorderReducer: EffectReducer<
     case "recorder-message-heard": {
       const followed = heard(state, action.message);
       const next = attach(
-        placeClips(state, followed, action.message, exec),
+        trackFramesLost(
+          state,
+          placeClips(state, followed, action.message, exec),
+          action.message
+        ),
         action.message,
         exec
       );
@@ -509,6 +518,8 @@ export const cvmRecorderReducer: EffectReducer<
         error: null,
         alert: null,
         framesLost: null,
+        lostFrameSpans: [],
+        takeSpans: [],
       };
     case "dismiss-alert":
       return { ...state, alert: null };

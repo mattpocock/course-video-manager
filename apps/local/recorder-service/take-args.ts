@@ -44,12 +44,14 @@ export const SCREEN_FRAME_GAP_SECONDS = 0.05;
 
 /**
  * A filter that passes every frame and logs, at warning, each gap longer
- * than `seconds` once the take's clock has started ("[warning] -0.233000",
- * negative so it never reads as a mic stall). The writer and the screen
- * recorder both count lost frames from it (recording-session.ts).
+ * than `seconds` once the take's clock has started: two lines, the file time
+ * of the frame before the gap ("[warning] 41.208000"), then the gap,
+ * negative so it never reads as a mic stall ("[warning] -0.233000"). The
+ * writer and the screen recorder both count lost frames from it, and where
+ * in the take they fell (frames-lost.ts). `;` runs its two prints in order.
  */
-const gapLogger = (seconds: number) =>
-  `select='if(gte(t,0)*gte(prev_selected_t,0)*gt(t-prev_selected_t,${seconds}),print(-(t-prev_selected_t),24));1'`;
+export const gapLogger = (seconds: number) =>
+  `select='if(gte(t,0)*gte(prev_selected_t,0)*gt(t-prev_selected_t,${seconds}),print(prev_selected_t,24);print(-(t-prev_selected_t),24));1'`;
 
 /**
  * -progress and keyboard period of the writer, in seconds: how often it

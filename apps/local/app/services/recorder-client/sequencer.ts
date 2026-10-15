@@ -7,8 +7,8 @@ import type { RecordingSessionEvent } from "recorder-service/protocol";
  * live) is dropped, an event after a gap waits until the gap is filled, and
  * the gap is asked for again by `replay`.
  *
- * A speech's end comes out with the time its start was heard at, so the pair
- * is one stretch of speech however the two arrived.
+ * A speech's end, and a Take's start, come out with the time its speech
+ * started at, so they are one stretch of speech however they arrived.
  *
  * An event handed out but then not saved is taken back by `forget`ting its
  * Recording Session: the sequencer starts it afresh, so a replay from the
@@ -19,8 +19,11 @@ import type { RecordingSessionEvent } from "recorder-service/protocol";
  */
 
 export type SequencedEvent =
-  | Exclude<RecordingSessionEvent, { type: "speech-ended" }>
-  | (Extract<RecordingSessionEvent, { type: "speech-ended" }> & {
+  | Exclude<RecordingSessionEvent, { type: "speech-ended" | "take-started" }>
+  | (Extract<
+      RecordingSessionEvent,
+      { type: "speech-ended" | "take-started" }
+    > & {
       /** When the speech started, in mic file time. */
       startFileTime: number;
     });
@@ -69,6 +72,12 @@ export const createRecorderEventSequencer = () => {
       if (next.type === "speech-started") {
         session.speechStartedAt = next.fileTime;
         ready.push(next);
+      } else if (next.type === "take-started") {
+        // Every take-started is in a speech (speech-detector.ts).
+        ready.push({
+          ...next,
+          startFileTime: session.speechStartedAt ?? next.fileTime,
+        });
       } else if (next.type === "speech-ended") {
         // Every speech-ended follows its speech-started (speech-detector.ts).
         ready.push({

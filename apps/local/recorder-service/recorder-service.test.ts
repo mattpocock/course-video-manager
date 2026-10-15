@@ -486,28 +486,40 @@ describe("a Recording Session", () => {
     expect((await client.next("recording-stopped")).reason).toBe("camera-lost");
   });
 
-  it("tells every lost frame, camera or screen, the moment it is lost, and totals them at Stop", async () => {
+  it("tells every lost frame, camera or screen, the moment it is lost, with where in the take, and totals them at Stop", async () => {
     const { windows, client } = await recordOnce();
     const camera = windows.cameraCaptures[0]!;
-    // A gap of 0.233 s in the frames reaching the writer: about 6 missing.
-    windows.recorder("camera").stderr("[warning] -0.233000\r\n");
+    // A gap of 0.233 s after the frame at 4.1 s reaching the writer: about 6 missing.
+    windows
+      .recorder("camera")
+      .stderr(
+        "[Eval @ 01] [warning] 4.100000\r\n[Eval @ 01] [warning] -0.233000\r\n"
+      );
     expect(await client.next("frames-lost")).toMatchObject({
       camera: 6,
       screen: 0,
+      lostFrameSpans: [{ picture: "camera", from: 4.1, to: 4.333, frames: 6 }],
     });
     camera.stderr(
       "[dshow @ 0001] [warning] real-time buffer [Cam Link 4K] [video input] too full or near too full (101% of size: 1500000000 [rtbufsize parameter])! frame dropped!\r\n"
     );
-    expect(await client.next("frames-lost")).toMatchObject({
-      camera: 7,
-      screen: 0,
+    const dshow = await client.next("frames-lost");
+    expect(dshow).toMatchObject({ camera: 7, screen: 0 });
+    expect(dshow.lostFrameSpans).toHaveLength(2);
+    expect(dshow.lostFrameSpans![1]).toMatchObject({
+      picture: "camera",
+      frames: 1,
     });
     // The mic's buffer is not a camera frame.
     camera.stderr(
       "[dshow @ 0002] [warning] real-time buffer [Voicemeeter Out B1] [audio input] too full or near too full (101% of size: 1500000000 [rtbufsize parameter])! frame dropped!\r\n"
     );
     // A 0.05 s gap in ddagrab's frames at 60 fps: 2 slots missed.
-    windows.recorder("screen").stderr("[warning] -0.050000\r\n");
+    windows
+      .recorder("screen")
+      .stderr(
+        "[Eval @ 02] [warning] 9.000000\r\n[Eval @ 02] [warning] -0.050000\r\n"
+      );
     expect(await client.next("frames-lost")).toMatchObject({
       camera: 7,
       screen: 2,
@@ -516,12 +528,14 @@ describe("a Recording Session", () => {
     client.send({ type: "stop" });
     const stopped = await client.next("recording-stopped");
     expect(stopped.framesLost).toEqual({ camera: 7, screen: 2 });
-    expect(stopped.errors.join("\n")).toContain(
-      "camera.mkv is missing about 6 frame(s)"
-    );
-    expect(stopped.errors.join("\n")).toContain(
-      "screen.mkv is missing about 2 frame(s)"
-    );
+    expect(stopped.lostFrameSpans).toContainEqual({
+      picture: "screen",
+      from: 9,
+      to: 9.05,
+      frames: 2,
+    });
+    // Counted, but not an error the editor shows after every take.
+    expect(stopped.errors.join("\n")).not.toContain("missing about");
   });
 
   it("replays the logged events after a given sequence number to a client that missed them", async () => {
