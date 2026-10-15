@@ -184,39 +184,45 @@ export const VideoPlayerPanel = () => {
   const isReferenceOpen =
     referenceVideoId !== null &&
     referenceCandidates.some((c) => c.id === referenceVideoId);
-  const menuGroups = videoMenuGroups({
-    ...editorVideoActions.menu,
-    openInVSCode: lessonId
-      ? () =>
-          openInVSCodeFetcher.submit(
-            {},
-            { method: "post", action: `/api/videos/${videoId}/open-in-vscode` }
-          )
-      : undefined,
-    createConcatenatedVideo: () =>
-      navigate(`/videos/concatenate?initial=${videoId}`),
-    reference: isReferenceOpen
-      ? { close: () => setReferenceVideoId(null) }
-      : { candidates: referenceCandidates, open: setReferenceVideoId },
-    editLessonBody: lessonId
-      ? () => setIsLessonBodyWriterOpen(true)
-      : undefined,
-    autofillDescription: lessonId
-      ? () => setIsSeoDescriptionOpen(true)
-      : undefined,
-    newShort,
-    autofillChapters: {
-      onSelect: onOpenAutofillChaptersModal,
-      disabled: !allClipsHaveText,
-      description: allClipsHaveText
-        ? undefined
-        : "Waiting for transcription to complete",
+  const menuGroups = videoMenuGroups(
+    {
+      ...editorVideoActions.menu,
+      openInVSCode: lessonId
+        ? () =>
+            openInVSCodeFetcher.submit(
+              {},
+              {
+                method: "post",
+                action: `/api/videos/${videoId}/open-in-vscode`,
+              }
+            )
+        : undefined,
+      createConcatenatedVideo: () =>
+        navigate(`/videos/concatenate?initial=${videoId}`),
+      reference: isReferenceOpen
+        ? { close: () => setReferenceVideoId(null) }
+        : { candidates: referenceCandidates, open: setReferenceVideoId },
+      editLessonBody: lessonId
+        ? () => setIsLessonBodyWriterOpen(true)
+        : undefined,
+      autofillDescription: lessonId
+        ? () => setIsSeoDescriptionOpen(true)
+        : undefined,
+      newShort,
+      autofillChapters: {
+        onSelect: onOpenAutofillChaptersModal,
+        disabled: !allClipsHaveText,
+        description: allClipsHaveText
+          ? undefined
+          : "Waiting for transcription to complete",
+      },
+      addNote: () => modalDispatch({ type: "add-note-from-clipboard-clicked" }),
+      addVideoToLesson: lessonId
+        ? () => modalDispatch({ type: "add-video-to-lesson-clicked" })
+        : undefined,
     },
-    addNote: () => modalDispatch({ type: "add-note-from-clipboard-clicked" }),
-    addVideoToLesson: lessonId
-      ? () => modalDispatch({ type: "add-video-to-lesson-clicked" })
-      : undefined,
-  });
+    { groupRareActions: true }
+  );
   return (
     <>
       <div className="lg:flex-1 relative order-1 lg:order-2 overflow-y-auto h-full">

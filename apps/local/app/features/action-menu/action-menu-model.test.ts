@@ -1,6 +1,6 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { describe, expect, it } from "vitest";
-import { labelProblems, layoutActionMenu } from "./action-menu-model";
+import { bundle, labelProblems, layoutActionMenu } from "./action-menu-model";
 
 const noop = () => {};
 
@@ -76,6 +76,21 @@ describe("layoutActionMenu", () => {
     const submenu = group?.items[0];
     expect(submenu?.kind).toBe("submenu");
     expect(submenu?.kind === "submenu" && submenu.items.length).toBe(1);
+  });
+
+  it("bundles rare actions into a submenu, but leaves a lone one at the top level", () => {
+    const copy = (label: string) => ({ label, icon: Plus, onSelect: noop });
+    const labels = (items: Parameters<typeof bundle>[2]) =>
+      layoutActionMenu({ copy: [bundle("Copy", Plus, items)] }).flatMap((g) =>
+        g.items.map((i) => `${i.kind}:${i.label}`)
+      );
+    expect(labels([copy("Copy Log Path"), copy("Copy Chapters")])).toEqual([
+      "submenu:Copy",
+    ]);
+    expect(labels([copy("Copy Log Path"), false])).toEqual([
+      "leaf:Copy Log Path",
+    ]);
+    expect(labels([false])).toEqual([]);
   });
 
   it("lays out a picker as runs of options under their headings", () => {

@@ -1,6 +1,7 @@
-import type {
-  ActionLeaf,
-  ActionMenuGroups,
+import {
+  bundle,
+  type ActionLeaf,
+  type ActionMenuGroups,
 } from "@/features/action-menu/action-menu-model";
 import { STANDARD_ACTIONS } from "@/features/action-menu/standard-actions";
 import type { BeatKind } from "@/features/beats/beat-kinds";
@@ -16,6 +17,7 @@ import {
   FileX,
   FilmIcon,
   MonitorSpeaker,
+  PlayIcon,
   Music2,
   RefreshCwIcon,
   ScrollText,
@@ -25,6 +27,7 @@ import {
   Workflow,
   XIcon,
   Youtube,
+  type LucideIcon,
 } from "lucide-react";
 
 /** An action a surface offers: just the handler, or the handler plus why it is blocked. */
@@ -106,19 +109,37 @@ function leaf(
   };
 }
 
-/** The one Video action list. Render it with `EntityMenuContent` and `entity={{ type: "video", id }}`. */
-export function videoMenuGroups(a: VideoMenuActions): ActionMenuGroups {
+/**
+ * The one Video action list. Render it with `EntityMenuContent` and
+ * `entity={{ type: "video", id }}`. `groupRareActions` is for the video
+ * editor, whose menu offers nearly everything: it keeps the actions used while
+ * recording at the top level and folds the rest of each group into one
+ * submenu (CODING_STANDARDS.md, "Action menus", rule 9).
+ */
+export function videoMenuGroups(
+  a: VideoMenuActions,
+  options: { groupRareActions?: boolean } = {}
+): ActionMenuGroups {
+  const fold = (
+    label: string,
+    icon: LucideIcon,
+    items: (ActionLeaf | false)[]
+  ) => (options.groupRareActions ? [bundle(label, icon, items)] : items);
   const reference = a.reference;
   return {
     open: [
-      leaf(
-        { label: "Open Teleprompter", icon: MonitorSpeaker },
-        a.openTeleprompter
-      ),
-      leaf(
-        { label: "Open Diagram Playground", icon: Workflow },
-        a.openDiagramPlayground
-      ),
+      ...fold(STANDARD_ACTIONS.open.label, STANDARD_ACTIONS.open.icon, [
+        leaf(
+          { label: "Open Teleprompter", icon: MonitorSpeaker },
+          a.openTeleprompter
+        ),
+        leaf(
+          { label: "Open Diagram Playground", icon: Workflow },
+          a.openDiagramPlayground
+        ),
+        leaf(STANDARD_ACTIONS.revealInFileSystem, a.revealInFileSystem),
+        leaf({ label: "Open in VS Code", icon: CodeIcon }, a.openInVSCode),
+      ]),
       reference &&
         ("close" in reference
           ? {
@@ -135,10 +156,8 @@ export function videoMenuGroups(a: VideoMenuActions): ActionMenuGroups {
                 onSelect: () => reference.open(c.id),
               })),
             }),
-      leaf(STANDARD_ACTIONS.revealInFileSystem, a.revealInFileSystem),
-      leaf({ label: "Open in VS Code", icon: CodeIcon }, a.openInVSCode),
     ],
-    edit: [
+    edit: fold(STANDARD_ACTIONS.edit.label, STANDARD_ACTIONS.edit.icon, [
       leaf({ ...STANDARD_ACTIONS.rename, opensDialog: true }, a.rename),
       leaf(
         { label: "Edit Lesson Body", icon: FileText, opensDialog: true },
@@ -157,7 +176,7 @@ export function videoMenuGroups(a: VideoMenuActions): ActionMenuGroups {
         a.autofillChapters
       ),
       leaf(STANDARD_ACTIONS.unarchive, a.unarchive),
-    ],
+    ]),
     create: [
       a.addBeat && {
         ...STANDARD_ACTIONS.add,
@@ -168,20 +187,22 @@ export function videoMenuGroups(a: VideoMenuActions): ActionMenuGroups {
         { label: "Add Note", icon: ClipboardIcon, opensDialog: true },
         a.addNote
       ),
-      leaf({ ...STANDARD_ACTIONS.duplicate, opensDialog: true }, a.duplicate),
-      leaf(
-        {
-          ...STANDARD_ACTIONS.add,
-          label: "Add Video to Lesson",
-          opensDialog: true,
-        },
-        a.addVideoToLesson
-      ),
-      leaf(
-        { label: "Create Concatenated Video", icon: Combine },
-        a.createConcatenatedVideo
-      ),
       leaf({ label: "New Short", icon: Clapperboard }, a.newShort),
+      ...fold("Create", STANDARD_ACTIONS.add.icon, [
+        leaf({ ...STANDARD_ACTIONS.duplicate, opensDialog: true }, a.duplicate),
+        leaf(
+          {
+            ...STANDARD_ACTIONS.add,
+            label: "Add Video to Lesson",
+            opensDialog: true,
+          },
+          a.addVideoToLesson
+        ),
+        leaf(
+          { label: "Create Concatenated Video", icon: Combine },
+          a.createConcatenatedVideo
+        ),
+      ]),
     ],
     move: [
       leaf(
@@ -204,14 +225,6 @@ export function videoMenuGroups(a: VideoMenuActions): ActionMenuGroups {
     run: [
       leaf(STANDARD_ACTIONS.export, a.export),
       leaf(
-        { label: "Render Vertical Short", icon: FilmIcon },
-        a.renderVerticalShort
-      ),
-      leaf(
-        { label: "Re-transcribe All Clips", icon: RefreshCwIcon },
-        a.retranscribeAllClips
-      ),
-      leaf(
         { label: "Post Short", icon: SendIcon, opensDialog: true },
         a.postShort
       ),
@@ -223,15 +236,25 @@ export function videoMenuGroups(a: VideoMenuActions): ActionMenuGroups {
         { label: "Post to TikTok", icon: Music2, opensDialog: true },
         a.postToTikTok
       ),
+      ...fold("Run", PlayIcon, [
+        leaf(
+          { label: "Render Vertical Short", icon: FilmIcon },
+          a.renderVerticalShort
+        ),
+        leaf(
+          { label: "Re-transcribe All Clips", icon: RefreshCwIcon },
+          a.retranscribeAllClips
+        ),
+      ]),
     ],
-    copy: [
+    copy: fold(STANDARD_ACTIONS.copy.label, STANDARD_ACTIONS.copy.icon, [
       leaf({ label: "Copy Transcript", icon: ClipboardCopy }, a.copyTranscript),
       leaf(
         { label: "Copy YouTube Chapters", icon: ClipboardCopy },
         a.copyYouTubeChapters
       ),
       leaf({ label: "Copy Log Path", icon: ScrollTextIcon }, a.copyLogPath),
-    ],
+    ]),
     danger: [
       leaf(
         { label: "Purge Export", icon: FileX, opensDialog: true },

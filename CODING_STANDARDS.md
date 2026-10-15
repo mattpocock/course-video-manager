@@ -293,10 +293,15 @@ the ellipsis and Copy Link.
 8. **Every item has an icon**, drawn by the primitive at one size. Show a
    `shortcut` wherever the action has one.
 9. **One level of submenu at most**, for a choice among siblings (a Beat kind,
-   a target Section). Past about a dozen items, move rare actions to the page.
+   a target Section), or to group related rare actions. Past about eight
+   entries, keep the frequent actions at the top level and fold each group's
+   rare ones into one submenu (`bundle`: "Open ▸", "Copy ▸"), inside that
+   group's place in the order. A group of one is no group: a lone action stays
+   at the top level. Never nest a submenu in a submenu.
 
 Enforced by `action-menus.test.ts`: any raw `ContextMenu*` / `DropdownMenu*`
 part outside a picker fails; a missing feature goes into `action-menu-model.ts`.
+It also holds the video editor's Video menu, the longest, near eight entries.
 
 ## React Router data flow
 

@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { labelProblems } from "./action-menu-model";
+import { Link } from "lucide-react";
+import { videoMenuGroups } from "@/features/video-menu/video-menu";
+import { labelProblems, layoutActionMenu } from "./action-menu-model";
 
 /**
  * The guard behind CODING_STANDARDS.md's "Action menus". Every action menu in
@@ -12,6 +14,11 @@ import { labelProblems } from "./action-menu-model";
  * anywhere but a value picker (`PICKERS`). If a menu needs something the
  * model lacks, extend `action-menu-model.ts` (with a test) rather than build
  * the menu by hand.
+ *
+ * Submenus are one level deep (the model's types allow no more): a choice
+ * among siblings, or a group's rare actions folded together once a menu
+ * passes about eight entries. The video editor's Video menu, the longest in
+ * the app, is held to that here.
  */
 
 /**
@@ -147,5 +154,41 @@ describe("action menus", () => {
       stale,
       "These files no longer open a picker / an ActionMenuContent; drop them"
     ).toEqual([]);
+  });
+
+  it("keeps the video editor's Video menu near eight entries, its rare actions folded into submenus", () => {
+    const run = () => {};
+    // Every action the landscape editor offers a lesson's exported Video.
+    const groups = videoMenuGroups(
+      {
+        openTeleprompter: run,
+        openDiagramPlayground: run,
+        reference: { candidates: [{ id: "v2", title: "Other" }], open: run },
+        revealInFileSystem: run,
+        openInVSCode: run,
+        rename: run,
+        editLessonBody: run,
+        autofillDescription: run,
+        autofillChapters: run,
+        addNote: run,
+        duplicate: run,
+        addVideoToLesson: run,
+        createConcatenatedVideo: run,
+        newShort: run,
+        export: run,
+        renderVerticalShort: run,
+        retranscribeAllClips: run,
+        copyTranscript: run,
+        copyYouTubeChapters: run,
+        copyLogPath: run,
+      },
+      { groupRareActions: true }
+    );
+    const copyLink = { label: "Copy Link", icon: Link, onSelect: run };
+    const entries = layoutActionMenu(groups, [copyLink]).flatMap(
+      (g) => g.items
+    );
+    // Folded into submenus by `bundle`, which never leaves a group of one.
+    expect(entries.length).toBeLessThanOrEqual(10);
   });
 });

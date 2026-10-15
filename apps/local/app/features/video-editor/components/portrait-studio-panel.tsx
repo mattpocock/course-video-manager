@@ -107,12 +107,15 @@ export const PortraitStudioPanel = () => {
   }, []);
 
   const editorVideoActions = useEditorVideoActions();
-  const menuGroups = videoMenuGroups({
-    ...editorVideoActions.menu,
-    postShort: () => openPostingModal("both"),
-    postToYouTube: () => openPostingModal("youtube"),
-    postToTikTok: () => openPostingModal("tiktok"),
-  });
+  const menuGroups = videoMenuGroups(
+    {
+      ...editorVideoActions.menu,
+      postShort: () => openPostingModal("both"),
+      postToYouTube: () => openPostingModal("youtube"),
+      postToTikTok: () => openPostingModal("tiktok"),
+    },
+    { groupRareActions: true }
+  );
 
   const showScrubSlider = getShowScrubSliderSelector(
     currentClip?.type,

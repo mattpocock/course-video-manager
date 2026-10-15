@@ -52,6 +52,21 @@ export interface ActionSubmenu {
 }
 
 /**
+ * Folds related rare actions of one group into a submenu ("Copy ▸"), for a
+ * menu past about eight entries. A group of one is no group: a lone present
+ * action stays at the top level, and none at all leaves nothing.
+ */
+export function bundle(
+  label: string,
+  icon: LucideIcon,
+  items: readonly MaybeItem<ActionLeaf>[]
+): MaybeItem<ActionLeaf | ActionSubmenu> {
+  const present = items.filter(isPresent);
+  if (present.length <= 1) return present[0];
+  return { label, icon, items: present };
+}
+
+/**
  * A value picker nested in an action menu — "Change Course" on a Course badge.
  * It opens as a submenu of radio options marking the current value. Its
  * options are values, not actions, so they are exempt from the action rules:
