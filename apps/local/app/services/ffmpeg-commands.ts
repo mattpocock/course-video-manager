@@ -123,11 +123,16 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
        * One ffmpeg run, stderr teed to ours (a developer watching the
        * terminal sees what they always have) and kept for the fallback check.
        */
-      const runOnce = (args: readonly string[]) =>
+      const runOnce = (args: readonly string[], lowPriority: boolean) =>
         Effect.scoped(
           Effect.gen(function* () {
+            // `nice -n 19 ffmpeg …`: behind the rest of WSL.
+            const [file, ...rest]: [string, ...string[]] = lowPriority
+              ? ["nice", "-n", "19", "ffmpeg", ...args]
+              : ["ffmpeg", ...args];
+            const command = Command.make(file, ...rest);
             const child = yield* Command.start(
-              Command.make("ffmpeg", ...args).pipe(Command.stdout("inherit"))
+              command.pipe(Command.stdout("inherit"))
             );
             const stderrTail = yield* child.stderr.pipe(
               Stream.decodeText(),
@@ -153,19 +158,22 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
        * A still (a screenshot, a Clip's first or last frame): every input
        * decoded on the GPU (NVDEC), and run once more on the CPU when there is
        * no usable GPU (`cpuFallbackArgs`). Answers ffmpeg's exit code.
+       * `lowPriority` runs it under `nice -n 19`, behind the rest of WSL.
        */
       const runStill = Effect.fn("runStill")(function* (
-        args: readonly string[]
+        args: readonly string[],
+        opts?: { lowPriority?: boolean }
       ) {
+        const lowPriority = opts?.lowPriority ?? false;
         const gpuArgs = withGpuDecode(args);
-        const first = yield* runOnce(gpuArgs);
+        const first = yield* runOnce(gpuArgs, lowPriority);
         if (first.code === 0) return 0;
         const fallbackArgs = cpuFallbackArgs(gpuArgs, first.stderrTail);
         if (!fallbackArgs) return first.code;
         yield* Effect.logWarning(
           "ffmpeg: no usable GPU to decode a still on; running it again on the CPU"
         );
-        return (yield* runOnce(fallbackArgs)).code;
+        return (yield* runOnce(fallbackArgs, lowPriority)).code;
       });
 
       const captureFrameAtTime = Effect.fn("captureFrameAtTime")(function* (

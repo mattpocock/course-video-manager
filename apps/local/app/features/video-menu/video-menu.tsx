@@ -9,6 +9,7 @@ import {
   BookOpenIcon,
   Clapperboard,
   ClipboardCopy,
+  ClipboardIcon,
   CodeIcon,
   Combine,
   FileText,
@@ -61,6 +62,8 @@ export interface VideoMenuActions {
   unarchive?: VideoAction;
   // create
   addBeat?: (kind: BeatKind) => void;
+  /** Opens the paste dialog that adds the clipboard to the Video as a note. */
+  addNote?: VideoAction;
   duplicate?: VideoAction;
   addVideoToLesson?: VideoAction;
   createConcatenatedVideo?: VideoAction;
@@ -161,6 +164,10 @@ export function videoMenuGroups(a: VideoMenuActions): ActionMenuGroups {
         label: "Add Beat",
         items: beatKindLeaves(a.addBeat, { opensDialog: true }),
       },
+      leaf(
+        { label: "Add Note", icon: ClipboardIcon, opensDialog: true },
+        a.addNote
+      ),
       leaf({ ...STANDARD_ACTIONS.duplicate, opensDialog: true }, a.duplicate),
       leaf(
         {

@@ -9,6 +9,8 @@ import { findSilenceInVideo } from "./silence-detection";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import type { SilenceLength } from "@/silence-detection-constants";
 import { clipFrameFfmpegArgs, type ClipFrame } from "@/packages/clip-source";
+import { StillGate } from "./still-gate";
+import { assertUnderEffect } from "./assert-under";
 
 export type PauseType = "none" | "long";
 
@@ -101,18 +103,37 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
 
         const outputFile = path.join(folder, `${inputHash}.png`);
 
-        const outputFileExists = yield* effectFs.exists(outputFile);
+        if (yield* effectFs.exists(outputFile)) return outputFile;
 
-        if (outputFileExists) {
-          return outputFile;
-        }
+        // Written under a name of its own and renamed once whole: a decode
+        // the Still Gate stops at Record leaves no half-written PNG cached.
+        const partial = yield* assertUnderEffect(
+          folder,
+          path.join(folder, `${inputHash}.${crypto.randomUUID()}.partial.png`)
+        );
+        const cached = yield* assertUnderEffect(folder, outputFile);
+        const decode = Effect.gen(function* () {
+          // Another request may have made it while this one waited.
+          if (yield* effectFs.exists(outputFile)) return;
+          yield* ffmpegCommands.runStill(
+            [
+              ...clipFrameFfmpegArgs(frame, { seek }),
+              "-frames:v",
+              "1",
+              partial,
+            ],
+            { lowPriority: true }
+          );
+          if (yield* effectFs.exists(partial))
+            yield* effectFs.rename(partial, cached);
+        }).pipe(Effect.ensuring(effectFs.remove(partial).pipe(Effect.ignore)));
 
-        yield* ffmpegCommands.runStill([
-          ...clipFrameFfmpegArgs(frame, { seek }),
-          "-frames:v",
-          "1",
-          outputFile,
-        ]);
+        // Only the app server gates stills on the recorder (`still-gate.ts`).
+        const gate = yield* Effect.serviceOption(StillGate);
+        yield* Option.match(gate, {
+          onNone: () => decode,
+          onSome: ({ run }) => run(decode),
+        });
 
         return outputFile;
       });

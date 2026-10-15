@@ -147,9 +147,13 @@ describe("a Short", () => {
     expect(windows.recorders.map((r) => argsOf(r.launch))).toEqual([
       expect.stringContaining("camera.mkv"),
     ]);
+    // The capture and the writer are tuned; there is no screen recorder to tune.
     expect(
       windows.launched.some(
-        (l) => l.tool === "powershell" && l.script === "timer-resolution.ps1"
+        (l) =>
+          l.tool === "powershell" &&
+          l.script === "timer-resolution.ps1" &&
+          l.args.includes("screen.mkv")
       )
     ).toBe(false);
 

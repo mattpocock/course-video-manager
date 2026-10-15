@@ -30,6 +30,8 @@ export const useVideoEditor = (props: {
     title: string,
     mode: "copy" | "move"
   ) => void;
+  /** The editor's Stop for a recording Take (the CVM recorder's). */
+  onStopRecording: () => void;
 }) => {
   const [state, dispatch] = useEffectReducer<
     videoStateReducer.State,
@@ -53,6 +55,7 @@ export const useVideoEditor = (props: {
       ),
       playbackRate: 1,
       scrubSeekTime: undefined,
+      animatic: null,
     },
     {
       "archive-clips": (_state, effect, _dispatch) => {
@@ -77,6 +80,9 @@ export const useVideoEditor = (props: {
           effect.title,
           effect.mode
         );
+      },
+      "stop-recording": () => {
+        props.onStopRecording();
       },
     }
   );

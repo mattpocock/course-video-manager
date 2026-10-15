@@ -194,6 +194,7 @@ export const VideoEditor = (props: {
     onToggleZoomForClip: props.onToggleZoomForClip,
     onMoveClip: props.onMoveClip,
     onCreateVideoFromSelection: props.onCreateVideoFromSelection,
+    onStopRecording: props.cvmRecorder.onStop,
   });
 
   const clipsToAggressivelyPreload = getClipsToAggressivelyPreload(
@@ -239,7 +240,6 @@ export const VideoEditor = (props: {
 
   const onRemoveWebLink = props.onRemoveWebLink;
 
-  // Setup keyboard shortcuts
   useKeyboardShortcuts(dispatch);
 
   // Setup WebSocket connection for Stream Deck integration
@@ -385,7 +385,6 @@ export const VideoEditor = (props: {
     [setPersistedBeatTab]
   );
 
-  // Build context value with all state and callbacks
   const contextValue = useMemo(
     () => ({
       // From videoStateReducer
@@ -397,6 +396,7 @@ export const VideoEditor = (props: {
       playbackRate: state.playbackRate,
       showLastFrameOfVideo: state.showLastFrameOfVideo,
       scrubSeekTime: state.scrubSeekTime,
+      animatic: state.animatic,
       dispatch,
 
       // Computed

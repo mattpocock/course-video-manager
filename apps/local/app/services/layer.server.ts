@@ -1,4 +1,6 @@
 import { Layer, ManagedRuntime } from "effect";
+import { makeStillGate, StillGate } from "./still-gate";
+import { existingRecorderClient } from "./recorder-client/existing-client.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { GitWorktreeProbeLive } from "@cvm/core/git-worktree";
 import { NodeContext } from "@effect/platform-node";
@@ -108,10 +110,23 @@ assertServiceUrlOverrides(process.env);
 // Clip Mockup can be found, so the server refuses to start, naming it.
 assertStorageRoots(process.env);
 
+// A still's decode waits for the recorder to stop (`still-gate.ts`). Until
+// the recorder client is made nothing can be recording, so it reads as idle;
+// so does a client made by code from before the gate (it outlives a
+// dev-server reload) until `pnpm dev` is restarted.
+const stillGateLayer = Layer.sync(StillGate, () => ({
+  run: makeStillGate({
+    recording: () => existingRecorderClient()?.recording?.() ?? false,
+    onRecordingChange: (listener) =>
+      existingRecorderClient()?.onRecordingChange?.(listener) ?? (() => {}),
+  }),
+}));
+
 export const layerLive = Layer.mergeAll(
   coreLayer,
   publishReadLayer,
-  autofillLayer
+  autofillLayer,
+  stillGateLayer
 );
 
 /**

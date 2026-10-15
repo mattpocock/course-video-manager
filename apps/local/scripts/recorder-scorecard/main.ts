@@ -127,7 +127,7 @@ const main = async () => {
   }
   useGuard(guardWindows());
   notes.push(
-    "Every Windows process ran through the Windows guard (Idle priority, cores 6-9), checked every 5 s; timer-resolution.ps1 and raise-priority.ps1 were not run (they raise the capture, writer and screen recorder to High)."
+    "Every Windows process ran through the Windows guard (Idle priority, cores 6-9), checked every 5 s; timer-resolution.ps1 was not run (it raises the capture, writer and screen recorder to High)."
   );
   let ctxRef: Ctx | undefined;
   let stopEverything: () => Promise<void> = async () => {

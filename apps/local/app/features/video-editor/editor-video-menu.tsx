@@ -68,11 +68,13 @@ export function useEditorVideoMenuRef(): GroupsRef | null {
  * portrait Studio — wired to the editor's context. `common` goes in the
  * Actions menu. `rare` is what the landscape editor moves out of it, to its
  * More tab, to keep the menu near a dozen items (CODING_STANDARDS.md, "Action
- * menus", rule 9); the Studio's shorter menu keeps both.
+ * menus", rule 9); the Studio's shorter menu keeps both. `launch` is the two
+ * popup openers on their own, for the landscape editor's launcher buttons.
  */
 export function useEditorVideoActions(): {
   common: VideoMenuActions;
   rare: VideoMenuActions;
+  launch: { teleprompter: () => void; diagramPlayground: () => void };
 } {
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   const videoTitle = useContextSelector(
@@ -117,10 +119,14 @@ export function useEditorVideoActions(): {
       .catch(() => setExportFileExists(false));
   }, [videoId]);
 
-  const common: VideoMenuActions = {
-    openTeleprompter: () => teleprompterChannel.open(),
-    openDiagramPlayground: () =>
+  const launch = {
+    teleprompter: () => void teleprompterChannel.open(),
+    diagramPlayground: () =>
       void openDiagramPlaygroundAt(items, insertionPoint),
+  };
+  const common: VideoMenuActions = {
+    openTeleprompter: launch.teleprompter,
+    openDiagramPlayground: launch.diagramPlayground,
     rename: () => modalDispatch({ type: "rename-video-clicked" }),
     duplicate: () => modalDispatch({ type: "copy-video-clicked" }),
     export: () => startExportUpload(videoId, videoTitle),
@@ -154,7 +160,7 @@ export function useEditorVideoActions(): {
         : undefined,
     copyLogPath: () => void copyLogPath(videoId),
   };
-  return { common, rare };
+  return { common, rare, launch };
 }
 
 /**

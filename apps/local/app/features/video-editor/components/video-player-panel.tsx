@@ -21,7 +21,9 @@ import {
   getIsOBSActive as getIsOBSActiveSelector,
   getShowScrubSlider as getShowScrubSliderSelector,
 } from "../video-editor-selectors";
-import { ClipboardIcon, VideoOffIcon } from "lucide-react";
+import { MonitorSpeaker, VideoOffIcon, Workflow } from "lucide-react";
+import { diagramChannel } from "@/lib/diagram-protocol";
+import { usePopupOpen } from "../hooks/use-popup-open";
 import { useFetcher, useNavigate } from "react-router";
 import { videoMenuGroups } from "@/features/video-menu/video-menu";
 import { useEditorVideoActions } from "../editor-video-menu";
@@ -151,6 +153,11 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.modalDispatch
   );
+  const isTeleprompterOpen = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.isTeleprompterConnected
+  );
+  const isDiagramPlaygroundOpen = usePopupOpen(diagramChannel);
   const items = useContextSelector(VideoEditorContext, (ctx) => ctx.items);
   const fsData = useContextSelector(VideoEditorContext, (ctx) => ctx.fsData);
   const selectedClipsSet = useContextSelector(
@@ -213,6 +220,7 @@ export const VideoPlayerPanel = () => {
         ? undefined
         : "Waiting for transcription to complete",
     },
+    addNote: () => modalDispatch({ type: "add-note-from-clipboard-clicked" }),
     addVideoToLesson: lessonId
       ? () => modalDispatch({ type: "add-video-to-lesson-clicked" })
       : undefined,
@@ -300,15 +308,25 @@ export const VideoPlayerPanel = () => {
               groups={menuGroups}
               allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
             />
-            <Button
-              variant="secondary"
-              onClick={() =>
-                modalDispatch({ type: "add-note-from-clipboard-clicked" })
-              }
-            >
-              <ClipboardIcon className="w-4 h-4 mr-1" />
-              Add Note
-            </Button>
+            {/* Each launcher shows only while its popup is closed. */}
+            {!isTeleprompterOpen && (
+              <Button
+                variant="secondary"
+                onClick={editorVideoActions.launch.teleprompter}
+              >
+                <MonitorSpeaker className="w-4 h-4 mr-1" />
+                Teleprompter
+              </Button>
+            )}
+            {!isDiagramPlaygroundOpen && (
+              <Button
+                variant="secondary"
+                onClick={editorVideoActions.launch.diagramPlayground}
+              >
+                <Workflow className="w-4 h-4 mr-1" />
+                Diagram Playground
+              </Button>
+            )}
           </div>
 
           {/* Tabbed panel for Sections, Links and More */}
