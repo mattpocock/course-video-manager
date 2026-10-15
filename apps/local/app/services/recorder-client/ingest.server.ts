@@ -1,6 +1,7 @@
 import { recordingSessions, recordingSessionSceneEvents } from "@/db/schema";
 import type { DatabaseId } from "@cvm/core/db/ids";
 import type {
+  ClipSpan,
   CvmRecorderMessage,
   PlacedTake,
 } from "@/features/video-editor/cvm-recorder-wire";
@@ -16,13 +17,13 @@ import {
   getOrderedItems,
 } from "@/services/clip-service-handler.helpers";
 import { placeSpeechAsClips } from "@/services/clip-service-speech.server";
+import { speechToClipBounds } from "@/services/silence-detection";
 import type { Database } from "@/services/drizzle-service.server";
 import { requireDraftVersionForVideo } from "@/services/draft-guard.server";
 import { withDbTransaction } from "@/services/with-db-transaction.server";
 import { pairMicOffsetMs } from "@/services/av-calibration.server";
 import { DEFAULT_MIC_OFFSET_MS } from "@cvm/core/features/videos/recorder";
 import type { SequencedEvent } from "./sequencer";
-import { isLongEnoughForClip } from "@/silence-detection-constants";
 
 /**
  * What one recorder event means for the database: a Recording Session row
@@ -55,7 +56,9 @@ export type IngestResult = {
  */
 export type AskEditor = (
   videoId: string,
-  recordingSessionId: string
+  recordingSessionId: string,
+  /** The Take's Clip, in picture time: told with `speech-ended`. */
+  clip: ClipSpan
 ) => Promise<InsertionPoint | null>;
 
 /** Asking an editor where failed: the speech is saved anyway. */
@@ -213,17 +216,12 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
             type: "take-started",
             recordingSessionId,
             takeId: `${recordingSessionId}:${event.seq}`,
+            // Its speech's start, in picture time: where its Clip begins.
+            startTime: event.startFileTime + session.micOffsetMs / 1000,
           },
         ],
       } satisfies IngestResult;
     case "speech-ended": {
-      // Not a Take (no `take-started` came for it, by the same rule): no
-      // Clip, so no editor is asked where.
-      if (!isLongEnoughForClip(event.startFileTime, event.fileTime))
-        return {
-          videoId,
-          messages: [{ type: "speech-ended", recordingSessionId }],
-        } satisfies IngestResult;
       // Speech is heard in mic file time; Clips are cut in the picture's,
       // which the mic runs ahead of by its offset.
       const offset = session.micOffsetMs / 1000;
@@ -231,13 +229,22 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
         startTime: event.startFileTime + offset,
         endTime: event.fileTime + offset,
       };
+      // The span its Clip is cut to, told for the frames-lost alert (#2227).
+      const [clip] = speechToClipBounds([speech], CVM_RECORDER_FPS);
+      // Not a Take (no `take-started` came for it, by the same rule,
+      // `isLongEnoughForClip`): no Clip, so no editor is asked where.
+      if (!clip)
+        return {
+          videoId,
+          messages: [{ type: "speech-ended", recordingSessionId }],
+        } satisfies IngestResult;
       // Asked only for speech not saved yet (a replay saves nothing twice).
       let asked = false;
       let answered = false;
       const whereTo = Effect.tryPromise({
         try: () => {
           asked = true;
-          return askEditor(videoId, recordingSessionId);
+          return askEditor(videoId, recordingSessionId, clip);
         },
         catch: (cause) => new NoEditorAnswerError({ cause }),
       }).pipe(
@@ -262,7 +269,7 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
       // Asking told the editors already.
       const messages: CvmRecorderMessage[] = asked
         ? []
-        : [{ type: "speech-ended", recordingSessionId }];
+        : [{ type: "speech-ended", recordingSessionId, clip }];
       if (placed.clips.length === 0 || !placed.transcriptionJobId)
         return { videoId, messages } satisfies IngestResult;
       const recordingSession = yield* dbCall(() =>
@@ -304,6 +311,7 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
             type: "frames-lost",
             recordingSessionId,
             framesLost: { camera: event.camera, screen: event.screen },
+            lostFrameSpans: event.lostFrameSpans ?? [],
           },
         ],
       } satisfies IngestResult;
@@ -328,6 +336,7 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
             errors: event.errors,
             crashed: false,
             framesLost: event.framesLost,
+            lostFrameSpans: event.lostFrameSpans ?? null,
           },
         ],
       } satisfies IngestResult;
@@ -349,6 +358,7 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
             errors: [],
             crashed: true,
             framesLost: null,
+            lostFrameSpans: null,
           },
         ],
       } satisfies IngestResult;

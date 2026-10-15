@@ -57,6 +57,7 @@ const stoppedMessage = (
   errors: [],
   crashed: false,
   framesLost: { camera: 0, screen: 0 },
+  lostFrameSpans: [],
   ...o,
 });
 
@@ -180,40 +181,6 @@ describe("the CVM recorder's Record and Stop", () => {
     expect(t.getState().alert).toContain("Cam Link");
     t.send({ type: "dismiss-alert" });
     expect(t.getState().alert).toBeNull();
-  });
-
-  it("alerts the moment a frame is lost mid-recording, keeps the alert after Stop, and clears it at the next Record", () => {
-    const t = recording();
-    expect(framesLostAlert(t.getState())).toBeNull();
-
-    t.send(
-      heard({
-        type: "frames-lost",
-        recordingSessionId: "s1",
-        framesLost: { camera: 6, screen: 0 },
-      })
-    );
-    expect(framesLostAlert(t.getState())).toBe(
-      "Frames lost: 6 camera frames so far. This recording has a freeze in it."
-    );
-
-    // A late total from a Recording Session already over is not this one's.
-    t.send(
-      heard({
-        type: "frames-lost",
-        recordingSessionId: "s0",
-        framesLost: { camera: 99, screen: 99 },
-      })
-    );
-    expect(t.getState().framesLost).toEqual({ camera: 6, screen: 0 });
-
-    t.send(heard(stoppedMessage({ framesLost: { camera: 7, screen: 1 } })));
-    expect(framesLostAlert(t.getState())).toBe(
-      "Frames lost: 7 camera frames and 1 screen frame in the last recording. It has a freeze in it."
-    );
-
-    t.send(pressRecord);
-    expect(framesLostAlert(t.getState())).toBeNull();
   });
 
   it("holds the stills of the take being recorded until it stops, and no other Clip's", () => {
@@ -417,7 +384,12 @@ describe("silence detection on the CVM recorder, as the glass shows it", () => {
   const speechEnded = heard({ type: "speech-ended", recordingSessionId: "s1" });
   const warmedUp = heard({ type: "warmed-up", recordingSessionId: "s1" });
   const takeStarted = (takeId = "s1:5") =>
-    heard({ type: "take-started", recordingSessionId: "s1", takeId });
+    heard({
+      type: "take-started",
+      recordingSessionId: "s1",
+      takeId,
+      startTime: 0,
+    });
 
   it("walks the OBS path's states: warming up, silence, speaking, long enough for a Clip, silence", () => {
     const t = tester().send(status()).send(live);
@@ -563,7 +535,12 @@ describe("events from a Recording Session that is not the current one (#2163)", 
     t.send(started("s1"))
       .send(heard({ type: "speech-started", recordingSessionId: "s1" }))
       .send(
-        heard({ type: "take-started", recordingSessionId: "s1", takeId: "t" })
+        heard({
+          type: "take-started",
+          recordingSessionId: "s1",
+          takeId: "t",
+          startTime: 0,
+        })
       )
       .send(heard({ type: "speech-ended", recordingSessionId: "s1" }));
     expect(t.getState().phase).toBe("idle");

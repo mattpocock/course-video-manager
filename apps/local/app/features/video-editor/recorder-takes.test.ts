@@ -297,6 +297,7 @@ const cvmAdapter = (e: Editor) => {
         type: "take-started",
         recordingSessionId,
         takeId: `${recordingSessionId}:${++takes}`,
+        startTime: 0,
       });
     },
     /** The next speech that ends makes this Clip. */
@@ -319,6 +320,7 @@ const stopped = (id: string): CvmRecorderMessage => ({
   errors: [],
   crashed: false,
   framesLost: { camera: 0, screen: 0 },
+  lostFrameSpans: [],
 });
 
 const cvm: Recorder = {

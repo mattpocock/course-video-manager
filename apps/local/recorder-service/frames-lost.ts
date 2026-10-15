@@ -1,4 +1,4 @@
-import type { FramesLost } from "./protocol";
+import type { FramesLost, LostFrameSpan } from "./protocol";
 
 /**
  * FRAMES LOST in one Recording Session (#2214): the Cam Link's dshow buffer
@@ -9,7 +9,9 @@ import type { FramesLost } from "./protocol";
  *
  * Every loss is told (`tell`) so the editor can alert mid-take: the first at
  * once, a burst after it (dshow drops come in runs) at most once per
- * `FRAMES_LOST_PERIOD_MS`, with the latest totals.
+ * `FRAMES_LOST_PERIOD_MS`, with the latest totals and every span lost so
+ * far, in picture time (#2227). The editor alerts only for spans inside a
+ * Clip; the totals count every loss, in or out of one.
  */
 
 /** How often, at most, a burst of lost frames is told. */
@@ -21,8 +23,18 @@ export const CAMERA_FPS = 30000 / 1001;
 /** The screen recorder's frame rate, for the same. */
 const SCREEN_FPS = 60;
 
-/** A gap the writer or screen recorder logged, in seconds (`FRAME_GAP_SECONDS`). */
+/** A gap the writer or screen recorder logged, in seconds (`gapLogger`). */
 const GAP = /\[warning\] -(\d+(?:\.\d+)?)\s*$/;
+
+/** The file time of the frame before that gap, logged just before it. */
+const GAP_FROM = /\[warning\] (\d+(?:\.\d+)?)\s*$/;
+
+/**
+ * Losses of one picture this close (seconds) are one span: a run of dshow
+ * drops, or a stutter of gaps, is one freeze to Matt, and the list stays
+ * short however bad a take gets.
+ */
+export const LOST_SPAN_MERGE_SECONDS = 1;
 
 /** A dshow drop from the Cam Link's real-time buffer (not the mic's). */
 const CAMERA_BUFFER_DROP = /real-time buffer .*\[video input\].*frame dropped/;
@@ -36,8 +48,13 @@ export const countFramesLost = (o: {
   screenCaptured: boolean;
   /** The take's file time now, for the log line. */
   fileTime: () => number;
-  /** Tells the totals so far. */
-  tell: (lost: FramesLost) => void;
+  /**
+   * The picture time now by the clock: where a dshow drop, which has no
+   * frame time, is stamped.
+   */
+  pictureTime: () => number;
+  /** Tells the totals and spans so far. */
+  tell: (lost: FramesLost, lostFrameSpans: LostFrameSpan[]) => void;
 }) => {
   let cameraBufferDrops = 0;
   let cameraGapFrames = 0;
@@ -45,6 +62,28 @@ export const countFramesLost = (o: {
   let stopped = false;
   let lastToldMs = -Infinity;
   let tellLater: ReturnType<typeof setTimeout> | undefined;
+  const spans: LostFrameSpan[] = [];
+  /** Each picture's gap start, logged on the line before its gap. */
+  const gapFrom: Record<LostFrameSpan["picture"], number | null> = {
+    camera: null,
+    screen: null,
+  };
+
+  const addSpan = (span: LostFrameSpan) => {
+    const near = spans.findLast((s) => s.picture === span.picture);
+    if (
+      near &&
+      span.from <= near.to + LOST_SPAN_MERGE_SECONDS &&
+      span.to >= near.from - LOST_SPAN_MERGE_SECONDS
+    ) {
+      near.from = Math.min(near.from, span.from);
+      near.to = Math.max(near.to, span.to);
+      near.frames += span.frames;
+      return;
+    }
+    spans.push({ ...span });
+  };
+  const spansSoFar = () => spans.map((s) => ({ ...s }));
 
   const totals = (): FramesLost => ({
     camera: cameraBufferDrops + cameraGapFrames,
@@ -57,25 +96,41 @@ export const countFramesLost = (o: {
       tellLater = undefined;
       if (stopped) return;
       lastToldMs = Date.now();
-      o.tell(totals());
+      o.tell(totals(), spansSoFar());
     };
     const wait = lastToldMs + FRAMES_LOST_PERIOD_MS - Date.now();
     if (wait <= 0) tell();
     else tellLater = setTimeout(tell, wait);
   };
 
-  /** Frames missing in a gap line from `file`; null when the line is no gap. */
+  /**
+   * Frames missing in a gap line from `picture`'s file, its span noted; 0
+   * for a gap's start line (noted for the gap after it); null for any other
+   * line.
+   */
   const gapLine = (
     line: string,
-    file: "camera.mkv" | "screen.mkv",
+    picture: LostFrameSpan["picture"],
     fps: number,
     where: string
   ): number | null => {
+    const from = line.match(GAP_FROM);
+    if (from) {
+      gapFrom[picture] = Number(from[1]);
+      return 0;
+    }
     const gap = line.match(GAP);
     if (!gap) return null;
     const missing = missingIn(gap[1]!, fps);
+    const seconds = Number(gap[1]);
+    // A writer from before the start line: the gap ended about now.
+    const start = gapFrom[picture] ?? Math.max(0, o.fileTime() - seconds);
+    gapFrom[picture] = null;
+    // To the microsecond ffmpeg prints, not a float's tail.
+    const to = Math.round((start + seconds) * 1e6) / 1e6;
+    addSpan({ picture, from: start, to, frames: missing });
     console.error(
-      `recorder: ${file} is missing about ${missing} frame(s) at ${o.fileTime().toFixed(1)} s: a ${gap[1]} s gap in ${where}`
+      `recorder: ${picture}.mkv is missing about ${missing} frame(s) at ${start.toFixed(2)} s: a ${gap[1]} s gap in ${where}`
     );
     return missing;
   };
@@ -85,17 +140,20 @@ export const countFramesLost = (o: {
     captureLine: (line: string) => {
       if (!CAMERA_BUFFER_DROP.test(line)) return;
       cameraBufferDrops += 1;
+      const at = Math.max(0, o.pictureTime());
+      addSpan({ picture: "camera", from: at, to: at, frames: 1 });
       lost();
     },
-    /** A line the writer printed: true when it was a gap (and nothing else). */
+    /** A line the writer printed: true when it was a gap or its start (and nothing else). */
     writerLine: (line: string): boolean => {
       const missing = gapLine(
         line,
-        "camera.mkv",
+        "camera",
         CAMERA_FPS,
         "the Cam Link's frames reaching the writer"
       );
       if (missing === null) return false;
+      if (missing === 0) return true;
       cameraGapFrames += missing;
       lost();
       return true;
@@ -104,11 +162,11 @@ export const countFramesLost = (o: {
     screenLine: (line: string) => {
       const missing = gapLine(
         line,
-        "screen.mkv",
+        "screen",
         SCREEN_FPS,
         "the screen's frames"
       );
-      if (missing === null) return;
+      if (!missing) return;
       screenGapFrames += missing;
       lost();
     },
@@ -118,18 +176,7 @@ export const countFramesLost = (o: {
       clearTimeout(tellLater);
     },
     totals,
-    /** What `recording-stopped` says went missing, file by file. */
-    errors: (): string[] => [
-      ...(cameraGapFrames > 0
-        ? [
-            `camera.mkv is missing about ${cameraGapFrames} frame(s): gaps in the Cam Link's frames reaching the writer (ffmpeg-camera.log).`,
-          ]
-        : []),
-      ...(screenGapFrames > 0
-        ? [
-            `screen.mkv is missing about ${screenGapFrames} frame(s): gaps in the screen's frames (ffmpeg-screen.log).`,
-          ]
-        : []),
-    ],
+    /** Every span lost, told or not: `recording-stopped`'s. */
+    spans: spansSoFar,
   };
 };

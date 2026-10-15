@@ -76,9 +76,13 @@ const recorderIngest = (askEditor: AskEditor = async () => null) => {
               testDb as never,
               next,
               // As the recorder client asks: telling the editors first.
-              (videoId, recordingSessionId) => {
-                messages.push({ type: "speech-ended", recordingSessionId });
-                return askEditor(videoId, recordingSessionId);
+              (videoId, recordingSessionId, clip) => {
+                messages.push({
+                  type: "speech-ended",
+                  recordingSessionId,
+                  clip,
+                });
+                return askEditor(videoId, recordingSessionId, clip);
               }
             ).pipe(Effect.provide(layer()))
           );

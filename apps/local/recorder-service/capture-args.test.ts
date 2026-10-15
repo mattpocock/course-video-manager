@@ -138,7 +138,7 @@ describe("a take's camera writer (#2207)", () => {
   it("drops everything until Record, then keeps both clocks from T0 on: CFR 29.97 and BT.709, the mic from file time 0 with no warm-up trim", () => {
     const [camera, mic, silence] = graphOf(writer());
     expect(camera).toBe(
-      "[0:v]setpts@t0=PTS-1e10/TB,select='if(gte(t,0)*gte(prev_selected_t,0)*gt(t-prev_selected_t,0.1),print(-(t-prev_selected_t),24));1',fps=30000/1001:start_time=0,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709[cam]"
+      "[0:v]setpts@t0=PTS-1e10/TB,select='if(gte(t,0)*gte(prev_selected_t,0)*gt(t-prev_selected_t,0.1),print(prev_selected_t,24);print(-(t-prev_selected_t),24));1',fps=30000/1001:start_time=0,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709[cam]"
     );
     expect(mic).toBe(
       "[0:a]asetpts@t0=PTS-1e10/TB,atrim=start=0,aresample=async=50:min_hard_comp=0.1:first_pts=0,asplit=2[mic][sd]"
@@ -166,7 +166,7 @@ describe("a take's screen recorder", () => {
     }).join(" ");
     expect(args).toContain("ddagrab=output_idx=1:framerate=60:dup_frames=1");
     expect(args).toMatch(
-      /setpts=PTS-1000\.000\/TB,select='[^']*gt\(t-prev_selected_t,0\.05\),print\(-\(t-prev_selected_t\),24\)\);1',fps=60:start_time=0/
+      /setpts=PTS-1000\.000\/TB,select='[^']*gt\(t-prev_selected_t,0\.05\),print\(prev_selected_t,24\);print\(-\(t-prev_selected_t\),24\)\);1',fps=60:start_time=0/
     );
     expect(args).toContain("-g 120");
     expect(args).toContain("screen.mkv");

@@ -30,7 +30,7 @@ export const createTakePlacer = (o: {
     /** For one event's save: the asking, and the answer to the editor. */
     forEvent: () => {
       let answered: ((placed: PlacedTake) => void) | undefined;
-      const askEditor: AskEditor = (videoId, recordingSessionId) =>
+      const askEditor: AskEditor = (videoId, recordingSessionId, clip) =>
         new Promise((resolve) => {
           const timer = setTimeout(() => {
             asking.delete(recordingSessionId);
@@ -45,7 +45,11 @@ export const createTakePlacer = (o: {
               return new Promise((placed) => (answered = placed));
             },
           });
-          o.publish(videoId, { type: "speech-ended", recordingSessionId });
+          o.publish(videoId, {
+            type: "speech-ended",
+            recordingSessionId,
+            clip,
+          });
         });
       /** None placed (or the save failed: the replay asks again). */
       const settle = (placed?: PlacedTake) => answered?.(placed ?? NONE);
