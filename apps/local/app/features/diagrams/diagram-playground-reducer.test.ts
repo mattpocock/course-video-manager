@@ -166,6 +166,7 @@ describe("diagramPlaygroundReducer", () => {
       type: "recording-status-reported",
       recording: true,
       format: "landscape",
+      fullScreen: true,
     });
 
     expect(tester.getEffects()).toEqual([
@@ -180,16 +181,19 @@ describe("diagramPlaygroundReducer", () => {
         type: "recording-status-reported",
         recording: true,
         format: "landscape",
+        fullScreen: true,
       })
       .send({
         type: "recording-status-reported",
         recording: false,
         format: "landscape",
+        fullScreen: true,
       })
       .send({
         type: "recording-status-reported",
         recording: false,
         format: "landscape",
+        fullScreen: true,
       });
 
     // Centred once, as the take starts — never again while it runs, so the
@@ -208,6 +212,7 @@ describe("diagramPlaygroundReducer", () => {
         type: "recording-status-reported",
         recording: true,
         format: "landscape",
+        fullScreen: true,
       })
       .send({ type: "focus-mode-changed", isFocusMode: true })
       .send({ type: "focus-mode-changed", isFocusMode: false })
@@ -215,6 +220,7 @@ describe("diagramPlaygroundReducer", () => {
         type: "recording-status-reported",
         recording: true,
         format: "landscape",
+        fullScreen: true,
       });
 
     expect(tester.getState().isFocusMode).toBe(false);

@@ -92,10 +92,16 @@ export interface StatusError {
 /**
  * What the video editor reports on every heartbeat: whether a take is
  * recording, and the Video's format, which says where a take-start centres.
+ * The playground adds whether its window is full screen.
  */
 export interface RecordingStatus {
   recording: boolean;
   format: VideoFormat;
+  /**
+   * Not the editor's: whether this window was already full screen, in either
+   * way, as the status arrived (`full-screen.ts`).
+   */
+  fullScreen: boolean;
 }
 
 export type DiagramPlaygroundEffect =
@@ -166,4 +172,10 @@ export type DiagramPlaygroundEffect =
    * uses the canvas's new size. `format` is the playground's Video's: a Short
    * centres in the square it shows, with no face-cam strip.
    */
-  | { type: "centre-camera-after-layout"; format: VideoFormat };
+  | { type: "centre-camera-after-layout"; format: VideoFormat }
+  /**
+   * Put the window full screen. Asked for only when it isn't already, in
+   * either way (`full-screen.ts`): asking again re-shows the browser's exit
+   * notice.
+   */
+  | { type: "enter-full-screen" };

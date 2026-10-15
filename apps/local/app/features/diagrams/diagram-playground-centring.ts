@@ -9,7 +9,8 @@ type Action = Extract<
 
 /**
  * `diagramPlaygroundReducer`'s say over where the camera centres outside a
- * scene load: as a take starts, and when the author asks. Both centre for
+ * scene load: as a take starts, and when the author asks. A take starting
+ * also hides the sidebar and puts the window full screen. Both centre for
  * the playground's Video's format, which the video editor reports on every
  * heartbeat, recording or not.
  */
@@ -33,6 +34,9 @@ export function reduceCentring(
   // Centre once as a take starts; the author may pan during it.
   if (action.recording) {
     exec({ type: "centre-camera-after-layout", format: action.format });
+    // The window is the recording surface, so it fills the screen — unless
+    // it already does, when asking again would flash the browser's notice.
+    if (!action.fullScreen) exec({ type: "enter-full-screen" });
   }
   return { ...reported, recording: action.recording };
 }
