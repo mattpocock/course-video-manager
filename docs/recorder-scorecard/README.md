@@ -25,7 +25,7 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
 - **The Windows guard.** Every Windows process (ffmpeg.exe, PowerShell, nvidia-smi) starts through `guardWindows()` (`scripts/windows-guard.ts`), so it runs at Idle priority on cores 6-9, in a job object that kills it with its launcher.
   - The run exits 3 without starting anything while Matt's recorder service runs at all, while any recorder ffmpeg.exe runs, or while OBS runs.
   - Every 5 s it checks again. If a take of Matt's, his recorder service, or OBS starts, or a process of the run is found off Idle or off cores 6-9, everything of the run is killed at once and the report says so A process whose priority or affinity reads empty (one the run has just killed reads this way while it exits) is read again: gone, it is ignored; still there, it counts.
-  - `timer-resolution.ps1` and `raise-priority.ps1` are not run: they raise the capture, the writer and the screen recorder to High priority.
+  - `timer-resolution.ps1` is not run: it raises the capture, the writer and the screen recorder to High priority.
 - **Scenarios, in order:**
   1. Idle (preview latency and resources).
   2. The long take (A/V drift, frames, first frames, Stop timings, Optimistic Clip delay).

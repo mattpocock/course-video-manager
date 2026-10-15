@@ -1,3 +1,10 @@
+# Tunes a running ffmpeg.exe as OBS runs its own capture: no power throttling,
+# a 1 ms timer and High priority. Run on the screen recorder, the camera
+# capture (the Cam Link and the mic) and each take's camera writer
+# (camera.ts, tuneProcess). Before 2026-10-15 the capture and the writer got
+# High priority alone (raise-priority.ps1): left throttled, the capture still
+# stalled for 61-141 ms at a time mid-take and lost 50-278 camera frames.
+#
 # Raises the Windows timer resolution to 1 ms inside a running ffmpeg.exe.
 #
 # Why: ddagrab paces itself with Sleep() and waits for each desktop frame with
@@ -24,6 +31,10 @@
 # It is looked up for up to 10 s, since ffmpeg.exe was only just spawned.
 param([string]$Tag, [string]$Match, [int]$Ms = 1, [string]$Priority = "High")
 $ErrorActionPreference = "Stop"
+# This script (and the csc.exe Add-Type starts to compile its C#, which
+# inherits it) runs below everything it tunes: it starts as a take is armed or
+# begins, and must not be the load that stalls the capture.
+(Get-Process -Id $PID).PriorityClass = "BelowNormal"
 Add-Type -TypeDefinition @"
 using System;
 using System.Diagnostics;
