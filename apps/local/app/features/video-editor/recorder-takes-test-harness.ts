@@ -252,7 +252,7 @@ export const obs: Recorder = {
       report({ type: "speech-heard", heard });
     const endSpeech = () => {
       clock += 1;
-      hear({ type: "silence-started", heardAtSeconds: clock });
+      hear({ type: "silence-started" });
     };
     const connected = (recording: boolean) =>
       report({
@@ -499,7 +499,8 @@ export const cvm: Recorder = {
       // The app server's events reconnect, and say what records.
       reconnect: () =>
         adapter.hear(status(adapter.recorder.getState().recordingSessionId)),
-      speech: () => adapter.recorder.getState().speech,
+      speech: () =>
+        toFrontendSpeechDetectorState(adapter.recorder.getState().speech),
       stops: () =>
         adapter.recorder.getEffects().filter((x) => x.type === "stop-recording")
           .length,

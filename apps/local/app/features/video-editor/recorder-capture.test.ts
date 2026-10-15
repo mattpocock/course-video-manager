@@ -7,7 +7,11 @@ describe("the capture the editor and the glass show", () => {
   const cvmRecorderSpeaking = {
     ...createInitialCvmRecorderState(),
     phase: "recording" as const,
-    speech: { type: "speaking-detected" as const },
+    speech: {
+      type: "speaking" as const,
+      silenceEndedAtSeconds: null,
+      soundDetectionId: null,
+    },
   };
 
   it("is OBS's recording state and browser speech detector on an OBS Video", () => {
