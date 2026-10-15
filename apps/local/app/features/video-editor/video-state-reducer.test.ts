@@ -15,10 +15,40 @@ const createInitialState = (
   playbackRate: 1,
   showLastFrameOfVideo: false,
   scrubSeekTime: undefined,
+  animatic: null,
   ...overrides,
 });
 
 describe("videoStateReducer", () => {
+  it("a Clip Mockup clicked mid-Take stops the editor and the Take, and the Animatic player owns the keys until it is dismissed", () => {
+    const clip = "clip-1" as FrontendId;
+    const tester = new ReducerTester(
+      makeVideoEditorReducer([clip], [clip]),
+      createInitialState({ currentClipId: clip, runningState: "playing" })
+    );
+
+    tester.send({
+      type: "click-animatic-clip-mockup",
+      clipMockupId: "mockup-14",
+      takeRecording: true,
+    });
+    expect(tester.getState()).toMatchObject({
+      runningState: "paused",
+      animatic: { clipMockupId: "mockup-14" },
+    });
+
+    // SPACE is the Animatic's while it is open: the editor stays paused.
+    tester.send({ type: "press-space-bar" }).send({ type: "press-l" });
+    expect(tester.getState().runningState).toBe("paused");
+
+    tester.send({ type: "dismiss-animatic" }).send({ type: "press-space-bar" });
+    expect(tester.getState()).toMatchObject({
+      animatic: null,
+      runningState: "playing",
+    });
+    expect(tester.getEffects()).toEqual([{ type: "stop-recording" }]);
+  });
+
   it("keeps only the Clips around the playhead preloaded, however many have played", () => {
     const clips = Array.from(
       { length: 10 },

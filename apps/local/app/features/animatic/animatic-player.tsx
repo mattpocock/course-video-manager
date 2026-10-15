@@ -131,19 +131,37 @@ export const AnimaticPlayer = (props: {
   sectionRunTime: AnimaticSectionRunTime;
   width: number;
   height: number;
+  /**
+   * A Clip Mockup to START ON: the player opens with it selected and plays it
+   * from its first frame. The editor's Animatic tab opens the player this
+   * way; the Animatic page starts at the top and leaves it out.
+   */
+  startAt?: string;
+  /** ESC closes the player. Only where it is an overlay — the editor's. */
+  onClose?: () => void;
 }) => {
   const playerRef = useRef<PlayerRef>(null);
   const [playbackRate, choosePlaybackRate] = useAnimaticPlaybackRate();
   const [showSubtitles, chooseSubtitles] = useAnimaticSubtitles();
   const [subtitleStyle, chooseSubtitleStyle] = useAnimaticSubtitleStyle();
-  const [selection, setSelection] = useState<AnimaticSelection>(null);
+  // The moment to open on, read once: `initialFrame` below is a mount-time
+  // prop of the Player, and so is this.
+  const startIndex = useRef(
+    Math.max(
+      0,
+      props.mockups.findIndex((mockup) => mockup.id === props.startAt)
+    )
+  ).current;
+  const [selection, setSelection] = useState<AnimaticSelection>(
+    props.startAt === undefined ? null : startIndex
+  );
 
   // THE SEGMENT IS STATE, NOT THE FRAME. Holding the raw frame re-rendered this
   // page thirty times a second for a highlight that moves once per Clip Mockup;
   // holding the index means React bails out on every frame that did not cross a
   // boundary. The page polls its own loader (see `animatic-revalidation.ts`), so
   // a re-render here is no longer a rare event and cannot be a cheap one.
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(startIndex);
 
   // The rows as an unchanged poll leaves them: the SAME array, so nothing below
   // sees a change and the Player is never remounted mid-watch.
@@ -315,6 +333,7 @@ export const AnimaticPlayer = (props: {
       playerRef.current?.play();
     },
     onToggleSubtitles: () => chooseSubtitles(!showSubtitles),
+    onClose: props.onClose,
   });
 
   const listRef = useRef<HTMLOListElement>(null);
@@ -480,6 +499,10 @@ export const AnimaticPlayer = (props: {
               playbackRate={playbackRate}
               showPlaybackRateControl={ANIMATIC_PLAYBACK_RATES}
               loop={false}
+              // Opened on a moment (the editor's Animatic tab): start there,
+              // and play — the click that opened it was the press of play.
+              initialFrame={timeline.segments[startIndex]?.startFrame ?? 0}
+              autoPlay={props.startAt !== undefined}
               clickToPlay
               // SPACE is ours, not the Player's — leaving both on toggles playback
               // twice whenever the Player holds focus, which is right after a click

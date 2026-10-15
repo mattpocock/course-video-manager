@@ -32,3 +32,13 @@ step through its ChooseScreenshot placeholders — cannot use that guard whole, 
 it uses the guard's `isTypingTarget` half and scopes itself to keys from its own
 dialog. The Video and Animatic pages refuse every key from a dialog, so the two
 L/K meanings never both act on one press.
+
+The Video Editor can also open the Animatic player OVER itself: a click on a
+Clip Mockup in the side panel's Animatic tab opens it there and plays from that
+moment (`features/video-editor/components/animatic-overlay.tsx`). Both
+surfaces are then mounted at once, so ONE OWNER of the keyboard lives in the
+editor's reducer (`video-state-reducer-animatic.ts`): while `animatic` is set, the
+reducer drops every editor shortcut event, and only the Animatic's keys act.
+ESC is the Animatic's key there. It closes the player and gives the keys back.
+The overlay is a plain overlay and not a `role="dialog"`, because the shared
+guard refuses every key from inside a dialog.

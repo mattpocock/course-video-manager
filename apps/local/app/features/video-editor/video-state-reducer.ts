@@ -1,6 +1,13 @@
 import type { EffectReducer } from "use-effect-reducer";
 import { preloadedAround } from "./preloaded-clips";
 import type { FrontendId } from "./clip-state-reducer";
+import {
+  isKeyOwnedByAnimatic,
+  reduceAnimatic,
+  type AnimaticAction,
+  type AnimaticEffect,
+  type AnimaticOwner,
+} from "./video-state-reducer-animatic";
 
 export type RunningState = "playing" | "paused";
 
@@ -21,9 +28,12 @@ export namespace videoStateReducer {
      * in the source footage. Used for frame-by-frame scrubbing.
      */
     scrubSeekTime: number | undefined;
+    /** The Animatic player open over the editor, owning the keys. */
+    animatic: AnimaticOwner;
   }
 
   export type Effect =
+    | AnimaticEffect
     | {
         type: "archive-clips";
         clipIds: FrontendId[];
@@ -54,6 +64,7 @@ export namespace videoStateReducer {
       };
 
   export type Action =
+    | AnimaticAction
     | {
         type: "press-pause";
       }
@@ -198,7 +209,11 @@ export const makeVideoEditorReducer =
     videoStateReducer.Effect
   > =>
   (state, action, exec) => {
+    if (isKeyOwnedByAnimatic(state, action)) return state;
     switch (action.type) {
+      case "click-animatic-clip-mockup":
+      case "dismiss-animatic":
+        return reduceAnimatic(state, action, exec);
       case "toggle-last-frame-of-video":
         return {
           ...state,

@@ -55,6 +55,8 @@ export type VideoEditorContextType = {
   playbackRate: number;
   showLastFrameOfVideo: boolean;
   scrubSeekTime: number | undefined;
+  /** The Animatic player open over the editor — see `AnimaticOverlay`. */
+  animatic: videoStateReducer.State["animatic"];
   dispatch: (action: videoStateReducer.Action) => void;
 
   // Computed

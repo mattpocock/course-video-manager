@@ -23,8 +23,9 @@ import { shouldIgnoreKeyboardShortcut } from "@/hooks/should-ignore-keyboard-sho
  * plays the Animatic — with one exception. A click on the Player's own play
  * or fullscreen button leaves focus on that button, and the guard ignores keys
  * on a plain button. LEFT and RIGHT are let through from inside the stage
- * anyway, so the author's hand on the picture can still step it. Only those
- * two: the Player's speed menu reads UP, DOWN and RETURN for itself.
+ * anyway, so the author's hand on the picture can still step it, and so is
+ * ESC, so the editor's overlay can always be closed. Only those three: the
+ * Player's speed menu reads UP, DOWN and RETURN for itself.
  */
 
 export interface AnimaticShortcutHandlers {
@@ -42,6 +43,11 @@ export interface AnimaticShortcutHandlers {
   onChooseRate: (rate: number) => void;
   /** C — subtitles on or off, as on YouTube. The Animatic's own key. */
   onToggleSubtitles: () => void;
+  /**
+   * ESC — close the player, where it is an overlay over the Video Editor.
+   * Absent on the Animatic page, which has nothing to close.
+   */
+  onClose?: () => void;
 }
 
 export function useAnimaticShortcuts(handlers: AnimaticShortcutHandlers) {
@@ -53,9 +59,12 @@ export function useAnimaticShortcuts(handlers: AnimaticShortcutHandlers) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isStep = e.key === "ArrowLeft" || e.key === "ArrowRight";
+      // ESC too: a click on the Player's own buttons must not leave the
+      // overlay with no way out from the keyboard.
+      const passesStageControls =
+        e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Escape";
       const fromStageControl =
-        isStep &&
+        passesStageControls &&
         e.target instanceof HTMLButtonElement &&
         e.target.closest("[data-animatic-stage]") !== null;
       if (!fromStageControl && shouldIgnoreKeyboardShortcut(e)) return;
@@ -89,6 +98,9 @@ export function useAnimaticShortcuts(handlers: AnimaticShortcutHandlers) {
         held.current.onChooseRate(1);
       } else if (e.key === "c") {
         held.current.onToggleSubtitles();
+      } else if (e.key === "Escape" && held.current.onClose) {
+        e.preventDefault();
+        held.current.onClose();
       }
     };
 
