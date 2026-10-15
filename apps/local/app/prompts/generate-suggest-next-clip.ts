@@ -29,9 +29,15 @@ const section = (tag: string, intro: string, body: string | undefined) =>
     ? `${intro}\n\n<${tag}>\n${body.trim()}\n</${tag}>`
     : "";
 
-export const generateSuggestNextClipPrompt = (
+/**
+ * The prompt in two parts. `plan` (the role and the sources) stays the same
+ * from one Clip to the next, so the route caches it; `now` (the Clips and the
+ * ask) changes with every Clip and comes after it, so it never invalidates
+ * that cache.
+ */
+export const generateSuggestNextClipPromptParts = (
   input: SuggestNextClipInput
-): string => {
+): { plan: string; now: string } => {
   const guides = [
     section(
       "notes",
@@ -79,13 +85,15 @@ ${recent.join("\n")}
           .join("\n\n")
       : "The creator has not recorded anything yet: suggest the opening line of the video.";
 
-  return `
+  const plan = `
 <role-context>
 You are a teleprompter for a course creator recording a video one short clip at a time. After each clip, you show them what to say next.
 </role-context>
 
 ${guides.length > 0 ? guides.join("\n\n") : "There is no plan for this video: continue naturally from the clips."}
+`.trim();
 
+  const now = `
 ${clips}
 
 <the-ask>
@@ -103,4 +111,13 @@ Work out where the most recent clips sit in the plan, then write the very next t
 Output ONLY the spoken words. No quotes, no "you should say...", no stage directions. The only markdown allowed is **bold**.
 </output-format>
 `.trim();
+
+  return { plan, now };
+};
+
+export const generateSuggestNextClipPrompt = (
+  input: SuggestNextClipInput
+): string => {
+  const { plan, now } = generateSuggestNextClipPromptParts(input);
+  return `${plan}\n\n${now}`;
 };

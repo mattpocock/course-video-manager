@@ -69,12 +69,15 @@ export function useSuggestions(input: {
     suggestionsReducer.Effect
   >(
     suggestionsStateReducer,
-    () =>
-      createInitialSuggestionsState({
+    (exec) => {
+      // Fetch the Script now, so opening the tab can ask without waiting.
+      exec({ type: "load-script", videoId: input.videoId });
+      return createInitialSuggestionsState({
         videoId: input.videoId,
         included: readIncludedSources(),
         notes: readStored(notesKey(input.videoId)) ?? "",
-      }),
+      });
+    },
     {
       // The teleprompter's content route: the Script and nothing heavier.
       "load-script": (_state, effect, dispatch) => {

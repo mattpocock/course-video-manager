@@ -120,6 +120,56 @@ describe("the Suggestions tab", () => {
     });
   });
 
+  it("a Clip deleted, moved or re-transcribed, or the Insertion Point moved, asks again at once", () => {
+    const t = tester()
+      .send({ type: "suggestions-tab-opened" })
+      .send({ type: "script-loaded", videoId: "v1", script: "" })
+      .resetExec();
+    vi.mocked(t.getExec()).mockReturnValue(runningStream);
+    // No new transcript, but the Clips before the Insertion Point changed.
+    t.send({ type: "editor-context-changed", context: context({ clips: [] }) })
+      // The same input again: nothing to ask.
+      .send({ type: "editor-context-changed", context: context({ clips: [] }) })
+      // A change to an unticked source sends the same request.
+      .send({ type: "source-toggled", source: "beats" })
+      .send({
+        type: "editor-context-changed",
+        context: context({ clips: [], beats: "Hook" }),
+      });
+
+    expect(t.getExec().stop).toHaveBeenCalledWith(runningStream);
+    expect(t.getEffects()).toEqual([
+      stream(2, { animatic: 'Mockup 1: "Hello"', clips: [] }),
+      {
+        type: "store-included-sources",
+        included: { notes: true, script: true, animatic: true, beats: false },
+      },
+      stream(3, { animatic: 'Mockup 1: "Hello"', clips: [] }),
+    ]);
+  });
+
+  it("reopening asks at once with the Script in hand, and again only if the reloaded Script changed", () => {
+    const t = tester()
+      .send({ type: "script-loaded", videoId: "v1", script: "Intro." })
+      .send({ type: "suggestions-tab-opened" })
+      .send({ type: "script-loaded", videoId: "v1", script: "Intro." })
+      .send({ type: "suggestions-tab-closed" })
+      .send({ type: "suggestions-tab-opened" })
+      .send({ type: "script-loaded", videoId: "v1", script: "New intro." });
+
+    const asked = {
+      animatic: 'Mockup 1: "Hello"',
+      clips: ["So that's a type."],
+    };
+    expect(t.getEffects()).toEqual([
+      { type: "load-script", videoId: "v1" },
+      stream(1, { script: "Intro.", ...asked }),
+      { type: "load-script", videoId: "v1" },
+      stream(2, { script: "Intro.", ...asked }),
+      stream(3, { script: "New intro.", ...asked }),
+    ]);
+  });
+
   it("sends every Clip, shows the last three on the glass, and closes bold still streaming in", () => {
     const clips = ["one", "two", "three", "four"];
     const t = tester()

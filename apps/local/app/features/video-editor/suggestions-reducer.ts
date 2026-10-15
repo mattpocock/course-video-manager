@@ -4,11 +4,17 @@
  *
  * The rules, all decided here:
  *
- *   - Nothing runs unless the tab is open. Opening it loads the Script (the
- *     editor's loader leaves the Script text out) and then asks.
- *   - A new Clip's transcript, a ticked or unticked source, or Refresh asks
- *     again. So do the author's Notes, once typing pauses for a second. A newer request stops the one in flight: only the newest
- *     suggestion ever shows.
+ *   - Nothing runs unless the tab is open. The Script is loaded when the
+ *     editor opens (the editor's loader leaves the Script text out), so
+ *     opening the tab asks at once. It reloads the Script too, in case it was
+ *     edited in the Script tab, and asks again if it changed.
+ *   - Any change to what a suggestion is made from asks again AT ONCE, with
+ *     no wait: a new Clip's transcript, a Clip deleted, moved or re-transcribed,
+ *     the Insertion Point moved, the Animatic or Beats changed, a source
+ *     ticked or unticked, or Refresh. The one exception is the author's
+ *     Notes, which ask once typing pauses for a second.
+ *   - A newer request stops the one in flight: only the newest suggestion
+ *     ever shows.
  *   - Closing the tab stops the stream and forgets the suggestion, so the
  *     teleprompter goes back to the Script.
  *
@@ -55,7 +61,7 @@ export namespace suggestionsReducer {
     videoId: string;
     open: boolean;
     included: Included;
-    /** `null` until loaded for this opening of the tab. */
+    /** `null` until the first load comes back. */
     script: string | null;
     /** This Video's Notes, as typed. */
     notes: string;
@@ -219,16 +225,32 @@ const ask = (state: State, exec: Exec): State => {
 /** Asking only makes sense with the tab open and the Script in hand. */
 const canAsk = (state: State) => state.open && state.script !== null;
 
+/**
+ * Whether `next` can ask and would send something other than `prev` did: a
+ * Clip added, deleted, moved or re-transcribed, the Insertion Point moved past
+ * a Clip, a new Script, Animatic or Beats. A change to an unticked source
+ * sends the same request, so it does not ask again.
+ */
+const asksDifferently = (prev: State, next: State) =>
+  canAsk(next) &&
+  (!canAsk(prev) ||
+    JSON.stringify(getSuggestionInput(prev)) !==
+      JSON.stringify(getSuggestionInput(next)));
+
 export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
   state,
   action,
   exec
 ) => {
   switch (action.type) {
-    case "suggestions-tab-opened":
+    case "suggestions-tab-opened": {
       if (state.open) return state;
+      // Reload the Script in case it was edited while the tab was closed, but
+      // ask now with the one in hand rather than wait for it.
       exec({ type: "load-script", videoId: state.videoId });
-      return { ...state, open: true, script: null, status: "waiting" };
+      const next = { ...state, open: true, status: "waiting" as const };
+      return canAsk(next) ? ask(next, exec) : next;
+    }
 
     case "suggestions-tab-closed":
       if (!state.open) return state;
@@ -236,26 +258,30 @@ export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
       return {
         ...state,
         open: false,
-        script: null,
         status: "idle",
         text: "",
         requestId: null,
         stream: null,
       };
 
-    case "script-loaded":
-      // Late: the tab closed, or the Script already came in.
-      if (!state.open || state.script !== null) return state;
+    case "script-loaded": {
       if (action.videoId !== state.videoId) return state;
-      return ask({ ...state, script: action.script }, exec);
+      if (action.script === state.script) return state;
+      const next = { ...state, script: action.script };
+      return asksDifferently(state, next) ? ask(next, exec) : next;
+    }
 
     case "editor-context-changed": {
       const next = { ...state, context: action.context };
+      // A new Clip whose transcript is empty changes no text, but it is still
+      // a new Clip, so it asks too.
       const known = new Set(state.context.transcribedClipIds);
       const newTranscript = action.context.transcribedClipIds.some(
         (id) => !known.has(id)
       );
-      return newTranscript && canAsk(next) ? ask(next, exec) : next;
+      return (newTranscript && canAsk(next)) || asksDifferently(state, next)
+        ? ask(next, exec)
+        : next;
     }
 
     case "source-toggled": {
