@@ -27,4 +27,15 @@ describe("CVM's ffmpeg build", () => {
       expect(patch).toContain(`+    { "${option}",`);
     }
   });
+
+  it("is GPL-3.0-or-later and never nonfree, as ffmpeg/NOTICE says", () => {
+    const inside = fs.readFileSync(path.join(FFMPEG_DIR, "inside.sh"), "utf8");
+    expect(inside).toContain("--enable-gpl");
+    expect(inside).toContain("--enable-version3");
+    expect(inside).not.toContain("--enable-nonfree");
+    expect(inside).not.toContain("--enable-cuda-nvcc");
+    expect(fs.readFileSync(path.join(FFMPEG_DIR, "NOTICE"), "utf8")).toContain(
+      "GPL-3.0-or-later"
+    );
+  });
 });
