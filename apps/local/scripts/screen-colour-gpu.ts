@@ -41,6 +41,27 @@ const COLOURS = [
   "569cd6",
   "6a9955",
 ];
+/**
+ * The Y/U/V the GPU chain must give each patch (RTX 4060, 2026-10-15). The
+ * six greys are #2225's exactly (#1e1e1e is Y=42, as in OBS's files). The
+ * four colours differ from #2225 by 1 in U or V: the video processor does
+ * matrix and range in one rounding step where #2225 rounded twice, and its
+ * values decode closer to the source (#ce9178 back as #ce9178; #2225 gave
+ * #d09078). Matt accepted that for the GPU path.
+ */
+const EXPECTED: Record<string, [number, number, number]> = {
+  "000000": [16, 128, 128],
+  "101010": [30, 128, 128],
+  "1e1e1e": [42, 128, 128],
+  "808080": [126, 128, 128],
+  d4d4d4: [198, 128, 128],
+  ffffff: [235, 128, 128],
+  "3178c6": [111, 169, 94], // #2225: 110/170/94
+  ce9178: [150, 111, 156], // #2225: 150/111/157
+  "569cd6": [141, 160, 95], // #2225: 141/161/95
+  "6a9955": [135, 103, 110], // #2225: 135/103/111
+};
+
 const PATCH = 64;
 const W = PATCH * COLOURS.length;
 const H = PATCH;
@@ -221,13 +242,18 @@ const main = async () => {
     `bytes differing: ${diff} of ${ref.length} (max delta ${maxDelta})${diff === 0 ? ": BYTE-IDENTICAL" : ""}`
   );
   console.log("colour   | #2225 Y/U/V -> RGB      | GPU Y/U/V -> RGB");
+  let wrong = 0;
   COLOURS.forEach((c, i) => {
     const a = sample(ref, i);
     const b = sample(gpu, i);
+    const ok = [b.Y, b.U, b.V].join("/") === EXPECTED[c]!.join("/");
+    if (!ok) wrong++;
     console.log(
-      `#${c}  | ${[a.Y, a.U, a.V].join("/").padEnd(11)} -> #${hex(a.rgb)} | ${[b.Y, b.U, b.V].join("/").padEnd(11)} -> #${hex(b.rgb)}`
+      `#${c}  | ${[a.Y, a.U, a.V].join("/").padEnd(11)} -> #${hex(a.rgb)} | ${[b.Y, b.U, b.V].join("/").padEnd(11)} -> #${hex(b.rgb)}${ok ? "" : `  WRONG, expected ${EXPECTED[c]!.join("/")}`}`
     );
   });
+  console.log(wrong === 0 ? "colour: PASS" : `colour: FAIL (${wrong} patches)`);
+  if (wrong) process.exitCode = 1;
 
   for (const size of ["2560x1440", "3840x2160"]) {
     console.log(
