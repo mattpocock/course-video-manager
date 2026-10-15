@@ -2,11 +2,8 @@ import { OBS_WEBSOCKET_URL } from "@/lib/live-channels";
 import { OBSWebSocket } from "obs-websocket-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEffectReducer, type EffectReducer } from "use-effect-reducer";
-import {
-  useSpeechDetector,
-  useWatchForSilenceDetected,
-  useWatchForSpeechDetected,
-} from "./use-speech-detector";
+import { useSpeechDetector } from "./use-speech-detector";
+import { obsTakeSignal } from "./obs-clip-bridge";
 import {
   DEFAULT_SILENCE_THRESHOLD_DB,
   type SilenceLength,
@@ -654,27 +651,22 @@ export const useOBSConnector = (props: {
           DEFAULT_SILENCE_THRESHOLD_DB),
   });
 
-  useWatchForSpeechDetected({
-    state: speechDetectorState,
-    onSpeechPartStarted: (soundDetectionId) => {
-      if (state.type === "obs-recording") {
-        props.onNewClipOptimisticallyAdded({
-          scene: state.scene,
-          profile: state.profile,
-          soundDetectionId,
-        });
-      }
-    },
-  });
-
-  useWatchForSilenceDetected({
-    state: speechDetectorState,
-    onSilenceDetected: () => {
-      if (state.type === "obs-recording") {
-        props.onClipAudioWindowClosed();
-      }
-    },
-  });
+  // Bridges the speech detector's Takes to the editor (`obs-clip-bridge.ts`).
+  const prevSpeechDetectorStateRef = useRef(speechDetectorState);
+  useEffect(() => {
+    const signal = obsTakeSignal(
+      prevSpeechDetectorStateRef.current,
+      speechDetectorState,
+      state
+    );
+    prevSpeechDetectorStateRef.current = speechDetectorState;
+    if (signal?.type === "take-started") {
+      const { type: _, ...take } = signal;
+      props.onNewClipOptimisticallyAdded(take);
+    } else if (signal?.type === "take-window-closed") {
+      props.onClipAudioWindowClosed();
+    }
+  }, [speechDetectorState]);
 
   const output = useMemo(() => {
     return {

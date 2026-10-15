@@ -14,6 +14,7 @@ import {
 import type { PauseType } from "@/services/video-processing-service";
 import { resolveClipZoomType } from "@/features/videos/clip-zoom";
 import { useOBSConnector } from "@/features/video-editor/obs-connector";
+import { obsSessionEvents } from "@/features/video-editor/obs-clip-bridge";
 import { OBS_PROFILE_LANDSCAPE } from "@/features/video-editor/ensure-obs-profile";
 import { useSilenceLength } from "@/features/video-editor/use-silence-length";
 import { useRecorderChoice } from "@/features/video-editor/use-recorder-choice";
@@ -379,16 +380,12 @@ export const ComponentInner = (props: Route.ComponentProps) => {
     const obs = obsConnector.state;
     const prevType = prevOBSStateTypeRef.current;
     prevOBSStateTypeRef.current = obs.type;
-    if (prevType !== "obs-recording" && obs.type === "obs-recording") {
-      dispatch({
-        type: "recording-started",
-        outputPath: obs.latestOutputPath,
-        silenceLength: silenceLengthRef.current,
-        silenceThresholdDb: obs.silenceThresholdDb,
-      });
-    } else if (prevType === "obs-recording" && obs.type !== "obs-recording") {
-      dispatch({ type: "recording-stopped" });
-    }
+    for (const action of obsSessionEvents(
+      prevType,
+      obs,
+      silenceLengthRef.current
+    ))
+      dispatch(action);
   }, [obsConnector.state.type]);
 
   return (
