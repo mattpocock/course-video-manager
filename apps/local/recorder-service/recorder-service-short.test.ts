@@ -44,7 +44,7 @@ describe("a Short", () => {
     expect(screen).toEqual({ kind: "ready" });
     expect(windows.wakes()).toBe(1);
     expect(argsOf(windows.screenPreviews.at(-1)!.launch)).toMatch(
-      /ddagrab=output_idx=2:framerate=60,scale_d3d11=format=nv12,hwdownload,/
+      /ddagrab=output_idx=2:framerate=60,scale_d3d11=format=nv12:out_range=tv:out_color_matrix=bt709,setparams=/
     );
 
     client.send({
@@ -71,7 +71,7 @@ describe("a Short", () => {
     );
     expect(screen).toEqual({ kind: "ready" });
     expect(argsOf(windows.screenPreviews.at(-1)!.launch)).toMatch(
-      /ddagrab=output_idx=2:framerate=60,scale_d3d11=format=nv12,hwdownload,/
+      /ddagrab=output_idx=2:framerate=60,scale_d3d11=format=nv12:out_range=tv:out_color_matrix=bt709,setparams=/
     );
 
     client.send({
@@ -197,7 +197,7 @@ describe("a Short", () => {
     const running = windows.screenPreviews.filter((p) => p.running);
     expect(running.map((p) => argsOf(p.launch))).toEqual([
       expect.stringMatching(
-        /output_idx=1:framerate=60,scale_d3d11=format=nv12,hwdownload,/
+        /output_idx=1:framerate=60,scale_d3d11=format=nv12:out_range=tv:out_color_matrix=bt709,setparams=/
       ),
     ]);
     client.send({

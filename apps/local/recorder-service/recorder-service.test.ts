@@ -30,7 +30,7 @@ import {
 /** The recorder service through its WebSocket (test-utils/service-harness.ts). */
 
 describe("start-up checks", () => {
-  it("refuses any ffmpeg other than 8.0.1, saying how to install it", async () => {
+  it("refuses any ffmpeg other than CVM's 8.0.1 build, saying how to install it", async () => {
     const { port } = await start(
       fakeWindows({ ffmpegVersion: "8.1-full_build-www.gyan.dev" })
     );
@@ -39,10 +39,22 @@ describe("start-up checks", () => {
     expect(hello.ffmpeg.ok).toBe(false);
     const message = hello.ffmpeg.ok ? "" : hello.ffmpeg.message;
     expect(message).toContain("8.1");
-    expect(message).toContain("winget install Gyan.FFmpeg --version 8.0.1");
+    expect(message).toContain("pnpm --filter @cvm/local ffmpeg:install");
 
     client.send({ type: "open", videoId: "v1" });
     expect((await client.next("refused")).message).toBe(message);
+  });
+
+  it("refuses a stock 8.0.1: only CVM's build can make the screen's colour on the GPU", async () => {
+    const { port } = await start(
+      fakeWindows({ ffmpegVersion: "8.0.1-full_build-www.gyan.dev" })
+    );
+    const client = await connect(port);
+    const hello = await client.next("hello");
+    expect(hello.ffmpeg.ok).toBe(false);
+    expect(hello.ffmpeg.ok ? "" : hello.ffmpeg.message).toContain(
+      "needs CVM's ffmpeg 8.0.1-cvm1"
+    );
   });
 
   it("only warns when the NVIDIA driver changed since the last start", async () => {

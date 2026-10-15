@@ -10,15 +10,19 @@ import type { FfmpegCheck } from "./protocol";
  */
 
 /**
- * The only ffmpeg the recorder runs on. 8.1 and 9.x need NVIDIA driver 610+
- * for NVENC (Matt has 591.74), and every number in the rig was measured on
- * 8.0.1, so another build is refused rather than quietly changing the capture.
+ * The only ffmpeg the recorder runs on: CVM's own build of 8.0.1
+ * (apps/local/ffmpeg), which reports itself as `8.0.1-cvm1`. 8.1 and 9.x
+ * need NVIDIA driver 610+ for NVENC (Matt has 591.74), and every number in
+ * the rig was measured on 8.0.1. The build adds the scale_d3d11 colour
+ * options the screen recorder's chain uses (`SCREEN_TO_NV12`), so a stock
+ * ffmpeg, even 8.0.1, is refused rather than failing at the first take.
  */
 export const FFMPEG_VERSION = "8.0.1";
+/** Keep in step with CVM_BUILD in apps/local/ffmpeg/build.sh (a test checks). */
+export const FFMPEG_BUILD = `${FFMPEG_VERSION}-cvm1`;
 
-const INSTALL =
-  `Install it with: winget install Gyan.FFmpeg --version ${FFMPEG_VERSION}, ` +
-  `then keep it there with: winget pin add Gyan.FFmpeg --version ${FFMPEG_VERSION}`;
+export const FFMPEG_INSTALL =
+  "Build and install it with: pnpm --filter @cvm/local ffmpeg:install";
 
 export const checkFfmpeg = async (launch: Launcher): Promise<FfmpegCheck> => {
   const { stdout, stderr } = await runToEnd(
@@ -32,13 +36,13 @@ export const checkFfmpeg = async (launch: Launcher): Promise<FfmpegCheck> => {
   if (!version) {
     return {
       ok: false,
-      message: `ffmpeg.exe did not report a version (${(stderr || stdout).trim().slice(0, 200) || "no output"}). The recorder needs ${FFMPEG_VERSION}. ${INSTALL}.`,
+      message: `ffmpeg.exe did not report a version (${(stderr || stdout).trim().slice(0, 200) || "no output"}). The recorder needs CVM's ffmpeg ${FFMPEG_BUILD}. ${FFMPEG_INSTALL}.`,
     };
   }
-  if (version !== FFMPEG_VERSION && !version.startsWith(`${FFMPEG_VERSION}-`)) {
+  if (version !== FFMPEG_BUILD) {
     return {
       ok: false,
-      message: `ffmpeg.exe is ${version}, but the recorder needs ${FFMPEG_VERSION} (newer builds need NVIDIA driver 610+ for NVENC). ${INSTALL}.`,
+      message: `ffmpeg.exe is ${version}, but the recorder needs CVM's ffmpeg ${FFMPEG_BUILD} (it makes the screen's colour on the GPU). ${FFMPEG_INSTALL}.`,
     };
   }
   return { ok: true, version };

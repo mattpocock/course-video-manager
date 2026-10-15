@@ -11,20 +11,18 @@ export const BT709 =
 /**
  * ddagrab's D3D11 BGRA frame to NV12 as OBS writes it (ColorFormat NV12,
  * ColorSpace 709, ColorRange Partial): BT.709, LIMITED range, so VS Code's
- * #1e1e1e is Y=42 in both. scale_d3d11 (ffmpeg 8.0.1) never sets the video
- * processor's colour spaces, and the GPU makes it BT.709 but FULL range:
- * #1e1e1e came out Y=30 in a file tagged limited, and every player showed it
- * as RGB 16, a darker black than OBS's. So the GPU still does the BGRA ->
- * NV12 conversion (the heavy part), and the CPU squeezes its full range into
- * limited: an NV12 read-back (3 MB a frame at 1080p, not BGRA's 8 MB) and
- * a per-sample table. Tagged BT.709 limited after, not before: the tags
- * describe the samples the encoder gets.
+ * #1e1e1e is Y=42 in both. All on the GPU: the D3D11 video processor does
+ * the matrix and the range in one pass and the frame goes straight to NVENC,
+ * with no read-back and no CPU pass per frame.
+ *
+ * Stock ffmpeg 8.0.1's scale_d3d11 never sets the video processor's colour
+ * spaces, and the GPU wrote FULL range (#1e1e1e came out Y=30). The
+ * `out_range` and `out_color_matrix` options are CVM's own patch
+ * (apps/local/ffmpeg/patches), so this needs CVM's ffmpeg.exe, which the
+ * service checks for at start-up. Tagged BT.709 limited after, as the
+ * samples are.
  */
 export const SCREEN_TO_NV12 = [
-  "scale_d3d11=format=nv12",
-  "hwdownload",
-  "format=nv12",
-  "scale=in_range=pc:out_range=tv:in_color_matrix=bt709:out_color_matrix=bt709",
-  "format=nv12",
+  "scale_d3d11=format=nv12:out_range=tv:out_color_matrix=bt709",
   BT709,
 ].join(",");

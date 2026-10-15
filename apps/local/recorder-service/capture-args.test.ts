@@ -172,12 +172,13 @@ describe("a take's screen recorder", () => {
     expect(args).toContain("screen.mkv");
   });
 
-  it("writes OBS's colour: BT.709 limited-range NV12, tagged so (#1e1e1e is Y=42, as in OBS's files)", () => {
+  it("writes OBS's colour on the GPU: BT.709 limited-range NV12 straight to NVENC, tagged so (#1e1e1e is Y=42, as in OBS's files)", () => {
     expect(SCREEN_TO_NV12).toBe(
-      "scale_d3d11=format=nv12,hwdownload,format=nv12," +
-        "scale=in_range=pc:out_range=tv:in_color_matrix=bt709:out_color_matrix=bt709,format=nv12," +
+      "scale_d3d11=format=nv12:out_range=tv:out_color_matrix=bt709," +
         "setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709"
     );
+    // No frame comes down from the GPU: no read-back, no CPU pass per frame.
+    expect(SCREEN_TO_NV12).not.toMatch(/hwdownload|scale=/);
     const args = screenRecorderArgs({
       t0Ms: 1_000_000,
       tag: "t",
@@ -187,8 +188,7 @@ describe("a take's screen recorder", () => {
     expect(screen?.endsWith(`fps=60:start_time=0,${SCREEN_TO_NV12}[scr]`)).toBe(
       true
     );
-    // Tagged once, after the range is made limited: a tag before scale_d3d11
-    // labelled its full-range output limited.
+    // Tagged once, after scale_d3d11 has made the samples limited.
     expect(screen!.split("setparams").length).toBe(2);
   });
 

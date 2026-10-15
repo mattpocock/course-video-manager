@@ -1,0 +1,180 @@
+From: CVM (course-video-manager)
+Subject: [PATCH] avfilter/vf_scale_d3d11: add out_range and out_color_matrix
+
+scale_d3d11 never sets the D3D11 video processor's colour spaces, so the
+driver picks them: on NVIDIA, RGB in gives BT.709 FULL-range NV12 out.
+out_range (tv/pc) and out_color_matrix (bt709/bt601) set the output
+colour space (VideoProcessorSetOutputColorSpace1, or the legacy struct)
+and the input's (full-range RGB for RGB textures, else the frame's own),
+and tag the output frames. Unset, nothing changes. Applies to n8.0.1.
+---
+
+diff --git a/libavfilter/vf_scale_d3d11.c b/libavfilter/vf_scale_d3d11.c
+index c301f4a0c9..1bf32c0011 100644
+--- a/libavfilter/vf_scale_d3d11.c
++++ b/libavfilter/vf_scale_d3d11.c
+@@ -25,8 +25,10 @@
+ #include "libavutil/pixdesc.h"
+ #include "compat/w32dlfcn.h"
+ 
++#include <initguid.h>
+ #include "libavutil/hwcontext.h"
+ #include "libavutil/hwcontext_d3d11va.h"
++#include <d3d11_1.h>
+ 
+ #include "filters.h"
+ #include "scale_eval.h"
+@@ -37,6 +39,8 @@ typedef struct ScaleD3D11Context {
+     char *w_expr;
+     char *h_expr;
+     enum AVPixelFormat format;
++    int out_range;        ///< enum AVColorRange, UNSPECIFIED = driver default
++    int out_color_matrix; ///< enum AVColorSpace, UNSPECIFIED = driver default
+ 
+     ///< D3D11 objects
+     ID3D11Device *device;
+@@ -56,6 +60,7 @@ typedef struct ScaleD3D11Context {
+     int inputWidth, inputHeight;
+     DXGI_FORMAT input_format;
+     DXGI_FORMAT output_format;
++    int color_spaces_set;
+ } ScaleD3D11Context;
+ 
+ static av_cold int scale_d3d11_init(AVFilterContext *ctx) {
+@@ -73,6 +78,7 @@ static void release_d3d11_resources(ScaleD3D11Context *s) {
+         s->processor->lpVtbl->Release(s->processor);
+         s->processor = NULL;
+     }
++    s->color_spaces_set = 0;
+ 
+     if (s->enumerator) {
+         s->enumerator->lpVtbl->Release(s->enumerator);
+@@ -144,6 +150,84 @@ static int scale_d3d11_configure_processor(ScaleD3D11Context *s, AVFilterContext
+     return 0;
+ }
+ 
++static int is_rgb_dxgi_format(DXGI_FORMAT f)
++{
++    switch (f) {
++    case DXGI_FORMAT_B8G8R8A8_UNORM:
++    case DXGI_FORMAT_B8G8R8X8_UNORM:
++    case DXGI_FORMAT_R8G8B8A8_UNORM:
++    case DXGI_FORMAT_R10G10B10A2_UNORM:
++    case DXGI_FORMAT_R16G16B16A16_FLOAT:
++        return 1;
++    default:
++        return 0;
++    }
++}
++
++/**
++ * Tell the video processor the input and output colour spaces, so that the
++ * RGB -> YUV (or YUV -> YUV) conversion runs on the GPU with the requested
++ * matrix and range. Only done when out_range or out_color_matrix is set;
++ * otherwise the driver default is kept (stock behaviour). The input is taken
++ * as full-range RGB for RGB textures (what ddagrab gives), else from the
++ * frame's own range and matrix.
++ */
++static int scale_d3d11_set_color_spaces(ScaleD3D11Context *s, AVFilterContext *ctx,
++                                        ID3D11VideoContext *videoContext, const AVFrame *in)
++{
++    ID3D11VideoContext1 *videoContext1 = NULL;
++    HRESULT hr;
++    int out_tv, out_709, in_rgb, in_tv, in_709;
++    DXGI_COLOR_SPACE_TYPE in_cs, out_cs;
++
++    if (s->out_range == AVCOL_RANGE_UNSPECIFIED && s->out_color_matrix == AVCOL_SPC_UNSPECIFIED)
++        return 0;
++
++    out_tv  = s->out_range != AVCOL_RANGE_JPEG;
++    out_709 = s->out_color_matrix != AVCOL_SPC_BT470BG && s->out_color_matrix != AVCOL_SPC_SMPTE170M;
++    in_rgb  = is_rgb_dxgi_format(s->input_format);
++    in_tv   = !in_rgb && in->color_range != AVCOL_RANGE_JPEG;
++    in_709  = in_rgb || (in->colorspace != AVCOL_SPC_BT470BG && in->colorspace != AVCOL_SPC_SMPTE170M);
++
++    if (in_rgb)
++        in_cs = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
++    else if (in_709)
++        in_cs = in_tv ? DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709 : DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P709;
++    else
++        in_cs = in_tv ? DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P601 : DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P601;
++
++    if (out_709)
++        out_cs = out_tv ? DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709 : DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P709;
++    else
++        out_cs = out_tv ? DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P601 : DXGI_COLOR_SPACE_YCBCR_FULL_G22_LEFT_P601;
++
++    hr = videoContext->lpVtbl->QueryInterface(videoContext, &IID_ID3D11VideoContext1, (void **)&videoContext1);
++    if (SUCCEEDED(hr)) {
++        videoContext1->lpVtbl->VideoProcessorSetStreamColorSpace1(videoContext1, s->processor, 0, in_cs);
++        videoContext1->lpVtbl->VideoProcessorSetOutputColorSpace1(videoContext1, s->processor, out_cs);
++        videoContext1->lpVtbl->Release(videoContext1);
++        av_log(ctx, AV_LOG_VERBOSE, "Colour spaces (ColorSpace1): input %d, output %d\n", in_cs, out_cs);
++    } else {
++        D3D11_VIDEO_PROCESSOR_COLOR_SPACE in_desc = {
++            .RGB_Range     = 0,
++            .YCbCr_Matrix  = in_709,
++            .Nominal_Range = in_tv ? D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_16_235
++                                   : D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_0_255,
++        };
++        D3D11_VIDEO_PROCESSOR_COLOR_SPACE out_desc = {
++            .RGB_Range     = 0,
++            .YCbCr_Matrix  = out_709,
++            .Nominal_Range = out_tv ? D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_16_235
++                                    : D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_0_255,
++        };
++        videoContext->lpVtbl->VideoProcessorSetStreamColorSpace(videoContext, s->processor, 0, &in_desc);
++        videoContext->lpVtbl->VideoProcessorSetOutputColorSpace(videoContext, s->processor, &out_desc);
++        av_log(ctx, AV_LOG_VERBOSE, "Colour spaces (legacy): output %s %s\n",
++               out_709 ? "bt709" : "bt601", out_tv ? "tv" : "pc");
++    }
++    return 0;
++}
++
+ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+ {
+     AVFilterContext *ctx = inlink->dst;
+@@ -265,6 +349,12 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+         goto fail;
+     }
+ 
++    ///< Set the colour spaces once per processor
++    if (!s->color_spaces_set) {
++        scale_d3d11_set_color_spaces(s, ctx, videoContext, in);
++        s->color_spaces_set = 1;
++    }
++
+     ///< Process the frame
+     hr = videoContext->lpVtbl->VideoProcessorBlt(videoContext, s->processor, s->outputView, 0, 1, &stream);
+     if (FAILED(hr)) {
+@@ -285,6 +375,11 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+     out->width = s->width;
+     out->height = s->height;
+     out->format = AV_PIX_FMT_D3D11;
++    if (s->out_range != AVCOL_RANGE_UNSPECIFIED || s->out_color_matrix != AVCOL_SPC_UNSPECIFIED) {
++        out->color_range = s->out_range == AVCOL_RANGE_JPEG ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
++        out->colorspace  = (s->out_color_matrix == AVCOL_SPC_BT470BG ||
++                            s->out_color_matrix == AVCOL_SPC_SMPTE170M) ? s->out_color_matrix : AVCOL_SPC_BT709;
++    }
+ 
+     ///< Clean up resources
+     inputView->lpVtbl->Release(inputView);
+@@ -441,6 +536,18 @@ static const AVOption scale_d3d11_options[] = {
+     { "width",  "Output video width",  OFFSET(w_expr), AV_OPT_TYPE_STRING, {.str = "iw"}, .flags = FLAGS },
+     { "height", "Output video height", OFFSET(h_expr), AV_OPT_TYPE_STRING, {.str = "ih"}, .flags = FLAGS },
+     { "format", "Output video pixel format", OFFSET(format), AV_OPT_TYPE_PIXEL_FMT, { .i64 = AV_PIX_FMT_NONE }, INT_MIN, INT_MAX, .flags=FLAGS },
++    { "out_range", "Output colour range (sets the video processor's output colour space)",
++      OFFSET(out_range), AV_OPT_TYPE_INT, { .i64 = AVCOL_RANGE_UNSPECIFIED }, AVCOL_RANGE_UNSPECIFIED, AVCOL_RANGE_JPEG, FLAGS, .unit = "range" },
++        { "auto",    "driver default", 0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_RANGE_UNSPECIFIED }, 0, 0, FLAGS, .unit = "range" },
++        { "tv",      "limited range",  0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_RANGE_MPEG }, 0, 0, FLAGS, .unit = "range" },
++        { "limited", "limited range",  0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_RANGE_MPEG }, 0, 0, FLAGS, .unit = "range" },
++        { "pc",      "full range",     0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_RANGE_JPEG }, 0, 0, FLAGS, .unit = "range" },
++        { "full",    "full range",     0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_RANGE_JPEG }, 0, 0, FLAGS, .unit = "range" },
++    { "out_color_matrix", "Output YUV matrix (sets the video processor's output colour space)",
++      OFFSET(out_color_matrix), AV_OPT_TYPE_INT, { .i64 = AVCOL_SPC_UNSPECIFIED }, 0, AVCOL_SPC_NB - 1, FLAGS, .unit = "matrix" },
++        { "auto",  "driver default", 0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_SPC_UNSPECIFIED }, 0, 0, FLAGS, .unit = "matrix" },
++        { "bt709", "BT.709",         0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_SPC_BT709 }, 0, 0, FLAGS, .unit = "matrix" },
++        { "bt601", "BT.601",         0, AV_OPT_TYPE_CONST, { .i64 = AVCOL_SPC_SMPTE170M }, 0, 0, FLAGS, .unit = "matrix" },
+     { NULL }
+ };
+ 

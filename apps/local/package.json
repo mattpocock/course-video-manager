@@ -38,6 +38,8 @@
     "recorder-parity": "tsx scripts/recorder-parity.ts",
     "preview-latency": "tsx scripts/preview-latency.ts",
     "windows-guard": "tsx scripts/windows-guard.ts",
+    "ffmpeg:install": "tsx scripts/install-ffmpeg.ts",
+    "screen-colour-gpu": "tsx scripts/screen-colour-gpu.ts",
     "recorder:scorecard": "nice -n 19 taskset -c 6-9 tsx scripts/recorder-scorecard/main.ts"
   },
   "dependencies": {

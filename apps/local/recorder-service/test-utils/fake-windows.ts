@@ -374,7 +374,7 @@ export const fakeWindows = (
       });
     if (l.args.includes("-version")) {
       return answer(p, {
-        stdout: `ffmpeg version ${o.ffmpegVersion ?? "8.0.1-full_build-www.gyan.dev"} Copyright (c) 2000-2025\r\n`,
+        stdout: `ffmpeg version ${o.ffmpegVersion ?? "8.0.1-cvm1"} Copyright (c) 2000-2025\r\n`,
       });
     }
     // A stream-copy remux: `-i <raw> … -c copy <file>`.

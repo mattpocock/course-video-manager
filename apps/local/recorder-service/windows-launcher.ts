@@ -2,6 +2,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { Launch, LaunchedProcess, Launcher } from "./launcher";
+import { FFMPEG_BUILD, FFMPEG_INSTALL } from "./windows-devices";
 
 /**
  * The production launcher: ffmpeg.exe, nvidia-smi.exe and PowerShell on
@@ -12,33 +13,24 @@ import type { Launch, LaunchedProcess, Launcher } from "./launcher";
 const SYSTEM32 = "/mnt/c/Windows/System32";
 const POWERSHELL = `${SYSTEM32}/WindowsPowerShell/v1.0/powershell.exe`;
 
+/** Where `pnpm --filter @cvm/local ffmpeg:install` puts CVM's ffmpeg.exe, under a Windows user's folder. */
+export const cvmFfmpegPath = (userDir: string) =>
+  path.join(userDir, "AppData/Local/cvm/ffmpeg", FFMPEG_BUILD, "ffmpeg.exe");
+
 /**
- * ffmpeg.exe from `winget install Gyan.FFmpeg --version 8.0.1`, found under
- * every Windows user's WinGet packages, preferring the 8.0.1 build when several
- * sit side by side. `FFMPEG_EXE` (a WSL path) overrides the search. The version
- * itself is checked by the service at start-up, not here.
+ * CVM's own ffmpeg.exe (apps/local/ffmpeg: 8.0.1 plus the scale_d3d11 colour
+ * patch the screen recorder needs), found under every Windows user's
+ * AppData. No fallback to a stock ffmpeg: it cannot make the screen's
+ * colour. `FFMPEG_EXE` (a WSL path) overrides the search.
  */
 export const findFfmpegExe = (): string | undefined => {
   if (process.env.FFMPEG_EXE) return process.env.FFMPEG_EXE;
   const users = "/mnt/c/Users";
   if (!fs.existsSync(users)) return undefined;
-  const found: string[] = [];
-  for (const user of fs.readdirSync(users)) {
-    const root = path.join(
-      users,
-      user,
-      "AppData/Local/Microsoft/WinGet/Packages"
-    );
-    if (!fs.existsSync(root)) continue;
-    for (const pkg of fs.readdirSync(root)) {
-      if (!pkg.startsWith("Gyan.FFmpeg")) continue;
-      for (const build of fs.readdirSync(path.join(root, pkg))) {
-        const exe = path.join(root, pkg, build, "bin", "ffmpeg.exe");
-        if (fs.existsSync(exe)) found.push(exe);
-      }
-    }
-  }
-  return found.find((f) => f.includes("ffmpeg-8.0.1-")) ?? found[0];
+  return fs
+    .readdirSync(users)
+    .map((user) => cvmFfmpegPath(path.join(users, user)))
+    .find((exe) => fs.existsSync(exe));
 };
 
 const toWindowsPath = (wslPath: string) =>
@@ -51,9 +43,7 @@ const command = (
     case "ffmpeg": {
       const exe = findFfmpegExe();
       if (!exe) {
-        throw new Error(
-          "ffmpeg.exe not found. Install it on Windows with: winget install Gyan.FFmpeg --version 8.0.1"
-        );
+        throw new Error(`CVM's ffmpeg.exe not found. ${FFMPEG_INSTALL}`);
       }
       return { file: exe, args: [...launch.args], cwd: launch.cwd };
     }
