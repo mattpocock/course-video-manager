@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { BT709, SCREEN_TO_NV12 } from "../recorder-service/colour";
 import { nvenc } from "../recorder-service/capture-args";
+import { SCREEN_FRAME_GAP_SECONDS } from "../recorder-service/take-args";
 import { findFfmpegExe } from "../recorder-service/windows-launcher";
 import { guardWindows } from "./windows-guard";
 
@@ -64,7 +65,12 @@ const windows = guardWindows();
 const run = (args: string[]) =>
   new Promise<{ stdout: Buffer; stderr: string; code: number | null }>(
     (resolve) => {
-      const child = windows.spawn(exe, ["-hide_banner", "-nostdin", ...args]);
+      const child = windows.spawn(exe, [
+        "-hide_banner",
+        "-nostdin",
+        "-nostats",
+        ...args,
+      ]);
       const out: Buffer[] = [];
       let err = "";
       child.stdout!.on("data", (d: Buffer) => out.push(d));
@@ -151,6 +157,43 @@ const bench = async (size: string, chain: string, paced: boolean) => {
   };
 };
 
+/**
+ * Stalls at start-up (PR #2228: since #2225 every session's screen log shows
+ * ~50-57 frames of gaps in its first second). ddagrab stamps each frame when
+ * it grabs it and misses the slots while the graph stalls. Here a paced
+ * source is stamped with the wall clock as the graph takes each frame, so a
+ * stall in the chain (or its first-frame set-up) shows as a gap, logged by
+ * the screen recorder's own rule (> SCREEN_FRAME_GAP_SECONDS).
+ */
+const startup = async (size: string, chain: string) => {
+  const seconds = 5;
+  const r = await run([
+    ...D3D11,
+    "-re",
+    "-f",
+    "lavfi",
+    "-i",
+    `color=c=0x1e1e1e:s=${size}:r=60,format=bgra`,
+    "-vf",
+    `settb=AVTB,setpts='(RTCTIME-RTCSTART)/(TB*1000000)',` +
+      `select='if(gte(prev_selected_t,0)*gt(t-prev_selected_t,${SCREEN_FRAME_GAP_SECONDS}),print(-(t-prev_selected_t),24));1',fps=60:start_time=0,` +
+      `hwupload,${chain}`,
+    "-frames:v",
+    String(seconds * 60),
+    ...nvenc(120),
+    "-f",
+    "null",
+    "-",
+  ]);
+  if (r.code !== 0)
+    throw new Error(`startup failed (${r.code}): ${r.stderr.slice(-800)}`);
+  const gaps = [...r.stderr.matchAll(/^-(\d+\.\d+)\r?$/gm)].map((m) =>
+    Number(m[1])
+  );
+  const missing = gaps.reduce((n, g) => n + Math.round(g * 60) - 1, 0);
+  return { gaps: gaps.length, missing };
+};
+
 const main = async () => {
   const version = /ffmpeg version (\S+)/.exec(
     (await run(["-version"])).stdout.toString()
@@ -187,6 +230,19 @@ const main = async () => {
   });
 
   for (const size of ["2560x1440", "3840x2160"]) {
+    console.log(
+      `\n== ${size}: start-up gaps, first 5 s paced at 60 fps (3 runs)`
+    );
+    for (const [name, chain] of [
+      ["#2225", PR_2225],
+      ["GPU  ", SCREEN_TO_NV12],
+    ] as const) {
+      const runs = [];
+      for (let k = 0; k < 3; k++) runs.push(await startup(size, chain));
+      console.log(
+        `${name}: ${runs.map((x) => `${x.gaps} gaps / ${x.missing} frames missed`).join(", ")}`
+      );
+    }
     for (const paced of [false, true]) {
       console.log(
         `\n== ${size}, ${FRAMES} frames, ${paced ? "paced at 60 fps (-re)" : "as fast as it goes"}`
