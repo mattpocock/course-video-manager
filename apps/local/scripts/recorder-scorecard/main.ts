@@ -5,6 +5,8 @@
  *
  *   pnpm recorder:scorecard [--quick] [--out <dir>] [--long-take <s>]
  *     [--cycles <n>] [--fault-repeats <n>] [--keep-footage]
+ *     [--only <scenario,…>]   (idle, longTake, previewKill, eventLogFailure,
+ *                              cycles, crash; the rest read unmeasured)
  *
  * Writes `scorecard.json` and `scorecard.md` to `--out` (default
  * `.data/recorder-scorecard/<run>/`). Opens no capture device and no real
@@ -54,6 +56,23 @@ const longTakeSeconds = Number(flag("--long-take") ?? (quick ? 60 : 600));
 const cycleCount = Number(flag("--cycles") ?? (quick ? 10 : 50));
 const faultRepeats = Number(flag("--fault-repeats") ?? (quick ? 3 : 5));
 const keepFootage = args.includes("--keep-footage");
+/** Only these scenarios run (to prove one fix); unset, all of them. */
+const only = flag("--only")?.split(",").filter(Boolean);
+const SCENARIOS = [
+  "idle",
+  "longTake",
+  "previewKill",
+  "eventLogFailure",
+  "cycles",
+  "crash",
+];
+const unknownScenarios = only?.filter((o) => !SCENARIOS.includes(o)) ?? [];
+if (unknownScenarios.length) {
+  console.error(
+    `--only: no scenario ${unknownScenarios.join(", ")} (${SCENARIOS.join(", ")})`
+  );
+  process.exit(2);
+}
 
 const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
 const marker = `cvm-scorecard-${runId}`;
@@ -223,8 +242,10 @@ const main = async () => {
       },
     ],
   ];
+  if (only) notes.push(`Only these scenarios ran: ${only.join(", ")}.`);
   for (const [name, run] of scenarios) {
     if (aborted) break;
+    if (only && !only.includes(name)) continue;
     try {
       await run();
     } catch (e) {

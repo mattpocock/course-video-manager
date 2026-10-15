@@ -1,14 +1,17 @@
 import { execFileSync, spawn } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { analysePicture, unwrap } from "./footage-analysis";
+import { analysePicture, readStamp, unwrap } from "./footage-analysis";
 import { METRICS, rank, score } from "./metrics";
 import { renderJson } from "./report";
 import { syntheticFfmpegArgs } from "./synthetic-launcher";
 import {
+  CAMERA_FPS,
+  CAMERA_SOURCE,
   CLOCK_BITS,
   CLOCK_HEIGHT,
   CLOCK_MOD,
   CLOCK_WIDTH,
+  INDEX_MOD,
   SCREEN_SOURCE,
   clockBitCentre,
 } from "./synthetic-sources";
@@ -101,22 +104,59 @@ describe("renderJson", () => {
 
 describe("analysePicture", () => {
   const interval = 1000 / 30;
-  const clocks = (ms: number[]) => ms.map((m) => Math.round(m) % CLOCK_MOD);
+  const t0 = 1_700_000_000_000;
+  const first = t0 + 40;
+  /** Frame `i` of the source, made at `ms`. */
+  const stamp = (i: number, ms: number) => ({
+    clock: Math.round(ms) % CLOCK_MOD,
+    index: i % INDEX_MOD,
+  });
+  /** `n` frames made on time from index `from`. */
+  const onTime = (n: number, from = 0) =>
+    Array.from({ length: n }, (_, i) =>
+      stamp(from + i, first + (from + i) * interval)
+    );
 
-  it("counts the head's repeats, later repeats and drops", () => {
-    const t0 = 1_700_000_000_000;
-    const first = t0 + 40;
-    const ms = [first, first, first]; // the CFR filter's fill back to T0
-    for (let n = 1; n < 100; n++) ms.push(first + n * interval);
-    ms.splice(50, 0, ms[49]!); // one repeat, nothing lost
-    ms.splice(70, 2); // two dropped
-    const report = analysePicture(clocks(ms), { fps: 30, t0Ms: t0 });
+  it("counts the head's repeats, later repeats and drops by index", () => {
+    const frames = [stamp(0, first), stamp(0, first), ...onTime(100)]; // the CFR filter's fill back to T0
+    frames.splice(52, 0, frames[51]!); // one repeat, nothing lost
+    frames.splice(72, 2); // two dropped
+    const report = analysePicture(frames, { fps: 30, t0Ms: t0 });
     expect(report).toMatchObject({
       leadingRepeats: 2,
       firstCaptureMs: first,
       repeated: 1,
       dropped: 2,
+      unreadable: 0,
     });
+  });
+
+  it("reads a starved source's late, bunched frames as a stall, not as drops or repeats", () => {
+    // Frames 40-49 come 300 ms late, then back to back (realtime catching
+    // up): the clock jumps and bunches, every index is there once.
+    const frames = onTime(100).map((f, i) =>
+      i >= 40 && i < 50
+        ? stamp(i, first + 40 * interval + 300 + (i - 40) * 0.4)
+        : f
+    );
+    const report = analysePicture(frames, { fps: 30, t0Ms: t0 });
+    expect(report).toMatchObject({ repeated: 0, dropped: 0 });
+    expect(report.sourceStalls.frames).toBeGreaterThan(0);
+    expect(report.sourceStalls.longestMs).toBeGreaterThan(300);
+  });
+
+  it("leaves a misread frame out without calling it a drop or a repeat", () => {
+    const frames = onTime(100);
+    frames[30] = { ...frames[30]!, index: frames[30]!.index ^ 0x200 };
+    const report = analysePicture(frames, { fps: 30, t0Ms: t0 });
+    expect(report).toMatchObject({ unreadable: 1, repeated: 0, dropped: 0 });
+  });
+
+  it("unwraps the index across its 14-bit wrap", () => {
+    const frames = onTime(40, INDEX_MOD - 20);
+    frames.splice(25, 1); // one dropped, just after the wrap
+    const report = analysePicture(frames, { fps: 30, t0Ms: t0 });
+    expect(report).toMatchObject({ dropped: 1, repeated: 0, unreadable: 0 });
   });
 
   it("unwraps the 28-bit clock to the nearest full time", () => {
@@ -237,5 +277,57 @@ describe.skipIf(!hasFfmpeg)("the synthetic screen in ffmpeg", () => {
     // nothing made after it is. Due-time stamps put ~120 frames behind.
     expect(behind.filter((ms) => ms > 500).length).toBeLessThan(30);
     expect(behind.slice(-30).every((ms) => ms < 200)).toBe(true);
+  });
+
+  /**
+   * Every frame of the camera source, with the reader stalled for `stallMs`
+   * after the first second: the source starved, as at Idle priority.
+   */
+  const stampsAroundStall = (stallMs: number) =>
+    new Promise<ReturnType<typeof readStamp>[]>((resolve, reject) => {
+      const child = spawn(
+        "ffmpeg",
+        [
+          "-hide_banner",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          CAMERA_SOURCE,
+        ].concat(["-pix_fmt", "gray", "-f", "rawvideo", "-"]),
+        { stdio: ["ignore", "pipe", "ignore"] }
+      );
+      const size = CLOCK_WIDTH * CLOCK_HEIGHT;
+      const stamps: ReturnType<typeof readStamp>[] = [];
+      let pending = Buffer.alloc(0);
+      let stalled = false;
+      const started = Date.now();
+      child.stdout.on("data", (d: Buffer) => {
+        pending = Buffer.concat([pending, d]);
+        while (pending.length >= size) {
+          stamps.push(readStamp(pending.subarray(0, size)));
+          pending = pending.subarray(size);
+        }
+        if (!stalled && Date.now() - started > 1000) {
+          stalled = true;
+          child.stdout.pause();
+          setTimeout(() => child.stdout.resume(), stallMs);
+          setTimeout(() => child.kill("SIGKILL"), stallMs + 1500);
+        }
+      });
+      child.once("error", reject);
+      child.once("close", () => resolve(stamps));
+    });
+
+  it("a stalled source loses no frame: its index runs on while its clock jumps (#2239)", async () => {
+    const stamps = await stampsAroundStall(1500);
+    const report = analysePicture(stamps, {
+      fps: CAMERA_FPS,
+      t0Ms: Date.now(),
+    });
+    // Read from the clock, as before, the stall scored as dozens of drops.
+    expect(report.sourceStalls.frames).toBeGreaterThan(10);
+    expect(report).toMatchObject({ dropped: 0, repeated: 0, unreadable: 0 });
   });
 });

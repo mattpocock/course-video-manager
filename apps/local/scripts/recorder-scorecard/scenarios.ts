@@ -4,7 +4,7 @@ import { SILENCE_LENGTH_SHORT_SECONDS } from "../../app/silence-detection-consta
 import {
   analyseMic,
   analysePicture,
-  decodeClocks,
+  decodeStamps,
   isPlayable,
   playable,
 } from "./footage-analysis";
@@ -130,11 +130,11 @@ export const longTake = async (
   m.service_screen_frames_lost = take.stopped.framesLost.screen;
 
   ctx.log("long take: reading the files back");
-  const camera = analysePicture(await decodeClocks(take.files.camera), {
+  const camera = analysePicture(await decodeStamps(take.files.camera), {
     fps: CAMERA_FPS,
     t0Ms: take.t0Ms,
   });
-  const screen = analysePicture(await decodeClocks(take.files.screen), {
+  const screen = analysePicture(await decodeStamps(take.files.screen), {
     fps: SCREEN_FPS,
     t0Ms: take.t0Ms,
   });
@@ -190,7 +190,7 @@ const previewKillTrial = async (ctx: Ctx, seconds: number) => {
     killed += await killMarked(ctx.marker, [PREVIEW_TAGS.screen]);
     await hold(ctx, Math.max(3000, seconds * 1000 - 9000));
   });
-  const camera = analysePicture(await decodeClocks(take.files.camera), {
+  const camera = analysePicture(await decodeStamps(take.files.camera), {
     fps: CAMERA_FPS,
     t0Ms: take.t0Ms,
   });
@@ -211,6 +211,8 @@ const previewKillTrial = async (ctx: Ctx, seconds: number) => {
     pass: stoppedCleanly && killed >= 2 && framesLost === 0,
     processesKilled: killed,
     framesLost,
+    camera,
+    serviceFramesLost: take.stopped.framesLost,
     recoveryMs: ctx.feeds.camera.longestGap(killAt, killAt + 4000),
     screenPreviewGapMs: ctx.feeds.screen.longestGap(
       screenKillAt,
