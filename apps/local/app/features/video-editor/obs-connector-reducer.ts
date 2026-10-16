@@ -6,11 +6,11 @@ import {
   describeCalibrationRefusal,
   type LastPassedCalibration,
 } from "@/av-calibration-constants";
+import type { speechDetectorReducer } from "./speech-detector-reducer";
 import {
-  createInitialSpeechDetectorState,
-  speechDetectorReducer,
-  toFrontendSpeechDetectorState,
-} from "./speech-detector-reducer";
+  createInitialRecorderSessionState,
+  recorderSessionReducer,
+} from "./recorder-session-reducer";
 
 export type OBSNotRunningState = {
   type: "obs-not-running";
@@ -67,23 +67,21 @@ export type OBSConnectionInnerState =
 
 /**
  * OBS in the editor: its websocket connection, the recording it reports,
- * and the browser's speech detector on the mic. Like `cvmRecorderReducer`,
- * it sends the clip reducer what that means (ADR 0044): a recording followed
- * starts and stops a Recording Session (`start-session`, `stop-session`),
- * speech held for the minimum Clip length is a Take (`start-take`), and
- * silence closes its audio window (`close-take-window`).
+ * and the browser's speech detector on the mic. The Recording Session
+ * followed, its speech, Attaching, the gate's decision and the clip effects
+ * are the shared `recorderSessionReducer` (ADR 0050), as for the CVM
+ * recorder: this reducer turns OBS's websocket events and the silence scan
+ * into its events, and keeps the connection.
  *
- * Attaching: a connect that finds OBS recording a take this page does not
- * follow (a page refreshed or closed mid-take) asks OBS to stop it, as the
- * CVM recorder's Attaching does. A reconnect mid-take re-attaches to the
- * recording it follows, and stops nothing (#2198): OBS only stops on the
- * gate, on Stop, and when a page finds a take it does not follow.
+ * OBS names a recording only by its file, which a later one may reuse, so
+ * the Recording Session followed is named by its file and when it started.
+ * A connect that finds OBS recording cannot say which take that is: the one
+ * followed re-attaches (#2198); any other is stopped.
  */
 export namespace obsConnectorReducer {
-  export type State = {
+  /** The Recording Session followed is the shared reducer's. */
+  export type State = recorderSessionReducer.State & {
     obs: OBSConnectionInnerState;
-    /** The browser's speech detector; read while OBS records. */
-    speech: speechDetectorReducer.State;
     /**
      * The recording followed when the websocket dropped: still followed, so
      * its Recording Session goes on, until a reconnect says whether OBS
@@ -147,6 +145,7 @@ export namespace obsConnectorReducer {
   export type Effect =
     | { type: "stop-recording" }
     | { type: "log-error"; error: unknown }
+    | { type: "log-unexpected"; message: string }
     | { type: "wait-before-reconnecting" }
     | { type: "attempt-to-connect" }
     | { type: "run-event-listeners" }
@@ -178,21 +177,24 @@ export const createInitialOBSConnectorState = (
   usesObs: boolean,
   exec: Exec
 ): obsConnectorReducer.State => {
-  const speech = createInitialSpeechDetectorState();
+  const session = createInitialRecorderSessionState();
   if (!usesObs)
-    return { obs: { type: "obs-not-used" }, speech, interrupted: null };
+    return { ...session, obs: { type: "obs-not-used" }, interrupted: null };
   exec({ type: "attempt-to-connect" });
   return {
+    ...session,
     obs: { type: "checking-obs-connection-status" },
-    speech,
     interrupted: null,
   };
 };
 
-/** The connection alone: what OBS reports, and the gate. */
+/** The connection alone: what OBS reports of it. */
 const connection = (
   state: OBSConnectionInnerState,
-  action: Exclude<obsConnectorReducer.Action, { type: "speech-heard" }>,
+  action: Exclude<
+    obsConnectorReducer.Action,
+    { type: "speech-heard" | "recording-started" | "recording-stopped" }
+  >,
   exec: Exec
 ): OBSConnectionInnerState => {
   if (action.type === "video-recorder-changed") {
@@ -231,126 +233,199 @@ const connection = (
     case "connection-closed":
       exec({ type: "attempt-to-connect" });
       return { type: "obs-not-running" };
-    case "profile-changed": {
-      if (state.type === "obs-recording" || state.type === "obs-connected") {
+    case "profile-changed":
+      if (state.type === "obs-recording" || state.type === "obs-connected")
         return { ...state, profile: action.profile };
-      }
-
-      throw new Error("Profile changed but not recording or connected");
-    }
-    case "scene-changed": {
-      if (state.type === "obs-recording" || state.type === "obs-connected") {
+      exec({
+        type: "log-unexpected",
+        message: `OBS: profile changed while ${state.type}`,
+      });
+      return state;
+    case "scene-changed":
+      if (state.type === "obs-recording" || state.type === "obs-connected")
         return { ...state, scene: action.scene };
-      }
-
-      throw new Error("Scene changed but not recording or connected");
-    }
-    case "recording-started": {
-      if (state.type === "obs-connected") {
-        // THE GATE (ADR 0038): a take OBS started without a fresh AV
-        // Calibration on this camera + mic pair is stopped at once, and the
-        // editor says why. OBS cannot say which camera it records: the
-        // recorder service's is taken as it. Only here, at its start: a take
-        // let through runs to its end.
-        const gate = calibrationValidity(
-          action.lastPassed,
-          {
-            browserInputLabel: action.browserInputLabel,
-            camera: RECORDER_CAMERA_NAME,
-          },
-          action.nowMs
-        );
-        if (!gate.valid) {
-          exec({ type: "stop-recording" });
-          return {
-            ...state,
-            calibrationRefusal: describeCalibrationRefusal(gate.reason),
-          };
-        }
-        return {
-          type: "obs-recording",
-          profile: state.profile,
-          scene: state.scene,
-          latestOutputPath: action.outputPath,
-          silenceThresholdDb: gate.calibration.thresholdDb,
-        };
-      }
-
-      throw new Error("Obs recording but not connected");
-    }
-    case "recording-stopped": {
-      if (state.type === "obs-recording") {
-        return {
-          type: "obs-connected",
-          profile: state.profile,
-          scene: state.scene,
-          latestOutputPath: action.outputPath,
-        };
-      }
-
-      if (state.type === "obs-connected") {
-        return { ...state, latestOutputPath: action.outputPath };
-      }
-
-      throw new Error("Obs stopped recording but not recording or connected");
-    }
+      exec({
+        type: "log-unexpected",
+        message: `OBS: scene changed while ${state.type}`,
+      });
+      return state;
   }
 };
 
+/** The recording OBS makes for the Recording Session followed. */
+const recordingFollowed = (state: obsConnectorReducer.State) =>
+  state.obs.type === "obs-recording" ? state.obs : state.interrupted;
+
+/** The shared reducer's effects, as OBS's runner takes them. */
+const obsExec =
+  (
+    state: obsConnectorReducer.State,
+    exec: Exec,
+    started?: { outputPath: string; silenceThresholdDb: number }
+  ) =>
+  (effect: recorderSessionReducer.Effect) => {
+    switch (effect.type) {
+      case "start-session":
+        if (started)
+          exec({
+            type: "start-session",
+            outputPath: started.outputPath,
+            silenceLength: effect.silenceLength,
+            silenceThresholdDb: started.silenceThresholdDb,
+          });
+        return;
+      case "start-take": {
+        const recording = recordingFollowed(state);
+        if (recording)
+          exec({
+            type: "start-take",
+            scene: recording.scene,
+            profile: recording.profile,
+            soundDetectionId: effect.soundDetectionId,
+          });
+        return;
+      }
+      case "stop-recording":
+      case "stop-session":
+      case "close-take-window":
+      case "log-unexpected":
+        exec(effect);
+    }
+  };
+
 /**
- * A connect while a recording was followed when the websocket dropped:
- * OBS still recording it re-attaches; OBS no longer recording ends it.
- * A connect with no recording followed stops any OBS is making (Attaching).
+ * A connect: the recording followed when the websocket dropped re-attaches
+ * if OBS still records, and ends if not. A connect with none followed stops
+ * any recording OBS is making (Attaching).
  */
-const attach = (
+const connected = (
   state: obsConnectorReducer.State,
   action: Extract<obsConnectorReducer.Action, { type: "obs-connected" }>,
   exec: Exec
 ): obsConnectorReducer.State => {
   const obs = connection(state.obs, action, exec);
   if (obs.type !== "obs-connected") return { ...state, obs };
-  const followed = state.interrupted;
-  if (followed && action.recording)
+  const followed = recordingFollowed(state);
+  const session = recorderSessionReducer(
+    state,
+    {
+      type: "recorder-reported",
+      reachable: true,
+      recording: action.recording,
+      recordingSessionId: null,
+      // Unused: OBS never follows a recording it did not see start.
+      silenceLength: "short",
+    },
+    obsExec(state, exec)
+  );
+  if (followed && session.recordingSessionId !== null)
     return {
-      ...state,
+      ...session,
       obs: { ...followed, profile: obs.profile, scene: obs.scene },
       interrupted: null,
     };
-  if (followed)
-    return {
-      ...state,
-      obs: { ...obs, latestOutputPath: followed.latestOutputPath },
-      interrupted: null,
-    };
-  if (action.recording) exec({ type: "stop-recording" });
-  return { ...state, obs };
+  return {
+    ...session,
+    obs: followed
+      ? { ...obs, latestOutputPath: followed.latestOutputPath }
+      : obs,
+    interrupted: null,
+  };
 };
 
-const following = (state: obsConnectorReducer.State) =>
-  state.obs.type === "obs-recording" || state.interrupted !== null;
-
-/** What the speech detector's change means for a Take, while OBS records. */
-const takeEffects = (
-  before: speechDetectorReducer.State,
-  after: speechDetectorReducer.State,
-  obs: OBSConnectionInnerState,
+/** OBS started recording: the gate decides (ADR 0038), then it is followed. */
+const recordingStarted = (
+  state: obsConnectorReducer.State,
+  action: Extract<obsConnectorReducer.Action, { type: "recording-started" }>,
   exec: Exec
-) => {
-  if (obs.type !== "obs-recording") return;
-  const was = toFrontendSpeechDetectorState(before);
-  const is = toFrontendSpeechDetectorState(after);
-  if (
-    was.type === "speaking-detected" &&
-    is.type === "long-enough-speaking-for-clip-detected"
-  )
+): obsConnectorReducer.State => {
+  if (state.obs.type !== "obs-connected") {
     exec({
-      type: "start-take",
-      scene: obs.scene,
-      profile: obs.profile,
-      soundDetectionId: is.soundDetectionId,
+      type: "log-unexpected",
+      message: `OBS: recording started while ${state.obs.type}`,
     });
-  else if (was.type !== "silence" && is.type === "silence")
-    exec({ type: "close-take-window" });
+    return state;
+  }
+  // THE GATE (ADR 0038): a take OBS started without a fresh AV Calibration
+  // on this camera + mic pair is stopped at once, and the editor says why.
+  // OBS cannot say which camera it records: the recorder service's is taken
+  // as it. Only here, at its start: a take let through runs to its end.
+  const gate = calibrationValidity(
+    action.lastPassed,
+    {
+      browserInputLabel: action.browserInputLabel,
+      camera: RECORDER_CAMERA_NAME,
+    },
+    action.nowMs
+  );
+  const started = {
+    type: "recording-started",
+    recordingSessionId: `${action.outputPath}@${action.nowMs}`,
+    silenceLength: action.silenceLength,
+  } as const;
+  if (!gate.valid)
+    return {
+      ...recorderSessionReducer(
+        state,
+        { ...started, refused: true },
+        obsExec(state, exec)
+      ),
+      obs: {
+        ...state.obs,
+        calibrationRefusal: describeCalibrationRefusal(gate.reason),
+      },
+    };
+  const silenceThresholdDb = gate.calibration.thresholdDb;
+  const session = recorderSessionReducer(
+    state,
+    { ...started, refused: false },
+    obsExec(state, exec, { outputPath: action.outputPath, silenceThresholdDb })
+  );
+  if (session.recordingSessionId === null) return session;
+  return {
+    ...session,
+    obs: {
+      type: "obs-recording",
+      profile: state.obs.profile,
+      scene: state.obs.scene,
+      latestOutputPath: action.outputPath,
+      silenceThresholdDb,
+    },
+  };
+};
+
+const recordingStopped = (
+  state: obsConnectorReducer.State,
+  action: Extract<obsConnectorReducer.Action, { type: "recording-stopped" }>,
+  exec: Exec
+): obsConnectorReducer.State => {
+  const obs = state.obs;
+  if (obs.type === "obs-connected")
+    // One OBS was asked to stop (the gate, Attaching): never followed.
+    return { ...state, obs: { ...obs, latestOutputPath: action.outputPath } };
+  if (obs.type !== "obs-recording" || state.recordingSessionId === null) {
+    exec({
+      type: "log-unexpected",
+      message: `OBS: recording stopped while ${obs.type}`,
+    });
+    return state;
+  }
+  return {
+    ...recorderSessionReducer(
+      state,
+      {
+        type: "recording-stopped",
+        recordingSessionId: state.recordingSessionId,
+      },
+      obsExec(state, exec)
+    ),
+    obs: {
+      type: "obs-connected",
+      profile: obs.profile,
+      scene: obs.scene,
+      latestOutputPath: action.outputPath,
+    },
+  };
 };
 
 export const obsConnectorReducer: EffectReducer<
@@ -358,43 +433,55 @@ export const obsConnectorReducer: EffectReducer<
   obsConnectorReducer.Action,
   obsConnectorReducer.Effect
 > = (state, action, exec) => {
-  if (action.type === "speech-heard") {
-    if (state.obs.type === "obs-not-used") return state;
-    const speech = speechDetectorReducer(state.speech, action.heard);
-    takeEffects(state.speech, speech, state.obs, exec);
-    return { ...state, speech };
+  // A CVM recorder Video ignores whatever OBS still reports.
+  if (state.obs.type === "obs-not-used" && action.type !== "obs-connected") {
+    if (action.type !== "video-recorder-changed" || !action.usesObs)
+      return state;
   }
-
-  let next: obsConnectorReducer.State;
-  if (action.type === "obs-connected") next = attach(state, action, exec);
-  else {
-    const obs = connection(state.obs, action, exec);
-    // The websocket dropped mid-take: OBS records on, and so does the take.
-    const dropped =
-      state.obs.type === "obs-recording" && action.type === "connection-closed"
-        ? state.obs
-        : null;
-    next = {
-      ...state,
-      obs,
-      interrupted:
-        dropped ?? (obs.type === "obs-not-used" ? null : state.interrupted),
-    };
+  switch (action.type) {
+    case "speech-heard":
+      return recorderSessionReducer(
+        state,
+        {
+          type: "speech-heard",
+          recordingSessionId: state.recordingSessionId,
+          heard: action.heard,
+        },
+        obsExec(state, exec)
+      );
+    case "obs-connected":
+      return connected(state, action, exec);
+    case "recording-started":
+      return recordingStarted(state, action, exec);
+    case "recording-stopped":
+      return recordingStopped(state, action, exec);
+    case "video-recorder-changed": {
+      const obs = connection(state.obs, action, exec);
+      if (obs.type !== "obs-not-used") return { ...state, obs };
+      return {
+        ...recorderSessionReducer(
+          state,
+          { type: "recorder-released" },
+          obsExec(state, exec)
+        ),
+        obs,
+        interrupted: null,
+      };
+    }
+    case "connection-closed":
+      // The websocket dropped mid-take: OBS records on, and so does the take.
+      return {
+        ...state,
+        obs: connection(state.obs, action, exec),
+        interrupted:
+          state.obs.type === "obs-recording" ? state.obs : state.interrupted,
+      };
+    case "obs-connection-failed":
+    case "trigger-reconnect":
+    case "profile-changed":
+    case "scene-changed":
+      return { ...state, obs: connection(state.obs, action, exec) };
   }
-
-  if (
-    !following(state) &&
-    next.obs.type === "obs-recording" &&
-    action.type === "recording-started"
-  )
-    exec({
-      type: "start-session",
-      outputPath: next.obs.latestOutputPath,
-      silenceLength: action.silenceLength,
-      silenceThresholdDb: next.obs.silenceThresholdDb,
-    });
-  else if (following(state) && !following(next)) exec({ type: "stop-session" });
-  return next;
 };
 
 export const innerToOuterState = (

@@ -149,6 +149,18 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     });
     expect(e.database()).toEqual(["a"]);
   });
+  // #2200: OBS left the window open, so the take lost the diagram on screen.
+  it("Stop mid-take closes the take's audio window, as the silence after it would", () => {
+    const e = editor(["a"]);
+    const r = recorder.connect(e);
+    r.startRecording();
+    r.startTake();
+    r.stopRecording();
+
+    expect(e.clips.getState().recordingClipFrontendId).toBeNull();
+    expect(e.clips.getState().items[1]).toHaveProperty("pendingSnapshot");
+  });
+
   it("the speech goes from silence, to speaking, to a Take at the minimum Clip length, and back to silence", () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
