@@ -20,9 +20,8 @@ type RecorderCameraModalProps = {
 };
 
 /**
- * The thumbnail camera on a CVM recorder Video: the raw camera preview from
- * the recorder service, and Capture takes a full-size still from it. The OBS
- * Video's modal (`CaptureCameraModal`, the Virtual Camera) is untouched.
+ * The thumbnail camera: the raw camera preview from the recorder service,
+ * and Capture takes a full-size still from it.
  */
 export function RecorderCameraModal(props: RecorderCameraModalProps) {
   return (

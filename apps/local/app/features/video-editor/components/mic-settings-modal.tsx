@@ -116,7 +116,7 @@ export function MicSettingsModal(props: {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                For every CVM recorder Video. OBS Videos are unaffected.
+                For every CVM recorder Clip. Old OBS Clips are unaffected.
               </p>
             </fieldset>
             <div className="flex justify-end space-x-2">

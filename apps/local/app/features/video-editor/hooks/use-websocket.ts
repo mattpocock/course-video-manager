@@ -17,8 +17,8 @@ import type { ChapterNamingModal } from "../types";
  * held in a ref rather than listed as effect deps: several of them are inline
  * arrows in the edit route, so a new identity every render. Listing them made
  * every re-render of that route close the socket and open a new one — and the
- * OBS connector re-renders the route on a ~1s beat for as long as OBS is shut,
- * so the hub saw a fresh client roughly every two seconds and logged each one.
+ * route re-renders often while it records, so the hub saw a fresh client
+ * every few seconds and logged each one.
  */
 export function useWebSocket(params: {
   dispatch: (action: { type: "toggle-last-frame-of-video" }) => void;

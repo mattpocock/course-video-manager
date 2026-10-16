@@ -16,10 +16,6 @@ import {
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
 import type { VideoFormat } from "../features/videos/video-format.js";
 import {
-  recorderForNewVideo,
-  type VideoRecorder,
-} from "../features/videos/recorder.js";
-import {
   requireDraftVersionForLesson,
   requireDraftVersionForVideo,
 } from "./draft-guard.server.js";
@@ -333,21 +329,15 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     video: {
       title: string;
       originalFootagePath: string;
-      recorder?: VideoRecorder | null;
     }
   ) {
     yield* requireDraftVersionForLesson(db, lessonId);
     yield* assertVideoTitleAvailable(lessonId, video.title);
 
-    const { recorder, ...row } = video;
     const videoResults = yield* makeDbCall(() =>
       db
         .insert(videos)
-        .values({
-          ...row,
-          lessonId,
-          recorder: recorderForNewVideo("landscape", recorder),
-        })
+        .values({ ...video, lessonId })
         .returning()
     );
 
@@ -363,11 +353,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
   });
 
   const createStandaloneVideo = Effect.fn("createStandaloneVideo")(
-    function* (video: {
-      title: string;
-      format: VideoFormat;
-      recorder?: VideoRecorder | null;
-    }) {
+    function* (video: { title: string; format: VideoFormat }) {
       const videoResults = yield* makeDbCall(() =>
         db
           .insert(videos)
@@ -376,7 +362,6 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
             originalFootagePath: "",
             lessonId: null,
             format: video.format,
-            recorder: recorderForNewVideo(video.format, video.recorder),
           })
           .returning()
       );

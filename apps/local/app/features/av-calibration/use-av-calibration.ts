@@ -40,7 +40,7 @@ const TRACE_BATCH_MS = 250;
 const BLOCK_FRAMES = 1024;
 
 /**
- * The browser detector's input, as the OBS path opens it: the Recorders' mic
+ * The browser detector's input: the recorder's mic
  * by label, Chrome's processing off, every channel. Reports each block's peak
  * across the channels, in dBFS, a few times a second.
  */

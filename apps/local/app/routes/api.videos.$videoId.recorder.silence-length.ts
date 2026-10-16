@@ -17,7 +17,6 @@ const schema = Schema.Struct({
 export const action = makeAction({
   input: "json",
   errors: {
-    RecordOnOBSVideoError: 409,
     VersionNotDraftError: 409,
   },
   effect: ({ params, payload }) =>

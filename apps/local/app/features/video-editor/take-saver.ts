@@ -19,7 +19,7 @@ export type SavedClip = DB.Clip & {
 
 /** What a saver tells the editor, and asks of it, while it saves. */
 export interface TakesSaved {
-  /** Where the editor would put a Clip now: OBS's poll and `place-take` save there. */
+  /** Where the editor would put a Clip now: `place-take` saves there. */
   where(): Pick<ClipReducerState, "insertionPoint" | "items">;
   /** The clip reducer is finished with this Recording Session. */
   isDone(): boolean;
@@ -30,10 +30,9 @@ export interface TakesSaved {
 }
 
 /**
- * How a Recorder's Takes become saved Clips (#2201). The clip reducer asks
- * for `save-takes` once per Recording Session and never knows which
- * Recorder made it: OBS's saver polls its file (`obs-take-saver.ts`), the
- * CVM recorder's answers `place-take` per speech
+ * How the Recorder's Takes become saved Clips (#2201). The clip reducer asks
+ * for `save-takes` once per Recording Session and never knows what saves
+ * them: the CVM recorder's saver answers `place-take` per speech
  * (`cvm-recorder-take-saver.ts`). Returns how to stop saving.
  */
 export type TakeSaver = (

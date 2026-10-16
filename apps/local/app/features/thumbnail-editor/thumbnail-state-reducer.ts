@@ -1,15 +1,8 @@
 import type { EffectReducer } from "use-effect-reducer";
-import type { VideoRecorder } from "@cvm/core/features/videos/recorder";
 
 export namespace thumbnailStateReducer {
-  /**
-   * Where the camera modal takes its still: the OBS Virtual Camera on an OBS
-   * Video, the recorder service on a CVM recorder Video (#2012).
-   */
-  export type CameraSource = "virtual-camera" | "recorder";
-
   export interface State {
-    cameraSource: CameraSource;
+    /** The camera modal, which takes its still from the recorder service (#2012). */
     cameraOpen: boolean;
     capturedPhoto: string | null;
     diagramImage: string | null;
@@ -97,10 +90,7 @@ const INITIAL_EDITOR_STATE = {
   pendingAutoSave: false,
 } as const;
 
-export const createInitialThumbnailState = (
-  recorder: VideoRecorder = "obs"
-): thumbnailStateReducer.State => ({
-  cameraSource: recorder === "cvm" ? "recorder" : "virtual-camera",
+export const createInitialThumbnailState = (): thumbnailStateReducer.State => ({
   cameraOpen: false,
   ...INITIAL_EDITOR_STATE,
   removingBackground: false,
@@ -108,12 +98,6 @@ export const createInitialThumbnailState = (
   deleting: null,
   loadingEdit: null,
 });
-
-/** The camera modal that is open, if any: the one for the Video's Recorder. */
-export const openCameraModal = (
-  state: thumbnailStateReducer.State
-): thumbnailStateReducer.CameraSource | null =>
-  state.cameraOpen ? state.cameraSource : null;
 
 export const thumbnailStateReducer: EffectReducer<
   thumbnailStateReducer.State,

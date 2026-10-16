@@ -7,9 +7,8 @@ import {
 import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
 
 /**
- * The thumbnail camera on a CVM recorder Video (#2012): it takes its still
- * from the recorder service (`GET /still`, a 1280x720 JPEG) instead of the
- * OBS Virtual Camera. While the modal is open it listens to the Video's
+ * The thumbnail camera (#2012): it takes its still from the recorder
+ * service (`GET /still`, a 1280x720 JPEG). While the modal is open it listens to the Video's
  * recorder events like the editor does, which keeps the recorder (and the
  * Cam Link) open; the camera's state is the editor's own `cvmRecorderReducer`
  * view of those events.

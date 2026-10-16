@@ -51,8 +51,8 @@ export type IngestResult = {
 
 /**
  * Asks the editors open on a Video where to save a Recording Session's
- * speech that just ended (telling them `speech-ended`), as OBS's polling
- * says where with each save. Null: no editor answered.
+ * speech that just ended (telling them `speech-ended`). Null: no editor
+ * answered.
  */
 export type AskEditor = (
   videoId: string,

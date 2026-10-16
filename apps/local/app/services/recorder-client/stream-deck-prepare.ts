@@ -63,6 +63,5 @@ export const streamDeckPreparation = (o: {
     forget,
     setSilenceLength: (videoId: string, silenceLength: SilenceLength) =>
       void silenceLengths.set(videoId, silenceLength),
-    release: (videoId: string) => void silenceLengths.delete(videoId),
   };
 };

@@ -9,7 +9,7 @@ Bridges Stream Deck button presses to the video editor via WebSocket.
 
 It starts only from the main checkout of the repo. In a git worktree `pnpm dev`
 prints why and carries on without it, and that worktree's editor is pointed at
-a dead address instead of the hub and OBS — see `../live-desk/live-desk.ts`.
+a dead address instead of the hub — see `../live-desk/live-desk.ts`.
 
 ## Available Actions
 
@@ -26,7 +26,7 @@ a dead address instead of the hub and OBS — see `../live-desk/live-desk.ts`.
 Passed to the recorder service (`../recorder-service/`), not the hub: the
 service acts on whichever Video the recorder is open for, and the editor
 follows its events. With no recorder open the press does nothing and the
-service says why. OBS Videos keep Elgato's OBS plugin buttons.
+service says why.
 
 | Action          | HTTP Endpoint               | Description                               |
 | --------------- | --------------------------- | ----------------------------------------- |

@@ -8,11 +8,10 @@ import type { AskEditor } from "./ingest.server";
 const NONE: PlacedTake = { clips: [], transcriptionJobId: null };
 
 /**
- * The recorder client holds no insertion point: the editor owns it, as on
- * OBS (ADR 0044). When speech ends the editors open on the Video are asked
- * where to save it (`speech-ended`); it is saved where one answers
- * (`placeTake`), and that editor hears back the Clips, as OBS's polling
- * hears back its Clips. With no answer by `timeoutMs` (no editor open, or
+ * The recorder client holds no insertion point: the editor owns it (ADR
+ * 0044). When speech ends the editors open on the Video are asked where to
+ * save it (`speech-ended`); it is saved where one answers (`placeTake`), and
+ * that editor hears back the Clips. With no answer by `timeoutMs` (no editor open, or
  * none following that Recording Session) the speech is saved after the
  * Video's last item and the editors are told (`clips-saved`): a save never
  * waits on an editor.

@@ -1,4 +1,3 @@
-import { fromPartial } from "@total-typescript/shoehorn";
 import { describe, expect, it } from "vitest";
 import { createInitialCvmRecorderState } from "@/features/video-editor/cvm-recorder-reducer";
 import { getRecorderCapture } from "@/features/video-editor/recorder-capture";
@@ -10,38 +9,19 @@ import {
   shown,
 } from "./diagram-playground-reducer-test-helpers";
 
-const notRecording = {
-  obsState: fromPartial<Parameters<typeof getRecorderCapture>[0]["obsState"]>({
-    type: "obs-connected",
-  }),
-  obsSpeech: { type: "silence" as const },
-  cvmRecorder: createInitialCvmRecorderState(),
-};
+const idleRecorder = createInitialCvmRecorderState();
 
-// What the Video Editor pushes to the playground is the shared Recorder
-// Capture's `isRecording`, so a take on either Recorder reaches it the same way.
+// What the Video Editor pushes to the playground is the Recorder Capture's
+// `isRecording`.
 const recorders = [
   {
-    name: "OBS",
-    idle: getRecorderCapture({ usesObs: true, ...notRecording }),
-    recording: getRecorderCapture({
-      usesObs: true,
-      ...notRecording,
-      obsState: fromPartial({ type: "obs-recording" }),
-    }),
-  },
-  {
     name: "the CVM recorder",
-    idle: getRecorderCapture({ usesObs: false, ...notRecording }),
-    recording: getRecorderCapture({
-      usesObs: false,
-      ...notRecording,
-      cvmRecorder: { ...notRecording.cvmRecorder, phase: "recording" },
-    }),
+    idle: getRecorderCapture(idleRecorder),
+    recording: getRecorderCapture({ ...idleRecorder, phase: "recording" }),
   },
 ];
 
-describe("a take starting on either Recorder", () => {
+describe("a take starting on the Recorder", () => {
   it.each(recorders)(
     "closes the sidebar, centres the diagram and goes full screen once on $name",
     ({ idle, recording }) => {

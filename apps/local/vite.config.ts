@@ -9,7 +9,6 @@ import {
   HUB_URL_ENV_KEY,
   isMainCheckout,
   liveDeskAddresses,
-  OBS_URL_ENV_KEY,
 } from "./live-desk/live-desk";
 
 // On CI (GitHub Actions sets CI=true) match the fork count to the runner's
@@ -63,16 +62,15 @@ function serveRoots(): string[] {
 // .claude/skills/verify-cvm/scripts/verify.sh.
 const DEV_PORT = 5173;
 
-// The live-desk addresses app/lib/live-channels.ts is built with, decided here
+// The live-desk address app/lib/live-channels.ts is built with, decided here
 // in Node because the browser cannot ask git which checkout it came from.
 function liveDeskDefine(mode: string): Record<string, string> {
-  const { hub, obs } = liveDeskAddresses({
+  const { hub } = liveDeskAddresses({
     mainCheckout: isMainCheckout(path.resolve(".")),
     explicit: loadEnv(mode, WORKSPACE_ROOT, "VITE_"),
   });
   return {
     [`import.meta.env.${HUB_URL_ENV_KEY}`]: JSON.stringify(hub),
-    [`import.meta.env.${OBS_URL_ENV_KEY}`]: JSON.stringify(obs),
   };
 }
 
@@ -87,7 +85,7 @@ function liveDeskDefine(mode: string): Record<string, string> {
 export default defineConfig(({ command, mode }) => ({
   envDir: WORKSPACE_ROOT,
 
-  // Matt's live desk (OBS + the Stream Deck hub) is wired in only when this is
+  // Matt's live desk (the Stream Deck hub) is wired in only when this is
   // the main checkout; every worktree's editor gets the dead address unless an
   // env value says otherwise. See live-desk/live-desk.ts.
   define: liveDeskDefine(mode),

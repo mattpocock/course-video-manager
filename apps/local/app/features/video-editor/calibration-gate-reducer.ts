@@ -6,17 +6,16 @@ import {
 } from "@/av-calibration-constants";
 
 /**
- * THE GATE, as the editor shows it (ADR 0038): whether either Recorder may
+ * THE GATE, as the editor shows it (ADR 0038): whether the CVM recorder may
  * start now, so the banner on its Record controls says why not before Record
  * is pressed. The latest AV Calibration passed under today's rules comes
  * from the loader; the clock ticks in as an event, so a calibration that
  * expires while the editor is open shows as expired.
  *
  * What the editor can see of the camera + mic pair: the camera the recorder
- * service is configured with (`RECORDER_CAMERA_NAME`; OBS cannot say which
- * it records), and on OBS its getUserMedia mic track's label. The CVM
- * recorder's mic only the recorder service knows; it checks the pair when
- * Record starts, and its refusal says why.
+ * service is configured with (`RECORDER_CAMERA_NAME`). The mic only the
+ * recorder service knows; it checks the pair when Record starts, and its
+ * refusal says why.
  */
 export namespace calibrationGateReducer {
   export type State = {
@@ -66,19 +65,5 @@ export const cvmRecorderGate = (
   calibrationValidity(
     state.lastPassed,
     { camera: RECORDER_CAMERA_NAME },
-    state.nowMs
-  );
-
-/**
- * OBS: fresh enough, and taken on the mic the editor's detector hears and
- * the recorder's camera.
- */
-export const obsGate = (
-  state: calibrationGateReducer.State,
-  browserInputLabel: string | null
-): CalibrationValidity =>
-  calibrationValidity(
-    state.lastPassed,
-    { browserInputLabel, camera: RECORDER_CAMERA_NAME },
     state.nowMs
   );

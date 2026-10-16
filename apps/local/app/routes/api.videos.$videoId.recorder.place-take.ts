@@ -11,8 +11,7 @@ const schema = Schema.Struct({
 
 /**
  * The editor heard a CVM recorder speech end: save it here (its insertion
- * point, as OBS's polling sends it with each save), and answer with the
- * Clips saved, as `append-from-obs` does.
+ * point), and answer with the Clips saved.
  */
 export const action = makeAction({
   input: "json",

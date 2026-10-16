@@ -1,7 +1,7 @@
 /**
- * The mic both Recorders capture: OBS's mic source and the CVM recorder's
- * dshow input are this Voicemeeter output, and the browser's silence detector
- * on the OBS path opens it too, so all of them hear the same audio.
+ * The mic the CVM recorder captures: its dshow input is this Voicemeeter
+ * output, and the AV Calibration page's browser detector opens it too, so
+ * both hear the same audio.
  */
 export const MIC_NAME = "Voicemeeter Out B1";
 

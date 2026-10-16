@@ -36,8 +36,8 @@ import { createPopupChannel } from "./popup-channel";
 
 /**
  * Mirrors `FrontendSpeechDetectorState["type"]` from
- * `app/features/video-editor/use-speech-detector.ts`, plus the not-recording
- * case (which the editor expresses via OBS state rather than the speech union).
+ * `app/features/video-editor/speech-detector-reducer.ts`, plus the
+ * not-recording case (`toCaptureStatus`, `recorder-capture.ts`).
  */
 export const CaptureStatus = z.enum([
   "not-recording",

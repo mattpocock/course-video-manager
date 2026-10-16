@@ -6,11 +6,11 @@ A tool for managing course video publishing workflows — editing metadata, gene
 
 A Turborepo monorepo over the pnpm workspace:
 
-| Directory                   | What it is                                                                                                                                                           |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/local`                | The application as it runs on the author's machine: the React Router app, the Video Editor, the Diagram Playground, the Publish flow, ffmpeg, OBS, and the `cvm` CLI |
-| `packages/core`             | The domain database — the Drizzle schema, the `DrizzleService` and every `db-*` operations service. Every piece of SQL in the repo lives here                        |
-| `packages/overlay-renderer` | The standalone Remotion renderer for every overlay content-kind — subtitles, the CTA, and Definition Cards — with its own toolchain                                  |
+| Directory                   | What it is                                                                                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/local`                | The application as it runs on the author's machine: the React Router app, the Video Editor, the Diagram Playground, the Publish flow, ffmpeg, the recorder service, and the `cvm` CLI |
+| `packages/core`             | The domain database — the Drizzle schema, the `DrizzleService` and every `db-*` operations service. Every piece of SQL in the repo lives here                                         |
+| `packages/overlay-renderer` | The standalone Remotion renderer for every overlay content-kind — subtitles, the CTA, and Definition Cards — with its own toolchain                                                   |
 
 `packages/core` has **no filesystem access, no `child_process` and no git
 coupling**, so it can be deployed as well as run locally. `pnpm lint:boundaries`

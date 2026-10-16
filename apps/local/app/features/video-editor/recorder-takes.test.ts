@@ -8,7 +8,6 @@ import {
   dbClip,
   editor,
   frontendIdOf,
-  obs,
   recordingSession,
   settle,
   shown,
@@ -23,7 +22,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe.each([obs, cvm])("a take on the $name", (recorder) => {
+describe("a take on the CVM recorder", () => {
+  const recorder = cvm;
   it("shows the take as an Optimistic Clip at the insertion point, filled in where it stands and saved there", async () => {
     const e = editor(["a", "b"]);
     const r = recorder.connect(e);
@@ -370,7 +370,7 @@ describe("the CVM recorder's adapter", async () => {
     });
   });
 
-  // #2182: a refresh mid-take stops it, as OBS's connector does on connect.
+  // #2182: a refresh mid-take stops it.
   it("stops a Recording Session already going when it loads, and still places its last take", async () => {
     const e = editor(["a", "b"]);
     const adapter = cvmAdapter(e);

@@ -598,31 +598,6 @@ describe("the recorder client, guarding the Stream Deck and the scene", () => {
     expect(await readSession()).toBeUndefined();
   });
 
-  it("lets a Video chosen to record with OBS go at once: a Stream Deck Record does not record on it", async () => {
-    const { client, port } = await setup();
-    const video = await clipService.createVideo("switched to OBS");
-    const heard: CvmRecorderMessage[] = [];
-    client.subscribe(video.id, (m) => heard.push(m));
-    client.setSilenceLength(video.id, "short");
-    await vi.waitFor(() =>
-      expect(heard).toContainEqual({ type: "camera-went-live" })
-    );
-    const press = await streamDeck(port);
-
-    client.releaseVideo(video.id);
-    await vi.waitFor(async () =>
-      expect((await recorderState(port)).kind).toBe("closed")
-    );
-    press("record");
-    await vi.waitFor(() =>
-      expect(heard.at(-1)).toMatchObject({
-        type: "recorder-failed",
-        message: expect.stringContaining("Stream Deck"),
-      })
-    );
-    expect(await readSession()).toBeUndefined();
-  });
-
   it("tells an editor its scene again when the recorder comes back to its Video", async () => {
     const { client } = await setup();
     const a = await clipService.createVideo("a");

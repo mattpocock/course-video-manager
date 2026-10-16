@@ -73,11 +73,6 @@
   ],
   "effect-sets-state": [
     {
-      "file": "apps/local/app/components/capture-camera-modal.tsx",
-      "count": 3,
-      "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 6."
-    },
-    {
       "file": "apps/local/app/components/video-file-paste-modal.tsx",
       "count": 2,
       "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 6."

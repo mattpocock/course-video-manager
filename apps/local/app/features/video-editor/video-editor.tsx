@@ -38,12 +38,7 @@ import type {
   TimelineItem,
 } from "./clip-state-reducer";
 import { isClip } from "./clip-utils";
-import { type OBSConnectionOuterState } from "./obs-connector";
-import {
-  toRecorderPicker,
-  type useRecorderChoice,
-} from "./use-recorder-choice";
-import { type FrontendSpeechDetectorState } from "./use-speech-detector";
+import { type FrontendSpeechDetectorState } from "./speech-detector-reducer";
 import type { SilenceLength } from "@/silence-detection-constants";
 import {
   VideoEditorContext,
@@ -78,8 +73,6 @@ export const VideoEditor = (props: {
    * computed by the loader, since word rows themselves never reach the client.
    */
   anyClipsMissingTranscriptWords: boolean;
-  obsConnectorState: OBSConnectionOuterState;
-  recorderChoice: ReturnType<typeof useRecorderChoice>;
   cvmRecorder: VideoEditorContextType["cvmRecorder"];
   calibrationGate: VideoEditorContextType["calibrationGate"];
   items: TimelineItem[];
@@ -100,7 +93,6 @@ export const VideoEditor = (props: {
     hasAnimatic: boolean;
   };
   videoId: string;
-  liveMediaStream: MediaStream | null;
   speechDetectorState: FrontendSpeechDetectorState;
   silenceLength: SilenceLength;
   onSilenceLengthChange: (silenceLength: SilenceLength) => void;
@@ -263,10 +255,7 @@ export const VideoEditor = (props: {
 
   const totalDuration = getTotalDuration(clips);
 
-  const hasLivePreview = getHasLivePreview(
-    props.liveMediaStream,
-    props.cvmRecorder.state
-  );
+  const hasLivePreview = getHasLivePreview(props.cvmRecorder.state);
   const showVideoPlayer = getShowVideoPlayer(
     state.runningState,
     hasLivePreview
@@ -370,11 +359,7 @@ export const VideoEditor = (props: {
   // The Beat Panel is read-only the instant a capture starts and through
   // the post-recording settling window (recording, polling, or unresolved
   // optimistic clips) — see isCaptureInProgress.
-  const captureInProgress = isCaptureInProgress(
-    props.obsConnectorState,
-    props.items,
-    props.sessions
-  );
+  const captureInProgress = isCaptureInProgress(props.items, props.sessions);
 
   const onShowBeatPanel = useCallback(
     () => setPersistedBeatTab("beats"),
@@ -440,15 +425,8 @@ export const VideoEditor = (props: {
       onShowBeatPanel,
       onShowScriptPanel,
       insertionPoint: props.insertionPoint,
-      obsConnectorState: props.obsConnectorState,
-      recorderPicker: toRecorderPicker(
-        props.recorderChoice,
-        // Switchable any time but mid-capture (ADR 0036).
-        captureInProgress || props.isRecordingActive
-      ),
       cvmRecorder: props.cvmRecorder,
       calibrationGate: props.calibrationGate,
-      liveMediaStream: props.liveMediaStream,
       speechDetectorState: props.speechDetectorState,
       silenceLength: props.silenceLength,
       setSilenceLength: props.onSilenceLengthChange,
@@ -537,10 +515,7 @@ export const VideoEditor = (props: {
       onShowBeatPanel,
       onShowScriptPanel,
       props.insertionPoint,
-      props.obsConnectorState,
       props.calibrationGate,
-      props.recorderChoice.state,
-      props.liveMediaStream,
       props.speechDetectorState,
       props.silenceLength,
       props.onSilenceLengthChange,

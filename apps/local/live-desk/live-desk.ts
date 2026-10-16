@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
 /**
- * Matt's live desk: his real OBS and the Stream Deck forwarder hub his button
- * presses go through. Only the MAIN CHECKOUT of the repo may touch it.
+ * Matt's live desk: the Stream Deck forwarder hub his button presses go
+ * through. Only the MAIN CHECKOUT of the repo may touch it.
  *
  * Every other checkout — an agent's worktree, a verify-cvm run — is pointed at
  * the discard port, where nothing answers. A worktree's editor on the live hub
@@ -20,11 +20,9 @@ import { resolve } from "node:path";
 export const DEAD_DESK_URL = "ws://127.0.0.1:9";
 
 const LIVE_HUB_URL = "ws://localhost:5172";
-const LIVE_OBS_URL = "ws://localhost:4455";
 
-/** The env keys the browser reads its live-desk addresses from (app/lib/live-channels.ts). */
+/** The env key the browser reads its live-desk address from (app/lib/live-channels.ts). */
 export const HUB_URL_ENV_KEY = "VITE_STREAM_DECK_HUB_URL";
-export const OBS_URL_ENV_KEY = "VITE_OBS_WEBSOCKET_URL";
 
 /**
  * Whether `cwd` is inside the repo's main checkout: its git dir IS the common
@@ -48,7 +46,7 @@ export const isMainCheckout = (cwd: string): boolean => {
 };
 
 /**
- * The live-desk addresses a checkout's browser code is built with. An explicit
+ * The live-desk address a checkout's browser code is built with. An explicit
  * value (process env or `.env`, as `explicit` carries it) always wins — that is
  * how verify-cvm pins its runs. Otherwise the main checkout gets the live desk
  * and every other checkout the dead address.
@@ -56,14 +54,11 @@ export const isMainCheckout = (cwd: string): boolean => {
 export const liveDeskAddresses = (opts: {
   mainCheckout: boolean;
   explicit: Record<string, string | undefined>;
-}): { hub: string; obs: string } => {
-  const pick = (key: string, live: string) =>
-    opts.explicit[key] || (opts.mainCheckout ? live : DEAD_DESK_URL);
-  return {
-    hub: pick(HUB_URL_ENV_KEY, LIVE_HUB_URL),
-    obs: pick(OBS_URL_ENV_KEY, LIVE_OBS_URL),
-  };
-};
+}): { hub: string } => ({
+  hub:
+    opts.explicit[HUB_URL_ENV_KEY] ||
+    (opts.mainCheckout ? LIVE_HUB_URL : DEAD_DESK_URL),
+});
 
 /**
  * Why the Stream Deck forwarder will not start in `cwd`, or `undefined` when

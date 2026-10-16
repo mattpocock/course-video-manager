@@ -62,8 +62,8 @@ const messageOf = (error: unknown) =>
 /**
  * Hears a Video's `CvmRecorderMessage`s from `GET /api/videos/:id/recorder/
  * events` while `enabled`. Listening is what opens the recorder (and the Cam
- * Link) for that Video, so only a CVM recorder Video may listen. The editor
- * and the thumbnail camera both listen through here.
+ * Link) for that Video. The editor and the thumbnail camera both listen
+ * through here.
  */
 export const useRecorderEvents = (
   videoId: string,
@@ -87,17 +87,15 @@ export const useRecorderEvents = (
 /**
  * The effect runner for `cvmRecorderReducer`, and the bridge from the app
  * server's recorder events (`GET /api/videos/:id/recorder/events`) into it.
- * Its clip effects reach the clip reducer as the OBS path's events. Listens only on a CVM recorder Video, and its
- * listening is what opens the recorder (and the Cam Link) for that Video:
- * an OBS Video never opens it.
+ * Its clip effects are the clip reducer's recording events (ADR 0044). Its
+ * listening is what opens the recorder (and the Cam Link) for the Video.
  */
 export const useCvmRecorder = (o: {
   /** The Video: a Short opens the recorder, and draws, in the Short layout. */
   video: { id: string; format: string };
-  enabled: boolean;
   silenceLength: SilenceLength;
   clipDispatch: (action: ClipReducerAction) => void;
-  /** OBS's callbacks: the CVM recorder's takes go through the same path. */
+  /** A Take shows as an Optimistic Clip; its audio window closes. */
   onNewClipOptimisticallyAdded: (take: {
     scene: null;
     profile: null;
@@ -212,14 +210,13 @@ export const useCvmRecorder = (o: {
 
   // Bridges the editor's Silence Length (a localStorage choice) in.
   useEffect(() => {
-    if (o.enabled)
-      dispatch({
-        type: "silence-length-chosen",
-        silenceLength: o.silenceLength,
-      });
-  }, [o.enabled, o.silenceLength, dispatch]);
+    dispatch({
+      type: "silence-length-chosen",
+      silenceLength: o.silenceLength,
+    });
+  }, [o.silenceLength, dispatch]);
 
-  useStopRecordingOnLeave(o.enabled && canStop(state), () => {
+  useStopRecordingOnLeave(canStop(state), () => {
     fetch(`/api/videos/${videoId}/recorder/stop`, {
       method: "POST",
       keepalive: true,
@@ -228,7 +225,7 @@ export const useCvmRecorder = (o: {
     });
   });
 
-  useRecorderEvents(videoId, o.enabled, (message) => {
+  useRecorderEvents(videoId, true, (message) => {
     dispatch({ type: "recorder-message-heard", message });
   });
 

@@ -14,9 +14,8 @@ import {
  * with it, capture-args.ts), so its first speech is a `silence_end`.
  *
  * The first silence, heard before any speech, is `warmed-up`: the take is
- * ready for speech. It is what the OBS path's browser detector shows as the
- * end of "warming up" (use-speech-detector.ts), so the teleprompter shows the
- * same for either Recorder.
+ * ready for speech: the end of "warming up" the editor and the teleprompter
+ * show (speech-detector-reducer.ts).
  *
  * TAKES. This is also the one place that decides a speech is long enough to
  * be a Clip, by the rule the app server cuts Clips with

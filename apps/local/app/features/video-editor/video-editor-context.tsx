@@ -13,11 +13,9 @@ import type {
 import type { SessionPanelData } from "./video-editor-selectors";
 import type { videoStateReducer } from "./video-state-reducer";
 import type { editorModalsReducer } from "./editor-modals-reducer";
-import type { OBSConnectionOuterState } from "./obs-connector";
-import type { RecorderPicker } from "./use-recorder-choice";
 import type { CvmRecorderControls } from "./use-cvm-recorder";
 import type { CalibrationGate } from "./use-calibration-gate";
-import type { FrontendSpeechDetectorState } from "./use-speech-detector";
+import type { FrontendSpeechDetectorState } from "./speech-detector-reducer";
 import type { SilenceLength } from "@/silence-detection-constants";
 import type { ClipComputedProps } from "./types";
 import type { ReferenceCandidate } from "./components/reference-panel";
@@ -107,14 +105,10 @@ export type VideoEditorContextType = {
   /** Activate the Script tab in the editor side panel. */
   onShowScriptPanel: () => void;
   insertionPoint: FrontendInsertionPoint;
-  obsConnectorState: OBSConnectionOuterState;
-  /** The Video's Recorder (OBS or CVM recorder), and the picker for it. */
-  recorderPicker: RecorderPicker;
-  /** Record and Stop on a CVM recorder Video. */
+  /** The CVM recorder: its state, Record and Stop. */
   cvmRecorder: CvmRecorderControls;
-  /** Whether each Recorder may start, by the AV Calibration gate (ADR 0038). */
+  /** Whether the CVM recorder may start, by the AV Calibration gate (ADR 0038). */
   calibrationGate: CalibrationGate;
-  liveMediaStream: MediaStream | null;
   speechDetectorState: FrontendSpeechDetectorState;
   silenceLength: SilenceLength;
   setSilenceLength: (silenceLength: SilenceLength) => void;

@@ -31,8 +31,8 @@ import {
 } from "./recorder-client-test-harness";
 
 /**
- * A Clip's Recorder is its own (ADR 0036): a Video holding an OBS Clip
- * switches to the CVM recorder, records, and exports both Clips, each drawn
+ * A Clip's Recorder is its own (ADR 0036, ADR 0051): a Video holding an old
+ * OBS Clip records with the CVM recorder, and exports both Clips, each drawn
  * from its own Footage. No hardware: the recorder service runs on a scripted
  * Windows with a fake ffmpeg, and the export's ffmpeg is a fake that records
  * what it was asked to draw.
@@ -71,7 +71,7 @@ const fakeExport = (outputDirectory: string) => {
 };
 
 describe("a Video mixing OBS and CVM-recorder Clips", () => {
-  it("switches to the CVM recorder with an OBS Clip on it, records, and exports both Clips", async () => {
+  it("records with the CVM recorder beside an old OBS Clip, and exports both Clips", async () => {
     const video = await clipService.createVideo("Mixed");
     await clipService.appendClips({
       videoId: video.id,
@@ -79,13 +79,6 @@ describe("a Video mixing OBS and CVM-recorder Clips", () => {
       items: [],
       clips: [{ inputVideo: "/obs/take.mkv", startTime: 0, endTime: 5 }],
     });
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const ops = yield* VideoOperationsService;
-        yield* ops.updateVideoRecorder({ videoId: video.id, recorder: "cvm" });
-      }).pipe(Effect.provide(videoOps()))
-    );
 
     const { port, windows } = await startService();
     const client = connectClient(port);

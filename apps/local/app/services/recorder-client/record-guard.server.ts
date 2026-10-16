@@ -1,6 +1,5 @@
-import { Data, Effect } from "effect";
+import { Effect } from "effect";
 import { eq } from "drizzle-orm";
-import { resolveVideoRecorder } from "@cvm/core/features/videos/recorder";
 import { videos } from "@/db/schema";
 import { resolveVideoFormat } from "@/features/videos/video-format";
 import { NotFoundError } from "@/services/db-service-errors";
@@ -9,14 +8,8 @@ import { requireDraftVersionForVideo } from "@/services/draft-guard.server";
 import type { Database } from "@/services/drizzle-service.server";
 import { withDbTransaction } from "@/services/with-db-transaction.server";
 
-/** Record on a Video that records with OBS (a stale tab, say). */
-export class RecordOnOBSVideoError extends Data.TaggedError(
-  "RecordOnOBSVideoError"
-)<{ readonly message: string }> {}
-
 /**
- * Whether Record may start on a Video: it records with the CVM recorder, and
- * its Version is the Draft (a Recording Session hangs off the Video, so the
+ * Whether Record may start on a Video: its Version is the Draft (a Recording Session hangs off the Video, so the
  * Draft guard is its guard too; docs/DRAFT_GUARD.md). Answers the Video's
  * format, which the recorder records in.
  */
@@ -25,15 +18,11 @@ export const requireRecordableVideo = Effect.fn("requireRecordableVideo")(
     const video = yield* dbCall(() =>
       db.query.videos.findFirst({
         where: eq(videos.id, videoId),
-        columns: { id: true, recorder: true, format: true },
+        columns: { id: true, format: true },
       })
     );
     if (!video)
       return yield* new NotFoundError({ type: "video", params: { videoId } });
-    if (resolveVideoRecorder(video) !== "cvm")
-      return yield* new RecordOnOBSVideoError({
-        message: "This Video records with OBS. Reload to see its Recorder.",
-      });
     yield* withDbTransaction(db, (tx) =>
       requireDraftVersionForVideo(tx, videoId)
     );

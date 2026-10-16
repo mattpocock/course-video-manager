@@ -7,21 +7,19 @@
 # --- off Matt's desk --------------------------------------------------------
 # The browser side of the CVM connects to the Stream Deck forwarder hub
 # (ws://localhost:5172 — Stream Deck presses, teleprompter controls, browser
-# link-capture) and to OBS (ws://localhost:4455). A run's editor on that hub
-# acts on Matt's real button presses, and its OBS socket drives his real OBS.
-# Every run points both at the discard port, where nothing answers: the run
+# link-capture). A run's editor on that hub acts on Matt's real button presses.
+# Every run points it at the discard port, where nothing answers: the run
 # hears nothing from his desk and his desk hears nothing from the run.
 # Read by apps/local/app/lib/live-channels.ts.
 LIVE_CHANNELS_OFF=(
   "VITE_STREAM_DECK_HUB_URL=ws://127.0.0.1:9"
-  "VITE_OBS_WEBSOCKET_URL=ws://127.0.0.1:9"
 )
 
-# Read the addresses back from the module the run's own server serves its
-# pages: proof, not hope, that its editor cannot join Matt's hub or his OBS.
+# Read the address back from the module the run's own server serves its
+# pages: proof, not hope, that its editor cannot join Matt's hub.
 desk_isolated() {
   local src; src="$(curl -sf "http://localhost:$1/app/lib/live-channels.ts")" || return 1
-  [ "$(grep -o 'ws://127\.0\.0\.1:9"' <<< "$src" | wc -l)" -ge 2 ]
+  [ "$(grep -o 'ws://127\.0\.0\.1:9"' <<< "$src" | wc -l)" -ge 1 ]
 }
 
 # --- who holds the port ---------------------------------------------------

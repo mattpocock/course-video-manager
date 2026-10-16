@@ -36,7 +36,7 @@ import { watchRecorder } from "./recorder-watch";
  * and passes what was saved on to the editors open on that Video.
  *
  * It holds no insertion point: each speech is saved where an editor says
- * (`take-placer.ts`), as on OBS.
+ * (`take-placer.ts`).
  *
  * An event it could not save is not lost: the rest of that Recording Session
  * waits, and after a pause the whole of it is asked for again (saving is
@@ -600,16 +600,6 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     setSilenceLength(videoId: string, silenceLength: SilenceLength) {
       deck.setSilenceLength(videoId, silenceLength);
       prepare();
-    },
-
-    /**
-     * The Video now records with OBS: the recorder lets it go at once, not
-     * after the close grace, and a Stream Deck Record no longer records on it.
-     */
-    releaseVideo(videoId: string) {
-      deck.release(videoId);
-      wanted = wanted.filter((v) => v !== videoId);
-      reconcile();
     },
 
     ...watch.signal,

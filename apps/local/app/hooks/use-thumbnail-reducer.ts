@@ -1,6 +1,5 @@
 import { useEffectReducer } from "use-effect-reducer";
 import { useRevalidator } from "react-router";
-import type { VideoRecorder } from "@cvm/core/features/videos/recorder";
 import {
   thumbnailStateReducer,
   createInitialThumbnailState,
@@ -36,17 +35,14 @@ interface Thumbnail {
   layers: unknown;
 }
 
-export function useThumbnailReducer(
-  thumbnails: Thumbnail[],
-  recorder: VideoRecorder
-) {
+export function useThumbnailReducer(thumbnails: Thumbnail[]) {
   const revalidator = useRevalidator();
 
   const [state, dispatch] = useEffectReducer<
     thumbnailStateReducer.State,
     thumbnailStateReducer.Action,
     thumbnailStateReducer.Effect
-  >(thumbnailStateReducer, createInitialThumbnailState(recorder), {
+  >(thumbnailStateReducer, createInitialThumbnailState(), {
     "remove-background": (_state, effect, dispatch) => {
       fetch("/api/remove-background", {
         method: "POST",

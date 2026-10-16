@@ -27,7 +27,6 @@ import { FileVideo, Lightbulb, Plus } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useFetcher, useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/_app.pitches._index";
-import { readLastRecorderChoice } from "@/features/video-editor/last-recorder-choice";
 
 export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Pitches" }];
@@ -359,7 +358,7 @@ function PitchRow({
   const effortFetcher = useFetcher();
   const addVideo = () => {
     createVideoFetcher.submit(
-      { recorder: readLastRecorderChoice() ?? "" },
+      {},
       {
         method: "post",
         action: `/api/pitches/${pitch.id}/create-video`,

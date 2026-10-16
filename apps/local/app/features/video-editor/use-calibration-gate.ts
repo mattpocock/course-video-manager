@@ -7,23 +7,18 @@ import {
   calibrationGateReducer,
   createInitialCalibrationGateState,
   cvmRecorderGate,
-  obsGate,
 } from "./calibration-gate-reducer";
 
 /** How often the gate looks at the clock again. */
 const TICK_MS = 30_000;
 
-export type CalibrationGate = {
-  cvm: CalibrationValidity;
-  obs: CalibrationValidity;
-};
+/** Whether the CVM recorder may start now (ADR 0038). */
+export type CalibrationGate = CalibrationValidity;
 
-/** The gate for both Recorders, from the loader's calibration and the clock. */
+/** The gate, from the loader's calibration and the clock. */
 export const useCalibrationGate = (o: {
   lastPassed: LastPassedCalibration | null;
   checkedAtMs: number;
-  /** The OBS path's mic track label; null with none open. */
-  browserInputLabel: string | null;
 }): CalibrationGate => {
   const [state, dispatch] = useReducer(
     calibrationGateReducer,
@@ -41,11 +36,5 @@ export const useCalibrationGate = (o: {
   useEffect(() => {
     dispatch({ type: "calibration-loaded", lastPassed: o.lastPassed });
   }, [o.lastPassed?.id]);
-  return useMemo(
-    () => ({
-      cvm: cvmRecorderGate(state),
-      obs: obsGate(state, o.browserInputLabel),
-    }),
-    [state, o.browserInputLabel]
-  );
+  return useMemo(() => cvmRecorderGate(state), [state]);
 };

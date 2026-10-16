@@ -35,8 +35,7 @@ function PanelComments({ comments }: { comments: readonly string[] }) {
  */
 export function AnimaticPanel(props: { lines: AnimaticLine[] }) {
   const dispatch = useContextSelector(VideoEditorContext, (c) => c.dispatch);
-  // OBS has no Stop in the editor (as New Short says): only a CVM recorder
-  // Take can be stopped from here.
+  // A Take being recorded is stopped from here.
   const takeRecording = useContextSelector(
     VideoEditorContext,
     (c) => c.cvmRecorder.canStop

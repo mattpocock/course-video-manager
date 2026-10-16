@@ -12,8 +12,8 @@ import { useLatestFrame } from "../use-latest-frame";
  * (`useLatestFrame`); the canvas redraws them every animation frame. A feed with no frame yet
  * is left out (black). A feed whose newest frame is older than
  * `PREVIEW_STALL_MS` is left out too, and the canvas says it stalled: the
- * service is starting it again, and a frozen frame would look live (#2192). It fills the editor's live frame, where OBS's
- * Virtual Camera would be (`LivePreviewFrame`). A Short is drawn in its own
+ * service is starting it again, and a frozen frame would look live (#2192). It fills the editor's live frame
+ * (`LivePreviewFrame`). A Short is drawn in its own
  * 9:16 layout.
  */
 /** "Screen preview stalled — restarting", over the black where it was. */

@@ -1,10 +1,7 @@
 import { fromPartial } from "@total-typescript/shoehorn";
 import { vi } from "vitest";
 import { ReducerTester } from "@/test-utils/reducer-tester";
-import {
-  resolveInsertionPoint,
-  type InsertionPoint,
-} from "@/services/clip-service";
+import type { InsertionPoint } from "@/services/clip-service";
 import {
   clipStateReducer,
   type ClipOnDatabase,
@@ -20,38 +17,25 @@ import type {
   CvmRecorderMessage,
   SavedRecorderClip,
 } from "./cvm-recorder-wire";
-import {
-  CALIBRATION_VALIDITY_MS,
-  type LastPassedCalibration,
-} from "@/av-calibration-constants";
-import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
-import {
-  createInitialOBSConnectorState,
-  obsConnectorReducer,
-} from "./obs-connector-reducer";
-import { OBS_POLL_MS, obsTakeSaver } from "./obs-take-saver";
 import { cvmRecorderTakeSaver } from "./cvm-recorder-take-saver";
 import { takesSavedInto, type TakeSaver } from "./take-saver";
 import {
   toFrontendSpeechDetectorState,
   type FrontendSpeechDetectorState,
-  type speechDetectorReducer,
 } from "./speech-detector-reducer";
 
 /**
- * A take, the same scenario through both Recorders. Each reaches the clip
- * reducer through its reducer's effects, as its hook sends them: OBS's
- * connector (`obsConnectorReducer`, `useOBSConnector`) and its polling, the
- * CVM recorder's adapter (`cvmRecorderReducer`, `use-cvm-recorder.ts`).
- * Both save through their real `TakeSaver`, which the clip reducer's
- * `save-takes` starts as the edit route does, onto a model of the app
- * server: each save is placed where the editor says with it (OBS's poll,
- * the CVM recorder's `place-take`), and the database's order must end up
- * the editor's. Saving is async: call these under `vi.useFakeTimers()`.
+ * A take through the CVM recorder's adapter (`cvmRecorderReducer`,
+ * `use-cvm-recorder.ts`), reaching the clip reducer through its effects as
+ * the hook sends them. It saves through its real `TakeSaver`, which the clip
+ * reducer's `save-takes` starts as the edit route does, onto a model of the
+ * app server: each save is placed where the editor says with it
+ * (`place-take`), and the database's order must end up the editor's. Saving
+ * is async: call these under `vi.useFakeTimers()`.
  */
 
-/** Lets the savers' requests answer, and OBS poll once more. */
-export const settle = () => vi.advanceTimersByTimeAsync(OBS_POLL_MS);
+/** Lets the saver's requests answer. */
+export const settle = () => vi.advanceTimersByTimeAsync(500);
 
 type ClipTester = ReducerTester<
   clipStateReducer.State,
@@ -171,9 +155,9 @@ export type Recorder = {
     endSpeech: () => void;
     /** The speech ends, and its Clip is saved where the editor says. */
     saveTake: (clipId: string) => Promise<void>;
-    /** Recording stops, and the OBS path's session timeout runs out. */
+    /** Recording stops, and the session timeout runs out. */
     stopRecording: () => void;
-    /** The editor loses the Recorder and finds it again: OBS's websocket, the app server's events. */
+    /** The editor loses the Recorder and finds it again: the app server's events. */
     reconnect: () => void;
     /** What the editor shows of the speech. */
     speech: () => FrontendSpeechDetectorState;
@@ -191,7 +175,7 @@ const timeOut = (e: Editor) => {
     e.send({ type: "session-polling-complete", sessionId: timeout.sessionId });
 };
 
-/** The edit route's `onClipAudioWindowClosed`, either Recorder's. */
+/** The edit route's `onClipAudioWindowClosed`. */
 const closeTakeWindow = (e: Editor) => {
   const session = e.clips
     .getState()
@@ -204,156 +188,6 @@ const closeTakeWindow = (e: Editor) => {
       diagramFocused: false,
       ts: 0,
     });
-};
-
-const MIC = "Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)";
-const CALIBRATED_AT = Date.UTC(2026, 9, 12, 9);
-const calibration: LastPassedCalibration = {
-  id: "calibration-1",
-  createdAtMs: CALIBRATED_AT,
-  thresholdDb: -43,
-  recorderMic: MIC,
-  browserInputLabel: MIC,
-  cameraDevice: "Cam Link 4K",
-};
-const gateFacts = (nowMs: number) => ({
-  lastPassed: calibration,
-  browserInputLabel: MIC,
-  nowMs,
-});
-
-const obsFile = (n: number) => `/obs/take-${n}.mkv`;
-
-/**
- * OBS: websocket events and the mic's silence scan into its connector,
- * whose effects reach the clip reducer as `useOBSConnector` sends them.
- */
-export const obs: Recorder = {
-  name: "OBS",
-  connect: (e, opts) => {
-    const connector = new ReducerTester(
-      obsConnectorReducer,
-      createInitialOBSConnectorState(true, () => {})
-    );
-    let file = obsFile(1);
-    /** Clips in OBS's file the next poll finds. */
-    const inFile: string[] = [];
-    e.savesWith(
-      obsTakeSaver({
-        videoId: "video",
-        appendFromObs: async (input) =>
-          inFile
-            .splice(0)
-            .map((id) =>
-              e.save(
-                id,
-                resolveInsertionPoint(input.insertionPoint, input.items)
-              )
-            ),
-      })
-    );
-    let clock = 0;
-    let sound = 0;
-    let effectsSeen = 0;
-
-    const report = (action: obsConnectorReducer.Action) => {
-      const before = connector.getState().obs.type;
-      connector.send(action);
-      const effects = connector.getEffects();
-      for (const effect of effects.slice(effectsSeen)) {
-        if (effect.type === "start-session") {
-          const { type: _, ...session } = effect;
-          e.send({ type: "recording-started", ...session });
-        } else if (effect.type === "stop-session")
-          e.send({ type: "recording-stopped" });
-        else if (effect.type === "start-take") {
-          const { type: _, ...take } = effect;
-          e.send({ type: "new-optimistic-clip-detected", ...take });
-        } else if (effect.type === "close-take-window") closeTakeWindow(e);
-      }
-      effectsSeen = effects.length;
-      // `useSpeechDetector` restarts the detector as OBS starts recording.
-      const after = connector.getState().obs.type;
-      if (before !== "obs-recording" && after === "obs-recording")
-        hear({ type: "recording-started" });
-    };
-    const hear = (heard: speechDetectorReducer.Action) =>
-      report({ type: "speech-heard", heard });
-    const endSpeech = () => {
-      clock += 1;
-      hear({ type: "silence-started" });
-    };
-    const connected = (recording: boolean) =>
-      report({
-        type: "obs-connected",
-        profile: "Landscape",
-        scene: "Camera",
-        recording,
-      });
-
-    // The page opens and OBS connects. A take going on is stopped.
-    connected(opts?.midTake ?? false);
-    if (opts?.midTake) report({ type: "recording-stopped", outputPath: file });
-
-    const speak = () => {
-      clock += 1;
-      hear({ type: "silence-ended", endSeconds: clock });
-    };
-    const holdSpeech = () => {
-      clock += MINIMUM_CLIP_LENGTH_SECONDS + 0.1;
-      hear({
-        type: "audio-heard",
-        atSeconds: clock,
-        soundDetectionId: `sound-${++sound}`,
-      });
-    };
-    return {
-      startRecording: (n = 1) => {
-        file = obsFile(n);
-        report({
-          type: "recording-started",
-          outputPath: file,
-          silenceLength: "short",
-          ...gateFacts(CALIBRATED_AT + 60_000),
-        });
-        endSpeech();
-      },
-      refusedRecord: () => {
-        report({
-          type: "recording-started",
-          outputPath: file,
-          silenceLength: "short",
-          ...gateFacts(CALIBRATED_AT + CALIBRATION_VALIDITY_MS),
-        });
-        report({ type: "recording-stopped", outputPath: file });
-      },
-      speak,
-      holdSpeech,
-      startTake: () => {
-        speak();
-        holdSpeech();
-      },
-      endSpeech,
-      saveTake: async (clipId) => {
-        endSpeech();
-        // The next poll finds the Clip in the file, saved where it says.
-        inFile.push(clipId);
-        await settle();
-      },
-      stopRecording: () => {
-        report({ type: "recording-stopped", outputPath: file });
-        timeOut(e);
-      },
-      reconnect: () => {
-        report({ type: "connection-closed" });
-        connected(connector.getState().interrupted !== null);
-      },
-      speech: () => toFrontendSpeechDetectorState(connector.getState().speech),
-      stops: () =>
-        connector.getEffects().filter((x) => x.type === "stop-recording")
-          .length,
-    };
-  },
 };
 
 export const recordingSession = (n: number) => `session-${n}`;

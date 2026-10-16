@@ -25,7 +25,7 @@ const status = heard({
 const tester = () =>
   new ReducerTester(recorderStillReducer, createInitialRecorderStillState());
 
-describe("the thumbnail camera on a CVM recorder Video", () => {
+describe("the thumbnail camera", () => {
   it("takes its still from the recorder service once the camera is live", () => {
     const t = tester().send(status);
     t.send({ type: "press-capture" });

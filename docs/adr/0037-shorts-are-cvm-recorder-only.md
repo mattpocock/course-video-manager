@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: superseded by ADR-0051
 ---
 
 # Shorts are CVM-recorder only
+
+> Superseded by [ADR 0051](0051-the-cvm-recorder-is-the-only-recorder.md): every Video, not only a Short, records with the CVM recorder.
 
 Decided by Matt on #1993. Builds on [ADR 0036](0036-a-clips-recorder-is-its-own.md).
 
