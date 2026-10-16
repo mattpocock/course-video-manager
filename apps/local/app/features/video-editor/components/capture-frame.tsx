@@ -1,11 +1,10 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { CheckIcon, Loader2, MicIcon, MicOffIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { LiveMediaStreamProps } from "../types";
-import type { FrontendSpeechDetectorState } from "../use-speech-detector";
+import type { FrontendSpeechDetectorState } from "../speech-detector-reducer";
 
 /**
- * The live picture's frame, whichever Recorder fills it: the capture badge
+ * The live picture's frame: the capture badge
  * (recording state and speech detection), the ring coloured to match, and
  * the optional centre line for camera framing. `children` is the picture.
  *
@@ -76,35 +75,5 @@ export const CaptureFrame = (props: {
         </div>
       )}
     </div>
-  );
-};
-
-/**
- * OBS's live picture: the Virtual Camera's stream in the capture frame.
- * Auto-plays the stream when mounted or when the stream changes.
- */
-export const LiveMediaStream = (props: LiveMediaStreamProps) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = props.mediaStream;
-      videoRef.current.play();
-    }
-  }, [props.mediaStream, videoRef.current]);
-
-  return (
-    <CaptureFrame
-      isRecording={props.obsConnectorState.type === "obs-recording"}
-      speechDetectorState={props.speechDetectorState}
-      showCenterLine={props.showCenterLine}
-      showCaptureStatus={props.showCaptureStatus}
-    >
-      <video
-        ref={videoRef}
-        muted
-        className="w-full h-full object-contain rounded-lg"
-      />
-    </CaptureFrame>
   );
 };

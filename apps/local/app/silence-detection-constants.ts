@@ -1,18 +1,14 @@
 /**
  * The one definition of silence (ADR 0034 §5), read by every silence detector:
- * ffmpeg's silencedetect on OBS files and in the CVM recorder's camera+mic
- * process, and the browser's detector on the OBS path (`silence-scan.ts`), which
- * measures exactly as silencedetect does. Change a value here and all of them
- * move together.
+ * ffmpeg's silencedetect on old OBS files and in the CVM recorder's camera+mic
+ * process. Change a value here and all of them move together.
  */
 
 /**
  * The fixed noise level, in dBFS, as silencedetect's `n`: a sample is silent
  * when its absolute amplitude is below it. A sample peak, not an RMS level.
  *
- * Only for work that is not recording: chunking or re-cutting old Footage,
- * and the OBS browser detector's level before any AV Calibration has
- * passed (nothing records then: ADR 0038). A Recording Session cuts with the
+ * Only for work that is not recording: chunking or re-cutting old Footage. A Recording Session cuts with the
  * threshold of the AV Calibration it started under, read once when it
  * starts (`SilenceThreshold`).
  */

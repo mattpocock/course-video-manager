@@ -63,7 +63,7 @@ export const API_TOKEN_ENV_KEY = "CVM_API_TOKEN";
 
 /**
  * How a machine says it is the author's — the one with the finished videos
- * directory, the Video Files directory, ffmpeg and OBS on it.
+ * directory, the Video Files directory and ffmpeg on it.
  *
  * It is DECLARED rather than detected. Every candidate signal is a proxy that
  * is wrong in the dangerous direction: `VIDEO_FILES_DIR` falls back to a path

@@ -10,7 +10,6 @@ import type {
   SessionId,
   TimelineItem,
 } from "./clip-state-reducer";
-import type { OBSConnectionOuterState } from "./obs-connector";
 import { calculateTextSimilarity, isClip, isChapter } from "./clip-utils";
 import type { ClipComputedProps } from "./types";
 
@@ -437,31 +436,6 @@ export const getHasSections = (items: TimelineItem[]): boolean => {
   return getChapters(items).length > 0;
 };
 
-// ---------------------------------------------------------------------------
-// OBS and live stream selectors (from video-player-panel.tsx)
-// ---------------------------------------------------------------------------
-
-export const getIsOBSActive = (
-  obsConnectorState: OBSConnectionOuterState
-): boolean => {
-  return (
-    obsConnectorState.type === "obs-connected" ||
-    obsConnectorState.type === "obs-recording"
-  );
-};
-
-export const getShouldShowLastFrameOverlay = (
-  databaseClipToShowLastFrameOf: ClipOnDatabase | undefined,
-  showLastFrame: boolean,
-  _obsConnectorState: OBSConnectionOuterState
-): boolean => {
-  if (!databaseClipToShowLastFrameOf || !showLastFrame) {
-    return false;
-  }
-
-  return true;
-};
-
 export const getBackButtonUrl = (
   repoId: string | null,
   lessonId: string | null,
@@ -471,16 +445,6 @@ export const getBackButtonUrl = (
   if (pitchId) return `/pitches/${pitchId}`;
   if (repoId && lessonId) return `/courses/${repoId}#${lessonId}`;
   return format === "short" ? "/shorts" : "/videos";
-};
-
-export const getShowCenterLine = (
-  obsConnectorState: OBSConnectionOuterState
-): boolean => {
-  return (
-    getIsOBSActive(obsConnectorState) &&
-    obsConnectorState.type !== "obs-not-running" &&
-    obsConnectorState.scene === "Camera"
-  );
 };
 
 /**
@@ -503,20 +467,16 @@ export const getShowRecordingSignal = (
  *
  * The Beat Panel is editable only when fully idle and every clip is
  * resolved; this selector drives its read-only gate so the freeze covers the
- * whole capture, not just while OBS reports "recording". Returns `true` when
- * **any** of:
- *   1. OBS is actively recording, OR
- *   2. a recording session is still `recording` or `polling` (settling), OR
- *   3. an unresolved pending optimistic clip remains (not yet on-database,
+ * whole capture, not just while the Recorder reports "recording". Returns
+ * `true` when **any** of:
+ *   1. a recording session is still `recording` or `polling` (settling), OR
+ *   2. an unresolved pending optimistic clip remains (not yet on-database,
  *      archived, or orphaned).
  */
 export const isCaptureInProgress = (
-  obsConnectorState: OBSConnectionOuterState,
   items: TimelineItem[],
   sessions: RecordingSession[]
 ): boolean => {
-  if (obsConnectorState.type === "obs-recording") return true;
-
   if (
     sessions.some(
       (session) =>

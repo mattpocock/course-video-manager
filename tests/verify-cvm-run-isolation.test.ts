@@ -36,20 +36,16 @@ const port = Number(process.argv[process.argv.indexOf("--port") + 1]);
 const env = process.env;
 require("fs").writeFileSync(
   "server-env.json",
-  JSON.stringify({
-    hub: env.VITE_STREAM_DECK_HUB_URL,
-    obs: env.VITE_OBS_WEBSOCKET_URL,
-  }),
+  JSON.stringify({ hub: env.VITE_STREAM_DECK_HUB_URL }),
 );
 // Stands in for Vite serving app/lib/live-channels.ts with the env inlined.
 // FAKE_LEAKY_SERVER plays a server that ignored the env and kept Matt's hub.
 const leaky = env.FAKE_LEAKY_SERVER === "1";
 const hub = leaky ? "ws://localhost:5172" : env.VITE_STREAM_DECK_HUB_URL;
-const obs = leaky ? "ws://localhost:4455" : env.VITE_OBS_WEBSOCKET_URL;
 const server = http.createServer((req, res) =>
   res.end(
     req.url === "/app/lib/live-channels.ts"
-      ? 'export const S = "' + hub + '"; export const O = "' + obs + '";'
+      ? 'export const S = "' + hub + '";'
       : "ok",
   ),
 );
@@ -275,12 +271,12 @@ describe("verify-cvm: concurrent runs are addressed by id and owned by their wor
     expect(r.stdout.trim()).toBe("");
   }, 60_000);
 
-  it("keeps every run off Matt's Stream Deck hub and OBS", () => {
+  it("keeps every run off Matt's Stream Deck hub", () => {
     for (const wt of [wtA, wtB]) {
       const env = JSON.parse(
         readFileSync(join(wt, "apps/local/server-env.json"), "utf8")
       );
-      expect(env).toEqual({ hub: "ws://127.0.0.1:9", obs: "ws://127.0.0.1:9" });
+      expect(env).toEqual({ hub: "ws://127.0.0.1:9" });
     }
   });
 

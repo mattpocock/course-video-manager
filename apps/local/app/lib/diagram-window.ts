@@ -45,8 +45,8 @@ export function enableVideoEditorMode(): () => void {
 }
 
 /**
- * Called by the Video Editor whenever its Recorder (OBS or the CVM recorder)
- * starts or stops recording. The playground hides its sidebar while a
+ * Called by the Video Editor whenever the CVM recorder starts or stops
+ * recording. The playground hides its sidebar while a
  * recording is in progress, and centres the diagram as one starts, for the
  * Video's `format`.
  */

@@ -197,8 +197,8 @@ any other checkout refuses it. `ab` refuses `--session`, `--profile` and
 `close --all`, and any `localhost` URL on a port that is not this run's. Each
 run has its own port, browser session, database and evidence directory, so
 parallel runs never meet. A run is also cut off from Matt's desk: its pages
-point the Stream Deck hub and OBS at a dead port, so his button presses never
-reach a run's editor and nothing a run does reaches his — Stream Deck and OBS
+point the Stream Deck hub at a dead port, so his button presses never
+reach a run's editor and nothing a run does reaches his — Stream Deck
 behaviour cannot be verified here. Keep your own logs in the evidence directory too
 (`$V dir <run>`), never shared `/tmp`.
 

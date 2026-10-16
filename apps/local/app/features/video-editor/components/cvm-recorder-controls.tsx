@@ -82,7 +82,7 @@ export const CvmRecorderControls = () => {
   const controls = useCvmRecorderControls();
   const gate = useContextSelector(
     VideoEditorContext,
-    (ctx) => ctx.calibrationGate.cvm
+    (ctx) => ctx.calibrationGate
   );
   const { state } = controls;
   const calibrationRefusal = isCalibrationRefusal(state.error);

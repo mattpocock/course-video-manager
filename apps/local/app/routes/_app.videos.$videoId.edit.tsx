@@ -13,17 +13,13 @@ import {
 } from "@/features/video-editor/clip-state-reducer";
 import type { PauseType } from "@/services/video-processing-service";
 import { resolveClipZoomType } from "@/features/videos/clip-zoom";
-import { useOBSConnector } from "@/features/video-editor/obs-connector";
-import { OBS_PROFILE_LANDSCAPE } from "@/features/video-editor/ensure-obs-profile";
 import { useSilenceLength } from "@/features/video-editor/use-silence-length";
-import { useRecorderChoice } from "@/features/video-editor/use-recorder-choice";
 import { useCvmRecorder } from "@/features/video-editor/use-cvm-recorder";
 import { useCalibrationGate } from "@/features/video-editor/use-calibration-gate";
 import { captureProps } from "@/features/video-editor/recorder-capture";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { toClipOverlay } from "@/features/video-editor/clip-overlay-row";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
-import { obsTakeSaver } from "@/features/video-editor/obs-take-saver";
 import type { TakeSaver } from "@/features/video-editor/take-saver";
 import { saveClipDiagramPin } from "@/features/video-editor/save-clip-diagram-pin";
 import { useClipTranscriptionJobs } from "@/features/video-editor/use-clip-transcription-jobs";
@@ -289,8 +285,8 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   const revalidator = useRevalidator();
 
   const { startClipTranscription } = useUploadActions();
-  // The Video's Recorder's saver. Set below, in this render, once both
-  // Recorders' hooks have run: before any effect can ask for it.
+  // The CVM recorder's saver. Set below, in this render, once its hook has
+  // run: before any effect can ask for it.
   const saveTakesRef = useRef<TakeSaver | null>(null);
   const effectHandlers = useMemo(
     () =>
@@ -328,7 +324,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
     }
   });
 
-  // Either Recorder's takes (the CVM recorder adapts: ADR 0044).
+  // The CVM recorder's takes (it adapts onto the clip reducer: ADR 0044).
   const onNewClipOptimisticallyAdded = (take: {
     scene: string | null;
     profile: string | null;
@@ -348,46 +344,22 @@ export const ComponentInner = (props: Route.ComponentProps) => {
     });
   };
 
-  const recorderChoice = useRecorderChoice(props.loaderData.video);
   const cvmRecorder = useCvmRecorder({
     video: props.loaderData.video,
-    enabled: !recorderChoice.usesObs,
     silenceLength,
     clipDispatch: dispatch,
     onNewClipOptimisticallyAdded,
     onClipAudioWindowClosed,
     micOffsetRefusal: clipState.micOffsetRefusal,
   });
-  const obsConnector = useOBSConnector({
-    usesObs: recorderChoice.usesObs,
-    clipDispatch: dispatch,
-    onNewClipOptimisticallyAdded,
-    onClipAudioWindowClosed,
-    silenceLength,
-    lastPassedCalibration: props.loaderData.lastPassedCalibration,
-    // Only a Landscape Video records with OBS (ADR 0037).
-    targetProfile: OBS_PROFILE_LANDSCAPE,
-  });
-
-  const obsTakes = useMemo(
-    () =>
-      obsTakeSaver({
-        videoId: props.loaderData.video.id,
-        appendFromObs: (input) => clipService.appendFromObs(input),
-      }),
-    [props.loaderData.video.id]
-  );
-  saveTakesRef.current = recorderChoice.usesObs
-    ? obsTakes
-    : cvmRecorder.saveTakes;
+  saveTakesRef.current = cvmRecorder.saveTakes;
 
   const calibrationGate = useCalibrationGate({
     lastPassed: props.loaderData.lastPassedCalibration,
     checkedAtMs: props.loaderData.checkedAtMs,
-    browserInputLabel: obsConnector.browserInputLabel,
   });
 
-  const capture = captureProps(recorderChoice, obsConnector, cvmRecorder);
+  const capture = captureProps(cvmRecorder);
 
   return (
     <VideoEditor
@@ -452,8 +424,6 @@ export const ComponentInner = (props: Route.ComponentProps) => {
             : { type: "permanently-remove-archived", sessionId: scope }
         );
       }}
-      obsConnectorState={obsConnector.state}
-      recorderChoice={recorderChoice}
       cvmRecorder={cvmRecorder}
       calibrationGate={calibrationGate}
       items={clipState.items}
@@ -464,7 +434,6 @@ export const ComponentInner = (props: Route.ComponentProps) => {
       lessonPath={props.loaderData.video.lesson?.title}
       repoName={props.loaderData.video.lesson?.section.repoVersion.repo.name}
       videoId={props.loaderData.video.id}
-      liveMediaStream={obsConnector.mediaStream}
       {...capture}
       silenceLength={silenceLength}
       onSilenceLengthChange={setSilenceLength}

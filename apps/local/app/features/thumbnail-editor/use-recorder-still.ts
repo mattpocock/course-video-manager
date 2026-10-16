@@ -6,7 +6,7 @@ import {
   recorderStillReducer,
 } from "./recorder-still-reducer";
 
-/** The size of a captured photo, as the OBS Virtual Camera gave it. */
+/** The size of a captured photo: the recorder service's still. */
 export const STILL_WIDTH = 1280;
 export const STILL_HEIGHT = 720;
 

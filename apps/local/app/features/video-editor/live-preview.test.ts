@@ -43,7 +43,7 @@ describe("the CVM recorder in the editor's live frame", () => {
   it("fills the live frame once the recorder is open with a scene, as OBS's Virtual Camera does", () => {
     const t = tester().send(status());
     // Reachable, but the recorder has not said which scene it draws yet.
-    expect(getHasLivePreview(null, t.getState())).toBe(false);
+    expect(getHasLivePreview(t.getState())).toBe(false);
 
     t.send(heard({ type: "scene-changed", scene: "Code" }));
     expect(getCvmRecorderLivePreview(t.getState())).toEqual({
@@ -58,7 +58,7 @@ describe("the CVM recorder in the editor's live frame", () => {
 
     // Paused, the live frame shows instead of the Clip player; playing, the
     // player — the same rule as an OBS Video with its Virtual Camera.
-    const hasLive = getHasLivePreview(null, t.getState());
+    const hasLive = getHasLivePreview(t.getState());
     expect(getShowVideoPlayer("paused", hasLive)).toBe(false);
     expect(getShowLiveStream(hasLive, "paused")).toBe(true);
     expect(getShowVideoPlayer("playing", hasLive)).toBe(true);
@@ -66,7 +66,7 @@ describe("the CVM recorder in the editor's live frame", () => {
 
   it("hands the frame back to the Clip player when the recorder goes away", () => {
     const t = open().send(status(false));
-    expect(getHasLivePreview(null, t.getState())).toBe(false);
+    expect(getHasLivePreview(t.getState())).toBe(false);
     expect(getShowVideoPlayer("paused", false)).toBe(true);
   });
 
@@ -83,8 +83,6 @@ describe("the CVM recorder in the editor's live frame", () => {
   });
 
   it("never takes the live frame on an OBS Video, whose editor never listens to the recorder", () => {
-    expect(getHasLivePreview(null, createInitialCvmRecorderState())).toBe(
-      false
-    );
+    expect(getHasLivePreview(createInitialCvmRecorderState())).toBe(false);
   });
 });

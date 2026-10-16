@@ -321,8 +321,6 @@ export const passesCurrentRules = (
 /**
  * The camera the recorder service records, as it finds it among the
  * DirectShow devices: the first whose name contains this (`findByName`).
- * OBS cannot say which camera it records, so on the OBS path the editor
- * takes it to be this one too.
  */
 export const RECORDER_CAMERA_NAME = "Cam Link 4K";
 
@@ -350,7 +348,7 @@ export type LastPassedCalibration = {
 /**
  * The camera + mic pair now, as far as the asker knows it: the recorder
  * service its mic and camera (their DirectShow names, at Record), the editor
- * its getUserMedia audio track's label (OBS; null when it has none open) and
+ * its getUserMedia audio track's label (null when it has none open) and
  * the camera the recorder service is configured with
  * (`RECORDER_CAMERA_NAME`). A device left out is not compared.
  */

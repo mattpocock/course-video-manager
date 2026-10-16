@@ -6,7 +6,6 @@ import type {
   FrontendId,
   SessionId,
 } from "./clip-state-reducer";
-import type { OBSConnectionOuterState } from "./obs-connector";
 import {
   DANGEROUS_TEXT_SIMILARITY_THRESHOLD,
   getClipComputedProps,
@@ -15,9 +14,7 @@ import {
   getIsClipPortrait,
   getIsClipDangerous,
   getLastTranscribedClipId,
-  getShouldShowLastFrameOverlay,
   getBackButtonUrl,
-  getShowCenterLine,
 } from "./video-editor-selectors";
 
 // ---------------------------------------------------------------------------
@@ -251,54 +248,6 @@ describe("getLastTranscribedClipId", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// OBS and live stream selectors
-// ---------------------------------------------------------------------------
-
-const obsNotRunning: OBSConnectionOuterState = { type: "obs-not-running" };
-const obsConnected: OBSConnectionOuterState = {
-  type: "obs-connected",
-  profile: "Default",
-  scene: "Camera",
-  latestOutputPath: null,
-};
-const obsRecording: OBSConnectionOuterState = {
-  type: "obs-recording",
-  profile: "Default",
-  scene: "Camera",
-  latestOutputPath: "/output/path",
-  silenceThresholdDb: -38,
-};
-
-describe("getShouldShowLastFrameOverlay", () => {
-  const clip = makeClipOnDatabase({
-    frontendId: id("a"),
-    scene: "Camera",
-  });
-
-  it("returns false when no clip provided", () => {
-    expect(getShouldShowLastFrameOverlay(undefined, true, obsRecording)).toBe(
-      false
-    );
-  });
-
-  it("returns false when showLastFrame is false", () => {
-    expect(getShouldShowLastFrameOverlay(clip, false, obsRecording)).toBe(
-      false
-    );
-  });
-
-  it("returns true regardless of scene match", () => {
-    const differentScene: OBSConnectionOuterState = {
-      ...obsRecording,
-      scene: "Screen",
-    };
-    expect(getShouldShowLastFrameOverlay(clip, true, differentScene)).toBe(
-      true
-    );
-  });
-});
-
 describe("getBackButtonUrl", () => {
   it("returns lesson-specific URL when repoId and lessonId exist", () => {
     expect(getBackButtonUrl("repo-1", "lesson-1", "landscape", null)).toBe(
@@ -332,19 +281,5 @@ describe("getBackButtonUrl", () => {
     expect(getBackButtonUrl("repo-1", "lesson-1", "landscape", "pitch-1")).toBe(
       "/pitches/pitch-1"
     );
-  });
-});
-
-describe("getShowCenterLine", () => {
-  it("returns true when OBS is active and scene is Camera", () => {
-    expect(getShowCenterLine({ ...obsConnected, scene: "Camera" })).toBe(true);
-  });
-
-  it("returns false when OBS is active but scene is not Camera", () => {
-    expect(getShowCenterLine({ ...obsConnected, scene: "Screen" })).toBe(false);
-  });
-
-  it("returns false when OBS is not running", () => {
-    expect(getShowCenterLine(obsNotRunning)).toBe(false);
   });
 });

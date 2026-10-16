@@ -22,10 +22,8 @@ export type StreamDeckForwarderMessage = z.infer<
 
 /**
  * The CVM recorder's buttons: each HTTP path, and the press the forwarder
- * passes on to the recorder service (not to the hub, so an editor on an OBS
- * Video never hears them). The service acts on whichever Video the recorder
- * is open for; the editor follows its events. OBS Videos keep Elgato's OBS
- * plugin buttons.
+ * passes on to the recorder service (not to the hub). The service acts on
+ * whichever Video the recorder is open for; the editor follows its events.
  */
 export const STREAM_DECK_RECORDER_PRESSES: Record<string, StreamDeckPress> = {
   "/api/start-recording": { action: "record" },

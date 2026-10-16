@@ -3,11 +3,10 @@ import type { VideoFormat } from "@/features/videos/video-format";
 import type { cvmRecorderReducer } from "./cvm-recorder-reducer";
 
 /**
- * The editor's live frame, whichever Recorder the Video uses. OBS fills it
- * with its Virtual Camera; the CVM recorder with the composite drawn from its
- * H.264 preview feeds. Either way it is the same frame: the same place on screen, the
- * same capture badge, ring, recording signal and centre line (fed by
- * `recorder-capture.ts`), and the previous Clip's last frame over it.
+ * The editor's live frame: the CVM recorder's composite drawn from its H.264
+ * preview feeds, with the capture badge, ring, recording signal and centre
+ * line (fed by `recorder-capture.ts`), and the previous Clip's last frame
+ * over it.
  */
 
 /** The CVM recorder's composite, as the live frame draws it. */
@@ -21,7 +20,7 @@ export type CvmRecorderLivePreview = {
   cameraShowing: boolean;
   /** Changes when the camera comes back, so its stream reconnects. */
   cameraKey: string;
-  /** The Camera scene gets OBS's framing guide. */
+  /** The Camera scene gets a framing guide. */
   showCenterLine: boolean;
 };
 
@@ -46,10 +45,8 @@ export const getCvmRecorderLivePreview = (
 
 /**
  * Is there a live picture? While there is, a paused editor shows it instead
- * of the Clip player, as it always has for OBS.
+ * of the Clip player.
  */
 export const getHasLivePreview = (
-  liveMediaStream: MediaStream | null,
   cvmRecorder: cvmRecorderReducer.State
-): boolean =>
-  liveMediaStream !== null || getCvmRecorderLivePreview(cvmRecorder) !== null;
+): boolean => getCvmRecorderLivePreview(cvmRecorder) !== null;

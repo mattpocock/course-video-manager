@@ -7,8 +7,8 @@ import {
 } from "../test-utils/test-db.js";
 import * as schema from "../db/schema.js";
 import {
+  clipRecorder,
   DEFAULT_MIC_OFFSET_MS,
-  resolveVideoRecorder,
 } from "../features/videos/recorder.js";
 
 let testDb: TestDb;
@@ -71,7 +71,7 @@ describe("Recording Session schema", () => {
       },
     });
 
-    expect(resolveVideoRecorder(readBack!.video!)).toBe("cvm");
+    expect(readBack!.clips.map(clipRecorder)).toEqual(["cvm"]);
     expect(readBack).toMatchObject({
       micOffsetMs: DEFAULT_MIC_OFFSET_MS,
       status: "recording",
@@ -92,7 +92,7 @@ describe("Recording Session schema", () => {
     });
   });
 
-  it("reads an existing Video as OBS and leaves its Clips unlinked", async () => {
+  it("reads an old OBS Clip as OBS, unlinked from any Recording Session", async () => {
     const video = await seedVideo();
     await testDb.insert(schema.clips).values({
       videoId: video.id,
@@ -108,8 +108,7 @@ describe("Recording Session schema", () => {
       with: { clips: true },
     });
 
-    expect(readBack!.recorder).toBeNull();
-    expect(resolveVideoRecorder(readBack!)).toBe("obs");
+    expect(readBack!.clips.map(clipRecorder)).toEqual(["obs"]);
     expect(readBack!.clips).toMatchObject([
       { recordingSessionId: null, sceneOverride: null },
     ]);

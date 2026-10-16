@@ -33,16 +33,6 @@
       "reason": "Interactive, not background work: the chapter Autofill modal (the plan's question 5). Stays."
     },
     {
-      "file": "apps/local/app/features/video-editor/obs-take-saver.ts",
-      "count": 1,
-      "reason": "OBS clip ingestion (#13), tied to a live Recording Session: not in this migration (the plan's question 6, Matt's decision 4). Stays."
-    },
-    {
-      "file": "apps/local/app/features/video-editor/obs-connector.tsx",
-      "count": 2,
-      "reason": "Waits for OBS's virtual camera while the editor is open: part of a live Recording Session, not background work. Stays."
-    },
-    {
       "file": "apps/local/app/features/video-editor/use-cvm-recorder.ts",
       "count": 1,
       "reason": "A live Recording Session, not background work: the editor hears the CVM recorder's events (saved Clips) while it is open. Its listening keeps the recorder (and the Cam Link) open for that Video; it cancels no recording."

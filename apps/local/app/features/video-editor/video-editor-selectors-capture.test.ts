@@ -7,7 +7,6 @@ import type {
   SessionId,
   TimelineItem,
 } from "./clip-state-reducer";
-import type { OBSConnectionOuterState } from "./obs-connector";
 import { isCaptureInProgress } from "./video-editor-selectors";
 
 // ---------------------------------------------------------------------------
@@ -63,37 +62,19 @@ const makeSession = (
   ...overrides,
 });
 
-const obsConnected: OBSConnectionOuterState = {
-  type: "obs-connected",
-  profile: "Default",
-  scene: "Camera",
-  latestOutputPath: null,
-};
-const obsRecording: OBSConnectionOuterState = {
-  type: "obs-recording",
-  profile: "Default",
-  scene: "Camera",
-  latestOutputPath: "/tmp/out.mkv",
-  silenceThresholdDb: -38,
-};
-
 // ---------------------------------------------------------------------------
 // isCaptureInProgress
 // ---------------------------------------------------------------------------
 
 describe("isCaptureInProgress", () => {
-  it("is true when OBS is actively recording (even with idle sessions/clips)", () => {
-    expect(isCaptureInProgress(obsRecording, [], [])).toBe(true);
-  });
-
   it("is true when a session is still recording", () => {
     const sessions = [makeSession({ id: sid("s1"), status: "recording" })];
-    expect(isCaptureInProgress(obsConnected, [], sessions)).toBe(true);
+    expect(isCaptureInProgress([], sessions)).toBe(true);
   });
 
-  it("is true when a session is polling/settling with no OBS recording", () => {
+  it("is true when a session is polling/settling", () => {
     const sessions = [makeSession({ id: sid("s1"), status: "polling" })];
-    expect(isCaptureInProgress(obsConnected, [], sessions)).toBe(true);
+    expect(isCaptureInProgress([], sessions)).toBe(true);
   });
 
   it("is true when a pending optimistic clip remains with idle sessions", () => {
@@ -101,7 +82,7 @@ describe("isCaptureInProgress", () => {
     const items: TimelineItem[] = [
       makeOptimisticClip({ frontendId: id("c1"), sessionId: sid("s1") }),
     ];
-    expect(isCaptureInProgress(obsConnected, items, sessions)).toBe(true);
+    expect(isCaptureInProgress(items, sessions)).toBe(true);
   });
 
   it("is false when fully idle and every clip is resolved (the editable case)", () => {
@@ -110,7 +91,7 @@ describe("isCaptureInProgress", () => {
       makeClipOnDatabase({ frontendId: id("c1") }),
       makeClipOnDatabase({ frontendId: id("c2") }),
     ];
-    expect(isCaptureInProgress(obsConnected, items, sessions)).toBe(false);
+    expect(isCaptureInProgress(items, sessions)).toBe(false);
   });
 
   it("ignores archived optimistic clips (they are resolved)", () => {
@@ -122,7 +103,7 @@ describe("isCaptureInProgress", () => {
         shouldArchive: true,
       }),
     ];
-    expect(isCaptureInProgress(obsConnected, items, sessions)).toBe(false);
+    expect(isCaptureInProgress(items, sessions)).toBe(false);
   });
 
   it("ignores orphaned optimistic clips (no DB clip will ever arrive)", () => {
@@ -134,6 +115,6 @@ describe("isCaptureInProgress", () => {
         isOrphaned: true,
       }),
     ];
-    expect(isCaptureInProgress(obsConnected, items, sessions)).toBe(false);
+    expect(isCaptureInProgress(items, sessions)).toBe(false);
   });
 });

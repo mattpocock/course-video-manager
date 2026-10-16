@@ -13,14 +13,7 @@ import { getRecorderCapture, toCaptureStatus } from "./recorder-capture";
 
 /** What the teleprompter's capture indicator would show for this state. */
 const captureOf = (state: cvmRecorderReducer.State) =>
-  toCaptureStatus(
-    getRecorderCapture({
-      usesObs: false,
-      obsState: { type: "obs-not-running" },
-      obsSpeech: { type: "warming-up" },
-      cvmRecorder: state,
-    })
-  );
+  toCaptureStatus(getRecorderCapture(state));
 
 const heard = (message: CvmRecorderMessage) =>
   ({ type: "recorder-message-heard", message }) as const;

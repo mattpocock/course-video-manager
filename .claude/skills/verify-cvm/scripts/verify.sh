@@ -302,7 +302,7 @@ cmd_launch() {
   local i
   for i in $(seq 1 30); do
     if curl -sf -o /dev/null "http://localhost:$port/"; then
-      desk_isolated "$port" || { stop_server "$dir"; die "the server's pages still point at Matt's Stream Deck hub or OBS — refusing to run"; }
+      desk_isolated "$port" || { stop_server "$dir"; die "the server's pages still point at Matt's Stream Deck hub — refusing to run"; }
       launch_sidecar "$dir" "$id" "$mode"
       trap - EXIT
       rm -f "$dir/launch.pid"
@@ -349,8 +349,8 @@ cmd_doctor() {
   curl -sf -o /dev/null "http://localhost:$port/" &&
     log "ok   / answers 200" || { log "FAIL / does not answer"; ok=1; }
   desk_isolated "$port" &&
-    log "ok   off Matt's desk: Stream Deck hub and OBS point at a dead port" ||
-    { log "FAIL this run's pages can reach Matt's Stream Deck hub (5172) or OBS (4455) — cleanup now"; ok=1; }
+    log "ok   off Matt's desk: the Stream Deck hub points at a dead port" ||
+    { log "FAIL this run's pages can reach Matt's Stream Deck hub (5172) — cleanup now"; ok=1; }
 
   if [ "$(run_mode "$dir")" = test-clone ]; then
     local t; t="$(verify_template_url)"

@@ -625,7 +625,7 @@ describe("recorder ingest", () => {
     ]);
   });
 
-  it("lets Record start only on a Draft Video that records with the CVM recorder", async () => {
+  it("lets Record start on any Draft Video, whatever Recorder it once stored", async () => {
     const canRecord = (videoId: string) =>
       Effect.runPromise(
         requireRecordableVideo(testDb as never, videoId).pipe(
@@ -634,11 +634,12 @@ describe("recorder ingest", () => {
         )
       );
     const video = await clipService.createVideo("CVM recorder");
-    expect(await canRecord(video.id)).toBe("RecordOnOBSVideoError");
+    expect(await canRecord(video.id)).toBe("ok");
 
+    // A Video that stored OBS records with the CVM recorder too (ADR 0051).
     await testDb
       .update(videos)
-      .set({ recorder: "cvm" })
+      .set({ recorder: "obs" })
       .where(eq(videos.id, video.id));
     expect(await canRecord(video.id)).toBe("ok");
 
@@ -648,10 +649,6 @@ describe("recorder ingest", () => {
       { commitState: "published" }
     );
     const frozen = videoIds["01-frozen/Explainer"]!;
-    await testDb
-      .update(videos)
-      .set({ recorder: "cvm" })
-      .where(eq(videos.id, frozen));
     expect(await canRecord(frozen)).toBe("VersionNotDraftError");
   });
 });

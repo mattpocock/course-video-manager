@@ -1,20 +1,13 @@
 import { type Database } from "./drizzle-service.server.js";
-import { lessons, recordingSessions, videos } from "../db/schema.js";
+import { lessons, videos } from "../db/schema.js";
 import {
   NotFoundError,
   UnknownDBServiceError,
-  VideoRecorderLockedError,
   VideoTitleTakenError,
 } from "./db-service-errors.js";
 import { and, eq, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import type { VideoFormat } from "../features/videos/video-format.js";
-import {
-  recordersForFormat,
-  parseVideoRecorder,
-  recorderForNewVideo,
-  type VideoRecorder,
-} from "../features/videos/recorder.js";
 import {
   requireDraftVersionForLesson,
   requireDraftVersionForVideo,
@@ -317,19 +310,11 @@ export const createVideoWriteOps = (db: Database) => {
     format: VideoFormat;
   }) {
     yield* requireDraftVersionForVideo(db, opts.videoId);
-    const current = yield* getVideoRowById(opts.videoId);
-    // A format that cannot open the Video's Recorder drops it to the
-    // format's default (`recorderForNewVideo`): a Short opens the CVM recorder.
-    const recorder = recorderForNewVideo(
-      opts.format,
-      parseVideoRecorder(current.recorder)
-    );
     const [updated] = yield* makeDbCall(() =>
       db
         .update(videos)
         .set({
           format: opts.format,
-          recorder,
           lessonId: null,
           updatedAt: new Date(),
         })
@@ -347,54 +332,8 @@ export const createVideoWriteOps = (db: Database) => {
     return updated;
   });
 
-  /**
-   * Choose the Recorder a Video opens next. Any time except while one of its
-   * Recording Sessions is still recording, and only one the format may record
-   * with (`recordersForFormat`). Its Clips keep their own Recorders (ADR
-   * 0036), so a Video with Clips may switch.
-   */
-  const updateVideoRecorder = Effect.fn("updateVideoRecorder")(
-    function* (opts: { videoId: string; recorder: VideoRecorder }) {
-      yield* requireDraftVersionForVideo(db, opts.videoId);
-      const video = yield* getVideoRowById(opts.videoId);
-
-      if (!recordersForFormat(video.format).includes(opts.recorder)) {
-        return yield* new VideoRecorderLockedError({
-          videoId: opts.videoId,
-          message: `A ${video.format} Video cannot record with ${opts.recorder}`,
-        });
-      }
-
-      const recording = yield* makeDbCall(() =>
-        db.query.recordingSessions.findFirst({
-          columns: { id: true },
-          where: and(
-            eq(recordingSessions.videoId, opts.videoId),
-            eq(recordingSessions.status, "recording")
-          ),
-        })
-      );
-      if (recording) {
-        return yield* new VideoRecorderLockedError({
-          videoId: opts.videoId,
-          message: "The Recorder is locked while the Video is recording",
-        });
-      }
-
-      const [updated] = yield* makeDbCall(() =>
-        db
-          .update(videos)
-          .set({ recorder: opts.recorder, updatedAt: new Date() })
-          .where(eq(videos.id, opts.videoId))
-          .returning()
-      );
-      return updated!;
-    }
-  );
-
   return {
     getVideoRowById,
-    updateVideoRecorder,
     linkVideoToPitch,
     unlinkVideoFromPitch,
     moveVideoToLesson,
@@ -427,5 +366,4 @@ export const videoWriteMethods = [
   "updateVideoScript",
   "updateVideoDescription",
   "updateVideoFormat",
-  "updateVideoRecorder",
 ] as const;

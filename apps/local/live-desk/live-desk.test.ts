@@ -63,26 +63,20 @@ describe("liveDeskAddresses", () => {
   it("gives the main checkout the live desk", () => {
     expect(liveDeskAddresses({ mainCheckout: true, explicit: {} })).toEqual({
       hub: "ws://localhost:5172",
-      obs: "ws://localhost:4455",
     });
   });
 
   it("gives every other checkout the dead address", () => {
     expect(liveDeskAddresses({ mainCheckout: false, explicit: {} })).toEqual({
       hub: DEAD_DESK_URL,
-      obs: DEAD_DESK_URL,
     });
   });
 
   it("keeps an explicit override wherever it runs", () => {
-    const explicit = {
-      VITE_STREAM_DECK_HUB_URL: "ws://127.0.0.1:9",
-      VITE_OBS_WEBSOCKET_URL: "ws://example:1",
-    };
+    const explicit = { VITE_STREAM_DECK_HUB_URL: "ws://127.0.0.1:9" };
     for (const mainCheckout of [true, false]) {
       expect(liveDeskAddresses({ mainCheckout, explicit })).toEqual({
         hub: "ws://127.0.0.1:9",
-        obs: "ws://example:1",
       });
     }
   });

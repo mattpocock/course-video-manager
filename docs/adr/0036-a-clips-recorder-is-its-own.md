@@ -4,6 +4,8 @@ status: accepted
 
 # A Clip's Recorder is its own; the Video's Recorder means "opens next"
 
+> Decision 2 (the Video's Recorder) is superseded by [ADR 0051](0051-the-cvm-recorder-is-the-only-recorder.md): every Video records with the CVM recorder. Decision 1 stands.
+
 Decided by Matt on #1993.
 
 ## Context

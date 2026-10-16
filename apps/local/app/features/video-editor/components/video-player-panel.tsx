@@ -2,10 +2,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LivePreviewFrame } from "./live-preview-frame";
 import { getHasLivePreview } from "../live-preview";
-import { SilenceLengthToggle } from "./silence-length-toggle";
 import { CvmRecorderControls } from "./cvm-recorder-controls";
-import { CalibrationGateBanner } from "./calibration-gate-banner";
-import { showsCvmRecorderControls } from "../recorder-choice-reducer";
 import { TableOfContents } from "./table-of-contents";
 import { DeferredAddVideoModal } from "./deferred-fs-panels";
 import { ActionsDropdown } from "./actions-dropdown";
@@ -16,7 +13,6 @@ import { PreloadableClipManager } from "../preloadable-clip";
 import {
   getChapters as getChaptersSelector,
   getHasSections as getHasSectionsSelector,
-  getIsOBSActive as getIsOBSActiveSelector,
   getShowScrubSlider as getShowScrubSliderSelector,
 } from "../video-editor-selectors";
 import { MonitorSpeaker, VideoOffIcon, Workflow } from "lucide-react";
@@ -37,29 +33,13 @@ export const VideoPlayerPanel = () => {
   );
   const [isLessonBodyWriterOpen, setIsLessonBodyWriterOpen] = useState(false);
   const [isSeoDescriptionOpen, setIsSeoDescriptionOpen] = useState(false);
-  const liveMediaStream = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.liveMediaStream
-  );
   const showVideoPlayer = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.showVideoPlayer
   );
-  const obsConnectorState = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.obsConnectorState
-  );
   const cvmRecorderState = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.cvmRecorder.state
-  );
-  const recorder = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.recorderPicker.recorder
-  );
-  const obsGate = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.calibrationGate.obs
   );
   const clipsToAggressivelyPreload = useContextSelector(
     VideoEditorContext,
@@ -174,8 +154,7 @@ export const VideoPlayerPanel = () => {
   const chapters = useMemo(() => getChaptersSelector(items), [items]);
   const hasSections = getHasSectionsSelector(items);
 
-  const isOBSActive = getIsOBSActiveSelector(obsConnectorState);
-  const hasLivePreview = getHasLivePreview(liveMediaStream, cvmRecorderState);
+  const hasLivePreview = getHasLivePreview(cvmRecorderState);
   const showScrubSlider = getShowScrubSliderSelector(
     currentClip?.type,
     showVideoPlayer
@@ -233,9 +212,7 @@ export const VideoPlayerPanel = () => {
             <div className="w-full aspect-[16/9] bg-card rounded-lg flex flex-col items-center justify-center gap-3">
               <VideoOffIcon className="size-10 text-muted-foreground" />
               <p className="text-muted-foreground text-sm text-center px-4">
-                {recorder === "obs"
-                  ? "No video stream or clips yet. Connect OBS to start recording."
-                  : "No clips yet. This Video records with the CVM recorder."}
+                No clips yet. This Video records with the CVM recorder.
               </p>
             </div>
           ) : (
@@ -270,18 +247,7 @@ export const VideoPlayerPanel = () => {
             </>
           )}
 
-          {isOBSActive && (
-            <div className="mt-2 flex flex-col items-center gap-2">
-              {obsConnectorState.type === "obs-connected" && (
-                <CalibrationGateBanner
-                  gate={obsGate}
-                  refusal={obsConnectorState.calibrationRefusal}
-                />
-              )}
-              <SilenceLengthToggle />
-            </div>
-          )}
-          {showsCvmRecorderControls({ recorder }) && <CvmRecorderControls />}
+          <CvmRecorderControls />
 
           {showScrubSlider && currentClip?.type === "on-database" && (
             <input

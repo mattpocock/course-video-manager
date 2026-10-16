@@ -2,14 +2,10 @@ import { Effect, Schema } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { makeAction } from "@/services/route-action.server";
-import { VIDEO_RECORDERS } from "@cvm/core/features/videos/recorder";
 import type { Route } from "./+types/api.lessons.$lessonId.add-video";
 
 const addVideoSchema = Schema.Struct({
   title: Schema.String,
-  recorder: Schema.optional(
-    Schema.Union(Schema.Literal(...VIDEO_RECORDERS), Schema.Literal(""))
-  ),
 });
 
 export const action = async (args: Route.ActionArgs) => {
@@ -27,7 +23,6 @@ export const action = async (args: Route.ActionArgs) => {
         const video = yield* videoOps.createVideo(params.lessonId!, {
           title: result.title,
           originalFootagePath: "",
-          recorder: result.recorder || null,
         });
 
         return { videoId: video.id };

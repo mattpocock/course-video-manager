@@ -12,9 +12,8 @@
  * Derived here rather than on the glass because clips live in this window's
  * reducer and the popup is a pure slave (see `teleprompter-protocol.ts`).
  *
- * Either Recorder's take is an optimistic clip (the CVM recorder adapts onto
- * the OBS path, `cvm-recorder-reducer.ts`), so both Recorders' marks come
- * from the same items.
+ * A take is an optimistic clip (the CVM recorder adapts onto the clip
+ * reducer, `cvm-recorder-reducer.ts`), so the marks come from its items.
  *
  * Scoped to the newest recording session, so pressing record wipes the slate:
  * what's on the glass is always this take's exposure, never last take's.

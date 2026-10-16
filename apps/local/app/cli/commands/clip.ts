@@ -108,7 +108,7 @@ import {
  * owning CourseVersion to be a draft, so published content can't be clobbered from here.
  *
  * Clips are leaf timeline rows — there is no `clip tree`. To explore a Video's structure use
- * `video tree`, then resolve ids with `clip get`. A clip is normally captured by OBS append or
+ * `video tree`, then resolve ids with `clip get`. A clip is normally captured by the CVM recorder or
  * "create video from selection", but `clip add` also creates one by hand from a footage file and a
  * time range, taking its text from that footage's cached transcript (see `cvm footage transcribe`).
  *

@@ -151,7 +151,7 @@ file has a `useState` left, so both `use-state` entries are gone (16 → 14).
   modal dialog blocks the menus that open the others, so nobody could reach
   that before either.
 
-## Batch 3 — Writer context panel, five routes and one hook (score 178)
+## Batch 3 — Writer context panel, five routes and one hook (score 178) — Done
 
 The five posting routes `_app.videos.$videoId.{post,social,ai-hero,newsletter,skills-changelog}.tsx`
 each declare the same 13 `useState`s for the context panel: enabled files,
@@ -163,6 +163,38 @@ where the five routes could drift apart.
 
 - Delete: there are no route or hook tests for this today. The reducer tests
   replace all five copies, so add no per-route tests.
+
+**Done.** `features/article-writer/context-panel-reducer.ts` owns what goes
+with a writing request (files, chapters, whole transcript, page fields, links,
+course structure, memory, beats, script, animatic, diagram text, and the memory
+text) and the posting routes' `openModal` (`preview-file | add-link |
+edit-file | paste-file | delete-file`). The Article Writer starts it from what
+it has stored and declares `store-toggle` / `store-disabled-links` when a
+remembered source flips; the posting routes start from the defaults and never
+store, as before. Editing a file declares `read-video-file`, and the content
+comes back as `video-file-read`. The sources list and the prompt texts are
+selectors (`context-panel-selectors.ts`). The runner is
+`use-context-panel-reducer.ts`; `use-context-model.ts` builds the writer's
+model on it, and the five routes share `usePostingContextPanel`
+(`features/video-posting/posting-context-panel.tsx`), which returns the panel's
+props and its five dialogs. All six files are at zero `useState` (70 before:
+13 in each route, 5 in the hook), so their six `use-state` entries are gone
+(14 → 8).
+
+- Tests: `apps/local` went from 4862 to 4871 (+9 reducer scenarios in
+  `context-panel-reducer.test.ts`). No route or hook test existed, so none
+  could be deleted.
+- One edge case changed on purpose: when two files are opened for editing in
+  quick succession, the one clicked last opens; before, whichever read
+  finished last did.
+- Verified with `verify-cvm` on a test clone: on the post page a chapter
+  untick, the course-structure tick, a pasted file (created and ticked), its
+  preview, edit and delete dialogs and the add-link dialog all behave as
+  before; the other four routes open the paste dialog from the shared hook;
+  in the lesson-body writer, unticking a chapter, ticking course structure and
+  switching all links off change the token counts, and after a reload the two
+  remembered toggles stay while the chapter resets. The Write Ledger shows no
+  database write.
 
 ## Batch 4 — Publish page (score 176)
 

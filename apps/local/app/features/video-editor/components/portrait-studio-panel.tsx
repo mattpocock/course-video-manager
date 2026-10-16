@@ -33,10 +33,6 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.totalDuration
   );
-  const liveMediaStream = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.liveMediaStream
-  );
   const showVideoPlayer = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.showVideoPlayer
@@ -95,9 +91,8 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.cvmRecorder.state
   );
-  // A Short records with the CVM recorder only (ADR 0037): its 9:16
-  // composite and controls, never OBS's.
-  const hasLivePreview = getHasLivePreview(liveMediaStream, cvmRecorderState);
+  // A Short's live picture is the CVM recorder's 9:16 composite.
+  const hasLivePreview = getHasLivePreview(cvmRecorderState);
 
   const [isPostingModalOpen, setIsPostingModalOpen] = useState(false);
   const [postingMode, setPostingMode] = useState<ShortsPostingMode>("both");

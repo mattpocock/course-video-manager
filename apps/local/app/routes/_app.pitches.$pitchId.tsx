@@ -47,7 +47,6 @@ import type {
 } from "@/features/entity-links/entity-deep-link";
 import { LessonPlaceProvider } from "@/features/entity-links/lesson-place-context";
 import type { Route } from "./+types/_app.pitches.$pitchId";
-import { readLastRecorderChoice } from "@/features/video-editor/last-recorder-choice";
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const title = loaderData?.pitch?.title || "Untitled Pitch";
@@ -322,7 +321,7 @@ export default function PitchDetailRoute(props: Route.ComponentProps) {
   const createVideoFetcher = useFetcher<{ id: string }>();
   const addVideo = () => {
     createVideoFetcher.submit(
-      { recorder: readLastRecorderChoice() ?? "" },
+      {},
       {
         method: "post",
         action: `/api/pitches/${initialPitch.id}/create-video`,

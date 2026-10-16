@@ -4,6 +4,8 @@ status: accepted
 
 # One recording-session reducer, two effect sets
 
+> OBS's effect set is deleted by [ADR 0051](0051-the-cvm-recorder-is-the-only-recorder.md); the shared reducer and the save-take interface stay, with one implementation each.
+
 Decided by Matt on 2026-10-15 (#2196, #2200). Extends [ADR 0044](0044-the-cvm-recorder-is-an-adapter-onto-obs-clip-logic.md).
 
 ## Context

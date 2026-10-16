@@ -5,10 +5,6 @@ import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { overlayExportRelation } from "./db-overlay-operations.server.js";
 import { clipRecordingSessionRelation } from "./clip-recording-session-relation.js";
-import {
-  recorderForNewVideo,
-  type VideoRecorder,
-} from "../features/videos/recorder.js";
 
 export type PitchState = "idle" | "scheduled" | "shipped";
 
@@ -345,8 +341,7 @@ const createPitchOperations = (db: Database) => {
   });
 
   const createVideoFromPitch = Effect.fn("createVideoFromPitch")(function* (
-    pitchId: string,
-    opts?: { recorder?: VideoRecorder | null }
+    pitchId: string
   ) {
     const pitch = yield* makeDbCall(() =>
       db.query.pitches.findFirst({
@@ -369,7 +364,6 @@ const createPitchOperations = (db: Database) => {
           originalFootagePath: "",
           lessonId: null,
           pitchId,
-          recorder: recorderForNewVideo("landscape", opts?.recorder),
         })
         .returning()
     );

@@ -14,17 +14,16 @@ const startRecordingSchema = Schema.Struct({
 });
 
 /**
- * Record, on a CVM recorder Video: the recorder service starts a Recording
- * Session in a folder of its own beside the OBS recordings. Answers once it
- * is recording; a refusal is a 409 with the reason: the Video records with
- * OBS, its Version is not the Draft, no AV Calibration passed in the last
- * 7 days (ADR 0038), or the recorder said no (it checks the mic).
+ * Record: the recorder service starts a Recording Session in a folder of its
+ * own beside the old OBS recordings. Answers once it is recording; a refusal
+ * is a 409 with the reason: the Video's Version is not the Draft, no AV
+ * Calibration passed in the last 7 days (ADR 0038), or the recorder said no
+ * (it checks the mic).
  */
 export const action = makeAction({
   input: "json",
   errors: {
     RecorderCommandError: 409,
-    RecordOnOBSVideoError: 409,
     AVCalibrationRequiredError: 409,
     VersionNotDraftError: 409,
   },

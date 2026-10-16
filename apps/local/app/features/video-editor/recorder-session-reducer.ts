@@ -5,31 +5,27 @@ import {
 } from "./speech-detector-reducer";
 
 /**
- * The Recording Session as the editor follows it, whichever Recorder films
- * it (ADR 0050). OBS's connector (`obs-connector-reducer.ts`) and the CVM
- * recorder's adapter (`cvm-recorder-reducer.ts`) both run their Recorder's
- * signals through this one reducer, and differ only in how they hear those
- * signals and carry out its effects.
+ * The Recording Session as the editor follows it (ADR 0050, ADR 0051). The
+ * CVM recorder's adapter (`cvm-recorder-reducer.ts`) runs the recorder's
+ * signals through this reducer, and keeps the device (camera, scenes,
+ * screen, frames lost) to itself.
  *
  * - **Following.** The editor follows one Recording Session at a time: the
  *   one it heard start, or the one the Recorder names as recording. One the
  *   Recorder has said is over is never followed again (#2163).
- * - **The gate.** A Record the AV Calibration gate refuses is stopped at once
- *   and never followed (ADR 0038). How a Recorder learns the verdict is its
- *   own: OBS checks in the browser; the recorder service refuses a CVM Record
- *   before it starts, so the editor never hears it start.
+ * - **The gate.** The recorder service refuses a Record the AV Calibration
+ *   gate does not let through before it starts (ADR 0038), so the editor
+ *   never hears it start.
  * - **Speech** runs through `speechDetectorReducer`, for the followed
  *   Recording Session only. A new Take shows as an Optimistic Clip
  *   (`start-take`); silence, or the Recording Session's end mid-speech,
  *   closes its audio window (`close-take-window`).
  * - **Attaching.** The first report a page hears that names a recording
  *   asks the Recorder to stop it: a page refreshed or closed mid-take left
- *   it going. A recording the Recorder cannot name (OBS's, on connect) can
- *   never be followed, so it is stopped on any report. A later report (a
- *   reconnect) of the Recording Session followed re-attaches to it and stops
- *   nothing (#2198).
+ *   it going. A later report (a reconnect) of the Recording Session followed
+ *   re-attaches to it and stops nothing (#2198).
  * - **Leaving.** The page asks the Recorder to stop as it goes away, while
- *   `stopsOnLeave` (each Recorder's hook).
+ *   `stopsOnLeave` (`use-cvm-recorder.ts`).
  * - **Unexpected events** are ignored, never thrown. A late event of a
  *   Recording Session not followed is expected (a replay after a failed
  *   save, #2163) and ignored quietly; a device event that cannot happen in
@@ -58,13 +54,11 @@ export namespace recorderSessionReducer {
   export type Event =
     | {
         /**
-         * The Recorder says what it records now: as the CVM recorder's
-         * status, or as OBS connects. `recordingSessionId` is null when it
-         * records one it cannot name (OBS).
+         * The Recorder says what it records now (the CVM recorder's
+         * status): `recordingSessionId` is null while it records nothing.
          */
         type: "recorder-reported";
         reachable: boolean;
-        recording: boolean;
         recordingSessionId: string | null;
         silenceLength: SilenceLength;
       }
@@ -72,10 +66,6 @@ export namespace recorderSessionReducer {
         type: "recording-started";
         recordingSessionId: string;
         silenceLength: SilenceLength;
-        /** The AV Calibration gate refused it. */
-        refused: boolean;
-        /** The threshold it cuts with, when the editor's gate set it (OBS). */
-        silenceThresholdDb?: number;
       }
     | { type: "recording-stopped"; recordingSessionId: string }
     | {
@@ -84,8 +74,6 @@ export namespace recorderSessionReducer {
         recordingSessionId: string | null;
         heard: speechDetectorReducer.Action;
       }
-    /** The page lets the Recorder go: the Video records with the other one. */
-    | { type: "recorder-released" }
     | { type: "press-stop" }
     | { type: "stop-recording-failed" };
 
@@ -95,7 +83,6 @@ export namespace recorderSessionReducer {
         type: "start-session";
         recordingSessionId: string;
         silenceLength: SilenceLength;
-        silenceThresholdDb?: number;
       }
     | { type: "stop-session" }
     | { type: "start-take"; soundDetectionId: string }
@@ -163,7 +150,7 @@ const followChanged = (
   before: recorderSessionReducer.State,
   after: recorderSessionReducer.State,
   exec: Exec,
-  start?: { silenceLength: SilenceLength; silenceThresholdDb?: number }
+  start?: { silenceLength: SilenceLength }
 ) => {
   if (before.recordingSessionId === after.recordingSessionId) return;
   if (before.recordingSessionId !== null) {
@@ -177,9 +164,6 @@ const followChanged = (
       type: "start-session",
       recordingSessionId: after.recordingSessionId,
       silenceLength: start.silenceLength,
-      ...(start.silenceThresholdDb === undefined
-        ? {}
-        : { silenceThresholdDb: start.silenceThresholdDb }),
     });
 };
 
@@ -223,12 +207,8 @@ export const recorderSessionReducer = <S extends recorderSessionReducer.State>(
     case "recorder-reported": {
       const current = state.recordingSessionId;
       let next: S = state;
-      if (!event.recording) {
+      if (event.recordingSessionId === null) {
         if (current !== null) next = over(state, current);
-      } else if (event.recordingSessionId === null) {
-        // OBS cannot say which take it records: the one followed, if any.
-        // One it never saw start (the gate never let through) it stops.
-        if (current === null) exec({ type: "stop-recording" });
       } else if (event.recordingSessionId !== current) {
         if (state.endedRecordingSessionIds.includes(event.recordingSessionId))
           return state;
@@ -254,10 +234,6 @@ export const recorderSessionReducer = <S extends recorderSessionReducer.State>(
     case "recording-started": {
       const id = event.recordingSessionId;
       if (!follows(state, "recording-started", id)) return state;
-      if (event.refused) {
-        exec({ type: "stop-recording" });
-        return state;
-      }
       const next: S = {
         ...state,
         phase: "recording",
@@ -272,12 +248,6 @@ export const recorderSessionReducer = <S extends recorderSessionReducer.State>(
     case "recording-stopped": {
       if (event.recordingSessionId !== state.recordingSessionId) return state;
       const next = over(state, event.recordingSessionId);
-      followChanged(state, next, exec);
-      return next;
-    }
-    case "recorder-released": {
-      if (state.recordingSessionId === null) return state;
-      const next = over(state, state.recordingSessionId);
       followChanged(state, next, exec);
       return next;
     }

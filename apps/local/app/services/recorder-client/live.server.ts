@@ -22,7 +22,7 @@ import {
  *
  * Only the main checkout talks to Matt's recorder service; any other
  * checkout gets the dead address, as its editor does for the Stream Deck hub
- * and OBS (live-desk/live-desk.ts). `RECORDER_SERVICE_URL` overrides both.
+ * (live-desk/live-desk.ts). `RECORDER_SERVICE_URL` overrides it.
  */
 
 const KEY = RECORDER_CLIENT_KEY;
@@ -35,7 +35,7 @@ const recorderServiceUrl = () =>
 
 /**
  * The folder (WSL path) each Recording Session's folder goes in:
- * `raw-footage/` on the first Storage Root, beside the OBS recordings (ADR
+ * `raw-footage/` on the first Storage Root, beside the old OBS recordings (ADR
  * 0040), never `~/Videos` on C:. AV Calibration runs go in its
  * `av-calibrations/`.
  */

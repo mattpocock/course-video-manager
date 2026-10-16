@@ -7,7 +7,7 @@ Standalone Videos; `/shorts` shows Shorts.
 
 - **Shorts list** — every Short with its duration and per-platform posting state
   (`Recorded`, `YouTube`, `TikTok`, `Posted`).
-- **Record** (Shorts) — starts an OBS recording. Needs hardware; WRITES.
+- **Record** — starts a CVM recorder recording. Needs hardware; WRITES.
 - **New Video** / **Concatenate** (Videos) — both WRITE.
 
 ## How to get to it (user POV)
@@ -38,4 +38,4 @@ duration and posting state together.
 - `/videos` is legitimately empty today — it reads `No standalone videos`, and
   that is the correct render, not a load failure. Verify list behaviour on
   `/shorts`, which has rows.
-- `Record` drives OBS on Matt's machine. Do not press it.
+- `Record` drives the recorder service on Matt's machine. Do not press it.

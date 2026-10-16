@@ -1,7 +1,7 @@
 {
   "name": "@cvm/local",
   "version": "1.0.0",
-  "description": "The Course Video Manager as it runs on the author's machine: the React Router app, the Video Editor, the Diagram Playground, the Publish flow, ffmpeg, OBS, the Stream Deck forwarder and the cvm CLI.",
+  "description": "The Course Video Manager as it runs on the author's machine: the React Router app, the Video Editor, the Diagram Playground, the Publish flow, ffmpeg, the recorder service, the Stream Deck forwarder and the cvm CLI.",
   "private": true,
   "type": "module",
   "bin": {
@@ -104,7 +104,6 @@
     "lucide-react": "0.525.0",
     "marked": "^17.0.1",
     "monaco-editor": "^0.55.1",
-    "obs-websocket-js": "^5.0.6",
     "pg": "^8.23.0",
     "playwright": "^1.63.0",
     "radix-ui": "^1.4.3",

@@ -71,7 +71,7 @@ export type ClipOnDatabase = {
   /**
    * A CVM-recorder Clip's Recording Session (files, mic offset, scene
    * timeline) and Scene Override: the Clip Source plays and stills it as the
-   * composite. Absent or null on an OBS Clip.
+   * composite. Absent or null on an old OBS Clip.
    */
   recordingSession?: ClipRecordingSession | null;
   sceneOverride?: Scene | null;
@@ -96,7 +96,7 @@ export type ClipOnDatabase = {
 export type ClipOptimisticallyAdded = {
   type: "optimistically-added";
   frontendId: FrontendId;
-  /** OBS's scene and profile, stamped on the saved Clip; null on the CVM recorder. */
+  /** A scene and profile stamped on the saved Clip: null, as the CVM recorder's Clips carry neither (only old OBS Clips do). */
   scene: string | null;
   profile: string | null;
   /**
@@ -205,15 +205,10 @@ export type RecordingSession = {
   id: SessionId;
   displayNumber: number;
   status: RecordingSessionStatus;
-  /** OBS's output file; a CVM recorder Recording Session's id. */
+  /** The CVM recorder's Recording Session id. */
   outputPath?: string;
   startedAt: number;
   silenceLength?: SilenceLength;
-  /**
-   * An OBS Recording Session's silence threshold, fixed when it started: its
-   * after-recording FFmpeg pass cuts with it.
-   */
-  silenceThresholdDb?: number;
 };
 
 /**
@@ -304,11 +299,6 @@ export type ClipReducerAction =
       type: "recording-started";
       outputPath: string;
       silenceLength: SilenceLength;
-      /**
-       * The threshold the browser detector cuts this take with, which its
-       * after-recording FFmpeg pass cuts with too. Absent: the fixed default.
-       */
-      silenceThresholdDb?: number;
     }
   | {
       type: "recording-stopped";
@@ -319,7 +309,7 @@ export type ClipReducerAction =
     }
   | {
       type: "new-optimistic-clip-detected";
-      /** OBS's scene and profile, stamped on the saved Clip; null on the CVM recorder. */
+      /** A scene and profile stamped on the saved Clip: null, as the CVM recorder's Clips carry neither (only old OBS Clips do). */
       scene: string | null;
       profile: string | null;
       soundDetectionId: string;
@@ -623,7 +613,6 @@ export type ClipReducerEffect =
       sessionId: SessionId;
       outputPath: string;
       silenceLength: SilenceLength;
-      silenceThresholdDb?: number;
     }
   | {
       type: "revalidate-loader";

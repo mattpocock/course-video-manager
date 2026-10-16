@@ -53,9 +53,8 @@ import {
  * changes and whenever the recorder reports in.
  *
  * The Recording Session, its speech, Attaching and the clip effects are the
- * shared `recorderSessionReducer` (ADR 0050), which OBS's connector runs
- * too: this reducer turns the recorder's messages into its events, and keeps
- * the device (camera, scenes, screen, frames lost) and where a Take saves.
+ * `recorderSessionReducer` (ADR 0050): this reducer turns the recorder's
+ * messages into its events, and keeps the device (camera, scenes, screen, frames lost) and where a Take saves.
  *
  * Speech: the recorder's silence detection, fed to the shared speech state
  * machine (`speechDetectorReducer`), so the editor and the teleprompter show
@@ -74,10 +73,10 @@ import {
  * The stop of the one just recorded still reports its errors and frames lost
  * when it lands after the status.
  *
- * Clips: this is an adapter onto the OBS path's clip logic, which does all
- * the placing (`clip-state-reducer-recording.ts`; ADR 0044). At a Take's
- * end the editor tells the app server where to save it, as OBS's polling
- * does, and hears back the saved Clips (`place-take`). The app server's
+ * Clips: this is an adapter onto the clip reducer's clip logic, which does
+ * all the placing (`clip-state-reducer-recording.ts`; ADR 0044). At a Take's
+ * end the editor tells the app server where to save it, and hears back the
+ * saved Clips (`place-take`). The app server's
  * status can say a Recording Session stopped before its last speech is
  * saved, so the editor places a Recording Session's speech from when it
  * follows it until that Recording Session's own stop, or the next one
@@ -167,7 +166,7 @@ export namespace cvmRecorderReducer {
     | { type: "retry-screen" }
     /**
      * Tell the app server where to save this Recording Session's speech
-     * (the editor's insertion point, as OBS's polling sends it), and hand
+     * (the editor's insertion point), and hand
      * the saved Clips to the clip reducer as `new-database-clips`.
      */
     | { type: "place-take"; recordingSessionId: string }
@@ -235,7 +234,7 @@ const cameraHeard = (
 
 export const canStop = (state: cvmRecorderReducer.State) => stopsOnLeave(state);
 
-/** Whether a take is being recorded, as OBS reports "recording". */
+/** Whether a take is being recorded (or stopping). */
 export const isCvmRecorderRecording = (state: cvmRecorderReducer.State) =>
   state.phase === "recording" || state.phase === "stopping";
 
@@ -288,7 +287,6 @@ const sessionEventOf = (
       return {
         type: "recorder-reported",
         reachable: message.reachable,
-        recording: message.recordingSessionId !== null,
         recordingSessionId: message.recordingSessionId,
         silenceLength: state.silenceLength ?? DEFAULT_SILENCE_LENGTH,
       };
@@ -298,7 +296,6 @@ const sessionEventOf = (
         type: "recording-started",
         recordingSessionId: message.recordingSessionId,
         silenceLength: message.silenceLength,
-        refused: false,
       };
     case "recording-stopped":
     case "camera-lost":
@@ -318,7 +315,7 @@ const sessionEventOf = (
       return {
         type: "speech-heard",
         recordingSessionId: message.recordingSessionId,
-        heard: { type: "silence-ended", endSeconds: null },
+        heard: { type: "silence-ended" },
       };
     case "take-started":
       return {

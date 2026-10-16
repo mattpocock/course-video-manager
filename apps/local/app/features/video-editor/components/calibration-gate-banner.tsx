@@ -7,9 +7,9 @@ import {
 } from "@/av-calibration-constants";
 
 /**
- * THE GATE's banner on a Recorder's Record controls (ADR 0038): why recording
+ * THE GATE's banner on the Record controls (ADR 0038): why recording
  * will not start, and the way to the AV Calibration page. `refusal` is a
- * refusal already met (OBS stopped, the recorder service said no), shown even
+ * refusal already met (the recorder service said no), shown even
  * when the gate looks open from here (the recorder's mic changed).
  */
 export const CalibrationGateBanner = (props: {
