@@ -332,6 +332,7 @@ export const VideoEditor = (props: {
     beats: props.beats,
     items: timelineItems,
     insertionPoint: props.insertionPoint,
+    fsData: props.fsData,
   });
 
   useTeleprompterEditorMode({

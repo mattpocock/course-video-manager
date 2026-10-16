@@ -131,6 +131,9 @@ export function EditorSidePanel(props: {
           onToggleSource={props.suggestions.onToggleSource}
           onRefresh={props.suggestions.onRefresh}
           onNotesChange={props.suggestions.onNotesChange}
+          onContextClick={props.suggestions.onContextClick}
+          onContextDismiss={props.suggestions.onContextDismiss}
+          onFilesPicked={props.suggestions.onFilesPicked}
         />
       ) : props.activeTab === "animatic" ? (
         <AnimaticPanel lines={props.animatic} />

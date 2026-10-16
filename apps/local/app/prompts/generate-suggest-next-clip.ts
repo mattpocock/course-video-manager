@@ -7,7 +7,8 @@
  * recorded so far goes in, numbered in order; the last few are set apart as
  * where the author is now, matched against that guide. Every source is optional: an unticked or missing one is
  * simply left out. The author's **Notes** for this Video outrank the rest:
- * they say how today's take departs from the plan.
+ * they say how today's take departs from the plan. Next come the repo files
+ * the author picked in the Context modal, read by the route.
  */
 export type SuggestNextClipInput = {
   notes?: string;
@@ -16,6 +17,42 @@ export type SuggestNextClipInput = {
   beats?: string;
   /** Transcripts of every Clip before the Insertion Point, oldest first. */
   clips: string[];
+  /**
+   * The paths of the Video's repo files the author picked in the Context
+   * modal, sorted. The route reads them; the prompt gets their text.
+   */
+  files?: string[];
+};
+
+/** One picked repo file, as the route read it. */
+export type SuggestNextClipRepoFile = { path: string; content: string };
+
+/** What the prompt is built from: the request, with the files read. */
+export type SuggestNextClipPromptInput = Omit<SuggestNextClipInput, "files"> & {
+  files?: SuggestNextClipRepoFile[];
+};
+
+/**
+ * The most repo-file text one suggestion carries, in characters (about 50k
+ * tokens). The files come in path order; the one that crosses the line
+ * is cut short and any after it are named but left empty, so a stray
+ * lockfile cannot blow the fast model's context or the cache.
+ */
+export const MAX_REPO_FILES_CHARS = 200_000;
+
+const formatRepoFiles = (files: SuggestNextClipRepoFile[] | undefined) => {
+  if (!files || files.length === 0) return undefined;
+  let budget = MAX_REPO_FILES_CHARS;
+  return files
+    .map((file) => {
+      const fits = file.content.length <= budget;
+      const content = fits
+        ? file.content
+        : `${file.content.slice(0, budget)}\n[… cut: over the repo files limit]`;
+      budget = Math.max(0, budget - file.content.length);
+      return `<file path="${file.path}">\n${content}\n</file>`;
+    })
+    .join("\n");
 };
 
 /**
@@ -36,13 +73,18 @@ const section = (tag: string, intro: string, body: string | undefined) =>
  * that cache.
  */
 export const generateSuggestNextClipPromptParts = (
-  input: SuggestNextClipInput
+  input: SuggestNextClipPromptInput
 ): { plan: string; now: string } => {
   const guides = [
     section(
       "notes",
       "The creator's own notes for this video. They take PRIORITY over everything below: where they conflict with the Script, the Animatic or the Beats, follow the notes.",
       input.notes
+    ),
+    section(
+      "repo-files",
+      "Files from this video's code repo that the creator picked as context: what the video is about, as code. The notes outrank them.",
+      formatRepoFiles(input.files)
     ),
     section(
       "script",
@@ -116,7 +158,7 @@ Output ONLY the spoken words. No quotes, no "you should say...", no stage direct
 };
 
 export const generateSuggestNextClipPrompt = (
-  input: SuggestNextClipInput
+  input: SuggestNextClipPromptInput
 ): string => {
   const { plan, now } = generateSuggestNextClipPromptParts(input);
   return `${plan}\n\n${now}`;

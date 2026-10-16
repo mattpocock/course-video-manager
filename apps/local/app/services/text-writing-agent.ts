@@ -1,5 +1,6 @@
 import { loadOtherVideosQuizIds } from "@/services/course-quiz-ids.server";
 import { buildWriterTranscript } from "@/lib/transcript-builder";
+import { isImageFilePath } from "@/lib/image-file-path";
 import { generateArticlePrompt } from "@/prompts/generate-article";
 import { generateArticlePlanPrompt } from "@/prompts/generate-article-plan";
 import { generateStepsToCompleteForProjectPrompt } from "@/prompts/generate-steps-to-complete-for-project";
@@ -270,6 +271,54 @@ export const createModelMessagesForTextWritingAgent = async (props: {
   return modelMessages;
 };
 
+/**
+ * The Video Files a prompt is given: every file whose path is in
+ * `enabledFiles` (all of them when it is `undefined`), the images as bytes and
+ * the rest as text. The Article Writer and the Suggestions tab both pick files
+ * with the same `FileTree` and read them here.
+ */
+export const readVideoFilesForPrompt = Effect.fn("readVideoFilesForPrompt")(
+  function* (props: {
+    lineageId: string;
+    enabledFiles: readonly string[] | undefined;
+  }) {
+    const entries = yield* listVideoFiles(props.lineageId);
+
+    // `enabledFiles` carries paths relative to the video's directory, so
+    // nested files ("notes/snippet.md") match here rather than silently
+    // falling out of the prompt.
+    const filteredFiles = entries
+      .map((entry) => entry.path)
+      .filter(
+        (filename) =>
+          props.enabledFiles === undefined ||
+          props.enabledFiles.includes(filename)
+      );
+
+    const allFiles = yield* Effect.forEach(filteredFiles, (filename) =>
+      Effect.gen(function* () {
+        if (isImageFilePath(filename)) {
+          const content = yield* readVideoFile(props.lineageId, filename);
+          return { type: "image" as const, path: filename, content };
+        }
+        const content = yield* readVideoFileString(props.lineageId, filename);
+        return { type: "text" as const, path: filename, content };
+      })
+    );
+
+    const textFiles: { path: string; content: string }[] = [];
+    const imageFiles: TextWritingAgentImageFile[] = [];
+    for (const file of allFiles) {
+      if (file.type === "text") {
+        textFiles.push({ path: file.path, content: file.content });
+      } else {
+        imageFiles.push({ path: file.path, content: file.content });
+      }
+    }
+    return { textFiles, imageFiles };
+  }
+);
+
 export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
   function* (props: {
     videoId: string;
@@ -285,78 +334,13 @@ export const acquireTextWritingContext = Effect.fn("acquireVideoContext")(
 
     const lesson = video.lesson;
 
-    // Initialize file arrays
-    let textFiles: { path: string; content: string }[] = [];
-    let imageFiles: { path: string; content: Uint8Array<ArrayBufferLike> }[] =
-      [];
     const sectionPath = lesson ? lesson.section.title : undefined;
     const lessonPath = lesson ? lesson.title : undefined;
 
-    const entries = yield* listVideoFiles(video.lineageId);
-
-    {
-      // `enabledFiles` carries paths relative to the video's directory, so
-      // nested files ("notes/snippet.md") match here rather than silently
-      // falling out of the writer's context.
-      const filteredFiles = entries
-        .map((entry) => entry.path)
-        .filter((filename) => {
-          return (
-            props.enabledFiles === undefined ||
-            props.enabledFiles.includes(filename)
-          );
-        });
-
-      const allFiles = yield* Effect.forEach(filteredFiles, (filename) => {
-        return Effect.gen(function* () {
-          const imageExtensions = [
-            ".png",
-            ".jpg",
-            ".jpeg",
-            ".gif",
-            ".svg",
-            ".webp",
-            ".bmp",
-          ];
-          const isImage = imageExtensions.some((ext) =>
-            filename.toLowerCase().endsWith(ext)
-          );
-
-          if (isImage) {
-            const fileContent = yield* readVideoFile(video.lineageId, filename);
-            return {
-              type: "image" as const,
-              path: filename,
-              content: fileContent,
-            };
-          } else {
-            const fileContent = yield* readVideoFileString(
-              video.lineageId,
-              filename
-            );
-            return {
-              type: "text" as const,
-              filePath: filename,
-              fileContent,
-            };
-          }
-        });
-      });
-
-      textFiles = allFiles
-        .filter((f) => f.type === "text")
-        .map((f) => ({
-          path: f.filePath,
-          content: f.fileContent,
-        }));
-
-      imageFiles = allFiles
-        .filter((f) => f.type === "image")
-        .map((f) => ({
-          path: f.path,
-          content: f.content,
-        }));
-    }
+    const { textFiles, imageFiles } = yield* readVideoFilesForPrompt({
+      lineageId: video.lineageId,
+      enabledFiles: props.enabledFiles,
+    });
 
     const includeTranscript = props.includeTranscript ?? true;
 
