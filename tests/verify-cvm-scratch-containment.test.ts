@@ -183,4 +183,22 @@ describe("verify-cvm scratch — never a real Storage Root", () => {
     expect(r.stderr).toMatch(/raw-footage is a symlink/);
     expect(existsSync(join(realFootage, "take.mkv"))).toBe(true);
   });
+
+  it("gives a --production run the same scratch roots and real-drive guard as a clone", () => {
+    const r = sh(
+      `run_files_env "${run}"
+       printf '%s\\n' "\${RUN_FILES_ENV[@]}"
+       clone_app_env "${run}" "${URL}"
+       printf 'clone:%s\\n' "\${CLONE_APP_ENV[@]}"`
+    );
+    expect(r.stderr).toBe("");
+    expect(r.status).toBe(0);
+    // The app refuses any /mnt path while either is set (real-drives.ts).
+    expect(r.stdout).toContain(`STORAGE_ROOTS=${run}/scratch\n`);
+    expect(r.stdout).toContain(`CVM_VERIFY_RUN_DIR=${run}\n`);
+    expect(r.stdout).toContain("CVM_NO_REAL_DRIVES=1\n");
+    expect(r.stdout).toContain("clone:CVM_NO_REAL_DRIVES=1\n");
+    // No database in the files env: a --production run keeps its own.
+    expect(r.stdout.split("clone:")[0]).not.toContain("DATABASE_URL=");
+  });
 });
