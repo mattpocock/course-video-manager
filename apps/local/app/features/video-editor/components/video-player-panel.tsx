@@ -18,10 +18,7 @@ import {
 import { MonitorSpeaker, VideoOffIcon, Workflow } from "lucide-react";
 import { diagramChannel } from "@/lib/diagram-protocol";
 import { usePopupOpen } from "../hooks/use-popup-open";
-import { useFetcher, useNavigate } from "react-router";
-import { videoMenuGroups } from "@/features/video-menu/video-menu";
-import { useEditorVideoActions } from "../editor-video-menu";
-import { useNewShortAction } from "../new-short-action";
+import { useEditorVideoMenu } from "../editor-video-menu";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { Suspense, useState, useMemo, type ChangeEvent } from "react";
@@ -98,27 +95,7 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.allClipsHaveSilenceDetected
   );
-  const allClipsHaveText = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.allClipsHaveText
-  );
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
-  const referenceCandidates = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.referenceCandidates
-  );
-  const referenceVideoId = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.referenceVideoId
-  );
-  const setReferenceVideoId = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.setReferenceVideoId
-  );
-  const onOpenAutofillChaptersModal = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.onOpenAutofillChaptersModal
-  );
   const isAddVideoModalOpen = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.openModal === "add-video"
@@ -126,10 +103,6 @@ export const VideoPlayerPanel = () => {
   const onAddVideoModalOpenChange = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.onModalOpenChange["add-video"]
-  );
-  const modalDispatch = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.modalDispatch
   );
   const isTeleprompterOpen = useContextSelector(
     VideoEditorContext,
@@ -146,10 +119,6 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.videoCount
   );
-  const openInVSCodeFetcher = useFetcher();
-  const editorVideoActions = useEditorVideoActions();
-  const newShort = useNewShortAction();
-  const navigate = useNavigate();
 
   const chapters = useMemo(() => getChaptersSelector(items), [items]);
   const hasSections = getHasSectionsSelector(items);
@@ -160,48 +129,14 @@ export const VideoPlayerPanel = () => {
     showVideoPlayer
   );
 
-  const isReferenceOpen =
-    referenceVideoId !== null &&
-    referenceCandidates.some((c) => c.id === referenceVideoId);
-  const menuGroups = videoMenuGroups(
-    {
-      ...editorVideoActions.menu,
-      openInVSCode: lessonId
-        ? () =>
-            openInVSCodeFetcher.submit(
-              {},
-              {
-                method: "post",
-                action: `/api/videos/${videoId}/open-in-vscode`,
-              }
-            )
-        : undefined,
-      createConcatenatedVideo: () =>
-        navigate(`/videos/concatenate?initial=${videoId}`),
-      reference: isReferenceOpen
-        ? { close: () => setReferenceVideoId(null) }
-        : { candidates: referenceCandidates, open: setReferenceVideoId },
-      editLessonBody: lessonId
-        ? () => setIsLessonBodyWriterOpen(true)
-        : undefined,
-      autofillDescription: lessonId
-        ? () => setIsSeoDescriptionOpen(true)
-        : undefined,
-      newShort,
-      autofillChapters: {
-        onSelect: onOpenAutofillChaptersModal,
-        disabled: !allClipsHaveText,
-        description: allClipsHaveText
-          ? undefined
-          : "Waiting for transcription to complete",
-      },
-      addNote: () => modalDispatch({ type: "add-note-from-clipboard-clicked" }),
-      addVideoToLesson: lessonId
-        ? () => modalDispatch({ type: "add-video-to-lesson-clicked" })
-        : undefined,
-    },
-    { groupRareActions: true }
-  );
+  const menu = useEditorVideoMenu({
+    editLessonBody: lessonId
+      ? () => setIsLessonBodyWriterOpen(true)
+      : undefined,
+    autofillDescription: lessonId
+      ? () => setIsSeoDescriptionOpen(true)
+      : undefined,
+  });
   return (
     <>
       <div className="lg:flex-1 relative order-1 lg:order-2 overflow-y-auto h-full">
@@ -269,15 +204,12 @@ export const VideoPlayerPanel = () => {
           <div className="flex gap-2 mt-4">
             <ActionsDropdown
               videoId={videoId}
-              groups={menuGroups}
+              groups={menu.groups}
               allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
             />
             {/* Each launcher shows only while its popup is closed. */}
             {!isTeleprompterOpen && (
-              <Button
-                variant="secondary"
-                onClick={editorVideoActions.launch.teleprompter}
-              >
+              <Button variant="secondary" onClick={menu.launch.teleprompter}>
                 <MonitorSpeaker className="w-4 h-4 mr-1" />
                 Teleprompter
               </Button>
@@ -285,7 +217,7 @@ export const VideoPlayerPanel = () => {
             {!isDiagramPlaygroundOpen && (
               <Button
                 variant="secondary"
-                onClick={editorVideoActions.launch.diagramPlayground}
+                onClick={menu.launch.diagramPlayground}
               >
                 <Workflow className="w-4 h-4 mr-1" />
                 Diagram Playground

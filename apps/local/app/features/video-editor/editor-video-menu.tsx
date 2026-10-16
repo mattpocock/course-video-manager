@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, useNavigate } from "react-router";
 import { toast } from "@/components/ui/toast";
 import {
   resolveForVideo,
@@ -29,6 +29,8 @@ import type {
 import { useContextSelector } from "use-context-selector";
 import { useRetranscribeAllClips } from "./components/transcript-word-actions";
 import { VideoEditorContext } from "./video-editor-context";
+import { editorVideoMenuGroups } from "./editor-menu";
+import { useNewShortAction } from "./new-short-action";
 
 type GroupsRef = { current: ActionMenuGroups | null };
 
@@ -64,12 +66,33 @@ export function useEditorVideoMenuRef(): GroupsRef | null {
 }
 
 /**
- * The Video actions both editors offer — the landscape editor and the
- * portrait Studio — wired to the editor's context. `menu` goes in the Actions
- * menu; `launch` is the two popup openers on their own, for the landscape
- * editor's launcher buttons.
+ * The Actions menu of whichever editor is open — the landscape editor or the
+ * Short's portrait studio — from the one action set below. `panelActions` are
+ * the few whose dialogs the panel itself owns. The Video Format alone decides
+ * what is left out (`editor-menu.ts`).
  */
-export function useEditorVideoActions(): {
+export function useEditorVideoMenu(panelActions: VideoMenuActions): {
+  groups: ActionMenuGroups;
+  launch: { teleprompter: () => void; diagramPlayground: () => void };
+} {
+  const videoFormat = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.videoFormat
+  );
+  const { menu, launch } = useEditorVideoActions();
+  return {
+    groups: editorVideoMenuGroups(videoFormat, { ...menu, ...panelActions }),
+    launch,
+  };
+}
+
+/**
+ * The Video actions both editors offer — the landscape editor and the
+ * portrait Studio — wired to the editor's context. `menu` is the action set
+ * `useEditorVideoMenu` renders; `launch` is the two popup openers on
+ * their own, for the landscape editor's launcher buttons.
+ */
+function useEditorVideoActions(): {
   menu: VideoMenuActions;
   launch: { teleprompter: () => void; diagramPlayground: () => void };
 } {
@@ -103,7 +126,42 @@ export function useEditorVideoActions(): {
     VideoEditorContext,
     (ctx) => ctx.insertionPoint
   );
+  const lessonId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.lessonId
+  );
+  const referenceCandidates = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.referenceCandidates
+  );
+  const referenceVideoId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.referenceVideoId
+  );
+  const setReferenceVideoId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.setReferenceVideoId
+  );
+  const onOpenAutofillChaptersModal = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.onOpenAutofillChaptersModal
+  );
+  const silenceLength = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.silenceLength
+  );
+  const setSilenceLength = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.setSilenceLength
+  );
+  const isRecordingActive = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.isRecordingActive
+  );
   const { startExportUpload, startRenderVerticalUpload } = useUploadActions();
+  const openInVSCodeFetcher = useFetcher();
+  const navigate = useNavigate();
+  const newShort = useNewShortAction();
   const retranscribeAllClips = useRetranscribeAllClips();
   const revealVideoFetcher = useFetcher();
 
@@ -115,6 +173,10 @@ export function useEditorVideoActions(): {
       .then((data: { exists: boolean }) => setExportFileExists(data.exists))
       .catch(() => setExportFileExists(false));
   }, [videoId]);
+
+  const isReferenceOpen =
+    referenceVideoId !== null &&
+    referenceCandidates.some((c) => c.id === referenceVideoId);
 
   const launch = {
     teleprompter: () => void teleprompterChannel.open(),
@@ -154,6 +216,33 @@ export function useEditorVideoActions(): {
             )
         : undefined,
     copyLogPath: () => void copyLogPath(videoId),
+    openInVSCode: () =>
+      openInVSCodeFetcher.submit(
+        {},
+        { method: "post", action: `/api/videos/${videoId}/open-in-vscode` }
+      ),
+    createConcatenatedVideo: () =>
+      navigate(`/videos/concatenate?initial=${videoId}`),
+    reference: isReferenceOpen
+      ? { close: () => setReferenceVideoId(null) }
+      : { candidates: referenceCandidates, open: setReferenceVideoId },
+    newShort,
+    autofillChapters: {
+      onSelect: onOpenAutofillChaptersModal,
+      disabled: !allClipsHaveText,
+      description: allClipsHaveText
+        ? undefined
+        : "Waiting for transcription to complete",
+    },
+    addNote: () => modalDispatch({ type: "add-note-from-clipboard-clicked" }),
+    addVideoToLesson: lessonId
+      ? () => modalDispatch({ type: "add-video-to-lesson-clicked" })
+      : undefined,
+    silenceLength: {
+      value: silenceLength,
+      onValueChange: setSilenceLength,
+      disabled: isRecordingActive,
+    },
   };
   return { menu, launch };
 }

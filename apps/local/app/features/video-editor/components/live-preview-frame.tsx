@@ -63,8 +63,11 @@ export const LivePreviewFrame = () => {
   return (
     <div
       className={cn(
-        "w-full relative aspect-[16/9]",
-        composite.format === "short" && "w-92 aspect-[9/16]",
+        "relative",
+        composite.format === "short"
+          ? // As tall as the Short's studio allows, like its Clip player.
+            "flex-1 min-h-0 aspect-[9/16]"
+          : "w-full aspect-[16/9]",
         "hidden",
         !showVideoPlayer && (showLiveStream || showLastFrame) && "block"
       )}

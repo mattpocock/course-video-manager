@@ -4,8 +4,7 @@ import { LivePreviewFrame } from "./live-preview-frame";
 import { CvmRecorderControls } from "./cvm-recorder-controls";
 import { getHasLivePreview } from "../live-preview";
 import { ActionsDropdown } from "./actions-dropdown";
-import { videoMenuGroups } from "@/features/video-menu/video-menu";
-import { useEditorVideoActions } from "../editor-video-menu";
+import { useEditorVideoMenu } from "../editor-video-menu";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
 import type { ClipOverlay } from "../overlay-preview";
@@ -101,16 +100,11 @@ export const PortraitStudioPanel = () => {
     setIsPostingModalOpen(true);
   }, []);
 
-  const editorVideoActions = useEditorVideoActions();
-  const menuGroups = videoMenuGroups(
-    {
-      ...editorVideoActions.menu,
-      postShort: () => openPostingModal("both"),
-      postToYouTube: () => openPostingModal("youtube"),
-      postToTikTok: () => openPostingModal("tiktok"),
-    },
-    { groupRareActions: true }
-  );
+  const menu = useEditorVideoMenu({
+    postShort: () => openPostingModal("both"),
+    postToYouTube: () => openPostingModal("youtube"),
+    postToTikTok: () => openPostingModal("tiktok"),
+  });
 
   const showScrubSlider = getShowScrubSliderSelector(
     currentClip?.type,
@@ -119,7 +113,8 @@ export const PortraitStudioPanel = () => {
 
   return (
     <div className="lg:flex-1 relative order-1 lg:order-2 h-full min-h-0 flex flex-col">
-      {/* 9:16 height-driven preview */}
+      {/* 9:16, as tall as the panel allows: the live frame, the Clip player
+          and the empty state all take the full height. */}
       <div className="flex-1 min-h-0 flex items-center justify-center relative">
         {!hasLivePreview && clips.length === 0 ? (
           <div className="h-full aspect-[9/16] bg-card rounded-lg flex flex-col items-center justify-center gap-3">
@@ -129,7 +124,7 @@ export const PortraitStudioPanel = () => {
             </p>
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center max-h-full">
+          <div className="h-full w-full flex flex-col items-center max-h-full">
             <LivePreviewFrame />
             <div
               className={cn(
@@ -193,7 +188,7 @@ export const PortraitStudioPanel = () => {
         <div className="flex items-center gap-1 shrink-0">
           <ActionsDropdown
             videoId={videoId}
-            groups={menuGroups}
+            groups={menu.groups}
             allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
           />
           <Button size="sm" onClick={() => openPostingModal("both")}>

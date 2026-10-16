@@ -8,6 +8,19 @@ import { CalibrationGateBanner } from "./calibration-gate-banner";
 import { isCalibrationRefusal } from "@/av-calibration-constants";
 import { framesLostAlert } from "../cvm-recorder-reducer";
 
+/**
+ * Whether the recorder is simply fine — ready, recording or stopping — so a
+ * Short's studio, which gives every pixel it can to the preview, says nothing.
+ */
+const isRecorderSettled = (
+  controls: ReturnType<typeof useCvmRecorderControls>
+): boolean => {
+  const { state } = controls;
+  if (!state.reachable || state.problem) return false;
+  if (state.phase !== "idle") return true;
+  return state.camera.kind === "live" && controls.canRecord;
+};
+
 /** What the CVM recorder is doing, in a few words. */
 const statusText = (
   controls: ReturnType<typeof useCvmRecorderControls>
@@ -73,7 +86,9 @@ const CameraProblem = () => {
 
 /**
  * A CVM recorder Video's status and Silence Length, under the live frame
- * (`LivePreviewFrame`), which draws the composite. Record, Stop and the
+ * (`LivePreviewFrame`), which draws the composite. A Short shows neither
+ * while the recorder is fine: its Silence Length is in the Actions menu, and
+ * its status speaks only when something is wrong or not ready yet. Record, Stop and the
  * scene are the Stream Deck's: it calls the recorder service directly.
  * Clips appear in the timeline as the recorder hears each take end, already
  * saved.
@@ -84,11 +99,16 @@ export const CvmRecorderControls = () => {
     VideoEditorContext,
     (ctx) => ctx.calibrationGate
   );
+  const isShort = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.videoFormat === "short"
+  );
   const { state } = controls;
   const calibrationRefusal = isCalibrationRefusal(state.error);
+  const showStatus = !isShort || !isRecorderSettled(controls);
   const framesLost = framesLostAlert(state);
   return (
-    <div className="mt-2 flex flex-col items-center gap-2">
+    <div className="mt-2 flex flex-col items-center gap-2 empty:hidden">
       {framesLost && (
         <div
           role="alert"
@@ -123,15 +143,19 @@ export const CvmRecorderControls = () => {
           refusal={calibrationRefusal ? state.error : null}
         />
       )}
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <SilenceLengthToggle />
-        <span
-          className="text-xs text-muted-foreground"
-          data-testid="cvm-recorder-status"
-        >
-          {statusText(controls)}
-        </span>
-      </div>
+      {(!isShort || showStatus) && (
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {!isShort && <SilenceLengthToggle />}
+          {showStatus && (
+            <span
+              className="text-xs text-muted-foreground"
+              data-testid="cvm-recorder-status"
+            >
+              {statusText(controls)}
+            </span>
+          )}
+        </div>
+      )}
       <ShortScreenStatus />
       <CameraProblem />
       {state.framesLost && !framesLost && state.phase === "idle" && (

@@ -1,10 +1,12 @@
 import {
   bundle,
   type ActionLeaf,
+  type ActionPicker,
   type ActionMenuGroups,
 } from "@/features/action-menu/action-menu-model";
 import { STANDARD_ACTIONS } from "@/features/action-menu/standard-actions";
 import type { BeatKind } from "@/features/beats/beat-kinds";
+import type { SilenceLength } from "@/silence-detection-constants";
 import { beatKindLeaves } from "@/features/beats/beat-menu-items";
 import {
   BookOpenIcon,
@@ -24,6 +26,7 @@ import {
   ScrollTextIcon,
   SendIcon,
   Sparkles,
+  TimerIcon,
   Workflow,
   XIcon,
   Youtube,
@@ -63,6 +66,12 @@ export interface VideoMenuActions {
   autofillChapters?: VideoAction;
   /** Only on an archived Video: puts it back where it was. */
   unarchive?: VideoAction;
+  /** The next Recording Session's Silence Length. Fixed while one records. */
+  silenceLength?: {
+    value: SilenceLength;
+    onValueChange: (value: SilenceLength) => void;
+    disabled?: boolean;
+  };
   // create
   addBeat?: (kind: BeatKind) => void;
   /** Opens the paste dialog that adds the clipboard to the Video as a note. */
@@ -157,26 +166,29 @@ export function videoMenuGroups(
               })),
             }),
     ],
-    edit: fold(STANDARD_ACTIONS.edit.label, STANDARD_ACTIONS.edit.icon, [
-      leaf({ ...STANDARD_ACTIONS.rename, opensDialog: true }, a.rename),
-      leaf(
-        { label: "Edit Lesson Body", icon: FileText, opensDialog: true },
-        a.editLessonBody
-      ),
-      leaf(
-        { label: "Edit Script", icon: ScrollText, opensDialog: true },
-        a.editScript
-      ),
-      leaf(
-        { label: "Autofill Description", icon: Sparkles, opensDialog: true },
-        a.autofillDescription
-      ),
-      leaf(
-        { label: "Autofill Chapters", icon: Sparkles, opensDialog: true },
-        a.autofillChapters
-      ),
-      leaf(STANDARD_ACTIONS.unarchive, a.unarchive),
-    ]),
+    edit: [
+      ...fold(STANDARD_ACTIONS.edit.label, STANDARD_ACTIONS.edit.icon, [
+        leaf({ ...STANDARD_ACTIONS.rename, opensDialog: true }, a.rename),
+        leaf(
+          { label: "Edit Lesson Body", icon: FileText, opensDialog: true },
+          a.editLessonBody
+        ),
+        leaf(
+          { label: "Edit Script", icon: ScrollText, opensDialog: true },
+          a.editScript
+        ),
+        leaf(
+          { label: "Autofill Description", icon: Sparkles, opensDialog: true },
+          a.autofillDescription
+        ),
+        leaf(
+          { label: "Autofill Chapters", icon: Sparkles, opensDialog: true },
+          a.autofillChapters
+        ),
+        leaf(STANDARD_ACTIONS.unarchive, a.unarchive),
+      ]),
+      a.silenceLength && silenceLengthPicker(a.silenceLength),
+    ],
     create: [
       a.addBeat && {
         ...STANDARD_ACTIONS.add,
@@ -228,15 +240,15 @@ export function videoMenuGroups(
         { label: "Post Short", icon: SendIcon, opensDialog: true },
         a.postShort
       ),
-      leaf(
-        { label: "Post to YouTube", icon: Youtube, opensDialog: true },
-        a.postToYouTube
-      ),
-      leaf(
-        { label: "Post to TikTok", icon: Music2, opensDialog: true },
-        a.postToTikTok
-      ),
       ...fold("Run", PlayIcon, [
+        leaf(
+          { label: "Post to YouTube", icon: Youtube, opensDialog: true },
+          a.postToYouTube
+        ),
+        leaf(
+          { label: "Post to TikTok", icon: Music2, opensDialog: true },
+          a.postToTikTok
+        ),
         leaf(
           { label: "Render Vertical Short", icon: FilmIcon },
           a.renderVerticalShort
@@ -262,5 +274,28 @@ export function videoMenuGroups(
       ),
       leaf(STANDARD_ACTIONS.archive, a.archive),
     ],
+  };
+}
+
+const SILENCE_LENGTH_OPTIONS: { value: SilenceLength; label: string }[] = [
+  { value: "short", label: "Short" },
+  { value: "long", label: "Long" },
+];
+
+/** A choice of value inside the menu, so a picker rather than a leaf. */
+function silenceLengthPicker(
+  s: NonNullable<VideoMenuActions["silenceLength"]>
+): ActionPicker {
+  return {
+    label: "Set Silence Length",
+    icon: TimerIcon,
+    value: s.value,
+    onValueChange: (value) => {
+      if (value === "short" || value === "long") s.onValueChange(value);
+    },
+    options: SILENCE_LENGTH_OPTIONS.map((o) => ({
+      ...o,
+      disabled: s.disabled,
+    })),
   };
 }
