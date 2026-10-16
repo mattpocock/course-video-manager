@@ -156,6 +156,20 @@ describe("the OBS connector and the Video's Recorder", () => {
     expect(video.effects).toEqual([{ type: "disconnect" }]);
   });
 
+  it("an event OBS cannot send in this state is ignored and logged, never thrown", () => {
+    const obs = start(true);
+    obs.effects.length = 0;
+    obs.send({ type: "scene-changed", scene: "Code" });
+    obs.send({ type: "recording-started", outputPath: "/a.mkv", ...fresh });
+    obs.send({ type: "recording-stopped", outputPath: "/a.mkv" });
+    expect(obs.state()).toEqual({ type: "checking-obs-connection-status" });
+    expect(obs.effects.map((e) => e.type)).toEqual([
+      "log-unexpected",
+      "log-unexpected",
+      "log-unexpected",
+    ]);
+  });
+
   it("a Short never connects to OBS, even one that stored OBS (ADR 0037)", () => {
     const usesObs = showsOBSChecks(
       createInitialRecorderChoiceState({ format: "short", recorder: "obs" })

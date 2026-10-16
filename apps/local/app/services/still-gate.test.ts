@@ -1,6 +1,27 @@
-import { Deferred, Effect, Fiber, Ref, TestClock, TestContext } from "effect";
-import { describe, expect, it } from "vitest";
-import { makeStillGate, type RecordingSignal } from "./still-gate";
+import {
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  ManagedRuntime,
+  Ref,
+  TestClock,
+  TestContext,
+} from "effect";
+import { describe, expect, it, vi } from "vitest";
+import { makeLoader } from "./route-action.server";
+import {
+  makeStillGate,
+  StillHeldError,
+  type RecordingSignal,
+} from "./still-gate";
+
+// The app's layer refuses to load without STORAGE_ROOTS (its startup check);
+// these tests read no file, so any root will do.
+vi.hoisted(() => {
+  process.env.STORAGE_ROOTS ??= "/test-storage-root";
+});
 
 /** A recorder the test starts and stops. */
 const fakeRecorder = (recording = false) => {
@@ -33,26 +54,24 @@ describe("the still gate", () => {
     expect(recorder.listening()).toBe(0);
   });
 
-  it("waits while a Recording Session records, and decodes after the Stop", async () => {
+  it("answers a still asked for while a Recording Session records at once, held, without decoding", async () => {
     const recorder = fakeRecorder(true);
     const gate = makeStillGate(recorder.signal);
-    await run(
+    const exit = await run(
       Effect.gen(function* () {
         const started = yield* Ref.make(0);
-        const fiber = yield* Effect.fork(
+        const exit = yield* Effect.exit(
           gate(Ref.update(started, (n) => n + 1).pipe(Effect.as("still.png")))
         );
-        yield* settle;
         expect(yield* Ref.get(started)).toBe(0);
-        recorder.set(false);
-        expect(yield* Fiber.join(fiber)).toBe("still.png");
-        expect(yield* Ref.get(started)).toBe(1);
+        return exit;
       })
     );
+    expect(exit).toEqual(Exit.fail(expect.any(StillHeldError)));
     expect(recorder.listening()).toBe(0);
   });
 
-  it("stops a decode when Record is pressed, and runs it again after the Stop", async () => {
+  it("stops a decode when Record is pressed and answers it held, and decodes again after the Stop", async () => {
     const recorder = fakeRecorder(false);
     const gate = makeStillGate(recorder.signal);
     await run(
@@ -72,16 +91,55 @@ describe("the still gate", () => {
         recorder.set(true);
         yield* settle;
         expect(yield* Ref.get(interrupted)).toBe(1);
-        yield* TestClock.adjust("10 seconds");
-        expect(fiber.unsafePoll()).toBeNull();
+        const exit = yield* Fiber.await(fiber);
+        expect(Exit.isFailure(exit)).toBe(true);
 
+        // The editor asks again after the Stop.
         recorder.set(false);
-        yield* settle;
-        expect(yield* Ref.get(runs)).toBe(2);
+        const again = yield* Effect.fork(gate(decode));
         yield* TestClock.adjust("2 seconds");
-        expect(yield* Fiber.join(fiber)).toBe("still.png");
+        expect(yield* Fiber.join(again)).toBe("still.png");
+        expect(yield* Ref.get(runs)).toBe(2);
       })
     );
+  });
+
+  it("answers held a still that was waiting its turn when Record was pressed", async () => {
+    const recorder = fakeRecorder(false);
+    const gate = makeStillGate(recorder.signal);
+    await run(
+      Effect.gen(function* () {
+        const release = yield* Deferred.make<void>();
+        const first = yield* Effect.fork(gate(Deferred.await(release)));
+        const waiting = yield* Effect.fork(gate(Effect.succeed("still.png")));
+        yield* settle;
+        recorder.set(true);
+        yield* settle;
+        expect(Exit.isFailure(yield* Fiber.await(first))).toBe(true);
+        const exit = yield* Fiber.await(waiting);
+        expect(exit).toEqual(Exit.fail(expect.any(StillHeldError)));
+      })
+    );
+  });
+
+  it("a still route answers 503 at once while recording, never parking the browser's connection", async () => {
+    const gate = makeStillGate(fakeRecorder(true).signal);
+    // The first-frame and last-frame routes' error map.
+    const loader = makeLoader(
+      {
+        errors: { StillHeldError: 503 },
+        effect: () => gate(Effect.never.pipe(Effect.as("still.png"))),
+      },
+      ManagedRuntime.make(Layer.empty)
+    );
+    const thrown = await loader({
+      request: new Request("http://test.local/clips/c/first-frame"),
+      params: {},
+    }).then(
+      () => undefined,
+      (error: unknown) => error as { init: { status: number } }
+    );
+    expect(thrown?.init.status).toBe(503);
   });
 
   it("decodes one still at a time", async () => {
