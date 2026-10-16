@@ -1,6 +1,11 @@
 import { useContextSelector } from "use-context-selector";
+import { cn } from "@/lib/utils";
 import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 import { clipMockupFrameUrl } from "@/features/clip-mockups/clip-mockup-frame-url";
+import {
+  VIDEO_FORMAT_DIMENSIONS,
+  type VideoFormat,
+} from "@/features/videos/video-format";
 import { VideoEditorContext } from "../video-editor-context";
 import { AnimaticOverlay } from "./animatic-overlay";
 
@@ -17,6 +22,17 @@ function PanelComments({ comments }: { comments: readonly string[] }) {
     </div>
   );
 }
+
+/**
+ * How tall a line's thumbnail is, per Video Format. Its shape comes from
+ * `VIDEO_FORMAT_DIMENSIONS`, so a Short's 1080x1920 frame fills a narrow 9:16
+ * column instead of sitting letterboxed in a 16:9 box. A Short's is taller so
+ * the frame stays legible at a column narrower than a Landscape one.
+ */
+const THUMBNAIL_HEIGHT: Record<VideoFormat, string> = {
+  landscape: "h-12",
+  short: "h-24",
+};
 
 /**
  * The editor side slot's **Animatic** tab: this video's Clip Mockups read as
@@ -40,6 +56,8 @@ export function AnimaticPanel(props: { lines: AnimaticLine[] }) {
     VideoEditorContext,
     (c) => c.cvmRecorder.canStop
   );
+  const format = useContextSelector(VideoEditorContext, (c) => c.videoFormat);
+  const frame = VIDEO_FORMAT_DIMENSIONS[format];
 
   return (
     <div className="overflow-y-auto flex-1 px-3 py-2">
@@ -75,7 +93,11 @@ export function AnimaticPanel(props: { lines: AnimaticLine[] }) {
               src={clipMockupFrameUrl(line.id)}
               alt=""
               loading="lazy"
-              className="h-12 aspect-video shrink-0 rounded-sm border bg-black object-contain"
+              className={cn(
+                THUMBNAIL_HEIGHT[format],
+                "shrink-0 rounded-sm border bg-black object-contain"
+              )}
+              style={{ aspectRatio: `${frame.width} / ${frame.height}` }}
               // A frame the disk does not have shows as an empty box, not a
               // broken-image glyph. The Animatic page is where a missing file
               // is reported.
