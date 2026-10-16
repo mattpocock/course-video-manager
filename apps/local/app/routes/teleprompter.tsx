@@ -182,7 +182,8 @@ export default function Teleprompter() {
         />
       )}
 
-      {state.editorConnected && (
+      {/* Not over a suggestion: its glass already shows the last Clips. */}
+      {state.editorConnected && state.suggestion === null && (
         <LatestTranscript text={state.latestTranscript} />
       )}
 

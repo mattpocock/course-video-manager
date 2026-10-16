@@ -19,6 +19,8 @@ import {
   type OBSConnectionOuterState,
 } from "./obs-connector-reducer";
 import { toFrontendSpeechDetectorState } from "./speech-detector-reducer";
+import { stopsOnLeave } from "./recorder-session-reducer";
+import { useStopRecordingOnLeave } from "./use-stop-recording-on-leave";
 
 export type {
   OBSConnectedState,
@@ -264,6 +266,9 @@ export const useOBSConnector = (props: {
       "log-error": (_state, effect, _dispatch) => {
         console.error(effect.error);
       },
+      "log-unexpected": (_state, effect) => {
+        console.warn(effect.message);
+      },
       "attempt-to-connect": (_state, _effect, dispatch) => {
         console.log("Attempting to reconnect");
         websocket
@@ -367,6 +372,12 @@ export const useOBSConnector = (props: {
       },
     }
   );
+
+  useStopRecordingOnLeave(stopsOnLeave(state), () => {
+    websocket.call("StopRecord").catch(() => {
+      // The next page's Attaching stops it.
+    });
+  });
 
   // Bridges the Video's Recorder choice into the connector.
   useEffect(() => {

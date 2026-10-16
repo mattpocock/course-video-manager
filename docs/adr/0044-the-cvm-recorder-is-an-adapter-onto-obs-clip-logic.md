@@ -4,7 +4,7 @@ status: accepted
 
 # The CVM recorder is an adapter onto the OBS recorder's clip logic
 
-Decided by Matt on 2026-10-14 (#2165), after #2151 and #2164. Amends the consequence in [ADR 0034](0034-recording-runs-in-its-own-recorder-service.md) on where the recorder client saves Clips.
+Decided by Matt on 2026-10-14 (#2165), after #2151 and #2164. Amends the consequence in [ADR 0034](0034-recording-runs-in-its-own-recorder-service.md) on where the recorder client saves Clips. [ADR 0050](0050-one-recording-session-reducer-two-effect-sets.md) then moves what both Recorders send the clip reducer into one shared recording-session reducer.
 
 ## Context
 

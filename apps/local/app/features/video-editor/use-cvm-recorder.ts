@@ -22,6 +22,7 @@ import {
   createInitialCvmRecorderState,
   cvmRecorderReducer,
 } from "./cvm-recorder-reducer";
+import { useStopRecordingOnLeave } from "./use-stop-recording-on-leave";
 import {
   CVM_RECORDER_MESSAGE_TYPES,
   type CvmRecorderMessage,
@@ -80,43 +81,6 @@ export const useRecorderEvents = (
       });
     }
     return () => source.close();
-  }, [videoId, enabled]);
-};
-
-/**
- * Stop as the page goes away (#2182): a refresh, closing the tab, or leaving
- * the editor. `pagehide` gives no time for a render, so whether this editor
- * is recording is read from a ref, and Stop goes with `keepalive` to outlive
- * the page. The take is kept: Stop closes the files as the Stop button does,
- * and the app server saves every speech with or without an editor. Window
- * blur does not stop: a take is filmed with focus elsewhere, and OBS mode
- * does not stop on it either. The next page stops whatever is still going
- * (`cvmRecorderReducer`, Attaching).
- */
-const useStopRecordingOnLeave = (
-  videoId: string,
-  enabled: boolean,
-  recording: boolean
-) => {
-  const recordingRef = useRef(recording);
-  recordingRef.current = recording;
-  useEffect(() => {
-    if (!enabled) return;
-    const stop = () => {
-      if (!recordingRef.current) return;
-      recordingRef.current = false;
-      fetch(`/api/videos/${videoId}/recorder/stop`, {
-        method: "POST",
-        keepalive: true,
-      }).catch(() => {
-        // The next page's Attaching stops it.
-      });
-    };
-    window.addEventListener("pagehide", stop);
-    return () => {
-      window.removeEventListener("pagehide", stop);
-      stop();
-    };
   }, [videoId, enabled]);
 };
 
@@ -244,6 +208,9 @@ export const useCvmRecorder = (o: {
             dispatch({ type: "retry-screen-failed", message: messageOf(error) })
           );
       },
+      "log-unexpected": (_state, effect) => {
+        console.warn(effect.message);
+      },
       "stop-recording": (_state, _effect, dispatch) => {
         fetch(`/api/videos/${videoId}/recorder/stop`, { method: "POST" })
           .then(answer)
@@ -266,7 +233,14 @@ export const useCvmRecorder = (o: {
       });
   }, [o.enabled, o.silenceLength, dispatch]);
 
-  useStopRecordingOnLeave(videoId, o.enabled, canStop(state));
+  useStopRecordingOnLeave(o.enabled && canStop(state), () => {
+    fetch(`/api/videos/${videoId}/recorder/stop`, {
+      method: "POST",
+      keepalive: true,
+    }).catch(() => {
+      // The next page's Attaching stops it.
+    });
+  });
 
   useRecorderEvents(videoId, o.enabled, (message) => {
     dispatch({ type: "recorder-message-heard", message });

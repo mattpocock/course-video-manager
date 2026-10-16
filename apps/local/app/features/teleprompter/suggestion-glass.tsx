@@ -1,7 +1,8 @@
 /**
  * The glass while the editor's Suggestions tab is open: the suggested line,
- * with the transcripts of the Clips just before it dimmed above it, so you can
- * see where you are without reading them aloud.
+ * with the transcripts of the Clips just before it above it, so you can see
+ * where you are. Both are set as one `GlassLine`, so a previous Clip reads
+ * exactly like the suggestion: dimmed or shrunk, they were unreadable.
  *
  * A new suggestion scrolls so the line sits in the middle of the glass, and it
  * stays there as it streams in. The Stream Deck still nudges it, and reset
@@ -65,22 +66,13 @@ export function SuggestionGlass(props: {
           {/* Room above and below, so any line can reach the middle. */}
           <div style={{ height: "50vh" }} />
           {suggestion.previousClips.map((clip, i) => (
-            <p
-              key={i}
-              data-previous-clip
-              className="mb-6 whitespace-pre-wrap"
-              style={{
-                fontSize: `${TYPE.cueScale}em`,
-                color: TYPE.cueColor,
-                opacity: 0.6,
-              }}
-            >
-              {clip}
-            </p>
+            <div key={i} data-previous-clip className="mb-6">
+              <GlassLine text={clip} />
+            </div>
           ))}
           <div ref={lineRef} className="mt-10">
             {suggestion.text ? (
-              <ScriptMarkdown>{suggestion.text}</ScriptMarkdown>
+              <GlassLine text={suggestion.text} />
             ) : (
               <span className="text-white/35">
                 Thinking of what to say next…
@@ -92,4 +84,12 @@ export function SuggestionGlass(props: {
       </div>
     </div>
   );
+}
+
+/**
+ * One line of speech on the suggestion glass, a previous Clip or the
+ * suggestion: the glass's own type, with bold where the text marks it.
+ */
+function GlassLine(props: { text: string }) {
+  return <ScriptMarkdown>{props.text}</ScriptMarkdown>;
 }
