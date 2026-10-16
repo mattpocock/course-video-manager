@@ -42,8 +42,8 @@
     },
     {
       "file": "apps/local/app/routes/api.clip-service.ts",
-      "count": 2,
-      "reason": "VideoProcessingAdapter / LoggerAdapter are Promise and void callbacks into the clip-service handler; making the adapters Effect-returning removes both runs."
+      "count": 1,
+      "reason": "LoggerAdapter is a void callback into the clip-service handler; making the adapter Effect-returning removes the run."
     },
     {
       "file": "apps/local/app/routes/api.videos.$videoId.autofill-chapters.ts",

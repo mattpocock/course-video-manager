@@ -77,7 +77,7 @@
     {
       "file": "apps/local/app/services/ffmpeg-commands.ts",
       "count": 4,
-      "reason": "Shared by the app server and the Sidecar. On the app server: silence detection and an ffprobe frame rate for OBS clip ingestion (append-from-obs), which runs during the live Recording Session, not as background work; one frame for the Article Writer's screenshot, and a Clip's first or last frame for a thumbnail (runStill, for video-processing-service.ts). In the Sidecar the same calls serve exports, the vertical Short and Footage transcription. The encodes are in ffmpeg-encode-commands.ts (Sidecar only)."
+      "reason": "Shared by the app server and the Sidecar. On the app server: one frame for the Article Writer's screenshot, and a Clip's first or last frame for a thumbnail (runStill, for video-processing-service.ts). In the Sidecar the same calls serve exports, the vertical Short and Footage transcription. The encodes are in ffmpeg-encode-commands.ts (Sidecar only)."
     },
     {
       "file": "apps/local/app/services/whisper-transcription-service.ts",

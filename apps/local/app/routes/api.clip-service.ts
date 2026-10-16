@@ -1,13 +1,11 @@
 import {
   handleClipServiceEvent,
-  type VideoProcessingAdapter,
   type LoggerAdapter,
 } from "@/services/clip-service-handler";
 import { ClipServiceEventSchema } from "@/services/clip-service.schemas";
 import type { ClipServiceEvent } from "@/services/clip-service";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { runtimeLive } from "@/services/layer.server";
-import { VideoProcessingService } from "@/services/video-processing-service";
 import { VideoEditorLoggerService } from "@/services/video-editor-logger-service";
 import { Effect, Schema } from "effect";
 import { data } from "react-router";
@@ -27,15 +25,6 @@ export const action = makeAction({
         payload
       );
 
-      const videoProcessingService = yield* VideoProcessingService;
-
-      const videoProcessingAdapter: VideoProcessingAdapter = {
-        getLatestOBSVideoClips: (opts) =>
-          videoProcessingService
-            .getLatestOBSVideoClips(opts)
-            .pipe(runtimeLive.runPromise),
-      };
-
       const loggerService = yield* VideoEditorLoggerService;
       const logger: LoggerAdapter = {
         log: (videoId, event) => {
@@ -49,7 +38,6 @@ export const action = makeAction({
       const result = yield* handleClipServiceEvent(
         db,
         event as ClipServiceEvent,
-        videoProcessingAdapter,
         logger
       );
 

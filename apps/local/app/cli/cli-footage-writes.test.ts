@@ -149,7 +149,7 @@ afterAll(async () => {
 beforeEach(() => {
   whisperFails = false;
   footageDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-footage-"));
-  // footage list without --dir reads OBS_RECORDING_DIR (see getLatestOBSVideoClips).
+  // footage list without --dir reads OBS_RECORDING_DIR.
   process.env.OBS_RECORDING_DIR = footageDir;
 });
 
