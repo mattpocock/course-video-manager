@@ -1,6 +1,5 @@
 import { Effect } from "effect";
-import { DEAD_DESK_URL, isMainCheckout } from "live-desk/live-desk";
-import { RECORDER_SERVICE_PORT } from "recorder-service/protocol";
+import { isMainCheckout } from "live-desk/live-desk";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { runtimeLive } from "@/services/layer.server";
 import { STORAGE_FOLDERS, writeFolder } from "@/packages/storage";
@@ -9,6 +8,7 @@ import { lastPassedCalibrationNow } from "@/services/av-calibration.server";
 import { createRecorderClient, type RecorderClient } from "./client.server";
 import { keepWhisperWarm } from "@/services/sidecar-socket.server";
 import { RECORDER_CLIENT_KEY } from "./existing-client.server";
+import { recorderServiceUrl } from "./recorder-service-url";
 import {
   ingestRecorderEvent,
   unfinishedRecordingSessions,
@@ -20,18 +20,12 @@ import {
  * event twice). Its runs of `ingestRecorderEvent` are this module's: it is
  * the client's entry point, as a daemon's is.
  *
- * Only the main checkout talks to Matt's recorder service; any other
- * checkout gets the dead address, as its editor does for the Stream Deck hub
- * (live-desk/live-desk.ts). `RECORDER_SERVICE_URL` overrides it.
+ * Only Matt's own app server, in his main checkout, talks to his recorder
+ * service; an agent's server (any checkout) and every other checkout get the
+ * dead address (`recorder-service-url.ts`).
  */
 
 const KEY = RECORDER_CLIENT_KEY;
-
-const recorderServiceUrl = () =>
-  process.env.RECORDER_SERVICE_URL ||
-  (isMainCheckout(process.cwd())
-    ? `ws://127.0.0.1:${RECORDER_SERVICE_PORT}`
-    : DEAD_DESK_URL);
 
 /**
  * The folder (WSL path) each Recording Session's folder goes in:
@@ -50,7 +44,10 @@ export const recorderClient = (): RecorderClient => {
   const existing = store[KEY];
   if (existing) return existing;
   const client = createRecorderClient({
-    url: recorderServiceUrl(),
+    url: recorderServiceUrl({
+      env: process.env,
+      mainCheckout: () => isMainCheckout(process.cwd()),
+    }),
     ingest: (event, askEditor) =>
       runtimeLive.runPromise(
         Effect.gen(function* () {

@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { join, relative, resolve, isAbsolute } from "node:path";
 
 /**
  * Matt's live desk: the Stream Deck forwarder hub his button presses go
@@ -25,11 +26,34 @@ const LIVE_HUB_URL = "ws://localhost:5172";
 export const HUB_URL_ENV_KEY = "VITE_STREAM_DECK_HUB_URL";
 
 /**
- * Whether `cwd` is inside the repo's main checkout: its git dir IS the common
- * git dir. In a linked worktree the git dir is `.git/worktrees/<name>`, which
- * differs. Any failure answers `false`.
+ * Where agents keep scratch checkouts: the temp directory and Claude's own
+ * (`~/.claude/jobs/…`, `.claude/worktrees/…`). A full `git clone` there has a
+ * git dir that IS its common dir, exactly like Matt's main checkout, so the
+ * git test alone let an agent's verify-cvm clone onto his recorder service
+ * (#2291). Matt's main checkout never lives in one.
  */
-export const isMainCheckout = (cwd: string): boolean => {
+export const AGENT_SCRATCH_ROOTS: readonly string[] = [
+  tmpdir(),
+  "/tmp",
+  join(homedir(), ".claude"),
+];
+
+const isInside = (dir: string, root: string) => {
+  const rel = relative(resolve(root), resolve(dir));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+};
+
+/**
+ * Whether `cwd` is inside the repo's main checkout: its git dir IS the common
+ * git dir (in a linked worktree the git dir is `.git/worktrees/<name>`, which
+ * differs), and the checkout is not in an agent's scratch space
+ * (`AGENT_SCRATCH_ROOTS`), where a full clone would pass the git test. Any
+ * failure answers `false`.
+ */
+export const isMainCheckout = (
+  cwd: string,
+  o: { scratchRoots?: readonly string[] } = {}
+): boolean => {
   try {
     const [gitDir, commonDir] = execFileSync(
       "git",
@@ -39,7 +63,10 @@ export const isMainCheckout = (cwd: string): boolean => {
       .trim()
       .split("\n");
     if (!gitDir || !commonDir) return false;
-    return resolve(cwd, gitDir) === resolve(cwd, commonDir);
+    const git = resolve(cwd, gitDir);
+    if (git !== resolve(cwd, commonDir)) return false;
+    const scratch = o.scratchRoots ?? AGENT_SCRATCH_ROOTS;
+    return !scratch.some((root) => isInside(git, root));
   } catch {
     return false;
   }
@@ -66,8 +93,11 @@ export const liveDeskAddresses = (opts: {
  * has no auth: a worktree's forwarder holding them would be Matt's hub to
  * anything that connects.
  */
-export const forwarderRefusal = (cwd: string): string | undefined =>
-  isMainCheckout(cwd)
+export const forwarderRefusal = (
+  cwd: string,
+  o: { scratchRoots?: readonly string[] } = {}
+): string | undefined =>
+  isMainCheckout(cwd, o)
     ? undefined
     : "Stream Deck forwarder not started: this is not the main checkout of the repo. " +
       "The forwarder is Matt's live desk (WS 5172, HTTP 5174) and runs only from his main checkout, " +

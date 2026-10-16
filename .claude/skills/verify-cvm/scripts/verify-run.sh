@@ -11,8 +11,13 @@
 # Every run points it at the discard port, where nothing answers: the run
 # hears nothing from his desk and his desk hears nothing from the run.
 # Read by apps/local/app/lib/live-channels.ts.
+# The server side connects to Matt's recorder service (ws://127.0.0.1:5177);
+# a run's recorder client there fights his app server for the recorder (#2291).
+# The app refuses it anyway for an agent's process (recorder-service-url.ts);
+# this pins it too.
 LIVE_CHANNELS_OFF=(
   "VITE_STREAM_DECK_HUB_URL=ws://127.0.0.1:9"
+  "RECORDER_SERVICE_URL=ws://127.0.0.1:9"
 )
 
 # Read the address back from the module the run's own server serves its

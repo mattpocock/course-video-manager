@@ -43,19 +43,30 @@ afterAll(() => {
 });
 
 describe("isMainCheckout", () => {
+  // These repos live in the temp directory, itself agent scratch space: the
+  // git tests run with no scratch roots, and the last one with them.
+  const noScratch = { scratchRoots: [] };
+
   it("is true in the main checkout, from any subdirectory", () => {
-    expect(isMainCheckout(main)).toBe(true);
-    expect(isMainCheckout(join(main, "apps/local"))).toBe(true);
+    expect(isMainCheckout(main, noScratch)).toBe(true);
+    expect(isMainCheckout(join(main, "apps/local"), noScratch)).toBe(true);
   });
 
   it("is false in a linked worktree", () => {
-    expect(isMainCheckout(worktree)).toBe(false);
-    expect(isMainCheckout(join(worktree, "apps/local"))).toBe(false);
+    expect(isMainCheckout(worktree, noScratch)).toBe(false);
+    expect(isMainCheckout(join(worktree, "apps/local"), noScratch)).toBe(false);
   });
 
   it("fails closed outside any git repository", () => {
-    expect(isMainCheckout(root)).toBe(false);
-    expect(isMainCheckout(join(root, "does-not-exist"))).toBe(false);
+    expect(isMainCheckout(root, noScratch)).toBe(false);
+    expect(isMainCheckout(join(root, "does-not-exist"), noScratch)).toBe(false);
+  });
+
+  it("is false in a full clone in an agent's scratch space (#2291)", () => {
+    // A verify-cvm clone under ~/.claude/jobs passed the git test and
+    // reached Matt's recorder service.
+    expect(isMainCheckout(main, { scratchRoots: [root] })).toBe(false);
+    expect(isMainCheckout(main)).toBe(false);
   });
 });
 
@@ -84,7 +95,9 @@ describe("liveDeskAddresses", () => {
 
 describe("forwarderRefusal", () => {
   it("lets the forwarder start only in the main checkout", () => {
-    expect(forwarderRefusal(join(main, "apps/local"))).toBeUndefined();
+    expect(
+      forwarderRefusal(join(main, "apps/local"), { scratchRoots: [] })
+    ).toBeUndefined();
     expect(forwarderRefusal(join(worktree, "apps/local"))).toMatch(
       /not the main checkout/
     );
