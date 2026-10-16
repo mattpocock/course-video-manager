@@ -10,10 +10,10 @@ import {
   RECORDING_SESSION_PANELS_ID,
 } from "@/features/video-editor/constants";
 import type { ClipService } from "@/services/clip-service";
-import { VERSION_NOT_DRAFT_MESSAGE } from "@/services/version-not-draft-message";
 import type { EffectsMap } from "use-effect-reducer";
 import type React from "react";
 import { diagramChannel } from "@/lib/diagram-protocol";
+import { takesSavedInto, type TakeSaver } from "./take-saver";
 
 export interface EditEffectHandlersDeps {
   videoId: string;
@@ -21,6 +21,8 @@ export interface EditEffectHandlersDeps {
   clipStateRef: React.RefObject<ClipReducerState>;
   revalidate: () => void;
   whiteNoiseAssetPath: string;
+  /** The Recorder's `TakeSaver`: how this Video's Takes become Clips. */
+  saveTakes: TakeSaver;
   /** `UploadContext.startClipTranscription`: enqueue the Job under its id. */
   startClipTranscription: (
     jobId: string,
@@ -38,6 +40,7 @@ export function createEditEffectHandlers(
     clipStateRef,
     revalidate,
     whiteNoiseAssetPath,
+    saveTakes,
     startClipTranscription,
   } = deps;
 
@@ -271,9 +274,7 @@ export function createEditEffectHandlers(
         clearTimeout(timeout);
       };
     },
-    "start-session-polling": (_state, effect, dispatch) => {
-      let unmounted = false;
-
+    "save-takes": (_state, { type: _, ...session }, dispatch) => {
       // The Diagram Playground actually creates auto-pin snapshots — it has
       // the tldraw editor and can render a thumbnail. We just tell it which
       // clip to pin and, on the ack, push the new pin into reducer state so
@@ -294,56 +295,14 @@ export function createEditEffectHandlers(
         revalidate();
       });
 
-      (async () => {
-        // A CVM recorder Recording Session has no OBS file: its editor
-        // places each speech as it ends (`place-take`, use-cvm-recorder.ts).
-        if (effect.recordingSessionId) return;
-        while (!unmounted) {
-          // Stop polling when session is done
-          const session = clipStateRef.current.sessions.find(
-            (s) => s.id === effect.sessionId
-          );
-          if (session?.status === "done") {
-            break;
-          }
-          try {
-            const { insertionPoint, items } = clipStateRef.current;
-            const clips = await clipService.appendFromObs({
-              videoId,
-              filePath: effect.outputPath,
-              insertionPoint,
-              items,
-              silenceLength: effect.silenceLength,
-              silenceThresholdDb: effect.silenceThresholdDb,
-            });
-            if (clips.length > 0) {
-              dispatch({
-                type: "new-database-clips",
-                clips: clips as DB.Clip[],
-                outputPath: effect.outputPath,
-                transcriptionJobId: crypto.randomUUID(),
-              });
-            }
-          } catch (e) {
-            // Terminal (#1403): the version was Submitted mid-session — stop
-            // polling and surface the reload overlay instead of silently
-            // retrying against a frozen version forever.
-            if (e instanceof Error && e.message === VERSION_NOT_DRAFT_MESSAGE) {
-              dispatch({
-                type: "effect-failed",
-                effectType: "start-session-polling",
-                message: e.message,
-              });
-              break;
-            }
-            // Other errors are swallowed; polling continues
-          }
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-      })();
+      // Whichever Recorder made the Session saves its Takes.
+      const stopSaving = saveTakes(
+        session,
+        takesSavedInto(session, () => clipStateRef.current, dispatch)
+      );
 
       return () => {
-        unmounted = true;
+        stopSaving();
         unsubAck();
       };
     },

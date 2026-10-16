@@ -144,14 +144,11 @@ const handleRecordingStarted = (
   };
 
   exec({
-    type: "start-session-polling",
+    type: "save-takes",
     sessionId: newSession.id,
     outputPath: action.outputPath,
     silenceLength: action.silenceLength,
     silenceThresholdDb: action.silenceThresholdDb,
-    ...(action.recordingSessionId
-      ? { recordingSessionId: action.recordingSessionId }
-      : {}),
   });
 
   exec({

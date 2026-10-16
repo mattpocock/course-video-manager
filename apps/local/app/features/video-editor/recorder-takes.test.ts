@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FrontendId } from "./clip-state-reducer";
 import { canStop } from "./cvm-recorder-reducer";
 import {
@@ -10,13 +10,21 @@ import {
   frontendIdOf,
   obs,
   recordingSession,
+  settle,
   shown,
   status,
   stopped,
 } from "./recorder-takes-test-harness";
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe.each([obs, cvm])("a take on the $name", (recorder) => {
-  it("shows the take as an Optimistic Clip at the insertion point, filled in where it stands and saved there", () => {
+  it("shows the take as an Optimistic Clip at the insertion point, filled in where it stands and saved there", async () => {
     const e = editor(["a", "b"]);
     const r = recorder.connect(e);
     e.send({ type: "set-insertion-point-after", clipId: "f-a" as FrontendId });
@@ -25,7 +33,7 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     r.startTake();
     expect(shown(e)).toEqual(["a", "optimistically-added", "b"]);
 
-    r.saveTake("c1");
+    await r.saveTake("c1");
     expect(shown(e)).toEqual(["a", "c1", "b"]);
     expect(e.database()).toEqual(["a", "c1", "b"]);
     expect(e.clips.getState().insertionPoint).toEqual({
@@ -34,7 +42,7 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     });
   });
 
-  it("Stream Deck delete during a take archives that take, not the Clip before it, and keeps its Footage", () => {
+  it("Stream Deck delete during a take archives that take, not the Clip before it, and keeps its Footage", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
@@ -47,13 +55,13 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     );
 
     // The take is saved anyway, and arrives archived: never deleted.
-    r.saveTake("c1");
+    await r.saveTake("c1");
     expect(shown(e)).toEqual(["a"]);
     expect(archived(e)).toEqual(["c1"]);
     expect(e.database()).toEqual(["a"]);
   });
 
-  it("restores a take deleted mid-take in place, and the next take lands at the insertion point", () => {
+  it("restores a take deleted mid-take in place, and the next take lands at the insertion point", async () => {
     const e = editor(["a", "b"]);
     const r = recorder.connect(e);
     e.send({ type: "set-insertion-point-after", clipId: "f-a" as FrontendId });
@@ -61,10 +69,10 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
 
     r.startTake();
     e.send({ type: "delete-latest-inserted-clip" });
-    r.saveTake("c1");
+    await r.saveTake("c1");
 
     r.startTake();
-    r.saveTake("c2");
+    await r.saveTake("c2");
     expect(shown(e)).toEqual(["a", "c2", "b"]);
     expect(e.database()).toEqual(["a", "c2", "b"]);
 
@@ -76,7 +84,7 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     expect(shown(e)).toEqual(e.database());
   });
 
-  it("restoring a take before it is saved means it is saved live", () => {
+  it("restoring a take before it is saved means it is saved live", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
@@ -85,7 +93,7 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
 
     const take = e.clips.getState().items[1]!;
     e.send({ type: "restore-clip", clipId: take.frontendId });
-    r.saveTake("c1");
+    await r.saveTake("c1");
 
     expect(shown(e)).toEqual(["a", "c1"]);
     expect(e.database()).toEqual(["a", "c1"]);
@@ -95,19 +103,19 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
   });
 
   // #2163: a Clip deleted mid-take, then more speech, a Stop and a new take.
-  it("after a take deleted mid-take, every later take saves where the editor shows it, through Stop and the next Recording Session", () => {
+  it("after a take deleted mid-take, every later take saves where the editor shows it, through Stop and the next Recording Session", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
     r.startTake();
     e.send({ type: "delete-latest-inserted-clip" });
-    r.saveTake("c1");
+    await r.saveTake("c1");
     expect(archived(e)).toEqual(["c1"]);
 
     r.startTake();
-    r.saveTake("c2");
+    await r.saveTake("c2");
     r.startTake();
-    r.saveTake("c3");
+    await r.saveTake("c3");
     expect(shown(e)).toEqual(["a", "c2", "c3"]);
 
     r.stopRecording();
@@ -115,28 +123,28 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
 
     r.startRecording(2);
     r.startTake();
-    r.saveTake("c4");
+    await r.saveTake("c4");
     expect(shown(e)).toEqual(["a", "c2", "c3", "c4"]);
     expect(e.database()).toEqual(["a", "c2", "c3", "c4"]);
     expect(archived(e)).toEqual(["c1"]);
   });
 
-  it("a saved take deleted straight after, then more speech, saves the next take where the editor shows it", () => {
+  it("a saved take deleted straight after, then more speech, saves the next take where the editor shows it", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
     r.startTake();
-    r.saveTake("c1");
+    await r.saveTake("c1");
     e.send({ type: "delete-latest-inserted-clip" });
     expect(archived(e)).toEqual(["c1"]);
 
     r.startTake();
-    r.saveTake("c2");
+    await r.saveTake("c2");
     expect(shown(e)).toEqual(["a", "c2"]);
     expect(e.database()).toEqual(["a", "c2"]);
   });
 
-  it("a take whose speech made no Clip is orphaned once the recording stops", () => {
+  it("a take whose speech made no Clip is orphaned once the recording stops", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
@@ -150,7 +158,7 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     expect(e.database()).toEqual(["a"]);
   });
   // #2200: OBS left the window open, so the take lost the diagram on screen.
-  it("Stop mid-take closes the take's audio window, as the silence after it would", () => {
+  it("Stop mid-take closes the take's audio window, as the silence after it would", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
@@ -161,7 +169,7 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     expect(e.clips.getState().items[1]).toHaveProperty("pendingSnapshot");
   });
 
-  it("the speech goes from silence, to speaking, to a Take at the minimum Clip length, and back to silence", () => {
+  it("the speech goes from silence, to speaking, to a Take at the minimum Clip length, and back to silence", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
@@ -177,12 +185,12 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     });
     expect(shown(e)).toEqual(["a", "optimistically-added"]);
 
-    r.saveTake("c1");
+    await r.saveTake("c1");
     expect(r.speech()).toEqual({ type: "silence" });
     expect(shown(e)).toEqual(["a", "c1"]);
   });
 
-  it("speech too short for a Clip makes no Take, and the next Take fills its own", () => {
+  it("speech too short for a Clip makes no Take, and the next Take fills its own", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
@@ -191,12 +199,12 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     expect(shown(e)).toEqual(["a"]);
 
     r.startTake();
-    r.saveTake("c1");
+    await r.saveTake("c1");
     expect(shown(e)).toEqual(["a", "c1"]);
     expect(e.database()).toEqual(["a", "c1"]);
   });
 
-  it("a Record the AV Calibration gate refuses never becomes a Recording Session, and its speech makes no Take", () => {
+  it("a Record the AV Calibration gate refuses never becomes a Recording Session, and its speech makes no Take", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.refusedRecord();
@@ -206,23 +214,23 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
     expect(shown(e)).toEqual(["a"]);
   });
 
-  it("a page that opens mid-take asks the Recorder to stop it, once", () => {
+  it("a page that opens mid-take asks the Recorder to stop it, once", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e, { midTake: true });
     expect(r.stops()).toBe(1);
   });
 
-  it("a Recording Session started after the page opened is never stopped by the editor", () => {
+  it("a Recording Session started after the page opened is never stopped by the editor", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
     r.startTake();
-    r.saveTake("c1");
+    await r.saveTake("c1");
     expect(r.stops()).toBe(0);
   });
 
   // #2198: only leaving the page, or Stop, stops a take.
-  it("a reconnect mid-take re-attaches to it: nothing stops, and the Take saves in place", () => {
+  it("a reconnect mid-take re-attaches to it: nothing stops, and the Take saves in place", async () => {
     const e = editor(["a"]);
     const r = recorder.connect(e);
     r.startRecording();
@@ -230,7 +238,7 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
 
     r.reconnect();
     expect(r.stops()).toBe(0);
-    r.saveTake("c1");
+    await r.saveTake("c1");
 
     expect(shown(e)).toEqual(["a", "c1"]);
     expect(e.database()).toEqual(["a", "c1"]);
@@ -240,10 +248,10 @@ describe.each([obs, cvm])("a take on the $name", (recorder) => {
   });
 });
 
-describe("the CVM recorder's adapter", () => {
+describe("the CVM recorder's adapter", async () => {
   const SESSION = recordingSession(1);
 
-  it("saves the last take of a Recording Session in its place when the app server says it stopped first", () => {
+  it("saves the last take of a Recording Session in its place when the app server says it stopped first", async () => {
     const e = editor(["a"]);
     const adapter = cvmAdapter(e);
     // Opened idle; then a Stream Deck Record.
@@ -257,13 +265,14 @@ describe("the CVM recorder's adapter", () => {
     adapter.willSave("c1");
     adapter.hear({ type: "speech-ended", recordingSessionId: SESSION });
     adapter.hear(stopped(SESSION));
+    await settle();
 
     expect(shown(e)).toEqual(["a", "c1"]);
     expect(e.database()).toEqual(["a", "c1"]);
     expect(adapter.recorder.getState().phase).toBe("idle");
   });
 
-  it("shows no Optimistic Clip for an 'um' the recorder never called a Take, and the next take fills its own", () => {
+  it("shows no Optimistic Clip for an 'um' the recorder never called a Take, and the next take fills its own", async () => {
     const e = editor(["a"]);
     const adapter = cvmAdapter(e);
     adapter.hear({
@@ -290,11 +299,12 @@ describe("the CVM recorder's adapter", () => {
     ]);
     adapter.willSave("c1");
     adapter.hear({ type: "speech-ended", recordingSessionId: SESSION });
+    await settle();
     expect(shown(e)).toEqual(["a", "c1"]);
     expect(e.database()).toEqual(["a", "c1"]);
   });
 
-  it("shows Clips the app server saved without the editor in their take", () => {
+  it("shows Clips the app server saved without the editor in their take", async () => {
     const e = editor(["a"]);
     const adapter = cvmAdapter(e);
     adapter.hear({
@@ -322,7 +332,7 @@ describe("the CVM recorder's adapter", () => {
     });
   });
 
-  it("leaves an old Recording Session's late events alone: the current take is untouched (#2163)", () => {
+  it("leaves an old Recording Session's late events alone: the current take is untouched (#2163)", async () => {
     const e = editor(["a"]);
     const adapter = cvmAdapter(e);
     adapter.hear(status(SESSION));
@@ -350,6 +360,7 @@ describe("the CVM recorder's adapter", () => {
       transcriptionJobId: "job-late",
     });
     adapter.hear(stopped(old));
+    await settle();
 
     expect(e.clips.getEffects().length).toBe(before);
     expect(e.clips.getState().items.at(-1)).toEqual(take);
@@ -360,7 +371,7 @@ describe("the CVM recorder's adapter", () => {
   });
 
   // #2182: a refresh mid-take stops it, as OBS's connector does on connect.
-  it("stops a Recording Session already going when it loads, and still places its last take", () => {
+  it("stops a Recording Session already going when it loads, and still places its last take", async () => {
     const e = editor(["a", "b"]);
     const adapter = cvmAdapter(e);
     adapter.hear(status(SESSION));
@@ -384,13 +395,14 @@ describe("the CVM recorder's adapter", () => {
     adapter.hear({ type: "speech-ended", recordingSessionId: SESSION });
     adapter.hear(status(null));
     adapter.hear(stopped(SESSION));
+    await settle();
 
     expect(shown(e)).toEqual(["a", "b", "c"]);
     expect(e.database()).toEqual(["a", "b", "c"]);
     expect(adapter.recorder.getState().phase).toBe("idle");
   });
 
-  it("does not stop a Recording Session that starts after it loads, through a reconnect", () => {
+  it("does not stop a Recording Session that starts after it loads, through a reconnect", async () => {
     const e = editor(["a"]);
     const adapter = cvmAdapter(e);
     adapter.hear(status(null));

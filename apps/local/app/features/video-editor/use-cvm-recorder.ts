@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useEffectReducer } from "use-effect-reducer";
 import type { Scene } from "@/packages/scene-layout";
 import type { MicEq } from "@cvm/core/features/videos/recorder";
@@ -7,10 +7,8 @@ import {
   type VideoFormat,
 } from "@/features/videos/video-format";
 import type { SilenceLength } from "@/silence-detection-constants";
-import { resolveInsertionPoint } from "@/services/clip-service";
 import type {
   ClipReducerAction,
-  ClipReducerState,
   FrontendId,
   MicOffsetRefusal,
 } from "./clip-state-reducer.types";
@@ -23,6 +21,8 @@ import {
   cvmRecorderReducer,
 } from "./cvm-recorder-reducer";
 import { useStopRecordingOnLeave } from "./use-stop-recording-on-leave";
+import { cvmRecorderTakeSaver } from "./cvm-recorder-take-saver";
+import type { TakeSaver } from "./take-saver";
 import {
   CVM_RECORDER_MESSAGE_TYPES,
   type CvmRecorderMessage,
@@ -96,7 +96,6 @@ export const useCvmRecorder = (o: {
   video: { id: string; format: string };
   enabled: boolean;
   silenceLength: SilenceLength;
-  clipStateRef: RefObject<ClipReducerState>;
   clipDispatch: (action: ClipReducerAction) => void;
   /** OBS's callbacks: the CVM recorder's takes go through the same path. */
   onNewClipOptimisticallyAdded: (take: {
@@ -106,9 +105,27 @@ export const useCvmRecorder = (o: {
   }) => void;
   onClipAudioWindowClosed: () => void;
   micOffsetRefusal: MicOffsetRefusal | null;
-}): CvmRecorderControls => {
+}): CvmRecorderControls & { saveTakes: TakeSaver } => {
   const videoId = o.video.id;
   const format: VideoFormat = resolveVideoFormat(o.video.format);
+  const saver = useMemo(
+    () =>
+      cvmRecorderTakeSaver({
+        placeTake: async (recordingSessionId, insertionPoint) => {
+          const response = await fetch(
+            `/api/videos/${videoId}/recorder/place-take`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ recordingSessionId, insertionPoint }),
+            }
+          );
+          if (!response.ok) throw new Error(await response.text());
+          return (await response.json()) as PlacedTake;
+        },
+      }),
+    [videoId]
+  );
   const [state, dispatch] = useEffectReducer(
     cvmRecorderReducer,
     () => createInitialCvmRecorderState(format),
@@ -132,7 +149,6 @@ export const useCvmRecorder = (o: {
         o.clipDispatch({
           type: "recording-started",
           outputPath: effect.recordingSessionId,
-          recordingSessionId: effect.recordingSessionId,
           silenceLength: effect.silenceLength,
         });
       },
@@ -150,37 +166,7 @@ export const useCvmRecorder = (o: {
         o.onClipAudioWindowClosed();
       },
       "place-take": (_state, effect) => {
-        // Where OBS's polling would place it: the editor's insertion point.
-        const { insertionPoint, items } = o.clipStateRef.current;
-        Promise.resolve()
-          .then(() =>
-            fetch(`/api/videos/${videoId}/recorder/place-take`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                recordingSessionId: effect.recordingSessionId,
-                insertionPoint: resolveInsertionPoint(insertionPoint, items),
-              }),
-            })
-          )
-          .then(async (response) => {
-            if (!response.ok) throw new Error(await response.text());
-            return (await response.json()) as PlacedTake;
-          })
-          .then(({ clips, transcriptionJobId }) => {
-            if (clips.length > 0 && transcriptionJobId)
-              o.clipDispatch({
-                type: "new-database-clips",
-                clips,
-                outputPath: effect.recordingSessionId,
-                transcriptionJobId,
-              });
-          })
-          .catch((error: unknown) =>
-            // Not lost: the app server saves it after the Video's last item
-            // and says so (`clips-saved`).
-            console.error("Could not tell the recorder where to save", error)
-          );
+        saver.takeEnded(effect.recordingSessionId);
       },
       "show-saved-clips": (_state, effect) => {
         o.clipDispatch({
@@ -248,6 +234,7 @@ export const useCvmRecorder = (o: {
 
   return {
     state,
+    saveTakes: saver.saveTakes,
     canRecord: canRecord(state),
     canStop: canStop(state),
     canRetryCamera: canRetryCamera(state),

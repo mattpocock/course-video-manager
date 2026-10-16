@@ -118,7 +118,7 @@ describe("clipStateReducer", () => {
         });
       });
 
-      it("Should fire start-session-polling effect with sessionId and outputPath", () => {
+      it("Should fire save-takes effect with sessionId and outputPath", () => {
         const tester = new ReducerTester(
           clipStateReducer,
           createInitialState()
@@ -133,7 +133,7 @@ describe("clipStateReducer", () => {
         const sessionId = tester.getState().sessions[0]!.id;
 
         expect(tester.getExec()).toHaveBeenCalledWith({
-          type: "start-session-polling",
+          type: "save-takes",
           sessionId,
           outputPath: "/videos/recording.mkv",
           silenceLength: "short",

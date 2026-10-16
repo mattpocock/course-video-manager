@@ -309,11 +309,6 @@ export type ClipReducerAction =
        * after-recording FFmpeg pass cuts with too. Absent: the fixed default.
        */
       silenceThresholdDb?: number;
-      /**
-       * A CVM recorder Recording Session (its `outputPath` too): its Clips
-       * are placed through `place-take`, not found in an OBS file.
-       */
-      recordingSessionId?: string;
     }
   | {
       type: "recording-stopped";
@@ -620,13 +615,15 @@ export type ClipReducerEffect =
       clipIds: DatabaseId[];
     }
   | {
-      type: "start-session-polling";
+      /**
+       * Save this Recording Session's Takes as Clips, through the Recorder's
+       * `TakeSaver` (`take-saver.ts`), until the Session is done.
+       */
+      type: "save-takes";
       sessionId: SessionId;
       outputPath: string;
       silenceLength: SilenceLength;
       silenceThresholdDb?: number;
-      /** A CVM recorder Recording Session: there is no OBS file to poll. */
-      recordingSessionId?: string;
     }
   | {
       type: "revalidate-loader";

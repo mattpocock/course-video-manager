@@ -33,7 +33,7 @@
       "reason": "Interactive, not background work: the chapter Autofill modal (the plan's question 5). Stays."
     },
     {
-      "file": "apps/local/app/features/video-editor/edit-effect-handlers.ts",
+      "file": "apps/local/app/features/video-editor/obs-take-saver.ts",
       "count": 1,
       "reason": "OBS clip ingestion (#13), tied to a live Recording Session: not in this migration (the plan's question 6, Matt's decision 4). Stays."
     },

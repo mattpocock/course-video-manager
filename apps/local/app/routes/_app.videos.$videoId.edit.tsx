@@ -23,6 +23,8 @@ import { captureProps } from "@/features/video-editor/recorder-capture";
 import { VideoEditor } from "@/features/video-editor/video-editor";
 import { toClipOverlay } from "@/features/video-editor/clip-overlay-row";
 import { createEditEffectHandlers } from "@/features/video-editor/edit-effect-handlers";
+import { obsTakeSaver } from "@/features/video-editor/obs-take-saver";
+import type { TakeSaver } from "@/features/video-editor/take-saver";
 import { saveClipDiagramPin } from "@/features/video-editor/save-clip-diagram-pin";
 import { useClipTranscriptionJobs } from "@/features/video-editor/use-clip-transcription-jobs";
 import { useUploadActions } from "@/features/upload-manager/upload-context";
@@ -287,6 +289,9 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   const revalidator = useRevalidator();
 
   const { startClipTranscription } = useUploadActions();
+  // The Video's Recorder's saver. Set below, in this render, once both
+  // Recorders' hooks have run: before any effect can ask for it.
+  const saveTakesRef = useRef<TakeSaver | null>(null);
   const effectHandlers = useMemo(
     () =>
       createEditEffectHandlers({
@@ -295,6 +300,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
         clipStateRef,
         revalidate: () => revalidator.revalidate(),
         whiteNoiseAssetPath: props.loaderData.whiteNoiseAssetPath,
+        saveTakes: (session, takes) => saveTakesRef.current!(session, takes),
         startClipTranscription,
       }),
     [props.loaderData.video.id, startClipTranscription]
@@ -347,7 +353,6 @@ export const ComponentInner = (props: Route.ComponentProps) => {
     video: props.loaderData.video,
     enabled: !recorderChoice.usesObs,
     silenceLength,
-    clipStateRef,
     clipDispatch: dispatch,
     onNewClipOptimisticallyAdded,
     onClipAudioWindowClosed,
@@ -363,6 +368,18 @@ export const ComponentInner = (props: Route.ComponentProps) => {
     // Only a Landscape Video records with OBS (ADR 0037).
     targetProfile: OBS_PROFILE_LANDSCAPE,
   });
+
+  const obsTakes = useMemo(
+    () =>
+      obsTakeSaver({
+        videoId: props.loaderData.video.id,
+        appendFromObs: (input) => clipService.appendFromObs(input),
+      }),
+    [props.loaderData.video.id]
+  );
+  saveTakesRef.current = recorderChoice.usesObs
+    ? obsTakes
+    : cvmRecorder.saveTakes;
 
   const calibrationGate = useCalibrationGate({
     lastPassed: props.loaderData.lastPassedCalibration,

@@ -1,4 +1,5 @@
 import { fromPartial } from "@total-typescript/shoehorn";
+import { vi } from "vitest";
 import { ReducerTester } from "@/test-utils/reducer-tester";
 import {
   resolveInsertionPoint,
@@ -28,6 +29,9 @@ import {
   createInitialOBSConnectorState,
   obsConnectorReducer,
 } from "./obs-connector-reducer";
+import { OBS_POLL_MS, obsTakeSaver } from "./obs-take-saver";
+import { cvmRecorderTakeSaver } from "./cvm-recorder-take-saver";
+import { takesSavedInto, type TakeSaver } from "./take-saver";
 import {
   toFrontendSpeechDetectorState,
   type FrontendSpeechDetectorState,
@@ -39,10 +43,15 @@ import {
  * reducer through its reducer's effects, as its hook sends them: OBS's
  * connector (`obsConnectorReducer`, `useOBSConnector`) and its polling, the
  * CVM recorder's adapter (`cvmRecorderReducer`, `use-cvm-recorder.ts`).
- * Both save through a model of the app server: each save is placed where
- * the editor says with it (OBS's poll, the CVM recorder's `place-take`),
- * and the database's order must end up the editor's.
+ * Both save through their real `TakeSaver`, which the clip reducer's
+ * `save-takes` starts as the edit route does, onto a model of the app
+ * server: each save is placed where the editor says with it (OBS's poll,
+ * the CVM recorder's `place-take`), and the database's order must end up
+ * the editor's. Saving is async: call these under `vi.useFakeTimers()`.
  */
+
+/** Lets the savers' requests answer, and OBS poll once more. */
+export const settle = () => vi.advanceTimersByTimeAsync(OBS_POLL_MS);
 
 type ClipTester = ReducerTester<
   clipStateReducer.State,
@@ -91,16 +100,23 @@ export const editor = (items: string[]) => {
   });
   const rows = items.map((id) => ({ id, archived: false }));
   let effectsSeen = 0;
-  /** The app server carries out what the editor asked of it. */
+  let saveTakes: TakeSaver | null = null;
+  /** The app server, and the Recorder's saver, carry out what the editor asked. */
   const serve = () => {
-    const effects = clips.getEffects();
-    for (const effect of effects.slice(effectsSeen)) {
+    while (effectsSeen < clips.getEffects().length) {
+      const effect = clips.getEffects()[effectsSeen++]!;
       if (effect.type === "archive-clips" || effect.type === "unarchive-clips")
         for (const row of rows)
           if (effect.clipIds.includes(row.id as DatabaseId))
             row.archived = effect.type === "archive-clips";
+      if (effect.type === "save-takes") {
+        const { type: _, ...session } = effect;
+        saveTakes!(
+          session,
+          takesSavedInto(session, () => clips.getState(), send)
+        );
+      }
     }
-    effectsSeen = effects.length;
   };
   const send = (action: ClipReducerAction) => {
     clips.send(action);
@@ -121,17 +137,14 @@ export const editor = (items: string[]) => {
     rows.splice(after + 1, 0, { id: clipId, archived: false });
     return dbClip(clipId);
   };
-  /** The insertion point the editor sends with a save, as OBS's poll does. */
-  const editorPoint = () =>
-    resolveInsertionPoint(
-      clips.getState().insertionPoint,
-      clips.getState().items
-    );
   return {
     clips,
     send,
     save,
-    editorPoint,
+    /** The Recorder connecting: its saver saves the Takes the editor asks it to. */
+    savesWith: (saver: TakeSaver) => {
+      saveTakes = saver;
+    },
     database: () => rows.filter((r) => !r.archived).map((r) => r.id),
   };
 };
@@ -157,7 +170,7 @@ export type Recorder = {
     /** The speech ends, with no Clip made. */
     endSpeech: () => void;
     /** The speech ends, and its Clip is saved where the editor says. */
-    saveTake: (clipId: string) => void;
+    saveTake: (clipId: string) => Promise<void>;
     /** Recording stops, and the OBS path's session timeout runs out. */
     stopRecording: () => void;
     /** The editor loses the Recorder and finds it again: OBS's websocket, the app server's events. */
@@ -223,6 +236,22 @@ export const obs: Recorder = {
       createInitialOBSConnectorState(true, () => {})
     );
     let file = obsFile(1);
+    /** Clips in OBS's file the next poll finds. */
+    const inFile: string[] = [];
+    e.savesWith(
+      obsTakeSaver({
+        videoId: "video",
+        appendFromObs: async (input) =>
+          inFile
+            .splice(0)
+            .map((id) =>
+              e.save(
+                id,
+                resolveInsertionPoint(input.insertionPoint, input.items)
+              )
+            ),
+      })
+    );
     let clock = 0;
     let sound = 0;
     let effectsSeen = 0;
@@ -305,15 +334,11 @@ export const obs: Recorder = {
         holdSpeech();
       },
       endSpeech,
-      saveTake: (clipId) => {
+      saveTake: async (clipId) => {
         endSpeech();
         // The next poll finds the Clip in the file, saved where it says.
-        e.send({
-          type: "new-database-clips",
-          clips: [e.save(clipId, e.editorPoint())],
-          outputPath: file,
-          transcriptionJobId: `job-${clipId}`,
-        });
+        inFile.push(clipId);
+        await settle();
       },
       stopRecording: () => {
         report({ type: "recording-stopped", outputPath: file });
@@ -336,8 +361,8 @@ export const recordingSession = (n: number) => `session-${n}`;
 /**
  * The CVM recorder: messages into its adapter, whose effects reach the clip
  * reducer as `use-cvm-recorder.ts` sends them. `place-take` asks the app
- * server to save the speech where the editor says, and answers with the
- * Clip; the `nextClipId` is the Clip that speech makes, if any.
+ * server, through the CVM recorder's saver, to save the speech where the
+ * editor says, and answers with the Clip `willSave` names, if any.
  */
 export const cvmAdapter = (e: Editor) => {
   const recorder = new ReducerTester(
@@ -346,6 +371,19 @@ export const cvmAdapter = (e: Editor) => {
   );
   let effectsSeen = 0;
   const pending: string[] = [];
+  // `place-take`: the app server saves the speech where the editor says.
+  const saver = cvmRecorderTakeSaver({
+    placeTake: async (_recordingSessionId, insertionPoint) => {
+      const clipId = pending.shift();
+      return clipId
+        ? {
+            clips: [e.save(clipId, insertionPoint)],
+            transcriptionJobId: `job-${clipId}`,
+          }
+        : { clips: [], transcriptionJobId: null };
+    },
+  });
+  e.savesWith(saver.saveTakes);
   const run = () => {
     const effects = recorder.getEffects();
     for (const effect of effects.slice(effectsSeen)) {
@@ -355,7 +393,6 @@ export const cvmAdapter = (e: Editor) => {
           e.send({
             type: "recording-started",
             outputPath: effect.recordingSessionId,
-            recordingSessionId: effect.recordingSessionId,
             silenceLength: effect.silenceLength,
           });
           break;
@@ -373,17 +410,9 @@ export const cvmAdapter = (e: Editor) => {
         case "close-take-window":
           closeTakeWindow(e);
           break;
-        case "place-take": {
-          const clipId = pending.shift();
-          if (clipId)
-            e.send({
-              type: "new-database-clips",
-              clips: [e.save(clipId, e.editorPoint())],
-              outputPath: effect.recordingSessionId,
-              transcriptionJobId: `job-${clipId}`,
-            });
+        case "place-take":
+          saver.takeEnded(effect.recordingSessionId);
           break;
-        }
         case "show-saved-clips":
           e.send({
             type: "new-database-clips",
@@ -487,9 +516,10 @@ export const cvm: Recorder = {
       holdSpeech,
       startTake: () => adapter.take(id),
       endSpeech,
-      saveTake: (clipId) => {
+      saveTake: async (clipId) => {
         adapter.willSave(clipId);
         endSpeech();
+        await settle();
       },
       stopRecording: () => {
         // The app server says it stopped before the stop event lands.
