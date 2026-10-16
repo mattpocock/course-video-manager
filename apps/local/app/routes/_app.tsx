@@ -1,4 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import { GlobalUploadProgress } from "@/features/upload-manager/global-upload-progress";
+import { UploadProvider } from "@/features/upload-manager/upload-context";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
@@ -59,12 +61,19 @@ export default function AppLayout() {
     (m) => (m.handle as { fullscreen?: boolean } | undefined)?.fullscreen
   );
 
+  // The Job stream (`/api/jobs/events`) opens here, not in the root: the
+  // teleprompter and Diagram Playground windows show no uploads, and each
+  // long-lived stream holds one of the browser's six connections to the
+  // app, which every CVM window shares.
   return (
-    <div className="flex min-h-screen">
-      <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
-      <div className="flex-1 min-w-0 flex flex-col">
-        <Outlet />
+    <UploadProvider>
+      <GlobalUploadProgress />
+      <div className="flex min-h-screen">
+        <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
+        <div className="flex-1 min-w-0 flex flex-col">
+          <Outlet />
+        </div>
       </div>
-    </div>
+    </UploadProvider>
   );
 }
