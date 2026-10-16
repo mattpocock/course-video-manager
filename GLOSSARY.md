@@ -320,7 +320,7 @@ The position in a video timeline where new clips or chapters will be added (star
 _Avoid_: Cursor, Drop target
 
 **Suggestion**:
-The next line the author should say, streamed by the Video Editor's Suggestions tab while that tab is open and shown on the teleprompter in place of the **Script**. It is made from the author's Notes for the Video (free text kept in the browser, never stored, which outrank the rest), the **Script**, **Animatic** and **Beats** the author ticked, plus the transcripts of every **Clip** before the **Insertion Point**, numbered, with the last three marked as where the author is. Its few key words come back in **bold**. On the teleprompter it sits centred, under those last three Clips' transcripts, dimmed. It is never stored: closing the tab forgets it.
+The next line the author should say, streamed by the Video Editor's Suggestions tab while that tab is open and shown on the teleprompter in place of the **Script**. It is made from the author's Notes for the Video (free text kept in the browser, never stored, which outrank the rest), the Video's repo files the author picked in the tab's Context modal (kept in the browser per Video, ranked just below the Notes), the **Script**, **Animatic** and **Beats** the author ticked, plus the transcripts of every **Clip** before the **Insertion Point**, numbered, with the last three marked as where the author is. Its few key words come back in **bold**. On the teleprompter it sits centred, under those last three Clips' transcripts, dimmed. It is never stored: closing the tab forgets it.
 _Avoid_: Autofill (a different feature that writes a Video's description and Chapters), Prompt
 
 **Transcription**:

@@ -21,13 +21,14 @@ const context = (
 /** The running stream, as `exec` hands it back, so stopping it is visible. */
 const runningStream = { stop: () => {} } as never;
 
-const tester = () => {
+const tester = (pickedFiles: string[] = []) => {
   const t = new ReducerTester(
     suggestionsStateReducer,
     createInitialSuggestionsState({
       videoId: "v1",
       included: ALL_SOURCES_INCLUDED,
       notes: "",
+      pickedFiles,
     })
   );
   vi.mocked(t.getExec()).mockReturnValue(runningStream);
@@ -250,5 +251,94 @@ describe("the Suggestions tab", () => {
         clips: ["So that's a type."],
       }),
     ]);
+  });
+
+  describe("repo files picked in the Context modal", () => {
+    const repoFiles = [
+      { path: "src/index.ts", size: 400 },
+      { path: "README.md", size: 80 },
+    ];
+
+    const opened = (pickedFiles: string[] = []) => {
+      const t = tester(pickedFiles)
+        .send({ type: "repo-files-listed", videoId: "v1", files: repoFiles })
+        .send({ type: "suggestions-tab-opened" })
+        .send({ type: "script-loaded", videoId: "v1", script: "" })
+        .resetExec();
+      vi.mocked(t.getExec()).mockReturnValue(runningStream);
+      return t;
+    };
+
+    it("ticking a file stores the pick for this Video and asks again with it at once", () => {
+      const t = opened()
+        .send({ type: "context-button-clicked" })
+        .send({ type: "repo-files-picked", paths: ["src/index.ts"] })
+        .send({
+          type: "repo-files-picked",
+          paths: ["src/index.ts", "README.md"],
+        });
+
+      expect(t.getState().contextModalOpen).toBe(true);
+      expect(t.getEffects()).toEqual([
+        { type: "store-picked-files", videoId: "v1", paths: ["src/index.ts"] },
+        stream(2, {
+          animatic: 'Mockup 1: "Hello"',
+          clips: ["So that's a type."],
+          files: ["src/index.ts"],
+        }),
+        {
+          type: "store-picked-files",
+          videoId: "v1",
+          paths: ["README.md", "src/index.ts"],
+        },
+        stream(3, {
+          animatic: 'Mockup 1: "Hello"',
+          clips: ["So that's a type."],
+          files: ["README.md", "src/index.ts"],
+        }),
+      ]);
+      expect(t.getExec().stop).toHaveBeenCalledWith(runningStream);
+    });
+
+    it("a Video's stored pick is sent from the first suggestion", () => {
+      const t = tester(["README.md"])
+        .send({ type: "repo-files-listed", videoId: "v1", files: repoFiles })
+        .send({ type: "suggestions-tab-opened" })
+        .send({ type: "script-loaded", videoId: "v1", script: "" });
+
+      expect(t.getEffects()).toEqual([
+        { type: "load-script", videoId: "v1" },
+        stream(1, {
+          animatic: 'Mockup 1: "Hello"',
+          clips: ["So that's a type."],
+          files: ["README.md"],
+        }),
+      ]);
+    });
+
+    it("a picked file the Video no longer has is not sent, but stays picked", () => {
+      const t = opened(["gone.ts", "README.md"]).send({
+        type: "refresh-clicked",
+      });
+
+      expect(t.getEffects()).toEqual([
+        stream(2, {
+          animatic: 'Mockup 1: "Hello"',
+          clips: ["So that's a type."],
+          files: ["README.md"],
+        }),
+      ]);
+      expect(t.getState().pickedFiles).toEqual(["gone.ts", "README.md"]);
+    });
+
+    it("closing the modal keeps the pick and asks nothing", () => {
+      const t = opened(["README.md"])
+        .send({ type: "context-button-clicked" })
+        .send({ type: "context-modal-dismissed" });
+
+      expect(t.getState().contextModalOpen).toBe(false);
+      expect(t.getState().pickedFiles).toEqual(["README.md"]);
+      expect(t.getEffects()).toEqual([]);
+    });
   });
 });

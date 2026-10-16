@@ -25,6 +25,13 @@
  * Video only (how today's take will depart from the Script or Animatic). They
  * live in localStorage per Video, never the database, and outrank the other
  * sources in the prompt.
+ *
+ * The **repo files** are picked one by one in the Context modal, from the
+ * Video's own files (the Article Writer's `FileTree`). The pick is kept per
+ * Video in localStorage like the Notes, and ranks just below them. The
+ * request names the picked paths; the route reads them. Changing the pick
+ * asks again at once. A picked file the Video no longer has is not sent, but
+ * stays picked.
  */
 import type { EffectEntity, EffectReducer } from "use-effect-reducer";
 import {
@@ -57,6 +64,9 @@ export namespace suggestionsReducer {
 
   export type Status = "idle" | "waiting" | "streaming" | "done" | "failed";
 
+  /** One of the Video's files the Context modal offers. */
+  export type RepoFile = { path: string; size: number };
+
   export interface State {
     videoId: string;
     open: boolean;
@@ -65,6 +75,12 @@ export namespace suggestionsReducer {
     script: string | null;
     /** This Video's Notes, as typed. */
     notes: string;
+    /** The Video's files the Context modal offers; images are left out. */
+    repoFiles: RepoFile[];
+    /** The repo file paths the author picked for this Video. */
+    pickedFiles: string[];
+    /** Whether the Context modal is showing. */
+    contextModalOpen: boolean;
     /** The pause after the last Notes edit, before asking again. */
     notesPause: EffectEntity<State, Action> | null;
     /** Which Notes edit the running pause is for; an older one is late. */
@@ -88,6 +104,10 @@ export namespace suggestionsReducer {
     | { type: "refresh-clicked" }
     | { type: "notes-edited"; notes: string }
     | { type: "notes-pause-elapsed"; editId: number }
+    | { type: "repo-files-listed"; videoId: string; files: RepoFile[] }
+    | { type: "context-button-clicked" }
+    | { type: "context-modal-dismissed" }
+    | { type: "repo-files-picked"; paths: string[] }
     | { type: "suggestion-chunk-received"; requestId: number; text: string }
     | { type: "suggestion-finished"; requestId: number }
     | { type: "suggestion-failed"; requestId: number };
@@ -102,6 +122,7 @@ export namespace suggestionsReducer {
       }
     | { type: "store-included-sources"; included: Included }
     | { type: "store-notes"; videoId: string; notes: string }
+    | { type: "store-picked-files"; videoId: string; paths: string[] }
     | { type: "wait-for-notes-pause"; editId: number };
 }
 
@@ -121,12 +142,16 @@ export const createInitialSuggestionsState = (input: {
   videoId: string;
   included: suggestionsReducer.Included;
   notes: string;
+  pickedFiles: string[];
 }): State => ({
   videoId: input.videoId,
   open: false,
   included: input.included,
   script: null,
   notes: input.notes,
+  repoFiles: [],
+  pickedFiles: input.pickedFiles,
+  contextModalOpen: false,
   notesPause: null,
   notesEditId: 0,
   context: {
@@ -152,7 +177,24 @@ export const getSourceTexts = (
   beats: state.context.beats,
 });
 
-/** What the request sends: the ticked sources this Video has, and the Clips. */
+/** The picked repo files this Video still has, in path order. */
+export const getPickedRepoFiles = (
+  state: State
+): suggestionsReducer.RepoFile[] => {
+  const picked = new Set(state.pickedFiles);
+  return state.repoFiles
+    .filter((file) => picked.has(file.path))
+    .sort((a, b) => a.path.localeCompare(b.path));
+};
+
+/** A file's rough token cost, from its size, as the Article Writer counts it. */
+export const getRepoFilesTokens = (files: suggestionsReducer.RepoFile[]) =>
+  files.reduce((sum, file) => sum + Math.ceil(file.size / 4), 0);
+
+/**
+ * What the request sends: the ticked sources this Video has, the picked repo
+ * files it has, and the Clips.
+ */
 export const getSuggestionInput = (state: State): SuggestNextClipInput => {
   const texts = getSourceTexts(state);
   const input: SuggestNextClipInput = {
@@ -163,6 +205,8 @@ export const getSuggestionInput = (state: State): SuggestNextClipInput => {
       input[source] = texts[source];
     }
   }
+  const files = getPickedRepoFiles(state).map((file) => file.path);
+  if (files.length > 0) input.files = files;
   return input;
 };
 
@@ -317,6 +361,29 @@ export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
       if (action.editId !== state.notesEditId) return state;
       const next = { ...state, notesPause: null };
       return canAsk(next) ? ask(next, exec) : next;
+    }
+
+    case "repo-files-listed": {
+      if (action.videoId !== state.videoId) return state;
+      const next = { ...state, repoFiles: action.files };
+      return asksDifferently(state, next) ? ask(next, exec) : next;
+    }
+
+    case "context-button-clicked":
+      return { ...state, contextModalOpen: true };
+
+    case "context-modal-dismissed":
+      return { ...state, contextModalOpen: false };
+
+    case "repo-files-picked": {
+      const pickedFiles = [...new Set(action.paths)].sort();
+      exec({
+        type: "store-picked-files",
+        videoId: state.videoId,
+        paths: pickedFiles,
+      });
+      const next = { ...state, pickedFiles };
+      return asksDifferently(state, next) ? ask(next, exec) : next;
     }
 
     case "suggestion-chunk-received":

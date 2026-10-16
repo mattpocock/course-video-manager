@@ -1,11 +1,17 @@
 import { useEffect, useMemo } from "react";
 import { useEffectReducer } from "use-effect-reducer";
-import { readStored, writeStored } from "@/hooks/use-local-storage";
+import {
+  parseStringSet,
+  readStored,
+  writeStored,
+} from "@/hooks/use-local-storage";
 import type { AnimaticLine } from "@/features/animatic/animatic-lines";
 import type { BeatListBeat } from "@/features/beats/beat-list";
 import type { BeatKind } from "@/features/beats/beat-kinds";
 import { formatAnimaticContext } from "@/features/article-writer/format-animatic-context";
 import { formatBeatsContext } from "@/features/article-writer/format-beats-context";
+import { isImageFilePath } from "@/lib/image-file-path";
+import type { FsData } from "../components/deferred-fs-panels";
 import type {
   FrontendInsertionPoint,
   TimelineItem,
@@ -29,6 +35,10 @@ const INCLUDED_SOURCES_KEY = "video-editor:suggestions-sources";
 const notesKey = (videoId: string) =>
   `video-editor:suggestions-notes:${videoId}`;
 
+/** The repo files picked in the Context modal are this Video's own, too. */
+const pickedFilesKey = (videoId: string) =>
+  `video-editor:suggestions-files:${videoId}`;
+
 /** How long typing in the Notes must pause before a new suggestion. */
 const NOTES_PAUSE_MS = 1000;
 
@@ -48,6 +58,15 @@ const readIncludedSources = (): suggestionsReducer.Included => {
   }
 };
 
+/** The repo files picked for this Video, as last stored. */
+export const readPickedFiles = (videoId: string): string[] => {
+  const raw = readStored(pickedFilesKey(videoId));
+  return raw ? [...parseStringSet(raw)] : [];
+};
+
+export const writePickedFiles = (videoId: string, paths: string[]) =>
+  writeStored(pickedFilesKey(videoId), JSON.stringify(paths));
+
 /**
  * The Suggestions tab's effect runner and its bridges to the editor. Every
  * decision is in `suggestions-reducer.ts`; this only does the I/O and reports
@@ -62,6 +81,8 @@ export function useSuggestions(input: {
   /** The timeline's items, archived ones left out. */
   items: TimelineItem[];
   insertionPoint: FrontendInsertionPoint;
+  /** The editor's file scan, which lists the Video's repo files. */
+  fsData: FsData;
 }) {
   const [state, dispatch] = useEffectReducer<
     suggestionsReducer.State,
@@ -76,6 +97,7 @@ export function useSuggestions(input: {
         videoId: input.videoId,
         included: readIncludedSources(),
         notes: readStored(notesKey(input.videoId)) ?? "",
+        pickedFiles: readPickedFiles(input.videoId),
       });
     },
     {
@@ -130,6 +152,9 @@ export function useSuggestions(input: {
       "store-notes": (_state, effect) => {
         writeStored(notesKey(effect.videoId), effect.notes);
       },
+      "store-picked-files": (_state, effect) => {
+        writePickedFiles(effect.videoId, effect.paths);
+      },
       "wait-for-notes-pause": (_state, effect, dispatch) => {
         const timer = setTimeout(
           () =>
@@ -147,6 +172,29 @@ export function useSuggestions(input: {
       type: input.open ? "suggestions-tab-opened" : "suggestions-tab-closed",
     });
   }, [input.open, dispatch]);
+
+  // Bridge: the file scan resolving lists the repo files the Context modal
+  // offers. Images are left out: the suggestion is text only.
+  const { videoId } = input;
+  useEffect(() => {
+    let live = true;
+    input.fsData
+      .then((fsData) => {
+        if (!live) return;
+        dispatch({
+          type: "repo-files-listed",
+          videoId,
+          files: fsData.files
+            .filter((file) => !isImageFilePath(file.path))
+            .map((file) => ({ path: file.path, size: file.size })),
+        });
+      })
+      // The scan failing leaves the modal empty; the editor reports it.
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [input.fsData, videoId, dispatch]);
 
   // Bridge: what the editor holds that a suggestion is made from. Keyed on
   // content, so a re-render with the same Clips sends nothing.
@@ -197,6 +245,10 @@ export function useSuggestions(input: {
       dispatch({ type: "source-toggled", source }),
     onRefresh: () => dispatch({ type: "refresh-clicked" }),
     onNotesChange: (notes: string) => dispatch({ type: "notes-edited", notes }),
+    onContextClick: () => dispatch({ type: "context-button-clicked" }),
+    onContextDismiss: () => dispatch({ type: "context-modal-dismissed" }),
+    onFilesPicked: (paths: string[]) =>
+      dispatch({ type: "repo-files-picked", paths }),
   };
 }
 

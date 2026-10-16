@@ -8,11 +8,14 @@ import {
 import { AlertCircleIcon, Layers, RefreshCwIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import {
+  getPickedRepoFiles,
+  getRepoFilesTokens,
   getSourceTexts,
   getSuggestionInput,
   getSuggestionText,
   suggestionsReducer,
 } from "../suggestions-reducer";
+import { SuggestionsContextModal } from "./suggestions-context-modal";
 
 const SOURCE_LABELS: Record<suggestionsReducer.Source, string> = {
   notes: "Notes",
@@ -28,21 +31,27 @@ const BOLD_ONLY = ["p", "strong"];
  * The side panel's **Suggestions** tab: which sources go in (with what each
  * one costs, as the Article Writer's context strip shows it), and the next
  * line as it streams. The same line is on the teleprompter while this tab is
- * open. All state is in `suggestions-reducer.ts`.
+ * open. **Context** opens a modal to pick the Video's repo files, which go in
+ * too. All state is in `suggestions-reducer.ts`.
  */
 export function SuggestionsPanel(props: {
   state: suggestionsReducer.State;
   onToggleSource: (source: suggestionsReducer.Source) => void;
   onRefresh: () => void;
   onNotesChange: (notes: string) => void;
+  onContextClick: () => void;
+  onContextDismiss: () => void;
+  onFilesPicked: (paths: string[]) => void;
 }) {
   const { state } = props;
   const texts = getSourceTexts(state);
   const input = getSuggestionInput(state);
   const text = getSuggestionText(state);
   const clipsTokens = estimateTokens(input.clips.join("\n"));
+  const pickedFiles = getPickedRepoFiles(state);
   const totalTokens =
     clipsTokens +
+    getRepoFilesTokens(pickedFiles) +
     suggestionsReducer.SOURCES.reduce(
       (sum, source) => sum + estimateTokens(input[source] ?? ""),
       0
@@ -53,14 +62,19 @@ export function SuggestionsPanel(props: {
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex flex-none flex-wrap items-center gap-1.5 border-b bg-muted/30 px-3 py-2">
-        <span
-          className="mr-1 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"
-          title="Estimated tokens sent with each suggestion"
+        <button
+          type="button"
+          onClick={props.onContextClick}
+          className="mr-1 flex items-center gap-1.5 rounded-md px-1 py-0.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          title="Pick repo files to send with each suggestion. The number is the estimated tokens sent."
         >
           <Layers className="size-3.5" />
-          <span>Context</span>
+          <span>
+            Context
+            {pickedFiles.length > 0 ? ` (${pickedFiles.length})` : ""}
+          </span>
           <span className="font-mono tabular-nums">{fmtTok(totalTokens)}</span>
-        </span>
+        </button>
         {suggestionsReducer.SOURCES.map((source) => {
           const present = texts[source].trim().length > 0;
           const disabled = !present && !(source === "script" && scriptLoading);
@@ -158,6 +172,11 @@ export function SuggestionsPanel(props: {
           Shown on the teleprompter while this tab is open.
         </p>
       </div>
+      <SuggestionsContextModal
+        state={state}
+        onDismiss={props.onContextDismiss}
+        onFilesPicked={props.onFilesPicked}
+      />
     </div>
   );
 }
