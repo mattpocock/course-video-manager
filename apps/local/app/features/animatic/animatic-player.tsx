@@ -1,5 +1,6 @@
 import { deepLinkAnchor } from "@/features/entity-links/use-deep-link-focus";
-import { Player, type PlayerRef } from "@remotion/player";
+import type { PlayerRef } from "@remotion/player";
+import type { VideoFormat } from "@/features/videos/video-format";
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import {
   Fragment,
@@ -30,14 +31,7 @@ import {
   toggleChapter,
   type AnimaticCollapseState,
 } from "./animatic-collapse";
-import {
-  AnimaticComposition,
-  type AnimaticCompositionProps,
-} from "./animatic-composition";
-import {
-  ANIMATIC_PLAYBACK_RATES,
-  useAnimaticPlaybackRate,
-} from "./animatic-playback-rate";
+import { useAnimaticPlaybackRate } from "./animatic-playback-rate";
 import {
   CHAPTER_PROGRESS_VAR,
   MOCKUP_PROGRESS_VAR,
@@ -59,12 +53,12 @@ import {
   useAnimaticSubtitles,
 } from "./animatic-subtitles";
 import { AnimaticSubtitlesMenu } from "./animatic-subtitles-menu";
+import { AnimaticStagePlayer } from "./animatic-stage-player";
 import { seekKeepingPlayState, startPlayingAt } from "./animatic-transport";
 import { useAnimaticShortcuts } from "./use-animatic-shortcuts";
 import { useAnimaticDeepLink } from "./use-animatic-deep-link";
 import { useSelectionInSight } from "./use-selection-in-sight";
 import {
-  ANIMATIC_FPS,
   adjacentSegmentStartFrame,
   buildAnimaticTimeline,
   formatAnimaticRunTime,
@@ -129,8 +123,8 @@ export const AnimaticPlayer = (props: {
   /** The Video's Clip Mockup Chapters. Empty for a Video nobody has divided. */
   chapters: AnimaticChapter[];
   sectionRunTime: AnimaticSectionRunTime;
-  width: number;
-  height: number;
+  /** The Video's format: a Short plays at 9:16, a Landscape Video at 16:9. */
+  format: VideoFormat;
   /**
    * A Clip Mockup to START ON: the player opens with it selected and plays it
    * from its first frame. The editor's Animatic tab opens the player this
@@ -352,13 +346,6 @@ export const AnimaticPlayer = (props: {
     activeIndex,
   })?.chapter.id;
 
-  // Memoised on the timeline alone: a poll that changed nothing hands the
-  // Player the very same object, and the composition is not rebuilt.
-  const inputProps: AnimaticCompositionProps = useMemo(
-    () => ({ segments: [...timeline.segments], showSubtitles, subtitleStyle }),
-    [timeline, showSubtitles, subtitleStyle]
-  );
-
   // The Clip Mockup on screen now — what the stage's comment button pins to.
   const activeMockupId = timeline.segments[activeIndex]?.mockup.id;
   const stageComments = useStageComments({
@@ -486,28 +473,15 @@ export const AnimaticPlayer = (props: {
         {/* Always mounted, so the Player is never remounted under it. */}
         <AnimaticCommentContextMenu {...stageComments.menu}>
           <div className="h-full w-full">
-            <Player
-              ref={playerRef}
-              component={AnimaticComposition}
-              inputProps={inputProps}
-              fps={ANIMATIC_FPS}
-              durationInFrames={timeline.durationInFrames}
-              compositionWidth={props.width}
-              compositionHeight={props.height}
-              style={{ width: "100%", height: "100%" }}
-              controls
+            <AnimaticStagePlayer
+              playerRef={playerRef}
+              timeline={timeline}
+              format={props.format}
+              showSubtitles={showSubtitles}
+              subtitleStyle={subtitleStyle}
               playbackRate={playbackRate}
-              showPlaybackRateControl={ANIMATIC_PLAYBACK_RATES}
-              loop={false}
-              // Opened on a moment (the editor's Animatic tab): start there,
-              // and play — the click that opened it was the press of play.
-              initialFrame={timeline.segments[startIndex]?.startFrame ?? 0}
+              startIndex={startIndex}
               autoPlay={props.startAt !== undefined}
-              clickToPlay
-              // SPACE is ours, not the Player's — leaving both on toggles playback
-              // twice whenever the Player holds focus, which is right after a click
-              // on the picture.
-              spaceKeyToPlayOrPause={false}
             />
           </div>
         </AnimaticCommentContextMenu>

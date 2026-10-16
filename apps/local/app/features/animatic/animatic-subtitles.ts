@@ -7,6 +7,7 @@ import {
   MAXIMUM_SUBTITLE_LENGTH_IN_CHARS,
   splitSubtitleSegments,
 } from "@/lib/subtitle-chunks";
+import type { VideoFormat } from "@/features/videos/video-format";
 import { ANIMATIC_FPS, type AnimaticSegment } from "./animatic-timeline";
 
 /**
@@ -16,17 +17,25 @@ import { ANIMATIC_FPS, type AnimaticSegment } from "./animatic-timeline";
  * HOW MUCH TEXT IS ON SCREEN AT ONCE is the Shorts renderer's rule, imported
  * from `subtitle-chunks.ts` rather than copied — the words shared out evenly,
  * the time shared out evenly. The line has no per-word timing, so even division
- * is also the only honest option here. The limit is DOUBLE the Short's: a
- * landscape frame is wide, and 32 characters cut the line too choppily.
+ * is also the only honest option here. On a Landscape Video the limit is
+ * DOUBLE the Short's: a landscape frame is wide, and 32 characters cut the
+ * line too choppily. A Short's Animatic uses the Short's own limit, so its
+ * captions read as the finished Short's will.
  *
  * ON BY DEFAULT, because the author judges the density of a moment by reading
  * it as well as hearing it, often at two times speed. The choice to turn them
  * off is remembered in the browser, like the playback rate.
  */
 
-/** The longest phrase the Animatic shows at once: twice a Short's. */
+/** The longest phrase a Landscape Animatic shows at once: twice a Short's. */
 export const ANIMATIC_SUBTITLE_LENGTH_IN_CHARS =
   MAXIMUM_SUBTITLE_LENGTH_IN_CHARS * 2;
+
+/** The longest phrase shown at once, by the Video's format. */
+const SUBTITLE_LENGTH_IN_CHARS: Readonly<Record<VideoFormat, number>> = {
+  landscape: ANIMATIC_SUBTITLE_LENGTH_IN_CHARS,
+  short: MAXIMUM_SUBTITLE_LENGTH_IN_CHARS,
+};
 
 /** One phrase of a Clip Mockup's line, in frames from that Clip Mockup's start. */
 export interface AnimaticSubtitleCue {
@@ -41,7 +50,8 @@ export interface AnimaticSubtitleCue {
  * the text does not blink off between two Clip Mockups.
  */
 export function subtitleCuesForSegment(
-  segment: AnimaticSegment
+  segment: AnimaticSegment,
+  format: VideoFormat
 ): AnimaticSubtitleCue[] {
   // A line can hold newlines and runs of spaces; the chunker splits on single
   // spaces, so a stray one would count as a word.
@@ -54,7 +64,7 @@ export function subtitleCuesForSegment(
       end: segment.speechInFrames / ANIMATIC_FPS,
       text,
     },
-    ANIMATIC_SUBTITLE_LENGTH_IN_CHARS
+    SUBTITLE_LENGTH_IN_CHARS[format]
   ).filter((chunk) => chunk.text !== "");
 
   return chunks.map((chunk, index) => {

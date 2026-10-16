@@ -4,6 +4,7 @@
  * budget. These are domain-teaching prose strings consumed only by
  * Command.withDescription.
  */
+import { SHORT_ADD_HELP } from "./clip-mockup.short.help";
 export const HELP = `Clip Mockup — one still image and one spoken line: a single moment of a Video,
 decided before it is filmed. Played in order, a Video's Clip Mockups are its
 ANIMATIC. Every Clip Mockup has an image AND a line.
@@ -15,7 +16,7 @@ Verbs (flags come BEFORE any positional <id> — a flag after it exits 3):
   update  --clip-mockups-json <file>               Swap frames and/or lines
   move    <id> | --video <id> --at <n>             Reorder within the Video
   delete  <id> | --video <id> --at <n>             Archive (delete) one
-  capture <page.html>… [--sheet <sheet.png>]       Render pages to PNGs only — no row
+  capture <page.html>… [--sheet <sheet.png>] [--short]  Render pages to PNGs only — no row
 
 THE BATCH FILE. 'add' and 'update' take one input, --clip-mockups-json <file>
 (or "-" for STDIN): a JSON array, one entry per Clip Mockup, e.g.
@@ -23,6 +24,13 @@ THE BATCH FILE. 'add' and 'update' take one input, --clip-mockups-json <file>
 File order is Animatic order; paths are relative to the file; the whole file
 is checked first and lands together or not at all. Entry keys are in
 'clip-mockup add --help' and 'clip-mockup update --help'.
+
+A SHORT'S ANIMATIC is two scenes, in one order: its FIRST Clip Mockup is the
+Camera moment (Matt to camera, which CVM draws — no picture), and EVERY one
+after it is a Code moment (your page or PNG in the 1080x1080 screen square at
+the top of a 1080x1920 frame; CVM draws the camera band below it). Each Short
+entry says which with "scene": "camera" | "code". 'add', 'update', 'move' and
+'delete' refuse anything that breaks that order. See 'clip-mockup add --help'.
 
 Rows carry imagePath / audioPath (relative to clip-mockups/{lineageId}/ on a Storage Root)
 and imageFile / audioFile (the same files as absolute paths — read these).
@@ -64,7 +72,13 @@ headless Chromium, 1920x1080, after web fonts load — and write <page>.png
 beside each <page>.html. Touches no row, voices no line, writes nothing to the
 Clip Mockup store. Use it to LOOK at a frame before you 'add' it.
 
-  cvm clip-mockup capture <page.html>... [--sheet <sheet.png>]
+  cvm clip-mockup capture <page.html>... [--sheet <sheet.png>] [--short]
+
+  --short               capture each page as a SHORT's Code frame instead:
+                        the page drawn in the 1080x1080 screen square of a
+                        1080x1920 frame, the camera band below — byte for byte
+                        what 'add' stores for a "scene": "code" entry. Write
+                        the page for a 1080x1080 viewport.
 
   <page.html>...        one or more .html / .htm pages. A page that is not
                         there, or is not .html, is invalid input (exit 3),
@@ -110,9 +124,8 @@ gives them. Requires --video and --clip-mockups-json.
 
 Flags:
   --video <id>               the Video to add to. Unknown or archived is a
-                             not-found (exit 2). A Video whose format is
-                             'short' is REFUSED — Clip Mockups are Landscape
-                             only (exit 3).
+                             not-found (exit 2). A Short takes "scene" on
+                             every moment — see A SHORT below.
   --clip-mockups-json <path> a JSON array of entries; "-" reads STDIN. Paths
                              in it are relative to the file.
 
@@ -136,7 +149,10 @@ Each entry is ONE of:
             The same image in several entries is copied once, and shared.
   "chapter" the divider's title — a coarse part of the plan, never a Beat.
             Takes no line and no picture.
+  "scene"   a SHORT's moments only: "camera" or "code". Refused on a
+            Landscape Video.
 
+${SHORT_ADD_HELP}
 An unknown key, a missing "say", both or neither of "html" / "image", or a
 source file that does not exist is invalid input (exit 3), naming the entry —
 and it is found BEFORE any frame is captured. A capture failure (exit 4)
@@ -269,6 +285,10 @@ addressed again (there is no restore verb).
 The PNG on disk is deliberately LEFT ALONE. The row is the state; an orphan
 frame in the Clip Mockup directory costs nothing and is never served.
 
+On a SHORT, the Camera moment (Clip Mockup 1) is deleted last: while any Code
+moment follows it, deleting it is invalid input (exit 3), because the next
+one would open the Short. Change its line with 'update' instead.
+
 Immediate — there is no confirmation prompt (this is an agent-facing tool).
 Echoes the now-archived row ({ ..., archived: true }). An unknown or
 already-deleted id is a not-found (exit 2).
@@ -304,6 +324,11 @@ Each entry names ONE Clip Mockup, and at least one change:
                    This is the redraw loop: "number 14 is too dense" — edit the
                    page, list it here.
   "image"          a new PNG, copied in under a FRESH name, as 'add' does.
+
+On a SHORT a new "html" or "image" is a Code moment's screen square, composed
+into a 1080x1920 frame exactly as 'add' does. Clip Mockup 1 of a Short is its
+Camera moment, which CVM draws: it takes a new "say" only, and a picture for
+it is invalid input (exit 3).
 
 The two halves are INDEPENDENT: a new picture leaves the line exactly as it
 was, and a new line leaves the picture alone. The old frame and the old WAV
@@ -347,6 +372,10 @@ Position it with the same anchors 'beat move' uses:
 not an active Clip Mockup of this Video is a not-found (exit 2). Anchors are
 ids, not positions — read them off 'list' alongside the position you are
 moving.
+
+On a SHORT, the Camera moment stays first: moving it, or moving a Code moment
+above it, is invalid input (exit 3). Code moments reorder among themselves
+freely, and a Chapter may sit above the Camera moment.
 
 Moving does not renumber anything the author has to track: 'list' and the
 player re-read the new order, so the positions simply are what they now show.

@@ -39,7 +39,7 @@ describe("subtitleCuesForSegment", () => {
   it("shows a short line whole, from the first frame to the end of the gap", () => {
     const segment = segmentFor("Hello there.", 2);
 
-    expect(subtitleCuesForSegment(segment)).toEqual([
+    expect(subtitleCuesForSegment(segment, "landscape")).toEqual([
       {
         fromFrame: 0,
         durationInFrames: segment.durationInFrames,
@@ -51,7 +51,7 @@ describe("subtitleCuesForSegment", () => {
   it("never shows more than twice the Shorts renderer's limit at once, give or take a word", () => {
     const line =
       "Generics let you write a function once and have it work across many different types without losing safety, and that is the whole point of them.";
-    const cues = subtitleCuesForSegment(segmentFor(line, 6));
+    const cues = subtitleCuesForSegment(segmentFor(line, 6), "landscape");
 
     expect(cues.length).toBe(
       Math.ceil(line.length / ANIMATIC_SUBTITLE_LENGTH_IN_CHARS)
@@ -64,7 +64,7 @@ describe("subtitleCuesForSegment", () => {
       "one two three four five six seven eight nine ten eleven twelve thirteen",
       3
     );
-    const cues = subtitleCuesForSegment(segment);
+    const cues = subtitleCuesForSegment(segment, "landscape");
 
     expect(cues[0]!.fromFrame).toBe(0);
     for (let i = 1; i < cues.length; i++) {
@@ -83,14 +83,26 @@ describe("subtitleCuesForSegment", () => {
 
   it("treats newlines and runs of spaces as single spaces", () => {
     const cues = subtitleCuesForSegment(
-      segmentFor("Line one.\n\nLine   two.", 2)
+      segmentFor("Line one.\n\nLine   two.", 2),
+      "landscape"
     );
 
     expect(cues.map((c) => c.text)).toEqual(["Line one. Line two."]);
   });
 
+  it("cuts a Short's line into more phrases, at the Short's own limit", () => {
+    const line =
+      "Generic constraints let you narrow a type parameter to only the shapes you mean";
+    const short = subtitleCuesForSegment(segmentFor(line, 6), "short");
+    const landscape = subtitleCuesForSegment(segmentFor(line, 6), "landscape");
+
+    expect(short.length).toBeGreaterThan(landscape.length);
+  });
+
   it("shows nothing for an empty line", () => {
-    expect(subtitleCuesForSegment(segmentFor("  \n ", 2))).toEqual([]);
+    expect(subtitleCuesForSegment(segmentFor("  \n ", 2), "landscape")).toEqual(
+      []
+    );
   });
 });
 

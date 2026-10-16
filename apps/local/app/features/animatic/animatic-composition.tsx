@@ -5,6 +5,7 @@ import {
   Series,
   useCurrentFrame,
 } from "remotion";
+import type { VideoFormat } from "@/features/videos/video-format";
 import { useAnimaticAudioPrefetch } from "./animatic-audio-prefetch";
 import {
   subtitleCuesForSegment,
@@ -33,6 +34,11 @@ import {
  */
 export type AnimaticCompositionProps = {
   segments: AnimaticSegment[];
+  /**
+   * The Video's format: a Short's frames are 1080x1920, and its subtitles sit
+   * where the finished Short's captions do.
+   */
+  format: VideoFormat;
   /** Draw each line over its frame as subtitles. See `animatic-subtitles.ts`. */
   showSubtitles: boolean;
   /** Where, how big and how wide. See `AnimaticSubtitleStyle`. */
@@ -61,7 +67,7 @@ const MissingFrame = (props: { position: number; line: string }) => (
     <div style={{ fontSize: 40, fontWeight: 700 }}>
       Clip Mockup {props.position}: frame missing
     </div>
-    <div style={{ fontSize: 28, color: "#e7e5e4", maxWidth: 1400 }}>
+    <div style={{ fontSize: 28, color: "#e7e5e4", maxWidth: "100%" }}>
       {props.line}
     </div>
   </AbsoluteFill>
@@ -72,7 +78,7 @@ const MissingFrame = (props: { position: number; line: string }) => (
  * subtitles — then moved, sized and narrowed by the author's own style. Sized
  * in composition pixels, so it scales with the picture.
  */
-const AnimaticSubtitle = (props: {
+const LandscapeSubtitle = (props: {
   text: string;
   style: AnimaticSubtitleStyle;
 }) => (
@@ -103,8 +109,71 @@ const AnimaticSubtitle = (props: {
   </AbsoluteFill>
 );
 
+/**
+ * How far below the frame's middle a Short's captions sit: the overlay
+ * renderer's `BASE_Y_TRANSFORM` (`packages/overlay-renderer/remotion/
+ * Composition.tsx`), which centres each caption and moves it this far down —
+ * onto the seam between a Code frame's screen and its camera band. Copied, not
+ * imported: `apps/local` only ever shells out to that package.
+ */
+const SHORT_CAPTION_OFFSET_Y = 122;
+
+/**
+ * One phrase of a Short's line, drawn where and as the finished Short draws
+ * its captions: centred, just below the middle, amber words on dark blocks,
+ * in Fira Code. The author's offset and size still apply, so a caption can be
+ * moved off the thing being judged.
+ */
+const ShortSubtitle = (props: {
+  text: string;
+  style: AnimaticSubtitleStyle;
+}) => (
+  <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
+    <p
+      style={{
+        margin: "0 48px",
+        padding: 24,
+        color: "#fde68a",
+        fontFamily: '"Fira Code", ui-monospace, monospace',
+        fontSize: props.style.fontSize,
+        fontWeight: 600,
+        lineHeight: 1.6,
+        textAlign: "center",
+        textWrap: "balance",
+        transform: `translateY(${SHORT_CAPTION_OFFSET_Y - props.style.offsetY}px)`,
+      }}
+    >
+      {props.text.split(" ").map((word, index) => (
+        <span
+          key={index}
+          style={{
+            display: "inline-block",
+            margin: "0 12px",
+            padding: "4px 16px",
+            backgroundColor: "#1c1917",
+          }}
+        >
+          {word}
+        </span>
+      ))}
+    </p>
+  </AbsoluteFill>
+);
+
+const AnimaticSubtitle = (props: {
+  text: string;
+  style: AnimaticSubtitleStyle;
+  format: VideoFormat;
+}) =>
+  props.format === "short" ? (
+    <ShortSubtitle text={props.text} style={props.style} />
+  ) : (
+    <LandscapeSubtitle text={props.text} style={props.style} />
+  );
+
 const AnimaticSegmentFrame = (props: {
   segment: AnimaticSegment;
+  format: VideoFormat;
   showSubtitles: boolean;
   subtitleStyle: AnimaticSubtitleStyle;
 }) => {
@@ -136,14 +205,18 @@ const AnimaticSegmentFrame = (props: {
       {/* The missing-frame card already prints the whole line. */}
       {props.showSubtitles &&
         !mockup.imageMissing &&
-        subtitleCuesForSegment(props.segment).map((cue) => (
+        subtitleCuesForSegment(props.segment, props.format).map((cue) => (
           <Sequence
             key={cue.fromFrame}
             from={cue.fromFrame}
             durationInFrames={cue.durationInFrames}
             layout="none"
           >
-            <AnimaticSubtitle text={cue.text} style={props.subtitleStyle} />
+            <AnimaticSubtitle
+              text={cue.text}
+              style={props.subtitleStyle}
+              format={props.format}
+            />
           </Sequence>
         ))}
     </AbsoluteFill>
@@ -175,6 +248,7 @@ export const AnimaticComposition = (props: AnimaticCompositionProps) => (
         >
           <AnimaticSegmentFrame
             segment={segment}
+            format={props.format}
             showSubtitles={props.showSubtitles}
             subtitleStyle={props.subtitleStyle}
           />

@@ -101,6 +101,7 @@ export const CaptureRequest = Schema.Struct({
     Schema.Struct({
       htmlPath: Schema.String,
       outputPath: Schema.String,
+      viewport: Schema.Struct({ width: Schema.Number, height: Schema.Number }),
       fullPage: Schema.Boolean,
     })
   ),
