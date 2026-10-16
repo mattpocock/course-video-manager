@@ -4,7 +4,8 @@
  * For reading back a take you got wrong: the words that actually came out,
  * next to the words you meant to say. The editor picks the clip (see
  * `session-latest-transcript.ts`) — the newest transcribed one in this
- * recording session, deleted ones included — and this only draws it.
+ * recording session, deleted ones included — and this only draws it. Not
+ * drawn over a suggestion, whose glass already shows the last Clips.
  *
  * Small and dim, for the same reason the controls are: anything bright on the
  * glass is something you read around for the whole take. Never truncated: the
