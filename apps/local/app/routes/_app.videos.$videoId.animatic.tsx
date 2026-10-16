@@ -6,6 +6,7 @@ import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operation
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { clipMockupFileExists } from "@/services/clip-mockup-files";
+import { clipMockupSpeechOnsetSeconds } from "@/services/clip-mockup-speech-onset.server";
 import {
   clipMockupAudioUrl,
   clipMockupFrameUrl,
@@ -94,6 +95,16 @@ export const loader = makeLoader({
                     row.audioPath
                   ).pipe(Effect.catchAll(() => Effect.succeed(false)));
 
+            // Where the voice starts inside its WAV, past Kokoro's padding,
+            // so the player can start it there (#2265).
+            const speechStartSeconds =
+              row.audioPath === null || !audioExists
+                ? 0
+                : yield* clipMockupSpeechOnsetSeconds(
+                    video.lineageId,
+                    row.audioPath
+                  );
+
             return {
               id: row.id,
               line: row.line,
@@ -106,6 +117,7 @@ export const loader = makeLoader({
               audioUrl: clipMockupAudioUrl(row.id),
               imageMissing: !imageExists,
               audioMissing: !audioExists,
+              speechStartSeconds,
             } satisfies AnimaticClipMockup;
           })
         )

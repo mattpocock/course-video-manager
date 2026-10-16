@@ -48,6 +48,7 @@ export function animaticMockupsSignature(
       mockup.audioUrl,
       mockup.imageMissing,
       mockup.audioMissing,
+      mockup.speechStartSeconds,
     ])
   );
 }

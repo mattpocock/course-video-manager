@@ -30,6 +30,7 @@ const mockup = (
   audioUrl: `/api/clip-mockups/cm_${position}/audio`,
   imageMissing: false,
   audioMissing: false,
+  speechStartSeconds: 0,
   voiceStatus: "ready",
   voiceError: null,
 });

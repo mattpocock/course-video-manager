@@ -393,6 +393,7 @@ export const cvmAdapter = (e: Editor) => {
           });
           break;
         case "stop-recording":
+        case "log-unexpected":
         case "send-silence-length":
         case "retry-camera":
         case "retry-screen":

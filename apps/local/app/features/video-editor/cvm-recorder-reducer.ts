@@ -1,6 +1,9 @@
 import type { EffectReducer } from "use-effect-reducer";
 import type { Scene } from "@/packages/scene-layout";
-import type { SilenceLength } from "@/silence-detection-constants";
+import {
+  DEFAULT_SILENCE_LENGTH,
+  type SilenceLength,
+} from "@/silence-detection-constants";
 import type { VideoFormat } from "@/features/videos/video-format";
 import type {
   FramesLost,
@@ -8,7 +11,6 @@ import type {
   ScreenStatus,
 } from "recorder-service/protocol";
 import { isSceneAvailable, isScreenWaking } from "./cvm-recorder-screen";
-import { attach } from "./cvm-recorder-attach";
 import { placeClips } from "./cvm-recorder-clips";
 import {
   describeFramesLostInClips,
@@ -20,9 +22,11 @@ import type {
   SavedRecorderClip,
 } from "./cvm-recorder-wire";
 import {
-  createInitialSpeechDetectorState,
-  speechDetectorReducer,
-} from "./speech-detector-reducer";
+  createInitialRecorderSessionState,
+  follows,
+  recorderSessionReducer,
+  stopsOnLeave,
+} from "./recorder-session-reducer";
 
 /**
  * The CVM recorder in the editor. The recorder service records; this
@@ -48,7 +52,12 @@ import {
  * Silence Length, the editor tells the app server its choice whenever it
  * changes and whenever the recorder reports in.
  *
- * Speech: the recorder's silence detection, fed to OBS's speech state
+ * The Recording Session, its speech, Attaching and the clip effects are the
+ * shared `recorderSessionReducer` (ADR 0050), which OBS's connector runs
+ * too: this reducer turns the recorder's messages into its events, and keeps
+ * the device (camera, scenes, screen, frames lost) and where a Take saves.
+ *
+ * Speech: the recorder's silence detection, fed to the shared speech state
  * machine (`speechDetectorReducer`), so the editor and the teleprompter show
  * a take the same whichever Recorder films it. Record warms up until the
  * recorder hears the first silence (`warmed-up`); speech shows as speaking,
@@ -58,24 +67,16 @@ import {
  * every Optimistic Clip gets a Clip. A silence as long as the Silence Length
  * (`speech-ended`) closes it.
  *
- * Attaching: a page stops a take it finds going, as OBS does on connect
- * (`cvm-recorder-attach.ts`).
- *
- * Sessions: the editor follows one Recording Session at a time, the one the
- * recorder says is recording (`recorder-status`) or that just started. A
- * Recording Session's events can arrive late (held behind a save that
- * failed, then replayed from its start), so an event of any other Recording
- * Session is ignored, and one the recorder has said is over never makes the
- * editor record again (#2163). The stop of the one just recorded still
- * reports its errors and frames lost when it lands after the status.
+ * Sessions: the editor follows the Recording Session the recorder says is
+ * recording (`recorder-status`) or that just started. A Recording Session's
+ * events can arrive late (held behind a save that failed, then replayed from
+ * its start), so an event of any other Recording Session is ignored (#2163).
+ * The stop of the one just recorded still reports its errors and frames lost
+ * when it lands after the status.
  *
  * Clips: this is an adapter onto the OBS path's clip logic, which does all
- * the placing (`clip-state-reducer-recording.ts`; ADR 0044). It sends the
- * clip reducer the events OBS's connector and polling send: a Recording
- * Session followed starts and stops one there (`start-session`,
- * `stop-session`), a Take is an Optimistic Clip (`start-take`), silence
- * closes its audio window (`close-take-window`), and at a Take's end the
- * editor tells the app server where to save it, as OBS's polling
+ * the placing (`clip-state-reducer-recording.ts`; ADR 0044). At a Take's
+ * end the editor tells the app server where to save it, as OBS's polling
  * does, and hears back the saved Clips (`place-take`). The app server's
  * status can say a Recording Session stopped before its last speech is
  * saved, so the editor places a Recording Session's speech from when it
@@ -83,7 +84,7 @@ import {
  * starts (`placing`).
  */
 export namespace cvmRecorderReducer {
-  export type Phase = "idle" | "recording" | "stopping";
+  export type Phase = recorderSessionReducer.Phase;
 
   export type Camera =
     | { kind: "closed" }
@@ -92,23 +93,19 @@ export namespace cvmRecorderReducer {
     | { kind: "not-starting"; message: string }
     | { kind: "busy"; message: string };
 
-  export type State = {
+  /** The Recording Session followed is the shared reducer's. */
+  export type State = recorderSessionReducer.State & {
     /** The Video's format: a Short is drawn, and recorded, 9:16. */
     format: VideoFormat;
     /** Null until the app server first says. */
     reachable: boolean | null;
-    /** The recorder has reported in to this page (Attaching). */
-    attached: boolean;
     /** Why the recorder cannot record at all (a wrong ffmpeg). */
     problem: string | null;
-    phase: Phase;
     camera: Camera;
     /** Retry was pressed and the camera has not started opening again yet. */
     retrying: boolean;
     /** Where the browser watches the raw camera and screen. */
     previews: { camera: string; screen: string } | null;
-    /** What the recorder's silence detection hears; read while recording. */
-    speech: speechDetectorReducer.State;
     /** The scene the recorder draws; null while it is not open for this Video. */
     scene: Scene | null;
     /** A Short's screen; null while not open for this Video, and for Landscape. */
@@ -137,10 +134,6 @@ export namespace cvmRecorderReducer {
     takeSpans: readonly TakeSpan[];
     /** The editor's Silence Length, for a Stream Deck Record. */
     silenceLength: SilenceLength | null;
-    /** The Recording Session the editor follows; null while none records. */
-    recordingSessionId: string | null;
-    /** Recording Sessions the recorder has said are over, oldest first. */
-    endedRecordingSessionIds: readonly string[];
     /**
      * The Recording Session whose speech this editor places: from when it
      * follows one until that one's own `recording-stopped` (or
@@ -167,22 +160,11 @@ export namespace cvmRecorderReducer {
     | { type: "stop-recording-failed"; message: string };
 
   export type Effect =
-    | { type: "stop-recording" }
+    /** Stop, the session's clip effects, and a log of the unexpected. */
+    | recorderSessionReducer.Effect
     | { type: "send-silence-length"; silenceLength: SilenceLength }
     | { type: "retry-camera" }
     | { type: "retry-screen" }
-    /** The OBS path's `recording-started`, for a CVM recorder Recording Session. */
-    | {
-        type: "start-session";
-        recordingSessionId: string;
-        silenceLength: SilenceLength;
-      }
-    /** The OBS path's `recording-stopped`. */
-    | { type: "stop-session" }
-    /** The OBS path's `new-optimistic-clip-detected`. */
-    | { type: "start-take"; soundDetectionId: string }
-    /** The OBS path's `clip-audio-window-closed`. */
-    | { type: "close-take-window" }
     /**
      * Tell the app server where to save this Recording Session's speech
      * (the editor's insertion point, as OBS's polling sends it), and hand
@@ -201,15 +183,13 @@ export namespace cvmRecorderReducer {
 export const createInitialCvmRecorderState = (
   format: VideoFormat = "landscape"
 ): cvmRecorderReducer.State => ({
+  ...createInitialRecorderSessionState(),
   format,
   reachable: null,
-  attached: false,
   problem: null,
-  phase: "idle",
   camera: { kind: "closed" },
   retrying: false,
   previews: null,
-  speech: createInitialSpeechDetectorState(),
   scene: null,
   screen: null,
   wakingAgain: false,
@@ -219,8 +199,6 @@ export const createInitialCvmRecorderState = (
   lostFrameSpans: [],
   takeSpans: [],
   silenceLength: null,
-  recordingSessionId: null,
-  endedRecordingSessionIds: [],
   placing: null,
   placingTake: false,
 });
@@ -255,8 +233,7 @@ const cameraHeard = (
   camera: cvmRecorderReducer.Camera
 ): cvmRecorderReducer.State => ({ ...state, camera, retrying: false });
 
-export const canStop = (state: cvmRecorderReducer.State) =>
-  state.phase === "recording";
+export const canStop = (state: cvmRecorderReducer.State) => stopsOnLeave(state);
 
 /** Whether a take is being recorded, as OBS reports "recording". */
 export const isCvmRecorderRecording = (state: cvmRecorderReducer.State) =>
@@ -301,98 +278,108 @@ export const framesLostAlert = (
 ): string | null =>
   describeFramesLostInClips(state, isCvmRecorderRecording(state));
 
-/** Enough to recognise any late replay; a page records far fewer. */
-const ENDED_KEPT = 50;
-
-const ended = (
+/** The message as the shared session reducer hears it, if it is one. */
+const sessionEventOf = (
   state: cvmRecorderReducer.State,
-  id: string | null
-): readonly string[] =>
-  id === null || state.endedRecordingSessionIds.includes(id)
-    ? state.endedRecordingSessionIds
-    : [...state.endedRecordingSessionIds, id].slice(-ENDED_KEPT);
-
-/**
- * Whether a Recording Session's event is the editor's to follow: the current
- * one's always; the stop of one just over, while nothing else records or
- * starts, for what it reports. Anything else is a late replay.
- */
-const follows = (
-  state: cvmRecorderReducer.State,
-  message: Extract<CvmRecorderMessage, { recordingSessionId: string }>
-): boolean => {
-  const id = message.recordingSessionId;
-  if (id === state.recordingSessionId) return true;
+  message: CvmRecorderMessage
+): recorderSessionReducer.Event | null => {
   switch (message.type) {
+    case "recorder-status":
+      return {
+        type: "recorder-reported",
+        reachable: message.reachable,
+        recording: message.recordingSessionId !== null,
+        recordingSessionId: message.recordingSessionId,
+        silenceLength: state.silenceLength ?? DEFAULT_SILENCE_LENGTH,
+      };
     case "recording-started":
-      // A Stream Deck Record can be heard before the status that names it.
-      return (
-        !state.endedRecordingSessionIds.includes(id) &&
-        state.phase !== "recording" &&
-        state.phase !== "stopping"
-      );
+      // The recorder service gates a CVM Record before it starts (ADR 0038).
+      return {
+        type: "recording-started",
+        recordingSessionId: message.recordingSessionId,
+        silenceLength: message.silenceLength,
+        refused: false,
+      };
     case "recording-stopped":
     case "camera-lost":
-      return (
-        state.recordingSessionId === null &&
-        state.phase === "idle" &&
-        state.endedRecordingSessionIds.at(-1) === id
-      );
+      return {
+        type: "recording-stopped",
+        recordingSessionId: message.recordingSessionId,
+      };
+    case "warmed-up":
+    case "speech-ended":
+      return {
+        type: "speech-heard",
+        recordingSessionId: message.recordingSessionId,
+        heard: { type: "silence-started" },
+      };
+    case "speech-started":
+      // The wire carries no audio time: only `take-started` makes a Take.
+      return {
+        type: "speech-heard",
+        recordingSessionId: message.recordingSessionId,
+        heard: { type: "silence-ended", endSeconds: null },
+      };
+    case "take-started":
+      return {
+        type: "speech-heard",
+        recordingSessionId: message.recordingSessionId,
+        heard: { type: "take-started", soundDetectionId: message.takeId },
+      };
+    case "camera-opening":
+    case "camera-went-live":
+    case "cam-link-not-starting":
+    case "cam-link-busy":
+    case "camera-closed":
+    case "scene-changed":
+    case "screen-changed":
+    case "frames-lost":
+    case "recorder-failed":
+    case "clips-saved":
+      return null;
+  }
+};
+
+/** Whether the message is the editor's to hear (`follows`). */
+const isHeard = (
+  state: cvmRecorderReducer.State,
+  message: CvmRecorderMessage
+): boolean => {
+  if (!("recordingSessionId" in message) || message.type === "recorder-status")
+    return true;
+  switch (message.type) {
+    case "recording-started":
+      return follows(state, "recording-started", message.recordingSessionId);
+    case "recording-stopped":
+    case "camera-lost":
+      return follows(state, "recording-stopped", message.recordingSessionId);
+    // Of the one followed only; `recording-stopped` carries a late total.
+    case "frames-lost":
     case "warmed-up":
     case "speech-started":
     case "take-started":
     case "speech-ended":
     case "clips-saved":
-    // A late total: `recording-stopped` carries the final one.
-    case "frames-lost":
-      return false;
+      return follows(state, "other", message.recordingSessionId);
   }
 };
 
-/** A Recording Session stopped: the editor follows none until the next. */
-const over = (state: cvmRecorderReducer.State, id: string) => ({
-  recordingSessionId: null,
-  endedRecordingSessionIds: ended(state, id),
-});
-
-const heard = (
+/** The device's half of a message the editor hears. */
+const deviceHeard = (
   state: cvmRecorderReducer.State,
   message: CvmRecorderMessage
 ): cvmRecorderReducer.State => {
-  if ("recordingSessionId" in message && message.type !== "recorder-status") {
-    if (!follows(state, message)) return state;
-  }
   switch (message.type) {
-    case "recorder-status": {
-      const recording = message.recordingSessionId !== null;
-      const current = state.recordingSessionId;
-      const endedIds =
-        current !== null && current !== message.recordingSessionId
-          ? ended(state, current)
-          : state.endedRecordingSessionIds;
+    case "recorder-status":
       return {
         ...state,
-        // The recorder's word on what records now is the truth.
-        recordingSessionId: message.recordingSessionId,
-        endedRecordingSessionIds: endedIds,
         reachable: message.reachable,
         problem: message.problem,
         previews: message.previews,
         camera: message.reachable ? state.camera : { kind: "closed" },
         scene: message.reachable ? state.scene : null,
         screen: message.reachable ? state.screen : null,
-        phase: recording
-          ? state.phase === "stopping"
-            ? "stopping"
-            : "recording"
-          : "idle",
-        // Joined mid-take, nothing is known until the recorder next hears.
-        speech:
-          recording && state.phase !== "idle"
-            ? state.speech
-            : createInitialSpeechDetectorState(),
       };
-    }
     case "camera-opening":
       return cameraHeard(state, { kind: "opening", attempt: message.attempt });
     case "camera-went-live":
@@ -415,46 +402,10 @@ const heard = (
     case "screen-changed":
       return { ...state, screen: message.screen, wakingAgain: false };
     case "recording-started":
-      return {
-        ...state,
-        phase: "recording",
-        speech: speechDetectorReducer(state.speech, {
-          type: "recording-started",
-        }),
-        error: null,
-        recordingSessionId: message.recordingSessionId,
-      };
-    case "warmed-up":
-    case "speech-ended":
-      return {
-        ...state,
-        speech: speechDetectorReducer(state.speech, {
-          type: "silence-started",
-        }),
-      };
-    case "speech-started":
-      // The wire carries no audio time: only `take-started` makes a Take.
-      return {
-        ...state,
-        speech: speechDetectorReducer(state.speech, {
-          type: "silence-ended",
-          endSeconds: null,
-        }),
-      };
-    case "take-started":
-      return {
-        ...state,
-        speech: speechDetectorReducer(state.speech, {
-          type: "take-started",
-          soundDetectionId: message.takeId,
-        }),
-      };
+      return { ...state, error: null };
     case "camera-lost":
       return {
         ...state,
-        ...over(state, message.recordingSessionId),
-        phase: "idle",
-        speech: createInitialSpeechDetectorState(),
         // Gone until the recorder reopens it and it goes live again.
         camera: { kind: "closed" },
         alert: CAMERA_LOST_ALERT,
@@ -463,9 +414,6 @@ const heard = (
     case "recording-stopped":
       return {
         ...state,
-        ...over(state, message.recordingSessionId),
-        phase: "idle",
-        speech: createInitialSpeechDetectorState(),
         error:
           message.errors.length > 0 ? message.errors.join("\n") : state.error,
         alert: message.crashed ? CRASHED_ALERT : state.alert,
@@ -476,9 +424,26 @@ const heard = (
       return { ...state, framesLost: message.framesLost };
     case "recorder-failed":
       return { ...state, error: message.message };
+    case "warmed-up":
+    case "speech-started":
+    case "take-started":
+    case "speech-ended":
     case "clips-saved":
       return state;
   }
+};
+
+const heard = (
+  state: cvmRecorderReducer.State,
+  message: CvmRecorderMessage,
+  exec: (effect: cvmRecorderReducer.Effect) => void
+): cvmRecorderReducer.State => {
+  if (!isHeard(state, message)) return state;
+  const event = sessionEventOf(state, message);
+  return deviceHeard(
+    event ? recorderSessionReducer(state, event, exec) : state,
+    message
+  );
 };
 
 export const cvmRecorderReducer: EffectReducer<
@@ -488,15 +453,11 @@ export const cvmRecorderReducer: EffectReducer<
 > = (state, action, exec) => {
   switch (action.type) {
     case "recorder-message-heard": {
-      const followed = heard(state, action.message);
-      const next = attach(
-        trackFramesLost(
-          state,
-          placeClips(state, followed, action.message, exec),
-          action.message
-        ),
-        action.message,
-        exec
+      const followed = heard(state, action.message, exec);
+      const next = trackFramesLost(
+        state,
+        placeClips(state, followed, action.message, exec),
+        action.message
       );
       // A new or restarted app server knows nothing of the editor's choice.
       if (
@@ -524,9 +485,7 @@ export const cvmRecorderReducer: EffectReducer<
     case "dismiss-alert":
       return { ...state, alert: null };
     case "press-stop":
-      if (!canStop(state)) return state;
-      exec({ type: "stop-recording" });
-      return { ...state, phase: "stopping" };
+      return recorderSessionReducer(state, { type: "press-stop" }, exec);
     case "press-retry":
       if (!canRetryCamera(state)) return state;
       exec({ type: "retry-camera" });
@@ -541,8 +500,11 @@ export const cvmRecorderReducer: EffectReducer<
       return { ...state, retrying: false, error: action.message };
     case "stop-recording-failed":
       return {
-        ...state,
-        phase: state.phase === "stopping" ? "recording" : state.phase,
+        ...recorderSessionReducer(
+          state,
+          { type: "stop-recording-failed" },
+          exec
+        ),
         error: action.message,
       };
   }
