@@ -11,3 +11,15 @@ export {
   resolveStoragePath,
   rootIsOnline,
 } from "./lib/resolve";
+
+// An agent's process (a verify-cvm run, a `cvm_verify_*` database,
+// CVM_NO_REAL_DRIVES=1) never reads a real drive (/mnt): resolution above
+// refuses such a path before touching it, and the startup check refuses a
+// Storage Root on one.
+export {
+  NO_REAL_DRIVES_ENV_KEY,
+  VERIFY_RUN_DIR_ENV_KEY,
+  realDriveReached,
+  realDriveRefusal,
+  realDrivesForbidden,
+} from "./lib/real-drives";

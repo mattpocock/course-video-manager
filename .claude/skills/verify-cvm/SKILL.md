@@ -43,9 +43,11 @@ back. Nothing you do can reach Matt's data, his files or the outside world:
 - The data is a copy, minus the credential tables. Nothing else writes to it,
   so every row in your [Write Ledger](#the-write-ledger) is yours.
 - File writes (Video files, Clip Mockups, renders, finished videos) go to
-  `scratch/` in the run, never Matt's disk; real Footage is "not found".
+  `scratch/` in the run, never Matt's disk.
   **Never link the run to a real drive**: launch refuses it.
   An Offline drive: `VERIFY_EXTRA_STORAGE_ROOTS=gone $V launch`.
+- **Your server never reads `/mnt`** (it drops Matt's recording frames):
+  that Footage shows `Footage refused`. For pictures, `$V tiny-course <run>`.
 - Every external service's credential is replaced with a dud, so Buffer, S3,
   Dropbox, YouTube, Anthropic and AI Hero all fail closed. A feature
   whose point is an external call shows its error path here, not its success.
@@ -429,8 +431,7 @@ $V cleanup <run>     # this run
 $V cleanup --all     # every live run this worktree launched
 ```
 
-It stops the run's API and sidecar (SIGTERM, so it puts back any Job it was
-running and lets go of its lease) and removes its socket, then kills the pid this run recorded — never a process matched by name, which
+It stops the run's API and sidecar (SIGTERM: it puts back its Job and lets go of its lease) and removes its socket, then kills the pid this run recorded — never a process matched by name, which
 would take Matt's server and every sibling run with it — closes this run's
 browser session, **drops the run's clone**, and leaves the rest alone. `--all`
 also sweeps the clones crashed runs left behind (as every `launch` does): any
@@ -439,5 +440,4 @@ whose run is no longer live, in any worktree, and any unclaimed, unconnected
 never touched. **The evidence survives**: the run directory is left whole, and its path is printed. Quote that path in your
 report.
 
-Run cleanup after a failed attempt too, so a broken run leaves no server holding
-a port.
+Run cleanup after a failed attempt too.
