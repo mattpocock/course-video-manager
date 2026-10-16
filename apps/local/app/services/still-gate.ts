@@ -18,6 +18,10 @@ import { Context, Data, Effect, Option } from "effect";
  * of the browser's six HTTP/1.1 connections to the app for the whole
  * Recording Session: six of them and no Clip could play, and the editor
  * could not even be reloaded. The editor asks again after the Stop.
+ *
+ * The last-frame still skips the gate (`getLastFrame`): the live preview's
+ * overlay of the previous Take's last frame needs it mid-session (#2294).
+ * The first-frame still stays gated.
  */
 
 /** A still asked for while the recorder records: ask again after the Stop. */

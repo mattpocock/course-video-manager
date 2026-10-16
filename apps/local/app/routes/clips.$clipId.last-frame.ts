@@ -9,7 +9,7 @@ import { resolveClipFrameFiles } from "@/services/clip-source-files.server";
 import { storageRootsConfig } from "@/services/storage-roots";
 
 export const loader = makeLoader({
-  errors: { StorageFileNotFoundError: 404, StillHeldError: 503 },
+  errors: { StorageFileNotFoundError: 404 },
   effect: ({ params, request }) =>
     Effect.gen(function* () {
       const clipOps = yield* ClipOperationsService;

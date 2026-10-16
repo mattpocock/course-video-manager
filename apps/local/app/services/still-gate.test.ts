@@ -124,7 +124,7 @@ describe("the still gate", () => {
 
   it("a still route answers 503 at once while recording, never parking the browser's connection", async () => {
     const gate = makeStillGate(fakeRecorder(true).signal);
-    // The first-frame and last-frame routes' error map.
+    // The first-frame route's error map.
     const loader = makeLoader(
       {
         errors: { StillHeldError: 503 },

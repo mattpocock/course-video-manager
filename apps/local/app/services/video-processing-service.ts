@@ -22,10 +22,12 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
       /**
        * Renders a still to a cached PNG. An OBS Clip's frame is cached under
        * its file and time as it always was; a composite under the whole frame.
+       * `gated: false` skips the Still Gate (the last-frame overlay, below).
        */
       const renderStill = Effect.fn("renderStill")(function* (
         frame: ClipFrame,
-        cacheKeyPrefix: string
+        cacheKeyPrefix: string,
+        { gated }: { gated: boolean }
       ) {
         const seek = frame.time.toFixed(2);
         const inputHash = crypto
@@ -70,7 +72,9 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         }).pipe(Effect.ensuring(effectFs.remove(partial).pipe(Effect.ignore)));
 
         // Only the app server gates stills on the recorder (`still-gate.ts`).
-        const gate = yield* Effect.serviceOption(StillGate);
+        const gate = gated
+          ? yield* Effect.serviceOption(StillGate)
+          : Option.none();
         yield* Option.match(gate, {
           onNone: () => decode,
           onSome: ({ run }) => run(decode),
@@ -79,9 +83,14 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         return outputFile;
       });
 
-      const getLastFrame = (frame: ClipFrame) => renderStill(frame, "");
+      // The last frame is NOT gated: the live preview overlays the previous
+      // Take's last frame mid-session. #2214 held it until Stop for dropped
+      // frames; Matt brought it back to see if they return (#2294).
+      const getLastFrame = (frame: ClipFrame) =>
+        renderStill(frame, "", { gated: false });
 
-      const getFirstFrame = (frame: ClipFrame) => renderStill(frame, "first-");
+      const getFirstFrame = (frame: ClipFrame) =>
+        renderStill(frame, "first-", { gated: true });
 
       return {
         /**

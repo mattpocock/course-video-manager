@@ -2,7 +2,6 @@ import { cn } from "@/lib/utils";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { clipStillUrl } from "../clip-still-url";
-import { holdsStillsOf, stillRound } from "../cvm-recorder-reducer";
 import { getCvmRecorderLivePreview } from "../live-preview";
 import { getShowRecordingSignal } from "../video-editor-selectors";
 import { CaptureFrame } from "./capture-frame";
@@ -89,19 +88,14 @@ export const LivePreviewFrame = () => {
           cameraKey={composite.cameraKey}
         />
       </CaptureFrame>
-      {!showVideoPlayer &&
-        showLastFrameOverlay &&
-        lastFrameClip &&
-        // Its take is still recording: no still until Stop (#2214).
-        !holdsStillsOf(cvmRecorderState, lastFrameClip) && (
-          <div className="absolute inset-0 rounded-lg">
-            <img
-              key={stillRound(cvmRecorderState)}
-              className="w-full h-full rounded-lg opacity-50 object-contain"
-              src={clipStillUrl(lastFrameClip, "last")}
-            />
-          </div>
-        )}
+      {!showVideoPlayer && showLastFrameOverlay && lastFrameClip && (
+        <div className="absolute inset-0 rounded-lg">
+          <img
+            className="w-full h-full rounded-lg opacity-50 object-contain"
+            src={clipStillUrl(lastFrameClip, "last")}
+          />
+        </div>
+      )}
     </div>
   );
 };
