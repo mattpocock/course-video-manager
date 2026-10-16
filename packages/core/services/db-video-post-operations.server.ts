@@ -1,7 +1,7 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { videoPosts } from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 
 export type VideoPostPlatform = "youtube-shorts" | "buffer";
@@ -38,6 +38,21 @@ const createVideoPostOperations = (db: Database) => {
     );
   });
 
+  /**
+   * Every Video Post of every Video named, in one query, so a page showing
+   * many Videos (the Shorts page) does not send one query per Video.
+   */
+  const listByVideoIds = Effect.fn("listByVideoIds")(function* (
+    videoIds: readonly string[]
+  ) {
+    if (videoIds.length === 0) return [];
+    return yield* makeDbCall(() =>
+      db.query.videoPosts.findMany({
+        where: inArray(videoPosts.videoId, [...videoIds]),
+      })
+    );
+  });
+
   const updateRemoteInfo = Effect.fn("updateRemoteInfo")(function* (opts: {
     id: string;
     remoteId: string;
@@ -70,6 +85,7 @@ const createVideoPostOperations = (db: Database) => {
   return {
     createVideoPost,
     listByVideoId,
+    listByVideoIds,
     updateRemoteInfo,
     markPosted,
   };

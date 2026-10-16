@@ -4,14 +4,17 @@ import {
   isCvmRecorderRecording,
   type cvmRecorderReducer,
 } from "./cvm-recorder-reducer";
-import type { FrontendSpeechDetectorState } from "./use-speech-detector";
+import {
+  toFrontendSpeechDetectorState,
+  type FrontendSpeechDetectorState,
+} from "./speech-detector-reducer";
 
 /**
  * What a take is doing, whichever Recorder films it: whether it records, and
  * what silence detection hears. OBS reports both through the OBS connector
  * (its recording state and the browser speech detector); the CVM recorder
  * through `cvmRecorderReducer` (the recorder service's ffmpeg silencedetect),
- * in the same vocabulary. Everything downstream (the editor's badge, its
+ * through the same speech state machine. Everything downstream (the editor's badge, its
  * Silence Length toggle and the teleprompter) reads this, so none of it cares
  * which Recorder is in use.
  */
@@ -30,7 +33,7 @@ export const getRecorderCapture = (o: {
     ? { isRecording: o.obsState.type === "obs-recording", speech: o.obsSpeech }
     : {
         isRecording: isCvmRecorderRecording(o.cvmRecorder),
-        speech: o.cvmRecorder.speech,
+        speech: toFrontendSpeechDetectorState(o.cvmRecorder.speech),
       };
 
 /**

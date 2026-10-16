@@ -3,8 +3,7 @@ import type { cvmRecorderReducer } from "./cvm-recorder-reducer";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 
 const isSpeaking = (speech: cvmRecorderReducer.State["speech"]) =>
-  speech.type === "speaking-detected" ||
-  speech.type === "long-enough-speaking-for-clip-detected";
+  speech.type === "speaking";
 
 /**
  * The clip reducer's half of a message (`cvm-recorder-reducer.ts`, Clips),

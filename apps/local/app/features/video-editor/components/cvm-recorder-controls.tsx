@@ -35,8 +35,7 @@ const statusText = (
             : "Waiting for the screen.";
       }
     case "recording":
-      return state.speech.type === "speaking-detected" ||
-        state.speech.type === "long-enough-speaking-for-clip-detected"
+      return state.speech.type === "speaking"
         ? "Recording · speaking"
         : "Recording";
     case "stopping":

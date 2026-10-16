@@ -67,3 +67,31 @@ describe("createSpeechDetectorScan", () => {
     expect(detector.state).toEqual({ type: "silence" });
   });
 });
+
+describe("speechDetectorReducer with no audio clock (the CVM recorder)", () => {
+  it("never times the speech itself: only the Recorder's take-started makes a Take", () => {
+    const hear = (
+      state: speechDetectorReducer.State,
+      ...actions: speechDetectorReducer.Action[]
+    ) => actions.reduce(speechDetectorReducer, state);
+    const speaking = hear(createInitialSpeechDetectorState(), {
+      type: "silence-ended",
+      endSeconds: null,
+    });
+    expect(isAwaitingLongEnoughSpeech(speaking)).toBe(false);
+    expect(
+      hear(speaking, {
+        type: "audio-heard",
+        atSeconds: 60,
+        soundDetectionId: "x",
+      })
+    ).toBe(speaking);
+    expect(
+      hear(speaking, { type: "take-started", soundDetectionId: "s1:1" })
+    ).toEqual({
+      type: "speaking",
+      silenceEndedAtSeconds: null,
+      soundDetectionId: "s1:1",
+    });
+  });
+});

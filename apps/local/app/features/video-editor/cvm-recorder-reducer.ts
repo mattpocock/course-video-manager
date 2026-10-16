@@ -19,7 +19,10 @@ import type {
   CvmRecorderMessage,
   SavedRecorderClip,
 } from "./cvm-recorder-wire";
-import type { FrontendSpeechDetectorState } from "./use-speech-detector";
+import {
+  createInitialSpeechDetectorState,
+  speechDetectorReducer,
+} from "./speech-detector-reducer";
 
 /**
  * The CVM recorder in the editor. The recorder service records; this
@@ -45,9 +48,9 @@ import type { FrontendSpeechDetectorState } from "./use-speech-detector";
  * Silence Length, the editor tells the app server its choice whenever it
  * changes and whenever the recorder reports in.
  *
- * Speech: the recorder's silence detection, in the OBS path's vocabulary
- * (`FrontendSpeechDetectorState`), so the editor and the teleprompter show a
- * take the same whichever Recorder films it. Record warms up until the
+ * Speech: the recorder's silence detection, fed to OBS's speech state
+ * machine (`speechDetectorReducer`), so the editor and the teleprompter show
+ * a take the same whichever Recorder films it. Record warms up until the
  * recorder hears the first silence (`warmed-up`); speech shows as speaking,
  * then as long enough for a Clip when the recorder says it is a Take
  * (`take-started`). The editor never times speech itself: the recorder
@@ -105,7 +108,7 @@ export namespace cvmRecorderReducer {
     /** Where the browser watches the raw camera and screen. */
     previews: { camera: string; screen: string } | null;
     /** What the recorder's silence detection hears; read while recording. */
-    speech: FrontendSpeechDetectorState;
+    speech: speechDetectorReducer.State;
     /** The scene the recorder draws; null while it is not open for this Video. */
     scene: Scene | null;
     /** A Short's screen; null while not open for this Video, and for Landscape. */
@@ -206,7 +209,7 @@ export const createInitialCvmRecorderState = (
   camera: { kind: "closed" },
   retrying: false,
   previews: null,
-  speech: { type: "warming-up" },
+  speech: createInitialSpeechDetectorState(),
   scene: null,
   screen: null,
   wakingAgain: false,
@@ -288,9 +291,6 @@ export const framesLostAlert = (
   state: cvmRecorderReducer.State
 ): string | null =>
   describeFramesLostInClips(state, isCvmRecorderRecording(state));
-
-const WARMING_UP: FrontendSpeechDetectorState = { type: "warming-up" };
-const SILENCE: FrontendSpeechDetectorState = { type: "silence" };
 
 /** Enough to recognise any late replay; a page records far fewer. */
 const ENDED_KEPT = 50;
@@ -378,7 +378,10 @@ const heard = (
             : "recording"
           : "idle",
         // Joined mid-take, nothing is known until the recorder next hears.
-        speech: recording && state.phase !== "idle" ? state.speech : WARMING_UP,
+        speech:
+          recording && state.phase !== "idle"
+            ? state.speech
+            : createInitialSpeechDetectorState(),
       };
     }
     case "camera-opening":
@@ -406,31 +409,43 @@ const heard = (
       return {
         ...state,
         phase: "recording",
-        speech: WARMING_UP,
+        speech: speechDetectorReducer(state.speech, {
+          type: "recording-started",
+        }),
         error: null,
         recordingSessionId: message.recordingSessionId,
       };
     case "warmed-up":
-      return { ...state, speech: SILENCE };
-    case "speech-started":
-      return { ...state, speech: { type: "speaking-detected" } };
-    case "take-started":
-      // The speech is a take now, as OBS's detector makes it one.
+    case "speech-ended":
       return {
         ...state,
-        speech: {
-          type: "long-enough-speaking-for-clip-detected",
-          soundDetectionId: message.takeId,
-        },
+        speech: speechDetectorReducer(state.speech, {
+          type: "silence-started",
+        }),
       };
-    case "speech-ended":
-      return { ...state, speech: SILENCE };
+    case "speech-started":
+      // The wire carries no audio time: only `take-started` makes a Take.
+      return {
+        ...state,
+        speech: speechDetectorReducer(state.speech, {
+          type: "silence-ended",
+          endSeconds: null,
+        }),
+      };
+    case "take-started":
+      return {
+        ...state,
+        speech: speechDetectorReducer(state.speech, {
+          type: "take-started",
+          soundDetectionId: message.takeId,
+        }),
+      };
     case "camera-lost":
       return {
         ...state,
         ...over(state, message.recordingSessionId),
         phase: "idle",
-        speech: WARMING_UP,
+        speech: createInitialSpeechDetectorState(),
         // Gone until the recorder reopens it and it goes live again.
         camera: { kind: "closed" },
         alert: CAMERA_LOST_ALERT,
@@ -441,7 +456,7 @@ const heard = (
         ...state,
         ...over(state, message.recordingSessionId),
         phase: "idle",
-        speech: WARMING_UP,
+        speech: createInitialSpeechDetectorState(),
         error:
           message.errors.length > 0 ? message.errors.join("\n") : state.error,
         alert: message.crashed ? CRASHED_ALERT : state.alert,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { DB } from "@/db/schema";
 import type {
   ClipOnDatabase,
@@ -311,8 +311,6 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   useClipTranscriptionJobs(props.loaderData.video.id, dispatch);
 
   const [silenceLength, setSilenceLength] = useSilenceLength();
-  const silenceLengthRef = useRef(silenceLength);
-  silenceLengthRef.current = silenceLength;
 
   // Feeds the Chrome extension's link-capture events into the clip reducer,
   // which keeps the pages shown while a clip records. Best-effort.
@@ -357,6 +355,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   });
   const obsConnector = useOBSConnector({
     usesObs: recorderChoice.usesObs,
+    clipDispatch: dispatch,
     onNewClipOptimisticallyAdded,
     onClipAudioWindowClosed,
     silenceLength,
@@ -372,24 +371,6 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   });
 
   const capture = captureProps(recorderChoice, obsConnector, cvmRecorder);
-
-  // Sync OBS recording state to clip-state-reducer sessions.
-  const prevOBSStateTypeRef = useRef(obsConnector.state.type);
-  useEffect(() => {
-    const obs = obsConnector.state;
-    const prevType = prevOBSStateTypeRef.current;
-    prevOBSStateTypeRef.current = obs.type;
-    if (prevType !== "obs-recording" && obs.type === "obs-recording") {
-      dispatch({
-        type: "recording-started",
-        outputPath: obs.latestOutputPath,
-        silenceLength: silenceLengthRef.current,
-        silenceThresholdDb: obs.silenceThresholdDb,
-      });
-    } else if (prevType === "obs-recording" && obs.type !== "obs-recording") {
-      dispatch({ type: "recording-stopped" });
-    }
-  }, [obsConnector.state.type]);
 
   return (
     <VideoEditor

@@ -39,6 +39,36 @@ async function createTestVideo(title = "Test Short") {
   return video!;
 }
 
+describe("listByVideoIds", () => {
+  it.effect("returns the posts of every Video named, and no others", () =>
+    Effect.gen(function* () {
+      const video1 = yield* Effect.promise(() => createTestVideo("Short 1"));
+      const video2 = yield* Effect.promise(() => createTestVideo("Short 2"));
+      const video3 = yield* Effect.promise(() => createTestVideo("Short 3"));
+      const ops = yield* VideoPostOperationsService;
+
+      yield* ops.createVideoPost({
+        videoId: video1.id,
+        platform: "youtube-shorts",
+      });
+      yield* ops.createVideoPost({ videoId: video2.id, platform: "buffer" });
+      yield* ops.createVideoPost({ videoId: video3.id, platform: "buffer" });
+
+      const posts = yield* ops.listByVideoIds([video1.id, video2.id]);
+      expect(posts.map((p) => `${p.videoId}:${p.platform}`).sort()).toEqual(
+        [`${video1.id}:youtube-shorts`, `${video2.id}:buffer`].sort()
+      );
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("returns nothing for no Videos", () =>
+    Effect.gen(function* () {
+      const ops = yield* VideoPostOperationsService;
+      expect(yield* ops.listByVideoIds([])).toEqual([]);
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
 describe("listByVideoId", () => {
   it.effect("returns all posts for a video", () =>
     Effect.gen(function* () {

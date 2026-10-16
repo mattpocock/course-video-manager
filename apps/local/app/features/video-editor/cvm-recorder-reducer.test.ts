@@ -97,7 +97,7 @@ describe("the CVM recorder's Record and Stop", () => {
       .send(heard({ type: "speech-started", recordingSessionId: "s1" }));
     expect(t.getState()).toMatchObject({
       phase: "recording",
-      speech: { type: "speaking-detected" },
+      speech: { type: "speaking", soundDetectionId: null },
     });
 
     t.send({ type: "press-stop" }).send(heard(stoppedMessage()));

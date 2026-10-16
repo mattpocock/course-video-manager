@@ -46,16 +46,34 @@ export const loader = makeLoader({
 
       const exportedMap: Record<string, boolean> = {};
       const postedMap: Record<string, PostedPlatforms> = {};
-      yield* Effect.forEach(shorts, (video) =>
-        Effect.gen(function* () {
-          exportedMap[video.id] = Option.isSome(
-            yield* findExportedVideo(storageRoots, `${video.id}.mp4`)
-          );
 
-          const posts = yield* videoPostOps.listByVideoId(video.id);
-          postedMap[video.id] = getPostedPlatforms(posts);
-        })
+      // One query for every Short's Video Posts (not one per Short), while
+      // the Exported Video checks run alongside it, a few at a time so a
+      // slow Storage Root is not sent every stat at once.
+      const [posts] = yield* Effect.all(
+        [
+          videoPostOps.listByVideoIds(shorts.map((video) => video.id)),
+          Effect.forEach(
+            shorts,
+            (video) =>
+              Effect.map(
+                findExportedVideo(storageRoots, `${video.id}.mp4`),
+                (found) => {
+                  exportedMap[video.id] = Option.isSome(found);
+                }
+              ),
+            { concurrency: 8, discard: true }
+          ),
+        ],
+        { concurrency: "unbounded" }
       );
+
+      const postsByVideo = Map.groupBy(posts, (post) => post.videoId);
+      for (const video of shorts) {
+        postedMap[video.id] = getPostedPlatforms(
+          postsByVideo.get(video.id) ?? []
+        );
+      }
 
       return { shorts, exportedMap, postedMap };
     }),

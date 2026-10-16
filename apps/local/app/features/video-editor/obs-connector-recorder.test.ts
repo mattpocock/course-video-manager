@@ -6,21 +6,20 @@ import {
 import {
   createInitialOBSConnectorState,
   obsConnectorReducer,
-  type useOBSConnector,
-} from "./obs-connector";
+} from "./obs-connector-reducer";
 import { CALIBRATION_VALIDITY_MS } from "@/av-calibration-constants";
 
 const start = (usesObs: boolean) => {
-  const effects: useOBSConnector.Effect[] = [];
-  const exec = (e: useOBSConnector.Effect) => {
+  const effects: obsConnectorReducer.Effect[] = [];
+  const exec = (e: obsConnectorReducer.Effect) => {
     effects.push(e);
   };
   let state = createInitialOBSConnectorState(usesObs, exec);
-  const send = (action: useOBSConnector.Action) => {
+  const send = (action: obsConnectorReducer.Action) => {
     state = obsConnectorReducer(state, action, exec as never);
-    return state;
+    return state.obs;
   };
-  return { send, effects, state: () => state };
+  return { send, effects, state: () => state.obs };
 };
 
 const MIC = "Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)";
@@ -38,12 +37,14 @@ const fresh = {
   },
   browserInputLabel: MIC,
   nowMs: CALIBRATION_AT + 60_000,
-};
+  silenceLength: "short",
+} as const;
 
 const connected = {
   type: "obs-connected",
   profile: "Landscape Recording",
   scene: "Camera",
+  recording: false,
 } as const;
 
 describe("the OBS connector and the Video's Recorder", () => {
@@ -61,7 +62,14 @@ describe("the OBS connector and the Video's Recorder", () => {
       latestOutputPath: "/a.mkv",
       silenceThresholdDb: -43,
     });
-    expect(obs.effects).toEqual([]);
+    expect(obs.effects).toEqual([
+      {
+        type: "start-session",
+        outputPath: "/a.mkv",
+        silenceLength: "short",
+        silenceThresholdDb: -43,
+      },
+    ]);
   });
 
   it.each([

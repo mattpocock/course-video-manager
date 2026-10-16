@@ -32,7 +32,7 @@ export const createSpeechDetectorScan = (rule: SilenceRule) => {
       const actions: speechDetectorReducer.Action[] = result.events.map(
         (event) =>
           event.type === "silence-started"
-            ? { type: "silence-started", heardAtSeconds: event.heardAtSeconds }
+            ? { type: "silence-started" }
             : { type: "silence-ended", endSeconds: event.endSeconds }
       );
       if (opts.awaitingLongEnoughSpeech) {
