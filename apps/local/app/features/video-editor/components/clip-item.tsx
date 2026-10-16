@@ -35,7 +35,7 @@ import { clipScenePicker } from "./clip-scene-picker";
 import { clipEditTranscriptAction } from "./clip-edit-transcript-action";
 import { openDiagramPlaygroundForClip } from "./open-diagram-playground-for-clip";
 import { clipStillUrl } from "../clip-still-url";
-import { holdsStillsOf } from "../cvm-recorder-reducer";
+import { holdsStillsOf, stillRound } from "../cvm-recorder-reducer";
 import { HeldStill } from "./held-still";
 import { isTranscriptionPending } from "@/features/videos/transcription-status";
 import {
@@ -103,6 +103,9 @@ export const ClipItem = (props: ClipItemProps) => {
     (ctx) =>
       clip.type === "on-database" && holdsStillsOf(ctx.cvmRecorder.state, clip)
   );
+  const round = useContextSelector(VideoEditorContext, (ctx) =>
+    stillRound(ctx.cvmRecorder.state)
+  );
   const percentComplete = getClipPercentComplete(clip, currentTimeInClip);
   const transcriptionStatus =
     clip.type === "on-database" ? clip.transcriptionStatus : null;
@@ -138,6 +141,7 @@ export const ClipItem = (props: ClipItemProps) => {
           ) : clip.type === "on-database" ? (
             <div className="flex-shrink-0 relative">
               <img
+                key={round}
                 src={clipStillUrl(clip, "first")}
                 alt="First frame"
                 className={cn(

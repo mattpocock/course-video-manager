@@ -257,6 +257,15 @@ export const holdsStillsOf = (
 };
 
 /**
+ * Which Stop the editor's stills were last asked for after: a new value at
+ * each Stop. A still asked for mid-session is answered 503 at once (the
+ * server's Still Gate never parks the request, `still-gate.ts`), so a still
+ * `<img>` is keyed on this and asks again once the session is over.
+ */
+export const stillRound = (state: cvmRecorderReducer.State): string =>
+  state.endedRecordingSessionIds.at(-1) ?? "";
+
+/**
  * The loud alert for frames lost INSIDE A CLIP (#2214, #2227): shown
  * mid-take the moment a loss is known to fall in one, naming the Clips hit,
  * and kept after Stop until the next Recording Session. Frames lost between

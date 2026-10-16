@@ -35,7 +35,7 @@ export namespace teleprompterSession {
 
   /**
    * The Suggestions tab's line, which takes the glass from the Script, with
-   * the Clips just before it shown dimmed above it.
+   * the Clips just before it shown above it, in the same type.
    */
   export interface Suggestion {
     /** A new id is a new suggestion, which the glass centres. */

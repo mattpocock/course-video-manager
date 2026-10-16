@@ -35,8 +35,6 @@ import {
 } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { purgeLegacyDocumentStorage } from "@/features/article-writer/write-utils";
-import { UploadProvider } from "@/features/upload-manager/upload-context";
-import { GlobalUploadProgress } from "@/features/upload-manager/global-upload-progress";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { Loader2, MessageSquarePlus } from "lucide-react";
 import { slowRequestMiddleware } from "@/services/slow-request-log.server";
@@ -113,8 +111,7 @@ export default function App() {
   );
 
   return (
-    <UploadProvider>
-      <GlobalUploadProgress />
+    <>
       <Outlet />
       {!isTeleprompter && (
         <Button
@@ -142,7 +139,7 @@ export default function App() {
           onSubmittingChange={setFeedbackSubmitting}
         />
       )}
-    </UploadProvider>
+    </>
   );
 }
 
