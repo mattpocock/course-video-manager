@@ -46,11 +46,7 @@ const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
   ) as Promise<A>;
 
 const send = (event: any) =>
-  Effect.runPromiseExit(
-    handleClipServiceEvent(testDb as any, event, {
-      getLatestOBSVideoClips: async () => ({ clips: [] }),
-    })
-  );
+  Effect.runPromiseExit(handleClipServiceEvent(testDb as any, event));
 
 const exportHashOf = async (videoId: string) =>
   computeExportHash(

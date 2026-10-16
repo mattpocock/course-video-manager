@@ -26,15 +26,12 @@ import {
   updateMicOffset,
 } from "./clip-service-mic-settings.server";
 import {
-  type VideoProcessingAdapter,
   type LoggerAdapter,
   noopLogger,
   getOrderedItems,
   touchVideoUpdatedAt,
   appendClipsAtInsertionPoint,
-  withVideoMutex,
   dbCall,
-  appendFromObsImpl,
   createEffectClipAtPositionImpl,
   handleCreateVideoFromSelection,
 } from "./clip-service-handler.helpers";
@@ -42,7 +39,7 @@ import type { Database } from "@/services/drizzle-service.server";
 import { withClipServiceWriteClosure } from "./draft-guard-clip-service.server";
 import { replaceVideoChapters } from "./autofill-chapters-write.server";
 
-export type { VideoProcessingAdapter, LoggerAdapter };
+export type { LoggerAdapter };
 
 // ============================================================================
 // Handler
@@ -58,25 +55,18 @@ export type { VideoProcessingAdapter, LoggerAdapter };
  *
  * @param db - Drizzle database instance
  * @param event - The event to handle
- * @param videoProcessing - VideoProcessingService adapter (required for append-from-obs)
  */
 export const handleClipServiceEvent = (
   db: Database,
   event: ClipServiceEvent,
-  videoProcessing: VideoProcessingAdapter,
   logger: LoggerAdapter = noopLogger
 ) =>
   withClipServiceWriteClosure(db, event, (tx) =>
-    dispatchClipServiceEvent(tx, event, videoProcessing, logger)
+    dispatchClipServiceEvent(tx, event, logger)
   );
 
 const dispatchClipServiceEvent = Effect.fn("dispatchClipServiceEvent")(
-  function* (
-    db: Database,
-    event: ClipServiceEvent,
-    videoProcessing: VideoProcessingAdapter,
-    logger: LoggerAdapter
-  ) {
+  function* (db: Database, event: ClipServiceEvent, logger: LoggerAdapter) {
     switch (event.type) {
       case "create-video": {
         const [video] = yield* dbCall(() =>
@@ -138,23 +128,6 @@ const dispatchClipServiceEvent = Effect.fn("dispatchClipServiceEvent")(
         });
 
         return result;
-      }
-
-      case "append-from-obs": {
-        if (!videoProcessing) {
-          throw new Error(
-            "VideoProcessingAdapter is required for append-from-obs"
-          );
-        }
-
-        // Serialize concurrent append-from-obs calls for the same video
-        // via an in-memory mutex to prevent duplicate clip inserts. Typed
-        // failures (VersionNotDraftError from the post-detection guard,
-        // #1403) stay in the error channel.
-        return yield* withVideoMutex(
-          event.input.videoId,
-          appendFromObsImpl(db, event, videoProcessing, logger)
-        );
       }
 
       case "archive-clips": {

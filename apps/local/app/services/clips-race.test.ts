@@ -122,65 +122,20 @@ const failureTagOfExit = (exit: Exit.Exit<unknown, unknown>) =>
     : "no-error";
 
 describe("clips-during-publish race (#1403)", () => {
-  it("an OBS append whose detection straddles Submit fails terminally and strands no clip", async () => {
-    const { video, submit, clipCountForVideo } = await setup();
-    const before = await clipCountForVideo(video.id);
-
-    // The real race shape: OBS silence detection is slow, and the publish
-    // (Submit) lands while it runs. The adapter performs the Submit *inside*
-    // getLatestOBSVideoClips — after the handler's pre-flight resolution,
-    // before the insert.
-    const exit = await Effect.runPromiseExit(
-      handleClipServiceEvent(
-        testDb as any,
-        {
-          type: "append-from-obs",
-          input: {
-            videoId: video.id,
-            filePath: "C:\\rec\\session.mp4",
-            insertionPoint: { type: "start" },
-          },
-        },
-        {
-          getLatestOBSVideoClips: async () => {
-            await submit();
-            return {
-              clips: [
-                {
-                  inputVideo: "/mnt/c/rec/session.mp4",
-                  startTime: 0,
-                  endTime: 5,
-                },
-              ],
-            };
-          },
-        }
-      )
-    );
-
-    expect(failureTagOfExit(exit)).toBe("VersionNotDraftError");
-    // The frozen (now Pending) version's video gained no clip.
-    expect(await clipCountForVideo(video.id)).toBe(before);
-  });
-
   it("a guarded handler write after Submit fails with VersionNotDraftError and inserts nothing", async () => {
     const { video, submit, clipCountForVideo } = await setup();
     await submit();
     const before = await clipCountForVideo(video.id);
 
     const exit = await Effect.runPromiseExit(
-      handleClipServiceEvent(
-        testDb as any,
-        {
-          type: "append-clips",
-          input: {
-            videoId: video.id,
-            insertionPoint: { type: "start" },
-            clips: [{ inputVideo: "x.mp4", startTime: 0, endTime: 1 }],
-          },
+      handleClipServiceEvent(testDb as any, {
+        type: "append-clips",
+        input: {
+          videoId: video.id,
+          insertionPoint: { type: "start" },
+          clips: [{ inputVideo: "x.mp4", startTime: 0, endTime: 1 }],
         },
-        { getLatestOBSVideoClips: async () => ({ clips: [] }) }
-      )
+      })
     );
 
     expect(failureTagOfExit(exit)).toBe("VersionNotDraftError");

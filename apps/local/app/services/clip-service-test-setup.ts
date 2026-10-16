@@ -1,12 +1,10 @@
 /**
  * Shared test setup for the clip-service-*.test.ts integration tests.
- * A PGlite-backed ClipService with a fake VideoProcessingAdapter, reset
- * before every test, plus the insertion-point and timeline helpers.
+ * A PGlite-backed ClipService, reset before every test, plus the insertion-point and timeline helpers.
  */
 
-import { vi, beforeAll, beforeEach } from "vitest";
+import { beforeAll, beforeEach } from "vitest";
 import { createDirectClipService } from "@/test-utils/direct-clip-service";
-import { type VideoProcessingAdapter } from "./clip-service-handler";
 import type {
   ClipService,
   FrontendId,
@@ -22,7 +20,6 @@ import {
 
 export let testDb: TestDb;
 export let clipService: ClipService;
-export let mockVideoProcessing: VideoProcessingAdapter;
 
 /** The Storage Root these tests' Footage paths are under (never read from disk). */
 export const TEST_STORAGE_ROOT = "/mnt/t";
@@ -37,11 +34,7 @@ export function setupClipServiceTests() {
   beforeEach(async () => {
     await truncateAllTables(testDb);
 
-    mockVideoProcessing = {
-      getLatestOBSVideoClips: vi.fn().mockResolvedValue({ clips: [] }),
-    };
-
-    clipService = createDirectClipService(testDb as any, mockVideoProcessing);
+    clipService = createDirectClipService(testDb as any);
   });
 }
 

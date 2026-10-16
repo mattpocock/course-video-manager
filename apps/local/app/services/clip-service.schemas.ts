@@ -55,14 +55,6 @@ const AppendClipsInputSchema = Schema.Struct({
   clips: Schema.Array(ClipInputSchema),
 });
 
-const AppendFromObsInputSchema = Schema.Struct({
-  videoId: Schema.String,
-  filePath: Schema.optional(Schema.String),
-  insertionPoint: InsertionPointSchema,
-  silenceLength: Schema.optional(Schema.Literal("short", "long")),
-  silenceThresholdDb: Schema.optional(Schema.Number),
-});
-
 const UpdateClipInputSchema = Schema.Struct({
   id: Schema.String,
   scene: Schema.String,
@@ -142,10 +134,6 @@ export const ClipServiceEventSchema = Schema.Union(
   Schema.Struct({
     type: Schema.Literal("append-clips"),
     input: AppendClipsInputSchema,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("append-from-obs"),
-    input: AppendFromObsInputSchema,
   }),
   Schema.Struct({
     type: Schema.Literal("archive-clips"),

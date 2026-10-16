@@ -13,7 +13,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { clips, chapters, videos } from "@/db/schema";
 import { parse409Message } from "@/services/version-not-draft-message";
-import type { SilenceLength } from "@/silence-detection-constants";
 import type { FootageStats } from "@cvm/core/services/db-footage-stats.server";
 import type {
   MicEq,
@@ -239,16 +238,6 @@ export interface AppendClipsInput {
   }[];
 }
 
-export interface AppendFromObsInput {
-  videoId: string;
-  filePath?: string;
-  insertionPoint: FrontendInsertionPoint;
-  items: FrontendTimelineItem[];
-  silenceLength?: SilenceLength;
-  /** The threshold the OBS take was recorded under; absent: the fixed default. */
-  silenceThresholdDb?: number;
-}
-
 export interface UpdateClipInput {
   id: string;
   scene: string;
@@ -321,14 +310,6 @@ interface InternalAppendClipsInput {
   }[];
 }
 
-interface InternalAppendFromObsInput {
-  videoId: string;
-  filePath?: string;
-  insertionPoint: InsertionPoint;
-  silenceLength?: SilenceLength;
-  silenceThresholdDb?: number;
-}
-
 interface InternalCreateChapterAtInsertionPointInput {
   videoId: string;
   name: string;
@@ -363,7 +344,6 @@ export interface ClipService {
 
   // Clip operations
   appendClips(input: AppendClipsInput): Promise<Clip[]>;
-  appendFromObs(input: AppendFromObsInput): Promise<Clip[]>;
   archiveClips(clipIds: string[]): Promise<void>;
   unarchiveClips(clipIds: string[]): Promise<void>;
   updateClips(clips: UpdateClipInput[]): Promise<void>;
@@ -438,7 +418,6 @@ export type ClipServiceEvent =
   | { type: "get-timeline"; videoId: string }
   | { type: "get-footage-stats"; now: string; timeZone: string }
   | { type: "append-clips"; input: InternalAppendClipsInput }
-  | { type: "append-from-obs"; input: InternalAppendFromObsInput }
   | { type: "archive-clips"; clipIds: readonly string[] }
   | { type: "unarchive-clips"; clipIds: readonly string[] }
   | { type: "update-clips"; clips: readonly UpdateClipInput[] }
@@ -529,20 +508,6 @@ export function createClipService(send: ClipServiceTransport): ClipService {
           videoId: input.videoId,
           insertionPoint: resolved,
           clips: input.clips,
-        },
-      }) as Promise<Clip[]>;
-    },
-
-    async appendFromObs(input) {
-      const resolved = resolveInsertionPoint(input.insertionPoint, input.items);
-      return send({
-        type: "append-from-obs",
-        input: {
-          videoId: input.videoId,
-          filePath: input.filePath,
-          insertionPoint: resolved,
-          silenceLength: input.silenceLength,
-          silenceThresholdDb: input.silenceThresholdDb,
         },
       }) as Promise<Clip[]>;
     },

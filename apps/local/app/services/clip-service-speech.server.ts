@@ -3,11 +3,9 @@
  * speech (the CVM recorder's silence detector), this decides what of it
  * becomes a Clip and where the Clips go.
  *
- * What of the speech becomes a Clip is `speechToClipBounds`, the same rule the
- * OBS path (`findSilenceInVideo`) bounds its Clips with, so one speech gives
- * the same Clip whichever Recorder found it. The OBS path also shares the
- * placement half (`placeClips`); it keeps its own dedup and its browser-side
- * transcription.
+ * What of the speech becomes a Clip is `speechToClipBounds`, the same rule
+ * `findSilenceInVideo` bounds a Footage file's speech with (old OBS Footage,
+ * Footage transcription), so one speech gives the same Clip either way.
  *
  * Speech from a Recording Session is placed once: a speech whose Clip that
  * Recording Session already has (archived or not) is skipped, so a replay of

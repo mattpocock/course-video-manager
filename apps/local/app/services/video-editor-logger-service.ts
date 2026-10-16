@@ -15,14 +15,6 @@ export type LogEvent =
       generatedOrders: string[];
     }
   | {
-      type: "clips-appended-from-obs";
-      videoId: string;
-      detected: number;
-      duplicatesSkipped: number;
-      inserted: number;
-      clips: { inputVideo: string; startTime: number; endTime: number }[];
-    }
-  | {
       type: "clips-archived";
       clipIds: string[];
     }

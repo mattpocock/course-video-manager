@@ -108,7 +108,6 @@ export const requireDraftForClipServiceEvent = Effect.fn(
 )(function* (db: Database, event: ClipServiceEvent) {
   switch (event.type) {
     case "append-clips":
-    case "append-from-obs":
     case "create-chapter-at-insertion-point":
     case "create-chapter-at-position":
     case "create-effect-clip-at-position":
@@ -155,9 +154,7 @@ export const requireDraftForClipServiceEvent = Effect.fn(
 /**
  * Guarded clip-service write events run inside one transaction: guard (with
  * its version-row lock) + dispatch, committed atomically (issue #1403).
- * Reads, standalone-video creation, and append-from-obs (which re-guards
- * around its insert AFTER the slow OBS detection — see appendFromObsImpl)
- * dispatch outside a transaction.
+ * Reads and standalone-video creation dispatch outside a transaction.
  */
 export const withClipServiceWriteClosure = <A, E>(
   db: Database,
@@ -174,7 +171,6 @@ export const withClipServiceWriteClosure = <A, E>(
     case "create-video":
     case "get-timeline":
     case "get-footage-stats":
-    case "append-from-obs":
     case "update-mic-eq":
       return run(db);
     case "append-clips":

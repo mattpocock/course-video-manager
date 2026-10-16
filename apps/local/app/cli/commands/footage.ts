@@ -82,8 +82,8 @@ const listCmd = Command.make("list", { dir: dirOption }, ({ dir }) =>
     yield* requireLocalFootage;
     const fs = yield* FileSystem.FileSystem;
 
-    // Load the repo .env so OBS_RECORDING_DIR resolves the same way it does for
-    // the recorder (see getLatestOBSVideoClips), then read it via Config.
+    // Load the repo .env so OBS_RECORDING_DIR (where old OBS Footage lives)
+    // resolves, then read it via Config.
     yield* Effect.sync(() => loadRepoEnv());
     const directory = yield* Option.match(dir, {
       onSome: (d) => Effect.succeed(d),

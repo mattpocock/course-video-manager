@@ -5,7 +5,7 @@
 import { clips, chapters, videos } from "@/db/schema";
 import { compareOrderStrings } from "@/lib/sort-by-order";
 import { and, asc, eq } from "drizzle-orm";
-import { Data, Effect } from "effect";
+import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import type {
   ClipServiceEvent,
@@ -17,9 +17,6 @@ import { requireDraftVersionForVideo } from "@/services/draft-guard.server";
 import { withDbTransaction } from "@/services/with-db-transaction.server";
 import { createVideoFromSelectionImpl } from "@/services/db-video-from-selection.server";
 import type { LogEvent } from "./video-editor-logger-service";
-import type { SilenceLength } from "@/silence-detection-constants";
-import { toRootRelative } from "@/packages/storage";
-import { storageRootsConfig } from "@/services/storage-roots";
 
 // ============================================================================
 // Errors and the Drizzle bridge
@@ -32,34 +29,9 @@ export const dbCall = <T>(fn: () => Promise<T>) =>
     catch: (cause) => new UnknownDBServiceError({ cause }),
   });
 
-/** The OBS clip detection behind append-from-obs rejected. */
-export class ObsClipDetectionError extends Data.TaggedError(
-  "ObsClipDetectionError"
-)<{ cause: unknown }> {}
-
 // ============================================================================
 // Types
 // ============================================================================
-
-/**
- * Adapter for VideoProcessingService functionality.
- * In production, this wraps the Effect-based service.
- * In tests, this is mocked.
- */
-export interface VideoProcessingAdapter {
-  getLatestOBSVideoClips: (opts: {
-    filePath: string | undefined;
-    startTime: number | undefined;
-    silenceLength?: SilenceLength;
-    thresholdDb?: number;
-  }) => Promise<{
-    readonly clips: ReadonlyArray<{
-      readonly inputVideo: string;
-      readonly startTime: number;
-      readonly endTime: number;
-    }>;
-  }>;
-}
 
 /**
  * Adapter for VideoEditorLoggerService.
@@ -71,21 +43,6 @@ export interface LoggerAdapter {
 }
 
 export const noopLogger: LoggerAdapter = { log: () => {} };
-
-// ============================================================================
-// Helper: Windows to WSL path conversion
-// ============================================================================
-
-export function windowsToWSL(windowsPath: string): string {
-  // Convert C:\Users\... to /mnt/c/Users/...
-  const drive = windowsPath.charAt(0).toLowerCase();
-  const pathWithoutDrive = windowsPath.slice(3); // Remove "C:\"
-
-  // Convert backslashes to forward slashes
-  const unixPath = pathWithoutDrive.replace(/\\/g, "/");
-
-  return `/mnt/${drive}/${unixPath}`;
-}
 
 // ============================================================================
 // Helper: Get all items for a video sorted by order
@@ -259,7 +216,7 @@ export const placeClips = (
   );
 
 // ============================================================================
-// Mutex: Serialize Clip placement per videoId (append-from-obs, speech)
+// Mutex: Serialize Clip placement per videoId (speech)
 // ============================================================================
 
 interface VideoMutex {
@@ -270,8 +227,8 @@ interface VideoMutex {
 const videoMutexes = new Map<string, VideoMutex>();
 
 /**
- * Runs `effect` holding the per-video permit, so concurrent append-from-obs
- * calls for one video run one at a time. The entry is dropped once the last
+ * Runs `effect` holding the per-video permit, so concurrent Clip placements
+ * for one video run one at a time. The entry is dropped once the last
  * waiter is done, so the map never grows with every video ever touched.
  */
 export const withVideoMutex = <A, E, R>(
@@ -298,137 +255,6 @@ export const withVideoMutex = <A, E, R>(
           })
         )
       );
-  });
-
-// ============================================================================
-// Helper: append-from-obs implementation (runs inside mutex)
-// ============================================================================
-
-export const appendFromObsImpl = (
-  db: Database,
-  event: Extract<ClipServiceEvent, { type: "append-from-obs" }>,
-  videoProcessing: VideoProcessingAdapter,
-  logger: LoggerAdapter
-) =>
-  Effect.gen(function* () {
-    const { videoId, filePath, insertionPoint } = event.input;
-    // A Footage path is stored absolute (`/mnt/d/raw-footage/x.mkv`, what OBS
-    // reports) or root-relative (`raw-footage/x.mkv`, after the path
-    // migration). Both name one file, so compare them in one form: a take
-    // clipped before and after the migration must not be appended twice.
-    const storageRoots = yield* storageRootsConfig;
-    const sameFootage = (a: string, b: string | undefined) =>
-      b !== undefined &&
-      toRootRelative(a, storageRoots) === toRootRelative(b, storageRoots);
-
-    // Convert Windows path to WSL path if provided
-    const resolvedFilePath = filePath ? windowsToWSL(filePath) : undefined;
-
-    // Get all clips (including archived) to find the last clip with this input video
-    const allClipsIncludingArchived = yield* dbCall(() =>
-      db.query.clips.findMany({
-        where: eq(clips.videoId, videoId),
-      })
-    );
-
-    // Find clips with this input video and get the one with the latest end time
-    const clipsWithThisInputVideo = allClipsIncludingArchived
-      .filter((clip) => sameFootage(clip.videoFilename, resolvedFilePath))
-      .sort((a, b) => b.sourceStartTime - a.sourceStartTime);
-
-    const lastClipWithThisInputVideo = clipsWithThisInputVideo[0];
-
-    // Calculate start time: end time of last clip - 1 second for silence gap
-    const resolvedStartTime =
-      typeof lastClipWithThisInputVideo?.sourceEndTime === "number"
-        ? Math.max(lastClipWithThisInputVideo.sourceEndTime - 1, 0)
-        : undefined;
-
-    // Call CLI to detect clips
-    const latestOBSVideoClips = yield* Effect.tryPromise({
-      try: () =>
-        videoProcessing.getLatestOBSVideoClips({
-          filePath: resolvedFilePath,
-          startTime: resolvedStartTime,
-          silenceLength: event.input.silenceLength,
-          thresholdDb: event.input.silenceThresholdDb,
-        }),
-      catch: (cause) => new ObsClipDetectionError({ cause }),
-    });
-
-    if (latestOBSVideoClips.clips.length === 0) {
-      logger.log(videoId, {
-        type: "clips-appended-from-obs",
-        videoId,
-        detected: 0,
-        duplicatesSkipped: 0,
-        inserted: 0,
-        clips: [],
-      });
-      return [];
-    }
-
-    // Re-fetch clips for deduplication (in case they changed during CLI detection)
-    const allClipsForDedup = yield* dbCall(() =>
-      db.query.clips.findMany({
-        where: eq(clips.videoId, videoId),
-      })
-    );
-
-    // Filter out clips that already exist (deduplicate by videoFilename + startTime + endTime)
-    // Uses a tolerance of 0.6s to account for ffmpeg silence detection variance across runs.
-    // Silence detection start times can drift by 0.24-0.57s depending on keyframe alignment.
-    // 0.6s is safe because minimum clip length is 1s, so distinct clips can't match.
-    const DEDUP_TOLERANCE_SECONDS = 0.6;
-    const clipsToAdd = latestOBSVideoClips.clips.filter(
-      (clip) =>
-        !allClipsForDedup.some(
-          (existingClip) =>
-            sameFootage(existingClip.videoFilename, clip.inputVideo) &&
-            Math.abs(existingClip.sourceStartTime - clip.startTime) <
-              DEDUP_TOLERANCE_SECONDS &&
-            Math.abs(existingClip.sourceEndTime - clip.endTime) <
-              DEDUP_TOLERANCE_SECONDS
-        )
-    );
-
-    if (clipsToAdd.length === 0) {
-      logger.log(videoId, {
-        type: "clips-appended-from-obs",
-        videoId,
-        detected: latestOBSVideoClips.clips.length,
-        duplicatesSkipped: latestOBSVideoClips.clips.length,
-        inserted: 0,
-        clips: [],
-      });
-      return [];
-    }
-
-    // #1403: the Draft may have been Submitted while OBS detection ran above;
-    // placeClips re-checks under the version-row lock.
-    const result = yield* placeClips(db, {
-      videoId,
-      insertionPoint,
-      clips: clipsToAdd,
-    });
-
-    const totalDuplicatesSkipped =
-      latestOBSVideoClips.clips.length - result.length;
-
-    logger.log(videoId, {
-      type: "clips-appended-from-obs",
-      videoId,
-      detected: latestOBSVideoClips.clips.length,
-      duplicatesSkipped: totalDuplicatesSkipped,
-      inserted: result.length,
-      clips: result.map((c) => ({
-        inputVideo: c.videoFilename,
-        startTime: c.sourceStartTime,
-        endTime: c.sourceEndTime,
-      })),
-    });
-
-    return result;
   });
 
 // ============================================================================

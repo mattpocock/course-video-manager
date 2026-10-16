@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import type {
   FrontendId,
   DatabaseId,
@@ -8,7 +8,6 @@ import type {
 import {
   setupClipServiceTests,
   clipService,
-  mockVideoProcessing,
   getItems,
   afterClip,
   afterSection,
@@ -253,18 +252,13 @@ describe("ClipService", () => {
         },
       ];
 
-      mockVideoProcessing.getLatestOBSVideoClips = vi.fn().mockResolvedValue({
-        clips: [
-          { inputVideo: "/mnt/c/obs/video.mkv", startTime: 0, endTime: 10 },
-        ],
-      });
-
       // This should NOT throw "Could not find a clip to insert after"
       // because resolveInsertionPoint should skip the shouldArchive clip
-      const result = await clipService.appendFromObs({
+      const result = await clipService.appendClips({
         videoId: video.id,
         insertionPoint: end,
         items,
+        clips: [{ inputVideo: "video.mkv", startTime: 10, endTime: 20 }],
       });
 
       expect(result).toHaveLength(1);
