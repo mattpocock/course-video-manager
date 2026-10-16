@@ -1,77 +1,44 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { useMemo, useCallback } from "react";
 import type { WriterContext } from "./writer-engine";
-import { estimateTokens, type SourceView } from "./inline-context-strip";
-import {
-  useLocalStorageBoolean,
-  useLocalStorageStringSet,
-} from "@/hooks/use-local-storage";
-import {
-  MEMORY_ENABLED_STORAGE_KEY,
-  COURSE_STRUCTURE_STORAGE_KEY,
-  BEATS_ENABLED_STORAGE_KEY,
-  SCRIPT_ENABLED_STORAGE_KEY,
-  ANIMATIC_ENABLED_STORAGE_KEY,
-  DIAGRAM_TEXT_ENABLED_STORAGE_KEY,
-  LINKS_DISABLED_STORAGE_KEY,
-} from "./write-utils";
+import type { SourceView } from "./inline-context-strip";
+import { parseStringSet, readStored } from "@/hooks/use-local-storage";
+import { LINKS_DISABLED_STORAGE_KEY } from "./write-utils";
 import { formatBeatsContext } from "./format-beats-context";
 import { formatAnimaticContext } from "./format-animatic-context";
+import type { contextPanelReducer } from "./context-panel-reducer";
+import {
+  REMEMBERED_TOGGLE_STORAGE_KEYS,
+  useContextPanelReducer,
+} from "./use-context-panel-reducer";
+import {
+  selectContextSources,
+  selectPromptTexts,
+  type PageField,
+  type PromptTexts,
+} from "./context-panel-selectors";
 
-/**
- * The single-text sources as the completion routes take them: each one's text
- * when it is switched on and non-empty, else `undefined`.
- */
-export interface PromptTexts {
-  memory: string | undefined;
-  beats: string | undefined;
-  script: string | undefined;
-  animatic: string | undefined;
-}
+export type { PageField, PromptTexts };
 
 export interface ContextModel {
   sources: SourceView[];
   totalTokens: number;
 
-  // Toggle state
   enabledFiles: Set<string>;
   enabledSections: Set<string>;
   enabledFields: Set<string>;
   includeTranscript: boolean;
   includeCourseStructure: boolean;
-  memoryEnabled: boolean;
-  beatsEnabled: boolean;
-  scriptEnabled: boolean;
-  animaticEnabled: boolean;
   /** Annotate the transcript's clips with their diagrams' text. */
   diagramTextEnabled: boolean;
 
-  // Mutation callbacks
   toggleItem: (itemId: string) => void;
   toggleSource: (sourceKey: string) => void;
   setSourceEnabled: (sourceKey: string, enabledIds: Set<string>) => void;
 
-  // Setters for host state
-  setEnabledFiles: Dispatch<SetStateAction<Set<string>>>;
-  setEnabledSections: Dispatch<SetStateAction<Set<string>>>;
-  setIncludeTranscript: Dispatch<SetStateAction<boolean>>;
-  setIncludeCourseStructure: Dispatch<SetStateAction<boolean>>;
-  setMemoryEnabled: Dispatch<SetStateAction<boolean>>;
-
-  // Memory editing
   memoryText: string;
-  setMemoryText: Dispatch<SetStateAction<string>>;
-
-  // Beats (read-only formatted text)
-  beatsText: string;
-
-  // Script (read-only; empty when the video has no script)
-  scriptText: string;
-
-  // Animatic (read-only formatted text; empty when the video has none)
-  animaticText: string;
+  setMemoryText: (text: string) => void;
 
   // What the completion routes are sent for memory, beats, script and animatic
   promptTexts: PromptTexts;
@@ -85,67 +52,49 @@ export interface ContextModel {
   }>;
 }
 
-export type PageField = { id: string; label: string; value: string };
+const readRemembered = (): contextPanelReducer.Remembered => {
+  const readToggle = (
+    toggle: contextPanelReducer.RememberedToggle,
+    fallback: boolean
+  ) =>
+    (readStored(REMEMBERED_TOGGLE_STORAGE_KEYS[toggle]) ?? String(fallback)) ===
+    "true";
+  return {
+    courseStructure: readToggle("courseStructure", false),
+    memory: readToggle("memory", false),
+    beats: readToggle("beats", false),
+    script: readToggle("script", true),
+    animatic: readToggle("animatic", true),
+    diagramText: readToggle("diagramText", true),
+    disabledLinks: parseStringSet(
+      readStored(LINKS_DISABLED_STORAGE_KEY) ?? "[]"
+    ),
+  };
+};
 
+/**
+ * The Article Writer's context: `contextPanelReducer` with the toggles the
+ * writer remembers, plus the sources built from it.
+ */
 export function useContextModel(
   context: WriterContext,
   pageFields: PageField[] = []
 ): ContextModel {
-  // ── Toggle state ──────────────────────────────────────────────────────────
+  const { state, dispatch } = useContextPanelReducer(() => ({
+    files: context.files,
+    chapters: context.chapters,
+    memory: context.memory,
+    remembered: readRemembered(),
+  }));
 
-  const [enabledFiles, setEnabledFiles] = useState<Set<string>>(
-    () =>
-      new Set(context.files.filter((f) => f.defaultEnabled).map((f) => f.path))
-  );
-  // Page fields (other fields on the same page) default to OFF — they are
-  // opt-in extra context.
-  const [enabledFields, setEnabledFields] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [enabledSections, setEnabledSections] = useState<Set<string>>(
-    () => new Set(context.chapters.map((s) => s.id))
-  );
-  const [includeTranscript, setIncludeTranscript] = useState(true);
-  const [includeCourseStructure, setIncludeCourseStructure] =
-    useLocalStorageBoolean(COURSE_STRUCTURE_STORAGE_KEY);
-  const [memoryEnabled, setMemoryEnabled] = useLocalStorageBoolean(
-    MEMORY_ENABLED_STORAGE_KEY
-  );
-  const [memoryText, setMemoryText] = useState(context.memory);
-  // Links default to on; we track the *disabled* ids so links added after mount
-  // (via revalidation) are included by default. Persisted like the other
-  // source toggles, so switching a link off outlives the open modal.
-  const [disabledLinks, setDisabledLinks] = useLocalStorageStringSet(
-    LINKS_DISABLED_STORAGE_KEY
-  );
-  const [beatsEnabled, setBeatsEnabled] = useLocalStorageBoolean(
-    BEATS_ENABLED_STORAGE_KEY
-  );
   const beatsText = useMemo(
     () => formatBeatsContext(context.beats),
     [context.beats]
   );
-  // Scripts are rare but high-value, so default to on wherever one exists.
-  const [scriptEnabled, setScriptEnabled] = useLocalStorageBoolean(
-    SCRIPT_ENABLED_STORAGE_KEY,
-    true
-  );
   const scriptText = context.script;
-  // The pre-filming plan plus the author's own Clip Mockup Comments, so on
-  // wherever the video has an Animatic.
-  const [animaticEnabled, setAnimaticEnabled] = useLocalStorageBoolean(
-    ANIMATIC_ENABLED_STORAGE_KEY,
-    true
-  );
   const animaticText = useMemo(
     () => formatAnimaticContext(context.animaticLines),
     [context.animaticLines]
-  );
-  // Diagram-heavy videos say little that the diagram doesn't show, so on
-  // wherever a clip pins a diagram with text.
-  const [diagramTextEnabled, setDiagramTextEnabled] = useLocalStorageBoolean(
-    DIAGRAM_TEXT_ENABLED_STORAGE_KEY,
-    true
   );
   const diagramText = useMemo(
     () =>
@@ -155,546 +104,134 @@ export function useContextModel(
     [context.diagramTexts]
   );
 
-  // ── Build sources ─────────────────────────────────────────────────────────
-
-  const sources = useMemo(() => {
-    const result: SourceView[] = [];
-
-    // 1. Transcript
-    const hasChapters = context.chapters.length > 0;
-    if (hasChapters) {
-      const items = context.chapters.map((ch) => {
-        // Rough heuristic: 4 chars per word → byte length ≈ wordCount * 4 → tokens ≈ wordCount
-        const tokens = ch.wordCount;
-        return {
-          id: ch.id,
-          label: ch.name,
-          text: ch.name,
-          on: enabledSections.has(ch.id),
-          tokens,
-        };
-      });
-      const onCount = items.filter((i) => i.on).length;
-      result.push({
-        key: "transcript",
-        label: "Transcript",
-        note: "clips.text, split by chapter — deselect chapters to trim it",
-        items,
-        onCount,
-        check:
-          onCount === 0
-            ? false
-            : onCount === items.length
-              ? true
-              : "indeterminate",
-        atomic: false,
-        tokens: items.filter((i) => i.on).reduce((sum, i) => sum + i.tokens, 0),
-      });
-    } else {
-      const text = context.transcript;
-      const tokens = estimateTokens(text);
-      const on = includeTranscript;
-      result.push({
-        key: "transcript",
-        label: "Transcript",
-        note: "clips.text, split by chapter — deselect chapters to trim it",
-        items: [
-          { id: "transcript", label: "Full transcript", text, on, tokens },
-        ],
-        onCount: on ? 1 : 0,
-        check: on,
-        atomic: true,
-        tokens: on ? tokens : 0,
-      });
-    }
-
-    // 1b. Diagram text (only if a clip pins a diagram with text). It rides
-    // inside the transcript, next to the clip each diagram was on screen for.
-    if (diagramText.length > 0) {
-      const tokens = estimateTokens(diagramText);
-      const on = diagramTextEnabled;
-      result.push({
-        key: "diagramText",
-        label: "Diagram text",
-        note: "the text on each clip's diagram, inlined next to that clip in the transcript",
-        items: [
-          {
-            id: "diagramText",
-            label: "Diagram text",
-            text: diagramText,
-            on,
-            tokens,
-          },
-        ],
-        onCount: on ? 1 : 0,
-        check: on,
-        atomic: true,
-        tokens: on ? tokens : 0,
-      });
-    }
-
-    // 2. Files
-    if (context.files.length > 0) {
-      const items = context.files.map((f) => {
-        const tokens = Math.ceil(f.size / 4);
-        return {
-          id: f.path,
-          label: f.path,
-          text: f.path,
-          on: enabledFiles.has(f.path),
-          tokens,
-        };
-      });
-      const onCount = items.filter((i) => i.on).length;
-      result.push({
-        key: "files",
-        label: "Repo files",
-        note: "lesson files",
-        items,
-        onCount,
-        check:
-          onCount === 0
-            ? false
-            : onCount === items.length
-              ? true
-              : "indeterminate",
-        atomic: false,
-        tokens: items.filter((i) => i.on).reduce((sum, i) => sum + i.tokens, 0),
-      });
-    }
-
-    // 2b. Page fields (other fields on the same page)
-    if (pageFields.length > 0) {
-      const items = pageFields.map((f) => ({
-        id: f.id,
-        label: f.label,
-        text: f.value,
-        on: enabledFields.has(f.id),
-        tokens: estimateTokens(f.value),
-      }));
-      const onCount = items.filter((i) => i.on).length;
-      result.push({
-        key: "fields",
-        label: "Page fields",
-        note: "other fields on this page",
-        items,
-        onCount,
-        check:
-          onCount === 0
-            ? false
-            : onCount === items.length
-              ? true
-              : "indeterminate",
-        atomic: false,
-        tokens: items.filter((i) => i.on).reduce((sum, i) => sum + i.tokens, 0),
-      });
-    }
-
-    // 3. Links
-    if (context.links.length > 0) {
-      const items = context.links.map((l) => ({
-        id: l.id,
-        label: l.title,
-        text: l.url,
-        on: !disabledLinks.has(l.id),
-        tokens: estimateTokens(l.url),
-      }));
-      const onCount = items.filter((i) => i.on).length;
-      result.push({
-        key: "links",
-        label: "Links",
-        note: "reference URLs on the video",
-        items,
-        onCount,
-        check:
-          onCount === 0
-            ? false
-            : onCount === items.length
-              ? true
-              : "indeterminate",
-        atomic: false,
-        tokens: items.filter((i) => i.on).reduce((sum, i) => sum + i.tokens, 0),
-      });
-    }
-
-    // 4. Script (only if non-empty — most videos have none)
-    if (scriptText.trim().length > 0) {
-      const tokens = estimateTokens(scriptText);
-      const on = scriptEnabled;
-      result.push({
-        key: "script",
-        label: "Script",
-        note: "the base Matt improvised from — authoritative for spelling and naming",
-        items: [
-          { id: "script", label: "Script", text: scriptText, on, tokens },
-        ],
-        onCount: on ? 1 : 0,
-        check: on,
-        atomic: true,
-        tokens: on ? tokens : 0,
-      });
-    }
-
-    // 5. Beats (only if non-empty)
-    if (beatsText.length > 0) {
-      const tokens = estimateTokens(beatsText);
-      const on = beatsEnabled;
-      result.push({
-        key: "beats",
-        label: "Beats",
-        note: "video beat plan with descriptions",
-        items: [
-          { id: "beats", label: "Beat plan", text: beatsText, on, tokens },
-        ],
-        onCount: on ? 1 : 0,
-        check: on,
-        atomic: true,
-        tokens: on ? tokens : 0,
-      });
-    }
-
-    // 5b. Animatic (only if the video has Clip Mockups)
-    if (animaticText.length > 0) {
-      const tokens = estimateTokens(animaticText);
-      const on = animaticEnabled;
-      result.push({
-        key: "animatic",
-        label: "Animatic",
-        note: "the Clip Mockup lines under their chapters, with the author's comments (text only, no stills)",
-        items: [
-          {
-            id: "animatic",
-            label: "Animatic",
-            text: animaticText,
-            on,
-            tokens,
-          },
-        ],
-        onCount: on ? 1 : 0,
-        check: on,
-        atomic: true,
-        tokens: on ? tokens : 0,
-      });
-    }
-
-    // 6. Course structure (only if present)
-    if (context.courseStructure !== null) {
-      const text = JSON.stringify(context.courseStructure);
-      const tokens = estimateTokens(text);
-      const on = includeCourseStructure;
-      result.push({
-        key: "courseStructure",
-        label: "Course structure",
-        note: "sections / lessons tree",
-        items: [
-          {
-            id: "courseStructure",
-            label: "Course structure",
-            text,
-            on,
-            tokens,
-          },
-        ],
-        onCount: on ? 1 : 0,
-        check: on,
-        atomic: true,
-        tokens: on ? tokens : 0,
-      });
-    }
-
-    // 7. Memory (only if non-empty)
-    if (memoryText.length > 0) {
-      const tokens = estimateTokens(memoryText);
-      const on = memoryEnabled;
-      result.push({
-        key: "memory",
-        label: "Course memory",
-        note: "standing style preferences",
-        items: [
-          {
-            id: "memory",
-            label: "Course memory",
-            text: memoryText,
-            on,
-            tokens,
-          },
-        ],
-        onCount: on ? 1 : 0,
-        check: on,
-        atomic: true,
-        tokens: on ? tokens : 0,
-      });
-    }
-
-    return result;
-  }, [
-    context.chapters,
-    context.transcript,
-    context.files,
-    context.links,
-    context.courseStructure,
-    memoryText,
-    beatsText,
-    scriptText,
-    animaticText,
-    diagramText,
-    enabledSections,
-    enabledFiles,
-    enabledFields,
-    pageFields,
-    disabledLinks,
-    includeTranscript,
-    includeCourseStructure,
-    memoryEnabled,
-    beatsEnabled,
-    scriptEnabled,
-    animaticEnabled,
-    diagramTextEnabled,
-  ]);
+  const sources = useMemo(
+    () =>
+      selectContextSources(state, {
+        chapters: context.chapters,
+        transcript: context.transcript,
+        files: context.files,
+        links: context.links,
+        courseStructure: context.courseStructure,
+        pageFields,
+        beatsText,
+        scriptText,
+        animaticText,
+        diagramText,
+      }),
+    [
+      state,
+      context.chapters,
+      context.transcript,
+      context.files,
+      context.links,
+      context.courseStructure,
+      pageFields,
+      beatsText,
+      scriptText,
+      animaticText,
+      diagramText,
+    ]
+  );
 
   const totalTokens = useMemo(
     () => sources.reduce((sum, s) => sum + s.tokens, 0),
     [sources]
   );
 
-  // ── Mutation callbacks ────────────────────────────────────────────────────
-
   const toggleItem = useCallback(
     (itemId: string) => {
-      // Chapter items → toggle in enabledSections
-      if (
-        context.chapters.length > 0 &&
-        context.chapters.some((ch) => ch.id === itemId)
-      ) {
-        setEnabledSections((prev) => {
-          const next = new Set(prev);
-          if (next.has(itemId)) next.delete(itemId);
-          else next.add(itemId);
-          return next;
-        });
-        return;
-      }
-
-      // Atomic transcript (no chapters)
-      if (itemId === "transcript") {
-        setIncludeTranscript((prev) => !prev);
-        return;
-      }
-
-      // File items → toggle in enabledFiles
-      if (context.files.some((f) => f.path === itemId)) {
-        setEnabledFiles((prev) => {
-          const next = new Set(prev);
-          if (next.has(itemId)) next.delete(itemId);
-          else next.add(itemId);
-          return next;
-        });
-        return;
-      }
-
-      // Page field items → toggle in enabledFields (default off)
-      if (pageFields.some((f) => f.id === itemId)) {
-        setEnabledFields((prev) => {
-          const next = new Set(prev);
-          if (next.has(itemId)) next.delete(itemId);
-          else next.add(itemId);
-          return next;
-        });
-        return;
-      }
-
-      // Link items → toggle in disabledLinks (default on)
-      if (context.links.some((l) => l.id === itemId)) {
-        setDisabledLinks((prev) => {
-          const next = new Set(prev);
-          if (next.has(itemId)) next.delete(itemId);
-          else next.add(itemId);
-          return next;
-        });
-        return;
-      }
-
-      // Atomic sources
-      if (itemId === "beats") {
-        setBeatsEnabled((prev) => !prev);
-        return;
-      }
-      if (itemId === "script") {
-        setScriptEnabled((prev) => !prev);
-        return;
-      }
-      if (itemId === "animatic") {
-        setAnimaticEnabled((prev) => !prev);
-        return;
-      }
-      if (itemId === "diagramText") {
-        setDiagramTextEnabled((prev) => !prev);
-        return;
-      }
-      if (itemId === "courseStructure") {
-        setIncludeCourseStructure((prev) => !prev);
-        return;
-      }
-      if (itemId === "memory") {
-        setMemoryEnabled((prev) => !prev);
-        return;
-      }
+      const source = sources.find((s) =>
+        s.items.some((item) => item.id === itemId)
+      );
+      if (!source) return;
+      dispatch({
+        type: "item-toggled",
+        source: source.key,
+        itemId,
+        atomic: source.atomic,
+      });
     },
-    [context.chapters, context.files, context.links, pageFields]
+    [sources, dispatch]
   );
 
   const toggleSource = useCallback(
     (sourceKey: string) => {
-      switch (sourceKey) {
-        case "transcript": {
-          if (context.chapters.length > 0) {
-            const allOn = context.chapters.every((ch) =>
-              enabledSections.has(ch.id)
-            );
-            if (allOn) {
-              setEnabledSections(new Set());
-            } else {
-              setEnabledSections(new Set(context.chapters.map((ch) => ch.id)));
-            }
-          } else {
-            setIncludeTranscript((prev) => !prev);
-          }
-          break;
-        }
-        case "files": {
-          const allOn = context.files.every((f) => enabledFiles.has(f.path));
-          if (allOn) {
-            setEnabledFiles(new Set());
-          } else {
-            setEnabledFiles(new Set(context.files.map((f) => f.path)));
-          }
-          break;
-        }
-        case "links": {
-          const allOn = context.links.every((l) => !disabledLinks.has(l.id));
-          if (allOn) {
-            setDisabledLinks(new Set(context.links.map((l) => l.id)));
-          } else {
-            setDisabledLinks(new Set());
-          }
-          break;
-        }
-        case "fields": {
-          const allOn = pageFields.every((f) => enabledFields.has(f.id));
-          if (allOn) {
-            setEnabledFields(new Set());
-          } else {
-            setEnabledFields(new Set(pageFields.map((f) => f.id)));
-          }
-          break;
-        }
-        case "beats":
-          setBeatsEnabled((prev) => !prev);
-          break;
-        case "script":
-          setScriptEnabled((prev) => !prev);
-          break;
-        case "animatic":
-          setAnimaticEnabled((prev) => !prev);
-          break;
-        case "diagramText":
-          setDiagramTextEnabled((prev) => !prev);
-          break;
-        case "courseStructure":
-          setIncludeCourseStructure((prev) => !prev);
-          break;
-        case "memory":
-          setMemoryEnabled((prev) => !prev);
-          break;
-      }
+      const source = sources.find((s) => s.key === sourceKey);
+      if (!source) return;
+      dispatch({
+        type: "source-toggled",
+        source: source.key,
+        itemIds: source.items.map((item) => item.id),
+        atomic: source.atomic,
+      });
     },
-    [
-      context.chapters,
-      context.files,
-      context.links,
-      pageFields,
-      enabledSections,
-      enabledFiles,
-      enabledFields,
-      disabledLinks,
-    ]
+    [sources, dispatch]
   );
 
   const setSourceEnabled = useCallback(
     (sourceKey: string, enabledIds: Set<string>) => {
-      switch (sourceKey) {
-        case "transcript":
-          setEnabledSections(enabledIds);
-          break;
-        case "files":
-          setEnabledFiles(enabledIds);
-          break;
+      if (sourceKey === "transcript") {
+        dispatch({ type: "sections-picked", sectionIds: enabledIds });
+      } else if (sourceKey === "files") {
+        dispatch({ type: "files-picked", paths: enabledIds });
       }
     },
-    []
+    [dispatch]
   );
 
-  // ── Links ─────────────────────────────────────────────────────────────────
+  const setMemoryText = useCallback(
+    (text: string) => dispatch({ type: "memory-edited", text }),
+    [dispatch]
+  );
 
   const links = useMemo(
     () => context.links.map((l) => ({ ...l })),
     [context.links]
   );
 
+  const { memoryEnabled, memoryText, beatsEnabled, scriptEnabled } = state;
+  const { animaticEnabled } = state;
   const promptTexts = useMemo(
-    (): PromptTexts => ({
-      memory: memoryEnabled && memoryText ? memoryText : undefined,
-      beats: beatsEnabled && beatsText ? beatsText : undefined,
-      script: scriptEnabled && scriptText ? scriptText : undefined,
-      animatic: animaticEnabled && animaticText ? animaticText : undefined,
-    }),
+    () =>
+      selectPromptTexts(
+        {
+          memoryEnabled,
+          memoryText,
+          beatsEnabled,
+          scriptEnabled,
+          animaticEnabled,
+        },
+        { beatsText, scriptText, animaticText }
+      ),
     [
       memoryEnabled,
       memoryText,
       beatsEnabled,
-      beatsText,
       scriptEnabled,
-      scriptText,
       animaticEnabled,
+      beatsText,
+      scriptText,
       animaticText,
     ]
   );
-
-  // ── Return ────────────────────────────────────────────────────────────────
 
   return {
     sources,
     totalTokens,
 
-    enabledFiles,
-    enabledSections,
-    enabledFields,
-    includeTranscript,
-    includeCourseStructure,
-    memoryEnabled,
-    beatsEnabled,
-    scriptEnabled,
-    animaticEnabled,
-    diagramTextEnabled,
+    enabledFiles: state.enabledFiles,
+    enabledSections: state.enabledSections,
+    enabledFields: state.enabledFields,
+    includeTranscript: state.includeTranscript,
+    includeCourseStructure: state.includeCourseStructure,
+    diagramTextEnabled: state.diagramTextEnabled,
 
     toggleItem,
     toggleSource,
     setSourceEnabled,
 
-    setEnabledFiles,
-    setEnabledSections,
-    setIncludeTranscript,
-    setIncludeCourseStructure,
-    setMemoryEnabled,
-
-    memoryText,
+    memoryText: state.memoryText,
     setMemoryText,
-
-    beatsText,
-
-    scriptText,
-
-    animaticText,
 
     promptTexts,
 
