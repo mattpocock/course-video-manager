@@ -3,7 +3,15 @@ import { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
 import nodePath from "node:path";
 import { pathToFileURL } from "node:url";
-import { FrameCaptureError } from "@/services/frame-capture-service";
+import {
+  FRAME_HEIGHT,
+  FRAME_WIDTH,
+  FrameCaptureError,
+} from "@/services/frame-capture-service";
+import {
+  SHORT_FRAME,
+  shortFramePageHtml,
+} from "@/services/short-clip-mockup-frame";
 import { detail, emitNdjson, parseError } from "@/cli/helpers";
 import {
   NEEDS_CLIP_MOCKUP_DIRECTORY,
@@ -21,6 +29,9 @@ import { CAPTURE_HELP } from "./clip-mockup.help";
  * It goes through `capturePages`, the one path `add` and `update` use, so a
  * frame captured here is byte for byte the frame `add` would store: the same
  * browser, the same 1920x1080 viewport, the same wait for web fonts.
+ *
+ * `--short` captures each page as a Short's Code frame instead: the page in
+ * the screen square of a 1080x1920 frame, exactly as `add` composes it.
  *
  * THE CONTACT SHEET. `--sheet` also writes ONE PNG of every page as a grid of
  * labelled tiles, so an agent checks a run of Reveals with one image read
@@ -50,7 +61,8 @@ const escapeHtml = (text: string) =>
  * headed by its 1-based index and its page's file name.
  */
 const contactSheetHtml = (
-  tiles: ReadonlyArray<{ readonly png: string; readonly html: string }>
+  tiles: ReadonlyArray<{ readonly png: string; readonly html: string }>,
+  aspectRatio: string
 ) => `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; }
@@ -63,7 +75,7 @@ body { margin: 0; width: 1920px; background: #101011; color: #d6d3d1;
   text-overflow: ellipsis; }
 .tile b { color: #fbbf24; margin-right: 12px; }
 .tile img { display: block; width: ${SHEET_TILE_WIDTH}px;
-  aspect-ratio: 16 / 9; outline: 1px solid #2a2a2a; }
+  aspect-ratio: ${aspectRatio}; outline: 1px solid #2a2a2a; }
 </style></head><body><div class="grid">
 ${tiles
   .map(
@@ -95,9 +107,14 @@ const splitTrailingSheet = (tokens: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const pages: string[] = [];
     let sheet: string | undefined;
+    let short = false;
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i]!;
       let value: string | undefined;
+      if (token === "--short") {
+        short = true;
+        continue;
+      }
       if (token === "--sheet") {
         value = tokens[++i];
         if (value === undefined) {
@@ -107,7 +124,7 @@ const splitTrailingSheet = (tokens: ReadonlyArray<string>) =>
         value = token.slice("--sheet=".length);
       } else if (token.startsWith("--")) {
         return yield* parseError(
-          `unknown flag ${token}; capture takes only --sheet <sheet.png>`,
+          `unknown flag ${token}; capture takes only --sheet <sheet.png> and --short`,
           ENTITY
         );
       } else {
@@ -119,7 +136,7 @@ const splitTrailingSheet = (tokens: ReadonlyArray<string>) =>
       }
       sheet = value;
     }
-    return { pages, sheet };
+    return { pages, sheet, short };
   });
 
 const pagesArg = Args.text({ name: "page.html" }).pipe(Args.repeated);
@@ -131,10 +148,16 @@ const sheetOption = Options.text("sheet").pipe(
   Options.optional
 );
 
+const shortOption = Options.boolean("short").pipe(
+  Options.withDescription(
+    "Capture each page as a Short's Code frame: the page in the 1080x1080 screen square of a 1080x1920 frame, the camera band below — exactly as 'add' composes it on a Short."
+  )
+);
+
 export const captureCmd = Command.make(
   "capture",
-  { pages: pagesArg, sheet: sheetOption },
-  ({ pages: tokens, sheet: sheetBefore }) =>
+  { pages: pagesArg, sheet: sheetOption, short: shortOption },
+  ({ pages: tokens, sheet: sheetBefore, short: shortBefore }) =>
     Effect.gen(function* () {
       // Local-only like every other verb here: the browser is on this machine.
       yield* requireLocalMachine(
@@ -142,7 +165,12 @@ export const captureCmd = Command.make(
         NEEDS_CLIP_MOCKUP_DIRECTORY
       );
 
-      const { pages, sheet: sheetAfter } = yield* splitTrailingSheet(tokens);
+      const {
+        pages,
+        sheet: sheetAfter,
+        short: shortAfter,
+      } = yield* splitTrailingSheet(tokens);
+      const short = shortBefore || shortAfter;
       if (Option.isSome(sheetBefore) && sheetAfter !== undefined) {
         return yield* parseError("give --sheet once", ENTITY);
       }
@@ -190,12 +218,51 @@ export const captureCmd = Command.make(
 
       // A page named twice is captured once; it still gets a tile per mention.
       const distinct = [...new Map(rows.map((r) => [r.html, r])).values()];
-      yield* capturePages(
-        distinct.map((r) => ({
-          htmlPath: r.html,
-          outputPath: r.png,
-          fullPage: false,
-        }))
+
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const fail = (cause: unknown, message: string) =>
+            new FrameCaptureError({ htmlPath: "", cause, message });
+          const scratch = yield* fs
+            .makeTempDirectoryScoped({ prefix: "cvm-capture-" })
+            .pipe(
+              Effect.mapError((cause) =>
+                fail(cause, "could not make a temp directory to capture in")
+              )
+            );
+          // On --short, each page is drawn inside CVM's Short frame page.
+          const framePages = [];
+          for (const [i, r] of distinct.entries()) {
+            if (!short) {
+              framePages.push({ htmlPath: r.html, outputPath: r.png });
+              continue;
+            }
+            const wrapper = nodePath.join(scratch, `${i}-short-code.html`);
+            yield* fs
+              .writeFileString(
+                wrapper,
+                shortFramePageHtml({
+                  scene: "code",
+                  source: { kind: "html", path: r.html },
+                })
+              )
+              .pipe(
+                Effect.mapError((cause) =>
+                  fail(cause, `could not write the Short frame for ${r.html}`)
+                )
+              );
+            framePages.push({ htmlPath: wrapper, outputPath: r.png });
+          }
+          yield* capturePages(
+            framePages.map((p) => ({
+              ...p,
+              viewport: short
+                ? SHORT_FRAME
+                : { width: FRAME_WIDTH, height: FRAME_HEIGHT },
+              fullPage: false,
+            }))
+          );
+        })
       );
 
       if (Option.isSome(sheetPath)) {
@@ -211,20 +278,26 @@ export const captureCmd = Command.make(
                 )
               );
             const sheetHtml = nodePath.join(scratch, "sheet.html");
-            yield* fs.writeFileString(sheetHtml, contactSheetHtml(rows)).pipe(
-              Effect.zipRight(
-                fs.makeDirectory(nodePath.dirname(sheetPath.value), {
-                  recursive: true,
-                })
-              ),
-              Effect.mapError((cause) =>
-                fail(cause, `could not prepare the sheet ${sheetPath.value}`)
+            yield* fs
+              .writeFileString(
+                sheetHtml,
+                contactSheetHtml(rows, short ? "9 / 16" : "16 / 9")
               )
-            );
+              .pipe(
+                Effect.zipRight(
+                  fs.makeDirectory(nodePath.dirname(sheetPath.value), {
+                    recursive: true,
+                  })
+                ),
+                Effect.mapError((cause) =>
+                  fail(cause, `could not prepare the sheet ${sheetPath.value}`)
+                )
+              );
             yield* capturePages([
               {
                 htmlPath: sheetHtml,
                 outputPath: sheetPath.value,
+                viewport: { width: FRAME_WIDTH, height: FRAME_HEIGHT },
                 fullPage: true,
               },
             ]);

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import nodeFs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
-import * as schema from "@/db/schema";
 import {
   createTestDb,
   truncateAllTables,
@@ -130,17 +129,6 @@ describe("cvm clip-mockup", () => {
     ndjson(
       (await run(["clip-mockup", "list", "--video", videoId])).stdout
     ) as Mockup[];
-
-  const freshVideo = async (
-    title: string,
-    format: string
-  ): Promise<{ id: string; lineageId: string }> => {
-    const [v] = await testDb
-      .insert(schema.videos)
-      .values({ title, originalFootagePath: "f.mp4", format })
-      .returning();
-    return { id: v!.id, lineageId: v!.lineageId };
-  };
 
   const frameDir = (lineageId: string) => nodePath.join(frames.dir, lineageId);
 
@@ -361,23 +349,6 @@ describe("cvm clip-mockup", () => {
       expect(failureOf(r)._tag, file).toBe("ParseError");
     }
     expect(await list(s.standaloneActiveId)).toEqual([]);
-  });
-
-  it("add on a Short is refused, naming Landscape", async () => {
-    const short = await freshVideo("short.mp4", "short");
-
-    const r = await run(
-      addArgv(short.id, [
-        { say: "Not allowed.", image: sourceImage("short-frame.png") },
-      ])
-    );
-
-    expect(r.exitCode).toBe(3);
-    expect(r.stdout).toBe("");
-    const failure = failureOf(r);
-    expect(failure._tag).toBe("ParseError");
-    expect(failure.message).toContain("Landscape only");
-    expect(nodeFs.existsSync(frameDir(short.lineageId))).toBe(false);
   });
 
   it("add on an unknown or archived Video is a not-found, exit 2", async () => {

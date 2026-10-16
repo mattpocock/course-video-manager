@@ -5,9 +5,17 @@ import nodePath from "node:path";
 import { newFrameFilename } from "@/services/clip-mockup-files";
 import { captureFramesInDaemon } from "@/services/clip-mockup-daemon/client";
 import {
+  FRAME_HEIGHT,
+  FRAME_WIDTH,
   FrameCaptureError,
   FrameCaptureService,
+  type CaptureViewport,
 } from "@/services/frame-capture-service";
+import {
+  SHORT_FRAME,
+  shortFramePageHtml,
+  type ShortScene,
+} from "@/services/short-clip-mockup-frame";
 import { parseError } from "@/cli/helpers";
 
 /**
@@ -32,12 +40,42 @@ export type FrameSource =
   | { readonly kind: "html"; readonly path: string }
   | { readonly kind: "image"; readonly path: string };
 
-/** One `add` entry: a moment, or a Clip Mockup Chapter dividing moments. */
+/**
+ * What a frame is made from, once the Video's format is known.
+ *
+ * - `landscape`: the agent's page or PNG IS the 1920x1080 frame.
+ * - `short`: CVM composes a whole 1080x1920 frame around it from the Short
+ *   layout (`short-clip-mockup-frame.ts`) — the Camera scene from nothing,
+ *   the Code scene around the agent's page or PNG.
+ */
+export type FrameSpec =
+  | { readonly format: "landscape"; readonly source: FrameSource }
+  | { readonly format: "short"; readonly scene: "camera" }
+  | {
+      readonly format: "short";
+      readonly scene: "code";
+      readonly source: FrameSource;
+    };
+
+/** The Landscape frame's size. */
+const LANDSCAPE_FRAME: CaptureViewport = {
+  width: FRAME_WIDTH,
+  height: FRAME_HEIGHT,
+};
+
+/**
+ * One `add` entry: a moment, or a Clip Mockup Chapter dividing moments.
+ *
+ * `scene` is a Short's only, and is checked against the Video once it is
+ * read (`clip-mockup.short.ts`). `frame` is missing only on a Camera moment,
+ * which CVM draws.
+ */
 export type AddEntry =
   | {
       readonly type: "clipMockup";
       readonly line: string;
-      readonly frame: FrameSource;
+      readonly scene: ShortScene | undefined;
+      readonly frame: FrameSource | undefined;
     }
   | { readonly type: "clipMockupChapter"; readonly name: string };
 
@@ -53,7 +91,8 @@ export interface UpdateEntry {
   readonly frame: FrameSource | undefined;
 }
 
-const ADD_KEYS = new Set(["say", "html", "image", "chapter"]);
+const ADD_KEYS = new Set(["say", "html", "image", "scene", "chapter"]);
+const SCENES: ReadonlyArray<ShortScene> = ["camera", "code"];
 const UPDATE_KEYS = new Set(["id", "video", "at", "say", "html", "image"]);
 
 /** Read the file (or STDIN for "-") and the directory its paths are relative to. */
@@ -185,9 +224,15 @@ export const readAddEntries = (source: string) =>
       const say = yield* text("say");
       const html = yield* text("html");
       const image = yield* text("image");
+      const sceneText = yield* text("scene");
 
       if (chapter !== undefined) {
-        if (say !== undefined || html !== undefined || image !== undefined) {
+        if (
+          say !== undefined ||
+          html !== undefined ||
+          image !== undefined ||
+          sceneText !== undefined
+        ) {
           return yield* parseError(
             `entry ${n} is a Chapter, so it takes "chapter" alone — no line and no picture`,
             ENTITY
@@ -209,8 +254,24 @@ export const readAddEntries = (source: string) =>
           ENTITY
         );
       }
+      if (
+        sceneText !== undefined &&
+        !SCENES.includes(sceneText as ShortScene)
+      ) {
+        return yield* parseError(
+          `entry ${n}: "scene" must be "camera" or "code" (a Short's two scenes)`,
+          ENTITY
+        );
+      }
+      const scene = sceneText as ShortScene | undefined;
       const frame = yield* readFrame(html, image, n, baseDir);
-      if (frame === undefined) {
+      if (scene === "camera" && frame !== undefined) {
+        return yield* parseError(
+          `entry ${n} is a Camera moment, which CVM draws: give it "say" and "scene" only, no "html" or "image"`,
+          ENTITY
+        );
+      }
+      if (scene !== "camera" && frame === undefined) {
         return yield* parseError(
           `entry ${n} needs one of "html" or "image" (a Clip Mockup must have a picture)`,
           ENTITY
@@ -219,6 +280,7 @@ export const readAddEntries = (source: string) =>
       parsed.push({
         type: "clipMockup",
         line: yield* requireLine(say, n),
+        scene,
         frame,
       });
     }
@@ -303,6 +365,7 @@ export const capturePages = (
   pages: ReadonlyArray<{
     readonly htmlPath: string;
     readonly outputPath: string;
+    readonly viewport: CaptureViewport;
     readonly fullPage: boolean;
   }>
 ) =>
@@ -325,17 +388,39 @@ export interface ProducedFrame {
   readonly filename: string;
 }
 
+/** The one key a frame is made once for: specs with one key share a file. */
+const specKey = (spec: FrameSpec): string => {
+  switch (spec.format) {
+    case "landscape":
+      return `landscape:${spec.source.path}`;
+    case "short":
+      return spec.scene === "camera"
+        ? "short:camera"
+        : `short:code:${spec.source.path}`;
+  }
+};
+
+/** Read straight from disk: a Landscape PNG, which is already the frame. */
+const copiedImage = (spec: FrameSpec): string | undefined =>
+  spec.format === "landscape" && spec.source.kind === "image"
+    ? spec.source.path
+    : undefined;
+
 /**
- * The PNG bytes for every frame source, in order.
+ * The PNG bytes for every frame, in order.
  *
- * Each distinct source is read or captured ONCE, and gets one filename: a
+ * Each distinct frame is read or captured ONCE, and gets one filename: a
  * frame held across four moments is one capture and one file, which the four
  * rows share. That is safe because a frame file is never changed or removed
- * — `update` writes a new one.
+ * — `update` writes a new one. Every Camera moment of a Short is the same
+ * picture, so they share one too.
  *
- * Pages go through `capturePages`, all at once.
+ * A Landscape page is captured as it is, at 1920x1080. A Short's frame is a
+ * page CVM writes into the scratch directory around the agent's page or PNG
+ * (`shortFramePageHtml`), captured at 1080x1920. Pages go through
+ * `capturePages`, all at once.
  */
-export const produceFrames = (sources: ReadonlyArray<FrameSource>) =>
+export const produceFrames = (specs: ReadonlyArray<FrameSpec>) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const scratch = yield* fs
@@ -351,40 +436,96 @@ export const produceFrames = (sources: ReadonlyArray<FrameSource>) =>
         )
       );
 
-    const distinct = [...new Map(sources.map((s) => [s.path, s])).values()];
-    const pages = distinct
-      .filter((s) => s.kind === "html")
-      .map((s, i) => ({
-        htmlPath: s.path,
-        outputPath: nodePath.join(scratch, `${i}.png`),
+    const distinct = [...new Map(specs.map((s) => [specKey(s), s])).entries()];
+    const pages: Array<{
+      key: string;
+      /** What a failure names: the agent's page, or CVM's own for a Camera. */
+      shownPath: string;
+      htmlPath: string;
+      outputPath: string;
+      viewport: CaptureViewport;
+      fullPage: false;
+    }> = [];
+    for (const [i, [key, spec]] of distinct.entries()) {
+      if (copiedImage(spec) !== undefined) continue;
+      const outputPath = nodePath.join(scratch, `${i}.png`);
+      if (spec.format === "landscape") {
+        pages.push({
+          key,
+          shownPath: spec.source.path,
+          htmlPath: spec.source.path,
+          outputPath,
+          viewport: LANDSCAPE_FRAME,
+          fullPage: false,
+        });
+        continue;
+      }
+      const htmlPath = nodePath.join(scratch, `${i}-short-${spec.scene}.html`);
+      yield* fs.writeFileString(htmlPath, shortFramePageHtml(spec)).pipe(
+        Effect.mapError(
+          (cause) =>
+            new FrameCaptureError({
+              htmlPath,
+              cause,
+              message: `could not write the Short frame page ${htmlPath}`,
+            })
+        )
+      );
+      pages.push({
+        key,
+        shownPath: spec.scene === "code" ? spec.source.path : htmlPath,
+        htmlPath,
+        outputPath,
+        viewport: SHORT_FRAME,
         fullPage: false,
-      }));
+      });
+    }
 
-    yield* capturePages(pages);
+    yield* capturePages(
+      pages.map(({ htmlPath, outputPath, viewport, fullPage }) => ({
+        htmlPath,
+        outputPath,
+        viewport,
+        fullPage,
+      }))
+    ).pipe(
+      // A Short's Code page failed inside CVM's wrapper: name the agent's
+      // page, which is the one it can fix.
+      Effect.mapError((e) => {
+        const page = pages.find((p) => p.htmlPath === e.htmlPath);
+        return page === undefined || page.shownPath === e.htmlPath
+          ? e
+          : new FrameCaptureError({
+              htmlPath: page.shownPath,
+              cause: e.cause,
+              message: e.message.replaceAll(page.htmlPath, page.shownPath),
+            });
+      })
+    );
 
-    const pngOf = new Map(pages.map((p) => [p.htmlPath, p.outputPath]));
-    const byPath = new Map<string, ProducedFrame>();
-    for (const source of distinct) {
-      const readFrom = pngOf.get(source.path) ?? source.path;
+    const pageOf = new Map(pages.map((p) => [p.key, p]));
+    const byKey = new Map<string, ProducedFrame>();
+    for (const [key, spec] of distinct) {
+      const image = copiedImage(spec);
+      const page = pageOf.get(key);
+      const readFrom = image ?? page!.outputPath;
       const content = yield* fs.readFile(readFrom).pipe(
         Effect.mapError((cause) =>
-          source.kind === "html"
+          image === undefined
             ? new FrameCaptureError({
-                htmlPath: source.path,
+                htmlPath: page!.shownPath,
                 cause,
                 message:
                   "the capture reported success but wrote no PNG — refusing to create a Clip Mockup with no frame",
               })
-            : parseError(`cannot read source image ${source.path}`, ENTITY)
+            : parseError(`cannot read source image ${image}`, ENTITY)
         )
       );
-      byPath.set(source.path, {
+      byKey.set(key, {
         content,
         // A captured frame is stored as a PNG whatever the page was called.
-        filename: newFrameFilename(
-          source.kind === "html" ? "frame.png" : source.path
-        ),
+        filename: newFrameFilename(image ?? "frame.png"),
       });
     }
-    return sources.map((s) => byPath.get(s.path)!);
+    return specs.map((s) => byKey.get(specKey(s))!);
   }).pipe(Effect.scoped);

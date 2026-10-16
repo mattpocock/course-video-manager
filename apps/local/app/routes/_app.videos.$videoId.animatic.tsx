@@ -12,10 +12,7 @@ import {
   clipMockupFrameUrl,
 } from "@/features/clip-mockups/clip-mockup-frame-url";
 import { makeLoader } from "@/services/route-action.server";
-import {
-  VIDEO_FORMAT_DIMENSIONS,
-  resolveVideoFormat,
-} from "@/features/videos/video-format";
+import { resolveVideoFormat } from "@/features/videos/video-format";
 import { AnimaticPlayer } from "@/features/animatic/animatic-player";
 import type { AnimaticChapter } from "@/features/animatic/animatic-chapters";
 import {
@@ -207,7 +204,6 @@ const loadSectionLessons = (videoId: string) =>
 
 export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
   const { video, mockups, chapters, comments, sectionRunTime } = loaderData;
-  const { width, height } = VIDEO_FORMAT_DIMENSIONS[video.format];
 
   // An Animatic is WATCHED WHILE IT IS STILL BEING WRITTEN — an agent redraws a
   // frame or rewrites a line in the background, and the author should see it on
@@ -244,8 +240,7 @@ export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
         mockups={mockups}
         chapters={chapters}
         sectionRunTime={sectionRunTime}
-        width={width}
-        height={height}
+        format={video.format}
       />
     </AnimaticCommentsProvider>
   );

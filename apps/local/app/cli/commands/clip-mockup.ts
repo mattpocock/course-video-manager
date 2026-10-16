@@ -37,8 +37,16 @@ import {
   produceFrames,
   readAddEntries,
   readUpdateEntries,
+  type FrameSpec,
   type UpdateEntry,
 } from "./clip-mockup.batch";
+import {
+  addFrameSpecs,
+  requireDeleteKeepsShortOrder,
+  requireMoveKeepsShortOrder,
+  shortOrderOf,
+  updateFrameSpec,
+} from "./clip-mockup.short-guard";
 import { captureCmd } from "./clip-mockup.capture";
 import { queueClipMockupVoices, withVoiceDuration } from "./clip-mockup.voice";
 import {
@@ -344,19 +352,20 @@ const addCmd = Command.make(
       const entries = yield* readAddEntries(file);
 
       const row = yield* requireActiveVideo(video);
-      if (row.format === "short") {
-        return yield* parseError(
-          `video ${video} is a Short — Clip Mockups are Landscape only`,
-          "clipMockup"
-        );
-      }
+      const svc = yield* ClipMockupOperationsService;
 
-      const moments = entries.filter((e) => e.type === "clipMockup");
+      const moments = entries.flatMap((e, i) =>
+        e.type === "clipMockup" ? [{ ...e, entry: i + 1 }] : []
+      );
+
+      // A Short's frames are composed by CVM, and its Animatic has an order:
+      // one Camera moment, then Code. Checked before anything is captured.
+      const specs = yield* addFrameSpecs(row, moments);
 
       // Only the frames are made here. The VOICE is not waited for: the rows
       // are written `pending` and one `clip-mockup-voice` Job, run by this
       // machine's Sidecar, voices every line after this command returns.
-      const frames = yield* produceFrames(moments.map((m) => m.frame));
+      const frames = yield* produceFrames(specs);
 
       // Every frame BEFORE any row: a row whose imagePath points at nothing
       // is the one state an authoring agent cannot see or fix.
@@ -377,7 +386,6 @@ const addCmd = Command.make(
         };
       });
 
-      const svc = yield* ClipMockupOperationsService;
       const created = yield* svc.createClipMockups(row.id, batch);
       yield* queueClipMockupVoices(
         created.flatMap((r) => (r.type === "clipMockup" ? [r] : []))
@@ -462,17 +470,31 @@ const updateCmd = Command.make(
       // Both halves land under each row's parent Video's lineageId. The rows
       // may come from several Videos: a round of notes is one file.
       const lineageOf = new Map<string, string>();
+      // A Short's Clip Mockup ids in order: its positions decide its scenes.
+      const shortOrder = new Map<string, ReadonlyArray<string>>();
+      const svc = yield* ClipMockupOperationsService;
       for (const row of rows) {
         if (!lineageOf.has(row.videoId)) {
           const parent = yield* requireActiveVideo(row.videoId);
           lineageOf.set(row.videoId, parent.lineageId);
+          if (parent.format === "short") {
+            shortOrder.set(row.videoId, yield* shortOrderOf(row.videoId));
+          }
         }
       }
       const lineage = (i: number) => lineageOf.get(rows[i]!.videoId)!;
 
-      const framed = entries.flatMap((e, i) =>
-        e.frame === undefined ? [] : [{ i, frame: e.frame }]
-      );
+      const framed: Array<{ i: number; frame: FrameSpec }> = [];
+      for (const [i, e] of entries.entries()) {
+        if (e.frame === undefined) continue;
+        const frame = yield* updateFrameSpec({
+          entry: i + 1,
+          clipMockupId: rows[i]!.id,
+          source: e.frame,
+          shortOrder: shortOrder.get(rows[i]!.videoId),
+        });
+        framed.push({ i, frame });
+      }
 
       // The line and the picture are independent: an entry that changes one
       // leaves the other exactly as it was. New WORDS are new SPEECH, though:
@@ -505,7 +527,6 @@ const updateCmd = Command.make(
         requeueVoice: true,
       }));
 
-      const svc = yield* ClipMockupOperationsService;
       const updated = yield* svc.updateClipMockups(edits);
       yield* queueClipMockupVoices(
         updated.filter((r) => r.voiceStatus === "pending")
@@ -539,6 +560,7 @@ const moveCmd = Command.make(
         after,
         excludeId: row.id,
       });
+      yield* requireMoveKeepsShortOrder(row, beforeClipMockupId);
       const svc = yield* ClipMockupOperationsService;
       // Ordering only: no frame is read, written or moved.
       const moved = yield* svc
@@ -561,6 +583,7 @@ const deleteCmd = Command.make(
       const video = Option.fromNullable(yield* optionalDraftId(videoRef));
       const row = yield* resolveTargetClipMockup({ id, video, at });
       const svc = yield* ClipMockupOperationsService;
+      yield* requireDeleteKeepsShortOrder(row);
       yield* svc.deleteClipMockup(row.id);
       const archived = yield* svc
         .getClipMockupById(row.id)

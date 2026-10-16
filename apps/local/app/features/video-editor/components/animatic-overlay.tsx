@@ -5,7 +5,6 @@ import { useFetcher } from "react-router";
 import { useContextSelector } from "use-context-selector";
 import { AnimaticCommentsProvider } from "@/features/animatic/animatic-comments";
 import { AnimaticPlayer } from "@/features/animatic/animatic-player";
-import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import type { loader as animaticLoader } from "@/routes/_app.videos.$videoId.animatic";
 import { VideoEditorContext } from "../video-editor-context";
 
@@ -80,8 +79,7 @@ function OpenAnimatic(props: {
               mockups={data.mockups}
               chapters={data.chapters}
               sectionRunTime={data.sectionRunTime}
-              width={VIDEO_FORMAT_DIMENSIONS[data.video.format].width}
-              height={VIDEO_FORMAT_DIMENSIONS[data.video.format].height}
+              format={data.video.format}
               startAt={props.clipMockupId}
               onClose={props.onClose}
             />

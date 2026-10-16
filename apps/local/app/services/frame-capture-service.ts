@@ -37,9 +37,18 @@ import { assertUnder } from "./assert-under";
  * author's machine. Nothing in the test suite depends on it.
  */
 
-/** Every Clip Mockup frame is exactly this size — a 1080p landscape frame. */
+/**
+ * A Landscape Clip Mockup frame is exactly this size — a 1080p landscape
+ * frame. A Short's is 1080x1920; every capture names its own viewport.
+ */
 export const FRAME_WIDTH = 1920;
 export const FRAME_HEIGHT = 1080;
+
+/** The size of the page a capture opens, in CSS pixels at scale 1. */
+export interface CaptureViewport {
+  readonly width: number;
+  readonly height: number;
+}
 
 /** How long a single page gets to load and paint before the capture is failed. */
 const CAPTURE_TIMEOUT_MS = 30_000;
@@ -145,10 +154,16 @@ export class FrameCaptureService extends Effect.Service<FrameCaptureService>()(
           readonly htmlPath: string;
           readonly outputPath: string;
           /**
-           * false for every Clip Mockup frame: the frame is the 1920x1080
-           * viewport. true only for the contact sheet `cvm clip-mockup
-           * capture --sheet` writes, which is 1920 wide and as tall as its
-           * grid of tiles. Required, not defaulted: a caller must decide.
+           * The page's size: 1920x1080 for a Landscape frame, 1080x1920 for a
+           * Short's. Required, not defaulted: a Short frame captured at the
+           * Landscape size is a wrong picture that still looks like a frame.
+           */
+          readonly viewport: CaptureViewport;
+          /**
+           * false for every Clip Mockup frame: the frame is the viewport.
+           * true only for the contact sheet `cvm clip-mockup capture --sheet`
+           * writes, which is as wide as its viewport and as tall as its grid
+           * of tiles. Required, not defaulted: a caller must decide.
            */
           readonly fullPage: boolean;
         }) {
@@ -165,7 +180,10 @@ export class FrameCaptureService extends Effect.Service<FrameCaptureService>()(
             Effect.tryPromise({
               try: async () => {
                 const context = await running.newContext({
-                  viewport: { width: FRAME_WIDTH, height: FRAME_HEIGHT },
+                  viewport: {
+                    width: params.viewport.width,
+                    height: params.viewport.height,
+                  },
                   deviceScaleFactor: 1,
                 });
                 try {
@@ -180,11 +198,19 @@ export class FrameCaptureService extends Effect.Service<FrameCaptureService>()(
                   // Web fonts settle after 'load'; a frame captured mid-swap
                   // shows the fallback face, which is exactly the kind of wrong
                   // the author would only notice while watching the Animatic.
-                  await page.evaluate(() =>
-                    document.fonts.ready.then(() => undefined)
+                  // Every frame, not only the top one: a Short's Code frame
+                  // draws the agent's page in an iframe.
+                  await Promise.all(
+                    page
+                      .frames()
+                      .map((frame) =>
+                        frame.evaluate(() =>
+                          document.fonts.ready.then(() => undefined)
+                        )
+                      )
                   );
                   // Without `fullPage` the frame is the VIEWPORT, so the output
-                  // is 1920x1080 whatever the page's own height turns out to be.
+                  // is exactly the viewport whatever the page's own height.
                   await page.screenshot({
                     path: params.outputPath,
                     type: "png",
