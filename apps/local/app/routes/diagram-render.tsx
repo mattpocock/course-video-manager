@@ -8,6 +8,7 @@ import {
 } from "@/features/diagrams/diagram-render-contract";
 import { renderScenePng } from "@/features/diagrams/render-scene-png";
 import { NO_TOASTS } from "@/lib/route-toasts";
+import { useTldrawLicenseKey } from "@/features/diagrams/use-tldraw-license-key";
 
 /**
  * A bare page that turns a Diagram's scene into a PNG, for `cvm diagram
@@ -23,6 +24,7 @@ export const handle = NO_TOASTS;
 const EMPTY_MIME_TYPES: string[] = [];
 
 export default function DiagramRender() {
+  const licenseKey = useTldrawLicenseKey();
   const handleMount = useCallback((editor: Editor) => {
     const render: DiagramRenderFunction = (scene) =>
       renderScenePng(editor, scene);
@@ -38,6 +40,7 @@ export default function DiagramRender() {
   return (
     <div className="fixed inset-0">
       <Tldraw
+        licenseKey={licenseKey}
         onMount={handleMount}
         hideUi
         colorScheme="dark"

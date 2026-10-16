@@ -19,6 +19,7 @@ import { NO_TOASTS } from "@/lib/route-toasts";
 import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
 import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
+import { useTldrawLicenseKey } from "@/features/diagrams/use-tldraw-license-key";
 import { DiagramEditorBoundary } from "@/features/diagrams/unknown-shape-boundary";
 import { CommandPalette } from "@/features/diagrams/palette/command-palette";
 import { PlaygroundStatusArea } from "@/features/diagrams/head-load-status";
@@ -288,6 +289,7 @@ export default function DiagramPlaygroundActive({
   const { isFocusMode } = state;
   const timelineVisible = diagramId && !isFocusMode;
   const cornerButtons = showsCornerButtons(state);
+  const licenseKey = useTldrawLicenseKey();
 
   return (
     <PlaygroundStatusProvider value={status}>
@@ -295,6 +297,7 @@ export default function DiagramPlaygroundActive({
         <div className="relative flex-1">
           <DiagramEditorBoundary>
             <Tldraw
+              licenseKey={licenseKey}
               onMount={handleMount}
               colorScheme="dark"
               acceptedImageMimeTypes={EMPTY_MIME_TYPES}

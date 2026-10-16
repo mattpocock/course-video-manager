@@ -3,6 +3,7 @@ import { TldrawImage } from "tldraw";
 import "tldraw/tldraw.css";
 import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
 import { ShapeTypeErrorBoundary } from "@/features/diagrams/unknown-shape-boundary";
+import { useTldrawLicenseKey } from "@/features/diagrams/use-tldraw-license-key";
 
 export const DiagramThumbnail = (props: {
   diagramId?: string;
@@ -12,6 +13,7 @@ export const DiagramThumbnail = (props: {
   darkMode?: boolean;
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
+  const licenseKey = useTldrawLicenseKey();
 
   // `TldrawImage` builds a fresh store, editor and image export whenever its
   // `snapshot` changes identity. A new `{ document }` on every render made each
@@ -55,6 +57,7 @@ export const DiagramThumbnail = (props: {
         <div className={props.className}>
           <TldrawImage
             snapshot={tldrawSnapshot}
+            licenseKey={licenseKey}
             darkMode={props.darkMode ?? true}
             background={false}
             // Without the custom shape utils, the first diagram containing an

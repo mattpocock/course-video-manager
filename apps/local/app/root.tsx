@@ -7,6 +7,7 @@ import {
   ScrollRestoration,
   useLocation,
   useMatches,
+  type ShouldRevalidateFunction,
 } from "react-router";
 import {
   AlertTriangle,
@@ -38,10 +39,27 @@ import { purgeLegacyDocumentStorage } from "@/features/article-writer/write-util
 import { FeedbackModal } from "@/components/feedback-modal";
 import { Loader2, MessageSquarePlus } from "lucide-react";
 import { slowRequestMiddleware } from "@/services/slow-request-log.server";
+import { makeLoader } from "@/services/route-action.server";
+import { readTldrawLicenseKey } from "@/features/diagrams/tldraw-license-key.server";
+import type { RootLoaderData } from "@/features/diagrams/use-tldraw-license-key";
+import { Effect } from "effect";
 import "./app.css";
 
 // Every request, page or resource route, is timed here, once.
 export const middleware: Route.MiddlewareFunction[] = [slowRequestMiddleware];
+
+// The tldraw licence key, for every tldraw component (useTldrawLicenseKey). It
+// is meant to reach the browser; unset, tldraw shows its default watermark.
+export const loader = makeLoader({
+  effect: () =>
+    Effect.map(readTldrawLicenseKey, (tldrawLicenseKey): RootLoaderData => ({
+      tldrawLicenseKey,
+    })),
+});
+
+// Nothing the root loader returns changes while the server runs, and the
+// Diagram Playground revalidates every 2s: never re-run it.
+export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
