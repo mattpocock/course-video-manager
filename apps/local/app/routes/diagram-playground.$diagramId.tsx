@@ -25,7 +25,10 @@ import { PlaygroundStatusArea } from "@/features/diagrams/head-load-status";
 import { PlaygroundStatusProvider } from "@/features/diagrams/playground-status";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { useDiagramPlaygroundReducer } from "@/features/diagrams/use-diagram-playground-reducer";
-import { activeSnapshotHash } from "@/features/diagrams/diagram-playground-selectors";
+import {
+  activeSnapshotHash,
+  showsCornerButtons,
+} from "@/features/diagrams/diagram-playground-selectors";
 import { readFullScreen } from "@/features/diagrams/full-screen";
 
 export const handle = NO_TOASTS;
@@ -284,6 +287,7 @@ export default function DiagramPlaygroundActive({
 
   const { isFocusMode } = state;
   const timelineVisible = diagramId && !isFocusMode;
+  const cornerButtons = showsCornerButtons(state);
 
   return (
     <PlaygroundStatusProvider value={status}>
@@ -298,7 +302,7 @@ export default function DiagramPlaygroundActive({
               embeds={EMPTY_EMBEDS}
               shapeUtils={CVM_SHAPE_UTILS}
             />
-            {diagramId && (
+            {diagramId && cornerButtons && (
               <button
                 onClick={preserveSnapshot}
                 disabled={state.preserving}
@@ -334,11 +338,13 @@ export default function DiagramPlaygroundActive({
               recentreDiagram={recentreDiagram}
             />
           )}
-          <ConnectionStatusIndicator
-            editorConnected={state.videoEditorConnected}
-            windowFocused={state.windowFocused}
-          />
-          {diagramId && (
+          {cornerButtons && (
+            <ConnectionStatusIndicator
+              editorConnected={state.videoEditorConnected}
+              windowFocused={state.windowFocused}
+            />
+          )}
+          {diagramId && cornerButtons && (
             <DiagramCenteringDebug
               editorRef={editorRef}
               format={state.format}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialCvmRecorderState } from "@/features/video-editor/cvm-recorder-reducer";
 import { getRecorderCapture } from "@/features/video-editor/recorder-capture";
 import { isFullScreen } from "./full-screen";
+import { showsCornerButtons } from "./diagram-playground-selectors";
 import {
   loaded,
   openPage,
@@ -177,5 +178,13 @@ describe("the playground's Video is a Short, outside a take", () => {
     expect(tester.getEffects()).toEqual([
       { type: "centre-camera-after-layout", format: "landscape" },
     ]);
+  });
+
+  it("hides the bottom-right buttons, which would be on camera", () => {
+    expect(showsCornerButtons(onAShort().getState())).toBe(false);
+  });
+
+  it("shows them on Landscape, where the face-cam covers that corner", () => {
+    expect(showsCornerButtons(openPage().getState())).toBe(true);
   });
 });

@@ -57,3 +57,11 @@ export const activeSnapshotHash = (state: State): string | null => {
     return null;
   return head.seen?.hash ?? null;
 };
+
+/**
+ * The playground's own buttons in the canvas's bottom-right corner — the
+ * centering debug toggle, the connection indicator and Preserve Snapshot.
+ * On a landscape take that corner is under the face-cam; on a Short it is on
+ * camera, so they're not drawn at all.
+ */
+export const showsCornerButtons = (state: State) => state.format !== "short";
