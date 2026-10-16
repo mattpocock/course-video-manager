@@ -262,7 +262,11 @@ cmd_launch() {
     # PlanetScale wants the system root certificate.
     # CVM_LOG_SQL: every statement the app sends lands in server.log, which is
     # what the Write Ledger reads to prove this run sent no write.
-    SERVER_ENV=("PGSSLROOTCERT=system" "PGOPTIONS=$PSQL_RO_OPTIONS" "CVM_LOG_SQL=1")
+    # The run's own scratch as its Storage Roots, as on a clone: .env's real
+    # drives are never this server's, and it refuses any /mnt path.
+    run_files_env "$dir"
+    SERVER_ENV=("PGSSLROOTCERT=system" "PGOPTIONS=$PSQL_RO_OPTIONS" "CVM_LOG_SQL=1"
+                "${RUN_FILES_ENV[@]}")
   fi
 
   # Pick a port out of the verification band and ask for exactly it. Vite runs

@@ -9,6 +9,11 @@ import {
   writeFolder,
   type StorageRoots,
 } from "@/packages/storage";
+import {
+  realDriveReached,
+  realDrivesForbidden,
+  VERIFY_RUN_DIR_ENV_KEY,
+} from "@/packages/storage/server";
 import { resolveRepoEnvValue } from "./repo-env";
 
 /**
@@ -20,14 +25,32 @@ import { resolveRepoEnvValue } from "./repo-env";
 export const STORAGE_ROOTS_ENV_KEY = "STORAGE_ROOTS";
 
 /**
- * Set by verify-cvm on every process of a test-clone run: that run's own
- * directory. While it is set, every Storage Root — and each Storage Folder
- * under one — must resolve inside it, or the process refuses to start. A
- * verify run once reached Matt's real Footage through a symlinked
- * `raw-footage/`; this is the in-process half of the rule that it never can
- * again (the shell half is verify-cvm's `assert_env_paths_contained`).
+ * Set by verify-cvm on every process of a run: that run's own directory.
+ * While it is set, every Storage Root — and each Storage Folder under one —
+ * must resolve inside it, or the process refuses to start. A verify run once
+ * reached Matt's real Footage through a symlinked `raw-footage/`; this is the
+ * in-process half of the rule that it never can again (the shell half is
+ * verify-cvm's `assert_env_paths_contained`).
  */
-export const VERIFY_RUN_DIR_ENV_KEY = "CVM_VERIFY_RUN_DIR";
+export { VERIFY_RUN_DIR_ENV_KEY };
+
+/**
+ * Why an agent's process (`realDrivesForbidden`) may not use these roots — one
+ * is on a real drive — or `undefined`. Judged without touching the drive.
+ */
+const judgeRealDriveRoots = (
+  env: Readonly<Record<string, string | undefined>>,
+  roots: StorageRoots
+): string | undefined => {
+  if (!realDrivesForbidden(env)) return undefined;
+  for (const root of roots) {
+    const reached = realDriveReached(root);
+    if (reached !== undefined) {
+      return `Storage Root ${root} is on a real drive (${reached}), and this is an agent's server (a verify-cvm run, a cvm_verify_* database, or CVM_NO_REAL_DRIVES=1): it never reads Matt's drives. Give it a scratch directory of its own as STORAGE_ROOTS.`;
+    }
+  }
+  return undefined;
+};
 
 /** A path with every symlink resolved; a path that does not exist yet, as is. */
 const realpathOrResolved = (path: string): string => {
@@ -47,6 +70,8 @@ export const judgeVerifyRunContainment = (
   roots: StorageRoots,
   realpath: (path: string) => string = realpathOrResolved
 ): string | undefined => {
+  const onDrive = judgeRealDriveRoots(env, roots);
+  if (onDrive !== undefined) return onDrive;
   const runDir = env[VERIFY_RUN_DIR_ENV_KEY];
   if (runDir === undefined || runDir.trim() === "") return undefined;
   const realRunDir = realpath(runDir);

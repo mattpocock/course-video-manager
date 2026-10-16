@@ -25,7 +25,8 @@ LEDGER_APP_API=cvm-verify-api
 
 # clone_app_env <run dir> <clone url> — CLONE_APP_ENV: the environment every
 # process of a test-clone run gets. Its database, its own scratch directories
-# (a run's file writes never land on Matt's disk) and the offline services.
+# (run_files_env: a run's files never touch Matt's drives) and the offline
+# services.
 #
 # scratch/ is the run's one Storage Root (ADR 0040), and every folder under it
 # — the four Storage Folders included — is a fresh, EMPTY, real directory of
@@ -117,15 +118,20 @@ extra_storage_roots() {
   done
 }
 
-CLONE_APP_ENV=()
-clone_app_env() {
-  local dir="$1" url="$2" scratch="$1/scratch"
+# run_files_env <run dir> — RUN_FILES_ENV: where every process of a run, clone
+# or --production, keeps its files: this run's scratch/, never Matt's drives.
+# CVM_VERIFY_RUN_DIR and CVM_NO_REAL_DRIVES also make the app refuse, before
+# touching it, any path on or resolving to /mnt — a Clip that still stores an
+# absolute /mnt/d/raw-footage path included (packages/storage real-drives.ts):
+# an agent's server once decoded stills from real Footage that way while Matt
+# was recording.
+RUN_FILES_ENV=()
+run_files_env() {
+  local dir="$1" scratch="$1/scratch"
   assert_scratch_contained "$dir"
   mkdir -p "${SCRATCH_DIRS[@]/#/$scratch/}"
   assert_scratch_contained "$dir"
-  CLONE_APP_ENV=(
-    "DATABASE_URL=$url"
-    "DIRECT_DATABASE_URL=$url"
+  RUN_FILES_ENV=(
     "VIDEO_FILES_DIR=$scratch/video-files"
     # VERIFY_EXTRA_STORAGE_ROOTS (comma-separated names) adds roots after
     # scratch/, e.g. one that does not exist, to see an Offline drive. A name
@@ -135,9 +141,22 @@ clone_app_env() {
     # The app's own half of the rule (services/storage-roots.ts): with this
     # set, the server, the sidecar and `cvm` refuse a Storage Root outside it.
     "CVM_VERIFY_RUN_DIR=$dir"
+    "CVM_NO_REAL_DRIVES=1"
     "DIAGRAM_THUMBNAILS_DIR=$scratch/diagram-thumbnails"
     "OBS_RECORDING_DIR=$scratch/obs-recordings"
     "DROPBOX_REMOTE_PATH=$scratch/dropbox"
+  )
+  assert_env_paths_contained "$dir" "${RUN_FILES_ENV[@]}"
+}
+
+CLONE_APP_ENV=()
+clone_app_env() {
+  local dir="$1" url="$2"
+  run_files_env "$dir"
+  CLONE_APP_ENV=(
+    "DATABASE_URL=$url"
+    "DIRECT_DATABASE_URL=$url"
+    "${RUN_FILES_ENV[@]}"
     "${OFFLINE_SERVICES_ENV[@]}"
     # One ffmpeg and one Dropbox upload at a time (verify-clones.sh).
     "${CLONE_ENCODE_CAPS_ENV[@]}"

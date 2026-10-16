@@ -59,7 +59,7 @@ describe("judgeStorageRoots on a verify run (CVM_VERIFY_RUN_DIR set)", () => {
         allOnline,
         (p) => p
       ).refusal
-    ).toMatch(/\/mnt\/d resolves to \/mnt\/d, outside this verify run/);
+    ).toMatch(/Storage Root \/mnt\/d is on a real drive/);
   });
 
   it("does not take a sibling directory with the same prefix as inside", () => {
@@ -77,5 +77,45 @@ describe("judgeStorageRoots on a verify run (CVM_VERIFY_RUN_DIR set)", () => {
       judgeStorageRoots({ STORAGE_ROOTS: "/mnt/d" }, allOnline, linkedFootage)
         .refusal
     ).toBeUndefined();
+  });
+});
+
+describe("judgeStorageRoots for any agent's server", () => {
+  // Never consulted for a refused root: the drive is not even stat'ed.
+  const neverOnline = (root: string): boolean => {
+    throw new Error(`stat'ed ${root}`);
+  };
+
+  it("refuses a real Storage Root on a cvm_verify_* database, before any stat", () => {
+    expect(
+      judgeStorageRoots(
+        {
+          STORAGE_ROOTS: "/mnt/d",
+          DATABASE_URL: "postgresql://postgres@localhost:5433/cvm_verify_1",
+        },
+        neverOnline
+      ).refusal
+    ).toMatch(/Storage Root \/mnt\/d is on a real drive/);
+  });
+
+  it("refuses a real Storage Root with CVM_NO_REAL_DRIVES=1", () => {
+    expect(
+      judgeStorageRoots(
+        { STORAGE_ROOTS: "/mnt/e", CVM_NO_REAL_DRIVES: "1" },
+        neverOnline
+      ).refusal
+    ).toMatch(/Storage Root \/mnt\/e is on a real drive/);
+  });
+
+  it("leaves Matt's own server on his own database alone", () => {
+    expect(
+      judgeStorageRoots(
+        {
+          STORAGE_ROOTS: "/mnt/d,/mnt/e",
+          DATABASE_URL: "postgresql://postgres@localhost:5432/cvm",
+        },
+        () => true
+      )
+    ).toEqual({ refusal: undefined, offline: [] });
   });
 });

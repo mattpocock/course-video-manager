@@ -133,8 +133,7 @@ export function SuggestionsPanel(props: {
           value={state.notes}
           onChange={(e) => props.onNotesChange(e.target.value)}
           placeholder="How this take departs from the Script or Animatic. Overrides them where they disagree. Kept in this browser, for this video only."
-          rows={5}
-          className="mb-6 mt-1 w-full resize-y rounded-md border bg-background px-2 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring"
+          className="mb-6 mt-1 field-sizing-content min-h-20 max-h-[calc(100%-1.5rem)] w-full resize-none overflow-y-auto rounded-md border bg-background px-2 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <div className="mb-2 flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
