@@ -4,7 +4,7 @@
   "description": "Standalone Remotion renderer for CVM overlays \u2014 the subtitle + CTA caption overlay and AI Hero Definition Cards. Renders a transparent overlay at any resolution locally via @remotion/renderer (Chromium). No AWS/Lambda.",
   "private": true,
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bin": {
     "render-overlay": "./bin.mjs"
   },
