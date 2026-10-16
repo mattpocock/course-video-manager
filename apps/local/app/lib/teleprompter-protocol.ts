@@ -140,7 +140,7 @@ export const TeleprompterParentToChild = z.discriminatedUnion("type", [
     suggestionId: z.number().nullable().optional(),
     /**
      * The transcripts of the Clips just before the suggestion, oldest first,
-     * shown dimmed above it as context. Optional for the same stale-popup
+     * shown above it, in its type, as context. Optional for the same stale-popup
      * reason as `marks`.
      */
     suggestionPreviousClips: z.array(z.string()).optional(),

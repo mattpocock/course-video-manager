@@ -35,7 +35,7 @@ export type TeleprompterEditorState = {
   suggestion?: string | null;
   /** Which suggestion that is; a new id means a new one started. */
   suggestionId?: number | null;
-  /** The Clips just before the suggestion, dimmed above it on the glass. */
+  /** The Clips just before the suggestion, set above it on the glass. */
   suggestionPreviousClips?: string[];
 };
 
