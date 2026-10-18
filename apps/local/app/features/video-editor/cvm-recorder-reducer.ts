@@ -25,14 +25,16 @@ import {
   createInitialRecorderSessionState,
   follows,
   recorderSessionReducer,
-  stopsOnLeave,
+  canPressStop,
+  followedOnLeave,
 } from "./recorder-session-reducer";
 
 /**
  * The CVM recorder in the editor. The recorder service records; this
  * follows what the app server reports of it (`recorder-message-heard`).
  * The Stream Deck starts a recording; the editor shows what the recorder
- * says, and asks for Stop only when Matt leaves or makes a new Short.
+ * says, and asks for Stop only when Matt leaves the editor (New Short, any
+ * other page, a reload).
  *
  * The Cam Link opens when the editor opens (the app server's recorder client
  * opens the recorder while an editor listens); "Ready to record" waits for
@@ -232,7 +234,9 @@ const cameraHeard = (
   camera: cvmRecorderReducer.Camera
 ): cvmRecorderReducer.State => ({ ...state, camera, retrying: false });
 
-export const canStop = (state: cvmRecorderReducer.State) => stopsOnLeave(state);
+export const canStop = (state: cvmRecorderReducer.State) => canPressStop(state);
+
+export { followedOnLeave };
 
 /** Whether a take is being recorded (or stopping). */
 export const isCvmRecorderRecording = (state: cvmRecorderReducer.State) =>

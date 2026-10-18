@@ -19,7 +19,9 @@ import {
   canWakeSpacedeskAgain,
   createInitialCvmRecorderState,
   cvmRecorderReducer,
+  followedOnLeave,
 } from "./cvm-recorder-reducer";
+import type { InsertionPoint } from "@/services/clip-service";
 import { useStopRecordingOnLeave } from "./use-stop-recording-on-leave";
 import { cvmRecorderTakeSaver } from "./cvm-recorder-take-saver";
 import type { TakeSaver } from "./take-saver";
@@ -103,6 +105,11 @@ export const useCvmRecorder = (o: {
   }) => void;
   onClipAudioWindowClosed: () => void;
   micOffsetRefusal: MicOffsetRefusal | null;
+  /**
+   * Where the editor would put a Clip now. Read as the editor goes away, so
+   * the take it leaves mid-way is placed there.
+   */
+  insertionPoint: () => InsertionPoint;
 }): CvmRecorderControls & { saveTakes: TakeSaver } => {
   const videoId = o.video.id;
   const format: VideoFormat = resolveVideoFormat(o.video.format);
@@ -196,7 +203,11 @@ export const useCvmRecorder = (o: {
         console.warn(effect.message);
       },
       "stop-recording": (_state, _effect, dispatch) => {
-        fetch(`/api/videos/${videoId}/recorder/stop`, { method: "POST" })
+        fetch(`/api/videos/${videoId}/recorder/stop`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        })
           .then(answer)
           .catch((error: unknown) =>
             dispatch({
@@ -216,10 +227,23 @@ export const useCvmRecorder = (o: {
     });
   }, [o.silenceLength, dispatch]);
 
-  useStopRecordingOnLeave(canStop(state), () => {
+  useStopRecordingOnLeave(followedOnLeave(state), (recordingSessionId) => {
+    let insertionPoint: InsertionPoint | null = null;
+    try {
+      insertionPoint = o.insertionPoint();
+    } catch (error) {
+      // Not lost: unplaced, the app server saves it after the Video's last item.
+      console.error("Could not say where the last take goes", error);
+    }
     fetch(`/api/videos/${videoId}/recorder/stop`, {
       method: "POST",
       keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        insertionPoint && {
+          editorLeft: { recordingSessionId, insertionPoint },
+        }
+      ),
     }).catch(() => {
       // The next page's Attaching stops it.
     });

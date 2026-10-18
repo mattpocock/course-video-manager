@@ -50,7 +50,10 @@ import { anyClipsMissingTranscriptWords } from "@/features/video-editor/transcri
 import type { loader as parentLoader } from "./_app.videos.$videoId";
 import { listVideoFiles, videoFilesDirectory } from "@/services/video-files";
 import { sortByOrder } from "@/lib/sort-by-order";
-import { createHttpClipService } from "@/services/clip-service";
+import {
+  createHttpClipService,
+  resolveInsertionPoint,
+} from "@/services/clip-service";
 import path from "node:path";
 
 export type FileMetadata = {
@@ -351,6 +354,11 @@ export const ComponentInner = (props: Route.ComponentProps) => {
     onNewClipOptimisticallyAdded,
     onClipAudioWindowClosed,
     micOffsetRefusal: clipState.micOffsetRefusal,
+    insertionPoint: () =>
+      resolveInsertionPoint(
+        clipStateRef.current.insertionPoint,
+        clipStateRef.current.items
+      ),
   });
   saveTakesRef.current = cvmRecorder.saveTakes;
 

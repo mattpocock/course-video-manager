@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FrontendId } from "./clip-state-reducer";
-import { canStop } from "./cvm-recorder-reducer";
+import { canStop, followedOnLeave } from "./cvm-recorder-reducer";
 import {
   archived,
   cvm,
@@ -412,5 +412,19 @@ describe("the CVM recorder's adapter", async () => {
       adapter.recorder.getEffects().some((x) => x.type === "stop-recording")
     ).toBe(false);
     expect(canStop(adapter.recorder.getState())).toBe(true);
+  });
+
+  // New Short, another page or a reload hands it back (use-cvm-recorder.ts).
+  it("hands back the Recording Session it follows as the page goes, recording or already stopping, and none once it is over", () => {
+    const adapter = cvmAdapter(editor(["a"]));
+    const leaving = () => followedOnLeave(adapter.recorder.getState());
+    adapter.hear(status(null));
+    expect(leaving()).toBe(null);
+    adapter.hear(status(SESSION));
+    expect(leaving()).toBe(SESSION);
+    adapter.recorder.send({ type: "press-stop" });
+    expect(leaving()).toBe(SESSION);
+    adapter.hear(status(null));
+    expect(leaving()).toBe(null);
   });
 });

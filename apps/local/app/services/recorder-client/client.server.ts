@@ -17,7 +17,7 @@ import {
 } from "./editor-messages";
 import { helloProblem } from "./service-version";
 import type { AskEditor, IngestResult } from "./ingest.server";
-import { createTakePlacer } from "./take-placer";
+import { createTakePlacer, type EditorLeft } from "./take-placer";
 import {
   RecorderRefusedError,
   RecorderUnavailableError,
@@ -253,7 +253,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     const generation = generations.get(id) ?? 0;
     ingesting = ingesting.then(async () => {
       if ((generations.get(id) ?? 0) !== generation) return;
-      const { askEditor, settle } = placer.forEvent();
+      const { askEditor, settle } = placer.forEvent(event);
       let result: IngestResult;
       try {
         result = await o.ingest(event, askEditor);
@@ -584,7 +584,16 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
       );
     },
 
-    async stopRecording(videoId: string) {
+    /** Stop. `editorLeft`: only its Recording Session (`take-placer.ts`). */
+    async stopRecording(videoId: string, editorLeft?: EditorLeft) {
+      if (editorLeft) {
+        placer.editorLeft(videoId, editorLeft);
+        if (
+          state.kind !== "recording" ||
+          state.recordingSessionId !== editorLeft.recordingSessionId
+        )
+          return;
+      }
       if (state.kind !== "recording" || state.videoId !== videoId)
         throw new RecorderRefusedError("This Video is not recording.");
       await command({ type: "stop" }, (m) => isState(m, "open", videoId));
