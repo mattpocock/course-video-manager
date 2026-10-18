@@ -67,6 +67,14 @@ the lint until each switch says what to do with it.
 Enforced by type-aware oxlint (`typescript/switch-exhaustiveness-check`, an
 error in `.oxlintrc.json`).
 
+### Functions stay simple
+
+No function has a cyclomatic complexity over 15 (oxlint `complexity`,
+`modified` variant, so a whole `switch` counts once). Over the limit, split it:
+extract named helpers, or move the decision into a reducer. Never a disable
+comment. Legacy files sit in a shrink-only allowlist guarded by
+`scripts/check-complexity.ts`.
+
 ## Errors
 
 ### Throw Errors, not values

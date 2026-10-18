@@ -10,7 +10,8 @@
 #   static      = pnpm run check:static         (typecheck + Effect rules, oxlint,
 #                                                lint:boundaries, the file guards,
 #                                                the Effect guards, the frontend
-#                                                state guard)
+#                                                state guard, the complexity
+#                                                ratchet)
 #   test-rest   = pnpm run test:ci:rest         (every `test` task except @cvm/local)
 #   test-local  = pnpm run test:ci:local --shard=N/4   (@cvm/local, ~80% of test time)
 #   test-browser = pnpm run test:ci:browser     (@cvm/local's *.browser.test.tsx
@@ -81,6 +82,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      # scripts/check-complexity.ts compares its allowlist with origin/main's
+      # so the list can only shrink; the shallow checkout lacks that ref.
+      - run: git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
       - run: pnpm run check:static
 
   test-rest:

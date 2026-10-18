@@ -22,6 +22,13 @@
   ],
 
   "rules": {
+    // CODING STANDARD: "Functions stay simple". `modified` counts a whole
+    // `switch` as one branch, so an exhaustive switch over a union (another
+    // standard) is not punished for naming every member. A ratchet: files
+    // that broke it when it landed are in the override at the bottom and in
+    // scripts/complexity-allowlist.json, which scripts/check-complexity.ts
+    // keeps shrink-only.
+    "complexity": ["error", { "max": 15, "variant": "modified" }],
     // CODING STANDARD: localStorage goes through the hook.
     "no-restricted-globals": [
       "error",
@@ -154,6 +161,12 @@
       "rules": { "no-restricted-globals": "off" }
     },
     {
+      // A test reads top to bottom as a script of events; complexity is a
+      // production-code standard.
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": { "complexity": "off" }
+    },
+    {
       // Legacy: these files predate the standard. THIS LIST ONLY SHRINKS —
       // move a file onto useLocalStorage and delete its line. Do not add one.
       "files": [
@@ -168,6 +181,124 @@
         "apps/local/app/routes/_app._index.tsx"
       ],
       "rules": { "no-restricted-globals": "off" }
+    },
+    {
+      // Legacy complexity: these files had functions over the limit when the
+      // rule landed. THIS LIST ONLY SHRINKS — split the function, then lower
+      // or delete the file's count in scripts/complexity-allowlist.json and
+      // delete its line here. scripts/check-complexity.ts fails if the two
+      // lists differ, a count is stale, or the list grows. Do not add one.
+      "files": [
+        "apps/local/app/cli/commands/deliverable.ts",
+        "apps/local/app/cli/commands/lesson.ts",
+        "apps/local/app/cli/commands/overlay.ts",
+        "apps/local/app/cli/commands/video.ts",
+        "apps/local/app/components/video-context-panel.tsx",
+        "apps/local/app/features/animatic/animatic-comments.tsx",
+        "apps/local/app/features/animatic/use-animatic-shortcuts.ts",
+        "apps/local/app/features/article-writer/context-panel-reducer.ts",
+        "apps/local/app/features/article-writer/document-panel.tsx",
+        "apps/local/app/features/article-writer/quiz-lint.ts",
+        "apps/local/app/features/article-writer/quiz-syntax.ts",
+        "apps/local/app/features/article-writer/tool-call-display.tsx",
+        "apps/local/app/features/article-writer/use-screenshot-navigation.ts",
+        "apps/local/app/features/article-writer/writer-engine.tsx",
+        "apps/local/app/features/av-calibration/av-calibration-reducer.ts",
+        "apps/local/app/features/beats/beat-dnd.ts",
+        "apps/local/app/features/course-view/course-editor-helpers.ts",
+        "apps/local/app/features/course-view/course-view-components.tsx",
+        "apps/local/app/features/course-view/section-card.tsx",
+        "apps/local/app/features/course-view/section-transcript.ts",
+        "apps/local/app/features/course-view/sortable-lesson-item.tsx",
+        "apps/local/app/features/deliverables-calendar/deliverable-card.tsx",
+        "apps/local/app/features/deliverables-calendar/deliverable-grouping.ts",
+        "apps/local/app/features/diagrams/diagram-playground-reducer.ts",
+        "apps/local/app/features/diagrams/palette/command-palette.tsx",
+        "apps/local/app/features/entity-links/entity-deep-link.ts",
+        "apps/local/app/features/jobs/job-event-actions.ts",
+        "apps/local/app/features/jobs/job-video-toasts.ts",
+        "apps/local/app/features/jobs/jobs-reducer.ts",
+        "apps/local/app/features/jobs/jobs-selectors.ts",
+        "apps/local/app/features/storage/bucket-page-reducer.ts",
+        "apps/local/app/features/storage/storage-action.ts",
+        "apps/local/app/features/storage/storage-jobs-panel.tsx",
+        "apps/local/app/features/storage/storage-page-reducer.ts",
+        "apps/local/app/features/teleprompter/teleprompter-session.ts",
+        "apps/local/app/features/upload-manager/global-upload-progress.tsx",
+        "apps/local/app/features/upload-manager/upload-eta-stages.ts",
+        "apps/local/app/features/upload-manager/upload-row.tsx",
+        "apps/local/app/features/video-editor/clip-state-reducer-recording.ts",
+        "apps/local/app/features/video-editor/clip-state-reducer.helpers.ts",
+        "apps/local/app/features/video-editor/clip-state-reducer.ts",
+        "apps/local/app/features/video-editor/components/capture-frame.tsx",
+        "apps/local/app/features/video-editor/components/clip-item.tsx",
+        "apps/local/app/features/video-editor/components/cvm-recorder-controls.tsx",
+        "apps/local/app/features/video-editor/components/reference-panel.tsx",
+        "apps/local/app/features/video-editor/components/video-player-panel.tsx",
+        "apps/local/app/features/video-editor/composite-playback-reducer.ts",
+        "apps/local/app/features/video-editor/hooks/use-keyboard-shortcuts.ts",
+        "apps/local/app/features/video-editor/preloadable-clip.tsx",
+        "apps/local/app/features/video-editor/recorder-session-reducer.ts",
+        "apps/local/app/features/video-editor/suggestions-reducer.ts",
+        "apps/local/app/features/video-editor/video-state-reducer.ts",
+        "apps/local/app/features/video-posting/ai-hero-page.tsx",
+        "apps/local/app/features/video-posting/newsletter-page.tsx",
+        "apps/local/app/features/video-posting/post-page.tsx",
+        "apps/local/app/features/video-posting/shorts-posting-modal.tsx",
+        "apps/local/app/features/video-posting/skills-changelog-page.tsx",
+        "apps/local/app/hooks/use-lint.ts",
+        "apps/local/app/packages/storage/lib/buckets.ts",
+        "apps/local/app/packages/storage/lib/delete-other.server.ts",
+        "apps/local/app/packages/storage/lib/move-copy.server.ts",
+        "apps/local/app/packages/storage/lib/move-plan.server.ts",
+        "apps/local/app/packages/storage/lib/move.server.ts",
+        "apps/local/app/packages/storage/lib/originals-check.server.ts",
+        "apps/local/app/packages/storage/lib/originals.server.ts",
+        "apps/local/app/packages/storage/lib/purge-exports.server.ts",
+        "apps/local/app/packages/storage/lib/trash-restore.server.ts",
+        "apps/local/app/packages/storage/lib/trash.server.ts",
+        "apps/local/app/routes/_app._index.tsx",
+        "apps/local/app/routes/_app.courses.$courseId._index.tsx",
+        "apps/local/app/routes/_app.courses.$courseId.publish.tsx",
+        "apps/local/app/routes/_app.videos.$videoId.thumbnails.tsx",
+        "apps/local/app/routes/_app.videos.$videoId.tsx",
+        "apps/local/app/routes/_app.videos.concatenate.tsx",
+        "apps/local/app/routes/api.diagrams.$diagramId.snapshots.ts",
+        "apps/local/app/routes/api.thumbnails.$thumbnailId.update.ts",
+        "apps/local/app/routes/diagram-playground.$diagramId.tsx",
+        "apps/local/app/services/autofill-candidates.ts",
+        "apps/local/app/services/changelog-detection.ts",
+        "apps/local/app/services/changelog-service.ts",
+        "apps/local/app/services/clip-service-handler.helpers.ts",
+        "apps/local/app/services/clip-service-handler.ts",
+        "apps/local/app/services/course-publish-service-test-setup.ts",
+        "apps/local/app/services/course-publish-service.ts",
+        "apps/local/app/services/export-hash-rename.ts",
+        "apps/local/app/services/export-sha256-sidecar.ts",
+        "apps/local/app/services/fake-writer-model.ts",
+        "apps/local/app/services/mkv-span.ts",
+        "apps/local/app/services/recorder-client/client.server.ts",
+        "apps/local/app/services/storage-relocation-exports.server.ts",
+        "apps/local/app/services/storage-relocation.server.ts",
+        "apps/local/app/services/writer-stream-errors.ts",
+        "apps/local/app/test-utils/fake-dropbox.ts",
+        "apps/local/recorder-service/flv-video.ts",
+        "apps/local/recorder-service/recorder-service.ts",
+        "apps/local/recorder-service/test-utils/fake-windows.ts",
+        "apps/local/scripts/recorder-scorecard/main.ts",
+        "apps/local/scripts/recorder-scorecard/synthetic-launcher.ts",
+        "apps/local/sidecar/socket.ts",
+        "packages/core/lib/simple-diagram/lib/read.ts",
+        "packages/core/lib/simple-diagram/lib/validate.ts",
+        "packages/core/lib/simple-diagram/lib/write.ts",
+        "packages/core/services/db-chapter-operations.server.ts",
+        "packages/core/services/db-job-enqueue.server.ts",
+        "packages/core/services/db-search-operations.server.ts",
+        "packages/core/services/db-version-copy.server.ts",
+        "scripts/check-background-jobs-network.ts",
+        "scripts/check-background-jobs.ts"
+      ],
+      "rules": { "complexity": "off" }
     }
   ]
 }
