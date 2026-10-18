@@ -24,8 +24,11 @@ import {
  *   asks the Recorder to stop it: a page refreshed or closed mid-take left
  *   it going. A later report (a reconnect) of the Recording Session followed
  *   re-attaches to it and stops nothing (#2198).
- * - **Leaving.** The page asks the Recorder to stop as it goes away, while
- *   `stopsOnLeave` (`use-cvm-recorder.ts`).
+ * - **Leaving.** As the page goes away (New Short, any other page, a
+ *   reload, closing the tab) it hands the Recording Session it follows,
+ *   recording or stopping (`followedOnLeave`), back to the Recorder: it is
+ *   stopped as Stop stops it, and its last Take is placed at the editor's
+ *   Insertion Point as it went (`use-cvm-recorder.ts`).
  * - **Unexpected events** are ignored, never thrown. A late event of a
  *   Recording Session not followed is expected (a replay after a failed
  *   save, #2163) and ignored quietly; a device event that cannot happen in
@@ -101,9 +104,17 @@ export const createInitialRecorderSessionState =
     attached: false,
   });
 
-/** Whether Stop may be pressed, and whether leaving the page stops the take. */
-export const stopsOnLeave = (state: recorderSessionReducer.State) =>
+/** Whether Stop may be pressed. */
+export const canPressStop = (state: recorderSessionReducer.State) =>
   state.phase === "recording";
+
+/**
+ * The Recording Session a page going away hands back to the Recorder: the
+ * one it follows, still recording or stopping; null when idle.
+ */
+export const followedOnLeave = (
+  state: recorderSessionReducer.State
+): string | null => (state.phase === "idle" ? null : state.recordingSessionId);
 
 /** Enough to recognise any late replay; a page records far fewer. */
 const ENDED_KEPT = 50;
@@ -263,7 +274,7 @@ export const recorderSessionReducer = <S extends recorderSessionReducer.State>(
       return { ...state, speech };
     }
     case "press-stop":
-      if (!stopsOnLeave(state)) return state;
+      if (!canPressStop(state)) return state;
       exec({ type: "stop-recording" });
       return { ...state, phase: "stopping" };
     case "stop-recording-failed":

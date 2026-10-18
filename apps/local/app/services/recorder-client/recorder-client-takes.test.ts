@@ -112,3 +112,57 @@ describe("Takes, end to end", () => {
     ]);
   });
 });
+
+describe("an editor that leaves mid-take (New Short, another page, a reload)", () => {
+  it("stops the take, and its last Take is saved where that editor's Insertion Point was, not after the Video's last item", async () => {
+    const { windows, client } = await setup();
+    const video = await clipService.createVideo("CVM recorder");
+    const [first] = await clipService.appendClips({
+      videoId: video.id,
+      insertionPoint: { type: "start" },
+      items: [],
+      clips: [
+        { inputVideo: "first.mp4", startTime: 0, endTime: 1 },
+        { inputVideo: "last.mp4", startTime: 0, endTime: 1 },
+      ],
+    });
+    const heard: CvmRecorderMessage[] = [];
+    const leave = client.subscribe(video.id, (message) => heard.push(message));
+    await vi.waitFor(() =>
+      expect(heard).toContainEqual({ type: "camera-went-live" })
+    );
+    await client.startRecording(video.id, {
+      silenceLength: "short",
+      folder: tmp(),
+    });
+    const started = await vi.waitFor(() => {
+      const m = heard.find((m) => m.type === "recording-started");
+      if (m?.type !== "recording-started") throw new Error("not started");
+      return m;
+    });
+
+    // A Take still being spoken as the editor goes.
+    film(windows.recorder("camera"), {
+      silenceSeconds: 0.8,
+      sound: [[5, 30]],
+      until: 12,
+    });
+    await vi.waitFor(() =>
+      expect(heard.map((m) => m.type)).toContain("take-started")
+    );
+    leave();
+    await client.stopRecording(video.id, {
+      recordingSessionId: started.recordingSessionId,
+      insertionPoint: { type: "after-clip", databaseClipId: first!.id },
+    });
+    expect(client.recording()).toBe(false);
+
+    await vi.waitFor(async () =>
+      expect(
+        (await clipService.getTimeline(video.id)).flatMap((i) =>
+          i.type === "clip" ? [i.data.videoFilename] : []
+        )
+      ).toEqual(["first.mp4", expect.stringMatching(/mic\.mkv$/), "last.mp4"])
+    );
+  });
+});

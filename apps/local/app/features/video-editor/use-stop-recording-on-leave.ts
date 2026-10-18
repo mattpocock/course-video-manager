@@ -1,32 +1,37 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Stop as the page goes away (#2182, #2196): a refresh, closing the tab, or
- * leaving the editor (`stopsOnLeave`). `pagehide` gives no time for a
- * render, so whether this editor is recording is read from a ref, and `stop`
- * must outlive the page (the CVM recorder's fetch goes with `keepalive`). The take is kept:
- * Stop closes the files as the Stop button does. Window blur does not stop:
- * a take is filmed with focus elsewhere. The next page stops whatever is
- * still going (Attaching, `recorder-session-reducer.ts`).
+ * Stop as the editor goes away (#2182, #2196): New Short, any other page or
+ * Video, a refresh, or closing the tab. Navigation is never blocked.
+ * `following` is the Recording Session the editor follows, recording or
+ * already stopping (`followedOnLeave`); `leave` hands it back to the
+ * Recorder, which stops it as Stop does and places its last Take where the
+ * editor's Insertion Point was. `pagehide` gives no time for a render, so
+ * both are read from refs, and `leave` must outlive the page (the CVM
+ * recorder's fetch goes with `keepalive`): on a tab close that is best
+ * effort, and the next page stops whatever is still going (Attaching,
+ * `recorder-session-reducer.ts`). Window blur does not stop: a take is filmed
+ * with focus elsewhere.
  */
 export const useStopRecordingOnLeave = (
-  recording: boolean,
-  stop: () => void
+  following: string | null,
+  leave: (recordingSessionId: string) => void
 ) => {
-  const recordingRef = useRef(recording);
-  recordingRef.current = recording;
-  const stopRef = useRef(stop);
-  stopRef.current = stop;
+  const followingRef = useRef(following);
+  followingRef.current = following;
+  const leaveRef = useRef(leave);
+  leaveRef.current = leave;
   useEffect(() => {
-    const leave = () => {
-      if (!recordingRef.current) return;
-      recordingRef.current = false;
-      stopRef.current();
+    const onLeave = () => {
+      const recordingSessionId = followingRef.current;
+      if (recordingSessionId === null) return;
+      followingRef.current = null;
+      leaveRef.current(recordingSessionId);
     };
-    window.addEventListener("pagehide", leave);
+    window.addEventListener("pagehide", onLeave);
     return () => {
-      window.removeEventListener("pagehide", leave);
-      leave();
+      window.removeEventListener("pagehide", onLeave);
+      onLeave();
     };
   }, []);
 };
