@@ -3,6 +3,7 @@ import {
   collectQuizIds,
   parseObjectLiteral,
   parseQuizBlocks,
+  removeQuizBlocks,
   removeQuizQuestion,
   validateQuizQuestion,
   type QuizQuestionData,
@@ -206,5 +207,12 @@ describe("removeQuizQuestion", () => {
   it("leaves the document alone when the offset names no question", () => {
     const source = quiz("a");
     expect(removeQuizQuestion(source, 9999)).toBe(source);
+  });
+});
+
+describe("removeQuizBlocks", () => {
+  it("cuts every complete quiz and keeps the prose", () => {
+    const doc = `Intro.\n\n${quiz("one")}\n\nMiddle.\n\n${quiz("two", "three")}\n`;
+    expect(removeQuizBlocks(doc)).toBe("Intro.\n\nMiddle.\n\n");
   });
 });

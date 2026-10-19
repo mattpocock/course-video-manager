@@ -5,6 +5,7 @@ import {
   saveFieldMessages,
   constrainModes,
   defaultModeForRole,
+  documentToApply,
   FIELD_MODES,
 } from "./writer-engine-utils";
 
@@ -102,7 +103,9 @@ describe("FIELD_MODES", () => {
       "article",
       "article-plan",
       "newsletter",
-      "skill-building",
+      "problem",
+      "explainer",
+      "solution",
       "seo-description-document",
     ];
     for (const fieldModes of Object.values(FIELD_MODES)) {
@@ -114,33 +117,90 @@ describe("FIELD_MODES", () => {
 });
 
 describe("defaultModeForRole", () => {
-  it("opens a Problem video on skill-building", () => {
-    expect(defaultModeForRole("problem")).toBe("skill-building");
+  it("opens each lesson role on its own mode", () => {
+    expect(defaultModeForRole("problem")).toBe("problem");
+    expect(defaultModeForRole("explainer")).toBe("explainer");
+    expect(defaultModeForRole("solution")).toBe("solution");
   });
 
-  it("opens a Solution video on article", () => {
-    expect(defaultModeForRole("solution")).toBe("article");
-  });
-
-  it("opens everything else on article", () => {
-    expect(defaultModeForRole("explainer")).toBe("article");
+  it("opens a standalone video on article", () => {
     expect(defaultModeForRole("unknown")).toBe("article");
     expect(defaultModeForRole(undefined)).toBe("article");
   });
 
-  it("falls back to the field's first mode when skill-building isn't offered", () => {
+  it("lands each role on its own mode in the lesson body modes", () => {
+    for (const role of ["problem", "explainer", "solution"] as const) {
+      expect(
+        constrainModes(FIELD_MODES["video-body"], defaultModeForRole(role)).mode
+      ).toBe(role);
+    }
+  });
+
+  it("falls back to the field's first mode when the role's mode isn't offered", () => {
     expect(
       constrainModes(["article", "article-plan"], defaultModeForRole("problem"))
         .mode
     ).toBe("article");
   });
+});
 
-  it("lands a Problem on skill-building in the lesson body modes", () => {
-    expect(
-      constrainModes(
-        ["article", "skill-building"],
-        defaultModeForRole("problem")
-      ).mode
-    ).toBe("skill-building");
+describe("conversations saved under the retired modes", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", createMockLocalStorage());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads a skill-building conversation as the problem one", () => {
+    localStorage.setItem(
+      "writer-field-messages-v1-video-body-skill-building",
+      JSON.stringify([{ id: "old" }])
+    );
+    expect(loadFieldMessages("v1", "video-body", "problem")).toEqual([
+      { id: "old" },
+    ]);
+  });
+
+  it("reads an article conversation as the explainer and solution ones", () => {
+    localStorage.setItem(
+      "writer-field-messages-v1-video-body-article",
+      JSON.stringify([{ id: "old" }])
+    );
+    expect(loadFieldMessages("v1", "video-body", "explainer")).toEqual([
+      { id: "old" },
+    ]);
+    expect(loadFieldMessages("v1", "video-body", "solution")).toEqual([
+      { id: "old" },
+    ]);
+  });
+
+  it("prefers the conversation saved under the new mode", () => {
+    localStorage.setItem(
+      "writer-field-messages-v1-video-body-article",
+      JSON.stringify([{ id: "old" }])
+    );
+    saveFieldMessages("v1", "video-body", "solution", [{ id: "new" }]);
+    expect(loadFieldMessages("v1", "video-body", "solution")).toEqual([
+      { id: "new" },
+    ]);
+  });
+});
+
+describe("documentToApply", () => {
+  const withQuiz = `Intro.
+
+<Quiz>
+  <QuizQuestion data={{ id: "a", question: "Q?", type: "multiple-choice", choices: [{ answer: "a", label: "A" }], correct: "a", answer: "Because." }} />
+</Quiz>
+`;
+
+  it("never lets a quiz through in solution mode", () => {
+    expect(documentToApply("solution", withQuiz)).not.toContain("<Quiz");
+  });
+
+  it("leaves an explainer's quiz alone", () => {
+    expect(documentToApply("explainer", withQuiz)).toBe(withQuiz);
   });
 });

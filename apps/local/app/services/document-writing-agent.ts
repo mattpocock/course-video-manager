@@ -23,7 +23,12 @@ import type {
 import { CACHE_BREAKPOINT_1H } from "./prompt-cache";
 
 export type DocumentWritingAgentMode =
-  "article" | "skill-building" | "newsletter" | "seo-description-document";
+  | "article"
+  | "problem"
+  | "explainer"
+  | "solution"
+  | "newsletter"
+  | "seo-description-document";
 
 export const writeDocumentTool = tool({
   description:
@@ -147,7 +152,7 @@ export const buildDocumentWritingSystemMessage = (
 
   const basePrompt = (() => {
     switch (mode) {
-      case "skill-building":
+      case "problem":
         return generateStepsToCompleteForSkillBuildingProblemPrompt({
           code: props.code,
           transcript: props.transcript,
@@ -172,6 +177,8 @@ export const buildDocumentWritingSystemMessage = (
           links,
         });
       case "article":
+      case "explainer":
+      case "solution":
       default:
         return generateArticlePrompt({
           code: props.code,
@@ -181,6 +188,7 @@ export const buildDocumentWritingSystemMessage = (
           courseStructure: props.courseStructure,
           links,
           existingQuizIds: props.existingQuizIds,
+          quizzes: mode !== "solution",
         });
     }
   })();

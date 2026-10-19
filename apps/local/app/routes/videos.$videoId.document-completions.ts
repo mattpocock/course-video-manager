@@ -36,7 +36,9 @@ const courseStructureSchema = Schema.Struct({
 
 const documentModeSchema = Schema.Union(
   Schema.Literal("article"),
-  Schema.Literal("skill-building"),
+  Schema.Literal("problem"),
+  Schema.Literal("explainer"),
+  Schema.Literal("solution"),
   Schema.Literal("newsletter"),
   Schema.Literal("seo-description-document")
 );

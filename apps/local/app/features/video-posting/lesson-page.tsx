@@ -140,7 +140,6 @@ export function LessonPage({
             onChange={persistBody}
             onApply={applyBody}
             context={writerContext}
-            modes={["article", "skill-building"]}
             placeholder="Write your lesson body in markdown..."
             onAddFileFromClipboard={onAddFileFromClipboard}
             pageFields={[

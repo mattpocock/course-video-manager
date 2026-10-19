@@ -11,6 +11,7 @@ import {
   findTakenQuizIds,
   fixTakenQuizIds,
 } from "./quiz-lint";
+import { parseQuizBlocks, removeQuizBlocks } from "./quiz-syntax";
 import type { Mode } from "./types";
 
 /**
@@ -201,11 +202,23 @@ export const BASE_LINT_RULES: LintRule[] = [
     id: "no-leading-heading",
     name: "No Leading Heading",
     description: "Content must not start with a markdown heading",
-    modes: ["article", "skill-building"],
+    modes: ["article", "problem", "explainer", "solution"],
     pattern: LEADING_HEADING_PATTERN,
     fixInstruction:
       "Remove the markdown heading from the start of the content. Do not start with a heading - begin directly with the content.",
     deterministicFix: stripLeadingHeadings,
+  },
+  {
+    id: "no-quiz-in-solution",
+    name: "No Quiz In A Solution",
+    description: "A Solution never holds a quiz",
+    modes: ["solution"],
+    // Never scanned: `detect` reads the quiz blocks, which a regex cannot.
+    pattern: /(?!)/,
+    detect: (text) =>
+      parseQuizBlocks(text).map((block) => text.slice(block.start, block.end)),
+    deterministicFix: removeQuizBlocks,
+    fixInstruction: "Remove the quiz. A Solution never holds a quiz.",
   },
   {
     id: "quiz-id-taken",

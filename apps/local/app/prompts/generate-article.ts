@@ -1,6 +1,6 @@
 import { COMMIT_MAP_INSTRUCTIONS } from "./commit-map-instructions";
 import { getImageInstructions } from "./image-instructions";
-import { getQuizInstructions } from "./quiz-instructions";
+import { getQuizInstructions, NO_QUIZ_INSTRUCTIONS } from "./quiz-instructions";
 import { getLinkInstructions, type GlobalLink } from "./link-instructions";
 import { SCREENSHOT_INSTRUCTIONS } from "./screenshot-instructions";
 import { ARTICLE_SOURCE_HIERARCHY } from "./source-hierarchy";
@@ -33,6 +33,8 @@ export const generateArticlePrompt = (opts: {
   links: GlobalLink[];
   /** Quiz ids owned by other videos in this course — none of them are free. */
   existingQuizIds?: string[];
+  /** Off for a Solution, which never holds a quiz. Defaults to on. */
+  quizzes?: boolean;
 }) => {
   const transcriptSection = getTranscriptSection(opts.transcript);
 
@@ -80,7 +82,7 @@ ${getLinkInstructions(opts.links)}
 
 ${SCREENSHOT_INSTRUCTIONS}
 
-${getQuizInstructions(opts.existingQuizIds ?? [])}
+${opts.quizzes === false ? NO_QUIZ_INSTRUCTIONS : getQuizInstructions(opts.existingQuizIds ?? [])}
 
 ${COMMIT_MAP_INSTRUCTIONS}
 

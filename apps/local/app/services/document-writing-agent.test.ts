@@ -87,6 +87,23 @@ describe("buildDocumentWritingSystemMessage", () => {
   });
 });
 
+describe("lesson role modes", () => {
+  it("teaches an explainer to write a quiz", () => {
+    const message = buildDocumentWritingSystemMessage(
+      baseContext({ mode: "explainer" })
+    );
+    expect(message.content).toContain("<QuizQuestion");
+  });
+
+  it("never teaches a solution to write a quiz, and forbids one", () => {
+    const message = buildDocumentWritingSystemMessage(
+      baseContext({ mode: "solution" })
+    );
+    expect(message.content).not.toContain("<QuizQuestion");
+    expect(message.content).toContain("Never write a quiz");
+  });
+});
+
 describe("formatRelatedFields", () => {
   it("returns undefined when there is nothing to send", () => {
     expect(formatRelatedFields([])).toBeUndefined();

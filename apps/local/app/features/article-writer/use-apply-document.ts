@@ -10,17 +10,19 @@ import { hasUnresolvedScreenshots } from "./choose-screenshot-mutations";
  * Job, then the URLs are swapped into the document as it is when the Job
  * settles — edits made while it ran survive — and the result is saved
  * through `onApply`. Local files are removed only once that save is
- * confirmed, and `onApplied` runs then.
+ * confirmed, and `onApplied` runs then. `finalize` shapes the document that
+ * is saved (a Solution loses its quizzes) and the writer shows that result.
  */
 export function useApplyDocument(
   videoId: string,
   documentRef: RefObject<string | undefined>,
   updateDocument: (content: string) => void,
   onApply: (finalDocument: string) => Promise<void>,
-  onApplied?: (finalDocument: string) => void
+  onApplied?: (finalDocument: string) => void,
+  finalize: (document: string) => string = (document) => document
 ) {
   const { isUploading, upload } = useImageUploadJob(videoId, {
-    read: () => documentRef.current ?? "",
+    read: () => finalize(documentRef.current ?? ""),
     save: (finalDocument) => {
       updateDocument(finalDocument);
       return onApply(finalDocument);

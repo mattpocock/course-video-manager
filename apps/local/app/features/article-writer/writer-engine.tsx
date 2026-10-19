@@ -39,6 +39,7 @@ import type { WriterFieldId } from "./writer-engine-utils";
 import {
   constrainModes,
   defaultModeForRole,
+  documentToApply,
   loadFieldMessages,
   saveFieldMessages,
 } from "./writer-engine-utils";
@@ -122,7 +123,9 @@ export function WriterEngine({
 
   const isDocumentMode =
     mode === "article" ||
-    mode === "skill-building" ||
+    mode === "problem" ||
+    mode === "explainer" ||
+    mode === "solution" ||
     mode === "newsletter" ||
     mode === "seo-description-document";
 
@@ -391,7 +394,8 @@ export function WriterEngine({
     documentRef,
     updateDocument,
     onApply,
-    onApplied
+    onApplied,
+    (document) => documentToApply(mode, document)
   );
 
   const toolbarProps: WriteToolbarProps = useMemo(

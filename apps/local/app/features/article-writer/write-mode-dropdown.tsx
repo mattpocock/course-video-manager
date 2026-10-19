@@ -16,6 +16,7 @@ import {
 import {
   ChevronDown,
   FileTextIcon,
+  GraduationCapIcon,
   ListChecksIcon,
   VideoIcon,
   MicIcon,
@@ -33,6 +34,27 @@ interface MenuGroup {
 }
 
 const MENU_GROUPS: MenuGroup[] = [
+  {
+    label: "Lesson",
+    icon: GraduationCapIcon,
+    items: [
+      {
+        value: "problem",
+        title: "Problem",
+        description: "Steps to complete for a problem",
+      },
+      {
+        value: "explainer",
+        title: "Explainer",
+        description: "Article for an explainer, quiz allowed",
+      },
+      {
+        value: "solution",
+        title: "Solution",
+        description: "Article for a solution, never a quiz",
+      },
+    ],
+  },
   {
     label: "Writing",
     icon: FileTextIcon,
@@ -62,11 +84,6 @@ const MENU_GROUPS: MenuGroup[] = [
         value: "project",
         title: "Project Steps",
         description: "Write steps for project",
-      },
-      {
-        value: "skill-building",
-        title: "Skill Building Steps",
-        description: "Write steps for skill building problem",
       },
       {
         value: "style-guide-skill-building",

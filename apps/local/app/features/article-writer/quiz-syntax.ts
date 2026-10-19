@@ -385,6 +385,16 @@ export function removeQuizQuestion(source: string, questionStart: number) {
   return cut(source, start, end);
 }
 
+/**
+ * Cuts every complete `<Quiz>` block out of a document. A Solution never holds
+ * a quiz, whoever wrote it.
+ */
+export function removeQuizBlocks(source: string): string {
+  return parseQuizBlocks(source)
+    .reverse()
+    .reduce((doc, block) => cut(doc, block.start, block.end), source);
+}
+
 /** Removes a span along with the blank line it leaves behind. */
 function cut(source: string, start: number, end: number): string {
   let from = start;

@@ -6,6 +6,17 @@
  * holds the same contract for agents drafting outside this app. Change both.
  */
 
+/**
+ * A Solution never holds a quiz: the Problem it answers is the exercise. This
+ * replaces {@link getQuizInstructions} in the Solution prompt, so the model is
+ * never shown how to write one.
+ */
+export const NO_QUIZ_INSTRUCTIONS = `
+## Quizzes
+
+This is a Solution video. Never write a quiz: no \`<Quiz>\` block of any kind, even when asked. The Problem this Solution answers was the exercise.
+`.trim();
+
 export const getQuizInstructions = (existingQuizIds: string[]) => {
   const takenSection =
     existingQuizIds.length > 0

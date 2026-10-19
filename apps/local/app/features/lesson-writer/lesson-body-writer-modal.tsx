@@ -6,6 +6,7 @@ import { postConfirmed } from "@/lib/post-confirmed";
 import { WriterModal } from "@/features/article-writer/writer-modal";
 import { toWriterContext } from "@/features/article-writer/use-writer-context";
 import type { Mode } from "@/features/article-writer/types";
+import { FIELD_MODES } from "@/features/article-writer/writer-engine-utils";
 import type { WriterContextData } from "@/services/video-posting-context.server";
 
 type LessonWriterData = {
@@ -14,8 +15,8 @@ type LessonWriterData = {
   writerContext: WriterContextData;
 };
 
-// Matches the modes the Lesson tab uses for the video body.
-const BODY_MODES: Mode[] = ["article", "skill-building"];
+// The modes the Lesson tab uses for the video body.
+const BODY_MODES: Mode[] = FIELD_MODES["video-body"];
 
 /**
  * Opens the full AI Writer on a video's lesson body from anywhere (course-view

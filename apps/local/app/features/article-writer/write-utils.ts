@@ -17,7 +17,9 @@ export const modeToLabel: Record<Mode, string> = {
   article: "Article",
   "article-plan": "Article Plan",
   project: "Project Steps",
-  "skill-building": "Skill Building Steps",
+  problem: "Problem",
+  explainer: "Explainer",
+  solution: "Solution",
   "style-guide-skill-building": "Style Guide Pass - Skill Building",
   "style-guide-project": "Style Guide Pass - Project",
   "seo-description": "SEO Description",
@@ -38,12 +40,20 @@ export const RECENT_MODES_STORAGE_KEY = "article-writer-recent-modes";
 
 export const MAX_RECENT_MODES = 3;
 
+/** Saved recent modes that were renamed; anything else unknown is dropped. */
+const RENAMED_MODES: Record<string, Mode> = { "skill-building": "problem" };
+
 export const loadRecentModes = (): Mode[] => {
   if (!hasLocalStorage()) return [];
   try {
     const saved = localStorage.getItem(RECENT_MODES_STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved) as Mode[];
+      const modes = (JSON.parse(saved) as string[]).map(
+        (mode) => RENAMED_MODES[mode] ?? mode
+      );
+      return [...new Set(modes)].filter((mode): mode is Mode =>
+        Object.hasOwn(modeToLabel, mode)
+      );
     }
   } catch {
     // ignore

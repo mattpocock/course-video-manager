@@ -82,7 +82,7 @@ export const createTextWritingAgent = (props: {
           courseStructure: props.courseStructure,
           links,
         });
-      case "skill-building":
+      case "problem":
         return generateStepsToCompleteForSkillBuildingProblemPrompt({
           code: props.code,
           transcript: props.transcript,
@@ -197,8 +197,10 @@ export const createTextWritingAgent = (props: {
           links,
         });
       case "article":
-      // The document writer owns this mode; when it reaches the text writer
-      // it gets the article prompt.
+      case "explainer":
+      case "solution":
+      // The document writer owns these modes; when one reaches the text
+      // writer it gets the article prompt.
       case "seo-description-document":
         return generateArticlePrompt({
           code: props.code,
@@ -208,6 +210,7 @@ export const createTextWritingAgent = (props: {
           courseStructure: props.courseStructure,
           links,
           existingQuizIds: props.existingQuizIds,
+          quizzes: props.mode !== "solution",
         });
     }
   })();

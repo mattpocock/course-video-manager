@@ -452,7 +452,7 @@ _Avoid_: Swap icon, Change icon, Edit icon (an Icon has no edit mode)
 ### Lesson body
 
 **Quiz**:
-A block of questions in a **Video**'s **Body**, answered by the reader on aihero.dev. It is kept word for word in the form AI Hero expects, and a **Publish** ships it unchanged. The CVM only shows it, cuts single questions out of it, and checks it. Every question has an id unique across the **Course**, because reader answers are recorded against the id, not the question text. The Article Writer writes one when writing an article.
+A block of questions in a **Video**'s **Body**, answered by the reader on aihero.dev. It is kept word for word in the form AI Hero expects, and a **Publish** ships it unchanged. The CVM only shows it, cuts single questions out of it, and checks it. Every question has an id unique across the **Course**, because reader answers are recorded against the id, not the question text. The Article Writer writes one when writing an article. A Solution Video's Body never holds one: the Article Writer opens on a mode named after the Video's role (Problem, Explainer or Solution), and its Solution mode is never taught to write a Quiz and cuts any it finds on Apply.
 _Avoid_: Test, Assessment, Question block, Exercise (reserved for the course's practical work)
 
 **Commit Map**:
