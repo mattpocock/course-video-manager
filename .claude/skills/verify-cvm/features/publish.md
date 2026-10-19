@@ -10,8 +10,9 @@ a `course.json` committed to Dropbox.
   empty.
 - **To-do toggle** — `Include lessons marked to-do`, which changes the effective
   output and therefore the readiness numbers.
-- **Autofill** — the same button reads `Autofill N Videos` while Videos are
-  missing a description or Chapters, and `Publish` once none are.
+- **Autofill** — the hidden first step of `Publish`: pressing it starts an
+  Autofill Job when Videos are missing a description or Chapters, and the
+  Publish Job waits on it. The button reads `Filling…`, then `Publishing…`.
 - **Pre-publish warnings** — the Publish Readiness lists.
 - **Changelog preview** — the in-app diff against the last Published Version.
 
