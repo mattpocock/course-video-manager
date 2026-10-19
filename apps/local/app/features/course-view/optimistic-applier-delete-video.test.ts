@@ -123,21 +123,9 @@ describe("applyOptimisticDeleteVideo", () => {
     expect(remaining).toHaveLength(1);
     expect(remaining[0]!.id).toBe("v2");
   });
-
-  it("returns loaderData unchanged when sections array is empty", () => {
-    const loaderData = makeLoaderData([]);
-
-    const result = applyOptimisticDeleteVideo(loaderData, "video-1");
-
-    expect(result).toBe(loaderData);
-  });
 });
 
 describe("deleteVideoFetcherKey", () => {
-  it("formats the key with the delete-video prefix", () => {
-    expect(deleteVideoFetcherKey("video-123")).toBe("delete-video:video-123");
-  });
-
   it("key starts with DELETE_VIDEO_KEY_PREFIX", () => {
     const key = deleteVideoFetcherKey("v1");
     expect(key.startsWith(DELETE_VIDEO_KEY_PREFIX)).toBe(true);

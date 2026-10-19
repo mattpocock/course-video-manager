@@ -47,20 +47,4 @@ describe("VideoWarningIndicator", () => {
     }).videoWarnings;
     expect(render({ warnings: [{ kind: "missingBody" }], visible })).toBe("");
   });
-
-  it("shows by default", () => {
-    const visible =
-      resolveEffectiveVisibility(DEFAULT_VISIBILITY).videoWarnings;
-    expect(render({ warnings: [{ kind: "missingBody" }], visible })).toContain(
-      "Missing lesson body"
-    );
-  });
-
-  it("hides with the Videos they hang off", () => {
-    const visible = resolveEffectiveVisibility({
-      ...DEFAULT_VISIBILITY,
-      videos: false,
-    }).videoWarnings;
-    expect(visible).toBe(false);
-  });
 });

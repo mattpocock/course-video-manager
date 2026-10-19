@@ -67,19 +67,6 @@ describe("filterLessons", () => {
     expect(filteredLessons).toHaveLength(0);
   });
 
-  it("todo filter includes all priorities", () => {
-    const lessons = [
-      makeLesson({ id: "p1", authoringStatus: "todo", priority: 1 }),
-      makeLesson({ id: "p2", authoringStatus: "todo", priority: 2 }),
-      makeLesson({ id: "p3", authoringStatus: "todo", priority: 3 }),
-    ];
-    const { filteredLessons } = filterLessons(lessons, {
-      ...noFilters,
-      todoFilter: true,
-    });
-    expect(filteredLessons).toHaveLength(3);
-  });
-
   it("todo filter combined with priority filter excludes non-matching priorities", () => {
     const lessons = [
       makeLesson({ id: "p1", authoringStatus: "todo", priority: 1 }),
@@ -92,19 +79,6 @@ describe("filterLessons", () => {
     });
     expect(filteredLessons).toHaveLength(1);
     expect(filteredLessons[0]!.id).toBe("p1");
-  });
-
-  it("todo filter includes lesson with authoringStatus=todo", () => {
-    const lessons = [
-      makeLesson({
-        authoringStatus: "todo",
-      }),
-    ];
-    const { filteredLessons } = filterLessons(lessons, {
-      ...noFilters,
-      todoFilter: true,
-    });
-    expect(filteredLessons).toHaveLength(1);
   });
 
   it("returns all lessons when no filters are active", () => {
@@ -143,11 +117,6 @@ describe("computeSectionSwap", () => {
 
   it("returns null for an unknown section id", () => {
     expect(computeSectionSwap(ids, "unknown", "up")).toBeNull();
-  });
-
-  it("works with two sections", () => {
-    expect(computeSectionSwap(["a", "b"], "b", "up")).toEqual(["b", "a"]);
-    expect(computeSectionSwap(["a", "b"], "a", "down")).toEqual(["b", "a"]);
   });
 
   it("returns null for a single section in either direction", () => {

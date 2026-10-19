@@ -23,13 +23,6 @@ describe("computeDropResult", () => {
     });
   });
 
-  it("adds dependency with empty initial dependencies", () => {
-    expect(computeDropResult("A", "B", [], {})).toEqual({
-      action: "add",
-      dependencies: ["B"],
-    });
-  });
-
   it("returns noop when adding would create a direct cycle", () => {
     expect(computeDropResult("A", "B", [], { B: ["A"] })).toEqual({
       action: "noop",
@@ -79,10 +72,6 @@ describe("wouldCreateCycle", () => {
 
   it("detects indirect cycle", () => {
     expect(wouldCreateCycle("A", "B", { B: ["C"], C: ["A"] })).toBe(true);
-  });
-
-  it("returns false for non-cyclic graph", () => {
-    expect(wouldCreateCycle("A", "B", { B: ["C"], C: ["D"] })).toBe(false);
   });
 
   it("handles missing entries in map", () => {

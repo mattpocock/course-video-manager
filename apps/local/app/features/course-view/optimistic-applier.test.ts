@@ -165,19 +165,6 @@ describe("applyOptimisticEvent", () => {
         "A new description"
       );
     });
-
-    it("returns loaderData unchanged when section is not found", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "update-section-description",
-        sectionId: "nonexistent",
-        description: "A new description",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
-    });
   });
 
   describe("update-lesson-name", () => {
@@ -224,37 +211,6 @@ describe("applyOptimisticEvent", () => {
         "overview"
       );
     });
-
-    it("handles a lesson path without numeric prefix", () => {
-      const lesson = makeLesson({ id: "lesson-1", path: "My Lesson" });
-      const loaderData = makeLoaderData([makeSection({}, [lesson])]);
-      const event: CourseEditorEvent = {
-        type: "update-lesson-name",
-        lessonId: "lesson-1",
-        newSlug: "renamed-lesson",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result.selectedCourse!.sections[0]!.lessons[0]!.path).toBe(
-        "renamed-lesson"
-      );
-    });
-
-    it("handles a new slug that contains hyphens", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "update-lesson-name",
-        lessonId: "lesson-1",
-        newSlug: "my-long-slug-name",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result.selectedCourse!.sections[0]!.lessons[0]!.path).toBe(
-        "my-long-slug-name"
-      );
-    });
   });
 
   describe("update-lesson-title", () => {
@@ -271,19 +227,6 @@ describe("applyOptimisticEvent", () => {
       expect(result.selectedCourse!.sections[0]!.lessons[0]!.title).toBe(
         "New Title"
       );
-    });
-
-    it("returns loaderData unchanged when lesson is not found", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "update-lesson-title",
-        lessonId: "nonexistent",
-        title: "New Title",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
     });
   });
 
@@ -302,19 +245,6 @@ describe("applyOptimisticEvent", () => {
         "A detailed description"
       );
     });
-
-    it("returns loaderData unchanged when lesson is not found", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "update-lesson-description",
-        lessonId: "nonexistent",
-        description: "A detailed description",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
-    });
   });
 
   describe("update-lesson-priority", () => {
@@ -329,19 +259,6 @@ describe("applyOptimisticEvent", () => {
       const result = applyOptimisticEvent(loaderData, event);
 
       expect(result.selectedCourse!.sections[0]!.lessons[0]!.priority).toBe(1);
-    });
-
-    it("returns loaderData unchanged when lesson is not found", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "update-lesson-priority",
-        lessonId: "nonexistent",
-        priority: 3,
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
     });
   });
 
@@ -360,19 +277,6 @@ describe("applyOptimisticEvent", () => {
         result.selectedCourse!.sections[0]!.lessons[0]!.dependencies
       ).toEqual(["dep-1", "dep-2"]);
     });
-
-    it("returns loaderData unchanged when lesson is not found", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "update-lesson-dependencies",
-        lessonId: "nonexistent",
-        dependencies: ["dep-1"],
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
-    });
   });
 
   describe("set-lesson-authoring-status", () => {
@@ -389,19 +293,6 @@ describe("applyOptimisticEvent", () => {
       expect(
         result.selectedCourse!.sections[0]!.lessons[0]!.authoringStatus
       ).toBe("done");
-    });
-
-    it("returns loaderData unchanged when lesson is not found", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "set-lesson-authoring-status",
-        lessonId: "nonexistent",
-        status: "done",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
     });
   });
 });

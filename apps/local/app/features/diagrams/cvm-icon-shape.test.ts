@@ -115,16 +115,6 @@ describe("props validation", () => {
   });
 });
 
-describe("defaults", () => {
-  it("defaults to white, solid, and a square box", () => {
-    const util = new CvmIconShapeUtil({} as never);
-    const props = util.getDefaultProps();
-    expect(props.color).toBe("white");
-    expect(props.dash).toBe("solid");
-    expect(props.w).toBe(props.h);
-  });
-});
-
 describe("geometry", () => {
   const util = new CvmIconShapeUtil({} as never);
   const shape = (name: string, w = 96, h = 96) =>

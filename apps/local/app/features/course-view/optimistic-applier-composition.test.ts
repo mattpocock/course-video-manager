@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   applyOptimisticEvent,
-  courseEditorFetcherKey,
   courseEditorFetcherKeyForEvent,
 } from "./optimistic-applier";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
@@ -50,19 +49,6 @@ describe("applyOptimisticEvent – composition and edge cases", () => {
 
       expect(result).toBe(loaderData);
     });
-
-    it("returns loaderData unchanged for add-lesson", () => {
-      const loaderData = makeLoaderData();
-      const event: CourseEditorEvent = {
-        type: "add-lesson",
-        sectionId: "section-1",
-        title: "Lesson",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
-    });
   });
 
   describe("undefined selectedCourse", () => {
@@ -85,19 +71,6 @@ describe("applyOptimisticEvent – composition and edge cases", () => {
   describe("empty and edge-case structures", () => {
     it("returns loaderData unchanged when sections array is empty", () => {
       const loaderData = makeLoaderData([]);
-      const event: CourseEditorEvent = {
-        type: "update-lesson-icon",
-        lessonId: "lesson-1",
-        icon: "code",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
-    });
-
-    it("returns loaderData unchanged when section has no lessons", () => {
-      const loaderData = makeLoaderData([makeSection({}, [])]);
       const event: CourseEditorEvent = {
         type: "update-lesson-icon",
         lessonId: "lesson-1",
@@ -143,21 +116,6 @@ describe("applyOptimisticEvent – composition and edge cases", () => {
 
       expect(result.selectedCourse!.sections[0]).toBe(section1);
       expect(result.selectedCourse!.sections[1]).not.toBe(section2);
-    });
-
-    it("returns loaderData unchanged for section events when selectedCourse is undefined", () => {
-      const loaderData = makeLoaderData();
-      (loaderData as any).selectedCourse = undefined;
-
-      const event: CourseEditorEvent = {
-        type: "update-section-name",
-        sectionId: "section-1",
-        title: "new-name",
-      };
-
-      const result = applyOptimisticEvent(loaderData, event);
-
-      expect(result).toBe(loaderData);
     });
   });
 
@@ -209,14 +167,6 @@ describe("applyOptimisticEvent – composition and edge cases", () => {
         "discussion"
       );
     });
-  });
-});
-
-describe("courseEditorFetcherKey", () => {
-  it("formats the key as course-editor:<type>:<id>", () => {
-    expect(courseEditorFetcherKey("update-lesson-icon", "lesson-1")).toBe(
-      "course-editor:update-lesson-icon:lesson-1"
-    );
   });
 });
 

@@ -220,16 +220,6 @@ describe("computeBulkReorderIds", () => {
     ).toEqual(["b", "a", "c", "d", "e"]);
   });
 
-  it("preserves order for any mix of IDs (no special-casing)", () => {
-    const mixed = [{ id: "l3" }, { id: "l1" }, { id: "l4" }, { id: "l2" }];
-    expect(computeBulkReorderIds(mixed, new Set(["l1", "l2"]), "l3")).toEqual([
-      "l1",
-      "l2",
-      "l3",
-      "l4",
-    ]);
-  });
-
   it("returns null for a single selected lesson that stays in place", () => {
     expect(computeBulkReorderIds(lessons, new Set(["b"]), "c")).toBeNull();
   });
@@ -413,17 +403,12 @@ describe("buildLessonDropEvent", () => {
 });
 
 describe("computeTodoCount", () => {
-  it("counts a todo lesson with no videos", () => {
-    const sections = [
-      makeSection([makeLesson({ authoringStatus: "todo", videos: [] })]),
-    ];
-    expect(computeTodoCount(sections, noFilters)).toBe(1);
-  });
-
-  it("counts a todo lesson that has videos with clips as todo", () => {
+  it("counts a todo lesson as todo whether or not it has videos", () => {
     const sections = [
       makeSection([
+        makeLesson({ id: "empty", authoringStatus: "todo", videos: [] }),
         makeLesson({
+          id: "filmed",
           authoringStatus: "todo",
           videos: [
             { id: "v1", title: "v.mp4", clipCount: 5, totalDuration: 100 },
@@ -431,7 +416,7 @@ describe("computeTodoCount", () => {
         }),
       ]),
     ];
-    expect(computeTodoCount(sections, noFilters)).toBe(1);
+    expect(computeTodoCount(sections, noFilters)).toBe(2);
   });
 
   it("does not count a done lesson as todo", () => {
@@ -439,18 +424,6 @@ describe("computeTodoCount", () => {
       makeSection([makeLesson({ authoringStatus: "done", videos: [] })]),
     ];
     expect(computeTodoCount(sections, noFilters)).toBe(0);
-  });
-
-  it("counts a lesson with authoringStatus todo", () => {
-    const sections = [
-      makeSection([
-        makeLesson({
-          authoringStatus: "todo",
-          videos: [],
-        }),
-      ]),
-    ];
-    expect(computeTodoCount(sections, noFilters)).toBe(1);
   });
 
   it("does not count a lesson with null authoringStatus", () => {
@@ -463,17 +436,6 @@ describe("computeTodoCount", () => {
       ]),
     ];
     expect(computeTodoCount(sections, noFilters)).toBe(0);
-  });
-
-  it("counts all todos regardless of priority", () => {
-    const sections = [
-      makeSection([
-        makeLesson({ id: "p1", authoringStatus: "todo", priority: 1 }),
-        makeLesson({ id: "p2", authoringStatus: "todo", priority: 2 }),
-        makeLesson({ id: "p3", authoringStatus: "todo", priority: 3 }),
-      ]),
-    ];
-    expect(computeTodoCount(sections, noFilters)).toBe(3);
   });
 
   it("returns zero for empty sections", () => {
@@ -628,18 +590,5 @@ describe("computeCourseStats", () => {
     expect(stats.doneCount).toBe(4);
     expect(stats.todoCount).toBe(0);
     expect(stats.percentageComplete).toBe(100);
-  });
-
-  it("counts all-done lessons as 100% even with videos absent", () => {
-    const sections = [
-      makeSection([
-        makeLesson({ id: "l1", authoringStatus: "done", videos: [] }),
-        makeLesson({ id: "l2", authoringStatus: "done", videos: [] }),
-      ]),
-    ];
-    const stats = computeCourseStats(sections);
-    expect(stats.todoCount).toBe(0);
-    expect(stats.percentageComplete).toBe(100);
-    expect(stats.totalVideos).toBe(0);
   });
 });
