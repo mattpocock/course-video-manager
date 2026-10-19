@@ -16,7 +16,9 @@ import {
 import { decidePublishAction } from "@/features/publish/publish-action";
 import {
   AutofillSkipList,
+  countBlockers,
   PublishBlockers,
+  splitAutofillClearable,
 } from "@/features/publish/publish-blockers";
 import { PendingRecoveryBanner } from "@/features/publish/pending-recovery-banner";
 import { PlaceholderFloorPanel } from "@/features/publish/placeholder-floor-panel";
@@ -39,7 +41,7 @@ import { VersionOperationsService } from "@/services/db-version-operations.serve
 import { classifyPendingRecovery } from "@/services/pending-recovery.server";
 import { makeAction, makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
-import { ArrowLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import {
   useCallback,
   useContext,
@@ -91,8 +93,8 @@ export const loader = makeLoader({
         yield* publishService.validatePublishabilityOfTree(versionTree);
 
       // The Autofill's candidate rule, read for BOTH toggle positions on the
-      // same terms as the readiness lists — so the button's count is the same
-      // rule the run itself uses (see selectAutofillCandidates). Deliberately
+      // same terms as the readiness lists — so what the page says Publish will
+      // fill in first is the same rule the run itself uses (see selectAutofillCandidates). Deliberately
       // NOT folded into Publish Readiness: the Autofill is a UI-only feature
       // for now, and `cvm course readiness` must not grow a field for it.
       const autofillWithTodo = selectAutofillCandidates(
@@ -245,28 +247,16 @@ export default function Component(props: Route.ComponentProps) {
   // not stranded. Once it is interrupted, the banner is the way out.
   const publishJob = latestJobFor(jobs, "publish", course.id);
   const hasActivePublish = !!publishJob && !isFinishedJob(publishJob);
-  // This Course's Autofill, a Job the Sidecar runs: one started in this tab,
-  // or one still running when the tab was reopened, holds the button.
+  // This Course's Autofill, the hidden first step of a Publish: a Job the
+  // Sidecar runs, with the Publish queued behind it. One still running when
+  // the tab was reopened holds the button too.
   const autofillJob = latestJobFor(jobs, "autofill", course.id);
   const hasActiveAutofill = !!autofillJob && !isFinishedJob(autofillJob);
 
   useFocusRevalidate({ enabled: !publishStarted });
 
-  // When the run settles the page re-reads Publish Readiness and re-evaluates
-  // the button — which is how the same button comes back reading "Publish".
-  // It never rolls on into a Publish: the second press is the author's.
-  const autofillWasActive = useRef(false);
-  useEffect(() => {
-    if (hasActiveAutofill) {
-      autofillWasActive.current = true;
-      return;
-    }
-    if (!autofillWasActive.current) return;
-    autofillWasActive.current = false;
-    revalidator.revalidate();
-  }, [hasActiveAutofill, revalidator]);
-
-  // The same when this Course's Publish settles while the page is open: a
+  // When this Course's Publish settles while the page is open (a failed
+  // Autofill fails it too), the page re-reads Publish Readiness: a
   // Publish that was interrupted may have left a Pending Version, and the
   // banner that offers Promote / Discard reads it from the loader.
   const publishWasActive = useRef(false);
@@ -284,51 +274,58 @@ export default function Component(props: Route.ComponentProps) {
   // currently selected — flipping the toggle switches them instantly, with no
   // server round-trip.
   const effective = includeTodoLessons ? withTodo : withoutTodo;
-  const courseViewLintCount = effective.courseViewLintCount;
   const courseViewLints = effective.courseViewLints;
   const invalidLessonCombos = effective.invalidLessonCombos;
   const incompleteVideos = effective.incompleteVideos;
-
-  const hasCourseViewLints = courseViewLintCount > 0;
-  const hasInvalidLessonCombos = invalidLessonCombos.length > 0;
-  const hasIncompleteVideos = incompleteVideos.length > 0;
   // Autofill is untouched by the floor: its candidates are still the shipping
-  // Videos missing a description or chapters, so the one button still reaches
-  // Publish on a pre-launch Course.
+  // Videos missing a description or chapters, so Publish still fills them in
+  // on a pre-launch Course.
   const autofill = effective.autofill;
   const lessonStatuses = effective.lessonStatusesByBand[floorBand];
+  const blockerLists = {
+    courseViewLints,
+    incompleteVideos,
+    invalidLessonCombos,
+  };
+  // Only what the Autofill leaves behind blocks the button: the rest is the
+  // hidden first step of the Publish itself.
+  const remainingBlockers = countBlockers(
+    splitAutofillClearable(blockerLists, autofill.candidates).mine
+  );
 
-  // One button, two labels. The rule lives in a pure function so it can be
-  // tested across its four cases without rendering this page.
+  // The rule lives in a pure function so it can be tested without rendering
+  // this page.
   const action = decidePublishAction({
     pendingRecovery: pendingRecovery !== null,
-    autofillCandidateCount: autofill.candidates.length,
-    hasBlockers:
-      hasCourseViewLints || hasInvalidLessonCombos || hasIncompleteVideos,
+    hasBlockers: remainingBlockers > 0,
     hasVersionDescription: description.trim().length > 0,
     autofillRunning: hasActiveAutofill,
     publishRunning: hasActivePublish || publishStarted,
   });
 
-  const handleAutofill = useCallback(() => {
-    startAutofill(course.id, course.name, latestVersion.id, includeTodoLessons);
-  }, [
-    course.id,
-    course.name,
-    latestVersion.id,
-    includeTodoLessons,
-    startAutofill,
-  ]);
-
+  const hasAutofillWork = autofill.candidates.length > 0;
   const handlePublish = useCallback(() => {
     setPublishStarted(true);
+    // The Autofill is its own Job, never a stage inside the Publish (ADR
+    // 0024): the Publish waits on it and fails with it, so a model failure
+    // can never strand a Pending Version. A Video it could not fill still
+    // blocks, and the Publish is refused at validation, before Submit.
+    const autofillJobId = hasAutofillWork
+      ? startAutofill(
+          course.id,
+          course.name,
+          latestVersion.id,
+          includeTodoLessons
+        )
+      : undefined;
     startPublish(
       course.id,
       course.name,
       name,
       description.trim(),
       includeTodoLessons,
-      floorBand
+      floorBand,
+      autofillJobId
     );
     // Navigate back to course — progress shows in GlobalUploadProgress
     navigate(`/courses/${course.id}`);
@@ -339,6 +336,9 @@ export default function Component(props: Route.ComponentProps) {
     description,
     includeTodoLessons,
     floorBand,
+    hasAutofillWork,
+    latestVersion.id,
+    startAutofill,
     startPublish,
     navigate,
   ]);
@@ -447,38 +447,28 @@ export default function Component(props: Route.ComponentProps) {
         />
 
         <PublishBlockers
-          lists={{
-            courseViewLints,
-            incompleteVideos,
-            invalidLessonCombos,
-          }}
+          lists={blockerLists}
           candidates={autofill.candidates}
         />
 
-        {/* One button, two labels: "Autofill N Videos" while the Autofill has
-            work, "Publish" once it does not. It never rolls on from one to the
-            other — pressing Autofill and walking away is the point, and the
-            second press happens after the readiness lists have been re-read. */}
+        {/* One press: Publish fills in what the Autofill can first, then
+            publishes. */}
         {action.kind !== "hidden" && (
           <div className="mb-8 space-y-2">
             <Button
-              onClick={
-                action.kind === "autofill" ? handleAutofill : handlePublish
-              }
+              onClick={handlePublish}
               disabled={!action.enabled}
               className="w-full"
               size="lg"
             >
-              {action.kind === "autofill" && (
-                <Sparkles className="w-4 h-4 mr-2" />
-              )}
               {action.label}
             </Button>
-            {action.kind === "autofill" && (
+            {hasAutofillWork && (
               <p className="text-xs text-muted-foreground">
-                Fills in every missing SEO description and set of chapters.
-                Watch it in the upload panel — it stops when it is done, and you
-                press Publish yourself.
+                Publishing first fills in the missing SEO descriptions and
+                chapters of {autofill.candidates.length}{" "}
+                {autofill.candidates.length === 1 ? "video" : "videos"}. It
+                never overwrites what you wrote.
               </p>
             )}
             {autofill.skipped.length > 0 && (

@@ -25,10 +25,11 @@ export interface PublishBlockerLists {
 }
 
 /**
- * Which blockers one press of the **Autofill** would clear.
+ * Which blockers the **Autofill** would clear — the hidden first step of a
+ * Publish, so these never disable the Publish button.
  *
- * Eight blockers should not read as eight problems when six of them are one
- * button press, so the clearable ones collapse and the ones only Matt can fix
+ * Eight blockers should not read as eight problems when six of them are
+ * filled in by the Publish itself, so the clearable ones collapse and the ones only Matt can fix
  * — a missing **Body**, an invalid Lesson role combo — stay in plain sight.
  * Nothing is hidden: every blocker is still listed, and all of them still
  * refuse a release.
@@ -84,7 +85,7 @@ export const splitAutofillClearable = (
   };
 };
 
-const countBlockers = (lists: PublishBlockerLists) =>
+export const countBlockers = (lists: PublishBlockerLists) =>
   lists.courseViewLints.length +
   lists.incompleteVideos.length +
   lists.invalidLessonCombos.length;
@@ -129,8 +130,8 @@ export function PublishBlockers({
         <Collapsible className="mb-8 rounded-lg border border-border p-4">
           <CollapsibleTrigger className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full text-left">
             <ChevronRight className="w-4 h-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
-            {clearableCount} blocker{clearableCount !== 1 ? "s" : ""} the
-            Autofill will clear
+            {clearableCount} blocker{clearableCount !== 1 ? "s" : ""} Publish
+            fills in first
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
             <BlockerLists lists={clearable} />
