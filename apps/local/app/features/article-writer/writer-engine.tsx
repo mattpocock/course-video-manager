@@ -45,6 +45,7 @@ import {
 import { useContextModel } from "./use-context-model";
 import { useMemoryAutosave } from "./use-memory-autosave";
 import { useApplyDocument } from "./use-apply-document";
+import { ApplyButton } from "./apply-button";
 import { InlineContextStrip } from "./inline-context-strip";
 import { ContextView } from "./context-view";
 import { SettingsView } from "./settings-view";
@@ -59,7 +60,6 @@ import {
   Trash2Icon,
   Settings2Icon,
   AlertTriangleIcon,
-  Loader2Icon,
 } from "lucide-react";
 
 export interface WriterEngineProps {
@@ -606,25 +606,13 @@ export function WriterEngine({
             >
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={handleApply}
-              disabled={isGenerating || isApplying || unresolvedScreenshots}
-              title={
-                unresolvedScreenshots
-                  ? "Resolve all screenshot placeholders before applying"
-                  : undefined
-              }
-            >
-              {isApplying ? (
-                <>
-                  <Loader2Icon className="mr-1 size-4 animate-spin" />
-                  Uploading images…
-                </>
-              ) : (
-                "Apply"
-              )}
-            </Button>
+            <ApplyButton
+              onApply={handleApply}
+              isApplying={isApplying}
+              isGenerating={isGenerating}
+              unresolvedScreenshots={unresolvedScreenshots}
+              lintCount={lintCount}
+            />
           </div>
         )}
       </div>
