@@ -33,7 +33,10 @@ export const FILLS = [
 /** tldraw's own dash names (`DefaultDashStyle`). */
 export const DASHES = ["draw", "solid", "dashed", "dotted", "none"] as const;
 
-/** tldraw's own size names (`DefaultSizeStyle`), for text. */
+/**
+ * tldraw's own size names (`DefaultSizeStyle`): a text's font size, and the
+ * stroke of a box, ellipse, arrow or line.
+ */
 export const SIZES = ["s", "m", "l", "xl"] as const;
 
 /**
@@ -152,6 +155,7 @@ const Box = z.strictObject({
   color: z.enum(COLORS).optional(),
   fill: z.enum(FILLS).optional(),
   dash: z.enum(DASHES).optional(),
+  size: z.enum(SIZES).optional(),
   opacity: opacity.optional(),
 });
 
@@ -186,6 +190,7 @@ const Arrow = z.strictObject({
   heads: z.enum(HEADS).optional(),
   color: z.enum(COLORS).optional(),
   dash: z.enum(DASHES).optional(),
+  size: z.enum(SIZES).optional(),
   opacity: opacity.optional(),
 });
 
@@ -198,6 +203,7 @@ const Line = z.strictObject({
   y2: num,
   color: z.enum(COLORS).optional(),
   dash: z.enum(DASHES).optional(),
+  size: z.enum(SIZES).optional(),
   opacity: opacity.optional(),
 });
 

@@ -57,6 +57,7 @@ export const FLOW: SimpleDiagram = {
       color: "light-blue",
       fill: "semi",
       dash: "solid",
+      size: "l",
       opacity: 0.75,
     },
     { type: "text", id: "client-label", x: 40, y: 25, text: "Client" },
@@ -99,6 +100,7 @@ export const FLOW: SimpleDiagram = {
       heads: "both",
       color: "violet",
       dash: "dashed",
+      size: "s",
     },
     {
       type: "arrow",
@@ -120,6 +122,7 @@ export const FLOW: SimpleDiagram = {
       y2: 360,
       dash: "dotted",
       color: "grey",
+      size: "xl",
       opacity: 0.5,
     },
     { type: "icon", id: "db", x: 460, y: 100, name: "database" },

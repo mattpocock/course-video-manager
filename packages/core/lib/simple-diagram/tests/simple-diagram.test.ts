@@ -46,6 +46,7 @@ describe("round trip", () => {
           color: "black",
           fill: "none",
           dash: "draw",
+          size: "m",
         },
         {
           type: "text",
@@ -68,6 +69,7 @@ describe("round trip", () => {
           heads: "end",
           bend: 0,
           text: "",
+          size: "m",
         },
       ],
     });
@@ -225,7 +227,7 @@ describe("shapes the format cannot express", () => {
   });
 });
 
-describe("text scale and opacity", () => {
+describe("size, text scale and opacity", () => {
   /** One shape of every kind, at full opacity and scale 1. */
   const plain = () =>
     build({
@@ -250,6 +252,14 @@ describe("text scale and opacity", () => {
     expect(record(scene, "shape:free").opacity).toBe(0.25);
     expect(record(scene, "shape:slant").opacity).toBe(0.5);
     expect(record(scene, "shape:bot").opacity).toBe(0.1);
+  });
+
+  it("write a box's, ellipse's, arrow's and line's size to props.size", () => {
+    const scene = build(FLOW);
+    expect(record(scene, "shape:client").props.size).toBe(DEFAULTS.size);
+    expect(record(scene, "shape:server").props.size).toBe("l");
+    expect(record(scene, "shape:loose").props.size).toBe("s");
+    expect(record(scene, "shape:slant").props.size).toBe("xl");
   });
 
   it("read back every opacity step on every kind, exactly", () => {

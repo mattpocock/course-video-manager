@@ -207,6 +207,18 @@ describe("validation errors", () => {
     ).toBe(true);
   });
 
+  it("a size off tldraw's sizes, on a shape that is not text", () => {
+    expect(
+      errorsFor({
+        shapes: [
+          { type: "line", id: "l", x1: 0, y1: 0, x2: 1, y2: 1, size: "xxl" },
+        ],
+      })
+    ).toEqual([
+      'shapes[0] ("l").size: Invalid option: expected one of "s"|"m"|"l"|"xl"',
+    ]);
+  });
+
   it("a body that is not a Diagram", () => {
     expect(errorsFor({ nodes: [] })).toEqual([
       "diagram.shapes: Invalid input: expected array, received undefined",

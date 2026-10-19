@@ -158,8 +158,8 @@ const asScene = (head: unknown): Scene | null => {
  *
  * The drawing is applied ONTO the Diagram's current `head` scene, matched by
  * id: a listed shape keeps every property the format cannot say (icon size,
- * font, wrapping width, stroke size, opacity, a dragged arrow anchor…), a
- * shape left out is removed, a new id is built in Matt's defaults, and an
+ * font, wrapping width, a dragged arrow anchor…), a shape left out is
+ * removed, a new id is built in Matt's defaults, and an
  * `other` shape — one the format cannot say — is kept as it is. So `get` ->
  * change one thing -> `snapshot add` changes only that thing.
  *

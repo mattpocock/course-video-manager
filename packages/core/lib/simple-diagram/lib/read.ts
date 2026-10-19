@@ -105,11 +105,13 @@ export function readShape(
       const color = oneOf<SimpleColor>(COLORS, p.color);
       const fill = oneOf<SimpleFill>(FILLS, p.fill);
       const dash = oneOf<SimpleDash>(DASHES, p.dash);
+      const size = oneOf<SimpleSize>(SIZES, p.size);
       if (
         !kind ||
         !color ||
         !fill ||
         !dash ||
+        !size ||
         typeof p.w !== "number" ||
         typeof p.h !== "number" ||
         record.rotation !== 0 ||
@@ -129,6 +131,7 @@ export function readShape(
         color: unlessDefault(color, DEFAULTS.color),
         fill: unlessDefault(fill, DEFAULTS.fill),
         dash: unlessDefault(dash, DEFAULTS.dash),
+        size: unlessDefault(size, DEFAULTS.size),
         opacity: opacityField,
       });
     }
@@ -154,6 +157,7 @@ export function readShape(
     case "arrow": {
       const color = oneOf<SimpleColor>(COLORS, p.color);
       const dash = oneOf<SimpleDash>(DASHES, p.dash);
+      const size = oneOf<SimpleSize>(SIZES, p.size);
       const start = point(p.start);
       const end = point(p.end);
       const hasStartHead = p.arrowheadStart !== "none";
@@ -162,6 +166,7 @@ export function readShape(
         p.kind === "elbow" ||
         !color ||
         !dash ||
+        !size ||
         !start ||
         !end ||
         typeof p.bend !== "number" ||
@@ -191,6 +196,7 @@ export function readShape(
         heads: unlessDefault(heads, DEFAULTS.heads),
         color: unlessDefault(color, DEFAULTS.color),
         dash: unlessDefault(dash, DEFAULTS.dash),
+        size: unlessDefault(size, DEFAULTS.size),
         opacity: opacityField,
       };
       return compact(arrow);
@@ -198,11 +204,12 @@ export function readShape(
     case "line": {
       const color = oneOf<SimpleColor>(COLORS, p.color);
       const dash = oneOf<SimpleDash>(DASHES, p.dash);
+      const size = oneOf<SimpleSize>(SIZES, p.size);
       const points =
         p.points !== null && typeof p.points === "object"
           ? Object.values(p.points as Record<string, unknown>)
           : [];
-      if (!color || !dash || points.length !== 2) return other;
+      if (!color || !dash || !size || points.length !== 2) return other;
       const sorted = [...points].sort((l, r) => {
         const li = String((l as { index?: unknown }).index);
         const ri = String((r as { index?: unknown }).index);
@@ -222,6 +229,7 @@ export function readShape(
         y2: b.y,
         color: unlessDefault(color, DEFAULTS.color),
         dash: unlessDefault(dash, DEFAULTS.dash),
+        size: unlessDefault(size, DEFAULTS.size),
         opacity: opacityField,
       });
     }

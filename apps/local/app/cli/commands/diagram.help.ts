@@ -62,11 +62,11 @@ snapshot must differ from the others. A drawing holds at most 500 shapes,
 and every number is within ±100000.
 
 SHAPES ("?" = optional; leave a field out to get Matt's default)
-  box      id, x, y, w, h, color?, fill?, dash?, opacity?
-  ellipse  id, x, y, w, h, color?, fill?, dash?, opacity?
+  box      id, x, y, w, h, color?, fill?, dash?, size?, opacity?
+  ellipse  id, x, y, w, h, color?, fill?, dash?, size?, opacity?
   text     id, x, y, text, size?, scale?, color?, rotation?, opacity?
-  arrow    id, from? | x1?, y1?, to? | x2?, y2?, text?, bend?, heads?, color?, dash?, opacity?
-  line     id, x1, y1, x2, y2, color?, dash?, opacity?
+  arrow    id, from? | x1?, y1?, to? | x2?, y2?, text?, bend?, heads?, color?, dash?, size?, opacity?
+  line     id, x1, y1, x2, y2, color?, dash?, size?, opacity?
   icon     id, x, y, name, color?, opacity?
   other    id   (only from 'get'; 'snapshot add' keeps it, so does 'update'; 'create' refuses it)
 
@@ -89,6 +89,9 @@ WHAT THE FIELDS MEAN
   bend       how far the arrow's middle bows sideways, in pixels (0 =
              straight; try 30 to 80; negative bows the other way).
   heads        which ends carry an arrowhead.
+  size       tldraw's size: a text's font size; the stroke (and arrowhead)
+             of a box, ellipse, arrow or line. Leave it at m unless a shape
+             must stand out or recede.
   rotation   degrees, clockwise — for a hand-written aside, tilt it a few.
   scale      a text's size multiplier, as tldraw's own: any number from
              0.01 to 100 (default 1). Matt sizes text this way far more than
@@ -214,8 +217,8 @@ command prints where to look.
 The drawing is applied ONTO the head, matched by id, and the result is the
 new snapshot. Start from 'cvm diagram get' and change only what you mean to:
   - a shape you list keeps everything the format cannot say — an icon Matt
-    resized, a font, a text's wrapping width, a stroke size, an arrow end
-    he dragged — and takes the fields you give it;
+    resized, a font, a text's wrapping width, an arrow end he dragged — and
+    takes the fields you give it;
   - a shape you leave out is removed;
   - a new id is drawn in Matt's defaults;
   - an "other" shape is kept as it is, listed or not; an "other" whose id the

@@ -205,6 +205,21 @@ describe("cvm diagram create", () => {
     expect(row!.name).toBe("Untitled 1");
   });
 
+  it("takes a size on a box, ellipse, arrow and line, as on text", async () => {
+    const sized = {
+      shapes: DRAFT.shapes.map((s) =>
+        ["box", "ellipse", "arrow", "line"].includes(s.type)
+          ? { ...s, size: "xl" }
+          : s
+      ),
+    };
+    const r = await run(["diagram", "create", "--file", file(sized)]);
+
+    expect(r.exitCode).toBe(0);
+    const [snapshot] = await db().query.diagramSnapshots.findMany();
+    expect(readSimpleDiagram((snapshot!.scene as Scene).store)).toEqual(sized);
+  });
+
   it("reports EVERY problem at once, exit 3, and writes and draws nothing", async () => {
     const r = await run([
       "diagram",
