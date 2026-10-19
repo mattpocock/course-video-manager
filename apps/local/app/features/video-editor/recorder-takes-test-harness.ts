@@ -298,6 +298,7 @@ export const status = (
 ): CvmRecorderMessage => ({
   type: "recorder-status",
   reachable: true,
+  starting: false,
   problem: null,
   recordingSessionId,
   previews: { camera: "c", screen: "s" },

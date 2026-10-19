@@ -7,9 +7,9 @@ import { startWindowsClock } from "./windows-clock";
 import { windowsLauncher } from "./windows-launcher";
 
 /**
- * The recorder service's process (`service-process.ts`), started by
- * `start-recorder-service.ts` under `pnpm dev` / `pnpm start` and stopped
- * with them (ADR 0035).
+ * The recorder service's process (`service-process.ts`), started by the
+ * app server on demand (`service-process.server.ts`, ADR 0053), and stopped
+ * when it idles out or the app server stops (ADR 0035).
  */
 
 /** `.data/` at the repository root: gitignored, beside the app's own logs. */
@@ -35,7 +35,7 @@ const log = (message: string) => {
   }
 };
 
-/** Why the service is stopping: a signal, or `pnpm dev` gone from under it. */
+/** Why the service is stopping: a signal, or the app server gone from under it. */
 export const STOP_EVENTS = ["SIGINT", "SIGTERM", "disconnect"] as const;
 
 /**

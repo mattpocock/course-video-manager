@@ -27,6 +27,7 @@ const statusText = (
 ): string => {
   const { state } = controls;
   if (state.reachable === null) return "Connecting to the recorder…";
+  if (state.starting) return "Starting the recorder…";
   if (!state.reachable) return "The recorder service is not running.";
   if (state.problem) return state.problem;
   switch (state.phase) {

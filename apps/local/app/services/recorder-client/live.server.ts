@@ -8,7 +8,11 @@ import { lastPassedCalibrationNow } from "@/services/av-calibration.server";
 import { createRecorderClient, type RecorderClient } from "./client.server";
 import { keepWhisperWarm } from "@/services/sidecar-socket.server";
 import { RECORDER_CLIENT_KEY } from "./existing-client.server";
-import { recorderServiceUrl } from "./recorder-service-url";
+import {
+  REAL_RECORDER_SERVICE_URL,
+  recorderServiceUrl,
+} from "./recorder-service-url";
+import { recorderServiceProcess } from "./service-process.server";
 import {
   ingestRecorderEvent,
   unfinishedRecordingSessions,
@@ -22,7 +26,8 @@ import {
  *
  * Only Matt's own app server, in his main checkout, talks to his recorder
  * service; an agent's server (any checkout) and every other checkout get the
- * dead address (`recorder-service-url.ts`).
+ * dead address (`recorder-service-url.ts`). So only Matt's own app server
+ * starts his recorder service, on demand (`service-on-demand.ts`, ADR 0053).
  */
 
 const KEY = RECORDER_CLIENT_KEY;
@@ -43,11 +48,18 @@ export const recorderClient = (): RecorderClient => {
   >;
   const existing = store[KEY];
   if (existing) return existing;
+  const mainCheckout = isMainCheckout(process.cwd());
+  const url = recorderServiceUrl({
+    env: process.env,
+    mainCheckout: () => mainCheckout,
+  });
   const client = createRecorderClient({
-    url: recorderServiceUrl({
-      env: process.env,
-      mainCheckout: () => isMainCheckout(process.cwd()),
-    }),
+    url,
+    // Never an agent's server (#2292: it gets the dead address) or a worktree's.
+    launcher:
+      mainCheckout && url === REAL_RECORDER_SERVICE_URL
+        ? recorderServiceProcess
+        : undefined,
     ingest: (event, askEditor) =>
       runtimeLive.runPromise(
         Effect.gen(function* () {

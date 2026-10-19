@@ -40,12 +40,16 @@ export const meterRelay = (o: {
   send: (command: RecorderCommand) => void;
   /** Why no command can reach the recorder service now; null when one can. */
   unavailable: () => string | null;
+  /** A page started or stopped listening. */
+  changed?: () => void;
 }) => {
   const listeners = new Set<MeterListener>();
   const publish = (message: LevelMeterMessage) => {
     for (const listener of listeners) listener(message);
   };
   return {
+    /** How many pages are listening. */
+    listening: () => listeners.size,
     /**
      * Asks for the meter for the pages listening (the service came back), or
      * tells them why it cannot run.
@@ -107,6 +111,7 @@ export const meterRelay = (o: {
     },
     subscribe(listener: MeterListener) {
       listeners.add(listener);
+      o.changed?.();
       // Again for each page: started already, the service carries on.
       const why = o.unavailable();
       if (why) listener({ type: "meter-failed", message: why });
@@ -114,6 +119,7 @@ export const meterRelay = (o: {
       return () => {
         if (!listeners.delete(listener)) return;
         if (listeners.size === 0) o.send({ type: "stop-meter" });
+        o.changed?.();
       };
     },
   };

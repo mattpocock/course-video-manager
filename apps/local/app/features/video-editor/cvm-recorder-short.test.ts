@@ -38,6 +38,7 @@ const open = (format: "short" | "landscape", scene: Scene = "Code") =>
       heard({
         type: "recorder-status",
         reachable: true,
+        starting: false,
         problem: null,
         recordingSessionId: null,
         previews: { camera: "http://r/camera", screen: "http://r/screen" },

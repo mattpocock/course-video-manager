@@ -100,6 +100,8 @@ export namespace cvmRecorderReducer {
     format: VideoFormat;
     /** Null until the app server first says. */
     reachable: boolean | null;
+    /** The app server is starting the recorder service (ADR 0053). */
+    starting: boolean;
     /** Why the recorder cannot record at all (a wrong ffmpeg). */
     problem: string | null;
     camera: Camera;
@@ -187,6 +189,7 @@ export const createInitialCvmRecorderState = (
   ...createInitialRecorderSessionState(),
   format,
   reachable: null,
+  starting: false,
   problem: null,
   camera: { kind: "closed" },
   retrying: false,
@@ -375,6 +378,7 @@ const deviceHeard = (
       return {
         ...state,
         reachable: message.reachable,
+        starting: message.starting,
         problem: message.problem,
         previews: message.previews,
         camera: message.reachable ? state.camera : { kind: "closed" },

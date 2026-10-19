@@ -127,9 +127,11 @@ export const connectClient = (
   port: number,
   ingest: Ingest = saveEvent,
   lastPassed: LastPassed = freshCalibration,
-  keepWhisperWarm?: (ms: number) => void
+  keepWhisperWarm?: (ms: number) => void,
+  more: Pick<RecorderClientOptions, "launcher" | "idleMs"> = {}
 ) => {
   const client = createRecorderClient({
+    ...more,
     keepWhisperWarm,
     url: `ws://127.0.0.1:${port}`,
     ingest,

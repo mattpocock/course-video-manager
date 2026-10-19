@@ -106,6 +106,7 @@ export const cameraWaitText = (
 ): string | null => {
   const { recorder } = state;
   if (recorder.reachable === null) return "Connecting to the recorder…";
+  if (recorder.starting) return "Starting the recorder…";
   if (!recorder.reachable) return "The recorder service is not running.";
   if (recorder.problem) return recorder.problem;
   if (recorder.phase !== "idle")

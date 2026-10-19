@@ -29,6 +29,7 @@ import {
 import type { RecordingSession, TakeSettings } from "./recording-session";
 import { createTakeArming } from "./take-arming";
 import { createTakeStopping } from "./take-stopping";
+import { serveHealth } from "./health";
 import { createSessionIndex } from "./session-index";
 import { checkFfmpeg, checkNvidiaDriver } from "./windows-devices";
 import { Refusal } from "./refusal";
@@ -125,11 +126,8 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     if (feeds.serve(req, res, corsHeaders(req.headers.origin))) return;
     if (req.method === "GET" && req.url === STILL_PATH)
       return serveStill(req, res, state, feeds.latestStill());
-    if (req.url === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ service: "recorder", pid: process.pid, state }));
-      return;
-    }
+    if (req.url === "/health")
+      return serveHealth(res, state, stopping.closing());
     res.writeHead(404).end();
   });
   const wss = new WebSocketServer({

@@ -27,7 +27,7 @@ import path from "node:path";
  * lost a take 212 frames. So the guard:
  *
  * 1. REFUSES (prints why and exits 3) while anything is recording: the
- *    recorder service (`pnpm dev` / `pnpm start` in any checkout), any
+ *    recorder service (started by an open video editor, until it idles out), any
  *    ffmpeg.exe it started (tagged `cvm-recorder-`), or OBS. Only the Linux
  *    side is looked at first, so a running recorder is found without
  *    starting a single Windows process; OBS takes one `tasklist.exe`.
@@ -69,13 +69,11 @@ export const reasonsToRefuse = (running: RunningProcesses): string[] => {
   const reasons: string[] = [];
   if (
     running.linux.some((c) =>
-      /recorder-service\/(start-recorder-service|run-recorder-service|service-process)\.ts/.test(
-        c
-      )
+      /recorder-service\/(run-recorder-service|service-process)\.ts/.test(c)
     )
   )
     reasons.push(
-      "The CVM recorder service is running (pnpm dev / pnpm start): it holds the Cam Link, the mic and the screen."
+      "The CVM recorder service is running: it holds the Cam Link, the mic and the screen. A video editor started it; it stops once none has been open for a while (ADR 0053)."
     );
   if (running.linux.some((c) => /\.exe\b.*\bcvm-recorder-/i.test(c)))
     reasons.push("A CVM recorder ffmpeg.exe is running.");

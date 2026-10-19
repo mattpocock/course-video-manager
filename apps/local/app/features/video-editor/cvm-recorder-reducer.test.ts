@@ -24,6 +24,7 @@ const status = (
   heard({
     type: "recorder-status",
     reachable: true,
+    starting: false,
     problem: null,
     recordingSessionId: null,
     previews: {

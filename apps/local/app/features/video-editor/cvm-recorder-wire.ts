@@ -39,6 +39,11 @@ export type CvmRecorderMessage =
       type: "recorder-status";
       /** False while nothing answers on the recorder service's port. */
       reachable: boolean;
+      /**
+       * Not reachable yet because the app server is starting the recorder
+       * service for this editor (ADR 0053): a cold start, not a fault.
+       */
+      starting: boolean;
       /** Why the recorder cannot record (a wrong ffmpeg), when it cannot. */
       problem: string | null;
       /** The Recording Session in progress for this Video, if any. */

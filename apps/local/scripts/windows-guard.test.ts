@@ -8,11 +8,25 @@ const ffmpegExe =
   "/init /mnt/c/Users/me/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg/bin/ffmpeg.exe";
 
 describe("the Windows guard", () => {
+  it("lets Windows processes start under `pnpm dev` / `pnpm start` once the recorder service has idled out (ADR 0053)", () => {
+    expect(
+      reasonsToRefuse({
+        linux: [
+          "node /repo/node_modules/.bin/turbo run start --filter=!@cvm/overlay-renderer",
+          "node --env-file=../../.env node_modules/@react-router/serve/bin.cjs ./build/server/index.js",
+          "node /repo/apps/local/node_modules/.bin/react-router dev",
+          "node /repo/apps/local/node_modules/.bin/tsx sidecar/run-sidecar.ts",
+          "node /repo/apps/local/node_modules/.bin/tsx stream-deck-forwarder/run-stream-deck-forwarder.ts",
+        ],
+      })
+    ).toEqual([]);
+  });
+
   it("refuses while the recorder service runs", () => {
     expect(
       reasonsToRefuse({
         linux: [
-          "node /repo/apps/local/node_modules/.bin/../tsx/dist/cli.mjs recorder-service/start-recorder-service.ts",
+          "node --import tsx /repo/apps/local/recorder-service/service-process.ts",
         ],
       })
     ).toHaveLength(1);

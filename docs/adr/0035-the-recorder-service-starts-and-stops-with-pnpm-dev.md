@@ -4,6 +4,8 @@ status: accepted
 
 # The recorder service starts and stops with `pnpm dev`
 
+> Decisions 1 and 5 superseded by [ADR 0053](0053-the-recorder-service-starts-on-demand.md): the app server starts the service when an editor needs it, and it idles out.
+
 Supersedes [ADR 0034](0034-recording-runs-in-its-own-recorder-service.md)'s decision 2 and its first consequence: how the recorder service is started and stopped. The rest of ADR 0034 stands: recording still runs in the recorder service, a process of its own that is neither the app server nor the **Sidecar**.
 
 ## Context

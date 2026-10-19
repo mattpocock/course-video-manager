@@ -12,6 +12,7 @@ import {
   WHISPER_MODELS_DIR,
   WORKER_SCRIPT,
 } from "./local-whisper-env";
+import { createIdleStop } from "@/services/idle-stop";
 
 /**
  * The live **Local Whisper** engine, the Sidecar's only way to transcribe:
@@ -68,10 +69,16 @@ export const makeWorker = (config: WorkerConfig) => {
   let child: ChildProcessWithoutNullStreams | null = null;
   let ready: Promise<void> | null = null;
   let nextId = 0;
-  let idleTimer: NodeJS.Timeout | null = null;
   /** Until when (epoch ms) a `keepWarm` holds the worker loaded. */
   let warmUntil = 0;
   const pending = new Map<string, Pending>();
+  // A transcription cancels the count and re-arms it when it is done.
+  const idle = createIdleStop({
+    idleMs: config.idleMs,
+    heldUntil: () => warmUntil,
+    busy: () => pending.size > 0,
+    onIdle: () => stop(),
+  });
 
   const failAll = (error: Error) => {
     for (const p of pending.values()) p.reject(error);
@@ -79,8 +86,7 @@ export const makeWorker = (config: WorkerConfig) => {
   };
 
   const stop = () => {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = null;
+    idle.cancel();
     child?.kill("SIGTERM");
     child = null;
     ready = null;
@@ -150,20 +156,6 @@ export const makeWorker = (config: WorkerConfig) => {
     });
   };
 
-  const armIdleTimer = () => {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(
-      () => {
-        if (pending.size > 0) return;
-        // Held warm past the idle time: look again when the hold ends.
-        if (Date.now() < warmUntil) return armIdleTimer();
-        stop();
-      },
-      Math.max(config.idleMs, warmUntil - Date.now())
-    );
-    idleTimer.unref();
-  };
-
   /**
    * Loads the model now, if it is not loaded, and keeps it loaded for at
    * least `ms` (#2214): the recorder holds it warm while open, so a
@@ -177,11 +169,11 @@ export const makeWorker = (config: WorkerConfig) => {
       // A worker that will not start is reported by the next transcription.
       ready.catch(() => {});
     }
-    if (pending.size === 0) armIdleTimer();
+    if (pending.size === 0) idle.arm();
   };
 
   const transcribe = async (audioPath: string): Promise<AudioTranscript> => {
-    if (idleTimer) clearTimeout(idleTimer);
+    idle.cancel();
     const id = String(++nextId);
     const result = new Promise<AudioTranscript>((resolve, reject) =>
       pending.set(id, { resolve, reject })
@@ -196,7 +188,7 @@ export const makeWorker = (config: WorkerConfig) => {
       return await result;
     } finally {
       pending.delete(id);
-      if (pending.size === 0) armIdleTimer();
+      if (pending.size === 0) idle.arm();
     }
   };
 

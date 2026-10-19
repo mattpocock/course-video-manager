@@ -37,6 +37,8 @@ export const createTakeStopping = (o: {
     relayHeld: () => relayHeld !== undefined,
     /** Done once no stopped take's writer holds the relay. */
     relayFree: () => relayHeld ?? Promise.resolve(),
+    /** Whether a stopped take is still closing its files. */
+    closing: () => finishing.size > 0,
     /** Done once every stopped take has closed its files. */
     finished: () => Promise.all(finishing).then(() => {}),
   };

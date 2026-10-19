@@ -87,7 +87,6 @@
   "apps/local/app/services/export-sha256-sidecar.ts": 1,
   "apps/local/app/services/fake-writer-model.ts": 1,
   "apps/local/app/services/mkv-span.ts": 2,
-  "apps/local/app/services/recorder-client/client.server.ts": 1,
   "apps/local/app/services/storage-relocation-exports.server.ts": 1,
   "apps/local/app/services/storage-relocation.server.ts": 1,
   "apps/local/app/services/writer-stream-errors.ts": 1,

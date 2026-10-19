@@ -18,11 +18,13 @@ import {
 import { helloProblem } from "./service-version";
 import type { AskEditor, IngestResult } from "./ingest.server";
 import { createTakePlacer, type EditorLeft } from "./take-placer";
+import { RecorderRefusedError, NOT_RUNNING } from "./recorder-command";
+import { commandWaiters } from "./command-waiters";
 import {
-  RecorderRefusedError,
-  RecorderUnavailableError,
-  NOT_RUNNING,
-} from "./recorder-command";
+  createServiceOnDemand,
+  RECORDER_IDLE_MS,
+  type RecorderServiceLauncher,
+} from "./service-on-demand";
 import { createRecorderEventSequencer, type SequencedEvent } from "./sequencer";
 import { meterRelay, isMeterMessage } from "./meter-relay";
 import { calibrationCommands } from "./calibration-commands";
@@ -43,6 +45,10 @@ import { watchRecorder } from "./recorder-watch";
  * idempotent, so what was saved stays saved), the pause doubling each time,
  * until `MAX_SAVE_RETRIES`; the next greeting from the recorder service tries
  * again after that.
+ *
+ * Something listening (an editor, or an AV Calibration page's meter) is
+ * also what starts the recorder service, when the client has a `launcher`
+ * (`service-on-demand.ts`, ADR 0053), and its going what lets it idle out.
  *
  * An editor listening is what keeps the recorder open: the first editor on a
  * CVM recorder Video opens the recorder for it (which opens the Cam Link and
@@ -90,27 +96,25 @@ export type RecorderClientOptions = {
   calibration: () => Promise<LastPassedCalibration | null>;
   /** `whisper-warmth.ts` */
   keepWhisperWarm?: (ms: number) => void;
+  /** Starts the service on demand. Absent: it is someone else's (a test's, or none). */
+  launcher?: RecorderServiceLauncher;
+  /** How long it stays up unneeded: `RECORDER_IDLE_MS`. */
+  idleMs?: number;
 };
 
 type Listener = (message: CvmRecorderMessage) => void;
 
-type Waiter = {
-  command: RecorderCommand["type"];
-  done: (message: RecorderMessage) => boolean;
-  resolve: () => void;
-  reject: (error: Error) => void;
-};
-
 export const createRecorderClient = (o: RecorderClientOptions) => {
   const listeners = new Map<string, Set<Listener>>();
   const sequencer = createRecorderEventSequencer();
-  let waiters: Waiter[] = [];
   let socket: WebSocket | undefined;
   let reachable = false;
   let problem: string | null = null;
   let state: RecorderState = { kind: "closed" };
   let closed = false;
   let ingesting: Promise<void> = Promise.resolve();
+  /** Events heard and not yet saved (or failed): the service waits for them. */
+  let saving = 0;
   /** Videos with editors listening, the most recently opened last. */
   let wanted: string[] = [];
   /** The Video last asked to be open (null: asked to close), until it is. */
@@ -134,6 +138,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     type: "recorder-status",
     reachable,
     problem,
+    starting: !reachable && (onDemand?.launched() ?? false),
     recordingSessionId:
       state.kind === "recording" && state.videoId === videoId
         ? state.recordingSessionId
@@ -184,9 +189,30 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     if (socket?.readyState === WebSocket.OPEN)
       socket.send(JSON.stringify(command));
   };
+  const waiters = commandWaiters({
+    send,
+    connected: () => reachable && socket?.readyState === WebSocket.OPEN,
+    timeoutMs: o.commandTimeoutMs,
+  });
+  const command = waiters.command;
+
+  const onDemand =
+    o.launcher &&
+    createServiceOnDemand({
+      launcher: o.launcher,
+      idleMs: o.idleMs ?? RECORDER_IDLE_MS,
+      busy: () => (reachable && state.kind === "recording") || saving > 0,
+      changed: () => publishStatus(),
+    });
+  /** After a listener comes or goes. */
+  const demandChanged = () =>
+    listeners.size + meter.listening() > 0
+      ? onDemand?.need()
+      : onDemand?.release();
   const meter = meterRelay({
     send,
     unavailable: () => (reachable ? problem : NOT_RUNNING),
+    changed: () => demandChanged(),
   });
 
   const deck = streamDeckPreparation({
@@ -251,7 +277,8 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
   const ingest = (event: SequencedEvent) => {
     const id = event.recordingSessionId;
     const generation = generations.get(id) ?? 0;
-    ingesting = ingesting.then(async () => {
+    saving++;
+    const saved = ingesting.then(async () => {
       if ((generations.get(id) ?? 0) !== generation) return;
       const { askEditor, settle } = placer.forEvent(event);
       let result: IngestResult;
@@ -275,6 +302,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         send({ type: "stop" });
       for (const message of result.messages) publish(result.videoId, message);
     });
+    ingesting = saved.finally(() => void saving--);
   };
 
   /**
@@ -311,15 +339,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
   };
 
   const onMessage = (message: RecorderMessage) => {
-    for (const waiter of waiters.slice()) {
-      if (message.type === "refused" && message.command === waiter.command) {
-        waiters = waiters.filter((w) => w !== waiter);
-        waiter.reject(new RecorderRefusedError(message.message));
-      } else if (waiter.done(message)) {
-        waiters = waiters.filter((w) => w !== waiter);
-        waiter.resolve();
-      }
-    }
+    waiters.hear(message);
     if (isMeterMessage(message)) return meter.hear(message);
     switch (message.type) {
       case "hello":
@@ -408,49 +428,11 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         publishStatus();
         meter.restart();
       }
-      for (const waiter of waiters)
-        waiter.reject(
-          new RecorderUnavailableError("The recorder service went away.")
-        );
-      waiters = [];
+      waiters.wentAway();
       if (!closed) setTimeout(connect, o.reconnectMs);
     });
   };
   connect();
-
-  /** Sends a command and waits until the recorder has carried it out. */
-  const command = (
-    sent: RecorderCommand,
-    done: (message: RecorderMessage) => boolean
-  ) =>
-    new Promise<void>((resolve, reject) => {
-      if (!reachable || socket?.readyState !== WebSocket.OPEN) {
-        reject(new RecorderUnavailableError(NOT_RUNNING));
-        return;
-      }
-      const timer = setTimeout(() => {
-        waiters = waiters.filter((w) => w !== waiter);
-        reject(
-          new RecorderUnavailableError(
-            `The recorder service did not answer ${sent.type}.`
-          )
-        );
-      }, o.commandTimeoutMs);
-      const waiter: Waiter = {
-        command: sent.type,
-        done,
-        resolve: () => {
-          clearTimeout(timer);
-          resolve();
-        },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      };
-      waiters.push(waiter);
-      send(sent);
-    });
 
   const isState = (
     message: RecorderMessage,
@@ -502,10 +484,12 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
       );
       wanted = [...wanted.filter((v) => v !== videoId), videoId];
       reconcile();
+      demandChanged();
       return () => {
         set.delete(listener);
         if (set.size > 0) return;
         listeners.delete(videoId);
+        demandChanged();
         lastCamera.delete(videoId);
         lastOpen.delete(`${videoId}:scene`);
         lastOpen.delete(`${videoId}:screen`);
@@ -625,6 +609,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     close() {
       closed = true;
       watch.close();
+      onDemand?.close();
       socket?.close();
     },
   };

@@ -6,7 +6,7 @@ export class RecorderUnavailableError extends Error {}
 
 /** Why nothing reaches the recorder service: nothing answers on its port. */
 export const NOT_RUNNING =
-  "The recorder service is not running. `pnpm dev` starts it from the main checkout.";
+  "The recorder service is not running. Opening a video editor starts it, from the main checkout.";
 export class RecorderRefusedError extends Error {}
 
 /** Record or Stop was refused, or the recorder service did not answer. */
