@@ -11,7 +11,7 @@ import { announceVideoSettled } from "./job-video-toasts";
 import type { SucceededToast } from "./job-succeeded-toast";
 import { announceSettled, loadStageHistory } from "./jobs-settled";
 import { isFinishedJob, jobIdOfRow, reduceDismissal } from "./jobs-dismissal";
-import { reduceEnqueueOutcome } from "./jobs-enqueue";
+import { reduceEnqueueOutcome, requestedJobView } from "./jobs-enqueue";
 import { reduceCancel } from "./jobs-cancel";
 import { foldJobEvents, recordClockSkew, timeJobEvent } from "./jobs-timing";
 import { stageHistoryFrom, type HistoryData } from "./job-stage-history";
@@ -64,6 +64,8 @@ export namespace jobsReducer {
     errorTag: string | null;
     /** The Job this one waits for (a post waits for its export), if any. */
     dependsOn: string | null;
+    /** Enqueued at (ms), the claim order; `null` until the enqueue lands. */
+    createdAt: number | null;
     /** `false` until this tab's enqueue lands: what waits on it is held. */
     enqueued: boolean;
     /** What a post reported once it went out (`posted`): an id, a slug. */
@@ -412,27 +414,7 @@ export const jobsReducer: EffectReducer<
         held,
         jobs: {
           ...state.jobs,
-          [action.id]: {
-            id: action.id,
-            kind: action.kind,
-            title: action.title,
-            subjectType: action.subject?.type ?? null,
-            subjectId: action.subject?.id ?? null,
-            status: "requested",
-            attempt: action.attemptsSpent + 1,
-            stage: null,
-            percent: null,
-            errorMessage: null,
-            errorTag: null,
-            dependsOn: action.dependsOn,
-            enqueued: false,
-            result: null,
-            postCheck: null,
-            submitted: false,
-            cancelRequested: false,
-            lastEventId: 0,
-            videos: null,
-          },
+          [action.id]: requestedJobView(action),
         },
       };
     }

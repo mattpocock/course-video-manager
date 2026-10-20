@@ -22,6 +22,32 @@ type EnqueueOutcome = Extract<
 export const ENQUEUE_UNCONFIRMED_MESSAGE =
   "Not confirmed yet — checking whether it was queued";
 
+/** A Job this tab has asked for, before the sidecar reports it. */
+export const requestedJobView = (
+  action: Extract<jobsReducer.Action, { type: "job-requested" }>
+): jobsReducer.JobView => ({
+  id: action.id,
+  kind: action.kind,
+  title: action.title,
+  subjectType: action.subject?.type ?? null,
+  subjectId: action.subject?.id ?? null,
+  status: "requested",
+  attempt: action.attemptsSpent + 1,
+  stage: null,
+  percent: null,
+  errorMessage: null,
+  errorTag: null,
+  dependsOn: action.dependsOn,
+  createdAt: null,
+  enqueued: false,
+  result: null,
+  postCheck: null,
+  submitted: false,
+  cancelRequested: false,
+  lastEventId: 0,
+  videos: null,
+});
+
 /** How long before asking again, after `checks` unanswered asks. */
 const enqueueCheckDelayMs = (checks: number) =>
   Math.min(1_000 * 2 ** (checks - 1), 30_000);

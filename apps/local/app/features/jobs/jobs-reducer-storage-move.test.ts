@@ -29,6 +29,7 @@ const heard = (
         maxAttempts: 2,
         subjectType: "storage-bucket",
         subjectId: "course:c1",
+        createdAt: "2026-01-01T00:00:00.000Z",
       },
       event: {
         id: ++nextEventId,
