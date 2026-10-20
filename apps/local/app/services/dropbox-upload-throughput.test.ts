@@ -4,6 +4,7 @@ import {
   Duration,
   Effect,
   Fiber,
+  Layer,
   Logger,
   TestClock,
   TestContext,
@@ -28,8 +29,12 @@ const runCapturing = <A, E>(effect: Effect.Effect<A, E>) => {
   });
   return Effect.runPromise(
     effect.pipe(
-      Effect.provide(Logger.replace(Logger.defaultLogger, logger)),
-      Effect.provide(TestContext.TestContext)
+      Effect.provide(
+        Layer.merge(
+          Logger.replace(Logger.defaultLogger, logger),
+          TestContext.TestContext
+        )
+      )
     )
   ).then((result) => ({ result, lines }));
 };
